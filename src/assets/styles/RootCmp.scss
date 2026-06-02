@@ -1,0 +1,92 @@
+.main-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: #020810;
+    color: #d4e8ff;
+}
+
+.main-container main {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+// ── 3-column workspace: left(chart+ideas) 37.5% | chat 37.5% | news 25% ──────
+.workspace {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+    padding: 12px;
+}
+
+// Left column: chart on top, trade ideas strip on bottom
+.workspace__left {
+    flex: 0 0 37.5%;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.workspace__chart {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+}
+
+.workspace__chat {
+    flex: 0 0 37.5%;
+    min-height: 0;
+    min-width: 0;
+}
+
+.workspace__news {
+    flex: 0 0 25%;
+    min-height: 0;
+    min-width: 0;
+}
+
+// ── Tablet: 768px – 1023px ────────────────────────────────────────────────────
+// News column collapses; left + chat split 50/50
+@media (max-width: 1023px) {
+    .workspace__news {
+        display: none;
+    }
+
+    .workspace__left,
+    .workspace__chat {
+        flex: 0 0 50%;
+    }
+}
+
+// ── Mobile: < 768px ───────────────────────────────────────────────────────────
+// Full switch to Monitor Mode — workspace hidden (trade ideas inside workspace)
+@media (max-width: 767px) {
+    // Hide desktop-only panels
+    .workspace { display: none; }
+
+    // Let main fill viewport so dashboard can scroll
+    .main-container main {
+        overflow-y: auto;
+    }
+
+    // Tighten header on small screens
+    .app-header {
+        padding: 0 0.75rem;
+        min-height: 3.2rem;
+
+        h1 { font-size: 0.75rem; letter-spacing: 0.1em; }
+
+        &__logo { width: 2rem; height: 2rem; }
+    }
+}
+
+// ── Very small screens: < 380px ───────────────────────────────────────────────
+@media (max-width: 379px) {
+    .app-header h1 { display: none; }  // logo only — saves space
+}

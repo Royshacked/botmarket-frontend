@@ -1,0 +1,93 @@
+.login-form,
+.signup-form {
+	display: grid;
+	width: min(80%, 300px);
+	margin: auto;
+
+	padding: 1em;
+	background-color: $clr4;
+}
+
+.signup-form {
+	input {
+		width: 100%;
+	}
+
+    .admin-toggle {
+        display: flex;
+        align-items: center;
+        justify-self: start;
+
+        span {
+            font-size: .8em;
+        }
+    }
+}
+
+.password-field {
+    position: relative;
+    display: flex;
+    align-items: center;
+
+    input {
+        width: 100%;
+        padding-right: 40px;  // room for the eye icon button
+    }
+
+    .password-toggle {
+        position: absolute;
+        right: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        background: transparent;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        color: $clr3;
+        padding: 0;
+        transition: color 0.15s;
+
+        &:hover  { color: $clr5; }
+        &:focus  { outline: none; color: $clr5; }
+
+        svg { display: block; flex-shrink: 0; }
+    }
+}
+
+.password-hint {
+    font-size: 0.7em;
+    color: $clr2;
+    opacity: 0.6;
+    margin-top: -4px;
+}
+
+.password-error {
+    font-size: 0.7em;
+    color: #e05555;
+    margin-top: -4px;
+}
+
+.login-page nav {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 2em;
+
+	margin-block: 100px 0.5em;
+
+	a {
+		font-size: 0.8em;
+		color: $clr4;
+
+		&:hover {
+			color: $clr1;
+		}
+	}
+	a.active {
+		text-decoration: underline;
+		color: $clr2;
+	}
+}

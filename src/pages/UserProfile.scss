@@ -1,0 +1,87 @@
+// ── Palette ────────────────────────────────────────────────────────────────
+$bg-surface:  #131614;
+$bg-raised:   #1a1e1c;
+$green-deep:  #2d6a4f;
+$green-mid:   #4a7c5e;
+$green-light: #c8e6c9;
+$text-primary:   #d4e8d4;
+$text-secondary: #7a9e7a;
+$border:         rgba(45, 106, 79, 0.25);
+$border-active:  rgba(74, 124, 94, 0.55);
+
+.user-profile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    padding: 2rem;
+    font-family: 'IBM Plex Sans', sans-serif;
+    color: $text-primary;
+
+    &__card {
+        background: $bg-surface;
+        border: 1px solid $border-active;
+        border-radius: 8px;
+        padding: 2rem;
+        width: 100%;
+        max-width: 400px;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+    }
+
+    &__title {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: $green-light;
+        margin: 0 0 0.25rem;
+    }
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        padding: 0.75rem;
+        background: $bg-raised;
+        border: 1px solid $border;
+        border-radius: 4px;
+    }
+
+    &__label {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 9px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: $text-secondary;
+    }
+
+    &__value {
+        font-size: 14px;
+        font-weight: 500;
+        color: $text-primary;
+    }
+
+    &__signout {
+        margin-top: 0.25rem;
+        padding: 10px;
+        background: transparent;
+        border: 1px solid $green-mid;
+        border-radius: 3px;
+        color: $green-mid;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+
+        &:hover {
+            background: rgba(74, 124, 94, 0.14);
+            color: $green-light;
+        }
+    }
+}

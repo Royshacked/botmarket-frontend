@@ -1,0 +1,606 @@
+// ── Trade Ideas Strip ──────────────────────────────────────────────────────────
+
+.trade-ideas-list {
+    background: transparent;
+    flex-shrink: 0;
+
+    &__header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 20px;
+        background: #071222;
+        border-bottom: 1px solid rgba(20, 60, 120, 0.35);
+        color: #8ab8e8;
+    }
+
+    &__header-icon {
+        width: 10px;
+        height: 18px;
+        flex-shrink: 0;
+    }
+
+    &__header-title {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+    }
+
+    &__scroll {
+        height: 180px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 0 12px;
+
+        scrollbar-width: thin;
+        scrollbar-color: #0d2a55 #020810;
+        &::-webkit-scrollbar        { width: 4px; }
+        &::-webkit-scrollbar-track  { background: #020810; }
+        &::-webkit-scrollbar-thumb  { background: #0d2a55; border-radius: 2px; }
+    }
+
+    &__empty {
+        color: #2a4a7a;
+        font-size: 0.8rem;
+        padding: 16px 0;
+        text-align: center;
+    }
+}
+
+// ── Ideas Table ────────────────────────────────────────────────────────────────
+
+.ideas-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: 0.75rem;
+    color: #d4e8ff;
+
+    // Column widths mirror chat params bar
+    .col-asset  { width: 9%;  }
+    .col-dir    { width: 8%;  }
+    .col-type   { width: 12%; }
+    .col-notes  { width: 52%; }
+    .col-status { width: 19%; text-align: center; }
+
+    thead tr {
+        position: sticky;
+        top: 0;
+        background: #020810;
+        z-index: 1;
+    }
+
+    th {
+        text-align: left;
+        padding: 6px 8px;
+        color: #2a4a7a;
+        font-weight: 600;
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-bottom: 1px solid #0d2a55;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+}
+
+// ── Idea Row ───────────────────────────────────────────────────────────────────
+
+.idea-row {
+    cursor: pointer;
+    transition: background 0.12s;
+
+    &:hover { background: #060f1e; }
+    &--closed { opacity: 0.55; }
+
+    &--building {
+        cursor: default;
+        background: rgba(42, 90, 154, 0.06);
+        border-left: none;
+
+        .idea-row__asset {
+            color: #8ab8e8;
+            animation: idea-build-pulse 1.6s ease-in-out infinite;
+        }
+        .idea-row__direction,
+        .idea-row__type,
+        .idea-row__notes { opacity: 0.7; }
+
+        .idea-row__building-bot {
+            color: #8ab8e8;
+        }
+
+        td { border-bottom: none; }
+    }
+
+    &--active {
+        background: rgba(13, 42, 85, 0.15);
+
+        td { border-bottom-color: #0d2a55; }
+
+        .idea-row__asset     { color: #e8f4ff; }
+        .idea-row__type      { color: #9ab8d8; }
+        .idea-row__condition { color: #9ab8d8; }
+    }
+
+    &--triggered {
+        background: rgba(255, 152, 0, 0.06);
+
+        td { border-bottom-color: #3d2800; }
+
+        .idea-row__asset { color: #ffcc80; }
+    }
+
+    &--in_position {
+        background: rgba(0, 230, 118, 0.06);
+
+        td { border-bottom-color: #00522a; }
+
+        .idea-row__asset     { color: #b9f6ca; }
+        .idea-row__condition { color: #80cfa0; }
+    }
+
+    td {
+        padding: 6px 8px;
+        border-bottom: 1px solid #060f1e;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+
+    &__asset {
+        font-weight: 700;
+        color: #d4e8ff;
+    }
+
+    &__direction {
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.7rem;
+        &.direction--long  { color: #4caf50; }
+        &.direction--short { color: #ef5350; }
+    }
+
+    &__condition {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: #7a9bc0;
+    }
+
+    &__notes {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: #7a9bc0;
+        font-size: 0.8rem;
+    }
+
+    &__tf {
+        color: #2a5a9a;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.68rem;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+    }
+
+    &__controls {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        cursor: default;
+    }
+
+    &__status-toggle {
+        background: transparent;
+        border: none;
+        font-size: 0.82rem;
+        font-family: 'IBM Plex Mono', monospace;
+        letter-spacing: 0.04em;
+        padding: 2px 4px;
+        cursor: pointer;
+
+        &:hover { opacity: 0.7; }
+        &:focus { outline: none; }
+
+        &.status--pending { color: #f0c040; }
+        &.status--active  {
+            color: #4caf50;
+            animation: status-pulse 1.8s ease-in-out infinite;
+        }
+    }
+
+    &__action-btn {
+        background: none;
+        border: 1px solid currentColor;
+        border-radius: 3px;
+        font-size: 0.65rem;
+        font-family: 'IBM Plex Mono', monospace;
+        padding: 2px 5px;
+        cursor: pointer;
+        transition: opacity 0.12s;
+        &:hover { opacity: 0.7; }
+        &:focus { outline: none; }
+
+        &--confirm { color: #00e676; }
+        &--dismiss { color: #7a9bc0; }
+    }
+
+    &__status-badge {
+        font-size: 0.82rem;
+        font-family: 'IBM Plex Mono', monospace;
+        letter-spacing: 0.04em;
+        padding: 2px 4px;
+        border: none;
+
+        &.status--triggered {
+            color: #c8b49a;   // beige
+            animation: status-pulse 1.8s ease-in-out infinite;
+        }
+
+        &.status--in_position {
+            &.direction--long  { color: #4caf50; }
+            &.direction--short { color: #ef5350; }
+            &:not(.direction--long):not(.direction--short) { color: #4caf50; } // fallback
+        }
+
+        &.status--closed { color: #555; }
+    }
+
+    &__edit-btn {
+        background: none;
+        border: none;
+        outline: none;
+        appearance: none;
+        color: #2a4a7a;
+        cursor: pointer;
+        padding: 2px 3px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        line-height: 0;
+
+        svg { width: 13px; height: 13px; }
+
+        &:hover { color: #8ab8e8; }
+    }
+
+    &__delete {
+        background: none;
+        border: none;
+        color: #2a4a7a;
+        cursor: pointer;
+        font-size: 1rem;
+        line-height: 1;
+        padding: 2px 4px;
+        flex-shrink: 0;
+        &:hover { color: #ef5350; }
+    }
+
+    &__building-bot {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+        color: #2a5a9a;
+        animation: idea-build-pulse 1.6s ease-in-out infinite;
+    }
+}
+
+@keyframes idea-build-pulse {
+    0%, 100% { opacity: 0.35; }
+    50%       { opacity: 1;    }
+}
+
+@keyframes status-pulse {
+    0%, 100% { opacity: 0.5; }
+    50%       { opacity: 1;   }
+}
+
+// ── Trade Idea Dialog ──────────────────────────────────────────────────────────
+
+.idea-dialog {
+    &__backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.65);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+    }
+
+    background: #071222;
+    border: 1px solid #0d2a55;
+    border-radius: 8px;
+    width: min(560px, 92vw);
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    color: #d4e8ff;
+
+    &__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 18px;
+        border-bottom: 1px solid #0d2a55;
+        flex-shrink: 0;
+    }
+
+    &__title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #e8f4ff;
+    }
+
+    &__direction {
+        font-weight: 600;
+        &.direction--long  { color: #4caf50; }
+        &.direction--short { color: #ef5350; }
+    }
+
+    &__close {
+        background: none;
+        border: none;
+        color: #2a4a7a;
+        font-size: 1.3rem;
+        cursor: pointer;
+        line-height: 1;
+        &:hover { color: #ef5350; }
+    }
+
+    &__body {
+        padding: 16px 18px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        flex: 1;
+
+        scrollbar-width: thin;
+        scrollbar-color: #0d2a55 #071222;
+        &::-webkit-scrollbar       { width: 4px; }
+        &::-webkit-scrollbar-thumb { background: #0d2a55; border-radius: 2px; }
+    }
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        font-size: 0.75rem;
+
+        > span {
+            color: #2a5a9a;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-size: 0.68rem;
+
+            em {
+                font-style: normal;
+                font-weight: 400;
+                text-transform: none;
+                color: #1e3660;
+            }
+        }
+
+        &-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #2a5a9a;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-size: 0.68rem;
+
+            em {
+                font-style: normal;
+                font-weight: 400;
+                text-transform: none;
+                color: #1e3660;
+            }
+        }
+
+        input, textarea {
+            background: #020810;
+            border: 1px solid #0d2a55;
+            border-radius: 4px;
+            color: #d4e8ff;
+            font-size: 0.78rem;
+            padding: 7px 10px;
+            resize: vertical;
+            font-family: inherit;
+
+            &::placeholder { color: #1e3660; }
+            &:focus {
+                outline: none;
+                border-color: #2a5a9a;
+            }
+        }
+    }
+
+    // ── select inside a field (direction / type) ──────────────────────────
+    select {
+        background: #020810;
+        border: 1px solid #0d2a55;
+        border-radius: 4px;
+        color: #d4e8ff;
+        font-size: 0.78rem;
+        padding: 7px 28px 7px 10px;   // extra right padding — arrow away from border
+        font-family: inherit;
+        cursor: pointer;
+        appearance: auto;
+
+        &:focus { outline: none; border-color: #2a5a9a; }
+    }
+
+    &__footer {
+        padding: 12px 18px;
+        border-top: 1px solid #0d2a55;
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        flex-shrink: 0;
+    }
+
+    &__btn {
+        border: none;
+        border-radius: 4px;
+        padding: 7px 18px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity 0.12s;
+
+        &:hover { opacity: 0.85; }
+
+        &--delete {
+            background: rgba(239, 83, 80, 0.12);
+            color: #e57373;
+            margin-right: auto;
+        }
+        &--cancel {
+            background: #0d2a55;
+            color: #7a9bc0;
+        }
+        &--save {
+            background: #2a5a9a;
+            color: #d4e8ff;
+        }
+    }
+}
+
+// ── Condition Tree View ────────────────────────────────────────────────────────
+
+.ctree {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+
+    // Operator separator rendered between sibling rows
+    &__sep {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.58rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: #2a5a9a;
+        padding: 0 2px;
+
+        &::before,
+        &::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #0d2a55;
+        }
+    }
+
+    &__rows {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    // One entry per child of root group
+    &__row {
+        border-radius: 4px;
+        background: #040c16;
+        border: 1px solid #0a1628;
+        padding: 6px 10px;
+
+        // Leaf child → single line with text + badges aligned
+        &--leaf {
+            display: flex;
+            align-items: center;
+        }
+
+        // Sub-group child → leaves inline, operator badge between them
+        &--group {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+    }
+
+    // AND / OR badge shown between inline chips in a group row
+    &__inline-op {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.58rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #2a5a9a;
+        background: #020810;
+        border: 1px solid #0d2a55;
+        border-radius: 3px;
+        padding: 1px 5px;
+        flex-shrink: 0;
+    }
+
+    // Leaf node — default (full-width in a leaf row)
+    &__leaf {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+        min-width: 0;
+
+        // Compact chip variant used inside group rows
+        &--inline {
+            flex: 0 1 auto;
+            background: #060f1e;
+            border: 1px solid #0d2a55;
+            border-radius: 3px;
+            padding: 2px 8px 2px 7px;
+            gap: 6px;
+        }
+    }
+
+    &__leaf-text {
+        font-size: 0.78rem;
+        color: #c4d8f0;
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__leaf-type {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.58rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        border-radius: 3px;
+        padding: 1px 5px;
+        flex-shrink: 0;
+
+        &.type--structured { color: #4caf50; background: rgba(76,  175,  80, 0.10); }
+        &.type--visual     { color: #64b5f6; background: rgba(100, 181, 246, 0.10); }
+        &.type--news       { color: #ffb74d; background: rgba(255, 183,  77, 0.10); }
+    }
+
+    &__leaf-tf {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.6rem;
+        color: #2a5a9a;
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+
+    &__empty {
+        font-size: 0.74rem;
+        color: #1e3660;
+        margin: 0;
+        padding: 2px 0;
+    }
+}

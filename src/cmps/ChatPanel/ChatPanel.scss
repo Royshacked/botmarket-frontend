@@ -1,0 +1,386 @@
+// IBM Plex fonts via Google Fonts
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap');
+
+// ── Palette ────────────────────────────────────────────────────────────────
+$bg-base:    #020810;
+$bg-surface: #071222;
+$bg-raised:  #0c1a2e;
+$bg-input:   #060f1e;
+
+$blue-deep:  #0d2a55;
+$blue-mid:   #2a5a9a;
+$blue-light: #8ab8e8;
+$blue-glow:  rgba(42, 90, 154, 0.14);
+
+$text-primary:   #d4e8ff;
+$text-secondary: #7a9bc0;
+$text-dim:       #2a4a7a;
+
+$border:        rgba(20, 60, 120, 0.35);
+$border-active: rgba(74, 140, 220, 0.55);
+
+// ── Component ──────────────────────────────────────────────────────────────
+.chat-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: $bg-base;
+    border: 1px solid $border;
+    border-radius: 6px;
+    overflow: hidden;
+    font-family: 'IBM Plex Sans', sans-serif;
+    color: $text-primary;
+
+    // ── Header ──────────────────────────────────────────────────────────
+    &__header {
+        display: flex;
+        align-items: center;
+        flex-shrink: 0;
+        padding: 7px 20px;
+        background: $bg-surface;
+        border-bottom: 1px solid $border;
+    }
+
+    &__title-icon {
+        flex-shrink: 0;
+        width: 18px;
+        height: 18px;
+        color: $blue-light;
+        margin-right: 8px;
+    }
+
+    &__title {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: $blue-light;
+    }
+
+    &__building-bot {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+        margin-left: auto;
+        color: $blue-light;
+        animation: cp-idle 1.6s ease-in-out infinite;
+    }
+
+    &__status-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: $blue-mid;
+        margin-left: auto;
+        flex-shrink: 0;
+
+        &.idle    { animation: cp-idle    3s   ease-in-out infinite; }
+        &.loading { animation: cp-loading 0.85s ease-in-out infinite; background: $blue-light; }
+    }
+
+    // ── Trade build summary (fixed between header and messages) ─────────
+    &__build-summary {
+        flex-shrink: 0;
+        padding: 8px 20px;
+        background: $bg-surface;
+        border-bottom: 1px solid $border;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 11px;
+        font-family: 'IBM Plex Mono', monospace;
+
+        &-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        &-asset {
+            color: $blue-light;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+        }
+
+        &-dir {
+            font-weight: 600;
+            &.direction--long  { color: #4caf50; }
+            &.direction--short { color: #ef5350; }
+        }
+
+        &-tf-main { color: $text-dim; }
+
+        &-group {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            animation: cp-build-in 0.22s ease-out;
+        }
+
+        &-title {
+            color: $text-dim;
+            flex-shrink: 0;
+        }
+
+        &-label {
+            color: $text-dim;
+            width: 32px;
+            flex-shrink: 0;
+        }
+
+        &-conditions {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            flex: 1;
+        }
+
+        &-condition {
+            display: flex;
+            align-items: baseline;
+            gap: 5px;
+            flex-wrap: wrap;
+            animation: cp-build-in 0.18s ease-out;
+        }
+
+        &-op {
+            color: $blue-mid;
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            width: 24px;
+            flex-shrink: 0;
+        }
+
+        &-cond-text { color: #7a9bc0; }
+
+        &-tf {
+            color: $text-dim;
+            font-size: 9px;
+        }
+    }
+
+    // ── Messages list ────────────────────────────────────────────────────
+    &__messages {
+        flex: 1;
+        min-height: 0; // prevents flex overflow
+        overflow-y: auto;
+        padding: 16px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        scroll-behavior: smooth;
+
+        &::-webkit-scrollbar       { width: 4px; }
+        &::-webkit-scrollbar-track { background: $bg-base; }
+        &::-webkit-scrollbar-thumb {
+            background: $blue-deep;
+            border-radius: 2px;
+            &:hover { background: $blue-mid; }
+        }
+    }
+
+    // ── Bubbles ──────────────────────────────────────────────────────────
+    &__bubble {
+        max-width: 78%;
+        padding: 10px 14px;
+        border-radius: 4px;
+        font-size: 13px;
+        line-height: 1.6;
+        word-break: break-word;
+
+        &--user {
+            align-self: flex-end;
+            background: $blue-deep;
+            color: $blue-light;
+            border-bottom-right-radius: 1px;
+            font-size: 16px;
+        }
+
+        &--assistant {
+            align-self: flex-start;
+            background: none;
+            color: #a8bdd0;
+            border: none;
+            padding-left: 0;
+            font-size: 16px;
+
+            p          { margin: 0 0 0.5em; &:last-child { margin-bottom: 0; } }
+            ul, ol     { margin: 0 0 0.5em; padding-left: 1.4em; }
+            li         { margin-bottom: 0.2em; }
+            strong     { color: $blue-light; font-weight: 600; }
+            em         { color: $text-secondary; }
+            code       { font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+                         background: $bg-base; padding: 1px 5px; border-radius: 2px;
+                         color: $blue-light; }
+            pre        { background: $bg-base; border: 1px solid $border; border-radius: 3px;
+                         padding: 10px 12px; overflow-x: auto; margin: 0.5em 0;
+                         code { background: none; padding: 0; } }
+            h1,h2,h3   { font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+                         color: $blue-light; letter-spacing: 0.05em; margin: 0 0 0.4em; }
+            blockquote { border-left: 2px solid $blue-deep; margin: 0 0 0.5em;
+                         padding-left: 10px; color: $text-secondary; }
+            a          { color: $blue-mid; text-decoration: underline; }
+            hr         { border: none; border-top: 1px solid $border; margin: 0.6em 0; }
+        }
+
+        &--system {
+            align-self: center;
+            max-width: 100%;
+            background: transparent;
+            border: 1px dashed $blue-mid;
+            color: $blue-mid;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 0.05em;
+            padding: 6px 16px;
+            border-radius: 2px;
+            text-align: center;
+        }
+    }
+
+    // ── Thinking indicator ───────────────────────────────────────────────
+    &__thinking {
+        display: inline-block;
+        font-family: 'IBM Plex Sans', sans-serif;
+        font-size: 16px;
+        font-weight: 700;
+        color: $blue-mid;
+        animation: cp-thinking 1.6s ease-in-out infinite;
+    }
+
+    // ── Typing indicator (inside assistant bubble) ───────────────────────
+    &__typing {
+        display: flex;
+        gap: 5px;
+        align-items: center;
+        height: 18px;
+
+        span {
+            display: block;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: $blue-mid;
+            animation: cp-typing 1.2s ease-in-out infinite;
+
+            &:nth-child(2) { animation-delay: 0.2s; }
+            &:nth-child(3) { animation-delay: 0.4s; }
+        }
+    }
+
+    // ── Generate button ──────────────────────────────────────────────────
+    &__generate {
+        flex-shrink: 0;
+        margin: 0;
+        padding: 9px 16px;
+        background: transparent;
+        border: 1px solid $blue-mid;
+        border-radius: 3px;
+        color: $blue-mid;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+
+        &:not(:disabled):hover {
+            background: $blue-glow;
+            border-color: $blue-light;
+            color: $blue-light;
+        }
+
+        &:disabled {
+            opacity: 0.26;
+            cursor: not-allowed;
+        }
+    }
+
+    // ── Input row ────────────────────────────────────────────────────────
+    &__input-row {
+        flex-shrink: 0;
+        display: flex;
+        gap: 8px;
+        padding: 6px 12px 8px;
+        background: $bg-surface;
+        border-top: 1px solid $border;
+    }
+
+    &__textarea {
+        flex: 1;
+        background: $bg-input;
+        border: 1px solid $border;
+        border-radius: 3px;
+        color: $text-primary;
+        font-family: 'IBM Plex Sans', sans-serif;
+        font-size: 13px;
+        padding: 9px 12px;
+        resize: none;
+        line-height: 1.5;
+        transition: border-color 0.15s;
+
+        &::placeholder { color: $text-dim; }
+
+        &:focus {
+            outline: none;
+            border-color: $border-active;
+        }
+
+        &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    }
+
+    &__send {
+        align-self: flex-end;
+        flex-shrink: 0;
+        padding: 9px 18px;
+        background: $blue-deep;
+        border: 1px solid transparent;
+        border-radius: 3px;
+        color: $blue-light;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 10px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: background 0.15s;
+        white-space: nowrap;
+
+        &:not(:disabled):hover { background: $blue-mid; }
+
+        &:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+    }
+}
+
+// ── Animations ─────────────────────────────────────────────────────────────
+@keyframes cp-idle {
+    0%, 100% { opacity: 0.45; }
+    50%       { opacity: 1;    }
+}
+
+@keyframes cp-loading {
+    0%, 100% { opacity: 0.7; transform: scale(1);   }
+    50%       { opacity: 1;   transform: scale(1.4); }
+}
+
+@keyframes cp-thinking {
+    0%, 100% { opacity: 0.25; }
+    50%       { opacity: 1;   }
+}
+
+@keyframes cp-build-in {
+    from { opacity: 0; transform: translateY(-5px); }
+    to   { opacity: 1; transform: translateY(0);    }
+}
+
+@keyframes cp-typing {
+    0%, 60%, 100% { opacity: 0.3; transform: translateY(0);    }
+    30%            { opacity: 1;   transform: translateY(-4px); }
+}

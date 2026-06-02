@@ -1,0 +1,366 @@
+// ── Monitor Dashboard (mobile-only) ───────────────────────────────────────────
+// Shown on screens < 768px. Hidden on desktop/tablet via RootCmp.scss.
+
+$bg-base:    #020810;
+$bg-surface: #071222;
+$bg-raised:  #0c1a2e;
+$bg-card:    #071222;
+
+$blue-deep:  #0d2a55;
+$blue-mid:   #2a5a9a;
+$blue-light: #8ab8e8;
+
+$text-primary:   #d4e8ff;
+$text-secondary: #7a9bc0;
+$text-dim:       #2a4a7a;
+
+$border: rgba(20, 60, 120, 0.35);
+
+.monitor-dashboard {
+    // Hidden on desktop and tablet — only shown by the media query below
+    display: none;
+    flex-direction: column;
+    gap: 0;
+    background: $bg-base;
+    min-height: 0;
+    flex: 1;
+    overflow-y: auto;
+
+    @media (max-width: 767px) {
+        display: flex;
+    }
+
+    scrollbar-width: thin;
+    scrollbar-color: $blue-deep $bg-base;
+    &::-webkit-scrollbar       { width: 3px; }
+    &::-webkit-scrollbar-thumb { background: $blue-deep; border-radius: 2px; }
+
+    // ── Section header ─────────────────────────────────────────────────────
+    &__header {
+        flex-shrink: 0;
+        padding: 16px 16px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    &__title-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    &__logo {
+        width: 32px;
+        height: 32px;
+        object-fit: contain;
+        border-radius: 6px;
+        opacity: 0.9;
+    }
+
+    &__title {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: $blue-light;
+    }
+
+    &__summary {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.7rem;
+    }
+
+    &__stat {
+        &--in-position { color: #00e676; }
+        &--triggered   { color: #ff9800; }
+        &--active      { color: #4caf50; }
+        &--pending     { color: #f0c040; }
+        &--closed      { color: $text-dim; }
+    }
+
+    &__stat-sep { color: $text-dim; }
+
+    // ── Broker hub ─────────────────────────────────────────────────────────
+    // Container for all broker panels + connect buttons
+    &__brokers {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 2px;
+    }
+
+    // One connected broker panel
+    &__broker-panel {
+        background: $bg-raised;
+        border: 1px solid $blue-deep;
+        border-radius: 6px;
+        padding: 8px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    &__broker-panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    &__broker-name {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: $text-secondary;
+    }
+
+    &__broker-disconnect {
+        font-size: 0.6rem;
+        color: $text-dim;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: 2px 4px;
+        line-height: 1;
+        transition: color 0.15s;
+        &:hover { color: #ef5350; }
+    }
+
+    // Grid of stats inside a panel
+    &__broker-stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 2px;
+    }
+
+    &__broker-stat {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        padding: 2px 4px;
+    }
+
+    &__broker-label {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.55rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: $text-dim;
+    }
+
+    &__broker-value {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: $text-primary;
+        line-height: 1.2;
+
+        &.positive { color: #4caf50; }
+        &.negative { color: #ef5350; }
+    }
+
+    // Connect button (one per unconnected broker)
+    &__broker-connect {
+        align-self: flex-start;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.65rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        color: $text-secondary;
+        background: transparent;
+        border: 1px dashed $blue-mid;
+        border-radius: 5px;
+        padding: 7px 14px;
+        cursor: pointer;
+        transition: color 0.15s, border-color 0.15s, background 0.15s;
+
+        &:hover {
+            color: $blue-light;
+            border-color: $blue-light;
+            background: rgba(42, 90, 154, 0.1);
+        }
+    }
+
+    // ── Ideas list ──────────────────────────────────────────────────────────
+    &__ideas {
+        padding: 12px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    &__empty {
+        padding: 32px 16px;
+        text-align: center;
+        color: $text-dim;
+        font-size: 0.8rem;
+        font-family: 'IBM Plex Mono', monospace;
+
+        p { margin: 0 0 6px; }
+    }
+
+    &__empty-sub {
+        font-size: 0.65rem;
+        color: #1e3660;
+        letter-spacing: 0.03em;
+    }
+
+    // ── News section ────────────────────────────────────────────────────────
+    &__news-section {
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 0 16px 16px;
+
+        // Let NewsFeed fill available space
+        .news-feed {
+            height: 420px;
+        }
+    }
+
+    &__news-label {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.65rem;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: $text-dim;
+        padding-top: 4px;
+        border-top: 1px solid $border;
+    }
+}
+
+// ── Idea Card ──────────────────────────────────────────────────────────────────
+
+.idea-card {
+    background: $bg-card;
+    border: 1px solid $border;
+    border-radius: 8px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+
+    &:hover  { background: $bg-raised; }
+    &:active { background: $bg-raised; }
+
+    // Left accent by status
+    border-left: 3px solid $blue-deep;
+    &--position { border-left-color: #4caf50; }
+    &--entry    { border-left-color: #f0c040; }
+    &--pending  { border-left-color: #1e3660; }
+    &--tp       { border-left-color: #26a69a; }
+    &--stop     { border-left-color: #ef5350; }
+    &--closed   { border-left-color: #0d1a30; opacity: 0.6; }
+
+    // ── Top row ──────────────────────────────────────────────────────────
+    &__top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 6px;
+    }
+
+    &__asset {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: $blue-light;
+        letter-spacing: 0.04em;
+    }
+
+    &__phase {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.62rem;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        padding: 3px 8px;
+        border-radius: 10px;
+
+        &--position { color: #4caf50; background: rgba(76, 175, 80, 0.1);  }
+        &--entry    { color: #f0c040; background: rgba(240, 192, 64, 0.1); }
+        &--pending  { color: $text-dim; background: rgba(42, 74, 122, 0.1); }
+        &--tp       { color: #26a69a; background: rgba(38, 166, 154, 0.1); }
+        &--stop     { color: #ef5350; background: rgba(239, 83, 80, 0.1);  }
+        &--closed   { color: #555;    background: rgba(80, 80, 80, 0.08);  }
+    }
+
+    &__phase-dot {
+        font-size: 0.7rem;
+        line-height: 1;
+    }
+
+    // ── Meta row ─────────────────────────────────────────────────────────
+    &__meta {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+    }
+
+    &__direction {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+
+        &--long  { color: #4caf50; }
+        &--short { color: #ef5350; }
+    }
+
+    &__tag {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.63rem;
+        color: $text-secondary;
+        background: rgba(42, 90, 154, 0.12);
+        border: 1px solid $blue-deep;
+        border-radius: 3px;
+        padding: 1px 6px;
+        text-transform: capitalize;
+    }
+
+    // ── Conditions ───────────────────────────────────────────────────────
+    &__conditions {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        padding-top: 8px;
+        border-top: 1px solid $border;
+    }
+
+    &__condition-row {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+    }
+
+    &__condition-label {
+        flex-shrink: 0;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.6rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: $text-dim;
+        width: 34px;
+    }
+
+    &__condition-text {
+        font-size: 0.72rem;
+        color: $text-secondary;
+        line-height: 1.4;
+        word-break: break-word;
+    }
+}
