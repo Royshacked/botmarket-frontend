@@ -35,6 +35,7 @@ function LeafChip({ leaf, inline }) {
     return (
         <span className={`ctree__leaf${inline ? ' ctree__leaf--inline' : ''}`}>
             <span className="ctree__leaf-text">{leaf.condition}</span>
+            {leaf.quantity != null && <span className="ctree__leaf-qty">{leaf.quantity}</span>}
             <span className={`ctree__leaf-type type--${type}`}>{type}</span>
             {leaf.timeframe && <span className="ctree__leaf-tf">{leaf.timeframe}</span>}
         </span>
@@ -154,6 +155,27 @@ export function TradeIdeaDialog({ idea, onClose, onEdit, onDelete }) {
                         <div className="idea-dialog__field">
                             <span>Take profit</span>
                             <ConditionTreeView node={tpTree} />
+                        </div>
+                    )}
+
+                    {Array.isArray(idea.additional_entries) && idea.additional_entries.length > 0 && (
+                        <div className="idea-dialog__field">
+                            <span>Additional entries <em>(scale-in)</em></span>
+                            {idea.additional_entries.map((ae, i) => {
+                                const tree = ae.condition_tree ?? (
+                                    Array.isArray(ae.conditions) && ae.conditions.length > 0
+                                        ? { operator: ae.logic ?? 'AND', children: ae.conditions }
+                                        : null
+                                )
+                                return (
+                                    <div key={i} style={{ marginBottom: 6 }}>
+                                        <span style={{ fontSize: '0.68rem', color: '#2a5a9a', fontFamily: 'IBM Plex Mono, monospace' }}>
+                                            +{ae.quantity ?? '?'} {ae.triggeredAt ? '✅ triggered' : ''}
+                                        </span>
+                                        <ConditionTreeView node={tree} />
+                                    </div>
+                                )
+                            })}
                         </div>
                     )}
 

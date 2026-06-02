@@ -67,6 +67,14 @@ function TradeBuildSummary({ analysisState }) {
                     <ConditionList conditions={pt.tp_conditions} logic={pt.tp_logic || 'OR'} />
                 </div>
             )}
+            {Array.isArray(pt.additional_entries) && pt.additional_entries.map((ae, i) => (
+                ae.conditions?.length > 0 && (
+                    <div key={i} className={`${P}-group`}>
+                        <span className={`${P}-label`}>+{ae.quantity ?? '?'}</span>
+                        <ConditionList conditions={ae.conditions} logic={ae.logic || 'AND'} />
+                    </div>
+                )
+            ))}
         </div>
     )
 }
@@ -78,7 +86,8 @@ function canGenerate(analysisState) {
         s.active_asset &&
         pt.direction &&
         pt.entry_conditions?.length > 0 &&
-        pt.stop_conditions?.length > 0
+        pt.stop_conditions?.length > 0 &&
+        pt.quantity != null
     )
 }
 
