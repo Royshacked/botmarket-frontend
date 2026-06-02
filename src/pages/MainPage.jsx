@@ -25,6 +25,7 @@ function deriveBuildingIdea(analysisState) {
         asset:            s.active_asset,
         direction:        pt.direction       || null,
         type:             pt.type            || null,
+        quantity:         pt.quantity        ?? null,
         entry_timeframe:  pt.entry_timeframe || null,
         stop_timeframe:   pt.stop_timeframe  || null,
         tp_timeframe:     pt.tp_timeframe    || null,
@@ -208,6 +209,7 @@ export function MainPage() {
                 pending_trade: {
                     direction:        idea.direction        ?? null,
                     type:             idea.type             ?? null,
+                    quantity:         idea.quantity         ?? null,
                     entry_timeframe:  idea.entry_timeframe  ?? null,
                     stop_timeframe:   idea.stop_timeframe   ?? null,
                     tp_timeframe:     idea.tp_timeframe     ?? null,

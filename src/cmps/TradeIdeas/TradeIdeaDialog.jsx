@@ -132,6 +132,7 @@ export function TradeIdeaDialog({ idea, onClose, onEdit, onDelete }) {
                         <span className={`idea-dialog__direction direction--${idea.direction}`}>
                             {idea.direction ? ` · ${idea.direction}` : ''}
                         </span>
+                        {idea.quantity != null && <span style={{ color: '#7a9bc0', fontWeight: 400 }}> · {idea.quantity}</span>}
                         {idea.type && <span style={{ color: '#2a5a9a', fontWeight: 400 }}> · {idea.type}</span>}
                     </span>
                     <button className="idea-dialog__close" onClick={onClose}>×</button>

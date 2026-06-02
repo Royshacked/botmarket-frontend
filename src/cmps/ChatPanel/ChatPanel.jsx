@@ -32,7 +32,7 @@ function TradeBuildSummary({ analysisState }) {
     const hasEntry = pt.entry_conditions?.length > 0
     const hasStop  = pt.stop_conditions?.length > 0
     const hasTp    = pt.tp_conditions?.length > 0
-    if (!hasEntry && !hasStop && !pt.direction) return null
+    if (!hasEntry && !hasStop && !pt.direction && pt.quantity == null) return null
 
     return (
         <div className={P}>
@@ -41,6 +41,9 @@ function TradeBuildSummary({ analysisState }) {
                 <span className={`${P}-asset`}>{s.active_asset}</span>
                 {pt.direction && (
                     <span className={`${P}-dir direction--${pt.direction}`}>{pt.direction}</span>
+                )}
+                {pt.quantity != null && (
+                    <span className={`${P}-tf-main`}>{pt.quantity}</span>
                 )}
                 {pt.type && (
                     <span className={`${P}-tf-main`}>{pt.type}</span>
