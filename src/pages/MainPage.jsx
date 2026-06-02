@@ -57,8 +57,7 @@ export function MainPage() {
         drainTimerRef.current = setInterval(() => {
             const q = tokenQueueRef.current
             if (!q.length) return
-            // Drain faster when the queue is large (catch-up mode)
-            const n = q.length > 40 ? 5 : q.length > 15 ? 3 : 2
+            const n = 2
             const chunk = q.slice(0, n)
             tokenQueueRef.current = q.slice(n)
             setMessages(prev => {
@@ -68,7 +67,7 @@ export function MainPage() {
                 msgs[msgs.length - 1] = { ...last, content: last.content + chunk }
                 return msgs
             })
-        }, 16)
+        }, 40)
     }
 
     function _stopDrain() {

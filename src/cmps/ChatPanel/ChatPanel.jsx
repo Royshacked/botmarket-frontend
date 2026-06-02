@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import ReactMarkdown from 'react-markdown'
+import { useMicInput } from '../../customHooks/useMicInput.js'
 import './ChatPanel.scss'
 
 const P = 'chat-panel__build-summary'
@@ -79,7 +80,13 @@ function canGenerate(analysisState) {
 }
 
 export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, isLoading, isEditing = false }) {
-    const [input, setInput]   = useState('')
+    const [input, setInput] = useState('')
+
+    const onTranscript = useCallback((text) => {
+        setInput(prev => prev ? `${prev} ${text}` : text)
+    }, [])
+
+    const { isRecording, isTranscribing, start: startMic, stop: stopMic } = useMicInput({ onTranscript })
     const messagesEndRef      = useRef(null)
     const generateReady       = canGenerate(analysisState)
 
@@ -178,8 +185,29 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                     onKeyDown={handleKeyDown}
                     placeholder="Describe your trade idea… (Enter to send, Shift+Enter for newline)"
                     rows={2}
-                    disabled={isLoading}
+                    disabled={isLoading || isRecording}
                 />
+                <button
+                    className={`chat-panel__mic ${isRecording ? 'recording' : ''} ${isTranscribing ? 'transcribing' : ''}`}
+                    onMouseDown={startMic}
+                    onMouseUp={stopMic}
+                    onMouseLeave={stopMic}
+                    onTouchStart={e => { e.preventDefault(); startMic() }}
+                    onTouchEnd={stopMic}
+                    disabled={isLoading || isTranscribing}
+                    title="Hold to talk"
+                >
+                    {isTranscribing ? (
+                        <span className="chat-panel__mic-spinner" />
+                    ) : (
+                        <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <rect x="7" y="1" width="6" height="10" rx="3" stroke="currentColor" strokeWidth="1.5"/>
+                            <path d="M4 10a6 6 0 0 0 12 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                            <line x1="10" y1="16" x2="10" y2="19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                            <line x1="7"  y1="19" x2="13" y2="19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                        </svg>
+                    )}
+                </button>
                 <button
                     className="chat-panel__send"
                     onClick={handleSend}

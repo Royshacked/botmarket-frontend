@@ -302,6 +302,7 @@ $border-active: rgba(74, 140, 220, 0.55);
     &__input-row {
         flex-shrink: 0;
         display: flex;
+        align-items: center;
         gap: 8px;
         padding: 6px 12px 8px;
         background: $bg-surface;
@@ -334,10 +335,52 @@ $border-active: rgba(74, 140, 220, 0.55);
         }
     }
 
-    &__send {
-        align-self: flex-end;
+    &__mic {
         flex-shrink: 0;
-        padding: 9px 18px;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: $bg-raised;
+        border: 1px solid $border;
+        border-radius: 3px;
+        color: $text-secondary;
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+
+        svg { width: 16px; height: 16px; }
+
+        &:hover:not(:disabled) {
+            border-color: $blue-mid;
+            color: $blue-light;
+        }
+
+        &.recording {
+            background: rgba(239, 83, 80, 0.15);
+            border-color: #ef5350;
+            color: #ef5350;
+            animation: cp-loading 0.7s ease-in-out infinite;
+        }
+
+        &.transcribing { opacity: 0.6; cursor: wait; }
+        &:disabled     { opacity: 0.3; cursor: not-allowed; }
+    }
+
+    &__mic-spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid $blue-deep;
+        border-top-color: $blue-light;
+        border-radius: 50%;
+        animation: cp-spin 0.7s linear infinite;
+        display: block;
+    }
+
+    &__send {
+        flex-shrink: 0;
+        height: 36px;
+        padding: 0 18px;
         background: $blue-deep;
         border: 1px solid transparent;
         border-radius: 3px;
@@ -373,6 +416,10 @@ $border-active: rgba(74, 140, 220, 0.55);
 @keyframes cp-thinking {
     0%, 100% { opacity: 0.25; }
     50%       { opacity: 1;   }
+}
+
+@keyframes cp-spin {
+    to { transform: rotate(360deg); }
 }
 
 @keyframes cp-build-in {
