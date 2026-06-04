@@ -24,7 +24,7 @@ export function NewsFeed({ articles = [], isLoading }) {
                     <p className="news-feed__empty">No news today yet.</p>
                 )}
 
-                {articles.map((article, i) => (
+                {[...articles].sort((a, b) => (b.datetime ?? 0) - (a.datetime ?? 0)).map((article, i) => (
                     <a
                         key={article.url || i}
                         className="news-feed__item"
