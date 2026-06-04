@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types'
 import { conditionSummary } from './tradeIdea.utils.js'
 
-const SYSTEM_STATUSES = new Set(['triggered', 'in_position', 'closed'])
+const SYSTEM_STATUSES = new Set(['hit', 'long', 'short', 'closed'])
 const BUILDING = 'building'
 
 export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolClick, onEdit }) {
@@ -67,14 +67,14 @@ export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolC
                 ) : (
                     <>
                         {SYSTEM_STATUSES.has(status) ? (
-                            <span className={`idea-row__status-badge status--${status}${status === 'in_position' ? ` direction--${direction}` : ''}`}>
-                                {status.replace('_', ' ')}
+                            <span className={`idea-row__status-badge status--${status}`}>
+                                {status}
                             </span>
                         ) : (
                             <button
                                 className={`idea-row__status-toggle status--${status}`}
-                                onClick={e => { e.stopPropagation(); onStatusChange(id, status === 'active' ? 'pending' : 'active') }}
-                                title={`Switch to ${status === 'active' ? 'pending' : 'active'}`}
+                                onClick={e => { e.stopPropagation(); onStatusChange(id, status === 'looking' ? 'waiting' : 'looking') }}
+                                title={`Switch to ${status === 'looking' ? 'waiting' : 'looking'}`}
                             >
                                 {status}
                             </button>

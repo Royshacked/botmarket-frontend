@@ -115,7 +115,7 @@
         td { border-bottom: none; }
     }
 
-    &--active {
+    &--looking {
         background: rgba(13, 42, 85, 0.15);
 
         td { border-bottom-color: #0d2a55; }
@@ -125,7 +125,7 @@
         .idea-row__condition { color: #9ab8d8; }
     }
 
-    &--triggered {
+    &--hit {
         background: rgba(255, 152, 0, 0.06);
 
         td { border-bottom-color: #3d2800; }
@@ -133,13 +133,22 @@
         .idea-row__asset { color: #ffcc80; }
     }
 
-    &--in_position {
+    &--long {
         background: rgba(0, 230, 118, 0.06);
 
         td { border-bottom-color: #00522a; }
 
         .idea-row__asset     { color: #b9f6ca; }
         .idea-row__condition { color: #80cfa0; }
+    }
+
+    &--short {
+        background: rgba(239, 83, 80, 0.06);
+
+        td { border-bottom-color: #52001a; }
+
+        .idea-row__asset     { color: #ffcdd2; }
+        .idea-row__condition { color: #cf8080; }
     }
 
     td {
@@ -205,8 +214,8 @@
         &:hover { opacity: 0.7; }
         &:focus { outline: none; }
 
-        &.status--pending { color: #f0c040; }
-        &.status--active  {
+        &.status--waiting { color: #f0c040; }
+        &.status--looking {
             color: #4caf50;
             animation: status-pulse 1.8s ease-in-out infinite;
         }
@@ -235,16 +244,13 @@
         padding: 2px 4px;
         border: none;
 
-        &.status--triggered {
-            color: #c8b49a;   // beige
+        &.status--hit {
+            color: #c8b49a;
             animation: status-pulse 1.8s ease-in-out infinite;
         }
 
-        &.status--in_position {
-            &.direction--long  { color: #4caf50; }
-            &.direction--short { color: #ef5350; }
-            &:not(.direction--long):not(.direction--short) { color: #4caf50; } // fallback
-        }
+        &.status--long  { color: #4caf50; }
+        &.status--short { color: #ef5350; }
 
         &.status--closed { color: #555; }
     }
@@ -596,8 +602,10 @@
         flex-shrink: 0;
 
         &.type--structured { color: #4caf50; background: rgba(76,  175,  80, 0.10); }
-        &.type--visual     { color: #64b5f6; background: rgba(100, 181, 246, 0.10); }
+        &.type--indicator  { color: #64b5f6; background: rgba(100, 181, 246, 0.10); }
+        &.type--chart      { color: #ce93d8; background: rgba(206, 147, 216, 0.10); }
         &.type--news       { color: #ffb74d; background: rgba(255, 183,  77, 0.10); }
+        &.type--visual     { color: #64b5f6; background: rgba(100, 181, 246, 0.10); } // legacy alias
     }
 
     &__leaf-tf {

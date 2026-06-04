@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types'
 
-const STATUSES = ['pending', 'active', 'closed']
+const STATUSES = ['waiting', 'looking', 'closed']
 
 export function TradeIdeaCard({ idea, onDelete, onStatusChange }) {
     const { id, asset, direction, timeframe, status, entry_conditions, notes } = idea
