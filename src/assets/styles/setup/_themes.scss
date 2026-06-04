@@ -1,0 +1,209 @@
+// ─── Theme definitions via CSS custom properties ───────────────────────────
+// All component SCSS uses var(--token) instead of hardcoded hex values.
+// Switching themes: document.documentElement.setAttribute('data-theme', 'forest')
+
+// ── Ocean (default) ─────────────────────────────────────────────────────────
+:root,
+[data-theme="ocean"] {
+    // Backgrounds
+    --bg-base:    #020810;
+    --bg-deep:    #040c16;
+    --bg-hover:   #060f1e;
+    --bg-surface: #071222;
+    --bg-raised:  #0c1a2e;
+    --bg-popover: #091830;
+
+    // Accent scale (blues)
+    --accent-deep:   #0d2a55;
+    --accent:        #2a5a9a;
+    --accent-light:  #8ab8e8;
+    --accent-bright: #c8deff;
+
+    // Text scale
+    --text-primary:   #d4e8ff;
+    --text-secondary: #7a9bc0;
+    --text-muted:     #2a4a7a;
+    --text-dim:       #1e3660;
+    --text-subtle:    #a8bdd0;
+    --text-leaf:      #c4d8f0;
+
+    // Borders & effects
+    --border:        rgba(20, 60, 120, 0.35);
+    --border-mid:    rgba(20, 60, 120, 0.45);
+    --border-strong: rgba(74, 140, 220, 0.55);
+    --border-soft:   rgba(40, 90, 180, 0.30);
+    --glow:          rgba(42, 90, 154, 0.14);
+    --glow-soft:     rgba(42, 90, 154, 0.06);
+    --glow-mid:      rgba(42, 90, 154, 0.10);
+    --overlay:       rgba(0, 0, 0, 0.65);
+
+    // User button specific
+    --user-btn-bg:           rgba(20, 60, 120, 0.35);
+    --user-btn-border:       rgba(80, 140, 220, 0.40);
+    --user-btn-bg-hover:     rgba(40, 90, 180, 0.45);
+    --user-btn-border-hover: rgba(120, 180, 255, 0.70);
+    --user-btn-text-hover:   #e8f4ff;
+    --popover-border:        rgba(60, 120, 220, 0.50);
+    --popover-divider:       rgba(40, 90, 180, 0.30);
+    --popover-btn-hover-bg:  rgba(40, 90, 180, 0.20);
+
+    // H1 gradient
+    --h1-grad-top:    #ffffff;
+    --h1-grad-mid1:   #ddeeff;
+    --h1-grad-mid2:   #a8ccf0;
+    --h1-grad-mid3:   #5a8fd4;
+    --h1-grad-bottom: #1e4a90;
+    --h1-glow-1: rgba(80, 160, 255, 0.90);
+    --h1-glow-2: rgba(40, 110, 230, 0.65);
+    --h1-glow-3: rgba(20, 70,  200, 0.35);
+}
+
+// ── Forest (dark forest green) ───────────────────────────────────────────────
+[data-theme="forest"] {
+    --bg-base:    #010a04;
+    --bg-deep:    #031007;
+    --bg-hover:   #051609;
+    --bg-surface: #071a0b;
+    --bg-raised:  #0a2210;
+    --bg-popover: #081a0d;
+
+    --accent-deep:   #0a3518;
+    --accent:        #1a6632;
+    --accent-light:  #5aaa78;
+    --accent-bright: #a8e8c0;
+
+    --text-primary:   #d4ffe0;
+    --text-secondary: #6ab88a;
+    --text-muted:     #2a6645;
+    --text-dim:       #1a4a30;
+    --text-subtle:    #90c8a8;
+    --text-leaf:      #b0dcc0;
+
+    --border:        rgba(20, 100, 50, 0.35);
+    --border-mid:    rgba(20, 100, 50, 0.45);
+    --border-strong: rgba(60, 180, 100, 0.55);
+    --border-soft:   rgba(30, 120, 60, 0.30);
+    --glow:          rgba(30, 120, 60, 0.14);
+    --glow-soft:     rgba(30, 120, 60, 0.06);
+    --glow-mid:      rgba(30, 120, 60, 0.10);
+    --overlay:       rgba(0, 0, 0, 0.70);
+
+    --user-btn-bg:           rgba(20, 100, 50, 0.35);
+    --user-btn-border:       rgba(80, 200, 110, 0.40);
+    --user-btn-bg-hover:     rgba(30, 130, 60, 0.45);
+    --user-btn-border-hover: rgba(100, 220, 130, 0.70);
+    --user-btn-text-hover:   #e0ffe8;
+    --popover-border:        rgba(50, 160, 80, 0.50);
+    --popover-divider:       rgba(30, 120, 60, 0.30);
+    --popover-btn-hover-bg:  rgba(30, 120, 60, 0.20);
+
+    --h1-grad-top:    #e0ffe8;
+    --h1-grad-mid1:   #b0eec0;
+    --h1-grad-mid2:   #70c890;
+    --h1-grad-mid3:   #2a9a50;
+    --h1-grad-bottom: #0a5a28;
+    --h1-glow-1: rgba(60, 200, 100, 0.90);
+    --h1-glow-2: rgba(30, 150, 70,  0.65);
+    --h1-glow-3: rgba(10, 80,  40,  0.35);
+}
+
+// ── Crimson (very dark red) ──────────────────────────────────────────────────
+[data-theme="crimson"] {
+    --bg-base:    #080203;
+    --bg-deep:    #100406;
+    --bg-hover:   #16060a;
+    --bg-surface: #1a0810;
+    --bg-raised:  #220c16;
+    --bg-popover: #1c0a12;
+
+    --accent-deep:   #4a0d18;
+    --accent:        #8a1a2a;
+    --accent-light:  #cc6070;
+    --accent-bright: #f0b8c0;
+
+    --text-primary:   #ffe8ec;
+    --text-secondary: #cc8a90;
+    --text-muted:     #7a2a35;
+    --text-dim:       #4a1820;
+    --text-subtle:    #d0909a;
+    --text-leaf:      #e0b0b8;
+
+    --border:        rgba(120, 20, 40, 0.35);
+    --border-mid:    rgba(120, 20, 40, 0.45);
+    --border-strong: rgba(200, 60, 80, 0.55);
+    --border-soft:   rgba(140, 30, 50, 0.30);
+    --glow:          rgba(140, 30, 50, 0.14);
+    --glow-soft:     rgba(140, 30, 50, 0.06);
+    --glow-mid:      rgba(140, 30, 50, 0.10);
+    --overlay:       rgba(0, 0, 0, 0.75);
+
+    --user-btn-bg:           rgba(120, 20, 40, 0.35);
+    --user-btn-border:       rgba(200, 80, 100, 0.40);
+    --user-btn-bg-hover:     rgba(160, 30, 55, 0.45);
+    --user-btn-border-hover: rgba(230, 100, 120, 0.70);
+    --user-btn-text-hover:   #ffe8ec;
+    --popover-border:        rgba(180, 50, 70, 0.50);
+    --popover-divider:       rgba(140, 30, 50, 0.30);
+    --popover-btn-hover-bg:  rgba(140, 30, 50, 0.20);
+
+    --h1-grad-top:    #ffe0e4;
+    --h1-grad-mid1:   #f0a8b0;
+    --h1-grad-mid2:   #d07080;
+    --h1-grad-mid3:   #a02840;
+    --h1-grad-bottom: #5a0c1c;
+    --h1-glow-1: rgba(220, 60,  80,  0.90);
+    --h1-glow-2: rgba(160, 30,  50,  0.65);
+    --h1-glow-3: rgba(80,  10,  25,  0.35);
+}
+
+// ── Semantic status colors — same across all themes ──────────────────────────
+:root {
+    --color-long:    #4caf50;
+    --color-short:   #ef5350;
+    --color-hit:     #4caf50;
+    --color-looking: #ff9800;
+    --color-waiting: #ef5350;
+    --color-teal:    #26a69a;
+    --color-warning: #f0c040;
+    --color-error:   #e57373;
+
+    // Row highlight colors
+    --long-bg:     rgba(76, 175, 80, 0.06);
+    --long-border: #00522a;
+    --long-text:   #b9f6ca;
+    --long-sub:    #80cfa0;
+
+    --short-bg:     rgba(239, 83, 80, 0.06);
+    --short-border: #52001a;
+    --short-text:   #ffcdd2;
+    --short-sub:    #cf8080;
+
+    --hit-bg:     rgba(76, 175, 80, 0.06);
+    --hit-border: #00522a;
+    --hit-text:   #a5d6a7;
+
+    --looking-bg:     rgba(255, 152, 0, 0.06);
+    --looking-border: #3d2800;
+    --looking-text:   #ffcc80;
+    --looking-sub:    #ffa726;
+
+    --waiting-bg:     rgba(239, 83, 80, 0.05);
+    --waiting-border: #52001a;
+    --waiting-text:   #ef9a9a;
+
+    // Condition type badge colors
+    --type-structured-color: #4caf50;
+    --type-structured-bg:    rgba(76, 175, 80, 0.10);
+    --type-indicator-color:  #64b5f6;
+    --type-indicator-bg:     rgba(100, 181, 246, 0.10);
+    --type-chart-color:      #ce93d8;
+    --type-chart-bg:         rgba(206, 147, 216, 0.10);
+    --type-news-color:       #ffb74d;
+    --type-news-bg:          rgba(255, 183, 77, 0.10);
+    --type-visual-color:     #64b5f6;
+    --type-visual-bg:        rgba(100, 181, 246, 0.10);
+
+    // Sentiment
+    --sentiment-bull: #4caf7d;
+    --sentiment-bear: #e05c5c;
+}

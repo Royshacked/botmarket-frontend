@@ -1,39 +1,24 @@
-// ── Palette (mirrors ChatPanel) ────────────────────────────────────────────
-$bg-surface:  #071222;
-$bg-input:    #060f1e;
-$blue-deep:   #0d2a55;
-$blue-mid:    #2a5a9a;
-$blue-light:  #8ab8e8;
-$blue-glow:   rgba(42, 90, 154, 0.14);
-$text-primary:   #d4e8ff;
-$text-secondary: #7a9bc0;
-$border:         rgba(20, 60, 120, 0.35);
-$border-active:  rgba(74, 140, 220, 0.55);
-
-// ── Overlay ────────────────────────────────────────────────────────────────
 .auth-modal {
     &__overlay {
         position: fixed;
         inset: 0;
         z-index: 1000;
-        background: rgba(0, 0, 0, 0.55);
+        background: var(--overlay);
         display: flex;
         align-items: center;
         justify-content: center;
     }
 
-    // ── Card ────────────────────────────────────────────────────────────
-    background: $bg-surface;
-    border: 1px solid $border-active;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-strong);
     border-radius: 8px;
     padding: 2rem;
     width: 100%;
     max-width: 360px;
-    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7);
+    box-shadow: 0 8px 40px var(--overlay);
     font-family: 'IBM Plex Sans', sans-serif;
-    color: $text-primary;
+    color: var(--text-primary);
 
-    // ── Brand ───────────────────────────────────────────────────────────
     &__brand {
         display: flex;
         flex-direction: column;
@@ -42,12 +27,7 @@ $border-active:  rgba(74, 140, 220, 0.55);
         margin-bottom: 1.75rem;
     }
 
-    &__logo {
-        width: 52px;
-        height: 52px;
-        object-fit: contain;
-        border-radius: 10px;
-    }
+    &__logo { width: 52px; height: 52px; object-fit: contain; border-radius: 10px; }
 
     &__brand-name {
         font-family: 'IBM Plex Mono', monospace;
@@ -55,14 +35,13 @@ $border-active:  rgba(74, 140, 220, 0.55);
         font-weight: 600;
         letter-spacing: 0.16em;
         text-transform: uppercase;
-        color: $blue-light;
+        color: var(--accent-light);
     }
 
-    // ── Tabs ────────────────────────────────────────────────────────────
     &__tabs {
         display: flex;
         margin-bottom: 1.5rem;
-        border-bottom: 1px solid $border;
+        border-bottom: 1px solid var(--border);
     }
 
     &__tab {
@@ -76,47 +55,45 @@ $border-active:  rgba(74, 140, 220, 0.55);
         font-size: 11px;
         letter-spacing: 0.1em;
         text-transform: uppercase;
-        color: $text-secondary;
+        color: var(--text-secondary);
         transition: color 0.15s, border-color 0.15s;
-        margin-bottom: -1px; // overlap the border-bottom of __tabs
+        margin-bottom: -1px;
 
         &.active {
-            color: $blue-light;
-            border-bottom-color: $blue-mid;
+            color: var(--accent-light);
+            border-bottom-color: var(--accent);
         }
 
-        &:not(.active):hover { color: $text-primary; }
+        &:not(.active):hover { color: var(--text-primary); }
     }
 
-    // ── Form ────────────────────────────────────────────────────────────
     &__form {
         display: flex;
         flex-direction: column;
         gap: 0.7rem;
 
         input {
-            background: $bg-input;
-            border: 1px solid $border;
+            background: var(--bg-hover);
+            border: 1px solid var(--border);
             border-radius: 3px;
-            color: $text-primary;
+            color: var(--text-primary);
             font-family: 'IBM Plex Sans', sans-serif;
             font-size: 13px;
             padding: 9px 12px;
             transition: border-color 0.15s;
             width: 100%;
 
-            &::placeholder { color: rgba(122, 155, 192, 0.45); }
-            &:focus { outline: none; border-color: $border-active; }
+            &::placeholder { color: var(--text-muted); }
+            &:focus { outline: none; border-color: var(--border-strong); }
         }
-
 
         button[type='submit'] {
             margin-top: 0.4rem;
             padding: 10px;
-            background: $blue-deep;
+            background: var(--accent-deep);
             border: 1px solid transparent;
             border-radius: 3px;
-            color: $blue-light;
+            color: var(--accent-light);
             font-family: 'IBM Plex Mono', monospace;
             font-size: 11px;
             letter-spacing: 0.1em;
@@ -124,17 +101,15 @@ $border-active:  rgba(74, 140, 220, 0.55);
             cursor: pointer;
             transition: background 0.15s;
 
-            &:hover:not(:disabled) { background: $blue-mid; }
+            &:hover:not(:disabled) { background: var(--accent); }
             &:disabled { opacity: 0.4; cursor: not-allowed; }
         }
     }
 
-    // ── Password field wrapper ───────────────────────────────────────────
     &__pw-field {
         position: relative;
         display: flex;
         align-items: center;
-
         input { padding-right: 40px; }
     }
 
@@ -150,31 +125,29 @@ $border-active:  rgba(74, 140, 220, 0.55);
         border: none;
         border-radius: 3px;
         cursor: pointer;
-        color: $text-secondary;
+        color: var(--text-secondary);
         padding: 0;
         transition: color 0.15s;
 
-        &:hover  { color: $blue-light; }
-        &:focus  { outline: none; color: $blue-light; }
-
-        svg { display: block; flex-shrink: 0; }
+        &:hover,
+        &:focus { outline: none; color: var(--accent-light); }
+        svg     { display: block; flex-shrink: 0; }
     }
 
     &__pw-hint {
         font-size: 10px;
-        color: $text-secondary;
+        color: var(--text-secondary);
         opacity: 0.45;
-        margin-top: calc(-0.7rem + 3px);  // close the gap gap left by &__form gap
+        margin-top: calc(-0.7rem + 3px);
         letter-spacing: 0.02em;
     }
 
     &__pw-error {
         font-size: 10px;
-        color: #e57373;
+        color: var(--color-error);
         margin-top: calc(-0.7rem + 3px);
     }
 
-    // ── Connecting / loading state ───────────────────────────────────────
     &__connecting {
         display: flex;
         flex-direction: column;
@@ -184,31 +157,30 @@ $border-active:  rgba(74, 140, 220, 0.55);
         font-family: 'IBM Plex Mono', monospace;
         font-size: 11px;
         letter-spacing: 0.08em;
-        color: $text-secondary;
+        color: var(--text-secondary);
     }
 
     &__spinner {
         display: block;
         width: 22px;
         height: 22px;
-        border: 2px solid $border;
-        border-top-color: $blue-mid;
+        border: 2px solid var(--border);
+        border-top-color: var(--accent);
         border-radius: 50%;
         animation: auth-spin 0.8s linear infinite;
     }
 
-    // ── Feedback messages ────────────────────────────────────────────────
     &__error {
         margin: 0 0 0.75rem;
         font-size: 12px;
-        color: #e57373;
+        color: var(--color-error);
         text-align: center;
     }
 
     &__success {
         margin: 0 0 0.75rem;
         font-size: 12px;
-        color: $blue-light;
+        color: var(--accent-light);
         text-align: center;
     }
 }
@@ -217,28 +189,27 @@ $border-active:  rgba(74, 140, 220, 0.55);
     to { transform: rotate(360deg); }
 }
 
-// ── Applied to main-container when modal is open ───────────────────────────
 .app-blurred {
     filter: blur(6px);
     pointer-events: none;
     user-select: none;
 }
 
-// ── Header user trigger button ─────────────────────────────────────────────
 .app-header__user {
     background: none;
-    border: 1px solid $border;
+    border: 1px solid var(--border);
     border-radius: 3px;
     padding: 4px 12px;
-    color: $text-secondary;
+    color: var(--text-secondary);
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
     letter-spacing: 0.06em;
     cursor: pointer;
     transition: color 0.15s, border-color 0.15s;
 
-    &:hover, &.active {
-        color: $blue-light;
-        border-color: $border-active;
+    &:hover,
+    &.active {
+        color: var(--accent-light);
+        border-color: var(--border-strong);
     }
 }

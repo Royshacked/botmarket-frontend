@@ -9,7 +9,7 @@ html {
     
 body {
     margin: 0;
-    background: #020810;
+    background: var(--bg-base);
     font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
     font-size: rem(18px);
 }

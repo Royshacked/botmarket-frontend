@@ -125,15 +125,11 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
         <div className="chat-panel">
             <div className="chat-panel__header">
                 <svg className="chat-panel__title-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    {/* Antenna */}
                     <line x1="10" y1="5" x2="10" y2="2"   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                     <circle cx="10" cy="1.5" r="1"         fill="currentColor"/>
-                    {/* Head */}
                     <rect x="2" y="5" width="16" height="12" rx="3" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-                    {/* Eyes */}
                     <circle cx="7"  cy="10" r="1.8"        fill="currentColor"/>
                     <circle cx="13" cy="10" r="1.8"        fill="currentColor"/>
-                    {/* Mouth */}
                     <rect x="6.5" y="13" width="7" height="1.5" rx="0.75" fill="currentColor"/>
                 </svg>
                 <span className="chat-panel__title">Trade Assistant</span>
@@ -158,7 +154,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                     <div key={i} className={`chat-panel__bubble chat-panel__bubble--${msg.role}`}>
                         {msg.role === 'assistant' ? (
                             <>
-                                <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                <ReactMarkdown>{msg.content.replace(/<asset>[\s\S]*?<\/asset>/g, '').trimStart()}</ReactMarkdown>
                                 {msg.streaming && !msg.content && (
                                     <span className="chat-panel__thinking">thinking…</span>
                                 )}

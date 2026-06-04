@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types'
 import './NewsFeed.scss'
 
-export function NewsFeed({ articles = [], isLoading }) {
+export function NewsFeed({ articles = [], isLoading, symbol = null }) {
     return (
         <div className="news-feed">
             <div className="news-feed__header">
@@ -15,16 +15,22 @@ export function NewsFeed({ articles = [], isLoading }) {
                     <line x1="10" y1="11.5" x2="10" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                     <line x1="7"  y1="16"   x2="13" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
-                <span className="news-feed__title">News Feed</span>
+                <span className="news-feed__title">{symbol ? `${symbol} News` : 'News Feed'}</span>
                 <span className={`news-feed__status-dot${isLoading ? ' loading' : ''}`} />
             </div>
 
             <div className="news-feed__list">
+                {isLoading && (
+                    <div className="news-feed__loader">
+                        <span /><span /><span />
+                    </div>
+                )}
+
                 {!isLoading && articles.length === 0 && (
                     <p className="news-feed__empty">No news today yet.</p>
                 )}
 
-                {[...articles].sort((a, b) => (b.datetime ?? 0) - (a.datetime ?? 0)).map((article, i) => (
+                {!isLoading && [...articles].sort((a, b) => (b.datetime ?? 0) - (a.datetime ?? 0)).map((article, i) => (
                     <a
                         key={article.url || i}
                         className="news-feed__item"
@@ -76,4 +82,5 @@ function _formatTime(unixSec) {
 NewsFeed.propTypes = {
     articles:  PropTypes.array,
     isLoading: PropTypes.bool,
+    symbol:    PropTypes.string,
 }

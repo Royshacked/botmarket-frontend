@@ -13,6 +13,10 @@ const NEWS_STREAM_URL = import.meta.env.PROD
     ? '/news-feed/stream'
     : 'http://localhost:3030/news-feed/stream'
 
+const NEWS_ASSET_BASE = import.meta.env.PROD
+    ? '/news-feed/asset'
+    : 'http://localhost:3030/news-feed/asset'
+
 // Derive a live "building" idea from chat state — shown in the list but not yet saved
 function deriveBuildingIdea(analysisState) {
     if (!analysisState) return null
@@ -43,6 +47,10 @@ export function MainPage() {
     const [isLoading, setIsLoading] = useState(false)
     const [newsArticles, setNewsArticles] = useState([])
     const [newsLoading, setNewsLoading] = useState(false)
+    const [activeNewsSymbol, setActiveNewsSymbol] = useState(null)
+    const [activeNewsQuery, setActiveNewsQuery]   = useState(null)
+    const [assetArticles, setAssetArticles] = useState([])
+    const [assetNewsLoading, setAssetNewsLoading] = useState(false)
     const [ideas, setIdeas] = useState([])
     const [editingIdeaId, setEditingIdeaId] = useState(null)
     const latestMessagesRef = useRef([])
@@ -99,6 +107,23 @@ export function MainPage() {
         return () => es.close()
     }, [])
 
+    useEffect(() => {
+        if (!activeNewsSymbol || !activeNewsQuery) {
+            setAssetArticles([])
+            setAssetNewsLoading(false)
+            return
+        }
+        let cancelled = false
+        setAssetNewsLoading(true)
+        const url = `${NEWS_ASSET_BASE}/${encodeURIComponent(activeNewsSymbol)}?q=${encodeURIComponent(activeNewsQuery)}`
+        fetch(url)
+            .then(r => r.json())
+            .then(d => { if (!cancelled) setAssetArticles(Array.isArray(d.articles) ? d.articles : []) })
+            .catch(() => { if (!cancelled) setAssetArticles([]) })
+            .finally(() => { if (!cancelled) setAssetNewsLoading(false) })
+        return () => { cancelled = true; setAssetArticles([]) }
+    }, [activeNewsQuery])
+
     const loadIdeas = useCallback(async () => {
         try {
             const fetched = await tradeIdeasService.getIdeas()
@@ -129,7 +154,8 @@ export function MainPage() {
                 currentAnalysisState,
                 {
                     // Buffer only — drain timer handles the actual state updates
-                    onToken: (text) => { tokenQueueRef.current += text },
+                    onToken: (text)   => { tokenQueueRef.current += text },
+                    onAsset: (symbol) => { if (symbol) { setChartSymbol(symbol); setActiveNewsSymbol(symbol); setAssetNewsLoading(true) } },
 
                     onDone: (data) => {
                         _stopDrain()
@@ -144,8 +170,14 @@ export function MainPage() {
                             return msgs
                         })
                         setAnalysisState(data.analysisState ?? null)
-                        const newAsset = data.analysisState?.structured_state?.active_asset
+                        const newAsset   = data.analysisState?.structured_state?.active_asset
+                        const newCompany = data.analysisState?.structured_state?.active_company_name
                         if (newAsset) setChartSymbol(newAsset)
+                        if (newAsset) {
+                            setActiveNewsSymbol(newAsset)
+                            setActiveNewsQuery(newCompany || newAsset)
+                            setAssetNewsLoading(true)
+                        }
                         if (data.ideaSaved) loadIdeas()
 
                         // Save chat state progressively when editing
@@ -195,6 +227,8 @@ export function MainPage() {
         setAnalysisState(null)
         setMessages([])
         setEditingIdeaId(null)
+        setActiveNewsSymbol(null)
+        setActiveNewsQuery(null)
         latestMessagesRef.current = []
     }
 
@@ -252,6 +286,8 @@ export function MainPage() {
                 setEditingIdeaId(null)
                 setAnalysisState(null)
                 setMessages([])
+                setActiveNewsSymbol(null)
+                setActiveNewsQuery(null)
                 latestMessagesRef.current = []
             } catch (err) {
                 console.error('[tradeIdeas] edit update failed', err)
@@ -262,6 +298,8 @@ export function MainPage() {
                 setIdeas(prev => [saved, ...prev])
                 setAnalysisState(null)
                 setMessages([])
+                setActiveNewsSymbol(null)
+                setActiveNewsQuery(null)
                 latestMessagesRef.current = []
             } catch (err) {
                 console.error('[tradeIdeas] create failed', err)
@@ -335,7 +373,11 @@ export function MainPage() {
                         />
                     </div>
                     <div className="workspace__news">
-                        <NewsFeed articles={newsArticles} isLoading={newsLoading} />
+                        <NewsFeed
+                            articles={activeNewsSymbol ? assetArticles : newsArticles}
+                            isLoading={activeNewsSymbol ? assetNewsLoading : newsLoading}
+                            symbol={activeNewsSymbol}
+                        />
                     </div>
                 </div>
 

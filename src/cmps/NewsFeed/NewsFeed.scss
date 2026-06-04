@@ -1,28 +1,13 @@
-$bg-base:    #020810;
-$bg-surface: #071222;
-$bg-raised:  #0c1a2e;
-
-$blue-deep:  #0d2a55;
-$blue-mid:   #2a5a9a;
-$blue-light: #8ab8e8;
-$blue-glow:  rgba(42, 90, 154, 0.1);
-
-$text-primary:   #d4e8ff;
-$text-secondary: #7a9bc0;
-$text-dim:       #2a4a7a;
-
-$border: rgba(20, 60, 120, 0.35);
-
 .news-feed {
     display: flex;
     flex-direction: column;
     height: 100%;
-    background: $bg-base;
-    border: 1px solid $border;
+    background: var(--bg-base);
+    border: 1px solid var(--border);
     border-radius: 6px;
     overflow: hidden;
     font-family: 'IBM Plex Sans', sans-serif;
-    color: $text-primary;
+    color: var(--text-primary);
 
     &__header {
         display: flex;
@@ -30,16 +15,12 @@ $border: rgba(20, 60, 120, 0.35);
         flex-shrink: 0;
         gap: 8px;
         padding: 7px 20px;
-        background: $bg-surface;
-        border-bottom: 1px solid $border;
-        color: $blue-light;
+        background: var(--bg-surface);
+        border-bottom: 1px solid var(--border);
+        color: var(--accent-light);
     }
 
-    &__title-icon {
-        width: 18px;
-        height: 18px;
-        flex-shrink: 0;
-    }
+    &__title-icon { width: 18px; height: 18px; flex-shrink: 0; }
 
     &__title {
         font-family: 'IBM Plex Mono', monospace;
@@ -47,18 +28,18 @@ $border: rgba(20, 60, 120, 0.35);
         font-weight: 700;
         letter-spacing: 0.12em;
         text-transform: uppercase;
-        color: $blue-light;
+        color: var(--accent-light);
     }
 
     &__status-dot {
         width: 7px;
         height: 7px;
         border-radius: 50%;
-        background: $blue-mid;
+        background: var(--accent);
         margin-left: auto;
         flex-shrink: 0;
 
-        &.loading { animation: nf-loading 0.85s ease-in-out infinite; background: $blue-light; }
+        &.loading { animation: nf-loading 0.85s ease-in-out infinite; background: var(--accent-light); }
     }
 
     &__list {
@@ -69,11 +50,30 @@ $border: rgba(20, 60, 120, 0.35);
         flex-direction: column;
 
         &::-webkit-scrollbar       { width: 4px; }
-        &::-webkit-scrollbar-track { background: $bg-base; }
+        &::-webkit-scrollbar-track { background: var(--bg-base); }
         &::-webkit-scrollbar-thumb {
-            background: $blue-deep;
+            background: var(--accent-deep);
             border-radius: 2px;
-            &:hover { background: $blue-mid; }
+            &:hover { background: var(--accent); }
+        }
+    }
+
+    &__loader {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 40px 0;
+
+        span {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent-light);
+            animation: nf-loading 0.85s ease-in-out infinite;
+
+            &:nth-child(2) { animation-delay: 0.15s; }
+            &:nth-child(3) { animation-delay: 0.30s; }
         }
     }
 
@@ -81,26 +81,23 @@ $border: rgba(20, 60, 120, 0.35);
         margin: 24px auto;
         font-family: 'IBM Plex Mono', monospace;
         font-size: 11px;
-        color: $text-dim;
+        color: var(--text-muted);
         letter-spacing: 0.06em;
     }
 
     &__item {
         display: flex;
         flex-direction: column;
-        border-bottom: 1px solid $border;
+        border-bottom: 1px solid var(--border);
         text-decoration: none;
         color: inherit;
         transition: background 0.15s;
 
         &:last-child { border-bottom: none; }
-
-        &:hover { background: $blue-glow; }
+        &:hover      { background: var(--glow); }
     }
 
-    &__item-body {
-        padding: 12px 16px;
-    }
+    &__item-body    { padding: 12px 16px; }
 
     &__item-content {
         display: flex;
@@ -108,10 +105,7 @@ $border: rgba(20, 60, 120, 0.35);
         align-items: flex-start;
     }
 
-    &__item-text {
-        flex: 1;
-        min-width: 0;
-    }
+    &__item-text { flex: 1; min-width: 0; }
 
     &__item-right {
         flex: 0 0 110px;
@@ -142,13 +136,13 @@ $border: rgba(20, 60, 120, 0.35);
         font-weight: 600;
         letter-spacing: 0.1em;
         text-transform: uppercase;
-        color: $blue-mid;
+        color: var(--accent);
     }
 
     &__time {
         font-family: 'IBM Plex Mono', monospace;
         font-size: 9px;
-        color: $text-dim;
+        color: var(--text-muted);
         letter-spacing: 0.05em;
     }
 
@@ -162,9 +156,9 @@ $border: rgba(20, 60, 120, 0.35);
         width: 100%;
         display: block;
 
-        &--bullish { color: #4caf7d; }
-        &--bearish { color: #e05c5c; }
-        &--neutral { color: $text-dim; }
+        &--bullish { color: var(--sentiment-bull); }
+        &--bearish { color: var(--sentiment-bear); }
+        &--neutral { color: var(--text-muted); }
     }
 
     &__headline {
@@ -172,14 +166,14 @@ $border: rgba(20, 60, 120, 0.35);
         font-size: 12px;
         font-weight: 500;
         line-height: 1.45;
-        color: $text-primary;
+        color: var(--text-primary);
     }
 
     &__summary {
         margin: 0;
         font-size: 11px;
         line-height: 1.5;
-        color: $text-secondary;
+        color: var(--text-secondary);
         display: -webkit-box;
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;

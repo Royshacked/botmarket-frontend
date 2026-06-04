@@ -1,0 +1,22 @@
+.theme-switcher {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    &__btn {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        border: 2px solid transparent;
+        cursor: pointer;
+        padding: 0;
+        transition: transform 0.15s, border-color 0.15s;
+
+        &:hover   { transform: scale(1.2); }
+        &.active  { border-color: rgba(255, 255, 255, 0.7); transform: scale(1.15); }
+
+        &--ocean   { background: #2a5a9a; }
+        &--forest  { background: #1a6632; }
+        &--crimson { background: #8a1a2a; }
+    }
+}

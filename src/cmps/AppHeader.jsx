@@ -1,6 +1,7 @@
 import { useContext, useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AuthContext } from '../context/AuthContext'
+import { ThemeSwitcher } from './ThemeSwitcher/ThemeSwitcher'
 
 // ── Static inline-SVG space background ───────────────────────────────────────
 function HeaderBackground() {
@@ -321,6 +322,11 @@ export function AppHeader() {
 							<div className="app-header__popover-info">
 								<span className="app-header__popover-name">{user.fullname}</span>
 								<span className="app-header__popover-username">@{user.username}</span>
+							</div>
+							<hr className="app-header__popover-divider" />
+							<div className="app-header__popover-theme">
+								<span className="app-header__popover-theme-label">Theme</span>
+								<ThemeSwitcher />
 							</div>
 							<hr className="app-header__popover-divider" />
 							<button className="app-header__popover-btn" onClick={handleMainPage}>
