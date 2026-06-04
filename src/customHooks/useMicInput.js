@@ -16,9 +16,21 @@ export function useMicInput({ onTranscript }) {
 
     const start = useCallback(async () => {
         setError(null)
+
+        if (!navigator.mediaDevices?.getUserMedia) {
+            setError('Microphone not supported in this browser')
+            return
+        }
+
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-            const recorder = new MediaRecorder(stream)
+
+            // Pick the best supported MIME type — Whisper accepts webm, mp4, ogg
+            const mimeType = ['audio/webm', 'audio/mp4', 'audio/ogg'].find(
+                t => MediaRecorder.isTypeSupported(t)
+            ) ?? ''
+
+            const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
             recorderRef.current = recorder
             chunksRef.current   = []
 
@@ -28,14 +40,15 @@ export function useMicInput({ onTranscript }) {
 
             recorder.onstop = async () => {
                 stream.getTracks().forEach(t => t.stop())
-                const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+                const actualType = recorder.mimeType || mimeType || 'audio/webm'
+                const blob = new Blob(chunksRef.current, { type: actualType })
                 if (blob.size < 1000) return   // too short — ignore
 
                 setIsTranscribing(true)
                 try {
                     const res  = await fetch(`${BACKEND_URL}/api/transcribe`, {
                         method:      'POST',
-                        headers:     { 'Content-Type': 'audio/webm' },
+                        headers:     { 'Content-Type': actualType },
                         body:        blob,
                         credentials: 'include',
                     })
