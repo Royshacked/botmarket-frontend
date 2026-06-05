@@ -91,7 +91,7 @@ function canGenerate(analysisState) {
     )
 }
 
-export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, isLoading, isEditing = false }) {
+export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, isLoading, isEditing = false }) {
     const [input, setInput] = useState('')
 
     const onTranscript = useCallback((text) => {
@@ -216,13 +216,23 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                         </svg>
                     )}
                 </button>
-                <button
-                    className="chat-panel__send"
-                    onClick={handleSend}
-                    disabled={!input.trim() || isLoading}
-                >
-                    Send
-                </button>
+                <div className="chat-panel__send-col">
+                    <button
+                        className="chat-panel__send"
+                        onClick={handleSend}
+                        disabled={!input.trim() || isLoading}
+                    >
+                        Send
+                    </button>
+                    <button
+                        className="chat-panel__clear"
+                        onClick={onClear}
+                        disabled={isLoading || (!messages.length && !analysisState?.structured_state?.active_asset)}
+                        title="Clear chat and idea"
+                    >
+                        Clear
+                    </button>
+                </div>
             </div>
         </div>
     )
@@ -233,5 +243,6 @@ ChatPanel.propTypes = {
     analysisState: PropTypes.object,
     onSend:        PropTypes.func.isRequired,
     onGenerate:    PropTypes.func.isRequired,
+    onClear:       PropTypes.func,
     isLoading:     PropTypes.bool,
 }

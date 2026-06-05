@@ -368,6 +368,7 @@ export function MainPage() {
                             analysisState={analysisState}
                             onSend={handleSend}
                             onGenerate={handleGenerate}
+                            onClear={handleCancelBuild}
                             isLoading={isLoading}
                             isEditing={!!editingIdeaId}
                         />

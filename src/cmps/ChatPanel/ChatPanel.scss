@@ -336,6 +336,13 @@
         display: block;
     }
 
+    &__send-col {
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
     &__send {
         flex-shrink: 0;
         height: 36px;
@@ -354,6 +361,29 @@
 
         &:not(:disabled):hover { background: var(--accent); }
         &:disabled             { opacity: 0.3; cursor: not-allowed; }
+    }
+
+    &__clear {
+        flex-shrink: 0;
+        height: 28px;
+        padding: 0 18px;
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        color: var(--text-muted);
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 10px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+        white-space: nowrap;
+
+        &:not(:disabled):hover {
+            border-color: var(--color-short);
+            color: var(--color-short);
+        }
+        &:disabled { opacity: 0.3; cursor: not-allowed; }
     }
 }
 
