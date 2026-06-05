@@ -51,6 +51,7 @@ export function MainPage() {
     const [activeNewsQuery, setActiveNewsQuery]   = useState(null)
     const [assetArticles, setAssetArticles] = useState([])
     const [assetNewsLoading, setAssetNewsLoading] = useState(false)
+    const [assetSentimentLoading, setAssetSentimentLoading] = useState(false)
     const [ideas, setIdeas] = useState([])
     const [editingIdeaId, setEditingIdeaId] = useState(null)
     const latestMessagesRef = useRef([])
@@ -111,16 +112,51 @@ export function MainPage() {
         if (!activeNewsSymbol || !activeNewsQuery) {
             setAssetArticles([])
             setAssetNewsLoading(false)
+            setAssetSentimentLoading(false)
             return
         }
         let cancelled = false
         setAssetNewsLoading(true)
-        const url = `${NEWS_ASSET_BASE}/${encodeURIComponent(activeNewsSymbol)}?q=${encodeURIComponent(activeNewsQuery)}`
-        fetch(url)
+        setAssetSentimentLoading(false)
+
+        const sym = encodeURIComponent(activeNewsSymbol)
+        const q   = encodeURIComponent(activeNewsQuery)
+
+        // Phase 1 — render articles ASAP (no LLM on the server)
+        fetch(`${NEWS_ASSET_BASE}/${sym}?q=${q}`)
             .then(r => r.json())
-            .then(d => { if (!cancelled) setAssetArticles(Array.isArray(d.articles) ? d.articles : []) })
-            .catch(() => { if (!cancelled) setAssetArticles([]) })
-            .finally(() => { if (!cancelled) setAssetNewsLoading(false) })
+            .then(d => {
+                if (cancelled) return
+                const articles = Array.isArray(d.articles) ? d.articles : []
+                setAssetArticles(articles)
+                setAssetNewsLoading(false)
+                if (articles.length === 0) return
+
+                // Phase 2 — apply the LLM relevance filter + sentiment. This drops
+                // the articles the model deemed irrelevant and badges the rest, so
+                // every remaining article ends up with a sentiment.
+                setAssetSentimentLoading(true)
+                fetch(`${NEWS_ASSET_BASE}/${sym}/sentiment?q=${q}`)
+                    .then(r => r.json())
+                    .then(s => {
+                        if (cancelled) return
+                        const enriched = Array.isArray(s.articles) ? s.articles : []
+                        const byUrl    = new Map(enriched.map(a => [a.url, a]))
+                        setAssetArticles(prev => {
+                            // Keep the real phase-1 article data; reconcile to the
+                            // filtered set and attach sentiment/confidence.
+                            const reconciled = prev
+                                .filter(a => byUrl.has(a.url))
+                                .map(a => ({ ...a, sentiment: byUrl.get(a.url).sentiment, confidence: byUrl.get(a.url).confidence }))
+                            // Fallback: if URLs didn't line up at all, trust the enriched set
+                            return reconciled.length > 0 ? reconciled : enriched
+                        })
+                    })
+                    .catch(() => {})
+                    .finally(() => { if (!cancelled) setAssetSentimentLoading(false) })
+            })
+            .catch(() => { if (!cancelled) { setAssetArticles([]); setAssetNewsLoading(false) } })
+
         return () => { cancelled = true; setAssetArticles([]) }
     }, [activeNewsQuery])
 
@@ -377,6 +413,7 @@ export function MainPage() {
                         <NewsFeed
                             articles={activeNewsSymbol ? assetArticles : newsArticles}
                             isLoading={activeNewsSymbol ? assetNewsLoading : newsLoading}
+                            sentimentLoading={!!activeNewsSymbol && assetSentimentLoading}
                             symbol={activeNewsSymbol}
                         />
                     </div>

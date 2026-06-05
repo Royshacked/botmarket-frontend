@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types'
 import './NewsFeed.scss'
 
-export function NewsFeed({ articles = [], isLoading, symbol = null }) {
+export function NewsFeed({ articles = [], isLoading, sentimentLoading = false, symbol = null }) {
     return (
         <div className="news-feed">
             <div className="news-feed__header">
@@ -51,9 +51,13 @@ export function NewsFeed({ articles = [], isLoading, symbol = null }) {
                                     )}
                                 </div>
                                 <div className="news-feed__item-right">
-                                    {article.sentiment && (
+                                    {article.sentiment ? (
                                         <span className={`news-feed__sentiment news-feed__sentiment--${article.sentiment}`}>
                                             {article.sentiment} {article.confidence ? `${Math.round(article.confidence * 100)}%` : ''}
+                                        </span>
+                                    ) : sentimentLoading && (
+                                        <span className="news-feed__sentiment news-feed__sentiment--pending">
+                                            <span /><span /><span />
                                         </span>
                                     )}
                                     {article.image && (
@@ -80,7 +84,8 @@ function _formatTime(unixSec) {
 }
 
 NewsFeed.propTypes = {
-    articles:  PropTypes.array,
-    isLoading: PropTypes.bool,
-    symbol:    PropTypes.string,
+    articles:         PropTypes.array,
+    isLoading:        PropTypes.bool,
+    sentimentLoading: PropTypes.bool,
+    symbol:           PropTypes.string,
 }
