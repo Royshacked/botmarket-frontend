@@ -17,6 +17,8 @@ const NEWS_ASSET_BASE = import.meta.env.PROD
     ? '/news-feed/asset'
     : 'http://localhost:3030/news-feed/asset'
 
+const COMPANY_NEWS_INTERVAL_MS = 30 * 60 * 1000
+
 // Derive a live "building" idea from chat state — shown in the list but not yet saved
 function deriveBuildingIdea(analysisState) {
     if (!analysisState) return null
@@ -54,7 +56,8 @@ export function MainPage() {
     const [assetSentimentLoading, setAssetSentimentLoading] = useState(false)
     const [ideas, setIdeas] = useState([])
     const [editingIdeaId, setEditingIdeaId] = useState(null)
-    const latestMessagesRef = useRef([])
+    const latestMessagesRef    = useRef([])
+    const lastFetchedAssetRef  = useRef(null)
 
     // ── Typewriter queue ──────────────────────────────────────────────────────
     // Tokens from the API go into the queue (ref — zero React overhead).
@@ -115,49 +118,55 @@ export function MainPage() {
             setAssetSentimentLoading(false)
             return
         }
-        let cancelled = false
-        setAssetNewsLoading(true)
-        setAssetSentimentLoading(false)
 
-        const sym = encodeURIComponent(activeNewsSymbol)
-        const q   = encodeURIComponent(activeNewsQuery)
+        let active = true
+        const sym  = encodeURIComponent(activeNewsSymbol)
+        const q    = encodeURIComponent(activeNewsQuery)
 
-        // Phase 1 — render articles ASAP (no LLM on the server)
-        fetch(`${NEWS_ASSET_BASE}/${sym}?q=${q}`)
-            .then(r => r.json())
-            .then(d => {
-                if (cancelled) return
-                const articles = Array.isArray(d.articles) ? d.articles : []
-                setAssetArticles(articles)
-                setAssetNewsLoading(false)
-                if (articles.length === 0) return
+        function doFetch() {
+            if (!active) return
+            setAssetNewsLoading(true)
+            setAssetSentimentLoading(false)
 
-                // Phase 2 — apply the LLM relevance filter + sentiment. This drops
-                // the articles the model deemed irrelevant and badges the rest, so
-                // every remaining article ends up with a sentiment.
-                setAssetSentimentLoading(true)
-                fetch(`${NEWS_ASSET_BASE}/${sym}/sentiment?q=${q}`)
-                    .then(r => r.json())
-                    .then(s => {
-                        if (cancelled) return
-                        const enriched = Array.isArray(s.articles) ? s.articles : []
-                        const byUrl    = new Map(enriched.map(a => [a.url, a]))
-                        setAssetArticles(prev => {
-                            // Keep the real phase-1 article data; reconcile to the
-                            // filtered set and attach sentiment/confidence.
-                            const reconciled = prev
-                                .filter(a => byUrl.has(a.url))
-                                .map(a => ({ ...a, sentiment: byUrl.get(a.url).sentiment, confidence: byUrl.get(a.url).confidence }))
-                            // Fallback: if URLs didn't line up at all, trust the enriched set
-                            return reconciled.length > 0 ? reconciled : enriched
+            // Phase 1 — render articles ASAP (no LLM on the server)
+            fetch(`${NEWS_ASSET_BASE}/${sym}?q=${q}`)
+                .then(r => r.json())
+                .then(d => {
+                    if (!active) return
+                    const articles = Array.isArray(d.articles) ? d.articles : []
+                    setAssetArticles(articles)
+                    setAssetNewsLoading(false)
+                    if (articles.length === 0) return
+
+                    // Phase 2 — LLM relevance filter + sentiment
+                    setAssetSentimentLoading(true)
+                    fetch(`${NEWS_ASSET_BASE}/${sym}/sentiment?q=${q}`)
+                        .then(r => r.json())
+                        .then(s => {
+                            if (!active) return
+                            const enriched = Array.isArray(s.articles) ? s.articles : []
+                            const byUrl    = new Map(enriched.map(a => [a.url, a]))
+                            setAssetArticles(prev => {
+                                const reconciled = prev
+                                    .filter(a => byUrl.has(a.url))
+                                    .map(a => ({ ...a, sentiment: byUrl.get(a.url).sentiment, confidence: byUrl.get(a.url).confidence }))
+                                return reconciled.length > 0 ? reconciled : enriched
+                            })
                         })
-                    })
-                    .catch(() => {})
-                    .finally(() => { if (!cancelled) setAssetSentimentLoading(false) })
-            })
-            .catch(() => { if (!cancelled) { setAssetArticles([]); setAssetNewsLoading(false) } })
+                        .catch(() => {})
+                        .finally(() => { if (active) setAssetSentimentLoading(false) })
+                })
+                .catch(() => { if (active) { setAssetArticles([]); setAssetNewsLoading(false) } })
+        }
 
-        return () => { cancelled = true; setAssetArticles([]) }
+        doFetch()
+        const interval = setInterval(doFetch, COMPANY_NEWS_INTERVAL_MS)
+
+        return () => {
+            active = false
+            clearInterval(interval)
+            setAssetArticles([])
+        }
     }, [activeNewsQuery])
 
     const loadIdeas = useCallback(async () => {
@@ -191,7 +200,15 @@ export function MainPage() {
                 {
                     // Buffer only — drain timer handles the actual state updates
                     onToken: (text)   => { tokenQueueRef.current += text },
-                    onAsset: (symbol) => { if (symbol) { setChartSymbol(symbol); setActiveNewsSymbol(symbol); setAssetNewsLoading(true) } },
+                    onAsset: (symbol) => {
+                        if (symbol) {
+                            setChartSymbol(symbol)
+                            if (symbol !== lastFetchedAssetRef.current) {
+                                setActiveNewsSymbol(symbol)
+                                setAssetNewsLoading(true)
+                            }
+                        }
+                    },
 
                     onDone: (data) => {
                         _stopDrain()
@@ -209,7 +226,8 @@ export function MainPage() {
                         const newAsset   = data.analysisState?.structured_state?.active_asset
                         const newCompany = data.analysisState?.structured_state?.active_company_name
                         if (newAsset) setChartSymbol(newAsset)
-                        if (newAsset) {
+                        if (newAsset && newAsset !== lastFetchedAssetRef.current) {
+                            lastFetchedAssetRef.current = newAsset
                             setActiveNewsSymbol(newAsset)
                             setActiveNewsQuery(newCompany || newAsset)
                             setAssetNewsLoading(true)
@@ -265,7 +283,8 @@ export function MainPage() {
         setEditingIdeaId(null)
         setActiveNewsSymbol(null)
         setActiveNewsQuery(null)
-        latestMessagesRef.current = []
+        latestMessagesRef.current   = []
+        lastFetchedAssetRef.current = null
     }
 
     function handleEditIdea(idea) {
@@ -315,7 +334,7 @@ export function MainPage() {
             try {
                 const res = await tradeIdeasService.updateIdea(editingIdeaId, {
                     ...ideaFields,
-                    status:     'pending',
+                    status:     'waiting',
                     chat_state: chatState,
                 })
                 setIdeas(prev => prev.map(i => i.id === editingIdeaId ? res.idea : i))
@@ -324,7 +343,8 @@ export function MainPage() {
                 setMessages([])
                 setActiveNewsSymbol(null)
                 setActiveNewsQuery(null)
-                latestMessagesRef.current = []
+                latestMessagesRef.current   = []
+                lastFetchedAssetRef.current = null
             } catch (err) {
                 console.error('[tradeIdeas] edit update failed', err)
             }
@@ -336,7 +356,8 @@ export function MainPage() {
                 setMessages([])
                 setActiveNewsSymbol(null)
                 setActiveNewsQuery(null)
-                latestMessagesRef.current = []
+                latestMessagesRef.current   = []
+                lastFetchedAssetRef.current = null
             } catch (err) {
                 console.error('[tradeIdeas] create failed', err)
             }
@@ -387,7 +408,7 @@ export function MainPage() {
                         </div>
                         <TradeIdeasList
                             ideas={ideas
-                                .filter(i => ['pending', 'active', 'triggered'].includes(i.status))
+                                .filter(i => i.status !== 'closed')
                                 .filter(i => i.id !== editingIdeaId)}
                             buildingIdea={buildingIdea}
                             onDelete={handleDeleteIdea}
@@ -421,7 +442,7 @@ export function MainPage() {
 
                 {/* ── Mobile monitor dashboard ── */}
                 <MonitorDashboard
-                    ideas={ideas.filter(i => ['pending', 'active', 'triggered'].includes(i.status))}
+                    ideas={ideas.filter(i => i.status !== 'closed')}
                     newsArticles={newsArticles}
                     newsLoading={newsLoading}
                     onUpdate={handleUpdateIdea}

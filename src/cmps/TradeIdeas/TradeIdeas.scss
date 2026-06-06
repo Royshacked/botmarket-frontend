@@ -299,47 +299,50 @@
     50%       { opacity: 1;   }
 }
 
-// ── Trade Idea Dialog ──────────────────────────────────────────────────────────
+// ── Trade Idea Dialog (draggable floating panel) ───────────────────────────────
 
 .idea-dialog {
-    &__backdrop {
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.65);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 100;
-    }
-
+    position: fixed;
+    z-index: 200;
+    width: 540px;
+    height: 660px;
+    display: flex;
+    flex-direction: column;
     background: var(--bg-surface);
     border: 1px solid var(--accent-deep);
     border-radius: 8px;
-    width: min(560px, 92vw);
-    max-height: 80vh;
-    display: flex;
-    flex-direction: column;
     color: var(--text-primary);
+    box-shadow: 0 20px 70px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(42, 90, 154, 0.18);
 
     &__header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 14px 18px;
+        padding: 11px 16px;
         border-bottom: 1px solid var(--accent-deep);
         flex-shrink: 0;
+        cursor: grab;
+        &:active { cursor: grabbing; }
+        border-radius: 8px 8px 0 0;
+        background: var(--bg-base);
     }
 
     &__title {
-        font-size: 1rem;
+        font-size: 0.95rem;
         font-weight: 700;
         color: var(--text-primary);
+        pointer-events: none;
     }
 
     &__direction {
         font-weight: 600;
         &.direction--long  { color: #4caf50; }
         &.direction--short { color: #ef5350; }
+    }
+
+    &__meta {
+        color: #2a5a9a;
+        font-weight: 400;
     }
 
     &__close {
@@ -349,15 +352,25 @@
         font-size: 1.3rem;
         cursor: pointer;
         line-height: 1;
+        flex-shrink: 0;
         &:hover { color: #ef5350; }
     }
 
+    &__chart {
+        height: 260px;
+        flex-shrink: 0;
+        border-bottom: 1px solid var(--accent-deep);
+
+        // TradingView iframe needs explicit height on its container
+        .tv-chart { height: 100%; }
+    }
+
     &__body {
-        padding: 16px 18px;
+        padding: 14px 16px;
         overflow-y: auto;
         display: flex;
         flex-direction: column;
-        gap: 14px;
+        gap: 12px;
         flex: 1;
 
         scrollbar-width: thin;
@@ -386,60 +399,37 @@
                 color: var(--text-dim);
             }
         }
-
-        &-header {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            color: var(--accent);
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            font-size: 0.68rem;
-
-            em {
-                font-style: normal;
-                font-weight: 400;
-                text-transform: none;
-                color: var(--text-dim);
-            }
-        }
-
-        input, textarea {
-            background: var(--bg-base);
-            border: 1px solid #0d2a55;
-            border-radius: 4px;
-            color: var(--text-primary);
-            font-size: 0.78rem;
-            padding: 7px 10px;
-            resize: vertical;
-            font-family: inherit;
-
-            &::placeholder { color: var(--text-dim); }
-            &:focus {
-                outline: none;
-                border-color: var(--accent);
-            }
-        }
     }
 
-    // ── select inside a field (direction / type) ──────────────────────────
+    &__ae-qty {
+        display: inline-block;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.68rem;
+        color: #2a5a9a;
+        margin-bottom: 3px;
+    }
+
+    &__notes {
+        margin: 0;
+        color: #7a9bc0;
+        font-size: 0.78rem;
+    }
+
     select {
         background: var(--bg-base);
         border: 1px solid #0d2a55;
         border-radius: 4px;
         color: var(--text-primary);
         font-size: 0.78rem;
-        padding: 7px 28px 7px 10px;   // extra right padding — arrow away from border
+        padding: 7px 28px 7px 10px;
         font-family: inherit;
         cursor: pointer;
         appearance: auto;
-
         &:focus { outline: none; border-color: var(--accent); }
     }
 
     &__footer {
-        padding: 12px 18px;
+        padding: 10px 16px;
         border-top: 1px solid #0d2a55;
         display: flex;
         justify-content: flex-end;
@@ -462,10 +452,6 @@
             background: rgba(239, 83, 80, 0.12);
             color: #e57373;
             margin-right: auto;
-        }
-        &--cancel {
-            background: #0d2a55;
-            color: var(--text-secondary);
         }
         &--save {
             background: #2a5a9a;
