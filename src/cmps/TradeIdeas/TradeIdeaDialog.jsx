@@ -216,8 +216,8 @@ export function TradeIdeaDialog({ idea, onClose, onEdit, onDelete }) {
             </div>
 
             <div className="idea-dialog__footer">
-                <button className="idea-dialog__btn idea-dialog__btn--delete" onClick={handleDelete}>Delete</button>
-                <button className="idea-dialog__btn idea-dialog__btn--save"   onClick={handleEditInChat}>Edit in chat</button>
+                {onDelete && <button className="idea-dialog__btn idea-dialog__btn--delete" onClick={handleDelete}>Delete</button>}
+                {onEdit   && <button className="idea-dialog__btn idea-dialog__btn--save"   onClick={handleEditInChat}>Edit in chat</button>}
             </div>
         </div>
     )
@@ -226,6 +226,6 @@ export function TradeIdeaDialog({ idea, onClose, onEdit, onDelete }) {
 TradeIdeaDialog.propTypes = {
     idea:     PropTypes.object,
     onClose:  PropTypes.func.isRequired,
-    onEdit:   PropTypes.func.isRequired,
-    onDelete: PropTypes.func.isRequired,
+    onEdit:   PropTypes.func,
+    onDelete: PropTypes.func,
 }

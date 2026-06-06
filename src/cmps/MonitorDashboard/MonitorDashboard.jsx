@@ -11,7 +11,7 @@ const BROKER_LABELS = {
     ibkr:    'IBKR',
 }
 
-export function MonitorDashboard({ ideas, newsArticles, newsLoading, onUpdate, onStatusChange, onDelete }) {
+export function MonitorDashboard({ ideas, newsArticles, newsLoading, onUpdate, onStatusChange, onDelete, onEdit }) {
     const [activeIdea, setActiveIdea] = useState(null)
 
     // { ctrader: bool, ibkr: bool }
@@ -20,10 +20,10 @@ export function MonitorDashboard({ ideas, newsArticles, newsLoading, onUpdate, o
     // { ctrader: { account, positions } | null, ibkr: ... }
     const [brokerData, setBrokerData] = useState({})
 
-    const inPosition = ideas.filter(i => i.status === 'in_position').length
-    const triggered  = ideas.filter(i => i.status === 'triggered').length
-    const active     = ideas.filter(i => i.status === 'active').length
-    const pending    = ideas.filter(i => i.status === 'pending').length
+    const inPosition = ideas.filter(i => i.status === 'long' || i.status === 'short').length
+    const triggered  = ideas.filter(i => i.status === 'hit').length
+    const active     = ideas.filter(i => i.status === 'looking').length
+    const pending    = ideas.filter(i => i.status === 'waiting').length
     const closed     = ideas.filter(i => i.status === 'closed').length
 
     // Load broker connections on mount + after OAuth redirect
@@ -84,7 +84,7 @@ export function MonitorDashboard({ ideas, newsArticles, newsLoading, onUpdate, o
     }
 
     const sorted = [...ideas].sort((a, b) => {
-        const order = { in_position: 0, triggered: 1, active: 2, pending: 3, closed: 4 }
+        const order = { long: 0, short: 0, hit: 1, looking: 2, waiting: 3, closed: 4 }
         return (order[a.status] ?? 5) - (order[b.status] ?? 5)
     })
 
@@ -222,7 +222,8 @@ export function MonitorDashboard({ ideas, newsArticles, newsLoading, onUpdate, o
             <TradeIdeaDialog
                 idea={activeIdea}
                 onClose={() => setActiveIdea(null)}
-                onSave={handleSave}
+                onDelete={onDelete}
+                onEdit={onEdit}
             />
         </div>
     )
@@ -235,4 +236,5 @@ MonitorDashboard.propTypes = {
     onUpdate:       PropTypes.func.isRequired,
     onStatusChange: PropTypes.func.isRequired,
     onDelete:       PropTypes.func.isRequired,
+    onEdit:         PropTypes.func,
 }

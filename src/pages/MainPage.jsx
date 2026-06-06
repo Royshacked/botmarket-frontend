@@ -448,6 +448,7 @@ export function MainPage() {
                     onUpdate={handleUpdateIdea}
                     onStatusChange={handleStatusChange}
                     onDelete={handleDeleteIdea}
+                    onEdit={handleEditIdea}
                 />
             </main>
 

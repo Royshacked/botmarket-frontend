@@ -11,16 +11,17 @@ function conditionPreview(arr) {
 
 function phaseInfo(idea) {
     if (idea.status === 'closed') {
-        if (idea.closedReason === 'tp')   return { label: 'Target hit',   cls: 'tp',       dot: '✓' }
-        if (idea.closedReason === 'stop') return { label: 'Stopped out',  cls: 'stop',     dot: '✗' }
-        return                                   { label: 'Closed',       cls: 'closed',   dot: '·' }
+        if (idea.closedReason === 'tp')   return { label: 'Target hit',      cls: 'tp',       dot: '✓' }
+        if (idea.closedReason === 'stop') return { label: 'Stopped out',     cls: 'stop',     dot: '✗' }
+        return                                   { label: 'Closed',          cls: 'closed',   dot: '·' }
     }
-    if (idea.status === 'active') {
-        if (idea.monitorPhase === 'position')
-            return { label: 'In position',  cls: 'position', dot: '●' }
-        return     { label: 'Entry watch',  cls: 'entry',    dot: '◎' }
-    }
-    return         { label: 'Pending',      cls: 'pending',  dot: '○' }
+    if (idea.status === 'long' || idea.status === 'short')
+        return { label: 'In position',   cls: 'position', dot: '●' }
+    if (idea.status === 'hit')
+        return { label: 'Entry triggered', cls: 'entry',  dot: '◎' }
+    if (idea.status === 'looking')
+        return { label: 'Watching',      cls: 'entry',    dot: '◎' }
+    return     { label: 'Waiting',       cls: 'pending',  dot: '○' }
 }
 
 export function IdeaCard({ idea, onOpen }) {
