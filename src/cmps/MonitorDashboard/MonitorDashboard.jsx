@@ -12,7 +12,7 @@ const BROKER_LABELS = {
 }
 
 export function MonitorDashboard({ ideas, newsArticles, newsLoading, onUpdate, onStatusChange, onDelete, onEdit }) {
-    const [activeIdea, setActiveIdea] = useState(null)
+    const [openIdeas, setOpenIdeas] = useState([])
 
     // { ctrader: bool, ibkr: bool }
     const [connections, setConnections] = useState({})
@@ -78,9 +78,12 @@ export function MonitorDashboard({ ideas, newsArticles, newsLoading, onUpdate, o
         }
     }
 
-    async function handleSave(id, patch) {
-        await onUpdate(id, patch)
-        setActiveIdea(null)
+    function handleOpen(idea) {
+        setOpenIdeas(prev => prev.some(i => i.id === idea.id) ? prev : [...prev, idea])
+    }
+
+    function handleClose(id) {
+        setOpenIdeas(prev => prev.filter(i => i.id !== id))
     }
 
     const sorted = [...ideas].sort((a, b) => {
@@ -206,7 +209,7 @@ export function MonitorDashboard({ ideas, newsArticles, newsLoading, onUpdate, o
                         <IdeaCard
                             key={idea.id}
                             idea={idea}
-                            onOpen={setActiveIdea}
+                            onOpen={handleOpen}
                         />
                     ))
                 )}
@@ -218,13 +221,17 @@ export function MonitorDashboard({ ideas, newsArticles, newsLoading, onUpdate, o
                 <NewsFeed articles={newsArticles} isLoading={newsLoading} />
             </div>
 
-            {/* ── Idea detail dialog ────────────────────────────── */}
-            <TradeIdeaDialog
-                idea={activeIdea}
-                onClose={() => setActiveIdea(null)}
-                onDelete={onDelete}
-                onEdit={onEdit}
-            />
+            {/* ── Idea detail dialogs (one per open idea) ──────── */}
+            {openIdeas.map((idea, idx) => (
+                <TradeIdeaDialog
+                    key={idea.id}
+                    idea={idea}
+                    index={idx}
+                    onClose={() => handleClose(idea.id)}
+                    onDelete={onDelete}
+                    onEdit={onEdit}
+                />
+            ))}
         </div>
     )
 }

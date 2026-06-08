@@ -345,6 +345,41 @@
         font-weight: 400;
     }
 
+    &__status {
+        font-size: 0.68rem;
+        font-weight: 600;
+        padding: 2px 7px;
+        border-radius: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-left: 6px;
+
+        &.status--waiting { background: rgba(100,116,139,0.2); color: #94a3b8; }
+        &.status--looking { background: rgba(59,130,246,0.2);  color: #60a5fa; }
+        &.status--hit     { background: rgba(234,179,8,0.2);   color: #facc15; }
+        &.status--long    { background: rgba(34,197,94,0.2);   color: #22c55e; }
+        &.status--short   { background: rgba(239,68,68,0.2);   color: #f87171; }
+        &.status--closed  { background: rgba(100,116,139,0.15);color: #64748b; }
+    }
+
+    &__header-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+    }
+
+    &__popout {
+        background: none;
+        border: none;
+        color: #2a4a7a;
+        font-size: 1rem;
+        cursor: pointer;
+        line-height: 1;
+        padding: 0 4px;
+        &:hover { color: var(--accent); }
+    }
+
     &__close {
         background: none;
         border: none;

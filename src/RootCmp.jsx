@@ -1,14 +1,19 @@
 import { useContext } from 'react'
-import { Routes, Route } from 'react-router'
+import { Routes, Route, useLocation } from 'react-router'
 
 import { AuthContext } from './context/AuthContext'
 import { AuthModal } from './cmps/AuthModal/AuthModal'
 import { AppHeader } from './cmps/AppHeader.jsx'
 import { MainPage } from './pages/MainPage.jsx'
 import { UserProfile } from './pages/UserProfile.jsx'
+import { IdeaPage } from './pages/IdeaPage.jsx'
 
 export function RootCmp() {
     const { user, isLoading } = useContext(AuthContext)
+    const location = useLocation()
+
+    // Idea pop-out window — no chrome, full viewport
+    if (location.pathname.startsWith('/idea/')) return <IdeaPage />
 
     return (
         <>

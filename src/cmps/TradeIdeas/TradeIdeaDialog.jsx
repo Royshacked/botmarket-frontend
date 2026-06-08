@@ -2,9 +2,20 @@ import { useState, useEffect, Fragment } from 'react'
 import PropTypes from 'prop-types'
 import { TradingViewChart } from '../TradingViewChart/TradingViewChart.jsx'
 
+// ── Status badge ─────────────────────────────────────────────────────────────
+
+const STATUS_LABEL = {
+    waiting: 'Waiting',
+    looking: 'Watching',
+    hit:     'Entry triggered',
+    long:    'Long ●',
+    short:   'Short ●',
+    closed:  'Closed',
+}
+
 // ── Condition tree helpers ────────────────────────────────────────────────────
 
-function getTree(idea, treeField, condField, logicField) {
+export function getTree(idea, treeField, condField, logicField) {
     if (idea[treeField]) return idea[treeField]
     const conds = idea[condField]
     if (Array.isArray(conds) && conds.length > 0)
@@ -25,7 +36,7 @@ function flattenInline(node, parentOp = null) {
 
 // ── Tree display components ───────────────────────────────────────────────────
 
-function LeafChip({ leaf, inline }) {
+export function LeafChip({ leaf, inline }) {
     if (!leaf || typeof leaf.condition !== 'string') return null
     const type = leaf.type ?? 'structured'
     return (
@@ -38,7 +49,7 @@ function LeafChip({ leaf, inline }) {
     )
 }
 
-function TreeRow({ node }) {
+export function TreeRow({ node }) {
     if (typeof node?.condition === 'string') {
         return (
             <div className="ctree__row ctree__row--leaf">
@@ -62,7 +73,7 @@ function TreeRow({ node }) {
     return null
 }
 
-function ConditionTreeView({ node }) {
+export function ConditionTreeView({ node }) {
     if (!node) return <p className="ctree__empty">—</p>
     if (typeof node.condition === 'string') {
         return (
@@ -93,15 +104,16 @@ function ConditionTreeView({ node }) {
 const DIALOG_W = 540
 const DIALOG_H = 660
 
-export function TradeIdeaDialog({ idea, onClose, onEdit, onDelete }) {
+export function TradeIdeaDialog({ idea, index = 0, onClose, onEdit, onDelete }) {
     const [pos, setPos] = useState({ x: 0, y: 0 })
 
-    // Centre whenever a new idea is opened
+    // Centre + cascade by index whenever a new idea is opened
     useEffect(() => {
         if (!idea) return
+        const offset = index * 30
         setPos({
-            x: Math.max(20, (window.innerWidth  - DIALOG_W) / 2),
-            y: Math.max(20, (window.innerHeight - DIALOG_H) / 2),
+            x: Math.max(20, (window.innerWidth  - DIALOG_W) / 2 + offset),
+            y: Math.max(20, (window.innerHeight - DIALOG_H) / 2 + offset),
         })
     }, [idea?.id])
 
@@ -143,6 +155,13 @@ export function TradeIdeaDialog({ idea, onClose, onEdit, onDelete }) {
         onEdit(idea)
     }
 
+    function handlePopOut() {
+        localStorage.setItem(`popup-idea-${idea.id}`, JSON.stringify(idea))
+        const popup = window.open(`/idea/${idea.id}`, `idea-${idea.id}`, 'width=960,height=720')
+        if (popup) popup.__ideaData = idea
+        onClose()
+    }
+
     return (
         <div
             className="idea-dialog"
@@ -156,12 +175,16 @@ export function TradeIdeaDialog({ idea, onClose, onEdit, onDelete }) {
                     </span>
                     {idea.quantity != null && <span className="idea-dialog__meta"> · {idea.quantity}</span>}
                     {idea.type     != null && <span className="idea-dialog__meta"> · {idea.type}</span>}
+                    {idea.status   != null && (
+                        <span className={`idea-dialog__status status--${idea.status}`}>
+                            {STATUS_LABEL[idea.status] ?? idea.status}
+                        </span>
+                    )}
                 </span>
-                <button
-                    className="idea-dialog__close"
-                    onClick={onClose}
-                    onMouseDown={e => e.stopPropagation()}
-                >×</button>
+                <div className="idea-dialog__header-actions" onMouseDown={e => e.stopPropagation()}>
+                    <button className="idea-dialog__popout" onClick={handlePopOut} title="Pop out">⤢</button>
+                    <button className="idea-dialog__close"  onClick={onClose}>×</button>
+                </div>
             </div>
 
             <div className="idea-dialog__chart">
@@ -225,6 +248,7 @@ export function TradeIdeaDialog({ idea, onClose, onEdit, onDelete }) {
 
 TradeIdeaDialog.propTypes = {
     idea:     PropTypes.object,
+    index:    PropTypes.number,
     onClose:  PropTypes.func.isRequired,
     onEdit:   PropTypes.func,
     onDelete: PropTypes.func,

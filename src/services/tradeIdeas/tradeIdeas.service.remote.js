@@ -3,6 +3,7 @@ import { httpService } from '../http.service'
 export const tradeIdeasService = {
     createIdea,
     getIdeas,
+    getIdea,
     deleteIdea,
     updateIdea,
 }
@@ -15,6 +16,11 @@ async function createIdea(idea) {
 async function getIdeas() {
     const res = await httpService.get('trade-ideas')
     return Array.isArray(res.ideas) ? res.ideas : []
+}
+
+async function getIdea(id) {
+    const res = await httpService.get(`trade-ideas/${id}`)
+    return res.idea ?? null
 }
 
 async function deleteIdea(id) {
