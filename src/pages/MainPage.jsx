@@ -70,9 +70,8 @@ export function MainPage() {
         drainTimerRef.current = setInterval(() => {
             const q = tokenQueueRef.current
             if (!q.length) return
-            const n = 2
-            const chunk = q.slice(0, n)
-            tokenQueueRef.current = q.slice(n)
+            const chunk = q.slice(0, 1)
+            tokenQueueRef.current = q.slice(1)
             setMessages(prev => {
                 const msgs = [...prev]
                 const last = msgs[msgs.length - 1]
@@ -80,7 +79,7 @@ export function MainPage() {
                 msgs[msgs.length - 1] = { ...last, content: last.content + chunk }
                 return msgs
             })
-        }, 40)
+        }, 60)
     }
 
     function _stopDrain() {

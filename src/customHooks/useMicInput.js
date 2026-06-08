@@ -3,8 +3,8 @@ import { useState, useRef, useCallback } from 'react'
 const BACKEND_URL = import.meta.env.PROD ? '' : 'http://localhost:3030'
 
 /**
- * Hold-to-talk mic input hook.
- * Call start() on mousedown, stop() on mouseup/mouseleave.
+ * Toggle-to-talk mic input hook.
+ * Call toggle() to start/stop recording.
  * onTranscript(text) is called when transcription succeeds.
  */
 export function useMicInput({ onTranscript }) {
@@ -77,5 +77,10 @@ export function useMicInput({ onTranscript }) {
         setIsRecording(false)
     }, [])
 
-    return { isRecording, isTranscribing, error, start, stop }
+    const toggle = useCallback(() => {
+        if (isRecording) stop()
+        else start()
+    }, [isRecording, start, stop])
+
+    return { isRecording, isTranscribing, error, toggle }
 }

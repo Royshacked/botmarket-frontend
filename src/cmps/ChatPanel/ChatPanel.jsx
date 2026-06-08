@@ -94,17 +94,34 @@ function canGenerate(analysisState) {
 export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, isLoading, isEditing = false }) {
     const [input, setInput] = useState('')
 
-    const onTranscript = useCallback((text) => {
-        setInput(prev => prev ? `${prev} ${text}` : text)
-    }, [])
+    const analysisStateRef = useRef(analysisState)
+    useEffect(() => { analysisStateRef.current = analysisState }, [analysisState])
 
-    const { isRecording, isTranscribing, start: startMic, stop: stopMic } = useMicInput({ onTranscript })
-    const messagesEndRef      = useRef(null)
-    const generateReady       = canGenerate(analysisState)
+    const onTranscript = useCallback((text) => {
+        if (text) onSend(text, analysisStateRef.current)
+    }, [onSend])
+
+    const { isRecording, isTranscribing, toggle: toggleMic } = useMicInput({ onTranscript })
+    const messagesEndRef   = useRef(null)
+    const inputRef         = useRef(null)
+    const prevMsgCount     = useRef(0)
+    const wasStreaming     = useRef(false)
+    const generateReady    = canGenerate(analysisState)
 
     useEffect(() => {
-        const streaming = messages.some(m => m.streaming)
-        messagesEndRef.current?.scrollIntoView({ behavior: streaming ? 'auto' : 'smooth' })
+        const streaming    = messages.some(m => m.streaming)
+        const countChanged = messages.length !== prevMsgCount.current
+        const justFinished = wasStreaming.current && !streaming
+
+        prevMsgCount.current = messages.length
+        wasStreaming.current = streaming
+
+        if (countChanged || justFinished) {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+        }
+        if (justFinished) {
+            inputRef.current?.focus()
+        }
     }, [messages, isLoading])
 
     function handleKeyDown(ev) {
@@ -187,6 +204,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
 
             <div className="chat-panel__input-row">
                 <textarea
+                    ref={inputRef}
                     className="chat-panel__textarea"
                     value={input}
                     onChange={e => setInput(e.target.value)}
@@ -197,13 +215,9 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                 />
                 <button
                     className={`chat-panel__mic ${isRecording ? 'recording' : ''} ${isTranscribing ? 'transcribing' : ''}`}
-                    onMouseDown={startMic}
-                    onMouseUp={stopMic}
-                    onMouseLeave={stopMic}
-                    onTouchStart={e => { e.preventDefault(); startMic() }}
-                    onTouchEnd={stopMic}
+                    onClick={toggleMic}
                     disabled={isLoading || isTranscribing}
-                    title="Hold to talk"
+                    title={isRecording ? 'Stop recording' : 'Start recording'}
                 >
                     {isTranscribing ? (
                         <span className="chat-panel__mic-spinner" />
