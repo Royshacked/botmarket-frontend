@@ -92,16 +92,14 @@ function canGenerate(analysisState) {
     )
 }
 
-export function ChatPanel({ messages = [], analysisState = {}, brokerContext = {}, onSend, onGenerate, onClear, isLoading, isEditing = false }) {
+export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, isLoading, isEditing = false }) {
     const [input, setInput] = useState('')
 
     const analysisStateRef = useRef(analysisState)
-    const brokerContextRef = useRef(brokerContext)
     useEffect(() => { analysisStateRef.current = analysisState }, [analysisState])
-    useEffect(() => { brokerContextRef.current = brokerContext }, [brokerContext])
 
     const onTranscript = useCallback((text) => {
-        if (text) onSend(text, analysisStateRef.current, brokerContextRef.current)
+        if (text) onSend(text, analysisStateRef.current)
     }, [onSend])
 
     const { isRecording, isTranscribing, toggle: toggleMic } = useMicInput({ onTranscript })
@@ -137,7 +135,7 @@ export function ChatPanel({ messages = [], analysisState = {}, brokerContext = {
     function handleSend() {
         const trimmed = input.trim()
         if (!trimmed || isLoading) return
-        onSend(trimmed, analysisState, brokerContext)
+        onSend(trimmed, analysisState)
         setInput('')
     }
 

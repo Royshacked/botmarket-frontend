@@ -8,7 +8,6 @@ import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
 import { MonitorDashboard }  from '../cmps/MonitorDashboard/MonitorDashboard.jsx'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
-import { brokerService }     from '../services/broker/broker.service.remote.js'
 
 const NEWS_STREAM_URL = import.meta.env.PROD
     ? '/news-feed/stream'
@@ -57,7 +56,6 @@ export function MainPage() {
     const [assetSentimentLoading, setAssetSentimentLoading] = useState(false)
     const [ideas, setIdeas] = useState([])
     const [editingIdeaId, setEditingIdeaId] = useState(null)
-    const [brokerContext, setBrokerContext] = useState({})
     const latestMessagesRef    = useRef([])
     const lastFetchedAssetRef  = useRef(null)
 
@@ -185,30 +183,8 @@ export function MainPage() {
         return () => clearInterval(interval)
     }, [loadIdeas])
 
-    useEffect(() => {
-        async function loadBrokerContext() {
-            try {
-                const conns = await brokerService.listConnections()
-                const entries = await Promise.all(
-                    Object.entries(conns)
-                        .filter(([, connected]) => connected)
-                        .map(async ([type]) => {
-                            try {
-                                const [account, positions] = await Promise.all([
-                                    brokerService.getAccount(type),
-                                    brokerService.getPositions(type),
-                                ])
-                                return [type, { account, positions }]
-                            } catch { return null }
-                        })
-                )
-                setBrokerContext(Object.fromEntries(entries.filter(Boolean)))
-            } catch { /* broker unavailable — stay empty */ }
-        }
-        loadBrokerContext()
-    }, [])
 
-    async function handleSend(userPrompt, currentAnalysisState, currentBrokerContext) {
+    async function handleSend(userPrompt, currentAnalysisState) {
         setMessages(prev => [
             ...prev,
             { role: 'user', content: userPrompt },
@@ -221,7 +197,6 @@ export function MainPage() {
             await userPromptService.sendPromptStream(
                 userPrompt,
                 currentAnalysisState,
-                currentBrokerContext,
                 {
                     // Buffer only — drain timer handles the actual state updates
                     onToken: (text)   => { tokenQueueRef.current += text },
@@ -448,7 +423,6 @@ export function MainPage() {
                         <ChatPanel
                             messages={messages}
                             analysisState={analysisState}
-                            brokerContext={brokerContext}
                             onSend={handleSend}
                             onGenerate={handleGenerate}
                             onClear={handleCancelBuild}
