@@ -72,7 +72,7 @@ export function UserProfile() {
     }
 
     function handleConnect(brokerType) {
-        window.open(brokerService.getConnectUrl(brokerType), '_blank')
+        window.location.href = brokerService.getConnectUrl(brokerType)
     }
 
     function handleEditStart() {
