@@ -87,6 +87,7 @@ function canGenerate(analysisState) {
         pt.direction &&
         pt.entry_conditions?.length > 0 &&
         pt.stop_conditions?.length > 0 &&
+        pt.tp_conditions?.length > 0 &&
         pt.quantity != null
     )
 }
