@@ -7,6 +7,8 @@ export const brokerService = {
     getConnectUrl,
     getAccount,
     getPositions,
+    getTradingAccounts,
+    setSelectedAccount,
     disconnect,
 }
 
@@ -46,6 +48,23 @@ async function getAccount(brokerType) {
 async function getPositions(brokerType) {
     const res = await httpService.get(`${BASE}/${brokerType}/positions`)
     return Array.isArray(res.positions) ? res.positions : []
+}
+
+/**
+ * @param {'ctrader'|'ibkr'} brokerType
+ * @returns {Promise<{ accounts: object[], selectedAccountId: string|null }>}
+ */
+async function getTradingAccounts(brokerType) {
+    return httpService.get(`${BASE}/${brokerType}/trading-accounts`)
+}
+
+/**
+ * @param {'ctrader'|'ibkr'} brokerType
+ * @param {string} accountId
+ * @returns {Promise<void>}
+ */
+async function setSelectedAccount(brokerType, accountId) {
+    await httpService.patch(`${BASE}/connections/${brokerType}/account`, { accountId })
 }
 
 /**

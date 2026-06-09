@@ -1,87 +1,236 @@
-// ── Palette ────────────────────────────────────────────────────────────────
-$bg-surface:  #131614;
-$bg-raised:   #1a1e1c;
-$green-deep:  #2d6a4f;
-$green-mid:   #4a7c5e;
-$green-light: #c8e6c9;
-$text-primary:   #d4e8d4;
-$text-secondary: #7a9e7a;
-$border:         rgba(45, 106, 79, 0.25);
-$border-active:  rgba(74, 124, 94, 0.55);
-
 .user-profile {
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
     flex: 1;
-    padding: 2rem;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--bg-base);
+    color: var(--text-primary);
     font-family: 'IBM Plex Sans', sans-serif;
-    color: $text-primary;
 
-    &__card {
-        background: $bg-surface;
-        border: 1px solid $border-active;
-        border-radius: 8px;
-        padding: 2rem;
-        width: 100%;
-        max-width: 400px;
+    // ── Body — two columns, fills remaining height ────────────────────────────
+    &__body {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: row;
+        gap: 1px;
+        overflow: hidden;
+        background: var(--border-mid); // acts as column divider
+    }
+
+    // ── Columns ──────────────────────────────────────────────────────────────
+    &__col {
+        flex: 1;
+        min-width: 0;
         display: flex;
         flex-direction: column;
         gap: 1rem;
-        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+        padding: 1.25rem 1.5rem;
+        background: var(--bg-base);
+        overflow: hidden;
     }
 
-    &__title {
+    &__spacer {
+        flex: 1;
+    }
+
+    // ── Sections ─────────────────────────────────────────────────────────────
+    &__section {
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 1rem 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+
+        &--brokers {
+            flex: 1; // brokers section stretches to fill right column
+        }
+    }
+
+    &__section-title {
         font-family: 'IBM Plex Mono', monospace;
-        font-size: 12px;
+        font-size: 0.68rem;
         font-weight: 600;
         letter-spacing: 0.14em;
         text-transform: uppercase;
-        color: $green-light;
-        margin: 0 0 0.25rem;
+        color: var(--accent-light);
+        margin: 0 0 0.1rem;
     }
 
-    &__field {
+    // ── Rows ─────────────────────────────────────────────────────────────────
+    &__row {
         display: flex;
         flex-direction: column;
         gap: 0.25rem;
-        padding: 0.75rem;
-        background: $bg-raised;
-        border: 1px solid $border;
+        padding: 0.6rem 0.75rem;
+        background: var(--bg-raised);
+        border: 1px solid var(--border);
         border-radius: 4px;
+
+        &--inline {
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+        }
     }
 
     &__label {
         font-family: 'IBM Plex Mono', monospace;
-        font-size: 9px;
+        font-size: 0.65rem;
         letter-spacing: 0.1em;
         text-transform: uppercase;
-        color: $text-secondary;
+        color: var(--text-secondary);
     }
 
     &__value {
-        font-size: 14px;
+        font-size: 0.9rem;
         font-weight: 500;
-        color: $text-primary;
+        color: var(--text-primary);
     }
 
-    &__signout {
-        margin-top: 0.25rem;
-        padding: 10px;
-        background: transparent;
-        border: 1px solid $green-mid;
+    // ── Input ────────────────────────────────────────────────────────────────
+    &__input {
+        background: var(--bg-deep);
+        border: 1px solid var(--border-strong);
         border-radius: 3px;
-        color: $green-mid;
+        color: var(--text-primary);
+        font-family: 'IBM Plex Sans', sans-serif;
+        font-size: 0.9rem;
+        font-weight: 500;
+        padding: 4px 8px;
+        outline: none;
+        width: 100%;
+        transition: border-color 0.15s;
+
+        &:focus { border-color: var(--accent); }
+    }
+
+    // ── Edit actions ─────────────────────────────────────────────────────────
+    &__edit-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    // ── Buttons ──────────────────────────────────────────────────────────────
+    &__btn {
+        padding: 7px 14px;
+        border-radius: 4px;
         font-family: 'IBM Plex Mono', monospace;
-        font-size: 11px;
-        letter-spacing: 0.1em;
+        font-size: 0.7rem;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
         cursor: pointer;
-        transition: background 0.15s, color 0.15s;
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
 
-        &:hover {
-            background: rgba(74, 124, 94, 0.14);
-            color: $green-light;
+        &--primary {
+            background: var(--accent-deep);
+            border: 1px solid var(--accent);
+            color: var(--accent-bright);
+
+            &:hover:not(:disabled) {
+                background: var(--accent);
+                color: var(--bg-base);
+            }
+
+            &:disabled { opacity: 0.4; cursor: default; }
         }
+
+        &--ghost {
+            background: none;
+            border: 1px solid var(--border-mid);
+            color: var(--text-secondary);
+
+            &:hover:not(:disabled) {
+                border-color: var(--border-strong);
+                color: var(--accent-bright);
+            }
+
+            &:disabled { opacity: 0.4; cursor: default; }
+        }
+
+        &--danger {
+            background: none;
+            border: 1px solid rgba(229, 115, 115, 0.3);
+            color: rgba(229, 115, 115, 0.65);
+
+            &:hover {
+                background: rgba(229, 115, 115, 0.08);
+                color: var(--color-error);
+                border-color: rgba(229, 115, 115, 0.6);
+            }
+        }
+
+        &--signout {
+            background: none;
+            border: 1px solid var(--border-mid);
+            color: rgba(229, 115, 115, 0.6);
+            padding: 9px 18px;
+            align-self: flex-start;
+
+            &:hover {
+                background: rgba(229, 115, 115, 0.07);
+                color: var(--color-error);
+                border-color: rgba(229, 115, 115, 0.5);
+            }
+        }
+    }
+
+    // ── Broker cards ─────────────────────────────────────────────────────────
+    &__broker {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 0.75rem;
+        background: var(--bg-raised);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+    }
+
+    &__broker-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    &__broker-name {
+        font-size: 0.88rem;
+        font-weight: 500;
+        color: var(--text-primary);
+    }
+
+    &__broker-status {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.65rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+
+        &.connected { color: var(--color-long); }
+    }
+
+    &__select {
+        width: 100%;
+        margin-top: 0.2rem;
+        padding: 6px 8px;
+        background: var(--bg-deep);
+        border: 1px solid var(--border-strong);
+        border-radius: 3px;
+        color: var(--text-primary);
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.72rem;
+        cursor: pointer;
+        outline: none;
+
+        &:focus   { border-color: var(--accent); }
+        &:disabled { opacity: 0.5; cursor: default; }
+        option    { background: var(--bg-surface); }
+    }
+
+    &__broker-actions {
+        display: flex;
+        justify-content: flex-end;
     }
 }

@@ -1,7 +1,6 @@
-import { useContext, useRef, useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useContext, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { AuthContext } from '../context/AuthContext'
-import { ThemeSwitcher } from './ThemeSwitcher/ThemeSwitcher'
 
 // ── Static inline-SVG space background ───────────────────────────────────────
 function HeaderBackground() {
@@ -264,32 +263,18 @@ function HeaderBackground() {
 }
 
 export function AppHeader() {
-	const { user, signout } = useContext(AuthContext)
-	const navigate  = useNavigate()
-	const [open, setOpen] = useState(false)
-	const popoverRef = useRef(null)
+	const { user }   = useContext(AuthContext)
+	const navigate   = useNavigate()
+	const { pathname } = useLocation()
+	const onProfile  = pathname === '/profile'
 
 	useEffect(() => {
-		if (!open) return
-		function handleOutside(ev) {
-			if (popoverRef.current && !popoverRef.current.contains(ev.target)) {
-				setOpen(false)
-			}
+		const params = new URLSearchParams(window.location.search)
+		if (params.get('broker') === 'connected') {
+			window.history.replaceState({}, '', window.location.pathname)
+			navigate('/profile')
 		}
-		document.addEventListener('mousedown', handleOutside)
-		return () => document.removeEventListener('mousedown', handleOutside)
-	}, [open])
-
-	function handleMainPage() {
-		setOpen(false)
-		navigate('/')
-	}
-
-	function handleSignout() {
-		setOpen(false)
-		signout()
-		navigate('/')
-	}
+	}, [])
 
 	return (
 		<header className="app-header full">
@@ -309,34 +294,15 @@ export function AppHeader() {
 			</div>
 
 			{user && (
-				<div className="app-header__user-wrap" ref={popoverRef}>
-					<button
-						className={`app-header__user${open ? ' active' : ''}`}
-						onClick={() => setOpen(v => !v)}
-					>
-						👤 {user.fullname}
-					</button>
-
-					{open && (
-						<div className="app-header__popover">
-							<div className="app-header__popover-info">
-								<span className="app-header__popover-name">{user.fullname}</span>
-								<span className="app-header__popover-username">@{user.username}</span>
-							</div>
-							<hr className="app-header__popover-divider" />
-							<div className="app-header__popover-theme">
-								<span className="app-header__popover-theme-label">Theme</span>
-								<ThemeSwitcher />
-							</div>
-							<hr className="app-header__popover-divider" />
-							<button className="app-header__popover-btn" onClick={handleMainPage}>
-								← Main page
-							</button>
-							<button className="app-header__popover-btn app-header__popover-btn--signout" onClick={handleSignout}>
-								Sign out
-							</button>
-						</div>
-					)}
+				<div className="app-header__user-wrap">
+					{onProfile
+						? <button className="app-header__user" onClick={() => navigate('/')}>
+							← Back to Trading
+						  </button>
+						: <button className="app-header__user" onClick={() => navigate('/profile')}>
+							👤 {user.fullname}
+						  </button>
+					}
 				</div>
 			)}
 		</header>

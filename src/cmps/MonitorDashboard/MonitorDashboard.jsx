@@ -65,7 +65,7 @@ export function MonitorDashboard({ ideas, newsArticles, newsLoading, onUpdate, o
     }
 
     function handleConnect(brokerType) {
-        window.location.href = brokerService.getConnectUrl(brokerType)
+        window.open(brokerService.getConnectUrl(brokerType), '_blank')
     }
 
     async function handleDisconnect(brokerType) {
