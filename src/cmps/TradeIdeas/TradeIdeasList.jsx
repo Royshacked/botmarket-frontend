@@ -4,23 +4,95 @@ import { TradeIdeaRow } from './TradeIdeaRow.jsx'
 import { TradeIdeaDialog } from './TradeIdeaDialog.jsx'
 import './TradeIdeas.scss'
 
+function _groupIdeas(ideas) {
+    const groupMap = new Map()
+    const rows = []
+
+    for (const idea of ideas) {
+        if (idea.portfolioId) {
+            if (!groupMap.has(idea.portfolioId)) {
+                const group = {
+                    type:        'group',
+                    portfolioId: idea.portfolioId,
+                    name:        idea.portfolioName || 'Portfolio',
+                    ideas:       [],
+                    savedAt:     idea.savedAt,
+                }
+                groupMap.set(idea.portfolioId, group)
+                rows.push(group)
+            }
+            groupMap.get(idea.portfolioId).ideas.push(idea)
+        } else {
+            rows.push({ type: 'idea', idea, savedAt: idea.savedAt })
+        }
+    }
+
+    return rows.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0))
+}
+
+function PortfolioGroupRow({ group, expanded, onToggle, onDelete, onStatusChange, onOpen, onSymbolClick, onEdit }) {
+    function handleDeleteAll(e) {
+        e.stopPropagation()
+        group.ideas.forEach(idea => onDelete(idea.id))
+    }
+
+    return (
+        <>
+            <tr className="portfolio-group-row" onClick={onToggle}>
+                <td colSpan={4} className="portfolio-group-row__header">
+                    <div className="portfolio-group-row__header-inner">
+                        <span className="portfolio-group-row__toggle">{expanded ? '▾' : '▸'}</span>
+                        <span className="portfolio-group-row__name">{group.name}</span>
+                        <span className="portfolio-group-row__count">{group.ideas.length} ideas</span>
+                    </div>
+                </td>
+                <td className="portfolio-group-row__controls">
+                    <button
+                        className="idea-row__delete"
+                        onClick={handleDeleteAll}
+                        title="Delete all ideas in this portfolio"
+                    >×</button>
+                </td>
+            </tr>
+            {expanded && group.ideas.map(idea => (
+                <TradeIdeaRow
+                    key={idea.id}
+                    idea={idea}
+                    onDelete={onDelete}
+                    onStatusChange={onStatusChange}
+                    onOpen={onOpen}
+                    onSymbolClick={onSymbolClick}
+                    onEdit={onEdit}
+                    isPortfolioChild
+                />
+            ))}
+        </>
+    )
+}
+
 export function TradeIdeasList({ ideas, buildingIdea, onDelete, onCancelBuild, onStatusChange, onUpdate, onSymbolClick, onEdit }) {
-    const [activeIdea, setActiveIdea] = useState(null)
+    const [activeIdea,      setActiveIdea]      = useState(null)
+    const [expandedGroups,  setExpandedGroups]  = useState(new Set())
 
-    function handleOpen(idea) {
-        setActiveIdea(idea)
-    }
-
-    function handleClose() {
-        setActiveIdea(null)
-    }
+    function handleOpen(idea) { setActiveIdea(idea) }
+    function handleClose()    { setActiveIdea(null) }
 
     function handleEdit(idea) {
         setActiveIdea(null)
         if (onEdit) onEdit(idea)
     }
 
-    const hasRows = buildingIdea || ideas.length > 0
+    function toggleGroup(portfolioId) {
+        setExpandedGroups(prev => {
+            const next = new Set(prev)
+            if (next.has(portfolioId)) next.delete(portfolioId)
+            else next.add(portfolioId)
+            return next
+        })
+    }
+
+    const rows   = _groupIdeas(ideas)
+    const hasRows = buildingIdea || rows.length > 0
 
     return (
         <section className="trade-ideas-list full">
@@ -45,7 +117,6 @@ export function TradeIdeasList({ ideas, buildingIdea, onDelete, onCancelBuild, o
                             </tr>
                         </thead>
                         <tbody>
-                            {/* Live building row — always pinned at top */}
                             {buildingIdea && (
                                 <TradeIdeaRow
                                     key="__building__"
@@ -55,17 +126,31 @@ export function TradeIdeasList({ ideas, buildingIdea, onDelete, onCancelBuild, o
                                     onOpen={() => {}}
                                 />
                             )}
-                            {ideas.map(idea => (
-                                <TradeIdeaRow
-                                    key={idea.id}
-                                    idea={idea}
-                                    onDelete={onDelete}
-                                    onStatusChange={onStatusChange}
-                                    onOpen={handleOpen}
-                                    onSymbolClick={onSymbolClick}
-                                    onEdit={onEdit}
-                                />
-                            ))}
+                            {rows.map((row, i) =>
+                                row.type === 'group' ? (
+                                    <PortfolioGroupRow
+                                        key={row.portfolioId}
+                                        group={row}
+                                        expanded={expandedGroups.has(row.portfolioId)}
+                                        onToggle={() => toggleGroup(row.portfolioId)}
+                                        onDelete={onDelete}
+                                        onStatusChange={onStatusChange}
+                                        onOpen={handleOpen}
+                                        onSymbolClick={onSymbolClick}
+                                        onEdit={onEdit}
+                                    />
+                                ) : (
+                                    <TradeIdeaRow
+                                        key={row.idea.id}
+                                        idea={row.idea}
+                                        onDelete={onDelete}
+                                        onStatusChange={onStatusChange}
+                                        onOpen={handleOpen}
+                                        onSymbolClick={onSymbolClick}
+                                        onEdit={onEdit}
+                                    />
+                                )
+                            )}
                         </tbody>
                     </table>
                 )}

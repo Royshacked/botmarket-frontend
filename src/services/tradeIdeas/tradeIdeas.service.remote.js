@@ -2,6 +2,7 @@ import { httpService } from '../http.service'
 
 export const tradeIdeasService = {
     createIdea,
+    createBatch,
     getIdeas,
     getIdea,
     deleteIdea,
@@ -29,4 +30,9 @@ async function deleteIdea(id) {
 
 async function updateIdea(id, patch) {
     return httpService.patch(`trade-ideas/${id}`, patch)
+}
+
+async function createBatch(plan, accounts = [], mainAccountId = null) {
+    const res = await httpService.post('trade-ideas/batch', { plan, accounts, mainAccountId })
+    return Array.isArray(res.ideas) ? res.ideas : []
 }

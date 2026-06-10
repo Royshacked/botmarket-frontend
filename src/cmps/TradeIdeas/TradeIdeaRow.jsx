@@ -4,7 +4,7 @@ import { conditionSummary } from './tradeIdea.utils.js'
 const SYSTEM_STATUSES = new Set(['hit', 'long', 'short', 'closed'])
 const BUILDING = 'building'
 
-export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolClick, onEdit }) {
+export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolClick, onEdit, isPortfolioChild }) {
     const { id, asset, direction, type, status } = idea
     const summary = conditionSummary(idea)
 
@@ -27,7 +27,7 @@ export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolC
     }
 
     return (
-        <tr className={`idea-row idea-row--${status}`} onClick={handleRowClick}>
+        <tr className={`idea-row idea-row--${status}${isPortfolioChild ? ' idea-row--portfolio-child' : ''}`} onClick={handleRowClick}>
             <td
                 className="idea-row__asset"
                 onClick={e => { e.stopPropagation(); if (asset && onSymbolClick) onSymbolClick(asset) }}

@@ -294,6 +294,55 @@
     }
 }
 
+// ── Portfolio Group Row ────────────────────────────────────────────────────────
+
+.portfolio-group-row {
+    cursor: pointer;
+    background: rgba(76, 175, 138, 0.05);
+
+    &:hover { background: rgba(76, 175, 138, 0.09); }
+
+    td {
+        padding: 6px 8px;
+        border-bottom: 1px solid rgba(76, 175, 138, 0.18);
+        vertical-align: middle;
+    }
+
+    &__header-inner {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+    }
+
+    &__toggle {
+        color: #4caf8a;
+        font-size: 0.75rem;
+        flex-shrink: 0;
+    }
+
+    &__name {
+        font-weight: 700;
+        color: #6dd4a8;
+        font-size: 0.75rem;
+        font-family: 'IBM Plex Mono', monospace;
+        letter-spacing: 0.04em;
+    }
+
+    &__count {
+        color: var(--text-muted);
+        font-size: 0.68rem;
+    }
+
+    &__controls {
+        text-align: center;
+    }
+}
+
+.idea-row--portfolio-child {
+    background: rgba(76, 175, 138, 0.02);
+    td:first-child { padding-left: 22px; }
+}
+
 @keyframes idea-build-pulse {
     0%, 100% { opacity: 0.35; }
     50%       { opacity: 1;    }

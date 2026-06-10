@@ -86,15 +86,17 @@ function _renderMarkdown(text) {
 
 export function PortfolioPanel({
     onTickerSelect,
+    onGeneratePlan,
     availableAccounts = [],
     selectedAccounts  = [],
     onAccountsChange,
     mainAccountId     = null,
     onMainAccountChange,
 }) {
-    const [messages,  setMessages]  = useState([])
-    const [inputText, setInputText] = useState('')
-    const [isLoading, setIsLoading] = useState(false)
+    const [messages,    setMessages]    = useState([])
+    const [inputText,   setInputText]   = useState('')
+    const [isLoading,   setIsLoading]   = useState(false)
+    const [pendingPlan, setPendingPlan] = useState(null)
 
     const tokenQueueRef    = useRef('')
     const drainTimerRef    = useRef(null)
@@ -173,6 +175,7 @@ export function PortfolioPanel({
                         }
                         return msgs
                     })
+                    if (data.plan?.ideas?.length) setPendingPlan(data.plan)
                 },
 
                 onError: (message) => {
@@ -239,6 +242,26 @@ export function PortfolioPanel({
                 <div ref={messagesEndRef} />
             </div>
 
+            {pendingPlan && (
+                <div className="portfolio-panel__plan-banner">
+                    <div className="portfolio-panel__plan-info">
+                        <span className="portfolio-panel__plan-name">{pendingPlan.name}</span>
+                        <span className="portfolio-panel__plan-count">{pendingPlan.ideas.length} ideas ready</span>
+                    </div>
+                    <div className="portfolio-panel__plan-actions">
+                        <button className="portfolio-panel__plan-dismiss" onClick={() => setPendingPlan(null)}>
+                            Dismiss
+                        </button>
+                        <button
+                            className="portfolio-panel__plan-generate"
+                            onClick={() => { if (onGeneratePlan) onGeneratePlan(pendingPlan); setPendingPlan(null) }}
+                        >
+                            Generate ideas ↑
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <div className="portfolio-panel__input-row">
                 <textarea
                     ref={textareaRef}
@@ -265,6 +288,7 @@ export function PortfolioPanel({
 
 PortfolioPanel.propTypes = {
     onTickerSelect:      PropTypes.func.isRequired,
+    onGeneratePlan:      PropTypes.func,
     availableAccounts:   PropTypes.array,
     selectedAccounts:    PropTypes.arrayOf(PropTypes.string),
     onAccountsChange:    PropTypes.func,

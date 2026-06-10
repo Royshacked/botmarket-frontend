@@ -438,6 +438,17 @@ export function MainPage() {
         }
     }
 
+    async function handleGeneratePlan(plan) {
+        try {
+            const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
+            const accountIds   = ideaAccounts.map(a => a.id)
+            const newIdeas     = await tradeIdeasService.createBatch(plan, accountIds, mainAccountId)
+            setIdeas(prev => [...newIdeas, ...prev])
+        } catch (err) {
+            console.error('[portfolio] batch create failed', err)
+        }
+    }
+
     function handleTickerSelect(ticker) {
         // Switch to idea tab and set the chart to the selected ticker
         setActiveTab('idea')
@@ -500,6 +511,7 @@ export function MainPage() {
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'portfolio' ? 'flex' : 'none' }}>
                             <PortfolioPanel
                                 onTickerSelect={handleTickerSelect}
+                                onGeneratePlan={handleGeneratePlan}
                                 availableAccounts={availableAccounts}
                                 selectedAccounts={selectedAccounts}
                                 onAccountsChange={setSelectedAccounts}
