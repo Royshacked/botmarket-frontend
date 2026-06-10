@@ -188,7 +188,7 @@ export function TradeIdeaDialog({ idea, index = 0, onClose, onEdit, onDelete }) 
             </div>
 
             <div className="idea-dialog__chart">
-                <TradingViewChart symbol={idea.asset || 'AAPL'} />
+                <TradingViewChart symbol={idea.asset || 'AAPL'} interval={idea.entry_timeframe || 'D'} />
             </div>
 
             <div className="idea-dialog__body">

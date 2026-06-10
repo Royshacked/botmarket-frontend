@@ -46,7 +46,8 @@ function deriveBuildingIdea(analysisState) {
 export function MainPage() {
     const [messages, setMessages] = useState([])
     const [analysisState, setAnalysisState] = useState(null)
-    const [chartSymbol, setChartSymbol] = useState('AAPL')
+    const [chartSymbol, setChartSymbol]   = useState('AAPL')
+    const [chartInterval, setChartInterval] = useState('D')
     const [isLoading, setIsLoading] = useState(false)
     const [newsArticles, setNewsArticles] = useState([])
     const [newsLoading, setNewsLoading] = useState(false)
@@ -231,7 +232,8 @@ export function MainPage() {
                 currentAnalysisState,
                 {
                     // Buffer only — drain timer handles the actual state updates
-                    onToken: (text)   => { tokenQueueRef.current += text },
+                    onToken:    (text)     => { tokenQueueRef.current += text },
+                    onInterval: (interval) => { if (interval) setChartInterval(interval) },
                     onAsset: (symbol) => {
                         if (symbol) {
                             setChartSymbol(symbol)
@@ -441,7 +443,7 @@ export function MainPage() {
                 <div className="workspace">
                     <div className="workspace__left">
                         <div className="workspace__chart">
-                            <TradingViewChart symbol={chartSymbol} />
+                            <TradingViewChart symbol={chartSymbol} interval={chartInterval} />
                         </div>
                         <TradeIdeasList
                             ideas={ideas

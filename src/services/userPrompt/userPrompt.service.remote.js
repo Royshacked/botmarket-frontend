@@ -29,7 +29,7 @@ async function sendPrompt(userPrompt, analysisState = null) {
  * @param {function} callbacks.onDone    - called with { reply, analysisState, tradeIdea? }
  * @param {function} callbacks.onError   - called with an error message string
  */
-async function sendPromptStream(userPrompt, analysisState = null, { onToken, onDone, onError, onAsset } = {}, ideaAccounts = []) {
+async function sendPromptStream(userPrompt, analysisState = null, { onToken, onDone, onError, onAsset, onInterval } = {}, ideaAccounts = []) {
     const res = await fetch(`${STREAM_BASE_URL}/orchestrator/stream`, {
         method:      'POST',
         credentials: 'include',
@@ -75,10 +75,11 @@ async function sendPromptStream(userPrompt, analysisState = null, { onToken, onD
             try { data = JSON.parse(dataStr) }
             catch { console.warn('[stream] bad JSON', dataStr); continue }
 
-            if      (eventName === 'token' && onToken) onToken(data.text)
-            else if (eventName === 'asset' && onAsset) onAsset(data.symbol)
-            else if (eventName === 'done'  && onDone)  onDone(data)
-            else if (eventName === 'error' && onError) onError(data.message)
+            if      (eventName === 'token'    && onToken)    onToken(data.text)
+            else if (eventName === 'asset'    && onAsset)    onAsset(data.symbol)
+            else if (eventName === 'interval' && onInterval) onInterval(data.interval)
+            else if (eventName === 'done'     && onDone)     onDone(data)
+            else if (eventName === 'error'    && onError)    onError(data.message)
         }
     }
 }

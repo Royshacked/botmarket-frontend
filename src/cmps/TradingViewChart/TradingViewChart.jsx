@@ -3,6 +3,19 @@ import PropTypes from 'prop-types'
 import './TradingViewChart.scss'
 
 const SCRIPT_SRC = 'https://s3.tradingview.com/tv.js'
+
+const TV_INTERVAL = {
+    '1min':  '1',
+    '5min':  '5',
+    '15min': '15',
+    '30min': '30',
+    '1hr':   '60',
+    '2hr':   '120',
+    '4hr':   '240',
+    'day':   'D',
+    'week':  'W',
+    'month': 'M',
+}
 let _scriptPromise = null
 
 function _loadScript() {
@@ -19,7 +32,7 @@ function _loadScript() {
 
 let _uid = 0
 
-export function TradingViewChart({ symbol = 'AAPL' }) {
+export function TradingViewChart({ symbol = 'AAPL', interval = 'D' }) {
     const containerRef = useRef(null)
     const idRef = useRef(`tv-chart-${++_uid}`)
 
@@ -40,7 +53,7 @@ export function TradingViewChart({ symbol = 'AAPL' }) {
                 container_id: id,
                 autosize: true,
                 symbol,
-                interval: 'D',
+                interval: TV_INTERVAL[interval] ?? interval,
                 timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                 theme: 'dark',
                 style: '1',
@@ -74,7 +87,7 @@ export function TradingViewChart({ symbol = 'AAPL' }) {
         return () => {
             if (container) container.innerHTML = ''
         }
-    }, [symbol])
+    }, [symbol, interval])
 
     return (
         <div className="tv-chart" ref={containerRef} />
@@ -82,5 +95,6 @@ export function TradingViewChart({ symbol = 'AAPL' }) {
 }
 
 TradingViewChart.propTypes = {
-    symbol: PropTypes.string,
+    symbol:   PropTypes.string,
+    interval: PropTypes.string,
 }
