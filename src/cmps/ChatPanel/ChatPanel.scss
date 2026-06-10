@@ -40,11 +40,18 @@
         color: var(--accent-light);
     }
 
-&__building-bot {
+&__header-right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        position: relative;
+    }
+
+    &__building-bot {
         width: 18px;
         height: 18px;
         flex-shrink: 0;
-        margin-left: auto;
         color: var(--accent-light);
         animation: cp-idle 1.6s ease-in-out infinite;
     }
@@ -54,7 +61,6 @@
         height: 7px;
         border-radius: 50%;
         background: var(--accent);
-        margin-left: auto;
         flex-shrink: 0;
 
         &.idle    { animation: cp-idle    3s   ease-in-out infinite; }
@@ -129,6 +135,34 @@
 
         &-cond-text { color: var(--text-secondary); }
         &-tf        { color: var(--text-muted); font-size: 9px; }
+
+        &-group--accounts { margin-top: 2px; }
+
+        &-accounts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        &-account-chip {
+            font-size: 9px;
+            font-family: 'IBM Plex Mono', monospace;
+            letter-spacing: 0.04em;
+            padding: 1px 5px;
+            border-radius: 2px;
+            border: 1px solid currentColor;
+
+            &.live { color: var(--color-long); }
+            &.demo { color: var(--text-muted); }
+        }
+
+        &-no-accounts {
+            font-size: 9px;
+            font-family: 'IBM Plex Mono', monospace;
+            color: var(--color-short);
+            opacity: 0.75;
+            font-style: italic;
+        }
     }
 
     // ── Messages list ────────────────────────────────────────────────────
@@ -415,4 +449,121 @@
 @keyframes cp-typing {
     0%, 60%, 100% { opacity: 0.3; transform: translateY(0);    }
     30%            { opacity: 1;   transform: translateY(-4px); }
+}
+
+// ── Account Selector ────────────────────────────────────────────────────────
+.acct-sel {
+    position: relative;
+
+    &__trigger {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        background: none;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 3px 5px;
+        line-height: 0;
+        transition: color 0.15s, border-color 0.15s;
+
+        svg { width: 14px; height: 14px; }
+
+        &:hover:not(:disabled) { color: var(--accent-light); border-color: var(--accent); }
+        &:focus { outline: none; }
+
+        &--active {
+            color: var(--accent-light);
+            border-color: var(--accent);
+        }
+    }
+
+    &__count {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        line-height: 1;
+        color: var(--accent-light);
+    }
+
+    &__dropdown {
+        position: absolute;
+        top: calc(100% + 6px);
+        right: 0;
+        z-index: 200;
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        min-width: 210px;
+        padding: 0 0 4px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    }
+
+    &__dropdown-title {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        padding: 7px 12px 5px;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 2px;
+    }
+
+    &__empty {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 10px;
+        color: var(--text-muted);
+        padding: 10px 12px;
+        font-style: italic;
+    }
+
+    &__item {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 6px 12px;
+        cursor: pointer;
+        transition: background 0.12s;
+
+        input[type='checkbox'] {
+            accent-color: var(--accent);
+            cursor: pointer;
+            width: 12px;
+            height: 12px;
+            flex-shrink: 0;
+        }
+
+        &:hover { background: var(--bg-hover); }
+        &--checked { background: var(--glow-soft); }
+
+        &-broker {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--accent);
+            min-width: 46px;
+        }
+
+        &-login {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 10px;
+            color: var(--text-primary);
+            flex: 1;
+        }
+
+        &-type {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 9px;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            &.live { color: var(--color-long); }
+            &.demo { color: var(--text-muted); }
+        }
+    }
 }

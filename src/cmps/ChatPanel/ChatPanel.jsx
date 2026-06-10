@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import ReactMarkdown from 'react-markdown'
 import { useMicInput } from '../../customHooks/useMicInput.js'
+import { AccountSelector } from './AccountSelector.jsx'
 import './ChatPanel.scss'
 
 const P = 'chat-panel__build-summary'
@@ -23,7 +24,7 @@ function ConditionList({ conditions, logic }) {
     )
 }
 
-function TradeBuildSummary({ analysisState }) {
+function TradeBuildSummary({ analysisState, selectedAccounts = [] }) {
     if (!analysisState) return null
     const s  = analysisState.structured_state || {}
     const pt = s.pending_trade || {}
@@ -75,11 +76,25 @@ function TradeBuildSummary({ analysisState }) {
                     </div>
                 )
             ))}
+            <div className={`${P}-group ${P}-group--accounts`}>
+                <span className={`${P}-label`}>On</span>
+                {selectedAccounts.length > 0 ? (
+                    <div className={`${P}-accounts`}>
+                        {selectedAccounts.map(a => (
+                            <span key={a.id} className={`${P}-account-chip ${a.isLive ? 'live' : 'demo'}`}>
+                                {a.broker} · {a.login}
+                            </span>
+                        ))}
+                    </div>
+                ) : (
+                    <span className={`${P}-no-accounts`}>no accounts selected</span>
+                )}
+            </div>
         </div>
     )
 }
 
-function canGenerate(analysisState) {
+function canGenerate(analysisState, selectedAccounts) {
     const s  = analysisState?.structured_state || {}
     const pt = s.pending_trade || {}
     return !!(
@@ -88,11 +103,12 @@ function canGenerate(analysisState) {
         pt.entry_conditions?.length > 0 &&
         pt.stop_conditions?.length > 0 &&
         pt.tp_conditions?.length > 0 &&
-        pt.quantity != null
+        pt.quantity != null &&
+        selectedAccounts?.length > 0
     )
 }
 
-export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, isLoading, isEditing = false }) {
+export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, isLoading, isEditing = false, availableAccounts = [], selectedAccounts = [], onAccountsChange }) {
     const [input, setInput] = useState('')
 
     const analysisStateRef = useRef(analysisState)
@@ -107,7 +123,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
     const inputRef         = useRef(null)
     const prevMsgCount     = useRef(0)
     const wasStreaming     = useRef(false)
-    const generateReady    = canGenerate(analysisState)
+    const generateReady    = canGenerate(analysisState, selectedAccounts)
 
     useEffect(() => {
         const streaming    = messages.some(m => m.streaming)
@@ -151,21 +167,31 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                     <rect x="6.5" y="13" width="7" height="1.5" rx="0.75" fill="currentColor"/>
                 </svg>
                 <span className="chat-panel__title">Trade Assistant</span>
-                {analysisState?.structured_state?.active_asset ? (
-                    <svg className="chat-panel__building-bot" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Building idea">
-                        <line x1="10" y1="5" x2="10" y2="2"   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                        <circle cx="10" cy="1.5" r="1"         fill="currentColor"/>
-                        <rect x="2" y="5" width="16" height="12" rx="3" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-                        <circle cx="7"  cy="10" r="1.8"        fill="currentColor"/>
-                        <circle cx="13" cy="10" r="1.8"        fill="currentColor"/>
-                        <rect x="6.5" y="13" width="7" height="1.5" rx="0.75" fill="currentColor"/>
-                    </svg>
-                ) : (
-                    <span className={`chat-panel__status-dot ${isLoading ? 'loading' : 'idle'}`} />
-                )}
+                <div className="chat-panel__header-right">
+                    <AccountSelector
+                        accounts={availableAccounts}
+                        selectedIds={selectedAccounts}
+                        onChange={onAccountsChange}
+                    />
+                    {analysisState?.structured_state?.active_asset ? (
+                        <svg className="chat-panel__building-bot" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Building idea">
+                            <line x1="10" y1="5" x2="10" y2="2"   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                            <circle cx="10" cy="1.5" r="1"         fill="currentColor"/>
+                            <rect x="2" y="5" width="16" height="12" rx="3" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+                            <circle cx="7"  cy="10" r="1.8"        fill="currentColor"/>
+                            <circle cx="13" cy="10" r="1.8"        fill="currentColor"/>
+                            <rect x="6.5" y="13" width="7" height="1.5" rx="0.75" fill="currentColor"/>
+                        </svg>
+                    ) : (
+                        <span className={`chat-panel__status-dot ${isLoading ? 'loading' : 'idle'}`} />
+                    )}
+                </div>
             </div>
 
-            <TradeBuildSummary analysisState={analysisState} />
+            <TradeBuildSummary
+                analysisState={analysisState}
+                selectedAccounts={availableAccounts.filter(a => selectedAccounts.includes(a.id))}
+            />
 
             <div className="chat-panel__messages">
                 {messages.map((msg, i) => (
@@ -242,7 +268,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                     <button
                         className="chat-panel__clear"
                         onClick={onClear}
-                        disabled={isLoading || (!messages.length && !analysisState?.structured_state?.active_asset)}
+                        disabled={isLoading || isEditing || (!messages.length && !analysisState?.structured_state?.active_asset)}
                         title="Clear chat and idea"
                     >
                         Clear
@@ -254,10 +280,13 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
 }
 
 ChatPanel.propTypes = {
-    messages:      PropTypes.array,
-    analysisState: PropTypes.object,
-    onSend:        PropTypes.func.isRequired,
-    onGenerate:    PropTypes.func.isRequired,
-    onClear:       PropTypes.func,
-    isLoading:     PropTypes.bool,
+    messages:          PropTypes.array,
+    analysisState:     PropTypes.object,
+    onSend:            PropTypes.func.isRequired,
+    onGenerate:        PropTypes.func.isRequired,
+    onClear:           PropTypes.func,
+    isLoading:         PropTypes.bool,
+    availableAccounts: PropTypes.array,
+    selectedAccounts:  PropTypes.arrayOf(PropTypes.string),
+    onAccountsChange:  PropTypes.func,
 }

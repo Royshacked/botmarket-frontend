@@ -8,6 +8,7 @@ import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
 import { MonitorDashboard }  from '../cmps/MonitorDashboard/MonitorDashboard.jsx'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
+import { brokerService }     from '../services/broker/broker.service.remote.js'
 
 const NEWS_STREAM_URL = import.meta.env.PROD
     ? '/news-feed/stream'
@@ -56,6 +57,8 @@ export function MainPage() {
     const [assetSentimentLoading, setAssetSentimentLoading] = useState(false)
     const [ideas, setIdeas] = useState([])
     const [editingIdeaId, setEditingIdeaId] = useState(null)
+    const [availableAccounts, setAvailableAccounts] = useState([])
+    const [selectedAccounts, setSelectedAccounts]   = useState([])
     const latestMessagesRef    = useRef([])
     const lastFetchedAssetRef  = useRef(null)
 
@@ -183,6 +186,24 @@ export function MainPage() {
         return () => clearInterval(interval)
     }, [loadIdeas])
 
+    useEffect(() => {
+        async function fetchAccounts() {
+            try {
+                const connections = await brokerService.listConnections()
+                const all = []
+                for (const [broker, connected] of Object.entries(connections)) {
+                    if (!connected) continue
+                    const { accounts = [] } = await brokerService.getTradingAccounts(broker)
+                    accounts.forEach(a => all.push({ ...a, broker }))
+                }
+                setAvailableAccounts(all)
+            } catch (err) {
+                console.error('[accounts] fetch failed', err)
+            }
+        }
+        fetchAccounts()
+    }, [])
+
 
     async function handleSend(userPrompt, currentAnalysisState) {
         setMessages(prev => [
@@ -194,7 +215,8 @@ export function MainPage() {
         _startDrain()
 
         try {
-            await userPromptService.sendPromptStream(
+            const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
+        await userPromptService.sendPromptStream(
                 userPrompt,
                 currentAnalysisState,
                 {
@@ -256,7 +278,8 @@ export function MainPage() {
                             return msgs
                         })
                     },
-                }
+                },
+                ideaAccounts
             )
         } catch (err) {
             console.error(err)
@@ -323,6 +346,7 @@ export function MainPage() {
         setAnalysisState(restoredState)
         setChartSymbol(restoredState.structured_state?.active_asset || idea.asset || 'AAPL')
         setEditingIdeaId(idea.id)
+        setSelectedAccounts(Array.isArray(idea.accounts) ? idea.accounts : [])
     }
 
     async function handleGenerate() {
@@ -336,6 +360,7 @@ export function MainPage() {
                     ...ideaFields,
                     status:     'waiting',
                     chat_state: chatState,
+                    accounts:   selectedAccounts,
                 })
                 setIdeas(prev => prev.map(i => i.id === editingIdeaId ? res.idea : i))
                 setEditingIdeaId(null)
@@ -350,7 +375,7 @@ export function MainPage() {
             }
         } else {
             try {
-                const saved = await tradeIdeasService.createIdea({ ...ideaFields, chat_state: chatState })
+                const saved = await tradeIdeasService.createIdea({ ...ideaFields, chat_state: chatState, accounts: selectedAccounts })
                 setIdeas(prev => [saved, ...prev])
                 setAnalysisState(null)
                 setMessages([])
@@ -428,6 +453,9 @@ export function MainPage() {
                             onClear={handleCancelBuild}
                             isLoading={isLoading}
                             isEditing={!!editingIdeaId}
+                            availableAccounts={availableAccounts}
+                            selectedAccounts={selectedAccounts}
+                            onAccountsChange={setSelectedAccounts}
                         />
                     </div>
                     <div className="workspace__news">

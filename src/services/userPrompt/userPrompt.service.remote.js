@@ -29,12 +29,12 @@ async function sendPrompt(userPrompt, analysisState = null) {
  * @param {function} callbacks.onDone    - called with { reply, analysisState, tradeIdea? }
  * @param {function} callbacks.onError   - called with an error message string
  */
-async function sendPromptStream(userPrompt, analysisState = null, { onToken, onDone, onError, onAsset } = {}) {
+async function sendPromptStream(userPrompt, analysisState = null, { onToken, onDone, onError, onAsset } = {}, ideaAccounts = []) {
     const res = await fetch(`${STREAM_BASE_URL}/orchestrator/stream`, {
         method:      'POST',
         credentials: 'include',
         headers:     { 'Content-Type': 'application/json' },
-        body:        JSON.stringify({ userPrompt, analysisState }),
+        body:        JSON.stringify({ userPrompt, analysisState, ideaAccounts }),
     })
 
     if (!res.ok) {
