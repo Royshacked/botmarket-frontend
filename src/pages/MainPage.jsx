@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 
 import { AppFooter }        from '../cmps/AppFooter.jsx'
 import { ChatPanel }         from '../cmps/ChatPanel/ChatPanel.jsx'
+import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
 import { NewsFeed }          from '../cmps/NewsFeed/NewsFeed.jsx'
 import { TradingViewChart }  from '../cmps/TradingViewChart/TradingViewChart.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
@@ -61,6 +62,7 @@ export function MainPage() {
     const [availableAccounts, setAvailableAccounts] = useState([])
     const [selectedAccounts, setSelectedAccounts]   = useState([])
     const [mainAccountId, setMainAccountId]         = useState(null)
+    const [activeTab, setActiveTab] = useState('idea')
     const latestMessagesRef    = useRef([])
     const lastFetchedAssetRef  = useRef(null)
 
@@ -436,6 +438,16 @@ export function MainPage() {
         }
     }
 
+    function handleTickerSelect(ticker) {
+        // Switch to idea tab and set the chart to the selected ticker
+        setActiveTab('idea')
+        setChartSymbol(ticker)
+        // If not already editing an idea, clear state so chat is ready for new idea
+        if (!editingIdeaId && messages.length === 0) {
+            setAnalysisState(null)
+        }
+    }
+
     return (
         <>
             <main>
@@ -459,20 +471,42 @@ export function MainPage() {
                         />
                     </div>
                     <div className="workspace__chat">
-                        <ChatPanel
-                            messages={messages}
-                            analysisState={analysisState}
-                            onSend={handleSend}
-                            onGenerate={handleGenerate}
-                            onClear={handleCancelBuild}
-                            isLoading={isLoading}
-                            isEditing={!!editingIdeaId}
-                            availableAccounts={availableAccounts}
-                            selectedAccounts={selectedAccounts}
-                            onAccountsChange={setSelectedAccounts}
-                            mainAccountId={mainAccountId}
-                            onMainAccountChange={setMainAccountId}
-                        />
+                        <div className="chat-tabs">
+                            <button
+                                className={`chat-tabs__tab${activeTab === 'idea' ? ' chat-tabs__tab--active' : ''}`}
+                                onClick={() => setActiveTab('idea')}
+                            >Idea</button>
+                            <button
+                                className={`chat-tabs__tab chat-tabs__tab--portfolio${activeTab === 'portfolio' ? ' chat-tabs__tab--active' : ''}`}
+                                onClick={() => setActiveTab('portfolio')}
+                            >Portfolio</button>
+                        </div>
+                        <div className="chat-tabs__panel" style={{ display: activeTab === 'idea' ? 'flex' : 'none' }}>
+                            <ChatPanel
+                                messages={messages}
+                                analysisState={analysisState}
+                                onSend={handleSend}
+                                onGenerate={handleGenerate}
+                                onClear={handleCancelBuild}
+                                isLoading={isLoading}
+                                isEditing={!!editingIdeaId}
+                                availableAccounts={availableAccounts}
+                                selectedAccounts={selectedAccounts}
+                                onAccountsChange={setSelectedAccounts}
+                                mainAccountId={mainAccountId}
+                                onMainAccountChange={setMainAccountId}
+                            />
+                        </div>
+                        <div className="chat-tabs__panel" style={{ display: activeTab === 'portfolio' ? 'flex' : 'none' }}>
+                            <PortfolioPanel
+                                onTickerSelect={handleTickerSelect}
+                                availableAccounts={availableAccounts}
+                                selectedAccounts={selectedAccounts}
+                                onAccountsChange={setSelectedAccounts}
+                                mainAccountId={mainAccountId}
+                                onMainAccountChange={setMainAccountId}
+                            />
+                        </div>
                     </div>
                     <div className="workspace__news">
                         <NewsFeed

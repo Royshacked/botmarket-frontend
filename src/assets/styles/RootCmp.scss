@@ -43,6 +43,52 @@
     flex: 0 0 37.5%;
     min-height: 0;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+// ── Chat / Portfolio tab toggle ───────────────────────────────────────────────
+.chat-tabs {
+    display: flex;
+    flex-shrink: 0;
+    padding: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-base);
+}
+
+.chat-tabs__tab {
+    padding: 7px 16px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    color: var(--text-muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.15s, border-bottom-color 0.15s;
+
+    &:hover { color: var(--text-secondary); }
+
+    &--active {
+        color: var(--accent-light);
+        border-bottom-color: var(--accent-light);
+    }
+
+    &--portfolio.chat-tabs__tab--active {
+        color: #6dd4a8;
+        border-bottom-color: #6dd4a8;
+    }
+}
+
+.chat-tabs__panel {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .workspace__news {
