@@ -108,7 +108,7 @@ function canGenerate(analysisState, selectedAccounts) {
     )
 }
 
-export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, isLoading, isEditing = false, availableAccounts = [], selectedAccounts = [], onAccountsChange }) {
+export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, isLoading, isEditing = false, availableAccounts = [], selectedAccounts = [], onAccountsChange, mainAccountId = null, onMainAccountChange }) {
     const [input, setInput] = useState('')
 
     const analysisStateRef = useRef(analysisState)
@@ -172,6 +172,8 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                         accounts={availableAccounts}
                         selectedIds={selectedAccounts}
                         onChange={onAccountsChange}
+                        mainAccountId={mainAccountId}
+                        onMainChange={onMainAccountChange}
                     />
                     {analysisState?.structured_state?.active_asset ? (
                         <svg className="chat-panel__building-bot" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Building idea">
@@ -286,7 +288,9 @@ ChatPanel.propTypes = {
     onGenerate:        PropTypes.func.isRequired,
     onClear:           PropTypes.func,
     isLoading:         PropTypes.bool,
-    availableAccounts: PropTypes.array,
-    selectedAccounts:  PropTypes.arrayOf(PropTypes.string),
-    onAccountsChange:  PropTypes.func,
+    availableAccounts:   PropTypes.array,
+    selectedAccounts:    PropTypes.arrayOf(PropTypes.string),
+    onAccountsChange:    PropTypes.func,
+    mainAccountId:       PropTypes.string,
+    onMainAccountChange: PropTypes.func,
 }

@@ -539,6 +539,7 @@
 
         &:hover { background: var(--bg-hover); }
         &--checked { background: var(--glow-soft); }
+        &--main    { background: var(--glow-soft); }
 
         &-broker {
             font-family: 'IBM Plex Mono', monospace;
@@ -565,5 +566,34 @@
             &.live { color: var(--color-long); }
             &.demo { color: var(--text-muted); }
         }
+    }
+
+    &__main-btn {
+        margin-left: auto;
+        flex-shrink: 0;
+        background: none;
+        border: none;
+        padding: 2px;
+        cursor: pointer;
+        color: var(--text-muted);
+        line-height: 0;
+        border-radius: 2px;
+        transition: color 0.12s;
+
+        svg { width: 12px; height: 12px; }
+
+        &:hover   { color: var(--accent-light); }
+        &:focus   { outline: none; }
+        &.is-main { color: var(--accent-light); }
+    }
+
+    &__main-hint {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 9px;
+        color: var(--text-muted);
+        padding: 5px 12px 6px;
+        border-top: 1px solid var(--border);
+        margin-top: 2px;
+        font-style: italic;
     }
 }

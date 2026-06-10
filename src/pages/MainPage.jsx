@@ -59,6 +59,7 @@ export function MainPage() {
     const [editingIdeaId, setEditingIdeaId] = useState(null)
     const [availableAccounts, setAvailableAccounts] = useState([])
     const [selectedAccounts, setSelectedAccounts]   = useState([])
+    const [mainAccountId, setMainAccountId]         = useState(null)
     const latestMessagesRef    = useRef([])
     const lastFetchedAssetRef  = useRef(null)
 
@@ -185,6 +186,15 @@ export function MainPage() {
         const interval = setInterval(loadIdeas, 30_000)
         return () => clearInterval(interval)
     }, [loadIdeas])
+
+    useEffect(() => {
+        if (selectedAccounts.length === 1) {
+            setMainAccountId(selectedAccounts[0])
+        } else if (selectedAccounts.length === 0) {
+            setMainAccountId(null)
+        }
+        // length > 1: keep existing main as-is
+    }, [selectedAccounts])
 
     useEffect(() => {
         async function fetchAccounts() {
@@ -347,6 +357,7 @@ export function MainPage() {
         setChartSymbol(restoredState.structured_state?.active_asset || idea.asset || 'AAPL')
         setEditingIdeaId(idea.id)
         setSelectedAccounts(Array.isArray(idea.accounts) ? idea.accounts : [])
+        setMainAccountId(idea.mainAccountId ?? null)
     }
 
     async function handleGenerate() {
@@ -360,7 +371,8 @@ export function MainPage() {
                     ...ideaFields,
                     status:     'waiting',
                     chat_state: chatState,
-                    accounts:   selectedAccounts,
+                    accounts:      selectedAccounts,
+                    mainAccountId: mainAccountId,
                 })
                 setIdeas(prev => prev.map(i => i.id === editingIdeaId ? res.idea : i))
                 setEditingIdeaId(null)
@@ -375,7 +387,7 @@ export function MainPage() {
             }
         } else {
             try {
-                const saved = await tradeIdeasService.createIdea({ ...ideaFields, chat_state: chatState, accounts: selectedAccounts })
+                const saved = await tradeIdeasService.createIdea({ ...ideaFields, chat_state: chatState, accounts: selectedAccounts, mainAccountId })
                 setIdeas(prev => [saved, ...prev])
                 setAnalysisState(null)
                 setMessages([])
@@ -456,6 +468,8 @@ export function MainPage() {
                             availableAccounts={availableAccounts}
                             selectedAccounts={selectedAccounts}
                             onAccountsChange={setSelectedAccounts}
+                            mainAccountId={mainAccountId}
+                            onMainAccountChange={setMainAccountId}
                         />
                     </div>
                     <div className="workspace__news">
