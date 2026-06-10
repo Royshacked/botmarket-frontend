@@ -286,11 +286,11 @@ export function AppHeader() {
 				<img
 					className="app-header__logo"
 					src="/img/bot-market-logo.png"
-					alt="AR2TRADE"
+					alt="TRADVICE"
 					width={80}
 					height={80}
 				/>
-				<h1>AR2TRADE</h1>
+				<h1>TRADVICE</h1>
 			</div>
 
 			{user && (

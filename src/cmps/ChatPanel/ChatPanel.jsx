@@ -166,7 +166,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                     <circle cx="13" cy="10" r="1.8"        fill="currentColor"/>
                     <rect x="6.5" y="13" width="7" height="1.5" rx="0.75" fill="currentColor"/>
                 </svg>
-                <span className="chat-panel__title">Trade Assistant</span>
+                <span className="chat-panel__title">Idea Tradvisor</span>
                 <div className="chat-panel__header-right">
                     <AccountSelector
                         accounts={availableAccounts}

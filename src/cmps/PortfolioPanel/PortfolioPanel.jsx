@@ -217,7 +217,7 @@ export function PortfolioPanel({
         <div className="portfolio-panel">
             <div className="portfolio-panel__header">
                 <span className="portfolio-panel__title-icon"><PieIcon /></span>
-                <span className="portfolio-panel__title">Portfolio Planner</span>
+                <span className="portfolio-panel__title">Portfolio Tradvisor</span>
                 <div className="portfolio-panel__header-right">
                     <AccountSelector
                         accounts={availableAccounts}

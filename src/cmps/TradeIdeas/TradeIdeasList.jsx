@@ -100,7 +100,7 @@ export function TradeIdeasList({ ideas, buildingIdea, onDelete, onCancelBuild, o
                 <svg className="trade-ideas-list__header-icon" viewBox="0 0 10 18" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <path d="M6 0L0 10h4.5L3 18l7-10H5.5L6 0z"/>
                 </svg>
-                <span className="trade-ideas-list__header-title">Trade Ideas</span>
+                <span className="trade-ideas-list__header-title">Tradvices</span>
             </div>
             <div className="trade-ideas-list__scroll">
                 {!hasRows ? (
