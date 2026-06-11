@@ -1,13 +1,34 @@
-const STREAM_BASE_URL = import.meta.env.PROD ? '' : 'http://localhost:3030'
+const BASE_URL        = import.meta.env.PROD ? '' : 'http://localhost:3030'
+const STREAM_BASE_URL = BASE_URL
 
-export const portfolioService = { sendStream }
+export const portfolioService = { sendStream, saveChatState, getChatState }
 
-async function sendStream(messages, ideaAccounts = [], { onToken, onTicker, onDone, onError } = {}) {
+async function saveChatState(portfolioId, messages) {
+    const res = await fetch(`${BASE_URL}/portfolio/chat-state`, {
+        method:      'POST',
+        credentials: 'include',
+        headers:     { 'Content-Type': 'application/json' },
+        body:        JSON.stringify({ portfolioId, messages }),
+    })
+    if (!res.ok) throw new Error('Failed to save portfolio chat state')
+    return res.json()
+}
+
+async function getChatState(portfolioId) {
+    const res = await fetch(`${BASE_URL}/portfolio/chat-state/${encodeURIComponent(portfolioId)}`, {
+        credentials: 'include',
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.chatState ?? null
+}
+
+async function sendStream(messages, ideaAccounts = [], { onToken, onTicker, onDone, onError, portfolioId = null, portfolioIdeas = [] } = {}) {
     const res = await fetch(`${STREAM_BASE_URL}/portfolio/stream`, {
         method:      'POST',
         credentials: 'include',
         headers:     { 'Content-Type': 'application/json' },
-        body:        JSON.stringify({ messages, ideaAccounts }),
+        body:        JSON.stringify({ messages, ideaAccounts, portfolioId, portfolioIdeas }),
     })
 
     if (!res.ok) {

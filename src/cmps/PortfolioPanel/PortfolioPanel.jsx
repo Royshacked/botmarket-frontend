@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { portfolioService } from '../../services/portfolio/portfolio.service.remote.js'
 import { AccountSelector } from '../ChatPanel/AccountSelector.jsx'
+import { useMicInput } from '../../customHooks/useMicInput.js'
 import './PortfolioPanel.scss'
 
 function PieIcon() {
@@ -13,14 +14,6 @@ function PieIcon() {
     )
 }
 
-function SendIcon() {
-    return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13" />
-            <polygon points="22 2 15 22 11 13 2 9 22 2" />
-        </svg>
-    )
-}
 
 function TickerChip({ symbol, onSelect }) {
     return (
@@ -87,22 +80,38 @@ function _renderMarkdown(text) {
 export function PortfolioPanel({
     onTickerSelect,
     onGeneratePlan,
+    onPortfolioUpdate,
+    chatRestore       = null,
     availableAccounts = [],
     selectedAccounts  = [],
     onAccountsChange,
     mainAccountId     = null,
     onMainAccountChange,
 }) {
-    const [messages,    setMessages]    = useState([])
-    const [inputText,   setInputText]   = useState('')
-    const [isLoading,   setIsLoading]   = useState(false)
-    const [pendingPlan, setPendingPlan] = useState(null)
+    const [messages,              setMessages]              = useState([])
+    const [inputText,             setInputText]             = useState('')
+    const [isLoading,             setIsLoading]             = useState(false)
+    const [pendingPlan,           setPendingPlan]           = useState(null)
+    const [editingPortfolioId,    setEditingPortfolioId]    = useState(null)
+    const [editingPortfolioIdeas, setEditingPortfolioIdeas] = useState([])
 
-    const tokenQueueRef    = useRef('')
-    const drainTimerRef    = useRef(null)
+    useEffect(() => {
+        if (!chatRestore) return
+        setMessages(chatRestore.messages ?? [])
+        setPendingPlan(null)
+        setInputText('')
+        setEditingPortfolioId(chatRestore.portfolioId ?? null)
+        setEditingPortfolioIdeas(chatRestore.portfolioIdeas ?? [])
+    }, [chatRestore?.key])
+
+    const tokenQueueRef     = useRef('')
+    const drainTimerRef     = useRef(null)
     const pendingTickersRef = useRef([])
-    const messagesEndRef   = useRef(null)
-    const textareaRef      = useRef(null)
+    const messagesEndRef    = useRef(null)
+    const textareaRef       = useRef(null)
+
+    const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
+    const { isRecording, isTranscribing, toggle: toggleMic } = useMicInput({ onTranscript })
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -131,11 +140,9 @@ export function PortfolioPanel({
         tokenQueueRef.current = ''
     }
 
-    async function handleSend() {
-        const text = inputText.trim()
+    async function _send(text) {
         if (!text || isLoading) return
 
-        // Build history from current messages (strip streaming flag + tickers for API)
         const history = messages
             .filter(m => !m.streaming)
             .map(m => ({ role: m.role, content: m.content }))
@@ -148,13 +155,15 @@ export function PortfolioPanel({
             { role: 'user', content: text },
             { role: 'assistant', content: '', streaming: true },
         ])
-        setInputText('')
         setIsLoading(true)
         pendingTickersRef.current = []
         _startDrain()
 
         try {
             await portfolioService.sendStream(history, ideaAccounts, {
+                portfolioId:    editingPortfolioId,
+                portfolioIdeas: editingPortfolioIdeas,
+
                 onToken: (t) => { tokenQueueRef.current += t },
 
                 onTicker: (symbol) => {
@@ -176,6 +185,7 @@ export function PortfolioPanel({
                         return msgs
                     })
                     if (data.plan?.ideas?.length) setPendingPlan(data.plan)
+                    if (data.update?.changes?.length && onPortfolioUpdate) onPortfolioUpdate(data.update)
                 },
 
                 onError: (message) => {
@@ -204,6 +214,18 @@ export function PortfolioPanel({
         } finally {
             setIsLoading(false)
         }
+    }
+
+    function handleSend() {
+        const text = inputText.trim()
+        setInputText('')
+        _send(text)
+    }
+
+    function handleClear() {
+        setMessages([])
+        setPendingPlan(null)
+        setInputText('')
     }
 
     function handleKeyDown(e) {
@@ -254,7 +276,7 @@ export function PortfolioPanel({
                         </button>
                         <button
                             className="portfolio-panel__plan-generate"
-                            onClick={() => { if (onGeneratePlan) onGeneratePlan(pendingPlan); setPendingPlan(null) }}
+                            onClick={() => { if (onGeneratePlan) onGeneratePlan(pendingPlan, messages); setPendingPlan(null) }}
                         >
                             Generate ideas ↑
                         </button>
@@ -263,15 +285,32 @@ export function PortfolioPanel({
             )}
 
             <div className="portfolio-panel__input-row">
+                <button
+                    className={`portfolio-panel__mic ${isRecording ? 'recording' : ''} ${isTranscribing ? 'transcribing' : ''}`}
+                    onClick={toggleMic}
+                    disabled={isLoading || isTranscribing}
+                    title={isRecording ? 'Stop recording' : 'Start recording'}
+                >
+                    {isTranscribing ? (
+                        <span className="portfolio-panel__mic-spinner" />
+                    ) : (
+                        <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <rect x="7" y="1" width="6" height="10" rx="3" stroke="currentColor" strokeWidth="1.5"/>
+                            <path d="M4 10a6 6 0 0 0 12 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                            <line x1="10" y1="16" x2="10" y2="19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                            <line x1="7"  y1="19" x2="13" y2="19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                        </svg>
+                    )}
+                </button>
                 <textarea
                     ref={textareaRef}
                     className="portfolio-panel__textarea"
                     value={inputText}
                     onChange={e => setInputText(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Ask about portfolio construction…"
-                    rows={1}
-                    disabled={isLoading}
+                    placeholder="Describe your portfolio goals… (Enter to send, Shift+Enter for newline)"
+                    rows={2}
+                    disabled={isLoading || isRecording}
                 />
                 <button
                     className="portfolio-panel__send"
@@ -279,7 +318,21 @@ export function PortfolioPanel({
                     disabled={!inputText.trim() || isLoading}
                     title="Send"
                 >
-                    <SendIcon />
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <line x1="22" y1="2" x2="11" y2="13"/>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                </button>
+                <button
+                    className="portfolio-panel__clear"
+                    onClick={handleClear}
+                    disabled={isLoading || !messages.length || !!editingPortfolioId}
+                    title="Clear chat"
+                >
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                        <line x1="5" y1="5" x2="15" y2="15"/>
+                        <line x1="15" y1="5" x2="5" y2="15"/>
+                    </svg>
                 </button>
             </div>
         </div>
@@ -289,6 +342,8 @@ export function PortfolioPanel({
 PortfolioPanel.propTypes = {
     onTickerSelect:      PropTypes.func.isRequired,
     onGeneratePlan:      PropTypes.func,
+    onPortfolioUpdate:   PropTypes.func,
+    chatRestore:         PropTypes.object,
     availableAccounts:   PropTypes.array,
     selectedAccounts:    PropTypes.arrayOf(PropTypes.string),
     onAccountsChange:    PropTypes.func,

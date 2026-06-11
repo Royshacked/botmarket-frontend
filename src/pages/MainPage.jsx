@@ -9,6 +9,7 @@ import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
 import { MonitorDashboard }  from '../cmps/MonitorDashboard/MonitorDashboard.jsx'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
+import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
 import { brokerService }     from '../services/broker/broker.service.remote.js'
 
 const NEWS_STREAM_URL = import.meta.env.PROD
@@ -62,7 +63,8 @@ export function MainPage() {
     const [availableAccounts, setAvailableAccounts] = useState([])
     const [selectedAccounts, setSelectedAccounts]   = useState([])
     const [mainAccountId, setMainAccountId]         = useState(null)
-    const [activeTab, setActiveTab] = useState('idea')
+    const [activeTab, setActiveTab]             = useState('idea')
+    const [portfolioChatRestore, setPortfolioChatRestore] = useState(null)
     const latestMessagesRef    = useRef([])
     const lastFetchedAssetRef  = useRef(null)
 
@@ -438,14 +440,65 @@ export function MainPage() {
         }
     }
 
-    async function handleGeneratePlan(plan) {
+    async function handleGeneratePlan(plan, messages = []) {
         try {
             const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
             const accountIds   = ideaAccounts.map(a => a.id)
             const newIdeas     = await tradeIdeasService.createBatch(plan, accountIds, mainAccountId)
             setIdeas(prev => [...newIdeas, ...prev])
+            if (newIdeas.length > 0) {
+                const portfolioId = newIdeas[0].portfolioId
+                const chatMessages = messages.filter(m => !m.streaming).map(m => ({ role: m.role, content: m.content }))
+                portfolioService.saveChatState(portfolioId, chatMessages).catch(err =>
+                    console.error('[portfolio] chat state save failed', err)
+                )
+            }
         } catch (err) {
             console.error('[portfolio] batch create failed', err)
+        }
+    }
+
+    async function handleEditPortfolio(portfolioId) {
+        try {
+            const chatState    = await portfolioService.getChatState(portfolioId)
+            const portfolioIdeas = ideas.filter(i => i.portfolioId === portfolioId)
+            setPortfolioChatRestore({
+                key: Date.now(),
+                messages:      chatState?.messages ?? [],
+                portfolioId,
+                portfolioIdeas,
+            })
+            setActiveTab('portfolio')
+        } catch (err) {
+            console.error('[portfolio] restore failed', err)
+            setActiveTab('portfolio')
+        }
+    }
+
+    async function handlePortfolioUpdate(update) {
+        if (!update?.changes?.length) return
+        try {
+            const promises = []
+            for (const change of update.changes) {
+                if (change.action === 'update_idea' && change.ideaId && change.patch) {
+                    promises.push(tradeIdeasService.updateIdea(change.ideaId, change.patch))
+                } else if (change.action === 'remove_idea' && change.ideaId) {
+                    promises.push(tradeIdeasService.deleteIdea(change.ideaId))
+                } else if (change.action === 'add_idea' && change.idea) {
+                    const existing = ideas.filter(i => i.portfolioId === update.portfolioId)
+                    promises.push(tradeIdeasService.createIdea({
+                        ...change.idea,
+                        portfolioId:   update.portfolioId,
+                        portfolioName: existing[0]?.portfolioName || 'Portfolio',
+                        accounts:      selectedAccounts,
+                        mainAccountId,
+                    }))
+                }
+            }
+            await Promise.all(promises)
+            loadIdeas()
+        } catch (err) {
+            console.error('[portfolio] update failed', err)
         }
     }
 
@@ -479,6 +532,7 @@ export function MainPage() {
                             onUpdate={handleUpdateIdea}
                             onSymbolClick={setChartSymbol}
                             onEdit={handleEditIdea}
+                            onEditPortfolio={handleEditPortfolio}
                         />
                     </div>
                     <div className="workspace__chat">
@@ -512,6 +566,8 @@ export function MainPage() {
                             <PortfolioPanel
                                 onTickerSelect={handleTickerSelect}
                                 onGeneratePlan={handleGeneratePlan}
+                                onPortfolioUpdate={handlePortfolioUpdate}
+                                chatRestore={portfolioChatRestore}
                                 availableAccounts={availableAccounts}
                                 selectedAccounts={selectedAccounts}
                                 onAccountsChange={setSelectedAccounts}

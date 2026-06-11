@@ -196,6 +196,11 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
             />
 
             <div className="chat-panel__messages">
+                {messages.length === 0 && (
+                    <div className="chat-panel__empty">
+                        Describe your trade idea — price levels, indicators, patterns and news events — I'll help you build your trade.
+                    </div>
+                )}
                 {messages.map((msg, i) => (
                     <div key={i} className={`chat-panel__bubble chat-panel__bubble--${msg.role}`}>
                         {msg.role === 'assistant' ? (
@@ -232,16 +237,6 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
             </button>
 
             <div className="chat-panel__input-row">
-                <textarea
-                    ref={inputRef}
-                    className="chat-panel__textarea"
-                    value={input}
-                    onChange={e => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Describe your trade idea… (Enter to send, Shift+Enter for newline)"
-                    rows={2}
-                    disabled={isLoading || isRecording}
-                />
                 <button
                     className={`chat-panel__mic ${isRecording ? 'recording' : ''} ${isTranscribing ? 'transcribing' : ''}`}
                     onClick={toggleMic}
@@ -259,23 +254,38 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                         </svg>
                     )}
                 </button>
-                <div className="chat-panel__send-col">
-                    <button
-                        className="chat-panel__send"
-                        onClick={handleSend}
-                        disabled={!input.trim() || isLoading}
-                    >
-                        Send
-                    </button>
-                    <button
-                        className="chat-panel__clear"
-                        onClick={onClear}
-                        disabled={isLoading || isEditing || (!messages.length && !analysisState?.structured_state?.active_asset)}
-                        title="Clear chat and idea"
-                    >
-                        Clear
-                    </button>
-                </div>
+                <textarea
+                    ref={inputRef}
+                    className="chat-panel__textarea"
+                    value={input}
+                    onChange={e => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Describe your trade idea… (Enter to send, Shift+Enter for newline)"
+                    rows={2}
+                    disabled={isLoading || isRecording}
+                />
+                <button
+                    className="chat-panel__send"
+                    onClick={handleSend}
+                    disabled={!input.trim() || isLoading}
+                    title="Send"
+                >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <line x1="22" y1="2" x2="11" y2="13"/>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                </button>
+                <button
+                    className="chat-panel__clear"
+                    onClick={onClear}
+                    disabled={isLoading || isEditing || (!messages.length && !analysisState?.structured_state?.active_asset)}
+                    title="Clear chat and idea"
+                >
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                        <line x1="5" y1="5" x2="15" y2="15"/>
+                        <line x1="15" y1="5" x2="5" y2="15"/>
+                    </svg>
+                </button>
             </div>
         </div>
     )
