@@ -34,9 +34,7 @@ function MessageBubble({ msg, onTickerSelect }) {
     if (!msg.content && msg.streaming) {
         return (
             <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant">
-                <span className="portfolio-panel__typing">
-                    <span /><span /><span />
-                </span>
+                <span className="portfolio-panel__thinking">thinking…</span>
             </div>
         )
     }
