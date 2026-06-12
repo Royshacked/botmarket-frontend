@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types'
-import { conditionSummary, formatCreatedAt, formatCreatedAtFull, needsExitConditions } from './tradeIdea.utils.js'
+import { conditionSummary, formatCreatedAt, formatCreatedAtFull, needsExitConditions, activationStatus } from './tradeIdea.utils.js'
 
 const SYSTEM_STATUSES = new Set(['hit', 'long', 'short', 'closed'])
 const BUILDING = 'building'
@@ -79,8 +79,8 @@ export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolC
                         ) : (
                             <button
                                 className={`idea-row__status-toggle status--${status}`}
-                                onClick={e => { e.stopPropagation(); onStatusChange(id, status === 'looking' ? 'waiting' : 'looking') }}
-                                title={`Switch to ${status === 'looking' ? 'waiting' : 'looking'}`}
+                                onClick={e => { e.stopPropagation(); onStatusChange(id, status === 'waiting' ? activationStatus(idea) : 'waiting') }}
+                                title={status === 'waiting' ? `Activate (→ ${activationStatus(idea)})` : 'Switch to waiting'}
                             >
                                 {status}
                             </button>

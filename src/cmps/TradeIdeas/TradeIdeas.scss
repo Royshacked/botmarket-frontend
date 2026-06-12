@@ -355,6 +355,43 @@
 
 // ── Portfolio Group Row ────────────────────────────────────────────────────────
 
+// ── Portfolios table (portfolio list mode) ────────────────────────────────────
+.portfolios-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: 0.75rem;
+    color: var(--text-primary);
+
+    .col-pf-name    { width: 42%; }
+    .col-pf-count   { width: 16%; text-align: center; }
+    .col-pf-created { width: 16%; }
+    .col-pf-edit    { width: 12%; text-align: center; }
+    .col-pf-status  { width: 14%; text-align: center; }
+
+    thead tr {
+        position: sticky;
+        top: 0;
+        background: var(--bg-base);
+        z-index: 1;
+    }
+
+    th {
+        text-align: left;
+        padding: 6px 8px;
+        color: var(--text-muted);
+        font-weight: 600;
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-bottom: 1px solid var(--accent-deep);
+        white-space: nowrap;
+        overflow: hidden;
+
+        &.col-pf-count, &.col-pf-edit, &.col-pf-status { text-align: center; }
+    }
+}
+
 .portfolio-group-row {
     cursor: pointer;
     background: rgba(76, 175, 138, 0.05);
@@ -362,27 +399,18 @@
     &:hover { background: rgba(76, 175, 138, 0.09); }
 
     td {
-        padding: 6px 8px;
+        padding: 7px 8px;
         border-bottom: 1px solid rgba(76, 175, 138, 0.18);
         vertical-align: middle;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
-    &__header-inner {
-        display: flex;
-        align-items: center;
-        gap: 7px;
-    }
-
-    &__collapse {
-        background: none;
-        border: none;
+    &__caret {
         color: #4caf8a;
-        font-size: 0.65rem;
-        cursor: pointer;
-        padding: 0 2px;
-        line-height: 1;
-        opacity: 0.7;
-        &:hover { opacity: 1; }
+        font-size: 0.6rem;
+        margin-right: 6px;
     }
 
     &__name {
@@ -393,14 +421,33 @@
         letter-spacing: 0.04em;
     }
 
-    &__count {
-        color: var(--text-muted);
-        font-size: 0.68rem;
+    &__count   { text-align: center; color: var(--text-secondary); }
+    &__created { color: var(--text-muted); font-size: 0.7rem; }
+
+    &__edit {
+        text-align: center;
+        white-space: nowrap;
+
+        .idea-row__edit-btn { display: inline-flex; vertical-align: middle; }
+        .idea-row__delete   { vertical-align: middle; margin-left: 8px; }
     }
 
-    &__controls {
+    &__status {
         text-align: center;
+
+        .idea-row__status-toggle,
+        .idea-row__status-badge { min-width: 0; }
     }
+
+    &__status-active { color: #6dd4a8; }
+
+    // Expanded child ideas — nested ideas-table fills the full width
+    &__expanded > td {
+        padding: 0;
+        background: rgba(76, 175, 138, 0.03);
+        border-bottom: 1px solid rgba(76, 175, 138, 0.18);
+    }
+    &__expanded .ideas-table thead tr { position: static; }
 }
 
 .idea-row--portfolio-child {

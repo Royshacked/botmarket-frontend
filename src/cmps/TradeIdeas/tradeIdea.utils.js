@@ -92,6 +92,30 @@ export function formatCreatedAtFull(ms) {
 }
 
 /**
+ * True when an idea has at least one entry condition (flat array or tree).
+ * Used to decide activation target: conditions → 'looking' (monitor watches),
+ * none → 'hit' (fire immediately, pending confirmation).
+ *
+ * @param {object} idea
+ * @returns {boolean}
+ */
+export function hasEntryConditions(idea) {
+    if (!idea) return false
+    if (Array.isArray(idea.entry_conditions) && idea.entry_conditions.length > 0) return true
+    const t = idea.entry_condition_tree
+    return !!(t && (typeof t.condition === 'string' || (Array.isArray(t.children) && t.children.length > 0)))
+}
+
+/**
+ * Status a 'waiting' idea should move to when activated.
+ * @param {object} idea
+ * @returns {'looking'|'hit'}
+ */
+export function activationStatus(idea) {
+    return hasEntryConditions(idea) ? 'looking' : 'hit'
+}
+
+/**
  * True when an idea is missing a stop loss or a take profit — used to flag
  * (e.g. immediate) ideas that were generated without exits so the user is
  * reminded to add them.

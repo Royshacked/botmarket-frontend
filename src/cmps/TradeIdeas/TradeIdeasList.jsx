@@ -2,6 +2,7 @@ import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { TradeIdeaRow } from './TradeIdeaRow.jsx'
 import { TradeIdeaDialog } from './TradeIdeaDialog.jsx'
+import { formatCreatedAt, activationStatus } from './tradeIdea.utils.js'
 import './TradeIdeas.scss'
 
 function _separateIdeas(ideas) {
@@ -30,28 +31,32 @@ function _separateIdeas(ideas) {
 }
 
 function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onStatusChange, onOpen, onSymbolClick, onEditIdea }) {
+    const allWaiting = group.ideas.length > 0 && group.ideas.every(i => i.status === 'waiting')
+
     function handleDeleteAll(e) {
         e.stopPropagation()
         group.ideas.forEach(idea => onDelete(idea.id))
     }
 
+    function handleActivateAll(e) {
+        e.stopPropagation()
+        // Activate every waiting idea: 'hit' if it has no entry conditions
+        // (fire now, pending confirmation), otherwise 'looking' (monitor watches).
+        group.ideas.forEach(idea => {
+            if (idea.status === 'waiting') onStatusChange(idea.id, activationStatus(idea))
+        })
+    }
+
     return (
         <>
-            <tr className="portfolio-group-row" onClick={() => !expanded && onToggle()}>
-                <td colSpan={5} className="portfolio-group-row__header">
-                    <div className="portfolio-group-row__header-inner">
-                        <span className="portfolio-group-row__name">{group.name}</span>
-                        <span className="portfolio-group-row__count">{group.ideas.length} ideas</span>
-                        {expanded && (
-                            <button
-                                className="portfolio-group-row__collapse"
-                                onClick={e => { e.stopPropagation(); onToggle() }}
-                                title="Collapse"
-                            >▲</button>
-                        )}
-                    </div>
+            <tr className="portfolio-group-row" onClick={onToggle}>
+                <td className="portfolio-group-row__name">
+                    <span className="portfolio-group-row__caret">{expanded ? '▾' : '▸'}</span>
+                    {group.name}
                 </td>
-                <td className="portfolio-group-row__controls">
+                <td className="portfolio-group-row__count">{group.ideas.length}</td>
+                <td className="portfolio-group-row__created">{formatCreatedAt(group.savedAt) || '—'}</td>
+                <td className="portfolio-group-row__edit">
                     <button
                         className="idea-row__edit-btn"
                         onClick={e => { e.stopPropagation(); onEdit(group.portfolioId) }}
@@ -68,19 +73,50 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onStat
                         title="Delete all ideas in this portfolio"
                     >×</button>
                 </td>
+                <td className="portfolio-group-row__status">
+                    {allWaiting ? (
+                        <button
+                            className="idea-row__status-toggle status--waiting"
+                            onClick={handleActivateAll}
+                            title="Activate all ideas in this portfolio"
+                        >waiting</button>
+                    ) : (
+                        <span className="idea-row__status-badge portfolio-group-row__status-active">active</span>
+                    )}
+                </td>
             </tr>
-            {expanded && group.ideas.map(idea => (
-                <TradeIdeaRow
-                    key={idea.id}
-                    idea={idea}
-                    onDelete={onDelete}
-                    onStatusChange={onStatusChange}
-                    onOpen={onOpen}
-                    onSymbolClick={onSymbolClick}
-                    onEdit={onEditIdea}
-                    isPortfolioChild
-                />
-            ))}
+            {expanded && (
+                <tr className="portfolio-group-row__expanded">
+                    <td colSpan={5}>
+                        <table className="ideas-table">
+                            <thead>
+                                <tr>
+                                    <th className="col-asset">Asset</th>
+                                    <th className="col-dir">Dir</th>
+                                    <th className="col-type">Type</th>
+                                    <th className="col-created">Created</th>
+                                    <th className="col-notes">Trade Summary</th>
+                                    <th className="col-status">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {group.ideas.map(idea => (
+                                    <TradeIdeaRow
+                                        key={idea.id}
+                                        idea={idea}
+                                        onDelete={onDelete}
+                                        onStatusChange={onStatusChange}
+                                        onOpen={onOpen}
+                                        onSymbolClick={onSymbolClick}
+                                        onEdit={onEditIdea}
+                                        isPortfolioChild
+                                    />
+                                ))}
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+            )}
         </>
     )
 }
@@ -172,15 +208,14 @@ export function TradeIdeasList({ ideas, buildingIdea, onDelete, onCancelBuild, o
                     !hasPortfolios ? (
                         <p className="trade-ideas-list__empty">No portfolios yet</p>
                     ) : (
-                        <table className="ideas-table">
+                        <table className="portfolios-table">
                             <thead>
                                 <tr>
-                                    <th className="col-asset">Asset</th>
-                                    <th className="col-dir">Dir</th>
-                                    <th className="col-type">Type</th>
-                                    <th className="col-created">Created</th>
-                                    <th className="col-notes">Trade Summary</th>
-                                    <th className="col-status">Status</th>
+                                    <th className="col-pf-name">Portfolio</th>
+                                    <th className="col-pf-count"># Assets</th>
+                                    <th className="col-pf-created">Created</th>
+                                    <th className="col-pf-edit">Edit</th>
+                                    <th className="col-pf-status">Status</th>
                                 </tr>
                             </thead>
                             <tbody>
