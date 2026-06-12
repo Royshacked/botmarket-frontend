@@ -94,11 +94,12 @@
     font-size: 0.75rem;
     color: var(--text-primary);
 
-    .col-asset  { width: 9%;  }
-    .col-dir    { width: 8%;  }
-    .col-type   { width: 12%; }
-    .col-notes  { width: 52%; }
-    .col-status { width: 19%; text-align: center; }
+    .col-asset   { width: 9%;  }
+    .col-dir     { width: 8%;  }
+    .col-type    { width: 12%; }
+    .col-created { width: 11%; }
+    .col-notes   { width: 41%; }
+    .col-status  { width: 19%; text-align: center; }
 
     thead tr {
         position: sticky;
@@ -209,6 +210,14 @@
         color: var(--text-secondary);
     }
 
+    &__created {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--text-muted);
+        font-size: 0.7rem;
+    }
+
     &__notes {
         overflow: hidden;
         text-overflow: ellipsis;
@@ -306,6 +315,14 @@
         svg { width: 13px; height: 13px; }
 
         &:hover { color: var(--accent-light); }
+
+        // Idea generated without a stop / take profit — pulse red to remind the
+        // user to add exits (e.g. immediate ideas fired without conditions).
+        &--alert {
+            color: #ef5350;
+            animation: status-pulse 1.3s ease-in-out infinite;
+            &:hover { color: #ff6b6b; }
+        }
     }
 
     &__delete {
@@ -586,6 +603,10 @@
         &--save {
             background: #2a5a9a;
             color: var(--text-primary);
+        }
+        &--place {
+            background: #1d6f44;
+            color: #d7ffe9;
         }
     }
 }

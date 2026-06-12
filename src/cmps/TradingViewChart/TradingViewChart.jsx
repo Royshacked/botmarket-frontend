@@ -32,7 +32,7 @@ function _loadScript() {
 
 let _uid = 0
 
-export function TradingViewChart({ symbol = 'AAPL', interval = 'D' }) {
+export function TradingViewChart({ symbol = 'SPY', interval = 'D' }) {
     const containerRef = useRef(null)
     const idRef = useRef(`tv-chart-${++_uid}`)
 

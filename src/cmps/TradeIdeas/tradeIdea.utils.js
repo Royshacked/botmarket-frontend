@@ -65,3 +65,105 @@ export function conditionSummary(idea) {
     // Final fallback: notes
     return idea.notes?.trim() || null
 }
+
+/**
+ * Compact created-at label for the ideas table (e.g. "Jun 12").
+ *
+ * @param {number} ms  Epoch milliseconds (idea.savedAt)
+ * @returns {string|null}
+ */
+export function formatCreatedAt(ms) {
+    if (ms == null) return null
+    const d = new Date(Number(ms))
+    if (isNaN(d.getTime())) return null
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+/**
+ * Full created-at label for the row tooltip (date + time).
+ *
+ * @param {number} ms  Epoch milliseconds (idea.savedAt)
+ * @returns {string}
+ */
+export function formatCreatedAtFull(ms) {
+    if (ms == null) return ''
+    const d = new Date(Number(ms))
+    return isNaN(d.getTime()) ? '' : d.toLocaleString()
+}
+
+/**
+ * True when an idea is missing a stop loss or a take profit — used to flag
+ * (e.g. immediate) ideas that were generated without exits so the user is
+ * reminded to add them.
+ *
+ * @param {object} idea
+ * @returns {boolean}
+ */
+export function needsExitConditions(idea) {
+    if (!idea) return false
+    const hasStop = Array.isArray(idea.stop_conditions) && idea.stop_conditions.length > 0
+    const hasTp   = Array.isArray(idea.tp_conditions)   && idea.tp_conditions.length   > 0
+    return !hasStop || !hasTp
+}
+
+/**
+ * Human label for the order side, e.g. "Buy Market" / "Sell Short Market".
+ *
+ * @param {string} direction  'long' | 'short'
+ * @param {string} type       'market' | 'limit' (default 'market')
+ * @returns {string}
+ */
+export function orderTypeLabel(direction, type = 'market') {
+    const t = String(type || 'market')
+    const cap = t.charAt(0).toUpperCase() + t.slice(1)
+    if (direction === 'short') return `Sell Short ${cap}`
+    return `Buy ${cap}`
+}
+
+/**
+ * Build the per-account order preview for a hit idea.
+ *
+ * Quantity semantics: the idea's `quantity` is the size for the MAIN account
+ * (idea.mainAccountId). Every other attached account scales by its balance ratio
+ * to the main account: quantity × (account.balance / mainAccount.balance).
+ *
+ * `idea.accounts` may hold account-id strings or full account objects; both are
+ * resolved against `availableAccounts` (which carries broker/login/balance).
+ *
+ * @param {object} idea
+ * @param {Array}  availableAccounts  full account objects { id, login, broker, balance }
+ * @returns {Array<{ broker, accountId, accountNo, quantity, orderType, isMain }>}
+ */
+export function buildOrderPreview(idea, availableAccounts = []) {
+    if (!idea || !Array.isArray(idea.accounts) || idea.accounts.length === 0) return []
+
+    const byId = new Map(availableAccounts.map(a => [String(a.id), a]))
+    const ids  = idea.accounts.map(a => String(typeof a === 'object' ? a.id : a))
+
+    const mainId   = idea.mainAccountId != null ? String(idea.mainAccountId) : ids[0]
+    const mainAcct = byId.get(mainId)
+    const baseQty  = Number(idea.quantity) || 0
+    const orderType = orderTypeLabel(idea.direction, idea.type)
+
+    const orders = []
+    for (const accId of ids) {
+        const acct = byId.get(accId)
+        if (!acct) continue   // can't resolve broker/balance — skip
+
+        const isMain = accId === mainId
+        const ratio  = (!isMain && mainAcct?.balance && acct.balance)
+            ? acct.balance / mainAcct.balance
+            : 1
+        const quantity = Math.round(baseQty * ratio * 10000) / 10000
+
+        orders.push({
+            broker:    acct.broker,
+            accountId: accId,
+            accountNo: acct.login ?? accId,
+            quantity,
+            orderType,
+            isMain,
+        })
+    }
+    return orders
+}

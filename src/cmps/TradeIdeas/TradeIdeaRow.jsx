@@ -1,12 +1,14 @@
 import PropTypes from 'prop-types'
-import { conditionSummary } from './tradeIdea.utils.js'
+import { conditionSummary, formatCreatedAt, formatCreatedAtFull, needsExitConditions } from './tradeIdea.utils.js'
 
 const SYSTEM_STATUSES = new Set(['hit', 'long', 'short', 'closed'])
 const BUILDING = 'building'
 
 export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolClick, onEdit, isPortfolioChild }) {
-    const { id, asset, direction, type, status } = idea
+    const { id, asset, direction, type, status, savedAt } = idea
     const summary = conditionSummary(idea)
+    const createdAt = formatCreatedAt(savedAt)
+    const needsExits = needsExitConditions(idea)
 
     const isBuilding = status === BUILDING
 
@@ -36,14 +38,15 @@ export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolC
             >{asset || '—'}</td>
             <td className={`idea-row__direction direction--${direction}`}>{direction ?? '—'}</td>
             <td className="idea-row__type">{type ?? '—'}</td>
+            <td className="idea-row__created" title={formatCreatedAtFull(savedAt)}>{createdAt || '—'}</td>
             <td className="idea-row__notes">{summary || '—'}</td>
 
             <td className="idea-row__controls">
                 {!isBuilding && onEdit && (
                     <button
-                        className="idea-row__edit-btn"
+                        className={`idea-row__edit-btn${needsExits ? ' idea-row__edit-btn--alert' : ''}`}
                         onClick={e => { e.stopPropagation(); onEdit(idea) }}
-                        title="Edit in chat"
+                        title={needsExits ? 'Missing stop / take profit — click to add' : 'Edit in chat'}
                     >
                         <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                             <path d="M11.5 1.5L14.5 4.5L5.5 13.5H2.5V10.5L11.5 1.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>

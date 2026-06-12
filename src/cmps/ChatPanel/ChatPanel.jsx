@@ -97,14 +97,20 @@ function TradeBuildSummary({ analysisState, selectedAccounts = [] }) {
 function canGenerate(analysisState, selectedAccounts) {
     const s  = analysisState?.structured_state || {}
     const pt = s.pending_trade || {}
+
+    // Common requirements for any idea
+    if (!(s.active_asset && pt.direction && pt.quantity != null && selectedAccounts?.length > 0))
+        return false
+
+    // Immediate ideas fire now — no entry conditions, and stop/TP are optional
+    // (the user is reminded to add exits afterwards via the pulsing edit pencil).
+    if (pt.immediate) return true
+
+    // Conditional ideas need an entry, a stop, and a take profit.
     return !!(
-        s.active_asset &&
-        pt.direction &&
         pt.entry_conditions?.length > 0 &&
         pt.stop_conditions?.length > 0 &&
-        pt.tp_conditions?.length > 0 &&
-        pt.quantity != null &&
-        selectedAccounts?.length > 0
+        pt.tp_conditions?.length > 0
     )
 }
 

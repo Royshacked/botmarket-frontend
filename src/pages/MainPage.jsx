@@ -6,6 +6,8 @@ import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
 import { NewsFeed }          from '../cmps/NewsFeed/NewsFeed.jsx'
 import { TradingViewChart }  from '../cmps/TradingViewChart/TradingViewChart.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
+import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
+import { buildOrderPreview }  from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { MonitorDashboard }  from '../cmps/MonitorDashboard/MonitorDashboard.jsx'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
@@ -35,6 +37,7 @@ function deriveBuildingIdea(analysisState) {
         direction:        pt.direction       || null,
         type:             pt.type            || null,
         quantity:         pt.quantity        ?? null,
+        immediate:        pt.immediate       || false,
         entry_timeframe:  pt.entry_timeframe || null,
         stop_timeframe:   pt.stop_timeframe  || null,
         tp_timeframe:     pt.tp_timeframe    || null,
@@ -48,7 +51,7 @@ function deriveBuildingIdea(analysisState) {
 export function MainPage() {
     const [messages, setMessages] = useState([])
     const [analysisState, setAnalysisState] = useState(null)
-    const [chartSymbol, setChartSymbol]   = useState('AAPL')
+    const [chartSymbol, setChartSymbol]   = useState('SPY')
     const [chartInterval, setChartInterval] = useState('D')
     const [isLoading, setIsLoading] = useState(false)
     const [newsArticles, setNewsArticles] = useState([])
@@ -65,6 +68,8 @@ export function MainPage() {
     const [mainAccountId, setMainAccountId]         = useState(null)
     const [activeTab, setActiveTab]             = useState('idea')
     const [portfolioChatRestore, setPortfolioChatRestore] = useState(null)
+    const [dismissedConfirmIds, setDismissedConfirmIds] = useState(() => new Set())
+    const [placingOrders, setPlacingOrders] = useState(false)
     const latestMessagesRef    = useRef([])
     const lastFetchedAssetRef  = useRef(null)
 
@@ -98,6 +103,15 @@ export function MainPage() {
     }
 
     const buildingIdea = deriveBuildingIdea(analysisState)
+
+    // First idea awaiting order confirmation (hit + has accounts + not yet placed + not dismissed)
+    const confirmIdea = ideas.find(i =>
+        i.status === 'hit' &&
+        !i.ordersPlacedAt &&
+        Array.isArray(i.accounts) && i.accounts.length > 0 &&
+        !dismissedConfirmIds.has(i.id)
+    )
+    const confirmOrders = confirmIdea ? buildOrderPreview(confirmIdea, availableAccounts) : []
 
     useEffect(() => {
         setNewsLoading(true)
@@ -360,7 +374,7 @@ export function MainPage() {
         setMessages(restoredMessages)
         latestMessagesRef.current = restoredMessages
         setAnalysisState(restoredState)
-        setChartSymbol(restoredState.structured_state?.active_asset || idea.asset || 'AAPL')
+        setChartSymbol(restoredState.structured_state?.active_asset || idea.asset || 'SPY')
         setEditingIdeaId(idea.id)
         setSelectedAccounts(Array.isArray(idea.accounts) ? idea.accounts : [])
         setMainAccountId(idea.mainAccountId ?? null)
@@ -440,6 +454,33 @@ export function MainPage() {
         }
     }
 
+    async function handleConfirmOrders(idea, orders) {
+        setPlacingOrders(true)
+        try {
+            const updated = await tradeIdeasService.placeOrders(idea.id, orders)
+            if (updated) setIdeas(prev => prev.map(i => i.id === idea.id ? updated : i))
+        } catch (err) {
+            console.error('[tradeIdeas] place orders failed', err)
+            // Keep the idea in 'hit' so the user can retry from the detail dialog
+            setDismissedConfirmIds(prev => new Set(prev).add(idea.id))
+        } finally {
+            setPlacingOrders(false)
+        }
+    }
+
+    function handleDismissConfirm(idea) {
+        setDismissedConfirmIds(prev => new Set(prev).add(idea.id))
+    }
+
+    function handleReopenConfirm(idea) {
+        // Re-show the confirmation dialog for an idea dismissed earlier
+        setDismissedConfirmIds(prev => {
+            const next = new Set(prev)
+            next.delete(idea.id)
+            return next
+        })
+    }
+
     async function handleGeneratePlan(plan, messages = []) {
         try {
             const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
@@ -517,23 +558,8 @@ export function MainPage() {
             <main>
                 {/* ── Desktop / tablet workspace ── */}
                 <div className="workspace">
-                    <div className="workspace__left">
-                        <div className="workspace__chart">
-                            <TradingViewChart symbol={chartSymbol} interval={chartInterval} />
-                        </div>
-                        <TradeIdeasList
-                            ideas={ideas
-                                .filter(i => i.status !== 'closed')
-                                .filter(i => i.id !== editingIdeaId)}
-                            buildingIdea={buildingIdea}
-                            onDelete={handleDeleteIdea}
-                            onCancelBuild={handleCancelBuild}
-                            onStatusChange={handleStatusChange}
-                            onUpdate={handleUpdateIdea}
-                            onSymbolClick={setChartSymbol}
-                            onEdit={handleEditIdea}
-                            onEditPortfolio={handleEditPortfolio}
-                        />
+                    <div className="workspace__chart">
+                        <TradingViewChart symbol={chartSymbol} interval={chartInterval} />
                     </div>
                     <div className="workspace__chat">
                         <div className="chat-tabs">
@@ -584,6 +610,22 @@ export function MainPage() {
                             symbol={activeNewsSymbol}
                         />
                     </div>
+                    <div className="workspace__ideas">
+                        <TradeIdeasList
+                            ideas={ideas
+                                .filter(i => i.status !== 'closed')
+                                .filter(i => i.id !== editingIdeaId)}
+                            buildingIdea={buildingIdea}
+                            onDelete={handleDeleteIdea}
+                            onCancelBuild={handleCancelBuild}
+                            onStatusChange={handleStatusChange}
+                            onUpdate={handleUpdateIdea}
+                            onSymbolClick={setChartSymbol}
+                            onEdit={handleEditIdea}
+                            onEditPortfolio={handleEditPortfolio}
+                            onPlaceOrder={handleReopenConfirm}
+                        />
+                    </div>
                 </div>
 
                 {/* ── Mobile monitor dashboard ── */}
@@ -598,6 +640,15 @@ export function MainPage() {
                 />
             </main>
 
+            {confirmIdea && confirmOrders.length > 0 && (
+                <OrderConfirmDialog
+                    idea={confirmIdea}
+                    orders={confirmOrders}
+                    placing={placingOrders}
+                    onConfirm={handleConfirmOrders}
+                    onDismiss={handleDismissConfirm}
+                />
+            )}
 
             <AppFooter />
         </>

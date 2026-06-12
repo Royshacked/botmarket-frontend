@@ -38,7 +38,7 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onStat
     return (
         <>
             <tr className="portfolio-group-row" onClick={() => !expanded && onToggle()}>
-                <td colSpan={4} className="portfolio-group-row__header">
+                <td colSpan={5} className="portfolio-group-row__header">
                     <div className="portfolio-group-row__header-inner">
                         <span className="portfolio-group-row__name">{group.name}</span>
                         <span className="portfolio-group-row__count">{group.ideas.length} ideas</span>
@@ -85,7 +85,7 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onStat
     )
 }
 
-export function TradeIdeasList({ ideas, buildingIdea, onDelete, onCancelBuild, onStatusChange, onUpdate, onSymbolClick, onEdit, onEditPortfolio }) {
+export function TradeIdeasList({ ideas, buildingIdea, onDelete, onCancelBuild, onStatusChange, onUpdate, onSymbolClick, onEdit, onEditPortfolio, onPlaceOrder }) {
     const [activeIdea,     setActiveIdea]     = useState(null)
     const [expandedGroups, setExpandedGroups] = useState(new Set())
     const [activeFilter,   setActiveFilter]   = useState('ideas')
@@ -139,6 +139,7 @@ export function TradeIdeasList({ ideas, buildingIdea, onDelete, onCancelBuild, o
                                     <th className="col-asset">Asset</th>
                                     <th className="col-dir">Dir</th>
                                     <th className="col-type">Type</th>
+                                    <th className="col-created">Created</th>
                                     <th className="col-notes">Trade Summary</th>
                                     <th className="col-status">Status</th>
                                 </tr>
@@ -177,6 +178,7 @@ export function TradeIdeasList({ ideas, buildingIdea, onDelete, onCancelBuild, o
                                     <th className="col-asset">Asset</th>
                                     <th className="col-dir">Dir</th>
                                     <th className="col-type">Type</th>
+                                    <th className="col-created">Created</th>
                                     <th className="col-notes">Trade Summary</th>
                                     <th className="col-status">Status</th>
                                 </tr>
@@ -207,6 +209,7 @@ export function TradeIdeasList({ ideas, buildingIdea, onDelete, onCancelBuild, o
                 onClose={handleClose}
                 onEdit={handleEdit}
                 onDelete={onDelete}
+                onPlaceOrder={onPlaceOrder}
             />
         </section>
     )
@@ -220,4 +223,5 @@ TradeIdeasList.propTypes = {
     onStatusChange:   PropTypes.func.isRequired,
     onEdit:           PropTypes.func,
     onEditPortfolio:  PropTypes.func,
+    onPlaceOrder:     PropTypes.func,
 }

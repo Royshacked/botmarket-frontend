@@ -14,37 +14,42 @@
     flex-direction: column;
 }
 
-// ── 3-column workspace: left(chart+ideas) 37.5% | chat 37.5% | news 25% ──────
+// ── Workspace grid ───────────────────────────────────────────────────────────
+// Columns: chart 37.5% | chat 37.5% | news 25%
+// Rows:    top (chart + chat + news), bottom (ideas strip spanning chart+chat).
+// News spans both rows so it stays a full-height right column.
 .workspace {
     flex: 1;
     min-height: 0;
-    display: flex;
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: 37.5% 37.5% 25%;
+    grid-template-rows: 1fr auto;
+    grid-template-areas:
+        "chart chat news"
+        "ideas ideas news";
     gap: 12px;
     padding: 12px;
 }
 
-// Left column: chart on top, trade ideas strip on bottom
-.workspace__left {
-    flex: 0 0 37.5%;
-    min-height: 0;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-}
-
 .workspace__chart {
-    flex: 1;
+    grid-area: chart;
     min-height: 0;
     min-width: 0;
 }
 
 .workspace__chat {
-    flex: 0 0 37.5%;
+    grid-area: chat;
     min-height: 0;
     min-width: 0;
     display: flex;
     flex-direction: column;
+}
+
+// Trade ideas strip — spans the chart + chat columns, below both
+.workspace__ideas {
+    grid-area: ideas;
+    min-height: 0;
+    min-width: 0;
 }
 
 // ── Chat / Portfolio tab toggle ───────────────────────────────────────────────
@@ -92,21 +97,23 @@
 }
 
 .workspace__news {
-    flex: 0 0 25%;
+    grid-area: news;
     min-height: 0;
     min-width: 0;
 }
 
 // ── Tablet: 768px – 1023px ────────────────────────────────────────────────────
-// News column collapses; left + chat split 50/50
+// News column collapses; chart + chat split 50/50, ideas span both below
 @media (max-width: 1023px) {
-    .workspace__news {
-        display: none;
+    .workspace {
+        grid-template-columns: 50% 50%;
+        grid-template-areas:
+            "chart chat"
+            "ideas ideas";
     }
 
-    .workspace__left,
-    .workspace__chat {
-        flex: 0 0 50%;
+    .workspace__news {
+        display: none;
     }
 }
 

@@ -7,6 +7,7 @@ export const tradeIdeasService = {
     getIdea,
     deleteIdea,
     updateIdea,
+    placeOrders,
 }
 
 async function createIdea(idea) {
@@ -35,4 +36,9 @@ async function updateIdea(id, patch) {
 async function createBatch(plan, accounts = [], mainAccountId = null) {
     const res = await httpService.post('trade-ideas/batch', { plan, accounts, mainAccountId })
     return Array.isArray(res.ideas) ? res.ideas : []
+}
+
+async function placeOrders(id, orders) {
+    const res = await httpService.post(`trade-ideas/${id}/orders`, { orders })
+    return res.idea ?? null
 }

@@ -2,16 +2,8 @@ import { useState, useEffect } from 'react'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote'
 import { TradingViewChart }  from '../cmps/TradingViewChart/TradingViewChart.jsx'
 import { getTree, ConditionTreeView } from '../cmps/TradeIdeas/TradeIdeaDialog.jsx'
+import { formatCreatedAtFull } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import './IdeaPage.scss'
-
-const STATUS_LABEL = {
-    waiting: 'Waiting',
-    looking: 'Watching',
-    hit:     'Entry triggered',
-    long:    'Long ●',
-    short:   'Short ●',
-    closed:  'Closed',
-}
 
 export function IdeaPage() {
     const id              = window.location.pathname.split('/').at(-1)
@@ -68,16 +60,17 @@ export function IdeaPage() {
                     )}
                     {idea.quantity != null && <span className="idea-page__meta">{idea.quantity} shares</span>}
                     {idea.type     != null && <span className="idea-page__meta">{idea.type}</span>}
+                    {idea.savedAt  != null && <span className="idea-page__meta">{formatCreatedAtFull(idea.savedAt)}</span>}
                 </span>
                 {idea.status && (
                     <span className={`idea-page__status status--${idea.status}`}>
-                        {STATUS_LABEL[idea.status] ?? idea.status}
+                        {idea.status}
                     </span>
                 )}
             </div>
 
             <div className="idea-page__chart">
-                <TradingViewChart symbol={idea.asset || 'AAPL'} />
+                <TradingViewChart symbol={idea.asset || 'SPY'} />
             </div>
 
             <div className="idea-page__conditions">

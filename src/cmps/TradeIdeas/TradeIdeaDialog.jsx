@@ -1,17 +1,7 @@
 import { useState, useEffect, Fragment } from 'react'
 import PropTypes from 'prop-types'
 import { TradingViewChart } from '../TradingViewChart/TradingViewChart.jsx'
-
-// ── Status badge ─────────────────────────────────────────────────────────────
-
-const STATUS_LABEL = {
-    waiting: 'Waiting',
-    looking: 'Watching',
-    hit:     'Entry triggered',
-    long:    'Long ●',
-    short:   'Short ●',
-    closed:  'Closed',
-}
+import { formatCreatedAtFull } from './tradeIdea.utils.js'
 
 // ── Condition tree helpers ────────────────────────────────────────────────────
 
@@ -104,7 +94,7 @@ export function ConditionTreeView({ node }) {
 const DIALOG_W = 540
 const DIALOG_H = 660
 
-export function TradeIdeaDialog({ idea, index = 0, onClose, onEdit, onDelete }) {
+export function TradeIdeaDialog({ idea, index = 0, onClose, onEdit, onDelete, onPlaceOrder }) {
     const [pos, setPos] = useState({ x: 0, y: 0 })
 
     // Centre + cascade by index whenever a new idea is opened
@@ -155,6 +145,11 @@ export function TradeIdeaDialog({ idea, index = 0, onClose, onEdit, onDelete }) 
         onEdit(idea)
     }
 
+    function handlePlaceOrder() {
+        onClose()
+        onPlaceOrder(idea)
+    }
+
     function handlePopOut() {
         localStorage.setItem(`popup-idea-${idea.id}`, JSON.stringify(idea))
         const popup = window.open(`/idea/${idea.id}`, `idea-${idea.id}`, 'width=960,height=720')
@@ -175,9 +170,10 @@ export function TradeIdeaDialog({ idea, index = 0, onClose, onEdit, onDelete }) 
                     </span>
                     {idea.quantity != null && <span className="idea-dialog__meta"> · {idea.quantity}</span>}
                     {idea.type     != null && <span className="idea-dialog__meta"> · {idea.type}</span>}
+                    {idea.savedAt  != null && <span className="idea-dialog__meta"> · {formatCreatedAtFull(idea.savedAt)}</span>}
                     {idea.status   != null && (
                         <span className={`idea-dialog__status status--${idea.status}`}>
-                            {STATUS_LABEL[idea.status] ?? idea.status}
+                            {idea.status}
                         </span>
                     )}
                 </span>
@@ -188,7 +184,7 @@ export function TradeIdeaDialog({ idea, index = 0, onClose, onEdit, onDelete }) 
             </div>
 
             <div className="idea-dialog__chart">
-                <TradingViewChart symbol={idea.asset || 'AAPL'} interval={idea.entry_timeframe || 'D'} />
+                <TradingViewChart symbol={idea.asset || 'SPY'} interval={idea.entry_timeframe || 'D'} />
             </div>
 
             <div className="idea-dialog__body">
@@ -240,6 +236,9 @@ export function TradeIdeaDialog({ idea, index = 0, onClose, onEdit, onDelete }) 
 
             <div className="idea-dialog__footer">
                 {onDelete && <button className="idea-dialog__btn idea-dialog__btn--delete" onClick={handleDelete}>Delete</button>}
+                {onPlaceOrder && idea.status === 'hit' && !idea.ordersPlacedAt && Array.isArray(idea.accounts) && idea.accounts.length > 0 && (
+                    <button className="idea-dialog__btn idea-dialog__btn--place" onClick={handlePlaceOrder}>Place order</button>
+                )}
                 {onEdit   && <button className="idea-dialog__btn idea-dialog__btn--save"   onClick={handleEditInChat}>Edit in chat</button>}
             </div>
         </div>
@@ -252,4 +251,5 @@ TradeIdeaDialog.propTypes = {
     onClose:  PropTypes.func.isRequired,
     onEdit:   PropTypes.func,
     onDelete: PropTypes.func,
+    onPlaceOrder: PropTypes.func,
 }
