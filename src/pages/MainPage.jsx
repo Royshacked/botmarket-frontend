@@ -7,7 +7,7 @@ import { NewsFeed }          from '../cmps/NewsFeed/NewsFeed.jsx'
 import { TradingViewChart }  from '../cmps/TradingViewChart/TradingViewChart.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
-import { buildOrderPreview }  from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { buildOrderPreview, orderTypeLabel } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { MonitorDashboard }  from '../cmps/MonitorDashboard/MonitorDashboard.jsx'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
@@ -104,14 +104,28 @@ export function MainPage() {
 
     const buildingIdea = deriveBuildingIdea(analysisState)
 
-    // First idea awaiting order confirmation (hit + has accounts + not yet placed + not dismissed)
+    // First idea awaiting order confirmation: orderState 'awaiting_confirm' (or a
+    // legacy hit idea saved before orderState existed), with accounts, not yet
+    // placed and not dismissed. 'awaiting_market' ideas stay deferred (no dialog).
     const confirmIdea = ideas.find(i =>
-        i.status === 'hit' &&
         !i.ordersPlacedAt &&
+        !dismissedConfirmIds.has(i.id) &&
         Array.isArray(i.accounts) && i.accounts.length > 0 &&
-        !dismissedConfirmIds.has(i.id)
+        (i.orderState === 'awaiting_confirm' || (i.orderState == null && i.status === 'hit'))
     )
-    const confirmOrders = confirmIdea ? buildOrderPreview(confirmIdea, availableAccounts) : []
+    // Prefer the server-built plan; fall back to a client preview for legacy ideas.
+    const confirmOrders = !confirmIdea
+        ? []
+        : confirmIdea.pendingOrder?.plan?.length
+            ? confirmIdea.pendingOrder.plan.map(o => ({
+                broker:    o.broker,
+                accountId: o.accountId,
+                accountNo: o.accountNo,
+                quantity:  o.quantity,
+                orderType: orderTypeLabel(confirmIdea.direction, o.type),
+                isMain:    String(o.accountId) === String(confirmIdea.mainAccountId),
+            }))
+            : buildOrderPreview(confirmIdea, availableAccounts)
 
     useEffect(() => {
         setNewsLoading(true)

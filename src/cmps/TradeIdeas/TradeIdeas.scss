@@ -299,6 +299,13 @@
         &.status--closed { color: #555; }
     }
 
+    &__await-market {
+        font-size: 0.78rem;
+        line-height: 1;
+        flex-shrink: 0;
+        animation: status-pulse 1.8s ease-in-out infinite;
+    }
+
     &__edit-btn {
         background: none;
         border: none;

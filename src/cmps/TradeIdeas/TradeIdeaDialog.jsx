@@ -236,7 +236,8 @@ export function TradeIdeaDialog({ idea, index = 0, onClose, onEdit, onDelete, on
 
             <div className="idea-dialog__footer">
                 {onDelete && <button className="idea-dialog__btn idea-dialog__btn--delete" onClick={handleDelete}>Delete</button>}
-                {onPlaceOrder && idea.status === 'hit' && !idea.ordersPlacedAt && Array.isArray(idea.accounts) && idea.accounts.length > 0 && (
+                {onPlaceOrder && !idea.ordersPlacedAt && Array.isArray(idea.accounts) && idea.accounts.length > 0 &&
+                  (idea.orderState === 'awaiting_confirm' || (idea.orderState == null && idea.status === 'hit')) && (
                     <button className="idea-dialog__btn idea-dialog__btn--place" onClick={handlePlaceOrder}>Place order</button>
                 )}
                 {onEdit   && <button className="idea-dialog__btn idea-dialog__btn--save"   onClick={handleEditInChat}>Edit in chat</button>}

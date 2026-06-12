@@ -42,6 +42,9 @@ export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolC
             <td className="idea-row__notes">{summary || '—'}</td>
 
             <td className="idea-row__controls">
+                {idea.orderState === 'awaiting_market' && (
+                    <span className="idea-row__await-market" title="Order deferred until the market opens">⏳</span>
+                )}
                 {!isBuilding && onEdit && (
                     <button
                         className={`idea-row__edit-btn${needsExits ? ' idea-row__edit-btn--alert' : ''}`}
