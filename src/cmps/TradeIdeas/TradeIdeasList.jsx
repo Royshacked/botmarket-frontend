@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { TradeIdeaRow } from './TradeIdeaRow.jsx'
 import { TradeIdeaDialog } from './TradeIdeaDialog.jsx'
@@ -30,12 +30,13 @@ function _separateIdeas(ideas) {
     return { standalone, groups }
 }
 
-function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onStatusChange, onOpen, onSymbolClick, onEditIdea }) {
+function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDeletePortfolio, onStatusChange, onOpen, onSymbolClick }) {
     const allWaiting = group.ideas.length > 0 && group.ideas.every(i => i.status === 'waiting')
 
     function handleDeleteAll(e) {
         e.stopPropagation()
-        group.ideas.forEach(idea => onDelete(idea.id))
+        // Deletes every idea in the portfolio and its chat history
+        onDeletePortfolio(group.portfolioId)
     }
 
     function handleActivateAll(e) {
@@ -108,7 +109,6 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onStat
                                         onStatusChange={onStatusChange}
                                         onOpen={onOpen}
                                         onSymbolClick={onSymbolClick}
-                                        onEdit={onEditIdea}
                                         isPortfolioChild
                                     />
                                 ))}
@@ -121,10 +121,17 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onStat
     )
 }
 
-export function TradeIdeasList({ ideas, buildingIdea, onDelete, onCancelBuild, onStatusChange, onUpdate, onSymbolClick, onEdit, onEditPortfolio, onPlaceOrder }) {
+export function TradeIdeasList({ ideas, buildingIdea, buildingPortfolio, onDelete, onCancelBuild, onStatusChange, onUpdate, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, onPlaceOrder }) {
     const [activeIdea,     setActiveIdea]     = useState(null)
     const [expandedGroups, setExpandedGroups] = useState(new Set())
     const [activeFilter,   setActiveFilter]   = useState('ideas')
+
+    // When a portfolio starts taking shape in chat, move the list to the
+    // portfolios slot so the building row is visible (mirrors single-idea build).
+    const isBuildingPortfolio = !!buildingPortfolio
+    useEffect(() => {
+        if (isBuildingPortfolio) setActiveFilter('portfolios')
+    }, [isBuildingPortfolio])
 
     function handleOpen(idea)  { setActiveIdea(idea) }
     function handleClose()     { setActiveIdea(null) }
@@ -205,7 +212,7 @@ export function TradeIdeasList({ ideas, buildingIdea, onDelete, onCancelBuild, o
                         </table>
                     )
                 ) : (
-                    !hasPortfolios ? (
+                    (!hasPortfolios && !buildingPortfolio) ? (
                         <p className="trade-ideas-list__empty">No portfolios yet</p>
                     ) : (
                         <table className="portfolios-table">
@@ -219,6 +226,17 @@ export function TradeIdeasList({ ideas, buildingIdea, onDelete, onCancelBuild, o
                                 </tr>
                             </thead>
                             <tbody>
+                                {buildingPortfolio && (
+                                    <tr className="portfolio-group-row portfolio-group-row--building">
+                                        <td className="portfolio-group-row__name">{buildingPortfolio.name}</td>
+                                        <td className="portfolio-group-row__count">{buildingPortfolio.ideasCount}</td>
+                                        <td className="portfolio-group-row__created">—</td>
+                                        <td className="portfolio-group-row__edit" />
+                                        <td className="portfolio-group-row__status">
+                                            <span className="portfolio-group-row__building-badge">building</span>
+                                        </td>
+                                    </tr>
+                                )}
                                 {groups.map(group => (
                                     <PortfolioGroupRow
                                         key={group.portfolioId}
@@ -227,10 +245,10 @@ export function TradeIdeasList({ ideas, buildingIdea, onDelete, onCancelBuild, o
                                         onToggle={() => toggleGroup(group.portfolioId)}
                                         onEdit={onEditPortfolio}
                                         onDelete={onDelete}
+                                        onDeletePortfolio={onDeletePortfolio}
                                         onStatusChange={onStatusChange}
                                         onOpen={handleOpen}
                                         onSymbolClick={onSymbolClick}
-                                        onEditIdea={onEdit}
                                     />
                                 ))}
                             </tbody>
@@ -253,10 +271,12 @@ export function TradeIdeasList({ ideas, buildingIdea, onDelete, onCancelBuild, o
 TradeIdeasList.propTypes = {
     ideas:            PropTypes.array.isRequired,
     buildingIdea:     PropTypes.object,
+    buildingPortfolio: PropTypes.object,
     onDelete:         PropTypes.func.isRequired,
     onCancelBuild:    PropTypes.func.isRequired,
     onStatusChange:   PropTypes.func.isRequired,
     onEdit:           PropTypes.func,
     onEditPortfolio:  PropTypes.func,
+    onDeletePortfolio: PropTypes.func,
     onPlaceOrder:     PropTypes.func,
 }

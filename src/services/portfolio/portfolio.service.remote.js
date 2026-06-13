@@ -1,7 +1,7 @@
 const BASE_URL        = import.meta.env.PROD ? '' : 'http://localhost:3030'
 const STREAM_BASE_URL = BASE_URL
 
-export const portfolioService = { sendStream, saveChatState, getChatState }
+export const portfolioService = { sendStream, saveChatState, getChatState, deleteChatState }
 
 async function saveChatState(portfolioId, messages) {
     const res = await fetch(`${BASE_URL}/portfolio/chat-state`, {
@@ -21,6 +21,15 @@ async function getChatState(portfolioId) {
     if (!res.ok) return null
     const data = await res.json()
     return data.chatState ?? null
+}
+
+async function deleteChatState(portfolioId) {
+    const res = await fetch(`${BASE_URL}/portfolio/chat-state/${encodeURIComponent(portfolioId)}`, {
+        method:      'DELETE',
+        credentials: 'include',
+    })
+    if (!res.ok) throw new Error('Failed to delete portfolio chat state')
+    return res.json()
 }
 
 async function sendStream(messages, ideaAccounts = [], { onToken, onTicker, onDone, onError, portfolioId = null, portfolioIdeas = [] } = {}) {

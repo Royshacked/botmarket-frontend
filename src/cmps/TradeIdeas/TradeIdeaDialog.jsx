@@ -240,7 +240,7 @@ export function TradeIdeaDialog({ idea, index = 0, onClose, onEdit, onDelete, on
                   (idea.orderState === 'awaiting_confirm' || (idea.orderState == null && idea.status === 'hit')) && (
                     <button className="idea-dialog__btn idea-dialog__btn--place" onClick={handlePlaceOrder}>Place order</button>
                 )}
-                {onEdit   && <button className="idea-dialog__btn idea-dialog__btn--save"   onClick={handleEditInChat}>Edit in chat</button>}
+                {onEdit && !idea.portfolioId && <button className="idea-dialog__btn idea-dialog__btn--save" onClick={handleEditInChat}>Edit in chat</button>}
             </div>
         </div>
     )

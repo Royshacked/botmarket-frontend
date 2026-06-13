@@ -441,6 +441,24 @@
 
     &__status-active { color: #6dd4a8; }
 
+    // Building (in-chat) portfolio row
+    &--building {
+        cursor: default;
+        background: var(--glow-soft);
+
+        .portfolio-group-row__name { animation: idea-build-pulse 1.6s ease-in-out infinite; }
+        td { border-bottom: none; }
+    }
+
+    &__building-badge {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        color: var(--accent-light);
+        animation: idea-build-pulse 1.6s ease-in-out infinite;
+    }
+
     // Expanded child ideas — nested ideas-table fills the full width
     &__expanded > td {
         padding: 0;

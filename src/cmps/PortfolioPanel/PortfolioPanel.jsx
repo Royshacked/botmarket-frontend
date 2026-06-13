@@ -78,7 +78,9 @@ function _renderMarkdown(text) {
 export function PortfolioPanel({
     onTickerSelect,
     onGeneratePlan,
+    onUpdatePlan,
     onPortfolioUpdate,
+    onBuildingPlanChange,
     chatRestore       = null,
     availableAccounts = [],
     selectedAccounts  = [],
@@ -102,6 +104,23 @@ export function PortfolioPanel({
         setEditingPortfolioIdeas(chatRestore.portfolioIdeas ?? [])
     }, [chatRestore?.key])
 
+    // Assets being considered for the portfolio: recommended tickers across the
+    // conversation + any pending-plan assets. Drives the in-chat asset strip and
+    // the trade-ideas list's "building" portfolio row (mirrors single-idea build).
+    const buildAssets = [...new Set([
+        ...messages.flatMap(m => m.tickers ?? []),
+        ...(pendingPlan?.ideas?.map(i => i.asset) ?? []),
+    ])]
+    const buildKey = `${buildAssets.join(',')}|${pendingPlan?.name ?? ''}|${pendingPlan?.ideas?.length ?? 0}`
+
+    useEffect(() => {
+        const active = buildAssets.length > 0 || !!pendingPlan
+        onBuildingPlanChange?.(active
+            ? { name: pendingPlan?.name ?? 'New portfolio', ideasCount: pendingPlan?.ideas?.length ?? buildAssets.length }
+            : null)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [buildKey])
+
     const tokenQueueRef     = useRef('')
     const drainTimerRef     = useRef(null)
     const pendingTickersRef = useRef([])
@@ -111,8 +130,11 @@ export function PortfolioPanel({
     const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
     const { isRecording, isTranscribing, toggle: toggleMic } = useMicInput({ onTranscript })
 
+    // Follow the response gently while it streams; don't yank to the bottom once
+    // it finishes (only scroll when the last message is still streaming).
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+        const last = messages[messages.length - 1]
+        if (last?.streaming) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, [messages])
 
     function _startDrain() {
@@ -233,6 +255,9 @@ export function PortfolioPanel({
         }
     }
 
+    // A plan is only generatable once every idea has a positive quantity.
+    const planReady = !!pendingPlan && pendingPlan.ideas.length > 0 && pendingPlan.ideas.every(i => Number(i.quantity) > 0)
+
     return (
         <div className="portfolio-panel">
             <div className="portfolio-panel__header">
@@ -250,6 +275,15 @@ export function PortfolioPanel({
                 </div>
             </div>
 
+            {buildAssets.length > 0 && (
+                <div className="portfolio-panel__build-assets">
+                    <span className="portfolio-panel__build-assets-label">building —</span>
+                    {buildAssets.map(sym => (
+                        <span key={sym} className="portfolio-panel__build-asset-chip">{sym}</span>
+                    ))}
+                </div>
+            )}
+
             <div className="portfolio-panel__messages">
                 {messages.length === 0 && (
                     <div className="portfolio-panel__empty">
@@ -259,6 +293,11 @@ export function PortfolioPanel({
                 {messages.map((msg, i) => (
                     <MessageBubble key={i} msg={msg} onTickerSelect={onTickerSelect} />
                 ))}
+                {pendingPlan && !planReady && (
+                    <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant portfolio-panel__bubble--warning">
+                        ⚠️ I need a position size before this plan can be generated. Tell me the total capital you want to deploy and I&apos;ll size each position by its allocation — or give me a quantity per asset.
+                    </div>
+                )}
                 <div ref={messagesEndRef} />
             </div>
 
@@ -266,7 +305,9 @@ export function PortfolioPanel({
                 <div className="portfolio-panel__plan-banner">
                     <div className="portfolio-panel__plan-info">
                         <span className="portfolio-panel__plan-name">{pendingPlan.name}</span>
-                        <span className="portfolio-panel__plan-count">{pendingPlan.ideas.length} ideas ready</span>
+                        <span className="portfolio-panel__plan-count">
+                            {pendingPlan.ideas.length} ideas {planReady ? 'ready' : '— quantities needed'}
+                        </span>
                     </div>
                     <div className="portfolio-panel__plan-actions">
                         <button className="portfolio-panel__plan-dismiss" onClick={() => setPendingPlan(null)}>
@@ -274,9 +315,15 @@ export function PortfolioPanel({
                         </button>
                         <button
                             className="portfolio-panel__plan-generate"
-                            onClick={() => { if (onGeneratePlan) onGeneratePlan(pendingPlan, messages); setPendingPlan(null) }}
+                            onClick={() => {
+                                if (editingPortfolioId) { if (onUpdatePlan) onUpdatePlan(pendingPlan, editingPortfolioId, messages) }
+                                else                    { if (onGeneratePlan) onGeneratePlan(pendingPlan, messages) }
+                                setPendingPlan(null); setMessages([]); setInputText('')
+                            }}
+                            disabled={!planReady}
+                            title={planReady ? (editingPortfolioId ? 'Update plan' : 'Generate ideas') : 'Set quantities first'}
                         >
-                            Generate ideas ↑
+                            {editingPortfolioId ? 'Update plan ↑' : 'Generate ideas ↑'}
                         </button>
                     </div>
                 </div>
@@ -340,7 +387,9 @@ export function PortfolioPanel({
 PortfolioPanel.propTypes = {
     onTickerSelect:      PropTypes.func.isRequired,
     onGeneratePlan:      PropTypes.func,
+    onUpdatePlan:        PropTypes.func,
     onPortfolioUpdate:   PropTypes.func,
+    onBuildingPlanChange: PropTypes.func,
     chatRestore:         PropTypes.object,
     availableAccounts:   PropTypes.array,
     selectedAccounts:    PropTypes.arrayOf(PropTypes.string),

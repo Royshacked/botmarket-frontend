@@ -68,6 +68,7 @@ export function MainPage() {
     const [mainAccountId, setMainAccountId]         = useState(null)
     const [activeTab, setActiveTab]             = useState('idea')
     const [portfolioChatRestore, setPortfolioChatRestore] = useState(null)
+    const [buildingPortfolio, setBuildingPortfolio] = useState(null)
     const [dismissedConfirmIds, setDismissedConfirmIds] = useState(() => new Set())
     const [placingOrders, setPlacingOrders] = useState(false)
     const latestMessagesRef    = useRef([])
@@ -103,6 +104,8 @@ export function MainPage() {
     }
 
     const buildingIdea = deriveBuildingIdea(analysisState)
+    // buildingPortfolio is reported up from PortfolioPanel (assets recommended /
+    // pending plan) → drives the list's "building" portfolio row.
 
     // First idea awaiting order confirmation: orderState 'awaiting_confirm' (or a
     // legacy hit idea saved before orderState existed), with accounts, not yet
@@ -445,6 +448,21 @@ export function MainPage() {
         }
     }
 
+    async function handleDeletePortfolio(portfolioId) {
+        const portfolioIdeas = ideas.filter(i => i.portfolioId === portfolioId)
+        try {
+            await Promise.all(portfolioIdeas.map(i => tradeIdeasService.deleteIdea(i.id)))
+            setIdeas(prev => prev.filter(i => i.portfolioId !== portfolioId))
+            if (portfolioIdeas.some(i => i.id === editingIdeaId)) handleCancelBuild()
+            // Also delete the portfolio's chat history
+            await portfolioService.deleteChatState(portfolioId)
+                .catch(err => console.error('[portfolio] chat delete failed', err))
+        } catch (err) {
+            console.error('[portfolio] delete failed', err)
+            loadIdeas()
+        }
+    }
+
     async function handleStatusChange(id, status) {
         // Optimistic update — React controlled selects snap back without this
         setIdeas(prev => prev.map(idea => idea.id === id ? { ...idea, status } : idea))
@@ -514,19 +532,51 @@ export function MainPage() {
     }
 
     async function handleEditPortfolio(portfolioId) {
+        const portfolioIdeas = ideas.filter(i => i.portfolioId === portfolioId)
+
+        // Editing the plan de-activates it: move every idea back to 'waiting'
+        // until the user re-activates via the plan row's status toggle.
+        const toReset = portfolioIdeas.filter(i => i.status !== 'waiting')
+        if (toReset.length > 0) {
+            setIdeas(prev => prev.map(i => i.portfolioId === portfolioId ? { ...i, status: 'waiting' } : i))
+            Promise.all(toReset.map(i => tradeIdeasService.updateIdea(i.id, { status: 'waiting' })))
+                .catch(err => console.error('[portfolio] reset to waiting failed', err))
+        }
+
         try {
-            const chatState    = await portfolioService.getChatState(portfolioId)
-            const portfolioIdeas = ideas.filter(i => i.portfolioId === portfolioId)
+            const chatState = await portfolioService.getChatState(portfolioId)
             setPortfolioChatRestore({
                 key: Date.now(),
                 messages:      chatState?.messages ?? [],
                 portfolioId,
-                portfolioIdeas,
+                portfolioIdeas: portfolioIdeas.map(i => ({ ...i, status: 'waiting' })),
             })
             setActiveTab('portfolio')
         } catch (err) {
             console.error('[portfolio] restore failed', err)
             setActiveTab('portfolio')
+        }
+    }
+
+    // Edit mode "Update plan": replace the portfolio's ideas in place, keeping the
+    // same portfolioId (fixes updates creating a whole new portfolio).
+    async function handleUpdatePlan(plan, portfolioId, messages = []) {
+        if (!portfolioId) return handleGeneratePlan(plan, messages)
+        try {
+            const existing   = ideas.filter(i => i.portfolioId === portfolioId)
+            await Promise.all(existing.map(i => tradeIdeasService.deleteIdea(i.id)))
+
+            const accountIds = availableAccounts.filter(a => selectedAccounts.includes(a.id)).map(a => a.id)
+            const newIdeas   = await tradeIdeasService.createBatch(plan, accountIds, mainAccountId, portfolioId)
+            setIdeas(prev => [...newIdeas, ...prev.filter(i => i.portfolioId !== portfolioId)])
+
+            const chatMessages = messages.filter(m => !m.streaming).map(m => ({ role: m.role, content: m.content }))
+            portfolioService.saveChatState(portfolioId, chatMessages).catch(err =>
+                console.error('[portfolio] chat state save failed', err)
+            )
+        } catch (err) {
+            console.error('[portfolio] update plan failed', err)
+            loadIdeas()
         }
     }
 
@@ -606,7 +656,9 @@ export function MainPage() {
                             <PortfolioPanel
                                 onTickerSelect={handleTickerSelect}
                                 onGeneratePlan={handleGeneratePlan}
+                                onUpdatePlan={handleUpdatePlan}
                                 onPortfolioUpdate={handlePortfolioUpdate}
+                                onBuildingPlanChange={setBuildingPortfolio}
                                 chatRestore={portfolioChatRestore}
                                 availableAccounts={availableAccounts}
                                 selectedAccounts={selectedAccounts}
@@ -630,6 +682,7 @@ export function MainPage() {
                                 .filter(i => i.status !== 'closed')
                                 .filter(i => i.id !== editingIdeaId)}
                             buildingIdea={buildingIdea}
+                            buildingPortfolio={buildingPortfolio}
                             onDelete={handleDeleteIdea}
                             onCancelBuild={handleCancelBuild}
                             onStatusChange={handleStatusChange}
@@ -637,6 +690,7 @@ export function MainPage() {
                             onSymbolClick={setChartSymbol}
                             onEdit={handleEditIdea}
                             onEditPortfolio={handleEditPortfolio}
+                            onDeletePortfolio={handleDeletePortfolio}
                             onPlaceOrder={handleReopenConfirm}
                         />
                     </div>
