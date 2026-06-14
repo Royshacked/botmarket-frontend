@@ -1,0 +1,32 @@
+// Table styling for assistant markdown, shared by every chat panel via <ChatMarkdown>.
+// Scoped to .chat-markdown so it never leaks to other tables in the app. Uses theme
+// variables so it adapts to whichever panel/theme renders it. Prose styling (p, ul,
+// strong, …) stays in each panel's own bubble styles.
+.chat-markdown {
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0.5em 0;
+        font-size: 12px;
+        line-height: 1.35;
+        font-family: 'IBM Plex Mono', monospace;
+        // auto layout: ticker/number columns size to content, the wide notes column
+        // takes the rest and wraps — no fixed columns forcing tall rows.
+    }
+
+    th, td {
+        padding: 3px 8px;
+        text-align: left;
+        vertical-align: top;
+        border: 1px solid var(--border);
+        overflow-wrap: anywhere;   // long theses wrap instead of overflowing off-screen
+    }
+
+    th {
+        color: var(--accent-light);
+        font-weight: 600;
+        background: var(--glow-soft);
+    }
+
+    tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.02); }
+}

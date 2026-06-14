@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
-import ReactMarkdown from 'react-markdown'
 import { portfolioService } from '../../services/portfolio/portfolio.service.remote.js'
+import { ChatMarkdown } from '../ChatMarkdown.jsx'
 import { AccountSelector } from '../ChatPanel/AccountSelector.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useTypewriter } from '../../customHooks/useTypewriter.js'
@@ -46,7 +46,7 @@ function MessageBubble({ msg, onTickerSelect }) {
     return (
         <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant">
             <div className="portfolio-panel__bubble-text">
-                <ReactMarkdown>{msg.content}</ReactMarkdown>
+                <ChatMarkdown>{msg.content}</ChatMarkdown>
             </div>
             {msg.tickers?.length > 0 && (
                 <div className="portfolio-panel__tickers">
@@ -307,22 +307,6 @@ export function PortfolioPanel({
                 )}
                 <div ref={messagesEndRef} />
             </div>
-
-            {pendingPlan && (
-                <div className="portfolio-panel__plan-banner">
-                    <div className="portfolio-panel__plan-info">
-                        <span className="portfolio-panel__plan-name">{pendingPlan.name}</span>
-                        <span className="portfolio-panel__plan-count">
-                            {pendingPlan.ideas.length} ideas {planReady ? 'ready' : '— quantities needed'}
-                        </span>
-                    </div>
-                    <div className="portfolio-panel__plan-actions">
-                        <button className="portfolio-panel__plan-dismiss" onClick={() => setPendingPlan(null)}>
-                            Dismiss
-                        </button>
-                    </div>
-                </div>
-            )}
 
             <button
                 className="portfolio-panel__generate"

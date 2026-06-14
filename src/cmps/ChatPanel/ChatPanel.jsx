@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
-import ReactMarkdown from 'react-markdown'
+import { ChatMarkdown } from '../ChatMarkdown.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { AccountSelector } from './AccountSelector.jsx'
@@ -198,7 +198,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                     <div key={i} className={`chat-panel__bubble chat-panel__bubble--${msg.role}`}>
                         {msg.role === 'assistant' ? (
                             <>
-                                <ReactMarkdown>{msg.content.replace(/<asset>[\s\S]*?<\/asset>/g, '').trimStart()}</ReactMarkdown>
+                                <ChatMarkdown>{msg.content.replace(/<asset>[\s\S]*?<\/asset>/g, '').trimStart()}</ChatMarkdown>
                                 {msg.streaming && !msg.content && (
                                     <span className="chat-panel__thinking">thinking…</span>
                                 )}
