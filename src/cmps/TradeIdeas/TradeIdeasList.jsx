@@ -48,6 +48,14 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
         })
     }
 
+    function handleDeactivateAll(e) {
+        e.stopPropagation()
+        // Deactivate: send every active idea back to 'waiting'.
+        group.ideas.forEach(idea => {
+            if (idea.status !== 'waiting') onStatusChange(idea.id, 'waiting')
+        })
+    }
+
     return (
         <>
             <tr className="portfolio-group-row" onClick={onToggle}>
@@ -82,7 +90,11 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
                             title="Activate all ideas in this portfolio"
                         >waiting</button>
                     ) : (
-                        <span className="idea-row__status-badge portfolio-group-row__status-active">active</span>
+                        <button
+                            className="idea-row__status-toggle portfolio-group-row__status-active"
+                            onClick={handleDeactivateAll}
+                            title="Set all ideas in this portfolio back to waiting"
+                        >active</button>
                     )}
                 </td>
             </tr>
@@ -155,9 +167,16 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
 
     const { standalone, groups } = _separateIdeas(ideas)
 
+    // While editing a portfolio, its building row stands in for the saved one — hide
+    // the saved group so we don't show a duplicate (building row + original row).
+    const editingPortfolioId = buildingPortfolio?.portfolioId ?? null
+    const visibleGroups = editingPortfolioId
+        ? groups.filter(g => g.portfolioId !== editingPortfolioId)
+        : groups
+
     const showIdeas      = activeFilter === 'ideas'
     const hasIdeasRows   = buildingIdea || standalone.length > 0
-    const hasPortfolios  = groups.length > 0
+    const hasPortfolios  = visibleGroups.length > 0
 
     return (
         <section className="trade-ideas-list full">
@@ -255,7 +274,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                                         </td>
                                     </tr>
                                 )}
-                                {groups.map(group => (
+                                {visibleGroups.map(group => (
                                     <PortfolioGroupRow
                                         key={group.portfolioId}
                                         group={group}

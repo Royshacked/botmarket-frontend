@@ -104,20 +104,40 @@ export function PortfolioPanel({
         setEditingPortfolioIdeas(chatRestore.portfolioIdeas ?? [])
     }, [chatRestore?.key])
 
-    // Assets being considered for the portfolio: recommended tickers across the
-    // conversation + any pending-plan assets. Drives the in-chat asset strip and
-    // the trade-ideas list's "building" portfolio row (mirrors single-idea build).
-    const buildAssets = [...new Set([
-        ...messages.flatMap(m => m.tickers ?? []),
-        ...(pendingPlan?.ideas?.map(i => i.asset) ?? []),
-        ...(editingPortfolioIdeas?.map(i => i.asset) ?? []),
-    ])]
-    const buildKey = `${buildAssets.join(',')}|${pendingPlan?.name ?? ''}|${pendingPlan?.ideas?.length ?? 0}`
+    // The assets the portfolio currently consists of, in priority order:
+    //   1. a finalized plan (authoritative — carries assets + sizes + name)
+    //   2. the most recent recommendation in the chat (reflects mid-build changes)
+    //   3. the existing ideas of the portfolio being edited
+    // Using the *latest* recommendation (not the union of every message) lets the
+    // preview drop assets the conversation has since moved away from. Drives the
+    // in-chat preview and the trade-ideas list's "building" portfolio row.
+    const latestTickers  = [...messages].reverse().find(m => Array.isArray(m.tickers) && m.tickers.length)?.tickers ?? []
+    const editQtyByAsset = new Map((editingPortfolioIdeas ?? []).map(i => [i.asset, i.quantity]))
+
+    let buildItems
+    if (pendingPlan?.ideas?.length) {
+        buildItems = pendingPlan.ideas.map(i => ({ asset: i.asset, quantity: i.quantity ?? null }))
+    } else if (latestTickers.length) {
+        buildItems = latestTickers.map(asset => ({ asset, quantity: editQtyByAsset.get(asset) ?? null }))
+    } else {
+        buildItems = (editingPortfolioIdeas ?? []).map(i => ({ asset: i.asset, quantity: i.quantity ?? null }))
+    }
+
+    const buildAssets = buildItems.map(i => i.asset)
+    const buildName   = pendingPlan?.name ?? editingPortfolioIdeas?.[0]?.portfolioName ?? null
+    const buildKey    = `${buildAssets.join(',')}|${buildName ?? ''}|${pendingPlan?.ideas?.length ?? 0}|${editingPortfolioId ?? ''}`
 
     useEffect(() => {
         const active = buildAssets.length > 0 || !!pendingPlan
+        // When editing, tag the building row with the portfolio's id so the list can
+        // hide that portfolio's saved row and let the building row stand in for it
+        // (rather than showing a duplicate "new" building row alongside the original).
         onBuildingPlanChange?.(active
-            ? { name: pendingPlan?.name ?? 'New portfolio', ideasCount: pendingPlan?.ideas?.length ?? buildAssets.length }
+            ? {
+                name:        buildName ?? 'New portfolio',
+                ideasCount:  buildItems.length,
+                portfolioId: editingPortfolioId ?? null,
+              }
             : null)
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [buildKey])
@@ -263,9 +283,10 @@ export function PortfolioPanel({
 
     function handleGenerate() {
         if (editingPortfolioId) {
-            // Apply changes if a ready plan exists; either way, leave edit mode so
-            // the user is never stuck (the Update button doubles as "exit edit").
-            if (planReady && onUpdatePlan) onUpdatePlan(pendingPlan, editingPortfolioId, messages)
+            // Always persist the conversation so re-opening restores it; apply the
+            // re-plan only when it's ready. Passing a null plan saves chat without
+            // touching the existing ideas. The Update button doubles as "exit edit".
+            if (onUpdatePlan) onUpdatePlan(planReady ? pendingPlan : null, editingPortfolioId, messages)
             setEditingPortfolioId(null)
             setEditingPortfolioIdeas([])
         } else {
@@ -302,12 +323,25 @@ export function PortfolioPanel({
                 </div>
             </div>
 
-            {buildAssets.length > 0 && (
-                <div className="portfolio-panel__build-assets">
-                    <span className="portfolio-panel__build-assets-label">building —</span>
-                    {buildAssets.map(sym => (
-                        <span key={sym} className="portfolio-panel__build-asset-chip">{sym}</span>
-                    ))}
+            {buildItems.length > 0 && (
+                <div className="portfolio-panel__build-summary">
+                    <div className="portfolio-panel__build-summary-header">
+                        <span className="portfolio-panel__build-summary-title">your portfolio —</span>
+                        {buildName && <span className="portfolio-panel__build-summary-name">{buildName}</span>}
+                        <span className="portfolio-panel__build-summary-count">
+                            {buildItems.length} {buildItems.length === 1 ? 'idea' : 'ideas'}
+                        </span>
+                    </div>
+                    <div className="portfolio-panel__build-summary-items">
+                        {buildItems.map(item => (
+                            <span key={item.asset} className="portfolio-panel__build-summary-item">
+                                <span className="portfolio-panel__build-summary-asset">{item.asset}</span>
+                                {item.quantity != null && (
+                                    <span className="portfolio-panel__build-summary-qty">×{item.quantity}</span>
+                                )}
+                            </span>
+                        ))}
+                    </div>
                 </div>
             )}
 

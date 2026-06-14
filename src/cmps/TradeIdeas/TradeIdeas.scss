@@ -2,9 +2,13 @@
 
 .trade-ideas-list {
     background: transparent;
-    flex-shrink: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 
     &__header {
+        flex-shrink: 0;
         display: flex;
         align-items: center;
         gap: 8px;
@@ -65,7 +69,8 @@
     }
 
     &__scroll {
-        height: 180px;
+        flex: 1;
+        min-height: 0;
         overflow-y: auto;
         overflow-x: hidden;
         padding: 0 12px;

@@ -15,18 +15,18 @@
 }
 
 // ── Workspace grid ───────────────────────────────────────────────────────────
-// Columns: chart 37.5% | chat 37.5% | news 25%
-// Rows:    top (chart + chat + news), bottom (ideas strip spanning chart+chat).
-// News spans both rows so it stays a full-height right column.
+// Columns: chat 37.5% | chart 37.5% | news 25%
+// Rows:    top (chat + chart + news), bottom (ideas strip spanning chart+news).
+// Chat spans both rows so it stays a full-height left column.
 .workspace {
     flex: 1;
     min-height: 0;
     display: grid;
     grid-template-columns: 37.5% 37.5% 25%;
-    grid-template-rows: 1fr auto;
+    grid-template-rows: 6fr 4fr;
     grid-template-areas:
-        "chart chat news"
-        "ideas ideas news";
+        "chat chart news"
+        "chat ideas ideas";
     gap: 12px;
     padding: 12px;
 }
@@ -45,7 +45,7 @@
     flex-direction: column;
 }
 
-// Trade ideas strip — spans the chart + chat columns, below both
+// Trade ideas strip — spans the chart + news columns, below both
 .workspace__ideas {
     grid-area: ideas;
     min-height: 0;
@@ -103,12 +103,12 @@
 }
 
 // ── Tablet: 768px – 1023px ────────────────────────────────────────────────────
-// News column collapses; chart + chat split 50/50, ideas span both below
+// News column collapses; chat + chart split 50/50, ideas span both below
 @media (max-width: 1023px) {
     .workspace {
         grid-template-columns: 50% 50%;
         grid-template-areas:
-            "chart chat"
+            "chat chart"
             "ideas ideas";
     }
 

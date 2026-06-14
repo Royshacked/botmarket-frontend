@@ -215,37 +215,83 @@
         &:disabled     { opacity: 0.5; cursor: not-allowed; }
     }
 
-    // ── Building assets strip ────────────────────────────────────────────
-    &__build-assets {
+    // ── Build summary (portfolio preview) ────────────────────────────────
+    &__build-summary {
         flex-shrink: 0;
         display: flex;
-        flex-wrap: wrap;
-        align-items: center;
+        flex-direction: column;
         gap: 6px;
-        padding: 7px 14px;
+        padding: 8px 20px;
+        background: var(--bg-surface);
         border-bottom: 1px solid rgba(76, 175, 138, 0.18);
-        background: rgba(76, 175, 138, 0.04);
-        max-height: 96px;
-        overflow-y: auto;
-    }
-
-    &__build-assets-label {
-        font-size: 10px;
-        font-weight: 600;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: rgba(109, 212, 168, 0.6);
-    }
-
-    &__build-asset-chip {
         font-family: 'IBM Plex Mono', monospace;
         font-size: 11px;
-        font-weight: 600;
-        color: #6dd4a8;
-        background: rgba(76, 175, 138, 0.12);
-        border: 1px solid rgba(76, 175, 138, 0.25);
-        border-radius: 3px;
-        padding: 1px 7px;
+        max-height: 140px;
+        overflow-y: auto;
+
+        &::-webkit-scrollbar       { width: 4px; }
+        &::-webkit-scrollbar-track { background: var(--bg-base); }
+        &::-webkit-scrollbar-thumb {
+            background: rgba(76, 175, 138, 0.25);
+            border-radius: 2px;
+            &:hover { background: rgba(76, 175, 138, 0.5); }
+        }
+
+        &-header {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        &-title {
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        &-name {
+            color: #6dd4a8;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        &-count {
+            margin-left: auto;
+            flex-shrink: 0;
+            font-size: 10px;
+            color: rgba(109, 212, 168, 0.55);
+        }
+
+        &-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        &-item {
+            display: inline-flex;
+            align-items: baseline;
+            gap: 4px;
+            padding: 1px 7px;
+            background: rgba(76, 175, 138, 0.12);
+            border: 1px solid rgba(76, 175, 138, 0.25);
+            border-radius: 3px;
+            animation: pp-build-in 0.18s ease-out;
+        }
+
+        &-asset {
+            color: #6dd4a8;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+        }
+
+        &-qty {
+            color: rgba(109, 212, 168, 0.6);
+            font-size: 10px;
+        }
     }
 
     // ── Plan banner ──────────────────────────────────────────────────────
@@ -458,4 +504,9 @@
 @keyframes pp-thinking {
     0%, 100% { opacity: 0.25; }
     50%       { opacity: 1;   }
+}
+
+@keyframes pp-build-in {
+    from { opacity: 0; transform: translateY(-5px); }
+    to   { opacity: 1; transform: translateY(0);    }
 }

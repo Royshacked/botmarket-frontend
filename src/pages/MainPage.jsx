@@ -563,20 +563,24 @@ export function MainPage() {
         }
     }
 
-    // Edit mode "Update plan": replace the portfolio's ideas in place, keeping the
-    // same portfolioId (fixes updates creating a whole new portfolio).
+    // Edit mode "Update plan": persist the edited portfolio. A re-plan (when one is
+    // ready) replaces the portfolio's ideas in place, keeping the same portfolioId
+    // (fixes updates creating a whole new portfolio). The chat history is saved on
+    // every finish — even without a re-plan — so re-opening restores the conversation.
     async function handleUpdatePlan(plan, portfolioId, messages = []) {
         if (!portfolioId) return handleGeneratePlan(plan, messages)
         try {
-            const existing   = ideas.filter(i => i.portfolioId === portfolioId)
-            await Promise.all(existing.map(i => tradeIdeasService.deleteIdea(i.id)))
+            if (plan?.ideas?.length) {
+                const existing   = ideas.filter(i => i.portfolioId === portfolioId)
+                await Promise.all(existing.map(i => tradeIdeasService.deleteIdea(i.id)))
 
-            const accountIds = availableAccounts.filter(a => selectedAccounts.includes(a.id)).map(a => a.id)
-            const newIdeas   = await tradeIdeasService.createBatch(plan, accountIds, mainAccountId, portfolioId)
-            setIdeas(prev => [...newIdeas, ...prev.filter(i => i.portfolioId !== portfolioId)])
+                const accountIds = availableAccounts.filter(a => selectedAccounts.includes(a.id)).map(a => a.id)
+                const newIdeas   = await tradeIdeasService.createBatch(plan, accountIds, mainAccountId, portfolioId)
+                setIdeas(prev => [...newIdeas, ...prev.filter(i => i.portfolioId !== portfolioId)])
+            }
 
             const chatMessages = messages.filter(m => !m.streaming).map(m => ({ role: m.role, content: m.content }))
-            portfolioService.saveChatState(portfolioId, chatMessages).catch(err =>
+            await portfolioService.saveChatState(portfolioId, chatMessages).catch(err =>
                 console.error('[portfolio] chat state save failed', err)
             )
         } catch (err) {
