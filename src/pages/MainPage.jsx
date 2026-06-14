@@ -23,6 +23,22 @@ const NEWS_ASSET_BASE = import.meta.env.PROD
 
 const COMPANY_NEWS_INTERVAL_MS = 30 * 60 * 1000
 
+// Chart defaults — restored when a build/edit session ends.
+const DEFAULT_CHART_SYMBOL   = 'SPY'
+const DEFAULT_CHART_INTERVAL = 'D'
+
+// Pick the chart timeframe most relevant to a trade — entry leads, then stop/tp.
+// Values are the encoded strings ('1min'…'month') that TradingViewChart maps to
+// TradingView interval codes.
+function deriveChartInterval(pendingTrade) {
+    if (!pendingTrade) return null
+    return pendingTrade.entry_timeframe
+        || pendingTrade.entry_conditions?.[0]?.timeframe
+        || pendingTrade.stop_timeframe
+        || pendingTrade.tp_timeframe
+        || null
+}
+
 // Derive a live "building" idea from chat state — shown in the list but not yet saved
 function deriveBuildingIdea(analysisState) {
     if (!analysisState) return null
@@ -50,8 +66,8 @@ function deriveBuildingIdea(analysisState) {
 export function MainPage() {
     const [messages, setMessages] = useState([])
     const [analysisState, setAnalysisState] = useState(null)
-    const [chartSymbol, setChartSymbol]   = useState('SPY')
-    const [chartInterval, setChartInterval] = useState('D')
+    const [chartSymbol, setChartSymbol]   = useState(DEFAULT_CHART_SYMBOL)
+    const [chartInterval, setChartInterval] = useState(DEFAULT_CHART_INTERVAL)
     const [isLoading, setIsLoading] = useState(false)
     const [newsArticles, setNewsArticles] = useState([])
     const [newsLoading, setNewsLoading] = useState(false)
@@ -294,6 +310,9 @@ export function MainPage() {
                         const newAsset   = data.analysisState?.structured_state?.active_asset
                         const newCompany = data.analysisState?.structured_state?.active_company_name
                         if (newAsset) setChartSymbol(newAsset)
+                        // Follow the established timeframe even if the LLM omitted <interval>
+                        const newInterval = deriveChartInterval(data.analysisState?.structured_state?.pending_trade)
+                        if (newInterval) setChartInterval(newInterval)
                         if (newAsset && newAsset !== lastFetchedAssetRef.current) {
                             lastFetchedAssetRef.current = newAsset
                             setActiveNewsSymbol(newAsset)
@@ -352,6 +371,8 @@ export function MainPage() {
         setEditingIdeaId(null)
         setActiveNewsSymbol(null)
         setActiveNewsQuery(null)
+        setChartSymbol(DEFAULT_CHART_SYMBOL)
+        setChartInterval(DEFAULT_CHART_INTERVAL)
         latestMessagesRef.current   = []
         lastFetchedAssetRef.current = null
     }
@@ -391,6 +412,8 @@ export function MainPage() {
         latestMessagesRef.current = restoredMessages
         setAnalysisState(restoredState)
         setChartSymbol(restoredState.structured_state?.active_asset || idea.asset || 'SPY')
+        const editInterval = deriveChartInterval(restoredState.structured_state?.pending_trade)
+        if (editInterval) setChartInterval(editInterval)
         setEditingIdeaId(idea.id)
         setSelectedAccounts(Array.isArray(idea.accounts) ? idea.accounts : [])
         setMainAccountId(idea.mainAccountId ?? null)
@@ -421,6 +444,8 @@ export function MainPage() {
                 setMessages([])
                 setActiveNewsSymbol(null)
                 setActiveNewsQuery(null)
+                setChartSymbol(DEFAULT_CHART_SYMBOL)
+                setChartInterval(DEFAULT_CHART_INTERVAL)
                 latestMessagesRef.current   = []
                 lastFetchedAssetRef.current = null
             } catch (err) {
@@ -434,6 +459,8 @@ export function MainPage() {
                 setMessages([])
                 setActiveNewsSymbol(null)
                 setActiveNewsQuery(null)
+                setChartSymbol(DEFAULT_CHART_SYMBOL)
+                setChartInterval(DEFAULT_CHART_INTERVAL)
                 latestMessagesRef.current   = []
                 lastFetchedAssetRef.current = null
             } catch (err) {
