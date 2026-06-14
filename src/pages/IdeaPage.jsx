@@ -70,7 +70,7 @@ export function IdeaPage() {
             </div>
 
             <div className="idea-page__chart">
-                <TradingViewChart symbol={idea.asset || 'SPY'} />
+                <TradingViewChart symbol={idea.asset || 'SPY'} interval={idea.entry_timeframe || idea.timeframe || 'D'} />
             </div>
 
             <div className="idea-page__conditions">
