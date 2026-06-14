@@ -1,32 +1,34 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { applyHueTheme, saveSpectrum, DEFAULT_HUE } from '../../services/themeService'
 import './ThemeSwitcher.scss'
 
-const THEMES = [
-    { id: 'ocean',   label: 'Ocean'  },
-    { id: 'forest',  label: 'Forest' },
-    { id: 'crimson', label: 'Crimson'},
-]
-
 export function ThemeSwitcher() {
-    const [theme, setTheme] = useState(
-        () => localStorage.getItem('theme') ?? 'ocean'
-    )
+    const [hue, setHue] = useState(() => Number(localStorage.getItem('themeHue')) || DEFAULT_HUE)
 
-    useEffect(() => {
-        document.documentElement.setAttribute('data-theme', theme)
-        localStorage.setItem('theme', theme)
-    }, [theme])
+    function changeHue(nextHue) {
+        applyHueTheme(nextHue)
+        saveSpectrum(nextHue)
+        setHue(nextHue)
+    }
 
     return (
         <div className="theme-switcher">
-            {THEMES.map(t => (
-                <button
-                    key={t.id}
-                    className={`theme-switcher__btn theme-switcher__btn--${t.id}${theme === t.id ? ' active' : ''}`}
-                    onClick={() => setTheme(t.id)}
-                    title={t.label}
+            <div className="theme-switcher__spectrum">
+                <input
+                    type="range"
+                    min="0"
+                    max="360"
+                    value={hue}
+                    onChange={e => changeHue(Number(e.target.value))}
+                    className="theme-switcher__slider"
+                    title="Theme color"
+                    aria-label="Theme color"
                 />
-            ))}
+                <span
+                    className="theme-switcher__preview"
+                    style={{ background: `hsl(${hue}, 57%, 45%)` }}
+                />
+            </div>
         </div>
     )
 }

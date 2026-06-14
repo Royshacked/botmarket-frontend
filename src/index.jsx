@@ -10,10 +10,10 @@ import { RootCmp } from './RootCmp'
 import { AuthProvider } from './context/AuthContext'
 
 import './assets/styles/main.scss'
+import { initTheme } from './services/themeService'
 
-// Apply saved theme before first render to avoid flash
-const savedTheme = localStorage.getItem('theme') ?? 'ocean'
-document.documentElement.setAttribute('data-theme', savedTheme)
+// Apply saved theme (preset or generated spectrum hue) before first render to avoid flash
+initTheme()
 
 const root = ReactDOM.createRoot(document.getElementById('root'))
 root.render(

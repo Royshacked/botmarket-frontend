@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 
-import { AppFooter }        from '../cmps/AppFooter.jsx'
 import { ChatPanel }         from '../cmps/ChatPanel/ChatPanel.jsx'
 import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
 import { NewsFeed }          from '../cmps/NewsFeed/NewsFeed.jsx'
@@ -727,8 +726,6 @@ export function MainPage() {
                     onDismiss={handleDismissConfirm}
                 />
             )}
-
-            <AppFooter />
         </>
     )
 }

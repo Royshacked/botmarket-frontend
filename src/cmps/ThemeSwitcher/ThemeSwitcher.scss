@@ -1,22 +1,54 @@
 .theme-switcher {
     display: flex;
-    align-items: center;
-    gap: 6px;
+    flex-direction: column;
+    gap: 10px;
 
-    &__btn {
+    // ── Spectrum hue slider ──
+    &__spectrum {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    &__slider {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 150px;
+        height: 6px;
+        border-radius: 3px;
+        cursor: pointer;
+        outline: none;
+        background: linear-gradient(
+            to right,
+            hsl(0, 70%, 50%), hsl(60, 70%, 50%), hsl(120, 70%, 50%),
+            hsl(180, 70%, 50%), hsl(240, 70%, 50%), hsl(300, 70%, 50%), hsl(360, 70%, 50%)
+        );
+
+        &::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #fff;
+            border: 2px solid rgba(0, 0, 0, 0.35);
+            cursor: pointer;
+        }
+        &::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #fff;
+            border: 2px solid rgba(0, 0, 0, 0.35);
+            cursor: pointer;
+        }
+    }
+
+    &__preview {
         width: 14px;
         height: 14px;
         border-radius: 50%;
-        border: 2px solid transparent;
-        cursor: pointer;
-        padding: 0;
-        transition: transform 0.15s, border-color 0.15s;
-
-        &:hover   { transform: scale(1.2); }
-        &.active  { border-color: rgba(255, 255, 255, 0.7); transform: scale(1.15); }
-
-        &--ocean   { background: #2a5a9a; }
-        &--forest  { background: #1a6632; }
-        &--crimson { background: #8a1a2a; }
+        border: 2px solid rgba(255, 255, 255, 0.7);
+        flex-shrink: 0;
     }
 }
