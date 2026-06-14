@@ -15,6 +15,7 @@ export function AppHeader() {
 			window.history.replaceState({}, '', window.location.pathname)
 			navigate('/profile')
 		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only OAuth redirect; navigate is stable
 	}, [])
 
 	return (
@@ -39,10 +40,10 @@ export function AppHeader() {
 					{onProfile
 						? <button className="app-header__user" onClick={() => navigate('/')}>
 							← Back to Trading
-						  </button>
+						</button>
 						: <button className="app-header__user" onClick={() => navigate('/profile')}>
 							👤 {user.fullname}
-						  </button>
+						</button>
 					}
 				</div>
 			)}

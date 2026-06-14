@@ -81,7 +81,7 @@ export function HeaderBackground({ userName = 'Trader' }) {
                 wickH: 3 + Math.random() * 8,
                 up: Math.random() > 0.5,
                 speed: 6 + Math.random() * 8, // px / sec, drifting upward
-                opacity: 0.06 + Math.random() * 0.08,
+                opacity: 0.14 + Math.random() * 0.14,
             }))
         }
 
@@ -120,7 +120,7 @@ export function HeaderBackground({ userName = 'Trader' }) {
             ctx.lineWidth = 1
             for (const c of candles) {
                 const cx = c.x + CANDLE_W / 2
-                ctx.strokeStyle = rgba(colors.wick, c.opacity * 1.2)
+                ctx.strokeStyle = rgba(colors.wick, c.opacity * 1.4)
                 ctx.beginPath()
                 ctx.moveTo(cx, c.y - c.wickH / 2)
                 ctx.lineTo(cx, c.y + c.bodyH + c.wickH / 2)
@@ -135,7 +135,7 @@ export function HeaderBackground({ userName = 'Trader' }) {
                     c.bodyH = 4 + Math.random() * 12
                     c.wickH = 3 + Math.random() * 8
                     c.up = Math.random() > 0.5
-                    c.opacity = 0.06 + Math.random() * 0.08
+                    c.opacity = 0.14 + Math.random() * 0.14
                 }
             }
 
@@ -159,9 +159,9 @@ export function HeaderBackground({ userName = 'Trader' }) {
                 else a = 1 - (it.age - it.inDur - it.holdDur) / it.outDur
                 a = Math.max(0, Math.min(1, a))
 
-                ctx.fillStyle = rgba(colors.chatUser, 0.42 * a)
+                ctx.fillStyle = rgba(colors.chatUser, 0.62 * a)
                 ctx.fillText(it.line1, it.x, it.y)
-                ctx.fillStyle = rgba(colors.chatAi, 0.34 * a)
+                ctx.fillStyle = rgba(colors.chatAi, 0.52 * a)
                 ctx.fillText(it.line2, it.x, it.y + LINE_GAP)
 
                 if (it.age >= total) {

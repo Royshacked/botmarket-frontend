@@ -54,6 +54,7 @@ export function PreferencesModal({ onClose }) {
         _loadAll()
         window.addEventListener('focus', _loadAll)
         return () => window.removeEventListener('focus', _loadAll)
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only; _loadAll is stable for the modal's lifetime
     }, [])
 
     async function _loadAll() {
@@ -111,7 +112,7 @@ export function PreferencesModal({ onClose }) {
             setConnections(prev => ({ ...prev, [brokerType]: false }))
             setAccountData(prev => { const n = { ...prev }; delete n[brokerType]; return n })
             setAccountInfo(prev => { const n = { ...prev }; delete n[brokerType]; return n })
-        } catch {}
+        } catch { /* ignore — UI already reflects intent */ }
     }
 
     function handleConnect(brokerType) {

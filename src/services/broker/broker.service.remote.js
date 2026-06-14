@@ -1,4 +1,5 @@
 import { httpService } from '../http.service'
+import { API_BASE } from '../config'
 
 const BASE = 'api/broker'
 
@@ -28,8 +29,7 @@ async function listConnections() {
  * @returns {string}
  */
 function getConnectUrl(brokerType) {
-    const base = import.meta.env.PROD ? '' : 'http://localhost:3030'
-    return `${base}/${BASE}/connect/${brokerType}`
+    return `${API_BASE}/${BASE}/connect/${brokerType}`
 }
 
 /**

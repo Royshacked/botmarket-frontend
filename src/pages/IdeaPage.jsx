@@ -24,7 +24,7 @@ export function IdeaPage() {
                 setIdea(JSON.parse(cached))
                 localStorage.removeItem(`popup-idea-${id}`)
                 return
-            } catch {}
+            } catch { /* bad cache — fall through to API */ }
         }
         // Fallback: fetch from API
         tradeIdeasService.getIdea(id)

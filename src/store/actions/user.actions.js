@@ -1,5 +1,6 @@
 import { userService } from '../../services/user'
 import { store } from '../store'
+import { socketService } from '../../services/socket.service'
 
 import { showErrorMsg } from '../../services/event-bus.service'
 import { REMOVE_USER, SET_USER, SET_USERS } from '../reducers/user.reducer'
@@ -69,7 +70,7 @@ export async function logout() {
 export async function loadUser(userId) {
     try {
         const user = await userService.getById(userId)
-        store.dispatch({ type: SET_WATCHED_USER, user })
+        store.dispatch({ type: 'SET_WATCHED_USER', user })
     } catch (err) {
         showErrorMsg('Cannot load user')
         console.log('Cannot load user', err)

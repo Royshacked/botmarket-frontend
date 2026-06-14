@@ -1,8 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
+import ReactMarkdown from 'react-markdown'
 import { portfolioService } from '../../services/portfolio/portfolio.service.remote.js'
 import { AccountSelector } from '../ChatPanel/AccountSelector.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
+import { useTypewriter } from '../../customHooks/useTypewriter.js'
+import { useChatScroll } from '../../customHooks/useChatScroll.js'
+import { ChatInputRow } from '../ChatInputRow.jsx'
 import './PortfolioPanel.scss'
 
 function PieIcon() {
@@ -41,8 +45,9 @@ function MessageBubble({ msg, onTickerSelect }) {
 
     return (
         <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant">
-            <div className="portfolio-panel__bubble-text"
-                dangerouslySetInnerHTML={{ __html: _renderMarkdown(msg.content) }} />
+            <div className="portfolio-panel__bubble-text">
+                <ReactMarkdown>{msg.content}</ReactMarkdown>
+            </div>
             {msg.tickers?.length > 0 && (
                 <div className="portfolio-panel__tickers">
                     {msg.tickers.map(sym => (
@@ -52,27 +57,6 @@ function MessageBubble({ msg, onTickerSelect }) {
             )}
         </div>
     )
-}
-
-// Minimal markdown renderer: bold, italic, code, lists, line breaks
-function _renderMarkdown(text) {
-    if (!text) return ''
-    return text
-        // Escape HTML first to prevent XSS
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        // Code spans
-        .replace(/`([^`]+)`/g, '<code>$1</code>')
-        // Bold
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        // Italic
-        .replace(/\*(.+?)\*/g, '<em>$1</em>')
-        // Bullet lists (lines starting with - or *)
-        .replace(/^[*-] (.+)$/gm, '<li>$1</li>')
-        .replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>')
-        // Line breaks
-        .replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br/>')
-        // Wrap in paragraph
-        .replace(/^(?!<[uop]|<li)(.+)/gm, (_, m) => `<p>${m}</p>`)
 }
 
 export function PortfolioPanel({
@@ -102,6 +86,7 @@ export function PortfolioPanel({
         setInputText('')
         setEditingPortfolioId(chatRestore.portfolioId ?? null)
         setEditingPortfolioIdeas(chatRestore.portfolioIdeas ?? [])
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only when a new restore is pushed (keyed by .key)
     }, [chatRestore?.key])
 
     // The assets the portfolio currently consists of, in priority order:
@@ -142,55 +127,17 @@ export function PortfolioPanel({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [buildKey])
 
-    const tokenQueueRef     = useRef('')
-    const drainTimerRef     = useRef(null)
     const pendingTickersRef = useRef([])
-    const messagesRef       = useRef(null)
-    const messagesEndRef    = useRef(null)
-    const stickToBottom     = useRef(true)
     const textareaRef       = useRef(null)
 
+    // Typewriter queue — smooths streamed tokens into the last message
+    const { enqueue: enqueueToken, start: startDrain, stop: stopDrain } = useTypewriter(setMessages)
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- _send is a stable closure for this purpose
     const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
     const { isRecording, isTranscribing, toggle: toggleMic } = useMicInput({ onTranscript })
 
-    // True while the user is parked at (or near) the bottom of the transcript.
-    function isNearBottom() {
-        const el = messagesRef.current
-        if (!el) return true
-        return el.scrollHeight - el.scrollTop - el.clientHeight < 80
-    }
-    // The user scrolling is what decides whether we keep following the response.
-    function handleScroll() { stickToBottom.current = isNearBottom() }
-
-    // Follow the response while it streams — but only while the user is parked at
-    // the bottom. If they scroll up to read, we leave their position untouched.
-    useEffect(() => {
-        const last = messages[messages.length - 1]
-        if (last?.streaming && stickToBottom.current) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }, [messages])
-
-    function _startDrain() {
-        if (drainTimerRef.current) return
-        drainTimerRef.current = setInterval(() => {
-            const q = tokenQueueRef.current
-            if (!q.length) return
-            const chunk = q.slice(0, 1)
-            tokenQueueRef.current = q.slice(1)
-            setMessages(prev => {
-                const msgs = [...prev]
-                const last = msgs[msgs.length - 1]
-                if (!last?.streaming) return prev
-                msgs[msgs.length - 1] = { ...last, content: last.content + chunk }
-                return msgs
-            })
-        }, 60)
-    }
-
-    function _stopDrain() {
-        clearInterval(drainTimerRef.current)
-        drainTimerRef.current = null
-        tokenQueueRef.current = ''
-    }
+    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages)
 
     async function _send(text) {
         if (!text || isLoading) return
@@ -207,17 +154,16 @@ export function PortfolioPanel({
             { role: 'user', content: text },
             { role: 'assistant', content: '', streaming: true },
         ])
-        stickToBottom.current = true   // sending a message re-engages auto-follow
         setIsLoading(true)
         pendingTickersRef.current = []
-        _startDrain()
+        startDrain()
 
         try {
             await portfolioService.sendStream(history, ideaAccounts, {
                 portfolioId:    editingPortfolioId,
                 portfolioIdeas: editingPortfolioIdeas,
 
-                onToken: (t) => { tokenQueueRef.current += t },
+                onToken: (t) => { enqueueToken(t) },
 
                 onTicker: (symbol) => {
                     if (!pendingTickersRef.current.includes(symbol)) {
@@ -226,7 +172,7 @@ export function PortfolioPanel({
                 },
 
                 onDone: (data) => {
-                    _stopDrain()
+                    stopDrain()
                     const tickers = [...pendingTickersRef.current]
                     pendingTickersRef.current = []
                     setMessages(prev => {
@@ -242,7 +188,7 @@ export function PortfolioPanel({
                 },
 
                 onError: (message) => {
-                    _stopDrain()
+                    stopDrain()
                     setMessages(prev => {
                         const msgs = [...prev]
                         const last = msgs[msgs.length - 1]
@@ -255,7 +201,7 @@ export function PortfolioPanel({
             })
         } catch (err) {
             console.error('[portfolio]', err)
-            _stopDrain()
+            stopDrain()
             setMessages(prev => {
                 const msgs = [...prev]
                 const last = msgs[msgs.length - 1]
@@ -348,7 +294,7 @@ export function PortfolioPanel({
             <div className="portfolio-panel__messages" ref={messagesRef} onScroll={handleScroll}>
                 {messages.length === 0 && (
                     <div className="portfolio-panel__empty">
-                        Describe your investment goals, risk tolerance, and account size — I'll help you build a portfolio.
+                        Describe your investment goals, risk tolerance, and account size — I&apos;ll help you build a portfolio.
                     </div>
                 )}
                 {messages.map((msg, i) => (
@@ -389,57 +335,24 @@ export function PortfolioPanel({
                 {editingPortfolioId ? 'Update plan' : 'Generate plan'}
             </button>
 
-            <div className="portfolio-panel__input-row">
-                <button
-                    className={`portfolio-panel__mic ${isRecording ? 'recording' : ''} ${isTranscribing ? 'transcribing' : ''}`}
-                    onClick={toggleMic}
-                    disabled={isLoading || isTranscribing}
-                    title={isRecording ? 'Stop recording' : 'Start recording'}
-                >
-                    {isTranscribing ? (
-                        <span className="portfolio-panel__mic-spinner" />
-                    ) : (
-                        <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                            <rect x="7" y="1" width="6" height="10" rx="3" stroke="currentColor" strokeWidth="1.5"/>
-                            <path d="M4 10a6 6 0 0 0 12 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                            <line x1="10" y1="16" x2="10" y2="19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                            <line x1="7"  y1="19" x2="13" y2="19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                        </svg>
-                    )}
-                </button>
-                <textarea
-                    ref={textareaRef}
-                    className="portfolio-panel__textarea"
-                    value={inputText}
-                    onChange={e => setInputText(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Describe your portfolio goals… (Enter to send, Shift+Enter for newline)"
-                    rows={2}
-                    disabled={isLoading || isRecording}
-                />
-                <button
-                    className="portfolio-panel__send"
-                    onClick={handleSend}
-                    disabled={!inputText.trim() || isLoading}
-                    title="Send"
-                >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <line x1="22" y1="2" x2="11" y2="13"/>
-                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                    </svg>
-                </button>
-                <button
-                    className="portfolio-panel__clear"
-                    onClick={handleClear}
-                    disabled={isLoading || !messages.length || !!editingPortfolioId}
-                    title="Clear chat"
-                >
-                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                        <line x1="5" y1="5" x2="15" y2="15"/>
-                        <line x1="15" y1="5" x2="5" y2="15"/>
-                    </svg>
-                </button>
-            </div>
+            <ChatInputRow
+                prefix="portfolio-panel"
+                textareaRef={textareaRef}
+                value={inputText}
+                onChange={e => setInputText(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Describe your portfolio goals… (Enter to send, Shift+Enter for newline)"
+                onSend={handleSend}
+                sendDisabled={!inputText.trim() || isLoading}
+                onClear={handleClear}
+                clearDisabled={isLoading || !messages.length || !!editingPortfolioId}
+                clearTitle="Clear chat"
+                onToggleMic={toggleMic}
+                isRecording={isRecording}
+                isTranscribing={isTranscribing}
+                micDisabled={isLoading || isTranscribing}
+                textareaDisabled={isLoading || isRecording}
+            />
         </div>
     )
 }

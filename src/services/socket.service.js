@@ -1,5 +1,6 @@
 import io from 'socket.io-client'
 import { userService } from './user'
+import { API_BASE } from './config'
 
 export const SOCKET_EVENT_ADD_MSG = 'chat-add-msg'
 export const SOCKET_EMIT_SEND_MSG = 'chat-send-msg'
@@ -14,7 +15,7 @@ const SOCKET_EMIT_LOGIN = 'set-user-socket'
 const SOCKET_EMIT_LOGOUT = 'unset-user-socket'
 
 
-const baseUrl = (process.env.NODE_ENV === 'production') ? '' : '//localhost:3030'
+const baseUrl = API_BASE
 export const socketService = createSocketService()
 // export const socketService = createDummySocketService()
 
@@ -57,6 +58,7 @@ function createSocketService() {
   return socketService
 }
 
+// eslint-disable-next-line no-unused-vars -- kept as an offline/testing fallback (see commented usage above)
 function createDummySocketService() {
   var listenersMap = {}
   const socketService = {

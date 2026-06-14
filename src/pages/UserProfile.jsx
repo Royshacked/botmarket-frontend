@@ -32,6 +32,7 @@ export function UserProfile() {
         if (params.get('broker') === 'connected' && brokerType) {
             window.history.replaceState({}, '', window.location.pathname)
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- runs on user change; navigate is stable
     }, [user])
 
     async function _loadAll() {
@@ -49,7 +50,7 @@ export function UserProfile() {
                     })
             )
             setAccountData(Object.fromEntries(entries))
-        } catch {}
+        } catch { /* broker data unavailable — leave empty */ }
     }
 
     async function handleAccountChange(brokerType, accountId) {
@@ -68,7 +69,7 @@ export function UserProfile() {
             await brokerService.disconnect(brokerType)
             setConnections(prev => ({ ...prev, [brokerType]: false }))
             setAccountData(prev => { const n = { ...prev }; delete n[brokerType]; return n })
-        } catch {}
+        } catch { /* ignore — UI already reflects intent */ }
     }
 
     function handleConnect(brokerType) {
@@ -94,7 +95,7 @@ export function UserProfile() {
             setUser(next)
             sessionStorage.setItem('loggedinUser', JSON.stringify(next))
             setEditMode(false)
-        } catch {}
+        } catch { /* keep edit mode open on failure */ }
         finally { setSaving(false) }
     }
 

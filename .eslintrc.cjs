@@ -16,5 +16,12 @@ module.exports = {
       'warn',
       { allowConstantExport: true },
     ],
+    // Not a TypeScript project — core domain shapes are documented centrally in
+    // src/types.js (JSDoc typedefs) and PropTypes are kept on the public panel
+    // components. Requiring PropTypes on every internal render helper is noise.
+    'react/prop-types': 'off',
+    // Allow the "omit a field via rest destructure" pattern, e.g.
+    // const { id: _id, ...rest } = obj
+    'no-unused-vars': ['error', { ignoreRestSiblings: true }],
   },
 }

@@ -11,5 +11,6 @@ export const useEffectUpdate = (callBack, dependencies) => {
             return
         }
         callBack()
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- deps are supplied by the caller by design
     }, dependencies)
 }

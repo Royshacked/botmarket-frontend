@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useRef } from 'react'
 
 import { ChatPanel }         from '../cmps/ChatPanel/ChatPanel.jsx'
 import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
@@ -11,17 +11,10 @@ import { MonitorDashboard }  from '../cmps/MonitorDashboard/MonitorDashboard.jsx
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
-import { brokerService }     from '../services/broker/broker.service.remote.js'
-
-const NEWS_STREAM_URL = import.meta.env.PROD
-    ? '/news-feed/stream'
-    : 'http://localhost:3030/news-feed/stream'
-
-const NEWS_ASSET_BASE = import.meta.env.PROD
-    ? '/news-feed/asset'
-    : 'http://localhost:3030/news-feed/asset'
-
-const COMPANY_NEWS_INTERVAL_MS = 30 * 60 * 1000
+import { useTypewriter }     from '../customHooks/useTypewriter.js'
+import { useNewsFeed }       from '../customHooks/useNewsFeed.js'
+import { useBrokerAccounts } from '../customHooks/useBrokerAccounts.js'
+import { useTradeIdeas }     from '../customHooks/useTradeIdeas.js'
 
 // Chart defaults — restored when a build/edit session ends.
 const DEFAULT_CHART_SYMBOL   = 'SPY'
@@ -69,54 +62,20 @@ export function MainPage() {
     const [chartSymbol, setChartSymbol]   = useState(DEFAULT_CHART_SYMBOL)
     const [chartInterval, setChartInterval] = useState(DEFAULT_CHART_INTERVAL)
     const [isLoading, setIsLoading] = useState(false)
-    const [newsArticles, setNewsArticles] = useState([])
-    const [newsLoading, setNewsLoading] = useState(false)
-    const [activeNewsSymbol, setActiveNewsSymbol] = useState(null)
-    const [activeNewsQuery, setActiveNewsQuery]   = useState(null)
-    const [assetArticles, setAssetArticles] = useState([])
-    const [assetNewsLoading, setAssetNewsLoading] = useState(false)
-    const [assetSentimentLoading, setAssetSentimentLoading] = useState(false)
-    const [ideas, setIdeas] = useState([])
     const [editingIdeaId, setEditingIdeaId] = useState(null)
-    const [availableAccounts, setAvailableAccounts] = useState([])
-    const [selectedAccounts, setSelectedAccounts]   = useState([])
-    const [mainAccountId, setMainAccountId]         = useState(null)
     const [activeTab, setActiveTab]             = useState('idea')
     const [portfolioChatRestore, setPortfolioChatRestore] = useState(null)
     const [buildingPortfolio, setBuildingPortfolio] = useState(null)
     const [dismissedConfirmIds, setDismissedConfirmIds] = useState(() => new Set())
     const [placingOrders, setPlacingOrders] = useState(false)
-    const latestMessagesRef    = useRef([])
-    const lastFetchedAssetRef  = useRef(null)
+    const latestMessagesRef = useRef([])
 
-    // ── Typewriter queue ──────────────────────────────────────────────────────
-    // Tokens from the API go into the queue (ref — zero React overhead).
-    // A 16ms drain timer flushes a small chunk per frame, producing smooth output.
-    const tokenQueueRef = useRef('')
-    const drainTimerRef = useRef(null)
+    const news = useNewsFeed()
+    const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
+    const { ideas, setIdeas, loadIdeas, handleStatusChange } = useTradeIdeas()
 
-    function _startDrain() {
-        if (drainTimerRef.current) return
-        drainTimerRef.current = setInterval(() => {
-            const q = tokenQueueRef.current
-            if (!q.length) return
-            const chunk = q.slice(0, 1)
-            tokenQueueRef.current = q.slice(1)
-            setMessages(prev => {
-                const msgs = [...prev]
-                const last = msgs[msgs.length - 1]
-                if (!last?.streaming) return prev
-                msgs[msgs.length - 1] = { ...last, content: last.content + chunk }
-                return msgs
-            })
-        }, 60)
-    }
-
-    function _stopDrain() {
-        clearInterval(drainTimerRef.current)
-        drainTimerRef.current = null
-        tokenQueueRef.current = ''
-    }
+    // Typewriter queue — smooths streamed tokens into the last message
+    const { enqueue: enqueueToken, start: startDrain, stop: stopDrain } = useTypewriter(setMessages)
 
     const buildingIdea = deriveBuildingIdea(analysisState)
     // buildingPortfolio is reported up from PortfolioPanel (assets recommended /
@@ -145,127 +104,6 @@ export function MainPage() {
             }))
             : buildOrderPreview(confirmIdea, availableAccounts)
 
-    useEffect(() => {
-        setNewsLoading(true)
-        const es = new EventSource(NEWS_STREAM_URL)
-
-        es.onmessage = (e) => {
-            try {
-                const articles = JSON.parse(e.data)
-                setNewsArticles(articles)
-            } catch {
-                console.error('[newsFeed] parse error', e.data)
-            } finally {
-                setNewsLoading(false)
-            }
-        }
-
-        es.onerror = () => setNewsLoading(false)
-
-        return () => es.close()
-    }, [])
-
-    useEffect(() => {
-        if (!activeNewsSymbol || !activeNewsQuery) {
-            setAssetArticles([])
-            setAssetNewsLoading(false)
-            setAssetSentimentLoading(false)
-            return
-        }
-
-        let active = true
-        const sym  = encodeURIComponent(activeNewsSymbol)
-        const q    = encodeURIComponent(activeNewsQuery)
-
-        function doFetch() {
-            if (!active) return
-            setAssetNewsLoading(true)
-            setAssetSentimentLoading(false)
-
-            // Phase 1 — render articles ASAP (no LLM on the server)
-            fetch(`${NEWS_ASSET_BASE}/${sym}?q=${q}`)
-                .then(r => r.json())
-                .then(d => {
-                    if (!active) return
-                    const articles = Array.isArray(d.articles) ? d.articles : []
-                    setAssetArticles(articles)
-                    setAssetNewsLoading(false)
-                    if (articles.length === 0) return
-
-                    // Phase 2 — LLM relevance filter + sentiment
-                    setAssetSentimentLoading(true)
-                    fetch(`${NEWS_ASSET_BASE}/${sym}/sentiment?q=${q}`)
-                        .then(r => r.json())
-                        .then(s => {
-                            if (!active) return
-                            const enriched = Array.isArray(s.articles) ? s.articles : []
-                            const byUrl    = new Map(enriched.map(a => [a.url, a]))
-                            setAssetArticles(prev => {
-                                const reconciled = prev
-                                    .filter(a => byUrl.has(a.url))
-                                    .map(a => ({ ...a, sentiment: byUrl.get(a.url).sentiment, confidence: byUrl.get(a.url).confidence }))
-                                return reconciled.length > 0 ? reconciled : enriched
-                            })
-                        })
-                        .catch(() => {})
-                        .finally(() => { if (active) setAssetSentimentLoading(false) })
-                })
-                .catch(() => { if (active) { setAssetArticles([]); setAssetNewsLoading(false) } })
-        }
-
-        doFetch()
-        const interval = setInterval(doFetch, COMPANY_NEWS_INTERVAL_MS)
-
-        return () => {
-            active = false
-            clearInterval(interval)
-            setAssetArticles([])
-        }
-    }, [activeNewsQuery])
-
-    const loadIdeas = useCallback(async () => {
-        try {
-            const fetched = await tradeIdeasService.getIdeas()
-            setIdeas(fetched)
-        } catch (err) {
-            console.error('[tradeIdeas] load failed', err)
-        }
-    }, [])
-
-    useEffect(() => {
-        loadIdeas()
-        const interval = setInterval(loadIdeas, 30_000)
-        return () => clearInterval(interval)
-    }, [loadIdeas])
-
-    useEffect(() => {
-        if (selectedAccounts.length === 1) {
-            setMainAccountId(selectedAccounts[0])
-        } else if (selectedAccounts.length === 0) {
-            setMainAccountId(null)
-        }
-        // length > 1: keep existing main as-is
-    }, [selectedAccounts])
-
-    useEffect(() => {
-        async function fetchAccounts() {
-            try {
-                const connections = await brokerService.listConnections()
-                const all = []
-                for (const [broker, connected] of Object.entries(connections)) {
-                    if (!connected) continue
-                    const { accounts = [] } = await brokerService.getTradingAccounts(broker)
-                    accounts.forEach(a => all.push({ ...a, broker }))
-                }
-                setAvailableAccounts(all)
-            } catch (err) {
-                console.error('[accounts] fetch failed', err)
-            }
-        }
-        fetchAccounts()
-    }, [])
-
-
     async function handleSend(userPrompt, currentAnalysisState) {
         setMessages(prev => [
             ...prev,
@@ -273,30 +111,26 @@ export function MainPage() {
             { role: 'assistant', content: '', streaming: true },
         ])
         setIsLoading(true)
-        _startDrain()
+        startDrain()
 
         try {
             const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
-        await userPromptService.sendPromptStream(
+            await userPromptService.sendPromptStream(
                 userPrompt,
                 currentAnalysisState,
                 {
                     // Buffer only — drain timer handles the actual state updates
-                    onToken:    (text)     => { tokenQueueRef.current += text },
+                    onToken:    (text)     => { enqueueToken(text) },
                     onInterval: (interval) => { if (interval) setChartInterval(interval) },
                     onAsset: (symbol) => {
                         if (symbol) {
                             setChartSymbol(symbol)
-                            if (symbol !== lastFetchedAssetRef.current) {
-                                setActiveNewsSymbol(symbol)
-                                setAssetNewsLoading(true)
-                            }
+                            news.previewAsset(symbol)
                         }
                     },
 
                     onDone: (data) => {
-                        _stopDrain()
-                        console.log('[stream done]', data)
+                        stopDrain()
                         setMessages(prev => {
                             const msgs = [...prev]
                             const last = msgs[msgs.length - 1]
@@ -313,12 +147,7 @@ export function MainPage() {
                         // Follow the established timeframe even if the LLM omitted <interval>
                         const newInterval = deriveChartInterval(data.analysisState?.structured_state?.pending_trade)
                         if (newInterval) setChartInterval(newInterval)
-                        if (newAsset && newAsset !== lastFetchedAssetRef.current) {
-                            lastFetchedAssetRef.current = newAsset
-                            setActiveNewsSymbol(newAsset)
-                            setActiveNewsQuery(newCompany || newAsset)
-                            setAssetNewsLoading(true)
-                        }
+                        news.focusAsset(newAsset, newCompany)
                         if (data.ideaSaved) loadIdeas()
 
                         // Save chat state progressively when editing
@@ -330,7 +159,7 @@ export function MainPage() {
                     },
 
                     onError: (message) => {
-                        _stopDrain()
+                        stopDrain()
                         setMessages(prev => {
                             const msgs = [...prev]
                             const last = msgs[msgs.length - 1]
@@ -348,7 +177,7 @@ export function MainPage() {
             )
         } catch (err) {
             console.error(err)
-            _stopDrain()
+            stopDrain()
             setMessages(prev => {
                 const msgs = [...prev]
                 const last = msgs[msgs.length - 1]
@@ -369,12 +198,10 @@ export function MainPage() {
         setAnalysisState(null)
         setMessages([])
         setEditingIdeaId(null)
-        setActiveNewsSymbol(null)
-        setActiveNewsQuery(null)
+        news.clearAsset()
         setChartSymbol(DEFAULT_CHART_SYMBOL)
         setChartInterval(DEFAULT_CHART_INTERVAL)
-        latestMessagesRef.current   = []
-        lastFetchedAssetRef.current = null
+        latestMessagesRef.current = []
     }
 
     function handleEditIdea(idea) {
@@ -442,12 +269,10 @@ export function MainPage() {
                 setEditingIdeaId(null)
                 setAnalysisState(null)
                 setMessages([])
-                setActiveNewsSymbol(null)
-                setActiveNewsQuery(null)
+                news.clearAsset()
                 setChartSymbol(DEFAULT_CHART_SYMBOL)
                 setChartInterval(DEFAULT_CHART_INTERVAL)
-                latestMessagesRef.current   = []
-                lastFetchedAssetRef.current = null
+                latestMessagesRef.current = []
             } catch (err) {
                 console.error('[tradeIdeas] edit update failed', err)
             }
@@ -457,12 +282,10 @@ export function MainPage() {
                 setIdeas(prev => [saved, ...prev])
                 setAnalysisState(null)
                 setMessages([])
-                setActiveNewsSymbol(null)
-                setActiveNewsQuery(null)
+                news.clearAsset()
                 setChartSymbol(DEFAULT_CHART_SYMBOL)
                 setChartInterval(DEFAULT_CHART_INTERVAL)
-                latestMessagesRef.current   = []
-                lastFetchedAssetRef.current = null
+                latestMessagesRef.current = []
             } catch (err) {
                 console.error('[tradeIdeas] create failed', err)
             }
@@ -491,29 +314,6 @@ export function MainPage() {
         } catch (err) {
             console.error('[portfolio] delete failed', err)
             loadIdeas()
-        }
-    }
-
-    async function handleStatusChange(id, status) {
-        // Optimistic update — React controlled selects snap back without this
-        setIdeas(prev => prev.map(idea => idea.id === id ? { ...idea, status } : idea))
-        try {
-            const res = await tradeIdeasService.updateIdea(id, { status })
-            // Confirm with the server's returned document
-            setIdeas(prev => prev.map(idea => idea.id === id ? res.idea : idea))
-        } catch (err) {
-            console.error('[tradeIdeas] status update failed', err)
-            // Revert by reloading from server
-            loadIdeas()
-        }
-    }
-
-    async function handleUpdateIdea(id, patch) {
-        try {
-            const res = await tradeIdeasService.updateIdea(id, patch)
-            setIdeas(prev => prev.map(idea => idea.id === id ? res.idea : idea))
-        } catch (err) {
-            console.error('[tradeIdeas] update failed', err)
         }
     }
 
@@ -705,10 +505,10 @@ export function MainPage() {
                     </div>
                     <div className="workspace__news">
                         <NewsFeed
-                            articles={activeNewsSymbol ? assetArticles : newsArticles}
-                            isLoading={activeNewsSymbol ? assetNewsLoading : newsLoading}
-                            sentimentLoading={!!activeNewsSymbol && assetSentimentLoading}
-                            symbol={activeNewsSymbol}
+                            articles={news.activeNewsSymbol ? news.assetArticles : news.newsArticles}
+                            isLoading={news.activeNewsSymbol ? news.assetNewsLoading : news.newsLoading}
+                            sentimentLoading={!!news.activeNewsSymbol && news.assetSentimentLoading}
+                            symbol={news.activeNewsSymbol}
                         />
                     </div>
                     <div className="workspace__ideas">
@@ -722,7 +522,6 @@ export function MainPage() {
                             onDelete={handleDeleteIdea}
                             onCancelBuild={handleCancelBuild}
                             onStatusChange={handleStatusChange}
-                            onUpdate={handleUpdateIdea}
                             onSymbolClick={setChartSymbol}
                             onEdit={handleEditIdea}
                             onEditPortfolio={handleEditPortfolio}
@@ -735,10 +534,8 @@ export function MainPage() {
                 {/* ── Mobile monitor dashboard ── */}
                 <MonitorDashboard
                     ideas={ideas.filter(i => i.status !== 'closed')}
-                    newsArticles={newsArticles}
-                    newsLoading={newsLoading}
-                    onUpdate={handleUpdateIdea}
-                    onStatusChange={handleStatusChange}
+                    newsArticles={news.newsArticles}
+                    newsLoading={news.newsLoading}
                     onDelete={handleDeleteIdea}
                     onEdit={handleEditIdea}
                 />

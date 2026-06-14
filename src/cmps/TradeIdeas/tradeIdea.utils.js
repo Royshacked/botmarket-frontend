@@ -41,7 +41,7 @@ export function treeToOneliner(node, isRoot = true) {
  * Best available one-line summary for a trade idea's entry conditions.
  * Priority: condition tree → flat conditions array → notes → null
  *
- * @param {object} idea  Trade idea document
+ * @param {import('../../types.js').Idea} idea
  * @returns {string|null}
  */
 export function conditionSummary(idea) {
@@ -96,7 +96,7 @@ export function formatCreatedAtFull(ms) {
  * Used to decide activation target: conditions → 'looking' (monitor watches),
  * none → 'hit' (fire immediately, pending confirmation).
  *
- * @param {object} idea
+ * @param {import('../../types.js').Idea} idea
  * @returns {boolean}
  */
 export function hasEntryConditions(idea) {
@@ -108,7 +108,7 @@ export function hasEntryConditions(idea) {
 
 /**
  * Status a 'waiting' idea should move to when activated.
- * @param {object} idea
+ * @param {import('../../types.js').Idea} idea
  * @returns {'looking'|'hit'}
  */
 export function activationStatus(idea) {
@@ -120,7 +120,7 @@ export function activationStatus(idea) {
  * (e.g. immediate) ideas that were generated without exits so the user is
  * reminded to add them.
  *
- * @param {object} idea
+ * @param {import('../../types.js').Idea} idea
  * @returns {boolean}
  */
 export function needsExitConditions(idea) {
@@ -154,9 +154,9 @@ export function orderTypeLabel(direction, type = 'market') {
  * `idea.accounts` may hold account-id strings or full account objects; both are
  * resolved against `availableAccounts` (which carries broker/login/balance).
  *
- * @param {object} idea
- * @param {Array}  availableAccounts  full account objects { id, login, broker, balance }
- * @returns {Array<{ broker, accountId, accountNo, quantity, orderType, isMain }>}
+ * @param {import('../../types.js').Idea} idea
+ * @param {import('../../types.js').Account[]} availableAccounts
+ * @returns {import('../../types.js').OrderPreview[]}
  */
 export function buildOrderPreview(idea, availableAccounts = []) {
     if (!idea || !Array.isArray(idea.accounts) || idea.accounts.length === 0) return []

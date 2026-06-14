@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from './useAuth'
+import { API_BASE } from '../../services/config'
 import './AuthModal.scss'
 
 function EyeIcon() {
@@ -23,8 +24,6 @@ function EyeOffIcon() {
         </svg>
     )
 }
-
-const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:3030'
 
 async function authPost(path, body) {
     const res = await fetch(`${API_BASE}${path}`, {

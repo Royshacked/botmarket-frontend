@@ -11,7 +11,7 @@ const BROKER_LABELS = {
     ibkr:    'IBKR',
 }
 
-export function MonitorDashboard({ ideas, newsArticles, newsLoading, onUpdate, onStatusChange, onDelete, onEdit }) {
+export function MonitorDashboard({ ideas, newsArticles, newsLoading, onDelete, onEdit }) {
     const [openIdeas, setOpenIdeas] = useState([])
 
     // { ctrader: bool, ibkr: bool }
@@ -240,8 +240,6 @@ MonitorDashboard.propTypes = {
     ideas:          PropTypes.array.isRequired,
     newsArticles:   PropTypes.array.isRequired,
     newsLoading:    PropTypes.bool,
-    onUpdate:       PropTypes.func.isRequired,
-    onStatusChange: PropTypes.func.isRequired,
     onDelete:       PropTypes.func.isRequired,
     onEdit:         PropTypes.func,
 }

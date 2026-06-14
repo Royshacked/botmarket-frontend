@@ -1,9 +1,5 @@
 import Axios from 'axios'
-
-const BASE_URL = process.env.NODE_ENV === 'production'
-    ? '/'
-    : '//localhost:3030/'
-
+import { API_BASE } from './config'
 
 const axios = Axios.create({ withCredentials: true })
 
@@ -26,7 +22,7 @@ export const httpService = {
 }
 
 async function ajax(endpoint, method = 'GET', data = null) {
-    const url = `${BASE_URL}${endpoint}`
+    const url = `${API_BASE}/${endpoint}`
     const params = (method === 'GET') ? data : null
     
     const options = { url, method, data, params }
@@ -35,8 +31,7 @@ async function ajax(endpoint, method = 'GET', data = null) {
         const res = await axios(options)
         return res.data
     } catch (err) {
-        console.log(`Had Issues ${method}ing to the backend, endpoint: ${endpoint}, with data: `, data)
-        console.dir(err)
+        console.error(`[http] ${method} ${endpoint} failed`, err)
         if (err.response && err.response.status === 401) {
             sessionStorage.clear()
             if (!window.location.pathname.startsWith('/idea/')) {

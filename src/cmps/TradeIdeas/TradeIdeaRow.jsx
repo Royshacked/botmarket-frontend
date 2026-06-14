@@ -4,7 +4,7 @@ import { conditionSummary, formatCreatedAt, formatCreatedAtFull, needsExitCondit
 const SYSTEM_STATUSES = new Set(['hit', 'long', 'short', 'closed'])
 const BUILDING = 'building'
 
-export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolClick, onEdit, isPortfolioChild }) {
+export function TradeIdeaRow({ idea, onStatusChange, onOpen, onSymbolClick, onEdit, isPortfolioChild }) {
     const { id, asset, direction, type, status, savedAt } = idea
     const summary = conditionSummary(idea)
     const createdAt = formatCreatedAt(savedAt)
@@ -16,16 +16,6 @@ export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolC
         if (isBuilding) return              // building row is not editable
         if (ev.target.closest('.idea-row__controls')) return
         onOpen(idea)
-    }
-
-    function handleStatusChange(ev) {
-        ev.stopPropagation()
-        onStatusChange(id, ev.target.value)
-    }
-
-    function handleDelete(ev) {
-        ev.stopPropagation()
-        onDelete(id)
     }
 
     return (
@@ -94,7 +84,6 @@ export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolC
 
 TradeIdeaRow.propTypes = {
     idea:           PropTypes.object.isRequired,
-    onDelete:       PropTypes.func.isRequired,
     onStatusChange: PropTypes.func.isRequired,
     onOpen:         PropTypes.func.isRequired,
     onSymbolClick:  PropTypes.func,

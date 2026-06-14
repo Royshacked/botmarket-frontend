@@ -1,8 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react'
+import { API_BASE } from '../services/config'
 
 export const AuthContext = createContext(null)
-
-const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:3030'
 
 export function AuthProvider({ children }) {
     const [user, setUser]         = useState(null)
@@ -42,6 +41,7 @@ export function AuthProvider({ children }) {
     )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- hook colocated with its context provider
 export function useAuth() {
     return useContext(AuthContext)
 }

@@ -5,6 +5,7 @@ import { formatCreatedAtFull } from './tradeIdea.utils.js'
 
 // ── Condition tree helpers ────────────────────────────────────────────────────
 
+// eslint-disable-next-line react-refresh/only-export-components -- small condition-tree helper colocated with its only consumers
 export function getTree(idea, treeField, condField, logicField) {
     if (idea[treeField]) return idea[treeField]
     const conds = idea[condField]
@@ -105,6 +106,7 @@ export function TradeIdeaDialog({ idea, index = 0, onClose, onEdit, onDelete, on
             x: Math.max(20, (window.innerWidth  - DIALOG_W) / 2 + offset),
             y: Math.max(20, (window.innerHeight - DIALOG_H) / 2 + offset),
         })
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- reposition only when a different idea opens
     }, [idea?.id])
 
     if (!idea) return null

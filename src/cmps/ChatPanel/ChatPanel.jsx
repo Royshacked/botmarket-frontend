@@ -2,7 +2,9 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import ReactMarkdown from 'react-markdown'
 import { useMicInput } from '../../customHooks/useMicInput.js'
+import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { AccountSelector } from './AccountSelector.jsx'
+import { ChatInputRow } from '../ChatInputRow.jsx'
 import './ChatPanel.scss'
 
 const P = 'chat-panel__build-summary'
@@ -125,38 +127,12 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
     }, [onSend])
 
     const { isRecording, isTranscribing, toggle: toggleMic } = useMicInput({ onTranscript })
-    const messagesRef      = useRef(null)
-    const messagesEndRef   = useRef(null)
-    const inputRef         = useRef(null)
-    const prevMsgCount     = useRef(0)
-    const wasStreaming     = useRef(false)
-    const stickToBottom    = useRef(true)
-    const generateReady    = canGenerate(analysisState, selectedAccounts)
+    const inputRef      = useRef(null)
+    const generateReady = canGenerate(analysisState, selectedAccounts)
 
-    // True while the user is parked at (or near) the bottom of the transcript.
-    function isNearBottom() {
-        const el = messagesRef.current
-        if (!el) return true
-        return el.scrollHeight - el.scrollTop - el.clientHeight < 80
-    }
-    // The user scrolling is what decides whether we keep following the response.
-    function handleScroll() { stickToBottom.current = isNearBottom() }
-
-    useEffect(() => {
-        const streaming    = messages.some(m => m.streaming)
-        const countChanged = messages.length !== prevMsgCount.current
-        const justFinished = wasStreaming.current && !streaming
-
-        prevMsgCount.current = messages.length
-        wasStreaming.current = streaming
-
-        // A new message (the user just sent) re-engages auto-follow.
-        if (countChanged) stickToBottom.current = true
-        // Only follow the response while the user is at the bottom; if they've
-        // scrolled up to read, leave their position alone — no yank on finish.
-        if (stickToBottom.current) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-        if (justFinished) inputRef.current?.focus()
-    }, [messages, isLoading])
+    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, {
+        onFinishStreaming: () => inputRef.current?.focus(),
+    })
 
     function handleKeyDown(ev) {
         if (ev.key === 'Enter' && !ev.shiftKey) {
@@ -215,7 +191,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
             <div className="chat-panel__messages" ref={messagesRef} onScroll={handleScroll}>
                 {messages.length === 0 && (
                     <div className="chat-panel__empty">
-                        Describe your trade idea — price levels, indicators, patterns and news events — I'll help you build your trade.
+                        Describe your trade idea — price levels, indicators, patterns and news events — I&apos;ll help you build your trade.
                     </div>
                 )}
                 {messages.map((msg, i) => (
@@ -256,57 +232,24 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                 {isEditing ? 'Update idea' : 'Generate idea'}
             </button>
 
-            <div className="chat-panel__input-row">
-                <button
-                    className={`chat-panel__mic ${isRecording ? 'recording' : ''} ${isTranscribing ? 'transcribing' : ''}`}
-                    onClick={toggleMic}
-                    disabled={isLoading || isTranscribing}
-                    title={isRecording ? 'Stop recording' : 'Start recording'}
-                >
-                    {isTranscribing ? (
-                        <span className="chat-panel__mic-spinner" />
-                    ) : (
-                        <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                            <rect x="7" y="1" width="6" height="10" rx="3" stroke="currentColor" strokeWidth="1.5"/>
-                            <path d="M4 10a6 6 0 0 0 12 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                            <line x1="10" y1="16" x2="10" y2="19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                            <line x1="7"  y1="19" x2="13" y2="19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                        </svg>
-                    )}
-                </button>
-                <textarea
-                    ref={inputRef}
-                    className="chat-panel__textarea"
-                    value={input}
-                    onChange={e => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Describe your trade idea… (Enter to send, Shift+Enter for newline)"
-                    rows={2}
-                    disabled={isLoading || isRecording}
-                />
-                <button
-                    className="chat-panel__send"
-                    onClick={handleSend}
-                    disabled={!input.trim() || isLoading}
-                    title="Send"
-                >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <line x1="22" y1="2" x2="11" y2="13"/>
-                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                    </svg>
-                </button>
-                <button
-                    className="chat-panel__clear"
-                    onClick={onClear}
-                    disabled={isLoading || isEditing || (!messages.length && !analysisState?.structured_state?.active_asset)}
-                    title="Clear chat and idea"
-                >
-                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                        <line x1="5" y1="5" x2="15" y2="15"/>
-                        <line x1="15" y1="5" x2="5" y2="15"/>
-                    </svg>
-                </button>
-            </div>
+            <ChatInputRow
+                prefix="chat-panel"
+                textareaRef={inputRef}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Describe your trade idea… (Enter to send, Shift+Enter for newline)"
+                onSend={handleSend}
+                sendDisabled={!input.trim() || isLoading}
+                onClear={onClear}
+                clearDisabled={isLoading || isEditing || (!messages.length && !analysisState?.structured_state?.active_asset)}
+                clearTitle="Clear chat and idea"
+                onToggleMic={toggleMic}
+                isRecording={isRecording}
+                isTranscribing={isTranscribing}
+                micDisabled={isLoading || isTranscribing}
+                textareaDisabled={isLoading || isRecording}
+            />
         </div>
     )
 }
@@ -318,6 +261,7 @@ ChatPanel.propTypes = {
     onGenerate:        PropTypes.func.isRequired,
     onClear:           PropTypes.func,
     isLoading:         PropTypes.bool,
+    isEditing:         PropTypes.bool,
     availableAccounts:   PropTypes.array,
     selectedAccounts:    PropTypes.arrayOf(PropTypes.string),
     onAccountsChange:    PropTypes.func,
