@@ -125,11 +125,22 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
     }, [onSend])
 
     const { isRecording, isTranscribing, toggle: toggleMic } = useMicInput({ onTranscript })
+    const messagesRef      = useRef(null)
     const messagesEndRef   = useRef(null)
     const inputRef         = useRef(null)
     const prevMsgCount     = useRef(0)
     const wasStreaming     = useRef(false)
+    const stickToBottom    = useRef(true)
     const generateReady    = canGenerate(analysisState, selectedAccounts)
+
+    // True while the user is parked at (or near) the bottom of the transcript.
+    function isNearBottom() {
+        const el = messagesRef.current
+        if (!el) return true
+        return el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    }
+    // The user scrolling is what decides whether we keep following the response.
+    function handleScroll() { stickToBottom.current = isNearBottom() }
 
     useEffect(() => {
         const streaming    = messages.some(m => m.streaming)
@@ -139,12 +150,12 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
         prevMsgCount.current = messages.length
         wasStreaming.current = streaming
 
-        if (countChanged || justFinished) {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-        }
-        if (justFinished) {
-            inputRef.current?.focus()
-        }
+        // A new message (the user just sent) re-engages auto-follow.
+        if (countChanged) stickToBottom.current = true
+        // Only follow the response while the user is at the bottom; if they've
+        // scrolled up to read, leave their position alone — no yank on finish.
+        if (stickToBottom.current) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+        if (justFinished) inputRef.current?.focus()
     }, [messages, isLoading])
 
     function handleKeyDown(ev) {
@@ -201,7 +212,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                 selectedAccounts={availableAccounts.filter(a => selectedAccounts.includes(a.id))}
             />
 
-            <div className="chat-panel__messages">
+            <div className="chat-panel__messages" ref={messagesRef} onScroll={handleScroll}>
                 {messages.length === 0 && (
                     <div className="chat-panel__empty">
                         Describe your trade idea — price levels, indicators, patterns and news events — I'll help you build your trade.
@@ -236,8 +247,11 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
 
             <button
                 className="chat-panel__generate"
-                disabled={!generateReady || isLoading}
+                disabled={isLoading || (!isEditing && !generateReady)}
                 onClick={onGenerate}
+                title={isEditing
+                    ? (generateReady ? 'Update idea' : 'Exit edit mode')
+                    : (generateReady ? 'Generate idea' : 'Build your idea first')}
             >
                 {isEditing ? 'Update idea' : 'Generate idea'}
             </button>

@@ -110,6 +110,7 @@ export function PortfolioPanel({
     const buildAssets = [...new Set([
         ...messages.flatMap(m => m.tickers ?? []),
         ...(pendingPlan?.ideas?.map(i => i.asset) ?? []),
+        ...(editingPortfolioIdeas?.map(i => i.asset) ?? []),
     ])]
     const buildKey = `${buildAssets.join(',')}|${pendingPlan?.name ?? ''}|${pendingPlan?.ideas?.length ?? 0}`
 
@@ -124,17 +125,28 @@ export function PortfolioPanel({
     const tokenQueueRef     = useRef('')
     const drainTimerRef     = useRef(null)
     const pendingTickersRef = useRef([])
+    const messagesRef       = useRef(null)
     const messagesEndRef    = useRef(null)
+    const stickToBottom     = useRef(true)
     const textareaRef       = useRef(null)
 
     const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
     const { isRecording, isTranscribing, toggle: toggleMic } = useMicInput({ onTranscript })
 
-    // Follow the response gently while it streams; don't yank to the bottom once
-    // it finishes (only scroll when the last message is still streaming).
+    // True while the user is parked at (or near) the bottom of the transcript.
+    function isNearBottom() {
+        const el = messagesRef.current
+        if (!el) return true
+        return el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    }
+    // The user scrolling is what decides whether we keep following the response.
+    function handleScroll() { stickToBottom.current = isNearBottom() }
+
+    // Follow the response while it streams — but only while the user is parked at
+    // the bottom. If they scroll up to read, we leave their position untouched.
     useEffect(() => {
         const last = messages[messages.length - 1]
-        if (last?.streaming) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+        if (last?.streaming && stickToBottom.current) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, [messages])
 
     function _startDrain() {
@@ -175,6 +187,7 @@ export function PortfolioPanel({
             { role: 'user', content: text },
             { role: 'assistant', content: '', streaming: true },
         ])
+        stickToBottom.current = true   // sending a message re-engages auto-follow
         setIsLoading(true)
         pendingTickersRef.current = []
         _startDrain()
@@ -248,6 +261,20 @@ export function PortfolioPanel({
         setInputText('')
     }
 
+    function handleGenerate() {
+        if (editingPortfolioId) {
+            // Apply changes if a ready plan exists; either way, leave edit mode so
+            // the user is never stuck (the Update button doubles as "exit edit").
+            if (planReady && onUpdatePlan) onUpdatePlan(pendingPlan, editingPortfolioId, messages)
+            setEditingPortfolioId(null)
+            setEditingPortfolioIdeas([])
+        } else {
+            if (!planReady) return
+            if (onGeneratePlan) onGeneratePlan(pendingPlan, messages)
+        }
+        setPendingPlan(null); setMessages([]); setInputText('')
+    }
+
     function handleKeyDown(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault()
@@ -284,7 +311,7 @@ export function PortfolioPanel({
                 </div>
             )}
 
-            <div className="portfolio-panel__messages">
+            <div className="portfolio-panel__messages" ref={messagesRef} onScroll={handleScroll}>
                 {messages.length === 0 && (
                     <div className="portfolio-panel__empty">
                         Describe your investment goals, risk tolerance, and account size — I'll help you build a portfolio.
@@ -313,21 +340,20 @@ export function PortfolioPanel({
                         <button className="portfolio-panel__plan-dismiss" onClick={() => setPendingPlan(null)}>
                             Dismiss
                         </button>
-                        <button
-                            className="portfolio-panel__plan-generate"
-                            onClick={() => {
-                                if (editingPortfolioId) { if (onUpdatePlan) onUpdatePlan(pendingPlan, editingPortfolioId, messages) }
-                                else                    { if (onGeneratePlan) onGeneratePlan(pendingPlan, messages) }
-                                setPendingPlan(null); setMessages([]); setInputText('')
-                            }}
-                            disabled={!planReady}
-                            title={planReady ? (editingPortfolioId ? 'Update plan' : 'Generate ideas') : 'Set quantities first'}
-                        >
-                            {editingPortfolioId ? 'Update plan ↑' : 'Generate ideas ↑'}
-                        </button>
                     </div>
                 </div>
             )}
+
+            <button
+                className="portfolio-panel__generate"
+                disabled={isLoading || (!editingPortfolioId && !planReady)}
+                onClick={handleGenerate}
+                title={editingPortfolioId
+                    ? (planReady ? 'Update plan' : 'Exit edit mode')
+                    : (planReady ? 'Generate plan' : 'Build a plan and set quantities first')}
+            >
+                {editingPortfolioId ? 'Update plan' : 'Generate plan'}
+            </button>
 
             <div className="portfolio-panel__input-row">
                 <button

@@ -225,6 +225,8 @@
         padding: 7px 14px;
         border-bottom: 1px solid rgba(76, 175, 138, 0.18);
         background: rgba(76, 175, 138, 0.04);
+        max-height: 96px;
+        overflow-y: auto;
     }
 
     &__build-assets-label {
@@ -326,6 +328,30 @@
             cursor: not-allowed;
             &:hover { background: rgba(76, 175, 138, 0.15); border-color: rgba(76, 175, 138, 0.45); }
         }
+    }
+
+    &__generate {
+        flex-shrink: 0;
+        margin: 0;
+        padding: 9px 16px;
+        background: transparent;
+        border: 1px solid var(--accent);
+        border-radius: 3px;
+        color: var(--accent);
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+
+        &:not(:disabled):hover {
+            background: var(--glow);
+            border-color: var(--accent-light);
+            color: var(--accent-light);
+        }
+
+        &:disabled { opacity: 0.26; cursor: not-allowed; }
     }
 
     &__mic {

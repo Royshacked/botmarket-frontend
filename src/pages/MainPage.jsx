@@ -398,7 +398,12 @@ export function MainPage() {
     }
 
     async function handleGenerate() {
-        if (!buildingIdea) return
+        if (!buildingIdea) {
+            // Nothing to save — if we're editing, just leave edit mode so the
+            // user is never stuck (the Update button doubles as "exit edit").
+            if (editingIdeaId) handleCancelBuild()
+            return
+        }
         const { id: _id, status: _status, ...ideaFields } = buildingIdea
         const chatState = { messages: latestMessagesRef.current, analysisState }
 
@@ -681,6 +686,7 @@ export function MainPage() {
                             ideas={ideas
                                 .filter(i => i.status !== 'closed')
                                 .filter(i => i.id !== editingIdeaId)}
+                            chatTab={activeTab}
                             buildingIdea={buildingIdea}
                             buildingPortfolio={buildingPortfolio}
                             onDelete={handleDeleteIdea}

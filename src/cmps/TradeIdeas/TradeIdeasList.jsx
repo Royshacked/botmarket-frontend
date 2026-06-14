@@ -121,10 +121,17 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
     )
 }
 
-export function TradeIdeasList({ ideas, buildingIdea, buildingPortfolio, onDelete, onCancelBuild, onStatusChange, onUpdate, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, onPlaceOrder }) {
+export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, onDelete, onCancelBuild, onStatusChange, onUpdate, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, onPlaceOrder }) {
     const [activeIdea,     setActiveIdea]     = useState(null)
     const [expandedGroups, setExpandedGroups] = useState(new Set())
     const [activeFilter,   setActiveFilter]   = useState('ideas')
+
+    // Follow the chat tab: idea mode shows ideas, portfolio mode shows portfolios.
+    // The user can still override via the filter buttons until the tab changes again.
+    useEffect(() => {
+        if (chatTab === 'portfolio')  setActiveFilter('portfolios')
+        else if (chatTab === 'idea')  setActiveFilter('ideas')
+    }, [chatTab])
 
     // When a portfolio starts taking shape in chat, move the list to the
     // portfolios slot so the building row is visible (mirrors single-idea build).
@@ -233,7 +240,18 @@ export function TradeIdeasList({ ideas, buildingIdea, buildingPortfolio, onDelet
                                         <td className="portfolio-group-row__created">—</td>
                                         <td className="portfolio-group-row__edit" />
                                         <td className="portfolio-group-row__status">
-                                            <span className="portfolio-group-row__building-badge">building</span>
+                                            <svg className="idea-row__building-bot" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" title="Building…" aria-hidden="true">
+                                                {/* Antenna */}
+                                                <line x1="10" y1="5" x2="10" y2="2"   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                                                <circle cx="10" cy="1.5" r="1"         fill="currentColor"/>
+                                                {/* Head */}
+                                                <rect x="2" y="5" width="16" height="12" rx="3" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+                                                {/* Eyes */}
+                                                <circle cx="7"  cy="10" r="1.8"        fill="currentColor"/>
+                                                <circle cx="13" cy="10" r="1.8"        fill="currentColor"/>
+                                                {/* Mouth */}
+                                                <rect x="6.5" y="13" width="7" height="1.5" rx="0.75" fill="currentColor"/>
+                                            </svg>
                                         </td>
                                     </tr>
                                 )}
@@ -270,6 +288,7 @@ export function TradeIdeasList({ ideas, buildingIdea, buildingPortfolio, onDelet
 
 TradeIdeasList.propTypes = {
     ideas:            PropTypes.array.isRequired,
+    chatTab:          PropTypes.string,
     buildingIdea:     PropTypes.object,
     buildingPortfolio: PropTypes.object,
     onDelete:         PropTypes.func.isRequired,
