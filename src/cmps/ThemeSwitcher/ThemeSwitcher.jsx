@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { applyHueTheme, saveSpectrum, DEFAULT_HUE } from '../../services/themeService'
+import { applyHueTheme, saveSpectrum, spectrumPreview, DEFAULT_HUE } from '../../services/themeService'
 import './ThemeSwitcher.scss'
 
 export function ThemeSwitcher() {
@@ -26,7 +26,7 @@ export function ThemeSwitcher() {
                 />
                 <span
                     className="theme-switcher__preview"
-                    style={{ background: `hsl(${hue}, 57%, 45%)` }}
+                    style={{ background: spectrumPreview(hue) }}
                 />
             </div>
         </div>

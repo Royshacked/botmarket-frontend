@@ -4,66 +4,93 @@
 // saturation curves are kept from the hand-tuned themes, so any hue stays dark,
 // legible, and consistent in mood + text — just rotated in color.
 //
+// The spectrum is intentionally a *dark* spectrum: saturation is muted and fades
+// to zero at both edges, and the far-left edge darkens toward black. So sliding
+// gives `black | dark muted hues | gray` rather than a bright rainbow — see
+// spectrumShape. Text + heading lightness is left untouched so every position
+// stays legible; only saturation/darkness are reshaped.
+//
 // Semantic colors (long/short, bull/bear, type badges) live in :root in
 // _themes.scss and are intentionally NOT generated here — trade meaning never
 // changes with the hue.
 
 const DEFAULT_HUE = 213 // ≈ the ocean preset
 
+// Position-derived shape (hue doubles as the 0–360 slider position):
+//   satMul  — muted saturation that fades to 0 at both ends → neutral gray/black edges.
+//   darkMul — darkness ramp: 0.4 (black) at the left edge, reaching full by ≈15% in.
+// Together the left edge reads as black, the right edge as gray, the middle as
+// dark muted hues.
+function spectrumShape(hue) {
+    const p       = hue / 360
+    const satMul  = Math.sin(Math.PI * p) * 0.55
+    const darkMul = Math.min(1, 0.4 + (p / 0.15) * 0.6)
+    return { satMul, darkMul }
+}
+
+// Accent color for a given hue — single source of truth for the slider preview.
+export function spectrumPreview(hue) {
+    const { satMul, darkMul } = spectrumShape(hue)
+    return `hsl(${hue}, ${+(57 * satMul).toFixed(1)}%, ${+(39 * darkMul).toFixed(1)}%)`
+}
+
 // Each entry maps a CSS custom property to a function of hue.
 function buildHueVars(h) {
+    const { satMul, darkMul } = spectrumShape(h)
+    const s = v => +(v * satMul).toFixed(1)   // muted saturation, neutral at the spectrum ends
+    const d = v => +(v * darkMul).toFixed(1)  // lightness darkened toward black at the left edge
     return {
         // Backgrounds — very dark, lightly saturated
-        '--bg-base':    `hsl(${h}, 60%, 4%)`,
-        '--bg-deep':    `hsl(${h}, 60%, 6%)`,
-        '--bg-hover':   `hsl(${h}, 55%, 8%)`,
-        '--bg-surface': `hsl(${h}, 55%, 9%)`,
-        '--bg-raised':  `hsl(${h}, 50%, 12%)`,
-        '--bg-popover': `hsl(${h}, 60%, 11%)`,
+        '--bg-base':    `hsl(${h}, ${s(60)}%, ${d(4)}%)`,
+        '--bg-deep':    `hsl(${h}, ${s(60)}%, ${d(6)}%)`,
+        '--bg-hover':   `hsl(${h}, ${s(55)}%, ${d(8)}%)`,
+        '--bg-surface': `hsl(${h}, ${s(55)}%, ${d(9)}%)`,
+        '--bg-raised':  `hsl(${h}, ${s(50)}%, ${d(12)}%)`,
+        '--bg-popover': `hsl(${h}, ${s(60)}%, ${d(11)}%)`,
 
         // Accent scale
-        '--accent-deep':   `hsl(${h}, 73%, 19%)`,
-        '--accent':        `hsl(${h}, 57%, 39%)`,
-        '--accent-light':  `hsl(${h}, 65%, 73%)`,
-        '--accent-bright': `hsl(${h}, 100%, 89%)`,
+        '--accent-deep':   `hsl(${h}, ${s(73)}%, ${d(19)}%)`,
+        '--accent':        `hsl(${h}, ${s(57)}%, ${d(39)}%)`,
+        '--accent-light':  `hsl(${h}, ${s(65)}%, ${d(73)}%)`,
+        '--accent-bright': `hsl(${h}, ${s(100)}%, ${d(89)}%)`,
 
-        // Text scale
-        '--text-primary':   `hsl(${h}, 100%, 92%)`,
-        '--text-secondary': `hsl(${h}, 35%, 62%)`,
-        '--text-muted':     `hsl(${h}, 48%, 32%)`,
-        '--text-dim':       `hsl(${h}, 52%, 25%)`,
-        '--text-subtle':    `hsl(${h}, 28%, 73%)`,
-        '--text-leaf':      `hsl(${h}, 50%, 85%)`,
+        // Text scale — lightness kept raw so text stays legible at every position
+        '--text-primary':   `hsl(${h}, ${s(100)}%, 92%)`,
+        '--text-secondary': `hsl(${h}, ${s(35)}%, 62%)`,
+        '--text-muted':     `hsl(${h}, ${s(48)}%, 32%)`,
+        '--text-dim':       `hsl(${h}, ${s(52)}%, 25%)`,
+        '--text-subtle':    `hsl(${h}, ${s(28)}%, 73%)`,
+        '--text-leaf':      `hsl(${h}, ${s(50)}%, 85%)`,
 
         // Borders & effects
-        '--border':        `hsla(${h}, 72%, 27%, 0.35)`,
-        '--border-mid':    `hsla(${h}, 72%, 27%, 0.45)`,
-        '--border-strong': `hsla(${h}, 68%, 58%, 0.55)`,
-        '--border-soft':   `hsla(${h}, 64%, 43%, 0.30)`,
-        '--glow':          `hsla(${h}, 57%, 38%, 0.14)`,
-        '--glow-soft':     `hsla(${h}, 57%, 38%, 0.06)`,
-        '--glow-mid':      `hsla(${h}, 57%, 38%, 0.10)`,
+        '--border':        `hsla(${h}, ${s(72)}%, ${d(27)}%, 0.35)`,
+        '--border-mid':    `hsla(${h}, ${s(72)}%, ${d(27)}%, 0.45)`,
+        '--border-strong': `hsla(${h}, ${s(68)}%, ${d(58)}%, 0.55)`,
+        '--border-soft':   `hsla(${h}, ${s(64)}%, ${d(43)}%, 0.30)`,
+        '--glow':          `hsla(${h}, ${s(57)}%, ${d(38)}%, 0.14)`,
+        '--glow-soft':     `hsla(${h}, ${s(57)}%, ${d(38)}%, 0.06)`,
+        '--glow-mid':      `hsla(${h}, ${s(57)}%, ${d(38)}%, 0.10)`,
         '--overlay':       `rgba(0, 0, 0, 0.65)`,
 
         // User button + popover
-        '--user-btn-bg':           `hsla(${h}, 72%, 27%, 0.35)`,
-        '--user-btn-border':       `hsla(${h}, 63%, 59%, 0.40)`,
-        '--user-btn-bg-hover':     `hsla(${h}, 64%, 43%, 0.45)`,
-        '--user-btn-border-hover': `hsla(${h}, 100%, 74%, 0.70)`,
-        '--user-btn-text-hover':   `hsl(${h}, 100%, 95%)`,
-        '--popover-border':        `hsla(${h}, 70%, 55%, 0.50)`,
-        '--popover-divider':       `hsla(${h}, 64%, 43%, 0.30)`,
-        '--popover-btn-hover-bg':  `hsla(${h}, 64%, 43%, 0.20)`,
+        '--user-btn-bg':           `hsla(${h}, ${s(72)}%, ${d(27)}%, 0.35)`,
+        '--user-btn-border':       `hsla(${h}, ${s(63)}%, ${d(59)}%, 0.40)`,
+        '--user-btn-bg-hover':     `hsla(${h}, ${s(64)}%, ${d(43)}%, 0.45)`,
+        '--user-btn-border-hover': `hsla(${h}, ${s(100)}%, ${d(74)}%, 0.70)`,
+        '--user-btn-text-hover':   `hsl(${h}, ${s(100)}%, 95%)`,
+        '--popover-border':        `hsla(${h}, ${s(70)}%, ${d(55)}%, 0.50)`,
+        '--popover-divider':       `hsla(${h}, ${s(64)}%, ${d(43)}%, 0.30)`,
+        '--popover-btn-hover-bg':  `hsla(${h}, ${s(64)}%, ${d(43)}%, 0.20)`,
 
-        // H1 gradient + glow
-        '--h1-grad-top':    `hsl(${h}, 100%, 99%)`,
-        '--h1-grad-mid1':   `hsl(${h}, 100%, 93%)`,
-        '--h1-grad-mid2':   `hsl(${h}, 67%, 80%)`,
-        '--h1-grad-mid3':   `hsl(${h}, 58%, 59%)`,
-        '--h1-grad-bottom': `hsl(${h}, 67%, 34%)`,
-        '--h1-glow-1': `hsla(${h}, 100%, 65%, 0.90)`,
-        '--h1-glow-2': `hsla(${h}, 80%, 53%, 0.65)`,
-        '--h1-glow-3': `hsla(${h}, 85%, 43%, 0.35)`,
+        // H1 gradient (lightness kept raw, like text) + glow
+        '--h1-grad-top':    `hsl(${h}, ${s(100)}%, 99%)`,
+        '--h1-grad-mid1':   `hsl(${h}, ${s(100)}%, 93%)`,
+        '--h1-grad-mid2':   `hsl(${h}, ${s(67)}%, 80%)`,
+        '--h1-grad-mid3':   `hsl(${h}, ${s(58)}%, 59%)`,
+        '--h1-grad-bottom': `hsl(${h}, ${s(67)}%, 34%)`,
+        '--h1-glow-1': `hsla(${h}, ${s(100)}%, ${d(65)}%, 0.90)`,
+        '--h1-glow-2': `hsla(${h}, ${s(80)}%, ${d(53)}%, 0.65)`,
+        '--h1-glow-3': `hsla(${h}, ${s(85)}%, ${d(43)}%, 0.35)`,
     }
 }
 
