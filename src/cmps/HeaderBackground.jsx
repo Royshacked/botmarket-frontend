@@ -9,10 +9,10 @@ import { useEffect, useRef } from 'react'
 // honours prefers-reduced-motion, and scales for high-DPI screens.
 
 const AI_NAME = 'Tradvisor'
-const FONT = '12px "IBM Plex Mono", monospace'
-const LINE_GAP = 15
-const CANDLE_W = 6
-const CANDLE_GAP = 6
+const FONT = '14px "IBM Plex Mono", monospace'
+const LINE_GAP = 18
+const CANDLE_W = 8
+const CANDLE_GAP = 7
 
 const CHAT_PAIRS = [
     { user: 'Should I buy TSLA now?',      ai: 'RSI is oversold — possible bounce setup.' },
@@ -77,8 +77,8 @@ export function HeaderBackground({ userName = 'Trader' }) {
             candles = Array.from({ length: n }, (_, i) => ({
                 x: i * (CANDLE_W + CANDLE_GAP),
                 y: Math.random() * height,
-                bodyH: 4 + Math.random() * 12,
-                wickH: 3 + Math.random() * 8,
+                bodyH: 6 + Math.random() * 16,
+                wickH: 4 + Math.random() * 11,
                 up: Math.random() > 0.5,
                 speed: 6 + Math.random() * 8, // px / sec, drifting upward
                 opacity: 0.14 + Math.random() * 0.14,
@@ -120,20 +120,21 @@ export function HeaderBackground({ userName = 'Trader' }) {
             ctx.lineWidth = 1
             for (const c of candles) {
                 const cx = c.x + CANDLE_W / 2
-                ctx.strokeStyle = rgba(colors.wick, c.opacity * 1.4)
+                const candleColor = c.up ? colors.candleUp : colors.candleDown
+                ctx.strokeStyle = rgba(candleColor, c.opacity * 1.4)
                 ctx.beginPath()
                 ctx.moveTo(cx, c.y - c.wickH / 2)
                 ctx.lineTo(cx, c.y + c.bodyH + c.wickH / 2)
                 ctx.stroke()
-                ctx.fillStyle = rgba(c.up ? colors.candleUp : colors.candleDown, c.opacity)
+                ctx.fillStyle = rgba(candleColor, c.opacity)
                 ctx.fillRect(c.x, c.y, CANDLE_W, c.bodyH)
 
                 if (!animate) continue
                 c.y -= c.speed * (dt / 1000)
                 if (c.y + c.bodyH + c.wickH < -10) {
                     c.y = height + Math.random() * 30
-                    c.bodyH = 4 + Math.random() * 12
-                    c.wickH = 3 + Math.random() * 8
+                    c.bodyH = 6 + Math.random() * 16
+                    c.wickH = 4 + Math.random() * 11
                     c.up = Math.random() > 0.5
                     c.opacity = 0.14 + Math.random() * 0.14
                 }
@@ -159,9 +160,9 @@ export function HeaderBackground({ userName = 'Trader' }) {
                 else a = 1 - (it.age - it.inDur - it.holdDur) / it.outDur
                 a = Math.max(0, Math.min(1, a))
 
-                ctx.fillStyle = rgba(colors.chatUser, 0.62 * a)
+                ctx.fillStyle = rgba(colors.chatUser, 0.82 * a)
                 ctx.fillText(it.line1, it.x, it.y)
-                ctx.fillStyle = rgba(colors.chatAi, 0.52 * a)
+                ctx.fillStyle = rgba(colors.chatAi, 0.82 * a)
                 ctx.fillText(it.line2, it.x, it.y + LINE_GAP)
 
                 if (it.age >= total) {
