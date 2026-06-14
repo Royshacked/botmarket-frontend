@@ -63,8 +63,8 @@ export function HeaderBackground({ userName = 'Trader' }) {
         let colors = readColors()
         function readColors() {
             return {
-                candleUp:   resolveColor('--accent-light'),
-                candleDown: resolveColor('--accent'),
+                candleUp:   'rgb(0, 100, 0)',   // dark green
+                candleDown: 'rgb(139, 0, 0)',   // dark red
                 wick:       resolveColor('--text-secondary'),
                 chatUser:   resolveColor('--text-primary'),
                 chatAi:     resolveColor('--accent-light'),
