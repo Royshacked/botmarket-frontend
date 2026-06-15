@@ -131,11 +131,40 @@
  * @property {Array<string|Account>} [accounts]  attached account ids (or objects)
  * @property {string|null} [mainAccountId]    account the `quantity` is sized for
  * @property {ChatState} [chat_state]
- * @property {'awaiting_confirm'|'awaiting_market'|null} [orderState]
+ * @property {'awaiting_confirm'|'awaiting_market'|'placed'|null} [orderState]
  * @property {number} [ordersPlacedAt]        epoch ms once orders are placed
  * @property {{ plan?: OrderPreview[] }} [pendingOrder]  server-built order plan
+ * @property {BrokerOrderLink[]} [brokerOrders]  per-account broker linkage; the execution
+ *                                               reconciler matches native SL/TP closes to it
+ * @property {'stop'|'tp'|'manual'|'broker'} [closedReason]  why the position closed
+ * @property {number} [closedAt]              epoch ms when closed
+ * @property {number} [realizedPnl]           realised pnl reported by the broker on close
  * @property {string} [portfolioId]           set when the idea belongs to a portfolio
  * @property {string} [portfolioName]
+ */
+
+/**
+ * Links an idea to the broker order/position it placed, so execution events
+ * (fills, native stop/TP closes) reconcile back to the idea.
+ *
+ * @typedef {Object} BrokerOrderLink
+ * @property {string} broker
+ * @property {string} accountId            broker-canonical account id
+ * @property {string|null} orderId
+ * @property {string|null} positionId      backfilled from the fill event
+ */
+
+/**
+ * What a broker can do, from GET /api/broker/:type/capabilities. The UI branches on
+ * these flags (show SL/TP inputs only when nativeProtection, a Close button only when
+ * closePosition, …) instead of checking the broker name.
+ *
+ * @typedef {Object} BrokerCapabilities
+ * @property {boolean} trading           can place orders at all
+ * @property {boolean} nativeProtection  can attach SL/TP to an order natively
+ * @property {boolean} modifyProtection  can amend SL/TP on an open position
+ * @property {boolean} closePosition     can close a position programmatically
+ * @property {boolean} ohlcv             can serve candles
  */
 
 /**
