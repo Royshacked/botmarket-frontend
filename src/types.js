@@ -139,6 +139,11 @@
  * @property {'stop'|'tp'|'manual'|'broker'} [closedReason]  why the position closed
  * @property {number} [closedAt]              epoch ms when closed
  * @property {number} [realizedPnl]           realised pnl reported by the broker on close
+ * @property {boolean} [monitorStop]          false once the stop rides on a native broker SL
+ *                                            (the software monitor no longer watches it)
+ * @property {boolean} [monitorTp]            false once the TP rides on a native broker TP
+ * @property {{ stop: number|null, tp: number|null }} [nativeProtection]  price levels
+ *                                            offloaded to the broker's native SL/TP, if any
  * @property {string} [portfolioId]           set when the idea belongs to a portfolio
  * @property {string} [portfolioName]
  */
