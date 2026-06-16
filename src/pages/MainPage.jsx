@@ -15,6 +15,7 @@ import { useTypewriter }     from '../customHooks/useTypewriter.js'
 import { useNewsFeed }       from '../customHooks/useNewsFeed.js'
 import { useBrokerAccounts } from '../customHooks/useBrokerAccounts.js'
 import { useTradeIdeas }     from '../customHooks/useTradeIdeas.js'
+import { useAuth }           from '../context/AuthContext.jsx'
 
 // Chart defaults — restored when a build/edit session ends.
 const DEFAULT_CHART_SYMBOL   = 'SPY'
@@ -72,6 +73,7 @@ export function MainPage() {
     const latestMessagesRef = useRef([])
 
     const news = useNewsFeed()
+    const { user } = useAuth()
     const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
     const { ideas, setIdeas, loadIdeas, handleStatusChange } = useTradeIdeas()
 
@@ -82,28 +84,44 @@ export function MainPage() {
     // buildingPortfolio is reported up from PortfolioPanel (assets recommended /
     // pending plan) → drives the list's "building" portfolio row.
 
-    // First idea awaiting order confirmation: orderState 'awaiting_confirm' (or a
-    // legacy hit idea saved before orderState existed), with accounts, not yet
-    // placed and not dismissed. 'awaiting_market' ideas stay deferred (no dialog).
-    const confirmIdea = ideas.find(i =>
-        !i.ordersPlacedAt &&
-        !dismissedConfirmIds.has(i.id) &&
-        Array.isArray(i.accounts) && i.accounts.length > 0 &&
-        (i.orderState === 'awaiting_confirm' || (i.orderState == null && i.status === 'hit'))
-    )
-    // Prefer the server-built plan; fall back to a client preview for legacy ideas.
-    const confirmOrders = !confirmIdea
-        ? []
-        : confirmIdea.pendingOrder?.plan?.length
-            ? confirmIdea.pendingOrder.plan.map(o => ({
+    // Build the per-account order list for a hit idea: prefer the server-built plan,
+    // fall back to a client preview for legacy ideas saved before plans were persisted.
+    const ordersForIdea = (idea) =>
+        idea.pendingOrder?.plan?.length
+            ? idea.pendingOrder.plan.map(o => ({
                 broker:    o.broker,
                 accountId: o.accountId,
                 accountNo: o.accountNo,
                 quantity:  o.quantity,
-                orderType: orderTypeLabel(confirmIdea.direction, o.type),
-                isMain:    String(o.accountId) === String(confirmIdea.mainAccountId),
+                orderType: orderTypeLabel(idea.direction, o.type),
+                isMain:    String(o.accountId) === String(idea.mainAccountId),
             }))
-            : buildOrderPreview(confirmIdea, availableAccounts)
+            : buildOrderPreview(idea, availableAccounts)
+
+    // Idea awaiting order confirmation: a still-triggered ('hit') idea with accounts,
+    // not yet placed and not dismissed. 'awaiting_market' ideas stay deferred (no
+    // dialog). Keying off status (not just orderState) is what makes dismiss stick:
+    // once the idea is sent back to 'waiting' the dialog disappears even if a lingering
+    // orderState 'awaiting_confirm' wasn't cleared.
+    //
+    // We pick the first such idea that *also* resolves to a non-empty order list — a
+    // newer hit whose client-side preview can't resolve (e.g. its broker account isn't
+    // in the current session) must not mask an older hit that has a ready plan.
+    //
+    // Ownership: an admin's idea list includes every user's ideas (for dev/visibility),
+    // but confirming places orders through the *current* user's broker session — so we
+    // only ever offer the confirm dialog for the viewer's own ideas. Legacy ideas with
+    // no userId are treated as the viewer's own.
+    let confirmIdea  = null
+    let confirmOrders = []
+    for (const i of ideas) {
+        if (i.userId != null && i.userId !== user?._id) continue
+        if (i.status !== 'hit' || i.ordersPlacedAt || dismissedConfirmIds.has(i.id)) continue
+        if (!Array.isArray(i.accounts) || i.accounts.length === 0) continue
+        if (i.orderState !== 'awaiting_confirm' && i.orderState != null) continue
+        const orders = ordersForIdea(i)
+        if (orders.length > 0) { confirmIdea = i; confirmOrders = orders; break }
+    }
 
     async function handleSend(userPrompt, currentAnalysisState) {
         setMessages(prev => [
