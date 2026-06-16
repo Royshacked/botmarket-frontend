@@ -92,6 +92,17 @@
         border-radius: 5px;
     }
 
+    &__while-waiting {
+        margin: 0 0 12px;
+        padding: 8px 10px;
+        font-size: 0.74rem;
+        line-height: 1.4;
+        color: #fbbf77;
+        background: rgba(234, 88, 12, 0.1);
+        border: 1px solid rgba(234, 88, 12, 0.35);
+        border-radius: 5px;
+    }
+
     &__table {
         width: 100%;
         border-collapse: collapse;

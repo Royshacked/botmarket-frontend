@@ -70,7 +70,9 @@ export function TradeIdeaRow({ idea, onStatusChange, onOpen, onSymbolClick, onEd
                             <button
                                 className={`idea-row__status-toggle status--${status}`}
                                 onClick={e => { e.stopPropagation(); onStatusChange(id, status === 'waiting' ? activationStatus(idea) : 'waiting') }}
-                                title={status === 'waiting' ? `Activate (→ ${activationStatus(idea)})` : 'Switch to waiting'}
+                                title={status === 'waiting' ? `Activate (→ ${activationStatus(idea)})`
+                                    : status === 'resting' ? 'Cancel resting order (→ waiting)'
+                                    : 'Switch to waiting'}
                             >
                                 {status}
                             </button>

@@ -46,6 +46,7 @@ function deriveBuildingIdea(analysisState) {
         type:             pt.type            || null,
         quantity:         pt.quantity        ?? null,
         immediate:        pt.immediate       || false,
+        entry_order_type: pt.entry_order_type || null,
         entry_timeframe:  pt.entry_timeframe || null,
         stop_timeframe:   pt.stop_timeframe  || null,
         tp_timeframe:     pt.tp_timeframe    || null,
@@ -331,8 +332,20 @@ export function MainPage() {
         }
     }
 
-    function handleDismissConfirm(idea) {
+    // Dismiss sends the triggered idea back to 'waiting' (server pushes the entry
+    // floor forward so the dismissed event can't immediately re-fire). The optimistic
+    // id-set hides the dialog during the round-trip; we clear it afterwards so a future
+    // re-activation that hits again will show the dialog rather than stay suppressed.
+    async function handleDismissConfirm(idea) {
         setDismissedConfirmIds(prev => new Set(prev).add(idea.id))
+        try {
+            const res = await tradeIdeasService.updateIdea(idea.id, { status: 'waiting' })
+            if (res?.idea) setIdeas(prev => prev.map(i => i.id === idea.id ? res.idea : i))
+        } catch (err) {
+            console.error('[tradeIdeas] dismiss to waiting failed', err)
+        } finally {
+            setDismissedConfirmIds(prev => { const next = new Set(prev); next.delete(idea.id); return next })
+        }
     }
 
     function handleReopenConfirm(idea) {

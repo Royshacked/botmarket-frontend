@@ -108,10 +108,14 @@ export function hasEntryConditions(idea) {
 
 /**
  * Status a 'waiting' idea should move to when activated.
+ *   - resting entry (broker-native stop-market) → 'resting' (broker holds a working order)
+ *   - has entry conditions                       → 'looking' (monitor watches)
+ *   - no conditions                              → 'hit' (fire immediately, pending confirm)
  * @param {import('../../types.js').Idea} idea
- * @returns {'looking'|'hit'}
+ * @returns {'resting'|'looking'|'hit'}
  */
 export function activationStatus(idea) {
+    if (idea?.entryOrderType === 'stop') return 'resting'
     return hasEntryConditions(idea) ? 'looking' : 'hit'
 }
 

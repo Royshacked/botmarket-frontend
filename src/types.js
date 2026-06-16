@@ -112,7 +112,7 @@
  *
  * @typedef {Object} Idea
  * @property {string} id
- * @property {'building'|'waiting'|'looking'|'hit'|'long'|'short'|'closed'} status
+ * @property {'building'|'waiting'|'looking'|'resting'|'hit'|'long'|'short'|'closed'} status
  * @property {string} asset
  * @property {'long'|'short'|null} [direction]
  * @property {'market'|'limit'|null} [type]

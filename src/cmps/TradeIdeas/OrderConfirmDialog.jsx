@@ -48,6 +48,14 @@ export function OrderConfirmDialog({ idea, orders, placing, onConfirm, onDismiss
                         Triggered at {formatCreatedAtFull(idea.entryTriggeredAt) || '—'}
                     </p>
 
+                    {idea.triggeredWhileWaiting && (
+                        <p className="order-confirm__while-waiting">
+                            ⚠️ This condition was met at {formatCreatedAtFull(idea.triggerEventAt) || '—'},
+                            before you activated monitoring. Verify it still holds before confirming —
+                            otherwise dismiss to send this idea back to waiting.
+                        </p>
+                    )}
+
                     {marketClosed && (
                         <p className="order-confirm__market-closed">
                             🔒 Markets are closed — orders cannot be placed right now.
