@@ -135,6 +135,32 @@ export function needsExitConditions(idea) {
 }
 
 /**
+ * The broker's tradable symbol for an idea, but only when it differs from the
+ * authored (canonical) asset — i.e. an aliased instrument like NQ → US100. Returns
+ * null when the broker trades it under the same name (nothing extra to surface).
+ *
+ * @param {import('../../types.js').Idea} idea
+ * @returns {string|null}
+ */
+export function brokerSymbolLabel(idea) {
+    const bs = idea?.brokerSymbol
+    if (!bs || !idea.asset) return null
+    return bs !== idea.asset ? bs : null
+}
+
+/**
+ * Human label for the broker a (forked) child trades on — its broker symbol when
+ * aliased, else the broker name, else the asset. Used in the multi-broker group's
+ * child rows where the asset is already shown on the group header.
+ *
+ * @param {import('../../types.js').Idea} idea
+ * @returns {string}
+ */
+export function brokerChildLabel(idea) {
+    return brokerSymbolLabel(idea) ?? idea?.broker ?? idea?.asset ?? '—'
+}
+
+/**
  * Human label for the order side, e.g. "Buy Market" / "Sell Short Market".
  *
  * @param {string} direction  'long' | 'short'

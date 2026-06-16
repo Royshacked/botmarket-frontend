@@ -1,7 +1,7 @@
 import { useState, useEffect, Fragment } from 'react'
 import PropTypes from 'prop-types'
 import { TradingViewChart } from '../TradingViewChart/TradingViewChart.jsx'
-import { formatCreatedAtFull } from './tradeIdea.utils.js'
+import { formatCreatedAtFull, brokerSymbolLabel } from './tradeIdea.utils.js'
 
 // ── Condition tree helpers ────────────────────────────────────────────────────
 
@@ -167,6 +167,9 @@ export function TradeIdeaDialog({ idea, index = 0, onClose, onEdit, onDelete, on
             <div className="idea-dialog__header" onMouseDown={handleHeaderMouseDown}>
                 <span className="idea-dialog__title">
                     {idea.asset || '—'}
+                    {brokerSymbolLabel(idea) && (
+                        <span className="idea-row__broker-badge" title={`Trades as ${brokerSymbolLabel(idea)} on the broker`}>{brokerSymbolLabel(idea)}</span>
+                    )}
                     <span className={`idea-dialog__direction direction--${idea.direction}`}>
                         {idea.direction ? ` · ${idea.direction}` : ''}
                     </span>

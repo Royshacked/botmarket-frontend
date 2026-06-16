@@ -1,14 +1,17 @@
 import PropTypes from 'prop-types'
-import { conditionSummary, formatCreatedAt, formatCreatedAtFull, needsExitConditions, activationStatus } from './tradeIdea.utils.js'
+import { conditionSummary, formatCreatedAt, formatCreatedAtFull, needsExitConditions, activationStatus, brokerSymbolLabel, brokerChildLabel } from './tradeIdea.utils.js'
 
 const SYSTEM_STATUSES = new Set(['hit', 'long', 'short', 'closed'])
 const BUILDING = 'building'
 
-export function TradeIdeaRow({ idea, onStatusChange, onOpen, onSymbolClick, onEdit, isPortfolioChild }) {
+export function TradeIdeaRow({ idea, onStatusChange, onOpen, onSymbolClick, onEdit, isPortfolioChild, isBrokerChild }) {
     const { id, asset, direction, type, status, savedAt } = idea
     const summary = conditionSummary(idea)
     const createdAt = formatCreatedAt(savedAt)
     const needsExits = needsExitConditions(idea)
+    // Aliased broker symbol (NQ → US100). On a group child the broker is the point of
+    // the row, so it leads the cell; otherwise it's a small badge beside the asset.
+    const brokerSym = brokerSymbolLabel(idea)
 
     const isBuilding = status === BUILDING
 
@@ -19,13 +22,24 @@ export function TradeIdeaRow({ idea, onStatusChange, onOpen, onSymbolClick, onEd
     }
 
     return (
-        <tr className={`idea-row idea-row--${status}${isPortfolioChild ? ' idea-row--portfolio-child' : ''}`} onClick={handleRowClick}>
+        <tr className={`idea-row idea-row--${status}${isPortfolioChild ? ' idea-row--portfolio-child' : ''}${isBrokerChild ? ' idea-row--broker-child' : ''}`} onClick={handleRowClick}>
             <td
                 className="idea-row__asset"
                 onClick={e => { e.stopPropagation(); if (asset && onSymbolClick) onSymbolClick(asset) }}
                 title={asset ? `View ${asset} chart` : undefined}
                 style={{ cursor: asset ? 'pointer' : 'default' }}
-            >{asset || '—'}</td>
+            >
+                {isBrokerChild ? (
+                    <span className="idea-row__broker">{brokerChildLabel(idea)}</span>
+                ) : (
+                    <>
+                        {asset || '—'}
+                        {brokerSym && (
+                            <span className="idea-row__broker-badge" title={`Trades as ${brokerSym} on the broker`}>{brokerSym}</span>
+                        )}
+                    </>
+                )}
+            </td>
             <td className={`idea-row__direction direction--${direction}`}>{direction ?? '—'}</td>
             <td className="idea-row__type">{type ?? '—'}</td>
             <td className="idea-row__created" title={formatCreatedAtFull(savedAt)}>{createdAt || '—'}</td>
@@ -85,8 +99,11 @@ export function TradeIdeaRow({ idea, onStatusChange, onOpen, onSymbolClick, onEd
 }
 
 TradeIdeaRow.propTypes = {
-    idea:           PropTypes.object.isRequired,
-    onStatusChange: PropTypes.func.isRequired,
-    onOpen:         PropTypes.func.isRequired,
-    onSymbolClick:  PropTypes.func,
+    idea:            PropTypes.object.isRequired,
+    onStatusChange:  PropTypes.func.isRequired,
+    onOpen:          PropTypes.func.isRequired,
+    onSymbolClick:   PropTypes.func,
+    onEdit:          PropTypes.func,
+    isPortfolioChild: PropTypes.bool,
+    isBrokerChild:   PropTypes.bool,
 }

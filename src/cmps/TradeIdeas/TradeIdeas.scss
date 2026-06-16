@@ -482,6 +482,54 @@
     td:first-child { padding-left: 22px; }
 }
 
+// ── Multi-broker fork: one group row, expandable to per-broker child rows ───────
+
+// Broker symbol pill beside an aliased asset (NQ → US100) and on group children.
+.idea-row__broker-badge {
+    margin-left: 6px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.03em;
+    color: var(--text-secondary);
+    background: rgba(76, 175, 138, 0.12);
+    vertical-align: middle;
+}
+
+.idea-row__broker {
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+}
+
+.idea-row__broker-count {
+    margin-left: 6px;
+    font-size: 0.62rem;
+    color: var(--text-muted);
+}
+
+.idea-row--group {
+    cursor: pointer;
+
+    .idea-row__caret {
+        color: #4caf8a;
+        font-size: 0.6rem;
+        margin-right: 6px;
+    }
+    .idea-row__status-badge--group {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.72rem;
+        letter-spacing: 0.04em;
+        color: #6dd4a8;
+    }
+}
+
+.idea-row--broker-child {
+    background: rgba(76, 175, 138, 0.02);
+    td:first-child { padding-left: 22px; }
+}
+
 @keyframes idea-build-pulse {
     0%, 100% { opacity: 0.35; }
     50%       { opacity: 1;    }

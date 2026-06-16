@@ -10,9 +10,15 @@ export const tradeIdeasService = {
     placeOrders,
 }
 
+/**
+ * Create an idea. A multi-broker idea is forked server-side into independent
+ * single-broker children, so this returns an ARRAY (one entry for the common
+ * single-broker case, N for a forked one).
+ * @returns {Promise<object[]>}
+ */
 async function createIdea(idea) {
     const res = await httpService.post('trade-ideas', idea)
-    return res.idea
+    return Array.isArray(res.ideas) ? res.ideas : (res.idea ? [res.idea] : [])
 }
 
 async function getIdeas() {

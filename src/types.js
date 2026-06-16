@@ -130,6 +130,12 @@
  * @property {number} [savedAt]                epoch ms
  * @property {Array<string|Account>} [accounts]  attached account ids (or objects)
  * @property {string|null} [mainAccountId]    account the `quantity` is sized for
+ * @property {string|null} [broker]           broker this idea trades on (set at fork time)
+ * @property {string|null} [brokerSymbol]     broker's tradable name for `asset` (e.g.
+ *                                            NQ → US100), resolved + persisted at fork
+ *                                            time; null = trade under the canonical asset
+ * @property {string|null} [groupId]          links the single-broker children a multi-broker
+ *                                            idea was forked into (display grouping; one card)
  * @property {ChatState} [chat_state]
  * @property {'awaiting_confirm'|'awaiting_market'|'placed'|null} [orderState]
  * @property {number} [ordersPlacedAt]        epoch ms once orders are placed

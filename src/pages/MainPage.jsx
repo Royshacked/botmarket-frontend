@@ -298,7 +298,9 @@ export function MainPage() {
         } else {
             try {
                 const saved = await tradeIdeasService.createIdea({ ...ideaFields, chat_state: chatState, accounts: selectedAccounts, mainAccountId })
-                setIdeas(prev => [saved, ...prev])
+                // createIdea returns an array — one idea, or N when a multi-broker
+                // idea was forked into single-broker children.
+                setIdeas(prev => [...saved, ...prev])
                 setAnalysisState(null)
                 setMessages([])
                 news.clearAsset()

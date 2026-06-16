@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { TradeIdeaRow } from './TradeIdeaRow.jsx'
 import { TradeIdeaDialog } from './TradeIdeaDialog.jsx'
-import { formatCreatedAt, activationStatus } from './tradeIdea.utils.js'
+import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel } from './tradeIdea.utils.js'
 import './TradeIdeas.scss'
 
 function _separateIdeas(ideas) {
     const standalone = []
-    const groupMap   = new Map()
+    const groupMap   = new Map()   // portfolioId → portfolio group
+    const brokerMap  = new Map()   // groupId → multi-broker group (forked children)
 
     for (const idea of ideas) {
         if (idea.portfolioId) {
@@ -20,14 +21,95 @@ function _separateIdeas(ideas) {
                 })
             }
             groupMap.get(idea.portfolioId).ideas.push(idea)
+        } else if (idea.groupId) {
+            if (!brokerMap.has(idea.groupId)) {
+                brokerMap.set(idea.groupId, { groupId: idea.groupId, ideas: [], savedAt: idea.savedAt })
+            }
+            brokerMap.get(idea.groupId).ideas.push(idea)
         } else {
             standalone.push(idea)
         }
     }
 
+    // A group with a single child (shouldn't happen — forking implies ≥2) is just a
+    // normal idea; fold it back into standalone so it doesn't render as a group of one.
+    const brokerGroups = []
+    for (const g of brokerMap.values()) {
+        if (g.ideas.length <= 1) standalone.push(...g.ideas)
+        else brokerGroups.push(g)
+    }
+
     const groups = [...groupMap.values()].sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0))
     standalone.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0))
-    return { standalone, groups }
+    brokerGroups.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0))
+    return { standalone, groups, brokerGroups }
+}
+
+function BrokerGroupRow({ group, expanded, onToggle, onDelete, onStatusChange, onOpen, onSymbolClick }) {
+    const lead      = group.ideas[0]
+    const asset     = lead?.asset
+    const brokerSym = brokerSymbolLabel(lead)
+    const summary   = conditionSummary(lead)
+    const allWaiting = group.ideas.every(i => i.status === 'waiting')
+
+    function handleActivateAll(e) {
+        e.stopPropagation()
+        group.ideas.forEach(idea => { if (idea.status === 'waiting') onStatusChange(idea.id, activationStatus(idea)) })
+    }
+    function handleDeleteAll(e) {
+        e.stopPropagation()
+        group.ideas.forEach(idea => onDelete(idea.id))
+    }
+
+    return (
+        <>
+            <tr className="idea-row idea-row--group" onClick={onToggle}>
+                <td className="idea-row__asset idea-row__asset--group">
+                    <span className="idea-row__caret">{expanded ? '▾' : '▸'}</span>
+                    <span
+                        onClick={e => { e.stopPropagation(); if (asset && onSymbolClick) onSymbolClick(asset) }}
+                        style={{ cursor: asset ? 'pointer' : 'default' }}
+                        title={asset ? `View ${asset} chart` : undefined}
+                    >{asset || '—'}</span>
+                    {brokerSym && <span className="idea-row__broker-badge">{brokerSym}</span>}
+                    <span className="idea-row__broker-count" title={`${group.ideas.length} brokers`}>⑂{group.ideas.length}</span>
+                </td>
+                <td className={`idea-row__direction direction--${lead?.direction}`}>{lead?.direction ?? '—'}</td>
+                <td className="idea-row__type">{lead?.type ?? '—'}</td>
+                <td className="idea-row__created">{formatCreatedAt(group.savedAt) || '—'}</td>
+                <td className="idea-row__notes">{summary || '—'}</td>
+                <td className="idea-row__controls">
+                    <button className="idea-row__delete" onClick={handleDeleteAll} title="Delete all broker legs of this idea">×</button>
+                    {allWaiting ? (
+                        <button className="idea-row__status-toggle status--waiting" onClick={handleActivateAll} title="Activate all broker legs">waiting</button>
+                    ) : (
+                        <span className="idea-row__status-badge idea-row__status-badge--group" title="Expand to manage each broker">active</span>
+                    )}
+                </td>
+            </tr>
+            {expanded && group.ideas.map(idea => (
+                <TradeIdeaRow
+                    key={idea.id}
+                    idea={idea}
+                    onDelete={onDelete}
+                    onStatusChange={onStatusChange}
+                    onOpen={onOpen}
+                    onSymbolClick={onSymbolClick}
+                    isBrokerChild
+                />
+            ))}
+        </>
+    )
+}
+
+BrokerGroupRow.propTypes = {
+    group:          PropTypes.object.isRequired,
+    expanded:       PropTypes.bool,
+    onToggle:       PropTypes.func.isRequired,
+    onDelete:       PropTypes.func.isRequired,
+    onStatusChange: PropTypes.func.isRequired,
+    onOpen:         PropTypes.func.isRequired,
+    onSymbolClick:  PropTypes.func,
 }
 
 function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDeletePortfolio, onStatusChange, onOpen, onSymbolClick }) {
@@ -165,7 +247,14 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
         })
     }
 
-    const { standalone, groups } = _separateIdeas(ideas)
+    const { standalone, groups, brokerGroups } = _separateIdeas(ideas)
+
+    // Interleave standalone ideas and multi-broker groups by recency so a forked
+    // idea sorts where its creation time puts it (one row, expandable).
+    const ideaRows = [
+        ...standalone.map(i => ({ kind: 'idea', savedAt: i.savedAt || 0, item: i })),
+        ...brokerGroups.map(g => ({ kind: 'group', savedAt: g.savedAt || 0, item: g })),
+    ].sort((a, b) => b.savedAt - a.savedAt)
 
     // While editing a portfolio, its building row stands in for the saved one — hide
     // the saved group so we don't show a duplicate (building row + original row).
@@ -175,7 +264,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
         : groups
 
     const showIdeas      = activeFilter === 'ideas'
-    const hasIdeasRows   = buildingIdea || standalone.length > 0
+    const hasIdeasRows   = buildingIdea || ideaRows.length > 0
     const hasPortfolios  = visibleGroups.length > 0
 
     return (
@@ -223,10 +312,21 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                                         onOpen={() => {}}
                                     />
                                 )}
-                                {standalone.map(idea => (
+                                {ideaRows.map(row => row.kind === 'group' ? (
+                                    <BrokerGroupRow
+                                        key={row.item.groupId}
+                                        group={row.item}
+                                        expanded={expandedGroups.has(row.item.groupId)}
+                                        onToggle={() => toggleGroup(row.item.groupId)}
+                                        onDelete={onDelete}
+                                        onStatusChange={onStatusChange}
+                                        onOpen={handleOpen}
+                                        onSymbolClick={onSymbolClick}
+                                    />
+                                ) : (
                                     <TradeIdeaRow
-                                        key={idea.id}
-                                        idea={idea}
+                                        key={row.item.id}
+                                        idea={row.item}
                                         onDelete={onDelete}
                                         onStatusChange={onStatusChange}
                                         onOpen={handleOpen}
