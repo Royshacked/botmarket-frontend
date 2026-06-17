@@ -276,6 +276,8 @@
             color: #a78bfa;
             animation: status-pulse 1.8s ease-in-out infinite;
         }
+
+        .status-icon { width: 22px; height: 22px; }
     }
 
     &__action-btn {
@@ -312,6 +314,8 @@
         &.status--long  { color: var(--color-long); }
         &.status--short { color: var(--color-short); }
         &.status--closed { color: #555; }
+
+        .status-icon { width: 22px; height: 22px; }
     }
 
     &__await-market {
