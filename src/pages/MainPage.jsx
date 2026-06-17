@@ -408,6 +408,13 @@ export function MainPage() {
     async function handleEditPortfolio(portfolioId) {
         const portfolioIdeas = ideas.filter(i => i.portfolioId === portfolioId)
 
+        // Seed the account selector from the portfolio's own ideas so it reflects
+        // what's actually attached (not stale global selection) — and so saving the
+        // edit doesn't wipe accounts the user never meant to change.
+        const seedAccounts = [...new Set(portfolioIdeas.flatMap(i => Array.isArray(i.accounts) ? i.accounts : []))]
+        setSelectedAccounts(seedAccounts)
+        setMainAccountId(portfolioIdeas.find(i => i.mainAccountId)?.mainAccountId ?? null)
+
         // Editing the plan de-activates it: move every idea back to 'waiting'
         // until the user re-activates via the plan row's status toggle.
         const toReset = portfolioIdeas.filter(i => i.status !== 'waiting')
@@ -439,13 +446,21 @@ export function MainPage() {
     async function handleUpdatePlan(plan, portfolioId, messages = []) {
         if (!portfolioId) return handleGeneratePlan(plan, messages)
         try {
+            const accountIds = availableAccounts.filter(a => selectedAccounts.includes(a.id)).map(a => a.id)
+
             if (plan?.ideas?.length) {
                 const existing   = ideas.filter(i => i.portfolioId === portfolioId)
                 await Promise.all(existing.map(i => tradeIdeasService.deleteIdea(i.id)))
 
-                const accountIds = availableAccounts.filter(a => selectedAccounts.includes(a.id)).map(a => a.id)
                 const newIdeas   = await tradeIdeasService.createBatch(plan, accountIds, mainAccountId, portfolioId)
                 setIdeas(prev => [...newIdeas, ...prev.filter(i => i.portfolioId !== portfolioId)])
+            } else {
+                // No re-plan, but the account selection may have changed while editing.
+                // Push the current accounts onto every idea so a marked account actually
+                // reaches the portfolio's ideas (mirrors the single-idea attach flow).
+                const existing = ideas.filter(i => i.portfolioId === portfolioId)
+                await Promise.all(existing.map(i => tradeIdeasService.updateIdea(i.id, { accounts: accountIds, mainAccountId })))
+                setIdeas(prev => prev.map(i => i.portfolioId === portfolioId ? { ...i, accounts: accountIds, mainAccountId } : i))
             }
 
             const chatMessages = messages.filter(m => !m.streaming).map(m => ({ role: m.role, content: m.content }))
