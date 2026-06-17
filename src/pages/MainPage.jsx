@@ -352,21 +352,29 @@ export function MainPage() {
         }
     }
 
-    // Dismiss sends the triggered idea back to 'waiting' (server pushes the entry
-    // floor forward so the dismissed event can't immediately re-fire). The optimistic
-    // id-set hides the dialog during the round-trip; we clear it afterwards so a future
-    // re-activation that hits again will show the dialog rather than stay suppressed.
-    async function handleDismissConfirm(idea) {
+    // Both Dismiss and Reset send the triggered idea back to 'waiting'; they differ
+    // only in the server-side entry-floor handling (Reset pushes the floor forward via
+    // the resetWindow flag, Dismiss leaves it so a re-activation re-surfaces the event).
+    // The optimistic id-set hides the dialog during the round-trip; we clear it afterwards
+    // so a future re-activation that hits again will show the dialog rather than stay hidden.
+    async function _sendHitToWaiting(idea, extra) {
         setDismissedConfirmIds(prev => new Set(prev).add(idea.id))
         try {
-            const res = await tradeIdeasService.updateIdea(idea.id, { status: 'waiting' })
+            const res = await tradeIdeasService.updateIdea(idea.id, { status: 'waiting', ...extra })
             if (res?.idea) setIdeas(prev => prev.map(i => i.id === idea.id ? res.idea : i))
         } catch (err) {
-            console.error('[tradeIdeas] dismiss to waiting failed', err)
+            console.error('[tradeIdeas] send hit → waiting failed', err)
         } finally {
             setDismissedConfirmIds(prev => { const next = new Set(prev); next.delete(idea.id); return next })
         }
     }
+
+    // Dismiss: park back to waiting, entry floor untouched (changed-mind re-fire path).
+    const handleDismissConfirm = idea => _sendHitToWaiting(idea, {})
+
+    // Reset window: park back to waiting and push the entry floor forward so this event
+    // can't re-fire — only new events after now will trigger.
+    const handleResetWindow = idea => _sendHitToWaiting(idea, { resetWindow: true })
 
     function handleReopenConfirm(idea) {
         // Re-show the confirmation dialog for an idea dismissed earlier
@@ -581,6 +589,7 @@ export function MainPage() {
                     placing={placingOrders}
                     onConfirm={handleConfirmOrders}
                     onDismiss={handleDismissConfirm}
+                    onReset={handleResetWindow}
                 />
             )}
         </>

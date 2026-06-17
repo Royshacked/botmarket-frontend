@@ -1,4 +1,5 @@
 import PropTypes from 'prop-types'
+import { StatusIcon } from '../StatusIcon.jsx'
 
 const STATUSES = ['waiting', 'looking', 'closed']
 
@@ -13,7 +14,7 @@ export function TradeIdeaCard({ idea, onDelete, onStatusChange }) {
         <div className={`trade-idea-card status--${status}`}>
             <div className="trade-idea-card__header">
                 <span className="trade-idea-card__asset">{asset || '—'}</span>
-                <span className={`trade-idea-card__badge status--${status}`}>{status}</span>
+                <span className={`trade-idea-card__badge status--${status}`}><StatusIcon status={status} /></span>
                 <button
                     className="trade-idea-card__delete"
                     onClick={() => onDelete(id)}

@@ -2,6 +2,7 @@ import { useState, useEffect, Fragment } from 'react'
 import PropTypes from 'prop-types'
 import { TradingViewChart } from '../TradingViewChart/TradingViewChart.jsx'
 import { formatCreatedAtFull, brokerSymbolLabel } from './tradeIdea.utils.js'
+import { StatusIcon } from '../StatusIcon.jsx'
 
 // ── Condition tree helpers ────────────────────────────────────────────────────
 
@@ -178,7 +179,7 @@ export function TradeIdeaDialog({ idea, index = 0, onClose, onEdit, onDelete, on
                     {idea.savedAt  != null && <span className="idea-dialog__meta"> · {formatCreatedAtFull(idea.savedAt)}</span>}
                     {idea.status   != null && (
                         <span className={`idea-dialog__status status--${idea.status}`}>
-                            {idea.status}
+                            <StatusIcon status={idea.status} />
                         </span>
                     )}
                 </span>

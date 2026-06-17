@@ -1,0 +1,12 @@
+// ── Status icon (icon-only status badge) ────────────────────────────────────────
+.status-icon {
+    display: inline-block;
+    vertical-align: middle;
+    user-select: none;
+    flex: none;
+}
+
+.status-icon-fallback {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}

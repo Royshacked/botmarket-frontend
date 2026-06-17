@@ -168,6 +168,13 @@
             &:hover:not(:disabled) { color: var(--text-secondary); border-color: var(--accent); }
         }
 
+        &--reset {
+            background: transparent;
+            border: 1px solid rgba(234, 88, 12, 0.45);
+            color: #fbbf77;
+            &:hover:not(:disabled) { color: #fdd9b0; border-color: rgba(234, 88, 12, 0.8); }
+        }
+
         &--confirm {
             background: #1d6f44;
             border: 1px solid #2e9c63;

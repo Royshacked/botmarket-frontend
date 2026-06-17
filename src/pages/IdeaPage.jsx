@@ -3,6 +3,7 @@ import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.rem
 import { TradingViewChart }  from '../cmps/TradingViewChart/TradingViewChart.jsx'
 import { getTree, ConditionTreeView } from '../cmps/TradeIdeas/TradeIdeaDialog.jsx'
 import { formatCreatedAtFull } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { StatusIcon } from '../cmps/StatusIcon.jsx'
 import './IdeaPage.scss'
 
 export function IdeaPage() {
@@ -64,7 +65,7 @@ export function IdeaPage() {
                 </span>
                 {idea.status && (
                     <span className={`idea-page__status status--${idea.status}`}>
-                        {idea.status}
+                        <StatusIcon status={idea.status} size={20} />
                     </span>
                 )}
             </div>

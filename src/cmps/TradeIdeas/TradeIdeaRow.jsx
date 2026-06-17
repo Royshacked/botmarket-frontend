@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types'
 import { conditionSummary, formatCreatedAt, formatCreatedAtFull, needsExitConditions, activationStatus, brokerSymbolLabel, brokerChildLabel } from './tradeIdea.utils.js'
+import { StatusIcon } from '../StatusIcon.jsx'
 
 const SYSTEM_STATUSES = new Set(['hit', 'long', 'short', 'closed'])
 const BUILDING = 'building'
@@ -14,6 +15,13 @@ export function TradeIdeaRow({ idea, onStatusChange, onOpen, onSymbolClick, onEd
     const brokerSym = brokerSymbolLabel(idea)
 
     const isBuilding = status === BUILDING
+
+    // A leaf idea with no broker account attached will only ever *alert* on a hit —
+    // the monitor builds no order plan, so no confirm dialog appears. Flag it so the
+    // user can spot it and attach an account. Broker-child forks are per-account by
+    // definition; closed/building rows are moot.
+    const noAccount = !isBrokerChild && !isBuilding && status !== 'closed' &&
+        (!Array.isArray(idea.accounts) || idea.accounts.length === 0)
 
     function handleRowClick(ev) {
         if (isBuilding) return              // building row is not editable
@@ -36,6 +44,12 @@ export function TradeIdeaRow({ idea, onStatusChange, onOpen, onSymbolClick, onEd
                         {asset || '—'}
                         {brokerSym && (
                             <span className="idea-row__broker-badge" title={`Trades as ${brokerSym} on the broker`}>{brokerSym}</span>
+                        )}
+                        {noAccount && (
+                            <span
+                                className="idea-row__no-account"
+                                title="No broker account attached — this idea will alert only (no order placed). Edit to attach an account."
+                            >⚠</span>
                         )}
                     </>
                 )}
@@ -78,7 +92,7 @@ export function TradeIdeaRow({ idea, onStatusChange, onOpen, onSymbolClick, onEd
                     <>
                         {SYSTEM_STATUSES.has(status) ? (
                             <span className={`idea-row__status-badge status--${status}`}>
-                                {status}
+                                <StatusIcon status={status} />
                             </span>
                         ) : (
                             <button
@@ -88,7 +102,7 @@ export function TradeIdeaRow({ idea, onStatusChange, onOpen, onSymbolClick, onEd
                                     : status === 'resting' ? 'Cancel resting order (→ waiting)'
                                     : 'Switch to waiting'}
                             >
-                                {status}
+                                <StatusIcon status={status} />
                             </button>
                         )}
                     </>

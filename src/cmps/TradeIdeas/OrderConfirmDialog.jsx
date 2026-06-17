@@ -9,7 +9,7 @@ import './OrderConfirmDialog.scss'
  * attached. The user reviews the order(s) about to be placed and confirms before
  * anything fires to the broker.
  */
-export function OrderConfirmDialog({ idea, orders, placing, onConfirm, onDismiss }) {
+export function OrderConfirmDialog({ idea, orders, placing, onConfirm, onDismiss, onReset }) {
     const [market, setMarket] = useState(null)
 
     useEffect(() => {
@@ -28,6 +28,7 @@ export function OrderConfirmDialog({ idea, orders, placing, onConfirm, onDismiss
     const confirmDisabled = placing || marketClosed
 
     const handleDismiss = () => onDismiss(idea)
+    const handleReset   = () => onReset(idea)
 
     return (
         <div className="order-confirm__backdrop" onClick={placing ? undefined : handleDismiss}>
@@ -51,8 +52,10 @@ export function OrderConfirmDialog({ idea, orders, placing, onConfirm, onDismiss
                     {idea.triggeredWhileWaiting && (
                         <p className="order-confirm__while-waiting">
                             ⚠️ This condition was met at {formatCreatedAtFull(idea.triggerEventAt) || '—'},
-                            before you activated monitoring. Verify it still holds before confirming —
-                            otherwise dismiss to send this idea back to waiting.
+                            before you activated monitoring. Verify it still holds before confirming.
+                            <strong> Dismiss</strong> parks it back to waiting (re-activating will surface
+                            this same event again); <strong>Reset window</strong> ignores this event and
+                            watches only for new ones.
                         </p>
                     )}
 
@@ -95,6 +98,12 @@ export function OrderConfirmDialog({ idea, orders, placing, onConfirm, onDismiss
                         disabled={placing}
                     >Dismiss</button>
                     <button
+                        className="order-confirm__btn order-confirm__btn--reset"
+                        onClick={handleReset}
+                        disabled={placing}
+                        title="Ignore this event and watch only for new ones"
+                    >Reset window</button>
+                    <button
                         className="order-confirm__btn order-confirm__btn--confirm"
                         onClick={() => onConfirm(idea, orders)}
                         disabled={confirmDisabled}
@@ -112,4 +121,5 @@ OrderConfirmDialog.propTypes = {
     placing:   PropTypes.bool,
     onConfirm: PropTypes.func.isRequired,
     onDismiss: PropTypes.func.isRequired,
+    onReset:   PropTypes.func.isRequired,
 }

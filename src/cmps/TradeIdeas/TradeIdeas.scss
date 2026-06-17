@@ -497,6 +497,15 @@
     vertical-align: middle;
 }
 
+.idea-row__no-account {
+    margin-left: 6px;
+    font-size: 0.72rem;
+    line-height: 1;
+    color: #e24b4a;
+    vertical-align: middle;
+    cursor: help;
+}
+
 .idea-row__broker {
     font-family: 'IBM Plex Mono', monospace;
     letter-spacing: 0.04em;

@@ -3,6 +3,7 @@ import PropTypes from 'prop-types'
 import { TradeIdeaRow } from './TradeIdeaRow.jsx'
 import { TradeIdeaDialog } from './TradeIdeaDialog.jsx'
 import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel } from './tradeIdea.utils.js'
+import { StatusIcon } from '../StatusIcon.jsx'
 import './TradeIdeas.scss'
 
 function _separateIdeas(ideas) {
@@ -81,7 +82,7 @@ function BrokerGroupRow({ group, expanded, onToggle, onDelete, onStatusChange, o
                 <td className="idea-row__controls">
                     <button className="idea-row__delete" onClick={handleDeleteAll} title="Delete all broker legs of this idea">×</button>
                     {allWaiting ? (
-                        <button className="idea-row__status-toggle status--waiting" onClick={handleActivateAll} title="Activate all broker legs">waiting</button>
+                        <button className="idea-row__status-toggle status--waiting" onClick={handleActivateAll} title="Activate all broker legs"><StatusIcon status="waiting" /></button>
                     ) : (
                         <span className="idea-row__status-badge idea-row__status-badge--group" title="Expand to manage each broker">active</span>
                     )}
@@ -170,7 +171,7 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
                             className="idea-row__status-toggle status--waiting"
                             onClick={handleActivateAll}
                             title="Activate all ideas in this portfolio"
-                        >waiting</button>
+                        ><StatusIcon status="waiting" /></button>
                     ) : (
                         <button
                             className="idea-row__status-toggle portfolio-group-row__status-active"
