@@ -8,6 +8,7 @@ export const brokerService = {
     getConnectUrl,
     getAccount,
     getPositions,
+    closePosition,
     getTradingAccounts,
     setSelectedAccount,
     disconnect,
@@ -48,6 +49,16 @@ async function getAccount(brokerType) {
 async function getPositions(brokerType) {
     const res = await httpService.get(`${BASE}/${brokerType}/positions`)
     return Array.isArray(res.positions) ? res.positions : []
+}
+
+/**
+ * Close an open position in full (on the broker's currently selected account).
+ * @param {'ctrader'|'ibkr'} brokerType
+ * @param {string} positionId
+ * @returns {Promise<void>}
+ */
+async function closePosition(brokerType, positionId) {
+    await httpService.delete(`${BASE}/${brokerType}/positions/${positionId}`)
 }
 
 /**

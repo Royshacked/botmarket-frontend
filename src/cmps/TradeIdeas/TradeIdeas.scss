@@ -57,6 +57,12 @@
             border-color: #4caf8a;
             color: #6dd4a8;
         }
+
+        &--positions.active {
+            background: rgba(96, 165, 250, 0.15);
+            border-color: #60a5fa;
+            color: #93c5fd;
+        }
     }
 
     &__header-title {
@@ -398,6 +404,107 @@
         overflow: hidden;
 
         &.col-pf-count, &.col-pf-edit, &.col-pf-status { text-align: center; }
+    }
+}
+
+// ── Positions table (open broker positions) ───────────────────────────────────
+.positions-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: 0.75rem;
+    color: var(--text-primary);
+
+    .col-pos-asset   { width: 12%; }
+    .col-pos-dir     { width: 9%;  }
+    .col-pos-broker  { width: 11%; }
+    .col-pos-entered { width: 11%; }
+    .col-pos-qty     { width: 9%;  text-align: right; }
+    .col-pos-price   { width: 12%; text-align: right; }
+    .col-pos-pnl     { width: 13%; text-align: right; }
+    .col-pos-account { width: 12%; }
+    .col-pos-close   { width: 11%; text-align: center; }
+
+    thead tr {
+        position: sticky;
+        top: 0;
+        background: var(--bg-base);
+        z-index: 1;
+    }
+
+    th {
+        text-align: left;
+        padding: 6px 8px;
+        color: var(--text-muted);
+        font-weight: 600;
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-bottom: 1px solid var(--accent-deep);
+        white-space: nowrap;
+        overflow: hidden;
+
+        &.col-pos-qty, &.col-pos-price, &.col-pos-pnl { text-align: right; }
+        &.col-pos-close { text-align: center; }
+    }
+}
+
+.position-row {
+    transition: background 0.12s;
+    &:hover { background: var(--bg-hover); }
+
+    td {
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--bg-hover);
+        vertical-align: middle;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &__asset { font-weight: 700; color: var(--text-primary); }
+
+    &__dir {
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.7rem;
+        &.direction--long  { color: #4caf50; }
+        &.direction--short { color: #ef5350; }
+    }
+
+    &__broker,
+    &__account { color: var(--text-secondary); }
+
+    &__entered { color: var(--text-muted); font-size: 0.7rem; }
+
+    &__qty,
+    &__price { text-align: right; font-family: 'IBM Plex Mono', monospace; }
+
+    &__pnl {
+        text-align: right;
+        font-family: 'IBM Plex Mono', monospace;
+        font-weight: 600;
+        &.pnl--pos { color: #4caf50; }
+        &.pnl--neg { color: #ef5350; }
+    }
+
+    &__controls { text-align: center; }
+
+    &__close {
+        background: none;
+        border: 1px solid var(--color-short, #ef5350);
+        border-radius: 3px;
+        color: var(--color-short, #ef5350);
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.65rem;
+        letter-spacing: 0.04em;
+        padding: 2px 8px;
+        cursor: pointer;
+        transition: opacity 0.12s, background 0.12s;
+
+        &:hover:not(:disabled) { background: rgba(239, 83, 80, 0.12); }
+        &:disabled { opacity: 0.5; cursor: default; }
+        &:focus { outline: none; }
     }
 }
 

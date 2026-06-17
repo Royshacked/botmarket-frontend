@@ -14,6 +14,7 @@ import { portfolioService }  from '../services/portfolio/portfolio.service.remot
 import { useTypewriter }     from '../customHooks/useTypewriter.js'
 import { useNewsFeed }       from '../customHooks/useNewsFeed.js'
 import { useBrokerAccounts } from '../customHooks/useBrokerAccounts.js'
+import { usePositions }      from '../customHooks/usePositions.js'
 import { useTradeIdeas }     from '../customHooks/useTradeIdeas.js'
 import { useAuth }           from '../context/AuthContext.jsx'
 
@@ -75,6 +76,7 @@ export function MainPage() {
     const news = useNewsFeed()
     const { user } = useAuth()
     const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
+    const { positions, loading: positionsLoading, refresh: refreshPositions, closePosition } = usePositions()
     const { ideas, setIdeas, loadIdeas, handleStatusChange } = useTradeIdeas()
 
     // Typewriter queue — smooths streamed tokens into the last message
@@ -568,6 +570,10 @@ export function MainPage() {
                             onEditPortfolio={handleEditPortfolio}
                             onDeletePortfolio={handleDeletePortfolio}
                             onPlaceOrder={handleReopenConfirm}
+                            positions={positions}
+                            positionsLoading={positionsLoading}
+                            onRefreshPositions={refreshPositions}
+                            onClosePosition={closePosition}
                         />
                     </div>
                 </div>

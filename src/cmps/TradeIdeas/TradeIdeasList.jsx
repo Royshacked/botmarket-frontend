@@ -2,9 +2,16 @@ import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { TradeIdeaRow } from './TradeIdeaRow.jsx'
 import { TradeIdeaDialog } from './TradeIdeaDialog.jsx'
-import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel } from './tradeIdea.utils.js'
+import { ClosePositionDialog } from './ClosePositionDialog.jsx'
+import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel, formatNum, formatPnl } from './tradeIdea.utils.js'
 import { StatusIcon } from '../StatusIcon.jsx'
 import './TradeIdeas.scss'
+
+const BROKER_LABELS = { ctrader: 'cTrader', ibkr: 'IBKR' }
+
+// How often to re-fetch open positions while the Positions tab is in view, so
+// live P&L keeps ticking. Each poll is one WS reconcile + unrealized-P&L round trip.
+const POSITIONS_POLL_MS = 4000
 
 function _separateIdeas(ideas) {
     const standalone = []
@@ -216,10 +223,45 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
     )
 }
 
-export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, onPlaceOrder }) {
+function PositionRow({ position, closing, onClose }) {
+    const pnl       = Number(position.pnl)
+    const pnlClass  = isNaN(pnl) ? '' : pnl > 0 ? 'pnl--pos' : pnl < 0 ? 'pnl--neg' : ''
+    const brokerLbl = BROKER_LABELS[position.broker] ?? position.broker ?? '—'
+
+    return (
+        <tr className="position-row">
+            <td className="position-row__asset">{position.symbol ?? '—'}</td>
+            <td className={`position-row__dir direction--${position.direction}`}>{position.direction ?? '—'}</td>
+            <td className="position-row__broker">{brokerLbl}</td>
+            <td className="position-row__account">{position.accountNo ?? '—'}</td>
+            <td className="position-row__entered">{formatCreatedAt(position.openedAt) || '—'}</td>
+            <td className="position-row__qty">{formatNum(position.volume)}</td>
+            <td className="position-row__price">{formatNum(position.entryPrice)}</td>
+            <td className={`position-row__pnl ${pnlClass}`}>{formatPnl(position.pnl, position.currency)}</td>
+            <td className="position-row__controls">
+                <button
+                    className="position-row__close"
+                    disabled={closing}
+                    onClick={() => onClose(position)}
+                    title="Close this position at market"
+                >{closing ? '…' : 'Close'}</button>
+            </td>
+        </tr>
+    )
+}
+
+PositionRow.propTypes = {
+    position: PropTypes.object.isRequired,
+    closing:  PropTypes.bool,
+    onClose:  PropTypes.func.isRequired,
+}
+
+export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, onPlaceOrder, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition }) {
     const [activeIdea,     setActiveIdea]     = useState(null)
     const [expandedGroups, setExpandedGroups] = useState(new Set())
     const [activeFilter,   setActiveFilter]   = useState('ideas')
+    const [closingId,      setClosingId]      = useState(null)
+    const [pendingClose,   setPendingClose]   = useState(null)
 
     // Follow the chat tab: idea mode shows ideas, portfolio mode shows portfolios.
     // The user can still override via the filter buttons until the tab changes again.
@@ -235,9 +277,36 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
         if (isBuildingPortfolio) setActiveFilter('portfolios')
     }, [isBuildingPortfolio])
 
+    // While the Positions tab is in view, poll so live P&L keeps ticking. Stops
+    // when the user leaves the tab or the component unmounts.
+    useEffect(() => {
+        if (activeFilter !== 'positions' || !onRefreshPositions) return
+        const id = setInterval(() => onRefreshPositions(), POSITIONS_POLL_MS)
+        return () => clearInterval(id)
+    }, [activeFilter, onRefreshPositions])
+
     function handleOpen(idea)  { setActiveIdea(idea) }
     function handleClose()     { setActiveIdea(null) }
     function handleEdit(idea)  { setActiveIdea(null); if (onEdit) onEdit(idea) }
+
+    function selectPositions() {
+        setActiveFilter('positions')
+        if (onRefreshPositions) onRefreshPositions()
+    }
+
+    async function confirmClosePosition() {
+        const position = pendingClose
+        if (!position || !onClosePosition) return
+        setClosingId(position.id)
+        try {
+            await onClosePosition(position.broker, position.id)
+            setPendingClose(null)
+        } catch (err) {
+            console.error('[positions] close failed', err)
+        } finally {
+            setClosingId(null)
+        }
+    }
 
     function toggleGroup(portfolioId) {
         setExpandedGroups(prev => {
@@ -265,6 +334,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
         : groups
 
     const showIdeas      = activeFilter === 'ideas'
+    const showPositions  = activeFilter === 'positions'
     const hasIdeasRows   = buildingIdea || ideaRows.length > 0
     const hasPortfolios  = visibleGroups.length > 0
 
@@ -284,6 +354,10 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                         className={`trade-ideas-list__filter trade-ideas-list__filter--portfolio${activeFilter === 'portfolios' ? ' active' : ''}`}
                         onClick={() => setActiveFilter('portfolios')}
                     >Portfolios</button>
+                    <button
+                        className={`trade-ideas-list__filter trade-ideas-list__filter--positions${activeFilter === 'positions' ? ' active' : ''}`}
+                        onClick={selectPositions}
+                    >Positions{positions.length > 0 ? ` (${positions.length})` : ''}</button>
                 </div>
             </div>
 
@@ -333,6 +407,36 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                                         onOpen={handleOpen}
                                         onSymbolClick={onSymbolClick}
                                         onEdit={onEdit}
+                                    />
+                                ))}
+                            </tbody>
+                        </table>
+                    )
+                ) : showPositions ? (
+                    positions.length === 0 ? (
+                        <p className="trade-ideas-list__empty">{positionsLoading ? 'Loading positions…' : 'No open positions'}</p>
+                    ) : (
+                        <table className="positions-table">
+                            <thead>
+                                <tr>
+                                    <th className="col-pos-asset">Asset</th>
+                                    <th className="col-pos-dir">Dir</th>
+                                    <th className="col-pos-broker">Broker</th>
+                                    <th className="col-pos-account">Account</th>
+                                    <th className="col-pos-entered">Entered</th>
+                                    <th className="col-pos-qty">Qty</th>
+                                    <th className="col-pos-price">Avg Px</th>
+                                    <th className="col-pos-pnl">P&amp;L</th>
+                                    <th className="col-pos-close" />
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {positions.map(position => (
+                                    <PositionRow
+                                        key={`${position.broker}:${position.id}`}
+                                        position={position}
+                                        closing={closingId === position.id}
+                                        onClose={setPendingClose}
                                     />
                                 ))}
                             </tbody>
@@ -402,6 +506,13 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                 onDelete={onDelete}
                 onPlaceOrder={onPlaceOrder}
             />
+
+            <ClosePositionDialog
+                position={pendingClose}
+                closing={!!pendingClose && closingId === pendingClose.id}
+                onConfirm={confirmClosePosition}
+                onCancel={() => setPendingClose(null)}
+            />
         </section>
     )
 }
@@ -418,4 +529,8 @@ TradeIdeasList.propTypes = {
     onEditPortfolio:  PropTypes.func,
     onDeletePortfolio: PropTypes.func,
     onPlaceOrder:     PropTypes.func,
+    positions:        PropTypes.array,
+    positionsLoading: PropTypes.bool,
+    onRefreshPositions: PropTypes.func,
+    onClosePosition:  PropTypes.func,
 }

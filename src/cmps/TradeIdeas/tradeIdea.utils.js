@@ -92,6 +92,32 @@ export function formatCreatedAtFull(ms) {
 }
 
 /**
+ * Compact number for the positions UI — trims trailing zeros, caps decimals,
+ * returns an em-dash for non-numbers.
+ * @param {number} n
+ * @param {number} [maxDecimals]
+ * @returns {string}
+ */
+export function formatNum(n, maxDecimals = 5) {
+    if (n == null || isNaN(Number(n))) return '—'
+    return Number(n).toLocaleString(undefined, { maximumFractionDigits: maxDecimals })
+}
+
+/**
+ * Signed money P&L with two decimals and an optional currency suffix
+ * (e.g. "+12.50 USD"). Em-dash for non-numbers.
+ * @param {number} n
+ * @param {string} [currency]
+ * @returns {string}
+ */
+export function formatPnl(n, currency) {
+    if (n == null || isNaN(Number(n))) return '—'
+    const v    = Number(n)
+    const body = `${v > 0 ? '+' : ''}${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    return currency ? `${body} ${currency}` : body
+}
+
+/**
  * True when an idea has at least one entry condition (flat array or tree).
  * Used to decide activation target: conditions → 'looking' (monitor watches),
  * none → 'hit' (fire immediately, pending confirmation).
