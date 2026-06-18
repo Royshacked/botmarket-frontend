@@ -15,11 +15,11 @@ export function OrderConfirmDialog({ idea, orders, placing, onConfirm, onDismiss
     useEffect(() => {
         if (!idea?.asset) { setMarket(null); return }
         let active = true
-        marketService.getStatus(idea.asset)
+        marketService.getStatus(idea.asset, idea.asset_class)
             .then(s => { if (active) setMarket(s) })
             .catch(() => { if (active) setMarket(null) })
         return () => { active = false }
-    }, [idea?.asset])
+    }, [idea?.asset, idea?.asset_class])
 
     if (!idea || !Array.isArray(orders) || orders.length === 0) return null
 

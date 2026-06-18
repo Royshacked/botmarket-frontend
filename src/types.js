@@ -114,6 +114,7 @@
  * @property {string} id
  * @property {'building'|'waiting'|'looking'|'resting'|'hit'|'long'|'short'|'closed'} status
  * @property {string} asset
+ * @property {'stock'|'etf'|'futures'|'forex'|'crypto'|null} [asset_class]  drives the market-hours session
  * @property {'long'|'short'|null} [direction]
  * @property {'market'|'limit'|null} [type]
  * @property {number|null} [quantity]

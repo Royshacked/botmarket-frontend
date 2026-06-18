@@ -492,7 +492,23 @@
         &.pnl--neg { color: #ef5350; }
     }
 
-    &__controls { text-align: center; }
+    &__controls { text-align: center; display: flex; gap: 6px; justify-content: center; align-items: center; }
+
+    &__edit {
+        background: none;
+        border: 1px solid var(--accent-deep);
+        border-radius: 3px;
+        color: var(--text-secondary);
+        font-size: 0.72rem;
+        line-height: 1;
+        padding: 2px 7px;
+        cursor: pointer;
+        transition: opacity 0.12s, background 0.12s, color 0.12s;
+
+        &:hover:not(:disabled) { background: var(--bg-hover); color: var(--accent); border-color: var(--accent); }
+        &:disabled { opacity: 0.5; cursor: default; }
+        &:focus { outline: none; }
+    }
 
     &__close {
         background: none;

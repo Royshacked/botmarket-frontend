@@ -3,6 +3,7 @@ import PropTypes from 'prop-types'
 import { TradeIdeaRow } from './TradeIdeaRow.jsx'
 import { TradeIdeaDialog } from './TradeIdeaDialog.jsx'
 import { ClosePositionDialog } from './ClosePositionDialog.jsx'
+import { EditOrdersDialog } from './EditOrdersDialog.jsx'
 import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel, formatNum, formatPnl } from './tradeIdea.utils.js'
 import { StatusIcon } from '../StatusIcon.jsx'
 import './TradeIdeas.scss'
@@ -227,7 +228,7 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
     )
 }
 
-function PositionRow({ position, closing, onClose }) {
+function PositionRow({ position, closing, onClose, onEditOrders }) {
     const pnl       = Number(position.pnl)
     const pnlClass  = isNaN(pnl) ? '' : pnl > 0 ? 'pnl--pos' : pnl < 0 ? 'pnl--neg' : ''
     const brokerLbl = BROKER_LABELS[position.broker] ?? position.broker ?? '—'
@@ -244,6 +245,12 @@ function PositionRow({ position, closing, onClose }) {
             <td className={`position-row__pnl ${pnlClass}`}>{formatPnl(position.pnl, position.currency)}</td>
             <td className="position-row__controls">
                 <button
+                    className="position-row__edit"
+                    disabled={closing}
+                    onClick={() => onEditOrders(position)}
+                    title="Edit working orders (stop / TP) for this position"
+                >✎</button>
+                <button
                     className="position-row__close"
                     disabled={closing}
                     onClick={() => onClose(position)}
@@ -255,9 +262,10 @@ function PositionRow({ position, closing, onClose }) {
 }
 
 PositionRow.propTypes = {
-    position: PropTypes.object.isRequired,
-    closing:  PropTypes.bool,
-    onClose:  PropTypes.func.isRequired,
+    position:     PropTypes.object.isRequired,
+    closing:      PropTypes.bool,
+    onClose:      PropTypes.func.isRequired,
+    onEditOrders: PropTypes.func.isRequired,
 }
 
 export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, onPlaceOrder, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition }) {
@@ -266,6 +274,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
     const [activeFilter,   setActiveFilter]   = useState('ideas')
     const [closingId,      setClosingId]      = useState(null)
     const [pendingClose,   setPendingClose]   = useState(null)
+    const [editOrdersPos,  setEditOrdersPos]  = useState(null)
 
     // Follow the chat tab: idea mode shows ideas, portfolio mode shows portfolios.
     // The user can still override via the filter buttons until the tab changes again.
@@ -441,6 +450,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                                         position={position}
                                         closing={closingId === posKey(position)}
                                         onClose={setPendingClose}
+                                        onEditOrders={setEditOrdersPos}
                                     />
                                 ))}
                             </tbody>
@@ -517,6 +527,14 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                 onConfirm={confirmClosePosition}
                 onCancel={() => setPendingClose(null)}
             />
+
+            {editOrdersPos && (
+                <EditOrdersDialog
+                    position={editOrdersPos}
+                    onClose={() => setEditOrdersPos(null)}
+                    onChanged={onRefreshPositions}
+                />
+            )}
         </section>
     )
 }

@@ -9,6 +9,10 @@ export const brokerService = {
     getAccount,
     getPositions,
     closePosition,
+    listOrders,
+    placeOrder,
+    amendOrder,
+    cancelOrder,
     getTradingAccounts,
     setSelectedAccount,
     disconnect,
@@ -63,6 +67,53 @@ async function getPositions(brokerType) {
 async function closePosition(brokerType, positionId, accountId) {
     const qs = accountId ? `?accountId=${encodeURIComponent(accountId)}` : ''
     await httpService.delete(`${BASE}/${brokerType}/positions/${positionId}${qs}`)
+}
+
+/**
+ * List an account's working (pending) LIMIT/STOP orders — the "orders in the air".
+ * @param {'ctrader'|'ibkr'} brokerType
+ * @param {string} [accountId]
+ * @returns {Promise<object[]>}
+ */
+async function listOrders(brokerType, accountId) {
+    const qs = accountId ? `?accountId=${encodeURIComponent(accountId)}` : ''
+    const res = await httpService.get(`${BASE}/${brokerType}/orders${qs}`)
+    return Array.isArray(res.orders) ? res.orders : []
+}
+
+/**
+ * Place a new working order (e.g. add a TP limit / stop level to a position).
+ * @param {'ctrader'|'ibkr'} brokerType
+ * @param {{ accountId?: string, symbol: string, direction: 'long'|'short',
+ *           type: 'limit'|'stop', quantity: number, limitPrice?: number, stopPrice?: number }} order
+ * @returns {Promise<object>}
+ */
+async function placeOrder(brokerType, order) {
+    const res = await httpService.post(`${BASE}/${brokerType}/orders`, order)
+    return res.order ?? res
+}
+
+/**
+ * Change a working order's price (keeps its id).
+ * @param {'ctrader'|'ibkr'} brokerType
+ * @param {string} orderId
+ * @param {{ accountId?: string, limitPrice?: number, stopPrice?: number }} fields
+ * @returns {Promise<void>}
+ */
+async function amendOrder(brokerType, orderId, fields) {
+    await httpService.patch(`${BASE}/${brokerType}/orders/${orderId}`, fields)
+}
+
+/**
+ * Cancel a working order.
+ * @param {'ctrader'|'ibkr'} brokerType
+ * @param {string} orderId
+ * @param {string} [accountId]
+ * @returns {Promise<void>}
+ */
+async function cancelOrder(brokerType, orderId, accountId) {
+    const qs = accountId ? `?accountId=${encodeURIComponent(accountId)}` : ''
+    await httpService.delete(`${BASE}/${brokerType}/orders/${orderId}${qs}`)
 }
 
 /**

@@ -44,6 +44,7 @@ function deriveBuildingIdea(analysisState) {
         id:               '__building__',
         status:           'building',
         asset:            s.active_asset,
+        asset_class:      pt.asset_class     || null,
         direction:        pt.direction       || null,
         type:             pt.type            || null,
         quantity:         pt.quantity        ?? null,
@@ -237,6 +238,7 @@ export function MainPage() {
                 pending_trade: {
                     direction:        idea.direction        ?? null,
                     type:             idea.type             ?? null,
+                    asset_class:      idea.asset_class      ?? null,
                     quantity:         idea.quantity         ?? null,
                     entry_timeframe:  idea.entry_timeframe  ?? null,
                     stop_timeframe:   idea.stop_timeframe   ?? null,
