@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { IdeaCard }        from './IdeaCard.jsx'
-import { NewsFeed }        from '../NewsFeed/NewsFeed.jsx'
 import { TradeIdeaDialog } from '../TradeIdeas/TradeIdeaDialog.jsx'
 import { brokerService }   from '../../services/broker/broker.service.remote.js'
 import './MonitorDashboard.scss'
@@ -11,7 +10,7 @@ const BROKER_LABELS = {
     ibkr:    'IBKR',
 }
 
-export function MonitorDashboard({ ideas, newsArticles, newsLoading, onDelete, onEdit }) {
+export function MonitorDashboard({ ideas, onDelete, onEdit }) {
     const [openIdeas, setOpenIdeas] = useState([])
 
     // { ctrader: bool, ibkr: bool }
@@ -107,32 +106,6 @@ export function MonitorDashboard({ ideas, newsArticles, newsLoading, onDelete, o
                     <span className="monitor-dashboard__title">Live Monitor</span>
                 </div>
 
-                <div className="monitor-dashboard__summary">
-                    {inPosition > 0 && <>
-                        <span className="monitor-dashboard__stat monitor-dashboard__stat--in-position">
-                            {inPosition} in position
-                        </span>
-                        <span className="monitor-dashboard__stat-sep">·</span>
-                    </>}
-                    {triggered > 0 && <>
-                        <span className="monitor-dashboard__stat monitor-dashboard__stat--triggered">
-                            {triggered} triggered
-                        </span>
-                        <span className="monitor-dashboard__stat-sep">·</span>
-                    </>}
-                    <span className="monitor-dashboard__stat monitor-dashboard__stat--active">
-                        {active} active
-                    </span>
-                    <span className="monitor-dashboard__stat-sep">·</span>
-                    <span className="monitor-dashboard__stat monitor-dashboard__stat--pending">
-                        {pending} pending
-                    </span>
-                    <span className="monitor-dashboard__stat-sep">·</span>
-                    <span className="monitor-dashboard__stat monitor-dashboard__stat--closed">
-                        {closed} closed
-                    </span>
-                </div>
-
                 {/* ── Broker panels ─────────────────────────────── */}
                 <div className="monitor-dashboard__brokers">
                     {supportedBrokers.map(type => {
@@ -195,6 +168,33 @@ export function MonitorDashboard({ ideas, newsArticles, newsLoading, onDelete, o
                 </div>
             </div>
 
+            {/* ── Summary bar (sticky above the ideas list) ────── */}
+            <div className="monitor-dashboard__summary">
+                {inPosition > 0 && <>
+                    <span className="monitor-dashboard__stat monitor-dashboard__stat--in-position">
+                        {inPosition} in position
+                    </span>
+                    <span className="monitor-dashboard__stat-sep">·</span>
+                </>}
+                {triggered > 0 && <>
+                    <span className="monitor-dashboard__stat monitor-dashboard__stat--triggered">
+                        {triggered} triggered
+                    </span>
+                    <span className="monitor-dashboard__stat-sep">·</span>
+                </>}
+                <span className="monitor-dashboard__stat monitor-dashboard__stat--active">
+                    {active} active
+                </span>
+                <span className="monitor-dashboard__stat-sep">·</span>
+                <span className="monitor-dashboard__stat monitor-dashboard__stat--pending">
+                    {pending} pending
+                </span>
+                <span className="monitor-dashboard__stat-sep">·</span>
+                <span className="monitor-dashboard__stat monitor-dashboard__stat--closed">
+                    {closed} closed
+                </span>
+            </div>
+
             {/* ── Ideas ────────────────────────────────────────── */}
             <div className="monitor-dashboard__ideas">
                 {sorted.length === 0 ? (
@@ -215,12 +215,6 @@ export function MonitorDashboard({ ideas, newsArticles, newsLoading, onDelete, o
                 )}
             </div>
 
-            {/* ── News feed ─────────────────────────────────────── */}
-            <div className="monitor-dashboard__news-section">
-                <span className="monitor-dashboard__news-label">Market news</span>
-                <NewsFeed articles={newsArticles} isLoading={newsLoading} />
-            </div>
-
             {/* ── Idea detail dialogs (one per open idea) ──────── */}
             {openIdeas.map((idea, idx) => (
                 <TradeIdeaDialog
@@ -238,8 +232,6 @@ export function MonitorDashboard({ ideas, newsArticles, newsLoading, onDelete, o
 
 MonitorDashboard.propTypes = {
     ideas:          PropTypes.array.isRequired,
-    newsArticles:   PropTypes.array.isRequired,
-    newsLoading:    PropTypes.bool,
     onDelete:       PropTypes.func.isRequired,
     onEdit:         PropTypes.func,
 }

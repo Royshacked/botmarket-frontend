@@ -143,3 +143,98 @@
 @media (max-width: 379px) {
     .app-header h1 { display: none; }  // logo only — saves space
 }
+
+// ── Mobile chat: floating trigger + full-screen sheet ─────────────────────────
+// Desktop builds ideas in the workspace chat column; on mobile (where the
+// workspace is hidden) the same ChatPanel opens as a full-screen sheet from a FAB.
+.mobile-chat-fab,
+.mobile-chat-sheet { display: none; }
+
+@media (max-width: 767px) {
+    .mobile-chat-fab {
+        position: fixed;
+        right: 18px;
+        bottom: 18px;
+        z-index: 40;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 54px;
+        height: 54px;
+        border: none;
+        border-radius: 50%;
+        background: var(--accent);
+        color: #fff;
+        cursor: pointer;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+        transition: background 0.15s, transform 0.1s;
+
+        svg { width: 26px; height: 26px; }
+
+        &:hover  { background: var(--accent-light); }
+        &:active { transform: scale(0.94); }
+    }
+
+    .mobile-chat-sheet {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        display: flex;
+        flex-direction: column;
+        background: var(--bg-base);
+        animation: mobile-chat-sheet-in 0.18s ease-out;
+
+        &__bar {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border);
+        }
+
+        &__title {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+        }
+
+        &__close {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 1rem;
+            line-height: 1;
+            cursor: pointer;
+            transition: color 0.15s, background 0.15s;
+
+            &:hover { color: var(--text-primary); background: var(--glow-mid); }
+        }
+
+        // ChatPanel is height:100% — give it a flexible, scrollable body.
+        &__body {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            padding: 8px;
+
+            .chat-panel { border: none; border-radius: 0; }
+        }
+    }
+}
+
+@keyframes mobile-chat-sheet-in {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}

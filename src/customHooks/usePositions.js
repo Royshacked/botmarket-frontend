@@ -11,7 +11,7 @@ import { brokerService } from '../services/broker/broker.service.remote.js'
  *   positions: object[],
  *   loading: boolean,
  *   refresh: () => Promise<void>,
- *   closePosition: (broker: string, positionId: string) => Promise<void>,
+ *   closePosition: (broker: string, positionId: string, accountId?: string) => Promise<void>,
  * }}
  */
 export function usePositions() {
@@ -31,15 +31,23 @@ export function usePositions() {
                         try {
                             const rows = await brokerService.getPositions(broker)
                             if (!rows.length) return []
-                            // Account meta (number / currency) is best-effort — never
-                            // let it drop the positions if it fails.
+                            // Positions may span several accounts on one broker, so each
+                            // row carries its own account meta (number / currency / id).
+                            // Fall back to the broker's selected account only for rows
+                            // that don't (e.g. brokers reporting a single account). This
+                            // fetch is best-effort — never let it drop the positions.
                             let accountNo = null, currency = null
                             try {
                                 const account = await brokerService.getAccount(broker)
                                 accountNo = account?.login ?? account?.id ?? null
                                 currency  = account?.currency ?? null
-                            } catch { /* show positions without account meta */ }
-                            return rows.map(p => ({ ...p, broker, accountNo, currency }))
+                            } catch { /* show positions without fallback meta */ }
+                            return rows.map(p => ({
+                                ...p,
+                                broker,
+                                accountNo: p.accountNo ?? accountNo,
+                                currency:  p.currency  ?? currency,
+                            }))
                         } catch {
                             return []
                         }
@@ -55,8 +63,8 @@ export function usePositions() {
 
     useEffect(() => { refresh() }, [refresh])
 
-    const closePosition = useCallback(async (broker, positionId) => {
-        await brokerService.closePosition(broker, positionId)
+    const closePosition = useCallback(async (broker, positionId, accountId) => {
+        await brokerService.closePosition(broker, positionId, accountId)
         await refresh()
     }, [refresh])
 

@@ -71,6 +71,7 @@ export function MainPage() {
     const [buildingPortfolio, setBuildingPortfolio] = useState(null)
     const [dismissedConfirmIds, setDismissedConfirmIds] = useState(() => new Set())
     const [placingOrders, setPlacingOrders] = useState(false)
+    const [mobileChatOpen, setMobileChatOpen] = useState(false)
     const latestMessagesRef = useRef([])
 
     const news = useNewsFeed()
@@ -510,6 +511,23 @@ export function MainPage() {
         }
     }
 
+    // Shared by the desktop workspace chat and the mobile chat sheet so the two
+    // instances never drift. The mobile sheet overrides onGenerate to also close.
+    const chatPanelProps = {
+        messages,
+        analysisState,
+        onSend:              handleSend,
+        onGenerate:          handleGenerate,
+        onClear:             handleCancelBuild,
+        isLoading,
+        isEditing:           !!editingIdeaId,
+        availableAccounts,
+        selectedAccounts,
+        onAccountsChange:    setSelectedAccounts,
+        mainAccountId,
+        onMainAccountChange: setMainAccountId,
+    }
+
     return (
         <>
             <main>
@@ -530,20 +548,7 @@ export function MainPage() {
                             >Portfolio</button>
                         </div>
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'idea' ? 'flex' : 'none' }}>
-                            <ChatPanel
-                                messages={messages}
-                                analysisState={analysisState}
-                                onSend={handleSend}
-                                onGenerate={handleGenerate}
-                                onClear={handleCancelBuild}
-                                isLoading={isLoading}
-                                isEditing={!!editingIdeaId}
-                                availableAccounts={availableAccounts}
-                                selectedAccounts={selectedAccounts}
-                                onAccountsChange={setSelectedAccounts}
-                                mainAccountId={mainAccountId}
-                                onMainAccountChange={setMainAccountId}
-                            />
+                            <ChatPanel {...chatPanelProps} />
                         </div>
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'portfolio' ? 'flex' : 'none' }}>
                             <PortfolioPanel
@@ -596,12 +601,45 @@ export function MainPage() {
                 {/* ── Mobile monitor dashboard ── */}
                 <MonitorDashboard
                     ideas={ideas.filter(i => i.status !== 'closed')}
-                    newsArticles={news.newsArticles}
-                    newsLoading={news.newsLoading}
                     onDelete={handleDeleteIdea}
                     onEdit={handleEditIdea}
                 />
             </main>
+
+            {/* ── Mobile chat: floating trigger + full-screen sheet ── */}
+            <button
+                className="mobile-chat-fab"
+                onClick={() => setMobileChatOpen(true)}
+                aria-label="Build a trade idea"
+            >
+                <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <line x1="10" y1="5" x2="10" y2="2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    <circle cx="10" cy="1.5" r="1" fill="currentColor"/>
+                    <rect x="2" y="5" width="16" height="12" rx="3" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+                    <circle cx="7" cy="10" r="1.8" fill="currentColor"/>
+                    <circle cx="13" cy="10" r="1.8" fill="currentColor"/>
+                    <rect x="6.5" y="13" width="7" height="1.5" rx="0.75" fill="currentColor"/>
+                </svg>
+            </button>
+
+            {mobileChatOpen && (
+                <div className="mobile-chat-sheet">
+                    <div className="mobile-chat-sheet__bar">
+                        <span className="mobile-chat-sheet__title">Build idea</span>
+                        <button
+                            className="mobile-chat-sheet__close"
+                            onClick={() => setMobileChatOpen(false)}
+                            aria-label="Close"
+                        >✕</button>
+                    </div>
+                    <div className="mobile-chat-sheet__body">
+                        <ChatPanel
+                            {...chatPanelProps}
+                            onGenerate={async () => { await handleGenerate(); setMobileChatOpen(false) }}
+                        />
+                    </div>
+                </div>
+            )}
 
             {confirmIdea && confirmOrders.length > 0 && (
                 <OrderConfirmDialog

@@ -9,6 +9,10 @@ import './TradeIdeas.scss'
 
 const BROKER_LABELS = { ctrader: 'cTrader', ibkr: 'IBKR' }
 
+// A position's id is only unique within its account, so a position is identified by
+// broker + account + id — never by id alone (two accounts can share a positionId).
+const posKey = p => `${p.broker}:${p.accountId ?? '—'}:${p.id}`
+
 // How often to re-fetch open positions while the Positions tab is in view, so
 // live P&L keeps ticking. Each poll is one WS reconcile + unrealized-P&L round trip.
 const POSITIONS_POLL_MS = 4000
@@ -297,9 +301,9 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
     async function confirmClosePosition() {
         const position = pendingClose
         if (!position || !onClosePosition) return
-        setClosingId(position.id)
+        setClosingId(posKey(position))
         try {
-            await onClosePosition(position.broker, position.id)
+            await onClosePosition(position.broker, position.id, position.accountId)
             setPendingClose(null)
         } catch (err) {
             console.error('[positions] close failed', err)
@@ -433,9 +437,9 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                             <tbody>
                                 {positions.map(position => (
                                     <PositionRow
-                                        key={`${position.broker}:${position.id}`}
+                                        key={posKey(position)}
                                         position={position}
-                                        closing={closingId === position.id}
+                                        closing={closingId === posKey(position)}
                                         onClose={setPendingClose}
                                     />
                                 ))}
@@ -509,7 +513,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
 
             <ClosePositionDialog
                 position={pendingClose}
-                closing={!!pendingClose && closingId === pendingClose.id}
+                closing={!!pendingClose && closingId === posKey(pendingClose)}
                 onConfirm={confirmClosePosition}
                 onCancel={() => setPendingClose(null)}
             />

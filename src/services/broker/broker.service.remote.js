@@ -52,13 +52,17 @@ async function getPositions(brokerType) {
 }
 
 /**
- * Close an open position in full (on the broker's currently selected account).
+ * Close an open position in full. Pass the position's own accountId so the close
+ * routes to the account it lives on (a broker can hold positions across several
+ * accounts); omit it to fall back to the broker's selected account.
  * @param {'ctrader'|'ibkr'} brokerType
  * @param {string} positionId
+ * @param {string} [accountId]
  * @returns {Promise<void>}
  */
-async function closePosition(brokerType, positionId) {
-    await httpService.delete(`${BASE}/${brokerType}/positions/${positionId}`)
+async function closePosition(brokerType, positionId, accountId) {
+    const qs = accountId ? `?accountId=${encodeURIComponent(accountId)}` : ''
+    await httpService.delete(`${BASE}/${brokerType}/positions/${positionId}${qs}`)
 }
 
 /**
