@@ -20,6 +20,7 @@ export function ChatInputRow({
     clearDisabled,
     clearTitle = 'Clear chat',
     onToggleMic,
+    onCancelMic,
     isRecording,
     isTranscribing,
     micDisabled,
@@ -31,7 +32,7 @@ export function ChatInputRow({
                 className={`${prefix}__mic ${isRecording ? 'recording' : ''} ${isTranscribing ? 'transcribing' : ''}`}
                 onClick={onToggleMic}
                 disabled={micDisabled}
-                title={isRecording ? 'Stop recording' : 'Start recording'}
+                title={isRecording ? 'Stop & transcribe' : 'Start recording'}
             >
                 {isTranscribing ? (
                     <span className={`${prefix}__mic-spinner`} />
@@ -44,6 +45,18 @@ export function ChatInputRow({
                     </svg>
                 )}
             </button>
+            {isRecording && (
+                <button
+                    className={`${prefix}__mic-cancel`}
+                    onClick={onCancelMic}
+                    title="Discard recording"
+                >
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                        <line x1="5" y1="5" x2="15" y2="15"/>
+                        <line x1="15" y1="5" x2="5" y2="15"/>
+                    </svg>
+                </button>
+            )}
             <textarea
                 ref={textareaRef}
                 className={`${prefix}__textarea`}
@@ -93,6 +106,7 @@ ChatInputRow.propTypes = {
     clearDisabled:    PropTypes.bool,
     clearTitle:       PropTypes.string,
     onToggleMic:      PropTypes.func,
+    onCancelMic:      PropTypes.func,
     isRecording:      PropTypes.bool,
     isTranscribing:   PropTypes.bool,
     micDisabled:      PropTypes.bool,

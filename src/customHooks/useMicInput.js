@@ -10,8 +10,9 @@ export function useMicInput({ onTranscript }) {
     const [isRecording,    setIsRecording]    = useState(false)
     const [isTranscribing, setIsTranscribing] = useState(false)
     const [error,          setError]          = useState(null)
-    const recorderRef = useRef(null)
-    const chunksRef   = useRef([])
+    const recorderRef  = useRef(null)
+    const chunksRef    = useRef([])
+    const cancelledRef = useRef(false)
 
     const start = useCallback(async () => {
         setError(null)
@@ -30,8 +31,9 @@ export function useMicInput({ onTranscript }) {
             ) ?? ''
 
             const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
-            recorderRef.current = recorder
-            chunksRef.current   = []
+            recorderRef.current  = recorder
+            chunksRef.current    = []
+            cancelledRef.current = false
 
             recorder.ondataavailable = (e) => {
                 if (e.data.size > 0) chunksRef.current.push(e.data)
@@ -39,6 +41,14 @@ export function useMicInput({ onTranscript }) {
 
             recorder.onstop = async () => {
                 stream.getTracks().forEach(t => t.stop())
+
+                // Discarded by the user — drop the audio, never transcribe.
+                if (cancelledRef.current) {
+                    cancelledRef.current = false
+                    chunksRef.current    = []
+                    return
+                }
+
                 const actualType = recorder.mimeType || mimeType || 'audio/webm'
                 const blob = new Blob(chunksRef.current, { type: actualType })
                 if (blob.size < 1000) return   // too short — ignore
@@ -81,5 +91,15 @@ export function useMicInput({ onTranscript }) {
         else start()
     }, [isRecording, start, stop])
 
-    return { isRecording, isTranscribing, error, toggle }
+    // Abort the in-progress recording without transcribing it.
+    const cancel = useCallback(() => {
+        cancelledRef.current = true
+        if (recorderRef.current?.state === 'recording') {
+            recorderRef.current.stop()
+        }
+        setIsRecording(false)
+        setError(null)
+    }, [])
+
+    return { isRecording, isTranscribing, error, toggle, cancel }
 }

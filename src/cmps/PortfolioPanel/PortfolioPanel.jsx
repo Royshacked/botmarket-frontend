@@ -135,7 +135,7 @@ export function PortfolioPanel({
 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- _send is a stable closure for this purpose
     const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
-    const { isRecording, isTranscribing, toggle: toggleMic } = useMicInput({ onTranscript })
+    const { isRecording, isTranscribing, toggle: toggleMic, cancel: cancelMic } = useMicInput({ onTranscript })
 
     const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages)
 
@@ -332,6 +332,7 @@ export function PortfolioPanel({
                 clearDisabled={isLoading || !messages.length || !!editingPortfolioId}
                 clearTitle="Clear chat"
                 onToggleMic={toggleMic}
+                onCancelMic={cancelMic}
                 isRecording={isRecording}
                 isTranscribing={isTranscribing}
                 micDisabled={isLoading || isTranscribing}

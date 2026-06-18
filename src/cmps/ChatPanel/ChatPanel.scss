@@ -385,6 +385,28 @@
         display: block;
     }
 
+    &__mic-cancel {
+        flex-shrink: 0;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg-raised);
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+
+        svg { width: 14px; height: 14px; }
+
+        &:hover {
+            border-color: var(--color-short);
+            color: var(--color-short);
+        }
+    }
+
     &__send {
         flex-shrink: 0;
         width: 36px;

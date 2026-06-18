@@ -126,7 +126,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
         if (text) onSend(text, analysisStateRef.current)
     }, [onSend])
 
-    const { isRecording, isTranscribing, toggle: toggleMic } = useMicInput({ onTranscript })
+    const { isRecording, isTranscribing, toggle: toggleMic, cancel: cancelMic } = useMicInput({ onTranscript })
     const inputRef      = useRef(null)
     const generateReady = canGenerate(analysisState, selectedAccounts)
 
@@ -245,6 +245,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                 clearDisabled={isLoading || isEditing || (!messages.length && !analysisState?.structured_state?.active_asset)}
                 clearTitle="Clear chat and idea"
                 onToggleMic={toggleMic}
+                onCancelMic={cancelMic}
                 isRecording={isRecording}
                 isTranscribing={isTranscribing}
                 micDisabled={isLoading || isTranscribing}
