@@ -5,7 +5,7 @@ import { StatusIcon } from '../StatusIcon.jsx'
 const SYSTEM_STATUSES = new Set(['hit', 'long', 'short', 'closed'])
 const BUILDING = 'building'
 
-export function TradeIdeaRow({ idea, onStatusChange, onOpen, onSymbolClick, onEdit, isPortfolioChild, isBrokerChild }) {
+export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolClick, onEdit, isPortfolioChild, isBrokerChild }) {
     const { id, asset, direction, type, status, savedAt } = idea
     const summary = conditionSummary(idea)
     const createdAt = formatCreatedAt(savedAt)
@@ -63,18 +63,6 @@ export function TradeIdeaRow({ idea, onStatusChange, onOpen, onSymbolClick, onEd
                 {idea.orderState === 'awaiting_market' && (
                     <span className="idea-row__await-market" title="Order deferred until the market opens">⏳</span>
                 )}
-                {!isBuilding && onEdit && (
-                    <button
-                        className={`idea-row__edit-btn${needsExits ? ' idea-row__edit-btn--alert' : ''}`}
-                        onClick={e => { e.stopPropagation(); onEdit(idea) }}
-                        title={needsExits ? 'Missing stop / take profit — click to add' : 'Edit in chat'}
-                    >
-                        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                            <path d="M11.5 1.5L14.5 4.5L5.5 13.5H2.5V10.5L11.5 1.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
-                            <path d="M9.5 3.5L12.5 6.5" stroke="currentColor" strokeWidth="1.4"/>
-                        </svg>
-                    </button>
-                )}
                 {isBuilding ? (
                     <svg className="idea-row__building-bot" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" title="Building…" aria-hidden="true">
                         {/* Antenna */}
@@ -88,25 +76,50 @@ export function TradeIdeaRow({ idea, onStatusChange, onOpen, onSymbolClick, onEd
                         {/* Mouth */}
                         <rect x="6.5" y="13" width="7" height="1.5" rx="0.75" fill="currentColor"/>
                     </svg>
+                ) : SYSTEM_STATUSES.has(status) ? (
+                    <span className={`idea-row__status-badge status--${status}`}>
+                        <StatusIcon status={status} />
+                    </span>
                 ) : (
-                    <>
-                        {SYSTEM_STATUSES.has(status) ? (
-                            <span className={`idea-row__status-badge status--${status}`}>
-                                <StatusIcon status={status} />
-                            </span>
-                        ) : (
-                            <button
-                                className={`idea-row__status-toggle status--${status}`}
-                                onClick={e => { e.stopPropagation(); onStatusChange(id, status === 'waiting' ? activationStatus(idea) : 'waiting') }}
-                                title={status === 'waiting' ? `Activate (→ ${activationStatus(idea)})`
-                                    : status === 'resting' ? 'Cancel resting order (→ waiting)'
-                                    : 'Switch to waiting'}
-                            >
-                                <StatusIcon status={status} />
-                            </button>
-                        )}
-                    </>
+                    <button
+                        className={`idea-row__status-toggle status--${status}`}
+                        onClick={e => { e.stopPropagation(); onStatusChange(id, status === 'waiting' ? activationStatus(idea) : 'waiting') }}
+                        title={status === 'waiting' ? `Activate (→ ${activationStatus(idea)})`
+                            : status === 'resting' ? 'Cancel resting order (→ waiting)'
+                            : 'Switch to waiting'}
+                    >
+                        <StatusIcon status={status} />
+                    </button>
                 )}
+
+                <span className="idea-row__actions">
+                    {!isBuilding && onEdit && (
+                        <button
+                            className={`idea-row__edit-btn${needsExits ? ' idea-row__edit-btn--alert' : ''}`}
+                            onClick={e => { e.stopPropagation(); onEdit(idea) }}
+                            title={needsExits ? 'Missing stop / take profit — click to add' : 'Edit in chat'}
+                        >
+                            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <path d="M11.5 1.5L14.5 4.5L5.5 13.5H2.5V10.5L11.5 1.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+                                <path d="M9.5 3.5L12.5 6.5" stroke="currentColor" strokeWidth="1.4"/>
+                            </svg>
+                        </button>
+                    )}
+                    {!isBuilding && onDelete && (
+                        <button
+                            className="idea-row__delete idea-row__delete--bin"
+                            onClick={e => { e.stopPropagation(); onDelete(id) }}
+                            title="Delete idea"
+                        >
+                            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <path d="M2.5 4H13.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                                <path d="M6.5 4V2.8C6.5 2.36 6.86 2 7.3 2H8.7C9.14 2 9.5 2.36 9.5 2.8V4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                                <path d="M3.7 4L4.3 13C4.34 13.56 4.8 14 5.36 14H10.64C11.2 14 11.66 13.56 11.7 13L12.3 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                                <path d="M6.5 6.5V11.5M9.5 6.5V11.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                            </svg>
+                        </button>
+                    )}
+                </span>
             </td>
         </tr>
     )
@@ -114,6 +127,7 @@ export function TradeIdeaRow({ idea, onStatusChange, onOpen, onSymbolClick, onEd
 
 TradeIdeaRow.propTypes = {
     idea:            PropTypes.object.isRequired,
+    onDelete:        PropTypes.func,
     onStatusChange:  PropTypes.func.isRequired,
     onOpen:          PropTypes.func.isRequired,
     onSymbolClick:   PropTypes.func,

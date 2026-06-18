@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote'
-import { TradingViewChart }  from '../cmps/TradingViewChart/TradingViewChart.jsx'
-import { getTree, ConditionTreeView } from '../cmps/TradeIdeas/TradeIdeaDialog.jsx'
+import { IdeaDetail } from '../cmps/TradeIdeas/IdeaDetail.jsx'
 import { formatCreatedAtFull } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { StatusIcon } from '../cmps/StatusIcon.jsx'
 import './IdeaPage.scss'
@@ -37,10 +36,6 @@ export function IdeaPage() {
     if (err)   return <div style={centreStyle}>{err}</div>
     if (!idea) return <div style={centreStyle}>Loading…</div>
 
-    const entryTree = getTree(idea, 'entry_condition_tree', 'entry_conditions', 'entry_logic')
-    const stopTree  = getTree(idea, 'stop_condition_tree',  'stop_conditions',  'stop_logic')
-    const tpTree    = getTree(idea, 'tp_condition_tree',    'tp_conditions',    'tp_logic')
-
     const rootStyle = {
         position: 'fixed', inset: 0,
         display: 'flex', flexDirection: 'column',
@@ -70,56 +65,7 @@ export function IdeaPage() {
                 )}
             </div>
 
-            <div className="idea-page__chart">
-                <TradingViewChart symbol={idea.asset || 'SPY'} interval={idea.entry_timeframe || idea.timeframe || 'D'} />
-            </div>
-
-            <div className="idea-page__conditions">
-                <div className="idea-page__field">
-                    <span className="idea-page__label">Entry</span>
-                    <ConditionTreeView node={entryTree} />
-                </div>
-
-                <div className="idea-page__field">
-                    <span className="idea-page__label">Stop loss</span>
-                    <ConditionTreeView node={stopTree} />
-                </div>
-
-                {tpTree && (
-                    <div className="idea-page__field">
-                        <span className="idea-page__label">Take profit</span>
-                        <ConditionTreeView node={tpTree} />
-                    </div>
-                )}
-
-                {Array.isArray(idea.additional_entries) && idea.additional_entries.length > 0 && (
-                    <div className="idea-page__field">
-                        <span className="idea-page__label">Scale-in entries</span>
-                        {idea.additional_entries.map((ae, i) => {
-                            const tree = ae.condition_tree ?? (
-                                Array.isArray(ae.conditions) && ae.conditions.length > 0
-                                    ? { operator: ae.logic ?? 'AND', children: ae.conditions }
-                                    : null
-                            )
-                            return (
-                                <div key={i} className="idea-page__ae">
-                                    <span className="idea-page__ae-qty">
-                                        +{ae.quantity ?? '?'}{ae.triggeredAt ? ' ✅' : ''}
-                                    </span>
-                                    <ConditionTreeView node={tree} />
-                                </div>
-                            )
-                        })}
-                    </div>
-                )}
-
-                {idea.notes && (
-                    <div className="idea-page__field">
-                        <span className="idea-page__label">Notes</span>
-                        <p className="idea-page__notes">{idea.notes}</p>
-                    </div>
-                )}
-            </div>
+            <IdeaDetail idea={idea} positions={[]} />
         </div>
     )
 }

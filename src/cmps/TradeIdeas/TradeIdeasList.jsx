@@ -4,15 +4,10 @@ import { TradeIdeaRow } from './TradeIdeaRow.jsx'
 import { TradeIdeaDialog } from './TradeIdeaDialog.jsx'
 import { ClosePositionDialog } from './ClosePositionDialog.jsx'
 import { EditOrdersDialog } from './EditOrdersDialog.jsx'
-import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel, formatNum, formatPnl } from './tradeIdea.utils.js'
+import { PositionsTable, posKey } from './PositionsTable.jsx'
+import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel } from './tradeIdea.utils.js'
 import { StatusIcon } from '../StatusIcon.jsx'
 import './TradeIdeas.scss'
-
-const BROKER_LABELS = { ctrader: 'cTrader', ibkr: 'IBKR' }
-
-// A position's id is only unique within its account, so a position is identified by
-// broker + account + id — never by id alone (two accounts can share a positionId).
-const posKey = p => `${p.broker}:${p.accountId ?? '—'}:${p.id}`
 
 // How often to re-fetch open positions while the Positions tab is in view, so
 // live P&L keeps ticking. Each poll is one WS reconcile + unrealized-P&L round trip.
@@ -160,23 +155,6 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
                 </td>
                 <td className="portfolio-group-row__count">{group.ideas.length}</td>
                 <td className="portfolio-group-row__created">{formatCreatedAt(group.savedAt) || '—'}</td>
-                <td className="portfolio-group-row__edit">
-                    <button
-                        className="idea-row__edit-btn"
-                        onClick={e => { e.stopPropagation(); onEdit(group.portfolioId) }}
-                        title="Edit portfolio in chat"
-                    >
-                        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                            <path d="M11.5 1.5L14.5 4.5L5.5 13.5H2.5V10.5L11.5 1.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
-                            <path d="M9.5 3.5L12.5 6.5" stroke="currentColor" strokeWidth="1.4"/>
-                        </svg>
-                    </button>
-                    <button
-                        className="idea-row__delete"
-                        onClick={handleDeleteAll}
-                        title="Delete all ideas in this portfolio"
-                    >×</button>
-                </td>
                 <td className="portfolio-group-row__status">
                     {allWaiting ? (
                         <button
@@ -191,11 +169,35 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
                             title="Set all ideas in this portfolio back to waiting"
                         >active</button>
                     )}
+                    <span className="idea-row__actions">
+                        <button
+                            className="idea-row__edit-btn"
+                            onClick={e => { e.stopPropagation(); onEdit(group.portfolioId) }}
+                            title="Edit portfolio in chat"
+                        >
+                            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <path d="M11.5 1.5L14.5 4.5L5.5 13.5H2.5V10.5L11.5 1.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+                                <path d="M9.5 3.5L12.5 6.5" stroke="currentColor" strokeWidth="1.4"/>
+                            </svg>
+                        </button>
+                        <button
+                            className="idea-row__delete idea-row__delete--bin"
+                            onClick={handleDeleteAll}
+                            title="Delete all ideas in this portfolio"
+                        >
+                            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <path d="M2.5 4H13.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                                <path d="M6.5 4V2.8C6.5 2.36 6.86 2 7.3 2H8.7C9.14 2 9.5 2.36 9.5 2.8V4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                                <path d="M3.7 4L4.3 13C4.34 13.56 4.8 14 5.36 14H10.64C11.2 14 11.66 13.56 11.7 13L12.3 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                                <path d="M6.5 6.5V11.5M9.5 6.5V11.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                            </svg>
+                        </button>
+                    </span>
                 </td>
             </tr>
             {expanded && (
                 <tr className="portfolio-group-row__expanded">
-                    <td colSpan={5}>
+                    <td colSpan={4}>
                         <table className="ideas-table">
                             <thead>
                                 <tr>
@@ -226,46 +228,6 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
             )}
         </>
     )
-}
-
-function PositionRow({ position, closing, onClose, onEditOrders }) {
-    const pnl       = Number(position.pnl)
-    const pnlClass  = isNaN(pnl) ? '' : pnl > 0 ? 'pnl--pos' : pnl < 0 ? 'pnl--neg' : ''
-    const brokerLbl = BROKER_LABELS[position.broker] ?? position.broker ?? '—'
-
-    return (
-        <tr className="position-row">
-            <td className="position-row__asset">{position.symbol ?? '—'}</td>
-            <td className={`position-row__dir direction--${position.direction}`}>{position.direction ?? '—'}</td>
-            <td className="position-row__broker">{brokerLbl}</td>
-            <td className="position-row__account">{position.accountNo ?? '—'}</td>
-            <td className="position-row__entered">{formatCreatedAt(position.openedAt) || '—'}</td>
-            <td className="position-row__qty">{formatNum(position.volume)}</td>
-            <td className="position-row__price">{formatNum(position.entryPrice)}</td>
-            <td className={`position-row__pnl ${pnlClass}`}>{formatPnl(position.pnl, position.currency)}</td>
-            <td className="position-row__controls">
-                <button
-                    className="position-row__edit"
-                    disabled={closing}
-                    onClick={() => onEditOrders(position)}
-                    title="Edit working orders (stop / TP) for this position"
-                >✎</button>
-                <button
-                    className="position-row__close"
-                    disabled={closing}
-                    onClick={() => onClose(position)}
-                    title="Close this position at market"
-                >{closing ? '…' : 'Close'}</button>
-            </td>
-        </tr>
-    )
-}
-
-PositionRow.propTypes = {
-    position:     PropTypes.object.isRequired,
-    closing:      PropTypes.bool,
-    onClose:      PropTypes.func.isRequired,
-    onEditOrders: PropTypes.func.isRequired,
 }
 
 export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, onPlaceOrder, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition }) {
@@ -429,32 +391,12 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                     positions.length === 0 ? (
                         <p className="trade-ideas-list__empty">{positionsLoading ? 'Loading positions…' : 'No open positions'}</p>
                     ) : (
-                        <table className="positions-table">
-                            <thead>
-                                <tr>
-                                    <th className="col-pos-asset">Asset</th>
-                                    <th className="col-pos-dir">Dir</th>
-                                    <th className="col-pos-broker">Broker</th>
-                                    <th className="col-pos-account">Account</th>
-                                    <th className="col-pos-entered">Entered</th>
-                                    <th className="col-pos-qty">Qty</th>
-                                    <th className="col-pos-price">Avg Px</th>
-                                    <th className="col-pos-pnl">P&amp;L</th>
-                                    <th className="col-pos-close" />
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {positions.map(position => (
-                                    <PositionRow
-                                        key={posKey(position)}
-                                        position={position}
-                                        closing={closingId === posKey(position)}
-                                        onClose={setPendingClose}
-                                        onEditOrders={setEditOrdersPos}
-                                    />
-                                ))}
-                            </tbody>
-                        </table>
+                        <PositionsTable
+                            positions={positions}
+                            closingId={closingId}
+                            onClose={setPendingClose}
+                            onEditOrders={setEditOrdersPos}
+                        />
                     )
                 ) : (
                     (!hasPortfolios && !buildingPortfolio) ? (
@@ -464,9 +406,8 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                             <thead>
                                 <tr>
                                     <th className="col-pf-name">Portfolio</th>
-                                    <th className="col-pf-count"># Assets</th>
+                                    <th className="col-pf-count">Assets</th>
                                     <th className="col-pf-created">Created</th>
-                                    <th className="col-pf-edit">Edit</th>
                                     <th className="col-pf-status">Status</th>
                                 </tr>
                             </thead>
@@ -476,7 +417,6 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                                         <td className="portfolio-group-row__name">{buildingPortfolio.name}</td>
                                         <td className="portfolio-group-row__count">{buildingPortfolio.ideasCount}</td>
                                         <td className="portfolio-group-row__created">—</td>
-                                        <td className="portfolio-group-row__edit" />
                                         <td className="portfolio-group-row__status">
                                             <svg className="idea-row__building-bot" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" title="Building…" aria-hidden="true">
                                                 {/* Antenna */}
@@ -515,6 +455,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
 
             <TradeIdeaDialog
                 idea={activeIdea}
+                positions={positions}
                 onClose={handleClose}
                 onEdit={handleEdit}
                 onDelete={onDelete}
