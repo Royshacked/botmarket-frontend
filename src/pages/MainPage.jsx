@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 
 import { ChatPanel }         from '../cmps/ChatPanel/ChatPanel.jsx'
+import { readStoredModel }   from '../cmps/modelOptions.js'
 import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
 import { NewsFeed }          from '../cmps/NewsFeed/NewsFeed.jsx'
 import { TradingViewChart }  from '../cmps/TradingViewChart/TradingViewChart.jsx'
@@ -74,6 +75,12 @@ export function MainPage() {
     const [dismissedConfirmIds, setDismissedConfirmIds] = useState(() => new Set())
     const [placingOrders, setPlacingOrders] = useState(false)
     const [mobileChatOpen, setMobileChatOpen] = useState(false)
+    const [ideaModel, setIdeaModel] = useState(() => readStoredModel('ideaModel'))
+
+    function handleIdeaModelChange(m) {
+        setIdeaModel(m)
+        localStorage.setItem('ideaModel', m)
+    }
     const latestMessagesRef = useRef([])
 
     const news = useNewsFeed()
@@ -197,7 +204,8 @@ export function MainPage() {
                         })
                     },
                 },
-                ideaAccounts
+                ideaAccounts,
+                ideaModel
             )
         } catch (err) {
             console.error(err)
@@ -535,6 +543,8 @@ export function MainPage() {
         onAccountsChange:    setSelectedAccounts,
         mainAccountId,
         onMainAccountChange: setMainAccountId,
+        model:               ideaModel,
+        onModelChange:       handleIdeaModelChange,
     }
 
     return (

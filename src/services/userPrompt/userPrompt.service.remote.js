@@ -18,10 +18,10 @@ export const userPromptService = {
  * @param {function} callbacks.onError    - called with an error message string
  * @param {Array}    ideaAccounts
  */
-async function sendPromptStream(userPrompt, analysisState = null, { onToken, onDone, onError, onAsset, onInterval } = {}, ideaAccounts = []) {
+async function sendPromptStream(userPrompt, analysisState = null, { onToken, onDone, onError, onAsset, onInterval } = {}, ideaAccounts = [], model) {
     await postSSE(
         `${API_BASE}/orchestrator/stream`,
-        { userPrompt, analysisState, ideaAccounts },
+        { userPrompt, analysisState, ideaAccounts, model },
         {
             token:    (d) => onToken?.(d.text),
             asset:    (d) => onAsset?.(d.symbol),

@@ -3,6 +3,8 @@ import PropTypes from 'prop-types'
 import { portfolioService } from '../../services/portfolio/portfolio.service.remote.js'
 import { ChatMarkdown } from '../ChatMarkdown.jsx'
 import { AccountSelector } from '../ChatPanel/AccountSelector.jsx'
+import { ModelSelector } from '../ModelSelector.jsx'
+import { readStoredModel } from '../modelOptions.js'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useTypewriter } from '../../customHooks/useTypewriter.js'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
@@ -78,6 +80,12 @@ export function PortfolioPanel({
     const [pendingPlan,           setPendingPlan]           = useState(null)
     const [editingPortfolioId,    setEditingPortfolioId]    = useState(null)
     const [editingPortfolioIdeas, setEditingPortfolioIdeas] = useState([])
+    const [model,                 setModel]                 = useState(() => readStoredModel('portfolioModel'))
+
+    function handleModelChange(m) {
+        setModel(m)
+        localStorage.setItem('portfolioModel', m)
+    }
 
     useEffect(() => {
         if (!chatRestore) return
@@ -162,6 +170,7 @@ export function PortfolioPanel({
             await portfolioService.sendStream(history, ideaAccounts, {
                 portfolioId:    editingPortfolioId,
                 portfolioIdeas: editingPortfolioIdeas,
+                model,
 
                 onToken: (t) => { enqueueToken(t) },
 
@@ -258,6 +267,7 @@ export function PortfolioPanel({
                 <span className="portfolio-panel__title-icon"><PieIcon /></span>
                 <span className="portfolio-panel__title">Portfolio Tradvisor</span>
                 <div className="portfolio-panel__header-right">
+                    <ModelSelector value={model} onChange={handleModelChange} disabled={isLoading} />
                     <AccountSelector
                         accounts={availableAccounts}
                         selectedIds={selectedAccounts}

@@ -1,0 +1,20 @@
+.model-selector {
+    font-size: 0.72rem;
+    padding: 2px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.15));
+    background: var(--surface-2, rgba(255, 255, 255, 0.04));
+    color: var(--text-color, inherit);
+    cursor: pointer;
+    max-width: 150px;
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: default;
+    }
+
+    &:focus {
+        outline: none;
+        border-color: var(--accent-color, #4c8bf5);
+    }
+}

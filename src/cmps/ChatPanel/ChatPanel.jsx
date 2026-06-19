@@ -5,6 +5,7 @@ import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { AccountSelector } from './AccountSelector.jsx'
 import { ChatInputRow } from '../ChatInputRow.jsx'
+import { ModelSelector } from '../ModelSelector.jsx'
 import './ChatPanel.scss'
 
 const P = 'chat-panel__build-summary'
@@ -116,7 +117,7 @@ function canGenerate(analysisState, selectedAccounts) {
     )
 }
 
-export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, isLoading, isEditing = false, availableAccounts = [], selectedAccounts = [], onAccountsChange, mainAccountId = null, onMainAccountChange }) {
+export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, isLoading, isEditing = false, availableAccounts = [], selectedAccounts = [], onAccountsChange, mainAccountId = null, onMainAccountChange, model, onModelChange }) {
     const [input, setInput] = useState('')
 
     const analysisStateRef = useRef(analysisState)
@@ -161,6 +162,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                 </svg>
                 <span className="chat-panel__title">Idea Tradvisor</span>
                 <div className="chat-panel__header-right">
+                    <ModelSelector value={model} onChange={onModelChange} disabled={isLoading} />
                     <AccountSelector
                         accounts={availableAccounts}
                         selectedIds={selectedAccounts}
@@ -268,4 +270,6 @@ ChatPanel.propTypes = {
     onAccountsChange:    PropTypes.func,
     mainAccountId:       PropTypes.string,
     onMainAccountChange: PropTypes.func,
+    model:               PropTypes.string,
+    onModelChange:       PropTypes.func,
 }
