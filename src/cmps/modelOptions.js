@@ -1,8 +1,8 @@
 // Selectable chat models. `id` must match an allowed model id in the backend
 // registry (services/llmModels.js); changing the list here means changing it there.
 export const MODEL_OPTIONS = [
-    { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
-    { id: 'gpt-5',             label: 'GPT-5' },
+    { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', short: 'Sonnet 4.6' },
+    { id: 'gpt-5',             label: 'GPT-5',              short: 'GPT-5' },
 ]
 
 export const DEFAULT_MODEL = 'claude-sonnet-4-6'
