@@ -18,14 +18,21 @@
         border-radius: 3px;
         cursor: pointer;
         outline: none;
-        // Mirrors spectrumShape(): black at the left edge, muted dark hues through
-        // the middle, neutral gray at the right edge.
-        background: linear-gradient(
-            to right,
-            hsl(0, 0%, 16%), hsl(30, 10%, 28%), hsl(90, 22%, 39%),
-            hsl(150, 28%, 39%), hsl(210, 31%, 39%), hsl(270, 22%, 39%),
-            hsl(330, 10%, 39%), hsl(360, 0%, 39%)
-        );
+        // Color axis: neutral at both ends, vivid rainbow across the middle.
+        &--hue {
+            background: linear-gradient(
+                to right,
+                hsl(0, 0%, 39%) 0%, hsl(43, 54%, 39%) 12%,
+                hsl(90, 54%, 39%) 25%, hsl(135, 54%, 39%) 37%, hsl(180, 54%, 39%) 50%,
+                hsl(225, 54%, 39%) 62%, hsl(270, 54%, 39%) 75%, hsl(315, 54%, 39%) 88%,
+                hsl(0, 0%, 39%) 100%
+            );
+        }
+
+        // Brightness axis: black → gray → white.
+        &--tone {
+            background: linear-gradient(to right, #000, #808080, #fff);
+        }
 
         &::-webkit-slider-thumb {
             -webkit-appearance: none;

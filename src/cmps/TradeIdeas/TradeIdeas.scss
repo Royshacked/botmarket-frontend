@@ -596,6 +596,7 @@
         display: flex;
         align-items: center;
         gap: 6px;
+        padding-right: 28px;   // breathing room at the table's right edge (matches the ideas list feel)
 
         // Edit + delete pushed to the right edge (like the trade idea list)
         .idea-row__actions { margin-left: auto; }
@@ -1084,6 +1085,7 @@
         &.type--chart      { color: var(--type-chart-color);      background: var(--type-chart-bg);      }
         &.type--news       { color: var(--type-news-color);       background: var(--type-news-bg);       }
         &.type--visual     { color: var(--type-visual-color);     background: var(--type-visual-bg);     }
+        &.type--time       { color: var(--type-time-color);       background: var(--type-time-bg);       }
     }
 
     &__leaf-tf {
