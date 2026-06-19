@@ -24,15 +24,47 @@ function flattenInline(node, parentOp = null) {
 
 // ── Tree display components ───────────────────────────────────────────────────
 
-export function LeafChip({ leaf, inline }) {
+/**
+ * Stable identity for a condition leaf — MUST mirror the backend
+ * (monitor.orchestrator.js `leafStateKey`) so a persisted met-state keys back to
+ * the right chip. Keyed by type + timeframe + condition text.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- tiny helper colocated with its only consumers
+export function leafStateKey(leaf) {
+    return `${leaf?.type ?? 'structured'}|${leaf?.timeframe ?? ''}|${leaf?.condition ?? ''}`
+}
+
+/**
+ * True when every node under `node` is a leaf or an AND group (no OR anywhere).
+ * Used to decide whether a phase's "passed" status implies all leaves are met —
+ * which only holds for all-AND trees (an OR phase passes on just one branch).
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- tiny tree helper colocated with its only consumers
+export function isAllAnd(node) {
+    if (!node) return false
+    if (typeof node.condition === 'string') return true
+    if (node.operator === 'AND' && Array.isArray(node.children)) return node.children.every(isAllAnd)
+    return false
+}
+
+// `states` is the per-phase map { leafStateKey → metAt } persisted by the monitor.
+// `fallbackMet` marks a leaf met when no per-leaf state exists but the phase has
+// demonstrably passed (e.g. a 'hit' idea that pre-dates state persistence).
+function isMet(leaf, states, fallbackMet = false) {
+    if (states && states[leafStateKey(leaf)] != null) return true
+    if (leaf.met ?? leaf.triggered ?? leaf.triggeredAt) return true
+    return fallbackMet
+}
+
+export function LeafChip({ leaf, inline, states, fallbackMet }) {
     if (!leaf || typeof leaf.condition !== 'string') return null
     const type = leaf.type ?? 'structured'
-    // A condition that has evaluated true gets a check mark. The truth flag is not
-    // wired to live evaluation yet — for now we read whatever the idea carries.
-    const met = leaf.met ?? leaf.triggered ?? !!leaf.triggeredAt
+    const met  = isMet(leaf, states, fallbackMet)
     return (
         <span className={`ctree__leaf${inline ? ' ctree__leaf--inline' : ''}${met ? ' ctree__leaf--met' : ''}`}>
-            {met && <span className="ctree__leaf-check" title="Condition met">✓</span>}
+            {met && (
+                <span className="ctree__leaf-check" aria-hidden="true" title="Condition met">✓</span>
+            )}
             <span className="ctree__leaf-text">{leaf.condition}</span>
             {leaf.quantity != null && <span className="ctree__leaf-qty">{leaf.quantity}</span>}
             <span className={`ctree__leaf-type type--${type}`}>{type}</span>
@@ -41,11 +73,11 @@ export function LeafChip({ leaf, inline }) {
     )
 }
 
-export function TreeRow({ node }) {
+export function TreeRow({ node, states, fallbackMet }) {
     if (typeof node?.condition === 'string') {
         return (
             <div className="ctree__row ctree__row--leaf">
-                <LeafChip leaf={node} />
+                <LeafChip leaf={node} states={states} fallbackMet={fallbackMet} />
             </div>
         )
     }
@@ -56,7 +88,7 @@ export function TreeRow({ node }) {
                 {items.map(({ leaf, op }, i) => (
                     <Fragment key={i}>
                         {op && <span className="ctree__inline-op">{op}</span>}
-                        <LeafChip leaf={leaf} inline />
+                        <LeafChip leaf={leaf} inline states={states} fallbackMet={fallbackMet} />
                     </Fragment>
                 ))}
             </div>
@@ -65,12 +97,12 @@ export function TreeRow({ node }) {
     return null
 }
 
-export function ConditionTreeView({ node }) {
+export function ConditionTreeView({ node, states, fallbackMet = false }) {
     if (!node) return <p className="ctree__empty">—</p>
     if (typeof node.condition === 'string') {
         return (
             <div className="ctree">
-                <div className="ctree__rows"><TreeRow node={node} /></div>
+                <div className="ctree__rows"><TreeRow node={node} states={states} fallbackMet={fallbackMet} /></div>
             </div>
         )
     }
@@ -83,7 +115,7 @@ export function ConditionTreeView({ node }) {
                 {children.map((child, i) => (
                     <Fragment key={i}>
                         {i > 0 && <div className="ctree__sep">{operator}</div>}
-                        <TreeRow node={child} />
+                        <TreeRow node={child} states={states} fallbackMet={fallbackMet} />
                     </Fragment>
                 ))}
             </div>

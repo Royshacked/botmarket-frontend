@@ -3,6 +3,7 @@ import { Routes, Route, useLocation } from 'react-router'
 
 import { AuthContext } from './context/AuthContext'
 import { AuthModal } from './cmps/AuthModal/AuthModal'
+import { UserMsg } from './cmps/UserMsg.jsx'
 import { AppHeader } from './cmps/AppHeader.jsx'
 import { MainPage } from './pages/MainPage.jsx'
 import { UserProfile } from './pages/UserProfile.jsx'
@@ -30,6 +31,7 @@ export function RootCmp() {
                 )}
             </div>
             <AuthModal />
+            <UserMsg />
         </>
     )
 }

@@ -1,29 +1,19 @@
-import { eventBus, showSuccessMsg } from '../services/event-bus.service'
+import { eventBus, SHOW_MSG } from '../services/event-bus.service'
 import { useState, useEffect, useRef } from 'react'
-import { socketService, SOCKET_EVENT_REVIEW_ABOUT_YOU } from '../services/socket.service'
 
 export function UserMsg() {
 	const [msg, setMsg] = useState(null)
 	const timeoutIdRef = useRef()
 
 	useEffect(() => {
-		const unsubscribe = eventBus.on('show-msg', msg => {
+		const unsubscribe = eventBus.on(SHOW_MSG, msg => {
 			setMsg(msg)
-			if (timeoutIdRef.current) {
-				timeoutIdRef.current = null
-				clearTimeout(timeoutIdRef.current)
-			}
-			timeoutIdRef.current = setTimeout(closeMsg, 3000)
+			if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current)
+			// Broker rejections are worth reading — give errors a longer dwell.
+			timeoutIdRef.current = setTimeout(closeMsg, msg?.type === 'error' ? 6000 : 3000)
 		})
 
-		socketService.on(SOCKET_EVENT_REVIEW_ABOUT_YOU, review => {
-			showSuccessMsg(`New review about me ${review.txt}`)
-		})
-
-		return () => {
-			unsubscribe()
-			socketService.off(SOCKET_EVENT_REVIEW_ABOUT_YOU)
-		}
+		return unsubscribe
 	}, [])
 
 	function closeMsg() {

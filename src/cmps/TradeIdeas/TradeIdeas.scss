@@ -79,7 +79,7 @@
         min-height: 0;
         overflow-y: auto;
         overflow-x: hidden;
-        padding: 0 12px;
+        padding: 0;
 
         scrollbar-width: thin;
         scrollbar-color: var(--accent-deep) var(--bg-base);
@@ -111,6 +111,9 @@
     .col-created { width: 11%; }
     .col-notes   { width: 41%; }
     .col-status  { width: 19%; text-align: left; }
+
+    // Small left padding on the first column only (container is flush left).
+    th:first-child, td:first-child { padding-left: 8px; }
 
     thead tr {
         position: sticky;
@@ -264,6 +267,8 @@
     &__status-toggle {
         background: transparent;
         border: none;
+        margin: 0;            // reset the global `button { margin: 5px }` so the icon
+                              // aligns with the <span> status-badge rows (hit/long/short)
         font-size: 0.82rem;
         font-family: 'IBM Plex Mono', monospace;
         letter-spacing: 0.04em;
@@ -407,6 +412,9 @@
     .col-pf-created { width: 18%; }
     .col-pf-status  { width: 30%; }
 
+    // Small left padding on the first column only (container is flush left).
+    th:first-child, td:first-child { padding-left: 8px; }
+
     thead tr {
         position: sticky;
         top: 0;
@@ -445,6 +453,9 @@
     .col-pos-pnl     { width: 13%; text-align: right; }
     .col-pos-account { width: 12%; }
     .col-pos-close   { width: 11%; text-align: center; }
+
+    // Small left padding on the first column only (container is flush left).
+    th:first-child, td:first-child { padding-left: 8px; }
 
     thead tr {
         position: sticky;
@@ -622,11 +633,8 @@
 }
 
 // Expanded portfolio children render like normal trade-idea rows (status-based
-// background, left-aligned columns) — only the edit pencil is left out (onEdit is
-// not passed). No tint/indent so the inner list matches the main Ideas list.
-.idea-row--portfolio-child {
-    td:first-child { padding-left: 0; }
-}
+// background, left-aligned columns, same first-column padding) — only the edit
+// pencil is left out (onEdit is not passed) so the inner list matches the Ideas list.
 
 // ── Multi-broker fork: one group row, expandable to per-broker child rows ───────
 
@@ -741,22 +749,19 @@
         font-weight: 400;
     }
 
+    // Bare status icon, matching the trade-ideas list (no pill, 22px, pulse on
+    // the live states).
     &__status {
-        font-size: 0.68rem;
-        font-weight: 600;
-        padding: 2px 7px;
-        border-radius: 10px;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
+        display: inline-flex;
+        align-items: center;
+        vertical-align: middle;
         margin-left: 6px;
 
-        &.status--waiting { background: rgba(100,116,139,0.2); color: #94a3b8; }
-        &.status--looking { background: rgba(59,130,246,0.2);  color: #60a5fa; }
-        &.status--resting { background: rgba(167,139,250,0.2); color: #a78bfa; }
-        &.status--hit     { background: rgba(234,179,8,0.2);   color: #facc15; }
-        &.status--long    { background: rgba(34,197,94,0.2);   color: #22c55e; }
-        &.status--short   { background: rgba(239,68,68,0.2);   color: #f87171; }
-        &.status--closed  { background: rgba(100,116,139,0.15);color: #64748b; }
+        .status-icon { width: 22px; height: 22px; }
+
+        &.status--hit,
+        &.status--looking,
+        &.status--resting { animation: status-pulse 1.8s ease-in-out infinite; }
     }
 
     &__header-actions {
@@ -1026,18 +1031,22 @@
         }
     }
 
-    // Check mark shown when a condition has evaluated true.
+    // Checkmark shown next to a condition once it has evaluated true. Absent
+    // entirely while the condition is unmet (no empty checkbox placeholder).
     &__leaf-check {
-        color: #4caf50;
-        font-weight: 700;
-        font-size: 0.8rem;
-        line-height: 1;
         flex-shrink: 0;
+        color: #4caf50;
+        font-size: 0.82rem;
+        font-weight: 700;
+        line-height: 1;
     }
 
     &__leaf--met {
         border-color: rgba(76, 175, 80, 0.5);
-        background: rgba(76, 175, 80, 0.08);
+
+        // A met condition is "done" — dim its text so attention stays on the
+        // conditions still pending.
+        .ctree__leaf-text { color: #5a6b7d; }
     }
 
     &__leaf-text {

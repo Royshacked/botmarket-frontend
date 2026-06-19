@@ -60,7 +60,7 @@ export function IdeaPage() {
                 </span>
                 {idea.status && (
                     <span className={`idea-page__status status--${idea.status}`}>
-                        <StatusIcon status={idea.status} size={20} />
+                        <StatusIcon status={idea.status} />
                     </span>
                 )}
             </div>

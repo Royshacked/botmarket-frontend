@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types'
 import { TradingViewChart } from '../TradingViewChart/TradingViewChart.jsx'
 import { PositionsTable } from './PositionsTable.jsx'
-import { getTree, ConditionTreeView } from './ConditionTree.jsx'
+import { getTree, ConditionTreeView, isAllAnd } from './ConditionTree.jsx'
 import { brokerSymbolLabel } from './tradeIdea.utils.js'
 
 // Shared idea body — chart (left) + conditions (right) + positions (bottom).
@@ -11,6 +11,17 @@ export function IdeaDetail({ idea, positions = [] }) {
     const entryTree = getTree(idea, 'entry_condition_tree', 'entry_conditions', 'entry_logic')
     const stopTree  = getTree(idea, 'stop_condition_tree',  'stop_conditions',  'stop_logic')
     const tpTree    = getTree(idea, 'tp_condition_tree',    'tp_conditions',    'tp_logic')
+
+    // Per-phase met-state maps persisted by the monitor (leafStateKey → metAt).
+    const condStates = idea.conditionStates ?? {}
+
+    // Fallback for entry leaves on ideas that passed entry before per-condition
+    // state was persisted (e.g. an already-'hit' idea with no conditionStates).
+    // Only safe for all-AND trees — every leaf is then met by definition.
+    const entryPassed = idea.entryTriggeredAt != null
+        || ['hit', 'long', 'short', 'closed'].includes(idea.status)
+    const entryStatesEmpty = !condStates.entry || Object.keys(condStates.entry).length === 0
+    const entryFallbackMet = entryPassed && entryStatesEmpty && isAllAnd(entryTree)
 
     // Open positions belonging to this idea — matched by the asset or its broker
     // symbol alias (NQ ↔ US100). "for now" we show the same table as the Positions tab.
@@ -27,18 +38,18 @@ export function IdeaDetail({ idea, positions = [] }) {
                 <div className="idea-dialog__conditions">
                     <div className="idea-dialog__field">
                         <span>Entry conditions</span>
-                        <ConditionTreeView node={entryTree} />
+                        <ConditionTreeView node={entryTree} states={condStates.entry} fallbackMet={entryFallbackMet} />
                     </div>
 
                     <div className="idea-dialog__field">
                         <span>Stop loss</span>
-                        <ConditionTreeView node={stopTree} />
+                        <ConditionTreeView node={stopTree} states={condStates.stop} />
                     </div>
 
                     {tpTree && (
                         <div className="idea-dialog__field">
                             <span>Take profit</span>
-                            <ConditionTreeView node={tpTree} />
+                            <ConditionTreeView node={tpTree} states={condStates.tp} />
                         </div>
                     )}
 

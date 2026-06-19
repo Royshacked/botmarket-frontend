@@ -11,6 +11,7 @@ import { MonitorDashboard }  from '../cmps/MonitorDashboard/MonitorDashboard.jsx
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
+import { showErrorMsg }      from '../services/event-bus.service'
 import { useTypewriter }     from '../customHooks/useTypewriter.js'
 import { useNewsFeed }       from '../customHooks/useNewsFeed.js'
 import { useBrokerAccounts } from '../customHooks/useBrokerAccounts.js'
@@ -350,6 +351,12 @@ export function MainPage() {
             if (updated) setIdeas(prev => prev.map(i => i.id === idea.id ? updated : i))
         } catch (err) {
             console.error('[tradeIdeas] place orders failed', err)
+            // Surface the broker's rejection reason (e.g. "symbol 'QQQ' not found on
+            // account") instead of failing silently. The 502 body carries per-account
+            // results; prefer a specific broker error, then the generic message.
+            const data      = err?.response?.data
+            const brokerErr = data?.results?.find(r => r && r.ok === false && r.error)?.error
+            showErrorMsg(`Order placement failed: ${brokerErr || data?.error || err.message}`)
             // Keep the idea in 'hit' so the user can retry from the detail dialog
             setDismissedConfirmIds(prev => new Set(prev).add(idea.id))
         } finally {
