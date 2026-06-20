@@ -14,11 +14,12 @@ export const userPromptService = {
  * @param {function} callbacks.onToken    - called for each streamed text chunk
  * @param {function} callbacks.onAsset    - called with the active asset symbol
  * @param {function} callbacks.onInterval - called with the chart interval
+ * @param {function} callbacks.onChart    - called with { symbol, timeframe, imageBase64 }
  * @param {function} callbacks.onDone     - called with { reply, analysisState, tradeIdea? }
  * @param {function} callbacks.onError    - called with an error message string
  * @param {Array}    ideaAccounts
  */
-async function sendPromptStream(userPrompt, analysisState = null, { onToken, onDone, onError, onAsset, onInterval } = {}, ideaAccounts = [], model) {
+async function sendPromptStream(userPrompt, analysisState = null, { onToken, onDone, onError, onAsset, onInterval, onChart } = {}, ideaAccounts = [], model) {
     await postSSE(
         `${API_BASE}/orchestrator/stream`,
         { userPrompt, analysisState, ideaAccounts, model },
@@ -26,6 +27,7 @@ async function sendPromptStream(userPrompt, analysisState = null, { onToken, onD
             token:    (d) => onToken?.(d.text),
             asset:    (d) => onAsset?.(d.symbol),
             interval: (d) => onInterval?.(d.interval),
+            chart:    (d) => onChart?.(d),
             done:     (d) => onDone?.(d),
             error:    (d) => onError?.(d.message),
         },

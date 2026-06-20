@@ -160,6 +160,26 @@ export function MainPage() {
                         }
                     },
 
+                    // Agent surfaced a chart it wants the user to see — drop an
+                    // image bubble in just before the streaming assistant reply.
+                    onChart: (data) => {
+                        if (!data?.imageBase64) return
+                        setMessages(prev => {
+                            const msgs = [...prev]
+                            const chartMsg = {
+                                role:        'assistant',
+                                type:        'chart',
+                                symbol:      data.symbol,
+                                timeframe:   data.timeframe,
+                                imageBase64: data.imageBase64,
+                            }
+                            const lastIdx = msgs.length - 1
+                            if (msgs[lastIdx]?.streaming) msgs.splice(lastIdx, 0, chartMsg)
+                            else msgs.push(chartMsg)
+                            return msgs
+                        })
+                    },
+
                     onDone: (data) => {
                         stopDrain()
                         setMessages(prev => {
@@ -168,7 +188,9 @@ export function MainPage() {
                             if (last?.streaming) {
                                 msgs[msgs.length - 1] = { role: 'assistant', content: data.reply, analysisState: data.analysisState ?? null }
                             }
-                            latestMessagesRef.current = msgs
+                            // Charts are transient visual aids — keep them on screen but
+                            // exclude them from the persisted chat_state (base64 bloat).
+                            latestMessagesRef.current = msgs.filter(m => m.type !== 'chart')
                             return msgs
                         })
                         setAnalysisState(data.analysisState ?? null)

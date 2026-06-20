@@ -259,6 +259,30 @@
         }
     }
 
+    // ── Chart image bubble ───────────────────────────────────────────────
+    &__chart {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        max-width: 92%;
+        padding-left: 0;
+    }
+
+    &__chart-img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+    }
+
+    &__chart-caption {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 11px;
+        letter-spacing: 0.05em;
+        color: var(--text-secondary);
+    }
+
     // ── Thinking indicator ───────────────────────────────────────────────
     &__thinking {
         display: inline-block;

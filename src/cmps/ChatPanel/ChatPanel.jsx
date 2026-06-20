@@ -197,18 +197,34 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                     </div>
                 )}
                 {messages.map((msg, i) => (
-                    <div key={i} className={`chat-panel__bubble chat-panel__bubble--${msg.role}`}>
-                        {msg.role === 'assistant' ? (
-                            <>
-                                <ChatMarkdown>{msg.content.replace(/<asset>[\s\S]*?<\/asset>/g, '').trimStart()}</ChatMarkdown>
-                                {msg.streaming && !msg.content && (
-                                    <span className="chat-panel__thinking">thinking…</span>
-                                )}
-                            </>
-                        ) : (
-                            msg.content
-                        )}
-                    </div>
+                    msg.type === 'chart' ? (
+                        <div key={i} className="chat-panel__bubble chat-panel__bubble--assistant chat-panel__chart">
+                            <img
+                                className="chat-panel__chart-img"
+                                src={`data:image/png;base64,${msg.imageBase64}`}
+                                alt={`${msg.symbol ?? ''} ${msg.timeframe ?? ''} chart`}
+                                loading="lazy"
+                            />
+                            {(msg.symbol || msg.timeframe) && (
+                                <span className="chat-panel__chart-caption">
+                                    {[msg.symbol, msg.timeframe].filter(Boolean).join(' · ')}
+                                </span>
+                            )}
+                        </div>
+                    ) : (
+                        <div key={i} className={`chat-panel__bubble chat-panel__bubble--${msg.role}`}>
+                            {msg.role === 'assistant' ? (
+                                <>
+                                    <ChatMarkdown>{(msg.content ?? '').replace(/<asset>[\s\S]*?<\/asset>/g, '').trimStart()}</ChatMarkdown>
+                                    {msg.streaming && !msg.content && (
+                                        <span className="chat-panel__thinking">thinking…</span>
+                                    )}
+                                </>
+                            ) : (
+                                msg.content
+                            )}
+                        </div>
+                    )
                 ))}
 
                 {/* Typing dots only when loading but no streaming message yet */}
