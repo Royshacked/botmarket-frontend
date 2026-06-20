@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types'
-import { conditionSummary, formatCreatedAt, formatCreatedAtFull, needsExitConditions, activationStatus, brokerSymbolLabel, brokerChildLabel } from './tradeIdea.utils.js'
+import { conditionSummary, formatCreatedAt, formatCreatedAtFull, needsExitConditions, activationStatus, brokerSymbolLabel, brokerChildLabel, isDeleteLocked } from './tradeIdea.utils.js'
 import { StatusIcon } from '../StatusIcon.jsx'
 
 const SYSTEM_STATUSES = new Set(['hit', 'long', 'short', 'closed'])
@@ -15,6 +15,9 @@ export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolC
     const brokerSym = brokerSymbolLabel(idea)
 
     const isBuilding = status === BUILDING
+    // Live on the broker ('hit'/'long'/'short') → deleting would orphan the position
+    // or pending order, so the bin is disabled until it's closed.
+    const deleteLocked = isDeleteLocked(idea)
 
     // A leaf idea with no broker account attached will only ever *alert* on a hit —
     // the monitor builds no order plan, so no confirm dialog appears. Flag it so the
@@ -108,8 +111,9 @@ export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolC
                     {!isBuilding && onDelete && (
                         <button
                             className="idea-row__delete idea-row__delete--bin"
-                            onClick={e => { e.stopPropagation(); onDelete(id) }}
-                            title="Delete idea"
+                            onClick={e => { e.stopPropagation(); if (!deleteLocked) onDelete(id) }}
+                            disabled={deleteLocked}
+                            title={deleteLocked ? 'Live on the broker — close the position first to delete' : 'Delete idea'}
                         >
                             <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <path d="M2.5 4H13.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>

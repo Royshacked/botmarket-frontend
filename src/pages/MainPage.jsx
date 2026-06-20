@@ -7,7 +7,7 @@ import { NewsFeed }          from '../cmps/NewsFeed/NewsFeed.jsx'
 import { TradingViewChart }  from '../cmps/TradingViewChart/TradingViewChart.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
-import { buildOrderPreview, orderTypeLabel } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { buildOrderPreview, orderTypeLabel, isDeleteLocked } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { MonitorDashboard }  from '../cmps/MonitorDashboard/MonitorDashboard.jsx'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
@@ -487,9 +487,16 @@ export function MainPage() {
         if (!portfolioId) return handleGeneratePlan(plan, messages)
         try {
             const accountIds = availableAccounts.filter(a => selectedAccounts.includes(a.id)).map(a => a.id)
+            const existing   = ideas.filter(i => i.portfolioId === portfolioId)
+            const liveLegs   = existing.filter(isDeleteLocked)
 
-            if (plan?.ideas?.length) {
-                const existing   = ideas.filter(i => i.portfolioId === portfolioId)
+            if (plan?.ideas?.length && liveLegs.length) {
+                // A re-plan replaces the portfolio's ideas in place, which means deleting
+                // the current ones. A live leg (in position / hit) can't be deleted, so
+                // block the whole replace and keep the portfolio as-is. The chat history
+                // still saves below so the conversation isn't lost.
+                showErrorMsg(`Can't update this plan while ${liveLegs.length} position${liveLegs.length > 1 ? 's are' : ' is'} live on the broker — close ${liveLegs.length > 1 ? 'them' : 'it'} first.`)
+            } else if (plan?.ideas?.length) {
                 await Promise.all(existing.map(i => tradeIdeasService.deleteIdea(i.id)))
 
                 const newIdeas   = await tradeIdeasService.createBatch(plan, accountIds, mainAccountId, portfolioId)
@@ -498,7 +505,6 @@ export function MainPage() {
                 // No re-plan, but the account selection may have changed while editing.
                 // Push the current accounts onto every idea so a marked account actually
                 // reaches the portfolio's ideas (mirrors the single-idea attach flow).
-                const existing = ideas.filter(i => i.portfolioId === portfolioId)
                 await Promise.all(existing.map(i => tradeIdeasService.updateIdea(i.id, { accounts: accountIds, mainAccountId })))
                 setIdeas(prev => prev.map(i => i.portfolioId === portfolioId ? { ...i, accounts: accountIds, mainAccountId } : i))
             }
@@ -515,12 +521,18 @@ export function MainPage() {
 
     async function handlePortfolioUpdate(update) {
         if (!update?.changes?.length) return
+        const ideaById = new Map(ideas.map(i => [i.id, i]))
         try {
-            const promises = []
+            const promises   = []
+            const skippedLive = []
             for (const change of update.changes) {
                 if (change.action === 'update_idea' && change.ideaId && change.patch) {
                     promises.push(tradeIdeasService.updateIdea(change.ideaId, change.patch))
                 } else if (change.action === 'remove_idea' && change.ideaId) {
+                    // A live leg (in position / hit) can't be deleted — keep it and flag
+                    // it rather than fail the whole batch. The rest of the changes apply.
+                    const target = ideaById.get(change.ideaId)
+                    if (target && isDeleteLocked(target)) { skippedLive.push(target); continue }
                     promises.push(tradeIdeasService.deleteIdea(change.ideaId))
                 } else if (change.action === 'add_idea' && change.idea) {
                     const existing = ideas.filter(i => i.portfolioId === update.portfolioId)
@@ -535,6 +547,9 @@ export function MainPage() {
             }
             await Promise.all(promises)
             loadIdeas()
+            if (skippedLive.length) {
+                showErrorMsg(`Kept ${skippedLive.length} live position${skippedLive.length > 1 ? 's' : ''} the plan tried to remove — close ${skippedLive.length > 1 ? 'them' : 'it'} first.`)
+            }
         } catch (err) {
             console.error('[portfolio] update failed', err)
         }

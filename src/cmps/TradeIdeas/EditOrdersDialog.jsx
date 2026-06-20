@@ -154,6 +154,9 @@ export function EditOrdersDialog({ position, onClose, onChanged }) {
                         <p className="edit-orders__hint">
                             Closes as a {closeSide === 'short' ? 'sell' : 'buy'} order. A TP must be {direction === 'long' ? 'above' : 'below'} and a stop {direction === 'long' ? 'below' : 'above'} the current price.
                         </p>
+                        <p className="edit-orders__hint">
+                            Resting orders can be set while the market is closed — they only trigger once it reopens, and a gap can fill a stop beyond your price.
+                        </p>
                     </div>
                 </div>
 

@@ -1,5 +1,7 @@
+import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { formatCreatedAtFull, formatNum, formatPnl } from './tradeIdea.utils.js'
+import { marketService } from '../../services/market/market.service.remote'
 import './ClosePositionDialog.scss'
 
 const BROKER_LABELS = { ctrader: 'cTrader', ibkr: 'IBKR' }
@@ -8,9 +10,30 @@ const BROKER_LABELS = { ctrader: 'cTrader', ibkr: 'IBKR' }
  * Confirmation dialog for closing an open position at market (full close).
  * Shown in place of a native window.confirm so the action is reviewed against
  * the position's live details before anything fires to the broker.
+ *
+ * A close is a MARKET order, so it can't fill while the asset's market is closed —
+ * the broker would just reject it. We gate the confirm on live market status
+ * (class-aware via the position's stamped assetClass, symbol heuristic otherwise).
  */
 export function ClosePositionDialog({ position, closing, onConfirm, onCancel }) {
+    const [market, setMarket] = useState(null)
+
+    const symbol     = position?.symbol
+    const assetClass = position?.assetClass
+    useEffect(() => {
+        if (!symbol) { setMarket(null); return }
+        let active = true
+        marketService.getStatus(symbol, assetClass)
+            .then(s => { if (active) setMarket(s) })
+            .catch(() => { if (active) setMarket(null) })
+        return () => { active = false }
+    }, [symbol, assetClass])
+
     if (!position) return null
+
+    // Block the close while the market is known to be closed (crypto is 24/7 → never).
+    const marketClosed   = market != null && market.open === false
+    const confirmDisabled = closing || marketClosed
 
     const pnl       = Number(position.pnl)
     const pnlClass  = isNaN(pnl) ? '' : pnl > 0 ? 'pnl--pos' : pnl < 0 ? 'pnl--neg' : ''
@@ -35,6 +58,14 @@ export function ClosePositionDialog({ position, closing, onConfirm, onCancel }) 
                         This closes the <strong>full</strong> position at market — it can’t be undone.
                     </p>
 
+                    {marketClosed && (
+                        <p className="close-position__market-closed">
+                            🔒 Market is closed — a market close can’t fill right now.
+                            {market.nextOpenMs ? ` Opens ${formatCreatedAtFull(market.nextOpenMs)}.` : ''}
+                            {' '}To manage risk meanwhile, set a resting stop/TP via Edit orders.
+                        </p>
+                    )}
+
                     <dl className="close-position__details">
                         <div><dt>Broker</dt><dd>{brokerLbl}</dd></div>
                         <div><dt>Quantity</dt><dd>{formatNum(position.volume)}</dd></div>
@@ -53,8 +84,9 @@ export function ClosePositionDialog({ position, closing, onConfirm, onCancel }) 
                     <button
                         className="close-position__btn close-position__btn--confirm"
                         onClick={onConfirm}
-                        disabled={closing}
-                    >{closing ? 'Closing…' : 'Close position'}</button>
+                        disabled={confirmDisabled}
+                        title={marketClosed ? 'Market is closed' : undefined}
+                    >{closing ? 'Closing…' : marketClosed ? 'Market closed' : 'Close position'}</button>
                 </div>
             </div>
         </div>

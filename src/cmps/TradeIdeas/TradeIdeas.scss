@@ -378,6 +378,14 @@
         flex-shrink: 0;
         &:hover { color: var(--color-short); }
 
+        // Live idea (in position / hit): deleting would orphan the broker position,
+        // so the bin is locked until it's closed.
+        &:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            &:hover { color: var(--text-muted); }
+        }
+
         // Trash-bin icon variant (per-idea delete)
         &--bin {
             display: flex;
@@ -924,6 +932,12 @@
         transition: opacity 0.12s;
 
         &:hover { opacity: 0.85; }
+
+        &:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            &:hover { opacity: 0.4; }
+        }
 
         &--delete {
             background: rgba(239, 83, 80, 0.12);

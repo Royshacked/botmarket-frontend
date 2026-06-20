@@ -146,6 +146,19 @@ export function activationStatus(idea) {
 }
 
 /**
+ * True when an idea must not be deleted from the client — it's live on the broker
+ * (in position: 'long'/'short') or fired and awaiting confirmation ('hit'). Deleting
+ * it would orphan a real position/order, so the bin/Delete control is disabled for
+ * these. A 'closed' idea is done and stays deletable.
+ *
+ * @param {import('../../types.js').Idea} idea
+ * @returns {boolean}
+ */
+export function isDeleteLocked(idea) {
+    return ['hit', 'long', 'short'].includes(idea?.status)
+}
+
+/**
  * True when an idea is missing a stop loss or a take profit — used to flag
  * (e.g. immediate) ideas that were generated without exits so the user is
  * reminded to add them.

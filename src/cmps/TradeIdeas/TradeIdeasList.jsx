@@ -5,7 +5,7 @@ import { TradeIdeaDialog } from './TradeIdeaDialog.jsx'
 import { ClosePositionDialog } from './ClosePositionDialog.jsx'
 import { EditOrdersDialog } from './EditOrdersDialog.jsx'
 import { PositionsTable, posKey } from './PositionsTable.jsx'
-import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel } from './tradeIdea.utils.js'
+import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel, isDeleteLocked } from './tradeIdea.utils.js'
 import { StatusIcon } from '../StatusIcon.jsx'
 import './TradeIdeas.scss'
 
@@ -59,6 +59,9 @@ function BrokerGroupRow({ group, expanded, onToggle, onDelete, onStatusChange, o
     const brokerSym = brokerSymbolLabel(lead)
     const summary   = conditionSummary(lead)
     const allWaiting = group.ideas.every(i => i.status === 'waiting')
+    // Any leg live on the broker → block the group delete (would orphan a position).
+    // The user can still delete individual non-live legs from the expanded rows.
+    const anyLocked = group.ideas.some(isDeleteLocked)
 
     function handleActivateAll(e) {
         e.stopPropagation()
@@ -66,6 +69,7 @@ function BrokerGroupRow({ group, expanded, onToggle, onDelete, onStatusChange, o
     }
     function handleDeleteAll(e) {
         e.stopPropagation()
+        if (anyLocked) return
         group.ideas.forEach(idea => onDelete(idea.id))
     }
 
@@ -87,7 +91,12 @@ function BrokerGroupRow({ group, expanded, onToggle, onDelete, onStatusChange, o
                 <td className="idea-row__created">{formatCreatedAt(group.savedAt) || '—'}</td>
                 <td className="idea-row__notes">{summary || '—'}</td>
                 <td className="idea-row__controls">
-                    <button className="idea-row__delete" onClick={handleDeleteAll} title="Delete all broker legs of this idea">×</button>
+                    <button
+                        className="idea-row__delete"
+                        onClick={handleDeleteAll}
+                        disabled={anyLocked}
+                        title={anyLocked ? 'A broker leg is live — close the position first to delete' : 'Delete all broker legs of this idea'}
+                    >×</button>
                     {allWaiting ? (
                         <button className="idea-row__status-toggle status--waiting" onClick={handleActivateAll} title="Activate all broker legs"><StatusIcon status="waiting" /></button>
                     ) : (
@@ -122,9 +131,13 @@ BrokerGroupRow.propTypes = {
 
 function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDeletePortfolio, onStatusChange, onOpen, onSymbolClick }) {
     const allWaiting = group.ideas.length > 0 && group.ideas.every(i => i.status === 'waiting')
+    // Any idea live on the broker → block the whole-portfolio delete (it deletes every
+    // leg + the chat, which would orphan the live position). Close it first.
+    const anyLocked = group.ideas.some(isDeleteLocked)
 
     function handleDeleteAll(e) {
         e.stopPropagation()
+        if (anyLocked) return
         // Deletes every idea in the portfolio and its chat history
         onDeletePortfolio(group.portfolioId)
     }
@@ -183,7 +196,8 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
                         <button
                             className="idea-row__delete idea-row__delete--bin"
                             onClick={handleDeleteAll}
-                            title="Delete all ideas in this portfolio"
+                            disabled={anyLocked}
+                            title={anyLocked ? 'A position is live — close it first to delete this portfolio' : 'Delete all ideas in this portfolio'}
                         >
                             <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <path d="M2.5 4H13.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>

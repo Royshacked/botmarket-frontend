@@ -82,6 +82,17 @@
         strong { color: var(--text-primary); }
     }
 
+    &__market-closed {
+        margin: 0 0 14px;
+        padding: 8px 10px;
+        font-size: 0.74rem;
+        line-height: 1.4;
+        color: #facc15;
+        background: rgba(234, 179, 8, 0.1);
+        border: 1px solid rgba(234, 179, 8, 0.35);
+        border-radius: 5px;
+    }
+
     &__details {
         margin: 0;
         display: grid;

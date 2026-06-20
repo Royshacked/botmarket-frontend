@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { IdeaDetail } from './IdeaDetail.jsx'
-import { formatCreatedAtFull, brokerSymbolLabel } from './tradeIdea.utils.js'
+import { formatCreatedAtFull, brokerSymbolLabel, isDeleteLocked } from './tradeIdea.utils.js'
 import { StatusIcon } from '../StatusIcon.jsx'
 
 // ── Dialog ────────────────────────────────────────────────────────────────────
@@ -101,7 +101,14 @@ export function TradeIdeaDialog({ idea, index = 0, positions = [], onClose, onEd
             <IdeaDetail idea={idea} positions={positions} />
 
             <div className="idea-dialog__footer">
-                {onDelete && <button className="idea-dialog__btn idea-dialog__btn--delete" onClick={handleDelete}>Delete</button>}
+                {onDelete && (
+                    <button
+                        className="idea-dialog__btn idea-dialog__btn--delete"
+                        onClick={handleDelete}
+                        disabled={isDeleteLocked(idea)}
+                        title={isDeleteLocked(idea) ? 'Live on the broker — close the position first to delete' : undefined}
+                    >Delete</button>
+                )}
                 {onPlaceOrder && idea.status === 'hit' && !idea.ordersPlacedAt && Array.isArray(idea.accounts) && idea.accounts.length > 0 &&
                   (idea.orderState === 'awaiting_confirm' || idea.orderState == null) && (
                     <button className="idea-dialog__btn idea-dialog__btn--place" onClick={handlePlaceOrder}>Place order</button>
