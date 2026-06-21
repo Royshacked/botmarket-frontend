@@ -47,7 +47,13 @@ export function PositionRow({ position, closing, onClose, onEditOrders }) {
                             disabled={closing}
                             onClick={() => onClose(position)}
                             title="Close this position at market"
-                        >{closing ? '…' : 'Close'}</button>
+                        >
+                            {closing ? '…' : (
+                                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                    <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                                </svg>
+                            )}
+                        </button>
                     )}
                 </td>
             )}

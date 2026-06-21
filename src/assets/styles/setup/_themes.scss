@@ -156,8 +156,88 @@
     --h1-glow-3: rgba(80,  10,  25,  0.35);
 }
 
+// ── Axl (calm aurora — pairs with the axl header) ────────────────────────────
+[data-theme="axl"] {
+    // Brand font pairing app-wide
+    --font-sans: 'Hanken Grotesk', system-ui, -apple-system, sans-serif;
+    --font-mono: 'Space Mono', 'IBM Plex Mono', monospace;
+
+    // Backgrounds (night → panel)
+    --bg-base:    #0D1820;
+    --bg-deep:    #0A141C;
+    --bg-hover:   #0F1D27;
+    --bg-surface: #13232E;
+    --bg-raised:  #182934;
+    --bg-popover: #13232E;
+
+    // Accent scale (aurora greens/teals)
+    --accent-deep:   #1E3B33;
+    --accent:        #4E907C;
+    --accent-light:  #74C9AE;
+    --accent-bright: #A8E8CE;
+
+    // Text scale (birch → fog)
+    --text-primary:   #EEF3F2;
+    --text-secondary: #8FA6B0;
+    --text-muted:     #5E747E;
+    --text-dim:       #3E5158;
+    --text-subtle:    #B8C8CE;
+    --text-leaf:      #C4D8D0;
+
+    // Borders & effects (line + aurora glow)
+    --border:        rgba(33, 54, 63, 0.70);
+    --border-mid:    rgba(46, 72, 82, 0.80);
+    --border-strong: rgba(116, 201, 174, 0.45);
+    --border-soft:   rgba(78, 144, 124, 0.30);
+    --glow:          rgba(116, 201, 174, 0.14);
+    --glow-soft:     rgba(116, 201, 174, 0.06);
+    --glow-mid:      rgba(116, 201, 174, 0.10);
+    --overlay:       rgba(0, 0, 0, 0.68);
+
+    // User button + popover
+    --user-btn-bg:           rgba(33, 54, 63, 0.50);
+    --user-btn-border:       rgba(78, 144, 124, 0.40);
+    --user-btn-bg-hover:     rgba(78, 144, 124, 0.30);
+    --user-btn-border-hover: rgba(116, 201, 174, 0.70);
+    --user-btn-text-hover:   #EAFBF4;
+    --popover-border:        rgba(78, 144, 124, 0.50);
+    --popover-divider:       rgba(33, 54, 63, 0.60);
+    --popover-btn-hover-bg:  rgba(78, 144, 124, 0.18);
+
+    // H1 gradient (aurora spectrum: green → teal → cyan)
+    --h1-grad-top:    #EEF3F2;
+    --h1-grad-mid1:   #C4EBDC;
+    --h1-grad-mid2:   #8FD9BE;
+    --h1-grad-mid3:   #5BCBC0;
+    --h1-grad-bottom: #4E907C;
+    --h1-glow-1: rgba(116, 201, 174, 0.90);
+    --h1-glow-2: rgba(91, 203, 192, 0.60);
+    --h1-glow-3: rgba(95, 185, 217, 0.35);
+}
+
 // ── Semantic status colors — same across all themes ──────────────────────────
 :root {
+    // UI fonts — defaults; the axl theme overrides them with the brand pairing.
+    --font-sans: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+
+    // Aurora-washed backgrounds — the app-header hue-wash (green → teal → cyan →
+    // violet) blooming from the top, over the night base / surface. Used as the
+    // background of component shells (--bg-wash) and their headers/bars
+    // (--bg-wash-surface) so the whole app shares the header's backdrop.
+    --bg-wash:
+        radial-gradient(80% 60% at 15% 100%, rgba(127, 214, 158, 0.07), transparent 65%),
+        radial-gradient(70% 55% at 50% 100%, rgba( 91, 203, 192, 0.05), transparent 65%),
+        radial-gradient(75% 58% at 80% 100%, rgba( 95, 185, 217, 0.05), transparent 65%),
+        radial-gradient(70% 60% at 98% 100%, rgba(158, 155, 227, 0.07), transparent 65%),
+        var(--bg-base);
+    --bg-wash-surface:
+        radial-gradient(80% 60% at 15% 100%, rgba(127, 214, 158, 0.07), transparent 65%),
+        radial-gradient(70% 55% at 50% 100%, rgba( 91, 203, 192, 0.05), transparent 65%),
+        radial-gradient(75% 58% at 80% 100%, rgba( 95, 185, 217, 0.05), transparent 65%),
+        radial-gradient(70% 60% at 98% 100%, rgba(158, 155, 227, 0.07), transparent 65%),
+        var(--bg-surface);
+
     --color-long:    #4caf50;
     --color-short:   #ef5350;
     --color-hit:     #4caf50;

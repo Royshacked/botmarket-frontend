@@ -6,11 +6,11 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    background: var(--bg-base);
+    background: var(--bg-wash);
     border: 1px solid var(--border);
     border-radius: 6px;
     overflow: hidden;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: var(--font-sans);
     color: var(--text-primary);
 
     // ── Header ──────────────────────────────────────────────────────────
@@ -19,7 +19,7 @@
         align-items: center;
         flex-shrink: 0;
         padding: 7px 20px;
-        background: var(--bg-surface);
+        background: var(--bg-wash-surface);
         border-bottom: 1px solid var(--border);
     }
 
@@ -32,12 +32,12 @@
     }
 
     &__title {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 13px;
         font-weight: 700;
         letter-spacing: 0.12em;
         text-transform: uppercase;
-        color: var(--accent-light);
+        color: var(--text-primary);
     }
 
 &__header-right {
@@ -77,7 +77,7 @@
         flex-direction: column;
         gap: 4px;
         font-size: 11px;
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         max-height: 160px;
         overflow-y: auto;
 
@@ -148,7 +148,7 @@
 
         &-account-chip {
             font-size: 9px;
-            font-family: 'IBM Plex Mono', monospace;
+            font-family: var(--font-mono);
             letter-spacing: 0.04em;
             padding: 1px 5px;
             border-radius: 2px;
@@ -160,7 +160,7 @@
 
         &-no-accounts {
             font-size: 9px;
-            font-family: 'IBM Plex Mono', monospace;
+            font-family: var(--font-mono);
             color: var(--color-short);
             opacity: 0.75;
             font-style: italic;
@@ -172,7 +172,7 @@
         align-self: center;
         max-width: 80%;
         text-align: center;
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 11px;
         color: var(--text-muted);
         line-height: 1.7;
@@ -230,13 +230,13 @@
             li         { margin-bottom: 0.2em; }
             strong     { color: var(--accent-light); font-weight: 600; }
             em         { color: var(--text-secondary); }
-            code       { font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+            code       { font-family: var(--font-mono); font-size: 11px;
                          background: var(--bg-base); padding: 1px 5px; border-radius: 2px;
                          color: var(--accent-light); }
             pre        { background: var(--bg-base); border: 1px solid var(--border); border-radius: 3px;
                          padding: 10px 12px; overflow-x: auto; margin: 0.5em 0;
                          code { background: none; padding: 0; } }
-            h1,h2,h3   { font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+            h1,h2,h3   { font-family: var(--font-mono); font-size: 12px;
                          color: var(--accent-light); letter-spacing: 0.05em; margin: 0 0 0.4em; }
             blockquote { border-left: 2px solid var(--accent-deep); margin: 0 0 0.5em;
                          padding-left: 10px; color: var(--text-secondary); }
@@ -250,7 +250,7 @@
             background: transparent;
             border: 1px dashed var(--accent);
             color: var(--accent);
-            font-family: 'IBM Plex Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 11px;
             letter-spacing: 0.05em;
             padding: 6px 16px;
@@ -277,7 +277,7 @@
     }
 
     &__chart-caption {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 11px;
         letter-spacing: 0.05em;
         color: var(--text-secondary);
@@ -286,7 +286,7 @@
     // ── Thinking indicator ───────────────────────────────────────────────
     &__thinking {
         display: inline-block;
-        font-family: 'IBM Plex Sans', sans-serif;
+        font-family: var(--font-sans);
         font-size: 16px;
         font-weight: 700;
         color: var(--accent);
@@ -322,7 +322,7 @@
         border: 1px solid var(--accent);
         border-radius: 3px;
         color: var(--accent);
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 10px;
         letter-spacing: 0.12em;
         text-transform: uppercase;
@@ -345,7 +345,7 @@
         align-items: center;
         gap: 8px;
         padding: 6px 12px 8px;
-        background: var(--bg-surface);
+        background: var(--bg-wash-surface);
         border-top: 1px solid var(--border);
     }
 
@@ -355,7 +355,7 @@
         border: 1px solid var(--border);
         border-radius: 3px;
         color: var(--text-primary);
-        font-family: 'IBM Plex Sans', sans-serif;
+        font-family: var(--font-sans);
         font-size: 13px;
         padding: 9px 12px;
         resize: none;
@@ -509,32 +509,31 @@
 .acct-sel {
     position: relative;
 
+    // Borderless monoline icon, matching the rest of the app's icons (title /
+    // status / pencil / bin): accent-light at 16px, brightening on hover / when
+    // accounts are selected.
     &__trigger {
         display: flex;
         align-items: center;
         gap: 3px;
         background: none;
-        border: 1px solid var(--border);
-        border-radius: 3px;
-        color: var(--text-muted);
+        border: none;
+        color: var(--accent-light);
         cursor: pointer;
-        padding: 3px 5px;
+        padding: 2px 3px;
         line-height: 0;
-        transition: color 0.15s, border-color 0.15s;
+        transition: color 0.15s;
 
-        svg { width: 14px; height: 14px; }
+        svg { width: 16px; height: 16px; }
 
-        &:hover:not(:disabled) { color: var(--accent-light); border-color: var(--accent); }
+        &:hover:not(:disabled) { color: var(--accent-bright); }
         &:focus { outline: none; }
 
-        &--active {
-            color: var(--accent-light);
-            border-color: var(--accent);
-        }
+        &--active { color: var(--accent-bright); }
     }
 
     &__count {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 9px;
         font-weight: 700;
         letter-spacing: 0.05em;
@@ -556,7 +555,7 @@
     }
 
     &__dropdown-title {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 9px;
         font-weight: 700;
         letter-spacing: 0.12em;
@@ -568,7 +567,7 @@
     }
 
     &__empty {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 10px;
         color: var(--text-muted);
         padding: 10px 12px;
@@ -596,7 +595,7 @@
         &--main    { background: var(--glow-soft); }
 
         &-broker {
-            font-family: 'IBM Plex Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 9px;
             font-weight: 700;
             letter-spacing: 0.08em;
@@ -606,14 +605,14 @@
         }
 
         &-login {
-            font-family: 'IBM Plex Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 10px;
             color: var(--text-primary);
             flex: 1;
         }
 
         &-type {
-            font-family: 'IBM Plex Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 9px;
             font-weight: 600;
             letter-spacing: 0.06em;
@@ -642,7 +641,7 @@
     }
 
     &__main-hint {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 9px;
         color: var(--text-muted);
         padding: 5px 12px 6px;

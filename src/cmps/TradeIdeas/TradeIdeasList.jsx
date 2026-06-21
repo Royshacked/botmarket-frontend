@@ -7,6 +7,7 @@ import { EditOrdersDialog } from './EditOrdersDialog.jsx'
 import { PositionsTable, posKey } from './PositionsTable.jsx'
 import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel, isDeleteLocked } from './tradeIdea.utils.js'
 import { StatusIcon } from '../StatusIcon.jsx'
+import { BrandTitle } from '../BrandTitle.jsx'
 import './TradeIdeas.scss'
 
 // How often to re-fetch open positions while the Positions tab is in view, so
@@ -333,7 +334,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                 <svg className="trade-ideas-list__header-icon" viewBox="0 0 10 18" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <path d="M6 0L0 10h4.5L3 18l7-10H5.5L6 0z"/>
                 </svg>
-                <span className="trade-ideas-list__header-title">Tradvices</span>
+                <span className="trade-ideas-list__header-title"><BrandTitle text="Axl Lists" /></span>
                 <div className="trade-ideas-list__filters">
                     <button
                         className={`trade-ideas-list__filter${activeFilter === 'ideas' ? ' active' : ''}`}

@@ -53,11 +53,11 @@ export function AccountSelector({ accounts = [], selectedIds = [], onChange, mai
                 type="button"
             >
                 <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path d="M8 1.5L14 5H2L8 1.5Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
-                    <line x1="4"  y1="5.5" x2="4"  y2="11.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-                    <line x1="8"  y1="5.5" x2="8"  y2="11.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-                    <line x1="12" y1="5.5" x2="12" y2="11.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-                    <line x1="2" y1="12" x2="14" y2="12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                    <path d="M8 1.5L14 5H2L8 1.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                    <line x1="4"  y1="5.5" x2="4"  y2="11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    <line x1="8"  y1="5.5" x2="8"  y2="11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    <line x1="12" y1="5.5" x2="12" y2="11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    <line x1="2" y1="12" x2="14" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
                 {count > 0 && <span className="acct-sel__count">{count}</span>}
             </button>

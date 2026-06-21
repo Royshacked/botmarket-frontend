@@ -16,7 +16,7 @@
     width: 100%;
     max-width: 360px;
     box-shadow: 0 8px 40px var(--overlay);
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: var(--font-sans);
     color: var(--text-primary);
 
     &__brand {
@@ -30,7 +30,7 @@
     &__logo { width: 52px; height: 52px; object-fit: contain; border-radius: 10px; }
 
     &__brand-name {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 13px;
         font-weight: 600;
         letter-spacing: 0.16em;
@@ -51,7 +51,7 @@
         border-bottom: 2px solid transparent;
         padding: 0.55rem 0;
         cursor: pointer;
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 11px;
         letter-spacing: 0.1em;
         text-transform: uppercase;
@@ -77,7 +77,7 @@
             border: 1px solid var(--border);
             border-radius: 3px;
             color: var(--text-primary);
-            font-family: 'IBM Plex Sans', sans-serif;
+            font-family: var(--font-sans);
             font-size: 13px;
             padding: 9px 12px;
             transition: border-color 0.15s;
@@ -94,7 +94,7 @@
             border: 1px solid transparent;
             border-radius: 3px;
             color: var(--accent-light);
-            font-family: 'IBM Plex Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 11px;
             letter-spacing: 0.1em;
             text-transform: uppercase;
@@ -154,7 +154,7 @@
         align-items: center;
         gap: 0.75rem;
         padding: 1.5rem 0 0.5rem;
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 11px;
         letter-spacing: 0.08em;
         color: var(--text-secondary);
@@ -201,7 +201,7 @@
     border-radius: 3px;
     padding: 4px 12px;
     color: var(--text-secondary);
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
     letter-spacing: 0.06em;
     cursor: pointer;

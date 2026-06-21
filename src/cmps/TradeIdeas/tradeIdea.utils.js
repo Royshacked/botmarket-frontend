@@ -67,6 +67,61 @@ export function conditionSummary(idea) {
 }
 
 /**
+ * First timeframe found in a condition tree, flat conditions array, or single
+ * leaf — depth-first. Leaves carry an optional `timeframe` ("15min", "4hr", …);
+ * bare-string (legacy) conditions carry none. Returns the first non-empty
+ * timeframe, or null when nothing under the node is timed.
+ *
+ * @param {object|array|string|null} node
+ * @returns {string|null}
+ */
+function firstTimeframe(node) {
+    if (!node) return null
+    if (Array.isArray(node)) {
+        for (const child of node) {
+            const tf = firstTimeframe(child)
+            if (tf) return tf
+        }
+        return null
+    }
+    if (typeof node !== 'object') return null        // bare-string condition — untimed
+    if (typeof node.condition === 'string') return node.timeframe || null
+    if (Array.isArray(node.children)) return firstTimeframe(node.children)
+    return null
+}
+
+/**
+ * Chart timeframe most relevant to a trade idea — entry leads, then stop, then
+ * tp. For each phase the first *timed condition* wins (the specific timeframe the
+ * structured/price leaf trades on), then the phase-level `*_timeframe` default.
+ * This mirrors the backend's reference timeframe (`_refTimeframe` →
+ * `firstLeafTimeframe(entry_condition_tree)` before `entry_timeframe`), so the
+ * chart matches what the idea is actually evaluated on — e.g. an idea with
+ * `entry_timeframe: "day"` but a "1hr" structured entry leaf shows the 1hr chart.
+ *
+ * Works on both a saved idea and the in-progress `pending_trade` from chat (both
+ * carry the same field names). Returns null when nothing is set, so callers fall
+ * back to their chart default.
+ *
+ * @param {import('../../types.js').Idea|object} idea
+ * @returns {string|null}
+ */
+export function deriveIdeaInterval(idea) {
+    if (!idea) return null
+    return firstTimeframe(idea.entry_condition_tree)
+        || firstTimeframe(idea.entry_conditions)
+        || idea.entry_timeframe
+        || idea.timeframe
+        || firstTimeframe(idea.stop_condition_tree)
+        || firstTimeframe(idea.stop_conditions)
+        || idea.stop_timeframe
+        || firstTimeframe(idea.tp_condition_tree)
+        || firstTimeframe(idea.tp_conditions)
+        || idea.tp_timeframe
+        || null
+}
+
+/**
  * Compact created-at label for the ideas table (e.g. "Jun 12").
  *
  * @param {number} ms  Epoch milliseconds (idea.savedAt)

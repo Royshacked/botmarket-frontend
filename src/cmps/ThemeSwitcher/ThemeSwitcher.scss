@@ -1,15 +1,10 @@
 .theme-switcher {
     display: flex;
-    flex-direction: column;
-    gap: 10px;
+    align-items: center;
+    gap: 8px;
 
-    // ── Spectrum hue slider ──
-    &__spectrum {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
+    // One teal hue, brightest → darkest (the brand "a" aurora at decreasing
+    // brightness).
     &__slider {
         -webkit-appearance: none;
         appearance: none;
@@ -18,21 +13,13 @@
         border-radius: 3px;
         cursor: pointer;
         outline: none;
-        // Color axis: neutral at both ends, vivid rainbow across the middle.
-        &--hue {
-            background: linear-gradient(
-                to right,
-                hsl(0, 0%, 39%) 0%, hsl(43, 54%, 39%) 12%,
-                hsl(90, 54%, 39%) 25%, hsl(135, 54%, 39%) 37%, hsl(180, 54%, 39%) 50%,
-                hsl(225, 54%, 39%) 62%, hsl(270, 54%, 39%) 75%, hsl(315, 54%, 39%) 88%,
-                hsl(0, 0%, 39%) 100%
-            );
-        }
-
-        // Brightness axis: black → gray → white.
-        &--tone {
-            background: linear-gradient(to right, #000, #808080, #fff);
-        }
+        background: linear-gradient(
+            to right,
+            #C9F0E1 0%,
+            #74C9AE 38%,
+            #2C6B58 74%,
+            #0F3025 100%
+        );
 
         &::-webkit-slider-thumb {
             -webkit-appearance: none;

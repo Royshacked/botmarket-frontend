@@ -1,9 +1,32 @@
 // ── Status icon (icon-only status badge) ────────────────────────────────────────
+// Inline monoline icons (see StatusIcon.jsx). They paint with currentColor, so the
+// status colour below applies in any context — and a parent's `status--{status}`
+// colour (e.g. on a row badge) overrides it identically when present.
 .status-icon {
     display: inline-block;
     vertical-align: middle;
     user-select: none;
     flex: none;
+
+    // Same colour as the rest of the app's icons (title icons, etc.). Setting it on
+    // the element itself wins over any inherited `status--{status}` colour from a
+    // parent badge, so every status icon reads in one consistent accent colour.
+    color: var(--accent-light);
+}
+
+// 'looking' = scanning: the radar sweep line circles around the centre.
+.status-icon--looking .radar-sweep {
+    transform-box: view-box;
+    transform-origin: 8px 8px;
+    animation: status-radar-sweep 2.4s linear infinite;
+}
+
+@keyframes status-radar-sweep {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .status-icon--looking .radar-sweep { animation: none; }
 }
 
 .status-icon-fallback {

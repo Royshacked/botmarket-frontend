@@ -6,6 +6,8 @@ import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { AccountSelector } from './AccountSelector.jsx'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { ModelSelector } from '../ModelSelector.jsx'
+import { MeditatingBot } from '../MeditatingBot.jsx'
+import { BrandTitle } from '../BrandTitle.jsx'
 import './ChatPanel.scss'
 
 const P = 'chat-panel__build-summary'
@@ -152,15 +154,8 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
     return (
         <div className="chat-panel">
             <div className="chat-panel__header">
-                <svg className="chat-panel__title-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <line x1="10" y1="5" x2="10" y2="2"   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                    <circle cx="10" cy="1.5" r="1"         fill="currentColor"/>
-                    <rect x="2" y="5" width="16" height="12" rx="3" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-                    <circle cx="7"  cy="10" r="1.8"        fill="currentColor"/>
-                    <circle cx="13" cy="10" r="1.8"        fill="currentColor"/>
-                    <rect x="6.5" y="13" width="7" height="1.5" rx="0.75" fill="currentColor"/>
-                </svg>
-                <span className="chat-panel__title">Idea Tradvisor</span>
+                <MeditatingBot className="chat-panel__title-icon" />
+                <span className="chat-panel__title"><BrandTitle text="Axl Ideas" /></span>
                 <div className="chat-panel__header-right">
                     <ModelSelector value={model} onChange={onModelChange} disabled={isLoading} />
                     <AccountSelector

@@ -127,7 +127,7 @@
         border: 1px solid var(--user-btn-border);
         border-radius: 6px;
         padding: 7px 14px;
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.82rem;
         font-weight: 600;
         letter-spacing: 0.06em;
@@ -166,14 +166,14 @@
         }
 
         &-name {
-            font-family: 'IBM Plex Sans', sans-serif;
+            font-family: var(--font-sans);
             font-size: 13px;
             font-weight: 500;
             color: var(--accent-bright);
         }
 
         &-username {
-            font-family: 'IBM Plex Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 10px;
             color: var(--accent);
             letter-spacing: 0.04em;
@@ -193,7 +193,7 @@
         }
 
         &-theme-label {
-            font-family: 'IBM Plex Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 11px;
             letter-spacing: 0.06em;
             color: var(--text-secondary);
@@ -205,7 +205,7 @@
             text-align: left;
             padding: 7px 8px;
             border-radius: 3px;
-            font-family: 'IBM Plex Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 11px;
             letter-spacing: 0.06em;
             color: var(--accent-light);

@@ -14,7 +14,7 @@ import { useEffect, useRef } from 'react'
 // Runtime-safe: single rAF loop with cleanup, paused when the tab is hidden,
 // honours prefers-reduced-motion, and scales for high-DPI screens.
 
-const AI_NAME = 'Tradvisor'
+const AI_NAME = 'axl'
 const FONT = '14px "IBM Plex Mono", monospace'
 const LABEL_FONT = '11px "IBM Plex Mono", monospace'
 const LINE_GAP = 18

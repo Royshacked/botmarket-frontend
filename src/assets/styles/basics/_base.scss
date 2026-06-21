@@ -10,7 +10,7 @@ html {
 body {
     margin: 0;
     background: var(--bg-base);
-    font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-sans);
     font-size: rem(18px);
 }
 

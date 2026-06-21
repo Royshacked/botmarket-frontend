@@ -1,10 +1,10 @@
 .tv-chart {
     width: 100%;
     height: 100%;
-    border: 1px solid rgba(20, 60, 120, 0.35);
+    border: 1px solid var(--border);
     border-radius: 6px;
     overflow: hidden;
-    background: #020810;
+    background: var(--bg-base);
 
     iframe {
         border-radius: 6px;

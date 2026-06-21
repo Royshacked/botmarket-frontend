@@ -156,6 +156,17 @@ export function loadTone() {
 
 // Apply whichever theme was last saved. Call once before first render.
 export function initTheme() {
+    // Header-style trial: while the axl header is active (headerStyle !== 'classic'),
+    // the app always uses the curated 'axl' aurora theme so its colours match the
+    // header exactly. Any generated spectrum vars are cleared, so the profile theme
+    // slider can't drift the app off the header palette. Setting headerStyle='classic'
+    // restores normal (spectrum/preset) theming below.
+    if (localStorage.getItem('headerStyle') !== 'classic') {
+        clearHueTheme()
+        document.documentElement.setAttribute('data-theme', 'axl')
+        return
+    }
+
     const mode = localStorage.getItem('themeMode') ?? 'preset'
     if (mode === 'spectrum') {
         const hue = Number(localStorage.getItem('themeHue')) || DEFAULT_HUE

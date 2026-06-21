@@ -1,0 +1,335 @@
+// ─── AppHeader · "axl" style (trial) ──────────────────────────────────────────
+// A calm, aurora-themed header: animated calm-water wave bottom edge, ambient
+// breathing candlesticks, a centered AI prompt/reply stream, a status pill and a
+// profile cluster. Ported from the axl mock and adapted to TRADVICE content.
+//
+// Self-contained: all colours live in local custom properties on .app-header-axl,
+// so this style does NOT depend on — or affect — the app-wide theme tokens. That
+// keeps "header first": the rest of the app stays on its current theme until we
+// decide to expand the palette app-wide.
+//
+// Toggle: rendered by RootCmp when localStorage.headerStyle !== 'classic'. The
+// original AppHeader stays untouched as the saved/fallback style.
+
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+.app-header-axl {
+    // ── local palette (the axl aurora) ──
+    --axl-night:   #0D1820;
+    --axl-night-2: #0F1D27;
+    --axl-panel:   #13232E;
+    --axl-panel-2: #18293480;
+    --axl-line:    #21363F;
+    --axl-fog:     #8FA6B0;
+    --axl-fog-dim: #5E747E;
+    --axl-birch:   #EEF3F2;
+    --axl-aurora:  #74C9AE;
+    --axl-aurora-dim: #4E907C;
+    --axl-green:   #7FD69E;
+    --axl-teal:    #5BCBC0;
+    --axl-cyan:    #5FB9D9;
+    --axl-violet:  #9E9BE3;
+    --axl-ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --axl-h: 84px;
+
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    flex-shrink: 0;
+    height: var(--axl-h);
+    font-family: 'Hanken Grotesk', system-ui, sans-serif;
+    background: rgba(13, 24, 32, 0.82);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    color: var(--axl-birch);
+
+    // aurora hue-wash, blooming up from the wave at the bottom edge
+    &::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        background:
+            radial-gradient(60% 150% at 12% 128%, rgba(127, 214, 158, 0.12), transparent 72%),
+            radial-gradient(52% 140% at 42% 132%, rgba(91, 203, 192, 0.10), transparent 72%),
+            radial-gradient(55% 145% at 73% 130%, rgba(95, 185, 217, 0.10), transparent 72%),
+            radial-gradient(50% 150% at 95% 128%, rgba(158, 155, 227, 0.12), transparent 72%);
+    }
+
+    &__inner {
+        position: relative;
+        z-index: 2;
+        height: 100%;
+        // full-width like the classic header: brand flush left, profile flush right
+        padding: 0 24px;
+        display: flex;
+        align-items: center;
+        gap: 30px;
+    }
+
+    // ── signature: calm water as the header's bottom edge ──
+    &__edge {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: -11px;
+        height: 22px;
+        width: 100%;
+        overflow: hidden;
+        pointer-events: none;
+        z-index: 1;
+
+        // svg is 200% wide and the wave repeats every 50%, so translateX(-50%) loops seamlessly
+        svg {
+            display: block;
+            width: 200%;
+            height: 22px;
+            overflow: visible;
+            animation: axl-drift 60s linear infinite;
+            will-change: transform;
+        }
+
+        .wv { fill: none; stroke: url(#axlWaveHues); stroke-linecap: round; }
+        .wv-main   { stroke-width: 1.6; opacity: 0.55; filter: drop-shadow(0 0 4px rgba(116, 201, 174, 0.45)); }
+        .wv-mirror { stroke-width: 1.3; opacity: 0.13; }
+    }
+
+    // ── ambient aurora candlesticks, breathing up from the waterline ──
+    &__ticks {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        overflow: hidden;
+        pointer-events: none;
+
+        svg { display: block; width: 100%; height: 100%; opacity: 0.32; }
+        .wick   { stroke-width: 0.8; opacity: 0.28; }
+        .candle { fill-opacity: 0.3; }
+        .c-green  { fill: var(--axl-green);  stroke: var(--axl-green); }
+        .c-teal   { fill: var(--axl-teal);   stroke: var(--axl-teal); }
+        .c-cyan   { fill: var(--axl-cyan);   stroke: var(--axl-cyan); }
+        .c-violet { fill: var(--axl-violet); stroke: var(--axl-violet); }
+        .grp {
+            transform-box: fill-box;
+            transform-origin: 50% 100%;
+            animation: axl-candle-breathe var(--dur, 7s) ease-in-out infinite;
+            will-change: transform;
+        }
+    }
+
+    // ── brand ──
+    &__brand {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 11px;
+        text-decoration: none;
+        flex: none;
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+
+        &:focus-visible { outline: 2px solid var(--axl-aurora); outline-offset: 3px; border-radius: 10px; }
+    }
+
+    // meditating-bot brand mark (svg)
+    &__mark {
+        width: 58px;
+        height: 58px;
+        flex: none;
+        filter: drop-shadow(0 0 5px rgba(116, 201, 174, 0.28));
+        transition: filter 0.4s var(--axl-ease);
+
+        .aura { fill: url(#axlBotAura); }
+        .ring { fill: none; stroke: url(#axlBotRing); stroke-width: 1.1; opacity: 0.42; }
+        .bot  { fill: none; stroke: url(#axlBotRing); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    }
+    &__brand:hover &__mark { filter: drop-shadow(0 0 10px rgba(116, 201, 174, 0.5)); }
+
+    &__brand-text { display: flex; flex-direction: column; gap: 4px; }
+
+    &__wordmark {
+        font-weight: 500;
+        font-size: 2.1rem;
+        letter-spacing: 0.16em;
+        color: var(--axl-birch);
+        line-height: 1;
+        padding-left: 1px;
+        white-space: nowrap;
+
+        b { color: var(--axl-aurora); font-weight: 500; }
+    }
+
+    &__rule { width: 64px; height: 5px; overflow: visible; }
+    &__rule path { fill: none; stroke: var(--axl-aurora-dim); stroke-width: 1.3; stroke-linecap: round; }
+
+    // ── centered AI stream ──
+    &__stream {
+        flex: 1;
+        min-width: 0;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        .msg {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            max-width: 100%;
+            opacity: 0;
+            transform: translateY(5px);
+            transition: opacity 0.6s var(--axl-ease), transform 0.6s var(--axl-ease);
+        }
+        .msg.show { opacity: 1; transform: translateY(0); }
+
+        .msg-text {
+            font-size: 0.9rem;
+            line-height: 1;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--axl-fog);
+            transition: color 0.4s var(--axl-ease);
+        }
+        .msg-tag {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.66rem;
+            letter-spacing: 0.04em;
+            padding: 3px 7px;
+            border-radius: 999px;
+            border: 1px solid var(--axl-line);
+            color: var(--axl-fog-dim);
+            flex: none;
+        }
+
+        &.user .msg-text { font-style: italic; }
+        &.axl  .msg-text { color: var(--axl-birch); font-style: normal; }
+        &.axl  .msg-tag  { color: var(--axl-aurora); border-color: rgba(116, 201, 174, 0.4); }
+    }
+
+    // ── right cluster ──
+    &__right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+        height: 100%;
+    }
+
+    &__status {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-family: 'Space Mono', monospace;
+        font-size: 0.72rem;
+        letter-spacing: 0.02em;
+        color: var(--axl-fog);
+        padding: 6px 11px;
+        border-radius: 999px;
+        border: 1px solid var(--axl-line);
+        background: var(--axl-panel-2);
+
+        .k { color: var(--axl-fog-dim); }
+        .v { color: var(--axl-aurora); }
+        .pip {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--axl-aurora);
+            box-shadow: 0 0 10px 1px var(--axl-aurora);
+        }
+    }
+
+    &__divider { width: 1px; height: 26px; background: var(--axl-line); margin: 0 6px; }
+
+    // ── profile (preserves navigate-to-profile / back behavior) ──
+    &__profile {
+        display: inline-flex;
+        align-items: center;
+        background: transparent;
+        border: 1px solid transparent;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 50%;
+        color: var(--axl-birch);
+        font-family: inherit;
+        transition: background 0.25s var(--axl-ease), border-color 0.25s var(--axl-ease);
+
+        &:hover { background: rgba(255, 255, 255, 0.04); border-color: var(--axl-line); }
+        &:focus-visible { outline: 2px solid var(--axl-aurora); outline-offset: 2px; }
+    }
+
+    &__avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        flex: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.74rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: var(--axl-night);
+        background: linear-gradient(150deg, #8fe0c6, var(--axl-aurora-dim));
+    }
+
+    &__who {
+        display: flex;
+        flex-direction: column;
+        line-height: 1.15;
+        text-align: left;
+
+        .name { font-size: 0.85rem; font-weight: 500; color: var(--axl-birch); white-space: nowrap; }
+        .tier { font-size: 0.68rem; color: var(--axl-fog-dim); letter-spacing: 0.04em; }
+    }
+
+    // Just a (bigger) back arrow on the profile page.
+    &__back {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: 4px;
+        color: var(--axl-fog);
+        transition: color 0.25s var(--axl-ease), transform 0.15s var(--axl-ease);
+
+        svg { width: 28px; height: 28px; }
+
+        &:hover { color: var(--axl-birch); transform: translateX(-2px); }
+        &:focus-visible { outline: 2px solid var(--axl-aurora); outline-offset: 2px; }
+    }
+
+    @media (max-width: 880px) {
+        &__status, &__stream { display: none; }
+        &__who { display: none; }
+        &__inner { gap: 14px; }
+    }
+    @media (max-width: 480px) {
+        &__divider { display: none; }
+    }
+}
+
+@keyframes axl-drift {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+}
+@keyframes axl-candle-breathe {
+    0%, 100% { transform: scaleY(0.70); }
+    50%      { transform: scaleY(1.06); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .app-header-axl__edge svg { animation: none !important; }
+    .app-header-axl__ticks .grp { animation: none !important; }
+    .app-header-axl__profile,
+    .app-header-axl__stream .msg { transition: none !important; }
+}

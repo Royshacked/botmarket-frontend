@@ -2,7 +2,7 @@ import PropTypes from 'prop-types'
 import { TradingViewChart } from '../TradingViewChart/TradingViewChart.jsx'
 import { PositionsTable } from './PositionsTable.jsx'
 import { getTree, ConditionTreeView, isAllAnd } from './ConditionTree.jsx'
-import { brokerSymbolLabel } from './tradeIdea.utils.js'
+import { brokerSymbolLabel, deriveIdeaInterval } from './tradeIdea.utils.js'
 
 // Shared idea body — chart (left) + conditions (right) + positions (bottom).
 // Rendered by both the floating dialog and the popped-out idea window so the two
@@ -32,7 +32,7 @@ export function IdeaDetail({ idea, positions = [] }) {
         <>
             <div className="idea-dialog__main">
                 <div className="idea-dialog__chart">
-                    <TradingViewChart symbol={idea.asset || 'SPY'} interval={idea.entry_timeframe || idea.timeframe || 'D'} />
+                    <TradingViewChart symbol={idea.asset || 'SPY'} interval={deriveIdeaInterval(idea) || 'D'} />
                 </div>
 
                 <div className="idea-dialog__conditions">

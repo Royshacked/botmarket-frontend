@@ -15,6 +15,10 @@ const TV_INTERVAL = {
     'day':   'D',
     'week':  'W',
     'month': 'M',
+    // Legacy timeframe spellings that may still live on older saved ideas.
+    'daily':   'D',
+    'weekly':  'W',
+    'monthly': 'M',
 }
 let _scriptPromise = null
 

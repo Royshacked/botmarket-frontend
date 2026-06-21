@@ -44,7 +44,7 @@ export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolC
                     <span className="idea-row__broker">{brokerChildLabel(idea)}</span>
                 ) : (
                     <>
-                        {asset || '—'}
+                        <span className="idea-row__sym">{asset || '—'}</span>
                         {brokerSym && (
                             <span className="idea-row__broker-badge" title={`Trades as ${brokerSym} on the broker`}>{brokerSym}</span>
                         )}

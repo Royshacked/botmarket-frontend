@@ -28,7 +28,7 @@
     }
 
     &__current {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 9px;
         font-weight: 700;
         letter-spacing: 0.06em;
@@ -50,7 +50,7 @@
     }
 
     &__dropdown-title {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 9px;
         font-weight: 700;
         letter-spacing: 0.12em;
@@ -79,7 +79,7 @@
     }
 
     &__item-label {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 10px;
         color: var(--text-primary);
         flex: 1;

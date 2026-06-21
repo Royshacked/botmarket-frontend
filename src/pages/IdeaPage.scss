@@ -12,8 +12,8 @@ html, body, #root {
     width: 100%;
     min-height: 100vh;
     height: 100vh;
-    background: var(--bg-primary, #0b1120);
-    color: var(--text-primary, #e2e8f0);
+    background: var(--bg-base);
+    color: var(--text-primary);
     overflow: hidden;
 
     &--loading,
@@ -22,7 +22,7 @@ html, body, #root {
         justify-content: center;
         font-size: 1rem;
         color: var(--text-secondary);
-        background: var(--bg-primary, #0f172a);
+        background: var(--bg-base);
     }
 
     &__header {
@@ -31,8 +31,8 @@ html, body, #root {
         justify-content: space-between;
         gap: 12px;
         padding: 10px 16px;
-        background: var(--bg-secondary, #0f1a2e);
-        border-bottom: 1px solid var(--border-color, rgba(20,60,120,0.35));
+        background: var(--bg-surface);
+        border-bottom: 1px solid var(--border);
         flex-shrink: 0;
     }
 
@@ -97,8 +97,8 @@ html, body, #root {
         display: flex;
         flex-direction: column;
         gap: 10px;
-        border-top: 1px solid var(--border-color, rgba(20,60,120,0.35));
-        background: var(--bg-secondary, #0f1a2e);
+        border-top: 1px solid var(--border);
+        background: var(--bg-surface);
     }
 
     &__field {
@@ -124,7 +124,7 @@ html, body, #root {
 
     &__ae-qty {
         font-size: 0.75rem;
-        color: var(--accent-primary);
+        color: var(--accent-light);
         white-space: nowrap;
         padding-top: 2px;
     }

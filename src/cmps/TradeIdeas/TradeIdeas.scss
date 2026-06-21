@@ -13,7 +13,7 @@
         align-items: center;
         gap: 8px;
         padding: 7px 20px;
-        background: var(--bg-surface);
+        background: var(--bg-wash-surface);
         border-bottom: 1px solid var(--border);
         color: var(--accent-light);
     }
@@ -35,7 +35,7 @@
         border: 1px solid var(--accent-deep);
         border-radius: 3px;
         color: var(--text-muted);
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 10px;
         font-weight: 600;
         letter-spacing: 0.06em;
@@ -59,19 +59,19 @@
         }
 
         &--positions.active {
-            background: rgba(96, 165, 250, 0.15);
-            border-color: #60a5fa;
-            color: #93c5fd;
+            background: var(--accent-deep);
+            border-color: var(--accent);
+            color: #fff;
         }
     }
 
     &__header-title {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 13px;
         font-weight: 700;
         letter-spacing: 0.12em;
         text-transform: uppercase;
-        color: var(--accent-light);
+        color: var(--text-primary);
     }
 
     &__scroll {
@@ -209,6 +209,8 @@
         color: var(--text-primary);
     }
 
+    &__sym { display: inline-block; }
+
     &__direction {
         font-weight: 600;
         text-transform: uppercase;
@@ -242,7 +244,7 @@
 
     &__tf {
         color: var(--accent);
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.68rem;
         letter-spacing: 0.04em;
         white-space: nowrap;
@@ -270,7 +272,7 @@
         margin: 0;            // reset the global `button { margin: 5px }` so the icon
                               // aligns with the <span> status-badge rows (hit/long/short)
         font-size: 0.82rem;
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         letter-spacing: 0.04em;
         padding: 2px 4px;
         cursor: pointer;
@@ -300,7 +302,7 @@
         border: 1px solid currentColor;
         border-radius: 3px;
         font-size: 0.65rem;
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         padding: 2px 5px;
         cursor: pointer;
         transition: opacity 0.12s;
@@ -313,7 +315,7 @@
 
     &__status-badge {
         font-size: 0.82rem;
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         letter-spacing: 0.04em;
         padding: 2px 4px;
         display: inline-flex;
@@ -346,7 +348,7 @@
         border: none;
         outline: none;
         appearance: none;
-        color: var(--text-muted);
+        color: var(--accent-light);
         cursor: pointer;
         padding: 2px 3px;
         flex-shrink: 0;
@@ -354,9 +356,9 @@
         align-items: center;
         line-height: 0;
 
-        svg { width: 13px; height: 13px; }
+        svg { width: 16px; height: 16px; }
 
-        &:hover { color: var(--accent-light); }
+        &:hover { color: var(--accent-bright); }
 
         // Idea generated without a stop / take profit — pulse red to remind the
         // user to add exits (e.g. immediate ideas fired without conditions).
@@ -370,7 +372,7 @@
     &__delete {
         background: none;
         border: none;
-        color: var(--text-muted);
+        color: var(--accent-light);
         cursor: pointer;
         font-size: 1rem;
         line-height: 1;
@@ -392,7 +394,7 @@
             align-items: center;
             line-height: 0;
             padding: 2px 3px;
-            svg { width: 14px; height: 14px; }
+            svg { width: 16px; height: 16px; }
         }
     }
 
@@ -402,6 +404,32 @@
         flex-shrink: 0;
         color: var(--accent);
         animation: idea-build-pulse 1.6s ease-in-out infinite;
+    }
+}
+
+// The whole row's text tracks the idea's lifecycle, in the app's dominant (accent)
+// hue: waiting = a dark accent shade, brightening through looking → resting, up to
+// pure white once the idea is in a live position (hit / long / short). Closed fades
+// back to muted. The direction column is excluded — it keeps its long=green /
+// short=red. Child badges that set their own colour (broker alias, ⚠ no-account)
+// are unaffected.
+$sym-status-colors: (
+    waiting: var(--accent),
+    looking: var(--accent-light),
+    resting: var(--accent-bright),
+    hit:     #fff,
+    long:    #fff,
+    short:   #fff,
+    closed:  var(--text-muted),
+);
+
+@each $st, $clr in $sym-status-colors {
+    .idea-row--#{$st} td:not(.idea-row__direction),
+    .idea-row--#{$st} .idea-row__status-badge .status-icon,
+    .idea-row--#{$st} .idea-row__status-toggle .status-icon,
+    .idea-row--#{$st} .idea-row__edit-btn,
+    .idea-row--#{$st} .idea-row__delete {
+        color: #{$clr};
     }
 }
 
@@ -518,11 +546,11 @@
     &__entered { color: var(--text-muted); font-size: 0.7rem; }
 
     &__qty,
-    &__price { text-align: right; font-family: 'IBM Plex Mono', monospace; }
+    &__price { text-align: right; font-family: var(--font-mono); }
 
     &__pnl {
         text-align: right;
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-weight: 600;
         &.pnl--pos { color: #4caf50; }
         &.pnl--neg { color: #ef5350; }
@@ -530,39 +558,43 @@
 
     &__controls { text-align: center; display: flex; gap: 6px; justify-content: center; align-items: center; }
 
+    // Borderless monoline icon buttons, matching the rest of the app's icons
+    // (status / pencil / bin): accent-light at 16px, brightening on hover.
     &__edit {
         background: none;
-        border: 1px solid var(--accent-deep);
-        border-radius: 3px;
-        color: var(--text-secondary);
-        font-size: 0.72rem;
+        border: none;
+        color: var(--accent-light);
         line-height: 0;
-        padding: 3px 6px;
+        padding: 2px 3px;
         cursor: pointer;
         display: inline-flex;
         align-items: center;
-        transition: opacity 0.12s, background 0.12s, color 0.12s;
+        transition: color 0.12s;
 
-        svg { width: 14px; height: 14px; }
+        svg { width: 16px; height: 16px; }
 
-        &:hover:not(:disabled) { background: var(--bg-hover); color: var(--accent); border-color: var(--accent); }
+        &:hover:not(:disabled) { color: var(--accent-bright); }
         &:disabled { opacity: 0.5; cursor: default; }
         &:focus { outline: none; }
     }
 
     &__close {
         background: none;
-        border: 1px solid var(--color-short, #ef5350);
-        border-radius: 3px;
-        color: var(--color-short, #ef5350);
-        font-family: 'IBM Plex Mono', monospace;
-        font-size: 0.65rem;
-        letter-spacing: 0.04em;
-        padding: 2px 8px;
+        border: none;
+        color: var(--accent-light);
+        font-family: var(--font-mono);
+        font-size: 0.8rem;
+        line-height: 0;
+        padding: 2px 3px;
         cursor: pointer;
-        transition: opacity 0.12s, background 0.12s;
+        display: inline-flex;
+        align-items: center;
+        transition: color 0.12s;
 
-        &:hover:not(:disabled) { background: rgba(239, 83, 80, 0.12); }
+        svg { width: 16px; height: 16px; }
+
+        // Close is destructive — hint red on hover, like the delete bin.
+        &:hover:not(:disabled) { color: var(--color-short); }
         &:disabled { opacity: 0.5; cursor: default; }
         &:focus { outline: none; }
     }
@@ -593,7 +625,7 @@
         font-weight: 600;
         color: #6dd4a8;
         font-size: 0.75rem;
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         letter-spacing: 0.04em;
     }
 
@@ -624,7 +656,7 @@
     }
 
     &__building-badge {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.7rem;
         font-weight: 600;
         letter-spacing: 0.04em;
@@ -652,7 +684,7 @@
     margin-left: 6px;
     padding: 1px 5px;
     border-radius: 3px;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 0.62rem;
     letter-spacing: 0.03em;
     color: var(--text-secondary);
@@ -670,7 +702,7 @@
 }
 
 .idea-row__broker {
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: var(--font-mono);
     letter-spacing: 0.04em;
     color: var(--text-secondary);
 }
@@ -690,7 +722,7 @@
         margin-right: 6px;
     }
     .idea-row__status-badge--group {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.72rem;
         letter-spacing: 0.04em;
         color: #6dd4a8;
@@ -725,7 +757,7 @@
     border: 1px solid var(--accent-deep);
     border-radius: 8px;
     color: var(--text-primary);
-    box-shadow: 0 20px 70px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(42, 90, 154, 0.18);
+    box-shadow: 0 20px 70px rgba(0, 0, 0, 0.8), 0 0 0 1px var(--border);
 
     &__header {
         display: flex;
@@ -754,7 +786,7 @@
     }
 
     &__meta {
-        color: #2a5a9a;
+        color: var(--accent);
         font-weight: 400;
     }
 
@@ -828,9 +860,9 @@
         gap: 12px;
 
         scrollbar-width: thin;
-        scrollbar-color: #0d2a55 #071222;
+        scrollbar-color: var(--accent-deep) var(--bg-surface);
         &::-webkit-scrollbar       { width: 4px; }
-        &::-webkit-scrollbar-thumb { background: #0d2a55; border-radius: 2px; }
+        &::-webkit-scrollbar-thumb { background: var(--accent-deep); border-radius: 2px; }
     }
 
     // Bottom section: open positions for this idea (same table as the Positions tab).
@@ -843,9 +875,9 @@
         background: var(--bg-base);
 
         scrollbar-width: thin;
-        scrollbar-color: #0d2a55 #071222;
+        scrollbar-color: var(--accent-deep) var(--bg-surface);
         &::-webkit-scrollbar       { width: 4px; }
-        &::-webkit-scrollbar-thumb { background: #0d2a55; border-radius: 2px; }
+        &::-webkit-scrollbar-thumb { background: var(--accent-deep); border-radius: 2px; }
     }
 
     &__section-title {
@@ -888,9 +920,9 @@
 
     &__ae-qty {
         display: inline-block;
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.68rem;
-        color: #2a5a9a;
+        color: var(--accent);
         margin-bottom: 3px;
     }
 
@@ -902,7 +934,7 @@
 
     select {
         background: var(--bg-base);
-        border: 1px solid #0d2a55;
+        border: 1px solid var(--accent-deep);
         border-radius: 4px;
         color: var(--text-primary);
         font-size: 0.78rem;
@@ -915,7 +947,7 @@
 
     &__footer {
         padding: 10px 16px;
-        border-top: 1px solid #0d2a55;
+        border-top: 1px solid var(--accent-deep);
         display: flex;
         justify-content: flex-end;
         gap: 8px;
@@ -945,7 +977,7 @@
             margin-right: auto;
         }
         &--save {
-            background: #2a5a9a;
+            background: var(--accent);
             color: var(--text-primary);
         }
         &--place {
@@ -967,7 +999,7 @@
         display: flex;
         align-items: center;
         gap: 7px;
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.58rem;
         font-weight: 700;
         letter-spacing: 0.1em;
@@ -980,7 +1012,7 @@
             content: '';
             flex: 1;
             height: 1px;
-            background: #0d2a55;
+            background: var(--accent-deep);
         }
     }
 
@@ -993,8 +1025,8 @@
     // One entry per child of root group
     &__row {
         border-radius: 4px;
-        background: #040c16;
-        border: 1px solid #0a1628;
+        background: var(--bg-deep);
+        border: 1px solid var(--border);
         padding: 6px 10px;
 
         // Leaf child → single line with text + badges aligned
@@ -1014,14 +1046,14 @@
 
     // AND / OR badge shown between inline chips in a group row
     &__inline-op {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.58rem;
         font-weight: 700;
         letter-spacing: 0.08em;
         text-transform: uppercase;
         color: var(--accent);
         background: var(--bg-base);
-        border: 1px solid #0d2a55;
+        border: 1px solid var(--accent-deep);
         border-radius: 3px;
         padding: 1px 5px;
         flex-shrink: 0;
@@ -1038,8 +1070,8 @@
         // Compact chip variant used inside group rows
         &--inline {
             flex: 0 1 auto;
-            background: #060f1e;
-            border: 1px solid #0d2a55;
+            background: var(--bg-hover);
+            border: 1px solid var(--accent-deep);
             border-radius: 3px;
             padding: 2px 8px 2px 7px;
             gap: 6px;
@@ -1074,18 +1106,18 @@
     }
 
     &__leaf-qty {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.6rem;
         font-weight: 600;
-        color: #8ab8e8;
-        background: rgba(42, 90, 154, 0.15);
+        color: var(--accent-light);
+        background: var(--glow);
         border-radius: 3px;
         padding: 1px 5px;
         flex-shrink: 0;
     }
 
     &__leaf-type {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.58rem;
         font-weight: 600;
         letter-spacing: 0.04em;
@@ -1103,7 +1135,7 @@
     }
 
     &__leaf-tf {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.6rem;
         color: var(--accent);
         flex-shrink: 0;

@@ -2,11 +2,11 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    background: var(--bg-base);
+    background: var(--bg-wash);
     border: 1px solid var(--border);
     border-radius: 6px;
     overflow: hidden;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: var(--font-sans);
     color: var(--text-primary);
 
     &__header {
@@ -15,7 +15,7 @@
         flex-shrink: 0;
         gap: 8px;
         padding: 7px 20px;
-        background: var(--bg-surface);
+        background: var(--bg-wash-surface);
         border-bottom: 1px solid var(--border);
         color: var(--accent-light);
     }
@@ -23,7 +23,7 @@
     &__title-icon { width: 18px; height: 18px; flex-shrink: 0; }
 
     &__title {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 13px;
         font-weight: 700;
         letter-spacing: 0.12em;
@@ -79,7 +79,7 @@
 
     &__empty {
         margin: 24px auto;
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 11px;
         color: var(--text-muted);
         letter-spacing: 0.06em;
@@ -131,7 +131,7 @@
     }
 
     &__source {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 9px;
         font-weight: 600;
         letter-spacing: 0.1em;
@@ -140,14 +140,14 @@
     }
 
     &__time {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 9px;
         color: var(--text-muted);
         letter-spacing: 0.05em;
     }
 
     &__sentiment {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 11px;
         font-weight: 600;
         letter-spacing: 0.08em;

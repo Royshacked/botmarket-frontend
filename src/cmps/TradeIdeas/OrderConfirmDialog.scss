@@ -7,7 +7,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(2, 8, 16, 0.6);
+    background: var(--overlay);
     backdrop-filter: blur(2px);
 }
 
@@ -20,7 +20,7 @@
     border: 1px solid var(--accent-deep);
     border-radius: 8px;
     color: var(--text-primary);
-    box-shadow: 0 20px 70px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(42, 90, 154, 0.18);
+    box-shadow: 0 20px 70px rgba(0, 0, 0, 0.8), 0 0 0 1px var(--border);
     overflow: hidden;
 
     &__header {
@@ -78,7 +78,7 @@
         margin: 0 0 12px;
         font-size: 0.74rem;
         color: var(--text-muted);
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
     }
 
     &__market-closed {
@@ -149,7 +149,7 @@
     }
 
     &__btn {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.72rem;
         font-weight: 600;
         letter-spacing: 0.04em;

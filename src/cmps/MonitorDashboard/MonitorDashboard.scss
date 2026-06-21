@@ -4,7 +4,7 @@
     display: none;
     flex-direction: column;
     gap: 0;
-    background: var(--bg-base);
+    background: var(--bg-wash);
     min-height: 0;
     flex: 1;
     overflow-y: auto;
@@ -33,7 +33,7 @@
     &__logo { width: 32px; height: 32px; object-fit: contain; border-radius: 6px; opacity: 0.9; }
 
     &__title {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.75rem;
         font-weight: 600;
         letter-spacing: 0.14em;
@@ -52,9 +52,9 @@
         flex-wrap: wrap;
         gap: 6px;
         padding: 8px 16px;
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.7rem;
-        background: var(--bg-base);
+        background: var(--bg-wash-surface);
         border-bottom: 1px solid var(--border);
     }
 
@@ -92,7 +92,7 @@
     }
 
     &__broker-name {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.62rem;
         font-weight: 700;
         letter-spacing: 0.12em;
@@ -126,7 +126,7 @@
     }
 
     &__broker-label {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.55rem;
         letter-spacing: 0.12em;
         text-transform: uppercase;
@@ -134,7 +134,7 @@
     }
 
     &__broker-value {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.7rem;
         font-weight: 600;
         color: var(--text-primary);
@@ -146,7 +146,7 @@
 
     &__broker-connect {
         align-self: flex-start;
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.65rem;
         font-weight: 600;
         letter-spacing: 0.08em;
@@ -177,7 +177,7 @@
         text-align: center;
         color: var(--text-muted);
         font-size: 0.8rem;
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         p { margin: 0 0 6px; }
     }
 
@@ -198,7 +198,7 @@
     }
 
     &__news-label {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.65rem;
         font-weight: 600;
         letter-spacing: 0.12em;
@@ -238,7 +238,7 @@
     }
 
     &__asset {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 1.1rem;
         font-weight: 700;
         color: var(--accent-light);
@@ -249,7 +249,7 @@
         display: flex;
         align-items: center;
         gap: 5px;
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.62rem;
         font-weight: 600;
         letter-spacing: 0.1em;
@@ -276,7 +276,7 @@
     }
 
     &__direction {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.72rem;
         font-weight: 600;
         text-transform: uppercase;
@@ -287,7 +287,7 @@
     }
 
     &__tag {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.63rem;
         color: var(--text-secondary);
         background: var(--glow-mid);
@@ -313,7 +313,7 @@
 
     &__condition-label {
         flex-shrink: 0;
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.6rem;
         font-weight: 600;
         letter-spacing: 0.08em;

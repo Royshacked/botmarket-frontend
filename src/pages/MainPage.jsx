@@ -7,7 +7,7 @@ import { NewsFeed }          from '../cmps/NewsFeed/NewsFeed.jsx'
 import { TradingViewChart }  from '../cmps/TradingViewChart/TradingViewChart.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
-import { buildOrderPreview, orderTypeLabel, isDeleteLocked } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { buildOrderPreview, orderTypeLabel, isDeleteLocked, deriveIdeaInterval } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { MonitorDashboard }  from '../cmps/MonitorDashboard/MonitorDashboard.jsx'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
@@ -23,18 +23,6 @@ import { useAuth }           from '../context/AuthContext.jsx'
 // Chart defaults — restored when a build/edit session ends.
 const DEFAULT_CHART_SYMBOL   = 'SPY'
 const DEFAULT_CHART_INTERVAL = 'D'
-
-// Pick the chart timeframe most relevant to a trade — entry leads, then stop/tp.
-// Values are the encoded strings ('1min'…'month') that TradingViewChart maps to
-// TradingView interval codes.
-function deriveChartInterval(pendingTrade) {
-    if (!pendingTrade) return null
-    return pendingTrade.entry_timeframe
-        || pendingTrade.entry_conditions?.[0]?.timeframe
-        || pendingTrade.stop_timeframe
-        || pendingTrade.tp_timeframe
-        || null
-}
 
 // Derive a live "building" idea from chat state — shown in the list but not yet saved
 function deriveBuildingIdea(analysisState) {
@@ -198,7 +186,7 @@ export function MainPage() {
                         const newCompany = data.analysisState?.structured_state?.active_company_name
                         if (newAsset) setChartSymbol(newAsset)
                         // Follow the established timeframe even if the LLM omitted <interval>
-                        const newInterval = deriveChartInterval(data.analysisState?.structured_state?.pending_trade)
+                        const newInterval = deriveIdeaInterval(data.analysisState?.structured_state?.pending_trade)
                         if (newInterval) setChartInterval(newInterval)
                         news.focusAsset(newAsset, newCompany)
                         if (data.ideaSaved) loadIdeas()
@@ -294,7 +282,7 @@ export function MainPage() {
         latestMessagesRef.current = restoredMessages
         setAnalysisState(restoredState)
         setChartSymbol(restoredState.structured_state?.active_asset || idea.asset || 'SPY')
-        const editInterval = deriveChartInterval(restoredState.structured_state?.pending_trade)
+        const editInterval = deriveIdeaInterval(restoredState.structured_state?.pending_trade)
         if (editInterval) setChartInterval(editInterval)
         setEditingIdeaId(idea.id)
         setSelectedAccounts(Array.isArray(idea.accounts) ? idea.accounts : [])

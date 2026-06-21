@@ -9,7 +9,7 @@
         margin: 0.5em 0;
         font-size: 12px;
         line-height: 1.35;
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         // auto layout: ticker/number columns size to content, the wide notes column
         // takes the rest and wraps — no fixed columns forcing tall rows.
     }

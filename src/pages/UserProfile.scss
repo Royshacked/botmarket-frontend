@@ -6,7 +6,7 @@
     overflow: hidden;
     background: var(--bg-base);
     color: var(--text-primary);
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: var(--font-sans);
 
     // ── Body — two columns, fills remaining height ────────────────────────────
     &__body {
@@ -51,7 +51,7 @@
     }
 
     &__section-title {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.68rem;
         font-weight: 600;
         letter-spacing: 0.14em;
@@ -78,7 +78,7 @@
     }
 
     &__label {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.65rem;
         letter-spacing: 0.1em;
         text-transform: uppercase;
@@ -97,7 +97,7 @@
         border: 1px solid var(--border-strong);
         border-radius: 3px;
         color: var(--text-primary);
-        font-family: 'IBM Plex Sans', sans-serif;
+        font-family: var(--font-sans);
         font-size: 0.9rem;
         font-weight: 500;
         padding: 4px 8px;
@@ -118,7 +118,7 @@
     &__btn {
         padding: 7px 14px;
         border-radius: 4px;
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.7rem;
         letter-spacing: 0.08em;
         text-transform: uppercase;
@@ -202,7 +202,7 @@
     }
 
     &__broker-status {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.65rem;
         letter-spacing: 0.1em;
         text-transform: uppercase;
@@ -219,7 +219,7 @@
         border: 1px solid var(--border-strong);
         border-radius: 3px;
         color: var(--text-primary);
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.72rem;
         cursor: pointer;
         outline: none;

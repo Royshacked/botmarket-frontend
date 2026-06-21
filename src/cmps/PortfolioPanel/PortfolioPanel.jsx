@@ -9,16 +9,9 @@ import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useTypewriter } from '../../customHooks/useTypewriter.js'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
+import { MeditatingBot } from '../MeditatingBot.jsx'
+import { BrandTitle } from '../BrandTitle.jsx'
 import './PortfolioPanel.scss'
-
-function PieIcon() {
-    return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
-            <path d="M22 12A10 10 0 0 0 12 2v10z" />
-        </svg>
-    )
-}
 
 
 function TickerChip({ symbol, onSelect }) {
@@ -264,8 +257,8 @@ export function PortfolioPanel({
     return (
         <div className="portfolio-panel">
             <div className="portfolio-panel__header">
-                <span className="portfolio-panel__title-icon"><PieIcon /></span>
-                <span className="portfolio-panel__title">Portfolio Tradvisor</span>
+                <span className="portfolio-panel__title-icon"><MeditatingBot /></span>
+                <span className="portfolio-panel__title"><BrandTitle text="Axl Portfolios" /></span>
                 <div className="portfolio-panel__header-right">
                     <ModelSelector value={model} onChange={handleModelChange} disabled={isLoading} />
                     <AccountSelector

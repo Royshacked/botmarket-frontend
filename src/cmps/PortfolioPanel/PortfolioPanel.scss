@@ -4,11 +4,11 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    background: var(--bg-base);
+    background: var(--bg-wash);
     border: 1px solid var(--border);
     border-radius: 6px;
     overflow: hidden;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: var(--font-sans);
     color: var(--text-primary);
 
     // ── Header ──────────────────────────────────────────────────────────
@@ -17,7 +17,7 @@
         align-items: center;
         flex-shrink: 0;
         padding: 7px 20px;
-        background: var(--bg-surface);
+        background: var(--bg-wash-surface);
         border-bottom: 1px solid var(--border);
     }
 
@@ -33,12 +33,12 @@
     }
 
     &__title {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 13px;
         font-weight: 700;
         letter-spacing: 0.12em;
         text-transform: uppercase;
-        color: #4caf8a;
+        color: var(--text-primary);
     }
 
     &__header-right {
@@ -84,7 +84,7 @@
         align-self: center;
         max-width: 80%;
         text-align: center;
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 11px;
         color: var(--text-muted);
         line-height: 1.7;
@@ -122,7 +122,7 @@
             li         { margin-bottom: 0.2em; }
             strong     { color: #6dd4a8; font-weight: 600; }
             em         { color: var(--text-secondary); }
-            code       { font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+            code       { font-family: var(--font-mono); font-size: 11px;
                          background: var(--bg-base); padding: 1px 5px; border-radius: 2px;
                          color: #6dd4a8; }
             a          { color: #4caf8a; text-decoration: underline; }
@@ -159,7 +159,7 @@
         border: 1px solid rgba(76, 175, 138, 0.3);
         border-radius: 3px;
         color: #6dd4a8;
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 11px;
         font-weight: 600;
         letter-spacing: 0.06em;
@@ -182,7 +182,7 @@
     // ── Thinking indicator ───────────────────────────────────────────────
     &__thinking {
         display: inline-block;
-        font-family: 'IBM Plex Sans', sans-serif;
+        font-family: var(--font-sans);
         font-size: 16px;
         font-weight: 700;
         color: var(--accent);
@@ -196,7 +196,7 @@
         align-items: center;
         gap: 8px;
         padding: 6px 12px 8px;
-        background: var(--bg-surface);
+        background: var(--bg-wash-surface);
         border-top: 1px solid var(--border);
     }
 
@@ -206,7 +206,7 @@
         border: 1px solid var(--border);
         border-radius: 3px;
         color: var(--text-primary);
-        font-family: 'IBM Plex Sans', sans-serif;
+        font-family: var(--font-sans);
         font-size: 13px;
         padding: 9px 12px;
         resize: none;
@@ -225,9 +225,9 @@
         flex-direction: column;
         gap: 6px;
         padding: 8px 20px;
-        background: var(--bg-surface);
+        background: var(--bg-wash-surface);
         border-bottom: 1px solid rgba(76, 175, 138, 0.18);
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 11px;
         max-height: 140px;
         overflow-y: auto;
@@ -305,7 +305,7 @@
         border: 1px solid var(--accent);
         border-radius: 3px;
         color: var(--accent);
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 10px;
         letter-spacing: 0.12em;
         text-transform: uppercase;

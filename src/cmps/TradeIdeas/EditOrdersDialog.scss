@@ -7,7 +7,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(2, 8, 16, 0.6);
+    background: var(--overlay);
     backdrop-filter: blur(2px);
 }
 
@@ -76,7 +76,7 @@
         margin: 0 0 10px;
         font-size: 0.72rem;
         color: var(--text-muted);
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
     }
 
     &__error {
@@ -107,7 +107,7 @@
         td {
             padding: 5px 6px;
             border-top: 1px solid var(--accent-deep);
-            font-family: 'IBM Plex Mono', monospace;
+            font-family: var(--font-mono);
             color: var(--text-primary);
             vertical-align: middle;
         }
@@ -128,7 +128,7 @@
     &__price-input {
         width: 92px;
         padding: 4px 6px;
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.76rem;
         background: var(--bg-base);
         border: 1px solid var(--accent-deep);
@@ -191,7 +191,7 @@
     }
 
     &__btn {
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.7rem;
         font-weight: 600;
         letter-spacing: 0.03em;
