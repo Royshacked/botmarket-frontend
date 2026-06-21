@@ -23,6 +23,27 @@
 const DEFAULT_HUE  = 213 // ≈ the ocean preset
 const DEFAULT_TONE = 0   // darkest end → reproduces the original dark theme
 
+// Anchor hue of the app-wide aurora wash (the green→teal→cyan→violet backdrop
+// shared by the header and every panel). The profile hue slider rotates the whole
+// spread by setting the global --aurora-hue CSS var; the other stops follow it via
+// fixed offsets in _themes.scss. 174 = the brand teal (the current look).
+const DEFAULT_AURORA_HUE = 174
+
+// Set the global aurora anchor hue — re-tints the shared --aurora-wash everywhere.
+export function applyAuroraHue(hue) {
+    document.documentElement.style.setProperty('--aurora-hue', String(hue))
+}
+
+export function saveAuroraHue(hue) {
+    localStorage.setItem('auroraHue', String(hue))
+}
+
+// Read the saved aurora hue, falling back to the brand teal anchor.
+export function loadAuroraHue() {
+    const raw = localStorage.getItem('auroraHue')
+    return raw === null ? DEFAULT_AURORA_HUE : Number(raw)
+}
+
 // Width (as a fraction of the 0–360 hue range) of the transition at each edge
 // of the hue slider, where saturation eases out to a neutral grayscale theme.
 const EDGE = 0.12
@@ -156,6 +177,11 @@ export function loadTone() {
 
 // Apply whichever theme was last saved. Call once before first render.
 export function initTheme() {
+    // The aurora wash hue is global — it tints the shared --aurora-wash used by the
+    // header and every panel, in both the axl and classic header styles, so it's
+    // applied up front regardless of which theming path runs below.
+    applyAuroraHue(loadAuroraHue())
+
     // Header-style trial: while the axl header is active (headerStyle !== 'classic'),
     // the app always uses the curated 'axl' aurora theme so its colours match the
     // header exactly. Any generated spectrum vars are cleared, so the profile theme
@@ -177,4 +203,4 @@ export function initTheme() {
     }
 }
 
-export { DEFAULT_HUE, DEFAULT_TONE }
+export { DEFAULT_HUE, DEFAULT_TONE, DEFAULT_AURORA_HUE }

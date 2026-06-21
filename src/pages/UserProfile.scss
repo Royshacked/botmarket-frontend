@@ -4,7 +4,7 @@
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    background: var(--bg-base);
+    background: var(--bg-wash); // aurora wash (hue-slider driven), like every other panel
     color: var(--text-primary);
     font-family: var(--font-sans);
 
@@ -14,9 +14,9 @@
         min-height: 0;
         display: flex;
         flex-direction: row;
-        gap: 1px;
+        gap: 0;
         overflow: hidden;
-        background: var(--border-mid); // acts as column divider
+        background: transparent; // let the root aurora wash show through
     }
 
     // ── Columns ──────────────────────────────────────────────────────────────
@@ -27,8 +27,10 @@
         flex-direction: column;
         gap: 1rem;
         padding: 1.25rem 1.5rem;
-        background: var(--bg-base);
+        background: transparent; // let the root aurora wash show through behind the section cards
         overflow: hidden;
+
+        & + & { border-left: 1px solid var(--border-mid); } // column divider (no longer an opaque body bg)
     }
 
     &__spacer {

@@ -3,8 +3,8 @@
     align-items: center;
     gap: 8px;
 
-    // One teal hue, brightest → darkest (the brand "a" aurora at decreasing
-    // brightness).
+    // Full hue spectrum (0–360) — the slider picks the aurora anchor hue. Sat +
+    // lightness match the anchor stop (--aurora-2) so the track previews the wash.
     &__slider {
         -webkit-appearance: none;
         appearance: none;
@@ -15,10 +15,13 @@
         outline: none;
         background: linear-gradient(
             to right,
-            #C9F0E1 0%,
-            #74C9AE 38%,
-            #2C6B58 74%,
-            #0F3025 100%
+            hsl(0, 52%, 58%) 0%,
+            hsl(60, 52%, 58%) 17%,
+            hsl(120, 52%, 58%) 33%,
+            hsl(180, 52%, 58%) 50%,
+            hsl(240, 52%, 58%) 67%,
+            hsl(300, 52%, 58%) 83%,
+            hsl(360, 52%, 58%) 100%
         );
 
         &::-webkit-slider-thumb {

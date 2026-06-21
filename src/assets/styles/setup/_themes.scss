@@ -221,22 +221,29 @@
     --font-sans: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
     --font-mono: 'IBM Plex Mono', monospace;
 
-    // Aurora-washed backgrounds — the app-header hue-wash (green → teal → cyan →
-    // violet) blooming from the top, over the night base / surface. Used as the
-    // background of component shells (--bg-wash) and their headers/bars
-    // (--bg-wash-surface) so the whole app shares the header's backdrop.
-    --bg-wash:
-        radial-gradient(80% 60% at 15% 100%, rgba(127, 214, 158, 0.07), transparent 65%),
-        radial-gradient(70% 55% at 50% 100%, rgba( 91, 203, 192, 0.05), transparent 65%),
-        radial-gradient(75% 58% at 80% 100%, rgba( 95, 185, 217, 0.05), transparent 65%),
-        radial-gradient(70% 60% at 98% 100%, rgba(158, 155, 227, 0.07), transparent 65%),
-        var(--bg-base);
-    --bg-wash-surface:
-        radial-gradient(80% 60% at 15% 100%, rgba(127, 214, 158, 0.07), transparent 65%),
-        radial-gradient(70% 55% at 50% 100%, rgba( 91, 203, 192, 0.05), transparent 65%),
-        radial-gradient(75% 58% at 80% 100%, rgba( 95, 185, 217, 0.05), transparent 65%),
-        radial-gradient(70% 60% at 98% 100%, rgba(158, 155, 227, 0.07), transparent 65%),
-        var(--bg-surface);
+    // Aurora-washed backgrounds — the app-header hue-wash, blooming up from the
+    // bottom edge, over the night base / surface. The four hues are derived from a
+    // single anchor hue (--aurora-hue, the brand teal) plus fixed offsets, so the
+    // whole aurora rotates together when the profile hue slider changes
+    // --aurora-hue (e.g. teal → green; cyan/violet follow). The wash geometry lives
+    // once in --aurora-wash and is reused by the header (AppHeaderAxl.scss) and the
+    // app backdrop (RootCmp.scss) so the whole app stays identical + in sync.
+    --aurora-hue: 174;                                              // anchor: brand teal; the hue slider rotates this
+    --aurora-1: hsla(calc(var(--aurora-hue) - 33), 52%, 67%, 0.14); // green  (anchor − 33)
+    --aurora-2: hsla(var(--aurora-hue),            52%, 58%, 0.11); // teal   (anchor)
+    --aurora-3: hsla(calc(var(--aurora-hue) + 22), 62%, 61%, 0.11); // cyan   (anchor + 22)
+    --aurora-4: hsla(calc(var(--aurora-hue) + 69), 56%, 75%, 0.14); // violet (anchor + 69)
+    // Each bloom is anchored to the element's OWN bottom edge (y 100%) with
+    // full-height reach, so the aurora is visible on the short header AND on the
+    // tall app backdrop / panels alike — not just where the element happens to be
+    // short. Same wash everywhere; the slider rotates all four hues together.
+    --aurora-wash:
+        radial-gradient(78% 108% at 12% 100%, var(--aurora-1), transparent 72%),
+        radial-gradient(66% 100% at 42% 100%, var(--aurora-2), transparent 72%),
+        radial-gradient(70% 104% at 73% 100%, var(--aurora-3), transparent 72%),
+        radial-gradient(74% 108% at 95% 100%, var(--aurora-4), transparent 72%);
+    --bg-wash:         var(--aurora-wash), var(--bg-base);
+    --bg-wash-surface: var(--aurora-wash), var(--bg-surface);
 
     --color-long:    #4caf50;
     --color-short:   #ef5350;
