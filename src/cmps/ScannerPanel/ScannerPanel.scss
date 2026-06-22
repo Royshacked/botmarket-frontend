@@ -1,0 +1,58 @@
+// Scanner reuses the portfolio-panel chat shell (imported in the JSX); these are
+// only the scanner-specific bits.
+
+.scanner-panel {
+    // Override the green portfolio accent with the theme accent for the bot icon.
+    .portfolio-panel__title-icon { color: var(--accent-light); }
+    .portfolio-panel__status-dot {
+        background: var(--accent-light);
+        &.loading { background: var(--accent-bright); }
+    }
+
+    &__period-chip {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding: 1px 7px;
+        border-radius: 10px;
+        background: var(--accent-deep);
+        color: var(--accent-bright);
+        border: 1px solid var(--accent);
+    }
+
+    &__dir {
+        font-size: 11px;
+        line-height: 1;
+        margin-right: 3px;
+        &--long  { color: var(--long-text); }
+        &--short { color: var(--short-text); }
+    }
+
+    // Starter-prompt chips in the empty state.
+    &__suggestions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 16px;
+    }
+
+    &__suggestion {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        padding: 6px 12px;
+        border-radius: 14px;
+        background: var(--bg-wash-surface);
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: border-color 0.15s, color 0.15s;
+
+        &:hover:not(:disabled) {
+            border-color: var(--accent);
+            color: var(--accent-bright);
+        }
+        &:disabled { opacity: 0.5; cursor: default; }
+    }
+}

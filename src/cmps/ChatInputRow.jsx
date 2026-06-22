@@ -16,6 +16,8 @@ export function ChatInputRow({
     placeholder,
     onSend,
     sendDisabled,
+    isStreaming,
+    onStop,
     onClear,
     clearDisabled,
     clearTitle = 'Clear chat',
@@ -67,17 +69,30 @@ export function ChatInputRow({
                 rows={2}
                 disabled={textareaDisabled}
             />
-            <button
-                className={`${prefix}__send`}
-                onClick={onSend}
-                disabled={sendDisabled}
-                title="Send"
-            >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <line x1="22" y1="2" x2="11" y2="13"/>
-                    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                </svg>
-            </button>
+            {isStreaming && onStop ? (
+                <button
+                    className={`${prefix}__send ${prefix}__stop`}
+                    onClick={onStop}
+                    title="Stop response"
+                    aria-label="Stop response"
+                >
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <rect x="6" y="6" width="12" height="12" rx="2"/>
+                    </svg>
+                </button>
+            ) : (
+                <button
+                    className={`${prefix}__send`}
+                    onClick={onSend}
+                    disabled={sendDisabled}
+                    title="Send"
+                >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <line x1="22" y1="2" x2="11" y2="13"/>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                </button>
+            )}
             <button
                 className={`${prefix}__clear`}
                 onClick={onClear}
@@ -102,6 +117,8 @@ ChatInputRow.propTypes = {
     placeholder:      PropTypes.string,
     onSend:           PropTypes.func.isRequired,
     sendDisabled:     PropTypes.bool,
+    isStreaming:      PropTypes.bool,
+    onStop:           PropTypes.func,
     onClear:          PropTypes.func,
     clearDisabled:    PropTypes.bool,
     clearTitle:       PropTypes.string,

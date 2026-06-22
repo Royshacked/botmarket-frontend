@@ -3,6 +3,7 @@ import { useState, useRef } from 'react'
 import { ChatPanel }         from '../cmps/ChatPanel/ChatPanel.jsx'
 import { readStoredModel }   from '../cmps/modelOptions.js'
 import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
+import { ScannerPanel }      from '../cmps/ScannerPanel/ScannerPanel.jsx'
 import { NewsFeed }          from '../cmps/NewsFeed/NewsFeed.jsx'
 import { TradingViewChart }  from '../cmps/TradingViewChart/TradingViewChart.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
@@ -15,6 +16,7 @@ import { portfolioService }  from '../services/portfolio/portfolio.service.remot
 import { showErrorMsg }      from '../services/event-bus.service'
 import { useTypewriter }     from '../customHooks/useTypewriter.js'
 import { useNewsFeed }       from '../customHooks/useNewsFeed.js'
+import { useScans }          from '../customHooks/useScans.js'
 import { useBrokerAccounts } from '../customHooks/useBrokerAccounts.js'
 import { usePositions }      from '../customHooks/usePositions.js'
 import { useTradeIdeas }     from '../customHooks/useTradeIdeas.js'
@@ -50,6 +52,58 @@ function deriveBuildingIdea(analysisState) {
     }
 }
 
+function _periodPhrase(period) {
+    if (!period) return ''
+    const range = period.start && period.end && period.start !== period.end
+        ? `${period.start} – ${period.end}`
+        : (period.start || period.end || '')
+    return [period.label, range && `(${range})`].filter(Boolean).join(' ')
+}
+
+// Readable summary of a scan candidate, shown as an assistant bubble when the
+// user opens it — markdown so it renders nicely in the chat.
+function buildCandidateSummary(c, period) {
+    const dir   = c.direction === 'short' ? 'short' : 'long'
+    const lines = [`**Scan pick — ${c.ticker}${c.name ? ` · ${c.name}` : ''} — ${dir.toUpperCase()}**`]
+
+    const when = _periodPhrase(period)
+    if (when) lines.push(`*Time horizon: ${when}*`)
+
+    if (c.thesis)   lines.push(`\n**Thesis:** ${c.thesis}`)
+    if (c.analysis) lines.push(`\n${c.analysis}`)
+
+    const signals = c.signals && Object.entries(c.signals).filter(([, v]) => v)
+    if (signals?.length) {
+        lines.push('\n**Signals**')
+        signals.forEach(([k, v]) => lines.push(`- **${k}:** ${v}`))
+    }
+    if (c.sources?.length) {
+        lines.push('\n**Sources**')
+        c.sources.forEach(s => lines.push(`- [${s.title || s.url}](${s.url})`))
+    }
+
+    lines.push(`\n_Ask me about entry, stop, or take-profit and I'll build this into a trade — I already have the scan context above._`)
+    return lines.join('\n')
+}
+
+// Same context, phrased for the idea agent's system prompt (recent_chat_summary).
+// Lets the agent answer the user's first question already knowing the candidate,
+// without pre-filling structured trade fields (keeps the idea flow natural).
+function buildCandidateContext(c, period) {
+    const dir  = c.direction === 'short' ? 'short' : 'long'
+    const when = _periodPhrase(period)
+    const signals = c.signals && Object.entries(c.signals).filter(([, v]) => v)
+    return [
+        `The user opened this trade idea from a market scan and is reading the candidate summary.`,
+        `Pick: ${c.ticker}${c.name ? ` (${c.name})` : ''}, intended direction ${dir}.`,
+        when ? `Time horizon: ${when} — treat this as the idea's intended time condition.` : '',
+        c.thesis   ? `Scanner thesis: ${c.thesis}` : '',
+        c.analysis ? `Scanner analysis: ${c.analysis}` : '',
+        signals?.length ? `Signals — ${signals.map(([k, v]) => `${k}: ${v}`).join('; ')}.` : '',
+        `Do not respond yet; when the user asks, use this context to help shape the trade (entry, stop, take-profit) and set the time condition from the horizon.`,
+    ].filter(Boolean).join(' ')
+}
+
 export function MainPage() {
     const [messages, setMessages] = useState([])
     const [analysisState, setAnalysisState] = useState(null)
@@ -58,6 +112,8 @@ export function MainPage() {
     const [isLoading, setIsLoading] = useState(false)
     const [editingIdeaId, setEditingIdeaId] = useState(null)
     const [activeTab, setActiveTab]             = useState('idea')
+    const [newsTab, setNewsTab]                 = useState('news')
+    const [scannerChatRestore, setScannerChatRestore] = useState(null)
     const [portfolioChatRestore, setPortfolioChatRestore] = useState(null)
     const [buildingPortfolio, setBuildingPortfolio] = useState(null)
     const [dismissedConfirmIds, setDismissedConfirmIds] = useState(() => new Set())
@@ -70,8 +126,10 @@ export function MainPage() {
         localStorage.setItem('ideaModel', m)
     }
     const latestMessagesRef = useRef([])
+    const abortRef          = useRef(null)
 
     const news = useNewsFeed()
+    const { scans, loading: scansLoading, createScan, updateScan, deleteScan } = useScans()
     const { user } = useAuth()
     const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
     const { positions, loading: positionsLoading, refresh: refreshPositions, closePosition } = usePositions()
@@ -132,12 +190,16 @@ export function MainPage() {
         setIsLoading(true)
         startDrain()
 
+        const ctrl = new AbortController()
+        abortRef.current = ctrl
+
         try {
             const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
             await userPromptService.sendPromptStream(
                 userPrompt,
                 currentAnalysisState,
                 {
+                    signal: ctrl.signal,
                     // Buffer only — drain timer handles the actual state updates
                     onToken:    (text)     => { enqueueToken(text) },
                     onInterval: (interval) => { if (interval) setChartInterval(interval) },
@@ -234,6 +296,20 @@ export function MainPage() {
         } finally {
             setIsLoading(false)
         }
+    }
+
+    // Stop a streaming idea-chat response: abort the request, freeze the partial
+    // reply, free the input. postSSE swallows the abort so no error bubble shows.
+    function handleStopIdea() {
+        abortRef.current?.abort()
+        stopDrain()
+        setMessages(prev => {
+            const msgs = [...prev]
+            const last = msgs[msgs.length - 1]
+            if (last?.streaming) msgs[msgs.length - 1] = { role: 'assistant', content: last.content || '_(stopped)_' }
+            return msgs
+        })
+        setIsLoading(false)
     }
 
     function handleCancelBuild() {
@@ -553,6 +629,69 @@ export function MainPage() {
         }
     }
 
+    // Scanner ticker chip click (inside the scanner chat): just preview on the chart.
+    function handleScannerSymbol(ticker) {
+        if (ticker) setChartSymbol(ticker)
+    }
+
+    // Phase 3 handoff: clicking a scan candidate opens the idea chat with the
+    // scanner's summary shown as an assistant message (readable, no auto-reply),
+    // and the same context seeded into analysisState so the agent already has it
+    // when the user asks their first question.
+    function handleBuildFromCandidate(candidate, scan) {
+        if (!candidate?.ticker || isLoading) return
+        const period = scan?.period
+        const dir    = candidate.direction === 'short' ? 'short' : 'long'
+
+        const seededMessages = [{ role: 'assistant', content: buildCandidateSummary(candidate, period) }]
+        const seededState = {
+            recent_messages:     [],   // keep empty — agent context rides in the summary below
+            recent_chat_summary: buildCandidateContext(candidate, period),
+            structured_state: {
+                active_asset: candidate.ticker,
+                pending_trade: {
+                    direction: dir, type: null, asset_class: null, quantity: null,
+                    entry_timeframe: null, stop_timeframe: null, tp_timeframe: null,
+                    entry_logic: 'AND', entry_conditions: [],
+                    stop_logic: 'OR', stop_conditions: [],
+                    tp_logic: 'OR', tp_conditions: [],
+                    additional_entries: [], notes: null,
+                },
+            },
+        }
+
+        setEditingIdeaId(null)
+        setMessages(seededMessages)
+        latestMessagesRef.current = seededMessages
+        setAnalysisState(seededState)
+        setActiveTab('idea')
+        setChartSymbol(candidate.ticker)
+    }
+
+    // Generate (save) a scan list from the scanner panel, then surface it.
+    async function handleGenerateList(scan) {
+        const saved = await createScan(scan)
+        if (saved) setNewsTab('scans')
+    }
+
+    // Edit a saved list (pencil) → reopen its conversation in the scanner, in edit
+    // mode, primed with the list's current contents so the chat can refine it.
+    function handleEditScan(scan) {
+        setActiveTab('scanner')
+        setScannerChatRestore({
+            key:      Date.now(),
+            messages: scan.chat ?? [],
+            scanId:   scan.id,
+            scan:     { period: scan.period, thesis: scan.thesis, direction: scan.direction, candidates: scan.candidates },
+        })
+    }
+
+    // "Update list" from the scanner → persist the refined list to the same scan.
+    async function handleUpdateList(scanId, scan) {
+        const saved = await updateScan(scanId, scan)
+        if (saved) setNewsTab('scans')
+    }
+
     // Shared by the desktop workspace chat and the mobile chat sheet so the two
     // instances never drift. The mobile sheet overrides onGenerate to also close.
     const chatPanelProps = {
@@ -561,6 +700,7 @@ export function MainPage() {
         onSend:              handleSend,
         onGenerate:          handleGenerate,
         onClear:             handleCancelBuild,
+        onStop:              handleStopIdea,
         isLoading,
         isEditing:           !!editingIdeaId,
         availableAccounts,
@@ -590,9 +730,21 @@ export function MainPage() {
                                 className={`chat-tabs__tab chat-tabs__tab--portfolio${activeTab === 'portfolio' ? ' chat-tabs__tab--active' : ''}`}
                                 onClick={() => setActiveTab('portfolio')}
                             >Portfolio</button>
+                            <button
+                                className={`chat-tabs__tab chat-tabs__tab--scanner${activeTab === 'scanner' ? ' chat-tabs__tab--active' : ''}`}
+                                onClick={() => setActiveTab('scanner')}
+                            >Scanner</button>
                         </div>
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'idea' ? 'flex' : 'none' }}>
                             <ChatPanel {...chatPanelProps} />
+                        </div>
+                        <div className="chat-tabs__panel" style={{ display: activeTab === 'scanner' ? 'flex' : 'none' }}>
+                            <ScannerPanel
+                                onTickerSelect={handleScannerSymbol}
+                                onGenerateList={handleGenerateList}
+                                onUpdateList={handleUpdateList}
+                                chatRestore={scannerChatRestore}
+                            />
                         </div>
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'portfolio' ? 'flex' : 'none' }}>
                             <PortfolioPanel
@@ -616,6 +768,13 @@ export function MainPage() {
                             isLoading={news.activeNewsSymbol ? news.assetNewsLoading : news.newsLoading}
                             sentimentLoading={!!news.activeNewsSymbol && news.assetSentimentLoading}
                             symbol={news.activeNewsSymbol}
+                            tab={newsTab}
+                            onTabChange={setNewsTab}
+                            scans={scans}
+                            scansLoading={scansLoading}
+                            onCandidateSelect={handleBuildFromCandidate}
+                            onDeleteScan={deleteScan}
+                            onEditScan={handleEditScan}
                         />
                     </div>
                     <div className="workspace__ideas">

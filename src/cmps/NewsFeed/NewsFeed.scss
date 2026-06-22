@@ -28,7 +28,7 @@
         font-weight: 700;
         letter-spacing: 0.12em;
         text-transform: uppercase;
-        color: var(--accent-light);
+        color: var(--text-primary);
     }
 
     &__status-dot {
@@ -75,6 +75,49 @@
             &:nth-child(2) { animation-delay: 0.15s; }
             &:nth-child(3) { animation-delay: 0.30s; }
         }
+    }
+
+    // ── Tab strip (News | Scans) ────────────────────────────────────────
+    &__tabs {
+        display: flex;
+        flex-shrink: 0;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-wash-surface);
+    }
+
+    &__tab {
+        flex: 1;
+        padding: 6px 0;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        cursor: pointer;
+        transition: color 0.15s, border-color 0.15s;
+
+        &:hover { color: var(--text-secondary); }
+
+        &--active {
+            color: var(--accent-bright);
+            border-bottom-color: var(--accent);
+        }
+    }
+
+    &__tab-count {
+        display: inline-block;
+        min-width: 15px;
+        margin-left: 5px;
+        padding: 0 4px;
+        font-size: 10px;
+        line-height: 15px;
+        border-radius: 8px;
+        background: var(--accent-deep);
+        color: var(--accent-bright);
     }
 
     &__empty {

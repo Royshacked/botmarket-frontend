@@ -130,9 +130,24 @@ export function PortfolioPanel({
 
     const pendingTickersRef = useRef([])
     const textareaRef       = useRef(null)
+    const abortRef          = useRef(null)
 
     // Typewriter queue — smooths streamed tokens into the last message
     const { enqueue: enqueueToken, start: startDrain, stop: stopDrain } = useTypewriter(setMessages)
+
+    // Stop a streaming response: abort the request, freeze the partial reply, and
+    // free the input. postSSE swallows the abort, so no error bubble appears.
+    function handleStop() {
+        abortRef.current?.abort()
+        stopDrain()
+        setMessages(prev => {
+            const msgs = [...prev]
+            const last = msgs[msgs.length - 1]
+            if (last?.streaming) msgs[msgs.length - 1] = { role: 'assistant', content: last.content || '_(stopped)_' }
+            return msgs
+        })
+        setIsLoading(false)
+    }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- _send is a stable closure for this purpose
     const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
@@ -159,11 +174,15 @@ export function PortfolioPanel({
         pendingTickersRef.current = []
         startDrain()
 
+        const ctrl = new AbortController()
+        abortRef.current = ctrl
+
         try {
             await portfolioService.sendStream(history, ideaAccounts, {
                 portfolioId:    editingPortfolioId,
                 portfolioIdeas: editingPortfolioIdeas,
                 model,
+                signal: ctrl.signal,
 
                 onToken: (t) => { enqueueToken(t) },
 
@@ -331,6 +350,8 @@ export function PortfolioPanel({
                 placeholder="Describe your portfolio goals… (Enter to send, Shift+Enter for newline)"
                 onSend={handleSend}
                 sendDisabled={!inputText.trim() || isLoading}
+                isStreaming={isLoading}
+                onStop={handleStop}
                 onClear={handleClear}
                 clearDisabled={isLoading || !messages.length || !!editingPortfolioId}
                 clearTitle="Clear chat"

@@ -149,16 +149,18 @@
         cursor: default;
         background: var(--glow-soft);
         border-left: none;
+        // darker than waiting (--accent) but still legible — a shade toward --accent-deep
+        --building-text: color-mix(in srgb, var(--accent) 70%, var(--accent-deep));
 
         .idea-row__asset {
-            color: var(--accent-light);
+            color: var(--building-text);
             animation: idea-build-pulse 1.6s ease-in-out infinite;
         }
         .idea-row__direction,
         .idea-row__type,
         .idea-row__notes { opacity: 0.7; }
 
-        .idea-row__building-bot { color: var(--accent-light); }
+        .idea-row__building-bot { color: var(--building-text); }
 
         td { border-bottom: none; }
     }
@@ -399,8 +401,10 @@
     }
 
     &__building-bot {
-        width: 18px;
-        height: 18px;
+        width: 22px;
+        height: 22px;
+        margin-left: 4px;   // match the status-badge / status-toggle left padding so the
+                            // icon sits on the same vertical line as the other statuses
         flex-shrink: 0;
         color: var(--accent);
         animation: idea-build-pulse 1.6s ease-in-out infinite;
@@ -414,6 +418,7 @@
 // short=red. Child badges that set their own colour (broker alias, ⚠ no-account)
 // are unaffected.
 $sym-status-colors: (
+    building: var(--building-text),   // dimmer than waiting — the idea isn't authored yet (row-scoped var)
     waiting: var(--accent),
     looking: var(--accent-light),
     resting: var(--accent-bright),

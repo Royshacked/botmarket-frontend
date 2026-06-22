@@ -177,7 +177,7 @@ export function AppHeaderAxl() {
                     </svg>
                     <span className="app-header-axl__brand-text">
                         <span className="app-header-axl__wordmark"><b>a</b>xl</span>
-                        <svg className="app-header-axl__rule" viewBox="0 0 40 5" aria-hidden="true">
+                        <svg className="app-header-axl__rule" viewBox="0 0 40 5" preserveAspectRatio="none" aria-hidden="true">
                             <path d="M0,3 Q10,0 20,3 T40,3" />
                         </svg>
                     </span>

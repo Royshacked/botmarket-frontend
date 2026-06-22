@@ -433,17 +433,11 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                                         <td className="portfolio-group-row__count">{buildingPortfolio.ideasCount}</td>
                                         <td className="portfolio-group-row__created">—</td>
                                         <td className="portfolio-group-row__status">
-                                            <svg className="idea-row__building-bot" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" title="Building…" aria-hidden="true">
-                                                {/* Antenna */}
-                                                <line x1="10" y1="5" x2="10" y2="2"   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                                                <circle cx="10" cy="1.5" r="1"         fill="currentColor"/>
-                                                {/* Head */}
-                                                <rect x="2" y="5" width="16" height="12" rx="3" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-                                                {/* Eyes */}
-                                                <circle cx="7"  cy="10" r="1.8"        fill="currentColor"/>
-                                                <circle cx="13" cy="10" r="1.8"        fill="currentColor"/>
-                                                {/* Mouth */}
-                                                <rect x="6.5" y="13" width="7" height="1.5" rx="0.75" fill="currentColor"/>
+                                            <svg className="idea-row__building-bot" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg" title="Building…" aria-hidden="true">
+                                                {/* hammer — building in progress */}
+                                                <path d="m15 12-8.373 8.373a1 1 0 1 1-3-3L12 9"/>
+                                                <path d="m18 15 4-4"/>
+                                                <path d="m21.5 11.5-1.914-1.914A2 2 0 0 1 19 8.172V7l-2.26-2.26a6 6 0 0 0-4.202-1.756L9 2.96l.92.82A6.18 6.18 0 0 1 12 8.4V10l2 2h1.172a2 2 0 0 1 1.414.586z"/>
                                             </svg>
                                         </td>
                                     </tr>

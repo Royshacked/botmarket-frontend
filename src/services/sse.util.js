@@ -10,13 +10,21 @@
  * @param {Object<string, function>} handlers  event name → (data) => void
  * @returns {Promise<void>}  resolves when the stream closes
  */
-export async function postSSE(url, body, handlers = {}) {
-    const res = await fetch(url, {
-        method:      'POST',
-        credentials: 'include',
-        headers:     { 'Content-Type': 'application/json' },
-        body:        JSON.stringify(body),
-    })
+export async function postSSE(url, body, handlers = {}, { signal } = {}) {
+    let res
+    try {
+        res = await fetch(url, {
+            method:      'POST',
+            credentials: 'include',
+            headers:     { 'Content-Type': 'application/json' },
+            body:        JSON.stringify(body),
+            signal,
+        })
+    } catch (err) {
+        // A user-initiated stop aborts the fetch — treat it as a clean end, not an error.
+        if (err?.name === 'AbortError') return
+        throw err
+    }
 
     if (!res.ok) {
         let errMsg = 'Stream request failed'
@@ -29,7 +37,14 @@ export async function postSSE(url, body, handlers = {}) {
     let pending   = ''
 
     for (;;) {
-        const { done, value } = await reader.read()
+        let chunk
+        try {
+            chunk = await reader.read()
+        } catch (err) {
+            if (err?.name === 'AbortError') return   // stopped mid-stream — clean end
+            throw err
+        }
+        const { done, value } = chunk
         if (done) break
 
         pending += decoder.decode(value, { stream: true })

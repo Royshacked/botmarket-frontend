@@ -119,7 +119,7 @@ function canGenerate(analysisState, selectedAccounts) {
     )
 }
 
-export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, isLoading, isEditing = false, availableAccounts = [], selectedAccounts = [], onAccountsChange, mainAccountId = null, onMainAccountChange, model, onModelChange }) {
+export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, onStop, isLoading, isEditing = false, availableAccounts = [], selectedAccounts = [], onAccountsChange, mainAccountId = null, onMainAccountChange, model, onModelChange }) {
     const [input, setInput] = useState('')
 
     const analysisStateRef = useRef(analysisState)
@@ -254,6 +254,8 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                 placeholder="Describe your trade idea… (Enter to send, Shift+Enter for newline)"
                 onSend={handleSend}
                 sendDisabled={!input.trim() || isLoading}
+                isStreaming={isLoading}
+                onStop={onStop}
                 onClear={onClear}
                 clearDisabled={isLoading || isEditing || (!messages.length && !analysisState?.structured_state?.active_asset)}
                 clearTitle="Clear chat and idea"
@@ -274,6 +276,7 @@ ChatPanel.propTypes = {
     onSend:            PropTypes.func.isRequired,
     onGenerate:        PropTypes.func.isRequired,
     onClear:           PropTypes.func,
+    onStop:            PropTypes.func,
     isLoading:         PropTypes.bool,
     isEditing:         PropTypes.bool,
     availableAccounts:   PropTypes.array,
