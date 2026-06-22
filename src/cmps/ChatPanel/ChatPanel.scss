@@ -338,6 +338,18 @@
         &:disabled { opacity: 0.26; cursor: not-allowed; }
     }
 
+    // Secondary "Changed my mind" state — a muted exit, not a primary CTA.
+    &__generate--cancel {
+        border-color: var(--border);
+        color: var(--text-secondary);
+
+        &:not(:disabled):hover {
+            background: var(--bg-hover);
+            border-color: var(--border-strong);
+            color: var(--text-primary);
+        }
+    }
+
     // ── Input row ────────────────────────────────────────────────────────
     &__input-row {
         flex-shrink: 0;

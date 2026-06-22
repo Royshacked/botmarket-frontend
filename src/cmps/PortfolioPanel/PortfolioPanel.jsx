@@ -73,6 +73,7 @@ export function PortfolioPanel({
     const [pendingPlan,           setPendingPlan]           = useState(null)
     const [editingPortfolioId,    setEditingPortfolioId]    = useState(null)
     const [editingPortfolioIdeas, setEditingPortfolioIdeas] = useState([])
+    const [editDirty,             setEditDirty]             = useState(false)
     const [model,                 setModel]                 = useState(() => readStoredModel('portfolioModel'))
 
     function handleModelChange(m) {
@@ -85,6 +86,7 @@ export function PortfolioPanel({
         setMessages(chatRestore.messages ?? [])
         setPendingPlan(null)
         setInputText('')
+        setEditDirty(false)
         setEditingPortfolioId(chatRestore.portfolioId ?? null)
         setEditingPortfolioIdeas(chatRestore.portfolioIdeas ?? [])
         // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only when a new restore is pushed (keyed by .key)
@@ -157,6 +159,7 @@ export function PortfolioPanel({
 
     async function _send(text) {
         if (!text || isLoading) return
+        setEditDirty(true)
 
         const history = messages
             .filter(m => !m.streaming)
@@ -248,6 +251,16 @@ export function PortfolioPanel({
         setInputText('')
     }
 
+    // "Changed my mind": leave edit mode without saving and return to a fresh chat.
+    function handleCancelEdit() {
+        setMessages([])
+        setPendingPlan(null)
+        setInputText('')
+        setEditingPortfolioId(null)
+        setEditingPortfolioIdeas([])
+        setEditDirty(false)
+    }
+
     function handleGenerate() {
         if (editingPortfolioId) {
             // Always persist the conversation so re-opening restores it; apply the
@@ -256,6 +269,7 @@ export function PortfolioPanel({
             if (onUpdatePlan) onUpdatePlan(planReady ? pendingPlan : null, editingPortfolioId, messages)
             setEditingPortfolioId(null)
             setEditingPortfolioIdeas([])
+            setEditDirty(false)
         } else {
             if (!planReady) return
             if (onGeneratePlan) onGeneratePlan(pendingPlan, messages)
@@ -272,6 +286,7 @@ export function PortfolioPanel({
 
     // A plan is only generatable once every idea has a positive quantity.
     const planReady = !!pendingPlan && pendingPlan.ideas.length > 0 && pendingPlan.ideas.every(i => Number(i.quantity) > 0)
+    const showChangedMind = !!editingPortfolioId && !editDirty
 
     return (
         <div className="portfolio-panel">
@@ -331,14 +346,16 @@ export function PortfolioPanel({
             </div>
 
             <button
-                className="portfolio-panel__generate"
+                className={`portfolio-panel__generate${showChangedMind ? ' portfolio-panel__generate--cancel' : ''}`}
                 disabled={isLoading || (!editingPortfolioId && !planReady)}
-                onClick={handleGenerate}
-                title={editingPortfolioId
-                    ? (planReady ? 'Update plan' : 'Exit edit mode')
-                    : (planReady ? 'Generate plan' : 'Build a plan and set quantities first')}
+                onClick={showChangedMind ? handleCancelEdit : handleGenerate}
+                title={showChangedMind
+                    ? 'Discard edit and start a new chat'
+                    : editingPortfolioId
+                        ? (planReady ? 'Update plan' : 'Exit edit mode')
+                        : (planReady ? 'Generate plan' : 'Build a plan and set quantities first')}
             >
-                {editingPortfolioId ? 'Update plan' : 'Generate plan'}
+                {showChangedMind ? 'Changed my mind' : editingPortfolioId ? 'Update plan' : 'Generate plan'}
             </button>
 
             <ChatInputRow

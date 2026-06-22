@@ -122,16 +122,22 @@ function canGenerate(analysisState, selectedAccounts) {
 export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, onStop, isLoading, isEditing = false, availableAccounts = [], selectedAccounts = [], onAccountsChange, mainAccountId = null, onMainAccountChange, model, onModelChange }) {
     const [input, setInput] = useState('')
 
+    // Has the user actually changed anything via chat since entering edit mode?
+    // Until they do, the primary button offers a clean "Changed my mind" exit.
+    const [editDirty, setEditDirty] = useState(false)
+    useEffect(() => { setEditDirty(false) }, [isEditing])
+
     const analysisStateRef = useRef(analysisState)
     useEffect(() => { analysisStateRef.current = analysisState }, [analysisState])
 
     const onTranscript = useCallback((text) => {
-        if (text) onSend(text, analysisStateRef.current)
+        if (text) { setEditDirty(true); onSend(text, analysisStateRef.current) }
     }, [onSend])
 
     const { isRecording, isTranscribing, toggle: toggleMic, cancel: cancelMic } = useMicInput({ onTranscript })
     const inputRef      = useRef(null)
     const generateReady = canGenerate(analysisState, selectedAccounts)
+    const showChangedMind = isEditing && !editDirty
 
     const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, {
         onFinishStreaming: () => inputRef.current?.focus(),
@@ -147,6 +153,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
     function handleSend() {
         const trimmed = input.trim()
         if (!trimmed || isLoading) return
+        setEditDirty(true)
         onSend(trimmed, analysisState)
         setInput('')
     }
@@ -235,14 +242,16 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
             </div>
 
             <button
-                className="chat-panel__generate"
+                className={`chat-panel__generate${showChangedMind ? ' chat-panel__generate--cancel' : ''}`}
                 disabled={isLoading || (!isEditing && !generateReady)}
-                onClick={onGenerate}
-                title={isEditing
-                    ? (generateReady ? 'Update idea' : 'Exit edit mode')
-                    : (generateReady ? 'Generate idea' : 'Build your idea first')}
+                onClick={showChangedMind ? onClear : onGenerate}
+                title={showChangedMind
+                    ? 'Discard edit and start a new chat'
+                    : isEditing
+                        ? (generateReady ? 'Update idea' : 'Exit edit mode')
+                        : (generateReady ? 'Generate idea' : 'Build your idea first')}
             >
-                {isEditing ? 'Update idea' : 'Generate idea'}
+                {showChangedMind ? 'Changed my mind' : isEditing ? 'Update idea' : 'Generate idea'}
             </button>
 
             <ChatInputRow

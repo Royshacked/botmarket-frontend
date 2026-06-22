@@ -267,13 +267,14 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
         if (isBuildingPortfolio) setActiveFilter('portfolios')
     }, [isBuildingPortfolio])
 
-    // While the Positions tab is in view, poll so live P&L keeps ticking. Stops
-    // when the user leaves the tab or the component unmounts.
+    // Poll so live P&L keeps ticking while either the Positions tab is in view or
+    // an idea dialog (which shows that idea's positions) is open. Stops when both
+    // are dismissed or the component unmounts.
     useEffect(() => {
-        if (activeFilter !== 'positions' || !onRefreshPositions) return
+        if ((activeFilter !== 'positions' && !activeIdea) || !onRefreshPositions) return
         const id = setInterval(() => onRefreshPositions(), POSITIONS_POLL_MS)
         return () => clearInterval(id)
-    }, [activeFilter, onRefreshPositions])
+    }, [activeFilter, activeIdea, onRefreshPositions])
 
     function handleOpen(idea)  { setActiveIdea(idea) }
     function handleClose()     { setActiveIdea(null) }
@@ -469,6 +470,8 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                 onEdit={handleEdit}
                 onDelete={onDelete}
                 onPlaceOrder={onPlaceOrder}
+                onClosePosition={onClosePosition}
+                onRefreshPositions={onRefreshPositions}
             />
 
             <ClosePositionDialog

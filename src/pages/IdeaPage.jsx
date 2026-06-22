@@ -3,12 +3,23 @@ import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.rem
 import { IdeaDetail } from '../cmps/TradeIdeas/IdeaDetail.jsx'
 import { formatCreatedAtFull } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { StatusIcon } from '../cmps/StatusIcon.jsx'
+import { usePositions } from '../customHooks/usePositions.js'
 import './IdeaPage.scss'
+
+// How often to re-fetch positions so live P&L keeps ticking in the popped-out window.
+const POSITIONS_POLL_MS = 4000
 
 export function IdeaPage() {
     const id              = window.location.pathname.split('/').at(-1)
     const [idea, setIdea] = useState(null)
     const [err,  setErr]  = useState(null)
+    const { positions, refresh: refreshPositions, closePosition } = usePositions()
+
+    // Keep P&L live while the window is open (usePositions only loads once on mount).
+    useEffect(() => {
+        const t = setInterval(() => refreshPositions(), POSITIONS_POLL_MS)
+        return () => clearInterval(t)
+    }, [refreshPositions])
 
     useEffect(() => {
         // Fastest path: data injected directly onto window by the opener
@@ -65,7 +76,12 @@ export function IdeaPage() {
                 )}
             </div>
 
-            <IdeaDetail idea={idea} positions={[]} />
+            <IdeaDetail
+                idea={idea}
+                positions={positions}
+                closePosition={closePosition}
+                onPositionsChanged={refreshPositions}
+            />
         </div>
     )
 }

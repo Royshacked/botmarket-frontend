@@ -201,16 +201,29 @@ export function activationStatus(idea) {
 }
 
 /**
- * True when an idea must not be deleted from the client — it's live on the broker
- * (in position: 'long'/'short') or fired and awaiting confirmation ('hit'). Deleting
- * it would orphan a real position/order, so the bin/Delete control is disabled for
- * these. A 'closed' idea is done and stays deletable.
+ * True when an idea must not be deleted from the client — it holds a real broker
+ * position ('long'/'short'). Deleting it would orphan that position, so the
+ * bin/Delete control is disabled. A 'hit' idea has only a parked order plan (nothing
+ * at the broker yet), so it IS deletable — the delete flow just confirms intent first
+ * (see isDeleteConfirmRequired). A 'closed' idea is done and stays freely deletable.
  *
  * @param {import('../../types.js').Idea} idea
  * @returns {boolean}
  */
 export function isDeleteLocked(idea) {
-    return ['hit', 'long', 'short'].includes(idea?.status)
+    return ['long', 'short'].includes(idea?.status)
+}
+
+/**
+ * True when deleting the idea should ask for confirmation first: a 'hit' idea has
+ * fired and is awaiting the user's order confirmation, so deleting it discards that
+ * pending entry — worth a confirm rather than a one-click bin.
+ *
+ * @param {import('../../types.js').Idea} idea
+ * @returns {boolean}
+ */
+export function isDeleteConfirmRequired(idea) {
+    return idea?.status === 'hit'
 }
 
 /**

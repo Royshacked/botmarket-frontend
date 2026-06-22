@@ -4,11 +4,12 @@ import { ChatPanel }         from '../cmps/ChatPanel/ChatPanel.jsx'
 import { readStoredModel }   from '../cmps/modelOptions.js'
 import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
 import { ScannerPanel }      from '../cmps/ScannerPanel/ScannerPanel.jsx'
-import { NewsFeed }          from '../cmps/NewsFeed/NewsFeed.jsx'
+import { Radar }             from '../cmps/Radar/Radar.jsx'
 import { TradingViewChart }  from '../cmps/TradingViewChart/TradingViewChart.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
-import { buildOrderPreview, orderTypeLabel, isDeleteLocked, deriveIdeaInterval } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
+import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { MonitorDashboard }  from '../cmps/MonitorDashboard/MonitorDashboard.jsx'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
@@ -118,6 +119,8 @@ export function MainPage() {
     const [buildingPortfolio, setBuildingPortfolio] = useState(null)
     const [dismissedConfirmIds, setDismissedConfirmIds] = useState(() => new Set())
     const [placingOrders, setPlacingOrders] = useState(false)
+    const [pendingDeleteIdea, setPendingDeleteIdea] = useState(null)
+    const [deletingIdea, setDeletingIdea] = useState(false)
     const [mobileChatOpen, setMobileChatOpen] = useState(false)
     const [ideaModel, setIdeaModel] = useState(() => readStoredModel('ideaModel'))
 
@@ -413,14 +416,32 @@ export function MainPage() {
         }
     }
 
-    async function handleDeleteIdea(id) {
+    // A 'hit' idea has fired and is awaiting order confirmation — deleting discards
+    // that pending entry, so confirm intent in a dialog first. Everything else deletes
+    // straight away (the bin is already disabled for live long/short positions).
+    function handleDeleteIdea(id) {
+        const idea = ideas.find(i => i.id === id)
+        if (idea && isDeleteConfirmRequired(idea)) { setPendingDeleteIdea(idea); return }
+        doDeleteIdea(id)
+    }
+
+    async function doDeleteIdea(id) {
         try {
             await tradeIdeasService.deleteIdea(id)
             setIdeas(prev => prev.filter(idea => idea.id !== id))
             if (id === editingIdeaId) handleCancelBuild()
         } catch (err) {
             console.error('[tradeIdeas] delete failed', err)
+            showErrorMsg('Delete failed — the idea may now be live on the broker.')
         }
+    }
+
+    async function handleConfirmDeleteIdea() {
+        if (!pendingDeleteIdea) return
+        setDeletingIdea(true)
+        await doDeleteIdea(pendingDeleteIdea.id)
+        setDeletingIdea(false)
+        setPendingDeleteIdea(null)
     }
 
     async function handleDeletePortfolio(portfolioId) {
@@ -763,11 +784,10 @@ export function MainPage() {
                         </div>
                     </div>
                     <div className="workspace__news">
-                        <NewsFeed
+                        <Radar
                             articles={news.activeNewsSymbol ? news.assetArticles : news.newsArticles}
                             isLoading={news.activeNewsSymbol ? news.assetNewsLoading : news.newsLoading}
                             sentimentLoading={!!news.activeNewsSymbol && news.assetSentimentLoading}
-                            symbol={news.activeNewsSymbol}
                             tab={newsTab}
                             onTabChange={setNewsTab}
                             scans={scans}
@@ -852,6 +872,15 @@ export function MainPage() {
                     onConfirm={handleConfirmOrders}
                     onDismiss={handleDismissConfirm}
                     onReset={handleResetWindow}
+                />
+            )}
+
+            {pendingDeleteIdea && (
+                <DeleteIdeaDialog
+                    idea={pendingDeleteIdea}
+                    deleting={deletingIdea}
+                    onConfirm={handleConfirmDeleteIdea}
+                    onCancel={() => { if (!deletingIdea) setPendingDeleteIdea(null) }}
                 />
             )}
         </>

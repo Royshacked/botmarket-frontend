@@ -57,6 +57,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
     const [isLoading,     setIsLoading]     = useState(false)
     const [pendingScan,   setPendingScan]   = useState(null)
     const [editingScanId, setEditingScanId] = useState(null)
+    const [editDirty,     setEditDirty]     = useState(false)
     const [model,         setModel]         = useState(() => readStoredModel('scannerModel'))
 
     function handleModelChange(m) {
@@ -73,6 +74,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
         setEditingScanId(chatRestore.scanId ?? null)
         setPendingScan(chatRestore.scan ?? null)
         setInputText('')
+        setEditDirty(false)
         // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only when a new restore is pushed (keyed by .key)
     }, [chatRestore?.key])
 
@@ -102,6 +104,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
 
     async function _send(text) {
         if (!text || isLoading) return
+        setEditDirty(true)
 
         const history = messages
             .filter(m => !m.streaming)
@@ -178,6 +181,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
         setPendingScan(null)
         setEditingScanId(null)
         setInputText('')
+        setEditDirty(false)
     }
 
     async function handleGenerate() {
@@ -204,6 +208,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
     }
 
     const listReady = !!pendingScan && pendingScan.candidates?.length > 0
+    const showChangedMind = !!editingScanId && !editDirty
 
     return (
         <div className="portfolio-panel scanner-panel">
@@ -265,14 +270,16 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
             </div>
 
             <button
-                className="portfolio-panel__generate"
-                disabled={isLoading || !listReady}
-                onClick={handleGenerate}
-                title={editingScanId
-                    ? (listReady ? 'Update list' : 'Refine the list first')
-                    : (listReady ? 'Generate list' : 'Scan for candidates first')}
+                className={`portfolio-panel__generate${showChangedMind ? ' portfolio-panel__generate--cancel' : ''}`}
+                disabled={isLoading || (!showChangedMind && !listReady)}
+                onClick={showChangedMind ? handleClear : handleGenerate}
+                title={showChangedMind
+                    ? 'Discard edit and start a new chat'
+                    : editingScanId
+                        ? (listReady ? 'Update list' : 'Refine the list first')
+                        : (listReady ? 'Generate list' : 'Scan for candidates first')}
             >
-                {editingScanId ? 'Update list' : 'Generate list'}
+                {showChangedMind ? 'Changed my mind' : editingScanId ? 'Update list' : 'Generate list'}
             </button>
 
             <ChatInputRow

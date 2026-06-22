@@ -1,13 +1,15 @@
 import PropTypes from 'prop-types'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { ScanList } from './ScanList.jsx'
-import './NewsFeed.scss'
+import './Radar.scss'
 
-export function NewsFeed({
+// Market-intelligence panel: incoming News (headlines + sentiment) and Scans
+// (scanner candidate lists), surfaced under one "Axl Radar" brand. Styling is
+// kept under the original `news-feed` CSS namespace.
+export function Radar({
     articles = [],
     isLoading,
     sentimentLoading = false,
-    symbol = null,
     tab = 'news',
     onTabChange,
     scans = [],
@@ -17,7 +19,6 @@ export function NewsFeed({
     onEditScan,
 }) {
     const onScans = tab === 'scans'
-    const title   = onScans ? 'Scans' : (symbol ? `${symbol} News` : 'News Feed')
     const loading = onScans ? scansLoading : isLoading
 
     return (
@@ -33,7 +34,7 @@ export function NewsFeed({
                     <line x1="10" y1="11.5" x2="10" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                     <line x1="7"  y1="16"   x2="13" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
-                <span className="news-feed__title"><BrandTitle text={title} /></span>
+                <span className="news-feed__title"><BrandTitle text="Axl Radar" /></span>
                 <span className={`news-feed__status-dot${loading ? ' loading' : ''}`} />
             </div>
 
@@ -126,11 +127,10 @@ function _formatTime(unixSec) {
     return new Date(unixSec * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
-NewsFeed.propTypes = {
+Radar.propTypes = {
     articles:          PropTypes.array,
     isLoading:         PropTypes.bool,
     sentimentLoading:  PropTypes.bool,
-    symbol:            PropTypes.string,
     tab:               PropTypes.string,
     onTabChange:       PropTypes.func,
     scans:             PropTypes.array,

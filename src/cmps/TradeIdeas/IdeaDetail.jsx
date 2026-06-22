@@ -1,13 +1,39 @@
+import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { TradingViewChart } from '../TradingViewChart/TradingViewChart.jsx'
-import { PositionsTable } from './PositionsTable.jsx'
+import { PositionsTable, posKey } from './PositionsTable.jsx'
+import { ClosePositionDialog } from './ClosePositionDialog.jsx'
+import { EditOrdersDialog } from './EditOrdersDialog.jsx'
 import { getTree, ConditionTreeView, isAllAnd } from './ConditionTree.jsx'
 import { brokerSymbolLabel, deriveIdeaInterval } from './tradeIdea.utils.js'
 
 // Shared idea body — chart (left) + conditions (right) + positions (bottom).
 // Rendered by both the floating dialog and the popped-out idea window so the two
 // stay visually identical.
-export function IdeaDetail({ idea, positions = [] }) {
+//
+// When `closePosition` is supplied the positions table is interactive — each row
+// gets close / edit-orders controls (same as the Positions tab) and this body
+// renders the confirm + edit dialogs itself. Without it the table is read-only.
+export function IdeaDetail({ idea, positions = [], closePosition, onPositionsChanged }) {
+    const interactive = typeof closePosition === 'function'
+    const [pendingClose,  setPendingClose]  = useState(null)
+    const [closingId,     setClosingId]     = useState(null)
+    const [editOrdersPos, setEditOrdersPos] = useState(null)
+
+    async function confirmClose() {
+        const position = pendingClose
+        if (!position) return
+        setClosingId(posKey(position))
+        try {
+            await closePosition(position.broker, position.id, position.accountId)
+            setPendingClose(null)
+        } catch (err) {
+            console.error('[positions] close failed', err)
+        } finally {
+            setClosingId(null)
+        }
+    }
+
     const entryTree = getTree(idea, 'entry_condition_tree', 'entry_conditions', 'entry_logic')
     const stopTree  = getTree(idea, 'stop_condition_tree',  'stop_conditions',  'stop_logic')
     const tpTree    = getTree(idea, 'tp_condition_tree',    'tp_conditions',    'tp_logic')
@@ -86,16 +112,41 @@ export function IdeaDetail({ idea, positions = [] }) {
             <div className="idea-dialog__positions">
                 <span className="idea-dialog__section-title">Positions</span>
                 {ideaPositions.length > 0 ? (
-                    <PositionsTable positions={ideaPositions} />
+                    <PositionsTable
+                        positions={ideaPositions}
+                        closingId={interactive ? closingId : undefined}
+                        onClose={interactive ? setPendingClose : undefined}
+                        onEditOrders={interactive ? setEditOrdersPos : undefined}
+                    />
                 ) : (
                     <p className="idea-dialog__positions-empty">No open positions for this idea</p>
                 )}
             </div>
+
+            {interactive && (
+                <>
+                    <ClosePositionDialog
+                        position={pendingClose}
+                        closing={!!pendingClose && closingId === posKey(pendingClose)}
+                        onConfirm={confirmClose}
+                        onCancel={() => setPendingClose(null)}
+                    />
+                    {editOrdersPos && (
+                        <EditOrdersDialog
+                            position={editOrdersPos}
+                            onClose={() => setEditOrdersPos(null)}
+                            onChanged={onPositionsChanged}
+                        />
+                    )}
+                </>
+            )}
         </>
     )
 }
 
 IdeaDetail.propTypes = {
-    idea:      PropTypes.object.isRequired,
-    positions: PropTypes.array,
+    idea:               PropTypes.object.isRequired,
+    positions:          PropTypes.array,
+    closePosition:      PropTypes.func,
+    onPositionsChanged: PropTypes.func,
 }

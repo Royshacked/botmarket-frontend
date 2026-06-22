@@ -9,7 +9,7 @@ import { StatusIcon } from '../StatusIcon.jsx'
 const DIALOG_W = 880
 const DIALOG_H = 700
 
-export function TradeIdeaDialog({ idea, index = 0, positions = [], onClose, onEdit, onDelete, onPlaceOrder }) {
+export function TradeIdeaDialog({ idea, index = 0, positions = [], onClose, onEdit, onDelete, onPlaceOrder, onClosePosition, onRefreshPositions }) {
     const [pos, setPos] = useState({ x: 0, y: 0 })
 
     // Centre + cascade by index whenever a new idea is opened
@@ -98,7 +98,12 @@ export function TradeIdeaDialog({ idea, index = 0, positions = [], onClose, onEd
                 </div>
             </div>
 
-            <IdeaDetail idea={idea} positions={positions} />
+            <IdeaDetail
+                idea={idea}
+                positions={positions}
+                closePosition={onClosePosition}
+                onPositionsChanged={onRefreshPositions}
+            />
 
             <div className="idea-dialog__footer">
                 {onDelete && (
@@ -127,4 +132,6 @@ TradeIdeaDialog.propTypes = {
     onEdit:   PropTypes.func,
     onDelete: PropTypes.func,
     onPlaceOrder: PropTypes.func,
+    onClosePosition:    PropTypes.func,
+    onRefreshPositions: PropTypes.func,
 }
