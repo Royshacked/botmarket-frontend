@@ -67,7 +67,7 @@ export function LeafChip({ leaf, inline, states, fallbackMet }) {
             )}
             <span className="ctree__leaf-text">{leaf.condition}</span>
             {leaf.quantity != null && <span className="ctree__leaf-qty">{leaf.quantity}</span>}
-            <span className={`ctree__leaf-type type--${type}`}>{type}</span>
+            <span className={`ctree__leaf-type type--${type}`}>{type === 'volume' && leaf.mode ? `${type}·${leaf.mode}` : type}</span>
             {leaf.timeframe && <span className="ctree__leaf-tf">{leaf.timeframe}</span>}
         </span>
     )
