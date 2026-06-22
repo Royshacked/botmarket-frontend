@@ -81,6 +81,16 @@
         max-height: 160px;
         overflow-y: auto;
 
+        scrollbar-width: thin;
+        scrollbar-color: var(--accent-deep) var(--bg-base);
+        &::-webkit-scrollbar       { width: 4px; }
+        &::-webkit-scrollbar-track { background: var(--bg-base); }
+        &::-webkit-scrollbar-thumb {
+            background: var(--accent-deep);
+            border-radius: 2px;
+            &:hover { background: var(--accent); }
+        }
+
         &-header {
             display: flex;
             align-items: center;
