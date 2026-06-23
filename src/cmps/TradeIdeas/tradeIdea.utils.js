@@ -38,6 +38,22 @@ export function treeToOneliner(node, isRoot = true) {
 }
 
 /**
+ * Open an idea in its own pop-out window (the /idea/:id page). The idea object is
+ * handed to the new window directly (and mirrored to localStorage as a fallback)
+ * so it renders instantly without a round-trip; IdeaPage also falls back to the
+ * API when neither is present, so a direct URL still works.
+ *
+ * @param {import('../../types.js').Idea} idea
+ * @returns {Window|null}
+ */
+export function openIdeaPopup(idea) {
+    localStorage.setItem(`popup-idea-${idea.id}`, JSON.stringify(idea))
+    const popup = window.open(`/idea/${idea.id}`, `idea-${idea.id}`, 'width=960,height=720')
+    if (popup) popup.__ideaData = idea
+    return popup
+}
+
+/**
  * Best available one-line summary for a trade idea's entry conditions.
  * Priority: condition tree → flat conditions array → notes → null
  *

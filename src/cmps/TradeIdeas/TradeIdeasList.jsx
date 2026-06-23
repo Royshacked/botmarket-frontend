@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { TradeIdeaRow } from './TradeIdeaRow.jsx'
-import { TradeIdeaDialog } from './TradeIdeaDialog.jsx'
 import { ClosePositionDialog } from './ClosePositionDialog.jsx'
 import { EditOrdersDialog } from './EditOrdersDialog.jsx'
 import { PositionsTable, posKey } from './PositionsTable.jsx'
-import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel, isDeleteLocked } from './tradeIdea.utils.js'
+import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel, isDeleteLocked, openIdeaPopup } from './tradeIdea.utils.js'
 import { StatusIcon } from '../StatusIcon.jsx'
 import { BrandTitle } from '../BrandTitle.jsx'
 import './TradeIdeas.scss'
@@ -245,8 +244,7 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
     )
 }
 
-export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, onPlaceOrder, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition }) {
-    const [activeIdea,     setActiveIdea]     = useState(null)
+export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition }) {
     const [expandedGroups, setExpandedGroups] = useState(new Set())
     const [activeFilter,   setActiveFilter]   = useState('ideas')
     const [closingId,      setClosingId]      = useState(null)
@@ -267,18 +265,17 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
         if (isBuildingPortfolio) setActiveFilter('portfolios')
     }, [isBuildingPortfolio])
 
-    // Poll so live P&L keeps ticking while either the Positions tab is in view or
-    // an idea dialog (which shows that idea's positions) is open. Stops when both
-    // are dismissed or the component unmounts.
+    // Poll so live P&L keeps ticking while the Positions tab is in view. Stops when
+    // it's dismissed or the component unmounts. (An opened idea now lives in its own
+    // pop-out window, which polls its own positions.)
     useEffect(() => {
-        if ((activeFilter !== 'positions' && !activeIdea) || !onRefreshPositions) return
+        if (activeFilter !== 'positions' || !onRefreshPositions) return
         const id = setInterval(() => onRefreshPositions(), POSITIONS_POLL_MS)
         return () => clearInterval(id)
-    }, [activeFilter, activeIdea, onRefreshPositions])
+    }, [activeFilter, onRefreshPositions])
 
-    function handleOpen(idea)  { setActiveIdea(idea) }
-    function handleClose()     { setActiveIdea(null) }
-    function handleEdit(idea)  { setActiveIdea(null); if (onEdit) onEdit(idea) }
+    // Clicking an idea row opens it straight in its own pop-out window.
+    function handleOpen(idea) { openIdeaPopup(idea) }
 
     function selectPositions() {
         setActiveFilter('positions')
@@ -463,17 +460,6 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                 )}
             </div>
 
-            <TradeIdeaDialog
-                idea={activeIdea}
-                positions={positions}
-                onClose={handleClose}
-                onEdit={handleEdit}
-                onDelete={onDelete}
-                onPlaceOrder={onPlaceOrder}
-                onClosePosition={onClosePosition}
-                onRefreshPositions={onRefreshPositions}
-            />
-
             <ClosePositionDialog
                 position={pendingClose}
                 closing={!!pendingClose && closingId === posKey(pendingClose)}
@@ -503,7 +489,6 @@ TradeIdeasList.propTypes = {
     onEdit:           PropTypes.func,
     onEditPortfolio:  PropTypes.func,
     onDeletePortfolio: PropTypes.func,
-    onPlaceOrder:     PropTypes.func,
     positions:        PropTypes.array,
     positionsLoading: PropTypes.bool,
     onRefreshPositions: PropTypes.func,

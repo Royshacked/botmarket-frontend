@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { IdeaDetail } from './IdeaDetail.jsx'
-import { formatCreatedAtFull, brokerSymbolLabel, isDeleteLocked } from './tradeIdea.utils.js'
+import { formatCreatedAtFull, brokerSymbolLabel, isDeleteLocked, openIdeaPopup } from './tradeIdea.utils.js'
 import { StatusIcon } from '../StatusIcon.jsx'
 
 // ── Dialog ────────────────────────────────────────────────────────────────────
@@ -63,9 +63,7 @@ export function TradeIdeaDialog({ idea, index = 0, positions = [], onClose, onEd
     }
 
     function handlePopOut() {
-        localStorage.setItem(`popup-idea-${idea.id}`, JSON.stringify(idea))
-        const popup = window.open(`/idea/${idea.id}`, `idea-${idea.id}`, 'width=960,height=720')
-        if (popup) popup.__ideaData = idea
+        openIdeaPopup(idea)
         onClose()
     }
 
