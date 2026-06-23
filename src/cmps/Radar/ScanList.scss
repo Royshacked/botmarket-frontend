@@ -149,11 +149,12 @@
     }
 
     &__dir {
-        font-size: 11px;
+        font-size: 17px;
+        font-weight: 700;
         line-height: 1;
         flex-shrink: 0;
-        &--long  { color: var(--long-text); }
-        &--short { color: var(--short-text); }
+        &--long  { color: #16c784; }
+        &--short { color: #ea3943; }
     }
 
     &__ticker {
