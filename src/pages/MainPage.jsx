@@ -762,15 +762,15 @@ export function MainPage() {
                         <div className="chat-tabs">
                             <button
                                 className={`chat-tabs__tab${activeTab === 'idea' ? ' chat-tabs__tab--active' : ''}`}
-                                onClick={() => setActiveTab('idea')}
+                                onClick={() => { setActiveTab('idea'); setNewsTab('news') }}
                             >Idea</button>
                             <button
                                 className={`chat-tabs__tab chat-tabs__tab--portfolio${activeTab === 'portfolio' ? ' chat-tabs__tab--active' : ''}`}
-                                onClick={() => setActiveTab('portfolio')}
+                                onClick={() => { setActiveTab('portfolio'); setNewsTab('news') }}
                             >Portfolio</button>
                             <button
                                 className={`chat-tabs__tab chat-tabs__tab--scanner${activeTab === 'scanner' ? ' chat-tabs__tab--active' : ''}`}
-                                onClick={() => setActiveTab('scanner')}
+                                onClick={() => { setActiveTab('scanner'); setNewsTab('scans') }}
                             >Scanner</button>
                         </div>
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'idea' ? 'flex' : 'none' }}>
