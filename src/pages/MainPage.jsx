@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 
 import { ChatPanel }         from '../cmps/ChatPanel/ChatPanel.jsx'
 import { readStoredModel }   from '../cmps/modelOptions.js'
+import { readStoredReasoning } from '../cmps/reasoningOptions.js'
 import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
 import { ScannerPanel }      from '../cmps/ScannerPanel/ScannerPanel.jsx'
 import { Radar }             from '../cmps/Radar/Radar.jsx'
@@ -12,6 +13,7 @@ import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
 import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { MonitorDashboard }  from '../cmps/MonitorDashboard/MonitorDashboard.jsx'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
+import { toolStatusLabel }   from '../services/toolStatusLabels.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
 import { showErrorMsg }      from '../services/event-bus.service'
@@ -111,6 +113,7 @@ export function MainPage() {
     const [chartSymbol, setChartSymbol]   = useState(DEFAULT_CHART_SYMBOL)
     const [chartInterval, setChartInterval] = useState(DEFAULT_CHART_INTERVAL)
     const [isLoading, setIsLoading] = useState(false)
+    const [streamStatus, setStreamStatus] = useState('')
     const [editingIdeaId, setEditingIdeaId] = useState(null)
     const [activeTab, setActiveTab]             = useState('idea')
     const [newsTab, setNewsTab]                 = useState('news')
@@ -123,10 +126,16 @@ export function MainPage() {
     const [deletingIdea, setDeletingIdea] = useState(false)
     const [mobileChatOpen, setMobileChatOpen] = useState(false)
     const [ideaModel, setIdeaModel] = useState(() => readStoredModel('ideaModel'))
+    const [ideaReasoning, setIdeaReasoning] = useState(() => readStoredReasoning('ideaReasoning'))
 
     function handleIdeaModelChange(m) {
         setIdeaModel(m)
         localStorage.setItem('ideaModel', m)
+    }
+
+    function handleIdeaReasoningChange(r) {
+        setIdeaReasoning(r)
+        localStorage.setItem('ideaReasoning', r)
     }
     const latestMessagesRef = useRef([])
     const abortRef          = useRef(null)
@@ -191,6 +200,7 @@ export function MainPage() {
             { role: 'assistant', content: '', streaming: true },
         ])
         setIsLoading(true)
+        setStreamStatus('')
         startDrain()
 
         const ctrl = new AbortController()
@@ -204,7 +214,8 @@ export function MainPage() {
                 {
                     signal: ctrl.signal,
                     // Buffer only — drain timer handles the actual state updates
-                    onToken:    (text)     => { enqueueToken(text) },
+                    onToken:    (text)     => { setStreamStatus(''); enqueueToken(text) },
+                    onStatus:   (tool)     => { setStreamStatus(toolStatusLabel(tool)) },
                     onInterval: (interval) => { if (interval) setChartInterval(interval) },
                     onAsset: (symbol) => {
                         if (symbol) {
@@ -280,7 +291,8 @@ export function MainPage() {
                     },
                 },
                 ideaAccounts,
-                ideaModel
+                ideaModel,
+                ideaReasoning
             )
         } catch (err) {
             console.error(err)
@@ -298,6 +310,7 @@ export function MainPage() {
             })
         } finally {
             setIsLoading(false)
+            setStreamStatus('')
         }
     }
 
@@ -313,6 +326,7 @@ export function MainPage() {
             return msgs
         })
         setIsLoading(false)
+        setStreamStatus('')
     }
 
     function handleCancelBuild() {
@@ -723,6 +737,7 @@ export function MainPage() {
         onClear:             handleCancelBuild,
         onStop:              handleStopIdea,
         isLoading,
+        streamStatus,
         isEditing:           !!editingIdeaId,
         availableAccounts,
         selectedAccounts,
@@ -731,6 +746,8 @@ export function MainPage() {
         onMainAccountChange: setMainAccountId,
         model:               ideaModel,
         onModelChange:       handleIdeaModelChange,
+        reasoning:           ideaReasoning,
+        onReasoningChange:   handleIdeaReasoningChange,
     }
 
     return (

@@ -4,12 +4,16 @@ import { scannerService } from '../../services/scanner/scanner.service.remote.js
 import { ChatMarkdown } from '../ChatMarkdown.jsx'
 import { ModelSelector } from '../ModelSelector.jsx'
 import { readStoredModel } from '../modelOptions.js'
+import { ReasoningSelector } from '../ReasoningSelector.jsx'
+import { readStoredReasoning } from '../reasoningOptions.js'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useTypewriter } from '../../customHooks/useTypewriter.js'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { MeditatingBot } from '../MeditatingBot.jsx'
 import { BrandTitle } from '../BrandTitle.jsx'
+import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
+import { toolStatusLabel } from '../../services/toolStatusLabels.js'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import './ScannerPanel.scss'
 
@@ -55,14 +59,21 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
     const [messages,      setMessages]      = useState([])
     const [inputText,     setInputText]     = useState('')
     const [isLoading,     setIsLoading]     = useState(false)
+    const [streamStatus,  setStreamStatus]  = useState('')
     const [pendingScan,   setPendingScan]   = useState(null)
     const [editingScanId, setEditingScanId] = useState(null)
     const [editDirty,     setEditDirty]     = useState(false)
     const [model,         setModel]         = useState(() => readStoredModel('scannerModel'))
+    const [reasoning,     setReasoning]     = useState(() => readStoredReasoning('scannerReasoning'))
 
     function handleModelChange(m) {
         setModel(m)
         localStorage.setItem('scannerModel', m)
+    }
+
+    function handleReasoningChange(r) {
+        setReasoning(r)
+        localStorage.setItem('scannerReasoning', r)
     }
 
     // Reopen a saved list to edit it (clicked from its pencil): restore the chat,
@@ -117,6 +128,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
             { role: 'assistant', content: '', streaming: true },
         ])
         setIsLoading(true)
+        setStreamStatus('')
         pendingTickersRef.current = []
         startDrain()
 
@@ -126,11 +138,13 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
         try {
             await scannerService.sendStream(history, {
                 model,
+                reasoningEffort: reasoning,
                 signal: ctrl.signal,
                 // When editing, tell the agent the list's current contents so it can
                 // add / remove / change names against it.
                 editList: editingScanId ? (pendingScan || null) : null,
-                onToken:  (t) => { enqueueToken(t) },
+                onToken:  (t) => { setStreamStatus(''); enqueueToken(t) },
+                onStatus: (tool) => { setStreamStatus(toolStatusLabel(tool)) },
                 onTicker: (symbol) => {
                     if (!pendingTickersRef.current.includes(symbol)) pendingTickersRef.current.push(symbol)
                 },
@@ -167,6 +181,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
             })
         } finally {
             setIsLoading(false)
+            setStreamStatus('')
         }
     }
 
@@ -217,6 +232,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
                 <span className="portfolio-panel__title"><BrandTitle text="Axl Scanner" /></span>
                 <div className="portfolio-panel__header-right">
                     <ModelSelector value={model} onChange={handleModelChange} disabled={isLoading} />
+                    <ReasoningSelector value={reasoning} onChange={handleReasoningChange} disabled={isLoading} />
                     <div className={`portfolio-panel__status-dot${isLoading ? ' loading' : ' idle'}`} />
                 </div>
             </div>
@@ -266,6 +282,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
                     </div>
                 )}
                 {messages.map((msg, i) => <MessageBubble key={i} msg={msg} onTickerSelect={onTickerSelect} />)}
+                {isLoading && <ToolStatusChip label={streamStatus} />}
                 <div ref={messagesEndRef} />
             </div>
 

@@ -6,8 +6,10 @@ import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { AccountSelector } from './AccountSelector.jsx'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { ModelSelector } from '../ModelSelector.jsx'
+import { ReasoningSelector } from '../ReasoningSelector.jsx'
 import { MeditatingBot } from '../MeditatingBot.jsx'
 import { BrandTitle } from '../BrandTitle.jsx'
+import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import './ChatPanel.scss'
 
 const P = 'chat-panel__build-summary'
@@ -119,7 +121,7 @@ function canGenerate(analysisState, selectedAccounts) {
     )
 }
 
-export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, onStop, isLoading, isEditing = false, availableAccounts = [], selectedAccounts = [], onAccountsChange, mainAccountId = null, onMainAccountChange, model, onModelChange }) {
+export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, onStop, isLoading, streamStatus = '', isEditing = false, availableAccounts = [], selectedAccounts = [], onAccountsChange, mainAccountId = null, onMainAccountChange, model, onModelChange, reasoning, onReasoningChange }) {
     const [input, setInput] = useState('')
 
     // Has the user actually changed anything via chat since entering edit mode?
@@ -165,6 +167,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                 <span className="chat-panel__title"><BrandTitle text="Axl Ideas" /></span>
                 <div className="chat-panel__header-right">
                     <ModelSelector value={model} onChange={onModelChange} disabled={isLoading} />
+                    <ReasoningSelector value={reasoning} onChange={onReasoningChange} disabled={isLoading} />
                     <AccountSelector
                         accounts={availableAccounts}
                         selectedIds={selectedAccounts}
@@ -229,6 +232,8 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                     )
                 ))}
 
+                {isLoading && <ToolStatusChip label={streamStatus} />}
+
                 {/* Typing dots only when loading but no streaming message yet */}
                 {isLoading && !messages.some(m => m.streaming) && (
                     <div className="chat-panel__bubble chat-panel__bubble--assistant">
@@ -287,6 +292,7 @@ ChatPanel.propTypes = {
     onClear:           PropTypes.func,
     onStop:            PropTypes.func,
     isLoading:         PropTypes.bool,
+    streamStatus:      PropTypes.string,
     isEditing:         PropTypes.bool,
     availableAccounts:   PropTypes.array,
     selectedAccounts:    PropTypes.arrayOf(PropTypes.string),
@@ -295,4 +301,6 @@ ChatPanel.propTypes = {
     onMainAccountChange: PropTypes.func,
     model:               PropTypes.string,
     onModelChange:       PropTypes.func,
+    reasoning:           PropTypes.string,
+    onReasoningChange:   PropTypes.func,
 }

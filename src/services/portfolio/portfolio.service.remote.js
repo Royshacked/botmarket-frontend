@@ -32,13 +32,14 @@ async function deleteChatState(portfolioId) {
     return res.json()
 }
 
-async function sendStream(messages, ideaAccounts = [], { onToken, onTicker, onDone, onError, portfolioId = null, portfolioIdeas = [], model, signal } = {}) {
+async function sendStream(messages, ideaAccounts = [], { onToken, onTicker, onStatus, onDone, onError, portfolioId = null, portfolioIdeas = [], model, reasoningEffort, signal } = {}) {
     await postSSE(
         `${API_BASE}/portfolio/stream`,
-        { messages, ideaAccounts, portfolioId, portfolioIdeas, model },
+        { messages, ideaAccounts, portfolioId, portfolioIdeas, model, reasoningEffort },
         {
             token:  (d) => onToken?.(d.text),
             ticker: (d) => onTicker?.(d.symbol),
+            status: (d) => onStatus?.(d.tool),
             done:   (d) => onDone?.(d),
             error:  (d) => onError?.(d.message),
         },

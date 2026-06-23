@@ -5,12 +5,16 @@ import { ChatMarkdown } from '../ChatMarkdown.jsx'
 import { AccountSelector } from '../ChatPanel/AccountSelector.jsx'
 import { ModelSelector } from '../ModelSelector.jsx'
 import { readStoredModel } from '../modelOptions.js'
+import { ReasoningSelector } from '../ReasoningSelector.jsx'
+import { readStoredReasoning } from '../reasoningOptions.js'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useTypewriter } from '../../customHooks/useTypewriter.js'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { MeditatingBot } from '../MeditatingBot.jsx'
 import { BrandTitle } from '../BrandTitle.jsx'
+import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
+import { toolStatusLabel } from '../../services/toolStatusLabels.js'
 import './PortfolioPanel.scss'
 
 
@@ -70,15 +74,22 @@ export function PortfolioPanel({
     const [messages,              setMessages]              = useState([])
     const [inputText,             setInputText]             = useState('')
     const [isLoading,             setIsLoading]             = useState(false)
+    const [streamStatus,          setStreamStatus]          = useState('')
     const [pendingPlan,           setPendingPlan]           = useState(null)
     const [editingPortfolioId,    setEditingPortfolioId]    = useState(null)
     const [editingPortfolioIdeas, setEditingPortfolioIdeas] = useState([])
     const [editDirty,             setEditDirty]             = useState(false)
     const [model,                 setModel]                 = useState(() => readStoredModel('portfolioModel'))
+    const [reasoning,             setReasoning]             = useState(() => readStoredReasoning('portfolioReasoning'))
 
     function handleModelChange(m) {
         setModel(m)
         localStorage.setItem('portfolioModel', m)
+    }
+
+    function handleReasoningChange(r) {
+        setReasoning(r)
+        localStorage.setItem('portfolioReasoning', r)
     }
 
     useEffect(() => {
@@ -174,6 +185,7 @@ export function PortfolioPanel({
             { role: 'assistant', content: '', streaming: true },
         ])
         setIsLoading(true)
+        setStreamStatus('')
         pendingTickersRef.current = []
         startDrain()
 
@@ -185,9 +197,12 @@ export function PortfolioPanel({
                 portfolioId:    editingPortfolioId,
                 portfolioIdeas: editingPortfolioIdeas,
                 model,
+                reasoningEffort: reasoning,
                 signal: ctrl.signal,
 
-                onToken: (t) => { enqueueToken(t) },
+                onToken: (t) => { setStreamStatus(''); enqueueToken(t) },
+
+                onStatus: (tool) => { setStreamStatus(toolStatusLabel(tool)) },
 
                 onTicker: (symbol) => {
                     if (!pendingTickersRef.current.includes(symbol)) {
@@ -236,6 +251,7 @@ export function PortfolioPanel({
             })
         } finally {
             setIsLoading(false)
+            setStreamStatus('')
         }
     }
 
@@ -295,6 +311,7 @@ export function PortfolioPanel({
                 <span className="portfolio-panel__title"><BrandTitle text="Axl Portfolios" /></span>
                 <div className="portfolio-panel__header-right">
                     <ModelSelector value={model} onChange={handleModelChange} disabled={isLoading} />
+                    <ReasoningSelector value={reasoning} onChange={handleReasoningChange} disabled={isLoading} />
                     <AccountSelector
                         accounts={availableAccounts}
                         selectedIds={selectedAccounts}
@@ -337,6 +354,7 @@ export function PortfolioPanel({
                 {messages.map((msg, i) => (
                     <MessageBubble key={i} msg={msg} onTickerSelect={onTickerSelect} />
                 ))}
+                {isLoading && <ToolStatusChip label={streamStatus} />}
                 {pendingPlan && !planReady && (
                     <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant portfolio-panel__bubble--warning">
                         ⚠️ I need a position size before this plan can be generated. Tell me the total capital you want to deploy and I&apos;ll size each position by its allocation — or give me a quantity per asset.
