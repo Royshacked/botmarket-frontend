@@ -156,8 +156,11 @@
     --h1-glow-3: rgba(80,  10,  25,  0.35);
 }
 
-// ── Axl (calm aurora — pairs with the axl header) ────────────────────────────
-[data-theme="axl"] {
+// ── Axl (the active theme — calm palette, gradient cancelled) ────────────────
+// Selector is :root[data-theme="axl"] (not just [data-theme="axl"]) so the
+// --aurora-wash override below out-specifies the shared :root block lower in this
+// file; otherwise that trailing :root would re-apply the aurora gradient.
+:root[data-theme="axl"] {
     // Brand font pairing app-wide
     --font-sans: 'Hanken Grotesk', system-ui, -apple-system, sans-serif;
     --font-mono: 'Space Mono', 'IBM Plex Mono', monospace;
@@ -204,12 +207,19 @@
     --popover-divider:       rgba(33, 54, 63, 0.60);
     --popover-btn-hover-bg:  rgba(78, 144, 124, 0.18);
 
-    // H1 gradient (aurora spectrum: green → teal → cyan)
+    // Gradient cancelled — solid backdrop instead of the aurora bloom. An invisible
+    // gradient keeps the multi-layer `background: var(--aurora-wash), var(--bg-base)`
+    // rule valid while painting nothing, so backdrop / header / panels stay flat
+    // solid colours. (Cascades into --bg-wash / --bg-wash-surface, which reference it.)
+    --aurora-wash: linear-gradient(transparent, transparent);
+
+    // H1 wordmark — every gradient stop is the same colour (no colour transition);
+    // the aurora glow is kept.
     --h1-grad-top:    #EEF3F2;
-    --h1-grad-mid1:   #C4EBDC;
-    --h1-grad-mid2:   #8FD9BE;
-    --h1-grad-mid3:   #5BCBC0;
-    --h1-grad-bottom: #4E907C;
+    --h1-grad-mid1:   #EEF3F2;
+    --h1-grad-mid2:   #EEF3F2;
+    --h1-grad-mid3:   #EEF3F2;
+    --h1-grad-bottom: #EEF3F2;
     --h1-glow-1: rgba(116, 201, 174, 0.90);
     --h1-glow-2: rgba(91, 203, 192, 0.60);
     --h1-glow-3: rgba(95, 185, 217, 0.35);

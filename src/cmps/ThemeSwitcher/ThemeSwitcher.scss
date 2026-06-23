@@ -3,8 +3,8 @@
     align-items: center;
     gap: 8px;
 
-    // Full hue spectrum (0–360) — the slider picks the aurora anchor hue. Sat +
-    // lightness match the anchor stop (--aurora-2) so the track previews the wash.
+    // Background-spectrum track (brightened so it's legible): dark cyan → dark
+    // teal → very dark green → dark blue → black, matching the BG_STOPS path.
     &__slider {
         -webkit-appearance: none;
         appearance: none;
@@ -15,13 +15,11 @@
         outline: none;
         background: linear-gradient(
             to right,
-            hsl(0, 52%, 58%) 0%,
-            hsl(60, 52%, 58%) 17%,
-            hsl(120, 52%, 58%) 33%,
-            hsl(180, 52%, 58%) 50%,
-            hsl(240, 52%, 58%) 67%,
-            hsl(300, 52%, 58%) 83%,
-            hsl(360, 52%, 58%) 100%
+            hsl(187, 65%, 35%) 0%,
+            hsl(176, 70%, 32%) 25%,
+            hsl(140, 70%, 28%) 50%,
+            hsl(218, 70%, 34%) 75%,
+            #000 100%
         );
 
         &::-webkit-slider-thumb {

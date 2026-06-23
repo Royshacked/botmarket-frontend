@@ -44,6 +44,70 @@ export function loadAuroraHue() {
     return raw === null ? DEFAULT_AURORA_HUE : Number(raw)
 }
 
+// ── Background spectrum ───────────────────────────────────────────────────────
+// The profile slider (0–100) sweeps the app background through a curated path of
+// very dark hues: dark cyan → dark teal → very dark green → dark blue → near-black.
+// Only the --bg-* tokens are regenerated — set inline on <html>, overriding the
+// axl theme — so accent / text / wordmark are left untouched.
+const BG_STOPS = [
+    { h: 187, s: 68, l: 6 },  // dark cyan
+    { h: 176, s: 72, l: 5 },  // dark teal
+    { h: 140, s: 72, l: 4 },  // very dark green
+    { h: 218, s: 72, l: 6 },  // dark blue
+    { h: 220, s: 10, l: 1.5 }, // near-black
+]
+
+// Lightness offset of each background token relative to --bg-base (mirrors the
+// hand-tuned spacing of the axl scale, so panels keep their subtle layering).
+const BG_DELTAS = {
+    '--bg-base':     0,
+    '--bg-deep':    -1.5,
+    '--bg-hover':    2,
+    '--bg-surface':  4,
+    '--bg-raised':   6.5,
+    '--bg-popover':  4,
+}
+
+const DEFAULT_BG = 25 // the dark-teal stop ≈ the original axl background
+
+const lerp = (a, b, t) => a + (b - a) * t
+
+// Interpolate the curated stops at slider position pos (0–100) → {h,s,l} of --bg-base.
+function bgStopAt(pos) {
+    const t = Math.max(0, Math.min(100, pos)) / 100
+    const seg = t * (BG_STOPS.length - 1)
+    const i = Math.min(BG_STOPS.length - 2, Math.floor(seg))
+    const f = seg - i
+    const a = BG_STOPS[i], b = BG_STOPS[i + 1]
+    return { h: lerp(a.h, b.h, f), s: lerp(a.s, b.s, f), l: lerp(a.l, b.l, f) }
+}
+
+// A brightened swatch of the position, so the slider preview dot is legible
+// (the real backgrounds are intentionally near-black).
+export function bgPreview(pos) {
+    const { h, s } = bgStopAt(pos)
+    return `hsl(${h.toFixed(1)}, ${s.toFixed(1)}%, 38%)`
+}
+
+// Apply the background spectrum live — sets every --bg-* token inline on <html>.
+export function applyBgSpectrum(pos) {
+    const { h, s, l } = bgStopAt(pos)
+    const root = document.documentElement
+    for (const [token, delta] of Object.entries(BG_DELTAS)) {
+        const li = Math.max(0, Math.min(100, l + delta))
+        root.style.setProperty(token, `hsl(${h.toFixed(1)}, ${s.toFixed(1)}%, ${li.toFixed(1)}%)`)
+    }
+}
+
+export function saveBgSpectrum(pos) {
+    localStorage.setItem('bgSpectrum', String(pos))
+}
+
+export function loadBgSpectrum() {
+    const raw = localStorage.getItem('bgSpectrum')
+    return raw === null ? DEFAULT_BG : Number(raw)
+}
+
 // Width (as a fraction of the 0–360 hue range) of the transition at each edge
 // of the hue slider, where saturation eases out to a neutral grayscale theme.
 const EDGE = 0.12
@@ -190,6 +254,7 @@ export function initTheme() {
     if (localStorage.getItem('headerStyle') !== 'classic') {
         clearHueTheme()
         document.documentElement.setAttribute('data-theme', 'axl')
+        applyBgSpectrum(loadBgSpectrum())
         return
     }
 

@@ -38,7 +38,8 @@
     flex-shrink: 0;
     height: var(--axl-h);
     font-family: 'Hanken Grotesk', system-ui, sans-serif;
-    background: rgba(13, 24, 32, 0.82);
+    // Follows the background-spectrum slider (--bg-base), kept translucent for blur.
+    background: color-mix(in srgb, var(--bg-base) 82%, transparent);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     color: var(--axl-birch);
@@ -89,7 +90,6 @@
 
         .wv { fill: none; stroke: url(#axlWaveHues); stroke-linecap: round; }
         .wv-main   { stroke-width: 1.6; opacity: 0.55; filter: drop-shadow(0 0 4px rgba(116, 201, 174, 0.45)); }
-        .wv-mirror { stroke-width: 1.3; opacity: 0.13; }
     }
 
     // ── ambient aurora candlesticks, breathing up from the waterline ──

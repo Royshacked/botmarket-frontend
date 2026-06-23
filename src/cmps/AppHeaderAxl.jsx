@@ -235,7 +235,6 @@ export function AppHeaderAxl() {
                             <stop offset="1"    stopColor="#7FD69E" />
                         </linearGradient>
                     </defs>
-                    <path className="wv wv-mirror" d="M0,15 Q30,19 60,15 T120,15 T180,15 T240,15 T300,15 T360,15 T420,15 T480,15 T540,15 T600,15 T660,15 T720,15 T780,15 T840,15 T900,15 T960,15 T1020,15 T1080,15 T1140,15 T1200,15" />
                     <path className="wv wv-main"   d="M0,11 Q30,6 60,11 T120,11 T180,11 T240,11 T300,11 T360,11 T420,11 T480,11 T540,11 T600,11 T660,11 T720,11 T780,11 T840,11 T900,11 T960,11 T1020,11 T1080,11 T1140,11 T1200,11" />
                 </svg>
             </div>
