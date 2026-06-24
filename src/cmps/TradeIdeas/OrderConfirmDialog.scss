@@ -183,3 +183,19 @@
         }
     }
 }
+
+// Conviction shown before the user commits the order. Low conviction gets the
+// loudest treatment — a warning-tinted panel — since that's the case most
+// worth a second look. Friction, never a hard gate (the user still decides).
+.order-confirm__conviction {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-hover);
+
+    &--low {
+        border-color: rgba(240, 192, 64, 0.45);
+        background: rgba(240, 192, 64, 0.08);
+    }
+}

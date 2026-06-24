@@ -1,10 +1,11 @@
 import PropTypes from 'prop-types'
 import { StatusIcon } from '../StatusIcon.jsx'
+import { ConvictionChip } from '../ConvictionChip/ConvictionChip.jsx'
 
 const STATUSES = ['waiting', 'looking', 'closed']
 
 export function TradeIdeaCard({ idea, onDelete, onStatusChange }) {
-    const { id, asset, direction, timeframe, status, entry_conditions, notes } = idea
+    const { id, asset, direction, timeframe, status, entry_conditions, notes, conviction } = idea
 
     function handleStatusChange(ev) {
         onStatusChange(id, ev.target.value)
@@ -29,6 +30,7 @@ export function TradeIdeaCard({ idea, onDelete, onStatusChange }) {
                     {direction ?? '—'}
                 </span>
                 <span className="trade-idea-card__timeframe">{timeframe ?? '—'}</span>
+                <ConvictionChip conviction={conviction} />
             </div>
 
             {entry_conditions?.length > 0 && (

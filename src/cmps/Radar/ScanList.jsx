@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
+import { ConvictionChip } from '../ConvictionChip/ConvictionChip.jsx'
 import './ScanList.scss'
 
 // Collapse state persists in sessionStorage so folding lists then switching to the
@@ -104,7 +105,7 @@ function compareGroups(a, b) {
 function Candidate({ c, onSelect }) {
     const [open, setOpen] = useState(false)
     const signals = c.signals || {}
-    const hasDetail = c.analysis || Object.values(signals).some(Boolean) || (c.sources?.length > 0)
+    const hasDetail = c.analysis || c.conviction?.rationale || Object.values(signals).some(Boolean) || (c.sources?.length > 0)
 
     return (
         <div className="scan-list__cand">
@@ -117,6 +118,7 @@ function Candidate({ c, onSelect }) {
                     <span className="scan-list__ticker-hint">Build idea →</span>
                 </button>
                 <span className="scan-list__cand-thesis">{c.thesis}</span>
+                <ConvictionChip conviction={c.conviction} />
                 {hasDetail && (
                     <button
                         className={`scan-list__expand${open ? ' scan-list__expand--open' : ''}`}
@@ -134,6 +136,11 @@ function Candidate({ c, onSelect }) {
             {open && (
                 <div className="scan-list__cand-detail">
                     {c.analysis && <p className="scan-list__analysis">{c.analysis}</p>}
+                    {c.conviction?.rationale && (
+                        <p className="scan-list__analysis scan-list__conviction-why">
+                            <ConvictionChip conviction={c.conviction} /> {c.conviction.rationale}
+                        </p>
+                    )}
                     {Object.entries(signals).filter(([, v]) => v).map(([k, v]) => (
                         <div key={k} className="scan-list__signal">
                             <span className="scan-list__signal-key">{k}</span>

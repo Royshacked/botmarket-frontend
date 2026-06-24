@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { formatCreatedAtFull } from './tradeIdea.utils.js'
 import { marketService } from '../../services/market/market.service.remote'
+import { ConvictionChip } from '../ConvictionChip/ConvictionChip.jsx'
 import './OrderConfirmDialog.scss'
 
 /**
@@ -48,6 +49,12 @@ export function OrderConfirmDialog({ idea, orders, placing, onConfirm, onDismiss
                     <p className="order-confirm__triggered">
                         Triggered at {formatCreatedAtFull(idea.entryTriggeredAt) || '—'}
                     </p>
+
+                    {idea.conviction?.level && (
+                        <div className={`order-confirm__conviction order-confirm__conviction--${idea.conviction.level}`}>
+                            <ConvictionChip conviction={idea.conviction} showRationale />
+                        </div>
+                    )}
 
                     {idea.triggeredWhileWaiting && (
                         <p className="order-confirm__while-waiting">

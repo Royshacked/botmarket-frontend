@@ -66,6 +66,7 @@ function deriveBuildingIdea(analysisState) {
         stop_conditions:  pt.stop_conditions  || [],
         tp_conditions:    pt.tp_conditions    || [],
         notes:            pt.notes           || null,
+        conviction:       pt.conviction       || null,
     }
 }
 

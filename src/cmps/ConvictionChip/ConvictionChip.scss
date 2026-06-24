@@ -1,0 +1,61 @@
+// Small color-coded conviction bucket, shared by the trade-idea card, the
+// order-confirm dialog, and the scan list. Mirrors the compact mono/uppercase
+// chip styling used elsewhere (e.g. scan-list periods). Color escalates by
+// bucket: high = positive green, medium = neutral accent, low = warning amber.
+.conviction-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 1px 7px 1px 6px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    line-height: 1.7;
+    white-space: nowrap;
+
+    &__dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+        flex-shrink: 0;
+    }
+
+    &--high {
+        color: var(--long-text);
+        border-color: var(--long-border);
+        background: var(--long-bg);
+    }
+
+    &--medium {
+        color: var(--accent-light);
+        border-color: var(--border-mid);
+    }
+
+    &--low {
+        color: var(--color-warning);
+        border-color: rgba(240, 192, 64, 0.4);
+        background: rgba(240, 192, 64, 0.06);
+    }
+}
+
+// Chip + caveat line, stacked. Used at the order-confirm step where the user is
+// about to commit, so the low-conviction case gets the loudest treatment.
+.conviction {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    &__why {
+        font-family: var(--font-sans);
+        font-size: 13px;
+        line-height: 1.45;
+        color: var(--text-secondary);
+    }
+
+    &--low &__why { color: var(--color-warning); }
+}

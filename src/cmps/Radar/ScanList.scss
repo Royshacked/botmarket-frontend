@@ -87,6 +87,7 @@
 
     &__group-count {
         margin-left: auto;
+        padding-right: 12px;
         font-family: var(--font-mono);
         font-size: 10px;
         color: var(--text-muted);
@@ -327,4 +328,12 @@
         white-space: nowrap;
         &:hover { text-decoration: underline; }
     }
+}
+
+// Conviction rationale line inside an expanded candidate — chip sits inline
+// with its one-line "why".
+.scan-list__conviction-why {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
