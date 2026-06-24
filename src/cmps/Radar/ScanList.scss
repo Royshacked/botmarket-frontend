@@ -30,18 +30,27 @@
         }
     }
 
-    // ── Period group ────────────────────────────────────────────────────
+    // ── Period group (category) ─────────────────────────────────────────
     &__group { margin-bottom: 14px; }
 
+    // Sticky period label — pins to the very top of the scroll area. Clickable to
+    // collapse the whole period. Fixed height so the thesis header below it knows
+    // exactly where to pin (see &__card-header top).
     &__group-label {
         display: flex;
-        align-items: baseline;
+        align-items: center;
         gap: 8px;
-        padding: 4px 4px 8px;
+        height: 28px;
+        padding: 0 4px;
+        box-sizing: border-box;
         position: sticky;
         top: 0;
         background: var(--bg-wash);
-        z-index: 1;
+        z-index: 3;
+        cursor: pointer;
+        user-select: none;
+
+        &:hover .scan-list__caret { color: var(--accent-bright); }
     }
 
     &__group-period {
@@ -60,21 +69,59 @@
         color: var(--text-muted);
     }
 
+    &__group-count {
+        margin-left: auto;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--text-muted);
+    }
+
+    // Collapse caret — points down when open, rotates to point right when collapsed.
+    // Shared by the period label and the thesis card header.
+    &__caret {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-muted);
+        flex-shrink: 0;
+        svg { width: 12px; height: 12px; display: block; transition: transform 0.18s ease; }
+        &--collapsed svg { transform: rotate(-90deg); }
+    }
+
     // ── Scan card (one list = period × thesis) ──────────────────────────
+    // No overflow clip here — the header below uses position: sticky and must pin
+    // against the outer scroll container, which an overflow ancestor would trap.
     &__card {
         border: 1px solid var(--border);
         border-radius: 6px;
         background: var(--bg-wash-surface);
         margin-bottom: 8px;
-        overflow: hidden;
     }
 
+    // Sticky thesis header — pins just under the 28px period label. Clickable to
+    // collapse the thesis (hides its candidates). Opaque bg so candidates scroll
+    // cleanly beneath it.
     &__card-header {
         display: flex;
         align-items: center;
         gap: 8px;
         padding: 8px 10px;
+        position: sticky;
+        top: 28px;
+        z-index: 2;
+        background: var(--bg-wash-surface);
         border-bottom: 1px solid var(--border);
+        border-radius: 6px 6px 0 0;
+        cursor: pointer;
+        user-select: none;
+
+        &:hover .scan-list__caret { color: var(--accent-bright); }
+    }
+
+    // Collapsed: header is the whole card — round all corners, drop the divider.
+    &__card--collapsed &__card-header {
+        border-bottom: none;
+        border-radius: 6px;
     }
 
     &__thesis {

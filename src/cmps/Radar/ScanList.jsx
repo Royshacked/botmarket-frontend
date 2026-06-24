@@ -110,21 +110,34 @@ function Candidate({ c, onSelect }) {
     )
 }
 
-function ScanCard({ scan, onCandidateSelect, onDelete, onEditScan }) {
+function ScanCard({ scan, collapsed, onToggle, onCandidateSelect, onDelete, onEditScan }) {
     const dir = scan.direction
     return (
-        <div className="scan-list__card">
-            <div className="scan-list__card-header">
+        <div className={`scan-list__card${collapsed ? ' scan-list__card--collapsed' : ''}`}>
+            <div
+                className="scan-list__card-header"
+                onClick={() => onToggle?.(scan.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle?.(scan.id) } }}
+                aria-expanded={!collapsed}
+                title={collapsed ? 'Expand thesis' : 'Collapse thesis'}
+            >
+                <span className={`scan-list__caret${collapsed ? ' scan-list__caret--collapsed' : ''}`} aria-hidden="true">
+                    <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                </span>
                 <span className="scan-list__thesis">{scan.thesis}</span>
                 <span className={`scan-list__card-dir scan-list__card-dir--${dir}`}>{dir}</span>
                 <span className="scan-list__count">{scan.candidates.length}</span>
-                <button className="scan-list__edit" onClick={() => onEditScan?.(scan)} aria-label="Edit list" title="Edit this list in the scanner chat">
+                <button className="scan-list__edit" onClick={e => { e.stopPropagation(); onEditScan?.(scan) }} aria-label="Edit list" title="Edit this list in the scanner chat">
                     <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                         <path d="M11.5 1.5L14.5 4.5L5.5 13.5H2.5V10.5L11.5 1.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
                         <path d="M9.5 3.5L12.5 6.5" stroke="currentColor" strokeWidth="1.4"/>
                     </svg>
                 </button>
-                <button className="scan-list__delete" onClick={() => onDelete?.(scan.id)} aria-label="Delete list" title="Delete list">
+                <button className="scan-list__delete" onClick={e => { e.stopPropagation(); onDelete?.(scan.id) }} aria-label="Delete list" title="Delete list">
                     <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                         <path d="M2.5 4H13.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
                         <path d="M6.5 4V2.8C6.5 2.36 6.86 2 7.3 2H8.7C9.14 2 9.5 2.36 9.5 2.8V4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
@@ -133,16 +146,33 @@ function ScanCard({ scan, onCandidateSelect, onDelete, onEditScan }) {
                     </svg>
                 </button>
             </div>
-            <div className="scan-list__cands">
-                {scan.candidates.map(c => (
-                    <Candidate key={c.ticker} c={c} onSelect={(cand) => onCandidateSelect?.(cand, scan)} />
-                ))}
-            </div>
+            {!collapsed && (
+                <div className="scan-list__cands">
+                    {scan.candidates.map(c => (
+                        <Candidate key={c.ticker} c={c} onSelect={(cand) => onCandidateSelect?.(cand, scan)} />
+                    ))}
+                </div>
+            )}
         </div>
     )
 }
 
 export function ScanList({ scans = [], loading, onCandidateSelect, onDelete, onEditScan }) {
+    // Collapse state — periods (category) and thesis cards (subcategory) both fold.
+    // Default expanded; we only track the collapsed ones.
+    const [collapsedPeriods, setCollapsedPeriods] = useState(() => new Set())
+    const [collapsedCards,   setCollapsedCards]   = useState(() => new Set())
+
+    function toggle(setFn, key) {
+        setFn(prev => {
+            const next = new Set(prev)
+            next.has(key) ? next.delete(key) : next.add(key)
+            return next
+        })
+    }
+    const togglePeriod = key => toggle(setCollapsedPeriods, key)
+    const toggleCard   = id  => toggle(setCollapsedCards, id)
+
     if (loading) {
         return <div className="scan-list__loader"><span /><span /><span /></div>
     }
@@ -165,14 +195,38 @@ export function ScanList({ scans = [], loading, onCandidateSelect, onDelete, onE
         <div className="scan-list">
             {groups.map(group => {
                 const { title, sub } = periodHeader(group.period)
+                const key = periodKey(group.period)
+                const periodCollapsed = collapsedPeriods.has(key)
                 return (
-                    <div key={periodKey(group.period)} className="scan-list__group">
-                        <div className="scan-list__group-label">
+                    <div key={key} className={`scan-list__group${periodCollapsed ? ' scan-list__group--collapsed' : ''}`}>
+                        <div
+                            className="scan-list__group-label"
+                            onClick={() => togglePeriod(key)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); togglePeriod(key) } }}
+                            aria-expanded={!periodCollapsed}
+                            title={periodCollapsed ? 'Expand period' : 'Collapse period'}
+                        >
+                            <span className={`scan-list__caret${periodCollapsed ? ' scan-list__caret--collapsed' : ''}`} aria-hidden="true">
+                                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                            </span>
                             <span className="scan-list__group-period">{title}</span>
                             {sub && <span className="scan-list__group-range">{sub}</span>}
+                            <span className="scan-list__group-count">{group.items.length}</span>
                         </div>
-                        {group.items.map(scan => (
-                            <ScanCard key={scan.id} scan={scan} onCandidateSelect={onCandidateSelect} onDelete={onDelete} onEditScan={onEditScan} />
+                        {!periodCollapsed && group.items.map(scan => (
+                            <ScanCard
+                                key={scan.id}
+                                scan={scan}
+                                collapsed={collapsedCards.has(scan.id)}
+                                onToggle={toggleCard}
+                                onCandidateSelect={onCandidateSelect}
+                                onDelete={onDelete}
+                                onEditScan={onEditScan}
+                            />
                         ))}
                     </div>
                 )

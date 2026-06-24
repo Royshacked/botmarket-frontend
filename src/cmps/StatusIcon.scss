@@ -34,17 +34,20 @@
     letter-spacing: 0.04em;
 }
 
-// In the trade-idea dialog and the popped-out idea window, the status icon keeps
-// the per-status colour pattern (matching the row badges) instead of the uniform
-// accent above. The parent span carries `status--{status}`, so these
-// higher-specificity rules win over `.status-icon`'s own colour.
+// The trade-idea dialog and the popped-out idea window paint their status icons
+// with the exact same per-status colours as the ideas list, so a status reads
+// identically wherever it appears. These mirror the list's `$sym-status-colors`
+// cascade in TradeIdeas.scss (waiting→accent, brightening through looking/resting,
+// white once live at hit/long/short, muted when closed). The parent span carries
+// `status--{status}`, so these higher-specificity rules win over `.status-icon`'s
+// own accent-light. Pulse animations are supplied by each component's own SCSS.
 .idea-dialog__status,
 .idea-page__status {
-    &.status--waiting .status-icon { color: var(--color-waiting); }
-    &.status--looking .status-icon { color: var(--color-looking); }
-    &.status--hit     .status-icon { color: var(--text-primary); }
-    &.status--long    .status-icon { color: var(--color-long); }
-    &.status--short   .status-icon { color: var(--color-short); }
-    &.status--resting .status-icon { color: #a78bfa; }
-    &.status--closed  .status-icon { color: #555; }
+    &.status--waiting .status-icon { color: var(--accent); }
+    &.status--looking .status-icon { color: var(--accent-light); }
+    &.status--resting .status-icon { color: var(--accent-bright); }
+    &.status--hit     .status-icon { color: #fff; }
+    &.status--long    .status-icon { color: #fff; }
+    &.status--short   .status-icon { color: #fff; }
+    &.status--closed  .status-icon { color: var(--text-muted); }
 }
