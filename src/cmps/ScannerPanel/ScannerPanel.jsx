@@ -8,6 +8,8 @@ import { ReasoningSelector } from '../ReasoningSelector.jsx'
 import { readStoredReasoning } from '../reasoningOptions.js'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useTypewriter } from '../../customHooks/useTypewriter.js'
+import { useTextPace } from '../../customHooks/useTextPace.js'
+import { PaceSlider } from '../PaceSlider.jsx'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { MeditatingBot } from '../MeditatingBot.jsx'
@@ -92,7 +94,8 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
     const pendingTickersRef = useRef([])
     const textareaRef       = useRef(null)
     const abortRef          = useRef(null)
-    const { enqueue: enqueueToken, start: startDrain, stop: stopDrain } = useTypewriter(setMessages)
+    const { paceCps } = useTextPace()
+    const { enqueue: enqueueToken, start: startDrain, stop: stopDrain, finish: finishDrain } = useTypewriter(setMessages, paceCps)
 
     // Stop a streaming response: abort the request, freeze the partial reply, and
     // free the input. postSSE swallows the abort, so no error bubble appears.
@@ -111,7 +114,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable closure
     const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
     const { isRecording, isTranscribing, toggle: toggleMic, cancel: cancelMic } = useMicInput({ onTranscript })
-    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages)
+    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, { watch: streamStatus })
 
     async function _send(text) {
         if (!text || isLoading) return
@@ -149,15 +152,11 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
                     if (!pendingTickersRef.current.includes(symbol)) pendingTickersRef.current.push(symbol)
                 },
                 onDone: (data) => {
-                    stopDrain()
                     const tickers = [...pendingTickersRef.current]
                     pendingTickersRef.current = []
-                    setMessages(prev => {
-                        const msgs = [...prev]
-                        const last = msgs[msgs.length - 1]
-                        if (last?.streaming) msgs[msgs.length - 1] = { role: 'assistant', content: data.reply, tickers }
-                        return msgs
-                    })
+                    // Finish typing the backlog at reading pace, then swap in the
+                    // final reply — no end-of-stream dump.
+                    finishDrain({ role: 'assistant', content: data.reply, tickers })
                     if (data.scan?.candidates?.length) setPendingScan(data.scan)
                 },
                 onError: (message) => {
@@ -231,9 +230,10 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
                 <span className="portfolio-panel__title-icon"><MeditatingBot /></span>
                 <span className="portfolio-panel__title"><BrandTitle text="Axl Scanner" /></span>
                 <div className="portfolio-panel__header-right">
+                    <PaceSlider />
                     <ModelSelector value={model} onChange={handleModelChange} disabled={isLoading} />
                     <ReasoningSelector value={reasoning} onChange={handleReasoningChange} disabled={isLoading} />
-                    <div className={`portfolio-panel__status-dot${isLoading ? ' loading' : ' idle'}`} />
+                    <div className={`portfolio-panel__status-dot${isLoading ? ' loading' : pendingScan ? ' building' : ' idle'}`} />
                 </div>
             </div>
 

@@ -6,7 +6,10 @@
     .portfolio-panel__title-icon { color: var(--accent-light); }
     .portfolio-panel__status-dot {
         background: var(--accent-light);
-        &.loading { background: var(--accent-bright); }
+        &.loading  { background: var(--accent-bright); }
+        // Re-tint the building pulse to the theme accent (animation + glow via
+        // currentColor come from the shared pp-building keyframe).
+        &.building { background: var(--accent-bright); color: var(--accent-bright); }
     }
 
     &__period-chip {

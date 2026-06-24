@@ -12,6 +12,7 @@ export function Radar({
     sentimentLoading = false,
     tab = 'news',
     onTabChange,
+    activeSymbol = null,
     scans = [],
     scansLoading = false,
     onCandidateSelect,
@@ -42,7 +43,7 @@ export function Radar({
                 <button
                     className={`news-feed__tab${!onScans ? ' news-feed__tab--active' : ''}`}
                     onClick={() => onTabChange?.('news')}
-                >News</button>
+                >{activeSymbol ? `${activeSymbol} News` : 'News'}</button>
                 <button
                     className={`news-feed__tab${onScans ? ' news-feed__tab--active' : ''}`}
                     onClick={() => onTabChange?.('scans')}
@@ -133,6 +134,7 @@ Radar.propTypes = {
     sentimentLoading:  PropTypes.bool,
     tab:               PropTypes.string,
     onTabChange:       PropTypes.func,
+    activeSymbol:      PropTypes.string,
     scans:             PropTypes.array,
     scansLoading:      PropTypes.bool,
     onCandidateSelect: PropTypes.func,

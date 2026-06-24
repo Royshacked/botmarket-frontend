@@ -7,6 +7,7 @@ import { AccountSelector } from './AccountSelector.jsx'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { ModelSelector } from '../ModelSelector.jsx'
 import { ReasoningSelector } from '../ReasoningSelector.jsx'
+import { PaceSlider } from '../PaceSlider.jsx'
 import { MeditatingBot } from '../MeditatingBot.jsx'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
@@ -143,6 +144,10 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
 
     const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, {
         onFinishStreaming: () => inputRef.current?.focus(),
+        // The tool-status chip ("thinking…" → "web browsing") lives outside
+        // `messages`, so re-pin to the bottom when it changes or it can sit unseen
+        // below the fold while the assistant bubble is still empty.
+        watch: streamStatus,
     })
 
     function handleKeyDown(ev) {
@@ -166,6 +171,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                 <MeditatingBot className="chat-panel__title-icon" />
                 <span className="chat-panel__title"><BrandTitle text="Axl Ideas" /></span>
                 <div className="chat-panel__header-right">
+                    <PaceSlider />
                     <ModelSelector value={model} onChange={onModelChange} disabled={isLoading} />
                     <ReasoningSelector value={reasoning} onChange={onReasoningChange} disabled={isLoading} />
                     <AccountSelector
@@ -175,18 +181,16 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                         mainAccountId={mainAccountId}
                         onMainChange={onMainAccountChange}
                     />
-                    {analysisState?.structured_state?.active_asset ? (
-                        <svg className="chat-panel__building-bot" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Building idea">
-                            <line x1="10" y1="5" x2="10" y2="2"   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                            <circle cx="10" cy="1.5" r="1"         fill="currentColor"/>
-                            <rect x="2" y="5" width="16" height="12" rx="3" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-                            <circle cx="7"  cy="10" r="1.8"        fill="currentColor"/>
-                            <circle cx="13" cy="10" r="1.8"        fill="currentColor"/>
-                            <rect x="6.5" y="13" width="7" height="1.5" rx="0.75" fill="currentColor"/>
-                        </svg>
-                    ) : (
-                        <span className={`chat-panel__status-dot ${isLoading ? 'loading' : 'idle'}`} />
-                    )}
+                    <span
+                        className={`chat-panel__status-dot ${
+                            isLoading
+                                ? 'loading'
+                                : analysisState?.structured_state?.active_asset
+                                    ? 'building'
+                                    : 'idle'
+                        }`}
+                        aria-label={analysisState?.structured_state?.active_asset ? 'Building idea' : undefined}
+                    />
                 </div>
             </div>
 

@@ -48,14 +48,6 @@
         position: relative;
     }
 
-    &__building-bot {
-        width: 18px;
-        height: 18px;
-        flex-shrink: 0;
-        color: var(--accent-light);
-        animation: cp-idle 1.6s ease-in-out infinite;
-    }
-
     &__status-dot {
         width: 7px;
         height: 7px;
@@ -63,8 +55,11 @@
         background: var(--accent);
         flex-shrink: 0;
 
-        &.idle    { animation: cp-idle    3s   ease-in-out infinite; }
-        &.loading { animation: cp-loading 0.85s ease-in-out infinite; background: var(--accent-light); }
+        &.idle     { animation: cp-idle    3s    ease-in-out infinite; }
+        // Building an idea — a hard, bright pulse with a glow (replaces the old
+        // building-bot icon), so it clearly reads as "actively building".
+        &.building { animation: cp-building 1.4s ease-in-out infinite; background: var(--accent-light); }
+        &.loading  { animation: cp-loading 0.85s ease-in-out infinite; background: var(--accent-light); }
     }
 
     // ── Trade build summary ──────────────────────────────────────────────
@@ -506,6 +501,11 @@
 @keyframes cp-loading {
     0%, 100% { opacity: 0.7; transform: scale(1);   }
     50%       { opacity: 1;   transform: scale(1.4); }
+}
+
+@keyframes cp-building {
+    0%, 100% { opacity: 0.7; transform: scale(1);    box-shadow: 0 0 0 0   transparent;          }
+    50%       { opacity: 1;   transform: scale(1.35); box-shadow: 0 0 5px 1px var(--accent-light); }
 }
 
 @keyframes cp-thinking {

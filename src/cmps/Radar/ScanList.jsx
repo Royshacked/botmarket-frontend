@@ -2,6 +2,33 @@ import { useState } from 'react'
 import PropTypes from 'prop-types'
 import './ScanList.scss'
 
+// Collapse state persists in sessionStorage so folding lists then switching to the
+// News tab (which unmounts ScanList) doesn't reset everything back to expanded.
+// Keys are stable period keys / scan ids, so they survive across remounts.
+const COLLAPSE_KEY = 'scanList.collapsed'
+
+function loadCollapsed() {
+    try {
+        const raw = sessionStorage.getItem(COLLAPSE_KEY)
+        const data = raw ? JSON.parse(raw) : {}
+        return {
+            periods: new Set(data.periods || []),
+            cards: new Set(data.cards || []),
+        }
+    } catch {
+        return { periods: new Set(), cards: new Set() }
+    }
+}
+
+function saveCollapsed(periods, cards) {
+    try {
+        sessionStorage.setItem(COLLAPSE_KEY, JSON.stringify({
+            periods: [...periods],
+            cards: [...cards],
+        }))
+    } catch { /* storage unavailable — fall back to in-memory state only */ }
+}
+
 // Parse a 'YYYY-MM-DD' string as a local date (avoids the UTC-midnight day shift).
 function parseDay(ymd) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null
@@ -177,19 +204,27 @@ function ScanCard({ scan, collapsed, onToggle, onCandidateSelect, onDelete, onEd
 
 export function ScanList({ scans = [], loading, onCandidateSelect, onDelete, onEditScan }) {
     // Collapse state — periods (category) and thesis cards (subcategory) both fold.
-    // Default expanded; we only track the collapsed ones.
-    const [collapsedPeriods, setCollapsedPeriods] = useState(() => new Set())
-    const [collapsedCards,   setCollapsedCards]   = useState(() => new Set())
+    // Default expanded; we only track the collapsed ones. Seeded from (and synced
+    // to) sessionStorage so it survives leaving and re-entering the Scans tab.
+    const [collapsedPeriods, setCollapsedPeriods] = useState(() => loadCollapsed().periods)
+    const [collapsedCards,   setCollapsedCards]   = useState(() => loadCollapsed().cards)
 
-    function toggle(setFn, key) {
-        setFn(prev => {
+    function togglePeriod(key) {
+        setCollapsedPeriods(prev => {
             const next = new Set(prev)
             next.has(key) ? next.delete(key) : next.add(key)
+            saveCollapsed(next, collapsedCards)
             return next
         })
     }
-    const togglePeriod = key => toggle(setCollapsedPeriods, key)
-    const toggleCard   = id  => toggle(setCollapsedCards, id)
+    function toggleCard(id) {
+        setCollapsedCards(prev => {
+            const next = new Set(prev)
+            next.has(id) ? next.delete(id) : next.add(id)
+            saveCollapsed(collapsedPeriods, next)
+            return next
+        })
+    }
 
     if (loading) {
         return <div className="scan-list__loader"><span /><span /><span /></div>

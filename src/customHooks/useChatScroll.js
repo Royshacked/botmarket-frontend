@@ -10,9 +10,11 @@ import { useRef, useEffect } from 'react'
  * @param {Array}  messages
  * @param {object} [opts]
  * @param {function} [opts.onFinishStreaming]  called once when streaming ends (e.g. refocus input)
+ * @param {*}        [opts.watch]  extra value to re-pin on when it changes (e.g. the
+ *                                 tool-status chip, which isn't part of `messages`)
  * @returns {{ messagesRef, messagesEndRef, handleScroll }}
  */
-export function useChatScroll(messages, { onFinishStreaming } = {}) {
+export function useChatScroll(messages, { onFinishStreaming, watch } = {}) {
     const messagesRef    = useRef(null)
     const messagesEndRef = useRef(null)
     const stickToBottom  = useRef(true)
@@ -38,10 +40,16 @@ export function useChatScroll(messages, { onFinishStreaming } = {}) {
 
         // A new message (the user just sent) re-engages auto-follow.
         if (countChanged) stickToBottom.current = true
-        if (stickToBottom.current) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+        if (stickToBottom.current) {
+            // While a message streams (same count, content growing) pin instantly
+            // each frame — a 'smooth' animation restarts on every token and ends up
+            // lurching. Reserve the smooth scroll for discrete jumps (new message).
+            const behavior = countChanged ? 'smooth' : 'auto'
+            messagesEndRef.current?.scrollIntoView({ behavior })
+        }
         if (justFinished) onFinishStreaming?.()
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [messages])
+    }, [messages, watch])
 
     return { messagesRef, messagesEndRef, handleScroll }
 }

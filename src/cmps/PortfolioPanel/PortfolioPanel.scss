@@ -57,6 +57,9 @@
         flex-shrink: 0;
 
         &.idle    { animation: pp-idle    3s   ease-in-out infinite; }
+        // Building a portfolio — a brighter pulse with a glow, distinct from idle.
+        // box-shadow uses currentColor so the scanner panel can re-tint it.
+        &.building { animation: pp-building 1.4s ease-in-out infinite; background: #6dd4a8; color: #6dd4a8; }
         &.loading { animation: pp-loading 0.85s ease-in-out infinite; background: #6dd4a8; }
     }
 
@@ -454,6 +457,11 @@
 @keyframes pp-loading {
     0%, 100% { opacity: 0.7; transform: scale(1);   }
     50%       { opacity: 1;   transform: scale(1.4); }
+}
+
+@keyframes pp-building {
+    0%, 100% { opacity: 0.7; transform: scale(1);    box-shadow: 0 0 0 0   transparent;  }
+    50%       { opacity: 1;   transform: scale(1.35); box-shadow: 0 0 5px 1px currentColor; }
 }
 
 @keyframes pp-thinking {

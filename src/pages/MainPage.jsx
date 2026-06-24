@@ -18,6 +18,7 @@ import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.rem
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
 import { showErrorMsg }      from '../services/event-bus.service'
 import { useTypewriter }     from '../customHooks/useTypewriter.js'
+import { useTextPace }       from '../customHooks/useTextPace.js'
 import { useNewsFeed }       from '../customHooks/useNewsFeed.js'
 import { useScans }          from '../customHooks/useScans.js'
 import { useBrokerAccounts } from '../customHooks/useBrokerAccounts.js'
@@ -28,6 +29,19 @@ import { useAuth }           from '../context/AuthContext.jsx'
 // Chart defaults — restored when a build/edit session ends.
 const DEFAULT_CHART_SYMBOL   = 'SPY'
 const DEFAULT_CHART_INTERVAL = 'D'
+
+// Chart bubbles are persisted in chat_state (so they re-show on edit) but capped
+// so accumulated base64 doesn't bloat the idea doc. Keeps the most recent charts,
+// dropping the oldest first; non-chart messages are untouched.
+const MAX_PERSISTED_CHARTS = 4
+function _capPersistedCharts(msgs) {
+    let over = msgs.filter(m => m.type === 'chart').length - MAX_PERSISTED_CHARTS
+    if (over <= 0) return msgs
+    return msgs.filter(m => {
+        if (m.type === 'chart' && over > 0) { over--; return false }
+        return true
+    })
+}
 
 // Derive a live "building" idea from chat state — shown in the list but not yet saved
 function deriveBuildingIdea(analysisState) {
@@ -147,8 +161,10 @@ export function MainPage() {
     const { positions, loading: positionsLoading, refresh: refreshPositions, closePosition } = usePositions()
     const { ideas, setIdeas, loadIdeas, handleStatusChange } = useTradeIdeas()
 
-    // Typewriter queue — smooths streamed tokens into the last message
-    const { enqueue: enqueueToken, start: startDrain, stop: stopDrain } = useTypewriter(setMessages)
+    // Typewriter queue — smooths streamed tokens into the last message at the
+    // user's chosen pace (the global text-speed slider)
+    const { paceCps } = useTextPace()
+    const { enqueue: enqueueToken, start: startDrain, stop: stopDrain, finish: finishDrain } = useTypewriter(setMessages, paceCps)
 
     const buildingIdea = deriveBuildingIdea(analysisState)
     // buildingPortfolio is reported up from PortfolioPanel (assets recommended /
@@ -245,18 +261,31 @@ export function MainPage() {
                     },
 
                     onDone: (data) => {
-                        stopDrain()
+                        const finalMsg = { role: 'assistant', content: data.reply, analysisState: data.analysisState ?? null }
+                        // Mirror the final messages into the persisted-state ref now —
+                        // so a navigate/generate while the typewriter is still catching
+                        // up still saves the complete reply — without changing what's on
+                        // screen (the read returns prev unchanged).
                         setMessages(prev => {
-                            const msgs = [...prev]
-                            const last = msgs[msgs.length - 1]
-                            if (last?.streaming) {
-                                msgs[msgs.length - 1] = { role: 'assistant', content: data.reply, analysisState: data.analysisState ?? null }
-                            }
-                            // Charts are transient visual aids — keep them on screen but
-                            // exclude them from the persisted chat_state (base64 bloat).
-                            latestMessagesRef.current = msgs.filter(m => m.type !== 'chart')
-                            return msgs
+                            const finalMsgs = prev.map((m, i) => (i === prev.length - 1 && m.streaming ? finalMsg : m))
+                            // Keep chart bubbles in the saved chat_state so they re-render
+                            // when the idea is reopened for editing. They stay display-only:
+                            // the trade chat sends analysisState (text), never this messages
+                            // array, so charts never enter the model's context. Cap the count
+                            // so the saved base64 doesn't bloat the idea doc / each progressive
+                            // save (oldest charts are dropped first).
+                            latestMessagesRef.current = _capPersistedCharts(finalMsgs)
+                            return prev
                         })
+                        // Visually finish typing the backlog, then swap in finalMsg —
+                        // no end-of-stream dump.
+                        finishDrain(finalMsg)
+                        // Save chat state progressively when editing
+                        if (editingIdeaId && data.analysisState) {
+                            tradeIdeasService.updateIdea(editingIdeaId, {
+                                chat_state: { messages: latestMessagesRef.current, analysisState: data.analysisState }
+                            }).catch(err => console.error('[chat_state] save failed', err))
+                        }
                         setAnalysisState(data.analysisState ?? null)
                         const newAsset   = data.analysisState?.structured_state?.active_asset
                         const newCompany = data.analysisState?.structured_state?.active_company_name
@@ -266,13 +295,6 @@ export function MainPage() {
                         if (newInterval) setChartInterval(newInterval)
                         news.focusAsset(newAsset, newCompany)
                         if (data.ideaSaved) loadIdeas()
-
-                        // Save chat state progressively when editing
-                        if (editingIdeaId && data.analysisState) {
-                            tradeIdeasService.updateIdea(editingIdeaId, {
-                                chat_state: { messages: latestMessagesRef.current, analysisState: data.analysisState }
-                            }).catch(err => console.error('[chat_state] save failed', err))
-                        }
                     },
 
                     onError: (message) => {
@@ -807,6 +829,7 @@ export function MainPage() {
                             sentimentLoading={!!news.activeNewsSymbol && news.assetSentimentLoading}
                             tab={newsTab}
                             onTabChange={setNewsTab}
+                            activeSymbol={news.activeNewsSymbol}
                             scans={scans}
                             scansLoading={scansLoading}
                             onCandidateSelect={handleBuildFromCandidate}

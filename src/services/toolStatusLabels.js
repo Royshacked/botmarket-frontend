@@ -16,6 +16,9 @@ const LABELS = {
     get_correlations:     'Analyzing correlation…',
     get_earnings_calendar: 'Checking the earnings calendar…',
     get_sec_filings:      'Reading SEC filings…',
+    get_short_interest:   'Checking short interest…',
+    get_options_context:  'Reading options positioning…',
+    get_derivatives_context: 'Checking funding & open interest…',
 }
 
 export function toolStatusLabel(name) {
