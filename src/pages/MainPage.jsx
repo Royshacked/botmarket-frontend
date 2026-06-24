@@ -43,6 +43,15 @@ function _capPersistedCharts(msgs) {
     })
 }
 
+// The persisted messages array is display-only (re-shown on edit); the model
+// restores context from analysisState, not this. Cap it to the most recent N so
+// the save/update payload stays small over the wire — mirrors the backend trim.
+const MAX_PERSISTED_MESSAGES = 40
+function _capPersistedMessages(msgs) {
+    if (!Array.isArray(msgs) || msgs.length <= MAX_PERSISTED_MESSAGES) return msgs
+    return msgs.slice(-MAX_PERSISTED_MESSAGES)
+}
+
 // Derive a live "building" idea from chat state — shown in the list but not yet saved
 function deriveBuildingIdea(analysisState) {
     if (!analysisState) return null
@@ -284,7 +293,7 @@ export function MainPage() {
                         // Save chat state progressively when editing
                         if (editingIdeaId && data.analysisState) {
                             tradeIdeasService.updateIdea(editingIdeaId, {
-                                chat_state: { messages: latestMessagesRef.current, analysisState: data.analysisState }
+                                chat_state: { messages: _capPersistedMessages(latestMessagesRef.current), analysisState: data.analysisState }
                             }).catch(err => console.error('[chat_state] save failed', err))
                         }
                         setAnalysisState(data.analysisState ?? null)
@@ -413,7 +422,7 @@ export function MainPage() {
             return
         }
         const { id: _id, status: _status, ...ideaFields } = buildingIdea
-        const chatState = { messages: latestMessagesRef.current, analysisState }
+        const chatState = { messages: _capPersistedMessages(latestMessagesRef.current), analysisState }
 
         if (editingIdeaId) {
             try {
