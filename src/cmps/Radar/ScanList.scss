@@ -60,6 +60,22 @@
         letter-spacing: 0.14em;
         text-transform: uppercase;
         color: var(--accent-light);
+
+        // The scan's window contains today → it's live now, so call it out in white.
+        &--current { color: #fff; }
+
+        // The window has fully elapsed → dim it to a stale, muted tone.
+        &--past { color: var(--text-muted); }
+    }
+
+    // Warning shown beside a past period's title — its window has elapsed.
+    &__group-stale {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--color-warning);
+        flex-shrink: 0;
+        svg { width: 12px; height: 12px; display: block; }
     }
 
     &__group-range {

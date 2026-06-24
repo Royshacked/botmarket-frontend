@@ -39,6 +39,24 @@ function periodHeader(p) {
     return { title: p.label || range, sub: '' }
 }
 
+// True when today falls inside the period's window (start ≤ today ≤ end) — i.e. the
+// scan is live right now, not merely upcoming or past. Open-ended bounds count as
+// satisfied on that side; a fully undated period is never "current".
+function isCurrentPeriod(p) {
+    if (!p || (!p.start && !p.end)) return false
+    const today = new Date().toISOString().slice(0, 10)
+    return (!p.start || p.start <= today) && (!p.end || today <= p.end)
+}
+
+// True when the period's window has fully elapsed (its end is before today) — the
+// scan is stale. Undated periods are never "past".
+function isPastPeriod(p) {
+    if (!p || (!p.start && !p.end)) return false
+    const today = new Date().toISOString().slice(0, 10)
+    const end = p.end || p.start
+    return end < today
+}
+
 // Order groups by time-relevance: current/upcoming first (soonest start first),
 // then fully-past windows (most recent first), then undated.
 function groupRank(p) {
@@ -197,6 +215,8 @@ export function ScanList({ scans = [], loading, onCandidateSelect, onDelete, onE
                 const { title, sub } = periodHeader(group.period)
                 const key = periodKey(group.period)
                 const periodCollapsed = collapsedPeriods.has(key)
+                const current = isCurrentPeriod(group.period)
+                const past    = !current && isPastPeriod(group.period)
                 return (
                     <div key={key} className={`scan-list__group${periodCollapsed ? ' scan-list__group--collapsed' : ''}`}>
                         <div
@@ -213,7 +233,16 @@ export function ScanList({ scans = [], loading, onCandidateSelect, onDelete, onE
                                     <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                                 </svg>
                             </span>
-                            <span className="scan-list__group-period">{title}</span>
+                            <span className={`scan-list__group-period${current ? ' scan-list__group-period--current' : ''}${past ? ' scan-list__group-period--past' : ''}`}>{title}</span>
+                            {past && (
+                                <span className="scan-list__group-stale" title="This scan's window has passed" aria-label="window passed">
+                                    <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                        <path d="M8 2.2L14.5 13.3H1.5L8 2.2Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+                                        <path d="M8 6.4V9.4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                                        <circle cx="8" cy="11.4" r="0.5" fill="currentColor"/>
+                                    </svg>
+                                </span>
+                            )}
                             {sub && <span className="scan-list__group-range">{sub}</span>}
                             <span className="scan-list__group-count">{group.items.length}</span>
                         </div>

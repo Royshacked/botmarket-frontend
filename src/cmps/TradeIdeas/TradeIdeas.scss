@@ -605,19 +605,32 @@ $sym-status-colors: (
     }
 }
 
+// The portfolios table's column-header row is sticky at the top; give it a fixed
+// height so the portfolio header below can pin flush beneath it.
+.portfolios-table thead th { height: 28px; box-sizing: border-box; }
+
 .portfolio-group-row {
     cursor: pointer;
-    background: rgba(76, 175, 138, 0.05);
 
-    &:hover { background: rgba(76, 175, 138, 0.09); }
-
-    td {
+    // The portfolio (group) header row pins just under the sticky column-header row
+    // so it stays visible while its expanded ideas scroll past. Sticky lives on the
+    // cells (robust for table rows across browsers); each carries an opaque base
+    // beneath the green tint so the scrolling child rows don't bleed through.
+    > td {
+        position: sticky;
+        top: 28px;
+        z-index: 2;
         padding: 7px 8px 7px 0;
         border-bottom: 1px solid rgba(76, 175, 138, 0.18);
         vertical-align: middle;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        background: linear-gradient(rgba(76, 175, 138, 0.05), rgba(76, 175, 138, 0.05)), var(--bg-base);
+    }
+
+    &:hover > td {
+        background: linear-gradient(rgba(76, 175, 138, 0.09), rgba(76, 175, 138, 0.09)), var(--bg-base);
     }
 
     &__caret {
@@ -657,7 +670,13 @@ $sym-status-colors: (
         background: var(--glow-soft);
 
         .portfolio-group-row__name { animation: idea-build-pulse 1.6s ease-in-out infinite; }
-        td { border-bottom: none; }
+        // Transient row — not sticky, and keeps its own build glow instead of the
+        // green header tint.
+        > td {
+            position: static;
+            background: var(--glow-soft);
+            border-bottom: none;
+        }
     }
 
     &__building-badge {
