@@ -5,31 +5,30 @@ import { PACE_DEFAULT } from './useTextPace.js'
  * Smooth "typewriter" output for a streaming chat message.
  *
  * Tokens from the API go into a ref-backed queue (zero React overhead). A fixed
- * ~16ms timer reveals the queue at `paceCps` characters per second — a slower,
- * fractional rate is carried across ticks, so even a leisurely pace types out
- * one char at a time rather than stalling. `paceCps` is read live, so dragging
- * the pace slider mid-reply takes effect immediately.
+ * ~16ms timer reveals the queue at a constant `paceCps` characters per second (the
+ * pace slider) — a slower, fractional rate is carried across ticks, so even a leisurely
+ * pace types out one char at a time rather than stalling. `paceCps` is read live, so
+ * dragging the slider mid-reply takes effect immediately.
  *
- * The model streams faster than reading pace, so a backlog builds during the
- * response. Rather than dumping it when the network finishes, `finish()` keeps
- * typing the remainder and only then swaps in the final message — so the reply
- * streams smoothly to its last character. A catch-up cap (~CATCHUP_SECONDS worth
- * of pace) keeps very long replies, or a backgrounded tab, from crawling.
+ * The model streams faster than the slider pace, so a backlog builds and keeps typing
+ * at that same constant pace even after the network finishes — `finish()` types out
+ * the remainder, then swaps in the final message. Uniform speed throughout, set purely
+ * by the slider: no catch-up bursts, no fast-then-slow. The trade-off is that a long
+ * reply at a slow pace keeps typing for a while after the model is done.
  *
  * @param {function} setMessages  React state setter for the messages array
  * @param {number}   [paceCps]    reveal speed in chars/sec (from useTextPace)
  * @returns {{ enqueue:(t:string)=>void, start:()=>void, stop:()=>void,
  *            finish:(msg:object, onComplete?:(msgs:Array)=>void)=>void }}
  */
-const TICK_MS         = 16   // ~60fps; pace is enforced via chars-per-tick, not interval
-const CATCHUP_SECONDS = 6    // never let the backlog exceed this many seconds of pace
+const TICK_MS = 16    // ~60fps; pace is enforced via chars-per-tick, not interval
 
 export function useTypewriter(setMessages, paceCps = PACE_DEFAULT) {
-    const queueRef  = useRef('')
-    const timerRef  = useRef(null)
-    const finishRef = useRef(null)   // { msg, onComplete } once the stream is done
-    const accRef    = useRef(0)      // carried fractional chars (for slow paces)
-    const paceRef   = useRef(paceCps)
+    const queueRef   = useRef('')
+    const timerRef   = useRef(null)
+    const finishRef  = useRef(null)   // { msg, onComplete } once the stream is done
+    const accRef     = useRef(0)      // carried fractional chars (for slow paces)
+    const paceRef    = useRef(paceCps)
 
     useEffect(() => { paceRef.current = paceCps }, [paceCps])
 
@@ -37,16 +36,13 @@ export function useTypewriter(setMessages, paceCps = PACE_DEFAULT) {
         const q = queueRef.current
         if (q.length) {
             const pace = paceRef.current
+            // Reveal at exactly the slider pace, start to finish — a constant speed with
+            // no catch-up bursts. The model streams faster than this, so a backlog builds
+            // and keeps typing at the slider pace even after the network finishes (handled
+            // by finish() below). Uniform speed throughout: no fast-then-slow.
             accRef.current += pace * (TICK_MS / 1000)
             let n = Math.floor(accRef.current)
             accRef.current -= n
-            // Catch-up: if the backlog grows past a few seconds of pace (long reply,
-            // or the tab was backgrounded and the timer coalesced), accelerate so
-            // the tail doesn't take forever — clearing the excess over ~1 second.
-            const maxLag = Math.max(120, pace * CATCHUP_SECONDS)
-            if (q.length > maxLag) {
-                n = Math.max(n, Math.ceil((q.length - maxLag) / (1000 / TICK_MS)))
-            }
             if (n < 1) return   // slow pace — reveal nothing this tick, carry the fraction
             const take  = Math.min(n, q.length)
             const chunk = q.slice(0, take)
