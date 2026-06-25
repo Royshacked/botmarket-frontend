@@ -11,6 +11,7 @@ import { PaceSlider } from '../PaceSlider.jsx'
 import { MeditatingBot } from '../MeditatingBot.jsx'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
+import { ConvictionChip } from '../ConvictionChip/ConvictionChip.jsx'
 import './ChatPanel.scss'
 
 const P = 'chat-panel__build-summary'
@@ -33,6 +34,7 @@ function ConditionList({ conditions, logic }) {
 }
 
 function TradeBuildSummary({ analysisState, selectedAccounts = [] }) {
+    const [convictionOpen, setConvictionOpen] = useState(false)
     if (!analysisState) return null
     const s  = analysisState.structured_state || {}
     const pt = s.pending_trade || {}
@@ -58,6 +60,27 @@ function TradeBuildSummary({ analysisState, selectedAccounts = [] }) {
                     <span className={`${P}-tf-main`}>{pt.type}</span>
                 )}
             </div>
+            {pt.conviction?.level && (
+                <div className={`${P}-group ${P}-group--conviction`}>
+                    <span className={`${P}-label`}>Conviction</span>
+                    {pt.conviction.rationale ? (
+                        <button
+                            type="button"
+                            className={`${P}-conviction-toggle`}
+                            onClick={() => setConvictionOpen(o => !o)}
+                            aria-expanded={convictionOpen}
+                            title={convictionOpen ? 'Hide reasoning' : 'Show reasoning'}
+                        >
+                            <ConvictionChip conviction={pt.conviction} showRationale={convictionOpen} />
+                            <span className={`${P}-conviction-caret`} aria-hidden="true">
+                                {convictionOpen ? '▾' : '▸'}
+                            </span>
+                        </button>
+                    ) : (
+                        <ConvictionChip conviction={pt.conviction} />
+                    )}
+                </div>
+            )}
             {hasEntry && (
                 <div className={`${P}-group`}>
                     <span className={`${P}-label`}>Entry</span>

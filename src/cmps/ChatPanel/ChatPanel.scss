@@ -145,6 +145,41 @@
 
         &-group--accounts { margin-top: 2px; }
 
+        &-group--conviction {
+            align-items: baseline;
+
+            .chat-panel__build-summary-label { width: auto; }
+
+            // let the chip + rationale take the rest of the row and wrap
+            .conviction { flex: 1; min-width: 0; }
+        }
+
+        // Click-to-expand wrapper: chip always visible, rationale revealed on toggle
+        &-conviction-toggle {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            flex: 1;
+            min-width: 0;
+            padding: 0;
+            border: none;
+            background: none;
+            font: inherit;
+            text-align: left;
+            color: inherit;
+            cursor: pointer;
+        }
+
+        &-conviction-caret {
+            color: var(--accent);
+            font-size: 15px;
+            line-height: 1;
+            flex-shrink: 0;
+            transition: color 0.15s ease;
+        }
+
+        &-conviction-toggle:hover &-conviction-caret { color: var(--accent-light); }
+
         &-accounts {
             display: flex;
             flex-wrap: wrap;
