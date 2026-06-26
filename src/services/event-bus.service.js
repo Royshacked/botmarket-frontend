@@ -1,4 +1,5 @@
-export const SHOW_MSG = 'show-msg'
+export const SHOW_MSG        = 'show-msg'
+export const THESIS_EDIT_IDEA = 'thesis-edit-idea'
 
 function createEventEmitter() {
     const listenersMap = {}

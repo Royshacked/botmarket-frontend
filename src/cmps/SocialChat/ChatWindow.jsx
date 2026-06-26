@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
+import { eventBus, THESIS_EDIT_IDEA } from '../../services/event-bus.service'
 
 const BOT_ID = 'ar2trade_bot'
 
@@ -70,7 +71,10 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                             key={msg.id}
                             className={`social-chat__msg ${isMine ? 'social-chat__msg--mine' : 'social-chat__msg--theirs'}`}
                         >
-                            <div className="social-chat__msg-bubble">{msg.content}</div>
+                            {msg.type === 'thesis_alert' && msg.payload
+                                ? <ThesisAlertBubble msg={msg} onClose={onClose} />
+                                : <div className="social-chat__msg-bubble">{msg.content}</div>
+                            }
                             <div className="social-chat__msg-time">{formatTime(msg.createdAt)}</div>
                         </div>
                     )
@@ -91,6 +95,29 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                     Send
                 </button>
             </form>
+        </div>
+    )
+}
+
+function ThesisAlertBubble({ msg, onClose }) {
+    const { thesis_status, reason, asset } = msg.payload
+    const isInvalidated = thesis_status === 'invalidated'
+    const label = isInvalidated ? 'Thesis Invalidated' : 'Thesis Weakening'
+
+    function handleReview() {
+        eventBus.emit(THESIS_EDIT_IDEA, { ideaId: msg.payload.ideaId })
+        onClose?.()
+    }
+
+    return (
+        <div className={`social-chat__msg-bubble social-chat__thesis-alert social-chat__thesis-alert--${thesis_status}`}>
+            <div className="social-chat__thesis-alert-header">
+                {label} &middot; {asset}
+            </div>
+            <div className="social-chat__thesis-alert-reason">{reason}</div>
+            <button className="social-chat__thesis-alert-btn" onClick={handleReview}>
+                Review Idea
+            </button>
         </div>
     )
 }

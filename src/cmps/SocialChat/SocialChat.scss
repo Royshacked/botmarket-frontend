@@ -25,7 +25,8 @@
         flex-direction: column;
         background: var(--bg-surface);
         border-right: 1px solid var(--border-mid);
-        overflow: hidden;
+        overflow-x: hidden;
+        overflow-y: hidden;
     }
 
     &__list-header {
@@ -84,6 +85,7 @@
 
     &__conv-scroll {
         flex: 1;
+        overflow-x: hidden;
         overflow-y: auto;
     }
 
@@ -301,6 +303,49 @@
         font-family: inherit;
         &::placeholder { color: var(--text-muted); }
         &:focus { border-color: var(--border-strong); }
+    }
+
+    // ── Thesis alert message ───────────────────────────────────────────────
+    &__thesis-alert {
+        padding: 0;
+        overflow: hidden;
+        min-width: 220px;
+
+        &--weakening    { border: 1px solid #f59e0b; }
+        &--invalidated  { border: 1px solid #ef4444; }
+    }
+
+    &__thesis-alert-header {
+        padding: 7px 12px 5px;
+        font-size: .76rem;
+        font-weight: 600;
+        letter-spacing: .01em;
+
+        .social-chat__thesis-alert--weakening &   { background: rgba(245,158,11,.12); color: #f59e0b; }
+        .social-chat__thesis-alert--invalidated & { background: rgba(239,68,68,.12);  color: #ef4444; }
+    }
+
+    &__thesis-alert-reason {
+        padding: 6px 12px 8px;
+        font-size: .83rem;
+        color: var(--text-primary);
+        line-height: 1.4;
+    }
+
+    &__thesis-alert-btn {
+        display: block;
+        width: calc(100% - 24px);
+        margin: 0 12px 10px;
+        padding: 6px;
+        background: var(--bg-base);
+        border: 1px solid var(--border-strong, var(--border));
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-size: .8rem;
+        font-weight: 500;
+        cursor: pointer;
+        text-align: center;
+        &:hover { background: var(--bg-hover); }
     }
 
     &__send-btn {

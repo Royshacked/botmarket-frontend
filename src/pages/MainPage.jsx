@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 import { ChatPanel }         from '../cmps/ChatPanel/ChatPanel.jsx'
 import { readStoredModel }   from '../cmps/modelOptions.js'
@@ -16,7 +16,7 @@ import { userPromptService } from '../services/userPrompt/userPrompt.service.rem
 import { toolStatusLabel }   from '../services/toolStatusLabels.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
-import { showErrorMsg }      from '../services/event-bus.service'
+import { showErrorMsg, eventBus, THESIS_EDIT_IDEA } from '../services/event-bus.service'
 import { useTypewriter }     from '../customHooks/useTypewriter.js'
 import { useTextPace }       from '../customHooks/useTextPace.js'
 import { useNewsFeed }       from '../customHooks/useNewsFeed.js'
@@ -413,6 +413,17 @@ export function MainPage() {
         setSelectedAccounts(Array.isArray(idea.accounts) ? idea.accounts : [])
         setMainAccountId(idea.mainAccountId ?? null)
     }
+
+    // Keep a ref so the thesis-alert handler always sees the latest ideas list
+    // without needing to be recreated on every render.
+    const ideasRef = useRef(ideas)
+    ideasRef.current = ideas
+    useEffect(() => {
+        return eventBus.on(THESIS_EDIT_IDEA, ({ ideaId }) => {
+            const idea = ideasRef.current.find(i => i.id === ideaId)
+            if (idea) handleEditIdea(idea)
+        })
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
     async function handleGenerate() {
         if (!buildingIdea) {
