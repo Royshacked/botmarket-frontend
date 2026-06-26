@@ -1,13 +1,25 @@
-import { useContext, useEffect } from 'react'
+import { useContext, useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { AuthContext } from '../context/AuthContext'
 import { HeaderBackground } from './HeaderBackground'
+import { chatWsService } from '../services/chat/chatWs.service'
+import { SocialChat } from './SocialChat/SocialChat'
 
 export function AppHeader() {
 	const { user }   = useContext(AuthContext)
 	const navigate   = useNavigate()
 	const { pathname } = useLocation()
 	const onProfile  = pathname === '/profile'
+
+	const [showChat,  setShowChat]  = useState(false)
+	const [unread,    setUnread]    = useState(0)
+
+	// Connect / disconnect WS with user session
+	useEffect(() => {
+		if (!user) { chatWsService.disconnect(); return }
+		chatWsService.connect()
+		return () => chatWsService.disconnect()
+	}, [user?._id])
 
 	useEffect(() => {
 		const params = new URLSearchParams(window.location.search)
@@ -37,6 +49,17 @@ export function AppHeader() {
 
 			{user && (
 				<div className="app-header__user-wrap">
+					<button
+						className="app-header__chat-btn"
+						onClick={() => setShowChat(v => !v)}
+						title="Messages"
+					>
+						💬
+						{unread > 0 && (
+							<span className="app-header__chat-badge">{unread > 9 ? '9+' : unread}</span>
+						)}
+					</button>
+
 					{onProfile
 						? <button className="app-header__user" onClick={() => navigate('/')}>
 							← Back to Trading
@@ -46,6 +69,14 @@ export function AppHeader() {
 						</button>
 					}
 				</div>
+			)}
+
+			{showChat && user && (
+				<SocialChat
+					currentUserId={user._id}
+					onUnreadChange={setUnread}
+					onClose={() => setShowChat(false)}
+				/>
 			)}
 		</header>
 	)

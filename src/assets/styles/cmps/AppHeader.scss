@@ -116,6 +116,37 @@
     &__user-wrap {
         position: relative;
         margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    &__chat-btn {
+        position: relative;
+        background: var(--user-btn-bg);
+        border: 1px solid var(--user-btn-border);
+        border-radius: 6px;
+        padding: 7px 12px;
+        font-size: 1rem;
+        cursor: pointer;
+        color: var(--accent-bright);
+        transition: background .15s, border-color .15s;
+        &:hover { background: var(--user-btn-bg-hover); border-color: var(--user-btn-border-hover); }
+    }
+
+    &__chat-badge {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        background: var(--color-short);
+        color: #fff;
+        font-size: .65rem;
+        font-weight: 700;
+        padding: 1px 5px;
+        border-radius: 10px;
+        min-width: 17px;
+        text-align: center;
+        line-height: 1.4;
     }
 
     &__user {
