@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { chatService }   from '../../services/chat/chat.service'
 import { chatWsService } from '../../services/chat/chatWs.service'
@@ -6,7 +6,8 @@ import { ConversationList } from './ConversationList'
 import { ChatWindow }       from './ChatWindow'
 import './SocialChat.scss'
 
-const PAGE = 50
+const PAGE   = 50
+const BOT_ID = 'ar2trade_bot'
 
 export function SocialChat({ currentUserId, onUnreadChange, onClose }) {
     const [conversations, setConversations] = useState([])
@@ -14,47 +15,40 @@ export function SocialChat({ currentUserId, onUnreadChange, onClose }) {
     const [messages,      setMessages]      = useState([])
     const [hasMore,       setHasMore]       = useState(false)
     const [loading,       setLoading]       = useState(false)
+    const activeConvRef = useRef(null)
 
-    // ── Load conversation list ─────────────────────────────────────────────
+    // ── Load conversation list ──────────────────────────────────────────────
     const loadConversations = useCallback(async () => {
         try {
             const convs = await chatService.getConversations()
-            setConversations(convs)
-            const total = convs.reduce((sum, c) => sum + (c.unread ?? 0), 0)
-            onUnreadChange?.(total)
-        } catch { /* ignore */ }
+            const bot  = convs.filter(c => c.participants.includes(BOT_ID))
+            const rest = convs.filter(c => !c.participants.includes(BOT_ID))
+            setConversations([...bot, ...rest])
+            onUnreadChange?.(convs.reduce((s, c) => s + (c.unread ?? 0), 0))
+        } catch (err) {
+            console.error('[SocialChat] loadConversations failed', err)
+        }
     }, [onUnreadChange])
 
     useEffect(() => { loadConversations() }, [loadConversations])
 
-    // ── WS: re-fetch conversations on connect; append new messages ─────────
+    // ── WS events ──────────────────────────────────────────────────────────
     useEffect(() => {
         function onConnected() { loadConversations() }
 
         function onNewMessage(msg) {
-            // Update conversation list preview + unread
+            const isActive = activeConvRef.current?.id === msg.conversationId
             setConversations(prev => {
-                const updated = prev.map(c => {
-                    if (c.id !== msg.conversationId) return c
-                    const isActive = activeConvRef.current?.id === c.id
-                    return {
-                        ...c,
-                        lastMessage:    msg.content,
-                        lastMessageAt:  msg.createdAt,
-                        unread: isActive ? 0 : (c.unread ?? 0) + 1,
-                    }
+                const updated = prev.map(c => c.id !== msg.conversationId ? c : {
+                    ...c,
+                    lastMessage:   msg.content,
+                    lastMessageAt: msg.createdAt,
+                    unread: isActive ? 0 : (c.unread ?? 0) + 1,
                 })
-                const total = updated.reduce((sum, c) => sum + (c.unread ?? 0), 0)
-                onUnreadChange?.(total)
+                onUnreadChange?.(updated.reduce((s, c) => s + (c.unread ?? 0), 0))
                 return updated
             })
-            // Append to open chat window
-            setActiveConv(prev => {
-                if (prev?.id === msg.conversationId) {
-                    setMessages(m => [...m, msg])
-                }
-                return prev
-            })
+            if (isActive) setMessages(m => [...m, msg])
         }
 
         chatWsService.on('connected',   onConnected)
@@ -65,11 +59,9 @@ export function SocialChat({ currentUserId, onUnreadChange, onClose }) {
         }
     }, [loadConversations, onUnreadChange])
 
-    // Keep a ref to activeConv so the WS handler can read it without stale closure
-    const activeConvRef = { current: activeConv }
     useEffect(() => { activeConvRef.current = activeConv }, [activeConv])
 
-    // ── Open a conversation ────────────────────────────────────────────────
+    // ── Select conversation ─────────────────────────────────────────────────
     async function handleSelectConv(conv) {
         setActiveConv(conv)
         setMessages([])
@@ -79,29 +71,26 @@ export function SocialChat({ currentUserId, onUnreadChange, onClose }) {
             setMessages(msgs)
             setHasMore(msgs.length === PAGE)
             await chatService.markRead(conv.id)
-            setConversations(prev => prev.map(c =>
-                c.id === conv.id ? { ...c, unread: 0 } : c
-            ))
-            const total = conversations.reduce((sum, c) => sum + (c.id === conv.id ? 0 : (c.unread ?? 0)), 0)
-            onUnreadChange?.(total)
-        } catch { /* ignore */ }
-        finally { setLoading(false) }
+            setConversations(prev => {
+                const updated = prev.map(c => c.id === conv.id ? { ...c, unread: 0 } : c)
+                onUnreadChange?.(updated.reduce((s, c) => s + (c.unread ?? 0), 0))
+                return updated
+            })
+        } catch (err) {
+            console.error('[SocialChat] getMessages failed', err)
+        } finally { setLoading(false) }
     }
 
-    // ── Load older messages ────────────────────────────────────────────────
     async function handleLoadMore() {
         if (!activeConv || loading) return
-        const oldest = messages[0]?.createdAt
         setLoading(true)
         try {
-            const older = await chatService.getMessages(activeConv.id, oldest)
+            const older = await chatService.getMessages(activeConv.id, messages[0]?.createdAt)
             setMessages(prev => [...older, ...prev])
             setHasMore(older.length === PAGE)
-        } catch { /* ignore */ }
-        finally { setLoading(false) }
+        } catch { /* ignore */ } finally { setLoading(false) }
     }
 
-    // ── Send a message ─────────────────────────────────────────────────────
     async function handleSend(content) {
         if (!activeConv) return
         const msg = await chatService.sendMessage(activeConv.id, content)
@@ -113,20 +102,16 @@ export function SocialChat({ currentUserId, onUnreadChange, onClose }) {
         ))
     }
 
-    // ── New DM started from search ─────────────────────────────────────────
     function handleConversationStarted(conv) {
-        setConversations(prev => {
-            const exists = prev.find(c => c.id === conv.id)
-            return exists ? prev : [conv, ...prev]
-        })
+        setConversations(prev => prev.find(c => c.id === conv.id) ? prev : [conv, ...prev])
         handleSelectConv(conv)
     }
 
     return (
-        <div className="social-chat__overlay" onClick={e => e.target === e.currentTarget && onClose?.()}>
-            <div className="social-chat">
-                <button className="social-chat__close" onClick={onClose}>✕</button>
+        <>
+            <div className="social-chat__backdrop" onClick={onClose} />
 
+            <div className="social-chat">
                 <ConversationList
                     conversations={conversations}
                     activeId={activeConv?.id}
@@ -141,11 +126,12 @@ export function SocialChat({ currentUserId, onUnreadChange, onClose }) {
                     currentUserId={currentUserId}
                     loading={loading}
                     hasMore={hasMore}
+                    onClose={onClose}
                     onSend={handleSend}
                     onLoadMore={handleLoadMore}
                 />
             </div>
-        </div>
+        </>
     )
 }
 

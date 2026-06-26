@@ -246,6 +246,40 @@
     &__divider { width: 1px; height: 26px; background: var(--axl-line); margin: 0 6px; }
 
     // ── profile (preserves navigate-to-profile / back behavior) ──
+    &__chat {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        border: 1px solid transparent;
+        cursor: pointer;
+        padding: 6px 8px;
+        border-radius: 8px;
+        font-size: 1rem;
+        color: var(--axl-birch);
+        font-family: inherit;
+        transition: background 0.2s, border-color 0.2s;
+
+        &:hover { background: rgba(255, 255, 255, 0.05); border-color: var(--axl-line); }
+        &:focus-visible { outline: 2px solid var(--axl-aurora); outline-offset: 2px; }
+    }
+
+    &__chat-badge {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        background: var(--color-short);
+        color: #fff;
+        font-size: .62rem;
+        font-weight: 700;
+        padding: 1px 4px;
+        border-radius: 10px;
+        min-width: 16px;
+        text-align: center;
+        line-height: 1.5;
+    }
+
     &__profile {
         display: inline-flex;
         align-items: center;

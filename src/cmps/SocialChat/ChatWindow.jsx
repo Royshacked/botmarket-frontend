@@ -8,13 +8,11 @@ function formatTime(ms) {
     return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
-export function ChatWindow({ conversation, messages, currentUserId, loading, hasMore, onSend, onLoadMore }) {
-    const [draft, setDraft] = useState('')
+export function ChatWindow({ conversation, messages, currentUserId, loading, hasMore, onClose, onSend, onLoadMore }) {
+    const [draft,   setDraft]   = useState('')
     const [sending, setSending] = useState(false)
     const bottomRef = useRef(null)
-    const listRef   = useRef(null)
 
-    // Scroll to bottom when new messages arrive
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, [messages])
@@ -25,9 +23,7 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
         if (!text || sending) return
         setDraft('')
         setSending(true)
-        try { await onSend(text) }
-        catch { /* error visible enough from empty message */ }
-        finally { setSending(false) }
+        try { await onSend(text) } catch { /* ignore */ } finally { setSending(false) }
     }
 
     function handleKeyDown(e) {
@@ -37,25 +33,30 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
     if (!conversation) {
         return (
             <div className="social-chat__window social-chat__window--empty">
-                <p>Select a conversation to start chatting</p>
+                <div className="social-chat__window-header" style={{ alignSelf: 'stretch' }}>
+                    <span className="social-chat__window-title" />
+                    <button className="social-chat__close" onClick={onClose}>✕</button>
+                </div>
+                <p style={{ margin: 'auto' }}>Select a conversation</p>
             </div>
         )
     }
 
     const otherId = conversation.participants?.find(p => p !== currentUserId) ?? ''
     const isBot   = otherId === BOT_ID
-    const title   = isBot ? '🤖 ar2trade' : (conversation.otherName ?? otherId)
+    const name    = isBot ? 'axl' : (conversation.otherName ?? conversation.otherUsername ?? otherId)
 
     return (
         <div className="social-chat__window">
             <div className="social-chat__window-header">
                 <div className="social-chat__conv-avatar">
-                    {isBot ? '🤖' : title[0]?.toUpperCase()}
+                    {isBot ? '🤖' : name[0]?.toUpperCase()}
                 </div>
-                <span className="social-chat__window-title">{title}</span>
+                <span className="social-chat__window-title">{name}</span>
+                <button className="social-chat__close" onClick={onClose}>✕</button>
             </div>
 
-            <div className="social-chat__messages" ref={listRef}>
+            <div className="social-chat__messages">
                 {hasMore && (
                     <button className="social-chat__load-more" onClick={onLoadMore} disabled={loading}>
                         {loading ? 'Loading…' : 'Load earlier'}
@@ -100,6 +101,7 @@ ChatWindow.propTypes = {
     currentUserId: PropTypes.string,
     loading:       PropTypes.bool,
     hasMore:       PropTypes.bool,
+    onClose:       PropTypes.func,
     onSend:        PropTypes.func.isRequired,
     onLoadMore:    PropTypes.func.isRequired,
 }

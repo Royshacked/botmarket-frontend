@@ -14,8 +14,8 @@ function timeAgo(ms) {
 }
 
 export function ConversationList({ conversations, activeId, currentUserId, onSelect, onConversationStarted }) {
-    const [search, setSearch]   = useState('')
-    const [results, setResults] = useState([])
+    const [search,    setSearch]    = useState('')
+    const [results,   setResults]   = useState([])
     const [searching, setSearching] = useState(false)
 
     async function handleSearch(q) {
@@ -37,37 +37,14 @@ export function ConversationList({ conversations, activeId, currentUserId, onSel
         } catch { /* ignore */ }
     }
 
-    const bot  = conversations.find(c => c.participants.includes(BOT_ID))
-    const rest = conversations.filter(c => !c.participants.includes(BOT_ID))
-
-    function renderItem(conv) {
-        const otherId = conv.participants.find(p => p !== currentUserId) ?? ''
-        const isBot   = otherId === BOT_ID
-        const name    = isBot ? '🤖 ar2trade' : (conv.otherName ?? otherId)
-        const active  = conv.id === activeId
-
-        return (
-            <button
-                key={conv.id}
-                className={`social-chat__conv-item${active ? ' social-chat__conv-item--active' : ''}`}
-                onClick={() => onSelect(conv)}
-            >
-                <div className="social-chat__conv-avatar">
-                    {isBot ? '🤖' : name[0]?.toUpperCase()}
-                </div>
-                <div className="social-chat__conv-meta">
-                    <div className="social-chat__conv-name">{name}</div>
-                    <div className="social-chat__conv-preview">{conv.lastMessage || '—'}</div>
-                </div>
-                <div className="social-chat__conv-right">
-                    <span className="social-chat__conv-time">{timeAgo(conv.lastMessageAt)}</span>
-                    {conv.unread > 0 && (
-                        <span className="social-chat__unread-dot">{conv.unread}</span>
-                    )}
-                </div>
-            </button>
-        )
-    }
+    // Sort: bot pinned first, then by lastMessageAt desc
+    const sorted = [...conversations].sort((a, b) => {
+        const aBot = a.participants.includes(BOT_ID)
+        const bBot = b.participants.includes(BOT_ID)
+        if (aBot && !bBot) return -1
+        if (!aBot && bBot) return 1
+        return (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0)
+    })
 
     return (
         <div className="social-chat__list">
@@ -80,7 +57,7 @@ export function ConversationList({ conversations, activeId, currentUserId, onSel
                 onChange={e => handleSearch(e.target.value)}
             />
 
-            {search && (
+            {search ? (
                 <div className="social-chat__search-results">
                     {searching && <div className="social-chat__search-hint">Searching…</div>}
                     {results.map(u => (
@@ -93,22 +70,48 @@ export function ConversationList({ conversations, activeId, currentUserId, onSel
                         <div className="social-chat__search-hint">No users found</div>
                     )}
                 </div>
-            )}
+            ) : (
+                <div className="social-chat__conv-scroll">
+                    {sorted.map(conv => {
+                        const otherId = conv.participants.find(p => p !== currentUserId) ?? ''
+                        const isBot   = otherId === BOT_ID
+                        const name    = isBot ? 'axl' : (conv.otherName ?? conv.otherUsername ?? otherId)
+                        const active  = conv.id === activeId
 
-            {!search && (
-                <>
-                    {bot && renderItem(bot)}
-                    {rest.map(renderItem)}
-                </>
+                        return (
+                            <button
+                                key={conv.id}
+                                className={'social-chat__conv-item' + (active ? ' social-chat__conv-item--active' : '')}
+                                onClick={() => onSelect(conv)}
+                            >
+                                <div className="social-chat__conv-avatar">
+                                    {isBot ? '🤖' : name[0]?.toUpperCase()}
+                                </div>
+                                <div className="social-chat__conv-meta">
+                                    <div className="social-chat__conv-name">
+                                        <span>{name}</span>
+                                        {conv.unread > 0 && (
+                                            <span className="social-chat__unread-dot">{conv.unread}</span>
+                                        )}
+                                    </div>
+                                    <div className="social-chat__conv-preview">{conv.lastMessage || '—'}</div>
+                                </div>
+                                <div className="social-chat__conv-right">
+                                    <span className="social-chat__conv-time">{timeAgo(conv.lastMessageAt)}</span>
+                                </div>
+                            </button>
+                        )
+                    })}
+                </div>
             )}
         </div>
     )
 }
 
 ConversationList.propTypes = {
-    conversations:        PropTypes.array.isRequired,
-    activeId:             PropTypes.string,
-    currentUserId:        PropTypes.string,
-    onSelect:             PropTypes.func.isRequired,
+    conversations:         PropTypes.array.isRequired,
+    activeId:              PropTypes.string,
+    currentUserId:         PropTypes.string,
+    onSelect:              PropTypes.func.isRequired,
     onConversationStarted: PropTypes.func.isRequired,
 }

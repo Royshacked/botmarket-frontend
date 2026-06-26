@@ -1,6 +1,9 @@
-import { useContext, useEffect, useRef } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { AuthContext } from '../context/AuthContext'
+import { chatWsService } from '../services/chat/chatWs.service'
+import { SocialChat } from './SocialChat/SocialChat'
 
 // ── AppHeader · "axl" style (trial) ───────────────────────────────────────────
 // The calm aurora header: animated calm-water wave bottom edge, ambient breathing
@@ -41,6 +44,15 @@ export function AppHeaderAxl() {
     const msgRef    = useRef(null)
     const textRef   = useRef(null)
     const tagRef    = useRef(null)
+
+    const [showChat, setShowChat] = useState(false)
+    const [unread,   setUnread]   = useState(0)
+
+    useEffect(() => {
+        if (!user) { chatWsService.disconnect(); return }
+        chatWsService.connect()
+        return () => chatWsService.disconnect()
+    }, [user?._id])
 
     // OAuth redirect handoff — same as the classic header.
     useEffect(() => {
@@ -195,6 +207,20 @@ export function AppHeaderAxl() {
                 <div className="app-header-axl__right">
                     {user && (
                         <>
+                            <button
+                                className="app-header-axl__chat"
+                                onClick={() => setShowChat(v => !v)}
+                                title="Messages"
+                                aria-label="Messages"
+                            >
+                                💬
+                                {unread > 0 && (
+                                    <span className="app-header-axl__chat-badge">
+                                        {unread > 9 ? '9+' : unread}
+                                    </span>
+                                )}
+                            </button>
+
                             {onProfile ? (
                                 <button
                                     className="app-header-axl__back"
@@ -221,6 +247,15 @@ export function AppHeaderAxl() {
                     )}
                 </div>
             </div>
+
+            {showChat && user && createPortal(
+                <SocialChat
+                    currentUserId={user._id}
+                    onUnreadChange={setUnread}
+                    onClose={() => setShowChat(false)}
+                />,
+                document.body
+            )}
 
             {/* signature calm-water wave, running across the header's middle height */}
             <div className="app-header-axl__edge" aria-hidden="true">

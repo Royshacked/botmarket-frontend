@@ -47,6 +47,7 @@ function _open() {
     socket.onopen = () => {
         clearTimeout(reconnectTimer)
         _startPing()
+        _dispatch('connected', null)
     }
 
     socket.onmessage = (e) => {
