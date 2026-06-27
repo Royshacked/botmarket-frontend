@@ -12,6 +12,12 @@ export const userService = {
 	update,
     getLoggedinUser,
     saveLoggedinUser,
+    getTokenUsage,
+}
+
+function getTokenUsage(userId, month) {
+    const qs = month ? `?month=${month}` : ''
+    return httpService.get(`api/users/${userId}/usage${qs}`)
 }
 
 function getUsers() {

@@ -3,8 +3,21 @@ import { useNavigate }         from 'react-router-dom'
 import { useAuth }             from '../cmps/AuthModal/useAuth'
 import { brokerService }       from '../services/broker/broker.service.remote.js'
 import { httpService }         from '../services/http.service.js'
+import { userService }         from '../services/user/user.service.remote.js'
 import { ThemeSwitcher }       from '../cmps/ThemeSwitcher/ThemeSwitcher'
 import './UserProfile.scss'
+
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
+function formatMonthKey(key) {
+    if (!key) return ''
+    const [year, mon] = key.split('-')
+    return `${MONTH_NAMES[parseInt(mon) - 1]} ${year}`
+}
+function barColor(pct) {
+    if (pct < 60) return 'var(--color-long)'
+    if (pct < 80) return '#e6a817'
+    return 'var(--color-error)'
+}
 
 const BROKERS = [
     { type: 'ctrader', label: 'cTrader' },
@@ -22,6 +35,8 @@ export function UserProfile() {
     const [editMode,      setEditMode]      = useState(false)
     const [draftFullname, setDraftFullname] = useState('')
     const [saving,        setSaving]        = useState(false)
+
+    const [tokenUsage, setTokenUsage] = useState({ month: '', totalCost: 0, budgetUsd: 20, percentUsed: 0 })
 
     useEffect(() => {
         if (!user) { navigate('/'); return }
@@ -51,6 +66,11 @@ export function UserProfile() {
             )
             setAccountData(Object.fromEntries(entries))
         } catch { /* broker data unavailable — leave empty */ }
+
+        try {
+            const usage = await userService.getTokenUsage(user._id)
+            setTokenUsage(usage)
+        } catch { /* usage unavailable — leave null */ }
     }
 
     async function handleAccountChange(brokerType, accountId) {
@@ -162,6 +182,29 @@ export function UserProfile() {
                             <span className="user-profile__label">Theme</span>
                             <ThemeSwitcher />
                         </div>
+                    </section>
+
+                    <section className="user-profile__section">
+                            <h2 className="user-profile__section-title">
+                                Token Budget{tokenUsage.month ? ` — ${formatMonthKey(tokenUsage.month)}` : ''}
+                            </h2>
+
+                            <div className="user-profile__usage-bar-track">
+                                <div
+                                    className="user-profile__usage-bar-fill"
+                                    style={{
+                                        width:           `${tokenUsage.percentUsed}%`,
+                                        backgroundColor: barColor(tokenUsage.percentUsed),
+                                    }}
+                                />
+                            </div>
+
+                            <div className="user-profile__usage-meta">
+                                <span>${tokenUsage.totalCost.toFixed(2)} of ${tokenUsage.budgetUsd.toFixed(2)}</span>
+                                <span className="user-profile__usage-pct" style={{ color: barColor(tokenUsage.percentUsed) }}>
+                                    {tokenUsage.percentUsed}%
+                                </span>
+                            </div>
                     </section>
 
                     <div className="user-profile__spacer" />
