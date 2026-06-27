@@ -9,6 +9,7 @@ import { readStoredReasoning } from '../reasoningOptions.js'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useTypewriter } from '../../customHooks/useTypewriter.js'
 import { useTextPace } from '../../customHooks/useTextPace.js'
+import { makeStreamHandlers } from '../../customHooks/useStreamStop.js'
 import { PaceSlider } from '../PaceSlider.jsx'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
@@ -97,19 +98,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
     const { paceCps } = useTextPace()
     const { enqueue: enqueueToken, start: startDrain, stop: stopDrain, finish: finishDrain } = useTypewriter(setMessages, paceCps)
 
-    // Stop a streaming response: abort the request, freeze the partial reply, and
-    // free the input. postSSE swallows the abort, so no error bubble appears.
-    function handleStop() {
-        abortRef.current?.abort()
-        stopDrain()
-        setMessages(prev => {
-            const msgs = [...prev]
-            const last = msgs[msgs.length - 1]
-            if (last?.streaming) msgs[msgs.length - 1] = { role: 'assistant', content: last.content || '_(stopped)_' }
-            return msgs
-        })
-        setIsLoading(false)
-    }
+    const { handleStop, freezeError } = makeStreamHandlers({ abortRef, stopDrain, setMessages, setIsLoading })
 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable closure
     const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
@@ -158,25 +147,11 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
                     finishDrain({ role: 'assistant', content: data.reply, tickers })
                     if (data.scan?.candidates?.length) setPendingScan(data.scan)
                 },
-                onError: (message) => {
-                    stopDrain()
-                    setMessages(prev => {
-                        const msgs = [...prev]
-                        const last = msgs[msgs.length - 1]
-                        if (last?.streaming) msgs[msgs.length - 1] = { role: 'assistant', content: message || 'Error communicating with the server.' }
-                        return msgs
-                    })
-                },
+                onError: (message) => freezeError(message),
             })
         } catch (err) {
             console.error('[scanner]', err)
-            stopDrain()
-            setMessages(prev => {
-                const msgs = [...prev]
-                const last = msgs[msgs.length - 1]
-                if (last?.streaming) msgs[msgs.length - 1] = { role: 'assistant', content: 'Error communicating with the server.' }
-                return msgs
-            })
+            freezeError()
         } finally {
             setIsLoading(false)
             setStreamStatus('')
@@ -228,8 +203,14 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
     return (
         <div className="portfolio-panel scanner-panel">
             <div className="portfolio-panel__header">
-                <span className="portfolio-panel__title-icon"><MeditatingBot /></span>
-                <span className="portfolio-panel__title"><BrandTitle text="Axl Scanner" /></span>
+                <span className="portfolio-panel__title-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M2.5 12 C6 7 18 7 21.5 12 C18 17 6 17 2.5 12 Z"/>
+                        <circle cx="12" cy="12" r="3.2"/>
+                        <circle cx="12" cy="12" r="0.7" fill="currentColor" stroke="none"/>
+                    </svg>
+                </span>
+                <span className="portfolio-panel__title"><BrandTitle text="Argus" /></span>
                 <div className="portfolio-panel__header-right">
                     <PaceSlider />
                     <ModelSelector value={model} onChange={handleModelChange} disabled={isLoading} />

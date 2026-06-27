@@ -200,8 +200,11 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
     return (
         <div className="chat-panel">
             <div className="chat-panel__header">
-                <MeditatingBot className="chat-panel__title-icon" />
-                <span className="chat-panel__title"><BrandTitle text="Axl Ideas" /></span>
+                <svg className="chat-panel__title-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 3 C12.4 7.6 16.4 11.6 21 12 C16.4 12.4 12.4 16.4 12 21 C11.6 16.4 7.6 12.4 3 12 C7.6 11.6 11.6 7.6 12 3 Z"/>
+                    <path d="M18.5 3.5 C18.6 4.5 19.5 5.4 20.5 5.5 C19.5 5.6 18.6 6.5 18.5 7.5 C18.4 6.5 17.5 5.6 16.5 5.5 C17.5 5.4 18.4 4.5 18.5 3.5 Z"/>
+                </svg>
+                <span className="chat-panel__title"><BrandTitle text="Idea" /></span>
                 <div className="chat-panel__header-right">
                     <PaceSlider />
                     <ModelSelector value={model} onChange={onModelChange} disabled={isLoading} />

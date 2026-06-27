@@ -3,19 +3,19 @@ import { postSSE } from '../sse.util'
 
 export const portfolioService = { sendStream, saveChatState, getChatState, deleteChatState, completeReview }
 
-async function saveChatState(portfolioId, messages) {
-    const res = await fetch(`${API_BASE}/portfolio/chat-state`, {
+async function saveChatState(portfolioId, messages, mandate = null) {
+    const res = await fetch(`${API_BASE}/api/portfolio/chat-state`, {
         method:      'POST',
         credentials: 'include',
         headers:     { 'Content-Type': 'application/json' },
-        body:        JSON.stringify({ portfolioId, messages }),
+        body:        JSON.stringify({ portfolioId, messages, ...(mandate ? { mandate } : {}) }),
     })
     if (!res.ok) throw new Error('Failed to save portfolio chat state')
     return res.json()
 }
 
 async function getChatState(portfolioId) {
-    const res = await fetch(`${API_BASE}/portfolio/chat-state/${encodeURIComponent(portfolioId)}`, {
+    const res = await fetch(`${API_BASE}/api/portfolio/chat-state/${encodeURIComponent(portfolioId)}`, {
         credentials: 'include',
     })
     if (!res.ok) return null
@@ -24,7 +24,7 @@ async function getChatState(portfolioId) {
 }
 
 async function deleteChatState(portfolioId) {
-    const res = await fetch(`${API_BASE}/portfolio/chat-state/${encodeURIComponent(portfolioId)}`, {
+    const res = await fetch(`${API_BASE}/api/portfolio/chat-state/${encodeURIComponent(portfolioId)}`, {
         method:      'DELETE',
         credentials: 'include',
     })
@@ -33,7 +33,7 @@ async function deleteChatState(portfolioId) {
 }
 
 async function completeReview(portfolioId, reviewCadence) {
-    const res = await fetch(`${API_BASE}/portfolio/${encodeURIComponent(portfolioId)}/complete-review`, {
+    const res = await fetch(`${API_BASE}/api/portfolio/${encodeURIComponent(portfolioId)}/complete-review`, {
         method:      'POST',
         credentials: 'include',
         headers:     { 'Content-Type': 'application/json' },
@@ -45,7 +45,7 @@ async function completeReview(portfolioId, reviewCadence) {
 
 async function sendStream(messages, ideaAccounts = [], { onToken, onTicker, onStatus, onDone, onError, portfolioId = null, portfolioIdeas = [], reviewMode = false, model, reasoningEffort, signal } = {}) {
     await postSSE(
-        `${API_BASE}/portfolio/stream`,
+        `${API_BASE}/api/portfolio/stream`,
         { messages, ideaAccounts, portfolioId, portfolioIdeas, reviewMode, model, reasoningEffort },
         {
             token:  (d) => onToken?.(d.text),

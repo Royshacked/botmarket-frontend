@@ -11,6 +11,7 @@ import { readStoredReasoning } from '../reasoningOptions.js'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useTypewriter } from '../../customHooks/useTypewriter.js'
 import { useTextPace } from '../../customHooks/useTextPace.js'
+import { makeStreamHandlers } from '../../customHooks/useStreamStop.js'
 import { PaceSlider } from '../PaceSlider.jsx'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
@@ -149,6 +150,7 @@ export function PortfolioPanel({
     }, [buildKey])
 
     const pendingTickersRef = useRef([])
+    const latestMandateRef  = useRef(null)
     const textareaRef       = useRef(null)
     const abortRef          = useRef(null)
 
@@ -156,19 +158,7 @@ export function PortfolioPanel({
     const { paceCps } = useTextPace()
     const { enqueue: enqueueToken, start: startDrain, stop: stopDrain, finish: finishDrain } = useTypewriter(setMessages, paceCps)
 
-    // Stop a streaming response: abort the request, freeze the partial reply, and
-    // free the input. postSSE swallows the abort, so no error bubble appears.
-    function handleStop() {
-        abortRef.current?.abort()
-        stopDrain()
-        setMessages(prev => {
-            const msgs = [...prev]
-            const last = msgs[msgs.length - 1]
-            if (last?.streaming) msgs[msgs.length - 1] = { role: 'assistant', content: last.content || '_(stopped)_' }
-            return msgs
-        })
-        setIsLoading(false)
-    }
+    const { handleStop, freezeError } = makeStreamHandlers({ abortRef, stopDrain, setMessages, setIsLoading })
 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- _send is a stable closure for this purpose
     const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
@@ -225,6 +215,7 @@ export function PortfolioPanel({
                 onDone: (data) => {
                     const tickers = [...pendingTickersRef.current]
                     pendingTickersRef.current = []
+                    if (data.mandate) latestMandateRef.current = data.mandate
                     // Finish typing the backlog at reading pace, then swap in the
                     // final reply — no end-of-stream dump.
                     finishDrain({ role: 'assistant', content: data.reply, tickers })
@@ -232,29 +223,11 @@ export function PortfolioPanel({
                     if (data.update?.changes?.length && onPortfolioUpdate) onPortfolioUpdate(data.update)
                 },
 
-                onError: (message) => {
-                    stopDrain()
-                    setMessages(prev => {
-                        const msgs = [...prev]
-                        const last = msgs[msgs.length - 1]
-                        if (last?.streaming) {
-                            msgs[msgs.length - 1] = { role: 'assistant', content: message || 'Error communicating with the server.' }
-                        }
-                        return msgs
-                    })
-                },
+                onError: (message) => freezeError(message),
             })
         } catch (err) {
             console.error('[portfolio]', err)
-            stopDrain()
-            setMessages(prev => {
-                const msgs = [...prev]
-                const last = msgs[msgs.length - 1]
-                if (last?.streaming) {
-                    msgs[msgs.length - 1] = { role: 'assistant', content: 'Error communicating with the server.' }
-                }
-                return msgs
-            })
+            freezeError()
         } finally {
             setIsLoading(false)
             setStreamStatus('')
@@ -271,6 +244,7 @@ export function PortfolioPanel({
         setMessages([])
         setPendingPlan(null)
         setInputText('')
+        latestMandateRef.current = null
     }
 
     // "Changed my mind" / "I'll do it later": leave edit/review mode without saving.
@@ -307,9 +281,10 @@ export function PortfolioPanel({
             setDismissConfirm(false)
         } else {
             if (!planReady) return
-            if (onGeneratePlan) onGeneratePlan(pendingPlan, messages)
+            if (onGeneratePlan) onGeneratePlan(pendingPlan, messages, latestMandateRef.current)
         }
         setPendingPlan(null); setMessages([]); setInputText('')
+        latestMandateRef.current = null
     }
 
     // Review-only: no plan changes, just acknowledge the review and reset the clock.
@@ -337,8 +312,16 @@ export function PortfolioPanel({
     return (
         <div className="portfolio-panel">
             <div className="portfolio-panel__header">
-                <span className="portfolio-panel__title-icon"><MeditatingBot /></span>
-                <span className="portfolio-panel__title"><BrandTitle text="Axl Portfolios" /></span>
+                <span className="portfolio-panel__title-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="9" r="6"/>
+                        <path d="M12 3 C8.5 5 8.5 13 12 15"/>
+                        <path d="M12 3 C15.5 5 15.5 13 12 15"/>
+                        <path d="M6 9 H18"/>
+                        <path d="M4 17.5 C7.5 21.5 16.5 21.5 20 17.5"/>
+                    </svg>
+                </span>
+                <span className="portfolio-panel__title"><BrandTitle text="Atlas" /></span>
                 <div className="portfolio-panel__header-right">
                     <PaceSlider />
                     <ModelSelector value={model} onChange={handleModelChange} disabled={isLoading} />

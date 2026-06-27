@@ -623,7 +623,7 @@ export function MainPage() {
         })
     }
 
-    async function handleGeneratePlan(plan, messages = []) {
+    async function handleGeneratePlan(plan, messages = [], mandate = null) {
         try {
             const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
             const accountIds   = ideaAccounts.map(a => a.id)
@@ -632,7 +632,7 @@ export function MainPage() {
             if (newIdeas.length > 0) {
                 const portfolioId = newIdeas[0].portfolioId
                 const chatMessages = messages.filter(m => !m.streaming).map(m => ({ role: m.role, content: m.content }))
-                portfolioService.saveChatState(portfolioId, chatMessages).catch(err =>
+                portfolioService.saveChatState(portfolioId, chatMessages, mandate).catch(err =>
                     console.error('[portfolio] chat state save failed', err)
                 )
             }
