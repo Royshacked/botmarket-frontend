@@ -123,15 +123,18 @@
 
     &__chat-btn {
         position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         background: var(--user-btn-bg);
         border: 1px solid var(--user-btn-border);
         border-radius: 6px;
         padding: 7px 12px;
-        font-size: 1rem;
         cursor: pointer;
         color: var(--accent-bright);
         transition: background .15s, border-color .15s;
         &:hover { background: var(--user-btn-bg-hover); border-color: var(--user-btn-border-hover); }
+        svg { display: block; width: 20px; height: 20px; }
     }
 
     &__chat-badge {

@@ -9,6 +9,62 @@ import './IdeaPage.scss'
 // How often to re-fetch positions so live P&L keeps ticking in the popped-out window.
 const POSITIONS_POLL_MS = 4000
 
+function DevThesisPanel({ thesis, thesisStatus, thesisStatusReason }) {
+    const [open, setOpen] = useState(false)
+    if (!thesis) return null
+    const entry = thesis.entry ?? {}
+    const tp    = thesis.tp    ?? {}
+    return (
+        <div className="idea-page__dev-thesis">
+            <button className="idea-page__dev-thesis-toggle" onClick={() => setOpen(o => !o)}>
+                <span>[DEV] Thesis</span>
+                {thesisStatus && <span className={`idea-page__dev-thesis-status idea-page__dev-thesis-status--${thesisStatus}`}>{thesisStatus}</span>}
+                <span className="idea-page__dev-thesis-caret">{open ? '▲' : '▼'}</span>
+            </button>
+            {open && (
+                <div className="idea-page__dev-thesis-body">
+                    {entry.reasoning && (
+                        <div className="idea-page__dev-thesis-section">
+                            <span className="idea-page__dev-thesis-label">Entry reasoning</span>
+                            <p>{entry.reasoning}</p>
+                        </div>
+                    )}
+                    {Array.isArray(entry.key_assumptions) && entry.key_assumptions.length > 0 && (
+                        <div className="idea-page__dev-thesis-section">
+                            <span className="idea-page__dev-thesis-label">Key assumptions</span>
+                            <ul>{entry.key_assumptions.map((a, i) => <li key={i}>{a}</li>)}</ul>
+                        </div>
+                    )}
+                    {Array.isArray(entry.stress_triggers) && entry.stress_triggers.length > 0 && (
+                        <div className="idea-page__dev-thesis-section">
+                            <span className="idea-page__dev-thesis-label">Stress triggers</span>
+                            <ul>{entry.stress_triggers.map((t, i) => <li key={i}>{t}</li>)}</ul>
+                        </div>
+                    )}
+                    {tp.reasoning && (
+                        <div className="idea-page__dev-thesis-section">
+                            <span className="idea-page__dev-thesis-label">TP reasoning</span>
+                            <p>{tp.reasoning}</p>
+                        </div>
+                    )}
+                    {Array.isArray(tp.stress_triggers) && tp.stress_triggers.length > 0 && (
+                        <div className="idea-page__dev-thesis-section">
+                            <span className="idea-page__dev-thesis-label">TP stress triggers</span>
+                            <ul>{tp.stress_triggers.map((t, i) => <li key={i}>{t}</li>)}</ul>
+                        </div>
+                    )}
+                    {thesisStatusReason && (
+                        <div className="idea-page__dev-thesis-section">
+                            <span className="idea-page__dev-thesis-label">Monitor reason</span>
+                            <p>{thesisStatusReason}</p>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    )
+}
+
 export function IdeaPage() {
     const id              = window.location.pathname.split('/').at(-1)
     const [idea, setIdea] = useState(null)
@@ -75,6 +131,12 @@ export function IdeaPage() {
                     </span>
                 )}
             </div>
+
+            <DevThesisPanel
+                thesis={idea.thesis}
+                thesisStatus={idea.thesis_status}
+                thesisStatusReason={idea.thesis_status_reason}
+            />
 
             <IdeaDetail
                 idea={idea}

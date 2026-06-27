@@ -47,11 +47,22 @@ export function AppHeaderAxl() {
 
     const [showChat, setShowChat] = useState(false)
     const [unread,   setUnread]   = useState(0)
+    const showChatRef = useRef(false)
+    useEffect(() => { showChatRef.current = showChat }, [showChat])
 
     useEffect(() => {
         if (!user) { chatWsService.disconnect(); return }
         chatWsService.connect()
         return () => chatWsService.disconnect()
+    }, [user?._id])
+
+    useEffect(() => {
+        if (!user) return
+        function onNewMessage() {
+            if (!showChatRef.current) setUnread(u => u + 1)
+        }
+        chatWsService.on('new_message', onNewMessage)
+        return () => chatWsService.off('new_message', onNewMessage)
     }, [user?._id])
 
     // OAuth redirect handoff — same as the classic header.
@@ -213,7 +224,10 @@ export function AppHeaderAxl() {
                                 title="Messages"
                                 aria-label="Messages"
                             >
-                                💬
+                                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--axl-aurora)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                                    <polyline points="7,12 10,9 13,11 17,7" strokeWidth="1.4"/>
+                                </svg>
                                 {unread > 0 && (
                                     <span className="app-header-axl__chat-badge">
                                         {unread > 9 ? '9+' : unread}

@@ -353,7 +353,21 @@
         }
     }
 
-    // ── Generate button ──────────────────────────────────────────────────
+    // ── Inline action bubble ─────────────────────────────────────────────
+    // Floats at the bottom of the message stream; auto-scrolled to when it appears.
+    &__action-bubble {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 10px 12px;
+        margin: 4px 0 2px;
+        background: var(--bg-surface);
+        border: 1px solid var(--accent-deep);
+        border-radius: 10px;
+        align-self: stretch;
+    }
+
+    // ── Generate / Update button (used inside the action bubble) ─────────
     &__generate {
         flex-shrink: 0;
         margin: 0;
@@ -376,6 +390,85 @@
         }
 
         &:disabled { opacity: 0.26; cursor: not-allowed; }
+    }
+
+    // ── Market order button (Buy / Sell) ─────────────────────────────────
+    &__market-btn {
+        flex: 1;
+        padding: 10px 16px;
+        border: none;
+        border-radius: 6px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: filter 0.15s, transform 0.1s;
+
+        &:active { transform: scale(0.97); }
+
+        &--long  {
+            background: #16a34a;
+            color: #fff;
+            &:hover { filter: brightness(1.15); }
+        }
+        &--short {
+            background: #dc2626;
+            color: #fff;
+            &:hover { filter: brightness(1.15); }
+        }
+    }
+
+    &__review-btn {
+        flex: 1;
+        padding: 7px 10px;
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+
+        &:disabled { opacity: 0.26; cursor: not-allowed; }
+
+        &--update {
+            border-color: var(--accent);
+            color: var(--accent);
+            &:not(:disabled):hover { background: var(--glow); border-color: var(--accent-light); color: var(--accent-light); }
+        }
+
+        &--dismiss {
+            border-color: #f59e0b;
+            color: #f59e0b;
+            &:not(:disabled):hover { background: rgba(245,158,11,.1); }
+        }
+
+        &--later {
+            color: var(--text-secondary);
+            &:not(:disabled):hover { background: var(--bg-hover); color: var(--text-primary); }
+        }
+    }
+
+    &__dismiss-confirm {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+
+        > span {
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+    }
+
+    &__dismiss-confirm-btns {
+        display: flex;
+        gap: 6px;
     }
 
     // Secondary "Changed my mind" state — a muted exit, not a primary CTA.

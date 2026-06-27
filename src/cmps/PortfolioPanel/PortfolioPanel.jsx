@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { portfolioService } from '../../services/portfolio/portfolio.service.remote.js'
+import { showErrorMsg } from '../../services/event-bus.service'
 import { ChatMarkdown } from '../ChatMarkdown.jsx'
 import { AccountSelector } from '../ChatPanel/AccountSelector.jsx'
 import { ModelSelector } from '../ModelSelector.jsx'
@@ -81,6 +82,8 @@ export function PortfolioPanel({
     const [editingPortfolioId,    setEditingPortfolioId]    = useState(null)
     const [editingPortfolioIdeas, setEditingPortfolioIdeas] = useState([])
     const [editDirty,             setEditDirty]             = useState(false)
+    const [isReviewMode,          setIsReviewMode]          = useState(false)
+    const [dismissConfirm,        setDismissConfirm]        = useState(false)
     const [model,                 setModel]                 = useState(() => readStoredModel('portfolioModel'))
     const [reasoning,             setReasoning]             = useState(() => readStoredReasoning('portfolioReasoning'))
 
@@ -100,8 +103,10 @@ export function PortfolioPanel({
         setPendingPlan(null)
         setInputText('')
         setEditDirty(false)
+        setDismissConfirm(false)
         setEditingPortfolioId(chatRestore.portfolioId ?? null)
         setEditingPortfolioIdeas(chatRestore.portfolioIdeas ?? [])
+        setIsReviewMode(chatRestore.reviewMode ?? false)
         // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only when a new restore is pushed (keyed by .key)
     }, [chatRestore?.key])
 
@@ -169,7 +174,8 @@ export function PortfolioPanel({
     const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
     const { isRecording, isTranscribing, toggle: toggleMic, cancel: cancelMic } = useMicInput({ onTranscript })
 
-    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, { watch: streamStatus })
+    const actionWatch = `${streamStatus}|${planReady}|${isReviewMode}|${!!editingPortfolioId}`
+    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, { watch: actionWatch })
 
     async function _send(text) {
         if (!text || isLoading) return
@@ -199,6 +205,7 @@ export function PortfolioPanel({
             await portfolioService.sendStream(history, ideaAccounts, {
                 portfolioId:    editingPortfolioId,
                 portfolioIdeas: editingPortfolioIdeas,
+                reviewMode:     isReviewMode,
                 model,
                 reasoningEffort: reasoning,
                 signal: ctrl.signal,
@@ -264,7 +271,8 @@ export function PortfolioPanel({
         setInputText('')
     }
 
-    // "Changed my mind": leave edit mode without saving and return to a fresh chat.
+    // "Changed my mind" / "I'll do it later": leave edit/review mode without saving.
+    // In review mode this is the "Later" path — clock does NOT reset.
     function handleCancelEdit() {
         setMessages([])
         setPendingPlan(null)
@@ -272,21 +280,46 @@ export function PortfolioPanel({
         setEditingPortfolioId(null)
         setEditingPortfolioIdeas([])
         setEditDirty(false)
+        setIsReviewMode(false)
+        setDismissConfirm(false)
     }
 
-    function handleGenerate() {
-        if (editingPortfolioId) {
-            // Always persist the conversation so re-opening restores it; apply the
-            // re-plan only when it's ready. Passing a null plan saves chat without
-            // touching the existing ideas. The Update button doubles as "exit edit".
-            if (onUpdatePlan) onUpdatePlan(planReady ? pendingPlan : null, editingPortfolioId, messages)
+    async function _completeReview(portfolioId) {
+        try {
+            await portfolioService.completeReview(portfolioId)
+        } catch (err) {
+            console.error('[portfolio] completeReview failed', err)
+            showErrorMsg('Could not reset review clock — try again later.')
+        }
+    }
+
+    async function handleGenerate() {
+        const portfolioId = editingPortfolioId
+        if (portfolioId) {
+            if (onUpdatePlan) onUpdatePlan(planReady ? pendingPlan : null, portfolioId, messages)
+            if (isReviewMode) await _completeReview(portfolioId)
             setEditingPortfolioId(null)
             setEditingPortfolioIdeas([])
             setEditDirty(false)
+            setIsReviewMode(false)
+            setDismissConfirm(false)
         } else {
             if (!planReady) return
             if (onGeneratePlan) onGeneratePlan(pendingPlan, messages)
         }
+        setPendingPlan(null); setMessages([]); setInputText('')
+    }
+
+    // Review-only: no plan changes, just acknowledge the review and reset the clock.
+    async function handleDismissReview() {
+        const portfolioId = editingPortfolioId
+        if (onUpdatePlan) onUpdatePlan(null, portfolioId, messages)
+        await _completeReview(portfolioId)
+        setEditingPortfolioId(null)
+        setEditingPortfolioIdeas([])
+        setEditDirty(false)
+        setIsReviewMode(false)
+        setDismissConfirm(false)
         setPendingPlan(null); setMessages([]); setInputText('')
     }
 
@@ -299,7 +332,7 @@ export function PortfolioPanel({
 
     // A plan is only generatable once every idea has a positive quantity.
     const planReady = !!pendingPlan && pendingPlan.ideas.length > 0 && pendingPlan.ideas.every(i => Number(i.quantity) > 0)
-    const showChangedMind = !!editingPortfolioId && !editDirty
+    const showChangedMind = !!editingPortfolioId && !editDirty && !isReviewMode
 
     return (
         <div className="portfolio-panel">
@@ -358,21 +391,52 @@ export function PortfolioPanel({
                         ⚠️ I need a position size before this plan can be generated. Tell me the total capital you want to deploy and I&apos;ll size each position by its allocation — or give me a quantity per asset.
                     </div>
                 )}
+
+                {/* Inline action bubble */}
+                {!isLoading && (isReviewMode ? !!editingPortfolioId : (planReady || showChangedMind)) && (
+                    <div className="portfolio-panel__action-bubble">
+                        {dismissConfirm ? (
+                            <div className="portfolio-panel__dismiss-confirm">
+                                <span>No changes needed — reset the review clock?</span>
+                                <div className="portfolio-panel__dismiss-confirm-btns">
+                                    <button
+                                        className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss"
+                                        onClick={handleDismissReview}
+                                    >Confirm</button>
+                                    <button
+                                        className="portfolio-panel__review-btn portfolio-panel__review-btn--later"
+                                        onClick={() => setDismissConfirm(false)}
+                                    >Cancel</button>
+                                </div>
+                            </div>
+                        ) : isReviewMode ? (
+                            <>
+                                {planReady && (
+                                    <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={handleGenerate}>
+                                        Update plan
+                                    </button>
+                                )}
+                                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" onClick={() => setDismissConfirm(true)}>
+                                    Dismiss
+                                </button>
+                                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={handleCancelEdit}>
+                                    I&apos;ll do it later
+                                </button>
+                            </>
+                        ) : showChangedMind ? (
+                            <button className="portfolio-panel__generate portfolio-panel__generate--cancel" onClick={handleCancelEdit}>
+                                I&apos;ll do it later
+                            </button>
+                        ) : (
+                            <button className="portfolio-panel__generate" onClick={handleGenerate}>
+                                {editingPortfolioId ? 'Update plan' : 'Generate plan'}
+                            </button>
+                        )}
+                    </div>
+                )}
+
                 <div ref={messagesEndRef} />
             </div>
-
-            <button
-                className={`portfolio-panel__generate${showChangedMind ? ' portfolio-panel__generate--cancel' : ''}`}
-                disabled={isLoading || (!editingPortfolioId && !planReady)}
-                onClick={showChangedMind ? handleCancelEdit : handleGenerate}
-                title={showChangedMind
-                    ? 'Discard edit and start a new chat'
-                    : editingPortfolioId
-                        ? (planReady ? 'Update plan' : 'Exit edit mode')
-                        : (planReady ? 'Generate plan' : 'Build a plan and set quantities first')}
-            >
-                {showChangedMind ? 'Changed my mind' : editingPortfolioId ? 'Update plan' : 'Generate plan'}
-            </button>
 
             <ChatInputRow
                 prefix="portfolio-panel"

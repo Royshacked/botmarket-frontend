@@ -145,13 +145,14 @@ function canGenerate(analysisState, selectedAccounts) {
     )
 }
 
-export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, onStop, isLoading, streamStatus = '', isEditing = false, availableAccounts = [], selectedAccounts = [], onAccountsChange, mainAccountId = null, onMainAccountChange, model, onModelChange, reasoning, onReasoningChange }) {
+export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, onStop, isLoading, streamStatus = '', isEditing = false, isThesisReview = false, onDismissThesis, onBuyMarket, isPostOrderEdit = false, availableAccounts = [], selectedAccounts = [], onAccountsChange, mainAccountId = null, onMainAccountChange, model, onModelChange, reasoning, onReasoningChange }) {
     const [input, setInput] = useState('')
+    const [dismissConfirm, setDismissConfirm] = useState(false)
 
     // Has the user actually changed anything via chat since entering edit mode?
     // Until they do, the primary button offers a clean "Changed my mind" exit.
     const [editDirty, setEditDirty] = useState(false)
-    useEffect(() => { setEditDirty(false) }, [isEditing])
+    useEffect(() => { setEditDirty(false); setDismissConfirm(false) }, [isEditing])
 
     const analysisStateRef = useRef(analysisState)
     useEffect(() => { analysisStateRef.current = analysisState }, [analysisState])
@@ -163,14 +164,25 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
     const { isRecording, isTranscribing, toggle: toggleMic, cancel: cancelMic } = useMicInput({ onTranscript })
     const inputRef      = useRef(null)
     const generateReady = canGenerate(analysisState, selectedAccounts)
-    const showChangedMind = isEditing && !editDirty
+
+    const s  = analysisState?.structured_state || {}
+    const pt = s.pending_trade || {}
+    const isImmediate = pt.immediate === true
+    const direction   = pt.direction ?? 'long'
+
+    // In post-order edit mode (adding stops/TPs to a live position), we relax the
+    // readiness check — any edit with asset + direction set can be saved.
+    const editReady = isEditing && (generateReady || (isPostOrderEdit && !!(s.active_asset && direction)))
+
+    const showChangedMind = isEditing && !editDirty && !isPostOrderEdit
+
+    // Scroll-watch token: changes whenever the action bubble content changes so the
+    // chat re-pins to bottom when buttons appear (e.g. idea becomes generate-ready).
+    const actionWatch = `${streamStatus}|${generateReady}|${isThesisReview}|${isEditing}|${isImmediate}|${isPostOrderEdit}`
 
     const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, {
         onFinishStreaming: () => inputRef.current?.focus(),
-        // The tool-status chip ("thinking…" → "web browsing") lives outside
-        // `messages`, so re-pin to the bottom when it changes or it can sit unseen
-        // below the fold while the assistant bubble is still empty.
-        watch: streamStatus,
+        watch: actionWatch,
     })
 
     function handleKeyDown(ev) {
@@ -270,21 +282,58 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                     </div>
                 )}
 
+                {/* Inline action bubble — appears in the chat when actions are available */}
+                {!isLoading && (isThesisReview ? isEditing : (isImmediate && !isEditing && generateReady) || editReady || generateReady || showChangedMind) && (
+                    <div className="chat-panel__action-bubble">
+                        {dismissConfirm ? (
+                            <div className="chat-panel__dismiss-confirm">
+                                <span>Thesis is fine — no changes needed. Clear the alert?</span>
+                                <div className="chat-panel__dismiss-confirm-btns">
+                                    <button
+                                        className="chat-panel__review-btn chat-panel__review-btn--dismiss"
+                                        onClick={() => { setDismissConfirm(false); onDismissThesis?.() }}
+                                    >Confirm</button>
+                                    <button
+                                        className="chat-panel__review-btn chat-panel__review-btn--later"
+                                        onClick={() => setDismissConfirm(false)}
+                                    >Cancel</button>
+                                </div>
+                            </div>
+                        ) : isThesisReview ? (
+                            <>
+                                {generateReady && (
+                                    <button className="chat-panel__review-btn chat-panel__review-btn--update" onClick={onGenerate}>
+                                        Update idea
+                                    </button>
+                                )}
+                                <button className="chat-panel__review-btn chat-panel__review-btn--dismiss" onClick={() => setDismissConfirm(true)}>
+                                    Dismiss
+                                </button>
+                                <button className="chat-panel__review-btn chat-panel__review-btn--later" onClick={onClear}>
+                                    I&apos;ll do it later
+                                </button>
+                            </>
+                        ) : isImmediate && !isEditing && generateReady ? (
+                            <button
+                                className={`chat-panel__market-btn chat-panel__market-btn--${direction}`}
+                                onClick={onBuyMarket}
+                            >
+                                {direction === 'short' ? 'Sell Market' : 'Buy Market'}
+                            </button>
+                        ) : showChangedMind ? (
+                            <button className="chat-panel__generate chat-panel__generate--cancel" onClick={onClear}>
+                                I&apos;ll do it later
+                            </button>
+                        ) : (
+                            <button className="chat-panel__generate" onClick={onGenerate}>
+                                {isEditing ? 'Update idea' : 'Generate idea'}
+                            </button>
+                        )}
+                    </div>
+                )}
+
                 <div ref={messagesEndRef} />
             </div>
-
-            <button
-                className={`chat-panel__generate${showChangedMind ? ' chat-panel__generate--cancel' : ''}`}
-                disabled={isLoading || (!isEditing && !generateReady)}
-                onClick={showChangedMind ? onClear : onGenerate}
-                title={showChangedMind
-                    ? 'Discard edit and start a new chat'
-                    : isEditing
-                        ? (generateReady ? 'Update idea' : 'Exit edit mode')
-                        : (generateReady ? 'Generate idea' : 'Build your idea first')}
-            >
-                {showChangedMind ? 'Changed my mind' : isEditing ? 'Update idea' : 'Generate idea'}
-            </button>
 
             <ChatInputRow
                 prefix="chat-panel"
@@ -298,7 +347,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                 isStreaming={isLoading}
                 onStop={onStop}
                 onClear={onClear}
-                clearDisabled={isLoading || isEditing || (!messages.length && !analysisState?.structured_state?.active_asset)}
+                clearDisabled={isLoading || isEditing || isThesisReview || !messages.length}
                 clearTitle="Clear chat and idea"
                 onToggleMic={toggleMic}
                 onCancelMic={cancelMic}
@@ -321,6 +370,10 @@ ChatPanel.propTypes = {
     isLoading:         PropTypes.bool,
     streamStatus:      PropTypes.string,
     isEditing:         PropTypes.bool,
+    isThesisReview:    PropTypes.bool,
+    onDismissThesis:   PropTypes.func,
+    onBuyMarket:       PropTypes.func,
+    isPostOrderEdit:   PropTypes.bool,
     availableAccounts:   PropTypes.array,
     selectedAccounts:    PropTypes.arrayOf(PropTypes.string),
     onAccountsChange:    PropTypes.func,

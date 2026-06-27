@@ -137,6 +137,76 @@ html, body, #root {
     }
 }
 
+// ── [DEV] Thesis panel ──────────────────────────────────────────────────────
+.idea-page__dev-thesis {
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+    background: #0d1a2d;
+    font-size: 0.75rem;
+
+    &-toggle {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 16px;
+        background: none;
+        border: none;
+        color: #4a6fa1;
+        cursor: pointer;
+        font-size: 0.72rem;
+        font-family: var(--font-mono, monospace);
+        letter-spacing: 0.04em;
+        text-align: left;
+
+        &:hover { color: #7a9bc0; }
+    }
+
+    &-status {
+        padding: 1px 6px;
+        border-radius: 3px;
+        font-size: 0.65rem;
+        font-weight: 600;
+        text-transform: uppercase;
+
+        &--weakening   { background: rgba(245,158,11,.15); color: #f59e0b; }
+        &--invalidated { background: rgba(239,68,68,.15);  color: #ef4444; }
+        &--holding     { background: rgba(34,197,94,.15);  color: #22c55e; }
+    }
+
+    &-caret {
+        margin-left: auto;
+        font-size: 0.6rem;
+        opacity: 0.5;
+    }
+
+    &-body {
+        padding: 8px 16px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        border-top: 1px solid rgba(74,111,161,0.2);
+    }
+
+    &-section {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+
+        p, ul { margin: 0; color: #7a9bc0; line-height: 1.5; }
+        ul { padding-left: 18px; }
+        li { margin-bottom: 2px; }
+    }
+
+    &-label {
+        font-size: 0.65rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #4a6fa1;
+    }
+}
+
 // Keyframes for the live-status pulse — duplicated here so the pop-out window
 // (which doesn't load TradeIdeas.scss) animates the status icon too.
 @keyframes status-pulse {

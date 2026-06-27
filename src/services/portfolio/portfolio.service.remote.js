@@ -1,7 +1,7 @@
 import { API_BASE } from '../config'
 import { postSSE } from '../sse.util'
 
-export const portfolioService = { sendStream, saveChatState, getChatState, deleteChatState }
+export const portfolioService = { sendStream, saveChatState, getChatState, deleteChatState, completeReview }
 
 async function saveChatState(portfolioId, messages) {
     const res = await fetch(`${API_BASE}/portfolio/chat-state`, {
@@ -32,10 +32,21 @@ async function deleteChatState(portfolioId) {
     return res.json()
 }
 
-async function sendStream(messages, ideaAccounts = [], { onToken, onTicker, onStatus, onDone, onError, portfolioId = null, portfolioIdeas = [], model, reasoningEffort, signal } = {}) {
+async function completeReview(portfolioId, reviewCadence) {
+    const res = await fetch(`${API_BASE}/portfolio/${encodeURIComponent(portfolioId)}/complete-review`, {
+        method:      'POST',
+        credentials: 'include',
+        headers:     { 'Content-Type': 'application/json' },
+        body:        JSON.stringify({ reviewCadence }),
+    })
+    if (!res.ok) throw new Error('Failed to complete portfolio review')
+    return res.json()
+}
+
+async function sendStream(messages, ideaAccounts = [], { onToken, onTicker, onStatus, onDone, onError, portfolioId = null, portfolioIdeas = [], reviewMode = false, model, reasoningEffort, signal } = {}) {
     await postSSE(
         `${API_BASE}/portfolio/stream`,
-        { messages, ideaAccounts, portfolioId, portfolioIdeas, model, reasoningEffort },
+        { messages, ideaAccounts, portfolioId, portfolioIdeas, reviewMode, model, reasoningEffort },
         {
             token:  (d) => onToken?.(d.text),
             ticker: (d) => onTicker?.(d.symbol),

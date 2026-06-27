@@ -1,7 +1,7 @@
 .social-chat {
     position: fixed;
     top: 0; right: 0; bottom: 0;
-    width: 590px;
+    width: 413px;
     z-index: 600;
     display: flex;
     flex-direction: row;
@@ -11,7 +11,7 @@
     &__backdrop {
         position: fixed;
         inset: 0;
-        right: 590px;
+        right: 413px;
         z-index: 599;
         cursor: default;
     }
@@ -333,6 +333,47 @@
     }
 
     &__thesis-alert-btn {
+        display: block;
+        width: calc(100% - 24px);
+        margin: 0 12px 10px;
+        padding: 6px;
+        background: var(--bg-base);
+        border: 1px solid var(--border-strong, var(--border));
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-size: .8rem;
+        font-weight: 500;
+        cursor: pointer;
+        text-align: center;
+        &:hover { background: var(--bg-hover); }
+    }
+
+    // ── Portfolio review notification ──────────────────────────────────────────
+    &__portfolio-review {
+        padding: 0;
+        background: var(--bg-surface);
+        border: 1px solid var(--accent-deep);
+        border-left: 3px solid #3b82f6;
+        border-radius: 10px;
+        overflow: hidden;
+        max-width: 280px;
+    }
+
+    &__portfolio-review-header {
+        padding: 10px 14px 4px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #60a5fa;
+    }
+
+    &__portfolio-review-meta {
+        padding: 0 14px 10px;
+        font-size: 0.73rem;
+        color: var(--text-muted);
+        line-height: 1.4;
+    }
+
+    &__portfolio-review-btn {
         display: block;
         width: calc(100% - 24px);
         margin: 0 12px 10px;

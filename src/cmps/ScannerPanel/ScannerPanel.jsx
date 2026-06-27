@@ -114,7 +114,6 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable closure
     const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
     const { isRecording, isTranscribing, toggle: toggleMic, cancel: cancelMic } = useMicInput({ onTranscript })
-    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, { watch: streamStatus })
 
     async function _send(text) {
         if (!text || isLoading) return
@@ -223,6 +222,8 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
 
     const listReady = !!pendingScan && pendingScan.candidates?.length > 0
     const showChangedMind = !!editingScanId && !editDirty
+    const actionWatch = `${streamStatus}|${listReady}|${!!editingScanId}`
+    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, { watch: actionWatch })
 
     return (
         <div className="portfolio-panel scanner-panel">
@@ -283,21 +284,23 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
                 )}
                 {messages.map((msg, i) => <MessageBubble key={i} msg={msg} onTickerSelect={onTickerSelect} />)}
                 {isLoading && <ToolStatusChip label={streamStatus} />}
+
+                {!isLoading && (listReady || showChangedMind) && (
+                    <div className="portfolio-panel__action-bubble">
+                        {showChangedMind ? (
+                            <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={handleClear}>
+                                I&apos;ll do it later
+                            </button>
+                        ) : (
+                            <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={handleGenerate}>
+                                {editingScanId ? 'Update list' : 'Generate list'}
+                            </button>
+                        )}
+                    </div>
+                )}
+
                 <div ref={messagesEndRef} />
             </div>
-
-            <button
-                className={`portfolio-panel__generate${showChangedMind ? ' portfolio-panel__generate--cancel' : ''}`}
-                disabled={isLoading || (!showChangedMind && !listReady)}
-                onClick={showChangedMind ? handleClear : handleGenerate}
-                title={showChangedMind
-                    ? 'Discard edit and start a new chat'
-                    : editingScanId
-                        ? (listReady ? 'Update list' : 'Refine the list first')
-                        : (listReady ? 'Generate list' : 'Scan for candidates first')}
-            >
-                {showChangedMind ? 'Changed my mind' : editingScanId ? 'Update list' : 'Generate list'}
-            </button>
 
             <ChatInputRow
                 prefix="portfolio-panel"

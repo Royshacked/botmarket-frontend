@@ -16,7 +16,7 @@ import { userPromptService } from '../services/userPrompt/userPrompt.service.rem
 import { toolStatusLabel }   from '../services/toolStatusLabels.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
-import { showErrorMsg, eventBus, THESIS_EDIT_IDEA } from '../services/event-bus.service'
+import { showErrorMsg, eventBus, THESIS_EDIT_IDEA, PORTFOLIO_REVIEW } from '../services/event-bus.service'
 import { useTypewriter }     from '../customHooks/useTypewriter.js'
 import { useTextPace }       from '../customHooks/useTextPace.js'
 import { useNewsFeed }       from '../customHooks/useNewsFeed.js'
@@ -138,7 +138,8 @@ export function MainPage() {
     const [chartInterval, setChartInterval] = useState(DEFAULT_CHART_INTERVAL)
     const [isLoading, setIsLoading] = useState(false)
     const [streamStatus, setStreamStatus] = useState('')
-    const [editingIdeaId, setEditingIdeaId] = useState(null)
+    const [editingIdeaId,     setEditingIdeaId]     = useState(null)
+    const [isThesisReview,    setIsThesisReview]    = useState(false)
     const [activeTab, setActiveTab]             = useState('idea')
     const [newsTab, setNewsTab]                 = useState('news')
     const [scannerChatRestore, setScannerChatRestore] = useState(null)
@@ -365,13 +366,14 @@ export function MainPage() {
         setAnalysisState(null)
         setMessages([])
         setEditingIdeaId(null)
+        setIsThesisReview(false)
         news.clearAsset()
         setChartSymbol(DEFAULT_CHART_SYMBOL)
         setChartInterval(DEFAULT_CHART_INTERVAL)
         latestMessagesRef.current = []
     }
 
-    function handleEditIdea(idea) {
+    function handleEditIdea(idea, { thesisReview = false } = {}) {
         const cs = idea.chat_state
         // Restore prior chat if available, otherwise seed state from the idea's conditions
         const restoredState = cs?.analysisState ?? {
@@ -410,6 +412,7 @@ export function MainPage() {
         const editInterval = deriveIdeaInterval(restoredState.structured_state?.pending_trade)
         if (editInterval) setChartInterval(editInterval)
         setEditingIdeaId(idea.id)
+        setIsThesisReview(thesisReview)
         setSelectedAccounts(Array.isArray(idea.accounts) ? idea.accounts : [])
         setMainAccountId(idea.mainAccountId ?? null)
     }
@@ -421,9 +424,36 @@ export function MainPage() {
     useEffect(() => {
         return eventBus.on(THESIS_EDIT_IDEA, ({ ideaId }) => {
             const idea = ideasRef.current.find(i => i.id === ideaId)
-            if (idea) handleEditIdea(idea)
+            if (idea) handleEditIdea(idea, { thesisReview: true })
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    useEffect(() => {
+        return eventBus.on(PORTFOLIO_REVIEW, ({ portfolioId }) => {
+            handleEditPortfolio(portfolioId, { reviewMode: true })
+        })
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    async function handleBuyMarket() {
+        if (!buildingIdea) return
+        const { id: _id, status: _status, ...ideaFields } = buildingIdea
+        const chatState = { messages: _capPersistedMessages(latestMessagesRef.current), analysisState }
+        try {
+            const saved = await tradeIdeasService.createIdea({
+                ...ideaFields,
+                immediate:  true,
+                chat_state: chatState,
+                accounts:   selectedAccounts,
+                mainAccountId,
+            })
+            setIdeas(prev => [...saved, ...prev])
+            // Keep chat open so user can add stops/TPs; point edit session at the
+            // primary idea (first returned, before any broker-fork children).
+            if (saved[0]?.id) setEditingIdeaId(saved[0].id)
+        } catch (err) {
+            console.error('[tradeIdeas] buy market failed', err)
+        }
+    }
 
     async function handleGenerate() {
         if (!buildingIdea) {
@@ -435,17 +465,25 @@ export function MainPage() {
         const { id: _id, status: _status, ...ideaFields } = buildingIdea
         const chatState = { messages: _capPersistedMessages(latestMessagesRef.current), analysisState }
 
+        // Don't reset to 'waiting' when editing a live idea (hit/long/short) —
+        // the user is just adding stops/TPs to an already-placed order.
+        const editingIdea    = ideas.find(i => i.id === editingIdeaId)
+        const isPostOrderEdit = !!editingIdea && ['hit', 'long', 'short'].includes(editingIdea.status)
+
         if (editingIdeaId) {
             try {
                 const res = await tradeIdeasService.updateIdea(editingIdeaId, {
                     ...ideaFields,
-                    status:     'waiting',
+                    ...(!isPostOrderEdit && { status: 'waiting' }),
                     chat_state: chatState,
                     accounts:      selectedAccounts,
                     mainAccountId: mainAccountId,
+                    // Thesis review: clear the alert so the monitor re-evaluates
+                    ...(isThesisReview && { thesis_status: null, thesis_status_reason: null }),
                 })
                 setIdeas(prev => prev.map(i => i.id === editingIdeaId ? res.idea : i))
                 setEditingIdeaId(null)
+                setIsThesisReview(false)
                 setAnalysisState(null)
                 setMessages([])
                 news.clearAsset()
@@ -471,6 +509,22 @@ export function MainPage() {
                 console.error('[tradeIdeas] create failed', err)
             }
         }
+    }
+
+    // Thesis review "Dismiss": idea is fine as-is, just clear the alert so the
+    // monitor can re-evaluate. Does NOT change status or conditions.
+    async function handleDismissThesis() {
+        if (!editingIdeaId) return
+        try {
+            const res = await tradeIdeasService.updateIdea(editingIdeaId, {
+                thesis_status:        null,
+                thesis_status_reason: null,
+            })
+            setIdeas(prev => prev.map(i => i.id === editingIdeaId ? res.idea : i))
+        } catch (err) {
+            console.error('[thesis] dismiss failed', err)
+        }
+        handleCancelBuild()
     }
 
     // A 'hit' idea has fired and is awaiting order confirmation — deleting discards
@@ -587,7 +641,7 @@ export function MainPage() {
         }
     }
 
-    async function handleEditPortfolio(portfolioId) {
+    async function handleEditPortfolio(portfolioId, { reviewMode = false } = {}) {
         const portfolioIdeas = ideas.filter(i => i.portfolioId === portfolioId)
 
         // Seed the account selector from the portfolio's own ideas so it reflects
@@ -613,6 +667,7 @@ export function MainPage() {
                 messages:      chatState?.messages ?? [],
                 portfolioId,
                 portfolioIdeas: portfolioIdeas.map(i => ({ ...i, status: 'waiting' })),
+                reviewMode,
             })
             setActiveTab('portfolio')
         } catch (err) {
@@ -782,6 +837,10 @@ export function MainPage() {
         isLoading,
         streamStatus,
         isEditing:           !!editingIdeaId,
+        isThesisReview,
+        onDismissThesis:     handleDismissThesis,
+        onBuyMarket:         handleBuyMarket,
+        isPostOrderEdit:     !!ideas.find(i => i.id === editingIdeaId && ['hit', 'long', 'short'].includes(i.status)),
         availableAccounts,
         selectedAccounts,
         onAccountsChange:    setSelectedAccounts,

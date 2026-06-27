@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
-import { eventBus, THESIS_EDIT_IDEA } from '../../services/event-bus.service'
+import { eventBus, THESIS_EDIT_IDEA, PORTFOLIO_REVIEW } from '../../services/event-bus.service'
 
 const BOT_ID = 'ar2trade_bot'
 
@@ -73,6 +73,8 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                         >
                             {msg.type === 'thesis_alert' && msg.payload
                                 ? <ThesisAlertBubble msg={msg} onClose={onClose} />
+                                : msg.type === 'portfolio_review' && msg.payload
+                                ? <PortfolioReviewBubble msg={msg} onClose={onClose} />
                                 : <div className="social-chat__msg-bubble">{msg.content}</div>
                             }
                             <div className="social-chat__msg-time">{formatTime(msg.createdAt)}</div>
@@ -117,6 +119,30 @@ function ThesisAlertBubble({ msg, onClose }) {
             <div className="social-chat__thesis-alert-reason">{reason}</div>
             <button className="social-chat__thesis-alert-btn" onClick={handleReview}>
                 Review Idea
+            </button>
+        </div>
+    )
+}
+
+function PortfolioReviewBubble({ msg, onClose }) {
+    const { portfolioId, portfolioName, lastReviewAt } = msg.payload
+    const lastReview = lastReviewAt
+        ? new Date(lastReviewAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
+        : 'never'
+
+    function handleReview() {
+        eventBus.emit(PORTFOLIO_REVIEW, { portfolioId, reviewMode: true })
+        onClose?.()
+    }
+
+    return (
+        <div className="social-chat__msg-bubble social-chat__portfolio-review">
+            <div className="social-chat__portfolio-review-header">
+                Portfolio Review &middot; {portfolioName}
+            </div>
+            <div className="social-chat__portfolio-review-meta">Last reviewed: {lastReview}</div>
+            <button className="social-chat__portfolio-review-btn" onClick={handleReview}>
+                Review Portfolio →
             </button>
         </div>
     )
