@@ -1,9 +1,9 @@
-import { useContext, useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { AuthContext } from '../context/AuthContext'
-import { chatWsService } from '../services/chat/chatWs.service'
 import { SocialChat } from './SocialChat/SocialChat'
+import { useChatWs } from '../customHooks/useChatWs'
 
 // ── AppHeader · "axl" style (trial) ───────────────────────────────────────────
 // The calm aurora header: animated calm-water wave bottom edge, ambient breathing
@@ -45,35 +45,7 @@ export function AppHeaderAxl() {
     const textRef   = useRef(null)
     const tagRef    = useRef(null)
 
-    const [showChat, setShowChat] = useState(false)
-    const [unread,   setUnread]   = useState(0)
-    const showChatRef = useRef(false)
-    useEffect(() => { showChatRef.current = showChat }, [showChat])
-
-    useEffect(() => {
-        if (!user) { chatWsService.disconnect(); return }
-        chatWsService.connect()
-        return () => chatWsService.disconnect()
-    }, [user?._id])
-
-    useEffect(() => {
-        if (!user) return
-        function onNewMessage() {
-            if (!showChatRef.current) setUnread(u => u + 1)
-        }
-        chatWsService.on('new_message', onNewMessage)
-        return () => chatWsService.off('new_message', onNewMessage)
-    }, [user?._id])
-
-    // OAuth redirect handoff — same as the classic header.
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search)
-        if (params.get('broker') === 'connected') {
-            window.history.replaceState({}, '', window.location.pathname)
-            navigate('/profile')
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only OAuth redirect; navigate is stable
-    }, [])
+    const { unread, setUnread, showChat, setShowChat } = useChatWs(user?._id)
 
     // ── ambient aurora candlesticks (built once into the .ticks svg) ──
     useEffect(() => {

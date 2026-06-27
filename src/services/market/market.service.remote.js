@@ -11,5 +11,5 @@ export const marketService = {
  * @returns {Promise<{ open: boolean, isCrypto: boolean, nextOpenMs: number|null }>}
  */
 async function getStatus(symbol, assetClass) {
-    return httpService.get('market/status', { symbol, ...(assetClass ? { assetClass } : {}) })
+    return httpService.get('api/market/status', { symbol, ...(assetClass ? { assetClass } : {}) })
 }

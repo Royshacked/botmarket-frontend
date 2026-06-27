@@ -5,6 +5,6 @@ export const newsFeedService = {
 }
 
 async function getArticles() {
-    const res = await httpService.get('news-feed')
+    const res = await httpService.get('api/news-feed')
     return Array.isArray(res?.articles) ? res.articles : []
 }

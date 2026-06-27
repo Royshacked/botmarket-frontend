@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { API_BASE } from '../services/config.js'
 
-const NEWS_STREAM_URL = `${API_BASE}/news-feed/stream`
-const NEWS_ASSET_BASE = `${API_BASE}/news-feed/asset`
+const NEWS_STREAM_URL = `${API_BASE}/api/news-feed/stream`
+const NEWS_ASSET_BASE = `${API_BASE}/api/news-feed/asset`
 const COMPANY_NEWS_INTERVAL_MS = 30 * 60 * 1000
 
 /**

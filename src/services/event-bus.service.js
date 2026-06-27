@@ -30,5 +30,3 @@ export function showSuccessMsg(txt) {
 export function showErrorMsg(txt) {
     showUserMsg({txt, type: 'error'})
 }
-
-window.showUserMsg = showUserMsg

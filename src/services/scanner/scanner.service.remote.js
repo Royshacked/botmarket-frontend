@@ -9,7 +9,7 @@ export const scannerService = {
 
 async function sendStream(messages, { onToken, onTicker, onStatus, onDone, onError, model, reasoningEffort, signal, editList = null } = {}) {
     await postSSE(
-        `${API_BASE}/scanner/stream`,
+        `${API_BASE}/api/scanner/stream`,
         { messages, model, editList, reasoningEffort },
         {
             token:  (d) => onToken?.(d.text),
@@ -23,14 +23,14 @@ async function sendStream(messages, { onToken, onTicker, onStatus, onDone, onErr
 }
 
 async function listScans() {
-    const res = await fetch(`${API_BASE}/scanner/scans`, { credentials: 'include' })
+    const res = await fetch(`${API_BASE}/api/scanner/scans`, { credentials: 'include' })
     if (!res.ok) return []
     const data = await res.json()
     return Array.isArray(data.scans) ? data.scans : []
 }
 
 async function createScan(scan) {
-    const res = await fetch(`${API_BASE}/scanner/scans`, {
+    const res = await fetch(`${API_BASE}/api/scanner/scans`, {
         method:      'POST',
         credentials: 'include',
         headers:     { 'Content-Type': 'application/json' },
@@ -42,7 +42,7 @@ async function createScan(scan) {
 }
 
 async function updateScan(id, scan) {
-    const res = await fetch(`${API_BASE}/scanner/scans/${encodeURIComponent(id)}`, {
+    const res = await fetch(`${API_BASE}/api/scanner/scans/${encodeURIComponent(id)}`, {
         method:      'PUT',
         credentials: 'include',
         headers:     { 'Content-Type': 'application/json' },
@@ -54,7 +54,7 @@ async function updateScan(id, scan) {
 }
 
 async function deleteScan(id) {
-    const res = await fetch(`${API_BASE}/scanner/scans/${encodeURIComponent(id)}`, {
+    const res = await fetch(`${API_BASE}/api/scanner/scans/${encodeURIComponent(id)}`, {
         method:      'DELETE',
         credentials: 'include',
     })
@@ -63,7 +63,7 @@ async function deleteScan(id) {
 }
 
 async function saveChatState(messages) {
-    const res = await fetch(`${API_BASE}/scanner/chat-state`, {
+    const res = await fetch(`${API_BASE}/api/scanner/chat-state`, {
         method:      'POST',
         credentials: 'include',
         headers:     { 'Content-Type': 'application/json' },
@@ -74,14 +74,14 @@ async function saveChatState(messages) {
 }
 
 async function getChatState() {
-    const res = await fetch(`${API_BASE}/scanner/chat-state`, { credentials: 'include' })
+    const res = await fetch(`${API_BASE}/api/scanner/chat-state`, { credentials: 'include' })
     if (!res.ok) return null
     const data = await res.json()
     return data.chatState ?? null
 }
 
 async function deleteChatState() {
-    const res = await fetch(`${API_BASE}/scanner/chat-state`, {
+    const res = await fetch(`${API_BASE}/api/scanner/chat-state`, {
         method:      'DELETE',
         credentials: 'include',
     })

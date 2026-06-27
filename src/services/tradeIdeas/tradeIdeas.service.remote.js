@@ -17,34 +17,34 @@ export const tradeIdeasService = {
  * @returns {Promise<object[]>}
  */
 async function createIdea(idea) {
-    const res = await httpService.post('trade-ideas', idea)
+    const res = await httpService.post('api/trade-ideas', idea)
     return Array.isArray(res.ideas) ? res.ideas : (res.idea ? [res.idea] : [])
 }
 
 async function getIdeas() {
-    const res = await httpService.get('trade-ideas')
+    const res = await httpService.get('api/trade-ideas')
     return Array.isArray(res.ideas) ? res.ideas : []
 }
 
 async function getIdea(id) {
-    const res = await httpService.get(`trade-ideas/${id}`)
+    const res = await httpService.get(`api/trade-ideas/${id}`)
     return res.idea ?? null
 }
 
 async function deleteIdea(id) {
-    return httpService.delete(`trade-ideas/${id}`)
+    return httpService.delete(`api/trade-ideas/${id}`)
 }
 
 async function updateIdea(id, patch) {
-    return httpService.patch(`trade-ideas/${id}`, patch)
+    return httpService.patch(`api/trade-ideas/${id}`, patch)
 }
 
 async function createBatch(plan, accounts = [], mainAccountId = null, portfolioId = null) {
-    const res = await httpService.post('trade-ideas/batch', { plan, accounts, mainAccountId, portfolioId })
+    const res = await httpService.post('api/trade-ideas/batch', { plan, accounts, mainAccountId, portfolioId })
     return Array.isArray(res.ideas) ? res.ideas : []
 }
 
 async function placeOrders(id, orders) {
-    const res = await httpService.post(`trade-ideas/${id}/orders`, { orders })
+    const res = await httpService.post(`api/trade-ideas/${id}/orders`, { orders })
     return res.idea ?? null
 }

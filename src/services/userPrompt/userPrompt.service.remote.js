@@ -21,7 +21,7 @@ export const userPromptService = {
  */
 async function sendPromptStream(userPrompt, analysisState = null, { onToken, onDone, onError, onAsset, onInterval, onChart, onStatus, signal } = {}, ideaAccounts = [], model, reasoningEffort) {
     await postSSE(
-        `${API_BASE}/orchestrator/stream`,
+        `${API_BASE}/api/orchestrator/stream`,
         { userPrompt, analysisState, ideaAccounts, model, reasoningEffort },
         {
             token:    (d) => onToken?.(d.text),

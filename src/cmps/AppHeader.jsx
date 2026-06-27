@@ -1,47 +1,18 @@
-import { useContext, useEffect, useRef, useState } from 'react'
+import { useContext } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { AuthContext } from '../context/AuthContext'
 import { HeaderBackground } from './HeaderBackground'
-import { chatWsService } from '../services/chat/chatWs.service'
 import { SocialChat } from './SocialChat/SocialChat'
+import { useChatWs } from '../customHooks/useChatWs'
 
 export function AppHeader() {
-	const { user }   = useContext(AuthContext)
-	const navigate   = useNavigate()
+	const { user }     = useContext(AuthContext)
+	const navigate     = useNavigate()
 	const { pathname } = useLocation()
-	const onProfile  = pathname === '/profile'
+	const onProfile    = pathname === '/profile'
 
-	const [showChat,  setShowChat]  = useState(false)
-	const [unread,    setUnread]    = useState(0)
-	const showChatRef = useRef(false)
-	useEffect(() => { showChatRef.current = showChat }, [showChat])
-
-	// Connect / disconnect WS with user session
-	useEffect(() => {
-		if (!user) { chatWsService.disconnect(); return }
-		chatWsService.connect()
-		return () => chatWsService.disconnect()
-	}, [user?._id])
-
-	// Increment unread badge for messages that arrive while the panel is closed.
-	// When the panel opens, SocialChat re-fetches the server count via onUnreadChange.
-	useEffect(() => {
-		if (!user) return
-		function onNewMessage() {
-			if (!showChatRef.current) setUnread(u => u + 1)
-		}
-		chatWsService.on('new_message', onNewMessage)
-		return () => chatWsService.off('new_message', onNewMessage)
-	}, [user?._id])
-
-	useEffect(() => {
-		const params = new URLSearchParams(window.location.search)
-		if (params.get('broker') === 'connected') {
-			window.history.replaceState({}, '', window.location.pathname)
-			navigate('/profile')
-		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only OAuth redirect; navigate is stable
-	}, [])
+	const { unread, setUnread, showChat, setShowChat } = useChatWs(user?._id)
 
 	return (
 		<header className="app-header full">
@@ -87,12 +58,13 @@ export function AppHeader() {
 				</div>
 			)}
 
-			{showChat && user && (
+			{showChat && user && createPortal(
 				<SocialChat
 					currentUserId={user._id}
 					onUnreadChange={setUnread}
 					onClose={() => setShowChat(false)}
-				/>
+				/>,
+				document.body
 			)}
 		</header>
 	)
