@@ -87,11 +87,11 @@
 
     &__tab {
         flex: 1;
-        padding: 6px 0;
+        padding: 6px 2px;
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: 10px;
         font-weight: 600;
-        letter-spacing: 0.1em;
+        letter-spacing: 0.05em;
         text-transform: uppercase;
         color: var(--text-muted);
         background: none;
@@ -99,6 +99,9 @@
         border-bottom: 2px solid transparent;
         cursor: pointer;
         transition: color 0.15s, border-color 0.15s;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
 
         &:hover { color: var(--text-secondary); }
 
@@ -252,4 +255,127 @@
 @keyframes nf-loading {
     0%, 100% { opacity: 0.7; transform: scale(1);   }
     50%       { opacity: 1;   transform: scale(1.4); }
+}
+
+// ── Calendar lists (Earnings + FDA) ───────────────────────────────────────────
+.cal-list {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.cal-list__date-header {
+    padding: 6px 16px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--bg-wash-surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.cal-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+
+    &:last-child { border-bottom: none; }
+    &:hover      { background: var(--glow); }
+
+    &__left {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-width: 0;
+        flex: 0 0 90px;
+    }
+
+    &__right {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        flex: 1;
+        min-width: 0;
+        align-items: flex-end;
+        text-align: right;
+    }
+
+    &__ticker {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--accent-bright);
+        letter-spacing: 0.05em;
+    }
+
+    &__company {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &__time {
+        font-family: var(--font-mono);
+        font-size: 9px;
+        color: var(--text-muted);
+        letter-spacing: 0.04em;
+    }
+
+    &__action {
+        font-family: var(--font-mono);
+        font-size: 9px;
+        color: var(--text-muted);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &__stat {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--text-secondary);
+        letter-spacing: 0.03em;
+
+        strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+    }
+
+    &__drug {
+        font-size: 11px;
+        color: var(--text-primary);
+        font-weight: 500;
+        line-height: 1.35;
+        text-align: right;
+        word-break: break-word;
+    }
+
+    &__status {
+        font-family: var(--font-mono);
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 2px 5px;
+        border-radius: 3px;
+
+        &--approved { color: var(--sentiment-bull); background: color-mix(in srgb, var(--sentiment-bull) 12%, transparent); }
+        &--rejected { color: var(--sentiment-bear); background: color-mix(in srgb, var(--sentiment-bear) 12%, transparent); }
+        &--pending  { color: var(--accent-bright);  background: color-mix(in srgb, var(--accent) 15%, transparent); }
+    }
 }

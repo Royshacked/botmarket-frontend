@@ -20,6 +20,7 @@ import { showErrorMsg, eventBus, THESIS_EDIT_IDEA, PORTFOLIO_REVIEW } from '../s
 import { useTypewriter }     from '../customHooks/useTypewriter.js'
 import { useTextPace }       from '../customHooks/useTextPace.js'
 import { useNewsFeed }       from '../customHooks/useNewsFeed.js'
+import { useCalendarEvents } from '../customHooks/useCalendarEvents.js'
 import { useScans }          from '../customHooks/useScans.js'
 import { useBrokerAccounts } from '../customHooks/useBrokerAccounts.js'
 import { usePositions }      from '../customHooks/usePositions.js'
@@ -166,6 +167,7 @@ export function MainPage() {
     const abortRef          = useRef(null)
 
     const news = useNewsFeed()
+    const { earnings, earningsDate, earningsLoading, fda, fdaDate, fdaLoading } = useCalendarEvents()
     const { scans, loading: scansLoading, createScan, updateScan, deleteScan } = useScans()
     const { user } = useAuth()
     const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
@@ -915,6 +917,12 @@ export function MainPage() {
                             onCandidateSelect={handleBuildFromCandidate}
                             onDeleteScan={deleteScan}
                             onEditScan={handleEditScan}
+                            earnings={earnings}
+                            earningsDate={earningsDate}
+                            earningsLoading={earningsLoading}
+                            fda={fda}
+                            fdaDate={fdaDate}
+                            fdaLoading={fdaLoading}
                         />
                     </div>
                     <div className="workspace__ideas">

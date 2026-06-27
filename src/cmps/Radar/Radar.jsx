@@ -18,9 +18,18 @@ export function Radar({
     onCandidateSelect,
     onDeleteScan,
     onEditScan,
+    earnings = [],
+    earningsDate = null,
+    earningsLoading = false,
+    fda = [],
+    fdaDate = null,
+    fdaLoading = false,
 }) {
-    const onScans = tab === 'scans'
-    const loading = onScans ? scansLoading : isLoading
+    const loading =
+        tab === 'scans'    ? scansLoading    :
+        tab === 'earnings' ? earningsLoading :
+        tab === 'fda'      ? fdaLoading      :
+        isLoading
 
     return (
         <div className="news-feed">
@@ -41,18 +50,30 @@ export function Radar({
 
             <div className="news-feed__tabs">
                 <button
-                    className={`news-feed__tab${!onScans ? ' news-feed__tab--active' : ''}`}
+                    className={`news-feed__tab${tab === 'news' ? ' news-feed__tab--active' : ''}`}
                     onClick={() => onTabChange?.('news')}
                 >{activeSymbol ? `${activeSymbol} News` : 'News'}</button>
                 <button
-                    className={`news-feed__tab${onScans ? ' news-feed__tab--active' : ''}`}
+                    className={`news-feed__tab${tab === 'earnings' ? ' news-feed__tab--active' : ''}`}
+                    onClick={() => onTabChange?.('earnings')}
+                >
+                    Earnings{earnings.length > 0 && <span className="news-feed__tab-count">{earnings.length}</span>}
+                </button>
+                <button
+                    className={`news-feed__tab${tab === 'fda' ? ' news-feed__tab--active' : ''}`}
+                    onClick={() => onTabChange?.('fda')}
+                >
+                    FDA{fda.length > 0 && <span className="news-feed__tab-count">{fda.length}</span>}
+                </button>
+                <button
+                    className={`news-feed__tab${tab === 'scans' ? ' news-feed__tab--active' : ''}`}
                     onClick={() => onTabChange?.('scans')}
                 >
                     Scans{scans.length > 0 && <span className="news-feed__tab-count">{scans.length}</span>}
                 </button>
             </div>
 
-            {onScans ? (
+            {tab === 'scans' ? (
                 <div className="news-feed__list">
                     <ScanList
                         scans={scans}
@@ -61,6 +82,14 @@ export function Radar({
                         onDelete={onDeleteScan}
                         onEditScan={onEditScan}
                     />
+                </div>
+            ) : tab === 'earnings' ? (
+                <div className="news-feed__list">
+                    <EarningsList items={earnings} date={earningsDate} loading={earningsLoading} />
+                </div>
+            ) : tab === 'fda' ? (
+                <div className="news-feed__list">
+                    <FdaList items={fda} date={fdaDate} loading={fdaLoading} />
                 </div>
             ) : (
                 <div className="news-feed__list">
@@ -123,9 +152,81 @@ export function Radar({
     )
 }
 
+function EarningsList({ items, date, loading }) {
+    if (loading) return <div className="news-feed__loader"><span /><span /><span /></div>
+    if (!items.length) return <p className="news-feed__empty">No earnings scheduled{date ? ` for ${_fmtDate(date)}` : ''}.</p>
+    return (
+        <div className="cal-list">
+            {date && <div className="cal-list__date-header">{_fmtDate(date)}</div>}
+            {items.map((e, i) => (
+                <div key={e.symbol || i} className="cal-item">
+                    <div className="cal-item__left">
+                        <span className="cal-item__ticker">{e.symbol}</span>
+                        {e.time && <span className="cal-item__time">{e.time}</span>}
+                    </div>
+                    <div className="cal-item__right">
+                        {e.epsEstimated != null && (
+                            <span className="cal-item__stat">EPS est <strong>{_fmt(e.epsEstimated)}</strong></span>
+                        )}
+                        {e.revenueEstimated != null && (
+                            <span className="cal-item__stat">Rev est <strong>{_money(e.revenueEstimated)}</strong></span>
+                        )}
+                    </div>
+                </div>
+            ))}
+        </div>
+    )
+}
+
+function FdaList({ items, date, loading }) {
+    if (loading) return <div className="news-feed__loader"><span /><span /><span /></div>
+    if (!items.length) return <p className="news-feed__empty">No FDA events{date ? ` for ${_fmtDate(date)}` : ''}.</p>
+    return (
+        <div className="cal-list">
+            {date && <div className="cal-list__date-header">{_fmtDate(date)}</div>}
+            {items.map((e, i) => (
+                <div key={i} className="cal-item cal-item--fda">
+                    <div className="cal-item__left">
+                        {e.ticker
+                            ? <span className="cal-item__ticker">{e.ticker}</span>
+                            : <span className="cal-item__company">{e.company}</span>
+                        }
+                        {e.action && <span className="cal-item__action">{e.action}</span>}
+                    </div>
+                    <div className="cal-item__right">
+                        <span className="cal-item__drug">{e.drug}</span>
+                        {e.status && <span className={`cal-item__status cal-item__status--${e.status.toLowerCase().replace(/\s+/g, '-')}`}>{e.status}</span>}
+                    </div>
+                </div>
+            ))}
+        </div>
+    )
+}
+
 function _formatTime(unixSec) {
     if (!unixSec) return ''
     return new Date(unixSec * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
+function _fmtDate(iso) {
+    if (!iso) return ''
+    const [, m, d] = iso.split('-')
+    return `${_months[+m - 1]} ${+d}`
+}
+const _months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+function _fmt(v) {
+    const n = Number(v)
+    if (!Number.isFinite(n)) return '—'
+    return n.toFixed(2)
+}
+
+function _money(v) {
+    const n = Number(v)
+    if (!Number.isFinite(n)) return '—'
+    if (Math.abs(n) >= 1e9) return `$${(n / 1e9).toFixed(2)}B`
+    if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(2)}M`
+    return `$${n.toFixed(0)}`
 }
 
 Radar.propTypes = {
@@ -140,4 +241,10 @@ Radar.propTypes = {
     onCandidateSelect: PropTypes.func,
     onDeleteScan:      PropTypes.func,
     onEditScan:        PropTypes.func,
+    earnings:          PropTypes.array,
+    earningsDate:      PropTypes.string,
+    earningsLoading:   PropTypes.bool,
+    fda:               PropTypes.array,
+    fdaDate:           PropTypes.string,
+    fdaLoading:        PropTypes.bool,
 }
