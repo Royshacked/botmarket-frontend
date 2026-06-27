@@ -15,11 +15,13 @@ import { useRef, useEffect } from 'react'
  * @returns {{ messagesRef, messagesEndRef, handleScroll }}
  */
 export function useChatScroll(messages, { onFinishStreaming, watch } = {}) {
-    const messagesRef    = useRef(null)
-    const messagesEndRef = useRef(null)
-    const stickToBottom  = useRef(true)
-    const prevCount      = useRef(0)
-    const wasStreaming   = useRef(false)
+    const messagesRef          = useRef(null)
+    const messagesEndRef       = useRef(null)
+    const stickToBottom        = useRef(true)
+    const prevCount            = useRef(0)
+    const wasStreaming         = useRef(false)
+    const programmaticScroll   = useRef(false)
+    const programmaticTimerRef = useRef(null)
 
     function isNearBottom() {
         const el = messagesRef.current
@@ -27,8 +29,12 @@ export function useChatScroll(messages, { onFinishStreaming, watch } = {}) {
         return el.scrollHeight - el.scrollTop - el.clientHeight < 80
     }
 
-    // The user scrolling is what decides whether we keep following the response.
-    function handleScroll() { stickToBottom.current = isNearBottom() }
+    // Only update stickToBottom from genuine user-initiated scrolls, not from
+    // the scroll events that fire during a programmatic smooth-scroll animation.
+    function handleScroll() {
+        if (programmaticScroll.current) return
+        stickToBottom.current = isNearBottom()
+    }
 
     useEffect(() => {
         const streaming    = messages.some(m => m.streaming)
@@ -45,6 +51,15 @@ export function useChatScroll(messages, { onFinishStreaming, watch } = {}) {
             // each frame — a 'smooth' animation restarts on every token and ends up
             // lurching. Reserve the smooth scroll for discrete jumps (new message).
             const behavior = countChanged ? 'smooth' : 'auto'
+            if (behavior === 'smooth') {
+                // Block handleScroll from disengaging follow during the smooth
+                // animation — it fires intermediate events before reaching the bottom.
+                clearTimeout(programmaticTimerRef.current)
+                programmaticScroll.current = true
+                programmaticTimerRef.current = setTimeout(() => {
+                    programmaticScroll.current = false
+                }, 500)
+            }
             messagesEndRef.current?.scrollIntoView({ behavior })
         }
         if (justFinished) onFinishStreaming?.()

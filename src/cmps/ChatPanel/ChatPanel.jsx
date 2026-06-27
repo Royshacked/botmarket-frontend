@@ -125,24 +125,20 @@ function TradeBuildSummary({ analysisState, selectedAccounts = [] }) {
     )
 }
 
-function canGenerate(analysisState, selectedAccounts) {
+function isIdeaReady(analysisState) {
     const s  = analysisState?.structured_state || {}
     const pt = s.pending_trade || {}
-
-    // Common requirements for any idea
-    if (!(s.active_asset && pt.direction && pt.quantity != null && selectedAccounts?.length > 0))
-        return false
-
-    // Immediate ideas fire now — no entry conditions, and stop/TP are optional
-    // (the user is reminded to add exits afterwards via the pulsing edit pencil).
+    if (!(s.active_asset && pt.direction && pt.quantity != null)) return false
     if (pt.immediate) return true
-
-    // Conditional ideas need an entry, a stop, and a take profit.
     return !!(
         pt.entry_conditions?.length > 0 &&
         pt.stop_conditions?.length > 0 &&
         pt.tp_conditions?.length > 0
     )
+}
+
+function canGenerate(analysisState, selectedAccounts) {
+    return isIdeaReady(analysisState) && selectedAccounts?.length > 0
 }
 
 export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, onStop, isLoading, streamStatus = '', isEditing = false, isThesisReview = false, onDismissThesis, onBuyMarket, isPostOrderEdit = false, availableAccounts = [], selectedAccounts = [], onAccountsChange, mainAccountId = null, onMainAccountChange, model, onModelChange, reasoning, onReasoningChange }) {
@@ -163,7 +159,8 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
 
     const { isRecording, isTranscribing, toggle: toggleMic, cancel: cancelMic } = useMicInput({ onTranscript })
     const inputRef      = useRef(null)
-    const generateReady = canGenerate(analysisState, selectedAccounts)
+    const ideaReady     = isIdeaReady(analysisState)
+    const generateReady = ideaReady && selectedAccounts?.length > 0
 
     const s  = analysisState?.structured_state || {}
     const pt = s.pending_trade || {}
@@ -178,7 +175,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
 
     // Scroll-watch token: changes whenever the action bubble content changes so the
     // chat re-pins to bottom when buttons appear (e.g. idea becomes generate-ready).
-    const actionWatch = `${streamStatus}|${generateReady}|${isThesisReview}|${isEditing}|${isImmediate}|${isPostOrderEdit}`
+    const actionWatch = `${streamStatus}|${ideaReady}|${generateReady}|${isThesisReview}|${isEditing}|${isImmediate}|${isPostOrderEdit}`
 
     const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, {
         onFinishStreaming: () => inputRef.current?.focus(),
@@ -283,7 +280,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                 )}
 
                 {/* Inline action bubble — appears in the chat when actions are available */}
-                {!isLoading && (isThesisReview ? isEditing : (isImmediate && !isEditing && generateReady) || editReady || generateReady || showChangedMind) && (
+                {!isLoading && (isThesisReview ? isEditing : (isImmediate && !isEditing && ideaReady) || editReady || ideaReady || showChangedMind) && (
                     <div className="chat-panel__action-bubble">
                         {dismissConfirm ? (
                             <div className="chat-panel__dismiss-confirm">
@@ -313,19 +310,34 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                                     I&apos;ll do it later
                                 </button>
                             </>
-                        ) : isImmediate && !isEditing && generateReady ? (
-                            <button
-                                className={`chat-panel__market-btn chat-panel__market-btn--${direction}`}
-                                onClick={onBuyMarket}
-                            >
-                                {direction === 'short' ? 'Sell Market' : 'Buy Market'}
-                            </button>
+                        ) : isImmediate && !isEditing && ideaReady ? (
+                            generateReady ? (
+                                <button
+                                    className={`chat-panel__market-btn chat-panel__market-btn--${direction}`}
+                                    onClick={onBuyMarket}
+                                >
+                                    {direction === 'short' ? 'Sell Market' : 'Buy Market'}
+                                </button>
+                            ) : (
+                                <button
+                                    className={`chat-panel__market-btn chat-panel__market-btn--${direction}`}
+                                    disabled
+                                    title="Select a broker account above to place this trade"
+                                >
+                                    {direction === 'short' ? 'Sell Market' : 'Buy Market'}
+                                </button>
+                            )
                         ) : showChangedMind ? (
                             <button className="chat-panel__generate chat-panel__generate--cancel" onClick={onClear}>
                                 I&apos;ll do it later
                             </button>
                         ) : (
-                            <button className="chat-panel__generate" onClick={onGenerate}>
+                            <button
+                                className="chat-panel__generate"
+                                onClick={generateReady ? onGenerate : undefined}
+                                disabled={!generateReady}
+                                title={generateReady ? undefined : 'Select a broker account above to generate this idea'}
+                            >
                                 {isEditing ? 'Update idea' : 'Generate idea'}
                             </button>
                         )}

@@ -174,7 +174,9 @@ export function PortfolioPanel({
     const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
     const { isRecording, isTranscribing, toggle: toggleMic, cancel: cancelMic } = useMicInput({ onTranscript })
 
-    const actionWatch = `${streamStatus}|${planReady}|${isReviewMode}|${!!editingPortfolioId}`
+    const planReady    = !!pendingPlan && pendingPlan.ideas.length > 0 && pendingPlan.ideas.every(i => Number(i.quantity) > 0)
+    const canGenerate  = planReady && (!!editingPortfolioId || selectedAccounts?.length > 0)
+    const actionWatch = `${streamStatus}|${planReady}|${canGenerate}|${isReviewMode}|${!!editingPortfolioId}`
     const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, { watch: actionWatch })
 
     async function _send(text) {
@@ -330,8 +332,6 @@ export function PortfolioPanel({
         }
     }
 
-    // A plan is only generatable once every idea has a positive quantity.
-    const planReady = !!pendingPlan && pendingPlan.ideas.length > 0 && pendingPlan.ideas.every(i => Number(i.quantity) > 0)
     const showChangedMind = !!editingPortfolioId && !editDirty && !isReviewMode
 
     return (
@@ -428,7 +428,12 @@ export function PortfolioPanel({
                                 I&apos;ll do it later
                             </button>
                         ) : (
-                            <button className="portfolio-panel__generate" onClick={handleGenerate}>
+                            <button
+                                className="portfolio-panel__generate"
+                                onClick={canGenerate ? handleGenerate : undefined}
+                                disabled={!canGenerate}
+                                title={canGenerate ? undefined : 'Select a broker account above to generate this plan'}
+                            >
                                 {editingPortfolioId ? 'Update plan' : 'Generate plan'}
                             </button>
                         )}
