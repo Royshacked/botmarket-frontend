@@ -225,6 +225,12 @@ export function MainPage() {
         const ctrl = new AbortController()
         abortRef.current = ctrl
 
+        // On a clean finish we keep isLoading true until the typewriter has fully
+        // drained (cleared from finishDrain's onComplete), so the Stop button stays
+        // live while text is still being typed out. Error/abort paths clear it in
+        // the finally below (drain is hard-stopped there, so onComplete won't fire).
+        let deferLoading = false
+
         try {
             const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
             await userPromptService.sendPromptStream(
@@ -292,8 +298,9 @@ export function MainPage() {
                             return prev
                         })
                         // Visually finish typing the backlog, then swap in finalMsg —
-                        // no end-of-stream dump.
-                        finishDrain(finalMsg)
+                        // no end-of-stream dump. Keep Stop live until the drain ends.
+                        deferLoading = true
+                        finishDrain(finalMsg, () => setIsLoading(false))
                         // Save chat state progressively when editing
                         if (editingIdeaId && data.analysisState) {
                             tradeIdeasService.updateIdea(editingIdeaId, {
@@ -347,7 +354,7 @@ export function MainPage() {
                 return msgs
             })
         } finally {
-            setIsLoading(false)
+            if (!deferLoading) setIsLoading(false)
             setStreamStatus('')
         }
     }

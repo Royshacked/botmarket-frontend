@@ -195,6 +195,12 @@ export function PortfolioPanel({
         const ctrl = new AbortController()
         abortRef.current = ctrl
 
+        // On a clean finish we keep isLoading true until the typewriter has fully
+        // drained (cleared from finishDrain's onComplete), so the Stop button stays
+        // live while text is still being typed out. Error/abort paths clear it in
+        // the finally below (drain is hard-stopped there, so onComplete won't fire).
+        let deferLoading = false
+
         try {
             await portfolioService.sendStream(history, ideaAccounts, {
                 portfolioId:    editingPortfolioId,
@@ -233,8 +239,10 @@ export function PortfolioPanel({
                     pendingTickersRef.current = []
                     if (data.mandate) latestMandateRef.current = data.mandate
                     // Finish typing the backlog at reading pace, then swap in the
-                    // final reply — no end-of-stream dump.
-                    finishDrain({ role: 'assistant', content: data.reply, tickers })
+                    // final reply — no end-of-stream dump. Keep Stop live until the
+                    // drain ends.
+                    deferLoading = true
+                    finishDrain({ role: 'assistant', content: data.reply, tickers }, () => setIsLoading(false))
                     if (data.plan?.ideas?.length) setPendingPlan(data.plan)
                     if (data.update?.changes?.length && onPortfolioUpdate) onPortfolioUpdate(data.update)
                 },
@@ -245,7 +253,7 @@ export function PortfolioPanel({
             console.error('[portfolio]', err)
             freezeError()
         } finally {
-            setIsLoading(false)
+            if (!deferLoading) setIsLoading(false)
             setStreamStatus('')
         }
     }

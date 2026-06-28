@@ -124,6 +124,12 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
         const ctrl = new AbortController()
         abortRef.current = ctrl
 
+        // On a clean finish we keep isLoading true until the typewriter has fully
+        // drained (cleared from finishDrain's onComplete), so the Stop button stays
+        // live while text is still being typed out. Error/abort paths clear it in
+        // the finally below (drain is hard-stopped there, so onComplete won't fire).
+        let deferLoading = false
+
         try {
             await scannerService.sendStream(history, {
                 model:           readStoredModel('scannerModel'),
@@ -154,8 +160,10 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
                     const tickers = [...pendingTickersRef.current]
                     pendingTickersRef.current = []
                     // Finish typing the backlog at reading pace, then swap in the
-                    // final reply — no end-of-stream dump.
-                    finishDrain({ role: 'assistant', content: data.reply, tickers })
+                    // final reply — no end-of-stream dump. Keep Stop live until the
+                    // drain ends.
+                    deferLoading = true
+                    finishDrain({ role: 'assistant', content: data.reply, tickers }, () => setIsLoading(false))
                     if (data.scan?.candidates?.length) setPendingScan(data.scan)
                 },
                 onError: (message) => freezeError(message),
@@ -164,7 +172,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
             console.error('[scanner]', err)
             freezeError()
         } finally {
-            setIsLoading(false)
+            if (!deferLoading) setIsLoading(false)
             setStreamStatus('')
         }
     }
