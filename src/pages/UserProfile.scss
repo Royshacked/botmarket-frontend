@@ -28,7 +28,16 @@
         gap: 1rem;
         padding: 1.25rem 1.5rem;
         background: transparent; // let the root aurora wash show through behind the section cards
-        overflow: hidden;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: var(--accent-deep) var(--bg-base);
+        &::-webkit-scrollbar       { width: 4px; }
+        &::-webkit-scrollbar-track { background: var(--bg-base); }
+        &::-webkit-scrollbar-thumb {
+            background: var(--accent-deep);
+            border-radius: 2px;
+            &:hover { background: var(--accent); }
+        }
 
         & + & { border-left: 1px solid var(--border-mid); } // column divider (no longer an opaque body bg)
     }
@@ -234,6 +243,31 @@
     &__broker-actions {
         display: flex;
         justify-content: flex-end;
+    }
+
+    // ── AI agent preference cards ────────────────────────────────────────────
+    &__agent {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        padding: 0.5rem 0.75rem;
+        background: var(--bg-raised);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+    }
+
+    &__agent-name {
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: var(--text-primary);
+        margin-bottom: 0.1rem;
+    }
+
+    &__agent-field {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
     }
 
     // ── Token usage bar ──────────────────────────────────────────────────────

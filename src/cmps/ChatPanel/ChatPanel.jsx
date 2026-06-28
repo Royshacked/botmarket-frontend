@@ -5,8 +5,6 @@ import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { AccountSelector } from './AccountSelector.jsx'
 import { ChatInputRow } from '../ChatInputRow.jsx'
-import { ModelSelector } from '../ModelSelector.jsx'
-import { ReasoningSelector } from '../ReasoningSelector.jsx'
 import { PaceSlider } from '../PaceSlider.jsx'
 import { MeditatingBot } from '../MeditatingBot.jsx'
 import { BrandTitle } from '../BrandTitle.jsx'
@@ -141,7 +139,9 @@ function canGenerate(analysisState, selectedAccounts) {
     return isIdeaReady(analysisState) && selectedAccounts?.length > 0
 }
 
-export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, onStop, isLoading, streamStatus = '', isEditing = false, isThesisReview = false, onDismissThesis, onBuyMarket, isPostOrderEdit = false, availableAccounts = [], selectedAccounts = [], onAccountsChange, mainAccountId = null, onMainAccountChange, model, onModelChange, reasoning, onReasoningChange }) {
+const PHASE_LABELS = { 1: 'Nucleus', 2: 'Formation', 3: 'Structure', 4: 'Exits', 5: 'Validation' }
+
+export function ChatPanel({ messages = [], analysisState = {}, chatPhase = null, onSend, onGenerate, onClear, onStop, isLoading, streamStatus = '', isEditing = false, isThesisReview = false, onDismissThesis, onBuyMarket, isPostOrderEdit = false, availableAccounts = [], selectedAccounts = [], onAccountsChange, mainAccountId = null, onMainAccountChange }) {
     const [input, setInput] = useState('')
     const [dismissConfirm, setDismissConfirm] = useState(false)
 
@@ -206,9 +206,12 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                 </svg>
                 <span className="chat-panel__title"><BrandTitle text="Idea" /></span>
                 <div className="chat-panel__header-right">
+                    {chatPhase && PHASE_LABELS[chatPhase] && (
+                        <span className="chat-panel__phase-chip" title={`Phase ${chatPhase} of 5`}>
+                            {PHASE_LABELS[chatPhase]}
+                        </span>
+                    )}
                     <PaceSlider />
-                    <ModelSelector value={model} onChange={onModelChange} disabled={isLoading} />
-                    <ReasoningSelector value={reasoning} onChange={onReasoningChange} disabled={isLoading} />
                     <AccountSelector
                         accounts={availableAccounts}
                         selectedIds={selectedAccounts}
@@ -394,8 +397,4 @@ ChatPanel.propTypes = {
     onAccountsChange:    PropTypes.func,
     mainAccountId:       PropTypes.string,
     onMainAccountChange: PropTypes.func,
-    model:               PropTypes.string,
-    onModelChange:       PropTypes.func,
-    reasoning:           PropTypes.string,
-    onReasoningChange:   PropTypes.func,
 }

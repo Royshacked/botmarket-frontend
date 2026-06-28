@@ -158,22 +158,22 @@ function EarningsList({ items, date, loading }) {
     return (
         <div className="cal-list">
             {date && <div className="cal-list__date-header">{_fmtDate(date)}</div>}
-            {items.map((e, i) => (
-                <div key={e.symbol || i} className="cal-item">
-                    <div className="cal-item__left">
-                        <span className="cal-item__ticker">{e.symbol}</span>
-                        {e.time && <span className="cal-item__time">{e.time}</span>}
+            <div className="cal-list__grid">
+                {items.map((e, i) => (
+                    <div key={e.symbol || i} className="cal-item cal-item--card">
+                        <div className="cal-item__ticker">{e.symbol}</div>
+                        <div className="cal-item__info">
+                            {e.time && <div className="cal-item__time">{e.time.toUpperCase()}</div>}
+                            {e.epsEstimated != null && (
+                                <div className="cal-item__stat">EPS <strong>{_fmt(e.epsEstimated)}</strong></div>
+                            )}
+                            {e.revenueEstimated != null && (
+                                <div className="cal-item__stat">Rev <strong>{_money(e.revenueEstimated)}</strong></div>
+                            )}
+                        </div>
                     </div>
-                    <div className="cal-item__right">
-                        {e.epsEstimated != null && (
-                            <span className="cal-item__stat">EPS est <strong>{_fmt(e.epsEstimated)}</strong></span>
-                        )}
-                        {e.revenueEstimated != null && (
-                            <span className="cal-item__stat">Rev est <strong>{_money(e.revenueEstimated)}</strong></span>
-                        )}
-                    </div>
-                </div>
-            ))}
+                ))}
+            </div>
         </div>
     )
 }

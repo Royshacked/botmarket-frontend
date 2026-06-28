@@ -94,3 +94,38 @@
         svg { width: 12px; height: 12px; }
     }
 }
+
+// 3-pill routing mode toggle (Manual / Auto / AI)
+.routing-mode-sel {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+
+    &__btn {
+        background: none;
+        border: none;
+        border-right: 1px solid var(--border);
+        color: var(--text-muted);
+        cursor: pointer;
+        font-family: var(--font-mono);
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        line-height: 1;
+        padding: 4px 7px;
+        text-transform: uppercase;
+        transition: color 0.15s, background 0.15s;
+
+        &:last-child { border-right: none; }
+        &:hover:not(:disabled):not(&--active) { color: var(--accent-light); }
+        &:focus { outline: none; }
+        &:disabled { opacity: 0.5; cursor: default; }
+
+        &--active {
+            background: var(--glow-soft);
+            color: var(--accent-light);
+        }
+    }
+}

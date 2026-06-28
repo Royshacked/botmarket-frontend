@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 import { ChatPanel }         from '../cmps/ChatPanel/ChatPanel.jsx'
 import { readStoredModel }   from '../cmps/modelOptions.js'
 import { readStoredReasoning } from '../cmps/reasoningOptions.js'
+import { readStoredRoutingMode } from '../cmps/RoutingModeSelector.jsx'
 import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
 import { ScannerPanel }      from '../cmps/ScannerPanel/ScannerPanel.jsx'
 import { Radar }             from '../cmps/Radar/Radar.jsx'
@@ -139,6 +140,7 @@ export function MainPage() {
     const [chartInterval, setChartInterval] = useState(DEFAULT_CHART_INTERVAL)
     const [isLoading, setIsLoading] = useState(false)
     const [streamStatus, setStreamStatus] = useState('')
+    const [chatPhase, setChatPhase] = useState(null)
     const [editingIdeaId,     setEditingIdeaId]     = useState(null)
     const [isThesisReview,    setIsThesisReview]    = useState(false)
     const [activeTab, setActiveTab]             = useState('idea')
@@ -151,18 +153,6 @@ export function MainPage() {
     const [pendingDeleteIdea, setPendingDeleteIdea] = useState(null)
     const [deletingIdea, setDeletingIdea] = useState(false)
     const [mobileChatOpen, setMobileChatOpen] = useState(false)
-    const [ideaModel, setIdeaModel] = useState(() => readStoredModel('ideaModel'))
-    const [ideaReasoning, setIdeaReasoning] = useState(() => readStoredReasoning('ideaReasoning'))
-
-    function handleIdeaModelChange(m) {
-        setIdeaModel(m)
-        localStorage.setItem('ideaModel', m)
-    }
-
-    function handleIdeaReasoningChange(r) {
-        setIdeaReasoning(r)
-        localStorage.setItem('ideaReasoning', r)
-    }
     const latestMessagesRef = useRef([])
     const abortRef          = useRef(null)
 
@@ -246,6 +236,7 @@ export function MainPage() {
                     onToken:    (text)     => { setStreamStatus(''); enqueueToken(text) },
                     onStatus:   (tool)     => { setStreamStatus(toolStatusLabel(tool)) },
                     onInterval: (interval) => { if (interval) setChartInterval(interval) },
+                    onPhase:    (phase)    => { if (phase) setChatPhase(phase) },
                     onAsset: (symbol) => {
                         if (symbol) {
                             setChartSymbol(symbol)
@@ -326,8 +317,10 @@ export function MainPage() {
                     },
                 },
                 ideaAccounts,
-                ideaModel,
-                ideaReasoning
+                readStoredModel('ideaModel'),
+                readStoredReasoning('ideaReasoning'),
+                readStoredRoutingMode('ideaRoutingMode'),
+                chatPhase
             )
         } catch (err) {
             console.error(err)
@@ -372,6 +365,7 @@ export function MainPage() {
         news.clearAsset()
         setChartSymbol(DEFAULT_CHART_SYMBOL)
         setChartInterval(DEFAULT_CHART_INTERVAL)
+        setChatPhase(null)
         latestMessagesRef.current = []
     }
 
@@ -832,6 +826,7 @@ export function MainPage() {
     const chatPanelProps = {
         messages,
         analysisState,
+        chatPhase,
         onSend:              handleSend,
         onGenerate:          handleGenerate,
         onClear:             handleCancelBuild,
@@ -848,10 +843,6 @@ export function MainPage() {
         onAccountsChange:    setSelectedAccounts,
         mainAccountId,
         onMainAccountChange: setMainAccountId,
-        model:               ideaModel,
-        onModelChange:       handleIdeaModelChange,
-        reasoning:           ideaReasoning,
-        onReasoningChange:   handleIdeaReasoningChange,
     }
 
     return (

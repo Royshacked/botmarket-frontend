@@ -4,10 +4,9 @@ import { portfolioService } from '../../services/portfolio/portfolio.service.rem
 import { showErrorMsg } from '../../services/event-bus.service'
 import { ChatMarkdown } from '../ChatMarkdown.jsx'
 import { AccountSelector } from '../ChatPanel/AccountSelector.jsx'
-import { ModelSelector } from '../ModelSelector.jsx'
 import { readStoredModel } from '../modelOptions.js'
-import { ReasoningSelector } from '../ReasoningSelector.jsx'
 import { readStoredReasoning } from '../reasoningOptions.js'
+import { readStoredRoutingMode } from '../RoutingModeSelector.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useTypewriter } from '../../customHooks/useTypewriter.js'
 import { useTextPace } from '../../customHooks/useTextPace.js'
@@ -85,18 +84,7 @@ export function PortfolioPanel({
     const [editDirty,             setEditDirty]             = useState(false)
     const [isReviewMode,          setIsReviewMode]          = useState(false)
     const [dismissConfirm,        setDismissConfirm]        = useState(false)
-    const [model,                 setModel]                 = useState(() => readStoredModel('portfolioModel'))
-    const [reasoning,             setReasoning]             = useState(() => readStoredReasoning('portfolioReasoning'))
-
-    function handleModelChange(m) {
-        setModel(m)
-        localStorage.setItem('portfolioModel', m)
-    }
-
-    function handleReasoningChange(r) {
-        setReasoning(r)
-        localStorage.setItem('portfolioReasoning', r)
-    }
+    const [portfolioPhase, setPortfolioPhase] = useState(null)
 
     useEffect(() => {
         if (!chatRestore) return
@@ -198,9 +186,13 @@ export function PortfolioPanel({
                 portfolioId:    editingPortfolioId,
                 portfolioIdeas: editingPortfolioIdeas,
                 reviewMode:     isReviewMode,
-                model,
-                reasoningEffort: reasoning,
+                model:           readStoredModel('portfolioModel'),
+                reasoningEffort: readStoredReasoning('portfolioReasoning'),
+                routingMode:     readStoredRoutingMode('portfolioRoutingMode'),
+                currentPhase:    portfolioPhase,
                 signal: ctrl.signal,
+
+                onPhase: (p) => { if (p) setPortfolioPhase(p) },
 
                 onToken: (t) => { setStreamStatus(''); enqueueToken(t) },
 
@@ -324,8 +316,6 @@ export function PortfolioPanel({
                 <span className="portfolio-panel__title"><BrandTitle text="Atlas" /></span>
                 <div className="portfolio-panel__header-right">
                     <PaceSlider />
-                    <ModelSelector value={model} onChange={handleModelChange} disabled={isLoading} />
-                    <ReasoningSelector value={reasoning} onChange={handleReasoningChange} disabled={isLoading} />
                     <AccountSelector
                         accounts={availableAccounts}
                         selectedIds={selectedAccounts}

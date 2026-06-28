@@ -2,10 +2,9 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { scannerService } from '../../services/scanner/scanner.service.remote.js'
 import { ChatMarkdown } from '../ChatMarkdown.jsx'
-import { ModelSelector } from '../ModelSelector.jsx'
 import { readStoredModel } from '../modelOptions.js'
-import { ReasoningSelector } from '../ReasoningSelector.jsx'
 import { readStoredReasoning } from '../reasoningOptions.js'
+import { readStoredRoutingMode } from '../RoutingModeSelector.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useTypewriter } from '../../customHooks/useTypewriter.js'
 import { useTextPace } from '../../customHooks/useTextPace.js'
@@ -19,6 +18,8 @@ import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { toolStatusLabel } from '../../services/toolStatusLabels.js'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import './ScannerPanel.scss'
+
+const SCAN_PHASE_LABELS = { 1: 'Thesis', 2: 'Discovery', 3: 'Filtering', 4: 'Ranked List' }
 
 // Starter prompts — onboarding scaffolding only; the agent understands any
 // timeframe the user types, these are just one-tap entry points.
@@ -63,22 +64,10 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
     const [inputText,     setInputText]     = useState('')
     const [isLoading,     setIsLoading]     = useState(false)
     const [streamStatus,  setStreamStatus]  = useState('')
+    const [scanPhase,     setScanPhase]     = useState(null)
     const [pendingScan,   setPendingScan]   = useState(null)
     const [editingScanId, setEditingScanId] = useState(null)
     const [editDirty,     setEditDirty]     = useState(false)
-    const [model,         setModel]         = useState(() => readStoredModel('scannerModel'))
-    const [reasoning,     setReasoning]     = useState(() => readStoredReasoning('scannerReasoning'))
-
-    function handleModelChange(m) {
-        setModel(m)
-        localStorage.setItem('scannerModel', m)
-    }
-
-    function handleReasoningChange(r) {
-        setReasoning(r)
-        localStorage.setItem('scannerReasoning', r)
-    }
-
     // Reopen a saved list to edit it (clicked from its pencil): restore the chat,
     // enter edit mode, and prime the pending list with its current contents so the
     // agent can refine it and "Update list" persists back to the same scan.
@@ -128,14 +117,17 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
 
         try {
             await scannerService.sendStream(history, {
-                model,
-                reasoningEffort: reasoning,
+                model:           readStoredModel('scannerModel'),
+                reasoningEffort: readStoredReasoning('scannerReasoning'),
+                routingMode:     readStoredRoutingMode('scannerRoutingMode'),
+                currentPhase:    scanPhase,
                 signal: ctrl.signal,
                 // When editing, tell the agent the list's current contents so it can
                 // add / remove / change names against it.
                 editList: editingScanId ? (pendingScan || null) : null,
-                onToken:  (t) => { setStreamStatus(''); enqueueToken(t) },
+                onToken:  (t)    => { setStreamStatus(''); enqueueToken(t) },
                 onStatus: (tool) => { setStreamStatus(toolStatusLabel(tool)) },
+                onPhase:  (p)   => { if (p) setScanPhase(p) },
                 onTicker: (symbol) => {
                     if (!pendingTickersRef.current.includes(symbol)) pendingTickersRef.current.push(symbol)
                 },
@@ -168,6 +160,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
         setMessages([])
         setPendingScan(null)
         setEditingScanId(null)
+        setScanPhase(null)
         setInputText('')
         setEditDirty(false)
     }
@@ -212,9 +205,12 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
                 </span>
                 <span className="portfolio-panel__title"><BrandTitle text="Argus" /></span>
                 <div className="portfolio-panel__header-right">
+                    {scanPhase && SCAN_PHASE_LABELS[scanPhase] && (
+                        <span className="portfolio-panel__phase-chip" title={`Phase ${scanPhase} of 4`}>
+                            {SCAN_PHASE_LABELS[scanPhase]}
+                        </span>
+                    )}
                     <PaceSlider />
-                    <ModelSelector value={model} onChange={handleModelChange} disabled={isLoading} />
-                    <ReasoningSelector value={reasoning} onChange={handleReasoningChange} disabled={isLoading} />
                     <div className={`portfolio-panel__status-dot${isLoading ? ' loading' : pendingScan ? ' building' : ' idle'}`} />
                 </div>
             </div>

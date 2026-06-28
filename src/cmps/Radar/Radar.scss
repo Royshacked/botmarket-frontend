@@ -262,21 +262,28 @@
     display: flex;
     flex-direction: column;
     width: 100%;
-}
 
-.cal-list__date-header {
-    padding: 6px 16px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--accent);
-    background: var(--bg-wash-surface);
-    border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    z-index: 1;
+    &__date-header {
+        padding: 6px 16px;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--accent);
+        background: var(--bg-wash-surface);
+        border-bottom: 1px solid var(--border);
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+
+    &__grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1px;
+        background: var(--border);
+    }
 }
 
 .cal-item {
@@ -289,6 +296,32 @@
 
     &:last-child { border-bottom: none; }
     &:hover      { background: var(--glow); }
+
+    // Two-column card variant used by EarningsList
+    &--card {
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 8px 10px;
+        background: var(--bg-wash);
+        border-bottom: none;
+
+        &:hover { background: var(--glow); }
+
+        .cal-item__ticker {
+            flex: 0 0 auto;
+            min-width: 40px;
+        }
+
+        .cal-item__info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            flex: 1;
+            min-width: 0;
+        }
+    }
 
     &__left {
         display: flex;

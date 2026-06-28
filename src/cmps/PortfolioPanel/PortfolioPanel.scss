@@ -49,6 +49,20 @@
         position: relative;
     }
 
+    &__phase-chip {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 12%, transparent);
+        border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+        border-radius: 3px;
+        padding: 2px 6px;
+        white-space: nowrap;
+    }
+
     &__status-dot {
         width: 7px;
         height: 7px;
