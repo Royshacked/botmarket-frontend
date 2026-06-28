@@ -165,6 +165,7 @@ export function PortfolioPanel({
     const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
     const { isRecording, isTranscribing, toggle: toggleMic, cancel: cancelMic } = useMicInput({ onTranscript })
 
+    const planHasSize  = !!pendingPlan && (Number(pendingPlan.positionSize) > 0)
     const planReady    = !!pendingPlan && pendingPlan.ideas.length > 0 && pendingPlan.ideas.every(i => Number(i.quantity) > 0)
     const canGenerate  = planReady && (!!editingPortfolioId || selectedAccounts?.length > 0)
     const actionWatch = `${streamStatus}|${planReady}|${canGenerate}|${isReviewMode}|${!!editingPortfolioId}`
@@ -382,9 +383,14 @@ export function PortfolioPanel({
                     <MessageBubble key={i} msg={msg} onTickerSelect={onTickerSelect} />
                 ))}
                 {isLoading && <ToolStatusChip label={streamStatus} />}
-                {pendingPlan && !planReady && (
+                {pendingPlan && !planReady && !planHasSize && (
                     <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant portfolio-panel__bubble--warning">
                         ⚠️ I need a position size before this plan can be generated. Tell me the total capital you want to deploy and I&apos;ll size each position by its allocation — or give me a quantity per asset.
+                    </div>
+                )}
+                {pendingPlan && !planReady && planHasSize && (
+                    <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant portfolio-panel__bubble--warning">
+                        ⚠️ Couldn&apos;t fetch live prices to compute share quantities. Try sending a message to trigger a re-emit, or check back shortly.
                     </div>
                 )}
 
