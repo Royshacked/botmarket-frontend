@@ -20,6 +20,17 @@ import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { toolStatusLabel } from '../../services/toolStatusLabels.js'
 import './PortfolioPanel.scss'
 
+const PHASE_LABELS = { 1: 'Mandate', 2: 'Macro', 3: 'Architecture', 4: 'Selection', 5: 'Sizing', 6: 'Review' }
+
+function PhaseChip({ phase }) {
+    const label = PHASE_LABELS[phase]
+    if (!label) return null
+    return (
+        <div className="portfolio-panel__phase-divider">
+            <span className="portfolio-panel__phase-chip" title={`Phase ${phase} of 6`}>{label}</span>
+        </div>
+    )
+}
 
 function TickerChip({ symbol, onSelect }) {
     return (
@@ -31,6 +42,8 @@ function TickerChip({ symbol, onSelect }) {
 }
 
 function MessageBubble({ msg, onTickerSelect }) {
+    if (msg.role === 'phase') return <PhaseChip phase={msg.phase} />
+
     const isUser = msg.role === 'user'
 
     if (isUser) {
@@ -162,7 +175,7 @@ export function PortfolioPanel({
         setEditDirty(true)
 
         const history = messages
-            .filter(m => !m.streaming)
+            .filter(m => !m.streaming && m.role !== 'phase')
             .map(m => ({ role: m.role, content: m.content }))
         history.push({ role: 'user', content: text })
 
@@ -192,7 +205,17 @@ export function PortfolioPanel({
                 currentPhase:    portfolioPhase,
                 signal: ctrl.signal,
 
-                onPhase: (p) => { if (p) setPortfolioPhase(p) },
+                onPhase: (p) => {
+                    if (!p) return
+                    setPortfolioPhase(p)
+                    setMessages(prev => {
+                        const idx = prev.findIndex(m => m.streaming)
+                        if (idx < 0) return prev
+                        const next = [...prev]
+                        next.splice(idx, 0, { role: 'phase', phase: p })
+                        return next
+                    })
+                },
 
                 onToken: (t) => { setStreamStatus(''); enqueueToken(t) },
 

@@ -48,6 +48,12 @@
         position: relative;
     }
 
+    &__phase-divider {
+        display: flex;
+        justify-content: center;
+        padding: 4px 0;
+    }
+
     &__phase-chip {
         font-family: var(--font-mono);
         font-size: 10px;

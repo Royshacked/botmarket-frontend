@@ -236,7 +236,17 @@ export function MainPage() {
                     onToken:    (text)     => { setStreamStatus(''); enqueueToken(text) },
                     onStatus:   (tool)     => { setStreamStatus(toolStatusLabel(tool)) },
                     onInterval: (interval) => { if (interval) setChartInterval(interval) },
-                    onPhase:    (phase)    => { if (phase) setChatPhase(phase) },
+                    onPhase:    (phase)    => {
+                        if (!phase) return
+                        setChatPhase(phase)
+                        setMessages(prev => {
+                            const idx = prev.findIndex(m => m.streaming)
+                            if (idx < 0) return prev
+                            const next = [...prev]
+                            next.splice(idx, 0, { role: 'phase', phase })
+                            return next
+                        })
+                    },
                     onAsset: (symbol) => {
                         if (symbol) {
                             setChartSymbol(symbol)
@@ -627,7 +637,7 @@ export function MainPage() {
             setIdeas(prev => [...newIdeas, ...prev])
             if (newIdeas.length > 0) {
                 const portfolioId = newIdeas[0].portfolioId
-                const chatMessages = messages.filter(m => !m.streaming).map(m => ({ role: m.role, content: m.content }))
+                const chatMessages = messages.filter(m => !m.streaming && m.role !== 'phase').map(m => ({ role: m.role, content: m.content }))
                 portfolioService.saveChatState(portfolioId, chatMessages, mandate).catch(err =>
                     console.error('[portfolio] chat state save failed', err)
                 )
@@ -702,7 +712,7 @@ export function MainPage() {
                 setIdeas(prev => prev.map(i => i.portfolioId === portfolioId ? { ...i, accounts: accountIds, mainAccountId } : i))
             }
 
-            const chatMessages = messages.filter(m => !m.streaming).map(m => ({ role: m.role, content: m.content }))
+            const chatMessages = messages.filter(m => !m.streaming && m.role !== 'phase').map(m => ({ role: m.role, content: m.content }))
             await portfolioService.saveChatState(portfolioId, chatMessages).catch(err =>
                 console.error('[portfolio] chat state save failed', err)
             )
@@ -826,7 +836,6 @@ export function MainPage() {
     const chatPanelProps = {
         messages,
         analysisState,
-        chatPhase,
         onSend:              handleSend,
         onGenerate:          handleGenerate,
         onClear:             handleCancelBuild,

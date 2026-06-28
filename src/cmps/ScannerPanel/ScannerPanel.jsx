@@ -35,6 +35,15 @@ function TickerChip({ symbol, onSelect }) {
 }
 
 function MessageBubble({ msg, onTickerSelect }) {
+    if (msg.role === 'phase') {
+        const label = SCAN_PHASE_LABELS[msg.phase]
+        if (!label) return null
+        return (
+            <div className="portfolio-panel__phase-divider">
+                <span className="portfolio-panel__phase-chip" title={`Phase ${msg.phase} of 4`}>{label}</span>
+            </div>
+        )
+    }
     if (msg.role === 'user') {
         return <div className="portfolio-panel__bubble portfolio-panel__bubble--user">{msg.content}</div>
     }
@@ -98,7 +107,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
         setEditDirty(true)
 
         const history = messages
-            .filter(m => !m.streaming)
+            .filter(m => !m.streaming && m.role !== 'phase')
             .map(m => ({ role: m.role, content: m.content }))
         history.push({ role: 'user', content: text })
 
@@ -127,7 +136,17 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
                 editList: editingScanId ? (pendingScan || null) : null,
                 onToken:  (t)    => { setStreamStatus(''); enqueueToken(t) },
                 onStatus: (tool) => { setStreamStatus(toolStatusLabel(tool)) },
-                onPhase:  (p)   => { if (p) setScanPhase(p) },
+                onPhase:  (p)   => {
+                    if (!p) return
+                    setScanPhase(p)
+                    setMessages(prev => {
+                        const idx = prev.findIndex(m => m.streaming)
+                        if (idx < 0) return prev
+                        const next = [...prev]
+                        next.splice(idx, 0, { role: 'phase', phase: p })
+                        return next
+                    })
+                },
                 onTicker: (symbol) => {
                     if (!pendingTickersRef.current.includes(symbol)) pendingTickersRef.current.push(symbol)
                 },
@@ -205,11 +224,6 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
                 </span>
                 <span className="portfolio-panel__title"><BrandTitle text="Argus" /></span>
                 <div className="portfolio-panel__header-right">
-                    {scanPhase && SCAN_PHASE_LABELS[scanPhase] && (
-                        <span className="portfolio-panel__phase-chip" title={`Phase ${scanPhase} of 4`}>
-                            {SCAN_PHASE_LABELS[scanPhase]}
-                        </span>
-                    )}
                     <PaceSlider />
                     <div className={`portfolio-panel__status-dot${isLoading ? ' loading' : pendingScan ? ' building' : ' idle'}`} />
                 </div>

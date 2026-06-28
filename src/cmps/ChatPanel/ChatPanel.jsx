@@ -141,7 +141,7 @@ function canGenerate(analysisState, selectedAccounts) {
 
 const PHASE_LABELS = { 1: 'Nucleus', 2: 'Formation', 3: 'Structure', 4: 'Exits', 5: 'Validation' }
 
-export function ChatPanel({ messages = [], analysisState = {}, chatPhase = null, onSend, onGenerate, onClear, onStop, isLoading, streamStatus = '', isEditing = false, isThesisReview = false, onDismissThesis, onBuyMarket, isPostOrderEdit = false, availableAccounts = [], selectedAccounts = [], onAccountsChange, mainAccountId = null, onMainAccountChange }) {
+export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, onStop, isLoading, streamStatus = '', isEditing = false, isThesisReview = false, onDismissThesis, onBuyMarket, isPostOrderEdit = false, availableAccounts = [], selectedAccounts = [], onAccountsChange, mainAccountId = null, onMainAccountChange }) {
     const [input, setInput] = useState('')
     const [dismissConfirm, setDismissConfirm] = useState(false)
 
@@ -206,11 +206,6 @@ export function ChatPanel({ messages = [], analysisState = {}, chatPhase = null,
                 </svg>
                 <span className="chat-panel__title"><BrandTitle text="Idea" /></span>
                 <div className="chat-panel__header-right">
-                    {chatPhase && PHASE_LABELS[chatPhase] && (
-                        <span className="chat-panel__phase-chip" title={`Phase ${chatPhase} of 5`}>
-                            {PHASE_LABELS[chatPhase]}
-                        </span>
-                    )}
                     <PaceSlider />
                     <AccountSelector
                         accounts={availableAccounts}
@@ -244,7 +239,13 @@ export function ChatPanel({ messages = [], analysisState = {}, chatPhase = null,
                     </div>
                 )}
                 {messages.map((msg, i) => (
-                    msg.type === 'chart' ? (
+                    msg.role === 'phase' ? (
+                        <div key={i} className="chat-panel__phase-divider">
+                            <span className="chat-panel__phase-chip" title={`Phase ${msg.phase} of 5`}>
+                                {PHASE_LABELS[msg.phase]}
+                            </span>
+                        </div>
+                    ) : msg.type === 'chart' ? (
                         <div key={i} className="chat-panel__bubble chat-panel__bubble--assistant chat-panel__chart">
                             <img
                                 className="chat-panel__chart-img"
