@@ -4,7 +4,7 @@ import './ModelSelector.scss'
 export const ROUTING_MODES = [
     { id: 'manual',     short: 'Manual',  title: 'You pick model and reasoning each turn' },
     { id: 'auto',       short: 'Auto',    title: 'Phase-based routing — cheapest model per phase, zero latency' },
-    { id: 'classifier', short: 'AI',      title: 'Haiku reads each message and picks the right model' },
+    { id: 'classifier', short: 'AI classifier', title: 'Haiku reads each message and picks the right model' },
 ]
 
 export const DEFAULT_ROUTING_MODE = 'manual'

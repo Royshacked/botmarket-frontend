@@ -14,17 +14,22 @@
 @import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
 
 .app-header-axl {
-    // ── local palette (the axl aurora) ──
-    --axl-night:   #0D1820;
-    --axl-night-2: #0F1D27;
-    --axl-panel:   #13232E;
-    --axl-panel-2: #18293480;
-    --axl-line:    #21363F;
-    --axl-fog:     #8FA6B0;
-    --axl-fog-dim: #5E747E;
-    --axl-birch:   #EEF3F2;
-    --axl-aurora:  #74C9AE;
-    --axl-aurora-dim: #4E907C;
+    // ── palette: derived from the app-wide tokens so the header re-themes with the
+    // rest of the app. Under the live `axl` theme these tokens equal the original
+    // hardcoded aurora literals (so `current` is unchanged); each design trial
+    // (data-design on <html>) overrides the same tokens, so the header follows.
+    --axl-night:   var(--bg-base);
+    --axl-night-2: var(--bg-hover);
+    --axl-panel:   var(--bg-surface);
+    --axl-panel-2: color-mix(in srgb, var(--bg-raised) 50%, transparent);
+    --axl-line:    var(--border);
+    --axl-fog:     var(--text-secondary);
+    --axl-fog-dim: var(--text-muted);
+    --axl-birch:   var(--text-primary);
+    --axl-aurora:  var(--accent-light);
+    --axl-aurora-dim: var(--accent);
+    // Decorative ambient candlestick hues (≈0.05 effective opacity) — kept as the
+    // multi-hue aurora signature; not part of the per-design recolour.
     --axl-green:   #7FD69E;
     --axl-teal:    #5BCBC0;
     --axl-cyan:    #5FB9D9;
@@ -308,7 +313,7 @@
         font-weight: 600;
         letter-spacing: 0.02em;
         color: var(--axl-night);
-        background: linear-gradient(150deg, #8fe0c6, var(--axl-aurora-dim));
+        background: linear-gradient(150deg, var(--accent-bright), var(--axl-aurora-dim));
     }
 
     &__who {

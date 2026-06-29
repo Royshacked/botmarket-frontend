@@ -165,7 +165,10 @@
         transition: background 0.15s;
 
         &:last-child { border-bottom: none; }
-        &:hover      { background: var(--glow); }
+        // Hover = background only. Keep text-decoration:none so the global
+        // `a:hover { text-decoration: underline }` (more specific than the class)
+        // doesn't underline the item on hover.
+        &:hover { background: var(--glow); text-decoration: none; }
     }
 
     &__item-body {

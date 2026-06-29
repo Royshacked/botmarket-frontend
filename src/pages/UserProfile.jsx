@@ -29,11 +29,9 @@ const BROKERS = [
     { type: 'ibkr',    label: 'IBKR'    },
 ]
 
-const AI_AGENTS = [
-    { key: 'idea',      label: 'Idea' },
-    { key: 'scanner',   label: 'Scanner' },
-    { key: 'portfolio', label: 'Portfolio' },
-]
+// One shared AI setting drives all three agents; each consumer reads its own
+// per-agent localStorage keys, so a change is mirrored to every agent's keys.
+const AI_AGENT_KEYS = ['idea', 'scanner', 'portfolio']
 
 export function UserProfile() {
     const { user, setUser, signout } = useAuth()
@@ -49,10 +47,10 @@ export function UserProfile() {
 
     const [tokenUsage, setTokenUsage] = useState({ month: '', totalCost: 0, budgetUsd: 20, percentUsed: 0 })
 
-    const [aiPrefs, setAiPrefs] = useState({
-        idea:      { routingMode: readStoredRoutingMode('ideaRoutingMode'), model: readStoredModel('ideaModel'), reasoning: readStoredReasoning('ideaReasoning') },
-        scanner:   { routingMode: readStoredRoutingMode('scannerRoutingMode'), model: readStoredModel('scannerModel'), reasoning: readStoredReasoning('scannerReasoning') },
-        portfolio: { routingMode: readStoredRoutingMode('portfolioRoutingMode'), model: readStoredModel('portfolioModel'), reasoning: readStoredReasoning('portfolioReasoning') },
+    const [aiPref, setAiPref] = useState({
+        routingMode: readStoredRoutingMode('ideaRoutingMode'),
+        model:       readStoredModel('ideaModel'),
+        reasoning:   readStoredReasoning('ideaReasoning'),
     })
 
     const [design, setDesign] = useState(loadDesign())
@@ -62,10 +60,10 @@ export function UserProfile() {
         applyDesign(id)
     }
 
-    function handleAiPref(agent, field, value) {
-        const lsKey = `${agent}${field.charAt(0).toUpperCase() + field.slice(1)}`
-        localStorage.setItem(lsKey, value)
-        setAiPrefs(prev => ({ ...prev, [agent]: { ...prev[agent], [field]: value } }))
+    function handleAiPref(field, value) {
+        const suffix = field.charAt(0).toUpperCase() + field.slice(1)
+        AI_AGENT_KEYS.forEach(agent => localStorage.setItem(`${agent}${suffix}`, value))
+        setAiPref(prev => ({ ...prev, [field]: value }))
     }
 
     useEffect(() => {
@@ -254,57 +252,51 @@ export function UserProfile() {
                             <span className="user-profile__label">Text speed</span>
                             <PaceSlider />
                         </div>
-                        {AI_AGENTS.map(({ key, label }) => {
-                            const prefs = aiPrefs[key]
-                            return (
-                                <div key={key} className="user-profile__agent">
-                                    <span className="user-profile__agent-name">{label}</span>
+                        <div className="user-profile__agent">
+                            <div className="user-profile__agent-field">
+                                <span className="user-profile__label">AI Mode</span>
+                                <select
+                                    className="user-profile__select"
+                                    style={{ width: 'auto', minWidth: '9rem' }}
+                                    value={aiPref.routingMode}
+                                    onChange={e => handleAiPref('routingMode', e.target.value)}
+                                >
+                                    {ROUTING_MODES.map(m => (
+                                        <option key={m.id} value={m.id} title={m.title}>{m.short}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            {aiPref.routingMode === 'manual' && (
+                                <>
                                     <div className="user-profile__agent-field">
-                                        <span className="user-profile__label">Mode</span>
+                                        <span className="user-profile__label">Model</span>
                                         <select
                                             className="user-profile__select"
                                             style={{ width: 'auto', minWidth: '9rem' }}
-                                            value={prefs.routingMode}
-                                            onChange={e => handleAiPref(key, 'routingMode', e.target.value)}
+                                            value={aiPref.model}
+                                            onChange={e => handleAiPref('model', e.target.value)}
                                         >
-                                            {ROUTING_MODES.map(m => (
-                                                <option key={m.id} value={m.id} title={m.title}>{m.short}</option>
+                                            {MODEL_OPTIONS.map(m => (
+                                                <option key={m.id} value={m.id}>{m.short}</option>
                                             ))}
                                         </select>
                                     </div>
-                                    {prefs.routingMode === 'manual' && (
-                                        <>
-                                            <div className="user-profile__agent-field">
-                                                <span className="user-profile__label">Model</span>
-                                                <select
-                                                    className="user-profile__select"
-                                                    style={{ width: 'auto', minWidth: '9rem' }}
-                                                    value={prefs.model}
-                                                    onChange={e => handleAiPref(key, 'model', e.target.value)}
-                                                >
-                                                    {MODEL_OPTIONS.map(m => (
-                                                        <option key={m.id} value={m.id}>{m.short}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            <div className="user-profile__agent-field">
-                                                <span className="user-profile__label">Reasoning</span>
-                                                <select
-                                                    className="user-profile__select"
-                                                    style={{ width: 'auto', minWidth: '9rem' }}
-                                                    value={prefs.reasoning}
-                                                    onChange={e => handleAiPref(key, 'reasoning', e.target.value)}
-                                                >
-                                                    {REASONING_OPTIONS.map(r => (
-                                                        <option key={r.id} value={r.id}>{r.label}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                            )
-                        })}
+                                    <div className="user-profile__agent-field">
+                                        <span className="user-profile__label">Reasoning</span>
+                                        <select
+                                            className="user-profile__select"
+                                            style={{ width: 'auto', minWidth: '9rem' }}
+                                            value={aiPref.reasoning}
+                                            onChange={e => handleAiPref('reasoning', e.target.value)}
+                                        >
+                                            {REASONING_OPTIONS.map(r => (
+                                                <option key={r.id} value={r.id}>{r.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </>
+                            )}
+                        </div>
                     </section>
 
                     <div className="user-profile__spacer" />

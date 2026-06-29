@@ -337,7 +337,7 @@ export function PortfolioPanel({
         <div className="portfolio-panel">
             <div className="portfolio-panel__header">
                 <span className="portfolio-panel__title-icon">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="12" cy="9" r="6"/>
                         <path d="M12 3 C8.5 5 8.5 13 12 15"/>
                         <path d="M12 3 C15.5 5 15.5 13 12 15"/>

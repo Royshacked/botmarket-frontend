@@ -223,7 +223,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
         <div className="portfolio-panel scanner-panel">
             <div className="portfolio-panel__header">
                 <span className="portfolio-panel__title-icon">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M2.5 12 C6 7 18 7 21.5 12 C18 17 6 17 2.5 12 Z"/>
                         <circle cx="12" cy="12" r="3.2"/>
                         <circle cx="12" cy="12" r="0.7" fill="currentColor" stroke="none"/>
