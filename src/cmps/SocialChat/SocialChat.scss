@@ -1,17 +1,51 @@
+@keyframes social-chat-bubble {
+    0%   { opacity: 0; transform: scale(0.2); border-radius: 200px; }
+    100% { opacity: 1; transform: scale(1);   border-radius: 22px;  }
+}
+
+@keyframes social-chat-bubble-out {
+    0%   { opacity: 1; transform: scale(1);   border-radius: 22px;  }
+    100% { opacity: 0; transform: scale(0.2); border-radius: 200px; }
+}
+
 .social-chat {
     position: fixed;
-    top: 0; right: 0; bottom: 0;
+    top: 70px; right: 16px; bottom: 24px;
     width: 413px;
     z-index: 600;
     display: flex;
     flex-direction: row;
-    border-left: 1px solid var(--border-mid);
-    box-shadow: -8px 0 40px rgba(0,0,0,.55);
+    box-shadow: 0 16px 50px rgba(0,0,0,.5);
+
+    // Much fainter borders everywhere inside the bubble — redefine the border
+    // tokens locally so every descendant border (container, list divider, headers,
+    // search, items…) softens at once. Theme-aware, no per-element edits.
+    --border:     color-mix(in srgb, var(--text-secondary) 9%,  transparent);
+    --border-mid: color-mix(in srgb, var(--text-secondary) 12%, transparent);
+    border: 1px solid var(--border-mid);
+
+    // Frosted-glass base: empty areas (where the list/window backgrounds are made
+    // transparent below) show this translucent blur, so the bubble reads as glass.
+    background: color-mix(in srgb, var(--bg-base) 25%, transparent);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+
+    // Floating bubble: off the edges and not full-height, rounded all round,
+    // inflating from the top-right (where the trigger lives) on open.
+    border-radius: 22px;
+    overflow: hidden;
+    transform-origin: 100% 0;
+    animation: social-chat-bubble 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+
+    // Closing: deflate back into the top-right bubble, then the parent unmounts.
+    &--closing {
+        animation: social-chat-bubble-out 0.26s cubic-bezier(0.4, 0, 1, 1) forwards;
+        pointer-events: none;
+    }
 
     &__backdrop {
         position: fixed;
         inset: 0;
-        right: 413px;
         z-index: 599;
         cursor: default;
     }
@@ -23,7 +57,7 @@
         flex-shrink: 0;
         display: flex;
         flex-direction: column;
-        background: var(--bg-surface);
+        background: color-mix(in srgb, var(--bg-surface) 8%, transparent);
         border-right: 1px solid var(--border-mid);
         overflow-x: hidden;
         overflow-y: hidden;
@@ -172,7 +206,7 @@
         flex: 1;
         display: flex;
         flex-direction: column;
-        background: var(--bg-base);
+        background: transparent;   // empty area shows the frosted-glass base
         overflow: hidden;
         position: relative;
 
@@ -214,12 +248,30 @@
         border-radius: 6px;
         flex-shrink: 0;
         &:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+        // Floating close button (header removed) — top-right of the window, over content
+        &--float {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            z-index: 5;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            border-radius: 50%;
+            background: color-mix(in srgb, var(--bg-raised) 70%, transparent);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+        }
     }
 
     &__messages {
         flex: 1;
         overflow-y: auto;
-        padding: 14px 14px;
+        padding: 40px 14px 14px;   // extra top room so the first message clears the floating X
         display: flex;
         flex-direction: column;
         gap: 4px;

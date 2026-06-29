@@ -15,7 +15,16 @@ export function SocialChat({ currentUserId, onUnreadChange, onClose }) {
     const [messages,      setMessages]      = useState([])
     const [hasMore,       setHasMore]       = useState(false)
     const [loading,       setLoading]       = useState(false)
+    const [closing,       setClosing]       = useState(false)
     const activeConvRef = useRef(null)
+
+    // Play the close (bubble-deflate) animation, then let the parent unmount us.
+    // Keep the duration in sync with the social-chat-bubble-out keyframe.
+    function handleClose() {
+        if (closing) return
+        setClosing(true)
+        setTimeout(() => onClose?.(), 260)
+    }
 
     // ── Load conversation list ──────────────────────────────────────────────
     const loadConversations = useCallback(async () => {
@@ -109,9 +118,9 @@ export function SocialChat({ currentUserId, onUnreadChange, onClose }) {
 
     return (
         <>
-            <div className="social-chat__backdrop" onClick={onClose} />
+            <div className="social-chat__backdrop" onClick={handleClose} />
 
-            <div className="social-chat">
+            <div className={`social-chat${closing ? ' social-chat--closing' : ''}`}>
                 <ConversationList
                     conversations={conversations}
                     activeId={activeConv?.id}
@@ -126,7 +135,7 @@ export function SocialChat({ currentUserId, onUnreadChange, onClose }) {
                     currentUserId={currentUserId}
                     loading={loading}
                     hasMore={hasMore}
-                    onClose={onClose}
+                    onClose={handleClose}
                     onSend={handleSend}
                     onLoadMore={handleLoadMore}
                 />

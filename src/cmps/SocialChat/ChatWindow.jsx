@@ -2,8 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { eventBus, THESIS_EDIT_IDEA, PORTFOLIO_REVIEW } from '../../services/event-bus.service'
 
-const BOT_ID = 'ar2trade_bot'
-
 function formatTime(ms) {
     if (!ms) return ''
     return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -34,28 +32,15 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
     if (!conversation) {
         return (
             <div className="social-chat__window social-chat__window--empty">
-                <div className="social-chat__window-header" style={{ alignSelf: 'stretch' }}>
-                    <span className="social-chat__window-title" />
-                    <button className="social-chat__close" onClick={onClose}>✕</button>
-                </div>
+                <button className="social-chat__close social-chat__close--float" onClick={onClose}>✕</button>
                 <p style={{ margin: 'auto' }}>Select a conversation</p>
             </div>
         )
     }
 
-    const otherId = conversation.participants?.find(p => p !== currentUserId) ?? ''
-    const isBot   = otherId === BOT_ID
-    const name    = isBot ? 'axl' : (conversation.otherName ?? conversation.otherUsername ?? otherId)
-
     return (
         <div className="social-chat__window">
-            <div className="social-chat__window-header">
-                <div className="social-chat__conv-avatar">
-                    {isBot ? '🤖' : name[0]?.toUpperCase()}
-                </div>
-                <span className="social-chat__window-title">{name}</span>
-                <button className="social-chat__close" onClick={onClose}>✕</button>
-            </div>
+            <button className="social-chat__close social-chat__close--float" onClick={onClose}>✕</button>
 
             <div className="social-chat__messages">
                 {hasMore && (
