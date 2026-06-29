@@ -7,9 +7,13 @@ export function AuthProvider({ children }) {
     const [user, setUser]         = useState(null)
     const [isLoading, setIsLoading] = useState(true)
 
-    // On mount — check if a session cookie already exists
+    // On mount — check if a session cookie already exists.
+    // Guard with a timeout so a hung request (e.g. backend restarting) falls
+    // through to the sign-in screen instead of sticking on "Connecting to server…".
     useEffect(() => {
-        fetch(`${API_BASE}/api/auth/me`, { credentials: 'include' })
+        const ctrl = new AbortController()
+        const timer = setTimeout(() => ctrl.abort(), 8000)
+        fetch(`${API_BASE}/api/auth/me`, { credentials: 'include', signal: ctrl.signal })
             .then(async res => {
                 if (res.ok) {
                     const data = await res.json()
@@ -20,7 +24,11 @@ export function AuthProvider({ children }) {
                 }
             })
             .catch(() => setUser(null))
-            .finally(() => setIsLoading(false))
+            .finally(() => {
+                clearTimeout(timer)
+                setIsLoading(false)
+            })
+        return () => { clearTimeout(timer); ctrl.abort() }
     }, [])
 
     async function signout() {

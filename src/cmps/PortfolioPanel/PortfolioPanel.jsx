@@ -206,6 +206,7 @@ export function PortfolioPanel({
                 portfolioId:    editingPortfolioId,
                 portfolioIdeas: editingPortfolioIdeas,
                 reviewMode:     isReviewMode,
+                mandate:        latestMandateRef.current,
                 model:           readStoredModel('portfolioModel'),
                 reasoningEffort: readStoredReasoning('portfolioReasoning'),
                 routingMode:     readStoredRoutingMode('portfolioRoutingMode'),

@@ -126,12 +126,40 @@ export function AuthModal() {
             <div className="auth-modal" role="dialog" aria-modal="true">
 
                 <div className="auth-modal__brand">
-                    <img
-                        className="auth-modal__logo"
-                        src="/img/bot-market-logo.png"
-                        alt="Bot Market"
-                    />
-                    <span className="auth-modal__brand-name">Bot Market</span>
+                    {/* axl — meditating bot mark (mirrors AppHeaderAxl) */}
+                    <svg className="auth-modal__mark" viewBox="0 0 44 44" aria-hidden="true">
+                        <defs>
+                            <radialGradient id="authBotAura" cx="50%" cy="44%" r="62%">
+                                <stop offset="0"   stopColor="#5BCBC0" stopOpacity="0.20" />
+                                <stop offset="0.6" stopColor="#74C9AE" stopOpacity="0.10" />
+                                <stop offset="1"   stopColor="#9E9BE3" stopOpacity="0.13" />
+                            </radialGradient>
+                            <linearGradient id="authBotRing" gradientUnits="userSpaceOnUse" x1="6" y1="6" x2="38" y2="38">
+                                <stop offset="0"   stopColor="#7FD69E" />
+                                <stop offset="0.5" stopColor="#5FB9D9" />
+                                <stop offset="1"   stopColor="#9E9BE3" />
+                            </linearGradient>
+                        </defs>
+                        <circle className="aura" cx="22" cy="22" r="20" />
+                        <circle className="ring" cx="22" cy="22" r="20" />
+                        {/* antenna */}
+                        <line className="bot" x1="22" y1="9.3" x2="22" y2="7.3" />
+                        <circle className="bot" cx="22" cy="6.1" r="1.1" />
+                        {/* head */}
+                        <rect className="bot" x="15.5" y="9.5" width="13" height="10" rx="3.6" />
+                        {/* closed, content eyes (meditating) */}
+                        <path className="bot" d="M18,14 q1.7,1.4 3.4,0" />
+                        <path className="bot" d="M22.6,14 q1.7,1.4 3.4,0" />
+                        {/* arms resting */}
+                        <path className="bot" d="M16.6,20 C13.9,22.3 13.1,25.8 16,28" />
+                        <path className="bot" d="M27.4,20 C30.1,22.3 30.9,25.8 28,28" />
+                        {/* crossed legs / lotus base */}
+                        <path className="bot" d="M13,30 Q22,26.2 31,30" />
+                        <path className="bot" d="M14,30.5 Q22,34.6 30,30.5" />
+                        <path className="bot" d="M19.4,31 L24.6,33.4" />
+                        <path className="bot" d="M24.6,31 L19.4,33.4" />
+                    </svg>
+                    <span className="auth-modal__wordmark"><b>a</b>xl</span>
                 </div>
 
                 {isLoading ? (

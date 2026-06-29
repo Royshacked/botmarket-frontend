@@ -43,10 +43,10 @@ async function completeReview(portfolioId, reviewCadence) {
     return res.json()
 }
 
-async function sendStream(messages, ideaAccounts = [], { onToken, onTicker, onPhase, onStatus, onDone, onError, portfolioId = null, portfolioIdeas = [], reviewMode = false, model, reasoningEffort, routingMode, currentPhase, signal } = {}) {
+async function sendStream(messages, ideaAccounts = [], { onToken, onTicker, onPhase, onStatus, onDone, onError, portfolioId = null, portfolioIdeas = [], reviewMode = false, mandate = null, model, reasoningEffort, routingMode, currentPhase, signal } = {}) {
     await postSSE(
         `${API_BASE}/api/portfolio/stream`,
-        { messages, ideaAccounts, portfolioId, portfolioIdeas, reviewMode, model, reasoningEffort, routingMode, currentPhase },
+        { messages, ideaAccounts, portfolioId, portfolioIdeas, reviewMode, mandate, model, reasoningEffort, routingMode, currentPhase },
         {
             token:  (d) => onToken?.(d.text),
             ticker: (d) => onTicker?.(d.symbol),
