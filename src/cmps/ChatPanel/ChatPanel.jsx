@@ -5,7 +5,6 @@ import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { AccountSelector } from './AccountSelector.jsx'
 import { ChatInputRow } from '../ChatInputRow.jsx'
-import { PaceSlider } from '../PaceSlider.jsx'
 import { MeditatingBot } from '../MeditatingBot.jsx'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
@@ -204,9 +203,11 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                     <path d="M12 3 C12.4 7.6 16.4 11.6 21 12 C16.4 12.4 12.4 16.4 12 21 C11.6 16.4 7.6 12.4 3 12 C7.6 11.6 11.6 7.6 12 3 Z"/>
                     <path d="M18.5 3.5 C18.6 4.5 19.5 5.4 20.5 5.5 C19.5 5.6 18.6 6.5 18.5 7.5 C18.4 6.5 17.5 5.6 16.5 5.5 C17.5 5.4 18.4 4.5 18.5 3.5 Z"/>
                 </svg>
-                <span className="chat-panel__title"><BrandTitle text="Idea" /></span>
+                <div className="chat-panel__title-group">
+                    <span className="chat-panel__title"><BrandTitle text="Idea" /></span>
+                    <span className="chat-panel__subtitle">building and monitoring your trade</span>
+                </div>
                 <div className="chat-panel__header-right">
-                    <PaceSlider />
                     <AccountSelector
                         accounts={availableAccounts}
                         selectedIds={selectedAccounts}
@@ -214,16 +215,19 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                         mainAccountId={mainAccountId}
                         onMainChange={onMainAccountChange}
                     />
-                    <span
-                        className={`chat-panel__status-dot ${
-                            isLoading
-                                ? 'loading'
-                                : analysisState?.structured_state?.active_asset
-                                    ? 'building'
-                                    : 'idle'
-                        }`}
-                        aria-label={analysisState?.structured_state?.active_asset ? 'Building idea' : undefined}
-                    />
+                    <span className="chat-panel__live-badge">
+                        <span
+                            className={`chat-panel__status-dot ${
+                                isLoading
+                                    ? 'loading'
+                                    : analysisState?.structured_state?.active_asset
+                                        ? 'building'
+                                        : 'idle'
+                            }`}
+                            aria-label={analysisState?.structured_state?.active_asset ? 'Building idea' : undefined}
+                        />
+                        <span className="chat-panel__live">live</span>
+                    </span>
                 </div>
             </div>
 

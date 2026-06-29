@@ -5,9 +5,11 @@ import { brokerService }       from '../services/broker/broker.service.remote.js
 import { httpService }         from '../services/http.service.js'
 import { userService }         from '../services/user/user.service.remote.js'
 import { ThemeSwitcher }       from '../cmps/ThemeSwitcher/ThemeSwitcher'
+import { PaceSlider }          from '../cmps/PaceSlider.jsx'
 import { MODEL_OPTIONS, readStoredModel }       from '../cmps/modelOptions.js'
 import { REASONING_OPTIONS, readStoredReasoning } from '../cmps/reasoningOptions.js'
 import { ROUTING_MODES, readStoredRoutingMode } from '../cmps/RoutingModeSelector.jsx'
+import { DESIGNS, loadDesign, saveDesign, applyDesign } from '../services/designService.js'
 import './UserProfile.scss'
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
@@ -52,6 +54,13 @@ export function UserProfile() {
         scanner:   { routingMode: readStoredRoutingMode('scannerRoutingMode'), model: readStoredModel('scannerModel'), reasoning: readStoredReasoning('scannerReasoning') },
         portfolio: { routingMode: readStoredRoutingMode('portfolioRoutingMode'), model: readStoredModel('portfolioModel'), reasoning: readStoredReasoning('portfolioReasoning') },
     })
+
+    const [design, setDesign] = useState(loadDesign())
+    function handleDesign(id) {
+        setDesign(id)
+        saveDesign(id)
+        applyDesign(id)
+    }
 
     function handleAiPref(agent, field, value) {
         const lsKey = `${agent}${field.charAt(0).toUpperCase() + field.slice(1)}`
@@ -203,6 +212,17 @@ export function UserProfile() {
                             <span className="user-profile__label">Theme</span>
                             <ThemeSwitcher />
                         </div>
+                        <div className="user-profile__row user-profile__row--inline">
+                            <span className="user-profile__label">Design</span>
+                            <select
+                                className="user-profile__select"
+                                style={{ width: 'auto', minWidth: '9rem' }}
+                                value={design}
+                                onChange={e => handleDesign(e.target.value)}
+                            >
+                                {DESIGNS.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
+                            </select>
+                        </div>
                     </section>
 
                     <section className="user-profile__section">
@@ -230,6 +250,10 @@ export function UserProfile() {
 
                     <section className="user-profile__section">
                         <h2 className="user-profile__section-title">AI Preferences</h2>
+                        <div className="user-profile__row user-profile__row--inline">
+                            <span className="user-profile__label">Text speed</span>
+                            <PaceSlider />
+                        </div>
                         {AI_AGENTS.map(({ key, label }) => {
                             const prefs = aiPrefs[key]
                             return (

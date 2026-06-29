@@ -26,19 +26,41 @@
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: 33.75% 41.25% 25%;
+    // --- Original layout (revert to restore) ---
+    // grid-template-columns: 30% 40% 30%;
+    // grid-template-areas:
+    //     "chat chart news"
+    //     "chat ideas ideas";
+    // --- Trial: chat + radar 30% each, ideas list only below chart ---
+    grid-template-columns: 30% 40% 30%;
     grid-template-rows: 6fr 4fr;
     grid-template-areas:
         "chat chart news"
-        "chat ideas ideas";
-    gap: 12px;
-    padding: 12px;
+        "chat ideas news";
+    column-gap: 0;     // columns share a single border seam (see border-merge rules below)
+    row-gap: 12px;
+    padding: 12px 0;
 }
 
 .workspace__chart {
     grid-area: chart;
     min-height: 0;
     min-width: 0;
+}
+
+// ── Merge the column borders into single shared seams ─────────────────────────
+// With the column gap gone, the chat's right border and the news's left border
+// become the two vertical dividers (they span both rows). The middle column's
+// chart drops its own left/right borders so they don't double up, and the inner
+// corners are squared so the seams run flush top-to-bottom.
+.workspace__chat  .chat-panel { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.workspace__news  .news-feed  { border-top-left-radius: 0;  border-bottom-left-radius: 0;  }
+.workspace__chart .tv-chart {
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
+    border-color: color-mix(in srgb, var(--border) 12%, transparent);  // very faint top/bottom seams — the chart's hard dark bg makes a full-strength border read much heavier than the chat/radar ones
+    iframe { border-radius: 0; }
 }
 
 .workspace__chat {
@@ -61,6 +83,7 @@
     display: flex;
     flex-shrink: 0;
     padding: 0;
+    border-top: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
     background: var(--bg-wash-surface);
 }

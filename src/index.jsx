@@ -10,14 +10,17 @@ import { AuthProvider } from './context/AuthContext'
 
 import './assets/styles/main.scss'
 import { initTheme } from './services/themeService'
+import { initDesign } from './services/designService'
 
 // Apply saved theme (preset or generated spectrum hue) before first render to avoid flash
 initTheme()
+// Apply the saved design trial on top (dev A/B of whole visual identities)
+initDesign()
 
 const root = ReactDOM.createRoot(document.getElementById('root'))
 root.render(
 	<Provider store={store}>
-		<Router>
+		<Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
 			<AuthProvider>
 				<RootCmp />
 			</AuthProvider>

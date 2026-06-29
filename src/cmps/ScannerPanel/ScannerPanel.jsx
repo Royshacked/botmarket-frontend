@@ -9,7 +9,6 @@ import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useTypewriter } from '../../customHooks/useTypewriter.js'
 import { useTextPace } from '../../customHooks/useTextPace.js'
 import { makeStreamHandlers } from '../../customHooks/useStreamStop.js'
-import { PaceSlider } from '../PaceSlider.jsx'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { MeditatingBot } from '../MeditatingBot.jsx'
@@ -230,9 +229,11 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
                         <circle cx="12" cy="12" r="0.7" fill="currentColor" stroke="none"/>
                     </svg>
                 </span>
-                <span className="portfolio-panel__title"><BrandTitle text="Argus" /></span>
+                <div className="portfolio-panel__title-group">
+                    <span className="portfolio-panel__title"><BrandTitle text="Argus" /></span>
+                    <span className="portfolio-panel__subtitle">scanning the market for opportunities</span>
+                </div>
                 <div className="portfolio-panel__header-right">
-                    <PaceSlider />
                     <div className={`portfolio-panel__status-dot${isLoading ? ' loading' : pendingScan ? ' building' : ' idle'}`} />
                 </div>
             </div>

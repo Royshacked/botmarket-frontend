@@ -11,7 +11,6 @@ import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useTypewriter } from '../../customHooks/useTypewriter.js'
 import { useTextPace } from '../../customHooks/useTextPace.js'
 import { makeStreamHandlers } from '../../customHooks/useStreamStop.js'
-import { PaceSlider } from '../PaceSlider.jsx'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { MeditatingBot } from '../MeditatingBot.jsx'
@@ -346,9 +345,11 @@ export function PortfolioPanel({
                         <path d="M4 17.5 C7.5 21.5 16.5 21.5 20 17.5"/>
                     </svg>
                 </span>
-                <span className="portfolio-panel__title"><BrandTitle text="Atlas" /></span>
+                <div className="portfolio-panel__title-group">
+                    <span className="portfolio-panel__title"><BrandTitle text="Atlas" /></span>
+                    <span className="portfolio-panel__subtitle">building and managing your portfolio</span>
+                </div>
                 <div className="portfolio-panel__header-right">
-                    <PaceSlider />
                     <AccountSelector
                         accounts={availableAccounts}
                         selectedIds={selectedAccounts}

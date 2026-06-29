@@ -45,7 +45,10 @@ export function Radar({
                     <line x1="7"  y1="16"   x2="13" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
                 <span className="news-feed__title"><BrandTitle text="Axl Radar" /></span>
-                <span className={`news-feed__status-dot${loading ? ' loading' : ''}`} />
+                <span className="news-feed__live-badge">
+                    <span className={`news-feed__status-dot${loading ? ' loading' : ''}`} />
+                    <span className="news-feed__live">live</span>
+                </span>
             </div>
 
             <div className="news-feed__tabs">
@@ -66,7 +69,7 @@ export function Radar({
                     FDA{fda.length > 0 && <span className="news-feed__tab-count">{fda.length}</span>}
                 </button>
                 <button
-                    className={`news-feed__tab${tab === 'scans' ? ' news-feed__tab--active' : ''}`}
+                    className={`news-feed__tab news-feed__tab--scans${tab === 'scans' ? ' news-feed__tab--active' : ''}`}
                     onClick={() => onTabChange?.('scans')}
                 >
                     Scans{scans.length > 0 && <span className="news-feed__tab-count">{scans.length}</span>}
@@ -123,26 +126,24 @@ export function Radar({
                                             <p className="news-feed__summary">{article.summary}</p>
                                         )}
                                     </div>
-                                    <div className="news-feed__item-right">
-                                        {article.sentiment ? (
-                                            <span className={`news-feed__sentiment news-feed__sentiment--${article.sentiment}`}>
-                                                {article.sentiment} {article.confidence ? `${Math.round(article.confidence * 100)}%` : ''}
-                                            </span>
-                                        ) : sentimentLoading && (
-                                            <span className="news-feed__sentiment news-feed__sentiment--pending">
-                                                <span /><span /><span />
-                                            </span>
-                                        )}
-                                        {article.image && (
-                                            <img
-                                                className="news-feed__item-img"
-                                                src={article.image}
-                                                alt=""
-                                                loading="lazy"
-                                            />
-                                        )}
-                                    </div>
+                                    {article.image && (
+                                        <img
+                                            className="news-feed__item-img"
+                                            src={article.image}
+                                            alt=""
+                                            loading="lazy"
+                                        />
+                                    )}
                                 </div>
+                                {article.sentiment ? (
+                                    <span className={`news-feed__sentiment news-feed__sentiment--${article.sentiment}`}>
+                                        {article.sentiment} {article.confidence ? `${Math.round(article.confidence * 100)}%` : ''}
+                                    </span>
+                                ) : sentimentLoading && (
+                                    <span className="news-feed__sentiment news-feed__sentiment--pending">
+                                        <span /><span /><span />
+                                    </span>
+                                )}
                             </div>
                         </a>
                     ))}

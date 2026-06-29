@@ -1,7 +1,7 @@
 .scan-list {
     display: flex;
     flex-direction: column;
-    padding: 8px 10px 16px;
+    padding: 8px 0 16px;   // full-width — cards span the panel edge-to-edge
     font-family: var(--font-sans);
 
     &__empty {

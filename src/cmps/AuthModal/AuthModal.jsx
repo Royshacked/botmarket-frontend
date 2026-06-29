@@ -26,12 +26,25 @@ function EyeOffIcon() {
 }
 
 async function authPost(path, body) {
-    const res = await fetch(`${API_BASE}${path}`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    })
+    // Guard against a hung request (e.g. backend restarting / stale keep-alive
+    // socket) so the form never spins forever — abort and surface an error.
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 10000)
+    let res
+    try {
+        res = await fetch(`${API_BASE}${path}`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+            signal: ctrl.signal,
+        })
+    } catch (err) {
+        if (err.name === 'AbortError') throw new Error('Server timed out — please try again')
+        throw new Error('Could not reach server — please try again')
+    } finally {
+        clearTimeout(timer)
+    }
     const data = await res.json().catch(() => ({}))
     if (!res.ok) throw new Error(data.error || 'Something went wrong')
     return data
