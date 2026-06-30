@@ -16,20 +16,12 @@ import { ChatInputRow } from '../ChatInputRow.jsx'
 import { MeditatingBot } from '../MeditatingBot.jsx'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
+import { ChatPhaseHeading } from '../ChatPhaseHeading.jsx'
+import { ChatReasoning } from '../ChatReasoning.jsx'
 import { toolStatusLabel } from '../../services/toolStatusLabels.js'
 import './PortfolioPanel.scss'
 
 const PHASE_LABELS = { 1: 'Mandate', 2: 'Macro', 3: 'Architecture', 4: 'Selection', 5: 'Sizing', 6: 'Review' }
-
-function PhaseChip({ phase }) {
-    const label = PHASE_LABELS[phase]
-    if (!label) return null
-    return (
-        <div className="portfolio-panel__phase-divider">
-            <span className="portfolio-panel__phase-chip" title={`Phase ${phase} of 6`}>{label}</span>
-        </div>
-    )
-}
 
 function TickerChip({ symbol, onSelect }) {
     return (
@@ -41,7 +33,7 @@ function TickerChip({ symbol, onSelect }) {
 }
 
 function MessageBubble({ msg, onTickerSelect }) {
-    if (msg.role === 'phase') return <PhaseChip phase={msg.phase} />
+    if (msg.role === 'phase') return <ChatPhaseHeading phase={msg.phase} label={PHASE_LABELS[msg.phase]} total={6} />
 
     const isUser = msg.role === 'user'
 
@@ -49,9 +41,12 @@ function MessageBubble({ msg, onTickerSelect }) {
         return <div className="portfolio-panel__bubble portfolio-panel__bubble--user">{msg.content}</div>
     }
 
+    const reasoning = <ChatReasoning text={msg.reasoning} live={msg.streaming && !msg.content} />
+
     if (!msg.content && msg.streaming) {
         return (
             <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant">
+                {reasoning}
                 <span className="portfolio-panel__thinking">thinking…</span>
             </div>
         )
@@ -59,6 +54,7 @@ function MessageBubble({ msg, onTickerSelect }) {
 
     return (
         <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant">
+            {reasoning}
             <div className="portfolio-panel__bubble-text">
                 <ChatMarkdown>{msg.content}</ChatMarkdown>
             </div>
@@ -150,6 +146,7 @@ export function PortfolioPanel({
     }, [buildKey])
 
     const pendingTickersRef = useRef([])
+    const reasoningRef      = useRef('')
     const latestMandateRef  = useRef(null)
     const textareaRef       = useRef(null)
     const abortRef          = useRef(null)
@@ -189,6 +186,7 @@ export function PortfolioPanel({
         setIsLoading(true)
         setStreamStatus('')
         pendingTickersRef.current = []
+        reasoningRef.current = ''
         startDrain()
 
         const ctrl = new AbortController()
@@ -214,7 +212,12 @@ export function PortfolioPanel({
 
                 onPhase: (p) => {
                     if (!p) return
+                    // Only mark the phase when it actually changes — the model emits a
+                    // phase tag every turn, so without this a heading would repeat on
+                    // each message within the same phase.
+                    const changed = p !== portfolioPhase
                     setPortfolioPhase(p)
+                    if (!changed) return
                     setMessages(prev => {
                         const idx = prev.findIndex(m => m.streaming)
                         if (idx < 0) return prev
@@ -227,6 +230,18 @@ export function PortfolioPanel({
                 onToken: (t) => { setStreamStatus(''); enqueueToken(t) },
 
                 onStatus: (tool) => { setStreamStatus(toolStatusLabel(tool)) },
+
+                onReasoning: (t) => {
+                    reasoningRef.current += t
+                    const acc = reasoningRef.current
+                    setMessages(prev => {
+                        const idx = prev.findIndex(m => m.streaming)
+                        if (idx < 0) return prev
+                        const next = [...prev]
+                        next[idx] = { ...next[idx], reasoning: acc }
+                        return next
+                    })
+                },
 
                 onTicker: (symbol) => {
                     if (!pendingTickersRef.current.includes(symbol)) {
@@ -242,7 +257,8 @@ export function PortfolioPanel({
                     // final reply — no end-of-stream dump. Keep Stop live until the
                     // drain ends.
                     deferLoading = true
-                    finishDrain({ role: 'assistant', content: data.reply, tickers }, () => setIsLoading(false))
+                    const reasoning = reasoningRef.current || undefined
+                    finishDrain({ role: 'assistant', content: data.reply, tickers, reasoning }, () => setIsLoading(false))
                     if (data.plan?.ideas?.length) setPendingPlan(data.plan)
                     if (data.update?.changes?.length && onPortfolioUpdate) onPortfolioUpdate(data.update)
                 },
@@ -357,7 +373,10 @@ export function PortfolioPanel({
                         mainAccountId={mainAccountId}
                         onMainChange={onMainAccountChange}
                     />
-                    <div className={`portfolio-panel__status-dot${isLoading ? ' loading' : buildItems.length > 0 ? ' building' : ' idle'}`} />
+                    <span className="portfolio-panel__live-badge">
+                        <span className={`portfolio-panel__status-dot${isLoading ? ' loading' : buildItems.length > 0 ? ' building' : ' idle'}`} />
+                        <span className="portfolio-panel__live">live</span>
+                    </span>
                 </div>
             </div>
 

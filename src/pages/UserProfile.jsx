@@ -5,6 +5,7 @@ import { brokerService }       from '../services/broker/broker.service.remote.js
 import { httpService }         from '../services/http.service.js'
 import { userService }         from '../services/user/user.service.remote.js'
 import { ThemeSwitcher }       from '../cmps/ThemeSwitcher/ThemeSwitcher'
+import { AccentSwitcher }      from '../cmps/AccentSwitcher/AccentSwitcher'
 import { PaceSlider }          from '../cmps/PaceSlider.jsx'
 import { MODEL_OPTIONS, readStoredModel }       from '../cmps/modelOptions.js'
 import { REASONING_OPTIONS, readStoredReasoning } from '../cmps/reasoningOptions.js'
@@ -209,6 +210,10 @@ export function UserProfile() {
                         <div className="user-profile__row user-profile__row--inline">
                             <span className="user-profile__label">Theme</span>
                             <ThemeSwitcher />
+                        </div>
+                        <div className="user-profile__row user-profile__row--inline">
+                            <span className="user-profile__label">Accent</span>
+                            <AccentSwitcher />
                         </div>
                         <div className="user-profile__row user-profile__row--inline">
                             <span className="user-profile__label">Design</span>

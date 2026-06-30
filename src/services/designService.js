@@ -6,12 +6,11 @@
 //
 // Toggle with Ctrl+Shift+D (see DesignToggle.jsx), persisted in localStorage.
 
-import { initTheme, clearHueTheme } from './themeService'
+import { initTheme, clearHueTheme, initAccent } from './themeService'
 
 // First entry is the live app (no override). The rest map to [data-design] blocks.
 export const DESIGNS = [
     { id: 'terminal', label: 'Terminal' },
-    { id: 'aurora',   label: 'Aurora Soft' },
     { id: 'neon',     label: 'Neon' },
     { id: 'slate',    label: 'Slate Pro' },
     { id: 'current',  label: 'Axl (current)' },
@@ -35,13 +34,16 @@ export function applyDesign(id) {
     if (!id || id === 'current') {
         root.removeAttribute('data-design')
         initTheme()                       // restore axl theme + bg spectrum + aurora
-        return
+    } else {
+        // Let the [data-design] CSS block fully own the palette: drop the inline theme
+        // vars (generated spectrum + bg spectrum) that would otherwise out-rank it.
+        clearHueTheme()
+        for (const t of INLINE_BG_TOKENS) root.style.removeProperty(t)
+        root.setAttribute('data-design', id)
     }
-    // Let the [data-design] CSS block fully own the palette: drop the inline theme
-    // vars (generated spectrum + bg spectrum) that would otherwise out-rank it.
-    clearHueTheme()
-    for (const t of INLINE_BG_TOKENS) root.style.removeProperty(t)
-    root.setAttribute('data-design', id)
+    // Re-apply the user's accent override on top of the now-active palette — the
+    // steps above (initTheme / clearHueTheme) wipe the inline accent vars.
+    initAccent()
 }
 
 // Apply the saved design once at boot (after initTheme). No-op for 'current'.

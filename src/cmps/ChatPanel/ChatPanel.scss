@@ -88,9 +88,6 @@
         align-items: center;
         gap: 5px;
         flex-shrink: 0;
-        // Pulse the whole badge so the dot + label share ONE animation (always in
-        // sync). The dot's loading/building states layer their own pulse on top.
-        animation: cp-idle 3s ease-in-out infinite;
     }
 
     &__live {
@@ -99,7 +96,9 @@
         font-weight: 700;
         letter-spacing: 0.12em;
         text-transform: uppercase;
+        // Static faint teal — only the dot pulses, the label stays still.
         color: var(--color-teal);
+        opacity: 0.55;
     }
 
     &__status-dot {
@@ -109,7 +108,8 @@
         background: var(--accent);
         flex-shrink: 0;
 
-        // idle pulse handled by the wrapper (&__live-badge) so it stays in sync with the label
+        // The dot pulses on its own; the label no longer animates with it.
+        &.idle     { animation: cp-idle     3s   ease-in-out infinite; }
         &.building { animation: cp-building 1.4s ease-in-out infinite; background: var(--accent-light); }
         &.loading  { animation: cp-loading 0.85s ease-in-out infinite; background: var(--accent-light); }
     }
@@ -310,7 +310,8 @@
         }
 
         &--assistant {
-            align-self: flex-start;
+            align-self: stretch;
+            max-width: 100%;   // give tables/markdown the full panel width, not 78%
             background: none;
             color: var(--text-subtle);
             border: none;

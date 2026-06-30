@@ -26,7 +26,12 @@
 
     // Frosted-glass base: empty areas (where the list/window backgrounds are made
     // transparent below) show this translucent blur, so the bubble reads as glass.
-    background: color-mix(in srgb, var(--bg-base) 25%, transparent);
+    // Pinned to a fixed dark tint (not the themeable --bg-base): --bg-base is set
+    // per-origin by the background slider, so keying off it made the glass read
+    // "right" on localhost but far too transparent on the deployed origin where
+    // that setting doesn't exist. A constant tint looks identical everywhere.
+    // Tune the alpha (0.45) to taste — higher = more solid, lower = more glassy.
+    background: hsla(176, 60%, 6%, 0.45);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
 

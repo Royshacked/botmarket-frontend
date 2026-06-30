@@ -7,17 +7,18 @@ export const scannerService = {
     saveChatState, getChatState, deleteChatState,
 }
 
-async function sendStream(messages, { onToken, onTicker, onPhase, onStatus, onDone, onError, model, reasoningEffort, routingMode, currentPhase, signal, editList = null } = {}) {
+async function sendStream(messages, { onToken, onTicker, onPhase, onStatus, onReasoning, onDone, onError, model, reasoningEffort, routingMode, currentPhase, signal, editList = null } = {}) {
     await postSSE(
         `${API_BASE}/api/scanner/stream`,
         { messages, model, editList, reasoningEffort, routingMode, currentPhase },
         {
-            token:  (d) => onToken?.(d.text),
-            ticker: (d) => onTicker?.(d.symbol),
-            phase:  (d) => onPhase?.(d.phase),
-            status: (d) => onStatus?.(d.tool),
-            done:   (d) => onDone?.(d),
-            error:  (d) => onError?.(d.message),
+            token:     (d) => onToken?.(d.text),
+            ticker:    (d) => onTicker?.(d.symbol),
+            phase:     (d) => onPhase?.(d.phase),
+            status:    (d) => onStatus?.(d.tool),
+            reasoning: (d) => onReasoning?.(d.text),
+            done:      (d) => onDone?.(d),
+            error:     (d) => onError?.(d.message),
         },
         { signal },
     )

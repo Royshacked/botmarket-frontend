@@ -84,6 +84,24 @@
         white-space: nowrap;
     }
 
+    &__live-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        flex-shrink: 0;
+    }
+
+    &__live {
+        font-family: var(--font-mono);
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        // Static faint teal — only the dot pulses, the label stays still.
+        color: var(--color-teal);
+        opacity: 0.55;
+    }
+
     &__status-dot {
         width: 7px;
         height: 7px;
@@ -149,7 +167,8 @@
         }
 
         &--assistant {
-            align-self: flex-start;
+            align-self: stretch;
+            max-width: 100%;   // give tables/markdown the full panel width, not 78%
             background: none;
             color: var(--text-subtle);
             padding-left: 0;
@@ -335,16 +354,19 @@
         }
     }
 
+    // Unified chat-action button — same design across Atlas, the trade chat and
+    // the scanner (which reuses these classes). Filled accent, no surrounding card.
     &__generate {
         flex-shrink: 0;
         margin: 0;
         padding: 9px 16px;
-        background: transparent;
+        background: color-mix(in srgb, var(--accent) 28%, transparent);
         border: 1px solid var(--accent);
         border-radius: 3px;
         color: var(--accent);
         font-family: var(--font-mono);
         font-size: 10px;
+        font-weight: 700;
         letter-spacing: 0.12em;
         text-transform: uppercase;
         cursor: pointer;
@@ -360,22 +382,23 @@
     }
 
     // ── Inline action bubble ──────────────────────────────────────────────────
+    // No card/wrapper — the buttons sit bare in the message stream (matches the
+    // trade chat), just laid out in a row.
     &__action-bubble {
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
-        padding: 10px 12px;
-        margin: 4px 0 2px;
-        background: var(--bg-surface);
-        border: 1px solid var(--accent-deep);
-        border-radius: 10px;
+        padding: 0;
+        margin: 6px 0 2px;
+        background: transparent;
+        border: none;
         align-self: stretch;
     }
 
     &__review-btn {
         flex: 1;
         padding: 7px 10px;
-        background: transparent;
+        background: color-mix(in srgb, var(--text-primary) 14%, transparent);
         border: 1px solid var(--border);
         border-radius: 4px;
         font-family: var(--font-mono);
@@ -388,15 +411,17 @@
         &:disabled { opacity: 0.26; cursor: not-allowed; }
 
         &--update {
+            background: color-mix(in srgb, var(--accent) 26%, transparent);
             border-color: var(--accent);
             color: var(--accent);
             &:not(:disabled):hover { background: var(--glow); border-color: var(--accent-light); color: var(--accent-light); }
         }
 
         &--dismiss {
-            border-color: #3b82f6;
-            color: #60a5fa;
-            &:not(:disabled):hover { background: rgba(59,130,246,.1); }
+            background: rgba(245,158,11,.22);
+            border-color: #f59e0b;
+            color: #f59e0b;
+            &:not(:disabled):hover { background: rgba(245,158,11,.32); }
         }
 
         &--later {

@@ -239,6 +239,95 @@ export function loadTone() {
     return raw === null ? DEFAULT_TONE : Number(raw)
 }
 
+// ── Accent hue + shade ──────────────────────────────────────────────────────
+// An independent accent picker on two knobs:
+//   hue   (0–360) — the colour. Saturation is FULL at every hue (unlike the
+//                   bg/spectrum generators that neutralize the ends) — a picker
+//                   should give a vivid accent for red, green, blue alike.
+//   shade (0–100) — depth. 50 = the current look; below 50 deepens the accent
+//                   toward dark/rich, above 50 lifts it lighter. Asymmetric:
+//                   more room to go deep ("the dark side") than to lighten.
+// It recolors only the accent family + its glows + the heading gradient/glow,
+// leaving backgrounds and neutral body text alone (so it composes with the
+// background slider and any design). Written as inline vars on <html>, so it
+// overrides whatever accent the active theme/design hardcoded (e.g. neon's pink).
+const DEFAULT_ACCENT_SHADE = 50
+
+// Lightness offset (in % points) for a shade value. 50→0; deep end reaches −22,
+// light end +10 — so darkening has the longer travel.
+function accentShift(shade) {
+    const k = (shade - 50) / 50
+    return +(k < 0 ? k * 22 : k * 10).toFixed(1)
+}
+
+function buildAccentVars(h, shade = DEFAULT_ACCENT_SHADE) {
+    const d = accentShift(shade)
+    // Shift a base lightness by the shade delta, clamped (floor keeps the light
+    // tokens legible as accent text even at the deepest setting).
+    const L = (v, floor = 3) => Math.max(floor, Math.min(97, +(v + d).toFixed(1)))
+    return {
+        '--accent-deep':   `hsl(${h}, 73%, ${L(19)}%)`,
+        '--accent':        `hsl(${h}, 57%, ${L(39)}%)`,
+        '--accent-light':  `hsl(${h}, 65%, ${L(73, 48)}%)`,
+        '--accent-bright': `hsl(${h}, 100%, ${L(89, 66)}%)`,
+        '--glow':          `hsla(${h}, 57%, ${L(38)}%, 0.14)`,
+        '--glow-soft':     `hsla(${h}, 57%, ${L(38)}%, 0.06)`,
+        '--glow-mid':      `hsla(${h}, 57%, ${L(38)}%, 0.10)`,
+        '--border-strong': `hsla(${h}, 68%, ${L(58)}%, 0.55)`,
+        '--h1-grad-top':    `hsl(${h}, 100%, ${L(99, 60)}%)`,
+        '--h1-grad-mid1':   `hsl(${h}, 100%, ${L(93, 55)}%)`,
+        '--h1-grad-mid2':   `hsl(${h}, 67%, ${L(80, 48)}%)`,
+        '--h1-grad-mid3':   `hsl(${h}, 58%, ${L(59)}%)`,
+        '--h1-grad-bottom': `hsl(${h}, 67%, ${L(34)}%)`,
+        '--h1-glow-1':      `hsla(${h}, 100%, ${L(65)}%, 0.90)`,
+        '--h1-glow-2':      `hsla(${h}, 80%, ${L(53)}%, 0.65)`,
+        '--h1-glow-3':      `hsla(${h}, 85%, ${L(43)}%, 0.35)`,
+    }
+}
+
+// Swatch colour for the accent picker — a slightly brighter --accent so it reads.
+export function accentPreview(hue, shade = DEFAULT_ACCENT_SHADE) {
+    const lit = Math.max(8, Math.min(92, 46 + accentShift(shade)))
+    return `hsl(${hue}, 60%, ${lit}%)`
+}
+
+export function applyAccentHue(hue, shade = DEFAULT_ACCENT_SHADE) {
+    const root = document.documentElement
+    const vars = buildAccentVars(hue, shade)
+    for (const [k, v] of Object.entries(vars)) root.style.setProperty(k, v)
+}
+
+// Drop the inline accent vars so the active theme/design's own accent shows again.
+export function clearAccentHue() {
+    const root = document.documentElement
+    for (const k of Object.keys(buildAccentVars(0))) root.style.removeProperty(k)
+}
+
+export function saveAccentHue(hue)   { localStorage.setItem('accentHue', String(hue)) }
+export function saveAccentShade(s)   { localStorage.setItem('accentShade', String(s)) }
+export function clearSavedAccentHue() {
+    localStorage.removeItem('accentHue')
+    localStorage.removeItem('accentShade')
+}
+
+// null = no override (use the theme/design accent); a number = custom accent hue.
+export function loadAccentHue() {
+    const raw = localStorage.getItem('accentHue')
+    return raw === null ? null : Number(raw)
+}
+export function loadAccentShade() {
+    const raw = localStorage.getItem('accentShade')
+    return raw === null ? DEFAULT_ACCENT_SHADE : Number(raw)
+}
+
+// Re-apply the saved accent override (if any) on top of the active theme/design.
+// Call after initTheme/initDesign at boot, and after any theme/design switch that
+// resets inline vars (clearHueTheme wipes the accent family).
+export function initAccent() {
+    const hue = loadAccentHue()
+    if (hue !== null) applyAccentHue(hue, loadAccentShade())
+}
+
 // Apply whichever theme was last saved. Call once before first render.
 export function initTheme() {
     // The aurora wash hue is global — it tints the shared --aurora-wash used by the
@@ -268,4 +357,4 @@ export function initTheme() {
     }
 }
 
-export { DEFAULT_HUE, DEFAULT_TONE, DEFAULT_AURORA_HUE }
+export { DEFAULT_HUE, DEFAULT_TONE, DEFAULT_AURORA_HUE, DEFAULT_ACCENT_SHADE }

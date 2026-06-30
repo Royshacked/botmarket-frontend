@@ -1,0 +1,13 @@
+// Bold in-flow phase heading, shared across the idea / scanner / portfolio chats.
+.chat-phase-heading {
+    align-self: stretch;
+    margin: 8px 0 2px;
+
+    strong {
+        font-family: var(--font-mono);
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        color: var(--text-primary);
+    }
+}

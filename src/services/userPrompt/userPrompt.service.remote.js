@@ -19,19 +19,20 @@ export const userPromptService = {
  * @param {function} callbacks.onError    - called with an error message string
  * @param {Array}    ideaAccounts
  */
-async function sendPromptStream(userPrompt, analysisState = null, { onToken, onDone, onError, onAsset, onInterval, onChart, onPhase, onStatus, signal } = {}, ideaAccounts = [], model, reasoningEffort, routingMode, currentPhase) {
+async function sendPromptStream(userPrompt, analysisState = null, { onToken, onDone, onError, onAsset, onInterval, onChart, onPhase, onStatus, onReasoning, signal } = {}, ideaAccounts = [], model, reasoningEffort, routingMode, currentPhase) {
     await postSSE(
         `${API_BASE}/api/orchestrator/stream`,
         { userPrompt, analysisState, ideaAccounts, model, reasoningEffort, routingMode, currentPhase },
         {
-            token:    (d) => onToken?.(d.text),
-            asset:    (d) => onAsset?.(d.symbol),
-            interval: (d) => onInterval?.(d.interval),
-            chart:    (d) => onChart?.(d),
-            phase:    (d) => onPhase?.(d.phase),
-            status:   (d) => onStatus?.(d.tool),
-            done:     (d) => onDone?.(d),
-            error:    (d) => onError?.(d.message),
+            token:     (d) => onToken?.(d.text),
+            asset:     (d) => onAsset?.(d.symbol),
+            interval:  (d) => onInterval?.(d.interval),
+            chart:     (d) => onChart?.(d),
+            phase:     (d) => onPhase?.(d.phase),
+            status:    (d) => onStatus?.(d.tool),
+            reasoning: (d) => onReasoning?.(d.text),
+            done:      (d) => onDone?.(d),
+            error:     (d) => onError?.(d.message),
         },
         { signal },
     )

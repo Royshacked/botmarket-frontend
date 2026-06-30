@@ -9,6 +9,8 @@ import { MeditatingBot } from '../MeditatingBot.jsx'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { ConvictionChip } from '../ConvictionChip/ConvictionChip.jsx'
+import { ChatPhaseHeading } from '../ChatPhaseHeading.jsx'
+import { ChatReasoning } from '../ChatReasoning.jsx'
 import './ChatPanel.scss'
 
 const P = 'chat-panel__build-summary'
@@ -244,11 +246,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                 )}
                 {messages.map((msg, i) => (
                     msg.role === 'phase' ? (
-                        <div key={i} className="chat-panel__phase-divider">
-                            <span className="chat-panel__phase-chip" title={`Phase ${msg.phase} of 5`}>
-                                {PHASE_LABELS[msg.phase]}
-                            </span>
-                        </div>
+                        <ChatPhaseHeading key={i} phase={msg.phase} label={PHASE_LABELS[msg.phase]} total={5} />
                     ) : msg.type === 'chart' ? (
                         <div key={i} className="chat-panel__bubble chat-panel__bubble--assistant chat-panel__chart">
                             <img
@@ -267,6 +265,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                         <div key={i} className={`chat-panel__bubble chat-panel__bubble--${msg.role}`}>
                             {msg.role === 'assistant' ? (
                                 <>
+                                    <ChatReasoning text={msg.reasoning} live={msg.streaming && !msg.content} />
                                     <ChatMarkdown>{(msg.content ?? '').replace(/<asset>[\s\S]*?<\/asset>/g, '').trimStart()}</ChatMarkdown>
                                     {msg.streaming && !msg.content && (
                                         <span className="chat-panel__thinking">thinking…</span>

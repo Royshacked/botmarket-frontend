@@ -230,6 +230,7 @@ export function MainPage() {
         // live while text is still being typed out. Error/abort paths clear it in
         // the finally below (drain is hard-stopped there, so onComplete won't fire).
         let deferLoading = false
+        let reasoningAcc = ''
 
         try {
             const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
@@ -242,9 +243,23 @@ export function MainPage() {
                     onToken:    (text)     => { setStreamStatus(''); enqueueToken(text) },
                     onStatus:   (tool)     => { setStreamStatus(toolStatusLabel(tool)) },
                     onInterval: (interval) => { if (interval) setChartInterval(interval) },
+                    onReasoning: (text)    => {
+                        reasoningAcc += text
+                        setMessages(prev => {
+                            const idx = prev.findIndex(m => m.streaming)
+                            if (idx < 0) return prev
+                            const next = [...prev]
+                            next[idx] = { ...next[idx], reasoning: reasoningAcc }
+                            return next
+                        })
+                    },
                     onPhase:    (phase)    => {
                         if (!phase) return
+                        // Only mark the phase when it actually changes — the model emits
+                        // a phase tag every turn, so this avoids a repeated heading.
+                        const changed = phase !== chatPhase
                         setChatPhase(phase)
+                        if (!changed) return
                         setMessages(prev => {
                             const idx = prev.findIndex(m => m.streaming)
                             if (idx < 0) return prev
@@ -281,7 +296,7 @@ export function MainPage() {
                     },
 
                     onDone: (data) => {
-                        const finalMsg = { role: 'assistant', content: data.reply, analysisState: data.analysisState ?? null }
+                        const finalMsg = { role: 'assistant', content: data.reply, analysisState: data.analysisState ?? null, ...(reasoningAcc ? { reasoning: reasoningAcc } : {}) }
                         // Mirror the final messages into the persisted-state ref now —
                         // so a navigate/generate while the typewriter is still catching
                         // up still saves the complete reply — without changing what's on
