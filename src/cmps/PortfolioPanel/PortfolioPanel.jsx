@@ -93,6 +93,7 @@ export function PortfolioPanel({
     const [isReviewMode,          setIsReviewMode]          = useState(false)
     const [dismissConfirm,        setDismissConfirm]        = useState(false)
     const [portfolioPhase, setPortfolioPhase] = useState(null)
+    const [portfolioThesis, setPortfolioThesis] = useState(null)
 
     useEffect(() => {
         if (!chatRestore) return
@@ -104,6 +105,8 @@ export function PortfolioPanel({
         setEditingPortfolioId(chatRestore.portfolioId ?? null)
         setEditingPortfolioIdeas(chatRestore.portfolioIdeas ?? [])
         setIsReviewMode(chatRestore.reviewMode ?? false)
+        setPortfolioThesis(chatRestore.thesis ?? null)
+        latestThesisRef.current = chatRestore.thesis ?? null
         // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only when a new restore is pushed (keyed by .key)
     }, [chatRestore?.key])
 
@@ -148,6 +151,7 @@ export function PortfolioPanel({
     const pendingTickersRef = useRef([])
     const reasoningRef      = useRef('')
     const latestMandateRef  = useRef(null)
+    const latestThesisRef   = useRef(null)
     const textareaRef       = useRef(null)
     const abortRef          = useRef(null)
 
@@ -253,6 +257,7 @@ export function PortfolioPanel({
                     const tickers = [...pendingTickersRef.current]
                     pendingTickersRef.current = []
                     if (data.mandate) latestMandateRef.current = data.mandate
+                    if (data.thesis) { latestThesisRef.current = data.thesis; setPortfolioThesis(data.thesis) }
                     // Finish typing the backlog at reading pace, then swap in the
                     // final reply — no end-of-stream dump. Keep Stop live until the
                     // drain ends.
@@ -260,7 +265,10 @@ export function PortfolioPanel({
                     const reasoning = reasoningRef.current || undefined
                     finishDrain({ role: 'assistant', content: data.reply, tickers, reasoning }, () => setIsLoading(false))
                     if (data.plan?.ideas?.length) setPendingPlan(data.plan)
-                    if (data.update?.changes?.length && onPortfolioUpdate) onPortfolioUpdate(data.update)
+                    // Pass any thesis emitted in THIS same turn so a confirmed review
+                    // rebalance persists it (reason 'accepted-rebalance'). Only the
+                    // same-turn proposal is attached — never the restored existing thesis.
+                    if (data.update?.changes?.length && onPortfolioUpdate) onPortfolioUpdate(data.update, isReviewMode, data.thesis ?? null)
                 },
 
                 onError: (message) => freezeError(message),
@@ -321,7 +329,7 @@ export function PortfolioPanel({
             setDismissConfirm(false)
         } else {
             if (!planReady) return
-            if (onGeneratePlan) onGeneratePlan(pendingPlan, messages, latestMandateRef.current)
+            if (onGeneratePlan) onGeneratePlan(pendingPlan, messages, latestMandateRef.current, latestThesisRef.current)
         }
         setPendingPlan(null); setMessages([]); setInputText('')
         latestMandateRef.current = null
@@ -379,6 +387,24 @@ export function PortfolioPanel({
                     </span>
                 </div>
             </div>
+
+            {editingPortfolioId && portfolioThesis && (portfolioThesis.strategy || portfolioThesis.targetExposures?.length) && (
+                <div className="portfolio-panel__thesis" style={{ margin: '0 16px 8px', padding: '10px 12px', border: '1px solid var(--border, #333)', borderRadius: 8, fontSize: 12, opacity: 0.92 }}>
+                    <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                        Portfolio thesis{portfolioThesis.version != null ? ` · v${portfolioThesis.version}` : ''}
+                    </div>
+                    {portfolioThesis.strategy && <div style={{ opacity: 0.85, marginBottom: portfolioThesis.targetExposures?.length ? 6 : 0 }}>{portfolioThesis.strategy}</div>}
+                    {Array.isArray(portfolioThesis.targetExposures) && portfolioThesis.targetExposures.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                            {portfolioThesis.targetExposures.map((e, i) => (
+                                <span key={i} style={{ padding: '2px 8px', border: '1px solid var(--border, #444)', borderRadius: 999 }}>
+                                    {e.label}{e.target != null ? ` ${Math.round(e.target * 100)}%` : ''}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {buildItems.length > 0 && (
                 <div className="portfolio-panel__build-summary">

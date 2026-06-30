@@ -152,6 +152,8 @@ export function MainPage() {
     const [dismissedConfirmIds, setDismissedConfirmIds] = useState(() => new Set())
     const [placingOrders, setPlacingOrders] = useState(false)
     const [pendingDeleteIdea, setPendingDeleteIdea] = useState(null)
+    const [pendingRebalance,  setPendingRebalance]  = useState(null)
+    const [applyingRebalance, setApplyingRebalance] = useState(false)
     const [deletingIdea, setDeletingIdea] = useState(false)
     const [mobileChatOpen, setMobileChatOpen] = useState(false)
     const latestMessagesRef = useRef([])
@@ -654,7 +656,7 @@ export function MainPage() {
         })
     }
 
-    async function handleGeneratePlan(plan, messages = [], mandate = null) {
+    async function handleGeneratePlan(plan, messages = [], mandate = null, thesis = null) {
         try {
             const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
             const accountIds   = ideaAccounts.map(a => a.id)
@@ -663,7 +665,7 @@ export function MainPage() {
             if (newIdeas.length > 0) {
                 const portfolioId = newIdeas[0].portfolioId
                 const chatMessages = messages.filter(m => !m.streaming && m.role !== 'phase').map(m => ({ role: m.role, content: m.content }))
-                portfolioService.saveChatState(portfolioId, chatMessages, mandate).catch(err =>
+                portfolioService.saveChatState(portfolioId, chatMessages, mandate, thesis).catch(err =>
                     console.error('[portfolio] chat state save failed', err)
                 )
             }
@@ -698,6 +700,7 @@ export function MainPage() {
                 messages:      chatState?.messages ?? [],
                 portfolioId,
                 portfolioIdeas: portfolioIdeas.map(i => ({ ...i, status: 'waiting' })),
+                thesis:        chatState?.thesis ?? null,
                 reviewMode,
             })
             setActiveTab('portfolio')
@@ -747,8 +750,14 @@ export function MainPage() {
         }
     }
 
-    async function handlePortfolioUpdate(update) {
+    // In REVIEW mode a portfolio_update is a proposed rebalance — it can close/trim live
+    // positions, so it must be confirmed and executed server-side (never auto-applied).
+    // In construction/edit mode it keeps the existing immediate client-side apply.
+    async function handlePortfolioUpdate(update, reviewMode = false, thesis = null) {
         if (!update?.changes?.length) return
+        // Attach a same-turn thesis proposal so confirming the rebalance persists it
+        // (backend reads update.thesis, reason 'accepted-rebalance'). No thesis → unchanged.
+        if (reviewMode) { setPendingRebalance(thesis ? { ...update, thesis } : update); return }
         const ideaById = new Map(ideas.map(i => [i.id, i]))
         try {
             const promises   = []
@@ -780,6 +789,24 @@ export function MainPage() {
             }
         } catch (err) {
             console.error('[portfolio] update failed', err)
+        }
+    }
+
+    // Confirm a review rebalance: execute it on the live book server-side (which also
+    // bumps the review clock + records conviction), then refresh ideas.
+    async function confirmRebalance() {
+        const update = pendingRebalance
+        if (!update?.portfolioId) { setPendingRebalance(null); return }
+        setApplyingRebalance(true)
+        try {
+            await portfolioService.applyRebalance(update.portfolioId, update)
+            loadIdeas()
+        } catch (err) {
+            console.error('[portfolio] rebalance failed', err)
+            showErrorMsg('Could not apply the rebalance — try again.')
+        } finally {
+            setApplyingRebalance(false)
+            setPendingRebalance(null)
         }
     }
 
@@ -1036,6 +1063,59 @@ export function MainPage() {
                     onCancel={() => { if (!deletingIdea) setPendingDeleteIdea(null) }}
                 />
             )}
+
+            {pendingRebalance && (
+                <RebalanceConfirmDialog
+                    update={pendingRebalance}
+                    ideas={ideas}
+                    applying={applyingRebalance}
+                    onConfirm={confirmRebalance}
+                    onCancel={() => { if (!applyingRebalance) setPendingRebalance(null) }}
+                />
+            )}
         </>
+    )
+}
+
+// Confirmation gate for an accepted review rebalance. Nothing executes until the user
+// confirms; on confirm the parent POSTs the update to the live-book rebalance endpoint.
+function RebalanceConfirmDialog({ update, ideas, applying, onConfirm, onCancel }) {
+    const ideaById = new Map((ideas ?? []).map(i => [i.id, i]))
+    const assetOf  = (id) => ideaById.get(id)?.asset ?? id ?? '—'
+    const pct      = (n) => `${Math.round((Number(n) || 0) * 100)}%`
+
+    function describe(change) {
+        switch (change.action) {
+            case 'exit_idea':   return `Exit ${assetOf(change.ideaId)}${change.reason ? ` — ${change.reason}` : ''}`
+            case 'trim_idea':   return `Trim ${assetOf(change.ideaId)} by ${pct(change.reduceFraction)}${change.targetAllocationRatio != null ? ` → target ${pct(change.targetAllocationRatio)}` : ''}`
+            case 'add_idea':    return `Add ${change.idea?.asset ?? '?'} (${change.idea?.direction ?? 'long'}${change.idea?.allocationRatio != null ? `, target ${pct(change.idea.allocationRatio)}` : ''})`
+            case 'update_idea': return `Update ${assetOf(change.ideaId)}: ${Object.keys(change.patch ?? {}).join(', ') || 'fields'}`
+            case 'remove_idea': return `Remove ${assetOf(change.ideaId)} (pending)`
+            default:            return change.action
+        }
+    }
+
+    const overlay = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }
+    const card    = { background: 'var(--surface, #1b1f27)', color: 'var(--text, #e8eaed)', border: '1px solid var(--border, #333)', borderRadius: 12, padding: 20, width: 'min(460px, 92vw)', maxHeight: '80vh', overflow: 'auto', boxShadow: '0 12px 40px rgba(0,0,0,0.5)' }
+    const btn     = { padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border, #444)', cursor: 'pointer', fontSize: 14 }
+
+    return (
+        <div style={overlay} onClick={() => !applying && onCancel?.()}>
+            <div style={card} onClick={e => e.stopPropagation()}>
+                <h3 style={{ margin: '0 0 4px' }}>Confirm rebalance</h3>
+                <p style={{ margin: '0 0 12px', opacity: 0.7, fontSize: 13 }}>
+                    These actions will run on your live broker account{update.thesis ? ' and update the portfolio thesis' : ''}. Nothing executes until you confirm.
+                </p>
+                <ul style={{ margin: '0 0 16px', paddingLeft: 18, lineHeight: 1.7 }}>
+                    {(update.changes ?? []).map((c, i) => <li key={i}>{describe(c)}</li>)}
+                </ul>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                    <button style={{ ...btn, background: 'transparent' }} onClick={onCancel} disabled={applying}>Cancel</button>
+                    <button style={{ ...btn, background: 'var(--accent, #4f8cff)', color: '#fff', borderColor: 'transparent' }} onClick={onConfirm} disabled={applying}>
+                        {applying ? 'Applying…' : 'Confirm & execute'}
+                    </button>
+                </div>
+            </div>
+        </div>
     )
 }
