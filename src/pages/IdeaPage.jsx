@@ -9,54 +9,36 @@ import './IdeaPage.scss'
 // How often to re-fetch positions so live P&L keeps ticking in the popped-out window.
 const POSITIONS_POLL_MS = 4000
 
-function DevThesisPanel({ thesis, thesisStatus, thesisStatusReason }) {
+function DevInvalidationPanel({ invalidation, status, reason, edge }) {
     const [open, setOpen] = useState(false)
-    if (!thesis) return null
-    const entry = thesis.entry ?? {}
-    const tp    = thesis.tp    ?? {}
+    const range = invalidation?.range
+    if (!range) return null
     return (
-        <div className="idea-page__dev-thesis">
-            <button className="idea-page__dev-thesis-toggle" onClick={() => setOpen(o => !o)}>
-                <span>[DEV] Thesis</span>
-                {thesisStatus && <span className={`idea-page__dev-thesis-status idea-page__dev-thesis-status--${thesisStatus}`}>{thesisStatus}</span>}
-                <span className="idea-page__dev-thesis-caret">{open ? '▲' : '▼'}</span>
+        <div className="idea-page__dev-invalidation">
+            <button className="idea-page__dev-invalidation-toggle" onClick={() => setOpen(o => !o)}>
+                <span>[DEV] Invalidation</span>
+                {status && <span className={`idea-page__dev-invalidation-status idea-page__dev-invalidation-status--${status}`}>{status}</span>}
+                <span className="idea-page__dev-invalidation-caret">{open ? '▲' : '▼'}</span>
             </button>
             {open && (
-                <div className="idea-page__dev-thesis-body">
-                    {entry.reasoning && (
-                        <div className="idea-page__dev-thesis-section">
-                            <span className="idea-page__dev-thesis-label">Entry reasoning</span>
-                            <p>{entry.reasoning}</p>
-                        </div>
-                    )}
-                    {Array.isArray(entry.key_assumptions) && entry.key_assumptions.length > 0 && (
-                        <div className="idea-page__dev-thesis-section">
-                            <span className="idea-page__dev-thesis-label">Key assumptions</span>
-                            <ul>{entry.key_assumptions.map((a, i) => <li key={i}>{a}</li>)}</ul>
-                        </div>
-                    )}
-                    {Array.isArray(entry.stress_triggers) && entry.stress_triggers.length > 0 && (
-                        <div className="idea-page__dev-thesis-section">
-                            <span className="idea-page__dev-thesis-label">Stress triggers</span>
-                            <ul>{entry.stress_triggers.map((t, i) => <li key={i}>{t}</li>)}</ul>
-                        </div>
-                    )}
-                    {tp.reasoning && (
-                        <div className="idea-page__dev-thesis-section">
-                            <span className="idea-page__dev-thesis-label">TP reasoning</span>
-                            <p>{tp.reasoning}</p>
-                        </div>
-                    )}
-                    {Array.isArray(tp.stress_triggers) && tp.stress_triggers.length > 0 && (
-                        <div className="idea-page__dev-thesis-section">
-                            <span className="idea-page__dev-thesis-label">TP stress triggers</span>
-                            <ul>{tp.stress_triggers.map((t, i) => <li key={i}>{t}</li>)}</ul>
-                        </div>
-                    )}
-                    {thesisStatusReason && (
-                        <div className="idea-page__dev-thesis-section">
-                            <span className="idea-page__dev-thesis-label">Monitor reason</span>
-                            <p>{thesisStatusReason}</p>
+                <div className="idea-page__dev-invalidation-body">
+                    <div className="idea-page__dev-invalidation-section">
+                        <span className="idea-page__dev-invalidation-label">Entry range</span>
+                        <ul>
+                            <li>
+                                Lower: {range.lower ?? '—'}
+                                {range.lowerAnchor && <span className="idea-page__dev-invalidation-anchor"> — {range.lowerAnchor}</span>}
+                            </li>
+                            <li>
+                                Upper: {range.upper ?? '—'}
+                                {range.upperAnchor && <span className="idea-page__dev-invalidation-anchor"> — {range.upperAnchor}</span>}
+                            </li>
+                        </ul>
+                    </div>
+                    {status === 'fired' && (
+                        <div className="idea-page__dev-invalidation-section">
+                            <span className="idea-page__dev-invalidation-label">Fired{edge ? ` (${edge} edge)` : ''}</span>
+                            {reason && <p>{reason}</p>}
                         </div>
                     )}
                 </div>
@@ -132,10 +114,11 @@ export function IdeaPage() {
                 )}
             </div>
 
-            <DevThesisPanel
-                thesis={idea.thesis}
-                thesisStatus={idea.thesis_status}
-                thesisStatusReason={idea.thesis_status_reason}
+            <DevInvalidationPanel
+                invalidation={idea.invalidation}
+                status={idea.invalidation_status}
+                reason={idea.invalidation_reason}
+                edge={idea.invalidation_edge}
             />
 
             <IdeaDetail

@@ -142,7 +142,7 @@ function canGenerate(analysisState, selectedAccounts) {
 
 const PHASE_LABELS = { 1: 'Nucleus', 2: 'Formation', 3: 'Structure', 4: 'Exits', 5: 'Validation' }
 
-export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, onStop, isLoading, streamStatus = '', isEditing = false, isThesisReview = false, onDismissThesis, onBuyMarket, isPostOrderEdit = false, availableAccounts = [], selectedAccounts = [], onAccountsChange, mainAccountId = null, onMainAccountChange }) {
+export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, onStop, isLoading, streamStatus = '', isEditing = false, isInvalidationReview = false, onDismissInvalidation, onBuyMarket, isPostOrderEdit = false, availableAccounts = [], selectedAccounts = [], onAccountsChange, mainAccountId = null, onMainAccountChange }) {
     const [input, setInput] = useState('')
     const [dismissConfirm, setDismissConfirm] = useState(false)
 
@@ -176,7 +176,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
 
     // Scroll-watch token: changes whenever the action bubble content changes so the
     // chat re-pins to bottom when buttons appear (e.g. idea becomes generate-ready).
-    const actionWatch = `${streamStatus}|${ideaReady}|${generateReady}|${isThesisReview}|${isEditing}|${isImmediate}|${isPostOrderEdit}`
+    const actionWatch = `${streamStatus}|${ideaReady}|${generateReady}|${isInvalidationReview}|${isEditing}|${isImmediate}|${isPostOrderEdit}`
 
     const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, {
         onFinishStreaming: () => inputRef.current?.focus(),
@@ -290,15 +290,15 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                 )}
 
                 {/* Inline action bubble — appears in the chat when actions are available */}
-                {!isLoading && (isThesisReview ? isEditing : (isImmediate && !isEditing && ideaReady) || editReady || ideaReady || showChangedMind) && (
+                {!isLoading && (isInvalidationReview ? isEditing : (isImmediate && !isEditing && ideaReady) || editReady || ideaReady || showChangedMind) && (
                     <div className="chat-panel__action-bubble">
                         {dismissConfirm ? (
                             <div className="chat-panel__dismiss-confirm">
-                                <span>Thesis is fine — no changes needed. Clear the alert?</span>
+                                <span>Setup is still valid — clear the alert?</span>
                                 <div className="chat-panel__dismiss-confirm-btns">
                                     <button
                                         className="chat-panel__review-btn chat-panel__review-btn--dismiss"
-                                        onClick={() => { setDismissConfirm(false); onDismissThesis?.() }}
+                                        onClick={() => { setDismissConfirm(false); onDismissInvalidation?.() }}
                                     >Confirm</button>
                                     <button
                                         className="chat-panel__review-btn chat-panel__review-btn--later"
@@ -306,7 +306,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                                     >Cancel</button>
                                 </div>
                             </div>
-                        ) : isThesisReview ? (
+                        ) : isInvalidationReview ? (
                             <>
                                 {generateReady && (
                                     <button className="chat-panel__review-btn chat-panel__review-btn--update" onClick={onGenerate}>
@@ -369,7 +369,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                 isStreaming={isLoading}
                 onStop={onStop}
                 onClear={onClear}
-                clearDisabled={isLoading || isEditing || isThesisReview || !messages.length}
+                clearDisabled={isLoading || isEditing || isInvalidationReview || !messages.length}
                 clearTitle="Clear chat and idea"
                 onToggleMic={toggleMic}
                 onCancelMic={cancelMic}
@@ -392,8 +392,8 @@ ChatPanel.propTypes = {
     isLoading:         PropTypes.bool,
     streamStatus:      PropTypes.string,
     isEditing:         PropTypes.bool,
-    isThesisReview:    PropTypes.bool,
-    onDismissThesis:   PropTypes.func,
+    isInvalidationReview:    PropTypes.bool,
+    onDismissInvalidation:   PropTypes.func,
     onBuyMarket:       PropTypes.func,
     isPostOrderEdit:   PropTypes.bool,
     availableAccounts:   PropTypes.array,

@@ -17,7 +17,7 @@ import { userPromptService } from '../services/userPrompt/userPrompt.service.rem
 import { toolStatusLabel }   from '../services/toolStatusLabels.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
-import { showErrorMsg, eventBus, THESIS_EDIT_IDEA, PORTFOLIO_REVIEW } from '../services/event-bus.service'
+import { showErrorMsg, eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW } from '../services/event-bus.service'
 import { useTypewriter }     from '../customHooks/useTypewriter.js'
 import { useTextPace }       from '../customHooks/useTextPace.js'
 import { useNewsFeed }       from '../customHooks/useNewsFeed.js'
@@ -78,6 +78,7 @@ function deriveBuildingIdea(analysisState) {
         tp_conditions:    pt.tp_conditions    || [],
         notes:            pt.notes           || null,
         conviction:       pt.conviction       || null,
+        invalidation:     pt.invalidation     || null,
     }
 }
 
@@ -142,7 +143,7 @@ export function MainPage() {
     const [streamStatus, setStreamStatus] = useState('')
     const [chatPhase, setChatPhase] = useState(null)
     const [editingIdeaId,     setEditingIdeaId]     = useState(null)
-    const [isThesisReview,    setIsThesisReview]    = useState(false)
+    const [isInvalidationReview, setIsInvalidationReview] = useState(false)
     const [activeTab, setActiveTab]             = useState('idea')
     const [newsTab, setNewsTab]                 = useState('news')
     const [scannerChatRestore, setScannerChatRestore] = useState(null)
@@ -393,7 +394,7 @@ export function MainPage() {
         setAnalysisState(null)
         setMessages([])
         setEditingIdeaId(null)
-        setIsThesisReview(false)
+        setIsInvalidationReview(false)
         news.clearAsset()
         setChartSymbol(DEFAULT_CHART_SYMBOL)
         setChartInterval(DEFAULT_CHART_INTERVAL)
@@ -401,7 +402,7 @@ export function MainPage() {
         latestMessagesRef.current = []
     }
 
-    function handleEditIdea(idea, { thesisReview = false } = {}) {
+    function handleEditIdea(idea, { invalidationReview = false } = {}) {
         const cs = idea.chat_state
         // Restore prior chat if available, otherwise seed state from the idea's conditions
         const restoredState = cs?.analysisState ?? {
@@ -429,6 +430,7 @@ export function MainPage() {
                         quantity:   ae.quantity   ?? null,
                     })),
                     notes:            idea.notes            ?? null,
+                    invalidation:     idea.invalidation     ?? null,
                 },
             },
         }
@@ -440,19 +442,19 @@ export function MainPage() {
         const editInterval = deriveIdeaInterval(restoredState.structured_state?.pending_trade)
         if (editInterval) setChartInterval(editInterval)
         setEditingIdeaId(idea.id)
-        setIsThesisReview(thesisReview)
+        setIsInvalidationReview(invalidationReview)
         setSelectedAccounts(Array.isArray(idea.accounts) ? idea.accounts : [])
         setMainAccountId(idea.mainAccountId ?? null)
     }
 
-    // Keep a ref so the thesis-alert handler always sees the latest ideas list
-    // without needing to be recreated on every render.
+    // Keep a ref so the invalidation-alert handler always sees the latest ideas
+    // list without needing to be recreated on every render.
     const ideasRef = useRef(ideas)
     ideasRef.current = ideas
     useEffect(() => {
-        return eventBus.on(THESIS_EDIT_IDEA, ({ ideaId }) => {
+        return eventBus.on(INVALIDATION_EDIT_IDEA, ({ ideaId }) => {
             const idea = ideasRef.current.find(i => i.id === ideaId)
-            if (idea) handleEditIdea(idea, { thesisReview: true })
+            if (idea) handleEditIdea(idea, { invalidationReview: true })
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -506,12 +508,12 @@ export function MainPage() {
                     chat_state: chatState,
                     accounts:      selectedAccounts,
                     mainAccountId: mainAccountId,
-                    // Thesis review: clear the alert so the monitor re-evaluates
-                    ...(isThesisReview && { thesis_status: null, thesis_status_reason: null }),
+                    // Invalidation review: clear the alert so the monitor re-evaluates
+                    ...(isInvalidationReview && { invalidation_status: null, invalidation_reason: null, invalidation_edge: null }),
                 })
                 setIdeas(prev => prev.map(i => i.id === editingIdeaId ? res.idea : i))
                 setEditingIdeaId(null)
-                setIsThesisReview(false)
+                setIsInvalidationReview(false)
                 setAnalysisState(null)
                 setMessages([])
                 news.clearAsset()
@@ -539,18 +541,19 @@ export function MainPage() {
         }
     }
 
-    // Thesis review "Dismiss": idea is fine as-is, just clear the alert so the
-    // monitor can re-evaluate. Does NOT change status or conditions.
-    async function handleDismissThesis() {
+    // Invalidation review "Dismiss": idea is fine as-is, just clear the alert so
+    // the monitor can re-evaluate. Does NOT change status or conditions.
+    async function handleDismissInvalidation() {
         if (!editingIdeaId) return
         try {
             const res = await tradeIdeasService.updateIdea(editingIdeaId, {
-                thesis_status:        null,
-                thesis_status_reason: null,
+                invalidation_status: null,
+                invalidation_reason: null,
+                invalidation_edge:   null,
             })
             setIdeas(prev => prev.map(i => i.id === editingIdeaId ? res.idea : i))
         } catch (err) {
-            console.error('[thesis] dismiss failed', err)
+            console.error('[invalidation] dismiss failed', err)
         }
         handleCancelBuild()
     }
@@ -865,8 +868,8 @@ export function MainPage() {
         isLoading,
         streamStatus,
         isEditing:           !!editingIdeaId,
-        isThesisReview,
-        onDismissThesis:     handleDismissThesis,
+        isInvalidationReview,
+        onDismissInvalidation: handleDismissInvalidation,
         onBuyMarket:         handleBuyMarket,
         isPostOrderEdit:     !!ideas.find(i => i.id === editingIdeaId && ['hit', 'long', 'short'].includes(i.status)),
         availableAccounts,

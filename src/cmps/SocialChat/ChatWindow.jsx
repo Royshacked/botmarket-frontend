@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
-import { eventBus, THESIS_EDIT_IDEA, PORTFOLIO_REVIEW } from '../../services/event-bus.service'
+import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW } from '../../services/event-bus.service'
 
 function formatTime(ms) {
     if (!ms) return ''
@@ -56,8 +56,8 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                             key={msg.id}
                             className={`social-chat__msg ${isMine ? 'social-chat__msg--mine' : 'social-chat__msg--theirs'}`}
                         >
-                            {msg.type === 'thesis_alert' && msg.payload
-                                ? <ThesisAlertBubble msg={msg} onClose={onClose} />
+                            {msg.type === 'invalidation_alert' && msg.payload
+                                ? <InvalidationAlertBubble msg={msg} onClose={onClose} />
                                 : msg.type === 'portfolio_review' && msg.payload
                                 ? <PortfolioReviewBubble msg={msg} onClose={onClose} />
                                 : <div className="social-chat__msg-bubble">{msg.content}</div>
@@ -86,23 +86,22 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
     )
 }
 
-function ThesisAlertBubble({ msg, onClose }) {
-    const { thesis_status, reason, asset } = msg.payload
-    const isInvalidated = thesis_status === 'invalidated'
-    const label = isInvalidated ? 'Thesis Invalidated' : 'Thesis Weakening'
+function InvalidationAlertBubble({ msg, onClose }) {
+    const { reason, asset, edge, inPosition } = msg.payload
+    const label = `Invalidation${inPosition ? ' (in position)' : ''}`
 
     function handleReview() {
-        eventBus.emit(THESIS_EDIT_IDEA, { ideaId: msg.payload.ideaId })
+        eventBus.emit(INVALIDATION_EDIT_IDEA, { ideaId: msg.payload.ideaId })
         onClose?.()
     }
 
     return (
-        <div className={`social-chat__msg-bubble social-chat__thesis-alert social-chat__thesis-alert--${thesis_status}`}>
-            <div className="social-chat__thesis-alert-header">
+        <div className={`social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--${edge ?? 'fired'}`}>
+            <div className="social-chat__invalidation-alert-header">
                 {label} &middot; {asset}
             </div>
-            <div className="social-chat__thesis-alert-reason">{reason}</div>
-            <button className="social-chat__thesis-alert-btn" onClick={handleReview}>
+            <div className="social-chat__invalidation-alert-reason">{reason}</div>
+            <button className="social-chat__invalidation-alert-btn" onClick={handleReview}>
                 Review Idea
             </button>
         </div>

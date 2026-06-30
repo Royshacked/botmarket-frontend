@@ -362,34 +362,36 @@
         &:focus { border-color: var(--border-strong); }
     }
 
-    // ── Thesis alert message ───────────────────────────────────────────────
-    &__thesis-alert {
+    // ── Invalidation alert message ─────────────────────────────────────────
+    &__invalidation-alert {
         padding: 0;
         overflow: hidden;
         min-width: 220px;
 
-        &--weakening    { border: 1px solid #f59e0b; }
-        &--invalidated  { border: 1px solid #ef4444; }
+        &--upper { border: 1px solid #f59e0b; }
+        &--lower { border: 1px solid #ef4444; }
+        &--fired { border: 1px solid #f59e0b; }
     }
 
-    &__thesis-alert-header {
+    &__invalidation-alert-header {
         padding: 7px 12px 5px;
         font-size: .76rem;
         font-weight: 600;
         letter-spacing: .01em;
 
-        .social-chat__thesis-alert--weakening &   { background: rgba(245,158,11,.12); color: #f59e0b; }
-        .social-chat__thesis-alert--invalidated & { background: rgba(239,68,68,.12);  color: #ef4444; }
+        .social-chat__invalidation-alert--upper & { background: rgba(245,158,11,.12); color: #f59e0b; }
+        .social-chat__invalidation-alert--lower & { background: rgba(239,68,68,.12);  color: #ef4444; }
+        .social-chat__invalidation-alert--fired & { background: rgba(245,158,11,.12); color: #f59e0b; }
     }
 
-    &__thesis-alert-reason {
+    &__invalidation-alert-reason {
         padding: 6px 12px 8px;
         font-size: .83rem;
         color: var(--text-primary);
         line-height: 1.4;
     }
 
-    &__thesis-alert-btn {
+    &__invalidation-alert-btn {
         display: block;
         width: calc(100% - 24px);
         margin: 0 12px 10px;
