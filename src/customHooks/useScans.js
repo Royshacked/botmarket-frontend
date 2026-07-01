@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { scannerService } from '../services/scanner/scanner.service.remote.js'
+import { useAutoRefresh } from './useAutoRefresh.js'
 
 /**
  * Owns the user's saved scan lists: initial load + create/delete with optimistic
@@ -16,7 +17,7 @@ export function useScans() {
         finally { setLoading(false) }
     }, [])
 
-    useEffect(() => { loadScans() }, [loadScans])
+    useAutoRefresh(loadScans)
 
     const createScan = useCallback(async (scan) => {
         try {

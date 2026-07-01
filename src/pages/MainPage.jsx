@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 import { ChatPanel }         from '../cmps/ChatPanel/ChatPanel.jsx'
 import { readStoredModel }   from '../cmps/modelOptions.js'
 import { readStoredReasoning } from '../cmps/reasoningOptions.js'
-import { readStoredRoutingMode } from '../cmps/RoutingModeSelector.jsx'
+import { readStoredRoutingMode } from '../cmps/routingModeOptions.js'
 import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
 import { ScannerPanel }      from '../cmps/ScannerPanel/ScannerPanel.jsx'
 import { Radar }             from '../cmps/Radar/Radar.jsx'
@@ -11,15 +11,13 @@ import { TradingViewChart }  from '../cmps/TradingViewChart/TradingViewChart.jsx
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
-import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { MonitorDashboard }  from '../cmps/MonitorDashboard/MonitorDashboard.jsx'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
-import { toolStatusLabel }   from '../services/toolStatusLabels.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
 import { showErrorMsg, eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW } from '../services/event-bus.service'
-import { useTypewriter }     from '../customHooks/useTypewriter.js'
-import { useTextPace }       from '../customHooks/useTextPace.js'
+import { useChatStream }     from '../customHooks/useChatStream.js'
 import { useNewsFeed }       from '../customHooks/useNewsFeed.js'
 import { useCalendarEvents } from '../customHooks/useCalendarEvents.js'
 import { useScans }          from '../customHooks/useScans.js'
@@ -135,13 +133,12 @@ function buildCandidateContext(c, period) {
 }
 
 export function MainPage() {
-    const [messages, setMessages] = useState([])
+    const chat = useChatStream()
+    const { messages, setMessages, isLoading, streamStatus } = chat
+
     const [analysisState, setAnalysisState] = useState(null)
     const [chartSymbol, setChartSymbol]   = useState(DEFAULT_CHART_SYMBOL)
     const [chartInterval, setChartInterval] = useState(DEFAULT_CHART_INTERVAL)
-    const [isLoading, setIsLoading] = useState(false)
-    const [streamStatus, setStreamStatus] = useState('')
-    const [chatPhase, setChatPhase] = useState(null)
     const [editingIdeaId,     setEditingIdeaId]     = useState(null)
     const [isInvalidationReview, setIsInvalidationReview] = useState(false)
     const [activeTab, setActiveTab]             = useState('idea')
@@ -157,7 +154,6 @@ export function MainPage() {
     const [deletingIdea, setDeletingIdea] = useState(false)
     const [mobileChatOpen, setMobileChatOpen] = useState(false)
     const latestMessagesRef = useRef([])
-    const abortRef          = useRef(null)
 
     const news = useNewsFeed()
     const { earnings, earningsDate, earningsLoading, fda, fdaDate, fdaLoading } = useCalendarEvents()
@@ -166,11 +162,6 @@ export function MainPage() {
     const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
     const { positions, loading: positionsLoading, refresh: refreshPositions, closePosition } = usePositions()
     const { ideas, setIdeas, loadIdeas, handleStatusChange } = useTradeIdeas()
-
-    // Typewriter queue — smooths streamed tokens into the last message at the
-    // user's chosen pace (the global text-speed slider)
-    const { paceCps } = useTextPace()
-    const { enqueue: enqueueToken, start: startDrain, stop: stopDrain, finish: finishDrain } = useTypewriter(setMessages, paceCps)
 
     const buildingIdea = deriveBuildingIdea(analysisState)
     // buildingPortfolio is reported up from PortfolioPanel (assets recommended /
@@ -216,180 +207,93 @@ export function MainPage() {
     }
 
     async function handleSend(userPrompt, currentAnalysisState) {
-        setMessages(prev => [
-            ...prev,
-            { role: 'user', content: userPrompt },
-            { role: 'assistant', content: '', streaming: true },
-        ])
-        setIsLoading(true)
-        setStreamStatus('')
-        startDrain()
+        const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
 
-        const ctrl = new AbortController()
-        abortRef.current = ctrl
+        const { signal, handlers } = chat.begin(userPrompt, {
+            onInterval: (interval) => { if (interval) setChartInterval(interval) },
+            onAsset: (symbol) => {
+                if (symbol) {
+                    setChartSymbol(symbol)
+                    news.previewAsset(symbol)
+                }
+            },
 
-        // On a clean finish we keep isLoading true until the typewriter has fully
-        // drained (cleared from finishDrain's onComplete), so the Stop button stays
-        // live while text is still being typed out. Error/abort paths clear it in
-        // the finally below (drain is hard-stopped there, so onComplete won't fire).
-        let deferLoading = false
-        let reasoningAcc = ''
+            // Agent surfaced a chart it wants the user to see — drop an
+            // image bubble in just before the streaming assistant reply.
+            onChart: (data) => {
+                if (!data?.imageBase64) return
+                setMessages(prev => {
+                    const msgs = [...prev]
+                    const chartMsg = {
+                        role:        'assistant',
+                        type:        'chart',
+                        symbol:      data.symbol,
+                        timeframe:   data.timeframe,
+                        imageBase64: data.imageBase64,
+                    }
+                    const lastIdx = msgs.length - 1
+                    if (msgs[lastIdx]?.streaming) msgs.splice(lastIdx, 0, chartMsg)
+                    else msgs.push(chartMsg)
+                    return msgs
+                })
+            },
+
+            onDone: (data) => {
+                const reasoning = chat.reasoningRef.current
+                const finalMsg = { role: 'assistant', content: data.reply, analysisState: data.analysisState ?? null, ...(reasoning ? { reasoning } : {}) }
+                // Mirror the final messages into the persisted-state ref now —
+                // so a navigate/generate while the typewriter is still catching
+                // up still saves the complete reply — without changing what's on
+                // screen (the read returns prev unchanged).
+                setMessages(prev => {
+                    const finalMsgs = prev.map((m, i) => (i === prev.length - 1 && m.streaming ? finalMsg : m))
+                    // Keep chart bubbles in the saved chat_state so they re-render
+                    // when the idea is reopened for editing. They stay display-only:
+                    // the trade chat sends analysisState (text), never this messages
+                    // array, so charts never enter the model's context. Cap the count
+                    // so the saved base64 doesn't bloat the idea doc / each progressive
+                    // save (oldest charts are dropped first).
+                    latestMessagesRef.current = _capPersistedCharts(finalMsgs)
+                    return prev
+                })
+                // Visually finish typing the backlog, then swap in finalMsg —
+                // no end-of-stream dump. Keep Stop live until the drain ends.
+                chat.finishStreaming(finalMsg)
+                // Save chat state progressively when editing
+                if (editingIdeaId && data.analysisState) {
+                    tradeIdeasService.updateIdea(editingIdeaId, {
+                        chat_state: { messages: _capPersistedMessages(latestMessagesRef.current), analysisState: data.analysisState }
+                    }).catch(err => console.error('[chat_state] save failed', err))
+                }
+                setAnalysisState(data.analysisState ?? null)
+                const newAsset   = data.analysisState?.structured_state?.active_asset
+                const newCompany = data.analysisState?.structured_state?.active_company_name
+                if (newAsset) setChartSymbol(newAsset)
+                // Follow the established timeframe even if the LLM omitted <interval>
+                const newInterval = deriveIdeaInterval(data.analysisState?.structured_state?.pending_trade)
+                if (newInterval) setChartInterval(newInterval)
+                news.focusAsset(newAsset, newCompany)
+                if (data.ideaSaved) loadIdeas()
+            },
+        })
 
         try {
-            const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
             await userPromptService.sendPromptStream(
                 userPrompt,
                 currentAnalysisState,
-                {
-                    signal: ctrl.signal,
-                    // Buffer only — drain timer handles the actual state updates
-                    onToken:    (text)     => { setStreamStatus(''); enqueueToken(text) },
-                    onStatus:   (tool)     => { setStreamStatus(toolStatusLabel(tool)) },
-                    onInterval: (interval) => { if (interval) setChartInterval(interval) },
-                    onReasoning: (text)    => {
-                        reasoningAcc += text
-                        setMessages(prev => {
-                            const idx = prev.findIndex(m => m.streaming)
-                            if (idx < 0) return prev
-                            const next = [...prev]
-                            next[idx] = { ...next[idx], reasoning: reasoningAcc }
-                            return next
-                        })
-                    },
-                    onPhase:    (phase)    => {
-                        if (!phase) return
-                        // Only mark the phase when it actually changes — the model emits
-                        // a phase tag every turn, so this avoids a repeated heading.
-                        const changed = phase !== chatPhase
-                        setChatPhase(phase)
-                        if (!changed) return
-                        setMessages(prev => {
-                            const idx = prev.findIndex(m => m.streaming)
-                            if (idx < 0) return prev
-                            const next = [...prev]
-                            next.splice(idx, 0, { role: 'phase', phase })
-                            return next
-                        })
-                    },
-                    onAsset: (symbol) => {
-                        if (symbol) {
-                            setChartSymbol(symbol)
-                            news.previewAsset(symbol)
-                        }
-                    },
-
-                    // Agent surfaced a chart it wants the user to see — drop an
-                    // image bubble in just before the streaming assistant reply.
-                    onChart: (data) => {
-                        if (!data?.imageBase64) return
-                        setMessages(prev => {
-                            const msgs = [...prev]
-                            const chartMsg = {
-                                role:        'assistant',
-                                type:        'chart',
-                                symbol:      data.symbol,
-                                timeframe:   data.timeframe,
-                                imageBase64: data.imageBase64,
-                            }
-                            const lastIdx = msgs.length - 1
-                            if (msgs[lastIdx]?.streaming) msgs.splice(lastIdx, 0, chartMsg)
-                            else msgs.push(chartMsg)
-                            return msgs
-                        })
-                    },
-
-                    onDone: (data) => {
-                        const finalMsg = { role: 'assistant', content: data.reply, analysisState: data.analysisState ?? null, ...(reasoningAcc ? { reasoning: reasoningAcc } : {}) }
-                        // Mirror the final messages into the persisted-state ref now —
-                        // so a navigate/generate while the typewriter is still catching
-                        // up still saves the complete reply — without changing what's on
-                        // screen (the read returns prev unchanged).
-                        setMessages(prev => {
-                            const finalMsgs = prev.map((m, i) => (i === prev.length - 1 && m.streaming ? finalMsg : m))
-                            // Keep chart bubbles in the saved chat_state so they re-render
-                            // when the idea is reopened for editing. They stay display-only:
-                            // the trade chat sends analysisState (text), never this messages
-                            // array, so charts never enter the model's context. Cap the count
-                            // so the saved base64 doesn't bloat the idea doc / each progressive
-                            // save (oldest charts are dropped first).
-                            latestMessagesRef.current = _capPersistedCharts(finalMsgs)
-                            return prev
-                        })
-                        // Visually finish typing the backlog, then swap in finalMsg —
-                        // no end-of-stream dump. Keep Stop live until the drain ends.
-                        deferLoading = true
-                        finishDrain(finalMsg, () => setIsLoading(false))
-                        // Save chat state progressively when editing
-                        if (editingIdeaId && data.analysisState) {
-                            tradeIdeasService.updateIdea(editingIdeaId, {
-                                chat_state: { messages: _capPersistedMessages(latestMessagesRef.current), analysisState: data.analysisState }
-                            }).catch(err => console.error('[chat_state] save failed', err))
-                        }
-                        setAnalysisState(data.analysisState ?? null)
-                        const newAsset   = data.analysisState?.structured_state?.active_asset
-                        const newCompany = data.analysisState?.structured_state?.active_company_name
-                        if (newAsset) setChartSymbol(newAsset)
-                        // Follow the established timeframe even if the LLM omitted <interval>
-                        const newInterval = deriveIdeaInterval(data.analysisState?.structured_state?.pending_trade)
-                        if (newInterval) setChartInterval(newInterval)
-                        news.focusAsset(newAsset, newCompany)
-                        if (data.ideaSaved) loadIdeas()
-                    },
-
-                    onError: (message) => {
-                        stopDrain()
-                        setMessages(prev => {
-                            const msgs = [...prev]
-                            const last = msgs[msgs.length - 1]
-                            if (last?.streaming) {
-                                msgs[msgs.length - 1] = {
-                                    role: 'assistant',
-                                    content: message || 'Error communicating with the server.',
-                                }
-                            }
-                            return msgs
-                        })
-                    },
-                },
+                { signal, ...handlers },
                 ideaAccounts,
                 readStoredModel('ideaModel'),
                 readStoredReasoning('ideaReasoning'),
                 readStoredRoutingMode('ideaRoutingMode'),
-                chatPhase
+                chat.phase
             )
         } catch (err) {
             console.error(err)
-            stopDrain()
-            setMessages(prev => {
-                const msgs = [...prev]
-                const last = msgs[msgs.length - 1]
-                if (last?.streaming) {
-                    msgs[msgs.length - 1] = {
-                        role: 'assistant',
-                        content: 'Error communicating with the server. Please try again.',
-                    }
-                }
-                return msgs
-            })
+            chat.freezeError('Error communicating with the server. Please try again.')
         } finally {
-            if (!deferLoading) setIsLoading(false)
-            setStreamStatus('')
+            chat.endStream()
         }
-    }
-
-    // Stop a streaming idea-chat response: abort the request, freeze the partial
-    // reply, free the input. postSSE swallows the abort so no error bubble shows.
-    function handleStopIdea() {
-        abortRef.current?.abort()
-        stopDrain()
-        setMessages(prev => {
-            const msgs = [...prev]
-            const last = msgs[msgs.length - 1]
-            if (last?.streaming) msgs[msgs.length - 1] = { role: 'assistant', content: last.content || '_(stopped)_' }
-            return msgs
-        })
-        setIsLoading(false)
-        setStreamStatus('')
     }
 
     function handleCancelBuild() {
@@ -400,7 +304,7 @@ export function MainPage() {
         news.clearAsset()
         setChartSymbol(DEFAULT_CHART_SYMBOL)
         setChartInterval(DEFAULT_CHART_INTERVAL)
-        setChatPhase(null)
+        chat.setPhase(null)
         latestMessagesRef.current = []
     }
 
@@ -500,7 +404,7 @@ export function MainPage() {
         // Don't reset to 'waiting' when editing a live idea (hit/long/short) —
         // the user is just adding stops/TPs to an already-placed order.
         const editingIdea    = ideas.find(i => i.id === editingIdeaId)
-        const isPostOrderEdit = !!editingIdea && ['hit', 'long', 'short'].includes(editingIdea.status)
+        const isPostOrderEdit = !!editingIdea && isPostOrderStatus(editingIdea.status)
 
         if (editingIdeaId) {
             try {
@@ -892,14 +796,14 @@ export function MainPage() {
         onSend:              handleSend,
         onGenerate:          handleGenerate,
         onClear:             handleCancelBuild,
-        onStop:              handleStopIdea,
+        onStop:              chat.handleStop,
         isLoading,
         streamStatus,
         isEditing:           !!editingIdeaId,
         isInvalidationReview,
         onDismissInvalidation: handleDismissInvalidation,
         onBuyMarket:         handleBuyMarket,
-        isPostOrderEdit:     !!ideas.find(i => i.id === editingIdeaId && ['hit', 'long', 'short'].includes(i.status)),
+        isPostOrderEdit:     !!ideas.find(i => i.id === editingIdeaId && isPostOrderStatus(i.status)),
         availableAccounts,
         selectedAccounts,
         onAccountsChange:    setSelectedAccounts,

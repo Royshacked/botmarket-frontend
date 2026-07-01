@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { paperService } from '../services/paper/paper.service.remote.js'
+import { useAutoRefresh } from './useAutoRefresh.js'
+import { useWindowEvent } from './useWindowEvent.js'
 
 /**
  * Tracks whether global paper (simulation) mode is on, for the header mode
@@ -22,12 +24,8 @@ export function usePaperMode(userId) {
         } catch { /* paper API unavailable — leave as live */ }
     }, [userId])
 
-    useEffect(() => { refresh() }, [refresh])
-
-    useEffect(() => {
-        window.addEventListener('paper-mode-changed', refresh)
-        return () => window.removeEventListener('paper-mode-changed', refresh)
-    }, [refresh])
+    useAutoRefresh(refresh)
+    useWindowEvent('paper-mode-changed', refresh)
 
     return isPaper
 }

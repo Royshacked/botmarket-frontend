@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { brokerService } from '../services/broker/broker.service.remote.js'
+import { useAutoRefresh } from './useAutoRefresh.js'
 
 /**
  * Loads the user's open positions across every connected broker and keeps them
@@ -61,7 +62,7 @@ export function usePositions() {
         }
     }, [])
 
-    useEffect(() => { refresh() }, [refresh])
+    useAutoRefresh(refresh)
 
     const closePosition = useCallback(async (broker, positionId, accountId) => {
         await brokerService.closePosition(broker, positionId, accountId)

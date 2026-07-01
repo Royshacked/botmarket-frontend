@@ -1,5 +1,8 @@
+import { httpService } from '../http.service'
 import { API_BASE } from '../config'
-import { postSSE } from '../sse.util'
+import { postSSE, buildStreamHandlers } from '../sse.util'
+
+const BASE = 'api/scanner'
 
 export const scannerService = {
     sendStream,
@@ -7,86 +10,49 @@ export const scannerService = {
     saveChatState, getChatState, deleteChatState,
 }
 
-async function sendStream(messages, { onToken, onTicker, onPhase, onStatus, onReasoning, onDone, onError, model, reasoningEffort, routingMode, currentPhase, signal, editList = null } = {}) {
+async function sendStream(messages, opts = {}) {
+    const { model, reasoningEffort, routingMode, currentPhase, signal, editList = null } = opts
     await postSSE(
-        `${API_BASE}/api/scanner/stream`,
+        `${API_BASE}/${BASE}/stream`,
         { messages, model, editList, reasoningEffort, routingMode, currentPhase },
-        {
-            token:     (d) => onToken?.(d.text),
-            ticker:    (d) => onTicker?.(d.symbol),
-            phase:     (d) => onPhase?.(d.phase),
-            status:    (d) => onStatus?.(d.tool),
-            reasoning: (d) => onReasoning?.(d.text),
-            done:      (d) => onDone?.(d),
-            error:     (d) => onError?.(d.message),
-        },
+        buildStreamHandlers(opts),
         { signal },
     )
 }
 
 async function listScans() {
-    const res = await fetch(`${API_BASE}/api/scanner/scans`, { credentials: 'include' })
-    if (!res.ok) return []
-    const data = await res.json()
-    return Array.isArray(data.scans) ? data.scans : []
+    // Swallow load failures to an empty list; httpService already logs + handles 401.
+    try {
+        const data = await httpService.get(`${BASE}/scans`)
+        return Array.isArray(data.scans) ? data.scans : []
+    } catch { return [] }
 }
 
 async function createScan(scan) {
-    const res = await fetch(`${API_BASE}/api/scanner/scans`, {
-        method:      'POST',
-        credentials: 'include',
-        headers:     { 'Content-Type': 'application/json' },
-        body:        JSON.stringify({ scan }),
-    })
-    if (!res.ok) throw new Error('Failed to save scan')
-    const data = await res.json()
+    const data = await httpService.post(`${BASE}/scans`, { scan })
     return data.scan
 }
 
 async function updateScan(id, scan) {
-    const res = await fetch(`${API_BASE}/api/scanner/scans/${encodeURIComponent(id)}`, {
-        method:      'PUT',
-        credentials: 'include',
-        headers:     { 'Content-Type': 'application/json' },
-        body:        JSON.stringify({ scan }),
-    })
-    if (!res.ok) throw new Error('Failed to update scan')
-    const data = await res.json()
+    const data = await httpService.put(`${BASE}/scans/${encodeURIComponent(id)}`, { scan })
     return data.scan
 }
 
 async function deleteScan(id) {
-    const res = await fetch(`${API_BASE}/api/scanner/scans/${encodeURIComponent(id)}`, {
-        method:      'DELETE',
-        credentials: 'include',
-    })
-    if (!res.ok) throw new Error('Failed to delete scan')
-    return res.json()
+    return httpService.delete(`${BASE}/scans/${encodeURIComponent(id)}`)
 }
 
 async function saveChatState(messages) {
-    const res = await fetch(`${API_BASE}/api/scanner/chat-state`, {
-        method:      'POST',
-        credentials: 'include',
-        headers:     { 'Content-Type': 'application/json' },
-        body:        JSON.stringify({ messages }),
-    })
-    if (!res.ok) throw new Error('Failed to save scanner chat state')
-    return res.json()
+    return httpService.post(`${BASE}/chat-state`, { messages })
 }
 
 async function getChatState() {
-    const res = await fetch(`${API_BASE}/api/scanner/chat-state`, { credentials: 'include' })
-    if (!res.ok) return null
-    const data = await res.json()
-    return data.chatState ?? null
+    try {
+        const data = await httpService.get(`${BASE}/chat-state`)
+        return data.chatState ?? null
+    } catch { return null }
 }
 
 async function deleteChatState() {
-    const res = await fetch(`${API_BASE}/api/scanner/chat-state`, {
-        method:      'DELETE',
-        credentials: 'include',
-    })
-    if (!res.ok) throw new Error('Failed to delete scanner chat state')
-    return res.json()
+    return httpService.delete(`${BASE}/chat-state`)
 }

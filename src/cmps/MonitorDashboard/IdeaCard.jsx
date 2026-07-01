@@ -1,10 +1,10 @@
 import PropTypes from 'prop-types'
+import { phaseSummary } from '../TradeIdeas/tradeIdea.utils.js'
 
-// Normalise condition arrays — handles both legacy strings and { condition, type } objects
-function conditionPreview(arr) {
-    if (!Array.isArray(arr) || arr.length === 0) return null
-    const first = arr[0]
-    const text  = typeof first === 'string' ? first : (first?.condition ?? '')
+// Truncate a phase summary for the compact card. phaseSummary reads the condition
+// tree first (like the ideas row), so tree-format ideas no longer render blank here.
+function conditionPreview(idea, phase) {
+    const text = phaseSummary(idea, phase)
     if (!text) return null
     return text.length > 52 ? text.slice(0, 52) + '…' : text
 }
@@ -25,13 +25,12 @@ function phaseInfo(idea) {
 }
 
 export function IdeaCard({ idea, onOpen }) {
-    const { asset, direction, type, timeframe,
-            entry_conditions, stop_conditions, tp_conditions } = idea
+    const { asset, direction, type, timeframe } = idea
 
     const phase   = phaseInfo(idea)
-    const entry   = conditionPreview(entry_conditions)
-    const stop    = conditionPreview(stop_conditions)
-    const tp      = conditionPreview(tp_conditions)
+    const entry   = conditionPreview(idea, 'entry')
+    const stop    = conditionPreview(idea, 'stop')
+    const tp      = conditionPreview(idea, 'tp')
 
     return (
         <div className={`idea-card idea-card--${phase.cls}`} onClick={() => onOpen(idea)}>

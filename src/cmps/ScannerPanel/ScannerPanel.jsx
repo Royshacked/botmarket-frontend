@@ -4,19 +4,15 @@ import { scannerService } from '../../services/scanner/scanner.service.remote.js
 import { ChatMarkdown } from '../ChatMarkdown.jsx'
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
-import { readStoredRoutingMode } from '../RoutingModeSelector.jsx'
+import { readStoredRoutingMode } from '../routingModeOptions.js'
 import { useMicInput } from '../../customHooks/useMicInput.js'
-import { useTypewriter } from '../../customHooks/useTypewriter.js'
-import { useTextPace } from '../../customHooks/useTextPace.js'
-import { makeStreamHandlers } from '../../customHooks/useStreamStop.js'
+import { useChatStream } from '../../customHooks/useChatStream.js'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
-import { MeditatingBot } from '../MeditatingBot.jsx'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { ChatPhaseHeading } from '../ChatPhaseHeading.jsx'
 import { ChatReasoning } from '../ChatReasoning.jsx'
-import { toolStatusLabel } from '../../services/toolStatusLabels.js'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import './ScannerPanel.scss'
 
@@ -69,11 +65,10 @@ function MessageBubble({ msg, onTickerSelect }) {
 }
 
 export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, chatRestore = null }) {
-    const [messages,      setMessages]      = useState([])
+    const chat = useChatStream()
+    const { messages, setMessages } = chat
+
     const [inputText,     setInputText]     = useState('')
-    const [isLoading,     setIsLoading]     = useState(false)
-    const [streamStatus,  setStreamStatus]  = useState('')
-    const [scanPhase,     setScanPhase]     = useState(null)
     const [pendingScan,   setPendingScan]   = useState(null)
     const [editingScanId, setEditingScanId] = useState(null)
     const [editDirty,     setEditDirty]     = useState(false)
@@ -91,20 +86,14 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
     }, [chatRestore?.key])
 
     const pendingTickersRef = useRef([])
-    const reasoningRef      = useRef('')
     const textareaRef       = useRef(null)
-    const abortRef          = useRef(null)
-    const { paceCps } = useTextPace()
-    const { enqueue: enqueueToken, start: startDrain, stop: stopDrain, finish: finishDrain } = useTypewriter(setMessages, paceCps)
-
-    const { handleStop, freezeError } = makeStreamHandlers({ abortRef, stopDrain, setMessages, setIsLoading })
 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable closure
     const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
     const { isRecording, isTranscribing, toggle: toggleMic, cancel: cancelMic } = useMicInput({ onTranscript })
 
     async function _send(text) {
-        if (!text || isLoading) return
+        if (!text || chat.isLoading) return
         setEditDirty(true)
 
         const history = messages
@@ -112,86 +101,37 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
             .map(m => ({ role: m.role, content: m.content }))
         history.push({ role: 'user', content: text })
 
-        setMessages(prev => [
-            ...prev,
-            { role: 'user', content: text },
-            { role: 'assistant', content: '', streaming: true },
-        ])
-        setIsLoading(true)
-        setStreamStatus('')
         pendingTickersRef.current = []
-        reasoningRef.current = ''
-        startDrain()
 
-        const ctrl = new AbortController()
-        abortRef.current = ctrl
-
-        // On a clean finish we keep isLoading true until the typewriter has fully
-        // drained (cleared from finishDrain's onComplete), so the Stop button stays
-        // live while text is still being typed out. Error/abort paths clear it in
-        // the finally below (drain is hard-stopped there, so onComplete won't fire).
-        let deferLoading = false
+        const { signal, handlers } = chat.begin(text, {
+            onTicker: (symbol) => {
+                if (!pendingTickersRef.current.includes(symbol)) pendingTickersRef.current.push(symbol)
+            },
+            onDone: (data) => {
+                const tickers = [...pendingTickersRef.current]
+                pendingTickersRef.current = []
+                chat.finishStreaming({ role: 'assistant', content: data.reply, tickers })
+                if (data.scan?.candidates?.length) setPendingScan(data.scan)
+            },
+        })
 
         try {
             await scannerService.sendStream(history, {
                 model:           readStoredModel('scannerModel'),
                 reasoningEffort: readStoredReasoning('scannerReasoning'),
                 routingMode:     readStoredRoutingMode('scannerRoutingMode'),
-                currentPhase:    scanPhase,
-                signal: ctrl.signal,
+                currentPhase:    chat.phase,
                 // When editing, tell the agent the list's current contents so it can
                 // add / remove / change names against it.
-                editList: editingScanId ? (pendingScan || null) : null,
-                onToken:  (t)    => { setStreamStatus(''); enqueueToken(t) },
-                onStatus: (tool) => { setStreamStatus(toolStatusLabel(tool)) },
-                onReasoning: (t) => {
-                    reasoningRef.current += t
-                    const acc = reasoningRef.current
-                    setMessages(prev => {
-                        const idx = prev.findIndex(m => m.streaming)
-                        if (idx < 0) return prev
-                        const next = [...prev]
-                        next[idx] = { ...next[idx], reasoning: acc }
-                        return next
-                    })
-                },
-                onPhase:  (p)   => {
-                    if (!p) return
-                    // Only mark the phase when it actually changes — the model emits a
-                    // phase tag every turn, so this avoids a repeated heading per message.
-                    const changed = p !== scanPhase
-                    setScanPhase(p)
-                    if (!changed) return
-                    setMessages(prev => {
-                        const idx = prev.findIndex(m => m.streaming)
-                        if (idx < 0) return prev
-                        const next = [...prev]
-                        next.splice(idx, 0, { role: 'phase', phase: p })
-                        return next
-                    })
-                },
-                onTicker: (symbol) => {
-                    if (!pendingTickersRef.current.includes(symbol)) pendingTickersRef.current.push(symbol)
-                },
-                onDone: (data) => {
-                    const tickers = [...pendingTickersRef.current]
-                    pendingTickersRef.current = []
-                    // Finish typing the backlog at reading pace, then swap in the
-                    // final reply — no end-of-stream dump. Keep Stop live until the
-                    // drain ends.
-                    deferLoading = true
-                    const reasoning = reasoningRef.current || undefined
-                    finishDrain({ role: 'assistant', content: data.reply, tickers, reasoning }, () => setIsLoading(false))
-                    if (data.scan?.candidates?.length) setPendingScan(data.scan)
-                },
-                onError: (message) => freezeError(message),
+                editList:        editingScanId ? (pendingScan || null) : null,
+                signal,
+                ...handlers,
             })
         } catch (err) {
             console.error('[scanner]', err)
-            freezeError()
+            chat.freezeError()
         } finally {
-            if (!deferLoading) setIsLoading(false)
-            setStreamStatus('')
+            chat.endStream()
         }
     }
 
@@ -202,10 +142,9 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
     }
 
     function handleClear() {
-        setMessages([])
+        chat.reset()
         setPendingScan(null)
         setEditingScanId(null)
-        setScanPhase(null)
         setInputText('')
         setEditDirty(false)
     }
@@ -213,15 +152,15 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
     async function handleGenerate() {
         if (!pendingScan) return
         // Persist the conversation alongside the list so reopening it returns here.
-        const chat = messages
+        const chatLog = messages
             .filter(m => !m.streaming)
             .map(m => ({ role: m.role, content: m.content, ...(m.tickers?.length ? { tickers: m.tickers } : {}) }))
 
         if (editingScanId) {
             // Update the existing list in place; stay in edit mode for more refining.
-            await onUpdateList?.(editingScanId, { ...pendingScan, chat })
+            await onUpdateList?.(editingScanId, { ...pendingScan, chat: chatLog })
         } else {
-            await onGenerateList?.({ ...pendingScan, chat })
+            await onGenerateList?.({ ...pendingScan, chat: chatLog })
             setPendingScan(null)
         }
     }
@@ -235,7 +174,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
 
     const listReady = !!pendingScan && pendingScan.candidates?.length > 0
     const showChangedMind = !!editingScanId && !editDirty
-    const actionWatch = `${streamStatus}|${listReady}|${!!editingScanId}`
+    const actionWatch = `${chat.streamStatus}|${listReady}|${!!editingScanId}`
     const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, { watch: actionWatch })
 
     return (
@@ -254,7 +193,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
                 </div>
                 <div className="portfolio-panel__header-right">
                     <span className="portfolio-panel__live-badge">
-                        <span className={`portfolio-panel__status-dot${isLoading ? ' loading' : pendingScan ? ' building' : ' idle'}`} />
+                        <span className={`portfolio-panel__status-dot${chat.isLoading ? ' loading' : pendingScan ? ' building' : ' idle'}`} />
                         <span className="portfolio-panel__live">live</span>
                     </span>
                 </div>
@@ -295,7 +234,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
                                 Ask what to watch — a day, the coming week, an earnings window — and I&apos;ll scan US markets for candidates with the reasoning behind each.
                                 <div className="scanner-panel__suggestions">
                                     {SUGGESTIONS.map(s => (
-                                        <button key={s} className="scanner-panel__suggestion" onClick={() => _send(s)} disabled={isLoading}>
+                                        <button key={s} className="scanner-panel__suggestion" onClick={() => _send(s)} disabled={chat.isLoading}>
                                             {s}
                                         </button>
                                     ))}
@@ -305,14 +244,14 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
                     </div>
                 )}
                 {messages.map((msg, i) => <MessageBubble key={i} msg={msg} onTickerSelect={onTickerSelect} />)}
-                {isLoading && <ToolStatusChip label={streamStatus} />}
+                {chat.isLoading && <ToolStatusChip label={chat.streamStatus} />}
 
                 <div ref={messagesEndRef} />
             </div>
 
             {/* Action bar — a footer below the scroll area (not inside it) so it stays
                 pinned above the input without ever covering the messages. */}
-            {!isLoading && (listReady || showChangedMind) && (
+            {!chat.isLoading && (listReady || showChangedMind) && (
                 <div className="portfolio-panel__action-bubble">
                     {showChangedMind ? (
                         <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={handleClear}>
@@ -334,18 +273,18 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
                 onKeyDown={handleKeyDown}
                 placeholder="What should I scan for? (Enter to send, Shift+Enter for newline)"
                 onSend={handleSend}
-                sendDisabled={!inputText.trim() || isLoading}
-                isStreaming={isLoading}
-                onStop={handleStop}
+                sendDisabled={!inputText.trim() || chat.isLoading}
+                isStreaming={chat.isLoading}
+                onStop={chat.handleStop}
                 onClear={handleClear}
-                clearDisabled={isLoading || !messages.length}
+                clearDisabled={chat.isLoading || !messages.length}
                 clearTitle="Clear chat"
                 onToggleMic={toggleMic}
                 onCancelMic={cancelMic}
                 isRecording={isRecording}
                 isTranscribing={isTranscribing}
-                micDisabled={isLoading || isTranscribing}
-                textareaDisabled={isLoading || isRecording}
+                micDisabled={chat.isLoading || isTranscribing}
+                textareaDisabled={chat.isLoading || isRecording}
             />
         </div>
     )

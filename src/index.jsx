@@ -1,10 +1,7 @@
 import ReactDOM from 'react-dom/client'
 
 import { BrowserRouter as Router } from 'react-router-dom'
-import { Provider } from 'react-redux'
 
-
-import { store } from './store/store'
 import { RootCmp } from './RootCmp'
 import { AuthProvider } from './context/AuthContext'
 
@@ -21,13 +18,11 @@ initAccent()
 
 const root = ReactDOM.createRoot(document.getElementById('root'))
 root.render(
-	<Provider store={store}>
-		<Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-			<AuthProvider>
-				<RootCmp />
-			</AuthProvider>
-		</Router>
-	</Provider>
+	<Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+		<AuthProvider>
+			<RootCmp />
+		</AuthProvider>
+	</Router>
 )
 
 // If you want your app to work offline and load faster, you can change

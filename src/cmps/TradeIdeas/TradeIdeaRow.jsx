@@ -1,8 +1,7 @@
 import PropTypes from 'prop-types'
-import { conditionSummary, formatCreatedAt, formatCreatedAtFull, needsExitConditions, activationStatus, brokerSymbolLabel, brokerChildLabel, isDeleteLocked } from './tradeIdea.utils.js'
+import { conditionSummary, formatCreatedAt, formatCreatedAtFull, needsExitConditions, activationStatus, brokerSymbolLabel, brokerChildLabel, isDeleteLocked, isSystemStatus } from './tradeIdea.utils.js'
 import { StatusIcon } from '../StatusIcon.jsx'
 
-const SYSTEM_STATUSES = new Set(['hit', 'long', 'short', 'closed'])
 const BUILDING = 'building'
 
 export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolClick, onEdit, isPortfolioChild, isBrokerChild }) {
@@ -73,7 +72,7 @@ export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolC
                         <path d="m18 15 4-4"/>
                         <path d="m21.5 11.5-1.914-1.914A2 2 0 0 1 19 8.172V7l-2.26-2.26a6 6 0 0 0-4.202-1.756L9 2.96l.92.82A6.18 6.18 0 0 1 12 8.4V10l2 2h1.172a2 2 0 0 1 1.414.586z"/>
                     </svg>
-                ) : SYSTEM_STATUSES.has(status) ? (
+                ) : isSystemStatus(status) ? (
                     <span className={`idea-row__status-badge status--${status}`}>
                         <StatusIcon status={status} />
                     </span>

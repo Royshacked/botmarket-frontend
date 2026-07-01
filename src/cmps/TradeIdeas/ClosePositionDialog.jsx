@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { formatCreatedAtFull, formatNum, formatPnl } from './tradeIdea.utils.js'
-import { marketService } from '../../services/market/market.service.remote'
+import { useMarketStatus } from '../../customHooks/useMarketStatus.js'
 import './ClosePositionDialog.scss'
 
 const BROKER_LABELS = { ctrader: 'cTrader', ibkr: 'IBKR' }
@@ -16,23 +15,11 @@ const BROKER_LABELS = { ctrader: 'cTrader', ibkr: 'IBKR' }
  * (class-aware via the position's stamped assetClass, symbol heuristic otherwise).
  */
 export function ClosePositionDialog({ position, closing, onConfirm, onCancel }) {
-    const [market, setMarket] = useState(null)
-
-    const symbol     = position?.symbol
-    const assetClass = position?.assetClass
-    useEffect(() => {
-        if (!symbol) { setMarket(null); return }
-        let active = true
-        marketService.getStatus(symbol, assetClass)
-            .then(s => { if (active) setMarket(s) })
-            .catch(() => { if (active) setMarket(null) })
-        return () => { active = false }
-    }, [symbol, assetClass])
+    // Block the close while the market is known to be closed (crypto is 24/7 → never).
+    const { market, marketClosed } = useMarketStatus(position?.symbol, position?.assetClass)
 
     if (!position) return null
 
-    // Block the close while the market is known to be closed (crypto is 24/7 → never).
-    const marketClosed   = market != null && market.open === false
     const confirmDisabled = closing || marketClosed
 
     const pnl       = Number(position.pnl)

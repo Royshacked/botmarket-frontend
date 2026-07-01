@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { brokerService } from '../services/broker/broker.service.remote.js'
+import { useAutoRefresh } from './useAutoRefresh.js'
+import { useWindowEvent } from './useWindowEvent.js'
 
 /**
  * Loads the user's connected broker trading accounts and tracks the current
@@ -32,12 +34,16 @@ export function useBrokerAccounts() {
     const refreshAccounts = useCallback(async () => {
         try {
             const connections = await brokerService.listConnections()
-            const all = []
-            for (const [broker, connected] of Object.entries(connections)) {
-                if (!connected) continue
-                const { accounts = [] } = await brokerService.getTradingAccounts(broker)
-                accounts.forEach(a => all.push({ ...a, broker }))
-            }
+            // Fetch every connected broker's accounts in parallel (matches usePositions).
+            const lists = await Promise.all(
+                Object.entries(connections)
+                    .filter(([, connected]) => connected)
+                    .map(async ([broker]) => {
+                        const { accounts = [] } = await brokerService.getTradingAccounts(broker)
+                        return accounts.map(a => ({ ...a, broker }))
+                    })
+            )
+            const all = lists.flat()
 
             const paper = all.filter(a => a.broker === 'paper')
             if (paper.length) {
@@ -58,14 +64,11 @@ export function useBrokerAccounts() {
         }
     }, [])
 
-    useEffect(() => { refreshAccounts() }, [refreshAccounts])
+    useAutoRefresh(refreshAccounts)
 
     // Paper mode is toggled from the profile (PaperTradingSection); re-fetch so the
     // selector reflects the change live instead of only on next page load.
-    useEffect(() => {
-        window.addEventListener('paper-mode-changed', refreshAccounts)
-        return () => window.removeEventListener('paper-mode-changed', refreshAccounts)
-    }, [refreshAccounts])
+    useWindowEvent('paper-mode-changed', refreshAccounts)
 
     useEffect(() => {
         if (isPaper) return   // paper selection is managed by refreshAccounts

@@ -6,19 +6,15 @@ import { ChatMarkdown } from '../ChatMarkdown.jsx'
 import { AccountSelector } from '../ChatPanel/AccountSelector.jsx'
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
-import { readStoredRoutingMode } from '../RoutingModeSelector.jsx'
+import { readStoredRoutingMode } from '../routingModeOptions.js'
 import { useMicInput } from '../../customHooks/useMicInput.js'
-import { useTypewriter } from '../../customHooks/useTypewriter.js'
-import { useTextPace } from '../../customHooks/useTextPace.js'
-import { makeStreamHandlers } from '../../customHooks/useStreamStop.js'
+import { useChatStream } from '../../customHooks/useChatStream.js'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
-import { MeditatingBot } from '../MeditatingBot.jsx'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { ChatPhaseHeading } from '../ChatPhaseHeading.jsx'
 import { ChatReasoning } from '../ChatReasoning.jsx'
-import { toolStatusLabel } from '../../services/toolStatusLabels.js'
 import './PortfolioPanel.scss'
 
 const PHASE_LABELS = { 1: 'Mandate', 2: 'Macro', 3: 'Architecture', 4: 'Selection', 5: 'Sizing', 6: 'Review' }
@@ -82,17 +78,16 @@ export function PortfolioPanel({
     mainAccountId     = null,
     onMainAccountChange,
 }) {
-    const [messages,              setMessages]              = useState([])
+    const chat = useChatStream()
+    const { messages, setMessages, isLoading, streamStatus, handleStop } = chat
+
     const [inputText,             setInputText]             = useState('')
-    const [isLoading,             setIsLoading]             = useState(false)
-    const [streamStatus,          setStreamStatus]          = useState('')
     const [pendingPlan,           setPendingPlan]           = useState(null)
     const [editingPortfolioId,    setEditingPortfolioId]    = useState(null)
     const [editingPortfolioIdeas, setEditingPortfolioIdeas] = useState([])
     const [editDirty,             setEditDirty]             = useState(false)
     const [isReviewMode,          setIsReviewMode]          = useState(false)
     const [dismissConfirm,        setDismissConfirm]        = useState(false)
-    const [portfolioPhase, setPortfolioPhase] = useState(null)
     const [portfolioThesis, setPortfolioThesis] = useState(null)
     const [thesisOpen, setThesisOpen] = useState(true)
 
@@ -150,17 +145,9 @@ export function PortfolioPanel({
     }, [buildKey])
 
     const pendingTickersRef = useRef([])
-    const reasoningRef      = useRef('')
     const latestMandateRef  = useRef(null)
     const latestThesisRef   = useRef(null)
     const textareaRef       = useRef(null)
-    const abortRef          = useRef(null)
-
-    // Typewriter queue — smooths streamed tokens into the last message
-    const { paceCps } = useTextPace()
-    const { enqueue: enqueueToken, start: startDrain, stop: stopDrain, finish: finishDrain } = useTypewriter(setMessages, paceCps)
-
-    const { handleStop, freezeError } = makeStreamHandlers({ abortRef, stopDrain, setMessages, setIsLoading })
 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- _send is a stable closure for this purpose
     const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
@@ -183,103 +170,44 @@ export function PortfolioPanel({
 
         const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
 
-        setMessages(prev => [
-            ...prev,
-            { role: 'user', content: text },
-            { role: 'assistant', content: '', streaming: true },
-        ])
-        setIsLoading(true)
-        setStreamStatus('')
         pendingTickersRef.current = []
-        reasoningRef.current = ''
-        startDrain()
 
-        const ctrl = new AbortController()
-        abortRef.current = ctrl
-
-        // On a clean finish we keep isLoading true until the typewriter has fully
-        // drained (cleared from finishDrain's onComplete), so the Stop button stays
-        // live while text is still being typed out. Error/abort paths clear it in
-        // the finally below (drain is hard-stopped there, so onComplete won't fire).
-        let deferLoading = false
+        const { signal, handlers } = chat.begin(text, {
+            onTicker: (symbol) => {
+                if (!pendingTickersRef.current.includes(symbol)) pendingTickersRef.current.push(symbol)
+            },
+            onDone: (data) => {
+                const tickers = [...pendingTickersRef.current]
+                pendingTickersRef.current = []
+                if (data.mandate) latestMandateRef.current = data.mandate
+                if (data.thesis) { latestThesisRef.current = data.thesis; setPortfolioThesis(data.thesis) }
+                chat.finishStreaming({ role: 'assistant', content: data.reply, tickers })
+                if (data.plan?.ideas?.length) setPendingPlan(data.plan)
+                // Pass any thesis emitted in THIS same turn so a confirmed review
+                // rebalance persists it (reason 'accepted-rebalance'). Only the
+                // same-turn proposal is attached — never the restored existing thesis.
+                if (data.update?.changes?.length && onPortfolioUpdate) onPortfolioUpdate(data.update, isReviewMode, data.thesis ?? null)
+            },
+        })
 
         try {
             await portfolioService.sendStream(history, ideaAccounts, {
-                portfolioId:    editingPortfolioId,
-                portfolioIdeas: editingPortfolioIdeas,
-                reviewMode:     isReviewMode,
-                mandate:        latestMandateRef.current,
+                portfolioId:     editingPortfolioId,
+                portfolioIdeas:  editingPortfolioIdeas,
+                reviewMode:      isReviewMode,
+                mandate:         latestMandateRef.current,
                 model:           readStoredModel('portfolioModel'),
                 reasoningEffort: readStoredReasoning('portfolioReasoning'),
                 routingMode:     readStoredRoutingMode('portfolioRoutingMode'),
-                currentPhase:    portfolioPhase,
-                signal: ctrl.signal,
-
-                onPhase: (p) => {
-                    if (!p) return
-                    // Only mark the phase when it actually changes — the model emits a
-                    // phase tag every turn, so without this a heading would repeat on
-                    // each message within the same phase.
-                    const changed = p !== portfolioPhase
-                    setPortfolioPhase(p)
-                    if (!changed) return
-                    setMessages(prev => {
-                        const idx = prev.findIndex(m => m.streaming)
-                        if (idx < 0) return prev
-                        const next = [...prev]
-                        next.splice(idx, 0, { role: 'phase', phase: p })
-                        return next
-                    })
-                },
-
-                onToken: (t) => { setStreamStatus(''); enqueueToken(t) },
-
-                onStatus: (tool) => { setStreamStatus(toolStatusLabel(tool)) },
-
-                onReasoning: (t) => {
-                    reasoningRef.current += t
-                    const acc = reasoningRef.current
-                    setMessages(prev => {
-                        const idx = prev.findIndex(m => m.streaming)
-                        if (idx < 0) return prev
-                        const next = [...prev]
-                        next[idx] = { ...next[idx], reasoning: acc }
-                        return next
-                    })
-                },
-
-                onTicker: (symbol) => {
-                    if (!pendingTickersRef.current.includes(symbol)) {
-                        pendingTickersRef.current.push(symbol)
-                    }
-                },
-
-                onDone: (data) => {
-                    const tickers = [...pendingTickersRef.current]
-                    pendingTickersRef.current = []
-                    if (data.mandate) latestMandateRef.current = data.mandate
-                    if (data.thesis) { latestThesisRef.current = data.thesis; setPortfolioThesis(data.thesis) }
-                    // Finish typing the backlog at reading pace, then swap in the
-                    // final reply — no end-of-stream dump. Keep Stop live until the
-                    // drain ends.
-                    deferLoading = true
-                    const reasoning = reasoningRef.current || undefined
-                    finishDrain({ role: 'assistant', content: data.reply, tickers, reasoning }, () => setIsLoading(false))
-                    if (data.plan?.ideas?.length) setPendingPlan(data.plan)
-                    // Pass any thesis emitted in THIS same turn so a confirmed review
-                    // rebalance persists it (reason 'accepted-rebalance'). Only the
-                    // same-turn proposal is attached — never the restored existing thesis.
-                    if (data.update?.changes?.length && onPortfolioUpdate) onPortfolioUpdate(data.update, isReviewMode, data.thesis ?? null)
-                },
-
-                onError: (message) => freezeError(message),
+                currentPhase:    chat.phase,
+                signal,
+                ...handlers,
             })
         } catch (err) {
             console.error('[portfolio]', err)
-            freezeError()
+            chat.freezeError()
         } finally {
-            if (!deferLoading) setIsLoading(false)
-            setStreamStatus('')
+            chat.endStream()
         }
     }
 

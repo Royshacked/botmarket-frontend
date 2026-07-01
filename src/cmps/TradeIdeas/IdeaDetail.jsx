@@ -4,8 +4,8 @@ import { TradingViewChart } from '../TradingViewChart/TradingViewChart.jsx'
 import { PositionsTable, posKey } from './PositionsTable.jsx'
 import { ClosePositionDialog } from './ClosePositionDialog.jsx'
 import { EditOrdersDialog } from './EditOrdersDialog.jsx'
-import { getTree, ConditionTreeView, isAllAnd } from './ConditionTree.jsx'
-import { brokerSymbolLabel, deriveIdeaInterval } from './tradeIdea.utils.js'
+import { ConditionTreeView, isAllAnd } from './ConditionTree.jsx'
+import { brokerSymbolLabel, deriveIdeaInterval, phaseTree, isSystemStatus } from './tradeIdea.utils.js'
 
 // Shared idea body — chart (left) + conditions (right) + positions (bottom).
 // Rendered by both the floating dialog and the popped-out idea window so the two
@@ -34,9 +34,9 @@ export function IdeaDetail({ idea, positions = [], closePosition, onPositionsCha
         }
     }
 
-    const entryTree = getTree(idea, 'entry_condition_tree', 'entry_conditions', 'entry_logic')
-    const stopTree  = getTree(idea, 'stop_condition_tree',  'stop_conditions',  'stop_logic')
-    const tpTree    = getTree(idea, 'tp_condition_tree',    'tp_conditions',    'tp_logic')
+    const entryTree = phaseTree(idea, 'entry')
+    const stopTree  = phaseTree(idea, 'stop')
+    const tpTree    = phaseTree(idea, 'tp')
 
     // Per-phase met-state maps persisted by the monitor (leafStateKey → metAt).
     const condStates = idea.conditionStates ?? {}
@@ -44,8 +44,7 @@ export function IdeaDetail({ idea, positions = [], closePosition, onPositionsCha
     // Fallback for entry leaves on ideas that passed entry before per-condition
     // state was persisted (e.g. an already-'hit' idea with no conditionStates).
     // Only safe for all-AND trees — every leaf is then met by definition.
-    const entryPassed = idea.entryTriggeredAt != null
-        || ['hit', 'long', 'short', 'closed'].includes(idea.status)
+    const entryPassed = idea.entryTriggeredAt != null || isSystemStatus(idea.status)
     const entryStatesEmpty = !condStates.entry || Object.keys(condStates.entry).length === 0
     const entryFallbackMet = entryPassed && entryStatesEmpty && isAllAnd(entryTree)
 
