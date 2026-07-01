@@ -156,7 +156,7 @@ export function MainPage() {
     const latestMessagesRef = useRef([])
 
     const news = useNewsFeed()
-    const { earnings, earningsDate, earningsLoading, fda, fdaDate, fdaLoading } = useCalendarEvents()
+    const { earnings, earningsDate, earningsLoading, fed, fedLoading, ipo, ipoLoading } = useCalendarEvents()
     const { scans, loading: scansLoading, createScan, updateScan, deleteScan } = useScans()
     const { user } = useAuth()
     const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
@@ -877,9 +877,10 @@ export function MainPage() {
                             earnings={earnings}
                             earningsDate={earningsDate}
                             earningsLoading={earningsLoading}
-                            fda={fda}
-                            fdaDate={fdaDate}
-                            fdaLoading={fdaLoading}
+                            fed={fed}
+                            fedLoading={fedLoading}
+                            ipo={ipo}
+                            ipoLoading={ipoLoading}
                         />
                     </div>
                     <div className="workspace__ideas">

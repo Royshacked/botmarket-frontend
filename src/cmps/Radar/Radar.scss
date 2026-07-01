@@ -303,7 +303,7 @@
     50%       { opacity: 1;    }
 }
 
-// ── Calendar lists (Earnings + FDA) ───────────────────────────────────────────
+// ── Calendar lists (Earnings + Fed) ───────────────────────────────────────────
 .cal-list {
     display: flex;
     flex-direction: column;
@@ -333,129 +333,248 @@
     }
 }
 
-.cal-item {
+// ── Earnings table (dense, aligned columns) ───────────────────────────────────
+.earn-table {
     display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    padding: 10px 16px;
+    flex-direction: column;
+    width: 100%;
+    font-family: var(--font-mono);
+
+    // Shared column geometry: Ticker | When | EPS | Rev (numbers right-aligned)
+    &__head,
+    &__row {
+        display: grid;
+        grid-template-columns: minmax(110px, 1.7fr) 44px minmax(46px, 0.8fr) minmax(56px, 1fr);
+        align-items: center;
+        gap: 8px;
+        padding: 0 16px;
+    }
+
+    &__head {
+        height: 24px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    &__th {
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+
+        &--num { text-align: right; }
+    }
+
+    &__row {
+        min-height: 46px;
+        padding-top: 7px;
+        padding-bottom: 7px;
+        border-bottom: 1px solid var(--border);
+        transition: background 0.12s;
+
+        &:last-child { border-bottom: none; }
+        &:hover      { background: var(--glow); }
+    }
+
+    &__tick {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    &__logo {
+        flex: 0 0 auto;
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        object-fit: contain;
+        background: var(--bg-wash-surface);
+
+        &--fallback {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+    }
+
+    &__tick-text {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    &__sym {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--accent-bright);
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &__name {
+        font-size: 9px;
+        font-weight: 500;
+        color: var(--text-muted);
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &__when {
+        justify-self: start;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        padding: 2px 5px;
+        border-radius: 3px;
+
+        &--pre   { color: var(--accent-bright);  background: color-mix(in srgb, var(--accent) 15%, transparent); }
+        &--post  { color: var(--sentiment-bear); background: color-mix(in srgb, var(--sentiment-bear) 12%, transparent); }
+        &--other { color: var(--text-muted);     background: var(--bg-wash-surface); }
+    }
+
+    &__num {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-primary);
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+// ── Fed / macro events (agenda rows grouped under each date header) ────────────
+.fed-group:last-child .fed-row:last-child { border-bottom: none; }
+
+.fed-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 16px;
     border-bottom: 1px solid var(--border);
     transition: background 0.12s;
+    cursor: default;
 
-    &:last-child { border-bottom: none; }
-    &:hover      { background: var(--glow); }
+    &:hover { background: var(--glow); }
 
-    // Two-column card variant used by EarningsList
-    &--card {
-        display: flex;
-        flex-direction: row;
-        align-items: flex-start;
-        gap: 8px;
-        padding: 8px 10px;
-        background: var(--bg-wash);
-        border-bottom: none;
-
-        &:hover { background: var(--glow); }
-
-        .cal-item__ticker {
-            flex: 0 0 auto;
-            min-width: 40px;
-        }
-
-        .cal-item__info {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-            flex: 1;
-            min-width: 0;
-        }
+    &__time {
+        flex: 0 0 auto;
+        min-width: 42px;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--text-muted);
+        letter-spacing: 0.02em;
+        font-variant-numeric: tabular-nums;
     }
 
-    &__left {
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
-        min-width: 0;
-        flex: 0 0 90px;
-    }
-
-    &__right {
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
+    &__event {
         flex: 1;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--text-primary);
+        letter-spacing: 0.02em;
         min-width: 0;
-        align-items: flex-end;
-        text-align: right;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
-    &__ticker {
+    &__impact {
+        flex: 0 0 auto;
+        font-family: var(--font-mono);
+        font-size: 8px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        padding: 2px 6px;
+        border-radius: 3px;
+
+        &--high   { color: var(--sentiment-bear); background: color-mix(in srgb, var(--sentiment-bear) 14%, transparent); }
+        &--medium { color: var(--accent-bright);  background: color-mix(in srgb, var(--accent) 14%, transparent); }
+        &--low    { color: var(--text-muted);     background: var(--bg-wash-surface); }
+    }
+
+    // FOMC decision — the marquee event, given a left accent rail + emphasis.
+    &--fomc {
+        border-left: 2px solid var(--accent-bright);
+
+        .fed-row__event {
+            font-weight: 700;
+            color: var(--accent-bright);
+        }
+    }
+}
+
+// ── IPO calendar (ticker · company · price · status, grouped by date) ──────────
+.ipo-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+    cursor: default;
+
+    &:hover { background: var(--glow); }
+
+    &__sym {
+        flex: 0 0 auto;
+        min-width: 44px;
         font-family: var(--font-mono);
         font-size: 12px;
         font-weight: 700;
         color: var(--accent-bright);
-        letter-spacing: 0.05em;
-    }
-
-    &__company {
-        font-family: var(--font-mono);
-        font-size: 11px;
-        font-weight: 600;
-        color: var(--text-secondary);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    &__time {
-        font-family: var(--font-mono);
-        font-size: 9px;
-        color: var(--text-muted);
         letter-spacing: 0.04em;
     }
 
-    &__action {
-        font-family: var(--font-mono);
-        font-size: 9px;
-        color: var(--text-muted);
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    &__stat {
+    &__name {
+        flex: 1;
+        min-width: 0;
         font-family: var(--font-mono);
         font-size: 10px;
+        font-weight: 500;
         color: var(--text-secondary);
-        letter-spacing: 0.03em;
-
-        strong {
-            color: var(--text-primary);
-            font-weight: 600;
-        }
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
-    &__drug {
-        font-size: 11px;
+    &__price {
+        flex: 0 0 auto;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 600;
         color: var(--text-primary);
-        font-weight: 500;
-        line-height: 1.35;
-        text-align: right;
-        word-break: break-word;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
     }
 
     &__status {
+        flex: 0 0 auto;
         font-family: var(--font-mono);
-        font-size: 9px;
+        font-size: 8px;
         font-weight: 700;
         letter-spacing: 0.08em;
         text-transform: uppercase;
         padding: 2px 5px;
         border-radius: 3px;
 
-        &--approved { color: var(--sentiment-bull); background: color-mix(in srgb, var(--sentiment-bull) 12%, transparent); }
-        &--rejected { color: var(--sentiment-bear); background: color-mix(in srgb, var(--sentiment-bear) 12%, transparent); }
-        &--pending  { color: var(--accent-bright);  background: color-mix(in srgb, var(--accent) 15%, transparent); }
+        &--priced    { color: var(--sentiment-bull); background: color-mix(in srgb, var(--sentiment-bull) 14%, transparent); }
+        &--expected  { color: var(--accent-bright);  background: color-mix(in srgb, var(--accent) 14%, transparent); }
+        &--filed     { color: var(--text-muted);     background: var(--bg-wash-surface); }
+        &--withdrawn { color: var(--sentiment-bear); background: color-mix(in srgb, var(--sentiment-bear) 14%, transparent); }
+        &--other     { color: var(--text-muted);     background: var(--bg-wash-surface); }
     }
 }
+
+.fed-group:last-child .ipo-row:last-child { border-bottom: none; }

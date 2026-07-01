@@ -21,14 +21,16 @@ export function Radar({
     earnings = [],
     earningsDate = null,
     earningsLoading = false,
-    fda = [],
-    fdaDate = null,
-    fdaLoading = false,
+    fed = [],
+    fedLoading = false,
+    ipo = [],
+    ipoLoading = false,
 }) {
     const loading =
         tab === 'scans'    ? scansLoading    :
         tab === 'earnings' ? earningsLoading :
-        tab === 'fda'      ? fdaLoading      :
+        tab === 'fed'      ? fedLoading      :
+        tab === 'ipo'      ? ipoLoading      :
         isLoading
 
     return (
@@ -63,10 +65,16 @@ export function Radar({
                     Earnings{earnings.length > 0 && <span className="news-feed__tab-count">{earnings.length}</span>}
                 </button>
                 <button
-                    className={`news-feed__tab${tab === 'fda' ? ' news-feed__tab--active' : ''}`}
-                    onClick={() => onTabChange?.('fda')}
+                    className={`news-feed__tab${tab === 'fed' ? ' news-feed__tab--active' : ''}`}
+                    onClick={() => onTabChange?.('fed')}
                 >
-                    FDA{fda.length > 0 && <span className="news-feed__tab-count">{fda.length}</span>}
+                    Fed{fed.length > 0 && <span className="news-feed__tab-count">{fed.length}</span>}
+                </button>
+                <button
+                    className={`news-feed__tab${tab === 'ipo' ? ' news-feed__tab--active' : ''}`}
+                    onClick={() => onTabChange?.('ipo')}
+                >
+                    IPO{ipo.length > 0 && <span className="news-feed__tab-count">{ipo.length}</span>}
                 </button>
                 <button
                     className={`news-feed__tab news-feed__tab--scans${tab === 'scans' ? ' news-feed__tab--active' : ''}`}
@@ -90,9 +98,13 @@ export function Radar({
                 <div className="news-feed__list">
                     <EarningsList items={earnings} date={earningsDate} loading={earningsLoading} />
                 </div>
-            ) : tab === 'fda' ? (
+            ) : tab === 'fed' ? (
                 <div className="news-feed__list">
-                    <FdaList items={fda} date={fdaDate} loading={fdaLoading} />
+                    <FedList items={fed} loading={fedLoading} />
+                </div>
+            ) : tab === 'ipo' ? (
+                <div className="news-feed__list">
+                    <IpoList items={ipo} loading={ipoLoading} />
                 </div>
             ) : (
                 <div className="news-feed__list">
@@ -158,20 +170,31 @@ function EarningsList({ items, date, loading }) {
     if (!items.length) return <p className="news-feed__empty">No earnings scheduled{date ? ` for ${_fmtDate(date)}` : ''}.</p>
     return (
         <div className="cal-list">
-            {date && <div className="cal-list__date-header">{_fmtDate(date)}</div>}
-            <div className="cal-list__grid">
+            {date && <div className="cal-list__date-header">Earnings — {_fmtDate(date)}</div>}
+            <div className="earn-table">
+                <div className="earn-table__head">
+                    <span className="earn-table__th">Ticker</span>
+                    <span className="earn-table__th">When</span>
+                    <span className="earn-table__th earn-table__th--num">EPS</span>
+                    <span className="earn-table__th earn-table__th--num">Rev</span>
+                </div>
                 {items.map((e, i) => (
-                    <div key={e.symbol || i} className="cal-item cal-item--card">
-                        <div className="cal-item__ticker">{e.symbol}</div>
-                        <div className="cal-item__info">
-                            {e.time && <div className="cal-item__time">{e.time.toUpperCase()}</div>}
-                            {e.epsEstimated != null && (
-                                <div className="cal-item__stat">EPS <strong>{_fmt(e.epsEstimated)}</strong></div>
-                            )}
-                            {e.revenueEstimated != null && (
-                                <div className="cal-item__stat">Rev <strong>{_money(e.revenueEstimated)}</strong></div>
-                            )}
-                        </div>
+                    <div key={e.symbol || i} className="earn-table__row">
+                        <span className="earn-table__tick">
+                            {e.logo
+                                ? <img className="earn-table__logo" src={e.logo} alt="" loading="lazy" />
+                                : <span className="earn-table__logo earn-table__logo--fallback">{(e.symbol || '?')[0]}</span>
+                            }
+                            <span className="earn-table__tick-text">
+                                <span className="earn-table__sym">{e.symbol}</span>
+                                {e.name && <span className="earn-table__name">{e.name}</span>}
+                            </span>
+                        </span>
+                        <span className={`earn-table__when earn-table__when--${_earnWhenClass(e.time)}`}>
+                            {_earnWhen(e.time)}
+                        </span>
+                        <span className="earn-table__num">{e.epsEstimated != null ? _fmt(e.epsEstimated) : '—'}</span>
+                        <span className="earn-table__num">{e.revenueEstimated != null ? _money(e.revenueEstimated) : '—'}</span>
                     </div>
                 ))}
             </div>
@@ -179,29 +202,109 @@ function EarningsList({ items, date, loading }) {
     )
 }
 
-function FdaList({ items, date, loading }) {
+// Finnhub reports session codes: bmo=before market open, amc=after market close,
+// dmh=during market hours. Surface friendly labels + a class for badge coloring.
+const _EARN_WHEN = { bmo: 'Pre', amc: 'Post', dmh: 'Mid' }
+function _earnWhen(code) {
+    if (!code) return '—'
+    return _EARN_WHEN[code.toLowerCase()] || code.toUpperCase()
+}
+function _earnWhenClass(code) {
+    const c = (code || '').toLowerCase()
+    if (c === 'bmo') return 'pre'
+    if (c === 'amc') return 'post'
+    return 'other'
+}
+
+// Upcoming US macro / Fed events (FRED + FOMC schedule), grouped by day. Items
+// arrive already sorted soonest-first, so we group consecutive same-date rows.
+function FedList({ items, loading }) {
     if (loading) return <div className="news-feed__loader"><span /><span /><span /></div>
-    if (!items.length) return <p className="news-feed__empty">No FDA events{date ? ` for ${_fmtDate(date)}` : ''}.</p>
+    if (!items.length) return <p className="news-feed__empty">No upcoming Fed events.</p>
+
+    const groups = []
+    for (const e of items) {
+        const last = groups[groups.length - 1]
+        if (last && last.date === e.date) last.events.push(e)
+        else groups.push({ date: e.date, events: [e] })
+    }
+
     return (
         <div className="cal-list">
-            {date && <div className="cal-list__date-header">{_fmtDate(date)}</div>}
-            {items.map((e, i) => (
-                <div key={i} className="cal-item cal-item--fda">
-                    <div className="cal-item__left">
-                        {e.ticker
-                            ? <span className="cal-item__ticker">{e.ticker}</span>
-                            : <span className="cal-item__company">{e.company}</span>
-                        }
-                        {e.action && <span className="cal-item__action">{e.action}</span>}
-                    </div>
-                    <div className="cal-item__right">
-                        <span className="cal-item__drug">{e.drug}</span>
-                        {e.status && <span className={`cal-item__status cal-item__status--${e.status.toLowerCase().replace(/\s+/g, '-')}`}>{e.status}</span>}
-                    </div>
+            {groups.map(g => (
+                <div key={g.date} className="fed-group">
+                    <div className="cal-list__date-header">{_fmtFullDate(g.date)}</div>
+                    {g.events.map((e, i) => (
+                        <div
+                            key={i}
+                            className={`fed-row${e.kind === 'fomc' ? ' fed-row--fomc' : ''}`}
+                            title={e.desc || ''}
+                        >
+                            {e.time && <span className="fed-row__time">{e.time}</span>}
+                            <span className="fed-row__event">{e.event}</span>
+                            <span className={`fed-row__impact fed-row__impact--${e.impact}`}>{e.impact}</span>
+                        </div>
+                    ))}
                 </div>
             ))}
         </div>
     )
+}
+
+// Upcoming IPOs (Finnhub), grouped by day. Items arrive sorted soonest-first.
+function IpoList({ items, loading }) {
+    if (loading) return <div className="news-feed__loader"><span /><span /><span /></div>
+    if (!items.length) return <p className="news-feed__empty">No upcoming IPOs.</p>
+
+    const groups = []
+    for (const e of items) {
+        const last = groups[groups.length - 1]
+        if (last && last.date === e.date) last.events.push(e)
+        else groups.push({ date: e.date, events: [e] })
+    }
+
+    return (
+        <div className="cal-list">
+            {groups.map(g => (
+                <div key={g.date} className="fed-group">
+                    <div className="cal-list__date-header">{_fmtFullDate(g.date)}</div>
+                    {g.events.map((e, i) => (
+                        <div key={i} className="ipo-row" title={_ipoTooltip(e)}>
+                            <span className="ipo-row__sym">{e.symbol || '—'}</span>
+                            <span className="ipo-row__name">{e.name}</span>
+                            {e.price && <span className="ipo-row__price">${e.price}</span>}
+                            {e.status && (
+                                <span className={`ipo-row__status ipo-row__status--${_ipoStatusClass(e.status)}`}>{e.status}</span>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            ))}
+        </div>
+    )
+}
+
+function _ipoStatusClass(s) {
+    const t = (s || '').toLowerCase()
+    if (['priced', 'expected', 'filed', 'withdrawn'].includes(t)) return t
+    return 'other'
+}
+
+function _ipoTooltip(e) {
+    const parts = []
+    if (e.exchange) parts.push(e.exchange)
+    if (e.shares)   parts.push(`${_compact(e.shares)} shares`)
+    if (e.value)    parts.push(`${_money(e.value)} deal`)
+    return parts.join(' · ')
+}
+
+function _compact(n) {
+    const v = Number(n)
+    if (!Number.isFinite(v)) return ''
+    if (v >= 1e9) return `${(v / 1e9).toFixed(1)}B`
+    if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`
+    if (v >= 1e3) return `${(v / 1e3).toFixed(0)}K`
+    return String(v)
 }
 
 function _formatTime(unixSec) {
@@ -215,6 +318,16 @@ function _fmtDate(iso) {
     return `${_months[+m - 1]} ${+d}`
 }
 const _months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const _weekdays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+
+// Weekday + month + day, e.g. "Thu · Jul 2". Uses UTC parts so the ISO date
+// doesn't shift a day across timezones.
+function _fmtFullDate(iso) {
+    if (!iso) return ''
+    const [y, m, d] = iso.split('-').map(Number)
+    const wd = _weekdays[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]
+    return `${wd} · ${_months[m - 1]} ${d}`
+}
 
 function _fmt(v) {
     const n = Number(v)
@@ -245,7 +358,8 @@ Radar.propTypes = {
     earnings:          PropTypes.array,
     earningsDate:      PropTypes.string,
     earningsLoading:   PropTypes.bool,
-    fda:               PropTypes.array,
-    fdaDate:           PropTypes.string,
-    fdaLoading:        PropTypes.bool,
+    fed:               PropTypes.array,
+    fedLoading:        PropTypes.bool,
+    ipo:               PropTypes.array,
+    ipoLoading:        PropTypes.bool,
 }

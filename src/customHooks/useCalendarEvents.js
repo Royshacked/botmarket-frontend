@@ -8,9 +8,11 @@ export function useCalendarEvents() {
     const [earningsDate, setEarningsDate] = useState(null)
     const [earningsLoading, setEarningsLoading] = useState(false)
 
-    const [fda, setFda]           = useState([])
-    const [fdaDate, setFdaDate]   = useState(null)
-    const [fdaLoading, setFdaLoading] = useState(false)
+    const [fed, setFed]           = useState([])
+    const [fedLoading, setFedLoading] = useState(false)
+
+    const [ipo, setIpo]           = useState([])
+    const [ipoLoading, setIpoLoading] = useState(false)
 
     useEffect(() => {
         let active = true
@@ -30,27 +32,41 @@ export function useCalendarEvents() {
             }
         }
 
-        async function fetchFda() {
-            setFdaLoading(true)
+        async function fetchFed() {
+            setFedLoading(true)
             try {
-                const res  = await fetch(`${API_BASE}/api/calendar/fda`, { credentials: 'include' })
+                const res  = await fetch(`${API_BASE}/api/calendar/fed`, { credentials: 'include' })
                 const data = await res.json()
                 if (!active) return
-                setFda(Array.isArray(data.items) ? data.items : [])
-                setFdaDate(data.date || null)
+                setFed(Array.isArray(data.items) ? data.items : [])
             } catch {
-                if (active) setFda([])
+                if (active) setFed([])
             } finally {
-                if (active) setFdaLoading(false)
+                if (active) setFedLoading(false)
+            }
+        }
+
+        async function fetchIpo() {
+            setIpoLoading(true)
+            try {
+                const res  = await fetch(`${API_BASE}/api/calendar/ipo`, { credentials: 'include' })
+                const data = await res.json()
+                if (!active) return
+                setIpo(Array.isArray(data.items) ? data.items : [])
+            } catch {
+                if (active) setIpo([])
+            } finally {
+                if (active) setIpoLoading(false)
             }
         }
 
         fetchEarnings()
-        fetchFda()
-        const t = setInterval(() => { fetchEarnings(); fetchFda() }, REFRESH_MS)
+        fetchFed()
+        fetchIpo()
+        const t = setInterval(() => { fetchEarnings(); fetchFed(); fetchIpo() }, REFRESH_MS)
 
         return () => { active = false; clearInterval(t) }
     }, [])
 
-    return { earnings, earningsDate, earningsLoading, fda, fdaDate, fdaLoading }
+    return { earnings, earningsDate, earningsLoading, fed, fedLoading, ipo, ipoLoading }
 }
