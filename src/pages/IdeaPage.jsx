@@ -97,15 +97,15 @@ export function IdeaPage() {
             .catch(() => setErr('Failed to load idea'))
     }, [id])
 
-    const centreStyle = { position: 'fixed', inset: 0, background: '#0b1120', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }
+    const centreStyle = { position: 'fixed', inset: 0, background: 'var(--bg-base)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }
     if (err)   return <div style={centreStyle}>{err}</div>
     if (!idea) return <div style={centreStyle}>Loading…</div>
 
     const rootStyle = {
         position: 'fixed', inset: 0,
         display: 'flex', flexDirection: 'column',
-        background: 'var(--bg-primary, #0b1120)',
-        color: 'var(--text-primary, #e2e8f0)',
+        background: 'var(--bg-base)',
+        color: 'var(--text-primary)',
         overflow: 'hidden',
     }
 

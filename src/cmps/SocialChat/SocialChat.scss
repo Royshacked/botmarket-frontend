@@ -30,8 +30,14 @@
     // per-origin by the background slider, so keying off it made the glass read
     // "right" on localhost but far too transparent on the deployed origin where
     // that setting doesn't exist. A constant tint looks identical everywhere.
-    // Tune the alpha (0.45) to taste — higher = more solid, lower = more glassy.
-    background: hsla(176, 60%, 6%, 0.45);
+    //
+    // The tint must be opaque enough to carry the whole interior on its own: the
+    // list (8% fill) and window (transparent) let the blurred app backdrop show
+    // through, and that backdrop's lightness varies per origin (the bg slider). At
+    // a low alpha a lighter deployed backdrop bled through and the bubble read
+    // see-through; a high alpha makes it a solid frosted panel everywhere.
+    // Tune the alpha to taste — higher = more solid, lower = more glassy.
+    background: hsla(176, 55%, 7%, 0.86);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
 

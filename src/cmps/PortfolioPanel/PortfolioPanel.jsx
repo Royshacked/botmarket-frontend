@@ -157,7 +157,10 @@ export function PortfolioPanel({
     const planReady    = !!pendingPlan && pendingPlan.ideas.length > 0 && pendingPlan.ideas.every(i => Number(i.quantity) > 0)
     const canGenerate  = planReady && (!!editingPortfolioId || selectedAccounts?.length > 0)
     const actionWatch = `${streamStatus}|${planReady}|${canGenerate}|${isReviewMode}|${!!editingPortfolioId}`
-    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, { watch: actionWatch })
+    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, {
+        onFinishStreaming: () => textareaRef.current?.focus(),
+        watch: actionWatch,
+    })
 
     async function _send(text) {
         if (!text || isLoading) return

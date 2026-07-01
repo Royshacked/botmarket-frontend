@@ -175,7 +175,10 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
     const listReady = !!pendingScan && pendingScan.candidates?.length > 0
     const showChangedMind = !!editingScanId && !editDirty
     const actionWatch = `${chat.streamStatus}|${listReady}|${!!editingScanId}`
-    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, { watch: actionWatch })
+    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, {
+        onFinishStreaming: () => textareaRef.current?.focus(),
+        watch: actionWatch,
+    })
 
     return (
         <div className="portfolio-panel scanner-panel">

@@ -88,7 +88,7 @@
     // Chat bubbles — squared, mono, bracketed feel
     .chat-panel__bubble { font-family: var(--font-mono); font-size: 12.5px; }
     .chat-panel__bubble--user     { background: var(--accent-deep); border: 1px solid var(--border-strong); }
-    .chat-panel__bubble--assistant{ background: var(--bg-surface);  border: 1px solid var(--border-mid); }
+    .chat-panel__bubble--assistant{ background: none; border: none; }
 
     // Ideas list + scans + news read as data rows
     .idea-row, .scan-list__cand, .news-feed__item { font-family: var(--font-mono); }
@@ -173,7 +173,7 @@
     // Rounded, roomy chat bubbles
     .chat-panel__bubble { border-radius: 16px !important; }
     .chat-panel__bubble--user     { background: var(--accent); color: #fff; }
-    .chat-panel__bubble--assistant{ background: var(--bg-raised); }
+    .chat-panel__bubble--assistant{ background: none; }
 
     .idea-row__status-badge { border-radius: 999px !important; }
 }
@@ -260,7 +260,7 @@
     }
 
     .chat-panel__bubble--user     { background: rgba(255,46,136,0.12); border: 1px solid var(--border-mid); }
-    .chat-panel__bubble--assistant{ background: var(--bg-raised); border: 1px solid rgba(0,229,255,0.16); }
+    .chat-panel__bubble--assistant{ background: none; border: none; }
 
     .idea-row__status-badge { box-shadow: 0 0 10px -3px currentColor; }
     .scan-list__ticker { text-shadow: 0 0 8px var(--glow); }
@@ -357,7 +357,7 @@
     // Tidy chat bubbles
     .chat-panel__bubble { border-radius: var(--radius-lg) !important; }
     .chat-panel__bubble--user     { background: var(--accent-deep); }
-    .chat-panel__bubble--assistant{ background: var(--bg-surface); border: 1px solid var(--border); }
+    .chat-panel__bubble--assistant{ background: none; border: none; }
 
     // Monospace numerics in the data surfaces
     .idea-row, .scan-list__cand, .positions-table, .ideas-table { font-family: var(--font-mono); }
