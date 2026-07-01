@@ -49,6 +49,9 @@ export function useBrokerAccounts() {
             } else {
                 setIsPaper(false)
                 setAvailableAccounts(all)
+                // Drop any selected ids that no longer exist — e.g. the paper id
+                // after paper mode is turned off, or a disconnected account.
+                setSelectedAccounts(prev => prev.filter(id => all.some(a => a.id === id)))
             }
         } catch (err) {
             console.error('[accounts] fetch failed', err)
@@ -56,6 +59,13 @@ export function useBrokerAccounts() {
     }, [])
 
     useEffect(() => { refreshAccounts() }, [refreshAccounts])
+
+    // Paper mode is toggled from the profile (PaperTradingSection); re-fetch so the
+    // selector reflects the change live instead of only on next page load.
+    useEffect(() => {
+        window.addEventListener('paper-mode-changed', refreshAccounts)
+        return () => window.removeEventListener('paper-mode-changed', refreshAccounts)
+    }, [refreshAccounts])
 
     useEffect(() => {
         if (isPaper) return   // paper selection is managed by refreshAccounts

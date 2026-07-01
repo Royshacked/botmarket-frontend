@@ -45,7 +45,12 @@ export function PaperTradingSection() {
         try { setState(await fn()) } finally { setBusy(false) }
     }
 
-    const toggle      = () => _apply(() => paperService.setMode(!state.enabled))
+    async function toggle() {
+        await _apply(() => paperService.setMode(!state.enabled))
+        // Notify the account selector (useBrokerAccounts) to re-fetch so it shows/
+        // hides the paper account immediately instead of only on next page load.
+        window.dispatchEvent(new CustomEvent('paper-mode-changed'))
+    }
     const setSpread   = v => _apply(() => paperService.updateSettings({ spreadBps: Number(v) }))
     const setCommission = v => _apply(() => paperService.updateSettings({ commissionPerTrade: Number(v) }))
 
