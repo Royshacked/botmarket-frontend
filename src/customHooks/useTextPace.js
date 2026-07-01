@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
+import { useWindowEvent } from './useWindowEvent.js'
 
 /**
  * Global "text streaming speed" setting (chars per second), persisted in
@@ -23,15 +24,9 @@ function read() {
 export function useTextPace() {
     const [paceCps, setPace] = useState(read)
 
-    useEffect(() => {
-        const sync = () => setPace(read())
-        window.addEventListener(EVT, sync)         // same-tab updates
-        window.addEventListener('storage', sync)   // other tabs
-        return () => {
-            window.removeEventListener(EVT, sync)
-            window.removeEventListener('storage', sync)
-        }
-    }, [])
+    const sync = useCallback(() => setPace(read()), [])
+    useWindowEvent(EVT, sync)         // same-tab updates
+    useWindowEvent('storage', sync)   // other tabs
 
     const setPaceCps = useCallback((v) => {
         const c = clamp(Number(v))

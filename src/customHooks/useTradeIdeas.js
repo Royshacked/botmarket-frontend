@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
+import { useAutoRefresh } from './useAutoRefresh.js'
 
 const POLL_INTERVAL_MS = 30_000
 
@@ -29,11 +30,7 @@ export function useTradeIdeas() {
         }
     }, [])
 
-    useEffect(() => {
-        loadIdeas()
-        const interval = setInterval(loadIdeas, POLL_INTERVAL_MS)
-        return () => clearInterval(interval)
-    }, [loadIdeas])
+    useAutoRefresh(loadIdeas, POLL_INTERVAL_MS)
 
     async function handleStatusChange(id, status) {
         // Optimistic update — React controlled selects snap back without this
