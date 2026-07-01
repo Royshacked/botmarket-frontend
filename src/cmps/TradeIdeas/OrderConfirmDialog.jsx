@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { formatCreatedAtFull } from './tradeIdea.utils.js'
-import { marketService } from '../../services/market/market.service.remote'
+import { useMarketStatus } from '../../customHooks/useMarketStatus.js'
 import { ConvictionChip } from '../ConvictionChip/ConvictionChip.jsx'
 import './OrderConfirmDialog.scss'
 
@@ -11,21 +10,11 @@ import './OrderConfirmDialog.scss'
  * anything fires to the broker.
  */
 export function OrderConfirmDialog({ idea, orders, placing, onConfirm, onDismiss, onReset }) {
-    const [market, setMarket] = useState(null)
-
-    useEffect(() => {
-        if (!idea?.asset) { setMarket(null); return }
-        let active = true
-        marketService.getStatus(idea.asset, idea.asset_class)
-            .then(s => { if (active) setMarket(s) })
-            .catch(() => { if (active) setMarket(null) })
-        return () => { active = false }
-    }, [idea?.asset, idea?.asset_class])
+    // Block placement while the market is known to be closed (crypto is 24/7).
+    const { market, marketClosed } = useMarketStatus(idea?.asset, idea?.asset_class)
 
     if (!idea || !Array.isArray(orders) || orders.length === 0) return null
 
-    // Block placement while the market is known to be closed (crypto is 24/7).
-    const marketClosed   = market != null && market.open === false
     const confirmDisabled = placing || marketClosed
 
     const handleDismiss = () => onDismiss(idea)
