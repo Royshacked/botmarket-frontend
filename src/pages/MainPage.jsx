@@ -510,8 +510,8 @@ export function MainPage() {
                     chat_state: chatState,
                     accounts:      selectedAccounts,
                     mainAccountId: mainAccountId,
-                    // Invalidation review: clear the alert so the monitor re-evaluates
-                    ...(isInvalidationReview && { invalidation_status: null, invalidation_reason: null, invalidation_edge: null }),
+                    // Invalidation review: clear the alert + re-arm so the monitor re-evaluates from scratch
+                    ...(isInvalidationReview && { invalidation_status: null, invalidation_reason: null, invalidation_edge: null, invalidation_armed: false }),
                 })
                 setIdeas(prev => prev.map(i => i.id === editingIdeaId ? res.idea : i))
                 setEditingIdeaId(null)
@@ -552,6 +552,7 @@ export function MainPage() {
                 invalidation_status: null,
                 invalidation_reason: null,
                 invalidation_edge:   null,
+                invalidation_armed:  false,
             })
             setIdeas(prev => prev.map(i => i.id === editingIdeaId ? res.idea : i))
         } catch (err) {

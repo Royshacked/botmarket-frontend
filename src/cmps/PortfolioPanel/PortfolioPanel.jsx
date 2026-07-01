@@ -94,6 +94,7 @@ export function PortfolioPanel({
     const [dismissConfirm,        setDismissConfirm]        = useState(false)
     const [portfolioPhase, setPortfolioPhase] = useState(null)
     const [portfolioThesis, setPortfolioThesis] = useState(null)
+    const [thesisOpen, setThesisOpen] = useState(true)
 
     useEffect(() => {
         if (!chatRestore) return
@@ -390,19 +391,27 @@ export function PortfolioPanel({
 
             {editingPortfolioId && portfolioThesis && (portfolioThesis.strategy || portfolioThesis.targetExposures?.length) && (
                 <div className="portfolio-panel__thesis" style={{ margin: '0 16px 8px', padding: '10px 12px', border: '1px solid var(--border, #333)', borderRadius: 8, fontSize: 12, opacity: 0.92 }}>
-                    <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                    <button
+                        type="button"
+                        onClick={() => setThesisOpen(o => !o)}
+                        aria-expanded={thesisOpen}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: 0, background: 'none', border: 'none', color: 'inherit', font: 'inherit', fontWeight: 600, cursor: 'pointer', textAlign: 'left', marginBottom: thesisOpen ? 4 : 0 }}
+                    >
+                        <span style={{ display: 'inline-block', transform: thesisOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', opacity: 0.7 }}>▸</span>
                         Portfolio thesis{portfolioThesis.version != null ? ` · v${portfolioThesis.version}` : ''}
-                    </div>
-                    {portfolioThesis.strategy && <div style={{ opacity: 0.85, marginBottom: portfolioThesis.targetExposures?.length ? 6 : 0 }}>{portfolioThesis.strategy}</div>}
-                    {Array.isArray(portfolioThesis.targetExposures) && portfolioThesis.targetExposures.length > 0 && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                            {portfolioThesis.targetExposures.map((e, i) => (
-                                <span key={i} style={{ padding: '2px 8px', border: '1px solid var(--border, #444)', borderRadius: 999 }}>
-                                    {e.label}{e.target != null ? ` ${Math.round(e.target * 100)}%` : ''}
-                                </span>
-                            ))}
-                        </div>
-                    )}
+                    </button>
+                    {thesisOpen && (<>
+                        {portfolioThesis.strategy && <div style={{ opacity: 0.85, marginBottom: portfolioThesis.targetExposures?.length ? 6 : 0 }}>{portfolioThesis.strategy}</div>}
+                        {Array.isArray(portfolioThesis.targetExposures) && portfolioThesis.targetExposures.length > 0 && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                {portfolioThesis.targetExposures.map((e, i) => (
+                                    <span key={i} style={{ padding: '2px 8px', border: '1px solid var(--border, #444)', borderRadius: 999 }}>
+                                        {e.label}{e.target != null ? ` ${Math.round(e.target * 100)}%` : ''}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                    </>)}
                 </div>
             )}
 
@@ -449,56 +458,57 @@ export function PortfolioPanel({
                     </div>
                 )}
 
-                {/* Inline action bubble */}
-                {!isLoading && (isReviewMode ? !!editingPortfolioId : (planReady || showChangedMind)) && (
-                    <div className="portfolio-panel__action-bubble">
-                        {dismissConfirm ? (
-                            <div className="portfolio-panel__dismiss-confirm">
-                                <span>No changes needed — reset the review clock?</span>
-                                <div className="portfolio-panel__dismiss-confirm-btns">
-                                    <button
-                                        className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss"
-                                        onClick={handleDismissReview}
-                                    >Confirm</button>
-                                    <button
-                                        className="portfolio-panel__review-btn portfolio-panel__review-btn--later"
-                                        onClick={() => setDismissConfirm(false)}
-                                    >Cancel</button>
-                                </div>
-                            </div>
-                        ) : isReviewMode ? (
-                            <>
-                                {planReady && (
-                                    <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={handleGenerate}>
-                                        Update plan
-                                    </button>
-                                )}
-                                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" onClick={() => setDismissConfirm(true)}>
-                                    Dismiss
-                                </button>
-                                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={handleCancelEdit}>
-                                    I&apos;ll do it later
-                                </button>
-                            </>
-                        ) : showChangedMind ? (
-                            <button className="portfolio-panel__generate portfolio-panel__generate--cancel" onClick={handleCancelEdit}>
-                                I&apos;ll do it later
-                            </button>
-                        ) : (
-                            <button
-                                className="portfolio-panel__generate"
-                                onClick={canGenerate ? handleGenerate : undefined}
-                                disabled={!canGenerate}
-                                title={canGenerate ? undefined : 'Select a broker account above to generate this plan'}
-                            >
-                                {editingPortfolioId ? 'Update plan' : 'Generate plan'}
-                            </button>
-                        )}
-                    </div>
-                )}
-
                 <div ref={messagesEndRef} />
             </div>
+
+            {/* Action bar — a footer below the scroll area (not inside it) so it stays
+                pinned above the input without ever covering the messages. */}
+            {!isLoading && (isReviewMode ? !!editingPortfolioId : (planReady || showChangedMind)) && (
+                <div className="portfolio-panel__action-bubble">
+                    {dismissConfirm ? (
+                        <div className="portfolio-panel__dismiss-confirm">
+                            <span>No changes needed — reset the review clock?</span>
+                            <div className="portfolio-panel__dismiss-confirm-btns">
+                                <button
+                                    className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss"
+                                    onClick={handleDismissReview}
+                                >Confirm</button>
+                                <button
+                                    className="portfolio-panel__review-btn portfolio-panel__review-btn--later"
+                                    onClick={() => setDismissConfirm(false)}
+                                >Cancel</button>
+                            </div>
+                        </div>
+                    ) : isReviewMode ? (
+                        <>
+                            {planReady && (
+                                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={handleGenerate}>
+                                    Update plan
+                                </button>
+                            )}
+                            <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" onClick={() => setDismissConfirm(true)}>
+                                Dismiss
+                            </button>
+                            <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={handleCancelEdit}>
+                                I&apos;ll do it later
+                            </button>
+                        </>
+                    ) : showChangedMind ? (
+                        <button className="portfolio-panel__generate portfolio-panel__generate--cancel" onClick={handleCancelEdit}>
+                            I&apos;ll do it later
+                        </button>
+                    ) : (
+                        <button
+                            className="portfolio-panel__generate"
+                            onClick={canGenerate ? handleGenerate : undefined}
+                            disabled={!canGenerate}
+                            title={canGenerate ? undefined : 'Select a broker account above to generate this plan'}
+                        >
+                            {editingPortfolioId ? 'Update plan' : 'Generate plan'}
+                        </button>
+                    )}
+                </div>
+            )}
 
             <ChatInputRow
                 prefix="portfolio-panel"

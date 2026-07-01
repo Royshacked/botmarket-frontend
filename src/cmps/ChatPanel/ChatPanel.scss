@@ -408,15 +408,17 @@
 
     // ── Inline action bubble ─────────────────────────────────────────────
     // Floats at the bottom of the message stream; auto-scrolled to when it appears.
+    // Footer action bar: a sibling below the scrolling messages (not inside it), so the
+    // actions stay pinned above the input while scrolling back through the conversation
+    // and never overlap the messages. Padding matches __messages so buttons align.
     &__action-bubble {
+        flex-shrink: 0;
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
-        padding: 0;
-        margin: 6px 0 2px;
-        background: transparent;
-        border: none;
-        align-self: stretch;
+        padding: 10px 20px;
+        background: var(--bg-wash);
+        border-top: 1px solid var(--border);
     }
 
     // ── Generate / Update button (used inside the action bubble) ─────────

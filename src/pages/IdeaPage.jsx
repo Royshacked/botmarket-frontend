@@ -9,15 +9,20 @@ import './IdeaPage.scss'
 // How often to re-fetch positions so live P&L keeps ticking in the popped-out window.
 const POSITIONS_POLL_MS = 4000
 
-function DevInvalidationPanel({ invalidation, status, reason, edge }) {
+function DevInvalidationPanel({ invalidation, status, reason, edge, armed }) {
     const [open, setOpen] = useState(false)
     const range = invalidation?.range
     if (!range) return null
+    // Pre-entry lifecycle: 'waiting' (distant entry, envelope disarmed) → 'armed'
+    // (price reached the zone, envelope live). A drift/fire latches the status.
+    const phase = armed ? 'armed' : 'waiting'
     return (
         <div className="idea-page__dev-invalidation">
             <button className="idea-page__dev-invalidation-toggle" onClick={() => setOpen(o => !o)}>
                 <span>[DEV] Invalidation</span>
-                {status && <span className={`idea-page__dev-invalidation-status idea-page__dev-invalidation-status--${status}`}>{status}</span>}
+                {status
+                    ? <span className={`idea-page__dev-invalidation-status idea-page__dev-invalidation-status--${status}`}>{status}</span>
+                    : <span className={`idea-page__dev-invalidation-status idea-page__dev-invalidation-status--${phase}`}>{phase}</span>}
                 <span className="idea-page__dev-invalidation-caret">{open ? '▲' : '▼'}</span>
             </button>
             {open && (
@@ -35,9 +40,20 @@ function DevInvalidationPanel({ invalidation, status, reason, edge }) {
                             </li>
                         </ul>
                     </div>
-                    {status === 'fired' && (
+                    {range.approach != null && (
                         <div className="idea-page__dev-invalidation-section">
-                            <span className="idea-page__dev-invalidation-label">Fired{edge ? ` (${edge} edge)` : ''}</span>
+                            <span className="idea-page__dev-invalidation-label">Approach (away pivot)</span>
+                            <ul>
+                                <li>
+                                    {range.approach}
+                                    {range.approachAnchor && <span className="idea-page__dev-invalidation-anchor"> — {range.approachAnchor}</span>}
+                                </li>
+                            </ul>
+                        </div>
+                    )}
+                    {(status === 'fired' || status === 'drifting') && (
+                        <div className="idea-page__dev-invalidation-section">
+                            <span className="idea-page__dev-invalidation-label">{status === 'drifting' ? 'Drifting' : 'Fired'}{edge ? ` (${edge} edge)` : ''}</span>
                             {reason && <p>{reason}</p>}
                         </div>
                     )}
@@ -119,6 +135,7 @@ export function IdeaPage() {
                 status={idea.invalidation_status}
                 reason={idea.invalidation_reason}
                 edge={idea.invalidation_edge}
+                armed={idea.invalidation_armed}
             />
 
             <IdeaDetail

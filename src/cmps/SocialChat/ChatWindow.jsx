@@ -87,8 +87,14 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
 }
 
 function InvalidationAlertBubble({ msg, onClose }) {
-    const { reason, asset, edge, inPosition } = msg.payload
-    const label = `Invalidation${inPosition ? ' (in position)' : ''}`
+    const { reason, asset, status, inPosition } = msg.payload
+    // 'drifting' = pre-entry, price running away from a distant entry (softer nudge);
+    // 'fired' = the entry envelope broke. Fall back to 'fired' for older payloads.
+    const isDrifting = status === 'drifting'
+    const kind  = isDrifting ? 'drifting' : 'fired'
+    const label = isDrifting
+        ? 'Setup drifting'
+        : `Invalidation${inPosition ? ' (in position)' : ''}`
 
     function handleReview() {
         eventBus.emit(INVALIDATION_EDIT_IDEA, { ideaId: msg.payload.ideaId })
@@ -96,7 +102,7 @@ function InvalidationAlertBubble({ msg, onClose }) {
     }
 
     return (
-        <div className={`social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--${edge ?? 'fired'}`}>
+        <div className={`social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--${kind}`}>
             <div className="social-chat__invalidation-alert-header">
                 {label} &middot; {asset}
             </div>

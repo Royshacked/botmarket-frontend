@@ -13,10 +13,50 @@
  */
 export function reflowMarkdownTables(md) {
     if (typeof md !== 'string' || !md.includes('|') || !md.includes('-')) return md
-    return md.split('\n').map(reflowTableLine).join('\n')
+    const reflowed = md.split('\n').map(reflowTableLine).join('\n')
+    return ensureTableBlankLine(reflowed)
 }
 
 const isSepCell = c => /^:?-{2,}:?$/.test(c.replace(/\s/g, ''))
+
+// Split a table line into its cells, dropping the empty tokens the leading/trailing
+// wrapping pipes produce. Returns [] for a line with no pipe.
+function tableCells(line) {
+    if (!line.includes('|')) return []
+    const cells = line.split('|').map(c => c.trim())
+    if (cells[0] === '') cells.shift()
+    if (cells.length && cells[cells.length - 1] === '') cells.pop()
+    return cells
+}
+
+// A delimiter row is a pipe row whose cells are all separator cells (|---|:--:|…).
+const isDelimiterRow = line => {
+    const cells = tableCells(line)
+    return cells.length > 0 && cells.every(isSepCell)
+}
+
+/**
+ * remark-gfm only recognizes a pipe table when a blank line separates its header row
+ * from the preceding paragraph — a table glued directly under a line of prose ("Here
+ * are the scenarios:\n| Ticker | … |") is swallowed into that paragraph and renders as
+ * inline pipe text. Insert the missing blank line before any header row (the line right
+ * above a delimiter row) that a non-blank, non-table line runs straight into.
+ */
+function ensureTableBlankLine(md) {
+    const lines = md.split('\n')
+    const out = []
+    for (const line of lines) {
+        if (isDelimiterRow(line) && out.length >= 2) {
+            const header = out[out.length - 1]
+            const before = out[out.length - 2]
+            if (header.includes('|') && before.trim() !== '' && !before.includes('|')) {
+                out.splice(out.length - 1, 0, '')   // blank line before the header row
+            }
+        }
+        out.push(line)
+    }
+    return out.join('\n')
+}
 
 function reflowTableLine(line) {
     // Cheap reject: a flattened table line must contain a pipe-delimited dash cell.

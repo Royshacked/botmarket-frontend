@@ -169,7 +169,10 @@ html, body, #root {
         font-weight: 600;
         text-transform: uppercase;
 
-        &--fired { background: rgba(245,158,11,.15); color: #f59e0b; }
+        &--fired    { background: rgba(245,158,11,.15); color: #f59e0b; }
+        &--drifting { background: rgba(59,130,246,.15); color: #3b82f6; }
+        &--waiting  { background: rgba(122,155,192,.12); color: #7a9bc0; }
+        &--armed    { background: rgba(34,197,94,.15);  color: #22c55e; }
     }
 
     &-caret {

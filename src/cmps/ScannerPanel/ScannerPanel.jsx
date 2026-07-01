@@ -307,22 +307,24 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
                 {messages.map((msg, i) => <MessageBubble key={i} msg={msg} onTickerSelect={onTickerSelect} />)}
                 {isLoading && <ToolStatusChip label={streamStatus} />}
 
-                {!isLoading && (listReady || showChangedMind) && (
-                    <div className="portfolio-panel__action-bubble">
-                        {showChangedMind ? (
-                            <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={handleClear}>
-                                I&apos;ll do it later
-                            </button>
-                        ) : (
-                            <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={handleGenerate}>
-                                {editingScanId ? 'Update list' : 'Generate list'}
-                            </button>
-                        )}
-                    </div>
-                )}
-
                 <div ref={messagesEndRef} />
             </div>
+
+            {/* Action bar — a footer below the scroll area (not inside it) so it stays
+                pinned above the input without ever covering the messages. */}
+            {!isLoading && (listReady || showChangedMind) && (
+                <div className="portfolio-panel__action-bubble">
+                    {showChangedMind ? (
+                        <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={handleClear}>
+                            I&apos;ll do it later
+                        </button>
+                    ) : (
+                        <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={handleGenerate}>
+                            {editingScanId ? 'Update list' : 'Generate list'}
+                        </button>
+                    )}
+                </div>
+            )}
 
             <ChatInputRow
                 prefix="portfolio-panel"

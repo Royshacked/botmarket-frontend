@@ -368,9 +368,10 @@
         overflow: hidden;
         min-width: 220px;
 
-        &--upper { border: 1px solid #f59e0b; }
-        &--lower { border: 1px solid #ef4444; }
-        &--fired { border: 1px solid #f59e0b; }
+        &--upper    { border: 1px solid #f59e0b; }
+        &--lower    { border: 1px solid #ef4444; }
+        &--fired    { border: 1px solid #f59e0b; }
+        &--drifting { border: 1px solid #3b82f6; }   // softer: pre-entry, running away
     }
 
     &__invalidation-alert-header {
@@ -379,9 +380,10 @@
         font-weight: 600;
         letter-spacing: .01em;
 
-        .social-chat__invalidation-alert--upper & { background: rgba(245,158,11,.12); color: #f59e0b; }
-        .social-chat__invalidation-alert--lower & { background: rgba(239,68,68,.12);  color: #ef4444; }
-        .social-chat__invalidation-alert--fired & { background: rgba(245,158,11,.12); color: #f59e0b; }
+        .social-chat__invalidation-alert--upper &    { background: rgba(245,158,11,.12); color: #f59e0b; }
+        .social-chat__invalidation-alert--lower &    { background: rgba(239,68,68,.12);  color: #ef4444; }
+        .social-chat__invalidation-alert--fired &    { background: rgba(245,158,11,.12); color: #f59e0b; }
+        .social-chat__invalidation-alert--drifting & { background: rgba(59,130,246,.12); color: #3b82f6; }
     }
 
     &__invalidation-alert-reason {

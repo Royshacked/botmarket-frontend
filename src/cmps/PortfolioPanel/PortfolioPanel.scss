@@ -384,15 +384,18 @@
     // ── Inline action bubble ──────────────────────────────────────────────────
     // No card/wrapper — the buttons sit bare in the message stream (matches the
     // trade chat), just laid out in a row.
+    // Footer action bar: a sibling below the scrolling messages (not inside it), so the
+    // actions stay pinned above the input while scrolling back through the conversation
+    // and never overlap the messages. Padding matches __messages so buttons align.
+    // Shared by ScannerPanel, which reuses the portfolio-panel__ classes.
     &__action-bubble {
+        flex-shrink: 0;
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
-        padding: 0;
-        margin: 6px 0 2px;
-        background: transparent;
-        border: none;
-        align-self: stretch;
+        padding: 10px 20px;
+        background: var(--bg-wash);
+        border-top: 1px solid var(--border);
     }
 
     &__review-btn {

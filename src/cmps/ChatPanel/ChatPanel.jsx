@@ -289,73 +289,74 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                     </div>
                 )}
 
-                {/* Inline action bubble — appears in the chat when actions are available */}
-                {!isLoading && (isInvalidationReview ? isEditing : (isImmediate && !isEditing && ideaReady) || editReady || ideaReady || showChangedMind) && (
-                    <div className="chat-panel__action-bubble">
-                        {dismissConfirm ? (
-                            <div className="chat-panel__dismiss-confirm">
-                                <span>Setup is still valid — clear the alert?</span>
-                                <div className="chat-panel__dismiss-confirm-btns">
-                                    <button
-                                        className="chat-panel__review-btn chat-panel__review-btn--dismiss"
-                                        onClick={() => { setDismissConfirm(false); onDismissInvalidation?.() }}
-                                    >Confirm</button>
-                                    <button
-                                        className="chat-panel__review-btn chat-panel__review-btn--later"
-                                        onClick={() => setDismissConfirm(false)}
-                                    >Cancel</button>
-                                </div>
+                <div ref={messagesEndRef} />
+            </div>
+
+            {/* Action bar — a footer below the scroll area (not inside it) so it stays
+                pinned above the input without ever covering the messages. */}
+            {!isLoading && (isInvalidationReview ? isEditing : (isImmediate && !isEditing && ideaReady) || editReady || ideaReady || showChangedMind) && (
+                <div className="chat-panel__action-bubble">
+                    {dismissConfirm ? (
+                        <div className="chat-panel__dismiss-confirm">
+                            <span>Setup is still valid — clear the alert?</span>
+                            <div className="chat-panel__dismiss-confirm-btns">
+                                <button
+                                    className="chat-panel__review-btn chat-panel__review-btn--dismiss"
+                                    onClick={() => { setDismissConfirm(false); onDismissInvalidation?.() }}
+                                >Confirm</button>
+                                <button
+                                    className="chat-panel__review-btn chat-panel__review-btn--later"
+                                    onClick={() => setDismissConfirm(false)}
+                                >Cancel</button>
                             </div>
-                        ) : isInvalidationReview ? (
-                            <>
-                                {generateReady && (
-                                    <button className="chat-panel__review-btn chat-panel__review-btn--update" onClick={onGenerate}>
-                                        Update idea
-                                    </button>
-                                )}
-                                <button className="chat-panel__review-btn chat-panel__review-btn--dismiss" onClick={() => setDismissConfirm(true)}>
-                                    Dismiss
+                        </div>
+                    ) : isInvalidationReview ? (
+                        <>
+                            {generateReady && (
+                                <button className="chat-panel__review-btn chat-panel__review-btn--update" onClick={onGenerate}>
+                                    Update idea
                                 </button>
-                                <button className="chat-panel__review-btn chat-panel__review-btn--later" onClick={onClear}>
-                                    I&apos;ll do it later
-                                </button>
-                            </>
-                        ) : isImmediate && !isEditing && ideaReady ? (
-                            generateReady ? (
-                                <button
-                                    className={`chat-panel__market-btn chat-panel__market-btn--${direction}`}
-                                    onClick={onBuyMarket}
-                                >
-                                    {direction === 'short' ? 'Sell Market' : 'Buy Market'}
-                                </button>
-                            ) : (
-                                <button
-                                    className={`chat-panel__market-btn chat-panel__market-btn--${direction}`}
-                                    disabled
-                                    title="Select a broker account above to place this trade"
-                                >
-                                    {direction === 'short' ? 'Sell Market' : 'Buy Market'}
-                                </button>
-                            )
-                        ) : showChangedMind ? (
-                            <button className="chat-panel__generate chat-panel__generate--cancel" onClick={onClear}>
+                            )}
+                            <button className="chat-panel__review-btn chat-panel__review-btn--dismiss" onClick={() => setDismissConfirm(true)}>
+                                Dismiss
+                            </button>
+                            <button className="chat-panel__review-btn chat-panel__review-btn--later" onClick={onClear}>
                                 I&apos;ll do it later
+                            </button>
+                        </>
+                    ) : isImmediate && !isEditing && ideaReady ? (
+                        generateReady ? (
+                            <button
+                                className={`chat-panel__market-btn chat-panel__market-btn--${direction}`}
+                                onClick={onBuyMarket}
+                            >
+                                {direction === 'short' ? 'Sell Market' : 'Buy Market'}
                             </button>
                         ) : (
                             <button
-                                className="chat-panel__generate"
-                                onClick={generateReady ? onGenerate : undefined}
-                                disabled={!generateReady}
-                                title={generateReady ? undefined : 'Select a broker account above to generate this idea'}
+                                className={`chat-panel__market-btn chat-panel__market-btn--${direction}`}
+                                disabled
+                                title="Select a broker account above to place this trade"
                             >
-                                {isEditing ? 'Update idea' : 'Generate idea'}
+                                {direction === 'short' ? 'Sell Market' : 'Buy Market'}
                             </button>
-                        )}
-                    </div>
-                )}
-
-                <div ref={messagesEndRef} />
-            </div>
+                        )
+                    ) : showChangedMind ? (
+                        <button className="chat-panel__generate chat-panel__generate--cancel" onClick={onClear}>
+                            I&apos;ll do it later
+                        </button>
+                    ) : (
+                        <button
+                            className="chat-panel__generate"
+                            onClick={generateReady ? onGenerate : undefined}
+                            disabled={!generateReady}
+                            title={generateReady ? undefined : 'Select a broker account above to generate this idea'}
+                        >
+                            {isEditing ? 'Update idea' : 'Generate idea'}
+                        </button>
+                    )}
+                </div>
+            )}
 
             <ChatInputRow
                 prefix="chat-panel"
