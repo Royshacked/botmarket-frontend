@@ -11,7 +11,7 @@ import { TradingViewChart }  from '../cmps/TradingViewChart/TradingViewChart.jsx
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
-import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { MonitorDashboard }  from '../cmps/MonitorDashboard/MonitorDashboard.jsx'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { toolStatusLabel }   from '../services/toolStatusLabels.js'
@@ -500,7 +500,7 @@ export function MainPage() {
         // Don't reset to 'waiting' when editing a live idea (hit/long/short) —
         // the user is just adding stops/TPs to an already-placed order.
         const editingIdea    = ideas.find(i => i.id === editingIdeaId)
-        const isPostOrderEdit = !!editingIdea && ['hit', 'long', 'short'].includes(editingIdea.status)
+        const isPostOrderEdit = !!editingIdea && isPostOrderStatus(editingIdea.status)
 
         if (editingIdeaId) {
             try {
@@ -899,7 +899,7 @@ export function MainPage() {
         isInvalidationReview,
         onDismissInvalidation: handleDismissInvalidation,
         onBuyMarket:         handleBuyMarket,
-        isPostOrderEdit:     !!ideas.find(i => i.id === editingIdeaId && ['hit', 'long', 'short'].includes(i.status)),
+        isPostOrderEdit:     !!ideas.find(i => i.id === editingIdeaId && isPostOrderStatus(i.status)),
         availableAccounts,
         selectedAccounts,
         onAccountsChange:    setSelectedAccounts,

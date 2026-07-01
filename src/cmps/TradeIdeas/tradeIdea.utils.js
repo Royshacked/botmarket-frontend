@@ -53,33 +53,69 @@ export function openIdeaPopup(idea) {
     return popup
 }
 
+// Field triples per trade phase. Single source for how entry/stop/tp conditions
+// are stored (nested tree, legacy flat array + logic) so every consumer reads the
+// same way instead of re-deriving field names.
+const PHASE_FIELDS = {
+    entry: { tree: 'entry_condition_tree', flat: 'entry_conditions', logic: 'entry_logic', defaultLogic: 'AND' },
+    stop:  { tree: 'stop_condition_tree',  flat: 'stop_conditions',  logic: 'stop_logic',  defaultLogic: 'OR'  },
+    tp:    { tree: 'tp_condition_tree',    flat: 'tp_conditions',    logic: 'tp_logic',    defaultLogic: 'OR'  },
+}
+
 /**
- * Best available one-line summary for a trade idea's entry conditions.
- * Priority: condition tree → flat conditions array → notes → null
+ * Normalize an idea's phase conditions to a single tree node (or null): the nested
+ * tree when present, else the legacy flat array wrapped under the phase's logic.
+ * The canonical shim — replaces the copies in ConditionTree.getTree and IdeaDetail.
+ *
+ * @param {import('../../types.js').Idea} idea
+ * @param {'entry'|'stop'|'tp'} phase
+ * @returns {object|null}
+ */
+export function phaseTree(idea, phase) {
+    const f = PHASE_FIELDS[phase]
+    if (!f || !idea) return null
+    if (idea[f.tree]) return idea[f.tree]
+    const conds = idea[f.flat]
+    if (Array.isArray(conds) && conds.length > 0)
+        return { operator: idea[f.logic] ?? f.defaultLogic, children: conds }
+    return null
+}
+
+/**
+ * Best available one-line summary of a phase's conditions: tree → compact
+ * oneliner, else the flat array joined by its logic. Returns null when the phase
+ * has no conditions. Reads the tree first, so it renders identically wherever it's
+ * used (fixes the Monitor card vs ideas-row divergence).
+ *
+ * @param {import('../../types.js').Idea} idea
+ * @param {'entry'|'stop'|'tp'} phase
+ * @returns {string|null}
+ */
+export function phaseSummary(idea, phase) {
+    const f = PHASE_FIELDS[phase]
+    if (!f || !idea) return null
+    if (idea[f.tree]) {
+        const s = treeToOneliner(idea[f.tree])
+        if (s) return s
+    }
+    const conds = idea[f.flat]
+    if (Array.isArray(conds) && conds.length > 0) {
+        const parts = conds.map(c => (typeof c === 'string' ? c : c?.condition)?.trim()).filter(Boolean)
+        if (parts.length > 0) return parts.join(`  ${idea[f.logic] ?? f.defaultLogic}  `)
+    }
+    return null
+}
+
+/**
+ * Best available one-line summary for a trade idea's entry conditions, falling
+ * back to its notes. Priority: entry tree → entry flat array → notes → null.
  *
  * @param {import('../../types.js').Idea} idea
  * @returns {string|null}
  */
 export function conditionSummary(idea) {
     if (!idea) return null
-
-    // New tree format
-    if (idea.entry_condition_tree) {
-        const s = treeToOneliner(idea.entry_condition_tree)
-        if (s) return s
-    }
-
-    // Legacy flat array
-    if (Array.isArray(idea.entry_conditions) && idea.entry_conditions.length > 0) {
-        const logic = idea.entry_logic ?? 'AND'
-        const parts = idea.entry_conditions
-            .map(c => (typeof c === 'string' ? c : c?.condition)?.trim())
-            .filter(Boolean)
-        if (parts.length > 0) return parts.join(`  ${logic}  `)
-    }
-
-    // Final fallback: notes
-    return idea.notes?.trim() || null
+    return phaseSummary(idea, 'entry') || (idea.notes?.trim() || null)
 }
 
 /**
@@ -227,8 +263,22 @@ export function activationStatus(idea) {
  * @returns {boolean}
  */
 export function isDeleteLocked(idea) {
-    return ['long', 'short'].includes(idea?.status)
+    return isLiveStatus(idea?.status)
 }
+
+// ── Idea status groups ──────────────────────────────────────────────────────
+// Single source for the status literal-sets that were duplicated across
+// TradeIdeaRow / IdeaDetail / MainPage.
+//   live       — holds a real broker position (long/short)
+//   post-order — an order has been placed: pending confirm ('hit') or in position
+//   system     — driven by the monitor/broker, not the user's status toggle
+export const LIVE_STATUSES       = ['long', 'short']
+export const POST_ORDER_STATUSES = ['hit', 'long', 'short']
+export const SYSTEM_STATUSES     = ['hit', 'long', 'short', 'closed']
+
+export const isLiveStatus      = (status) => LIVE_STATUSES.includes(status)
+export const isPostOrderStatus = (status) => POST_ORDER_STATUSES.includes(status)
+export const isSystemStatus    = (status) => SYSTEM_STATUSES.includes(status)
 
 /**
  * True when deleting the idea should ask for confirmation first: a 'hit' idea has

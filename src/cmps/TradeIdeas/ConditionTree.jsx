@@ -1,15 +1,8 @@
 import { Fragment } from 'react'
 
 // ── Condition tree helpers ────────────────────────────────────────────────────
-
-// eslint-disable-next-line react-refresh/only-export-components -- small condition-tree helper colocated with its only consumers
-export function getTree(idea, treeField, condField, logicField) {
-    if (idea[treeField]) return idea[treeField]
-    const conds = idea[condField]
-    if (Array.isArray(conds) && conds.length > 0)
-        return { operator: idea[logicField] ?? 'AND', children: conds }
-    return null
-}
+// Note: the idea-phase → tree normalizer lives in tradeIdea.utils.js as
+// `phaseTree(idea, phase)` — the single source consumers should use.
 
 function flattenInline(node, parentOp = null) {
     if (!node) return []
