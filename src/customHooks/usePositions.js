@@ -2,6 +2,9 @@ import { useState, useCallback } from 'react'
 import { brokerService } from '../services/broker/broker.service.remote.js'
 import { useAutoRefresh } from './useAutoRefresh.js'
 
+// Poll so open-position P&L stays live (paper marks + broker fills move continuously).
+const POSITIONS_POLL_MS = 4000
+
 /**
  * Loads the user's open positions across every connected broker and keeps them
  * refreshable. Each position is tagged with the broker it lives on and the
@@ -62,7 +65,7 @@ export function usePositions() {
         }
     }, [])
 
-    useAutoRefresh(refresh)
+    useAutoRefresh(refresh, POSITIONS_POLL_MS)
 
     const closePosition = useCallback(async (broker, positionId, accountId) => {
         await brokerService.closePosition(broker, positionId, accountId)

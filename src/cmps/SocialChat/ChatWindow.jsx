@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
-import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW } from '../../services/event-bus.service'
+import { eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW } from '../../services/event-bus.service'
 
 function formatTime(ms) {
     if (!ms) return ''
     return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
-export function ChatWindow({ conversation, messages, currentUserId, loading, hasMore, onClose, onSend, onLoadMore }) {
+export function ChatWindow({ conversation, messages, currentUserId, loading, hasMore, onClose, onSend, onLoadMore, onDismissMessage }) {
     const [draft,   setDraft]   = useState('')
     const [sending, setSending] = useState(false)
     const bottomRef = useRef(null)
@@ -57,7 +57,7 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                             className={`social-chat__msg ${isMine ? 'social-chat__msg--mine' : 'social-chat__msg--theirs'}`}
                         >
                             {msg.type === 'invalidation_alert' && msg.payload
-                                ? <InvalidationAlertBubble msg={msg} onClose={onClose} />
+                                ? <InvalidationAlertBubble msg={msg} onClose={onClose} onDismiss={onDismissMessage} />
                                 : msg.type === 'portfolio_review' && msg.payload
                                 ? <PortfolioReviewBubble msg={msg} onClose={onClose} />
                                 : <div className="social-chat__msg-bubble">{msg.content}</div>
@@ -86,8 +86,11 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
     )
 }
 
-function InvalidationAlertBubble({ msg, onClose }) {
-    const { reason, asset, status, inPosition } = msg.payload
+function InvalidationAlertBubble({ msg, onClose, onDismiss }) {
+    const { reason, asset, status, inPosition, ideaId } = msg.payload
+    // Dismissal is persisted on the message (msg.dismissed), so the choice survives
+    // reload and the alert never reappears actionable.
+    const dismissed = !!msg.dismissed
     // 'drifting' = pre-entry, price running away from a distant entry (softer nudge);
     // 'fired' = the entry envelope broke. Fall back to 'fired' for older payloads.
     const isDrifting = status === 'drifting'
@@ -97,8 +100,23 @@ function InvalidationAlertBubble({ msg, onClose }) {
         : `Invalidation${inPosition ? ' (in position)' : ''}`
 
     function handleReview() {
-        eventBus.emit(INVALIDATION_EDIT_IDEA, { ideaId: msg.payload.ideaId })
+        eventBus.emit(INVALIDATION_EDIT_IDEA, { ideaId })
         onClose?.()
+    }
+
+    function handleCloseTrade() {
+        eventBus.emit(INVALIDATION_CLOSE_TRADE, { ideaId })
+        onClose?.()
+    }
+
+    // Local acknowledge. The server latch (invalidation_status) already stops
+    // re-alerting for this idea, so dismissing just collapses the bubble.
+    if (dismissed) {
+        return (
+            <div className="social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--dismissed">
+                <div className="social-chat__invalidation-alert-header">Dismissed &middot; {asset}</div>
+            </div>
+        )
     }
 
     return (
@@ -107,9 +125,19 @@ function InvalidationAlertBubble({ msg, onClose }) {
                 {label} &middot; {asset}
             </div>
             <div className="social-chat__invalidation-alert-reason">{reason}</div>
-            <button className="social-chat__invalidation-alert-btn" onClick={handleReview}>
-                Review Idea
-            </button>
+            <div className="social-chat__invalidation-alert-actions">
+                <button className="social-chat__invalidation-alert-btn" onClick={handleReview}>Update</button>
+                {inPosition && (
+                    <button
+                        className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--close"
+                        onClick={handleCloseTrade}
+                    >Close</button>
+                )}
+                <button
+                    className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
+                    onClick={() => onDismiss?.(msg.id)}
+                >Dismiss</button>
+            </div>
         </div>
     )
 }

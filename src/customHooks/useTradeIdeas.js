@@ -20,6 +20,9 @@ const POLL_INTERVAL_MS = 30_000
  */
 export function useTradeIdeas() {
     const [ideas, setIdeas] = useState([])
+    // Arm-time pre-flight prompt: { idea, close } when activating an idea whose
+    // entry level is already held (monitor won't fire) — null otherwise.
+    const [preEntryPrompt, setPreEntryPrompt] = useState(null)
 
     const loadIdeas = useCallback(async () => {
         try {
@@ -39,6 +42,10 @@ export function useTradeIdeas() {
             const res = await tradeIdeasService.updateIdea(id, { status })
             // Confirm with the server's returned document
             setIdeas(prev => prev.map(idea => idea.id === id ? res.idea : idea))
+            // Arm-time pre-flight: entry level already held → prompt Buy now / Edit / Reset
+            if (res.preEntry?.alreadySatisfied) {
+                setPreEntryPrompt({ idea: res.idea, close: res.preEntry.close })
+            }
         } catch (err) {
             console.error('[tradeIdeas] status update failed', err)
             // Revert by reloading from server
@@ -55,5 +62,5 @@ export function useTradeIdeas() {
         }
     }
 
-    return { ideas, setIdeas, loadIdeas, handleStatusChange, handleUpdateIdea }
+    return { ideas, setIdeas, loadIdeas, handleStatusChange, handleUpdateIdea, preEntryPrompt, setPreEntryPrompt }
 }

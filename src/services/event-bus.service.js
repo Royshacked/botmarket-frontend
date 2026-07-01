@@ -1,6 +1,7 @@
-export const SHOW_MSG               = 'show-msg'
-export const INVALIDATION_EDIT_IDEA = 'invalidation-edit-idea'
-export const PORTFOLIO_REVIEW       = 'portfolio-review'
+export const SHOW_MSG                 = 'show-msg'
+export const INVALIDATION_EDIT_IDEA   = 'invalidation-edit-idea'
+export const INVALIDATION_CLOSE_TRADE = 'invalidation-close-trade'
+export const PORTFOLIO_REVIEW         = 'portfolio-review'
 
 function createEventEmitter() {
     const listenersMap = {}

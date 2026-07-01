@@ -10,13 +10,14 @@ import { Radar }             from '../cmps/Radar/Radar.jsx'
 import { TradingViewChart }  from '../cmps/TradingViewChart/TradingViewChart.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
+import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
-import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { MonitorDashboard }  from '../cmps/MonitorDashboard/MonitorDashboard.jsx'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
-import { showErrorMsg, eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW } from '../services/event-bus.service'
+import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW } from '../services/event-bus.service'
 import { useChatStream }     from '../customHooks/useChatStream.js'
 import { useNewsFeed }       from '../customHooks/useNewsFeed.js'
 import { useCalendarEvents } from '../customHooks/useCalendarEvents.js'
@@ -161,7 +162,8 @@ export function MainPage() {
     const { user } = useAuth()
     const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
     const { positions, loading: positionsLoading, refresh: refreshPositions, closePosition } = usePositions()
-    const { ideas, setIdeas, loadIdeas, handleStatusChange } = useTradeIdeas()
+    const { ideas, setIdeas, loadIdeas, handleStatusChange, preEntryPrompt, setPreEntryPrompt } = useTradeIdeas()
+    const [preEntryBusy, setPreEntryBusy] = useState(false)
 
     const buildingIdea = deriveBuildingIdea(analysisState)
     // buildingPortfolio is reported up from PortfolioPanel (assets recommended /
@@ -353,14 +355,36 @@ export function MainPage() {
         setMainAccountId(idea.mainAccountId ?? null)
     }
 
-    // Keep a ref so the invalidation-alert handler always sees the latest ideas
-    // list without needing to be recreated on every render.
+    // Keep refs so the invalidation-alert handlers always see the latest ideas /
+    // positions without being recreated on every render.
     const ideasRef = useRef(ideas)
     ideasRef.current = ideas
+    const positionsRef = useRef(positions)
+    positionsRef.current = positions
     useEffect(() => {
         return eventBus.on(INVALIDATION_EDIT_IDEA, ({ ideaId }) => {
             const idea = ideasRef.current.find(i => i.id === ideaId)
             if (idea) handleEditIdea(idea, { invalidationReview: true })
+        })
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // "Close trade" from an in-position invalidation alert. The alert payload only
+    // carries the ideaId, so resolve the open position by the idea's symbol (matching
+    // the broker-symbol alias too, e.g. NQ ↔ US100) and close it at market.
+    useEffect(() => {
+        return eventBus.on(INVALIDATION_CLOSE_TRADE, async ({ ideaId }) => {
+            const idea = ideasRef.current.find(i => i.id === ideaId)
+            if (!idea) return
+            const ideaSymbols = [idea.asset, brokerSymbolLabel(idea)].filter(Boolean).map(s => String(s).toUpperCase())
+            const pos = positionsRef.current.find(p => p.symbol && ideaSymbols.includes(String(p.symbol).toUpperCase()))
+            if (!pos) { showErrorMsg('No open position found for this idea'); return }
+            try {
+                await closePosition(pos.broker, pos.id, pos.accountId)
+                showSuccessMsg('Position closed')
+            } catch (err) {
+                console.error('[invalidation] close trade failed', err)
+                showErrorMsg('Could not close the position — try again')
+            }
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -525,6 +549,47 @@ export function MainPage() {
             setDismissedConfirmIds(prev => new Set(prev).add(idea.id))
         } finally {
             setPlacingOrders(false)
+        }
+    }
+
+    // ── Arm-time pre-flight prompt actions (Buy now / Edit / Reset) ────────────
+    // Buy now: force-trigger the entry (→ hit + built plan). The confirmIdea
+    // derivation then surfaces the normal OrderConfirmDialog for account selection.
+    async function handlePreEntryBuyNow(idea) {
+        setPreEntryBusy(true)
+        try {
+            const updated = await tradeIdeasService.triggerEntry(idea.id)
+            if (updated) {
+                setIdeas(prev => prev.map(i => i.id === idea.id ? updated : i))
+                setDismissedConfirmIds(prev => { const n = new Set(prev); n.delete(idea.id); return n })
+            }
+            setPreEntryPrompt(null)
+        } catch (err) {
+            console.error('[preflight] buy-now failed', err)
+            showErrorMsg('Could not trigger entry — try again')
+        } finally {
+            setPreEntryBusy(false)
+        }
+    }
+
+    // Edit: reopen the idea in chat to change the level.
+    function handlePreEntryEdit(idea) {
+        setPreEntryPrompt(null)
+        handleEditIdea(idea)
+    }
+
+    // Reset: keep watching, but re-arm the entry floor to now so only a fresh
+    // cross from here fires (server-side resetPreEntry flag).
+    async function handlePreEntryReset(idea) {
+        setPreEntryBusy(true)
+        try {
+            const res = await tradeIdeasService.updateIdea(idea.id, { resetPreEntry: true })
+            if (res?.idea) setIdeas(prev => prev.map(i => i.id === idea.id ? res.idea : i))
+            setPreEntryPrompt(null)
+        } catch (err) {
+            console.error('[preflight] reset failed', err)
+        } finally {
+            setPreEntryBusy(false)
         }
     }
 
@@ -958,6 +1023,17 @@ export function MainPage() {
                     onConfirm={handleConfirmOrders}
                     onDismiss={handleDismissConfirm}
                     onReset={handleResetWindow}
+                />
+            )}
+
+            {preEntryPrompt && (
+                <PreEntryDialog
+                    prompt={preEntryPrompt}
+                    busy={preEntryBusy}
+                    onBuyNow={handlePreEntryBuyNow}
+                    onEdit={handlePreEntryEdit}
+                    onReset={handlePreEntryReset}
+                    onClose={() => { if (!preEntryBusy) setPreEntryPrompt(null) }}
                 />
             )}
 

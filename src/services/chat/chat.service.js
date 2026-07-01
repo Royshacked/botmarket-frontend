@@ -24,6 +24,10 @@ export const chatService = {
         return httpService.post(`${BASE}/conversations/${convId}/read`)
     },
 
+    async dismissMessage(convId, msgId) {
+        return httpService.post(`${BASE}/conversations/${convId}/messages/${msgId}/dismiss`)
+    },
+
     async searchUsers(q) {
         const { users } = await httpService.get(`${BASE}/users/search?q=${encodeURIComponent(q)}`)
         return users

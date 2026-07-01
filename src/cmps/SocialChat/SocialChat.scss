@@ -372,7 +372,8 @@
     &__invalidation-alert {
         padding: 0;
         overflow: hidden;
-        min-width: 220px;
+        min-width: 170px;
+        max-width: 100%;
 
         &--upper    { border: 1px solid #f59e0b; }
         &--lower    { border: 1px solid #ef4444; }
@@ -381,8 +382,8 @@
     }
 
     &__invalidation-alert-header {
-        padding: 7px 12px 5px;
-        font-size: .76rem;
+        padding: 6px 10px 4px;
+        font-size: .7rem;
         font-weight: 600;
         letter-spacing: .01em;
 
@@ -393,26 +394,49 @@
     }
 
     &__invalidation-alert-reason {
-        padding: 6px 12px 8px;
-        font-size: .83rem;
+        padding: 5px 10px 7px;
+        font-size: .76rem;
         color: var(--text-primary);
         line-height: 1.4;
     }
 
+    &__invalidation-alert-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin: 0 10px 8px;
+    }
+
     &__invalidation-alert-btn {
-        display: block;
-        width: calc(100% - 24px);
-        margin: 0 12px 10px;
-        padding: 6px;
+        flex: 1 1 auto;
+        min-width: 0;
+        padding: 4px 6px;
         background: var(--bg-base);
         border: 1px solid var(--border-strong, var(--border));
-        border-radius: 8px;
+        border-radius: 6px;
         color: var(--text-primary);
-        font-size: .8rem;
+        font-size: .68rem;
         font-weight: 500;
+        white-space: nowrap;
         cursor: pointer;
         text-align: center;
         &:hover { background: var(--bg-hover); }
+
+        &--dismiss {
+            border-color: var(--border);
+            color: var(--text-muted);
+            &:hover { color: var(--text-secondary); }
+        }
+
+        &--close {
+            border-color: rgba(239, 83, 80, 0.5);
+            color: #ef5350;
+            &:hover { background: rgba(239, 83, 80, 0.1); }
+        }
+    }
+
+    &__invalidation-alert--dismissed {
+        opacity: 0.55;
     }
 
     // ── Portfolio review notification ──────────────────────────────────────────

@@ -8,6 +8,7 @@ export const tradeIdeasService = {
     deleteIdea,
     updateIdea,
     placeOrders,
+    triggerEntry,
 }
 
 /**
@@ -46,5 +47,12 @@ async function createBatch(plan, accounts = [], mainAccountId = null, portfolioI
 
 async function placeOrders(id, orders) {
     const res = await httpService.post(`api/trade-ideas/${id}/orders`, { orders })
+    return res.idea ?? null
+}
+
+// "Buy now" from the pre-flight prompt: force-trigger a looking idea's entry
+// (→ hit + built plan) so the order-confirm dialog surfaces.
+async function triggerEntry(id) {
+    const res = await httpService.post(`api/trade-ideas/${id}/trigger`, {})
     return res.idea ?? null
 }

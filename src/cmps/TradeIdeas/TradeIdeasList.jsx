@@ -9,10 +9,6 @@ import { StatusIcon } from '../StatusIcon.jsx'
 import { BrandTitle } from '../BrandTitle.jsx'
 import './TradeIdeas.scss'
 
-// How often to re-fetch open positions while the Positions tab is in view, so
-// live P&L keeps ticking. Each poll is one WS reconcile + unrealized-P&L round trip.
-const POSITIONS_POLL_MS = 4000
-
 function _separateIdeas(ideas) {
     const standalone = []
     const groupMap   = new Map()   // portfolioId → portfolio group
@@ -264,15 +260,6 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
     useEffect(() => {
         if (isBuildingPortfolio) setActiveFilter('portfolios')
     }, [isBuildingPortfolio])
-
-    // Poll so live P&L keeps ticking while the Positions tab is in view. Stops when
-    // it's dismissed or the component unmounts. (An opened idea now lives in its own
-    // pop-out window, which polls its own positions.)
-    useEffect(() => {
-        if (activeFilter !== 'positions' || !onRefreshPositions) return
-        const id = setInterval(() => onRefreshPositions(), POSITIONS_POLL_MS)
-        return () => clearInterval(id)
-    }, [activeFilter, onRefreshPositions])
 
     // Clicking an idea row opens it straight in its own pop-out window.
     function handleOpen(idea) { openIdeaPopup(idea) }

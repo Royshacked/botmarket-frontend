@@ -116,6 +116,19 @@ export function SocialChat({ currentUserId, onUnreadChange, onClose }) {
         handleSelectConv(conv)
     }
 
+    // Persist a message dismissal (e.g. an invalidation alert) so the choice sticks:
+    // patch it locally now, and mark it dismissed server-side so it stays acknowledged
+    // on reload. Does not touch the idea's invalidation latch.
+    async function handleDismissMessage(msgId) {
+        if (!activeConv) return
+        setMessages(prev => prev.map(m => m.id === msgId ? { ...m, dismissed: true } : m))
+        try {
+            await chatService.dismissMessage(activeConv.id, msgId)
+        } catch (err) {
+            console.error('[SocialChat] dismiss failed', err)
+        }
+    }
+
     return (
         <>
             <div className="social-chat__backdrop" onClick={handleClose} />
@@ -138,6 +151,7 @@ export function SocialChat({ currentUserId, onUnreadChange, onClose }) {
                     onClose={handleClose}
                     onSend={handleSend}
                     onLoadMore={handleLoadMore}
+                    onDismissMessage={handleDismissMessage}
                 />
             </div>
         </>

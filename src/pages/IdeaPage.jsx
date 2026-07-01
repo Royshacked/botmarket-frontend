@@ -6,9 +6,6 @@ import { StatusIcon } from '../cmps/StatusIcon.jsx'
 import { usePositions } from '../customHooks/usePositions.js'
 import './IdeaPage.scss'
 
-// How often to re-fetch positions so live P&L keeps ticking in the popped-out window.
-const POSITIONS_POLL_MS = 4000
-
 function DevInvalidationPanel({ invalidation, status, reason, edge, armed }) {
     const [open, setOpen] = useState(false)
     const range = invalidation?.range
@@ -68,12 +65,6 @@ export function IdeaPage() {
     const [idea, setIdea] = useState(null)
     const [err,  setErr]  = useState(null)
     const { positions, refresh: refreshPositions, closePosition } = usePositions()
-
-    // Keep P&L live while the window is open (usePositions only loads once on mount).
-    useEffect(() => {
-        const t = setInterval(() => refreshPositions(), POSITIONS_POLL_MS)
-        return () => clearInterval(t)
-    }, [refreshPositions])
 
     useEffect(() => {
         // Fastest path: data injected directly onto window by the opener
