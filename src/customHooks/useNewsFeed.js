@@ -99,17 +99,20 @@ export function useNewsFeed() {
         return () => {
             active = false
             clearInterval(interval)
-            setAssetArticles([])
+            // Don't clear articles here — doFetch shows its own spinner and overwrites
+            // them, and clearAsset()'s null-branch empties them. Clearing on every
+            // symbol/query change flashed the list to empty before the refetch landed.
         }
         // Both feed the fetch URL — re-run if either changes (symbol can move
         // while the query string stays the same, e.g. two tickers, one company).
     }, [activeNewsSymbol, activeNewsQuery])
 
     // Soft hint while streaming: symbol is known but the query (company) isn't yet.
+    // No fetch happens until focusAsset sets the query, so don't flip the spinner
+    // on here — the per-asset effect would immediately clear it (query still null).
     function previewAsset(symbol) {
         if (symbol && symbol !== lastFetchedAssetRef.current) {
             setActiveNewsSymbol(symbol)
-            setAssetNewsLoading(true)
         }
     }
 

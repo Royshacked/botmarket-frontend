@@ -24,6 +24,7 @@ function connect() {
 function disconnect() {
     shouldConnect = false
     clearTimeout(reconnectTimer)
+    clearInterval(pingInterval)
     if (socket) { socket.onclose = null; socket.close(); socket = null }
 }
 

@@ -5,7 +5,6 @@ import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { AccountSelector } from './AccountSelector.jsx'
 import { ChatInputRow } from '../ChatInputRow.jsx'
-import { MeditatingBot } from '../MeditatingBot.jsx'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { ConvictionChip } from '../ConvictionChip/ConvictionChip.jsx'
@@ -134,10 +133,6 @@ function isIdeaReady(analysisState) {
         pt.stop_conditions?.length > 0 &&
         pt.tp_conditions?.length > 0
     )
-}
-
-function canGenerate(analysisState, selectedAccounts) {
-    return isIdeaReady(analysisState) && selectedAccounts?.length > 0
 }
 
 const PHASE_LABELS = { 1: 'Nucleus', 2: 'Formation', 3: 'Structure', 4: 'Exits', 5: 'Validation' }
