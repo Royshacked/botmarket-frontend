@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { AuthContext } from '../context/AuthContext'
 import { SocialChat } from './SocialChat/SocialChat'
 import { useChatWs } from '../customHooks/useChatWs'
+import { usePaperMode } from '../customHooks/usePaperMode'
 
 // ── AppHeader · "axl" style (trial) ───────────────────────────────────────────
 // The calm aurora header: animated calm-water wave bottom edge, ambient breathing
@@ -46,6 +47,7 @@ export function AppHeaderAxl() {
     const tagRef    = useRef(null)
 
     const { unread, setUnread, showChat, setShowChat } = useChatWs(user?._id)
+    const isPaper = usePaperMode(user?._id)
 
     // ── ambient aurora candlesticks (built once into the .ticks svg) ──
     useEffect(() => {
@@ -190,6 +192,14 @@ export function AppHeaderAxl() {
                 <div className="app-header-axl__right">
                     {user && (
                         <>
+                            <span
+                                className={`app-header-axl__mode ${isPaper ? 'paper' : 'live'}`}
+                                title={isPaper
+                                    ? 'Paper (simulated) mode — new ideas route to a simulated account'
+                                    : 'Live mode — new ideas route to your live broker'}
+                            >
+                                {isPaper ? 'PAPER' : 'LIVE'}
+                            </span>
                             <button
                                 className="app-header-axl__chat"
                                 onClick={() => setShowChat(v => !v)}

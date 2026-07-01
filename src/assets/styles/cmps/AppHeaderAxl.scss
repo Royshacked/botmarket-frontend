@@ -369,3 +369,20 @@
     .app-header-axl__profile,
     .app-header-axl__stream .msg { transition: none !important; }
 }
+
+// Live / Paper mode indicator pill in the right cluster.
+.app-header-axl__mode {
+    font-family: var(--font-mono, monospace);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    line-height: 1;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    user-select: none;
+    align-self: center;
+
+    &.live  { color: var(--color-long, #6cc48f); opacity: 0.7; }
+    &.paper { color: var(--color-warning, #e6a817); background: rgba(230, 168, 23, 0.12); }
+}

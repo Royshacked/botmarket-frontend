@@ -5,6 +5,7 @@ import { AuthContext } from '../context/AuthContext'
 import { HeaderBackground } from './HeaderBackground'
 import { SocialChat } from './SocialChat/SocialChat'
 import { useChatWs } from '../customHooks/useChatWs'
+import { usePaperMode } from '../customHooks/usePaperMode'
 
 export function AppHeader() {
 	const { user }     = useContext(AuthContext)
@@ -13,6 +14,7 @@ export function AppHeader() {
 	const onProfile    = pathname === '/profile'
 
 	const { unread, setUnread, showChat, setShowChat } = useChatWs(user?._id)
+	const isPaper = usePaperMode(user?._id)
 
 	return (
 		<header className="app-header full">
@@ -33,6 +35,14 @@ export function AppHeader() {
 
 			{user && (
 				<div className="app-header__user-wrap">
+					<span
+						className={`app-header__mode ${isPaper ? 'paper' : 'live'}`}
+						title={isPaper
+							? 'Paper (simulated) mode — new ideas route to a simulated account'
+							: 'Live mode — new ideas route to your live broker'}
+					>
+						{isPaper ? 'PAPER' : 'LIVE'}
+					</span>
 					<button
 						className="app-header__chat-btn"
 						onClick={() => setShowChat(v => !v)}
