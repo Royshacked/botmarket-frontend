@@ -821,8 +821,9 @@
             font-size: 9px;
             font-weight: 600;
             letter-spacing: 0.06em;
-            &.live { color: var(--color-long); }
-            &.demo { color: var(--text-muted); }
+            &.live  { color: var(--color-long); }
+            &.demo  { color: var(--text-muted); }
+            &.paper { color: var(--accent-light); }
         }
     }
 
@@ -853,5 +854,14 @@
         border-top: 1px solid var(--border);
         margin-top: 2px;
         font-style: italic;
+    }
+
+    &__paper-note {
+        font-family: var(--font-mono);
+        font-size: 9px;
+        color: var(--accent-light);
+        padding: 5px 12px 6px;
+        border-top: 1px solid var(--border);
+        margin-top: 2px;
     }
 }

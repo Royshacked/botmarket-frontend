@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { paperService } from '../../services/paper/paper.service.remote.js'
 
 /**
@@ -19,6 +20,7 @@ export function PaperTradingSection() {
     const [busy,    setBusy]    = useState(false)
     const [error,   setError]   = useState(null)
     const [draftBalance, setDraftBalance] = useState('')
+    const [confirmOn, setConfirmOn] = useState(false)
 
     useEffect(() => { _load() }, [])
 
@@ -45,7 +47,24 @@ export function PaperTradingSection() {
         try { setState(await fn()) } finally { setBusy(false) }
     }
 
-    const toggle      = () => _apply(() => paperService.setMode(!state.enabled))
+    // Turning paper ON changes where every new idea routes, so confirm intent first.
+    // Turning it OFF is immediate (back to live routing).
+    function requestToggle() {
+        if (state.enabled) applyToggle()
+        else setConfirmOn(true)
+    }
+
+    async function applyToggle() {
+        await _apply(() => paperService.setMode(!state.enabled))
+        // Notify the account selector (useBrokerAccounts) + header (usePaperMode) to
+        // re-fetch so they reflect the change immediately instead of only on reload.
+        window.dispatchEvent(new CustomEvent('paper-mode-changed'))
+    }
+
+    async function confirmToggle() {
+        setConfirmOn(false)
+        await applyToggle()
+    }
     const setSpread   = v => _apply(() => paperService.updateSettings({ spreadBps: Number(v) }))
     const setCommission = v => _apply(() => paperService.updateSettings({ commissionPerTrade: Number(v) }))
 
@@ -80,12 +99,16 @@ export function PaperTradingSection() {
                 </span>
                 <button
                     className={`user-profile__btn ${state.enabled ? 'user-profile__btn--primary' : 'user-profile__btn--ghost'}`}
-                    onClick={toggle}
+                    onClick={requestToggle}
                     disabled={busy}
                 >
                     {state.enabled ? 'On' : 'Off'}
                 </button>
             </div>
+
+            {confirmOn && (
+                <PaperOnConfirm busy={busy} onConfirm={confirmToggle} onCancel={() => setConfirmOn(false)} />
+            )}
 
             {/* Live results readout */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, margin: '12px 0' }}>
@@ -145,6 +168,41 @@ export function PaperTradingSection() {
                   </div>
             }
         </section>
+    )
+}
+
+const _confirmBackdrop = {
+    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+}
+const _confirmCard = {
+    background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10,
+    padding: '18px 20px', maxWidth: 380, width: '90%', boxShadow: '0 12px 40px rgba(0,0,0,0.45)',
+}
+
+function PaperOnConfirm({ busy, onConfirm, onCancel }) {
+    return createPortal(
+        <div style={_confirmBackdrop} onClick={busy ? undefined : onCancel}>
+            <div style={_confirmCard} onClick={e => e.stopPropagation()}>
+                <h3 style={{ margin: '0 0 8px', fontSize: '1rem', color: 'var(--text-primary)' }}>
+                    Turn on paper mode?
+                </h3>
+                <p style={{ margin: '0 0 16px', fontSize: '0.82rem', lineHeight: 1.5, color: 'var(--text-secondary)' }}>
+                    New ideas will route to a <strong>simulated</strong> account and place no real
+                    orders. Your live broker and any existing live positions are unaffected — this
+                    only changes where <em>new</em> ideas go.
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    <button className="user-profile__btn user-profile__btn--ghost" onClick={onCancel} disabled={busy}>
+                        Cancel
+                    </button>
+                    <button className="user-profile__btn user-profile__btn--primary" onClick={onConfirm} disabled={busy}>
+                        {busy ? 'Enabling…' : 'Turn on paper'}
+                    </button>
+                </div>
+            </div>
+        </div>,
+        document.body
     )
 }
 
