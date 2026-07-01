@@ -67,6 +67,28 @@
  * @property {Condition[]} [tp_conditions]
  * @property {AdditionalEntry[]} [additional_entries]
  * @property {string|null} [notes]
+ * @property {string|null} [entry_order_type]  'stop' → rests as a broker stop-market order
+ *                                             (the backend enriches this to Idea.entryOrderType)
+ * @property {Conviction} [conviction]
+ * @property {Invalidation} [invalidation]
+ */
+
+/**
+ * Agent's confidence in a trade, shown as a chip in the build summary.
+ *
+ * @typedef {Object} Conviction
+ * @property {'low'|'medium'|'high'} level
+ * @property {string} [rationale]
+ */
+
+/**
+ * Structured price-range watcher ("Invalidation"): fires a notify + edit link when
+ * price leaves the actionable entry envelope. Agent-derived; cites structure.
+ *
+ * @typedef {Object} Invalidation
+ * @property {number} [low]
+ * @property {number} [high]
+ * @property {string} [basis]   what structure the range is anchored to
  */
 
 /**
@@ -126,8 +148,21 @@
  * @property {'AND'|'OR'} [stop_logic]
  * @property {'AND'|'OR'} [tp_logic]
  * @property {object} [entry_condition_tree]  newer nested-tree condition format
+ * @property {object} [stop_condition_tree]
+ * @property {object} [tp_condition_tree]
+ * @property {'stop'|null} [entryOrderType]    server-enriched from entry_order_type;
+ *                                             'stop' = idea rests as a broker stop-market order
  * @property {AdditionalEntry[]} [additional_entries]
  * @property {string|null} [notes]
+ * @property {string} [timeframe]              legacy top-level chart timeframe (pre per-phase)
+ * @property {Conviction} [conviction]
+ * @property {Invalidation} [invalidation]     structured entry-envelope watcher
+ * @property {string|null} [invalidation_status]  set when price left the envelope
+ * @property {string|null} [invalidation_reason]
+ * @property {number|null} [invalidation_edge]
+ * @property {boolean} [invalidation_armed]
+ * @property {object} [conditionStates]        per-phase { leafStateKey → metAt } from the monitor
+ * @property {number} [entryTriggeredAt]       epoch ms when entry fired
  * @property {number} [savedAt]                epoch ms
  * @property {Array<string|Account>} [accounts]  attached account ids (or objects)
  * @property {string|null} [mainAccountId]    account the `quantity` is sized for
