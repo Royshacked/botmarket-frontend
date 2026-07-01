@@ -1,4 +1,30 @@
 /**
+ * Build the SSE event→handler map shared by every streaming agent (idea /
+ * scanner / portfolio) from a callback bag. Each stream only emits a subset of
+ * these events; unmapped callbacks are simply never called (optional-chained),
+ * so one builder safely covers all three. Centralises the event→field wiring so
+ * adding a new SSE event is a one-line change here, not in three services.
+ *
+ * @param {object} cb  { onToken, onTicker, onAsset, onInterval, onChart,
+ *                       onPhase, onStatus, onReasoning, onDone, onError }
+ * @returns {Object<string, function>}
+ */
+export function buildStreamHandlers(cb = {}) {
+    return {
+        token:     (d) => cb.onToken?.(d.text),
+        ticker:    (d) => cb.onTicker?.(d.symbol),
+        asset:     (d) => cb.onAsset?.(d.symbol),
+        interval:  (d) => cb.onInterval?.(d.interval),
+        chart:     (d) => cb.onChart?.(d),
+        phase:     (d) => cb.onPhase?.(d.phase),
+        status:    (d) => cb.onStatus?.(d.tool),
+        reasoning: (d) => cb.onReasoning?.(d.text),
+        done:      (d) => cb.onDone?.(d),
+        error:     (d) => cb.onError?.(d.message),
+    }
+}
+
+/**
  * POST a JSON body to a Server-Sent-Events endpoint and dispatch each parsed
  * event to a handler map. Shared by every streaming service.
  *
