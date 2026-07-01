@@ -237,12 +237,31 @@
         margin-bottom: 6px;
     }
 
+    &__asset-group {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+    }
+
     &__asset {
         font-family: var(--font-mono);
         font-size: 1.1rem;
         font-weight: 700;
         color: var(--accent-light);
         letter-spacing: 0.04em;
+    }
+
+    // Simulated-trade marker — sits next to the asset symbol.
+    &__paper {
+        font-family: var(--font-mono);
+        font-size: 0.55rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        color: var(--color-teal);
+        background: rgba(38, 166, 154, 0.12);
+        border: 1px solid var(--color-teal);
+        border-radius: 3px;
+        padding: 1px 5px;
     }
 
     &__phase {

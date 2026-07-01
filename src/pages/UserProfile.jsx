@@ -11,6 +11,7 @@ import { MODEL_OPTIONS, readStoredModel }       from '../cmps/modelOptions.js'
 import { REASONING_OPTIONS, readStoredReasoning } from '../cmps/reasoningOptions.js'
 import { ROUTING_MODES, readStoredRoutingMode } from '../cmps/RoutingModeSelector.jsx'
 import { DESIGNS, loadDesign, saveDesign, applyDesign } from '../services/designService.js'
+import { PaperTradingSection } from '../cmps/PaperTrading/PaperTradingSection.jsx'
 import './UserProfile.scss'
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
@@ -377,6 +378,8 @@ export function UserProfile() {
                             )
                         })}
                     </section>
+
+                    <PaperTradingSection />
 
                 </div>
 

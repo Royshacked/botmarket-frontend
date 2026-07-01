@@ -38,7 +38,12 @@ export function IdeaCard({ idea, onOpen }) {
 
             {/* ── Top row ── */}
             <div className="idea-card__top">
-                <span className="idea-card__asset">{asset || '—'}</span>
+                <span className="idea-card__asset-group">
+                    <span className="idea-card__asset">{asset || '—'}</span>
+                    {idea.broker === 'paper' && (
+                        <span className="idea-card__paper" title="Simulated (paper) trade">PAPER</span>
+                    )}
+                </span>
                 <span className={`idea-card__phase idea-card__phase--${phase.cls}`}>
                     <span className="idea-card__phase-dot">{phase.dot}</span>
                     {phase.label}

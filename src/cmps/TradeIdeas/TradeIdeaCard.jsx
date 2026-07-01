@@ -15,6 +15,13 @@ export function TradeIdeaCard({ idea, onDelete, onStatusChange }) {
         <div className={`trade-idea-card status--${status}`}>
             <div className="trade-idea-card__header">
                 <span className="trade-idea-card__asset">{asset || '—'}</span>
+                {idea.broker === 'paper' && (
+                    <span
+                        className="trade-idea-card__paper"
+                        title="Simulated (paper) trade"
+                        style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.12em', color: 'var(--color-teal)', background: 'rgba(38, 166, 154, 0.12)', border: '1px solid var(--color-teal)', borderRadius: 3, padding: '1px 5px' }}
+                    >PAPER</span>
+                )}
                 <span className={`trade-idea-card__badge status--${status}`}><StatusIcon status={status} /></span>
                 <button
                     className="trade-idea-card__delete"
