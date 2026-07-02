@@ -4,7 +4,7 @@ import { TradeIdeaRow } from './TradeIdeaRow.jsx'
 import { ClosePositionDialog } from './ClosePositionDialog.jsx'
 import { EditOrdersDialog } from './EditOrdersDialog.jsx'
 import { PositionsTable, posKey } from './PositionsTable.jsx'
-import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel, isDeleteLocked, openIdeaPopup } from './tradeIdea.utils.js'
+import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel, isDeleteLocked, openIdeaPopup, formatPnl, ideaPnl, portfolioPnl } from './tradeIdea.utils.js'
 import { StatusIcon } from '../StatusIcon.jsx'
 import { BrandTitle } from '../BrandTitle.jsx'
 import './TradeIdeas.scss'
@@ -125,8 +125,11 @@ BrokerGroupRow.propTypes = {
     onSymbolClick:  PropTypes.func,
 }
 
-function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDeletePortfolio, onStatusChange, onOpen, onSymbolClick }) {
+function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDeletePortfolio, onStatusChange, onOpen, onSymbolClick, positions = [] }) {
     const allWaiting = group.ideas.length > 0 && group.ideas.every(i => i.status === 'waiting')
+    // Live total P&L = sum of the portfolio's open positions (null while nothing is live).
+    const pnl      = portfolioPnl(group.ideas, positions)
+    const pnlClass = pnl ? (pnl.pnl > 0 ? ' pnl--pos' : pnl.pnl < 0 ? ' pnl--neg' : '') : ''
     // Any idea live on the broker → block the whole-portfolio delete (it deletes every
     // leg + the chat, which would orphan the live position). Close it first.
     const anyLocked = group.ideas.some(isDeleteLocked)
@@ -164,6 +167,9 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
                 </td>
                 <td className="portfolio-group-row__count">{group.ideas.length}</td>
                 <td className="portfolio-group-row__created">{formatCreatedAt(group.savedAt) || '—'}</td>
+                <td className={`portfolio-group-row__pnl${pnlClass}`} title="Live unrealized P&L across this portfolio's open positions">
+                    {pnl ? formatPnl(pnl.pnl, pnl.currency) : '—'}
+                </td>
                 <td className="portfolio-group-row__status">
                     {allWaiting ? (
                         <button
@@ -207,7 +213,7 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
             </tr>
             {expanded && (
                 <tr className="portfolio-group-row__expanded">
-                    <td colSpan={4}>
+                    <td colSpan={5}>
                         <table className="ideas-table">
                             <thead>
                                 <tr>
@@ -216,6 +222,7 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
                                     <th className="col-type">Type</th>
                                     <th className="col-created">Created</th>
                                     <th className="col-notes">Trade Summary</th>
+                                    <th className="col-pnl">P&amp;L</th>
                                     <th className="col-status">Status</th>
                                 </tr>
                             </thead>
@@ -229,6 +236,8 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
                                         onOpen={onOpen}
                                         onSymbolClick={onSymbolClick}
                                         isPortfolioChild
+                                        showPnl
+                                        pnl={ideaPnl(idea, positions)}
                                     />
                                 ))}
                             </tbody>
@@ -263,6 +272,19 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
 
     // Clicking an idea row opens it straight in its own pop-out window.
     function handleOpen(idea) { openIdeaPopup(idea) }
+
+    // Clicking a position row opens the idea that owns it. A position links to an idea
+    // via a brokerOrders entry carrying its positionId — matched on broker + account +
+    // positionId (a positionId is only unique within its account). Idea-less positions
+    // (e.g. paper trades with no surviving idea) are a no-op.
+    function handleOpenPosition(position) {
+        const idea = ideas.find(i => (i.brokerOrders ?? []).some(bo =>
+            String(bo.positionId ?? '') === String(position.id ?? '') &&
+            bo.broker === position.broker &&
+            String(bo.accountId ?? '') === String(position.accountId ?? '')
+        ))
+        if (idea) openIdeaPopup(idea)
+    }
 
     function selectPositions() {
         setActiveFilter('positions')
@@ -396,6 +418,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                             closingId={closingId}
                             onClose={setPendingClose}
                             onEditOrders={setEditOrdersPos}
+                            onOpen={handleOpenPosition}
                         />
                     )
                 ) : (
@@ -408,6 +431,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                                     <th className="col-pf-name">Portfolio</th>
                                     <th className="col-pf-count">Assets</th>
                                     <th className="col-pf-created">Created</th>
+                                    <th className="col-pf-pnl">P&amp;L</th>
                                     <th className="col-pf-status">Status</th>
                                 </tr>
                             </thead>
@@ -417,6 +441,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                                         <td className="portfolio-group-row__name">{buildingPortfolio.name}</td>
                                         <td className="portfolio-group-row__count">{buildingPortfolio.ideasCount}</td>
                                         <td className="portfolio-group-row__created">—</td>
+                                        <td className="portfolio-group-row__pnl">—</td>
                                         <td className="portfolio-group-row__status">
                                             <svg className="idea-row__building-bot" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg" title="Building…" aria-hidden="true">
                                                 {/* hammer — building in progress */}
@@ -439,6 +464,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                                         onStatusChange={onStatusChange}
                                         onOpen={handleOpen}
                                         onSymbolClick={onSymbolClick}
+                                        positions={positions}
                                     />
                                 ))}
                             </tbody>

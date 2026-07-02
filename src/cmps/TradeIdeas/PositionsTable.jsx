@@ -8,14 +8,18 @@ const BROKER_LABELS = { ctrader: 'cTrader', ibkr: 'IBKR' }
 // eslint-disable-next-line react-refresh/only-export-components -- tiny key helper colocated with its only consumers
 export const posKey = p => `${p.broker}:${p.accountId ?? '—'}:${p.id}`
 
-export function PositionRow({ position, closing, onClose, onEditOrders }) {
+export function PositionRow({ position, closing, onClose, onEditOrders, onOpen }) {
     const pnl       = Number(position.pnl)
     const pnlClass  = isNaN(pnl) ? '' : pnl > 0 ? 'pnl--pos' : pnl < 0 ? 'pnl--neg' : ''
     const brokerLbl = BROKER_LABELS[position.broker] ?? position.broker ?? '—'
     const showControls = !!(onClose || onEditOrders)
 
     return (
-        <tr className="position-row">
+        <tr
+            className={'position-row' + (onOpen ? ' position-row--clickable' : '')}
+            onClick={onOpen ? () => onOpen(position) : undefined}
+            title={onOpen ? 'Open this position’s idea' : undefined}
+        >
             <td className="position-row__asset">{position.symbol ?? '—'}</td>
             <td className={`position-row__dir direction--${position.direction}`}>{position.direction ?? '—'}</td>
             <td className="position-row__broker">{brokerLbl}</td>
@@ -30,7 +34,7 @@ export function PositionRow({ position, closing, onClose, onEditOrders }) {
                         <button
                             className="position-row__edit"
                             disabled={closing}
-                            onClick={() => onEditOrders(position)}
+                            onClick={e => { e.stopPropagation(); onEditOrders(position) }}
                             title="Open working orders (stop / TP) for this position"
                         >
                             <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -45,7 +49,7 @@ export function PositionRow({ position, closing, onClose, onEditOrders }) {
                         <button
                             className="position-row__close"
                             disabled={closing}
-                            onClick={() => onClose(position)}
+                            onClick={e => { e.stopPropagation(); onClose(position) }}
                             title="Close this position at market"
                         >
                             {closing ? '…' : (
@@ -66,11 +70,12 @@ PositionRow.propTypes = {
     closing:      PropTypes.bool,
     onClose:      PropTypes.func,
     onEditOrders: PropTypes.func,
+    onOpen:       PropTypes.func,
 }
 
 // The open-positions table. When neither onClose nor onEditOrders is given it
 // renders read-only (no controls column) — used inside the trade-idea dialog.
-export function PositionsTable({ positions = [], closingId, onClose, onEditOrders }) {
+export function PositionsTable({ positions = [], closingId, onClose, onEditOrders, onOpen }) {
     const showControls = !!(onClose || onEditOrders)
 
     return (
@@ -96,6 +101,7 @@ export function PositionsTable({ positions = [], closingId, onClose, onEditOrder
                         closing={closingId === posKey(position)}
                         onClose={onClose}
                         onEditOrders={onEditOrders}
+                        onOpen={onOpen}
                     />
                 ))}
             </tbody>
@@ -108,4 +114,5 @@ PositionsTable.propTypes = {
     closingId:    PropTypes.string,
     onClose:      PropTypes.func,
     onEditOrders: PropTypes.func,
+    onOpen:       PropTypes.func,
 }

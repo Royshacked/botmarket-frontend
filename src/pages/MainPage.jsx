@@ -399,6 +399,22 @@ export function MainPage() {
         const { id: _id, status: _status, ...ideaFields } = buildingIdea
         const chatState = { messages: _capPersistedMessages(latestMessagesRef.current), analysisState }
         try {
+            // Editing a still-pending idea and going in at market now: persist the
+            // edits + flip to immediate on the existing idea rather than creating a
+            // duplicate. The backend attaches the order plan and surfaces the
+            // OrderConfirm dialog (orderState 'awaiting_confirm'). Keep the chat open
+            // on the same idea so the user can still add stops/TPs.
+            if (editingIdeaId) {
+                const res = await tradeIdeasService.updateIdea(editingIdeaId, {
+                    ...ideaFields,
+                    immediate:     true,
+                    chat_state:    chatState,
+                    accounts:      selectedAccounts,
+                    mainAccountId,
+                })
+                if (res?.idea) setIdeas(prev => prev.map(i => i.id === editingIdeaId ? res.idea : i))
+                return
+            }
             const saved = await tradeIdeasService.createIdea({
                 ...ideaFields,
                 immediate:  true,
@@ -422,7 +438,10 @@ export function MainPage() {
             if (editingIdeaId) handleCancelBuild()
             return
         }
-        const { id: _id, status: _status, ...ideaFields } = buildingIdea
+        // Strip `immediate` here: "Update idea"/"Generate idea" builds a *monitored*
+        // idea. Only handleBuyMarket sends immediate:true (the one path that places a
+        // market order), so the backend never confuses an update for a live entry.
+        const { id: _id, status: _status, immediate: _immediate, ...ideaFields } = buildingIdea
         const chatState = { messages: _capPersistedMessages(latestMessagesRef.current), analysisState }
 
         // Don't reset to 'waiting' when editing a live idea (hit/long/short) —

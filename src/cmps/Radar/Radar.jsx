@@ -144,6 +144,9 @@ export function Radar({
                                             src={article.image}
                                             alt=""
                                             loading="lazy"
+                                            // Some publishers block hotlinking (403 / cross-origin
+                                            // resource policy) — hide the broken image gracefully.
+                                            onError={e => { e.currentTarget.style.display = 'none' }}
                                         />
                                     )}
                                 </div>

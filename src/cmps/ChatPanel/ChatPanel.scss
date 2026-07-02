@@ -418,7 +418,6 @@
         gap: 6px;
         padding: 10px 20px;
         background: var(--bg-wash);
-        border-top: 1px solid var(--border);
     }
 
     // ── Generate / Update button (used inside the action bubble) ─────────
@@ -449,12 +448,12 @@
 
     // ── Market order button (Buy / Sell) ─────────────────────────────────
     &__market-btn {
-        flex: 1;
-        padding: 10px 16px;
+        flex-shrink: 0;
+        padding: 9px 16px;
         border: none;
-        border-radius: 6px;
+        border-radius: 3px;
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: 10px;
         font-weight: 700;
         letter-spacing: 0.12em;
         text-transform: uppercase;
@@ -462,6 +461,7 @@
         transition: filter 0.15s, transform 0.1s;
 
         &:active { transform: scale(0.97); }
+        &:disabled { opacity: 0.4; cursor: not-allowed; filter: none; }
 
         &--long  {
             background: #16a34a;

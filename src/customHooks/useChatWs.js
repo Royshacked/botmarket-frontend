@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { chatWsService } from '../services/chat/chatWs.service'
+import { chatService } from '../services/chat/chat.service'
 
 export function useChatWs(userId) {
     const navigate = useNavigate()
@@ -13,6 +14,21 @@ export function useChatWs(userId) {
         if (!userId) { chatWsService.disconnect(); return }
         chatWsService.connect()
         return () => chatWsService.disconnect()
+    }, [userId])
+
+    // Seed the badge with the persisted unread total on app open, so the count
+    // shows without needing to open the chat first. The chat panel keeps it in
+    // sync afterwards via onUnreadChange.
+    useEffect(() => {
+        if (!userId) { setUnread(0); return }
+        let cancelled = false
+        chatService.getConversations()
+            .then(convs => {
+                if (cancelled || showChatRef.current) return
+                setUnread(convs.reduce((s, c) => s + (c.unread ?? 0), 0))
+            })
+            .catch(() => { /* ignore — live ws events still increment */ })
+        return () => { cancelled = true }
     }, [userId])
 
     useEffect(() => {

@@ -167,6 +167,11 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
     // readiness check — any edit with asset + direction set can be saved.
     const editReady = isEditing && (generateReady || (isPostOrderEdit && !!(s.active_asset && direction)))
 
+    // A market entry ("go in now") is offered whenever the idea is immediate and
+    // ready — including while editing a still-pending idea. A live position
+    // (post-order edit) can't be market-entered, so it keeps "Update idea".
+    const canBuyMarket = isImmediate && ideaReady && !isPostOrderEdit
+
     const showChangedMind = isEditing && !editDirty && !isPostOrderEdit
 
     // Scroll-watch token: changes whenever the action bubble content changes so the
@@ -289,7 +294,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
 
             {/* Action bar — a footer below the scroll area (not inside it) so it stays
                 pinned above the input without ever covering the messages. */}
-            {!isLoading && (isInvalidationReview ? isEditing : (isImmediate && !isEditing && ideaReady) || editReady || ideaReady || showChangedMind) && (
+            {!isLoading && (isInvalidationReview ? isEditing : canBuyMarket || editReady || ideaReady || showChangedMind) && (
                 <div className="chat-panel__action-bubble">
                     {dismissConfirm ? (
                         <div className="chat-panel__dismiss-confirm">
@@ -319,7 +324,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                                 I&apos;ll do it later
                             </button>
                         </>
-                    ) : isImmediate && !isEditing && ideaReady ? (
+                    ) : canBuyMarket ? (
                         generateReady ? (
                             <button
                                 className={`chat-panel__market-btn chat-panel__market-btn--${direction}`}

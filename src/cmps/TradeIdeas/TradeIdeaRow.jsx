@@ -1,10 +1,10 @@
 import PropTypes from 'prop-types'
-import { conditionSummary, formatCreatedAt, formatCreatedAtFull, needsExitConditions, activationStatus, brokerSymbolLabel, brokerChildLabel, isDeleteLocked, isSystemStatus } from './tradeIdea.utils.js'
+import { conditionSummary, formatCreatedAt, formatCreatedAtFull, needsExitConditions, activationStatus, brokerSymbolLabel, brokerChildLabel, isDeleteLocked, isSystemStatus, formatPnl } from './tradeIdea.utils.js'
 import { StatusIcon } from '../StatusIcon.jsx'
 
 const BUILDING = 'building'
 
-export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolClick, onEdit, isPortfolioChild, isBrokerChild }) {
+export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolClick, onEdit, isPortfolioChild, isBrokerChild, showPnl = false, pnl = null }) {
     const { id, asset, direction, type, status, savedAt } = idea
     const summary = conditionSummary(idea)
     const createdAt = formatCreatedAt(savedAt)
@@ -60,6 +60,12 @@ export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolC
             <td className="idea-row__type">{type ?? '—'}</td>
             <td className="idea-row__created" title={formatCreatedAtFull(savedAt)}>{createdAt || '—'}</td>
             <td className="idea-row__notes">{summary || '—'}</td>
+
+            {showPnl && (
+                <td className={`idea-row__pnl${pnl ? (pnl.pnl > 0 ? ' pnl--pos' : pnl.pnl < 0 ? ' pnl--neg' : '') : ''}`}>
+                    {pnl ? formatPnl(pnl.pnl, pnl.currency) : '—'}
+                </td>
+            )}
 
             <td className="idea-row__controls">
                 {idea.orderState === 'awaiting_market' && (
@@ -131,4 +137,6 @@ TradeIdeaRow.propTypes = {
     onEdit:          PropTypes.func,
     isPortfolioChild: PropTypes.bool,
     isBrokerChild:   PropTypes.bool,
+    showPnl:         PropTypes.bool,
+    pnl:             PropTypes.object,
 }

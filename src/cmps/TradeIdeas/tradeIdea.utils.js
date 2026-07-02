@@ -225,6 +225,54 @@ export function formatPnl(n, currency) {
 }
 
 /**
+ * Open broker positions belonging to an idea, matched on broker + account +
+ * positionId (a positionId is only unique within its account) — mirrors the
+ * matching used to open a position's owning idea.
+ * @returns {object[]}
+ */
+export function matchPositionsForIdea(idea, positions = []) {
+    const links = idea?.brokerOrders ?? []
+    if (!links.length || !positions.length) return []
+    return positions.filter(p => links.some(bo =>
+        String(bo.positionId ?? '') === String(p.id ?? '') &&
+        bo.broker === p.broker &&
+        String(bo.accountId ?? '') === String(p.accountId ?? '')
+    ))
+}
+
+/**
+ * Live unrealized P&L for a single idea, summed across its open positions (an
+ * idea can span multiple accounts). Returns null when nothing is live (pending /
+ * unfilled) so the UI shows '—' rather than a misleading 0.
+ * @returns {{ pnl: number, currency: string|null }|null}
+ */
+export function ideaPnl(idea, positions = []) {
+    const matched = matchPositionsForIdea(idea, positions)
+    if (!matched.length) return null
+    const pnl = matched.reduce((sum, p) => sum + (Number(p.pnl) || 0), 0)
+    return { pnl, currency: matched.find(p => p.currency)?.currency ?? null }
+}
+
+/**
+ * Live unrealized P&L for a portfolio (its ideas), summed across every idea's
+ * open positions. Returns null when none of the ideas are live. Mixed-currency
+ * portfolios are summed naively and labelled with the first currency seen —
+ * fine while accounts are single-currency (revisit if multi-currency lands).
+ * @returns {{ pnl: number, currency: string|null }|null}
+ */
+export function portfolioPnl(ideas = [], positions = []) {
+    let pnl = 0, currency = null, any = false
+    for (const idea of ideas) {
+        const r = ideaPnl(idea, positions)
+        if (!r) continue
+        any = true
+        pnl += r.pnl
+        currency = currency ?? r.currency
+    }
+    return any ? { pnl, currency } : null
+}
+
+/**
  * True when an idea has at least one entry condition (flat array or tree).
  * Used to decide activation target: conditions → 'looking' (monitor watches),
  * none → 'hit' (fire immediately, pending confirmation).
