@@ -31,13 +31,12 @@
     // "right" on localhost but far too transparent on the deployed origin where
     // that setting doesn't exist. A constant tint looks identical everywhere.
     //
-    // The tint must be opaque enough to carry the whole interior on its own: the
-    // list (8% fill) and window (transparent) let the blurred app backdrop show
-    // through, and that backdrop's lightness varies per origin (the bg slider). At
-    // a low alpha a lighter deployed backdrop bled through and the bubble read
-    // see-through; a high alpha makes it a solid frosted panel everywhere.
+    // The tint carries the whole interior: the list and window fills below are
+    // deliberately near-solid too, so the blurred app backdrop can't bleed through
+    // regardless of its per-origin lightness. Raised to 0.94 — 0.86 still read too
+    // see-through on the deployed origin (its lighter default backdrop bled in).
     // Tune the alpha to taste — higher = more solid, lower = more glassy.
-    background: hsla(176, 55%, 7%, 0.86);
+    background: hsla(176, 55%, 7%, 0.94);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
 
@@ -68,7 +67,9 @@
         flex-shrink: 0;
         display: flex;
         flex-direction: column;
-        background: color-mix(in srgb, var(--bg-surface) 8%, transparent);
+        // Near-solid constant sidebar tint (was an 8% token fill that let the
+        // deployed backdrop bleed through) — reads solid over the frosted base.
+        background: hsla(176, 24%, 10%, 0.55);
         border-right: 1px solid var(--border-mid);
         overflow-x: hidden;
         overflow-y: hidden;
@@ -217,7 +218,7 @@
         flex: 1;
         display: flex;
         flex-direction: column;
-        background: transparent;   // empty area shows the frosted-glass base
+        background: hsla(176, 40%, 6%, 0.35);   // faint solid fill so the empty window isn't see-through
         overflow: hidden;
         position: relative;
 
