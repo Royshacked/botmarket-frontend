@@ -210,6 +210,9 @@
         align-items: center;
         gap: 7px;
         padding: 7px 10px;
+        transition: background 0.12s;
+
+        &:hover { background: var(--glow); }
     }
 
     &__dir {
@@ -221,35 +224,12 @@
         &--short { color: #ea3943; }
     }
 
-    &__ticker {
-        display: inline-flex;
-        align-items: baseline;
-        gap: 6px;
-        font-family: var(--font-mono);
-        font-size: 12px;
-        font-weight: 600;
-        color: var(--accent-bright);
-        background: none;
-        border: none;
-        padding: 0;
-        cursor: pointer;
-        flex-shrink: 0;
-        &:hover { text-decoration: underline; }
+    // Shared <RadarTicker> (logo + name + hover hint). Capped so a long company
+    // name truncates instead of crowding out the thesis.
+    .radar-ticker {
+        flex: 0 1 auto;
+        max-width: 52%;
     }
-
-    &__ticker-hint {
-        font-family: var(--font-sans);
-        font-size: 9px;
-        font-weight: 500;
-        letter-spacing: 0.04em;
-        color: var(--accent-light);
-        opacity: 0;
-        transition: opacity 0.15s;
-        text-decoration: none;
-        white-space: nowrap;
-    }
-
-    &__cand-row:hover &__ticker-hint { opacity: 0.85; }
 
     &__cand-thesis {
         font-size: 11px;

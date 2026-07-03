@@ -1,0 +1,82 @@
+// Shared ticker chip for every Axl Radar list (earnings / IPO / scans). One source
+// of truth for the logo + name + hover-hint treatment (earnings is the reference).
+.radar-ticker {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    background: none;
+    border: none;
+    padding: 0;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+
+    &:disabled { cursor: default; }
+
+    &__logo {
+        flex: 0 0 auto;
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        object-fit: contain;
+        background: var(--bg-wash-surface);
+
+        &--fallback {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+    }
+
+    &__text {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    &__sym {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--accent-bright);
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &__name {
+        font-size: 9px;
+        font-weight: 500;
+        color: var(--text-muted);
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    // Revealed on hover/focus of the ticker itself, so the affordance is identical
+    // in every list regardless of the surrounding row layout.
+    &__hint {
+        flex: 0 0 auto;
+        padding-left: 10px;
+        font-family: var(--font-sans);
+        font-size: 9px;
+        font-weight: 500;
+        letter-spacing: 0.04em;
+        color: var(--accent-light);
+        opacity: 0;
+        transition: opacity 0.15s;
+        white-space: nowrap;
+    }
+
+    &:hover:not(:disabled) &__hint,
+    &:focus-visible &__hint { opacity: 0.85; }
+}

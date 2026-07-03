@@ -93,7 +93,7 @@
     // Ideas list + scans + news read as data rows
     .idea-row, .scan-list__cand, .news-feed__item { font-family: var(--font-mono); }
     .idea-row__status-badge { border-radius: 0 !important; text-transform: uppercase; letter-spacing: 0.06em; }
-    .scan-list__ticker { letter-spacing: 0.04em; }
+    .radar-ticker__sym { letter-spacing: 0.04em; }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -263,7 +263,7 @@
     .chat-panel__bubble--assistant{ background: none; border: none; }
 
     .idea-row__status-badge { box-shadow: 0 0 10px -3px currentColor; }
-    .scan-list__ticker { text-shadow: 0 0 8px var(--glow); }
+    .radar-ticker__sym { text-shadow: 0 0 8px var(--glow); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

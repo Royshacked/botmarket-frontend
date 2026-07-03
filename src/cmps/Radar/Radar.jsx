@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { ScanList } from './ScanList.jsx'
+import { RadarTicker } from './RadarTicker.jsx'
 import './Radar.scss'
 
 // Market-intelligence panel: incoming News (headlines + sentiment) and Scans
@@ -19,12 +20,15 @@ export function Radar({
     onDeleteScan,
     onEditScan,
     earnings = [],
-    earningsDate = null,
+    earningsFrom = null,
+    earningsTo = null,
     earningsLoading = false,
+    onEarningSelect,
     fed = [],
     fedLoading = false,
     ipo = [],
     ipoLoading = false,
+    onIpoSelect,
 }) {
     const loading =
         tab === 'scans'    ? scansLoading    :
@@ -59,16 +63,16 @@ export function Radar({
                     onClick={() => onTabChange?.('news')}
                 >{activeSymbol ? `${activeSymbol} News` : 'News'}</button>
                 <button
+                    className={`news-feed__tab news-feed__tab--scans${tab === 'scans' ? ' news-feed__tab--active' : ''}`}
+                    onClick={() => onTabChange?.('scans')}
+                >
+                    Scans{scans.length > 0 && <span className="news-feed__tab-count">{scans.length}</span>}
+                </button>
+                <button
                     className={`news-feed__tab${tab === 'earnings' ? ' news-feed__tab--active' : ''}`}
                     onClick={() => onTabChange?.('earnings')}
                 >
                     Earnings{earnings.length > 0 && <span className="news-feed__tab-count">{earnings.length}</span>}
-                </button>
-                <button
-                    className={`news-feed__tab${tab === 'fed' ? ' news-feed__tab--active' : ''}`}
-                    onClick={() => onTabChange?.('fed')}
-                >
-                    Fed{fed.length > 0 && <span className="news-feed__tab-count">{fed.length}</span>}
                 </button>
                 <button
                     className={`news-feed__tab${tab === 'ipo' ? ' news-feed__tab--active' : ''}`}
@@ -77,10 +81,10 @@ export function Radar({
                     IPO{ipo.length > 0 && <span className="news-feed__tab-count">{ipo.length}</span>}
                 </button>
                 <button
-                    className={`news-feed__tab news-feed__tab--scans${tab === 'scans' ? ' news-feed__tab--active' : ''}`}
-                    onClick={() => onTabChange?.('scans')}
+                    className={`news-feed__tab${tab === 'fed' ? ' news-feed__tab--active' : ''}`}
+                    onClick={() => onTabChange?.('fed')}
                 >
-                    Scans{scans.length > 0 && <span className="news-feed__tab-count">{scans.length}</span>}
+                    Fed{fed.length > 0 && <span className="news-feed__tab-count">{fed.length}</span>}
                 </button>
             </div>
 
@@ -96,7 +100,7 @@ export function Radar({
                 </div>
             ) : tab === 'earnings' ? (
                 <div className="news-feed__list">
-                    <EarningsList items={earnings} date={earningsDate} loading={earningsLoading} />
+                    <EarningsList items={earnings} from={earningsFrom} to={earningsTo} loading={earningsLoading} onSelect={onEarningSelect} />
                 </div>
             ) : tab === 'fed' ? (
                 <div className="news-feed__list">
@@ -104,7 +108,7 @@ export function Radar({
                 </div>
             ) : tab === 'ipo' ? (
                 <div className="news-feed__list">
-                    <IpoList items={ipo} loading={ipoLoading} />
+                    <IpoList items={ipo} loading={ipoLoading} onSelect={onIpoSelect} />
                 </div>
             ) : (
                 <div className="news-feed__list">
@@ -168,12 +172,22 @@ export function Radar({
     )
 }
 
-function EarningsList({ items, date, loading }) {
+// Earnings for the current trading week (today→Fri, or the coming Mon–Fri on a
+// weekend), grouped by day so each report's date is clear. Items arrive sorted
+// soonest-first, so consecutive same-date rows group together.
+function EarningsList({ items, from, to, loading, onSelect }) {
     if (loading) return <div className="news-feed__loader"><span /><span /><span /></div>
-    if (!items.length) return <p className="news-feed__empty">No earnings scheduled{date ? ` for ${_fmtDate(date)}` : ''}.</p>
+    if (!items.length) return <p className="news-feed__empty">No earnings scheduled{from ? ` for ${_fmtRange(from, to)}` : ''}.</p>
+
+    const groups = []
+    for (const e of items) {
+        const last = groups[groups.length - 1]
+        if (last && last.date === e.date) last.items.push(e)
+        else groups.push({ date: e.date, items: [e] })
+    }
+
     return (
         <div className="cal-list">
-            {date && <div className="cal-list__date-header">Earnings — {_fmtDate(date)}</div>}
             <div className="earn-table">
                 <div className="earn-table__head">
                     <span className="earn-table__th">Ticker</span>
@@ -181,23 +195,25 @@ function EarningsList({ items, date, loading }) {
                     <span className="earn-table__th earn-table__th--num">EPS</span>
                     <span className="earn-table__th earn-table__th--num">Rev</span>
                 </div>
-                {items.map((e, i) => (
-                    <div key={e.symbol || i} className="earn-table__row">
-                        <span className="earn-table__tick">
-                            {e.logo
-                                ? <img className="earn-table__logo" src={e.logo} alt="" loading="lazy" />
-                                : <span className="earn-table__logo earn-table__logo--fallback">{(e.symbol || '?')[0]}</span>
-                            }
-                            <span className="earn-table__tick-text">
-                                <span className="earn-table__sym">{e.symbol}</span>
-                                {e.name && <span className="earn-table__name">{e.name}</span>}
-                            </span>
-                        </span>
-                        <span className={`earn-table__when earn-table__when--${_earnWhenClass(e.time)}`}>
-                            {_earnWhen(e.time)}
-                        </span>
-                        <span className="earn-table__num">{e.epsEstimated != null ? _fmt(e.epsEstimated) : '—'}</span>
-                        <span className="earn-table__num">{e.revenueEstimated != null ? _money(e.revenueEstimated) : '—'}</span>
+                {groups.map(g => (
+                    <div key={g.date} className="earn-table__group">
+                        <div className="earn-table__day">{_fmtFullDate(g.date)}</div>
+                        {g.items.map((e, i) => (
+                            <div key={e.symbol || i} className="earn-table__row">
+                                <RadarTicker
+                                    symbol={e.symbol}
+                                    name={e.name}
+                                    logo={e.logo}
+                                    onSelect={() => onSelect?.(e)}
+                                    title={e.symbol ? `Build a trade idea around ${e.symbol}'s earnings` : ''}
+                                />
+                                <span className={`earn-table__when earn-table__when--${_earnWhenClass(e.time)}`}>
+                                    {_earnWhen(e.time)}
+                                </span>
+                                <span className="earn-table__num">{e.epsEstimated != null ? _fmt(e.epsEstimated) : '—'}</span>
+                                <span className="earn-table__num">{e.revenueEstimated != null ? _money(e.revenueEstimated) : '—'}</span>
+                            </div>
+                        ))}
                     </div>
                 ))}
             </div>
@@ -255,7 +271,7 @@ function FedList({ items, loading }) {
 }
 
 // Upcoming IPOs (Finnhub), grouped by day. Items arrive sorted soonest-first.
-function IpoList({ items, loading }) {
+function IpoList({ items, loading, onSelect }) {
     if (loading) return <div className="news-feed__loader"><span /><span /><span /></div>
     if (!items.length) return <p className="news-feed__empty">No upcoming IPOs.</p>
 
@@ -273,8 +289,13 @@ function IpoList({ items, loading }) {
                     <div className="cal-list__date-header">{_fmtFullDate(g.date)}</div>
                     {g.events.map((e, i) => (
                         <div key={i} className="ipo-row" title={_ipoTooltip(e)}>
-                            <span className="ipo-row__sym">{e.symbol || '—'}</span>
-                            <span className="ipo-row__name">{e.name}</span>
+                            <RadarTicker
+                                symbol={e.symbol}
+                                name={e.name}
+                                logo={e.logo}
+                                onSelect={() => onSelect?.(e)}
+                                title={e.symbol ? `Build a trade idea around ${e.symbol}'s IPO` : ''}
+                            />
                             {e.price && <span className="ipo-row__price">${e.price}</span>}
                             {e.status && (
                                 <span className={`ipo-row__status ipo-row__status--${_ipoStatusClass(e.status)}`}>{e.status}</span>
@@ -320,6 +341,13 @@ function _fmtDate(iso) {
     const [, m, d] = iso.split('-')
     return `${_months[+m - 1]} ${+d}`
 }
+
+// "Jul 2 – Jul 6" for a week window; collapses to a single date when from === to.
+function _fmtRange(from, to) {
+    if (!from) return ''
+    if (!to || to === from) return _fmtDate(from)
+    return `${_fmtDate(from)} – ${_fmtDate(to)}`
+}
 const _months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 const _weekdays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 
@@ -359,10 +387,13 @@ Radar.propTypes = {
     onDeleteScan:      PropTypes.func,
     onEditScan:        PropTypes.func,
     earnings:          PropTypes.array,
-    earningsDate:      PropTypes.string,
+    earningsFrom:      PropTypes.string,
+    earningsTo:        PropTypes.string,
     earningsLoading:   PropTypes.bool,
+    onEarningSelect:   PropTypes.func,
     fed:               PropTypes.array,
     fedLoading:        PropTypes.bool,
     ipo:               PropTypes.array,
     ipoLoading:        PropTypes.bool,
+    onIpoSelect:       PropTypes.func,
 }

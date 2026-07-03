@@ -5,7 +5,8 @@ const REFRESH_MS = 60 * 60 * 1000  // re-fetch once per hour
 
 export function useCalendarEvents() {
     const [earnings, setEarnings]         = useState([])
-    const [earningsDate, setEarningsDate] = useState(null)
+    const [earningsFrom, setEarningsFrom] = useState(null)
+    const [earningsTo, setEarningsTo]     = useState(null)
     const [earningsLoading, setEarningsLoading] = useState(false)
 
     const [fed, setFed]           = useState([])
@@ -24,7 +25,8 @@ export function useCalendarEvents() {
                 const data = await res.json()
                 if (!active) return
                 setEarnings(Array.isArray(data.items) ? data.items : [])
-                setEarningsDate(data.date || null)
+                setEarningsFrom(data.from || null)
+                setEarningsTo(data.to || null)
             } catch {
                 if (active) setEarnings([])
             } finally {
@@ -68,5 +70,5 @@ export function useCalendarEvents() {
         return () => { active = false; clearInterval(t) }
     }, [])
 
-    return { earnings, earningsDate, earningsLoading, fed, fedLoading, ipo, ipoLoading }
+    return { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading }
 }

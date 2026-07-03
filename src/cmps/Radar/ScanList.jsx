@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { ConvictionChip } from '../ConvictionChip/ConvictionChip.jsx'
+import { RadarTicker } from './RadarTicker.jsx'
 import './ScanList.scss'
 
 // Collapse state persists in sessionStorage so folding lists then switching to the
@@ -113,10 +114,13 @@ function Candidate({ c, onSelect }) {
                 <span className={`scan-list__dir scan-list__dir--${c.direction}`}>
                     {c.direction === 'short' ? '▾' : '▴'}
                 </span>
-                <button className="scan-list__ticker" onClick={() => onSelect?.(c)} title="Build a trade idea from this">
-                    {c.ticker}
-                    <span className="scan-list__ticker-hint">Build idea →</span>
-                </button>
+                <RadarTicker
+                    symbol={c.ticker}
+                    name={c.name}
+                    logo={c.logo}
+                    onSelect={() => onSelect?.(c)}
+                    title="Build a trade idea from this"
+                />
                 <span className="scan-list__cand-thesis">{c.thesis}</span>
                 <ConvictionChip conviction={c.conviction} />
                 {hasDetail && (

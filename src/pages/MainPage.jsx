@@ -133,6 +133,94 @@ function buildCandidateContext(c, period) {
     ].filter(Boolean).join(' ')
 }
 
+// Finnhub session codes → readable when-phrasing for the earnings print.
+const _EARN_WHEN_PHRASE = { bmo: 'before the open', amc: 'after the close', dmh: 'during market hours' }
+function _earnWhenPhrase(code) {
+    return _EARN_WHEN_PHRASE[(code || '').toLowerCase()] || ''
+}
+
+// Readable summary of an earnings event, shown as an assistant bubble when the
+// user opens a ticker from the Radar earnings tab. Markdown so it renders nicely.
+function buildEarningSummary(e, date) {
+    const lines = [`**Earnings play — ${e.symbol}${e.name ? ` · ${e.name}` : ''}**`]
+
+    const when = _earnWhenPhrase(e.time)
+    const dateStr = _fmtEarnDate(date || e.date)
+    const timing = [dateStr && `Reports ${dateStr}`, when].filter(Boolean).join(' ')
+    if (timing) lines.push(`*${timing}.*`)
+
+    const est = []
+    if (e.epsEstimated != null)     est.push(`EPS est. ${Number(e.epsEstimated).toFixed(2)}`)
+    if (e.revenueEstimated != null) est.push(`Rev est. ${_moneyShort(e.revenueEstimated)}`)
+    if (est.length) lines.push(`\n**Estimates:** ${est.join(' · ')}`)
+
+    lines.push(`\n_This is an earnings-driven setup. Tell me your lean — play the run-up into the print, or the reaction after it — and I'll build the entry, stop, and take-profit around the event._`)
+    return lines.join('\n')
+}
+
+// Same earnings context, phrased for the idea agent's system prompt so it can
+// answer the user's first question already knowing the catalyst and timing.
+function buildEarningContext(e, date) {
+    const when = _earnWhenPhrase(e.time)
+    const dateStr = _fmtEarnDate(date || e.date)
+    return [
+        `The user opened this trade idea from the Radar earnings calendar and is reading the earnings summary.`,
+        `Ticker: ${e.symbol}${e.name ? ` (${e.name})` : ''}.`,
+        `Catalyst: scheduled earnings${dateStr ? ` on ${dateStr}` : ''}${when ? `, reporting ${when}` : ''} — treat this earnings event as the idea's driving catalyst and time anchor.`,
+        e.epsEstimated != null     ? `EPS estimate: ${Number(e.epsEstimated).toFixed(2)}.` : '',
+        e.revenueEstimated != null ? `Revenue estimate: ${_moneyShort(e.revenueEstimated)}.` : '',
+        `Direction is not yet chosen. Do not respond yet; when the user asks, help shape the trade (direction, entry, stop, take-profit) around the earnings event and set the time condition from the report date.`,
+    ].filter(Boolean).join(' ')
+}
+
+// Readable summary of an upcoming IPO, shown as an assistant bubble when the user
+// opens a ticker from the Radar IPO tab.
+function buildIpoSummary(e) {
+    const lines = [`**IPO — ${e.symbol}${e.name ? ` · ${e.name}` : ''}**`]
+
+    const dateStr = _fmtEarnDate(e.date)
+    const timing = [dateStr && `Expected ${dateStr}`, e.exchange && `on ${e.exchange}`].filter(Boolean).join(' ')
+    if (timing) lines.push(`*${timing}.*`)
+
+    const facts = []
+    if (e.price)  facts.push(`Price $${e.price}`)
+    if (e.value)  facts.push(`Deal ${_moneyShort(e.value)}`)
+    if (e.status) facts.push(`Status ${e.status}`)
+    if (facts.length) lines.push(`\n**Details:** ${facts.join(' · ')}`)
+
+    lines.push(`\n_New listings can be volatile with little trading history. Tell me how you want to play it — the debut itself, or a setup once it's trading — and I'll build the entry, stop, and take-profit around the listing._`)
+    return lines.join('\n')
+}
+
+// Same IPO context, phrased for the idea agent's system prompt.
+function buildIpoContext(e) {
+    const dateStr = _fmtEarnDate(e.date)
+    return [
+        `The user opened this trade idea from the Radar IPO calendar and is reading the IPO summary.`,
+        `Ticker: ${e.symbol}${e.name ? ` (${e.name})` : ''}${e.exchange ? `, listing on ${e.exchange}` : ''}.`,
+        `Catalyst: upcoming IPO${dateStr ? ` expected ${dateStr}` : ''}${e.status ? ` (status: ${e.status})` : ''} — treat the listing as the idea's driving catalyst and time anchor. A new listing usually has no price history yet, so lean on debut/aftermarket dynamics rather than historical levels.`,
+        e.price ? `Indicated price: $${e.price}.` : '',
+        e.value ? `Deal size: ${_moneyShort(e.value)}.` : '',
+        `Direction is not yet chosen. Do not respond yet; when the user asks, help shape the trade (direction, entry, stop, take-profit) around the listing and set the time condition from the expected date.`,
+    ].filter(Boolean).join(' ')
+}
+
+function _fmtEarnDate(iso) {
+    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return ''
+    const [y, m, d] = iso.split('-').map(Number)
+    const wd = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(Date.UTC(y, m - 1, d)).getUTCDay()]
+    const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m - 1]
+    return `${wd}, ${mo} ${d}`
+}
+
+function _moneyShort(v) {
+    const n = Number(v)
+    if (!Number.isFinite(n)) return ''
+    if (Math.abs(n) >= 1e9) return `$${(n / 1e9).toFixed(2)}B`
+    if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(2)}M`
+    return `$${n.toFixed(0)}`
+}
+
 export function MainPage() {
     const chat = useChatStream()
     const { messages, setMessages, isLoading, streamStatus } = chat
@@ -157,7 +245,7 @@ export function MainPage() {
     const latestMessagesRef = useRef([])
 
     const news = useNewsFeed()
-    const { earnings, earningsDate, earningsLoading, fed, fedLoading, ipo, ipoLoading } = useCalendarEvents()
+    const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading } = useCalendarEvents()
     const { scans, loading: scansLoading, createScan, updateScan, deleteScan } = useScans()
     const { user } = useAuth()
     const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
@@ -814,23 +902,22 @@ export function MainPage() {
         if (ticker) setChartSymbol(ticker)
     }
 
-    // Phase 3 handoff: clicking a scan candidate opens the idea chat with the
-    // scanner's summary shown as an assistant message (readable, no auto-reply),
-    // and the same context seeded into analysisState so the agent already has it
-    // when the user asks their first question.
-    function handleBuildFromCandidate(candidate, scan) {
-        if (!candidate?.ticker || isLoading) return
-        const period = scan?.period
-        const dir    = candidate.direction === 'short' ? 'short' : 'long'
+    // Shared Radar → idea handoff: open the idea chat at the formation phase with a
+    // readable summary shown as an assistant bubble (no auto-reply) and the same
+    // context seeded into analysisState so the agent already has it when the user
+    // asks their first question. `direction` is null when the source carries no
+    // bias (earnings/IPO) and set when it does (a scan pick).
+    function seedIdeaChat({ symbol, summary, context, direction = null }) {
+        if (!symbol || isLoading) return
 
-        const seededMessages = [{ role: 'assistant', content: buildCandidateSummary(candidate, period) }]
+        const seededMessages = [{ role: 'assistant', content: summary }]
         const seededState = {
-            recent_messages:     [],   // keep empty — agent context rides in the summary below
-            recent_chat_summary: buildCandidateContext(candidate, period),
+            recent_messages:     [],   // keep empty — agent context rides in the summary + context
+            recent_chat_summary: context,
             structured_state: {
-                active_asset: candidate.ticker,
+                active_asset: symbol,
                 pending_trade: {
-                    direction: dir, type: null, asset_class: null, quantity: null,
+                    direction, type: null, asset_class: null, quantity: null,
                     entry_timeframe: null, stop_timeframe: null, tp_timeframe: null,
                     entry_logic: 'AND', entry_conditions: [],
                     stop_logic: 'OR', stop_conditions: [],
@@ -845,7 +932,40 @@ export function MainPage() {
         latestMessagesRef.current = seededMessages
         setAnalysisState(seededState)
         setActiveTab('idea')
-        setChartSymbol(candidate.ticker)
+        setChartSymbol(symbol)
+    }
+
+    // Scan candidate → idea: carries the scanner's intended direction.
+    function handleBuildFromCandidate(candidate, scan) {
+        if (!candidate?.ticker) return
+        const period = scan?.period
+        seedIdeaChat({
+            symbol:    candidate.ticker,
+            summary:   buildCandidateSummary(candidate, period),
+            context:   buildCandidateContext(candidate, period),
+            direction: candidate.direction === 'short' ? 'short' : 'long',
+        })
+    }
+
+    // Earnings ticker → idea: earnings has no built-in bias, so direction stays open.
+    // Each row carries its own report date (the list spans the trading week).
+    function handleBuildFromEarning(earning) {
+        if (!earning?.symbol) return
+        seedIdeaChat({
+            symbol:  earning.symbol,
+            summary: buildEarningSummary(earning, earning.date),
+            context: buildEarningContext(earning, earning.date),
+        })
+    }
+
+    // IPO ticker → idea: the listing is the catalyst; direction stays open.
+    function handleBuildFromIpo(ipoItem) {
+        if (!ipoItem?.symbol) return
+        seedIdeaChat({
+            symbol:  ipoItem.symbol,
+            summary: buildIpoSummary(ipoItem),
+            context: buildIpoContext(ipoItem),
+        })
     }
 
     // Generate (save) a scan list from the scanner panel, then surface it.
@@ -959,12 +1079,15 @@ export function MainPage() {
                             onDeleteScan={deleteScan}
                             onEditScan={handleEditScan}
                             earnings={earnings}
-                            earningsDate={earningsDate}
+                            earningsFrom={earningsFrom}
+                            earningsTo={earningsTo}
                             earningsLoading={earningsLoading}
+                            onEarningSelect={handleBuildFromEarning}
                             fed={fed}
                             fedLoading={fedLoading}
                             ipo={ipo}
                             ipoLoading={ipoLoading}
+                            onIpoSelect={handleBuildFromIpo}
                         />
                     </div>
                     <div className="workspace__ideas">
