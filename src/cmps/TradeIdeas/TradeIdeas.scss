@@ -53,9 +53,9 @@
         }
 
         &--portfolio.active {
-            background: rgba(76, 175, 138, 0.15);
-            border-color: #4caf8a;
-            color: #6dd4a8;
+            background: color-mix(in srgb, var(--accent) 15%, transparent);
+            border-color: var(--accent);
+            color: var(--accent-light);
         }
 
         &--positions.active {
@@ -651,27 +651,27 @@ $sym-status-colors: (
         top: 28px;
         z-index: 2;
         padding: 7px 8px 7px 0;
-        border-bottom: 1px solid rgba(76, 175, 138, 0.18);
+        border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
         vertical-align: middle;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        background: linear-gradient(rgba(76, 175, 138, 0.05), rgba(76, 175, 138, 0.05)), var(--bg-base);
+        background: linear-gradient(color-mix(in srgb, var(--accent) 5%, transparent), color-mix(in srgb, var(--accent) 5%, transparent)), var(--bg-base);
     }
 
     &:hover > td {
-        background: linear-gradient(rgba(76, 175, 138, 0.09), rgba(76, 175, 138, 0.09)), var(--bg-base);
+        background: linear-gradient(color-mix(in srgb, var(--accent) 9%, transparent), color-mix(in srgb, var(--accent) 9%, transparent)), var(--bg-base);
     }
 
     &__caret {
-        color: #4caf8a;
+        color: var(--accent);
         font-size: 0.6rem;
         margin-right: 6px;
     }
 
     &__name {
         font-weight: 600;
-        color: #6dd4a8;
+        color: var(--accent-light);
         font-size: 0.75rem;
         font-family: var(--font-mono);
         letter-spacing: 0.04em;
@@ -692,7 +692,7 @@ $sym-status-colors: (
         .idea-row__status-badge { min-width: 0; }
     }
 
-    &__status-active { color: #6dd4a8; }
+    &__status-active { color: var(--accent-light); }
 
     // Building (in-chat) portfolio row
     &--building {
@@ -721,8 +721,8 @@ $sym-status-colors: (
     // Expanded child ideas — nested ideas-table fills the full width
     &__expanded > td {
         padding: 0;
-        background: rgba(76, 175, 138, 0.03);
-        border-bottom: 1px solid rgba(76, 175, 138, 0.18);
+        background: color-mix(in srgb, var(--accent) 3%, transparent);
+        border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
     }
     &__expanded .ideas-table thead tr { position: static; }
 }
@@ -742,7 +742,7 @@ $sym-status-colors: (
     font-size: 0.62rem;
     letter-spacing: 0.03em;
     color: var(--text-secondary);
-    background: rgba(76, 175, 138, 0.12);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
     vertical-align: middle;
 }
 
@@ -771,7 +771,7 @@ $sym-status-colors: (
     cursor: pointer;
 
     .idea-row__caret {
-        color: #4caf8a;
+        color: var(--accent);
         font-size: 0.6rem;
         margin-right: 6px;
     }
@@ -779,12 +779,12 @@ $sym-status-colors: (
         font-family: var(--font-mono);
         font-size: 0.72rem;
         letter-spacing: 0.04em;
-        color: #6dd4a8;
+        color: var(--accent-light);
     }
 }
 
 .idea-row--broker-child {
-    background: rgba(76, 175, 138, 0.02);
+    background: color-mix(in srgb, var(--accent) 2%, transparent);
     td:first-child { padding-left: 22px; }
 }
 

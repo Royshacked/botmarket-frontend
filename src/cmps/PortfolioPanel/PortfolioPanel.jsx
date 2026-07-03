@@ -3,7 +3,6 @@ import PropTypes from 'prop-types'
 import { portfolioService } from '../../services/portfolio/portfolio.service.remote.js'
 import { showErrorMsg } from '../../services/event-bus.service'
 import { ChatMarkdown } from '../ChatMarkdown.jsx'
-import { AccountSelector } from '../ChatPanel/AccountSelector.jsx'
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
 import { readStoredRoutingMode } from '../routingModeOptions.js'
@@ -11,7 +10,8 @@ import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useChatStream } from '../../customHooks/useChatStream.js'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
-import { BrandTitle } from '../BrandTitle.jsx'
+import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
+import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { ChatPhaseHeading } from '../ChatPhaseHeading.jsx'
 import { ChatReasoning } from '../ChatReasoning.jsx'
@@ -74,9 +74,6 @@ export function PortfolioPanel({
     chatRestore       = null,
     availableAccounts = [],
     selectedAccounts  = [],
-    onAccountsChange,
-    mainAccountId     = null,
-    onMainAccountChange,
 }) {
     const chat = useChatStream()
     const { messages, setMessages, isLoading, streamStatus, handleStop } = chat
@@ -291,35 +288,6 @@ export function PortfolioPanel({
 
     return (
         <div className="portfolio-panel">
-            <div className="portfolio-panel__header">
-                <span className="portfolio-panel__title-icon">
-                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="9" r="6"/>
-                        <path d="M12 3 C8.5 5 8.5 13 12 15"/>
-                        <path d="M12 3 C15.5 5 15.5 13 12 15"/>
-                        <path d="M6 9 H18"/>
-                        <path d="M4 17.5 C7.5 21.5 16.5 21.5 20 17.5"/>
-                    </svg>
-                </span>
-                <div className="portfolio-panel__title-group">
-                    <span className="portfolio-panel__title"><BrandTitle text="Atlas" /></span>
-                    <span className="portfolio-panel__subtitle">building and managing your portfolio</span>
-                </div>
-                <div className="portfolio-panel__header-right">
-                    <AccountSelector
-                        accounts={availableAccounts}
-                        selectedIds={selectedAccounts}
-                        onChange={onAccountsChange}
-                        mainAccountId={mainAccountId}
-                        onMainChange={onMainAccountChange}
-                    />
-                    <span className="portfolio-panel__live-badge">
-                        <span className={`portfolio-panel__status-dot${isLoading ? ' loading' : buildItems.length > 0 ? ' building' : ' idle'}`} />
-                        <span className="portfolio-panel__live">live</span>
-                    </span>
-                </div>
-            </div>
-
             {editingPortfolioId && portfolioThesis && (portfolioThesis.strategy || portfolioThesis.targetExposures?.length) && (
                 <div className="portfolio-panel__thesis" style={{ margin: '0 16px 8px', padding: '10px 12px', border: '1px solid var(--border, #333)', borderRadius: 8, fontSize: 12, opacity: 0.92 }}>
                     <button
@@ -369,11 +337,7 @@ export function PortfolioPanel({
             )}
 
             <div className="portfolio-panel__messages" ref={messagesRef} onScroll={handleScroll}>
-                {messages.length === 0 && (
-                    <div className="portfolio-panel__empty">
-                        Describe your investment goals, risk tolerance, and account size — I&apos;ll help you build a portfolio.
-                    </div>
-                )}
+                {messages.length === 0 && <AgentIntro agent={AGENTS.portfolio} />}
                 {messages.map((msg, i) => (
                     <MessageBubble key={i} msg={msg} onTickerSelect={onTickerSelect} />
                 ))}
@@ -387,6 +351,10 @@ export function PortfolioPanel({
                     <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant portfolio-panel__bubble--warning">
                         ⚠️ Couldn&apos;t fetch live prices to compute share quantities. Try sending a message to trigger a re-emit, or check back shortly.
                     </div>
+                )}
+
+                {(isLoading || messages.some(m => m.role === 'assistant' && m.content)) && (
+                    <AgentTurnTag agent={AGENTS.portfolio} active={isLoading} />
                 )}
 
                 <div ref={messagesEndRef} />
@@ -475,7 +443,4 @@ PortfolioPanel.propTypes = {
     chatRestore:         PropTypes.object,
     availableAccounts:   PropTypes.array,
     selectedAccounts:    PropTypes.arrayOf(PropTypes.string),
-    onAccountsChange:    PropTypes.func,
-    mainAccountId:       PropTypes.string,
-    onMainAccountChange: PropTypes.func,
 }

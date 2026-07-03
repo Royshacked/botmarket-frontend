@@ -3,9 +3,9 @@ import PropTypes from 'prop-types'
 import { ChatMarkdown } from '../ChatMarkdown.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
-import { AccountSelector } from './AccountSelector.jsx'
 import { ChatInputRow } from '../ChatInputRow.jsx'
-import { BrandTitle } from '../BrandTitle.jsx'
+import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
+import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { ConvictionChip } from '../ConvictionChip/ConvictionChip.jsx'
 import { ChatPhaseHeading } from '../ChatPhaseHeading.jsx'
@@ -137,7 +137,7 @@ function isIdeaReady(analysisState) {
 
 const PHASE_LABELS = { 1: 'Nucleus', 2: 'Formation', 3: 'Structure', 4: 'Exits', 5: 'Validation' }
 
-export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, onStop, isLoading, streamStatus = '', isEditing = false, isInvalidationReview = false, onDismissInvalidation, onBuyMarket, isPostOrderEdit = false, availableAccounts = [], selectedAccounts = [], onAccountsChange, mainAccountId = null, onMainAccountChange }) {
+export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, onStop, isLoading, streamStatus = '', isEditing = false, isInvalidationReview = false, onDismissInvalidation, onBuyMarket, isPostOrderEdit = false, availableAccounts = [], selectedAccounts = [] }) {
     const [input, setInput] = useState('')
     const [dismissConfirm, setDismissConfirm] = useState(false)
 
@@ -200,50 +200,13 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
 
     return (
         <div className="chat-panel">
-            <div className="chat-panel__header">
-                <svg className="chat-panel__title-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 3 C12.4 7.6 16.4 11.6 21 12 C16.4 12.4 12.4 16.4 12 21 C11.6 16.4 7.6 12.4 3 12 C7.6 11.6 11.6 7.6 12 3 Z"/>
-                    <path d="M18.5 3.5 C18.6 4.5 19.5 5.4 20.5 5.5 C19.5 5.6 18.6 6.5 18.5 7.5 C18.4 6.5 17.5 5.6 16.5 5.5 C17.5 5.4 18.4 4.5 18.5 3.5 Z"/>
-                </svg>
-                <div className="chat-panel__title-group">
-                    <span className="chat-panel__title"><BrandTitle text="Idea" /></span>
-                    <span className="chat-panel__subtitle">building and monitoring your trade</span>
-                </div>
-                <div className="chat-panel__header-right">
-                    <AccountSelector
-                        accounts={availableAccounts}
-                        selectedIds={selectedAccounts}
-                        onChange={onAccountsChange}
-                        mainAccountId={mainAccountId}
-                        onMainChange={onMainAccountChange}
-                    />
-                    <span className="chat-panel__live-badge">
-                        <span
-                            className={`chat-panel__status-dot ${
-                                isLoading
-                                    ? 'loading'
-                                    : analysisState?.structured_state?.active_asset
-                                        ? 'building'
-                                        : 'idle'
-                            }`}
-                            aria-label={analysisState?.structured_state?.active_asset ? 'Building idea' : undefined}
-                        />
-                        <span className="chat-panel__live">live</span>
-                    </span>
-                </div>
-            </div>
-
             <TradeBuildSummary
                 analysisState={analysisState}
                 selectedAccounts={availableAccounts.filter(a => selectedAccounts.includes(a.id))}
             />
 
             <div className="chat-panel__messages" ref={messagesRef} onScroll={handleScroll}>
-                {messages.length === 0 && (
-                    <div className="chat-panel__empty">
-                        Describe your trade idea — price levels, indicators, patterns and news events — I&apos;ll help you build your trade.
-                    </div>
-                )}
+                {messages.length === 0 && <AgentIntro agent={AGENTS.idea} />}
                 {messages.map((msg, i) => (
                     msg.role === 'phase' ? (
                         <ChatPhaseHeading key={i} phase={msg.phase} label={PHASE_LABELS[msg.phase]} total={5} />
@@ -287,6 +250,13 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                             <span /><span /><span />
                         </span>
                     </div>
+                )}
+
+                {/* Agent signature pinned to the foot of the thread — it moves down
+                    with the conversation and pulses while a reply is streaming
+                    (never disappears), rather than repeating per turn. */}
+                {(isLoading || messages.some(m => m.role === 'assistant' && m.content)) && (
+                    <AgentTurnTag agent={AGENTS.idea} active={isLoading} />
                 )}
 
                 <div ref={messagesEndRef} />
@@ -399,7 +369,4 @@ ChatPanel.propTypes = {
     isPostOrderEdit:   PropTypes.bool,
     availableAccounts:   PropTypes.array,
     selectedAccounts:    PropTypes.arrayOf(PropTypes.string),
-    onAccountsChange:    PropTypes.func,
-    mainAccountId:       PropTypes.string,
-    onMainAccountChange: PropTypes.func,
 }

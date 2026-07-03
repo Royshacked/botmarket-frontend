@@ -9,7 +9,8 @@ import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useChatStream } from '../../customHooks/useChatStream.js'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
-import { BrandTitle } from '../BrandTitle.jsx'
+import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
+import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { ChatPhaseHeading } from '../ChatPhaseHeading.jsx'
 import { ChatReasoning } from '../ChatReasoning.jsx'
@@ -182,26 +183,6 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
 
     return (
         <div className="portfolio-panel scanner-panel">
-            <div className="portfolio-panel__header">
-                <span className="portfolio-panel__title-icon">
-                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M2.5 12 C6 7 18 7 21.5 12 C18 17 6 17 2.5 12 Z"/>
-                        <circle cx="12" cy="12" r="3.2"/>
-                        <circle cx="12" cy="12" r="0.7" fill="currentColor" stroke="none"/>
-                    </svg>
-                </span>
-                <div className="portfolio-panel__title-group">
-                    <span className="portfolio-panel__title"><BrandTitle text="Argus" /></span>
-                    <span className="portfolio-panel__subtitle">scanning the market for opportunities</span>
-                </div>
-                <div className="portfolio-panel__header-right">
-                    <span className="portfolio-panel__live-badge">
-                        <span className={`portfolio-panel__status-dot${chat.isLoading ? ' loading' : pendingScan ? ' building' : ' idle'}`} />
-                        <span className="portfolio-panel__live">live</span>
-                    </span>
-                </div>
-            </div>
-
             {listReady && (
                 <div className="portfolio-panel__build-summary">
                     <div className="portfolio-panel__build-summary-header">
@@ -229,25 +210,28 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
 
             <div className="portfolio-panel__messages" ref={messagesRef} onScroll={handleScroll}>
                 {messages.length === 0 && (
-                    <div className="portfolio-panel__empty">
-                        {editingScanId ? (
-                            <>Editing your list — ask me to add, remove, or change names, then hit Update list.</>
-                        ) : (
-                            <>
-                                Ask what to watch — a day, the coming week, an earnings window — and I&apos;ll scan US markets for candidates with the reasoning behind each.
-                                <div className="scanner-panel__suggestions">
-                                    {SUGGESTIONS.map(s => (
-                                        <button key={s} className="scanner-panel__suggestion" onClick={() => _send(s)} disabled={chat.isLoading}>
-                                            {s}
-                                        </button>
-                                    ))}
-                                </div>
-                            </>
-                        )}
-                    </div>
+                    editingScanId ? (
+                        <div className="portfolio-panel__empty">
+                            Editing your list — ask me to add, remove, or change names, then hit Update list.
+                        </div>
+                    ) : (
+                        <AgentIntro agent={AGENTS.scanner}>
+                            <div className="scanner-panel__suggestions">
+                                {SUGGESTIONS.map(s => (
+                                    <button key={s} className="scanner-panel__suggestion" onClick={() => _send(s)} disabled={chat.isLoading}>
+                                        {s}
+                                    </button>
+                                ))}
+                            </div>
+                        </AgentIntro>
+                    )
                 )}
                 {messages.map((msg, i) => <MessageBubble key={i} msg={msg} onTickerSelect={onTickerSelect} />)}
                 {chat.isLoading && <ToolStatusChip label={chat.streamStatus} />}
+
+                {(chat.isLoading || messages.some(m => m.role === 'assistant' && m.content)) && (
+                    <AgentTurnTag agent={AGENTS.scanner} active={chat.isLoading} />
+                )}
 
                 <div ref={messagesEndRef} />
             </div>

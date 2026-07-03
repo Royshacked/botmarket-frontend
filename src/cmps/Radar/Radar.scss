@@ -45,8 +45,8 @@
         font-weight: 700;
         letter-spacing: 0.12em;
         text-transform: uppercase;
-        // Static faint teal — only the dot pulses, the label stays still.
-        color: var(--color-teal);
+        // Static faint accent — only the dot pulses, the label stays still.
+        color: var(--accent-light);
         opacity: 0.55;
     }
 

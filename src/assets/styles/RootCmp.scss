@@ -69,6 +69,7 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
+    position: relative;   // anchor for the "back to axl" return overlay
 }
 
 // Trade ideas strip — spans the chart + news columns, below both
@@ -78,49 +79,25 @@
     min-width: 0;
 }
 
-// ── Chat / Portfolio tab toggle ───────────────────────────────────────────────
-.chat-tabs {
-    display: flex;
-    flex-shrink: 0;
-    padding: 0;
-    border-top: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-    background: var(--bg-wash-surface);
-}
-
-.chat-tabs__tab {
-    padding: 7px 16px;
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
-    color: var(--text-muted);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: color 0.15s, border-bottom-color 0.15s;
-
-    &:hover { color: var(--text-secondary); }
-
-    &--active {
-        color: var(--accent-light);
-        border-bottom-color: var(--accent-light);
-    }
-
-    &--portfolio.chat-tabs__tab--active {
-        color: #6dd4a8;
-        border-bottom-color: #6dd4a8;
-    }
-}
-
+// ── Chat agent panels (axl hub routes here; breadcrumb bar lives in AxlHub.scss) ──
+// The panel entrance replays every time a panel flips from display:none → flex
+// (picking an agent from the hub), because un-hiding an element restarts its
+// animation. The breadcrumb bar above it fades in on the same beat.
 .chat-tabs__panel {
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
+    animation: chat-panel-enter 0.32s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes chat-panel-enter {
+    from { opacity: 0; transform: translateY(10px) scale(0.992); }
+    to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chat-tabs__panel { animation: none; }
 }
 
 .workspace__news {
@@ -228,6 +205,12 @@
             letter-spacing: 0.12em;
             text-transform: uppercase;
             color: var(--text-secondary);
+        }
+
+        &__bar-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
 
         &__close {

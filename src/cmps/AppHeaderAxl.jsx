@@ -143,14 +143,14 @@ export function AppHeaderAxl() {
                     <svg className="app-header-axl__mark" viewBox="0 0 44 44" aria-hidden="true">
                         <defs>
                             <radialGradient id="axlBotAura" cx="50%" cy="44%" r="62%">
-                                <stop offset="0"   stopColor="#5BCBC0" stopOpacity="0.20" />
-                                <stop offset="0.6" stopColor="#74C9AE" stopOpacity="0.10" />
-                                <stop offset="1"   stopColor="#9E9BE3" stopOpacity="0.13" />
+                                <stop offset="0"   style={{ stopColor: 'var(--accent-light)', stopOpacity: 0.20 }} />
+                                <stop offset="0.6" style={{ stopColor: 'var(--accent)',       stopOpacity: 0.10 }} />
+                                <stop offset="1"   style={{ stopColor: 'var(--accent-light)', stopOpacity: 0.13 }} />
                             </radialGradient>
                             <linearGradient id="axlBotRing" gradientUnits="userSpaceOnUse" x1="6" y1="6" x2="38" y2="38">
-                                <stop offset="0"   stopColor="#7FD69E" />
-                                <stop offset="0.5" stopColor="#5FB9D9" />
-                                <stop offset="1"   stopColor="#9E9BE3" />
+                                <stop offset="0"   style={{ stopColor: 'var(--accent-bright)' }} />
+                                <stop offset="0.5" style={{ stopColor: 'var(--accent-light)' }} />
+                                <stop offset="1"   style={{ stopColor: 'var(--accent)' }} />
                             </linearGradient>
                         </defs>
                         <circle className="aura" cx="22" cy="22" r="20" />

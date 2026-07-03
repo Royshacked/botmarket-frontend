@@ -1,0 +1,525 @@
+// ── axl hub — the calm chat home ───────────────────────────────────────────────
+.axl-hub {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    padding: 32px 24px;
+    overflow-y: auto;
+    background: var(--bg-wash);
+    border: 1px solid var(--border);
+    border-radius: 6px 0 0 6px;   // mirror the chat-panel framing in this column
+
+    // Replays each time the hub re-mounts (i.e. on every "back to axl").
+    animation: axl-hub-enter 0.34s ease both;
+}
+
+@keyframes axl-hub-enter {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+// intro + each option rise in on a gentle stagger under the fade.
+// `backwards` (not `both`) so the finished animation releases control of
+// `transform` back to normal styles — otherwise it would clobber the cards'
+// :hover lift once the entrance settles.
+.axl-hub__intro  { animation: axl-hub-rise 0.42s cubic-bezier(0.22, 0.61, 0.36, 1) 0.02s backwards; }
+.axl-hub__option { animation: axl-hub-rise 0.42s cubic-bezier(0.22, 0.61, 0.36, 1) backwards; }
+.axl-hub__option:nth-child(1) { animation-delay: 0.10s; }
+.axl-hub__option:nth-child(2) { animation-delay: 0.16s; }
+.axl-hub__option:nth-child(3) { animation-delay: 0.22s; }
+
+@keyframes axl-hub-rise {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: none; }
+}
+
+// ── greeting cluster ──
+.axl-hub__intro {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+}
+
+.axl-hub__mark {
+    width: 76px;
+    height: 76px;
+    margin-bottom: 6px;
+
+    .axl-hub__aura { fill: url(#axlHubAura); stroke: none; }
+    .axl-hub__ring {
+        fill: none;
+        stroke: url(#axlHubRing);
+        stroke-width: 1.4;
+        opacity: 0.55;
+    }
+    .axl-hub__bot {
+        fill: none;
+        stroke: var(--text-subtle);
+        stroke-width: 1.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    // gentle meditative breathing
+    animation: axl-hub-breathe 6s ease-in-out infinite;
+}
+
+@keyframes axl-hub-breathe {
+    0%, 100% { transform: translateY(0)     scale(1);    }
+    50%      { transform: translateY(-2px)  scale(1.02); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .axl-hub__mark,
+    .axl-hub,
+    .axl-hub__intro,
+    .axl-hub__option,
+    .chat-agentbar,
+    .axl-summon,
+    .axl-summon__pulse,
+    .axl-summon__icon,
+    .axl-summon__dots i,
+    .chat-return-overlay { animation: none; }
+
+    .axl-summon__pulse { opacity: 0; }
+}
+
+.axl-hub__greeting {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: 0.01em;
+}
+
+.axl-hub__wordmark {
+    font-family: var(--font-mono);
+    letter-spacing: 0.04em;
+    b { color: var(--accent-light); font-weight: 700; }
+}
+
+.axl-hub__prompt {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+// ── option cards ──
+.axl-hub__options {
+    width: 100%;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.axl-hub__option {
+    --hue: var(--accent-light);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 14px 16px;
+    text-align: left;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: border-color 0.18s, transform 0.18s, box-shadow 0.18s, background 0.18s;
+
+    &:hover {
+        transform: translateY(-2px);
+        border-color: color-mix(in srgb, var(--hue) 55%, transparent);
+        box-shadow: 0 8px 24px -12px color-mix(in srgb, var(--hue) 60%, transparent);
+        background: color-mix(in srgb, var(--hue) 7%, var(--bg-raised));
+
+        .axl-hub__option-icon { color: var(--hue); border-color: color-mix(in srgb, var(--hue) 50%, transparent); }
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--hue);
+        outline-offset: 2px;
+    }
+}
+
+.axl-hub__option-icon {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-mid);
+    border-radius: 10px;
+    transition: color 0.18s, border-color 0.18s;
+}
+
+.axl-hub__option-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.axl-hub__option-lead {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.axl-hub__option-blurb {
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--text-secondary);
+}
+
+.axl-hub__option-with {
+    flex-shrink: 0;
+    align-self: flex-start;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.axl-hub__option-brand {
+    display: block;
+    margin-top: 2px;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0.02em;
+    color: var(--text-primary);
+}
+
+// ── summoning state (axl calls the chosen agent before its chat opens) ──
+.axl-summon {
+    --hue: var(--accent-light);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 4px;
+    animation: axl-summon-in 0.4s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    // hue follows the active theme accent (base --hue above); the --hue-modifier
+    // classes are kept on the markup but intentionally no longer recolor, so every
+    // agent + the return beat share the one theme accent.
+}
+
+.axl-summon__orb {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 96px;
+    height: 96px;
+    margin-bottom: 14px;
+}
+
+// expanding aura rings radiating outward from the sigil
+.axl-summon__pulse {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: 1.5px solid var(--hue);
+    opacity: 0;
+    animation: axl-summon-pulse 1.6s ease-out infinite;
+
+    &--2 { animation-delay: 0.8s; }
+}
+
+// steady containing ring
+.axl-summon__ring {
+    position: absolute;
+    width: 66px;
+    height: 66px;
+    border-radius: 50%;
+    border: 1px solid color-mix(in srgb, var(--hue) 45%, transparent);
+    box-shadow: 0 0 22px -6px color-mix(in srgb, var(--hue) 70%, transparent);
+}
+
+.axl-summon__icon {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    color: var(--hue);
+    background: color-mix(in srgb, var(--hue) 12%, var(--bg-raised));
+    animation: axl-summon-glow 1.4s ease-in-out infinite;
+}
+
+.axl-summon__label {
+    margin: 0;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;   // readable space between "Summoning" / "Heading back to" and the name
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.axl-summon__brand { font-weight: 700; }
+
+.axl-summon__sub {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+// animated ellipsis after "Summoning Atlas"
+.axl-summon__dots {
+    display: inline-flex;
+    gap: 3px;
+    margin-left: -2px;   // hug the name; the label's 6px gap already spaces it
+    i {
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: var(--hue);
+        animation: axl-summon-dot 1.2s ease-in-out infinite;
+    }
+    i:nth-child(2) { animation-delay: 0.2s; }
+    i:nth-child(3) { animation-delay: 0.4s; }
+}
+
+@keyframes axl-summon-in {
+    from { opacity: 0; transform: scale(0.94); }
+    to   { opacity: 1; transform: none; }
+}
+
+@keyframes axl-summon-pulse {
+    0%   { transform: scale(0.55); opacity: 0.55; }
+    70%  { opacity: 0.12; }
+    100% { transform: scale(1.7);  opacity: 0; }
+}
+
+@keyframes axl-summon-glow {
+    0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0 transparent; }
+    50%      { transform: scale(1.06); box-shadow: 0 0 18px -4px var(--hue); }
+}
+
+@keyframes axl-summon-dot {
+    0%, 100% { opacity: 0.25; transform: translateY(0); }
+    50%      { opacity: 1;    transform: translateY(-2px); }
+}
+
+// Return interstitial — covers the agent chat column while heading home to axl.
+.chat-return-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    display: grid;
+    place-items: center;
+    background: var(--bg-wash);
+    border-radius: 6px 0 0 6px;
+    animation: axl-hub-enter 0.28s ease both;
+}
+
+// ── agent breadcrumb bar (shown once inside an agent, replaces the tab row) ──
+.chat-agentbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    padding: 6px 12px;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-wash-surface);
+    animation: axl-hub-enter 0.28s ease both;
+}
+
+.chat-agentbar__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+
+    &:hover { color: var(--text-primary); background: var(--bg-raised); }
+
+    svg { width: 13px; height: 13px; }
+}
+
+.chat-agentbar__crumb {
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+}
+
+.chat-agentbar__current {
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+// Right cluster of the strip — account (bank) selector + live + layout toggle.
+.chat-agentbar__right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.chat-agentbar__live {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent-light);
+    opacity: 0.7;
+}
+
+// mirrors the chat-panel live dot (reuses its global cp-* keyframes)
+.chat-agentbar__dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+
+    &.idle     { animation: cp-idle     3s   ease-in-out infinite; }
+    &.building { animation: cp-building 1.4s ease-in-out infinite; background: var(--accent-light); }
+    &.loading  { animation: cp-loading 0.85s ease-in-out infinite; background: var(--accent-light); }
+}
+
+// ── per-turn agent attribution (minimal layout) ──
+.agent-turn-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    width: 100%;
+
+    &__icon {
+        display: grid;
+        place-items: center;
+        width: 31px;
+        height: 31px;
+        flex-shrink: 0;
+        color: var(--accent-light);
+        border: 1px solid color-mix(in srgb, var(--accent-light) 40%, transparent);
+        border-radius: 50%;
+        background: color-mix(in srgb, var(--accent-light) 12%, transparent);
+    }
+
+    &__name {
+        font-family: var(--font-mono);
+        font-size: 14.5px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--accent-light);
+    }
+
+    // While a reply is streaming the signature stays put and gently pulses
+    // (the sigil glows, the name breathes) so it reads as "Idea is thinking".
+    &.is-active {
+        .agent-turn-tag__icon { animation: agent-tag-pulse 1.3s ease-in-out infinite; }
+        .agent-turn-tag__name { animation: agent-tag-breathe 1.3s ease-in-out infinite; }
+    }
+}
+
+@keyframes agent-tag-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 transparent; transform: scale(1); }
+    50%      { box-shadow: 0 0 14px -3px var(--accent-light); transform: scale(1.06); }
+}
+
+@keyframes agent-tag-breathe {
+    0%, 100% { opacity: 0.6; }
+    50%      { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .agent-turn-tag.is-active .agent-turn-tag__icon,
+    .agent-turn-tag.is-active .agent-turn-tag__name { animation: none; }
+}
+
+// ── in-chat agent introduction prompt (each panel's fresh/empty state) ──
+// Echoes axl's hub greeting — a hue-tinted sigil, "Hi, I'm <Agent>", the agent's
+// one-liner, then a concrete hint (or starter chips passed as children).
+.agent-intro {
+    --hue: var(--accent-light);
+    align-self: center;
+    margin: auto 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+    padding: 24px 12px 8px;
+    animation: axl-hub-enter 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    // hue follows the active theme accent (base --hue above).
+}
+
+.agent-intro__icon {
+    display: grid;
+    place-items: center;
+    width: 54px;
+    height: 54px;
+    margin-bottom: 6px;
+    color: var(--hue);
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--hue) 12%, var(--bg-raised));
+    box-shadow: 0 0 20px -6px color-mix(in srgb, var(--hue) 65%, transparent);
+}
+
+.agent-intro__greeting {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: 0.01em;
+}
+
+.agent-intro__brand { font-weight: 700; }
+
+.agent-intro__intro {
+    margin: 0;
+    max-width: 330px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+.agent-intro__hint {
+    margin: 6px 0 0;
+    max-width: 330px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    line-height: 1.6;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .agent-intro { animation: none; }
+}

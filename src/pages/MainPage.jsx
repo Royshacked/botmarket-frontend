@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 
 import { ChatPanel }         from '../cmps/ChatPanel/ChatPanel.jsx'
+import { AxlHub }            from '../cmps/AxlHub/AxlHub.jsx'
+import { AgentSummon, AxlBotGlyph } from '../cmps/AxlHub/AgentSummon.jsx'
+import { RETURN_MS }        from '../cmps/AxlHub/agentMeta.jsx'
+import { AccountSelector }   from '../cmps/ChatPanel/AccountSelector.jsx'
 import { readStoredModel }   from '../cmps/modelOptions.js'
 import { readStoredReasoning } from '../cmps/reasoningOptions.js'
 import { readStoredRoutingMode } from '../cmps/routingModeOptions.js'
@@ -230,7 +234,7 @@ export function MainPage() {
     const [chartInterval, setChartInterval] = useState(DEFAULT_CHART_INTERVAL)
     const [editingIdeaId,     setEditingIdeaId]     = useState(null)
     const [isInvalidationReview, setIsInvalidationReview] = useState(false)
-    const [activeTab, setActiveTab]             = useState('idea')
+    const [activeTab, setActiveTab]             = useState('axl')
     const [newsTab, setNewsTab]                 = useState('news')
     const [scannerChatRestore, setScannerChatRestore] = useState(null)
     const [portfolioChatRestore, setPortfolioChatRestore] = useState(null)
@@ -242,7 +246,33 @@ export function MainPage() {
     const [applyingRebalance, setApplyingRebalance] = useState(false)
     const [deletingIdea, setDeletingIdea] = useState(false)
     const [mobileChatOpen, setMobileChatOpen] = useState(false)
+    const [returningToAxl, setReturningToAxl] = useState(false)
+    // Bumped each time we head home to axl so the Atlas/Argus panels remount fresh
+    // — going back to axl and re-entering an agent always starts a new chat.
+    const [chatResetKey, setChatResetKey] = useState(0)
+    const returnTimerRef = useRef(null)
     const latestMessagesRef = useRef([])
+
+    // Leaving an agent plays a short "heading back to axl" beat (mirrors the summon
+    // on the way in) before the hub returns. The timer is cleared on unmount so it
+    // can't fire into a gone component.
+    useEffect(() => () => clearTimeout(returnTimerRef.current), [])
+    function handleBackToAxl() {
+        if (returningToAxl) return
+        setReturningToAxl(true)
+        returnTimerRef.current = setTimeout(() => {
+            setActiveTab('axl')
+            setNewsTab('news')
+            setReturningToAxl(false)
+            // Fresh slate: clear the Idea chat, drop any pending edit-restore, and
+            // remount Atlas/Argus so re-entering any agent from the hub starts a new
+            // conversation.
+            handleCancelBuild()
+            setScannerChatRestore(null)
+            setPortfolioChatRestore(null)
+            setChatResetKey(k => k + 1)
+        }, RETURN_MS)
+    }
 
     const news = useNewsFeed()
     const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading } = useCalendarEvents()
@@ -1008,11 +1038,11 @@ export function MainPage() {
         onDismissInvalidation: handleDismissInvalidation,
         onBuyMarket:         handleBuyMarket,
         isPostOrderEdit:     !!ideas.find(i => i.id === editingIdeaId && isPostOrderStatus(i.status)),
+        // The chat is header-less everywhere now — account selection lives in the
+        // agent strip (desktop) / the mobile sheet bar; availableAccounts +
+        // selectedAccounts are still read for the build summary + generate gating.
         availableAccounts,
         selectedAccounts,
-        onAccountsChange:    setSelectedAccounts,
-        mainAccountId,
-        onMainAccountChange: setMainAccountId,
     }
 
     return (
@@ -1024,25 +1054,57 @@ export function MainPage() {
                         <TradingViewChart symbol={chartSymbol} interval={chartInterval} />
                     </div>
                     <div className="workspace__chat">
-                        <div className="chat-tabs">
-                            <button
-                                className={`chat-tabs__tab${activeTab === 'idea' ? ' chat-tabs__tab--active' : ''}`}
-                                onClick={() => { setActiveTab('idea'); setNewsTab('news') }}
-                            >Idea</button>
-                            <button
-                                className={`chat-tabs__tab chat-tabs__tab--portfolio${activeTab === 'portfolio' ? ' chat-tabs__tab--active' : ''}`}
-                                onClick={() => { setActiveTab('portfolio'); setNewsTab('news') }}
-                            >Portfolio</button>
-                            <button
-                                className={`chat-tabs__tab chat-tabs__tab--scanner${activeTab === 'scanner' ? ' chat-tabs__tab--active' : ''}`}
-                                onClick={() => { setActiveTab('scanner'); setNewsTab('scans') }}
-                            >Scanner</button>
-                        </div>
+                        {activeTab === 'axl' ? (
+                            <AxlHub
+                                user={user}
+                                onPick={(tab) => { setActiveTab(tab); setNewsTab(tab === 'scanner' ? 'scans' : 'news') }}
+                            />
+                        ) : (
+                            <div className="chat-agentbar">
+                                <button
+                                    className="chat-agentbar__back"
+                                    onClick={handleBackToAxl}
+                                    aria-label="Back to axl"
+                                >
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                        <path d="M20 12H6" /><path d="M12 5l-7 7 7 7" />
+                                    </svg>
+                                    axl
+                                </button>
+                                <span className="chat-agentbar__crumb" aria-hidden="true">/</span>
+                                <span className="chat-agentbar__current">
+                                    {activeTab === 'portfolio' ? 'Atlas' : activeTab === 'scanner' ? 'Argus' : 'Idea'}
+                                </span>
+
+                                {(activeTab === 'idea' || activeTab === 'portfolio') && (
+                                    <div className="chat-agentbar__right">
+                                        <AccountSelector
+                                            accounts={availableAccounts}
+                                            selectedIds={selectedAccounts}
+                                            onChange={setSelectedAccounts}
+                                            mainAccountId={mainAccountId}
+                                            onMainChange={setMainAccountId}
+                                        />
+                                        {activeTab === 'idea' && (
+                                            <span className="chat-agentbar__live">
+                                                <span className={`chat-agentbar__dot ${
+                                                    isLoading
+                                                        ? 'loading'
+                                                        : analysisState?.structured_state?.active_asset ? 'building' : 'idle'
+                                                }`} />
+                                                live
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'idea' ? 'flex' : 'none' }}>
                             <ChatPanel {...chatPanelProps} />
                         </div>
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'scanner' ? 'flex' : 'none' }}>
                             <ScannerPanel
+                                key={`scanner-${chatResetKey}`}
                                 onTickerSelect={handleScannerSymbol}
                                 onGenerateList={handleGenerateList}
                                 onUpdateList={handleUpdateList}
@@ -1051,6 +1113,7 @@ export function MainPage() {
                         </div>
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'portfolio' ? 'flex' : 'none' }}>
                             <PortfolioPanel
+                                key={`portfolio-${chatResetKey}`}
                                 onTickerSelect={handleTickerSelect}
                                 onGeneratePlan={handleGeneratePlan}
                                 onUpdatePlan={handleUpdatePlan}
@@ -1064,6 +1127,19 @@ export function MainPage() {
                                 onMainAccountChange={setMainAccountId}
                             />
                         </div>
+
+                        {/* Departure beat — covers the agent chat while heading home to axl. */}
+                        {returningToAxl && (
+                            <div className="chat-return-overlay" role="status" aria-live="polite">
+                                <AgentSummon
+                                    hue="axl"
+                                    label={<>Heading back to <span className="axl-summon__brand axl-hub__wordmark"><b>A</b>XL</span></>}
+                                    sub="one moment…"
+                                >
+                                    <AxlBotGlyph />
+                                </AgentSummon>
+                            </div>
+                        )}
                     </div>
                     <div className="workspace__news">
                         <Radar
@@ -1142,11 +1218,20 @@ export function MainPage() {
                 <div className="mobile-chat-sheet">
                     <div className="mobile-chat-sheet__bar">
                         <span className="mobile-chat-sheet__title">Build idea</span>
-                        <button
-                            className="mobile-chat-sheet__close"
-                            onClick={() => setMobileChatOpen(false)}
-                            aria-label="Close"
-                        >✕</button>
+                        <div className="mobile-chat-sheet__bar-right">
+                            <AccountSelector
+                                accounts={availableAccounts}
+                                selectedIds={selectedAccounts}
+                                onChange={setSelectedAccounts}
+                                mainAccountId={mainAccountId}
+                                onMainChange={setMainAccountId}
+                            />
+                            <button
+                                className="mobile-chat-sheet__close"
+                                onClick={() => setMobileChatOpen(false)}
+                                aria-label="Close"
+                            >✕</button>
+                        </div>
                     </div>
                     <div className="mobile-chat-sheet__body">
                         <ChatPanel
