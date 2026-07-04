@@ -73,8 +73,8 @@ export function ThreadHistory({ agent, onResume }) {
                 type="button"
                 className="thread-history__toggle"
                 onClick={openDrawer}
-                title="Resume an unfinished draft"
-                aria-label="Unfinished drafts"
+                title="Open chats"
+                aria-label="Chats"
             >
                 <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     {/* two overlapping conversation bubbles */}
@@ -97,15 +97,15 @@ export function ThreadHistory({ agent, onResume }) {
                                         </svg>
                                     </span>
                                 )}
-                                <span className="thread-drawer__title-brand">{meta.brand || 'Drafts'}</span>
-                                <span className="thread-drawer__title-sub">drafts</span>
+                                <span className="thread-drawer__title-brand">{meta.brand || 'Chats'}</span>
+                                <span className="thread-drawer__title-sub">chats</span>
                             </span>
                             <button type="button" className="thread-drawer__close" onClick={requestClose} aria-label="Close">✕</button>
                         </header>
                         <div className="thread-drawer__body">
                             {loading && <div className="thread-drawer__empty">Loading…</div>}
                             {!loading && drafts.length === 0 && (
-                                <div className="thread-drawer__empty">No unfinished drafts. New conversations are saved here automatically once they take shape.</div>
+                                <div className="thread-drawer__empty">No conversations yet. Chats are saved here automatically once they take shape.</div>
                             )}
                             {!loading && drafts.map(t => (
                                 <div key={t.threadId} className="thread-drawer__row" onClick={() => handleResume(t.threadId)} role="button" tabIndex={0}>
@@ -115,7 +115,7 @@ export function ThreadHistory({ agent, onResume }) {
                                     </div>
                                     <div className="thread-drawer__row-acts">
                                         <button type="button" className="thread-drawer__act" onClick={e => handlePin(e, t.threadId)} title="Keep (don't auto-expire)">📌</button>
-                                        <button type="button" className="thread-drawer__act" onClick={e => handleDiscard(e, t.threadId)} title="Discard draft">✕</button>
+                                        <button type="button" className="thread-drawer__act" onClick={e => handleDiscard(e, t.threadId)} title="Discard chat">✕</button>
                                     </div>
                                 </div>
                             ))}

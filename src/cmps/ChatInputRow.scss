@@ -1,0 +1,113 @@
+// ── Shared chat input row ──────────────────────────────────────────────────────
+// ONE styled prompt area for every agent (idea / portfolio / scanner / axl). The
+// rounded "axl" aesthetic is the single source of truth — panels used to each
+// duplicate this block under their own prefix; now they all render `.chat-input-row`
+// and share this file. All buttons + functionality (mic / cancel / send / stop /
+// clear) are preserved and live INSIDE the input pill (icons overlaid on the field,
+// not separate boxes beside it).
+
+// Ghost icon button that sits inside the pill.
+@mixin cir-ghost {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border: none;
+    background: transparent;
+    border-radius: 50%;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s, opacity 0.15s;
+    &:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
+    &:disabled { opacity: 0.35; cursor: not-allowed; }
+}
+
+.chat-input-row {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin: 6px 10px 10px;
+    padding: 4px 5px 4px 7px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+
+    &:focus-within {
+        border-color: color-mix(in srgb, var(--accent-light) 55%, transparent);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-light) 12%, transparent);
+    }
+
+    // The field itself — transparent, borderless, blends into the pill.
+    &__textarea {
+        flex: 1;
+        min-width: 0;
+        align-self: center;
+        background: transparent;
+        border: none;
+        color: var(--text-primary);
+        font-family: var(--font-sans);
+        font-size: 13px;
+        line-height: 1.5;
+        padding: 7px 4px;
+        resize: none;
+
+        &::placeholder { color: var(--text-muted); }
+        &:focus    { outline: none; }
+        &:disabled { opacity: 0.5; cursor: not-allowed; }
+    }
+
+    &__mic {
+        @include cir-ghost;
+        svg { width: 16px; height: 16px; }
+        &.recording {
+            color: var(--color-short);
+            background: rgba(239, 83, 80, 0.15);
+            animation: cir-pulse 0.7s ease-in-out infinite;
+        }
+        &.transcribing { opacity: 0.6; cursor: wait; }
+    }
+
+    &__mic-cancel {
+        @include cir-ghost;
+        svg { width: 14px; height: 14px; }
+        &:hover { color: var(--color-short); }
+    }
+
+    &__mic-spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid var(--accent-deep);
+        border-top-color: var(--accent-light);
+        border-radius: 50%;
+        animation: cir-spin 0.7s linear infinite;
+        display: block;
+    }
+
+    &__clear {
+        @include cir-ghost;
+        svg { width: 15px; height: 15px; }
+        &:hover:not(:disabled) { color: var(--color-short); }
+    }
+
+    // Send is the primary action — an accent-coloured icon (no filled circle).
+    &__send {
+        @include cir-ghost;
+        color: var(--accent-light);
+        svg { width: 18px; height: 18px; }
+        &:not(:disabled):hover { color: var(--accent-bright); }
+        &:disabled { opacity: 0.4; }
+    }
+
+    // Stop shares the send box (markup: `__send __stop`) and recolours it.
+    // Match the send hover specificity (:not(:disabled):hover) so red wins on hover.
+    &__stop {
+        color: var(--color-short);
+        &:not(:disabled):hover { color: color-mix(in srgb, var(--color-short) 75%, white); }
+    }
+}
+
+@keyframes cir-spin  { to { transform: rotate(360deg); } }
+@keyframes cir-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }

@@ -15,8 +15,12 @@ export const chatService = {
         return messages
     },
 
-    async sendMessage(convId, content) {
-        const { message } = await httpService.post(`${BASE}/conversations/${convId}/messages`, { content })
+    // `aiPref` ({ routingMode, model, reasoningEffort }) is forwarded only for the
+    // Axl (bot) conversation so Axl's reply obeys the same AI-mode the user set for
+    // the specialist agents. Ignored by the backend for user-to-user DMs.
+    async sendMessage(convId, content, aiPref = null) {
+        const body = aiPref ? { content, ...aiPref } : { content }
+        const { message } = await httpService.post(`${BASE}/conversations/${convId}/messages`, body)
         return message
     },
 

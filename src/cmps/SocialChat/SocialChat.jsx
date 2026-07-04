@@ -4,10 +4,24 @@ import { chatService }   from '../../services/chat/chat.service'
 import { chatWsService } from '../../services/chat/chatWs.service'
 import { ConversationList } from './ConversationList'
 import { ChatWindow }       from './ChatWindow'
+import { readStoredModel }       from '../modelOptions'
+import { readStoredReasoning }   from '../reasoningOptions'
+import { readStoredRoutingMode } from '../routingModeOptions'
 import './SocialChat.scss'
 
+// The one shared AI-mode the user sets in their profile is mirrored to every
+// agent's localStorage keys; read the 'idea' keys as the representative so Axl
+// obeys the same routing as Idea/Atlas/Argus.
+function readAiPref() {
+    return {
+        routingMode:     readStoredRoutingMode('ideaRoutingMode'),
+        model:           readStoredModel('ideaModel'),
+        reasoningEffort: readStoredReasoning('ideaReasoning'),
+    }
+}
+
 const PAGE   = 50
-const BOT_ID = 'ar2trade_bot'
+const BOT_ID = 'axl'
 
 export function SocialChat({ currentUserId, onUnreadChange, onClose }) {
     const [conversations, setConversations] = useState([])
@@ -102,7 +116,8 @@ export function SocialChat({ currentUserId, onUnreadChange, onClose }) {
 
     async function handleSend(content) {
         if (!activeConv) return
-        const msg = await chatService.sendMessage(activeConv.id, content)
+        const toBot   = activeConv.participants.includes(BOT_ID)
+        const msg = await chatService.sendMessage(activeConv.id, content, toBot ? readAiPref() : null)
         setMessages(prev => [...prev, msg])
         setConversations(prev => prev.map(c =>
             c.id === activeConv.id

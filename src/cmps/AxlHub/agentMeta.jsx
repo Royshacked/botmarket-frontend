@@ -9,8 +9,8 @@
 // Transition timings (ms). axl "summons" the agent, then its chat opens and the
 // agent introduces itself inside the panel. Return uses the same span so both
 // directions feel symmetrical.
-export const SUMMON_MS = 3000   // "Summoning …" before the agent chat opens
-export const RETURN_MS = 3000   // "Heading back to axl" before the hub returns
+export const SUMMON_MS = 2000   // "Summoning …" before the agent chat opens
+export const RETURN_MS = 2000   // "Heading back to axl" before the hub returns
 
 export const AGENTS = {
     idea: {
@@ -62,6 +62,27 @@ export const AGENTS = {
             </>
         ),
     },
+}
+
+// Axl itself — the meta-layer. Not a specialist, so it's intentionally NOT in
+// AGENT_LIST (the hub cards / routing nav stay the three specialists). Kept here so
+// the shared chat pieces (AgentTurnTag: the sigil + name under a turn) work for Axl
+// too. Icon = a compact 24-space meditating bot.
+AGENTS.axl = {
+    tab:   'axl',
+    brand: 'axl',
+    hue:   'cyan',
+    icon: (
+        <>
+            <line x1="12" y1="4.6" x2="12" y2="3.1" />
+            <circle cx="12" cy="2.4" r="0.9" />
+            <rect x="6.5" y="4.6" width="11" height="8.4" rx="3" />
+            <path d="M9 8.2 q1.4 1.1 2.8 0" />
+            <path d="M12.2 8.2 q1.4 1.1 2.8 0" />
+            <path d="M7 18 Q12 14.6 17 18" />
+            <path d="M7.7 18.7 Q12 22 16.3 18.7" />
+        </>
+    ),
 }
 
 export const AGENT_LIST = [AGENTS.idea, AGENTS.portfolio, AGENTS.scanner]

@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { chatService } from '../../services/chat/chat.service'
+import { AxlBotGlyph } from '../AxlHub/AgentSummon'
 
-const BOT_ID = 'ar2trade_bot'
+const BOT_ID = 'axl'
 
 function timeAgo(ms) {
     if (!ms) return ''
@@ -84,8 +85,8 @@ export function ConversationList({ conversations, activeId, currentUserId, onSel
                                 className={'social-chat__conv-item' + (active ? ' social-chat__conv-item--active' : '')}
                                 onClick={() => onSelect(conv)}
                             >
-                                <div className="social-chat__conv-avatar">
-                                    {isBot ? '🤖' : name[0]?.toUpperCase()}
+                                <div className={'social-chat__conv-avatar' + (isBot ? ' social-chat__conv-avatar--bot' : '')}>
+                                    {isBot ? <AxlBotGlyph /> : name[0]?.toUpperCase()}
                                 </div>
                                 <div className="social-chat__conv-meta">
                                     <div className="social-chat__conv-name">

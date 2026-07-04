@@ -1,11 +1,14 @@
 import PropTypes from 'prop-types'
+import './ChatInputRow.scss'
 
 /**
- * Shared chat input row: mic toggle, textarea, send, and clear.
+ * Shared chat input row: mic toggle, textarea, send/stop, and clear.
  *
- * Class names are derived from `prefix` (e.g. 'chat-panel' / 'portfolio-panel')
- * so each panel's existing SCSS applies unchanged. All disabled/visibility logic
- * is decided by the parent and passed in.
+ * ONE shared style for every agent (idea / portfolio / scanner / axl) via the
+ * fixed `.chat-input-row` classes + ChatInputRow.scss — no per-panel duplication.
+ * `prefix` is kept as an optional root modifier (`chat-input-row--<prefix>`) for
+ * any panel-specific tweak, but all base styling lives in the shared stylesheet.
+ * All disabled/visibility logic is decided by the parent and passed in.
  */
 export function ChatInputRow({
     prefix,
@@ -29,15 +32,15 @@ export function ChatInputRow({
     textareaDisabled,
 }) {
     return (
-        <div className={`${prefix}__input-row`}>
+        <div className={`chat-input-row${prefix ? ` chat-input-row--${prefix}` : ''}`}>
             <button
-                className={`${prefix}__mic ${isRecording ? 'recording' : ''} ${isTranscribing ? 'transcribing' : ''}`}
+                className={`chat-input-row__mic ${isRecording ? 'recording' : ''} ${isTranscribing ? 'transcribing' : ''}`}
                 onClick={onToggleMic}
                 disabled={micDisabled}
                 title={isRecording ? 'Stop & transcribe' : 'Start recording'}
             >
                 {isTranscribing ? (
-                    <span className={`${prefix}__mic-spinner`} />
+                    <span className="chat-input-row__mic-spinner" />
                 ) : (
                     <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                         <rect x="7" y="1" width="6" height="10" rx="3" stroke="currentColor" strokeWidth="1.5"/>
@@ -49,7 +52,7 @@ export function ChatInputRow({
             </button>
             {isRecording && (
                 <button
-                    className={`${prefix}__mic-cancel`}
+                    className="chat-input-row__mic-cancel"
                     onClick={onCancelMic}
                     title="Discard recording"
                 >
@@ -61,7 +64,7 @@ export function ChatInputRow({
             )}
             <textarea
                 ref={textareaRef}
-                className={`${prefix}__textarea`}
+                className="chat-input-row__textarea"
                 value={value}
                 onChange={onChange}
                 onKeyDown={onKeyDown}
@@ -71,7 +74,7 @@ export function ChatInputRow({
             />
             {isStreaming && onStop ? (
                 <button
-                    className={`${prefix}__send ${prefix}__stop`}
+                    className="chat-input-row__send chat-input-row__stop"
                     onClick={onStop}
                     title="Stop response"
                     aria-label="Stop response"
@@ -82,7 +85,7 @@ export function ChatInputRow({
                 </button>
             ) : (
                 <button
-                    className={`${prefix}__send`}
+                    className="chat-input-row__send"
                     onClick={onSend}
                     disabled={sendDisabled}
                     title="Send"
@@ -94,7 +97,7 @@ export function ChatInputRow({
                 </button>
             )}
             <button
-                className={`${prefix}__clear`}
+                className="chat-input-row__clear"
                 onClick={onClear}
                 disabled={clearDisabled}
                 title={clearTitle}

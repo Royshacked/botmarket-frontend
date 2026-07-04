@@ -21,7 +21,7 @@ export const userPromptService = {
  */
 async function sendPromptStream(userPrompt, analysisState = null, callbacks = {}, ideaAccounts = [], model, reasoningEffort, routingMode, currentPhase) {
     await postSSE(
-        `${API_BASE}/api/orchestrator/stream`,
+        `${API_BASE}/api/idea/stream`,
         { userPrompt, analysisState, ideaAccounts, model, reasoningEffort, routingMode, currentPhase },
         buildStreamHandlers(callbacks),
         { signal: callbacks.signal },

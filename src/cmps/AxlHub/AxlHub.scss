@@ -3,18 +3,35 @@
     flex: 1;
     min-height: 0;
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 28px;
-    padding: 32px 24px;
-    overflow-y: auto;
+    flex-direction: column;       // content area (body) grows; input pins to the bottom
+    overflow: hidden;
     background: var(--bg-wash);
     border: 1px solid var(--border);
     border-radius: 6px 0 0 6px;   // mirror the chat-panel framing in this column
 
     // Replays each time the hub re-mounts (i.e. on every "back to axl").
     animation: axl-hub-enter 0.34s ease both;
+}
+
+// The summoning interstitial has no body/input — centre it in the column.
+.axl-hub--summon {
+    align-items: center;
+    justify-content: center;
+    padding: 32px 24px;
+}
+
+// Scrolling content area above the pinned input: greeting + cards (landing) or
+// the message thread (chatting). Centres the landing; top-anchors the chat.
+.axl-hub__body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    padding: 32px 24px;
 }
 
 @keyframes axl-hub-enter {
@@ -109,6 +126,17 @@
     font-size: 13px;
     color: var(--text-secondary);
 }
+
+// ── axl chat ──
+// The chat itself reuses the specialist panels' rendering wholesale: once a
+// conversation starts, the landing (greeting + cards) is replaced by a
+// `.portfolio-panel__messages` scroll area with the shared bubbles / reasoning /
+// tool-status chip / AgentTurnTag (imported PortfolioPanel.scss). Nothing bespoke
+// here — the input stays pinned at the bottom of the column.
+
+// The shared ChatInputRow pins to the bottom of the hub column and spans the full
+// width (same as every agent panel) — `.axl-hub` stretches its children by default,
+// and the row's own margin provides the inset.
 
 // ── option cards ──
 .axl-hub__options {
@@ -375,6 +403,34 @@
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
+}
+
+// Axl strip: the Idea / Atlas / Argus routing nav (echoes the crumb's mono style).
+.chat-agentbar__agents {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.chat-agentbar__agent {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 9px;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+
+    svg { opacity: 0.8; }
+    &:hover { color: var(--text-primary); background: var(--bg-raised); }
 }
 
 // Right cluster of the strip — account (bank) selector + live + layout toggle.

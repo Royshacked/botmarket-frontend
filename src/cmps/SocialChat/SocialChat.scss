@@ -164,6 +164,9 @@
         font-size: .88rem;
         font-weight: 600;
         flex-shrink: 0;
+
+        // The meditating axl bot glyph inherits the avatar's accent via currentColor.
+        &--bot svg { width: 24px; height: 24px; }
     }
 
     &__conv-meta { flex: 1; min-width: 0; }
