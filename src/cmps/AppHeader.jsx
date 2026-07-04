@@ -49,8 +49,11 @@ export function AppHeader() {
 						title="Messages"
 					>
 						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-							<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-							<polyline points="7,12 10,9 13,11 17,7" strokeWidth="1.4"/>
+							<path d="M12 4C6.5 4 2 6.9 2 10.5C2 12.4 3.3 14.1 5.4 15.2C5.2 16.3 4.4 17.6 3 19C5.6 18.8 7.6 18 9 17C9.9 17.3 10.9 17.5 12 17.5C17.5 17.5 22 14.6 22 10.5C22 6.9 17.5 4 12 4Z"/>
+							<circle cx="8.5" cy="10" r="1.5"/>
+							<path d="M5.9 14.5a2.6 2.6 0 0 1 5.2 0"/>
+							<circle cx="15.5" cy="10" r="1.5"/>
+							<path d="M12.9 14.5a2.6 2.6 0 0 1 5.2 0"/>
 						</svg>
 						{unread > 0 && (
 							<span className="app-header__chat-badge">{unread > 9 ? '9+' : unread}</span>

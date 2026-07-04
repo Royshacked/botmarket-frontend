@@ -788,6 +788,376 @@ $sym-status-colors: (
     td:first-child { padding-left: 22px; }
 }
 
+// ── Ideas Cards (design trial 'cards') ─────────────────────────────────────────
+// The Ideas tab rendered as stacked cards instead of the table. Neutral surface —
+// lifecycle (waiting → live → closed) is carried by the icon tile + ticker colour +
+// pulse, not a full-card tint, so the LONG/SHORT + status pills stay legible.
+
+// Segmented pill nav (Ideas / Portfolios / Positions) — a single rounded container
+// with the active tab as an accent-tinted pill, matching the cards mockup.
+[data-design="cards"] .trade-ideas-list {
+    &__filters {
+        gap: 0;
+        padding: 3px;
+        background: var(--bg-deep);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+    }
+
+    &__filter {
+        border: none;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--text-muted);
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        padding: 4px 12px;
+        transition: background 0.15s, color 0.15s;
+
+        &:hover { color: var(--accent-light); }
+
+        &.active,
+        &--portfolio.active,
+        &--positions.active {
+            background: color-mix(in srgb, var(--accent) 14%, transparent);
+            border-color: transparent;
+            color: var(--accent-light);
+        }
+    }
+}
+
+.ideas-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+}
+
+.idea-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+
+    &:hover { background: var(--bg-hover); border-color: var(--border-mid); }
+    &--closed { opacity: 0.55; }
+
+    &--building {
+        cursor: default;
+        background: var(--glow-soft);
+        --building-text: color-mix(in srgb, var(--accent) 70%, var(--accent-deep));
+        .idea-card__sym { color: var(--building-text); animation: idea-build-pulse 1.6s ease-in-out infinite; }
+        .idea-card__summary { opacity: 0.7; }
+    }
+
+    &__icon {
+        flex: none;
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: color-mix(in srgb, var(--accent) 10%, transparent);
+        border: 1px solid var(--accent-deep);
+        color: var(--accent-light);
+
+        &--group {
+            background: none;
+            border: none;
+            width: 20px;
+        }
+    }
+
+    &__icon-svg { width: 22px; height: 22px; }
+    &__caret { color: var(--accent); font-size: 0.7rem; }
+
+    &__body { flex: 1; min-width: 0; }
+
+    &__titleline {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    &__sym {
+        font-family: var(--font-mono);
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    &__broker {
+        font-family: var(--font-mono);
+        font-size: 0.82rem;
+        letter-spacing: 0.04em;
+        color: var(--text-secondary);
+    }
+
+    &__pill {
+        font-family: var(--font-mono);
+        font-size: 0.62rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        border-radius: 999px;
+        padding: 2px 8px;
+        line-height: 1.5;
+
+        &--type { color: var(--text-secondary); border: 1px solid var(--accent-deep); }
+        &--dir.direction--long  { color: var(--color-long);  background: color-mix(in srgb, var(--color-long) 14%, transparent); }
+        &--dir.direction--short { color: var(--color-short); background: color-mix(in srgb, var(--color-short) 14%, transparent); }
+    }
+
+    &__broker-badge {
+        padding: 1px 6px;
+        border-radius: 999px;
+        font-family: var(--font-mono);
+        font-size: 0.6rem;
+        letter-spacing: 0.03em;
+        color: var(--text-secondary);
+        background: color-mix(in srgb, var(--accent) 12%, transparent);
+    }
+
+    &__broker-count {
+        font-family: var(--font-mono);
+        font-size: 0.62rem;
+        color: var(--text-muted);
+    }
+
+    &__no-account {
+        font-size: 0.72rem;
+        line-height: 1;
+        color: #e24b4a;
+        cursor: help;
+    }
+
+    &__pnl {
+        margin-left: auto;
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        &.pnl--pos { color: #4caf50; }
+        &.pnl--neg { color: #ef5350; }
+    }
+
+    &__summary {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 5px;
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+        min-width: 0;
+    }
+
+    &__target { width: 13px; height: 13px; color: var(--text-muted); flex: none; }
+    &__summary-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    &__date { color: var(--text-muted); white-space: nowrap; flex: none; }
+
+    &__controls {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: default;
+    }
+
+    &__await-market {
+        font-size: 0.78rem;
+        line-height: 1;
+        animation: status-pulse 1.8s ease-in-out infinite;
+    }
+
+    &__status-toggle,
+    &__status-badge {
+        background: transparent;
+        border: none;
+        margin: 0;
+        padding: 2px;
+        display: inline-flex;
+        align-items: center;
+
+        .status-icon { width: 22px; height: 22px; }
+
+        &.status--waiting { color: var(--color-waiting); }
+        &.status--looking { color: var(--color-looking); animation: status-pulse 1.8s ease-in-out infinite; }
+        &.status--resting { color: #a78bfa; animation: status-pulse 1.8s ease-in-out infinite; }
+        &.status--hit     { color: var(--color-hit); animation: status-pulse 1.8s ease-in-out infinite; }
+        &.status--long    { color: var(--color-long); }
+        &.status--short   { color: var(--color-short); }
+        &.status--closed  { color: #555; }
+    }
+
+    &__status-toggle { cursor: pointer; &:hover { opacity: 0.7; } &:focus { outline: none; } }
+
+    &__status-badge--group {
+        font-family: var(--font-mono);
+        font-size: 0.72rem;
+        letter-spacing: 0.04em;
+        color: var(--accent-light);
+    }
+
+    &__edit-btn,
+    &__delete {
+        background: none;
+        border: none;
+        outline: none;
+        color: var(--accent-light);
+        cursor: pointer;
+        padding: 2px 3px;
+        display: inline-flex;
+        align-items: center;
+        line-height: 0;
+
+        svg { width: 16px; height: 16px; }
+        &:focus { outline: none; }
+    }
+
+    &__edit-btn {
+        &:hover { color: var(--accent-bright); }
+        &--alert {
+            color: #ef5350;
+            animation: status-pulse 1.3s ease-in-out infinite;
+            &:hover { color: #ff6b6b; }
+        }
+    }
+
+    &__delete {
+        &:hover { color: var(--color-short); }
+        &:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            &:hover { color: var(--text-muted); }
+        }
+    }
+
+    &__building-bot {
+        width: 22px;
+        height: 22px;
+        color: var(--accent);
+        animation: idea-build-pulse 1.6s ease-in-out infinite;
+    }
+}
+
+// The ticker + icon tile track the idea's lifecycle in the accent hue, brightening
+// toward white once live — mirroring the table's $sym-status-colors map.
+$card-status-colors: (
+    waiting: var(--accent),
+    looking: var(--accent-light),
+    resting: var(--accent-bright),
+    hit:     #fff,
+    long:    #fff,
+    short:   #fff,
+    closed:  var(--text-muted),
+);
+
+@each $st, $clr in $card-status-colors {
+    .idea-card--#{$st} .idea-card__sym  { color: #{$clr}; }
+    .idea-card--#{$st} .idea-card__icon { color: #{$clr}; border-color: color-mix(in srgb, #{$clr} 30%, var(--accent-deep)); }
+}
+
+// Broker-fork group: the group card plus a left-railed stack of per-broker children.
+.idea-card-group {
+    &__children {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin: 8px 0 0 22px;
+        padding-left: 14px;
+        border-left: 1px solid var(--accent-deep);
+    }
+
+    // Pin the portfolio header in view while its expanded children scroll past it —
+    // it sticks within its own group, so it releases once the whole group leaves.
+    // The card's own opaque background covers the children sliding underneath.
+    > .idea-card--portfolio {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+    }
+}
+
+.idea-card--broker-child { background: color-mix(in srgb, var(--accent) 2%, transparent); }
+
+// ── Portfolio card (Portfolios tab) ────────────────────────────────────────────
+.idea-card {
+    &__caret--lead {
+        flex: none;
+        width: 10px;
+        text-align: center;
+        color: var(--accent);
+        font-size: 0.7rem;
+    }
+
+    &--building .idea-card__pf-name {
+        color: color-mix(in srgb, var(--accent) 70%, var(--accent-deep));
+        animation: idea-build-pulse 1.6s ease-in-out infinite;
+    }
+
+    &__icon--portfolio {
+        background: color-mix(in srgb, var(--color-long) 12%, transparent);
+        border-color: color-mix(in srgb, var(--color-long) 30%, var(--accent-deep));
+        color: var(--accent-light);
+    }
+
+    &__pf-name {
+        font-family: var(--font-mono);
+        font-size: 0.9rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: var(--accent-light);
+    }
+
+    // Prominent gain/loss pill on the right edge of a portfolio card.
+    &__pnl-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-family: var(--font-mono);
+        font-size: 0.72rem;
+        font-weight: 600;
+        border-radius: 999px;
+        padding: 3px 10px;
+        color: var(--text-secondary);
+        background: color-mix(in srgb, var(--accent) 8%, transparent);
+
+        &.pnl--pos { color: var(--color-long);  background: color-mix(in srgb, var(--color-long) 13%, transparent); }
+        &.pnl--neg { color: var(--color-short); background: color-mix(in srgb, var(--color-short) 13%, transparent); }
+        &--flat    { color: var(--text-muted);  background: none; }
+    }
+
+    &__pnl-arrow { font-size: 0.66rem; line-height: 1; }
+
+    // ── Position card ──────────────────────────────────────────────────────────
+    // Idea-less positions aren't clickable (nothing to open).
+    &--static { cursor: default; }
+
+    // Direction-tinted icon tile (long = green, short = red).
+    &__icon--pos.direction--long {
+        background: color-mix(in srgb, var(--color-long) 12%, transparent);
+        border-color: color-mix(in srgb, var(--color-long) 30%, var(--accent-deep));
+        color: var(--color-long);
+    }
+    &__icon--pos.direction--short {
+        background: color-mix(in srgb, var(--color-short) 12%, transparent);
+        border-color: color-mix(in srgb, var(--color-short) 30%, var(--accent-deep));
+        color: var(--color-short);
+    }
+
+    &__closing {
+        font-family: var(--font-mono);
+        font-size: 0.9rem;
+        line-height: 0;
+    }
+}
+
 @keyframes idea-build-pulse {
     0%, 100% { opacity: 0.35; }
     50%       { opacity: 1;    }

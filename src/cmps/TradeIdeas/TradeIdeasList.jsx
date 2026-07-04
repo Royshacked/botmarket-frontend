@@ -7,6 +7,8 @@ import { PositionsTable, posKey } from './PositionsTable.jsx'
 import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel, isDeleteLocked, openIdeaPopup, formatPnl, ideaPnl, portfolioPnl } from './tradeIdea.utils.js'
 import { StatusIcon } from '../StatusIcon.jsx'
 import { BrandTitle } from '../BrandTitle.jsx'
+import { IdeaCard, BrokerGroupCard, PortfolioCard, BuildingPortfolioCard, PositionsCards } from './TradeIdeaCards.jsx'
+import { useDesign } from '../../customHooks/useDesign.js'
 import './TradeIdeas.scss'
 
 function _separateIdeas(ideas) {
@@ -256,6 +258,10 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
     const [pendingClose,   setPendingClose]   = useState(null)
     const [editOrdersPos,  setEditOrdersPos]  = useState(null)
 
+    // Design trial: the 'cards' design renders the Ideas tab as stacked cards
+    // instead of the table (Portfolios / Positions tabs are unchanged).
+    const cardMode = useDesign() === 'cards'
+
     // Follow the chat tab: idea mode shows ideas, portfolio mode shows portfolios.
     // The user can still override via the filter buttons until the tab changes again.
     useEffect(() => {
@@ -362,6 +368,40 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                 {showIdeas ? (
                     !hasIdeasRows ? (
                         <p className="trade-ideas-list__empty">No ideas yet</p>
+                    ) : cardMode ? (
+                        <div className="ideas-cards">
+                            {buildingIdea && (
+                                <IdeaCard
+                                    key="__building__"
+                                    idea={buildingIdea}
+                                    onDelete={onCancelBuild}
+                                    onStatusChange={() => {}}
+                                    onOpen={() => {}}
+                                />
+                            )}
+                            {ideaRows.map(row => row.kind === 'group' ? (
+                                <BrokerGroupCard
+                                    key={row.item.groupId}
+                                    group={row.item}
+                                    expanded={expandedGroups.has(row.item.groupId)}
+                                    onToggle={() => toggleGroup(row.item.groupId)}
+                                    onDelete={onDelete}
+                                    onStatusChange={onStatusChange}
+                                    onOpen={handleOpen}
+                                    onSymbolClick={onSymbolClick}
+                                />
+                            ) : (
+                                <IdeaCard
+                                    key={row.item.id}
+                                    idea={row.item}
+                                    onDelete={onDelete}
+                                    onStatusChange={onStatusChange}
+                                    onOpen={handleOpen}
+                                    onSymbolClick={onSymbolClick}
+                                    onEdit={onEdit}
+                                />
+                            ))}
+                        </div>
                     ) : (
                         <table className="ideas-table">
                             <thead>
@@ -412,6 +452,14 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                 ) : showPositions ? (
                     positions.length === 0 ? (
                         <p className="trade-ideas-list__empty">{positionsLoading ? 'Loading positions…' : 'No open positions'}</p>
+                    ) : cardMode ? (
+                        <PositionsCards
+                            positions={positions}
+                            closingId={closingId}
+                            onClose={setPendingClose}
+                            onEditOrders={setEditOrdersPos}
+                            onOpen={handleOpenPosition}
+                        />
                     ) : (
                         <PositionsTable
                             positions={positions}
@@ -424,6 +472,25 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                 ) : (
                     (!hasPortfolios && !buildingPortfolio) ? (
                         <p className="trade-ideas-list__empty">No portfolios yet</p>
+                    ) : cardMode ? (
+                        <div className="ideas-cards">
+                            {buildingPortfolio && <BuildingPortfolioCard portfolio={buildingPortfolio} />}
+                            {visibleGroups.map(group => (
+                                <PortfolioCard
+                                    key={group.portfolioId}
+                                    group={group}
+                                    expanded={expandedGroups.has(group.portfolioId)}
+                                    onToggle={() => toggleGroup(group.portfolioId)}
+                                    onEdit={onEditPortfolio}
+                                    onDelete={onDelete}
+                                    onDeletePortfolio={onDeletePortfolio}
+                                    onStatusChange={onStatusChange}
+                                    onOpen={handleOpen}
+                                    onSymbolClick={onSymbolClick}
+                                    positions={positions}
+                                />
+                            ))}
+                        </div>
                     ) : (
                         <table className="portfolios-table">
                             <thead>

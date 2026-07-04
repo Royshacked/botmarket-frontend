@@ -9,10 +9,13 @@
 import { initTheme, clearHueTheme, initAccent } from './themeService'
 
 // First entry is the live app (no override). The rest map to [data-design] blocks.
+// 'cards' is a structural-only trial (see applyDesign): it keeps the live Axl
+// palette and only swaps the Axl Lists Ideas tab from a table to stacked cards.
 export const DESIGNS = [
     { id: 'terminal', label: 'Terminal' },
     { id: 'neon',     label: 'Neon' },
     { id: 'slate',    label: 'Slate Pro' },
+    { id: 'cards',    label: 'Cards' },
     { id: 'current',  label: 'Axl (current)' },
 ]
 
@@ -34,6 +37,11 @@ export function applyDesign(id) {
     if (!id || id === 'current') {
         root.removeAttribute('data-design')
         initTheme()                       // restore axl theme + bg spectrum + aurora
+    } else if (id === 'cards') {
+        // Structural-only trial: keep the live Axl palette (don't strip the theme's
+        // inline tokens), just flag the card layout layer on <html>.
+        initTheme()
+        root.setAttribute('data-design', 'cards')
     } else {
         // Let the [data-design] CSS block fully own the palette: drop the inline theme
         // vars (generated spectrum + bg spectrum) that would otherwise out-rank it.
