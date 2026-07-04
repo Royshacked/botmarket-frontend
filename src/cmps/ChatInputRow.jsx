@@ -96,17 +96,19 @@ export function ChatInputRow({
                     </svg>
                 </button>
             )}
-            <button
-                className="chat-input-row__clear"
-                onClick={onClear}
-                disabled={clearDisabled}
-                title={clearTitle}
-            >
-                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                    <line x1="5" y1="5" x2="15" y2="15"/>
-                    <line x1="15" y1="5" x2="5" y2="15"/>
-                </svg>
-            </button>
+            {onClear && (
+                <button
+                    className="chat-input-row__clear"
+                    onClick={onClear}
+                    disabled={clearDisabled}
+                    title={clearTitle}
+                >
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                        <line x1="5" y1="5" x2="15" y2="15"/>
+                        <line x1="15" y1="5" x2="5" y2="15"/>
+                    </svg>
+                </button>
+            )}
         </div>
     )
 }

@@ -11,7 +11,7 @@
 .social-chat {
     position: fixed;
     top: 70px; right: 16px; bottom: 24px;
-    width: 413px;
+    width: 480px;
     z-index: 600;
     display: flex;
     flex-direction: row;
@@ -347,31 +347,6 @@
         padding: 0 4px;
     }
 
-    &__input-row {
-        display: flex;
-        gap: 8px;
-        padding: 10px 12px;
-        border-top: 1px solid var(--border);
-        background: var(--bg-raised);
-        flex-shrink: 0;
-    }
-
-    &__input {
-        flex: 1;
-        padding: 8px 10px;
-        background: var(--bg-surface);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        color: var(--text-primary);
-        font-size: .85rem;
-        resize: none;
-        outline: none;
-        line-height: 1.4;
-        font-family: inherit;
-        &::placeholder { color: var(--text-muted); }
-        &:focus { border-color: var(--border-strong); }
-    }
-
     // ── Invalidation alert message ─────────────────────────────────────────
     &__invalidation-alert {
         padding: 0;
@@ -484,17 +459,131 @@
         &:hover { background: var(--bg-hover); }
     }
 
-    &__send-btn {
-        padding: 8px 14px;
-        background: var(--accent);
-        color: #fff;
-        border: none;
-        border-radius: 10px;
-        font-size: .82rem;
-        font-weight: 600;
-        cursor: pointer;
-        white-space: nowrap;
-        &:hover:not(:disabled) { opacity: .85; }
-        &:disabled { opacity: .4; cursor: default; }
+}
+
+// The social-chat composer uses the uploaded mockup's exact inset pill colour
+// (#0F1512 on #1E2A23) — the agent chats keep their raised pill, this only targets
+// the `--social-chat` prefix modifier.
+.chat-input-row--social-chat {
+    margin: 8px 8px 12px;
+    background: #0F1512;
+    border-color: #1E2A23;
+}
+
+// ── Social chat cards (design trial 'cards') ───────────────────────────────────
+// Matches the uploaded social-chat mockup EXACTLY — its fixed hex palette and its
+// 660px / 210px-sidebar width. The mockup is a solid (non-frosted) surface, so the
+// glass base + token borders are overridden to the mockup's flat colours here.
+[data-design="cards"] .social-chat {
+    // Mockup palette → drives every descendant border via the local tokens.
+    --border:     #1E2A23;
+    --border-mid: #24352C;
+
+    // Mockup width + solid container
+    width: 660px;
+    background: #0A0E0C;
+    border: 1px solid #1E2A23;
+    border-radius: 16px;
+
+    // Left column — 210px, flush to the container, subtler divider
+    &__list {
+        width: 210px;
+        min-width: 210px;
+        background: transparent;
+        border-right: 1px solid #1A241E;
     }
+
+    &__list-header {
+        color: #7C8A82;
+        letter-spacing: .14em;
+        border-bottom: 1px solid #1A241E;
+    }
+
+    // Search → inset pill
+    &__search {
+        border-radius: 999px;
+        padding: 8px 14px;
+        background: #0F1512;
+        border: 1px solid #1E2A23;
+        color: #E6EFEA;
+        &::placeholder { color: #5E6B63; }
+    }
+
+    // Conversation list → spaced cards (no hard dividers)
+    &__conv-scroll { padding: 8px; }
+
+    &__conv-item {
+        border-bottom: none;
+        border-radius: 12px;
+        gap: 10px;
+        padding: 9px 10px;
+        margin-bottom: 4px;
+
+        &--active {
+            border-left: none;
+            background: #111815;
+            box-shadow: inset 0 0 0 1px #1E2A23;
+        }
+    }
+
+    // The axl agent row → surface card (#111815 on #1E2A23)
+    &__conv-item:has(.social-chat__conv-avatar--bot) {
+        background: #111815;
+        box-shadow: inset 0 0 0 1px #1E2A23;
+    }
+
+    // Human avatars → mint circle
+    &__conv-avatar {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+        background: rgba(85, 217, 137, .15);
+        color: #55D989;
+    }
+
+    // Bot token → mint rounded square
+    &__conv-avatar--bot {
+        border-radius: 9px;
+        background: rgba(120, 233, 173, .10);
+        border: 1px solid #24352C;
+        color: #78E9AD;
+    }
+
+    &__agent-chip {
+        font-family: var(--font-mono);
+        font-size: .53rem;
+        letter-spacing: .08em;
+        color: #78E9AD;
+        border: 1px solid #24352C;
+        border-radius: 999px;
+        padding: 1px 5px;
+        flex-shrink: 0;
+    }
+
+    &__conv-name    { color: #E6EFEA; }
+    &__conv-preview { color: #7C8A82; }
+    &__conv-time    { color: #5E6B63; }
+    &__unread-dot   { background: #78E9AD; color: #0A0E0C; }
+
+    &__window { background: transparent; }
+
+    // Bubbles — exact mockup fills
+    &__msg--theirs .social-chat__msg-bubble {
+        background: #111815;
+        border: 1px solid #1E2A23;
+        color: #E6EFEA;
+        border-radius: 12px 12px 12px 4px;
+    }
+    &__msg--mine .social-chat__msg-bubble {
+        background: rgba(120, 233, 173, .12);
+        border: 1px solid rgba(120, 233, 173, .20);
+        color: #E6EFEA;
+        border-radius: 12px 12px 4px 12px;
+    }
+    &__msg-bubble {
+        padding: 9px 12px;
+        font-size: 13px;
+        line-height: 1.45;
+    }
+    &__msg-time { color: #5E6B63; }
 }

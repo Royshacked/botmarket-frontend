@@ -2,6 +2,7 @@ import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { chatService } from '../../services/chat/chat.service'
 import { AxlBotGlyph } from '../AxlHub/AgentSummon'
+import { useDesign } from '../../customHooks/useDesign.js'
 
 const BOT_ID = 'axl'
 
@@ -18,6 +19,7 @@ export function ConversationList({ conversations, activeId, currentUserId, onSel
     const [search,    setSearch]    = useState('')
     const [results,   setResults]   = useState([])
     const [searching, setSearching] = useState(false)
+    const cardMode = useDesign() === 'cards'
 
     async function handleSearch(q) {
         setSearch(q)
@@ -91,6 +93,9 @@ export function ConversationList({ conversations, activeId, currentUserId, onSel
                                 <div className="social-chat__conv-meta">
                                     <div className="social-chat__conv-name">
                                         <span>{name}</span>
+                                        {isBot && cardMode && (
+                                            <span className="social-chat__agent-chip">AGENT</span>
+                                        )}
                                         {conv.unread > 0 && (
                                             <span className="social-chat__unread-dot">{conv.unread}</span>
                                         )}

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW } from '../../services/event-bus.service'
+import { ChatInputRow } from '../ChatInputRow.jsx'
+import { useMicInput } from '../../customHooks/useMicInput.js'
 
 function formatTime(ms) {
     if (!ms) return ''
@@ -10,14 +12,19 @@ function formatTime(ms) {
 export function ChatWindow({ conversation, messages, currentUserId, loading, hasMore, onClose, onSend, onLoadMore, onDismissMessage }) {
     const [draft,   setDraft]   = useState('')
     const [sending, setSending] = useState(false)
-    const bottomRef = useRef(null)
+    const bottomRef  = useRef(null)
+    const textareaRef = useRef(null)
+
+    // Same mic-to-text as the agent chats; transcript is appended to the draft.
+    const { isRecording, isTranscribing, toggle: toggleMic, cancel: cancelMic } = useMicInput({
+        onTranscript: text => setDraft(d => (d ? `${d} ${text}` : text)),
+    })
 
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, [messages])
 
-    async function handleSend(e) {
-        e.preventDefault()
+    async function handleSend() {
         const text = draft.trim()
         if (!text || sending) return
         setDraft('')
@@ -26,7 +33,7 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
     }
 
     function handleKeyDown(e) {
-        if (e.key === 'Enter' && !e.shiftKey) handleSend(e)
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
     }
 
     if (!conversation) {
@@ -69,19 +76,22 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                 <div ref={bottomRef} />
             </div>
 
-            <form className="social-chat__input-row" onSubmit={handleSend}>
-                <textarea
-                    className="social-chat__input"
-                    value={draft}
-                    onChange={e => setDraft(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Type a message…"
-                    rows={1}
-                />
-                <button className="social-chat__send-btn" type="submit" disabled={!draft.trim() || sending}>
-                    Send
-                </button>
-            </form>
+            <ChatInputRow
+                prefix="social-chat"
+                textareaRef={textareaRef}
+                value={draft}
+                onChange={e => setDraft(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Type a message…"
+                onSend={handleSend}
+                sendDisabled={!draft.trim() || sending}
+                onToggleMic={toggleMic}
+                onCancelMic={cancelMic}
+                isRecording={isRecording}
+                isTranscribing={isTranscribing}
+                micDisabled={sending || isTranscribing}
+                textareaDisabled={sending || isRecording}
+            />
         </div>
     )
 }

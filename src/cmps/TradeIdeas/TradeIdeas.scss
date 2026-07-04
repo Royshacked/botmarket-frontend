@@ -986,13 +986,16 @@ $sym-status-colors: (
 
         .status-icon { width: 22px; height: 22px; }
 
-        &.status--waiting { color: var(--color-waiting); }
-        &.status--looking { color: var(--color-looking); animation: status-pulse 1.8s ease-in-out infinite; }
-        &.status--resting { color: #a78bfa; animation: status-pulse 1.8s ease-in-out infinite; }
-        &.status--hit     { color: var(--color-hit); animation: status-pulse 1.8s ease-in-out infinite; }
-        &.status--long    { color: var(--color-long); }
-        &.status--short   { color: var(--color-short); }
-        &.status--closed  { color: #555; }
+        // Track the same lifecycle colour as the ticker + icon tile (see the
+        // $card-status-colors map below) so a status reads as one colour across the
+        // whole card — matching the table rows and the idea dialog.
+        &.status--waiting { color: var(--accent); }
+        &.status--looking { color: var(--accent-light); animation: status-pulse 1.8s ease-in-out infinite; }
+        &.status--resting { color: var(--accent-bright); animation: status-pulse 1.8s ease-in-out infinite; }
+        &.status--hit     { color: #fff; animation: status-pulse 1.8s ease-in-out infinite; }
+        &.status--long    { color: #fff; }
+        &.status--short   { color: #fff; }
+        &.status--closed  { color: var(--text-muted); }
     }
 
     &__status-toggle { cursor: pointer; &:hover { opacity: 0.7; } &:focus { outline: none; } }
@@ -1061,6 +1064,10 @@ $card-status-colors: (
 @each $st, $clr in $card-status-colors {
     .idea-card--#{$st} .idea-card__sym  { color: #{$clr}; }
     .idea-card--#{$st} .idea-card__icon { color: #{$clr}; border-color: color-mix(in srgb, #{$clr} 30%, var(--accent-deep)); }
+    // Beat StatusIcon.scss's own `.status-icon { color: accent-light }` so the status
+    // glyph tracks the lifecycle colour too (e.g. white once long/short/hit).
+    .idea-card--#{$st} .idea-card__status-toggle .status-icon,
+    .idea-card--#{$st} .idea-card__status-badge  .status-icon { color: #{$clr}; }
 }
 
 // Broker-fork group: the group card plus a left-railed stack of per-broker children.
