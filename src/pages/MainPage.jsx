@@ -21,6 +21,8 @@ import { MonitorDashboard }  from '../cmps/MonitorDashboard/MonitorDashboard.jsx
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
+import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
+import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
 import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW } from '../services/event-bus.service'
 import { useChatStream }     from '../customHooks/useChatStream.js'
 import { useNewsFeed }       from '../customHooks/useNewsFeed.js'
@@ -252,6 +254,9 @@ export function MainPage() {
     const [chatResetKey, setChatResetKey] = useState(0)
     const returnTimerRef = useRef(null)
     const latestMessagesRef = useRef([])
+    const ideaThreadIdRef   = useRef(newThreadId())   // idea construction draft thread
+    const portfolioResumeRef = useRef(null)           // PortfolioPanel exposes its resume fn here
+    const scannerResumeRef   = useRef(null)           // ScannerPanel exposes its resume fn here
 
     // Leaving an agent plays a short "heading back to axl" beat (mirrors the summon
     // on the way in) before the hub returns. The timer is cleared on unmount so it
@@ -374,6 +379,20 @@ export function MainPage() {
                     // so the saved base64 doesn't bloat the idea doc / each progressive
                     // save (oldest charts are dropped first).
                     latestMessagesRef.current = _capPersistedCharts(finalMsgs)
+                    // Construction only: persist the building conversation as a draft thread
+                    // HERE, using the authoritative final list. Reading latestMessagesRef right
+                    // after setMessages lags one turn (the updater runs async), which made the
+                    // draft miss the latest phase on resume. Backend enforces the phase floor + TTL.
+                    if (!editingIdeaId && data.analysisState) {
+                        threadsService.saveDraft({
+                            threadId:    ideaThreadIdRef.current,
+                            agent:       'idea',
+                            messages:    _capPersistedMessages(latestMessagesRef.current),
+                            phase:       data.phase ?? null,
+                            subjectType: 'idea',
+                            state:       { analysisState: data.analysisState },
+                        })
+                    }
                     return prev
                 })
                 // Visually finish typing the backlog, then swap in finalMsg —
@@ -419,6 +438,7 @@ export function MainPage() {
     function handleCancelBuild() {
         setAnalysisState(null)
         setMessages([])
+        ideaThreadIdRef.current = newThreadId()   // fresh construction thread; abandoned draft TTL-expires
         setEditingIdeaId(null)
         setIsInvalidationReview(false)
         news.clearAsset()
@@ -596,6 +616,14 @@ export function MainPage() {
                 // createIdea returns an array — one idea, or N when a multi-broker
                 // idea was forked into single-broker children.
                 setIdeas(prev => [...saved, ...prev])
+                // Link the construction draft thread to the created idea (first of the fork
+                // group); clears its TTL so the conversation lives with the idea.
+                if (saved[0]?.id) {
+                    threadsService.linkThread(ideaThreadIdRef.current, {
+                        subjectType: 'idea', subjectId: saved[0].id, artifactName: ideaFields?.asset ?? null,
+                    })
+                }
+                ideaThreadIdRef.current = newThreadId()   // next build gets a fresh draft thread
                 setAnalysisState(null)
                 setMessages([])
                 news.clearAsset()
@@ -763,7 +791,7 @@ export function MainPage() {
         })
     }
 
-    async function handleGeneratePlan(plan, messages = [], mandate = null, thesis = null) {
+    async function handleGeneratePlan(plan, messages = [], mandate = null, thesis = null, threadId = null) {
         try {
             const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
             const accountIds   = ideaAccounts.map(a => a.id)
@@ -771,8 +799,10 @@ export function MainPage() {
             setIdeas(prev => [...newIdeas, ...prev])
             if (newIdeas.length > 0) {
                 const portfolioId = newIdeas[0].portfolioId
+                const portfolioName = plan?.name ?? newIdeas[0]?.portfolioName ?? null
                 const chatMessages = messages.filter(m => !m.streaming && m.role !== 'phase').map(m => ({ role: m.role, content: m.content }))
-                portfolioService.saveChatState(portfolioId, chatMessages, mandate, thesis).catch(err =>
+                // threadId links the construction draft thread to the new portfolio (clears its TTL).
+                portfolioService.saveChatState(portfolioId, chatMessages, mandate, thesis, threadId, portfolioName).catch(err =>
                     console.error('[portfolio] chat state save failed', err)
                 )
             }
@@ -999,9 +1029,15 @@ export function MainPage() {
     }
 
     // Generate (save) a scan list from the scanner panel, then surface it.
-    async function handleGenerateList(scan) {
+    async function handleGenerateList(scan, threadId = null) {
         const saved = await createScan(scan)
-        if (saved) setNewsTab('scans')
+        if (saved) {
+            setNewsTab('scans')
+            // Link the construction draft thread to the created scan (clears its TTL).
+            if (threadId && saved.id) {
+                threadsService.linkThread(threadId, { subjectType: 'scan', subjectId: saved.id, artifactName: scan?.thesis ?? null })
+            }
+        }
     }
 
     // Edit a saved list (pencil) → reopen its conversation in the scanner, in edit
@@ -1020,6 +1056,28 @@ export function MainPage() {
     async function handleUpdateList(scanId, scan) {
         const saved = await updateScan(scanId, scan)
         if (saved) setNewsTab('scans')
+    }
+
+    // Resume an unfinished idea-building draft: restore the conversation + analysisState
+    // and keep writing to the SAME thread. Generated ideas use the edit/update flow instead.
+    async function handleResumeIdeaThread(threadId) {
+        const t = await threadsService.getThread(threadId)
+        if (!t) return
+        setEditingIdeaId(null)
+        setIsInvalidationReview(false)
+        setMessages(t.messages ?? [])
+        latestMessagesRef.current = t.messages ?? []
+        setAnalysisState(t.state?.analysisState ?? null)
+        ideaThreadIdRef.current = t.threadId
+    }
+
+    // Resume dispatcher for the shared agent-bar hamburger — routes to the active agent.
+    // Idea resumes here (MainPage owns its state); portfolio/scanner expose their own
+    // resume fn via a ref since they own their conversation state.
+    function handleResumeActiveThread(threadId) {
+        if (activeTab === 'portfolio') return portfolioResumeRef.current?.(threadId)
+        if (activeTab === 'scanner')   return scannerResumeRef.current?.(threadId)
+        return handleResumeIdeaThread(threadId)
     }
 
     // Shared by the desktop workspace chat and the mobile chat sheet so the two
@@ -1075,6 +1133,7 @@ export function MainPage() {
                                 <span className="chat-agentbar__current">
                                     {activeTab === 'portfolio' ? 'Atlas' : activeTab === 'scanner' ? 'Argus' : 'Idea'}
                                 </span>
+                                <ThreadHistory agent={activeTab} onResume={handleResumeActiveThread} />
 
                                 {(activeTab === 'idea' || activeTab === 'portfolio') && (
                                     <div className="chat-agentbar__right">
@@ -1105,6 +1164,7 @@ export function MainPage() {
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'scanner' ? 'flex' : 'none' }}>
                             <ScannerPanel
                                 key={`scanner-${chatResetKey}`}
+                                resumeRef={scannerResumeRef}
                                 onTickerSelect={handleScannerSymbol}
                                 onGenerateList={handleGenerateList}
                                 onUpdateList={handleUpdateList}
@@ -1114,6 +1174,7 @@ export function MainPage() {
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'portfolio' ? 'flex' : 'none' }}>
                             <PortfolioPanel
                                 key={`portfolio-${chatResetKey}`}
+                                resumeRef={portfolioResumeRef}
                                 onTickerSelect={handleTickerSelect}
                                 onGeneratePlan={handleGeneratePlan}
                                 onUpdatePlan={handleUpdatePlan}

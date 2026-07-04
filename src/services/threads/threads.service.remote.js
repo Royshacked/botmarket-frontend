@@ -1,0 +1,54 @@
+import { httpService } from '../http.service'
+
+// Client for the generic thread API (see api/threads on the backend). Agents whose
+// server never holds the full conversation (idea, scanner) drive their own draft
+// persistence through here; the backend enforces the substantive floor + TTL/LRU.
+
+const BASE = 'api/threads'
+
+// Client-minted thread id — subject-independent, exists before the artifact does.
+export const newThreadId = () => `thr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+
+export const threadsService = { saveDraft, linkThread, listThreads, getThread, discardThread, pinThread }
+
+async function saveDraft({ threadId, agent, messages, phase = null, subjectType = null, state = null, mandate = null }) {
+    try {
+        return await httpService.post(`${BASE}/draft`, { threadId, agent, messages, phase, subjectType, state, mandate })
+    } catch (err) {
+        console.error('[threads] saveDraft failed', err)
+        return null
+    }
+}
+
+async function linkThread(threadId, { subjectType = null, subjectId, artifactName = null }) {
+    try {
+        return await httpService.post(`${BASE}/${encodeURIComponent(threadId)}/link`, { subjectType, subjectId, artifactName })
+    } catch (err) {
+        console.error('[threads] linkThread failed', err)
+        return null
+    }
+}
+
+async function listThreads(agent = null) {
+    try {
+        const data = await httpService.get(`${BASE}${agent ? `?agent=${encodeURIComponent(agent)}` : ''}`)
+        return Array.isArray(data.threads) ? data.threads : []
+    } catch { return [] }
+}
+
+async function getThread(threadId) {
+    try {
+        const data = await httpService.get(`${BASE}/${encodeURIComponent(threadId)}`)
+        return data.thread ?? null
+    } catch { return null }
+}
+
+async function discardThread(threadId) {
+    try { return await httpService.delete(`${BASE}/${encodeURIComponent(threadId)}`) }
+    catch { return null }
+}
+
+async function pinThread(threadId) {
+    try { return await httpService.post(`${BASE}/${encodeURIComponent(threadId)}/pin`, {}) }
+    catch { return null }
+}

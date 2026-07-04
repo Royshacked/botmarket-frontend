@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { portfolioService } from '../../services/portfolio/portfolio.service.remote.js'
+import { threadsService }   from '../../services/threads/threads.service.remote.js'
 import { showErrorMsg } from '../../services/event-bus.service'
 import { ChatMarkdown } from '../ChatMarkdown.jsx'
 import { readStoredModel } from '../modelOptions.js'
@@ -65,6 +66,11 @@ function MessageBubble({ msg, onTickerSelect }) {
     )
 }
 
+// Client-minted id for the construction conversation's DRAFT thread (see thread.service
+// on the backend). Subject-independent: it exists before the portfolio does and is linked
+// to the portfolioId on generate. A fresh id starts each new construction chat.
+const newThreadId = () => `thr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+
 export function PortfolioPanel({
     onTickerSelect,
     onGeneratePlan,
@@ -74,6 +80,7 @@ export function PortfolioPanel({
     chatRestore       = null,
     availableAccounts = [],
     selectedAccounts  = [],
+    resumeRef         = null,
 }) {
     const chat = useChatStream()
     const { messages, setMessages, isLoading, streamStatus, handleStop } = chat
@@ -145,6 +152,7 @@ export function PortfolioPanel({
     const latestMandateRef  = useRef(null)
     const latestThesisRef   = useRef(null)
     const textareaRef       = useRef(null)
+    const threadIdRef       = useRef(newThreadId())   // construction draft thread
 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- _send is a stable closure for this purpose
     const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
@@ -194,6 +202,7 @@ export function PortfolioPanel({
             await portfolioService.sendStream(history, ideaAccounts, {
                 portfolioId:     editingPortfolioId,
                 portfolioIdeas:  editingPortfolioIdeas,
+                threadId:        editingPortfolioId ? null : threadIdRef.current,
                 reviewMode:      isReviewMode,
                 mandate:         latestMandateRef.current,
                 model:           readStoredModel('portfolioModel'),
@@ -222,7 +231,24 @@ export function PortfolioPanel({
         setPendingPlan(null)
         setInputText('')
         latestMandateRef.current = null
+        threadIdRef.current = newThreadId()   // fresh construction thread; the abandoned draft TTL-expires
     }
+
+    // Resume an unfinished construction draft: restore its conversation + mandate and
+    // keep writing to the SAME thread (so saveDraft refreshes it rather than forking a new one).
+    async function handleResumeThread(threadId) {
+        const t = await threadsService.getThread(threadId)
+        if (!t) return
+        setMessages(t.messages ?? [])
+        setPendingPlan(null)
+        setInputText('')
+        setEditingPortfolioId(null)
+        setEditingPortfolioIdeas([])
+        latestMandateRef.current = t.mandate ?? null
+        threadIdRef.current = t.threadId
+    }
+    // Expose resume to the shared agent-bar hamburger (MainPage).
+    if (resumeRef) resumeRef.current = handleResumeThread
 
     // "Changed my mind" / "I'll do it later": leave edit/review mode without saving.
     // In review mode this is the "Later" path — clock does NOT reset.
@@ -258,10 +284,11 @@ export function PortfolioPanel({
             setDismissConfirm(false)
         } else {
             if (!planReady) return
-            if (onGeneratePlan) onGeneratePlan(pendingPlan, messages, latestMandateRef.current, latestThesisRef.current)
+            if (onGeneratePlan) onGeneratePlan(pendingPlan, messages, latestMandateRef.current, latestThesisRef.current, threadIdRef.current)
         }
         setPendingPlan(null); setMessages([]); setInputText('')
         latestMandateRef.current = null
+        threadIdRef.current = newThreadId()   // next construction chat gets a fresh draft thread
     }
 
     // Review-only: no plan changes, just acknowledge the review and reset the clock.

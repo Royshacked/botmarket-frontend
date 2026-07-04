@@ -137,7 +137,7 @@ function isIdeaReady(analysisState) {
 
 const PHASE_LABELS = { 1: 'Nucleus', 2: 'Formation', 3: 'Structure', 4: 'Exits', 5: 'Validation' }
 
-export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, onStop, isLoading, streamStatus = '', isEditing = false, isInvalidationReview = false, onDismissInvalidation, onBuyMarket, isPostOrderEdit = false, availableAccounts = [], selectedAccounts = [] }) {
+export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, onStop, isLoading, streamStatus = '', isEditing = false, isInvalidationReview = false, onDismissInvalidation, onBuyMarket, isPostOrderEdit = false, availableAccounts = [], selectedAccounts = [], historySlot = null }) {
     const [input, setInput] = useState('')
     const [dismissConfirm, setDismissConfirm] = useState(false)
 
@@ -200,6 +200,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
 
     return (
         <div className="chat-panel">
+            {historySlot}
             <TradeBuildSummary
                 analysisState={analysisState}
                 selectedAccounts={availableAccounts.filter(a => selectedAccounts.includes(a.id))}
@@ -358,6 +359,7 @@ ChatPanel.propTypes = {
     analysisState:     PropTypes.object,
     onSend:            PropTypes.func.isRequired,
     onGenerate:        PropTypes.func.isRequired,
+    historySlot:       PropTypes.node,
     onClear:           PropTypes.func,
     onStop:            PropTypes.func,
     isLoading:         PropTypes.bool,

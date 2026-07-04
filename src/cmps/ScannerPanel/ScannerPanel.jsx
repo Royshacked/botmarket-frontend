@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { scannerService } from '../../services/scanner/scanner.service.remote.js'
+import { threadsService, newThreadId } from '../../services/threads/threads.service.remote.js'
 import { ChatMarkdown } from '../ChatMarkdown.jsx'
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
@@ -65,7 +66,7 @@ function MessageBubble({ msg, onTickerSelect }) {
     )
 }
 
-export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, chatRestore = null }) {
+export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, chatRestore = null, resumeRef = null }) {
     const chat = useChatStream()
     const { messages, setMessages } = chat
 
@@ -88,6 +89,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
 
     const pendingTickersRef = useRef([])
     const textareaRef       = useRef(null)
+    const threadIdRef       = useRef(newThreadId())   // scan construction draft thread
 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable closure
     const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
@@ -113,6 +115,16 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
                 pendingTickersRef.current = []
                 chat.finishStreaming({ role: 'assistant', content: data.reply, tickers })
                 if (data.scan?.candidates?.length) setPendingScan(data.scan)
+                // Construction only: persist the scan-building conversation as a draft thread.
+                // The backend enforces the substantive floor (scanner = past nucleus) + TTL.
+                if (!editingScanId) {
+                    threadsService.saveDraft({
+                        threadId: threadIdRef.current, agent: 'scanner',
+                        messages: [...history, { role: 'assistant', content: data.reply }],
+                        phase: data.phase ?? null, subjectType: 'scan',
+                        state: data.scan ? { scan: data.scan } : null,
+                    })
+                }
             },
         })
 
@@ -148,7 +160,23 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
         setEditingScanId(null)
         setInputText('')
         setEditDirty(false)
+        threadIdRef.current = newThreadId()   // fresh construction thread; abandoned draft TTL-expires
     }
+
+    // Resume an unfinished scan-building draft: restore its conversation (+ last list)
+    // and keep writing to the SAME thread.
+    async function handleResumeThread(threadId) {
+        const t = await threadsService.getThread(threadId)
+        if (!t) return
+        setMessages(t.messages ?? [])
+        setPendingScan(t.state?.scan ?? null)
+        setEditingScanId(null)
+        setInputText('')
+        setEditDirty(false)
+        threadIdRef.current = t.threadId
+    }
+    // Expose resume to the shared agent-bar hamburger (MainPage).
+    if (resumeRef) resumeRef.current = handleResumeThread
 
     async function handleGenerate() {
         if (!pendingScan) return
@@ -161,8 +189,9 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
             // Update the existing list in place; stay in edit mode for more refining.
             await onUpdateList?.(editingScanId, { ...pendingScan, chat: chatLog })
         } else {
-            await onGenerateList?.({ ...pendingScan, chat: chatLog })
+            await onGenerateList?.({ ...pendingScan, chat: chatLog }, threadIdRef.current)
             setPendingScan(null)
+            threadIdRef.current = newThreadId()   // next scan build gets a fresh draft thread
         }
     }
 
