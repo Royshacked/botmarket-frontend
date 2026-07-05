@@ -107,6 +107,12 @@
         color: var(--color-short);
         &:not(:disabled):hover { color: color-mix(in srgb, var(--color-short) 75%, white); }
     }
+
+    // Resume (play) shares the send box; keeps the accent tone — it's a "go" action.
+    &__resume {
+        color: var(--accent-light);
+        &:not(:disabled):hover { color: var(--accent-bright); }
+    }
 }
 
 @keyframes cir-spin  { to { transform: rotate(360deg); } }

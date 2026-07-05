@@ -58,4 +58,82 @@
         }
         &:disabled { opacity: 0.5; cursor: default; }
     }
+
+    // Small label above / beside the angle chips.
+    &__angles-hint {
+        margin-top: 16px;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+
+        // Inline variant used in the footer strip — sits to the left of the chips.
+        &--inline { margin-top: 0; flex-shrink: 0; }
+    }
+
+    // Famous-setup thesis chips (Phase 1). Slightly denser than the period chips.
+    &__angles {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+    }
+
+    &__angle {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        padding: 4px 10px;
+        border-radius: 12px;
+        background: var(--bg-wash-surface);
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: border-color 0.15s, color 0.15s, background 0.15s;
+
+        &:hover:not(:disabled) {
+            border-color: var(--accent);
+            color: var(--accent-bright);
+        }
+        &:disabled { opacity: 0.5; cursor: default; }
+
+        // Selected (toggled on) — highlighted until the scan is sent.
+        &--on {
+            background: var(--accent-deep);
+            border-color: var(--accent);
+            color: var(--accent-bright);
+        }
+    }
+
+    // "Scan these (N) →" send button — appears once at least one setup is selected.
+    &__angles-go {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 600;
+        padding: 5px 12px;
+        border-radius: 12px;
+        margin-left: auto;   // push to the right edge of the strip
+        background: var(--accent);
+        border: 1px solid var(--accent);
+        color: var(--bg-base);
+        cursor: pointer;
+        white-space: nowrap;
+        transition: opacity 0.15s, filter 0.15s;
+
+        &:hover:not(:disabled) { filter: brightness(1.1); }
+        &:disabled { opacity: 0.5; cursor: default; }
+    }
+
+    // Footer strip carrying the angle chips while the agent is still in the thesis
+    // phase — pinned above the input, label + chips on one flowing row.
+    &__angles-bar {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 8px 12px;
+        border-top: 1px solid var(--border);
+
+        .scanner-panel__angles { margin-top: 0; }
+    }
 }

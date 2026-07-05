@@ -21,8 +21,66 @@ import './ScannerPanel.scss'
 const SCAN_PHASE_LABELS = { 1: 'Thesis', 2: 'Discovery', 3: 'Filtering', 4: 'Ranked List' }
 
 // Starter prompts — onboarding scaffolding only; the agent understands any
-// timeframe the user types, these are just one-tap entry points.
-const SUGGESTIONS = ['Stocks for today?', 'Anything for the coming week?', 'Earnings plays next week?']
+// timeframe the user types, these are just one-tap entry points (the "when").
+const SUGGESTIONS = ['Stocks for today?', 'Anything for the coming week?']
+
+// Famous scan angles (the "what") — thesis picks for Phase 1. `label` is what the
+// user sees; `phrase` is the noun phrase we compose into the message so the agent
+// slots it in as the scan's angle. Multi-select: several can be combined into one
+// scan (e.g. false breaks + cyclic windows). The user can always type any other thesis.
+const ANGLES = [
+    { label: 'Momentum',           phrase: 'momentum setups' },
+    { label: 'Breakouts',          phrase: 'breakout setups' },
+    { label: 'False breaks',       phrase: 'false breakouts / failed breakdowns' },
+    { label: 'Cyclic windows',     phrase: 'recurring-interval price cycles (repeating peak-to-trough timing)' },
+    { label: 'Calendar patterns',  phrase: 'seasonal / calendar patterns (time-of-year tendencies)' },
+    { label: 'Top movers',         phrase: 'today\'s top movers' },
+    { label: 'Squeeze plays',      phrase: 'short-squeeze candidates' },
+    { label: 'Sector rotation',    phrase: 'sector-rotation plays' },
+    { label: 'Oversold bounce',    phrase: 'oversold bounce setups' },
+]
+
+// Compose the natural-language message from the selected angle labels. One angle →
+// a plain "Scan for X"; several → the intersection thesis ("names that fit both /
+// all of these") so the agent looks for names satisfying every selected setup.
+function buildAnglePrompt(labels) {
+    const phrases = ANGLES.filter(a => labels.includes(a.label)).map(a => a.phrase)
+    if (phrases.length === 0) return ''
+    if (phrases.length === 1) return `Scan for ${phrases[0]}`
+    const tail = phrases.length === 2 ? 'names that fit both angles' : 'names that fit all of these angles'
+    return `Scan for ${phrases.join(' + ')} — ${tail}`
+}
+
+// Multi-select setup chips + a "Scan these" send button, shown as a footer strip
+// while the agent is still in the thesis phase. Tapping a chip toggles it; the
+// button composes the selected angles into one scan.
+function AngleChips({ selected, onToggle, onScan, disabled }) {
+    return (
+        <>
+            <div className="scanner-panel__angles">
+                {ANGLES.map(a => {
+                    const on = selected.has(a.label)
+                    return (
+                        <button
+                            key={a.label}
+                            className={`scanner-panel__angle${on ? ' scanner-panel__angle--on' : ''}`}
+                            onClick={() => onToggle(a.label)}
+                            disabled={disabled}
+                            aria-pressed={on}
+                        >
+                            {a.label}
+                        </button>
+                    )
+                })}
+            </div>
+            {selected.size > 0 && (
+                <button className="scanner-panel__angles-go" onClick={onScan} disabled={disabled}>
+                    Scan {selected.size === 1 ? 'this' : 'these'} ({selected.size}) →
+                </button>
+            )}
+        </>
+    )
+}
 
 function TickerChip({ symbol, onSelect }) {
     return (
@@ -66,14 +124,18 @@ function MessageBubble({ msg, onTickerSelect }) {
     )
 }
 
-export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, chatRestore = null, resumeRef = null }) {
+export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onLoadingChange, chatRestore = null, resumeRef = null }) {
     const chat = useChatStream()
     const { messages, setMessages } = chat
 
-    const [inputText,     setInputText]     = useState('')
-    const [pendingScan,   setPendingScan]   = useState(null)
-    const [editingScanId, setEditingScanId] = useState(null)
-    const [editDirty,     setEditDirty]     = useState(false)
+    // Report streaming state up so the agent-bar "live" dot can pulse for Argus.
+    useEffect(() => { onLoadingChange?.(chat.isLoading) }, [chat.isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
+
+    const [inputText,      setInputText]      = useState('')
+    const [pendingScan,    setPendingScan]    = useState(null)
+    const [editingScanId,  setEditingScanId]  = useState(null)
+    const [editDirty,      setEditDirty]      = useState(false)
+    const [selectedAngles, setSelectedAngles] = useState(() => new Set())
     // Reopen a saved list to edit it (clicked from its pencil): restore the chat,
     // enter edit mode, and prime the pending list with its current contents so the
     // agent can refine it and "Update list" persists back to the same scan.
@@ -84,6 +146,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
         setPendingScan(chatRestore.scan ?? null)
         setInputText('')
         setEditDirty(false)
+        setSelectedAngles(new Set())
         // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only when a new restore is pushed (keyed by .key)
     }, [chatRestore?.key])
 
@@ -98,6 +161,9 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
     async function _send(text) {
         if (!text || chat.isLoading) return
         setEditDirty(true)
+        // NOTE: the chip selection is intentionally NOT cleared here — it persists as
+        // "marked" so that after a scan the user can see their prior pick and refine it.
+        // It's reset only on Clear or when a saved list is restored.
 
         const history = messages
             .filter(m => !m.streaming && m.role !== 'phase')
@@ -154,12 +220,85 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
         _send(text)
     }
 
+    // Resume a stopped reply in place: send the conversation ending with the partial
+    // assistant turn as a prefill so the model continues the SAME bubble.
+    async function _continue() {
+        if (chat.isLoading) return
+        const last = messages[messages.length - 1]
+        if (!last || last.role !== 'assistant' || !last.stopped) return
+        const base = (last.content || '').replace(/\s+$/, '')   // prefill: no trailing whitespace
+        if (!base) return
+        setEditDirty(true)
+
+        // History ends with the partial assistant turn — Anthropic continues it.
+        const history = messages
+            .filter(m => !m.streaming && m.role !== 'phase')
+            .map(m => ({ role: m.role, content: m.content }))
+        if (history.length) history[history.length - 1] = { role: 'assistant', content: base }
+
+        pendingTickersRef.current = []
+        const cont = chat.beginContinue({
+            onTicker: (symbol) => {
+                if (!pendingTickersRef.current.includes(symbol)) pendingTickersRef.current.push(symbol)
+            },
+            onError: () => chat.restoreStopped(base),   // keep the partial + Continue on failure
+            onDone: (data) => {
+                const tickers = [...pendingTickersRef.current]
+                pendingTickersRef.current = []
+                const content = base + data.reply
+                chat.finishStreaming({ role: 'assistant', content, tickers })
+                if (data.scan?.candidates?.length) setPendingScan(data.scan)
+                if (!editingScanId) {
+                    threadsService.saveDraft({
+                        threadId: threadIdRef.current, agent: 'scanner',
+                        messages: [...history.slice(0, -1), { role: 'assistant', content }],
+                        phase: data.phase ?? null, subjectType: 'scan',
+                        state: data.scan ? { scan: data.scan } : null,
+                    })
+                }
+            },
+        })
+        if (!cont) return   // nothing continuable
+
+        try {
+            await scannerService.sendStream(history, {
+                model:           readStoredModel('scannerModel'),
+                reasoningEffort: readStoredReasoning('scannerReasoning'),
+                routingMode:     readStoredRoutingMode('scannerRoutingMode'),
+                currentPhase:    chat.phase,
+                editList:        editingScanId ? (pendingScan || null) : null,
+                signal:          cont.signal,
+                ...cont.handlers,
+            })
+        } catch (err) {
+            console.error('[scanner]', err)
+            chat.restoreStopped(base)
+        } finally {
+            chat.endStream()
+        }
+    }
+
+    // Multi-select setup chips: tapping toggles a label; "Scan these" composes the
+    // selected angles into one message and sends it, then clears the selection.
+    function toggleAngle(label) {
+        setSelectedAngles(prev => {
+            const next = new Set(prev)
+            next.has(label) ? next.delete(label) : next.add(label)
+            return next
+        })
+    }
+    function scanSelectedAngles() {
+        const prompt = buildAnglePrompt([...selectedAngles])
+        if (prompt) _send(prompt)   // _send clears the selection
+    }
+
     function handleClear() {
         chat.reset()
         setPendingScan(null)
         setEditingScanId(null)
         setInputText('')
         setEditDirty(false)
+        setSelectedAngles(new Set())
         threadIdRef.current = newThreadId()   // fresh construction thread; abandoned draft TTL-expires
     }
 
@@ -204,6 +343,14 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
 
     const listReady = !!pendingScan && pendingScan.candidates?.length > 0
     const showChangedMind = !!editingScanId && !editDirty
+    // A stopped reply with real text can be resumed in place.
+    const lastMsg = messages[messages.length - 1]
+    const canContinue = !chat.isLoading && lastMsg?.role === 'assistant' && !!lastMsg?.stopped && !!(lastMsg.content && lastMsg.content.trim())
+    // Argus has FINISHED at least one Phase-1 turn (not merely started+stopped). Gates
+    // the setup chips so they don't pop up when the user stops before Argus has asked
+    // anything — but still show (with prior picks marked) once a real turn has landed.
+    const hasCompletedArgusTurn = messages.some(m => m.role === 'assistant' && !m.streaming && !m.stopped && !!(m.content && m.content.trim()))
+    const showAngleStrip = !chat.isLoading && !editingScanId && chat.phase === 1 && !listReady && hasCompletedArgusTurn
     const actionWatch = `${chat.streamStatus}|${listReady}|${!!editingScanId}`
     const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, {
         onFinishStreaming: () => textareaRef.current?.focus(),
@@ -265,6 +412,16 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
                 <div ref={messagesEndRef} />
             </div>
 
+            {/* Thesis-phase angle strip — once the user has started but the agent is
+                still nailing down the thesis (Phase 1), keep the famous setups one tap
+                away. Hidden as soon as discovery begins or a list is forming. */}
+            {showAngleStrip && (
+                <div className="scanner-panel__angles-bar">
+                    <span className="scanner-panel__angles-hint scanner-panel__angles-hint--inline">scan by setup:</span>
+                    <AngleChips selected={selectedAngles} onToggle={toggleAngle} onScan={scanSelectedAngles} disabled={chat.isLoading} />
+                </div>
+            )}
+
             {/* Action bar — a footer below the scroll area (not inside it) so it stays
                 pinned above the input without ever covering the messages. */}
             {!chat.isLoading && (listReady || showChangedMind) && (
@@ -292,6 +449,8 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
                 sendDisabled={!inputText.trim() || chat.isLoading}
                 isStreaming={chat.isLoading}
                 onStop={chat.handleStop}
+                canResume={canContinue}
+                onResume={_continue}
                 onClear={handleClear}
                 clearDisabled={chat.isLoading || !messages.length}
                 clearTitle="Clear chat"
@@ -307,8 +466,9 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, cha
 }
 
 ScannerPanel.propTypes = {
-    onTickerSelect: PropTypes.func.isRequired,
-    onGenerateList: PropTypes.func,
-    onUpdateList:   PropTypes.func,
-    chatRestore:    PropTypes.object,
+    onTickerSelect:  PropTypes.func.isRequired,
+    onGenerateList:  PropTypes.func,
+    onUpdateList:    PropTypes.func,
+    onLoadingChange: PropTypes.func,
+    chatRestore:     PropTypes.object,
 }

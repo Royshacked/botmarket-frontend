@@ -365,6 +365,11 @@
     border-bottom: 1px solid var(--border);
     background: var(--bg-wash-surface);
     animation: axl-hub-enter 0.28s ease both;
+    // Raise the strip above the chat panel that follows it in the DOM, so the
+    // account-selector / thread-history dropdowns overlay the chat instead of being
+    // painted under it (the dropdowns are absolutely positioned children).
+    position: relative;
+    z-index: 20;
 }
 
 .chat-agentbar__back {

@@ -3,6 +3,7 @@ import { postSSE, buildStreamHandlers } from '../sse.util'
 
 export const userPromptService = {
     sendPromptStream,
+    continuePromptStream,
 }
 
 /**
@@ -23,6 +24,21 @@ async function sendPromptStream(userPrompt, analysisState = null, callbacks = {}
     await postSSE(
         `${API_BASE}/api/idea/stream`,
         { userPrompt, analysisState, ideaAccounts, model, reasoningEffort, routingMode, currentPhase },
+        buildStreamHandlers(callbacks),
+        { signal: callbacks.signal },
+    )
+}
+
+/**
+ * Resume a stopped reply: send the conversation as a `messages` array ending with
+ * the partial assistant turn (and NO userPrompt), so the idea agent uses it verbatim
+ * and the model continues that same assistant message (Anthropic prefill). The reply
+ * that streams back is the continuation only — the caller prepends the partial.
+ */
+async function continuePromptStream(messages, analysisState = null, callbacks = {}, ideaAccounts = [], model, reasoningEffort, routingMode, currentPhase) {
+    await postSSE(
+        `${API_BASE}/api/idea/stream`,
+        { messages, analysisState, ideaAccounts, model, reasoningEffort, routingMode, currentPhase },
         buildStreamHandlers(callbacks),
         { signal: callbacks.signal },
     )

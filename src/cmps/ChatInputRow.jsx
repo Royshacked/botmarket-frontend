@@ -21,6 +21,8 @@ export function ChatInputRow({
     sendDisabled,
     isStreaming,
     onStop,
+    canResume,
+    onResume,
     onClear,
     clearDisabled,
     clearTitle = 'Clear chat',
@@ -72,6 +74,10 @@ export function ChatInputRow({
                 rows={2}
                 disabled={textareaDisabled}
             />
+            {/* One primary button, three states:
+                • streaming        → Stop
+                • stopped + empty  → Play (resume the stopped reply in place)
+                • otherwise        → Send (the moment there's text, Send wins) */}
             {isStreaming && onStop ? (
                 <button
                     className="chat-input-row__send chat-input-row__stop"
@@ -81,6 +87,18 @@ export function ChatInputRow({
                 >
                     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                         <rect x="6" y="6" width="12" height="12" rx="2"/>
+                    </svg>
+                </button>
+            ) : canResume && onResume && !value.trim() ? (
+                <button
+                    className="chat-input-row__send chat-input-row__resume"
+                    onClick={onResume}
+                    title="Resume response"
+                    aria-label="Resume response"
+                >
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        {/* bounding box centered on 12,12 so the triangle sits dead-center in the hover bg */}
+                        <path d="M7 5v14l10-7z"/>
                     </svg>
                 </button>
             ) : (
@@ -124,6 +142,8 @@ ChatInputRow.propTypes = {
     sendDisabled:     PropTypes.bool,
     isStreaming:      PropTypes.bool,
     onStop:           PropTypes.func,
+    canResume:        PropTypes.bool,
+    onResume:         PropTypes.func,
     onClear:          PropTypes.func,
     clearDisabled:    PropTypes.bool,
     clearTitle:       PropTypes.string,

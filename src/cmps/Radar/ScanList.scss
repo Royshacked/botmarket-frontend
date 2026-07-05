@@ -241,6 +241,23 @@
         white-space: nowrap;
     }
 
+    // Composite setup score (0–100) — rides on the candidate row as a compact,
+    // color-banded badge. The four component axes live in the expanded detail.
+    &__score-badge {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1;
+        padding: 3px 6px;
+        border-radius: 5px;
+        flex-shrink: 0;
+        border: 1px solid transparent;
+        &--high { background: rgba(22, 199, 132, 0.14); color: #16c784; border-color: rgba(22, 199, 132, 0.35); }
+        &--mid  { background: rgba(240, 185, 11, 0.14); color: var(--color-warning); border-color: rgba(240, 185, 11, 0.35); }
+        &--low  { background: rgba(234, 57, 67, 0.12);  color: #ea3943; border-color: rgba(234, 57, 67, 0.32); }
+        &--na   { display: none; }
+    }
+
     &__expand {
         display: inline-flex;
         align-items: center;
@@ -272,6 +289,57 @@
         line-height: 1.5;
         color: var(--text-secondary);
         margin: 4px 0 2px;
+    }
+
+    // ── Transparent scorecard (component breakdown) ─────────────────────
+    &__scorecard {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin: 2px 0 4px;
+    }
+
+    &__score-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    &__score-label {
+        font-family: var(--font-mono);
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        flex-shrink: 0;
+        min-width: 74px;
+    }
+
+    &__score-track {
+        flex: 1;
+        height: 5px;
+        border-radius: 3px;
+        background: var(--bg-base);
+        overflow: hidden;
+    }
+
+    &__score-fill {
+        display: block;
+        height: 100%;
+        border-radius: 3px;
+        &--high { background: #16c784; }
+        &--mid  { background: var(--color-warning); }
+        &--low  { background: #ea3943; }
+        &--na   { background: var(--text-muted); }
+    }
+
+    &__score-val {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--text-secondary);
+        flex-shrink: 0;
+        min-width: 20px;
+        text-align: right;
     }
 
     &__signal {

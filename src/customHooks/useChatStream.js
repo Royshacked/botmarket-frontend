@@ -52,6 +52,8 @@ export function useChatStream() {
     const deferRef     = useRef(false)
     const phaseRef     = useRef(null)
     phaseRef.current   = phase
+    const messagesRef  = useRef([])   // live mirror so beginContinue can read the last bubble synchronously
+    messagesRef.current = messages
 
     const { paceCps } = useTextPace()
     const { enqueue: enqueueToken, start: startDrain, stop: stopDrain, finish: finishDrain } = useTypewriter(setMessages, paceCps)
@@ -82,8 +84,54 @@ export function useChatStream() {
         // per-send closure capture (the model re-emits a phase tag every turn, so a
         // heading is only inserted when the phase differs from where this send started).
         const sendPhase = phaseRef.current
+        const handlers = _buildHandlers(sendPhase, extraHandlers)
+        return { signal: ctrl.signal, handlers }
+    }
 
-        const handlers = {
+    /**
+     * Continue a stopped assistant reply IN PLACE (no new user turn). Reopens the
+     * last assistant bubble as the streaming target, keeping its partial text as the
+     * base — the caller sends the conversation history ending with that partial as an
+     * assistant prefill, so the model resumes the same message. New tokens append to
+     * the same bubble; the caller's onDone finishes with `base + continuation`.
+     *
+     * Returns null when there's nothing continuable (last bubble isn't a partial
+     * assistant reply) so the caller can no-op.
+     */
+    function beginContinue(extraHandlers = {}) {
+        const msgs = messagesRef.current
+        const last = msgs[msgs.length - 1]
+        if (!last || last.role !== 'assistant') return null
+        // Trailing whitespace is trimmed to match the prefill the caller sends (Anthropic
+        // rejects a prefill that ends in whitespace) so the on-screen base and the model's
+        // continuation join seamlessly.
+        const base = (last.content && last.content !== '_(stopped)_') ? last.content.replace(/\s+$/, '') : ''
+        if (!base) return null
+
+        // Reopen the frozen bubble for streaming; drop the stopped flag, keep the text.
+        setMessages(prev => {
+            const next = [...prev]
+            const i = next.length - 1
+            if (next[i]?.role === 'assistant') next[i] = { ...next[i], content: base, streaming: true, stopped: false }
+            return next
+        })
+        setIsLoading(true)
+        setStreamStatus('')
+        reasoningRef.current = ''
+        deferRef.current     = false
+        startDrain()
+
+        const ctrl = new AbortController()
+        abortRef.current = ctrl
+        const handlers = _buildHandlers(phaseRef.current, extraHandlers)
+        return { signal: ctrl.signal, handlers, base }
+    }
+
+    // Shared SSE handler bag for begin() and beginContinue(). `sendPhase` fixes the
+    // phase-heading de-dup baseline for this stream; extraHandlers add/override
+    // (onDone is always supplied by the caller).
+    function _buildHandlers(sendPhase, extraHandlers) {
+        return {
             onToken:  (t)    => { setStreamStatus(''); enqueueToken(t) },
             onStatus: (tool) => setStreamStatus(toolStatusLabel(tool)),
             onReasoning: (t) => {
@@ -113,7 +161,6 @@ export function useChatStream() {
             onError: (message) => freezeError(message),
             ...extraHandlers,
         }
-        return { signal: ctrl.signal, handlers }
     }
 
     /**
@@ -135,6 +182,20 @@ export function useChatStream() {
         setStreamStatus('')
     }
 
+    // Continue failed (network/server error): put the reopened bubble back to its
+    // stopped-but-continuable state instead of replacing it with an error string, so
+    // the partial text and the Continue affordance survive the failure.
+    function restoreStopped(base) {
+        stopDrain()
+        setMessages(prev => {
+            const next = [...prev]
+            const i = next.length - 1
+            if (next[i]?.role === 'assistant') next[i] = { role: 'assistant', content: base, stopped: true }
+            return next
+        })
+        setIsLoading(false)
+    }
+
     // Clear the shared streaming state (panels clear their own extra state alongside).
     function reset() {
         setMessages([])
@@ -146,8 +207,8 @@ export function useChatStream() {
         messages, setMessages,
         isLoading, streamStatus,
         phase, setPhase,
-        begin, finishStreaming, endStream, reset,
-        handleStop, freezeError,
+        begin, beginContinue, finishStreaming, endStream, reset,
+        handleStop, freezeError, restoreStopped,
         reasoningRef,
     }
 }

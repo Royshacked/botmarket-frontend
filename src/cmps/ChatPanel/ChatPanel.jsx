@@ -145,7 +145,7 @@ function isIdeaReady(analysisState) {
 
 const PHASE_LABELS = { 1: 'Nucleus', 2: 'Formation', 3: 'Structure', 4: 'Exits', 5: 'Validation' }
 
-export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, onStop, isLoading, streamStatus = '', isEditing = false, isInvalidationReview = false, onDismissInvalidation, onBuyMarket, isPostOrderEdit = false, availableAccounts = [], selectedAccounts = [], historySlot = null }) {
+export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, onStop, canResume = false, onResume, isLoading, streamStatus = '', isEditing = false, isInvalidationReview = false, onDismissInvalidation, onBuyMarket, isPostOrderEdit = false, availableAccounts = [], selectedAccounts = [], historySlot = null }) {
     const [input, setInput] = useState('')
     const [dismissConfirm, setDismissConfirm] = useState(false)
 
@@ -348,6 +348,8 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                 sendDisabled={!input.trim() || isLoading}
                 isStreaming={isLoading}
                 onStop={onStop}
+                canResume={canResume}
+                onResume={onResume}
                 onClear={onClear}
                 clearDisabled={isLoading || isEditing || isInvalidationReview || !messages.length}
                 clearTitle="Clear chat and idea"
@@ -370,6 +372,8 @@ ChatPanel.propTypes = {
     historySlot:       PropTypes.node,
     onClear:           PropTypes.func,
     onStop:            PropTypes.func,
+    canResume:         PropTypes.bool,
+    onResume:          PropTypes.func,
     isLoading:         PropTypes.bool,
     streamStatus:      PropTypes.string,
     isEditing:         PropTypes.bool,

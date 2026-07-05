@@ -77,6 +77,7 @@ export function PortfolioPanel({
     onUpdatePlan,
     onPortfolioUpdate,
     onBuildingPlanChange,
+    onLoadingChange,
     chatRestore       = null,
     availableAccounts = [],
     selectedAccounts  = [],
@@ -84,6 +85,9 @@ export function PortfolioPanel({
 }) {
     const chat = useChatStream()
     const { messages, setMessages, isLoading, streamStatus, handleStop } = chat
+
+    // Report streaming state up so the agent-bar "live" dot can pulse for Atlas.
+    useEffect(() => { onLoadingChange?.(isLoading) }, [isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
 
     const [inputText,             setInputText]             = useState('')
     const [pendingPlan,           setPendingPlan]           = useState(null)
@@ -220,6 +224,63 @@ export function PortfolioPanel({
         }
     }
 
+    // Resume a stopped reply in place: send the conversation ending with the partial
+    // assistant turn as a prefill so the model continues the SAME bubble.
+    async function _continue() {
+        if (isLoading) return
+        const last = messages[messages.length - 1]
+        if (!last || last.role !== 'assistant' || !last.stopped) return
+        const base = (last.content || '').replace(/\s+$/, '')   // prefill: no trailing whitespace
+        if (!base) return
+        setEditDirty(true)
+
+        const history = messages
+            .filter(m => !m.streaming && m.role !== 'phase')
+            .map(m => ({ role: m.role, content: m.content }))
+        if (history.length) history[history.length - 1] = { role: 'assistant', content: base }
+
+        const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
+        pendingTickersRef.current = []
+
+        const cont = chat.beginContinue({
+            onTicker: (symbol) => {
+                if (!pendingTickersRef.current.includes(symbol)) pendingTickersRef.current.push(symbol)
+            },
+            onError: () => chat.restoreStopped(base),   // keep the partial + Continue on failure
+            onDone: (data) => {
+                const tickers = [...pendingTickersRef.current]
+                pendingTickersRef.current = []
+                if (data.mandate) latestMandateRef.current = data.mandate
+                if (data.thesis) { latestThesisRef.current = data.thesis; setPortfolioThesis(data.thesis) }
+                chat.finishStreaming({ role: 'assistant', content: base + data.reply, tickers })
+                if (data.plan?.ideas?.length) setPendingPlan(data.plan)
+                if (data.update?.changes?.length && onPortfolioUpdate) onPortfolioUpdate(data.update, isReviewMode, data.thesis ?? null)
+            },
+        })
+        if (!cont) return   // nothing continuable
+
+        try {
+            await portfolioService.sendStream(history, ideaAccounts, {
+                portfolioId:     editingPortfolioId,
+                portfolioIdeas:  editingPortfolioIdeas,
+                threadId:        editingPortfolioId ? null : threadIdRef.current,
+                reviewMode:      isReviewMode,
+                mandate:         latestMandateRef.current,
+                model:           readStoredModel('portfolioModel'),
+                reasoningEffort: readStoredReasoning('portfolioReasoning'),
+                routingMode:     readStoredRoutingMode('portfolioRoutingMode'),
+                currentPhase:    chat.phase,
+                signal:          cont.signal,
+                ...cont.handlers,
+            })
+        } catch (err) {
+            console.error('[portfolio]', err)
+            chat.restoreStopped(base)
+        } finally {
+            chat.endStream()
+        }
+    }
+
     function handleSend() {
         const text = inputText.trim()
         setInputText('')
@@ -312,6 +373,11 @@ export function PortfolioPanel({
     }
 
     const showChangedMind = !!editingPortfolioId && !editDirty && !isReviewMode
+    const mainActionBar = !isLoading && (isReviewMode ? !!editingPortfolioId : (planReady || showChangedMind))
+    // A stopped reply with real text can be resumed in place — the play/send button
+    // in the input row surfaces this, independent of the footer action bar.
+    const lastMsg = messages[messages.length - 1]
+    const canContinue = !isLoading && lastMsg?.role === 'assistant' && !!lastMsg?.stopped && !!(lastMsg.content && lastMsg.content.trim())
 
     return (
         <div className="portfolio-panel">
@@ -389,7 +455,7 @@ export function PortfolioPanel({
 
             {/* Action bar — a footer below the scroll area (not inside it) so it stays
                 pinned above the input without ever covering the messages. */}
-            {!isLoading && (isReviewMode ? !!editingPortfolioId : (planReady || showChangedMind)) && (
+            {mainActionBar && (
                 <div className="portfolio-panel__action-bubble">
                     {dismissConfirm ? (
                         <div className="portfolio-panel__dismiss-confirm">
@@ -447,6 +513,8 @@ export function PortfolioPanel({
                 sendDisabled={!inputText.trim() || isLoading}
                 isStreaming={isLoading}
                 onStop={handleStop}
+                canResume={canContinue}
+                onResume={_continue}
                 onClear={handleClear}
                 clearDisabled={isLoading || !messages.length || !!editingPortfolioId}
                 clearTitle="Clear chat"
@@ -467,6 +535,7 @@ PortfolioPanel.propTypes = {
     onUpdatePlan:        PropTypes.func,
     onPortfolioUpdate:   PropTypes.func,
     onBuildingPlanChange: PropTypes.func,
+    onLoadingChange:     PropTypes.func,
     chatRestore:         PropTypes.object,
     availableAccounts:   PropTypes.array,
     selectedAccounts:    PropTypes.arrayOf(PropTypes.string),

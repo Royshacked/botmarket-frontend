@@ -103,10 +103,59 @@ function compareGroups(a, b) {
     return ra.key.localeCompare(rb.key)                        // upcoming: soonest first
 }
 
+// The transparent scorecard: four component axes shown as labeled bars in the
+// candidate detail. `total` rides on the row as a badge (see ScoreBadge). Order is
+// fixed so the eye can compare names down the list; missing components are skipped.
+const SCORE_AXES = [
+    ['catalyst',         'Catalyst'],
+    ['technical',        'Technical'],
+    ['relativeStrength', 'Rel. strength'],
+    ['liquidity',        'Liquidity'],
+]
+
+// Green ≥75, amber 55–74, red <55 — same bands the agent maps to conviction level.
+function scoreTier(v) {
+    if (!Number.isFinite(v)) return 'na'
+    if (v >= 75) return 'high'
+    if (v >= 55) return 'mid'
+    return 'low'
+}
+
+function ScoreBadge({ total }) {
+    if (!Number.isFinite(total)) return null
+    return (
+        <span className={`scan-list__score-badge scan-list__score-badge--${scoreTier(total)}`} title="Composite setup score (0–100)">
+            {total}
+        </span>
+    )
+}
+
+function ScoreBars({ score }) {
+    const axes = SCORE_AXES.filter(([k]) => Number.isFinite(score?.[k]))
+    if (!axes.length) return null
+    return (
+        <div className="scan-list__scorecard">
+            {axes.map(([k, label]) => {
+                const v = score[k]
+                return (
+                    <div key={k} className="scan-list__score-row">
+                        <span className="scan-list__score-label">{label}</span>
+                        <span className="scan-list__score-track">
+                            <span className={`scan-list__score-fill scan-list__score-fill--${scoreTier(v)}`} style={{ width: `${v}%` }} />
+                        </span>
+                        <span className="scan-list__score-val">{v}</span>
+                    </div>
+                )
+            })}
+        </div>
+    )
+}
+
 function Candidate({ c, onSelect }) {
     const [open, setOpen] = useState(false)
     const signals = c.signals || {}
-    const hasDetail = c.analysis || c.conviction?.rationale || Object.values(signals).some(Boolean) || (c.sources?.length > 0)
+    const hasScoreBars = SCORE_AXES.some(([k]) => Number.isFinite(c.score?.[k]))
+    const hasDetail = c.analysis || c.conviction?.rationale || hasScoreBars || Object.values(signals).some(Boolean) || (c.sources?.length > 0)
 
     return (
         <div className="scan-list__cand">
@@ -122,6 +171,7 @@ function Candidate({ c, onSelect }) {
                     title="Build a trade idea from this"
                 />
                 <span className="scan-list__cand-thesis">{c.thesis}</span>
+                <ScoreBadge total={c.score?.total} />
                 <ConvictionChip conviction={c.conviction} />
                 {hasDetail && (
                     <button
@@ -140,6 +190,7 @@ function Candidate({ c, onSelect }) {
             {open && (
                 <div className="scan-list__cand-detail">
                     {c.analysis && <p className="scan-list__analysis">{c.analysis}</p>}
+                    <ScoreBars score={c.score} />
                     {c.conviction?.rationale && (
                         <p className="scan-list__analysis scan-list__conviction-why">
                             <ConvictionChip conviction={c.conviction} /> {c.conviction.rationale}

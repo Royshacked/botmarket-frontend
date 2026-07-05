@@ -241,6 +241,10 @@ export function MainPage() {
     const [scannerChatRestore, setScannerChatRestore] = useState(null)
     const [portfolioChatRestore, setPortfolioChatRestore] = useState(null)
     const [buildingPortfolio, setBuildingPortfolio] = useState(null)
+    // Streaming state reported up from the portfolio/scanner panels (they own their
+    // own chat stream) so the agent-bar "live" dot can pulse for Atlas/Argus too.
+    const [portfolioLoading, setPortfolioLoading] = useState(false)
+    const [scannerLoading,   setScannerLoading]   = useState(false)
     const [dismissedConfirmIds, setDismissedConfirmIds] = useState(() => new Set())
     const [placingOrders, setPlacingOrders] = useState(false)
     const [pendingDeleteIdea, setPendingDeleteIdea] = useState(null)
@@ -430,6 +434,104 @@ export function MainPage() {
         } catch (err) {
             console.error(err)
             chat.freezeError('Error communicating with the server. Please try again.')
+        } finally {
+            chat.endStream()
+        }
+    }
+
+    // Resume a stopped idea reply in place. Sends the conversation as a `messages`
+    // array ending with the partial assistant turn (no userPrompt) so the model
+    // continues that same bubble (Anthropic prefill). recent_messages is rebuilt
+    // client-side from the sent history + the completed bubble, so the model-facing
+    // history doesn't fragment (the backend only sees the continuation as the reply).
+    async function _continueIdea() {
+        if (isLoading) return
+        const last = messages[messages.length - 1]
+        if (!last || last.role !== 'assistant' || !last.stopped) return
+        const base = (last.content || '').replace(/\s+$/, '')
+        if (!base) return
+
+        const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
+
+        // Model-facing history: the text conversation ending with the partial assistant
+        // turn (phase headings + chart image bubbles excluded).
+        const history = messages
+            .filter(m => (m.role === 'user' || m.role === 'assistant') && !m.streaming && m.type !== 'chart' && typeof m.content === 'string' && m.content.trim())
+            .map(m => ({ role: m.role, content: m.content.trim() }))
+        if (history.length && history[history.length - 1].role === 'assistant') {
+            history[history.length - 1] = { role: 'assistant', content: base }
+        }
+
+        const cont = chat.beginContinue({
+            onInterval: (interval) => { if (interval) setChartInterval(interval) },
+            onAsset: (symbol) => { if (symbol) { setChartSymbol(symbol); news.previewAsset(symbol) } },
+            onChart: (data) => {
+                if (!data?.imageBase64) return
+                setMessages(prev => {
+                    const msgs = [...prev]
+                    const chartMsg = { role: 'assistant', type: 'chart', symbol: data.symbol, timeframe: data.timeframe, imageBase64: data.imageBase64 }
+                    const lastIdx = msgs.length - 1
+                    if (msgs[lastIdx]?.streaming) msgs.splice(lastIdx, 0, chartMsg)
+                    else msgs.push(chartMsg)
+                    return msgs
+                })
+            },
+            onError: () => chat.restoreStopped(base),
+            onDone: (data) => {
+                const reasoning = chat.reasoningRef.current
+                const content = base + data.reply
+                // The continued bubble is ONE assistant turn (base + continuation); rebuild
+                // recent_messages from the sent history with that turn completed.
+                const correctedRecent = [...history.slice(0, -1), { role: 'assistant', content }].slice(-6)
+                const finalState = data.analysisState ? { ...data.analysisState, recent_messages: correctedRecent } : null
+                const finalMsg = { role: 'assistant', content, analysisState: finalState, ...(reasoning ? { reasoning } : {}) }
+                setMessages(prev => {
+                    const finalMsgs = prev.map((m, i) => (i === prev.length - 1 && m.streaming ? finalMsg : m))
+                    latestMessagesRef.current = _capPersistedCharts(finalMsgs)
+                    if (!editingIdeaId && finalState) {
+                        threadsService.saveDraft({
+                            threadId:    ideaThreadIdRef.current,
+                            agent:       'idea',
+                            messages:    _capPersistedMessages(latestMessagesRef.current),
+                            phase:       data.phase ?? null,
+                            subjectType: 'idea',
+                            state:       { analysisState: finalState },
+                        })
+                    }
+                    return prev
+                })
+                chat.finishStreaming(finalMsg)
+                if (editingIdeaId && finalState) {
+                    tradeIdeasService.updateIdea(editingIdeaId, {
+                        chat_state: { messages: _capPersistedMessages(latestMessagesRef.current), analysisState: finalState }
+                    }).catch(err => console.error('[chat_state] save failed', err))
+                }
+                setAnalysisState(finalState)
+                const newAsset   = finalState?.structured_state?.active_asset
+                const newCompany = finalState?.structured_state?.active_company_name
+                if (newAsset) setChartSymbol(newAsset)
+                const newInterval = deriveIdeaInterval(finalState?.structured_state?.pending_trade)
+                if (newInterval) setChartInterval(newInterval)
+                news.focusAsset(newAsset, newCompany)
+                if (data.ideaSaved) loadIdeas()
+            },
+        })
+        if (!cont) return   // nothing continuable
+
+        try {
+            await userPromptService.continuePromptStream(
+                history,
+                analysisState,
+                { signal: cont.signal, ...cont.handlers },
+                ideaAccounts,
+                readStoredModel('ideaModel'),
+                readStoredReasoning('ideaReasoning'),
+                readStoredRoutingMode('ideaRoutingMode'),
+                chat.phase
+            )
+        } catch (err) {
+            console.error(err)
+            chat.restoreStopped(base)
         } finally {
             chat.endStream()
         }
@@ -1080,6 +1182,10 @@ export function MainPage() {
         return handleResumeIdeaThread(threadId)
     }
 
+    // A stopped idea reply with real text can be resumed in place.
+    const lastIdeaMsg = messages[messages.length - 1]
+    const canContinueIdea = !isLoading && lastIdeaMsg?.role === 'assistant' && !!lastIdeaMsg?.stopped && !!(lastIdeaMsg.content && lastIdeaMsg.content.trim())
+
     // Shared by the desktop workspace chat and the mobile chat sheet so the two
     // instances never drift. The mobile sheet overrides onGenerate to also close.
     const chatPanelProps = {
@@ -1089,6 +1195,8 @@ export function MainPage() {
         onGenerate:          handleGenerate,
         onClear:             handleCancelBuild,
         onStop:              chat.handleStop,
+        canResume:           canContinueIdea,
+        onResume:            _continueIdea,
         isLoading,
         streamStatus,
         isEditing:           !!editingIdeaId,
@@ -1135,8 +1243,8 @@ export function MainPage() {
                                 </span>
                                 <ThreadHistory agent={activeTab} onResume={handleResumeActiveThread} />
 
-                                {(activeTab === 'idea' || activeTab === 'portfolio') && (
-                                    <div className="chat-agentbar__right">
+                                <div className="chat-agentbar__right">
+                                    {(activeTab === 'idea' || activeTab === 'portfolio') && (
                                         <AccountSelector
                                             accounts={availableAccounts}
                                             selectedIds={selectedAccounts}
@@ -1144,18 +1252,18 @@ export function MainPage() {
                                             mainAccountId={mainAccountId}
                                             onMainChange={setMainAccountId}
                                         />
-                                        {activeTab === 'idea' && (
-                                            <span className="chat-agentbar__live">
-                                                <span className={`chat-agentbar__dot ${
-                                                    isLoading
-                                                        ? 'loading'
-                                                        : analysisState?.structured_state?.active_asset ? 'building' : 'idle'
-                                                }`} />
-                                                live
-                                            </span>
-                                        )}
-                                    </div>
-                                )}
+                                    )}
+                                    <span className="chat-agentbar__live">
+                                        <span className={`chat-agentbar__dot ${
+                                            activeTab === 'idea'
+                                                ? (isLoading ? 'loading' : analysisState?.structured_state?.active_asset ? 'building' : 'idle')
+                                                : activeTab === 'portfolio'
+                                                    ? (portfolioLoading ? 'loading' : buildingPortfolio ? 'building' : 'idle')
+                                                    : (scannerLoading ? 'loading' : 'idle')
+                                        }`} />
+                                        live
+                                    </span>
+                                </div>
                             </div>
                         )}
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'idea' ? 'flex' : 'none' }}>
@@ -1168,6 +1276,7 @@ export function MainPage() {
                                 onTickerSelect={handleScannerSymbol}
                                 onGenerateList={handleGenerateList}
                                 onUpdateList={handleUpdateList}
+                                onLoadingChange={setScannerLoading}
                                 chatRestore={scannerChatRestore}
                             />
                         </div>
@@ -1180,6 +1289,7 @@ export function MainPage() {
                                 onUpdatePlan={handleUpdatePlan}
                                 onPortfolioUpdate={handlePortfolioUpdate}
                                 onBuildingPlanChange={setBuildingPortfolio}
+                                onLoadingChange={setPortfolioLoading}
                                 chatRestore={portfolioChatRestore}
                                 availableAccounts={availableAccounts}
                                 selectedAccounts={selectedAccounts}
