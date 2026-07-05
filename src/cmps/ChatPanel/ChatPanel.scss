@@ -197,6 +197,15 @@
 
         &-group--accounts { margin-top: 2px; }
 
+        &-rr {
+            color: var(--text-secondary);
+            font-variant-numeric: tabular-nums;
+
+            // thin reward-to-risk (< 1.5R) — flag it in the caution colour to
+            // echo the agent's push-back
+            &.is-thin { color: var(--color-short); }
+        }
+
         &-group--conviction {
             align-items: baseline;
 

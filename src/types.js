@@ -70,6 +70,7 @@
  * @property {string|null} [entry_order_type]  'stop' → rests as a broker stop-market order
  *                                             (the backend enriches this to Idea.entryOrderType)
  * @property {Conviction} [conviction]
+ * @property {number|null} [rr]  reward-to-risk ratio (e.g. 1.5); null until entry+stop+target levels exist
  * @property {Invalidation} [invalidation]
  */
 

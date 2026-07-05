@@ -3,6 +3,7 @@ import PropTypes from 'prop-types'
 import { TradeIdeaRow } from './TradeIdeaRow.jsx'
 import { ClosePositionDialog } from './ClosePositionDialog.jsx'
 import { EditOrdersDialog } from './EditOrdersDialog.jsx'
+import { ActivatePortfolioDialog } from './ActivatePortfolioDialog.jsx'
 import { PositionsTable, posKey } from './PositionsTable.jsx'
 import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel, isDeleteLocked, openIdeaPopup, formatPnl, ideaPnl, portfolioPnl } from './tradeIdea.utils.js'
 import { StatusIcon } from '../StatusIcon.jsx'
@@ -128,6 +129,7 @@ BrokerGroupRow.propTypes = {
 }
 
 function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDeletePortfolio, onStatusChange, onOpen, onSymbolClick, positions = [] }) {
+    const [showActivatePrompt, setShowActivatePrompt] = useState(false)
     const allWaiting = group.ideas.length > 0 && group.ideas.every(i => i.status === 'waiting')
     // Live total P&L = sum of the portfolio's open positions (null while nothing is live).
     const pnl      = portfolioPnl(group.ideas, positions)
@@ -145,11 +147,27 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
 
     function handleActivateAll(e) {
         e.stopPropagation()
+        // Pre-activation gate: portfolio ideas are naked / immediate entries, so
+        // activating fires them all at market at once — the last gate before real
+        // exposure. Offer a final Atlas review first (see ActivatePortfolioDialog).
+        setShowActivatePrompt(true)
+    }
+
+    function activateNow() {
         // Activate every waiting idea: 'hit' if it has no entry conditions
         // (fire now, pending confirmation), otherwise 'looking' (monitor watches).
+        setShowActivatePrompt(false)
         group.ideas.forEach(idea => {
             if (idea.status === 'waiting') onStatusChange(idea.id, activationStatus(idea))
         })
+    }
+
+    function reviewBeforeActivate() {
+        // Open the portfolio in the Atlas chat in review mode (pre-activation
+        // review). handleEditPortfolio resets ideas to 'waiting', so the book stays
+        // pending until the user finishes the review and re-activates.
+        setShowActivatePrompt(false)
+        onEdit(group.portfolioId, { reviewMode: true })
     }
 
     function handleDeactivateAll(e) {
@@ -246,6 +264,15 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
                         </table>
                     </td>
                 </tr>
+            )}
+            {showActivatePrompt && (
+                <ActivatePortfolioDialog
+                    name={group.name}
+                    count={group.ideas.length}
+                    onReview={reviewBeforeActivate}
+                    onActivate={activateNow}
+                    onClose={() => setShowActivatePrompt(false)}
+                />
             )}
         </>
     )

@@ -79,6 +79,14 @@ function TradeBuildSummary({ analysisState, selectedAccounts = [] }) {
                     )}
                 </div>
             )}
+            {Number.isFinite(pt.rr) && (
+                <div className={`${P}-group`}>
+                    <span className={`${P}-label`}>R:R</span>
+                    <span className={`${P}-rr${pt.rr < 1.5 ? ' is-thin' : ''}`}>
+                        {pt.rr.toFixed(1)}R
+                    </span>
+                </div>
+            )}
             {hasEntry && (
                 <div className={`${P}-group`}>
                     <span className={`${P}-label`}>Entry</span>
