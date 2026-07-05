@@ -1,9 +1,11 @@
 import PropTypes from 'prop-types'
+import { useState } from 'react'
 import {
     conditionSummary, formatCreatedAt, formatCreatedAtFull, needsExitConditions,
     activationStatus, brokerSymbolLabel, brokerChildLabel, isDeleteLocked,
     isSystemStatus, formatPnl, formatNum, portfolioPnl, ideaPnl,
 } from './tradeIdea.utils.js'
+import { ActivatePortfolioDialog } from './ActivatePortfolioDialog.jsx'
 import { posKey } from './PositionsTable.jsx'
 import { StatusIcon } from '../StatusIcon.jsx'
 
@@ -340,6 +342,7 @@ PnlPill.propTypes = { pnl: PropTypes.object }
 // ── Portfolio card (Portfolios tab), expandable to per-idea child cards ────────
 
 export function PortfolioCard({ group, expanded, onToggle, onEdit, onDelete, onDeletePortfolio, onStatusChange, onOpen, onSymbolClick, positions = [] }) {
+    const [showActivatePrompt, setShowActivatePrompt] = useState(false)
     const allWaiting = group.ideas.length > 0 && group.ideas.every(i => i.status === 'waiting')
     const pnl        = portfolioPnl(group.ideas, positions)
     // Any idea live on the broker → block the whole-portfolio delete (would orphan
@@ -348,7 +351,20 @@ export function PortfolioCard({ group, expanded, onToggle, onEdit, onDelete, onD
 
     function handleActivateAll(e) {
         e.stopPropagation()
+        // Pre-activation gate: portfolio ideas are naked / immediate entries, so
+        // activating fires them all at market at once — offer a final Atlas review
+        // first (parity with the table's PortfolioGroupRow / ActivatePortfolioDialog).
+        setShowActivatePrompt(true)
+    }
+    function activateNow() {
+        setShowActivatePrompt(false)
         group.ideas.forEach(idea => { if (idea.status === 'waiting') onStatusChange(idea.id, activationStatus(idea)) })
+    }
+    function reviewBeforeActivate() {
+        // Open the portfolio in the Atlas chat in review mode; handleEditPortfolio
+        // resets ideas to 'waiting' so the book stays pending until re-activated.
+        setShowActivatePrompt(false)
+        onEdit(group.portfolioId, { reviewMode: true })
     }
     function handleDeactivateAll(e) {
         e.stopPropagation()
@@ -418,6 +434,15 @@ export function PortfolioCard({ group, expanded, onToggle, onEdit, onDelete, onD
                         />
                     ))}
                 </div>
+            )}
+            {showActivatePrompt && (
+                <ActivatePortfolioDialog
+                    name={group.name}
+                    count={group.ideas.length}
+                    onReview={reviewBeforeActivate}
+                    onActivate={activateNow}
+                    onClose={() => setShowActivatePrompt(false)}
+                />
             )}
         </div>
     )

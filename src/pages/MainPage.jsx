@@ -16,7 +16,7 @@ import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
-import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, isPaperIdea } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { MonitorDashboard }  from '../cmps/MonitorDashboard/MonitorDashboard.jsx'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
@@ -287,7 +287,7 @@ export function MainPage() {
     const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading } = useCalendarEvents()
     const { scans, loading: scansLoading, createScan, updateScan, deleteScan } = useScans()
     const { user } = useAuth()
-    const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
+    const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId, isPaper } = useBrokerAccounts()
     const { positions, loading: positionsLoading, refresh: refreshPositions, closePosition } = usePositions()
     const { ideas, setIdeas, loadIdeas, handleStatusChange, preEntryPrompt, setPreEntryPrompt } = useTradeIdeas()
     const [preEntryBusy, setPreEntryBusy] = useState(false)
@@ -328,6 +328,7 @@ export function MainPage() {
     let confirmOrders = []
     for (const i of ideas) {
         if (i.userId != null && i.userId !== user?._id) continue
+        if (isPaperIdea(i) !== isPaper) continue   // only confirm ideas of the active workspace (paper/live)
         if (i.status !== 'hit' || i.ordersPlacedAt || dismissedConfirmIds.has(i.id)) continue
         if (!Array.isArray(i.accounts) || i.accounts.length === 0) continue
         if (i.orderState !== 'awaiting_confirm' && i.orderState != null) continue
@@ -1340,6 +1341,7 @@ export function MainPage() {
                     <div className="workspace__ideas">
                         <TradeIdeasList
                             ideas={ideas
+                                .filter(i => isPaperIdea(i) === isPaper)   // scope to the active workspace (paper/live)
                                 .filter(i => i.status !== 'closed')
                                 .filter(i => i.id !== editingIdeaId)}
                             chatTab={activeTab}
@@ -1363,7 +1365,7 @@ export function MainPage() {
 
                 {/* ── Mobile monitor dashboard ── */}
                 <MonitorDashboard
-                    ideas={ideas.filter(i => i.status !== 'closed')}
+                    ideas={ideas.filter(i => isPaperIdea(i) === isPaper).filter(i => i.status !== 'closed')}
                     onDelete={handleDeleteIdea}
                     onEdit={handleEditIdea}
                 />

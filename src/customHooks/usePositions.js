@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { brokerService } from '../services/broker/broker.service.remote.js'
 import { useAutoRefresh } from './useAutoRefresh.js'
+import { useWindowEvent } from './useWindowEvent.js'
 
 // Poll so open-position P&L stays live (paper marks + broker fills move continuously).
 const POSITIONS_POLL_MS = 4000
@@ -34,9 +35,21 @@ export function usePositions() {
         setLoading(true)
         try {
             const connections = await brokerService.listConnections()
-            const brokers = Object.entries(connections)
-                .filter(([, connected]) => connected)
+            const connected = Object.entries(connections)
+                .filter(([, isConn]) => isConn)
                 .map(([broker]) => broker)
+
+            // Scope positions to the active workspace (paper vs live). listConnections
+            // does NOT gate live brokers by paper mode — turning paper ON only adds
+            // `paper:true`, the live brokers stay connected — so isolate here (mirrors
+            // the account isolation in useBrokerAccounts) or live positions leak into
+            // the paper view. Paper ON → paper only; OFF → live only.
+            const brokers = connected.includes('paper') ? ['paper'] : connected.filter(b => b !== 'paper')
+
+            // Drop positions from brokers outside the active mode. The incremental
+            // commit below only REPLACES slices for brokers it re-fetches, so after a
+            // mode switch the previous mode's positions would otherwise linger.
+            setPositions(prev => prev.filter(p => brokers.includes(p.broker)))
 
             // Fetch each broker in parallel but commit its positions to state AS IT
             // RESOLVES — replacing only that broker's slice — so a broker whose
@@ -76,6 +89,12 @@ export function usePositions() {
     }, [])
 
     useAutoRefresh(refresh, POSITIONS_POLL_MS)
+
+    // Paper mode toggled from the profile → re-scope positions immediately instead of
+    // waiting for the next poll, so they switch in lockstep with the account selector.
+    // Stable handler (refresh is a []-dep callback) per useWindowEvent's contract.
+    const handleModeChange = useCallback(() => refresh(true), [refresh])
+    useWindowEvent('paper-mode-changed', handleModeChange)
 
     const closePosition = useCallback(async (broker, positionId, accountId) => {
         await brokerService.closePosition(broker, positionId, accountId)

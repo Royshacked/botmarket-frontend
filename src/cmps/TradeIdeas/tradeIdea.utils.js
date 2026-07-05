@@ -314,6 +314,26 @@ export function isDeleteLocked(idea) {
     return isLiveStatus(idea?.status)
 }
 
+/**
+ * True when an idea belongs to the PAPER-trading workspace, derived from the idea
+ * alone — no live broker session required, so it holds for a still-'waiting' idea.
+ * Primary signal is the top-level `broker` stamped at save time; the `paper-<userId>`
+ * account-id prefix is a fallback for legacy ideas saved before `broker` was persisted.
+ *
+ * Paper vs live is a global per-user mode applied at save time, so a batch (portfolio)
+ * is uniformly one mode and any member reflects the whole. The list uses this to scope
+ * the two workspaces: an idea shows when isPaperIdea(idea) === the current paper mode.
+ *
+ * @param {import('../../types.js').Idea} idea
+ * @returns {boolean}
+ */
+export function isPaperIdea(idea) {
+    if (idea?.broker === 'paper') return true
+    if (String(idea?.mainAccountId ?? '').startsWith('paper-')) return true
+    return (idea?.accounts ?? []).some(a =>
+        String(typeof a === 'object' ? a.id : a).startsWith('paper-'))
+}
+
 // ── Idea status groups ──────────────────────────────────────────────────────
 // Single source for the status literal-sets that were duplicated across
 // TradeIdeaRow / IdeaDetail / MainPage.
