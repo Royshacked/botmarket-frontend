@@ -1581,3 +1581,60 @@ $card-status-colors: (
         padding: 2px 0;
     }
 }
+
+// ── Idea dialog + popped-out window (design trial 'cards') ─────────────────────
+// Aligns both the floating dialog and the pop-out window with the card language.
+// They share IdeaDetail, whose body uses `.idea-dialog__*` BEM classes, so those
+// rules reach both; the dialog shell/footer and the pop-out's own `.idea-page`
+// header are styled per surface. The pop-out loads the app fresh, so index.jsx →
+// initDesign() already applies the same `data-design` there — no extra wiring.
+[data-design="cards"] {
+    // Floating dialog shell + footer
+    .idea-dialog {
+        border: 1px solid var(--border);
+        border-radius: 16px;
+
+        &__header {
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border);
+            border-radius: 16px 16px 0 0;
+        }
+
+        &__footer { border-top: 1px solid var(--border); }
+
+        &__btn {
+            border-radius: 999px;
+            padding: 7px 18px;
+            font-weight: 600;
+        }
+        &__btn--save,
+        &__btn--place { color: #06110c; }
+        &__btn--save  { background: var(--accent); }
+        &__btn--place { background: var(--color-long); }
+
+        select { border-radius: 8px; border-color: var(--border); }
+    }
+
+    // Popped-out window header → same surface treatment as the dialog header
+    .idea-page__header {
+        background: var(--bg-surface);
+        border-bottom: 1px solid var(--border);
+    }
+
+    // Shared IdeaDetail body — `.idea-dialog__*` BEM classes apply in both surfaces
+    .idea-dialog__chart     { border-right: 1px solid var(--border); }
+    .idea-dialog__positions { background: var(--bg-surface); border-top: 1px solid var(--border); }
+
+    // Conditions column lives in both — scope the tree + chips here (not under the
+    // dialog-only `.idea-dialog` container) so the pop-out gets them as well.
+    .idea-dialog__conditions {
+        .ctree__row {
+            border-radius: 8px;
+            border-color: var(--border);
+        }
+        .ctree__leaf--inline,
+        .ctree__leaf-type,
+        .ctree__leaf-qty,
+        .ctree__inline-op { border-radius: 999px; }
+    }
+}

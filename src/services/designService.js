@@ -55,9 +55,16 @@ export function applyDesign(id) {
 }
 
 // Apply the saved design once at boot (after initTheme). No-op for 'current'.
+// Also keep every OTHER open same-origin window (notably a popped-out idea window)
+// in sync: the `storage` event fires in other windows whenever localStorage 'design'
+// is written, so changing the design in one window live-updates the rest.
 export function initDesign() {
     const id = loadDesign()
     if (id && id !== 'current') applyDesign(id)
+
+    window.addEventListener('storage', (e) => {
+        if (e.key === 'design') applyDesign(e.newValue || 'current')
+    })
 }
 
 // Advance to the next design in the list, persist + apply it, and return its entry.

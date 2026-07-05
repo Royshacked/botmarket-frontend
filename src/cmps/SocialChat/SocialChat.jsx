@@ -149,25 +149,32 @@ export function SocialChat({ currentUserId, onUnreadChange, onClose }) {
             <div className="social-chat__backdrop" onClick={handleClose} />
 
             <div className={`social-chat${closing ? ' social-chat--closing' : ''}`}>
-                <ConversationList
-                    conversations={conversations}
-                    activeId={activeConv?.id}
-                    currentUserId={currentUserId}
-                    onSelect={handleSelectConv}
-                    onConversationStarted={handleConversationStarted}
-                />
+                <div className="social-chat__topbar">
+                    <span className="social-chat__topbar-title">Messages</span>
+                    <button className="social-chat__topbar-close" onClick={handleClose} aria-label="Close">✕</button>
+                </div>
 
-                <ChatWindow
-                    conversation={activeConv}
-                    messages={messages}
-                    currentUserId={currentUserId}
-                    loading={loading}
-                    hasMore={hasMore}
-                    onClose={handleClose}
-                    onSend={handleSend}
-                    onLoadMore={handleLoadMore}
-                    onDismissMessage={handleDismissMessage}
-                />
+                <div className="social-chat__body">
+                    <ConversationList
+                        conversations={conversations}
+                        activeId={activeConv?.id}
+                        currentUserId={currentUserId}
+                        onSelect={handleSelectConv}
+                        onConversationStarted={handleConversationStarted}
+                    />
+
+                    <ChatWindow
+                        conversation={activeConv}
+                        messages={messages}
+                        currentUserId={currentUserId}
+                        loading={loading}
+                        hasMore={hasMore}
+                        onClose={handleClose}
+                        onSend={handleSend}
+                        onLoadMore={handleLoadMore}
+                        onDismissMessage={handleDismissMessage}
+                    />
+                </div>
             </div>
         </>
     )

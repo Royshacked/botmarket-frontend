@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { brokerService } from '../services/broker/broker.service.remote.js'
 import { useAutoRefresh } from './useAutoRefresh.js'
 
@@ -21,47 +21,57 @@ const POSITIONS_POLL_MS = 4000
 export function usePositions() {
     const [positions, setPositions] = useState([])
     const [loading, setLoading]     = useState(false)
+    // One slow broker (e.g. a stale cTrader session whose /positions hangs the full
+    // 30s http timeout) can outlast the poll interval; skip a poll while one is still
+    // in flight so those requests don't stack up and exhaust the connection pool.
+    const inFlightRef = useRef(false)
 
-    const refresh = useCallback(async () => {
+    // `force` (a user action — e.g. just closed a position) bypasses the in-flight
+    // guard so the UI updates promptly even while a slow poll is still running.
+    const refresh = useCallback(async (force = false) => {
+        if (inFlightRef.current && !force) return
+        inFlightRef.current = true
         setLoading(true)
         try {
             const connections = await brokerService.listConnections()
-            // For each connected broker, fetch its account (for the account number /
-            // currency) and its open positions in parallel, then tag each position.
-            const lists = await Promise.all(
-                Object.entries(connections)
-                    .filter(([, connected]) => connected)
-                    .map(async ([broker]) => {
+            const brokers = Object.entries(connections)
+                .filter(([, connected]) => connected)
+                .map(([broker]) => broker)
+
+            // Fetch each broker in parallel but commit its positions to state AS IT
+            // RESOLVES — replacing only that broker's slice — so a broker whose
+            // /positions hangs can't block the others from rendering (a timing-out
+            // cTrader used to starve fast paper / IBKR positions out of the list).
+            await Promise.all(brokers.map(async (broker) => {
+                let rows = []
+                try {
+                    const raw = await brokerService.getPositions(broker)
+                    if (raw.length) {
+                        // Positions may span several accounts on one broker, so each
+                        // row carries its own account meta; fall back to the broker's
+                        // selected account for rows that don't. Best-effort — never let
+                        // this drop the positions.
+                        let accountNo = null, currency = null
                         try {
-                            const rows = await brokerService.getPositions(broker)
-                            if (!rows.length) return []
-                            // Positions may span several accounts on one broker, so each
-                            // row carries its own account meta (number / currency / id).
-                            // Fall back to the broker's selected account only for rows
-                            // that don't (e.g. brokers reporting a single account). This
-                            // fetch is best-effort — never let it drop the positions.
-                            let accountNo = null, currency = null
-                            try {
-                                const account = await brokerService.getAccount(broker)
-                                accountNo = account?.login ?? account?.id ?? null
-                                currency  = account?.currency ?? null
-                            } catch { /* show positions without fallback meta */ }
-                            return rows.map(p => ({
-                                ...p,
-                                broker,
-                                accountNo: p.accountNo ?? accountNo,
-                                currency:  p.currency  ?? currency,
-                            }))
-                        } catch {
-                            return []
-                        }
-                    })
-            )
-            setPositions(lists.flat())
+                            const account = await brokerService.getAccount(broker)
+                            accountNo = account?.login ?? account?.id ?? null
+                            currency  = account?.currency ?? null
+                        } catch { /* show positions without fallback meta */ }
+                        rows = raw.map(p => ({
+                            ...p,
+                            broker,
+                            accountNo: p.accountNo ?? accountNo,
+                            currency:  p.currency  ?? currency,
+                        }))
+                    }
+                } catch { rows = [] }
+                setPositions(prev => [...prev.filter(p => p.broker !== broker), ...rows])
+            }))
         } catch {
             setPositions([])
         } finally {
             setLoading(false)
+            inFlightRef.current = false
         }
     }, [])
 
@@ -69,7 +79,7 @@ export function usePositions() {
 
     const closePosition = useCallback(async (broker, positionId, accountId) => {
         await brokerService.closePosition(broker, positionId, accountId)
-        await refresh()
+        await refresh(true)
     }, [refresh])
 
     return { positions, loading, refresh, closePosition }

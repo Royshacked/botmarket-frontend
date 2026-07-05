@@ -20,6 +20,13 @@
         color: var(--accent-light);
     }
 
+    // Icon + title row (the nav can sit on a second line beneath it in cards mode).
+    &__header-top {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
     &__title-icon { width: 18px; height: 18px; flex-shrink: 0; }
 
     &__title {
@@ -308,21 +315,37 @@
 // chips, and each headline becomes a bordered card with a rounded thumbnail and a
 // pill sentiment badge. Pure restyle of the existing DOM — scoped to the trial.
 [data-design="cards"] .news-feed {
-    // Tab strip → left-aligned pill group
+    // Header stacks: the icon + title row on top, the nav on its own full-width
+    // row beneath it.
+    &__header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        padding: 8px 12px;
+    }
+
+    // Tab strip → one full-width segmented pill container beneath the title
     &__tabs {
         border-bottom: none;
-        background: none;
-        gap: 6px;
-        padding: 10px 14px 4px;
+        gap: 2px;
+        margin: 0;
+        padding: 3px;
+        background: var(--bg-deep);
+        border: 1px solid var(--border);
+        border-radius: 999px;
     }
 
     &__tab {
-        flex: 0 0 auto;
+        flex: 1;
+        text-align: center;
         border: none;
         border-bottom: none;
         border-radius: 999px;
-        margin-bottom: 0;
-        padding: 5px 11px;
+        margin: 0;
+        // Match the Axl Lists filter pill box (11px font, 4px vertical padding) so the
+        // two header bars end up the exact same height.
+        font-size: 11px;
+        padding: 4px 4px;
 
         &:hover { color: var(--accent-light); }
         &--scans { margin-right: 0; }
@@ -334,6 +357,8 @@
     }
 
     &__tab-count {
+        min-width: 0;
+        margin-left: 4px;
         border-radius: 999px;
         background: var(--accent-deep);
     }
@@ -388,6 +413,49 @@
         font-size: 11px;
         border-radius: 999px;
     }
+
+    // ── Scans / Earnings / IPO / Fed → the same card look ──────────────────────
+    // Day + period headers become plain section labels (drop the sticky divider bar).
+    .cal-list__date-header,
+    .earn-table__day,
+    .scan-list__group-label {
+        background: var(--bg-wash);
+        border-bottom: none;
+        padding: 12px 14px 4px;
+        height: auto;
+    }
+
+    // The dense earnings column header doesn't fit a card list.
+    .earn-table__head { display: none; }
+
+    // Each calendar / earnings entry → a bordered, spaced card
+    .earn-table__row,
+    .fed-row,
+    .ipo-row {
+        min-height: 0;
+        margin: 0 12px 8px;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--bg-surface);
+        &:hover { background: var(--bg-hover); }
+    }
+    // Re-assert the bottom edge that the base rules strip from the last row.
+    .earn-table__row:last-child,
+    .fed-group:last-child .fed-row:last-child,
+    .fed-group:last-child .ipo-row:last-child { border-bottom: 1px solid var(--border); }
+
+    // Scans already use cards — bring their radius / fill in line with the rest.
+    .scan-list__card {
+        margin: 0 12px 10px;
+        border-radius: 12px;
+        background: var(--bg-surface);
+    }
+    .scan-list__card-header {
+        background: var(--bg-surface);
+        border-radius: 12px 12px 0 0;
+    }
+    .scan-list__card--collapsed .scan-list__card-header { border-radius: 12px; }
 }
 
 // ── Calendar lists (Earnings + Fed) ───────────────────────────────────────────

@@ -3,6 +3,21 @@ import PropTypes from 'prop-types'
 import { eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW } from '../../services/event-bus.service'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
+import { AGENTS } from '../AxlHub/agentMeta.jsx'
+
+// Compact "from <agent>" attribution chip for notification cards: the agent's
+// sigil + brand, tinted by its hue. Makes a card read as coming from Idea / Atlas
+// (each specialist owns its own alerts and the card routes back to that agent).
+function CardAgentTag({ agent }) {
+    return (
+        <span className={`social-chat__card-agent social-chat__card-agent--${agent.hue}`}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                {agent.icon}
+            </svg>
+            <span>{agent.brand}</span>
+        </span>
+    )
+}
 
 function formatTime(ms) {
     if (!ms) return ''
@@ -39,7 +54,6 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
     if (!conversation) {
         return (
             <div className="social-chat__window social-chat__window--empty">
-                <button className="social-chat__close social-chat__close--float" onClick={onClose}>✕</button>
                 <p style={{ margin: 'auto' }}>Select a conversation</p>
             </div>
         )
@@ -47,8 +61,6 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
 
     return (
         <div className="social-chat__window">
-            <button className="social-chat__close social-chat__close--float" onClick={onClose}>✕</button>
-
             <div className="social-chat__messages">
                 {hasMore && (
                     <button className="social-chat__load-more" onClick={onLoadMore} disabled={loading}>
@@ -131,12 +143,13 @@ function InvalidationAlertBubble({ msg, onClose, onDismiss }) {
 
     return (
         <div className={`social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--${kind}`}>
+            <CardAgentTag agent={AGENTS.idea} />
             <div className="social-chat__invalidation-alert-header">
                 {label} &middot; {asset}
             </div>
             <div className="social-chat__invalidation-alert-reason">{reason}</div>
             <div className="social-chat__invalidation-alert-actions">
-                <button className="social-chat__invalidation-alert-btn" onClick={handleReview}>Update</button>
+                <button className="social-chat__invalidation-alert-btn" onClick={handleReview}>Edit in chat</button>
                 {inPosition && (
                     <button
                         className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--close"
@@ -165,6 +178,7 @@ function PortfolioReviewBubble({ msg, onClose }) {
 
     return (
         <div className="social-chat__msg-bubble social-chat__portfolio-review">
+            <CardAgentTag agent={AGENTS.portfolio} />
             <div className="social-chat__portfolio-review-header">
                 Portfolio Review &middot; {portfolioName}
             </div>

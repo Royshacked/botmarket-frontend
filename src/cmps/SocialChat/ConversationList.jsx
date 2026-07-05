@@ -51,8 +51,6 @@ export function ConversationList({ conversations, activeId, currentUserId, onSel
 
     return (
         <div className="social-chat__list">
-            <div className="social-chat__list-header">Messages</div>
-
             <input
                 className="social-chat__search"
                 placeholder="Search users..."

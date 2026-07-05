@@ -2,6 +2,7 @@ import PropTypes from 'prop-types'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { ScanList } from './ScanList.jsx'
 import { RadarTicker } from './RadarTicker.jsx'
+import { useDesign } from '../../customHooks/useDesign.js'
 import './Radar.scss'
 
 // Market-intelligence panel: incoming News (headlines + sentiment) and Scans
@@ -30,63 +31,63 @@ export function Radar({
     ipoLoading = false,
     onIpoSelect,
 }) {
-    const loading =
-        tab === 'scans'    ? scansLoading    :
-        tab === 'earnings' ? earningsLoading :
-        tab === 'fed'      ? fedLoading      :
-        tab === 'ipo'      ? ipoLoading      :
-        isLoading
+    // In the cards design the nav rides in the header beside the title (like Axl
+    // Lists); every other design keeps the full-width underline tabs on their own row.
+    const cardMode = useDesign() === 'cards'
+
+    const tabsEl = (
+        <div className="news-feed__tabs">
+            <button
+                className={`news-feed__tab${tab === 'news' ? ' news-feed__tab--active' : ''}`}
+                onClick={() => onTabChange?.('news')}
+            >{activeSymbol ? `${activeSymbol} News` : 'News'}</button>
+            <button
+                className={`news-feed__tab news-feed__tab--scans${tab === 'scans' ? ' news-feed__tab--active' : ''}`}
+                onClick={() => onTabChange?.('scans')}
+            >
+                Scans{scans.length > 0 && <span className="news-feed__tab-count">{scans.length}</span>}
+            </button>
+            <button
+                className={`news-feed__tab${tab === 'earnings' ? ' news-feed__tab--active' : ''}`}
+                onClick={() => onTabChange?.('earnings')}
+            >
+                Earnings{earnings.length > 0 && <span className="news-feed__tab-count">{earnings.length}</span>}
+            </button>
+            <button
+                className={`news-feed__tab${tab === 'ipo' ? ' news-feed__tab--active' : ''}`}
+                onClick={() => onTabChange?.('ipo')}
+            >
+                IPO{ipo.length > 0 && <span className="news-feed__tab-count">{ipo.length}</span>}
+            </button>
+            <button
+                className={`news-feed__tab${tab === 'fed' ? ' news-feed__tab--active' : ''}`}
+                onClick={() => onTabChange?.('fed')}
+            >
+                Fed{fed.length > 0 && <span className="news-feed__tab-count">{fed.length}</span>}
+            </button>
+        </div>
+    )
 
     return (
-        <div className="news-feed">
+        <div className={`news-feed${cardMode ? ' news-feed--cards' : ''}`}>
             <div className="news-feed__header">
-                <svg className="news-feed__title-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    {/* Signal arcs */}
-                    <path d="M4 10 Q4 4 10 4 Q16 4 16 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
-                    <path d="M6.5 10 Q6.5 6.5 10 6.5 Q13.5 6.5 13.5 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
-                    {/* Dot */}
-                    <circle cx="10" cy="10" r="1.5" fill="currentColor"/>
-                    {/* Stand */}
-                    <line x1="10" y1="11.5" x2="10" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                    <line x1="7"  y1="16"   x2="13" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-                <span className="news-feed__title"><BrandTitle text="Axl Radar" /></span>
-                <span className="news-feed__live-badge">
-                    <span className={`news-feed__status-dot${loading ? ' loading' : ''}`} />
-                    <span className="news-feed__live">live</span>
-                </span>
+                <div className="news-feed__header-top">
+                    <svg className="news-feed__title-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        {/* Signal arcs */}
+                        <path d="M4 10 Q4 4 10 4 Q16 4 16 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+                        <path d="M6.5 10 Q6.5 6.5 10 6.5 Q13.5 6.5 13.5 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+                        {/* Dot */}
+                        <circle cx="10" cy="10" r="1.5" fill="currentColor"/>
+                        {/* Stand */}
+                        <line x1="10" y1="11.5" x2="10" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                        <line x1="7"  y1="16"   x2="13" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                    <span className="news-feed__title"><BrandTitle text="Axl Radar" /></span>
+                </div>
+                {cardMode && tabsEl}
             </div>
 
-            <div className="news-feed__tabs">
-                <button
-                    className={`news-feed__tab${tab === 'news' ? ' news-feed__tab--active' : ''}`}
-                    onClick={() => onTabChange?.('news')}
-                >{activeSymbol ? `${activeSymbol} News` : 'News'}</button>
-                <button
-                    className={`news-feed__tab news-feed__tab--scans${tab === 'scans' ? ' news-feed__tab--active' : ''}`}
-                    onClick={() => onTabChange?.('scans')}
-                >
-                    Scans{scans.length > 0 && <span className="news-feed__tab-count">{scans.length}</span>}
-                </button>
-                <button
-                    className={`news-feed__tab${tab === 'earnings' ? ' news-feed__tab--active' : ''}`}
-                    onClick={() => onTabChange?.('earnings')}
-                >
-                    Earnings{earnings.length > 0 && <span className="news-feed__tab-count">{earnings.length}</span>}
-                </button>
-                <button
-                    className={`news-feed__tab${tab === 'ipo' ? ' news-feed__tab--active' : ''}`}
-                    onClick={() => onTabChange?.('ipo')}
-                >
-                    IPO{ipo.length > 0 && <span className="news-feed__tab-count">{ipo.length}</span>}
-                </button>
-                <button
-                    className={`news-feed__tab${tab === 'fed' ? ' news-feed__tab--active' : ''}`}
-                    onClick={() => onTabChange?.('fed')}
-                >
-                    Fed{fed.length > 0 && <span className="news-feed__tab-count">{fed.length}</span>}
-                </button>
-            </div>
+            {!cardMode && tabsEl}
 
             {tab === 'scans' ? (
                 <div className="news-feed__list">
