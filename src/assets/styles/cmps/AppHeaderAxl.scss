@@ -256,18 +256,32 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: transparent;
-        border: 1px solid transparent;
+        // Circular, mirroring the meditating-bot mark: a faint aura fill inside a
+        // soft gradient ring (same hues as the bot's .aura / .ring).
+        width: 42px;
+        height: 42px;
         cursor: pointer;
-        padding: 6px 8px;
-        border-radius: 8px;
+        border-radius: 50%;
         font-size: 1rem;
         color: var(--axl-birch);
         font-family: inherit;
-        transition: background 0.2s, border-color 0.2s;
+        background: radial-gradient(circle at 50% 44%,
+            color-mix(in srgb, var(--accent-light) 20%, transparent),
+            color-mix(in srgb, var(--accent)       10%, transparent) 60%,
+            color-mix(in srgb, var(--accent-light) 13%, transparent));
+        border: 1px solid color-mix(in srgb, var(--accent-light) 42%, transparent);
+        transition: box-shadow 0.4s var(--axl-ease), border-color 0.25s var(--axl-ease), color 0.25s var(--axl-ease);
 
-        &:hover { background: rgba(255, 255, 255, 0.05); border-color: var(--axl-line); }
+        &:hover {
+            border-color: color-mix(in srgb, var(--accent-light) 70%, transparent);
+            color: var(--axl-aurora);
+            box-shadow: 0 0 10px rgba(116, 201, 174, 0.4);
+        }
         &:focus-visible { outline: 2px solid var(--axl-aurora); outline-offset: 2px; }
+
+        // The people glyph is bottom-heavy in its viewBox — nudge it up so it reads
+        // optically centred in the circle.
+        svg { transform: translateY(-2.5px); }
     }
 
     &__chat-badge {
@@ -286,34 +300,37 @@
     }
 
     &__profile {
-        display: inline-flex;
-        align-items: center;
-        background: transparent;
-        border: 1px solid transparent;
-        cursor: pointer;
-        padding: 4px;
-        border-radius: 50%;
-        color: var(--axl-birch);
-        font-family: inherit;
-        transition: background 0.25s var(--axl-ease), border-color 0.25s var(--axl-ease);
-
-        &:hover { background: rgba(255, 255, 255, 0.04); border-color: var(--axl-line); }
-        &:focus-visible { outline: 2px solid var(--axl-aurora); outline-offset: 2px; }
-    }
-
-    &__avatar {
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        flex: none;
+        // Circular, mirroring the meditating-bot mark: a faint aura fill inside a
+        // soft gradient ring (same hues as the bot's .aura / .ring).
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        font-size: 0.74rem;
+        width: 42px;
+        height: 42px;
+        cursor: pointer;
+        border-radius: 50%;
+        color: var(--axl-birch);
+        font-family: inherit;
+        background: radial-gradient(circle at 50% 44%,
+            color-mix(in srgb, var(--accent-light) 20%, transparent),
+            color-mix(in srgb, var(--accent)       10%, transparent) 60%,
+            color-mix(in srgb, var(--accent-light) 13%, transparent));
+        border: 1px solid color-mix(in srgb, var(--accent-light) 42%, transparent);
+        transition: box-shadow 0.4s var(--axl-ease), border-color 0.25s var(--axl-ease), color 0.25s var(--axl-ease);
+
+        &:hover {
+            border-color: color-mix(in srgb, var(--accent-light) 70%, transparent);
+            color: var(--axl-aurora);
+            box-shadow: 0 0 10px rgba(116, 201, 174, 0.4);
+        }
+        &:focus-visible { outline: 2px solid var(--axl-aurora); outline-offset: 2px; }
+    }
+
+    &__initials {
+        font-size: 0.82rem;
         font-weight: 600;
-        letter-spacing: 0.02em;
-        color: var(--axl-night);
-        background: linear-gradient(150deg, var(--accent-bright), var(--axl-aurora-dim));
+        letter-spacing: 0.03em;
+        line-height: 1;
     }
 
     &__who {

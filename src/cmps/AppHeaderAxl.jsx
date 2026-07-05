@@ -206,12 +206,11 @@ export function AppHeaderAxl() {
                                 title="Messages"
                                 aria-label="Messages"
                             >
-                                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--axl-aurora)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M12 4C6.5 4 2 6.9 2 10.5C2 12.4 3.3 14.1 5.4 15.2C5.2 16.3 4.4 17.6 3 19C5.6 18.8 7.6 18 9 17C9.9 17.3 10.9 17.5 12 17.5C17.5 17.5 22 14.6 22 10.5C22 6.9 17.5 4 12 4Z"/>
-                                    <circle cx="8.5" cy="10" r="1.5"/>
-                                    <path d="M5.9 14.5a2.6 2.6 0 0 1 5.2 0"/>
-                                    <circle cx="15.5" cy="10" r="1.5"/>
-                                    <path d="M12.9 14.5a2.6 2.6 0 0 1 5.2 0"/>
+                                <svg width="27" height="27" viewBox="0 0 24 24" fill="var(--bg-base)" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="15" cy="8.5" r="3"/>
+                                    <path d="M10.5 21.5V18.8A5.2 5.2 0 0 1 21 18.8V21.5Z"/>
+                                    <path d="M3 21.5V18.8A5.2 5.2 0 0 1 13.5 18.8V21.5Z"/>
+                                    <circle cx="8.25" cy="10" r="3.1"/>
                                 </svg>
                                 {unread > 0 && (
                                     <span className="app-header-axl__chat-badge">
@@ -239,7 +238,7 @@ export function AppHeaderAxl() {
                                     title={`${user.fullname} — view profile`}
                                     aria-label={`${user.fullname} — view profile`}
                                 >
-                                    <span className="app-header-axl__avatar">{initials(user.fullname)}</span>
+                                    <span className="app-header-axl__initials">{initials(user.fullname)}</span>
                                 </button>
                             )}
                         </>

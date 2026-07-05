@@ -81,11 +81,10 @@
         overflow-x: hidden;
         padding: 0;
 
-        scrollbar-width: thin;
-        scrollbar-color: var(--accent-deep) var(--bg-base);
-        &::-webkit-scrollbar        { width: 4px; }
-        &::-webkit-scrollbar-track  { background: var(--bg-base); }
-        &::-webkit-scrollbar-thumb  { background: var(--accent-deep); border-radius: 2px; }
+        // Scrollable, but hide the scrollbar chrome (thumb/buttons) — wheel/touch/drag still work.
+        scrollbar-width: none;                         // Firefox
+        -ms-overflow-style: none;                      // legacy Edge/IE
+        &::-webkit-scrollbar        { width: 0; height: 0; } // Chrome/Safari
     }
 
     &__empty {

@@ -173,6 +173,10 @@
         flex: 1;
         overflow-x: hidden;
         overflow-y: auto;
+        // Scrollable, but hide the scrollbar chrome (thumb/buttons) — wheel/touch/drag still work.
+        scrollbar-width: none;                        // Firefox
+        -ms-overflow-style: none;                     // legacy Edge/IE
+        &::-webkit-scrollbar { width: 0; height: 0; } // Chrome/Safari
     }
 
     &__conv-item {
