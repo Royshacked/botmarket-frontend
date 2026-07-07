@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from './useAuth'
 import { API_BASE } from '../../services/config'
+import { hydratePreferences } from '../../services/preferences.service'
 import './AuthModal.scss'
 
 function EyeIcon() {
@@ -95,6 +96,8 @@ export function AuthModal() {
             })
             sessionStorage.setItem('loggedinUser', JSON.stringify(data))
             setUser(data)
+            // Pull this account's saved UI preferences and apply them.
+            hydratePreferences(data._id)
         } catch (err) {
             setError(err.message)
         } finally {

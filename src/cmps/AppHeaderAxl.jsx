@@ -260,12 +260,13 @@ export function AppHeaderAxl() {
                 <svg viewBox="0 0 1200 22" preserveAspectRatio="none">
                     <defs>
                         <linearGradient id="axlWaveHues" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="600" y2="0" spreadMethod="repeat">
-                            <stop offset="0"    stopColor="#7FD69E" />
-                            <stop offset="0.22" stopColor="#74C9AE" />
-                            <stop offset="0.44" stopColor="#5BCBC0" />
-                            <stop offset="0.66" stopColor="#5FB9D9" />
-                            <stop offset="0.86" stopColor="#9E9BE3" />
-                            <stop offset="1"    stopColor="#7FD69E" />
+                            {/* stop-color set in CSS (--wave-*) so the wave follows --aurora-hue */}
+                            <stop offset="0"    className="w1" />
+                            <stop offset="0.22" className="w2" />
+                            <stop offset="0.44" className="w3" />
+                            <stop offset="0.66" className="w4" />
+                            <stop offset="0.86" className="w5" />
+                            <stop offset="1"    className="w1" />
                         </linearGradient>
                     </defs>
                     <path className="wv wv-main"   d="M0,11 Q30,6 60,11 T120,11 T180,11 T240,11 T300,11 T360,11 T420,11 T480,11 T540,11 T600,11 T660,11 T720,11 T780,11 T840,11 T900,11 T960,11 T1020,11 T1080,11 T1140,11 T1200,11" />

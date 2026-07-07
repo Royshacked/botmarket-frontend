@@ -156,10 +156,10 @@
     --h1-glow-3: rgba(80,  10,  25,  0.35);
 }
 
-// ── Axl (the active theme — calm palette, gradient cancelled) ────────────────
-// Selector is :root[data-theme="axl"] (not just [data-theme="axl"]) so the
-// --aurora-wash override below out-specifies the shared :root block lower in this
-// file; otherwise that trailing :root would re-apply the aurora gradient.
+// ── Axl (the active theme — calm palette, soft aurora bloom) ─────────────────
+// Selector is :root[data-theme="axl"] (not just [data-theme="axl"]) so the aurora
+// stop overrides below out-specify the shared :root block lower in this file;
+// otherwise that trailing :root would re-apply the full-strength aurora stops.
 :root[data-theme="axl"] {
     // Brand font pairing app-wide
     --font-sans: 'Hanken Grotesk', system-ui, -apple-system, sans-serif;
@@ -207,11 +207,15 @@
     --popover-divider:       rgba(33, 54, 63, 0.60);
     --popover-btn-hover-bg:  rgba(78, 144, 124, 0.18);
 
-    // Gradient cancelled — solid backdrop instead of the aurora bloom. An invisible
-    // gradient keeps the multi-layer `background: var(--aurora-wash), var(--bg-base)`
-    // rule valid while painting nothing, so backdrop / header / panels stay flat
-    // solid colours. (Cascades into --bg-wash / --bg-wash-surface, which reference it.)
-    --aurora-wash: linear-gradient(transparent, transparent);
+    // Soft aurora bloom — re-enabled at a low, calm intensity (≈ half the base
+    // opacity). We override only the four hue stops (dimmer, still derived from
+    // --aurora-hue) and inherit the shared --aurora-wash geometry from the :root
+    // block below, so the bloom follows the accent/aurora hue slider. Cascades into
+    // --bg-wash / --bg-wash-surface (backdrop, header, panels).
+    --aurora-1: hsla(calc(var(--aurora-hue) - 33), 52%, 67%, 0.07);
+    --aurora-2: hsla(var(--aurora-hue),            52%, 58%, 0.055);
+    --aurora-3: hsla(calc(var(--aurora-hue) + 22), 62%, 61%, 0.055);
+    --aurora-4: hsla(calc(var(--aurora-hue) + 69), 56%, 75%, 0.07);
 
     // H1 wordmark — every gradient stop is the same colour (no colour transition);
     // the aurora glow is kept.
@@ -254,6 +258,16 @@
         radial-gradient(74% 108% at 95% 100%, var(--aurora-4), transparent 72%);
     --bg-wash:         var(--aurora-wash), var(--bg-base);
     --bg-wash-surface: var(--aurora-wash), var(--bg-surface);
+
+    // Header wave gradient stops (the calm-water line at the header's bottom edge).
+    // Same green→teal→cyan→blue→violet signature as the aurora, derived from the
+    // shared --aurora-hue with fixed offsets, so the wave rotates with the accent/
+    // aurora slider. At the default hue (174) these reproduce the original colours.
+    --wave-1: hsl(calc(var(--aurora-hue) - 32), 52%, 67%); // green
+    --wave-2: hsl(calc(var(--aurora-hue) - 18), 45%, 62%); // teal
+    --wave-3: hsl(var(--aurora-hue),            52%, 58%); // cyan-teal
+    --wave-4: hsl(calc(var(--aurora-hue) + 22), 60%, 61%); // cyan-blue
+    --wave-5: hsl(calc(var(--aurora-hue) + 69), 56%, 75%); // violet
 
     --color-long:    #4caf50;
     --color-short:   #ef5350;

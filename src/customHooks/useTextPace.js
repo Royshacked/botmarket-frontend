@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useWindowEvent } from './useWindowEvent.js'
+import { queuePrefSync } from '../services/preferences.service.js'
 
 /**
  * Global "text streaming speed" setting (chars per second), persisted in
@@ -32,6 +33,7 @@ export function useTextPace() {
         const c = clamp(Number(v))
         localStorage.setItem(KEY, String(c))
         window.dispatchEvent(new Event(EVT))
+        queuePrefSync()
     }, [])
 
     return { paceCps, setPaceCps }

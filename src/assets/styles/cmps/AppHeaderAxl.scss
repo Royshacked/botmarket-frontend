@@ -95,6 +95,15 @@
 
         .wv { fill: none; stroke: url(#axlWaveHues); stroke-linecap: round; }
         .wv-main   { stroke-width: 1.6; opacity: 0.55; filter: drop-shadow(0 0 4px rgba(116, 201, 174, 0.45)); }
+
+        // Gradient stop colours — driven by --aurora-hue (via _themes.scss), so the
+        // wave re-tints with the accent/aurora slider. (var() can't resolve in an SVG
+        // stop-color *attribute*, only in this CSS property.)
+        .w1 { stop-color: var(--wave-1); }
+        .w2 { stop-color: var(--wave-2); }
+        .w3 { stop-color: var(--wave-3); }
+        .w4 { stop-color: var(--wave-4); }
+        .w5 { stop-color: var(--wave-5); }
     }
 
     // ── ambient aurora candlesticks, breathing up from the waterline ──

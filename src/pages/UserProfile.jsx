@@ -11,6 +11,7 @@ import { MODEL_OPTIONS, readStoredModel }       from '../cmps/modelOptions.js'
 import { REASONING_OPTIONS, readStoredReasoning } from '../cmps/reasoningOptions.js'
 import { ROUTING_MODES, readStoredRoutingMode } from '../cmps/routingModeOptions.js'
 import { DESIGNS, loadDesign, saveDesign, applyDesign } from '../services/designService.js'
+import { queuePrefSync } from '../services/preferences.service.js'
 import { PaperTradingSection } from '../cmps/PaperTrading/PaperTradingSection.jsx'
 import './UserProfile.scss'
 
@@ -60,12 +61,14 @@ export function UserProfile() {
         setDesign(id)
         saveDesign(id)
         applyDesign(id)
+        queuePrefSync()
     }
 
     function handleAiPref(field, value) {
         const suffix = field.charAt(0).toUpperCase() + field.slice(1)
         AI_AGENT_KEYS.forEach(agent => localStorage.setItem(`${agent}${suffix}`, value))
         setAiPref(prev => ({ ...prev, [field]: value }))
+        queuePrefSync()
     }
 
     useEffect(() => {

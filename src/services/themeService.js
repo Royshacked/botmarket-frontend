@@ -46,15 +46,22 @@ export function loadAuroraHue() {
 
 // ── Background spectrum ───────────────────────────────────────────────────────
 // The profile slider (0–100) sweeps the app background through a curated path of
-// very dark hues: dark cyan → dark teal → very dark green → dark blue → near-black.
+// very dark hues, now spanning the whole colour wheel — warm maroon/ember/gold
+// through green/teal/cyan/blue into indigo/violet/magenta, ending near-black.
 // Only the --bg-* tokens are regenerated — set inline on <html>, overriding the
 // axl theme — so accent / text / wordmark are left untouched.
 const BG_STOPS = [
-    { h: 187, s: 68, l: 6 },  // dark cyan
-    { h: 176, s: 72, l: 5 },  // dark teal
-    { h: 140, s: 72, l: 4 },  // very dark green
-    { h: 218, s: 72, l: 6 },  // dark blue
-    { h: 220, s: 10, l: 1.5 }, // near-black
+    { h: 0,   s: 60, l: 4 },   // dark red / maroon
+    { h: 26,  s: 62, l: 4 },   // dark ember / amber
+    { h: 48,  s: 52, l: 3.5 }, // dark gold / olive
+    { h: 140, s: 72, l: 3 },   // very dark green
+    { h: 176, s: 72, l: 3.5 }, // dark teal  (≈ original axl background — the default)
+    { h: 190, s: 68, l: 4 },   // dark cyan
+    { h: 218, s: 72, l: 4 },   // dark blue
+    { h: 248, s: 58, l: 4 },   // dark indigo
+    { h: 276, s: 52, l: 4 },   // dark violet / purple
+    { h: 312, s: 54, l: 4 },   // dark magenta
+    { h: 220, s: 10, l: 1 },   // near-black
 ]
 
 // Lightness offset of each background token relative to --bg-base (mirrors the
@@ -68,7 +75,18 @@ const BG_DELTAS = {
     '--bg-popover':  4,
 }
 
-const DEFAULT_BG = 25 // the dark-teal stop ≈ the original axl background
+const DEFAULT_BG = 40 // lands on the dark-teal stop (index 4 of 11) ≈ the original axl background
+
+// Background depth knob (0–100, 50 = the curated stop as-is). Shifts every --bg-*
+// token's lightness together: below 50 sinks toward pure black, above 50 lifts the
+// whole app lighter. Asymmetric — the stops already sit near-black, so there's only
+// a little room to darken but plenty to lighten.
+const DEFAULT_BG_SHADE = 50
+
+function bgShadeShift(shade) {
+    const k = (shade - 50) / 50
+    return +(k < 0 ? k * 3 : k * 11).toFixed(2)
+}
 
 const lerp = (a, b, t) => a + (b - a) * t
 
@@ -89,14 +107,36 @@ export function bgPreview(pos) {
     return `hsl(${h.toFixed(1)}, ${s.toFixed(1)}%, 38%)`
 }
 
+// The full spectrum painted onto the slider track — one gradient stop per BG_STOP,
+// brightened to match the preview dot (real backgrounds are near-black). Derived
+// from BG_STOPS so the track can never drift from the actual sweep.
+export function bgTrackGradient() {
+    const stops = BG_STOPS.map((s, i) => {
+        const pct = ((i / (BG_STOPS.length - 1)) * 100).toFixed(1)
+        const isBlack = s.s <= 12 // the near-black terminal stop
+        const color = isBlack ? '#000' : `hsl(${s.h}, ${s.s}%, 33%)`
+        return `${color} ${pct}%`
+    })
+    return `linear-gradient(to right, ${stops.join(', ')})`
+}
+
 // Apply the background spectrum live — sets every --bg-* token inline on <html>.
-export function applyBgSpectrum(pos) {
+// shade shifts the whole scale's lightness (depth); 50 leaves the curated stop as-is.
+export function applyBgSpectrum(pos, shade = DEFAULT_BG_SHADE) {
     const { h, s, l } = bgStopAt(pos)
+    const shift = bgShadeShift(shade)
     const root = document.documentElement
     for (const [token, delta] of Object.entries(BG_DELTAS)) {
-        const li = Math.max(0, Math.min(100, l + delta))
+        const li = Math.max(0, Math.min(100, l + delta + shift))
         root.style.setProperty(token, `hsl(${h.toFixed(1)}, ${s.toFixed(1)}%, ${li.toFixed(1)}%)`)
     }
+}
+
+// Depth track for the shade slider — this position's hue from near-black → light,
+// so the gradient reflects the colour currently picked.
+export function bgShadeTrack(pos) {
+    const { h, s } = bgStopAt(pos)
+    return `linear-gradient(to right, hsl(${h.toFixed(1)}, ${s.toFixed(1)}%, 3%), hsl(${h.toFixed(1)}, ${Math.min(s, 45).toFixed(1)}%, 46%))`
 }
 
 export function saveBgSpectrum(pos) {
@@ -106,6 +146,15 @@ export function saveBgSpectrum(pos) {
 export function loadBgSpectrum() {
     const raw = localStorage.getItem('bgSpectrum')
     return raw === null ? DEFAULT_BG : Number(raw)
+}
+
+export function saveBgShade(shade) {
+    localStorage.setItem('bgShade', String(shade))
+}
+
+export function loadBgShade() {
+    const raw = localStorage.getItem('bgShade')
+    return raw === null ? DEFAULT_BG_SHADE : Number(raw)
 }
 
 // Width (as a fraction of the 0–360 hue range) of the transition at each edge
@@ -343,7 +392,7 @@ export function initTheme() {
     if (localStorage.getItem('headerStyle') !== 'classic') {
         clearHueTheme()
         document.documentElement.setAttribute('data-theme', 'axl')
-        applyBgSpectrum(loadBgSpectrum())
+        applyBgSpectrum(loadBgSpectrum(), loadBgShade())
         return
     }
 
@@ -357,4 +406,4 @@ export function initTheme() {
     }
 }
 
-export { DEFAULT_HUE, DEFAULT_TONE, DEFAULT_AURORA_HUE, DEFAULT_ACCENT_SHADE }
+export { DEFAULT_HUE, DEFAULT_TONE, DEFAULT_AURORA_HUE, DEFAULT_ACCENT_SHADE, DEFAULT_BG_SHADE }

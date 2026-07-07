@@ -1,10 +1,18 @@
 .theme-switcher {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    flex-direction: column;
+    gap: 7px;
+    user-select: none; // don't drag-select the labels while sliding the thumb
 
-    // Background-spectrum track (brightened so it's legible): dark cyan → dark
-    // teal → very dark green → dark blue → black, matching the BG_STOPS path.
+    &__row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    // Background-spectrum track: the gradient is painted inline from BG_STOPS
+    // (bgTrackGradient) so it always matches the actual sweep — see ThemeSwitcher.jsx.
+    // The --shade track is set inline too (depends on the active hue): near-black → light.
     &__slider {
         -webkit-appearance: none;
         appearance: none;
@@ -13,14 +21,6 @@
         border-radius: 3px;
         cursor: pointer;
         outline: none;
-        background: linear-gradient(
-            to right,
-            hsl(187, 65%, 35%) 0%,
-            hsl(176, 70%, 32%) 25%,
-            hsl(140, 70%, 28%) 50%,
-            hsl(218, 70%, 34%) 75%,
-            #000 100%
-        );
 
         &::-webkit-slider-thumb {
             -webkit-appearance: none;
@@ -47,6 +47,15 @@
         height: 14px;
         border-radius: 50%;
         border: 2px solid rgba(255, 255, 255, 0.7);
+        flex-shrink: 0;
+    }
+
+    &__shade-label {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
         flex-shrink: 0;
     }
 }

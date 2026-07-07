@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { API_BASE } from '../services/config'
+import { hydratePreferences } from '../services/preferences.service'
 
 export const AuthContext = createContext(null)
 
@@ -19,6 +20,8 @@ export function AuthProvider({ children }) {
                     const data = await res.json()
                     sessionStorage.setItem('loggedinUser', JSON.stringify(data))
                     setUser(data)
+                    // Pull the account's saved UI preferences on session restore.
+                    hydratePreferences(data._id)
                 } else {
                     setUser(null)
                 }

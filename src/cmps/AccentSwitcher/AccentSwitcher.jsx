@@ -2,14 +2,17 @@ import { useState } from 'react'
 import {
     applyAccentHue, clearAccentHue, saveAccentHue, saveAccentShade, clearSavedAccentHue,
     loadAccentHue, loadAccentShade, accentPreview, DEFAULT_AURORA_HUE, DEFAULT_ACCENT_SHADE,
+    applyAuroraHue, saveAuroraHue,
 } from '../../services/themeService'
+import { queuePrefSync } from '../../services/preferences.service'
 import './AccentSwitcher.scss'
 
 // Accent picker on two knobs: hue (the colour, full wheel) and shade (depth —
 // drag left to deepen toward dark/rich, right to lighten). Recolors the whole
 // accent spectrum (accent family + glows + headings/wordmark) live as inline vars
-// on <html>, overriding the active theme/design accent. Until the user moves it,
-// no override is applied — "reset" returns to the theme/design default.
+// on <html>, overriding the active theme/design accent. The hue also drives the
+// global aurora wash (--aurora-hue), so the backdrop/header glow tracks the accent.
+// Until the user moves it, no override is applied — "reset" returns to the default.
 export function AccentSwitcher() {
     const savedHue = loadAccentHue()
     const [hue, setHue]       = useState(savedHue ?? DEFAULT_AURORA_HUE)
@@ -23,13 +26,22 @@ export function AccentSwitcher() {
         applyAccentHue(nextHue, nextShade)
         saveAccentHue(nextHue)
         saveAccentShade(nextShade)
+        // The hue also rotates the shared aurora wash so the backdrop glow matches.
+        applyAuroraHue(nextHue)
+        saveAuroraHue(nextHue)
+        queuePrefSync()
     }
 
     function reset() {
         setActive(false)
+        setHue(DEFAULT_AURORA_HUE)   // return the hue slider to the default position too
         setShade(DEFAULT_ACCENT_SHADE)
         clearAccentHue()
         clearSavedAccentHue()
+        // Restore the aurora wash to its brand default alongside the accent.
+        applyAuroraHue(DEFAULT_AURORA_HUE)
+        saveAuroraHue(DEFAULT_AURORA_HUE)
+        queuePrefSync()
     }
 
     // Shade track: this hue from deep → mid → light, so the gradient reflects the
