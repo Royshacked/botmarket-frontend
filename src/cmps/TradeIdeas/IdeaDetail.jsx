@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { TradingViewChart } from '../TradingViewChart/TradingViewChart.jsx'
-import { PositionsTable, posKey } from './PositionsTable.jsx'
+import { posKey } from './PositionsTable.jsx'
+import { PositionsCards } from './TradeIdeaCards.jsx'
 import { ClosePositionDialog } from './ClosePositionDialog.jsx'
 import { EditOrdersDialog } from './EditOrdersDialog.jsx'
 import { ConditionTreeView, isAllAnd } from './ConditionTree.jsx'
@@ -11,9 +12,9 @@ import { brokerSymbolLabel, deriveIdeaInterval, phaseTree, isSystemStatus } from
 // Rendered by both the floating dialog and the popped-out idea window so the two
 // stay visually identical.
 //
-// When `closePosition` is supplied the positions table is interactive — each row
+// When `closePosition` is supplied the position cards are interactive — each card
 // gets close / edit-orders controls (same as the Positions tab) and this body
-// renders the confirm + edit dialogs itself. Without it the table is read-only.
+// renders the confirm + edit dialogs itself. Without it the cards are read-only.
 export function IdeaDetail({ idea, positions = [], closePosition, onPositionsChanged }) {
     const interactive = typeof closePosition === 'function'
     const [pendingClose,  setPendingClose]  = useState(null)
@@ -111,7 +112,7 @@ export function IdeaDetail({ idea, positions = [], closePosition, onPositionsCha
             <div className="idea-dialog__positions">
                 <span className="idea-dialog__section-title">Positions</span>
                 {ideaPositions.length > 0 ? (
-                    <PositionsTable
+                    <PositionsCards
                         positions={ideaPositions}
                         closingId={interactive ? closingId : undefined}
                         onClose={interactive ? setPendingClose : undefined}
