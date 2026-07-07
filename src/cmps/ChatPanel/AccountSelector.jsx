@@ -28,7 +28,16 @@ export function AccountSelector({ accounts = [], selectedIds = [], onChange, mai
         return () => document.removeEventListener('mousedown', onMouseDown)
     }, [isOpen])
 
+    // Paper mode: a paper idea binds to exactly ONE account, so selection is single —
+    // clicking an account replaces the selection (and becomes main) rather than adding.
+    const paperMode = accounts.length > 0 && accounts.every(a => a.broker === 'paper')
+
     function toggle(id) {
+        if (paperMode) {
+            onChange([id])
+            if (onMainChange) onMainChange(id)
+            return
+        }
         const next = selectedIds.includes(id)
             ? selectedIds.filter(x => x !== id)
             : [...selectedIds, id]
@@ -43,9 +52,6 @@ export function AccountSelector({ accounts = [], selectedIds = [], onChange, mai
     }
 
     const count = selectedIds.length
-    // Paper mode: the hook isolates availableAccounts to the paper account when
-    // paper mode is on, so an all-paper list means "simulated target only".
-    const paperMode = accounts.length > 0 && accounts.every(a => a.broker === 'paper')
 
     return (
         <div className="acct-sel" ref={ref}>
@@ -82,14 +88,16 @@ export function AccountSelector({ accounts = [], selectedIds = [], onChange, mai
                                     className={`acct-sel__item${checked ? ' acct-sel__item--checked' : ''}${isMain ? ' acct-sel__item--main' : ''}`}
                                 >
                                     <input
-                                        type="checkbox"
+                                        type={paperMode ? 'radio' : 'checkbox'}
+                                        name={paperMode ? 'acct-sel-paper' : undefined}
                                         checked={checked}
                                         onChange={() => toggle(acct.id)}
                                     />
-                                    <span className="acct-sel__item-broker">{isPaper ? 'Paper' : acct.broker}</span>
+                                    <span className="acct-sel__item-broker">{isPaper ? (acct.name ?? 'Paper') : acct.broker}</span>
                                     {!isPaper && <span className="acct-sel__item-login">{acct.login}</span>}
                                     <span className={`acct-sel__item-type ${type}`}>{type}</span>
-                                    {checked && selectedIds.length > 1 && (
+                                    {/* Main-star only matters when scaling across several live accounts. */}
+                                    {!paperMode && checked && selectedIds.length > 1 && (
                                         <button
                                             className={`acct-sel__main-btn${isMain ? ' is-main' : ''}`}
                                             onClick={(e) => setMain(e, acct.id)}
@@ -104,7 +112,7 @@ export function AccountSelector({ accounts = [], selectedIds = [], onChange, mai
                         })
                     )}
                     {paperMode && (
-                        <div className="acct-sel__paper-note">Paper mode on — this idea simulates on your paper account.</div>
+                        <div className="acct-sel__paper-note">Paper mode — this idea simulates on the selected account (one per idea).</div>
                     )}
                     {selectedIds.length > 1 && !mainAccountId && (
                         <div className="acct-sel__main-hint">★ star an account to scale order quantities</div>

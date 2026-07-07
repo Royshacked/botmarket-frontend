@@ -9,11 +9,11 @@ import { useWindowEvent } from './useWindowEvent.js'
  * account; clearing the selection clears main. With several selected, the
  * existing main is left as-is (the user picks it explicitly).
  *
- * Paper mode is global: the backend only reports the paper account as connected
- * while paper mode is ON, and it routes EVERY new idea to that account regardless
- * of which live accounts were selected. So when a paper account is present we
- * treat it as the only valid target — isolate it in the selector and pre-select
- * it — instead of letting the user tick a live account that would be ignored.
+ * Paper mode is the workspace switch: the backend reports paper as connected while
+ * paper mode is ON and returns the user's NAMED paper accounts. A paper idea binds to
+ * exactly ONE account, so in paper mode we isolate the selector to the paper accounts
+ * and keep a SINGLE one selected (the prior pick if still valid, else the first) —
+ * the user picks which named account this idea simulates on.
  *
  * @returns {{
  *   availableAccounts: import('../types.js').Account[],
@@ -47,11 +47,15 @@ export function useBrokerAccounts() {
 
             const paper = all.filter(a => a.broker === 'paper')
             if (paper.length) {
-                // Paper mode on → the paper account is the sole target; isolate + auto-select.
+                // Paper workspace → isolate to the paper accounts; keep ONE selected
+                // (one account per paper idea): the prior pick if it still exists, else
+                // the first. main follows the single selection via the effect below.
                 setIsPaper(true)
                 setAvailableAccounts(paper)
-                setSelectedAccounts(paper.map(a => a.id))
-                setMainAccountId(paper[0].id)
+                setSelectedAccounts(prev => {
+                    const kept = prev.find(id => paper.some(a => a.id === id))
+                    return [kept ?? paper[0].id]
+                })
             } else {
                 setIsPaper(false)
                 setAvailableAccounts(all)
@@ -71,14 +75,15 @@ export function useBrokerAccounts() {
     useWindowEvent('paper-mode-changed', refreshAccounts)
 
     useEffect(() => {
-        if (isPaper) return   // paper selection is managed by refreshAccounts
+        // A single selection (always the case in paper mode) is the main account; an
+        // empty selection clears it. With several live accounts selected, the user
+        // stars the main explicitly, so leave it as-is.
         if (selectedAccounts.length === 1) {
             setMainAccountId(selectedAccounts[0])
         } else if (selectedAccounts.length === 0) {
             setMainAccountId(null)
         }
-        // length > 1: keep existing main as-is
-    }, [selectedAccounts, isPaper])
+    }, [selectedAccounts])
 
     return {
         availableAccounts,
