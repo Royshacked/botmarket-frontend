@@ -598,6 +598,10 @@ export function MainPage() {
         setIsInvalidationReview(invalidationReview)
         setSelectedAccounts(Array.isArray(idea.accounts) ? idea.accounts : [])
         setMainAccountId(idea.mainAccountId ?? null)
+        // Editing an idea from a list (ideas list / mobile monitor / invalidation alert)
+        // opens the Idea chat — otherwise the restored state stays hidden behind the Axl
+        // hub or another agent's panel.
+        setActiveTab('idea')
     }
 
     // Keep refs so the invalidation-alert handlers always see the latest ideas /
@@ -711,9 +715,9 @@ export function MainPage() {
 
     async function handleGenerate() {
         if (!buildingIdea) {
-            // Nothing to save — if we're editing, just leave edit mode so the
-            // user is never stuck (the Update button doubles as "exit edit").
-            if (editingIdeaId) handleCancelBuild()
+            // Nothing to save — if we're editing, leave edit mode and head home to axl
+            // so the user is never stuck (the Update button doubles as "exit edit").
+            if (editingIdeaId) handleBackToAxl()
             return
         }
         // Strip `immediate` here: "Update idea"/"Generate idea" builds a *monitored*
@@ -747,6 +751,7 @@ export function MainPage() {
                 setChartSymbol(DEFAULT_CHART_SYMBOL)
                 setChartInterval(DEFAULT_CHART_INTERVAL)
                 latestMessagesRef.current = []
+                handleBackToAxl()   // idea saved — return to the axl hub
             } catch (err) {
                 console.error('[tradeIdeas] edit update failed', err)
             }
@@ -770,6 +775,7 @@ export function MainPage() {
                 setChartSymbol(DEFAULT_CHART_SYMBOL)
                 setChartInterval(DEFAULT_CHART_INTERVAL)
                 latestMessagesRef.current = []
+                handleBackToAxl()   // idea generated — return to the axl hub
             } catch (err) {
                 console.error('[tradeIdeas] create failed', err)
             }

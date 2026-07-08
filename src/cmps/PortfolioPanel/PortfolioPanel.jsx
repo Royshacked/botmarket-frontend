@@ -422,14 +422,12 @@ export function PortfolioPanel({
         const portfolioId = editingPortfolioId
         if (portfolioId) {
             if (onUpdatePlan) onUpdatePlan(planReady ? pendingPlan : null, portfolioId, messages)
-            const wasReview = isReviewMode
             if (isReviewMode) await _completeReview(portfolioId)
             setEditingPortfolioId(null)
             setEditingPortfolioIdeas([])
             setEditDirty(false)
             setIsReviewMode(false)
             setDismissConfirm(false)
-            if (wasReview) onReviewResolved?.()
         } else {
             if (!planReady) return
             if (onGeneratePlan) onGeneratePlan(pendingPlan, messages, latestMandateRef.current, latestThesisRef.current, threadIdRef.current)
@@ -437,6 +435,9 @@ export function PortfolioPanel({
         setPendingPlan(null); setMessages([]); setInputText('')
         latestMandateRef.current = null
         threadIdRef.current = newThreadId()   // next construction chat gets a fresh draft thread
+        // Generating/updating a plan (like resolving a review) hands the chat back to
+        // the axl hub — onReviewResolved is MainPage's "return to axl" transition.
+        onReviewResolved?.()
     }
 
     // Review-only: no plan changes, just acknowledge the review and reset the clock.
