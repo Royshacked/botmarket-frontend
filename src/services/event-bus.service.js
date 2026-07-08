@@ -2,6 +2,9 @@ export const SHOW_MSG                 = 'show-msg'
 export const INVALIDATION_EDIT_IDEA   = 'invalidation-edit-idea'
 export const INVALIDATION_CLOSE_TRADE = 'invalidation-close-trade'
 export const PORTFOLIO_REVIEW         = 'portfolio-review'
+// A portfolio review was resolved (dismissed or accepted) → the portfolio list refetches
+// its due-review set so the red edit-pencil clears immediately.
+export const REVIEW_RESOLVED          = 'review-resolved'
 // Manual (broker-less) fill confirmed from a social-chat FillCard → carries the updated
 // idea so the app patches its ideas list + refreshes positions.
 export const MANUAL_FILLED            = 'manual-filled'

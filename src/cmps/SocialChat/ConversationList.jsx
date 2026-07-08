@@ -3,8 +3,25 @@ import PropTypes from 'prop-types'
 import { chatService } from '../../services/chat/chat.service'
 import { AxlBotGlyph } from '../AxlHub/AgentSummon'
 import { useDesign } from '../../customHooks/useDesign.js'
+import { AGENTS, BOT_IDS, isBotId } from '../AxlHub/agentMeta.jsx'
 
-const BOT_ID = 'axl'
+// The agent behind a conversation, or null for a human DM. Drives the brand name,
+// tinted avatar and the "AGENT" chip.
+function botMetaFor(otherId) {
+    return isBotId(otherId) ? AGENTS[otherId] : null
+}
+
+// Small tinted agent sigil for the conversation avatar (Axl keeps its dedicated glyph).
+function BotAvatarGlyph({ agentKey }) {
+    if (agentKey === 'axl') return <AxlBotGlyph />
+    const meta = AGENTS[agentKey]
+    if (!meta) return null
+    return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            {meta.icon}
+        </svg>
+    )
+}
 
 function timeAgo(ms) {
     if (!ms) return ''
@@ -40,12 +57,20 @@ export function ConversationList({ conversations, activeId, currentUserId, onSel
         } catch { /* ignore */ }
     }
 
-    // Sort: bot pinned first, then by lastMessageAt desc
+    // Sort: bots pinned above people. Within the bot group, order by the fixed agent
+    // order (Axl first) so the pinned feeds stay put; people sort by recency.
+    const botRank = (conv) => {
+        const id = conv.participants.find(isBotId)
+        return id ? BOT_IDS.indexOf(id) : -1
+    }
     const sorted = [...conversations].sort((a, b) => {
-        const aBot = a.participants.includes(BOT_ID)
-        const bBot = b.participants.includes(BOT_ID)
-        if (aBot && !bBot) return -1
-        if (!aBot && bBot) return 1
+        const aRank = botRank(a)
+        const bRank = botRank(b)
+        const aBot  = aRank !== -1
+        const bBot  = bRank !== -1
+        if (aBot && bBot) return aRank - bRank
+        if (aBot) return -1
+        if (bBot) return 1
         return (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0)
     })
 
@@ -75,8 +100,9 @@ export function ConversationList({ conversations, activeId, currentUserId, onSel
                 <div className="social-chat__conv-scroll">
                     {sorted.map(conv => {
                         const otherId = conv.participants.find(p => p !== currentUserId) ?? ''
-                        const isBot   = otherId === BOT_ID
-                        const name    = isBot ? 'axl' : (conv.otherName ?? conv.otherUsername ?? otherId)
+                        const botMeta = botMetaFor(otherId)
+                        const isBot   = !!botMeta
+                        const name    = isBot ? botMeta.brand : (conv.otherName ?? conv.otherUsername ?? otherId)
                         const active  = conv.id === activeId
 
                         return (
@@ -85,8 +111,8 @@ export function ConversationList({ conversations, activeId, currentUserId, onSel
                                 className={'social-chat__conv-item' + (active ? ' social-chat__conv-item--active' : '')}
                                 onClick={() => onSelect(conv)}
                             >
-                                <div className={'social-chat__conv-avatar' + (isBot ? ' social-chat__conv-avatar--bot' : '')}>
-                                    {isBot ? <AxlBotGlyph /> : name[0]?.toUpperCase()}
+                                <div className={'social-chat__conv-avatar' + (isBot ? ' social-chat__conv-avatar--bot' : '') + (isBot && otherId !== 'axl' ? ` social-chat__conv-avatar--${botMeta.hue}` : '')}>
+                                    {isBot ? <BotAvatarGlyph agentKey={otherId} /> : name[0]?.toUpperCase()}
                                 </div>
                                 <div className="social-chat__conv-meta">
                                     <div className="social-chat__conv-name">

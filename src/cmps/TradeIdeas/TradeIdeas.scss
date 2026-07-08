@@ -402,6 +402,13 @@
             animation: status-pulse 1.3s ease-in-out infinite;
             &:hover { color: #ff6b6b; }
         }
+
+        // Portfolio review due — the pencil turns red so the row signals a pending
+        // review; clicking it opens the Atlas chat in review mode.
+        &--due {
+            color: #ef5350;
+            &:hover { color: #ff6b6b; }
+        }
     }
 
     &__delete {
@@ -1060,6 +1067,11 @@ $sym-status-colors: (
         &--alert {
             color: #ef5350;
             animation: status-pulse 1.3s ease-in-out infinite;
+            &:hover { color: #ff6b6b; }
+        }
+        // Portfolio review due — red pencil that opens review mode.
+        &--due {
+            color: #ef5350;
             &:hover { color: #ff6b6b; }
         }
     }

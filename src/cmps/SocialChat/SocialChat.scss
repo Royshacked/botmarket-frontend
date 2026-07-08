@@ -603,11 +603,51 @@
         color: #34d399;
     }
 
+    &__portfolio-review-scope {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 14px 6px;
+        font-size: 0.72rem;
+        color: var(--text-muted);
+    }
+
+    &__portfolio-review-mode {
+        padding: 1px 7px;
+        border-radius: 999px;
+        font-size: 0.66rem;
+        font-weight: 600;
+        letter-spacing: .02em;
+        text-transform: uppercase;
+        border: 1px solid currentColor;
+        // Live = Atlas green, paper = amber, manual = blue — matches the workspace badges.
+        &--live   { color: #34d399; }
+        &--paper  { color: #fbbf24; }
+        &--manual { color: #60a5fa; }
+    }
+
+    &__portfolio-review-account {
+        color: var(--text-secondary, var(--text-muted));
+    }
+
     &__portfolio-review-meta {
         padding: 0 14px 10px;
         font-size: 0.73rem;
         color: var(--text-muted);
         line-height: 1.4;
+    }
+
+    // Resolved (dismissed / updated) review card — muted, no action.
+    &__portfolio-review--resolved {
+        opacity: 0.72;
+        border-left-color: var(--text-muted, #7C8A82);
+    }
+
+    &__portfolio-review-done {
+        padding: 0 14px 10px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: #34d399;
     }
 
     &__portfolio-review-btn {
@@ -707,12 +747,30 @@
         color: #55D989;
     }
 
-    // Bot token → mint rounded square
+    // Bot token → rounded square, tinted per agent hue (Axl mint, Idea cyan,
+    // Atlas green, Argus violet).
     &__conv-avatar--bot {
         border-radius: 9px;
         background: rgba(120, 233, 173, .10);
         border: 1px solid #24352C;
         color: #78E9AD;
+
+        &.social-chat__conv-avatar--cyan   { color: #22d3ee; }
+        &.social-chat__conv-avatar--green  { color: #34d399; }
+        &.social-chat__conv-avatar--violet { color: #a78bfa; }
+    }
+
+    // Notify-only footer for specialist bot threads (in place of the composer).
+    &__notify-only {
+        margin: 8px 8px 12px;
+        padding: 9px 12px;
+        font-size: .72rem;
+        line-height: 1.4;
+        color: #7C8A82;
+        text-align: center;
+        background: #0F1512;
+        border: 1px solid #1E2A23;
+        border-radius: 10px;
     }
 
     &__agent-chip {

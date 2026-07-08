@@ -961,9 +961,11 @@ export function MainPage() {
         setSelectedAccounts(seedAccounts)
         setMainAccountId(portfolioIdeas.find(i => i.mainAccountId)?.mainAccountId ?? null)
 
-        // Editing the plan de-activates it: move every idea back to 'waiting'
-        // until the user re-activates via the plan row's status toggle.
-        const toReset = portfolioIdeas.filter(i => i.status !== 'waiting')
+        // Editing the plan de-activates it: move every idea back to 'waiting' until the
+        // user re-activates. A scheduled REVIEW must NOT do this — a live book stays live
+        // and monitored while reviewed; only accepted changes touch positions. (Pre-
+        // activation books are already 'waiting', so review is a no-op here either way.)
+        const toReset = reviewMode ? [] : portfolioIdeas.filter(i => i.status !== 'waiting')
         if (toReset.length > 0) {
             setIdeas(prev => prev.map(i => i.portfolioId === portfolioId ? { ...i, status: 'waiting' } : i))
             Promise.all(toReset.map(i => tradeIdeasService.updateIdea(i.id, { status: 'waiting' })))
@@ -976,7 +978,9 @@ export function MainPage() {
                 key: Date.now(),
                 messages:      chatState?.messages ?? [],
                 portfolioId,
-                portfolioIdeas: portfolioIdeas.map(i => ({ ...i, status: 'waiting' })),
+                // Review keeps real statuses (so accept can tell in-position from pending);
+                // construction edit resets to 'waiting'.
+                portfolioIdeas: portfolioIdeas.map(i => reviewMode ? i : ({ ...i, status: 'waiting' })),
                 thesis:        chatState?.thesis ?? null,
                 reviewMode,
             })
@@ -1085,6 +1089,25 @@ export function MainPage() {
             setApplyingRebalance(false)
             setPendingRebalance(null)
         }
+    }
+
+    // Accept an Atlas review proposal from the inline review bar. Executes server-side
+    // (routed by mode/position: paper/live close, manual posts a Fill card, pending books
+    // apply idea edits), then refreshes ideas. Returns false on failure so the panel keeps
+    // the proposal for a retry. A pending (not-yet-activated) book gets an activate nudge.
+    async function handleAcceptReview(portfolioId, update, { pending } = {}) {
+        try {
+            await portfolioService.applyRebalance(portfolioId, update)
+        } catch (err) {
+            console.error('[portfolio] accept review failed', err)
+            showErrorMsg('Could not apply the changes — try again.')
+            return false
+        }
+        await loadIdeas()
+        showSuccessMsg(pending
+            ? 'Changes applied — activate the book from your portfolio list when ready.'
+            : 'Changes applied.')
+        return true
     }
 
     function handleTickerSelect(ticker) {
@@ -1328,6 +1351,8 @@ export function MainPage() {
                                 onPortfolioUpdate={handlePortfolioUpdate}
                                 onBuildingPlanChange={setBuildingPortfolio}
                                 onLoadingChange={setPortfolioLoading}
+                                onReviewResolved={handleBackToAxl}
+                                onAcceptReview={handleAcceptReview}
                                 chatRestore={portfolioChatRestore}
                                 availableAccounts={availableAccounts}
                                 selectedAccounts={selectedAccounts}

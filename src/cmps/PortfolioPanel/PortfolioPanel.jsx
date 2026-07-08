@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { portfolioService } from '../../services/portfolio/portfolio.service.remote.js'
 import { threadsService }   from '../../services/threads/threads.service.remote.js'
-import { showErrorMsg } from '../../services/event-bus.service'
+import { showErrorMsg, eventBus, REVIEW_RESOLVED } from '../../services/event-bus.service'
 import { ChatMarkdown } from '../ChatMarkdown.jsx'
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
@@ -19,6 +19,10 @@ import { ChatReasoning } from '../ChatReasoning.jsx'
 import './PortfolioPanel.scss'
 
 const PHASE_LABELS = { 1: 'Mandate', 2: 'Macro', 3: 'Architecture', 4: 'Selection', 5: 'Sizing', 6: 'Review' }
+
+// The canned turn the "Review" button sends to trigger Atlas's phase-6 review pass. Atlas
+// then confirms "hold as-is" or emits a <portfolio_update> the user accepts/dismisses.
+const REVIEW_REQUEST = "Run my scheduled portfolio review now: assess performance and each holding against our thesis and mandate, then either confirm we hold as-is or propose specific changes (rebalance, trim, add, exit, or swap)."
 
 function TickerChip({ symbol, onSelect }) {
     return (
@@ -78,6 +82,8 @@ export function PortfolioPanel({
     onPortfolioUpdate,
     onBuildingPlanChange,
     onLoadingChange,
+    onReviewResolved,
+    onAcceptReview,
     chatRestore       = null,
     availableAccounts = [],
     selectedAccounts  = [],
@@ -96,6 +102,9 @@ export function PortfolioPanel({
     const [editDirty,             setEditDirty]             = useState(false)
     const [isReviewMode,          setIsReviewMode]          = useState(false)
     const [dismissConfirm,        setDismissConfirm]        = useState(false)
+    const [reviewUpdate,          setReviewUpdate]          = useState(null)   // { update, thesis } Atlas proposed
+    const [reviewRan,             setReviewRan]             = useState(false)  // a review pass has completed
+    const [accepting,             setAccepting]             = useState(false)
     const [portfolioThesis, setPortfolioThesis] = useState(null)
     const [thesisOpen, setThesisOpen] = useState(true)
 
@@ -109,6 +118,10 @@ export function PortfolioPanel({
         setEditingPortfolioId(chatRestore.portfolioId ?? null)
         setEditingPortfolioIdeas(chatRestore.portfolioIdeas ?? [])
         setIsReviewMode(chatRestore.reviewMode ?? false)
+        setReviewUpdate(null)
+        setReviewRan(false)
+        setAccepting(false)
+        reviewTriggeredRef.current = false
         setPortfolioThesis(chatRestore.thesis ?? null)
         latestThesisRef.current = chatRestore.thesis ?? null
         // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only when a new restore is pushed (keyed by .key)
@@ -157,6 +170,7 @@ export function PortfolioPanel({
     const latestThesisRef   = useRef(null)
     const textareaRef       = useRef(null)
     const threadIdRef       = useRef(newThreadId())   // construction draft thread
+    const reviewTriggeredRef = useRef(false)          // the "Review" button fired this turn
 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- _send is a stable closure for this purpose
     const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
@@ -198,7 +212,19 @@ export function PortfolioPanel({
                 // Pass any thesis emitted in THIS same turn so a confirmed review
                 // rebalance persists it (reason 'accepted-rebalance'). Only the
                 // same-turn proposal is attached — never the restored existing thesis.
-                if (data.update?.changes?.length && onPortfolioUpdate) onPortfolioUpdate(data.update, isReviewMode, data.thesis ?? null)
+                if (data.update?.changes?.length) {
+                    // Review mode: surface an inline Accept/Dismiss on the proposal.
+                    // Construction/edit: hand off to the existing apply path.
+                    if (isReviewMode) setReviewUpdate({ update: data.update, thesis: data.thesis ?? null })
+                    else if (onPortfolioUpdate) onPortfolioUpdate(data.update, false, data.thesis ?? null)
+                }
+                // The review pass finished → show Accept/Dismiss/Later. Fires when the
+                // Review button ran (even on a hold) OR any turn produced a proposal, so a
+                // manually-typed review that yields changes still surfaces Accept.
+                if (isReviewMode && (reviewTriggeredRef.current || data.update?.changes?.length)) {
+                    setReviewRan(true)
+                    reviewTriggeredRef.current = false
+                }
             },
         })
 
@@ -254,7 +280,19 @@ export function PortfolioPanel({
                 if (data.thesis) { latestThesisRef.current = data.thesis; setPortfolioThesis(data.thesis) }
                 chat.finishStreaming({ role: 'assistant', content: base + data.reply, tickers })
                 if (data.plan?.ideas?.length) setPendingPlan(data.plan)
-                if (data.update?.changes?.length && onPortfolioUpdate) onPortfolioUpdate(data.update, isReviewMode, data.thesis ?? null)
+                if (data.update?.changes?.length) {
+                    // Review mode: surface an inline Accept/Dismiss on the proposal.
+                    // Construction/edit: hand off to the existing apply path.
+                    if (isReviewMode) setReviewUpdate({ update: data.update, thesis: data.thesis ?? null })
+                    else if (onPortfolioUpdate) onPortfolioUpdate(data.update, false, data.thesis ?? null)
+                }
+                // The review pass finished → show Accept/Dismiss/Later. Fires when the
+                // Review button ran (even on a hold) OR any turn produced a proposal, so a
+                // manually-typed review that yields changes still surfaces Accept.
+                if (isReviewMode && (reviewTriggeredRef.current || data.update?.changes?.length)) {
+                    setReviewRan(true)
+                    reviewTriggeredRef.current = false
+                }
             },
         })
         if (!cont) return   // nothing continuable
@@ -285,6 +323,47 @@ export function PortfolioPanel({
         const text = inputText.trim()
         setInputText('')
         _send(text)
+    }
+
+    // "Review" button: fire Atlas's review pass. Its proposal (if any) lands in
+    // reviewUpdate (→ inline Accept/Dismiss).
+    function handleRunReview() {
+        if (isLoading) return
+        setReviewUpdate(null)
+        setReviewRan(false)
+        reviewTriggeredRef.current = true
+        _send(REVIEW_REQUEST)
+    }
+
+    // "Accept changes": apply Atlas's proposed rebalance. The backend routes execution by
+    // mode/position (paper/live close programmatically; manual posts a Fill card; pending
+    // books just apply idea edits) and advances the review clock, flipping the Atlas card
+    // to "Updated · next review <date>". Then returns to the Axl window.
+    async function handleAcceptReview() {
+        if (accepting) return
+        const portfolioId = editingPortfolioId
+        setAccepting(true)
+        if (reviewUpdate) {
+            // Atlas proposed changes → apply them (backend routes by mode/position).
+            const { update, thesis } = reviewUpdate
+            const pending = !(editingPortfolioIdeas ?? []).some(i => ['hit', 'long', 'short'].includes(i.status))
+            const ok = await onAcceptReview?.(portfolioId, thesis ? { ...update, thesis } : update, { pending })
+            if (ok === false) { setAccepting(false); return }   // apply failed — keep the proposal to retry
+        } else {
+            // Atlas held (no changes) → accept the hold: complete the review, card = "Reviewed".
+            await _completeReview(portfolioId, 'reviewed')
+        }
+        setAccepting(false)
+        setReviewUpdate(null)
+        setReviewRan(false)
+        setEditingPortfolioId(null)
+        setEditingPortfolioIdeas([])
+        setEditDirty(false)
+        setIsReviewMode(false)
+        setDismissConfirm(false)
+        setPendingPlan(null); setMessages([]); setInputText('')
+        eventBus.emit(REVIEW_RESOLVED, { portfolioId })   // clear the red pencil
+        onReviewResolved?.()
     }
 
     function handleClear() {
@@ -322,11 +401,17 @@ export function PortfolioPanel({
         setEditDirty(false)
         setIsReviewMode(false)
         setDismissConfirm(false)
+        setReviewUpdate(null)
+        setReviewRan(false)
+        reviewTriggeredRef.current = false
     }
 
-    async function _completeReview(portfolioId) {
+    // outcome flips the Atlas card: 'dismissed' (skipped) or 'reviewed' (accepted a hold).
+    async function _completeReview(portfolioId, outcome = 'dismissed') {
         try {
-            await portfolioService.completeReview(portfolioId)
+            await portfolioService.completeReview(portfolioId, undefined, outcome)
+            // The review is no longer due → clear the red pencil on the portfolio list.
+            eventBus.emit(REVIEW_RESOLVED, { portfolioId })
         } catch (err) {
             console.error('[portfolio] completeReview failed', err)
             showErrorMsg('Could not reset review clock — try again later.')
@@ -337,12 +422,14 @@ export function PortfolioPanel({
         const portfolioId = editingPortfolioId
         if (portfolioId) {
             if (onUpdatePlan) onUpdatePlan(planReady ? pendingPlan : null, portfolioId, messages)
+            const wasReview = isReviewMode
             if (isReviewMode) await _completeReview(portfolioId)
             setEditingPortfolioId(null)
             setEditingPortfolioIdeas([])
             setEditDirty(false)
             setIsReviewMode(false)
             setDismissConfirm(false)
+            if (wasReview) onReviewResolved?.()
         } else {
             if (!planReady) return
             if (onGeneratePlan) onGeneratePlan(pendingPlan, messages, latestMandateRef.current, latestThesisRef.current, threadIdRef.current)
@@ -353,6 +440,8 @@ export function PortfolioPanel({
     }
 
     // Review-only: no plan changes, just acknowledge the review and reset the clock.
+    // Advances nextReviewAt (+cadence); the backend flips the Atlas notification card to
+    // "Dismissed · next review <date>". onReviewResolved returns the chat to the Axl window.
     async function handleDismissReview() {
         const portfolioId = editingPortfolioId
         if (onUpdatePlan) onUpdatePlan(null, portfolioId, messages)
@@ -362,7 +451,10 @@ export function PortfolioPanel({
         setEditDirty(false)
         setIsReviewMode(false)
         setDismissConfirm(false)
+        setReviewUpdate(null)
+        setReviewRan(false)
         setPendingPlan(null); setMessages([]); setInputText('')
+        onReviewResolved?.()
     }
 
     function handleKeyDown(e) {
@@ -459,7 +551,7 @@ export function PortfolioPanel({
                 <div className="portfolio-panel__action-bubble">
                     {dismissConfirm ? (
                         <div className="portfolio-panel__dismiss-confirm">
-                            <span>No changes needed — reset the review clock?</span>
+                            <span>Dismiss this review? The next review will be in a week.</span>
                             <div className="portfolio-panel__dismiss-confirm-btns">
                                 <button
                                     className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss"
@@ -471,18 +563,28 @@ export function PortfolioPanel({
                                 >Cancel</button>
                             </div>
                         </div>
+                    ) : isReviewMode && reviewRan ? (
+                        <>
+                            <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={handleAcceptReview} disabled={accepting}>
+                                {accepting ? 'Applying…' : reviewUpdate ? 'Accept changes' : 'Accept'}
+                            </button>
+                            <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" onClick={() => setDismissConfirm(true)} disabled={accepting}>
+                                Dismiss
+                            </button>
+                            <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={handleCancelEdit} disabled={accepting}>
+                                I&apos;ll do it later
+                            </button>
+                        </>
                     ) : isReviewMode ? (
                         <>
-                            {planReady && (
-                                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={handleGenerate}>
-                                    Update plan
-                                </button>
-                            )}
-                            <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" onClick={() => setDismissConfirm(true)}>
-                                Dismiss
+                            <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={handleRunReview} disabled={isLoading}>
+                                Review
                             </button>
                             <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={handleCancelEdit}>
                                 I&apos;ll do it later
+                            </button>
+                            <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" onClick={() => setDismissConfirm(true)}>
+                                Dismiss
                             </button>
                         </>
                     ) : showChangedMind ? (
@@ -536,6 +638,8 @@ PortfolioPanel.propTypes = {
     onPortfolioUpdate:   PropTypes.func,
     onBuildingPlanChange: PropTypes.func,
     onLoadingChange:     PropTypes.func,
+    onReviewResolved:    PropTypes.func,
+    onAcceptReview:      PropTypes.func,
     chatRestore:         PropTypes.object,
     availableAccounts:   PropTypes.array,
     selectedAccounts:    PropTypes.arrayOf(PropTypes.string),

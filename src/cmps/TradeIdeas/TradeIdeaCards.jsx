@@ -342,7 +342,7 @@ PnlPill.propTypes = { pnl: PropTypes.object }
 
 // ── Portfolio card (Portfolios tab), expandable to per-idea child cards ────────
 
-export function PortfolioCard({ group, expanded, onToggle, onEdit, onDelete, onDeletePortfolio, onStatusChange, onOpen, onSymbolClick, positions = [] }) {
+export function PortfolioCard({ group, expanded, onToggle, onEdit, onDelete, onDeletePortfolio, onStatusChange, onOpen, onSymbolClick, positions = [], isReviewDue = false }) {
     const [showActivatePrompt, setShowActivatePrompt] = useState(false)
     const allWaiting = group.ideas.length > 0 && group.ideas.every(i => i.status === 'waiting')
     const isManual   = group.ideas.length > 0 && group.ideas.every(isManualIdea)
@@ -416,9 +416,9 @@ export function PortfolioCard({ group, expanded, onToggle, onEdit, onDelete, onD
                         </button>
                     )}
                     <button
-                        className="idea-card__edit-btn"
-                        onClick={e => { e.stopPropagation(); onEdit(group.portfolioId) }}
-                        title="Edit portfolio in chat"
+                        className={`idea-card__edit-btn${isReviewDue ? ' idea-card__edit-btn--due' : ''}`}
+                        onClick={e => { e.stopPropagation(); onEdit(group.portfolioId, isReviewDue ? { reviewMode: true } : undefined) }}
+                        title={isReviewDue ? 'Review due — open review in chat' : 'Edit portfolio in chat'}
                     ><EditIcon /></button>
                     <button
                         className="idea-card__delete"

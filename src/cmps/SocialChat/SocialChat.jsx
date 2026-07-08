@@ -7,6 +7,7 @@ import { ChatWindow }       from './ChatWindow'
 import { readStoredModel }       from '../modelOptions'
 import { readStoredReasoning }   from '../reasoningOptions'
 import { readStoredRoutingMode } from '../routingModeOptions'
+import { isBotId, CONVERSATIONAL_BOT_ID } from '../AxlHub/agentMeta.jsx'
 import './SocialChat.scss'
 
 // The one shared AI-mode the user sets in their profile is mirrored to every
@@ -20,8 +21,7 @@ function readAiPref() {
     }
 }
 
-const PAGE   = 50
-const BOT_ID = 'axl'
+const PAGE = 50
 
 export function SocialChat({ currentUserId, onUnreadChange, onClose }) {
     const [conversations, setConversations] = useState([])
@@ -44,9 +44,9 @@ export function SocialChat({ currentUserId, onUnreadChange, onClose }) {
     const loadConversations = useCallback(async () => {
         try {
             const convs = await chatService.getConversations()
-            const bot  = convs.filter(c => c.participants.includes(BOT_ID))
-            const rest = convs.filter(c => !c.participants.includes(BOT_ID))
-            setConversations([...bot, ...rest])
+            const bots = convs.filter(c => c.participants.some(isBotId))
+            const rest = convs.filter(c => !c.participants.some(isBotId))
+            setConversations([...bots, ...rest])
             onUnreadChange?.(convs.reduce((s, c) => s + (c.unread ?? 0), 0))
         } catch (err) {
             console.error('[SocialChat] loadConversations failed', err)
@@ -116,8 +116,10 @@ export function SocialChat({ currentUserId, onUnreadChange, onClose }) {
 
     async function handleSend(content) {
         if (!activeConv) return
-        const toBot   = activeConv.participants.includes(BOT_ID)
-        const msg = await chatService.sendMessage(activeConv.id, content, toBot ? readAiPref() : null)
+        // Only the Axl thread is conversational (it generates a reply), so it's the only
+        // one that needs the AI-mode pref. Specialist bots are notify-only feeds.
+        const toAxl = activeConv.participants.includes(CONVERSATIONAL_BOT_ID)
+        const msg = await chatService.sendMessage(activeConv.id, content, toAxl ? readAiPref() : null)
         setMessages(prev => [...prev, msg])
         setConversations(prev => prev.map(c =>
             c.id === activeConv.id

@@ -4,7 +4,16 @@ import { postSSE, buildStreamHandlers } from '../sse.util'
 
 const BASE = 'api/portfolio'
 
-export const portfolioService = { sendStream, saveChatState, getChatState, deleteChatState, completeReview, applyRebalance }
+export const portfolioService = { sendStream, saveChatState, getChatState, deleteChatState, completeReview, applyRebalance, getPendingReviews }
+
+// Portfolios whose review is due now (nextReviewAt <= now), scoped to the user. Drives the
+// red edit-pencil on the portfolio list. Returns [] on failure (pencils just stay normal).
+async function getPendingReviews() {
+    try {
+        const data = await httpService.get(`${BASE}/pending-reviews`)
+        return data.reviews ?? []
+    } catch { return [] }
+}
 
 async function saveChatState(portfolioId, messages, mandate = null, thesis = null, threadId = null, portfolioName = null) {
     return httpService.post(`${BASE}/chat-state`, {
@@ -30,8 +39,8 @@ async function deleteChatState(portfolioId) {
     return httpService.delete(`${BASE}/chat-state/${encodeURIComponent(portfolioId)}`)
 }
 
-async function completeReview(portfolioId, reviewCadence) {
-    return httpService.post(`${BASE}/${encodeURIComponent(portfolioId)}/complete-review`, { reviewCadence })
+async function completeReview(portfolioId, reviewCadence, outcome) {
+    return httpService.post(`${BASE}/${encodeURIComponent(portfolioId)}/complete-review`, { reviewCadence, outcome })
 }
 
 async function sendStream(messages, ideaAccounts = [], opts = {}) {

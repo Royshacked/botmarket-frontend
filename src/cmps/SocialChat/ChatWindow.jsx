@@ -4,7 +4,7 @@ import { eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_R
 import { manualService } from '../../services/manual/manual.service.remote'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
-import { AGENTS } from '../AxlHub/agentMeta.jsx'
+import { AGENTS, isBotId, CONVERSATIONAL_BOT_ID } from '../AxlHub/agentMeta.jsx'
 
 // Compact "from <agent>" attribution chip for notification cards: the agent's
 // sigil + brand, tinted by its hue. Makes a card read as coming from Idea / Atlas
@@ -60,6 +60,12 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
         )
     }
 
+    // Specialist bot threads (Idea/Atlas/Argus) are notify-only feeds — you reply and edit
+    // in that agent's own chat via the card, not here. Only Axl and human DMs are chattable.
+    const otherId    = conversation.participants.find(p => p !== currentUserId) ?? ''
+    const notifyBot  = isBotId(otherId) && otherId !== CONVERSATIONAL_BOT_ID
+    const notifyName = notifyBot ? (AGENTS[otherId]?.brand ?? 'this agent') : null
+
     return (
         <div className="social-chat__window">
             <div className="social-chat__messages">
@@ -91,22 +97,28 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                 <div ref={bottomRef} />
             </div>
 
-            <ChatInputRow
-                prefix="social-chat"
-                textareaRef={textareaRef}
-                value={draft}
-                onChange={e => setDraft(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Type a message…"
-                onSend={handleSend}
-                sendDisabled={!draft.trim() || sending}
-                onToggleMic={toggleMic}
-                onCancelMic={cancelMic}
-                isRecording={isRecording}
-                isTranscribing={isTranscribing}
-                micDisabled={sending || isTranscribing}
-                textareaDisabled={sending || isRecording}
-            />
+            {notifyBot ? (
+                <div className="social-chat__notify-only">
+                    Notifications from {notifyName}. Open a card to continue in {notifyName}&apos;s chat.
+                </div>
+            ) : (
+                <ChatInputRow
+                    prefix="social-chat"
+                    textareaRef={textareaRef}
+                    value={draft}
+                    onChange={e => setDraft(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Type a message…"
+                    onSend={handleSend}
+                    sendDisabled={!draft.trim() || sending}
+                    onToggleMic={toggleMic}
+                    onCancelMic={cancelMic}
+                    isRecording={isRecording}
+                    isTranscribing={isTranscribing}
+                    micDisabled={sending || isTranscribing}
+                    textareaDisabled={sending || isRecording}
+                />
+            )}
         </div>
     )
 }
@@ -169,26 +181,51 @@ function InvalidationAlertBubble({ msg, onClose, onDismiss }) {
 }
 
 function PortfolioReviewBubble({ msg, onClose }) {
-    const { portfolioId, portfolioName, lastReviewAt } = msg.payload
-    const lastReview = lastReviewAt
-        ? new Date(lastReviewAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
-        : 'never'
+    const { portfolioId, portfolioName, mode, account, lastReviewAt, resolved, outcome, nextReviewAt } = msg.payload
+    const fmtDate = (ms) => new Date(ms).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
+    const lastReview = lastReviewAt ? fmtDate(lastReviewAt) : 'never'
+    const modeLabel = mode ? mode.charAt(0).toUpperCase() + mode.slice(1) : null
 
     function handleReview() {
         eventBus.emit(PORTFOLIO_REVIEW, { portfolioId, reviewMode: true })
         onClose?.()
     }
 
+    // Once the review cycle is resolved (dismissed or an update applied), the card stops
+    // routing into an active review and shows the outcome + when the next one is due.
+    const outcomeLabel = outcome === 'updated' ? 'Updated' : outcome === 'reviewed' ? 'Reviewed' : 'Dismissed'
+
     return (
-        <div className="social-chat__msg-bubble social-chat__portfolio-review">
+        <div className={`social-chat__msg-bubble social-chat__portfolio-review${resolved ? ' social-chat__portfolio-review--resolved' : ''}`}>
             <CardAgentTag agent={AGENTS.portfolio} />
             <div className="social-chat__portfolio-review-header">
                 Portfolio Review &middot; {portfolioName}
             </div>
-            <div className="social-chat__portfolio-review-meta">Last reviewed: {lastReview}</div>
-            <button className="social-chat__portfolio-review-btn" onClick={handleReview}>
-                Review Portfolio →
-            </button>
+            {(modeLabel || account) && (
+                <div className="social-chat__portfolio-review-scope">
+                    {modeLabel && (
+                        <span className={`social-chat__portfolio-review-mode social-chat__portfolio-review-mode--${mode}`}>
+                            {modeLabel}
+                        </span>
+                    )}
+                    {account && <span className="social-chat__portfolio-review-account">{account}</span>}
+                </div>
+            )}
+            {resolved ? (
+                <>
+                    <div className="social-chat__portfolio-review-meta">
+                        {outcomeLabel}{nextReviewAt ? ` · next review ${fmtDate(nextReviewAt)}` : ''}
+                    </div>
+                    <div className="social-chat__portfolio-review-done">✓ Review complete</div>
+                </>
+            ) : (
+                <>
+                    <div className="social-chat__portfolio-review-meta">Last reviewed: {lastReview}</div>
+                    <button className="social-chat__portfolio-review-btn" onClick={handleReview}>
+                        Review Portfolio →
+                    </button>
+                </>
+            )}
         </div>
     )
 }

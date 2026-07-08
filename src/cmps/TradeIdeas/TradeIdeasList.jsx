@@ -6,7 +6,8 @@ import { EditOrdersDialog } from './EditOrdersDialog.jsx'
 import { ActivatePortfolioDialog } from './ActivatePortfolioDialog.jsx'
 import { PositionsTable, posKey } from './PositionsTable.jsx'
 import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel, isDeleteLocked, isManualIdea, openIdeaPopup, formatPnl, ideaPnl, portfolioPnl } from './tradeIdea.utils.js'
-import { eventBus, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT } from '../../services/event-bus.service'
+import { eventBus, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, REVIEW_RESOLVED } from '../../services/event-bus.service'
+import { portfolioService } from '../../services/portfolio/portfolio.service.remote.js'
 import { StatusIcon } from '../StatusIcon.jsx'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { IdeaCard, BrokerGroupCard, PortfolioCard, BuildingPortfolioCard, PositionsCards } from './TradeIdeaCards.jsx'
@@ -129,7 +130,7 @@ BrokerGroupRow.propTypes = {
     onSymbolClick:  PropTypes.func,
 }
 
-function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDeletePortfolio, onStatusChange, onOpen, onSymbolClick, positions = [] }) {
+function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDeletePortfolio, onStatusChange, onOpen, onSymbolClick, positions = [], isReviewDue = false }) {
     const [showActivatePrompt, setShowActivatePrompt] = useState(false)
     const allWaiting = group.ideas.length > 0 && group.ideas.every(i => i.status === 'waiting')
     // Manual (broker-less) portfolio → activate/exit post FillCards instead of placing orders.
@@ -220,9 +221,9 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
                     )}
                     <span className="idea-row__actions">
                         <button
-                            className="idea-row__edit-btn"
-                            onClick={e => { e.stopPropagation(); onEdit(group.portfolioId) }}
-                            title="Edit portfolio in chat"
+                            className={`idea-row__edit-btn${isReviewDue ? ' idea-row__edit-btn--due' : ''}`}
+                            onClick={e => { e.stopPropagation(); onEdit(group.portfolioId, isReviewDue ? { reviewMode: true } : undefined) }}
+                            title={isReviewDue ? 'Review due — open review in chat' : 'Edit portfolio in chat'}
                         >
                             <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <path d="M11.5 1.5L14.5 4.5L5.5 13.5H2.5V10.5L11.5 1.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
@@ -299,6 +300,20 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
     const [closingId,      setClosingId]      = useState(null)
     const [pendingClose,   setPendingClose]   = useState(null)
     const [editOrdersPos,  setEditOrdersPos]  = useState(null)
+    // Portfolios with a review due now → their edit pencil turns red and routes into
+    // review mode. Refetched whenever the ideas list changes (covers activate/rebalance
+    // reloads); a resolved review clears on the next reload / portfolio-tab remount.
+    const [dueReviewIds, setDueReviewIds] = useState(() => new Set())
+    useEffect(() => {
+        let alive = true
+        const refresh = () => portfolioService.getPendingReviews()
+            .then(reviews => { if (alive) setDueReviewIds(new Set((reviews ?? []).map(r => r.portfolioId))) })
+            .catch(() => {})
+        refresh()
+        // A resolved review (dismiss / accept) clears its pencil immediately.
+        const off = eventBus.on(REVIEW_RESOLVED, refresh)
+        return () => { alive = false; off() }
+    }, [ideas])
 
     // Design trial: the 'cards' design renders the Ideas tab as stacked cards
     // instead of the table (Portfolios / Positions tabs are unchanged).
@@ -532,6 +547,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                                     expanded={expandedGroups.has(group.portfolioId)}
                                     onToggle={() => toggleGroup(group.portfolioId)}
                                     onEdit={onEditPortfolio}
+                                    isReviewDue={dueReviewIds.has(group.portfolioId)}
                                     onDelete={onDelete}
                                     onDeletePortfolio={onDeletePortfolio}
                                     onStatusChange={onStatusChange}
@@ -576,6 +592,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                                         expanded={expandedGroups.has(group.portfolioId)}
                                         onToggle={() => toggleGroup(group.portfolioId)}
                                         onEdit={onEditPortfolio}
+                                        isReviewDue={dueReviewIds.has(group.portfolioId)}
                                         onDelete={onDelete}
                                         onDeletePortfolio={onDeletePortfolio}
                                         onStatusChange={onStatusChange}
