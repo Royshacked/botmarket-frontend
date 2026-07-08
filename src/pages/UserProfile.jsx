@@ -14,6 +14,7 @@ import { DESIGNS, loadDesign, saveDesign, applyDesign } from '../services/design
 import { queuePrefSync } from '../services/preferences.service.js'
 import { PaperTradingSection } from '../cmps/PaperTrading/PaperTradingSection.jsx'
 import { ManualTradingSection } from '../cmps/ManualTrading/ManualTradingSection.jsx'
+import { useWorkspaceMode } from '../customHooks/useWorkspaceMode'
 import './UserProfile.scss'
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
@@ -40,6 +41,10 @@ const AI_AGENT_KEYS = ['idea', 'scanner', 'portfolio']
 export function UserProfile() {
     const { user, setUser, signout } = useAuth()
     const navigate                   = useNavigate()
+
+    // Active workspace (from the header switch) — the two non-active mode sections
+    // below are dimmed + disabled so it's clear which one is live.
+    const { workspace } = useWorkspaceMode(user?._id)
 
     const [connections,  setConnections]  = useState({})
     const [accountData,  setAccountData]  = useState({})
@@ -323,7 +328,10 @@ export function UserProfile() {
                 {/* ── Right column ── */}
                 <div className="user-profile__col">
 
-                    <section className="user-profile__section user-profile__section--brokers">
+                    <section
+                        className={`user-profile__section user-profile__section--brokers${workspace !== 'live' ? ' user-profile__section--inactive' : ''}`}
+                        aria-disabled={workspace !== 'live' || undefined}
+                    >
                         <h2 className="user-profile__section-title">Brokers</h2>
 
                         {BROKERS.map(({ type, label }) => {
@@ -383,9 +391,9 @@ export function UserProfile() {
                         })}
                     </section>
 
-                    <PaperTradingSection />
+                    <PaperTradingSection inactive={workspace !== 'paper'} />
 
-                    <ManualTradingSection />
+                    <ManualTradingSection inactive={workspace !== 'manual'} />
 
                 </div>
 

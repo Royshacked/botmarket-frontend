@@ -59,6 +59,16 @@
         &--brokers {
             flex: 1; // brokers section stretches to fill right column
         }
+
+        // Mode section that isn't the active workspace — darkened + non-interactive.
+        // The active mode is chosen from the AppHeader switch (Live / Paper / Manual).
+        &--inactive {
+            opacity: 0.42;
+            filter: grayscale(0.35);
+            pointer-events: none;
+            user-select: none;
+            transition: opacity 0.2s ease, filter 0.2s ease;
+        }
     }
 
     &__section-title {

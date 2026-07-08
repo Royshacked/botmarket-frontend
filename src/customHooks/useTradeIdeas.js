@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
 import { useAutoRefresh } from './useAutoRefresh.js'
+import { useWindowEvent } from './useWindowEvent.js'
 
 const POLL_INTERVAL_MS = 30_000
 
@@ -14,12 +15,16 @@ const POLL_INTERVAL_MS = 30_000
  *   ideas: import('../types.js').Idea[],
  *   setIdeas: Function,
  *   loadIdeas: () => Promise<void>,
+ *   loading: boolean,
  *   handleStatusChange: (id: string, status: string) => Promise<void>,
  *   handleUpdateIdea: (id: string, patch: object) => Promise<void>,
  * }}
  */
 export function useTradeIdeas() {
     const [ideas, setIdeas] = useState([])
+    // True only while re-fetching after a workspace switch, so the list can show a
+    // loader — the silent 30s poll (loadIdeas) never flips it.
+    const [loading, setLoading] = useState(false)
     // Arm-time pre-flight prompt: { idea, close } when activating an idea whose
     // entry level is already held (monitor won't fire) — null otherwise.
     const [preEntryPrompt, setPreEntryPrompt] = useState(null)
@@ -34,6 +39,17 @@ export function useTradeIdeas() {
     }, [])
 
     useAutoRefresh(loadIdeas, POLL_INTERVAL_MS)
+
+    // Switching workspace (live/paper/manual) re-scopes which ideas are relevant, so
+    // pull a fresh list and surface a loader while it lands. Listen to the canonical
+    // workspace-switch signal only (paper-mode-changed also fires on account CRUD, which
+    // doesn't change the idea set) to avoid a redundant double fetch.
+    const reloadForWorkspace = useCallback(async () => {
+        setLoading(true)
+        try { await loadIdeas() }
+        finally { setLoading(false) }
+    }, [loadIdeas])
+    useWindowEvent('workspace-mode-changed', reloadForWorkspace)
 
     async function handleStatusChange(id, status) {
         // Optimistic update — React controlled selects snap back without this
@@ -62,5 +78,5 @@ export function useTradeIdeas() {
         }
     }
 
-    return { ideas, setIdeas, loadIdeas, handleStatusChange, handleUpdateIdea, preEntryPrompt, setPreEntryPrompt }
+    return { ideas, setIdeas, loadIdeas, loading, handleStatusChange, handleUpdateIdea, preEntryPrompt, setPreEntryPrompt }
 }

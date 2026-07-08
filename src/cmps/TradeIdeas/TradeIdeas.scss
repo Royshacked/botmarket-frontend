@@ -75,6 +75,7 @@
     }
 
     &__scroll {
+        position: relative;                            // anchor the workspace-switch overlay
         flex: 1;
         min-height: 0;
         overflow-y: auto;
@@ -87,6 +88,35 @@
         &::-webkit-scrollbar        { width: 0; height: 0; } // Chrome/Safari
     }
 
+    // Workspace-switch loader: a soft veil + spinner over the list while the ideas
+    // for the newly selected mode (live/paper/manual) are being fetched.
+    &__switching {
+        position: absolute;
+        inset: 0;
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        font-family: var(--font-mono);
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+        background: color-mix(in srgb, var(--bg-surface) 62%, transparent);
+        backdrop-filter: blur(1.5px);
+        animation: trade-ideas-switch-in 0.12s ease both;
+    }
+
+    &__switching-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid var(--border);
+        border-top-color: var(--accent-light);
+        border-radius: 50%;
+        animation: trade-ideas-switch-spin 0.7s linear infinite;
+    }
+
     &__empty {
         color: var(--text-muted);
         font-size: 0.8rem;
@@ -94,6 +124,9 @@
         text-align: center;
     }
 }
+
+@keyframes trade-ideas-switch-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes trade-ideas-switch-spin { to { transform: rotate(360deg); } }
 
 // ── Ideas Table ────────────────────────────────────────────────────────────────
 

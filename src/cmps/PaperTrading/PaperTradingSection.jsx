@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { paperService } from '../../services/paper/paper.service.remote.js'
 
 /**
@@ -7,33 +6,27 @@ import { paperService } from '../../services/paper/paper.service.remote.js'
  *
  * A manager for the user's N named simulated accounts ("Scalping", "Swing", …): each
  * card shows live equity/P&L, cost config, reset and delete, plus its recent trades on
- * expand. A "New account" form creates more. The global mode toggle at the top is
- * TRANSITIONAL — it routes new ideas to the default paper account until the per-idea
- * account picker replaces it. Reuses user-profile__* styles.
+ * expand. A "New account" form creates more. The workspace itself (paper vs live vs
+ * manual) is switched from the AppHeader — this section only manages the accounts.
+ * `inactive` dims + disables it when the active workspace isn't paper. Reuses
+ * user-profile__* styles.
  */
 const money = (n, ccy = 'USD') =>
     n == null ? '—' : `${n < 0 ? '-' : ''}${ccy === 'USD' ? '$' : ''}${Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
 
 const pnlColor = n => (n > 0 ? 'var(--color-long)' : n < 0 ? 'var(--color-short)' : 'var(--text-secondary)')
 
-export function PaperTradingSection() {
+export function PaperTradingSection({ inactive = false }) {
     const [accounts, setAccounts] = useState([])
-    const [enabled,  setEnabled]  = useState(false)
     const [busy,     setBusy]     = useState(false)
     const [error,    setError]    = useState(null)
-    const [confirmOn, setConfirmOn] = useState(false)
     const [creating,  setCreating]  = useState(false)
 
     useEffect(() => { _load() }, [])
 
     async function _load() {
         try {
-            const [accs, st] = await Promise.all([
-                paperService.listAccounts(),
-                paperService.getState(),
-            ])
-            setAccounts(accs)
-            setEnabled(!!st?.enabled)
+            setAccounts(await paperService.listAccounts())
             setError(null)
         } catch (err) {
             setError(err?.response?.status === 404
@@ -41,22 +34,6 @@ export function PaperTradingSection() {
                 : 'Could not load paper accounts.')
         }
     }
-
-    // Turning paper ON routes new ideas to a simulated account, so confirm intent first.
-    function requestToggle() {
-        if (enabled) applyToggle()
-        else setConfirmOn(true)
-    }
-    async function applyToggle() {
-        setBusy(true)
-        try {
-            const st = await paperService.setMode(!enabled)
-            setEnabled(!!st?.enabled)
-            setAccounts(await paperService.listAccounts())   // first enable creates the default account
-            window.dispatchEvent(new CustomEvent('paper-mode-changed'))
-        } finally { setBusy(false) }
-    }
-    async function confirmToggle() { setConfirmOn(false); await applyToggle() }
 
     // ── Per-account mutations (parent owns the list; endpoints return the updated acct) ──
     async function patchAccount(id, patch) {
@@ -83,32 +60,11 @@ export function PaperTradingSection() {
     }
 
     return (
-        <section className="user-profile__section">
+        <section className={`user-profile__section${inactive ? ' user-profile__section--inactive' : ''}`} aria-disabled={inactive || undefined}>
             <h2 className="user-profile__section-title">Paper Trading</h2>
 
             {error && (
                 <p style={{ fontSize: '0.78rem', color: 'var(--color-warning, #e6a817)', marginBottom: 8 }}>{error}</p>
-            )}
-
-            {/* Global mode toggle (transitional) */}
-            <div className="user-profile__row user-profile__row--inline">
-                <span className="user-profile__label">
-                    Simulation mode
-                    <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: 2 }}>
-                        Route new ideas to your default paper account
-                    </span>
-                </span>
-                <button
-                    className={`user-profile__btn ${enabled ? 'user-profile__btn--primary' : 'user-profile__btn--ghost'}`}
-                    onClick={requestToggle}
-                    disabled={busy}
-                >
-                    {enabled ? 'On' : 'Off'}
-                </button>
-            </div>
-
-            {confirmOn && (
-                <PaperOnConfirm busy={busy} onConfirm={confirmToggle} onCancel={() => setConfirmOn(false)} />
             )}
 
             {/* Accounts */}
@@ -321,41 +277,6 @@ function NewAccountForm({ busy, onCreate, onCancel }) {
 }
 
 // ── Shared bits ─────────────────────────────────────────────────────────────────
-
-const _confirmBackdrop = {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-}
-const _confirmCard = {
-    background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10,
-    padding: '18px 20px', maxWidth: 380, width: '90%', boxShadow: '0 12px 40px rgba(0,0,0,0.45)',
-}
-
-function PaperOnConfirm({ busy, onConfirm, onCancel }) {
-    return createPortal(
-        <div style={_confirmBackdrop} onClick={busy ? undefined : onCancel}>
-            <div style={_confirmCard} onClick={e => e.stopPropagation()}>
-                <h3 style={{ margin: '0 0 8px', fontSize: '1rem', color: 'var(--text-primary)' }}>
-                    Turn on paper mode?
-                </h3>
-                <p style={{ margin: '0 0 16px', fontSize: '0.82rem', lineHeight: 1.5, color: 'var(--text-secondary)' }}>
-                    New ideas will route to a <strong>simulated</strong> account and place no real
-                    orders. Your live broker and any existing live positions are unaffected — this
-                    only changes where <em>new</em> ideas go.
-                </p>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                    <button className="user-profile__btn user-profile__btn--ghost" onClick={onCancel} disabled={busy}>
-                        Cancel
-                    </button>
-                    <button className="user-profile__btn user-profile__btn--primary" onClick={onConfirm} disabled={busy}>
-                        {busy ? 'Enabling…' : 'Turn on paper'}
-                    </button>
-                </div>
-            </div>
-        </div>,
-        document.body
-    )
-}
 
 function Stat({ label, value, color }) {
     return (

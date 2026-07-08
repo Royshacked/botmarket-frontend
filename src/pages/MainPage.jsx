@@ -292,7 +292,7 @@ export function MainPage() {
     const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
     const { workspace } = useWorkspaceMode(user?._id)
     const { positions, loading: positionsLoading, refresh: refreshPositions, closePosition } = usePositions()
-    const { ideas, setIdeas, loadIdeas, handleStatusChange, preEntryPrompt, setPreEntryPrompt } = useTradeIdeas()
+    const { ideas, setIdeas, loadIdeas, loading: ideasLoading, handleStatusChange, preEntryPrompt, setPreEntryPrompt } = useTradeIdeas()
     const [preEntryBusy, setPreEntryBusy] = useState(false)
 
     const buildingIdea = deriveBuildingIdea(analysisState)
@@ -1384,6 +1384,7 @@ export function MainPage() {
                             chatTab={activeTab}
                             buildingIdea={buildingIdea}
                             buildingPortfolio={buildingPortfolio}
+                            loading={ideasLoading}
                             onDelete={handleDeleteIdea}
                             onCancelBuild={handleCancelBuild}
                             onStatusChange={handleStatusChange}

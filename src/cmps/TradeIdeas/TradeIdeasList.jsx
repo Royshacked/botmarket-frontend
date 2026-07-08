@@ -293,7 +293,7 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
     )
 }
 
-export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition }) {
+export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, loading = false, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition }) {
     const [expandedGroups, setExpandedGroups] = useState(new Set())
     const [activeFilter,   setActiveFilter]   = useState('ideas')
     const [closingId,      setClosingId]      = useState(null)
@@ -407,6 +407,14 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
             </div>
 
             <div className="trade-ideas-list__scroll">
+                {/* Workspace switch (live/paper/manual) is re-fetching the ideas — the
+                    Positions tab has its own loading state, so skip the overlay there. */}
+                {loading && !showPositions && (
+                    <div className="trade-ideas-list__switching" role="status" aria-live="polite">
+                        <span className="trade-ideas-list__switching-spinner" aria-hidden="true" />
+                        <span>Updating…</span>
+                    </div>
+                )}
                 {showIdeas ? (
                     !hasIdeasRows ? (
                         <p className="trade-ideas-list__empty">No ideas yet</p>

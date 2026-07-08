@@ -17,10 +17,11 @@ import { useWorkspaceMode } from '../customHooks/useWorkspaceMode'
 
 // Workspace switch (view-only): click cycles Live → Paper → Manual. Scopes which ideas
 // the list/monitor show; the account bound to an idea is what actually routes it.
+const WORKSPACE_MODES = ['live', 'paper', 'manual']
 const WORKSPACE_TITLES = {
-    live:   'Live workspace — real broker. Click to switch (Live → Paper → Manual).',
-    paper:  'Paper workspace — simulated account. Click to switch (Live → Paper → Manual).',
-    manual: 'Manual workspace — broker-less real money; you confirm fills. Click to switch.',
+    live:   'Live workspace — real broker. The account bound to an idea is what routes it.',
+    paper:  'Paper workspace — simulated account. New ideas route to your default paper account.',
+    manual: 'Manual workspace — broker-less real money; you confirm fills.',
 }
 
 // Ambient stream content — TRADVICE-flavored prompt/reply pairs.
@@ -55,7 +56,7 @@ export function AppHeaderAxl() {
     const tagRef    = useRef(null)
 
     const { unread, setUnread, showChat, setShowChat } = useChatWs(user?._id)
-    const { workspace, cycleWorkspace } = useWorkspaceMode(user?._id)
+    const { workspace, setWorkspace } = useWorkspaceMode(user?._id)
 
     // ── ambient aurora candlesticks (built once into the .ticks svg) ──
     useEffect(() => {
@@ -200,14 +201,20 @@ export function AppHeaderAxl() {
                 <div className="app-header-axl__right">
                     {user && (
                         <>
-                            <button
-                                type="button"
-                                className={`app-header-axl__mode ${workspace}`}
-                                onClick={cycleWorkspace}
-                                title={WORKSPACE_TITLES[workspace]}
-                            >
-                                {workspace.toUpperCase()}
-                            </button>
+                            <div className="app-header-axl__modes" role="group" aria-label="Workspace mode">
+                                {WORKSPACE_MODES.map(m => (
+                                    <button
+                                        key={m}
+                                        type="button"
+                                        className={`app-header-axl__mode ${m}${workspace === m ? ' is-active' : ''}`}
+                                        onClick={() => setWorkspace(m)}
+                                        aria-pressed={workspace === m}
+                                        title={WORKSPACE_TITLES[m]}
+                                    >
+                                        {m.toUpperCase()}
+                                    </button>
+                                ))}
+                            </div>
                             <button
                                 className="app-header-axl__chat"
                                 onClick={() => setShowChat(v => !v)}
