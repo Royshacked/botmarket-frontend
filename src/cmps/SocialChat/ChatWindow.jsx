@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
-import { eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW } from '../../services/event-bus.service'
+import { eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED } from '../../services/event-bus.service'
+import { manualService } from '../../services/manual/manual.service.remote'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
@@ -79,6 +80,8 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                                 ? <InvalidationAlertBubble msg={msg} onClose={onClose} onDismiss={onDismissMessage} />
                                 : msg.type === 'portfolio_review' && msg.payload
                                 ? <PortfolioReviewBubble msg={msg} onClose={onClose} />
+                                : (msg.type === 'manual_entry' || msg.type === 'manual_exit') && msg.payload
+                                ? <ManualFillCard msg={msg} onDismiss={onDismissMessage} />
                                 : <div className="social-chat__msg-bubble">{msg.content}</div>
                             }
                             <div className="social-chat__msg-time">{formatTime(msg.createdAt)}</div>
@@ -186,6 +189,108 @@ function PortfolioReviewBubble({ msg, onClose }) {
             <button className="social-chat__portfolio-review-btn" onClick={handleReview}>
                 Review Portfolio →
             </button>
+        </div>
+    )
+}
+
+// The unified manual-mode FillCard: broker-less mode can't place/close, so the user reports
+// the real fill here. N legs (1 for an idea, N for a portfolio); each leg opens/closes the
+// instant its price is submitted (incremental, partial baskets fine). Entry legs also carry
+// an editable quantity. On a successful fill it emits MANUAL_FILLED so the app patches the
+// idea + refreshes positions. Dismissal persists on the message like the other cards.
+function ManualFillCard({ msg, onDismiss }) {
+    const { kind, reason, portfolioName, legs = [] } = msg.payload
+    const isEntry = kind === 'entry'
+
+    const [rows, setRows] = useState(() =>
+        Object.fromEntries(legs.map(l => [l.ideaId, {
+            price: '', qty: l.quantity != null ? String(l.quantity) : '', status: 'idle', err: null,
+        }])))
+
+    function patch(ideaId, fields) {
+        setRows(prev => ({ ...prev, [ideaId]: { ...prev[ideaId], ...fields } }))
+    }
+
+    async function submit(leg) {
+        const row   = rows[leg.ideaId] ?? {}
+        const price = Number(row.price)
+        if (!(price > 0)) { patch(leg.ideaId, { err: 'Enter a valid price' }); return }
+        const qty = isEntry ? Number(row.qty) : undefined
+        if (isEntry && !(qty > 0)) { patch(leg.ideaId, { err: 'Enter a valid quantity' }); return }
+
+        patch(leg.ideaId, { status: 'saving', err: null })
+        try {
+            const idea = isEntry
+                ? await manualService.confirmEntry(leg.ideaId, { price, quantity: qty })
+                : await manualService.confirmExit(leg.ideaId, { price })
+            patch(leg.ideaId, { status: 'done', err: null })
+            eventBus.emit(MANUAL_FILLED, { idea })
+        } catch (err) {
+            patch(leg.ideaId, { status: 'error', err: err?.response?.data?.error || 'Failed — try again' })
+        }
+    }
+
+    if (msg.dismissed) {
+        return (
+            <div className="social-chat__msg-bubble social-chat__manual-card social-chat__manual-card--dismissed">
+                <div className="social-chat__manual-card-header">Dismissed &middot; {isEntry ? 'entry' : 'exit'}</div>
+            </div>
+        )
+    }
+
+    const allDone = legs.every(l => rows[l.ideaId]?.status === 'done')
+    const many    = legs.length > 1
+    const title   = isEntry
+        ? (many ? `Enter ${portfolioName || 'portfolio'} — ${legs.length} legs` : 'Confirm your entry fill')
+        : (many ? `Exit ${portfolioName || 'portfolio'} — ${legs.length} legs`  : `Confirm your exit${reason && reason !== 'manual' ? ` · ${reason}` : ''}`)
+
+    return (
+        <div className={`social-chat__msg-bubble social-chat__manual-card social-chat__manual-card--${isEntry ? 'entry' : 'exit'}`}>
+            <CardAgentTag agent={AGENTS.idea} />
+            <div className="social-chat__manual-card-header">{title}</div>
+            <div className="social-chat__manual-card-legs">
+                {legs.map(leg => {
+                    const row  = rows[leg.ideaId] ?? {}
+                    const done = row.status === 'done'
+                    return (
+                        <div key={leg.ideaId} className={`social-chat__manual-leg${done ? ' is-done' : ''}`}>
+                            <div className="social-chat__manual-leg-meta">
+                                <span className={`social-chat__manual-leg-dir social-chat__manual-leg-dir--${leg.direction}`}>{String(leg.direction).toUpperCase()}</span>
+                                <span className="social-chat__manual-leg-asset">{leg.asset}</span>
+                                {isEntry && leg.quantity != null && <span className="social-chat__manual-leg-qty">&times; {leg.quantity}</span>}
+                            </div>
+                            {done ? (
+                                <span className="social-chat__manual-leg-done">✓ {isEntry ? 'filled' : 'closed'} @ {row.price}</span>
+                            ) : (
+                                <div className="social-chat__manual-leg-inputs">
+                                    {isEntry && (
+                                        <input
+                                            className="social-chat__manual-input" type="number" step="any" placeholder="qty"
+                                            value={row.qty} onChange={e => patch(leg.ideaId, { qty: e.target.value })}
+                                        />
+                                    )}
+                                    <input
+                                        className="social-chat__manual-input" type="number" step="any"
+                                        placeholder={isEntry ? 'fill price' : 'exit price'}
+                                        value={row.price} onChange={e => patch(leg.ideaId, { price: e.target.value })}
+                                    />
+                                    <button
+                                        className="social-chat__manual-btn" disabled={row.status === 'saving'}
+                                        onClick={() => submit(leg)}
+                                    >{row.status === 'saving' ? '…' : (isEntry ? 'Fill' : 'Close')}</button>
+                                </div>
+                            )}
+                            {row.err && <div className="social-chat__manual-leg-err">{row.err}</div>}
+                        </div>
+                    )
+                })}
+            </div>
+            <div className="social-chat__manual-card-actions">
+                <button
+                    className="social-chat__manual-btn social-chat__manual-btn--dismiss"
+                    onClick={() => onDismiss?.(msg.id)}
+                >{allDone ? 'Done' : 'Dismiss'}</button>
+            </div>
         </div>
     )
 }

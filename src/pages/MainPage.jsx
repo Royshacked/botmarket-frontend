@@ -16,19 +16,21 @@ import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
-import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, isPaperIdea } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { MonitorDashboard }  from '../cmps/MonitorDashboard/MonitorDashboard.jsx'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
 import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
-import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW } from '../services/event-bus.service'
+import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT } from '../services/event-bus.service'
+import { manualService } from '../services/manual/manual.service.remote.js'
 import { useChatStream }     from '../customHooks/useChatStream.js'
 import { useNewsFeed }       from '../customHooks/useNewsFeed.js'
 import { useCalendarEvents } from '../customHooks/useCalendarEvents.js'
 import { useScans }          from '../customHooks/useScans.js'
 import { useBrokerAccounts } from '../customHooks/useBrokerAccounts.js'
+import { useWorkspaceMode }  from '../customHooks/useWorkspaceMode.js'
 import { usePositions }      from '../customHooks/usePositions.js'
 import { useTradeIdeas }     from '../customHooks/useTradeIdeas.js'
 import { useAuth }           from '../context/AuthContext.jsx'
@@ -287,7 +289,8 @@ export function MainPage() {
     const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading } = useCalendarEvents()
     const { scans, loading: scansLoading, createScan, updateScan, deleteScan } = useScans()
     const { user } = useAuth()
-    const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId, isPaper } = useBrokerAccounts()
+    const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
+    const { workspace } = useWorkspaceMode(user?._id)
     const { positions, loading: positionsLoading, refresh: refreshPositions, closePosition } = usePositions()
     const { ideas, setIdeas, loadIdeas, handleStatusChange, preEntryPrompt, setPreEntryPrompt } = useTradeIdeas()
     const [preEntryBusy, setPreEntryBusy] = useState(false)
@@ -328,7 +331,8 @@ export function MainPage() {
     let confirmOrders = []
     for (const i of ideas) {
         if (i.userId != null && i.userId !== user?._id) continue
-        if (isPaperIdea(i) !== isPaper) continue   // only confirm ideas of the active workspace (paper/live)
+        if (ideaWorkspace(i) !== workspace) continue   // only confirm ideas of the active workspace (live/paper/manual)
+        if (ideaWorkspace(i) === 'manual') continue    // manual fills are confirmed via the social-chat FillCard, not this dialog
         if (i.status !== 'hit' || i.ordersPlacedAt || dismissedConfirmIds.has(i.id)) continue
         if (!Array.isArray(i.accounts) || i.accounts.length === 0) continue
         if (i.orderState !== 'awaiting_confirm' && i.orderState != null) continue
@@ -634,6 +638,39 @@ export function MainPage() {
             handleEditPortfolio(portfolioId, { reviewMode: true })
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // A manual (broker-less) fill was confirmed from a social-chat FillCard: patch the
+    // updated idea into the list and refresh positions so the new/closed manual position
+    // shows in the workspace immediately.
+    useEffect(() => {
+        return eventBus.on(MANUAL_FILLED, ({ idea }) => {
+            if (idea) setIdeas(prev => prev.map(i => (i.id === idea.id ? idea : i)))
+            refreshPositions(true)
+        })
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Manual portfolio activate → mark every pending leg awaiting-fill + post the N-leg
+    // entry FillCard; reload so the legs reflect the new state (the card arrives via WS).
+    useEffect(() => {
+        return eventBus.on(MANUAL_PORTFOLIO_ACTIVATE, async ({ portfolioId }) => {
+            try {
+                const res = await manualService.activatePortfolio(portfolioId)
+                loadIdeas()
+                showSuccessMsg(res?.legs ? 'Enter each leg at your broker — check social chat' : 'Nothing to activate')
+            } catch { showErrorMsg('Could not activate the portfolio') }
+        })
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Manual portfolio exit (user-initiated) → post the N-leg exit FillCard over the
+    // still-open legs; the user confirms each exit price there.
+    useEffect(() => {
+        return eventBus.on(MANUAL_PORTFOLIO_EXIT, async ({ portfolioId }) => {
+            try {
+                const res = await manualService.requestPortfolioExit(portfolioId)
+                showSuccessMsg(res?.legs ? 'Confirm your exit prices in social chat' : 'No open legs to exit')
+            } catch { showErrorMsg('Could not request the portfolio exit') }
+        })
+    }, [])
 
     async function handleBuyMarket() {
         if (!buildingIdea) return
@@ -1341,7 +1378,7 @@ export function MainPage() {
                     <div className="workspace__ideas">
                         <TradeIdeasList
                             ideas={ideas
-                                .filter(i => isPaperIdea(i) === isPaper)   // scope to the active workspace (paper/live)
+                                .filter(i => ideaWorkspace(i) === workspace)   // scope to the active workspace (live/paper/manual)
                                 .filter(i => i.status !== 'closed')
                                 .filter(i => i.id !== editingIdeaId)}
                             chatTab={activeTab}
@@ -1365,7 +1402,7 @@ export function MainPage() {
 
                 {/* ── Mobile monitor dashboard ── */}
                 <MonitorDashboard
-                    ideas={ideas.filter(i => isPaperIdea(i) === isPaper).filter(i => i.status !== 'closed')}
+                    ideas={ideas.filter(i => ideaWorkspace(i) === workspace).filter(i => i.status !== 'closed')}
                     onDelete={handleDeleteIdea}
                     onEdit={handleEditIdea}
                 />

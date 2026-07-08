@@ -256,8 +256,11 @@
         radial-gradient(66% 100% at 42% 100%, var(--aurora-2), transparent 72%),
         radial-gradient(70% 104% at 73% 100%, var(--aurora-3), transparent 72%),
         radial-gradient(74% 108% at 95% 100%, var(--aurora-4), transparent 72%);
-    --bg-wash:         var(--aurora-wash), var(--bg-base);
-    --bg-wash-surface: var(--aurora-wash), var(--bg-surface);
+    // Aurora wash is header-only now — panels/components use plain base/surface (the
+    // --bg-wash* tokens stay so their ~30 consumers don't each need editing). The header
+    // (AppHeaderAxl.scss) still applies --aurora-wash directly.
+    --bg-wash:         var(--bg-base);
+    --bg-wash-surface: var(--bg-surface);
 
     // Header wave gradient stops (the calm-water line at the header's bottom edge).
     // Same green→teal→cyan→blue→violet signature as the aurora, derived from the

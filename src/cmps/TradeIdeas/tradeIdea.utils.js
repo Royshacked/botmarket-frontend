@@ -334,6 +334,36 @@ export function isPaperIdea(idea) {
         String(typeof a === 'object' ? a.id : a).startsWith('paper-'))
 }
 
+/**
+ * Whether an idea belongs to the MANUAL (broker-less real-money) workspace. Sibling of
+ * isPaperIdea with the same signal precedence: the top-level `broker` stamped at save
+ * time, then the `manual-<userId>` account-id prefix as a fallback.
+ *
+ * @param {import('../../types.js').Idea} idea
+ * @returns {boolean}
+ */
+export function isManualIdea(idea) {
+    if (idea?.broker === 'manual') return true
+    if (String(idea?.mainAccountId ?? '').startsWith('manual-')) return true
+    return (idea?.accounts ?? []).some(a =>
+        String(typeof a === 'object' ? a.id : a).startsWith('manual-'))
+}
+
+/**
+ * The workspace an idea belongs to: 'paper' | 'manual' | 'live' (default). The single
+ * deriver the list/monitor/confirm views scope on — an idea shows when
+ * ideaWorkspace(idea) === the active workspace. Paper takes precedence, then manual,
+ * else live (real broker / legacy).
+ *
+ * @param {import('../../types.js').Idea} idea
+ * @returns {'paper'|'manual'|'live'}
+ */
+export function ideaWorkspace(idea) {
+    if (isPaperIdea(idea))  return 'paper'
+    if (isManualIdea(idea)) return 'manual'
+    return 'live'
+}
+
 // ── Idea status groups ──────────────────────────────────────────────────────
 // Single source for the status literal-sets that were duplicated across
 // TradeIdeaRow / IdeaDetail / MainPage.

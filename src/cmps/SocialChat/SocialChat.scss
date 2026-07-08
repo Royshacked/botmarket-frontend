@@ -482,6 +482,109 @@
         opacity: 0.55;
     }
 
+    // ── Manual (broker-less) FillCard ──────────────────────────────────────────
+    // The user reports their real fill/exit price inline; N legs, incremental.
+    &__manual-card {
+        padding: 0;
+        overflow: hidden;
+        min-width: 210px;
+        max-width: 100%;
+        border-radius: 10px;
+
+        &--entry { border: 1px solid #10b981; }              // green — opening
+        &--exit  { border: 1px solid #f59e0b; }              // amber — closing
+        &--dismissed { opacity: 0.55; border: 1px solid var(--border); }
+    }
+
+    &__manual-card-header {
+        padding: 3px 12px 4px;
+        font-size: .74rem;
+        font-weight: 600;
+
+        .social-chat__manual-card--entry & { background: rgba(16,185,129,.12); color: #10b981; }
+        .social-chat__manual-card--exit  & { background: rgba(245,158,11,.12); color: #f59e0b; }
+    }
+
+    &__manual-card-legs {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 8px 12px 4px;
+    }
+
+    &__manual-leg {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        &.is-done { opacity: .7; }
+    }
+
+    &__manual-leg-meta {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        font-size: .74rem;
+    }
+
+    &__manual-leg-dir {
+        font-family: var(--font-mono);
+        font-size: .6rem;
+        font-weight: 700;
+        letter-spacing: .06em;
+        &--long  { color: #10b981; }
+        &--short { color: #ef5350; }
+    }
+
+    &__manual-leg-asset { font-weight: 600; color: var(--text-primary); }
+    &__manual-leg-qty   { font-size: .68rem; color: var(--text-muted); }
+
+    &__manual-leg-inputs {
+        display: flex;
+        gap: 4px;
+        align-items: stretch;
+    }
+
+    &__manual-input {
+        flex: 1 1 auto;
+        min-width: 0;
+        padding: 4px 6px;
+        background: var(--bg-base);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text-primary);
+        font-size: .72rem;
+        &:focus { outline: none; border-color: var(--accent, #10b981); }
+    }
+
+    &__manual-leg-done { font-size: .72rem; color: var(--text-secondary); }
+    &__manual-leg-err  { font-size: .66rem; color: #ef5350; }
+
+    &__manual-card-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin: 4px 12px 10px;
+    }
+
+    &__manual-btn {
+        padding: 4px 10px;
+        background: var(--bg-base);
+        border: 1px solid var(--border-strong, var(--border));
+        border-radius: 6px;
+        color: var(--text-primary);
+        font-size: .7rem;
+        font-weight: 500;
+        cursor: pointer;
+        white-space: nowrap;
+        &:hover:not(:disabled) { background: var(--bg-hover); }
+        &:disabled { opacity: .6; cursor: default; }
+
+        &--dismiss {
+            border-color: var(--border);
+            color: var(--text-muted);
+            &:hover { color: var(--text-secondary); }
+        }
+    }
+
     // ── Portfolio review notification ──────────────────────────────────────────
     &__portfolio-review {
         padding: 0;

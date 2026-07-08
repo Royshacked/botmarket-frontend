@@ -262,6 +262,13 @@
         border: 1px solid var(--color-teal);
         border-radius: 3px;
         padding: 1px 5px;
+
+        // Manual (broker-less real-money) — amber, to read distinctly from paper's teal.
+        &--manual {
+            color: #f59e0b;
+            background: rgba(245, 158, 11, 0.12);
+            border-color: #f59e0b;
+        }
     }
 
     &__phase {

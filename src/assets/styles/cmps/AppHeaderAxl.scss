@@ -408,7 +408,13 @@
     border: 1px solid currentColor;
     user-select: none;
     align-self: center;
+    background: transparent;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
 
-    &.live  { color: var(--color-long, #6cc48f); opacity: 0.7; }
-    &.paper { color: var(--color-warning, #e6a817); background: rgba(230, 168, 23, 0.12); }
+    &:hover { opacity: 1; }
+
+    &.live   { color: var(--color-long, #6cc48f); opacity: 0.7; }
+    &.paper  { color: var(--color-warning, #e6a817); background: rgba(230, 168, 23, 0.12); }
+    &.manual { color: var(--color-info, #6ea8fe); background: rgba(110, 168, 254, 0.12); }
 }

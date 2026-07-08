@@ -15,7 +15,7 @@ import './ActivatePortfolioDialog.scss'
  *
  * Rendered through a portal so the modal escapes the portfolio table row.
  */
-export function ActivatePortfolioDialog({ name, count = 0, onReview, onActivate, onClose }) {
+export function ActivatePortfolioDialog({ name, count = 0, manual = false, onReview, onActivate, onClose }) {
     return createPortal(
         <div className="activate-portfolio__backdrop" onClick={onClose}>
             <div className="activate-portfolio" onClick={e => e.stopPropagation()}>
@@ -29,9 +29,10 @@ export function ActivatePortfolioDialog({ name, count = 0, onReview, onActivate,
 
                 <div className="activate-portfolio__body">
                     <p className="activate-portfolio__lead">
-                        This fires {count === 1 ? 'the idea' : `all ${count} ideas`} at market
-                        now — the last gate before real exposure. Want Atlas to review the book
-                        first?
+                        {manual
+                            ? <>Posts an entry card for {count === 1 ? 'the leg' : `all ${count} legs`} — you enter each at your own broker and record your fills in social chat. Want Atlas to review the book first?</>
+                            : <>This fires {count === 1 ? 'the idea' : `all ${count} ideas`} at market now — the last gate before real exposure. Want Atlas to review the book first?</>
+                        }
                     </p>
                 </div>
 
@@ -55,6 +56,7 @@ export function ActivatePortfolioDialog({ name, count = 0, onReview, onActivate,
 ActivatePortfolioDialog.propTypes = {
     name:       PropTypes.string,
     count:      PropTypes.number,
+    manual:     PropTypes.bool,
     onReview:   PropTypes.func.isRequired,
     onActivate: PropTypes.func.isRequired,
     onClose:    PropTypes.func.isRequired,

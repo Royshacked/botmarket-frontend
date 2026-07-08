@@ -2,10 +2,11 @@ import PropTypes from 'prop-types'
 import { useState } from 'react'
 import {
     conditionSummary, formatCreatedAt, formatCreatedAtFull, needsExitConditions,
-    activationStatus, brokerSymbolLabel, brokerChildLabel, isDeleteLocked,
+    activationStatus, brokerSymbolLabel, brokerChildLabel, isDeleteLocked, isManualIdea,
     isSystemStatus, formatPnl, formatNum, portfolioPnl, ideaPnl,
 } from './tradeIdea.utils.js'
 import { ActivatePortfolioDialog } from './ActivatePortfolioDialog.jsx'
+import { eventBus, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT } from '../../services/event-bus.service'
 import { posKey } from './PositionsTable.jsx'
 import { StatusIcon } from '../StatusIcon.jsx'
 
@@ -344,6 +345,8 @@ PnlPill.propTypes = { pnl: PropTypes.object }
 export function PortfolioCard({ group, expanded, onToggle, onEdit, onDelete, onDeletePortfolio, onStatusChange, onOpen, onSymbolClick, positions = [] }) {
     const [showActivatePrompt, setShowActivatePrompt] = useState(false)
     const allWaiting = group.ideas.length > 0 && group.ideas.every(i => i.status === 'waiting')
+    const isManual   = group.ideas.length > 0 && group.ideas.every(isManualIdea)
+    const anyOpen    = group.ideas.some(i => i.status === 'long' || i.status === 'short')
     const pnl        = portfolioPnl(group.ideas, positions)
     // Any idea live on the broker → block the whole-portfolio delete (would orphan
     // the live position + delete the chat). Close it first.
@@ -358,6 +361,8 @@ export function PortfolioCard({ group, expanded, onToggle, onEdit, onDelete, onD
     }
     function activateNow() {
         setShowActivatePrompt(false)
+        // Manual: post the N-leg entry FillCard instead of flipping statuses.
+        if (isManual) { eventBus.emit(MANUAL_PORTFOLIO_ACTIVATE, { portfolioId: group.portfolioId }); return }
         group.ideas.forEach(idea => { if (idea.status === 'waiting') onStatusChange(idea.id, activationStatus(idea)) })
     }
     function reviewBeforeActivate() {
@@ -368,6 +373,11 @@ export function PortfolioCard({ group, expanded, onToggle, onEdit, onDelete, onD
     }
     function handleDeactivateAll(e) {
         e.stopPropagation()
+        // Manual: positions live → exit card; still awaiting fills → re-post entry card.
+        if (isManual) {
+            eventBus.emit(anyOpen ? MANUAL_PORTFOLIO_EXIT : MANUAL_PORTFOLIO_ACTIVATE, { portfolioId: group.portfolioId })
+            return
+        }
         group.ideas.forEach(idea => { if (idea.status !== 'waiting') onStatusChange(idea.id, 'waiting') })
     }
     function handleDeleteAll(e) {
@@ -401,8 +411,8 @@ export function PortfolioCard({ group, expanded, onToggle, onEdit, onDelete, onD
                             <StatusIcon status="waiting" />
                         </button>
                     ) : (
-                        <button className="idea-card__status-badge idea-card__status-badge--group" onClick={handleDeactivateAll} title="Set all ideas in this portfolio back to waiting">
-                            active
+                        <button className="idea-card__status-badge idea-card__status-badge--group" onClick={handleDeactivateAll} title={isManual ? (anyOpen ? 'Record your exit — enter your exit prices in social chat' : 'Re-post the entry card in social chat') : 'Set all ideas in this portfolio back to waiting'}>
+                            {isManual ? (anyOpen ? 'exit' : 'fill') : 'active'}
                         </button>
                     )}
                     <button
@@ -439,6 +449,7 @@ export function PortfolioCard({ group, expanded, onToggle, onEdit, onDelete, onD
                 <ActivatePortfolioDialog
                     name={group.name}
                     count={group.ideas.length}
+                    manual={isManual}
                     onReview={reviewBeforeActivate}
                     onActivate={activateNow}
                     onClose={() => setShowActivatePrompt(false)}

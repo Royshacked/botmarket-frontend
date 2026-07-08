@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { AuthContext } from '../context/AuthContext'
 import { SocialChat } from './SocialChat/SocialChat'
 import { useChatWs } from '../customHooks/useChatWs'
-import { usePaperMode } from '../customHooks/usePaperMode'
+import { useWorkspaceMode } from '../customHooks/useWorkspaceMode'
 
 // ── AppHeader · "axl" style (trial) ───────────────────────────────────────────
 // The calm aurora header: animated calm-water wave bottom edge, ambient breathing
@@ -14,6 +14,14 @@ import { usePaperMode } from '../customHooks/usePaperMode'
 //
 // Self-contained on purpose (header-first): nothing here touches the app-wide
 // theme. RootCmp swaps this in when localStorage.headerStyle !== 'classic'.
+
+// Workspace switch (view-only): click cycles Live → Paper → Manual. Scopes which ideas
+// the list/monitor show; the account bound to an idea is what actually routes it.
+const WORKSPACE_TITLES = {
+    live:   'Live workspace — real broker. Click to switch (Live → Paper → Manual).',
+    paper:  'Paper workspace — simulated account. Click to switch (Live → Paper → Manual).',
+    manual: 'Manual workspace — broker-less real money; you confirm fills. Click to switch.',
+}
 
 // Ambient stream content — TRADVICE-flavored prompt/reply pairs.
 const STREAM = [
@@ -47,7 +55,7 @@ export function AppHeaderAxl() {
     const tagRef    = useRef(null)
 
     const { unread, setUnread, showChat, setShowChat } = useChatWs(user?._id)
-    const isPaper = usePaperMode(user?._id)
+    const { workspace, cycleWorkspace } = useWorkspaceMode(user?._id)
 
     // ── ambient aurora candlesticks (built once into the .ticks svg) ──
     useEffect(() => {
@@ -192,14 +200,14 @@ export function AppHeaderAxl() {
                 <div className="app-header-axl__right">
                     {user && (
                         <>
-                            <span
-                                className={`app-header-axl__mode ${isPaper ? 'paper' : 'live'}`}
-                                title={isPaper
-                                    ? 'Paper (simulated) mode — new ideas route to a simulated account'
-                                    : 'Live mode — new ideas route to your live broker'}
+                            <button
+                                type="button"
+                                className={`app-header-axl__mode ${workspace}`}
+                                onClick={cycleWorkspace}
+                                title={WORKSPACE_TITLES[workspace]}
                             >
-                                {isPaper ? 'PAPER' : 'LIVE'}
-                            </span>
+                                {workspace.toUpperCase()}
+                            </button>
                             <button
                                 className="app-header-axl__chat"
                                 onClick={() => setShowChat(v => !v)}

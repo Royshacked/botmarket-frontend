@@ -28,12 +28,14 @@ export function AccountSelector({ accounts = [], selectedIds = [], onChange, mai
         return () => document.removeEventListener('mousedown', onMouseDown)
     }, [isOpen])
 
-    // Paper mode: a paper idea binds to exactly ONE account, so selection is single —
-    // clicking an account replaces the selection (and becomes main) rather than adding.
-    const paperMode = accounts.length > 0 && accounts.every(a => a.broker === 'paper')
+    // Virtual (paper / manual) workspace: the idea binds to exactly ONE account, so
+    // selection is single — clicking replaces the selection (and becomes main) rather
+    // than adding. Live keeps multi-select with an explicit main.
+    const virtualMode  = accounts.length > 0 && accounts.every(a => a.broker === 'paper' || a.broker === 'manual')
+    const virtualLabel = accounts[0]?.broker === 'manual' ? 'Manual' : 'Paper'
 
     function toggle(id) {
-        if (paperMode) {
+        if (virtualMode) {
             onChange([id])
             if (onMainChange) onMainChange(id)
             return
@@ -78,26 +80,26 @@ export function AccountSelector({ accounts = [], selectedIds = [], onChange, mai
                         <div className="acct-sel__empty">no accounts connected</div>
                     ) : (
                         accounts.map(acct => {
-                            const checked = selectedIds.includes(acct.id)
-                            const isMain  = acct.id === mainAccountId
-                            const isPaper = acct.broker === 'paper'
-                            const type    = isPaper ? 'paper' : acct.isLive ? 'live' : 'demo'
+                            const checked   = selectedIds.includes(acct.id)
+                            const isMain    = acct.id === mainAccountId
+                            const isVirtual = acct.broker === 'paper' || acct.broker === 'manual'
+                            const type      = isVirtual ? acct.broker : acct.isLive ? 'live' : 'demo'
                             return (
                                 <label
                                     key={acct.id}
                                     className={`acct-sel__item${checked ? ' acct-sel__item--checked' : ''}${isMain ? ' acct-sel__item--main' : ''}`}
                                 >
                                     <input
-                                        type={paperMode ? 'radio' : 'checkbox'}
-                                        name={paperMode ? 'acct-sel-paper' : undefined}
+                                        type={virtualMode ? 'radio' : 'checkbox'}
+                                        name={virtualMode ? 'acct-sel-virtual' : undefined}
                                         checked={checked}
                                         onChange={() => toggle(acct.id)}
                                     />
-                                    <span className="acct-sel__item-broker">{isPaper ? (acct.name ?? 'Paper') : acct.broker}</span>
-                                    {!isPaper && <span className="acct-sel__item-login">{acct.login}</span>}
+                                    <span className="acct-sel__item-broker">{isVirtual ? (acct.name ?? virtualLabel) : acct.broker}</span>
+                                    {!isVirtual && <span className="acct-sel__item-login">{acct.login}</span>}
                                     <span className={`acct-sel__item-type ${type}`}>{type}</span>
                                     {/* Main-star only matters when scaling across several live accounts. */}
-                                    {!paperMode && checked && selectedIds.length > 1 && (
+                                    {!virtualMode && checked && selectedIds.length > 1 && (
                                         <button
                                             className={`acct-sel__main-btn${isMain ? ' is-main' : ''}`}
                                             onClick={(e) => setMain(e, acct.id)}
@@ -111,8 +113,12 @@ export function AccountSelector({ accounts = [], selectedIds = [], onChange, mai
                             )
                         })
                     )}
-                    {paperMode && (
-                        <div className="acct-sel__paper-note">Paper mode — this idea simulates on the selected account (one per idea).</div>
+                    {virtualMode && (
+                        <div className="acct-sel__paper-note">
+                            {virtualLabel === 'Manual'
+                                ? 'Manual mode — you execute this idea at your own broker (one account per idea).'
+                                : 'Paper mode — this idea simulates on the selected account (one per idea).'}
+                        </div>
                     )}
                     {selectedIds.length > 1 && !mainAccountId && (
                         <div className="acct-sel__main-hint">★ star an account to scale order quantities</div>

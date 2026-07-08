@@ -22,6 +22,13 @@ export function TradeIdeaCard({ idea, onDelete, onStatusChange }) {
                         style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.12em', color: 'var(--color-teal)', background: 'rgba(38, 166, 154, 0.12)', border: '1px solid var(--color-teal)', borderRadius: 3, padding: '1px 5px' }}
                     >PAPER</span>
                 )}
+                {idea.broker === 'manual' && (
+                    <span
+                        className="trade-idea-card__paper"
+                        title="Manual (broker-less real-money) trade"
+                        style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.12em', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid #f59e0b', borderRadius: 3, padding: '1px 5px' }}
+                    >MANUAL</span>
+                )}
                 <span className={`trade-idea-card__badge status--${status}`}><StatusIcon status={status} /></span>
                 <button
                     className="trade-idea-card__delete"

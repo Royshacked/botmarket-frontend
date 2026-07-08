@@ -42,6 +42,9 @@ export function IdeaCard({ idea, onOpen }) {
                     {idea.broker === 'paper' && (
                         <span className="idea-card__paper" title="Simulated (paper) trade">PAPER</span>
                     )}
+                    {idea.broker === 'manual' && (
+                        <span className="idea-card__paper idea-card__paper--manual" title="Manual (broker-less real-money) trade">MANUAL</span>
+                    )}
                 </span>
                 <span className={`idea-card__phase idea-card__phase--${phase.cls}`}>
                     <span className="idea-card__phase-dot">{phase.dot}</span>

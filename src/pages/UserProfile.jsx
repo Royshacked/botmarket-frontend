@@ -13,6 +13,7 @@ import { ROUTING_MODES, readStoredRoutingMode } from '../cmps/routingModeOptions
 import { DESIGNS, loadDesign, saveDesign, applyDesign } from '../services/designService.js'
 import { queuePrefSync } from '../services/preferences.service.js'
 import { PaperTradingSection } from '../cmps/PaperTrading/PaperTradingSection.jsx'
+import { ManualTradingSection } from '../cmps/ManualTrading/ManualTradingSection.jsx'
 import './UserProfile.scss'
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
@@ -383,6 +384,8 @@ export function UserProfile() {
                     </section>
 
                     <PaperTradingSection />
+
+                    <ManualTradingSection />
 
                 </div>
 

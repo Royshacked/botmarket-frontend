@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { brokerService } from '../services/broker/broker.service.remote.js'
+import { resolveWorkspace } from './useWorkspaceMode.js'
 import { useAutoRefresh } from './useAutoRefresh.js'
 import { useWindowEvent } from './useWindowEvent.js'
 
@@ -34,33 +35,36 @@ export function useBrokerAccounts() {
     const refreshAccounts = useCallback(async () => {
         try {
             const connections = await brokerService.listConnections()
-            // Fetch every connected broker's accounts in parallel (matches usePositions).
+            const connected   = Object.entries(connections).filter(([, c]) => c).map(([b]) => b)
+            const ws          = resolveWorkspace(connections.paper)
+
+            // Isolate to the active workspace's accounts: a paper/manual idea binds to ONE
+            // named virtual account; live shows the real brokers (paper+manual excluded).
+            const brokers = ws === 'paper'  ? ['paper']
+                          : ws === 'manual' ? ['manual']
+                          : connected.filter(b => b !== 'paper' && b !== 'manual')
+
             const lists = await Promise.all(
-                Object.entries(connections)
-                    .filter(([, connected]) => connected)
-                    .map(async ([broker]) => {
-                        const { accounts = [] } = await brokerService.getTradingAccounts(broker)
-                        return accounts.map(a => ({ ...a, broker }))
-                    })
+                brokers.filter(b => connected.includes(b)).map(async (broker) => {
+                    const { accounts = [] } = await brokerService.getTradingAccounts(broker)
+                    return accounts.map(a => ({ ...a, broker }))
+                })
             )
             const all = lists.flat()
 
-            const paper = all.filter(a => a.broker === 'paper')
-            if (paper.length) {
-                // Paper workspace → isolate to the paper accounts; keep ONE selected
-                // (one account per paper idea): the prior pick if it still exists, else
-                // the first. main follows the single selection via the effect below.
-                setIsPaper(true)
-                setAvailableAccounts(paper)
+            setIsPaper(ws === 'paper')
+            setAvailableAccounts(all)
+
+            if (ws === 'paper' || ws === 'manual') {
+                // Virtual workspace → one account per idea: keep ONE selected (the prior
+                // pick if it still exists, else the first). main follows via the effect.
                 setSelectedAccounts(prev => {
-                    const kept = prev.find(id => paper.some(a => a.id === id))
-                    return [kept ?? paper[0].id]
+                    const kept = prev.find(id => all.some(a => a.id === id))
+                    return all.length ? [kept ?? all[0].id] : []
                 })
             } else {
-                setIsPaper(false)
-                setAvailableAccounts(all)
-                // Drop any selected ids that no longer exist — e.g. the paper id
-                // after paper mode is turned off, or a disconnected account.
+                // Drop any selected ids that no longer exist — e.g. a virtual id after
+                // switching to the live workspace, or a disconnected account.
                 setSelectedAccounts(prev => prev.filter(id => all.some(a => a.id === id)))
             }
         } catch (err) {
@@ -70,9 +74,10 @@ export function useBrokerAccounts() {
 
     useAutoRefresh(refreshAccounts)
 
-    // Paper mode is toggled from the profile (PaperTradingSection); re-fetch so the
-    // selector reflects the change live instead of only on next page load.
-    useWindowEvent('paper-mode-changed', refreshAccounts)
+    // Workspace is switched from the header/profile → re-fetch so the selector reflects the
+    // active workspace's accounts live. Both events fire on a switch; either triggers a sync.
+    useWindowEvent('paper-mode-changed',     refreshAccounts)
+    useWindowEvent('workspace-mode-changed', refreshAccounts)
 
     useEffect(() => {
         // A single selection (always the case in paper mode) is the main account; an

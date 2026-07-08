@@ -5,7 +5,8 @@ import { ClosePositionDialog } from './ClosePositionDialog.jsx'
 import { EditOrdersDialog } from './EditOrdersDialog.jsx'
 import { ActivatePortfolioDialog } from './ActivatePortfolioDialog.jsx'
 import { PositionsTable, posKey } from './PositionsTable.jsx'
-import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel, isDeleteLocked, openIdeaPopup, formatPnl, ideaPnl, portfolioPnl } from './tradeIdea.utils.js'
+import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel, isDeleteLocked, isManualIdea, openIdeaPopup, formatPnl, ideaPnl, portfolioPnl } from './tradeIdea.utils.js'
+import { eventBus, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT } from '../../services/event-bus.service'
 import { StatusIcon } from '../StatusIcon.jsx'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { IdeaCard, BrokerGroupCard, PortfolioCard, BuildingPortfolioCard, PositionsCards } from './TradeIdeaCards.jsx'
@@ -131,6 +132,9 @@ BrokerGroupRow.propTypes = {
 function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDeletePortfolio, onStatusChange, onOpen, onSymbolClick, positions = [] }) {
     const [showActivatePrompt, setShowActivatePrompt] = useState(false)
     const allWaiting = group.ideas.length > 0 && group.ideas.every(i => i.status === 'waiting')
+    // Manual (broker-less) portfolio → activate/exit post FillCards instead of placing orders.
+    const isManual = group.ideas.length > 0 && group.ideas.every(isManualIdea)
+    const anyOpen  = group.ideas.some(i => i.status === 'long' || i.status === 'short')
     // Live total P&L = sum of the portfolio's open positions (null while nothing is live).
     const pnl      = portfolioPnl(group.ideas, positions)
     const pnlClass = pnl ? (pnl.pnl > 0 ? ' pnl--pos' : pnl.pnl < 0 ? ' pnl--neg' : '') : ''
@@ -154,9 +158,12 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
     }
 
     function activateNow() {
+        setShowActivatePrompt(false)
+        // Manual: don't flip statuses — post the N-leg entry FillCard; the user reports
+        // each real fill there (the backend marks the legs awaiting_manual_fill).
+        if (isManual) { eventBus.emit(MANUAL_PORTFOLIO_ACTIVATE, { portfolioId: group.portfolioId }); return }
         // Activate every waiting idea: 'hit' if it has no entry conditions
         // (fire now, pending confirmation), otherwise 'looking' (monitor watches).
-        setShowActivatePrompt(false)
         group.ideas.forEach(idea => {
             if (idea.status === 'waiting') onStatusChange(idea.id, activationStatus(idea))
         })
@@ -172,6 +179,13 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
 
     function handleDeactivateAll(e) {
         e.stopPropagation()
+        // Manual: an active book is real tracked state — never silently reset to waiting.
+        // Positions live → post the exit FillCard; still awaiting fills → re-post the
+        // entry card (e.g. the user dismissed it and wants it back).
+        if (isManual) {
+            eventBus.emit(anyOpen ? MANUAL_PORTFOLIO_EXIT : MANUAL_PORTFOLIO_ACTIVATE, { portfolioId: group.portfolioId })
+            return
+        }
         // Deactivate: send every active idea back to 'waiting'.
         group.ideas.forEach(idea => {
             if (idea.status !== 'waiting') onStatusChange(idea.id, 'waiting')
@@ -201,8 +215,8 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
                         <button
                             className="idea-row__status-toggle portfolio-group-row__status-active"
                             onClick={handleDeactivateAll}
-                            title="Set all ideas in this portfolio back to waiting"
-                        >active</button>
+                            title={isManual ? (anyOpen ? 'Record your exit — enter your exit prices in social chat' : 'Re-post the entry card in social chat') : 'Set all ideas in this portfolio back to waiting'}
+                        >{isManual ? (anyOpen ? 'exit' : 'fill') : 'active'}</button>
                     )}
                     <span className="idea-row__actions">
                         <button
@@ -269,6 +283,7 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
                 <ActivatePortfolioDialog
                     name={group.name}
                     count={group.ideas.length}
+                    manual={isManual}
                     onReview={reviewBeforeActivate}
                     onActivate={activateNow}
                     onClose={() => setShowActivatePrompt(false)}

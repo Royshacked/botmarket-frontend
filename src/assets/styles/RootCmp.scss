@@ -4,10 +4,9 @@
     height: 100vh;
     color: var(--text-primary);
 
-    // Aurora-washed night backdrop — the shared --aurora-wash (driven by the
-    // profile hue slider via --aurora-hue), over the night base. Identical to the
-    // header so it continues seamlessly below it; shows through panel gaps + margins.
-    background: var(--aurora-wash), var(--bg-base);
+    // Plain night backdrop — the aurora wash lives ONLY in the app header now
+    // (AppHeaderAxl.scss); the body/panels sit on the flat base.
+    background: var(--bg-base);
 }
 
 .main-container main {
