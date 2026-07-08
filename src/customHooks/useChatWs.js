@@ -2,11 +2,37 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { chatWsService } from '../services/chat/chatWs.service'
 import { chatService } from '../services/chat/chat.service'
+import { playNotify } from '../services/sound.service'
+import { showUserMsg } from '../services/event-bus.service'
+import { AGENTS, isBotId } from '../cmps/AxlHub/agentMeta.jsx'
+
+// Special-card messages carry a human-readable `content` summary (it's what the
+// conversation list shows), so we prefer that; this is only a fallback for the
+// rare empty-content card.
+const TYPE_LABELS = {
+    invalidation_alert: 'Trade alert',
+    portfolio_review:   'Portfolio review',
+    manual_fill:        'Fill confirmation',
+}
+
+// One-line preview for the incoming-message toast. Bot senders resolve to their
+// brand (Idea / Atlas / Argus / axl); human DMs fall back to a neutral label
+// since the sender's name isn't on the message payload.
+function chatPreview(msg) {
+    const brand = isBotId(msg?.senderId) ? (AGENTS[msg.senderId]?.brand ?? null) : null
+    const body  = (msg?.content && String(msg.content).trim())
+        ? String(msg.content).replace(/\s+/g, ' ').slice(0, 80)
+        : (TYPE_LABELS[msg?.type] ?? 'New message')
+    return brand ? `💬 ${brand}: ${body}` : `💬 ${body}`
+}
 
 export function useChatWs(userId) {
     const navigate = useNavigate()
     const [unread, setUnread] = useState(0)
     const [showChat, setShowChat] = useState(false)
+    // Conversation to auto-open when the chat panel is launched from a preview
+    // toast; null on a plain header-button open.
+    const [pendingConvId, setPendingConvId] = useState(null)
     const showChatRef = useRef(false)
     useEffect(() => { showChatRef.current = showChat }, [showChat])
 
@@ -33,8 +59,22 @@ export function useChatWs(userId) {
 
     useEffect(() => {
         if (!userId) return
-        function onNewMessage() {
-            if (!showChatRef.current) setUnread(u => u + 1)
+        function onNewMessage(msg) {
+            // The server only pushes to the recipient, so a self-echo shouldn't
+            // happen — guard anyway. Stay silent while the chat panel is open:
+            // the panel renders the message live and mirrors the badge, so a
+            // sound/toast there would just be noise (same suppression the badge
+            // already uses).
+            if (msg?.senderId === userId) return
+            if (showChatRef.current) return
+            setUnread(u => u + 1)
+            playNotify()
+            const convId = msg?.conversationId ?? null
+            showUserMsg({
+                txt:     chatPreview(msg),
+                type:    'chat',
+                onClick: () => { setPendingConvId(convId); setShowChat(true) },
+            })
         }
         chatWsService.on('new_message', onNewMessage)
         return () => chatWsService.off('new_message', onNewMessage)
@@ -49,5 +89,5 @@ export function useChatWs(userId) {
         // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only OAuth redirect; navigate is stable
     }, [])
 
-    return { unread, setUnread, showChat, setShowChat }
+    return { unread, setUnread, showChat, setShowChat, pendingConvId, setPendingConvId }
 }

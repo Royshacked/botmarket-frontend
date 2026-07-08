@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate }         from 'react-router-dom'
 import { useAuth }             from './AuthModal/useAuth'
 import { brokerService }       from '../services/broker/broker.service.remote.js'
+import { isChatSoundMuted, setChatSoundMuted } from '../services/sound.service'
 import './PreferencesModal.scss'
 
 const BROKERS = [
@@ -49,6 +50,15 @@ export function PreferencesModal({ onClose }) {
     const [accountData,  setAccountData]  = useState({})
     const [accountInfo,  setAccountInfo]  = useState({})
     const [savingBroker, setSavingBroker] = useState(null)
+    const [soundOn,      setSoundOn]      = useState(!isChatSoundMuted())
+
+    function handleToggleSound() {
+        setSoundOn(prev => {
+            const next = !prev
+            setChatSoundMuted(!next)
+            return next
+        })
+    }
 
     useEffect(() => {
         _loadAll()
@@ -149,6 +159,20 @@ export function PreferencesModal({ onClose }) {
                         <span className="prefs-modal__label">Full name</span>
                         <span className="prefs-modal__value">{fullname}</span>
                     </div>
+
+                    <div className="prefs-modal__divider" />
+
+                    <h3 className="prefs-modal__section-title">Notifications</h3>
+
+                    <label className="prefs-modal__field prefs-modal__toggle">
+                        <span className="prefs-modal__label">Sound on new message</span>
+                        <input
+                            type="checkbox"
+                            className="prefs-modal__checkbox"
+                            checked={soundOn}
+                            onChange={handleToggleSound}
+                        />
+                    </label>
 
                     <div className="prefs-modal__divider" />
 

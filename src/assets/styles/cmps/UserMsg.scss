@@ -38,3 +38,18 @@
 .user-msg.error {
     background-color: rgb(216, 59, 59);
 }
+// Incoming social-chat message preview — reads as a message, not a status.
+.user-msg.chat {
+    background-color: rgb(37, 51, 71);
+    max-width: 320px;
+    line-height: 1.3;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .35);
+}
+// An actionable toast (click to open the conversation).
+.user-msg.clickable {
+    cursor: pointer;
+}
+.user-msg.clickable:hover {
+    filter: brightness(1.12);
+}

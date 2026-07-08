@@ -113,6 +113,21 @@
         margin: 0.1rem 0;
     }
 
+    // A settings row with an inline control (checkbox) instead of a stacked value.
+    &__toggle {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+    }
+
+    &__checkbox {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+        accent-color: var(--accent, #2bb673);
+    }
+
     &__broker {
         display: flex;
         flex-direction: column;

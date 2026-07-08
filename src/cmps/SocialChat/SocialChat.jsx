@@ -23,7 +23,7 @@ function readAiPref() {
 
 const PAGE = 50
 
-export function SocialChat({ currentUserId, onUnreadChange, onClose }) {
+export function SocialChat({ currentUserId, initialConvId, onUnreadChange, onClose }) {
     const [conversations, setConversations] = useState([])
     const [activeConv,    setActiveConv]    = useState(null)
     const [messages,      setMessages]      = useState([])
@@ -31,6 +31,9 @@ export function SocialChat({ currentUserId, onUnreadChange, onClose }) {
     const [loading,       setLoading]       = useState(false)
     const [closing,       setClosing]       = useState(false)
     const activeConvRef = useRef(null)
+    // Auto-open target (from a preview-toast click). Consumed once per value so a
+    // later conversations-list refresh doesn't yank the user back to it.
+    const consumedConvRef = useRef(null)
 
     // Play the close (bubble-deflate) animation, then let the parent unmount us.
     // Keep the duration in sync with the social-chat-bubble-out keyframe.
@@ -83,6 +86,20 @@ export function SocialChat({ currentUserId, onUnreadChange, onClose }) {
     }, [loadConversations, onUnreadChange])
 
     useEffect(() => { activeConvRef.current = activeConv }, [activeConv])
+
+    // ── Auto-open the conversation from a preview-toast click ────────────────
+    // Waits for the list to load (the target may not be there on first render),
+    // then selects it once. The ref guards against re-selecting on later list
+    // updates (e.g. an incoming message re-maps `conversations`).
+    useEffect(() => {
+        if (!initialConvId) { consumedConvRef.current = null; return }
+        if (consumedConvRef.current === initialConvId) return
+        const conv = conversations.find(c => c.id === initialConvId)
+        if (!conv) return
+        consumedConvRef.current = initialConvId
+        handleSelectConv(conv)
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- handleSelectConv is a stable per-render decl; re-adding it would loop
+    }, [initialConvId, conversations])
 
     // ── Select conversation ─────────────────────────────────────────────────
     async function handleSelectConv(conv) {

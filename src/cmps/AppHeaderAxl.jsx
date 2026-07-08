@@ -55,7 +55,7 @@ export function AppHeaderAxl() {
     const textRef   = useRef(null)
     const tagRef    = useRef(null)
 
-    const { unread, setUnread, showChat, setShowChat } = useChatWs(user?._id)
+    const { unread, setUnread, showChat, setShowChat, pendingConvId, setPendingConvId } = useChatWs(user?._id)
     const { workspace, setWorkspace } = useWorkspaceMode(user?._id)
 
     // ── ambient aurora candlesticks (built once into the .ticks svg) ──
@@ -264,8 +264,9 @@ export function AppHeaderAxl() {
             {showChat && user && createPortal(
                 <SocialChat
                     currentUserId={user._id}
+                    initialConvId={pendingConvId}
                     onUnreadChange={setUnread}
-                    onClose={() => setShowChat(false)}
+                    onClose={() => { setShowChat(false); setPendingConvId(null) }}
                 />,
                 document.body
             )}
