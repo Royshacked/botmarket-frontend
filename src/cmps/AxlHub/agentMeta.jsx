@@ -62,6 +62,21 @@ export const AGENTS = {
             </>
         ),
     },
+    kairos: {
+        tab:   'kairos',
+        brand: 'Kairos',
+        hue:   'cyan',
+        lead:  'Time a discretionary trade',
+        blurb: 'Read a chart, map the levels, and get the nod when the moment lines up.',
+        intro: "Let's find a ticker, map the levels, and I'll watch for the moment to enter.",
+        hint:  "Name a ticker and how you'd trade it — intraday, day, or swing — and I'll build the call.",
+        icon: (
+            <>
+                <circle cx="12" cy="12" r="8.5"/>
+                <path d="M12 7.5 V12 L15 14"/>
+            </>
+        ),
+    },
 }
 
 // Axl itself — the meta-layer. Not a specialist, so it's intentionally NOT in
@@ -85,7 +100,7 @@ AGENTS.axl = {
     ),
 }
 
-export const AGENT_LIST = [AGENTS.idea, AGENTS.portfolio, AGENTS.scanner]
+export const AGENT_LIST = [AGENTS.idea, AGENTS.portfolio, AGENTS.scanner, AGENTS.kairos]
 
 // The social-chat notification bots — one per agent, ids matching the AGENTS keys and
 // the backend BOT_IDS. Each agent owns its own notifications: Idea posts invalidation

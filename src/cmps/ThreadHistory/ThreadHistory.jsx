@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
 import { threadsService } from '../../services/threads/threads.service.remote.js'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
+import { AgentGlyph } from '../AxlHub/AgentBadges.jsx'
 import './ThreadHistory.scss'
 
 // ── Unfinished-draft resume drawer ──────────────────────────────────────────────
@@ -92,9 +93,7 @@ export function ThreadHistory({ agent, onResume }) {
                             <span className="thread-drawer__title">
                                 {meta.icon && (
                                     <span className="thread-drawer__title-icon">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                                            {meta.icon}
-                                        </svg>
+                                        <AgentGlyph agentKey={agent} icon={meta.icon} size={24} />
                                     </span>
                                 )}
                                 <span className="thread-drawer__title-brand">{meta.brand || 'Chats'}</span>

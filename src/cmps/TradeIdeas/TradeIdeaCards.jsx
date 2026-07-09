@@ -9,6 +9,7 @@ import { ActivatePortfolioDialog } from './ActivatePortfolioDialog.jsx'
 import { eventBus, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT } from '../../services/event-bus.service'
 import { posKey } from './PositionsTable.jsx'
 import { StatusIcon } from '../StatusIcon.jsx'
+import { MinosBadge, AtlasBadge } from '../AxlHub/AgentBadges.jsx'
 
 const BROKER_LABELS = { ctrader: 'cTrader', ibkr: 'IBKR' }
 
@@ -21,16 +22,6 @@ const BROKER_LABELS = { ctrader: 'cTrader', ibkr: 'IBKR' }
 const BUILDING = 'building'
 
 // ── Shared inline icons (match the app's monoline SVG set) ─────────────────────
-
-function AgentIcon() {
-    // Idea-agent spark — a four-point sparkle, echoing the Axl Lists header bolt.
-    return (
-        <svg className="idea-card__icon-svg" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <path d="M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6L12 2z"/>
-            <path d="M18.5 3l.7 2.3 2.3.7-2.3.7-.7 2.3-.7-2.3L15.5 6l2.3-.7.7-2.3z" opacity="0.6"/>
-        </svg>
-    )
-}
 
 function EditIcon() {
     return (
@@ -59,17 +50,6 @@ function BuildingIcon() {
             <path d="m15 12-8.373 8.373a1 1 0 1 1-3-3L12 9"/>
             <path d="m18 15 4-4"/>
             <path d="m21.5 11.5-1.914-1.914A2 2 0 0 1 19 8.172V7l-2.26-2.26a6 6 0 0 0-4.202-1.756L9 2.96l.92.82A6.18 6.18 0 0 1 12 8.4V10l2 2h1.172a2 2 0 0 1 1.414.586z"/>
-        </svg>
-    )
-}
-
-function GlobeIcon() {
-    // Portfolio (Atlas) mark — a globe, echoing the multi-asset "world" of a book.
-    return (
-        <svg className="idea-card__icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <circle cx="12" cy="12" r="9"/>
-            <path d="M3 12h18"/>
-            <path d="M12 3c2.5 2.5 3.8 5.7 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.7-3.8-9s1.3-6.5 3.8-9z"/>
         </svg>
     )
 }
@@ -138,7 +118,7 @@ export function IdeaCard({ idea, onDelete, onStatusChange, onOpen, onSymbolClick
             className={`idea-card idea-card--${status}${isBrokerChild ? ' idea-card--broker-child' : ''}`}
             onClick={handleCardClick}
         >
-            <div className="idea-card__icon" aria-hidden="true"><AgentIcon /></div>
+            <div className="idea-card__icon" aria-hidden="true"><MinosBadge size={42} /></div>
 
             <div className="idea-card__body">
                 <div className="idea-card__titleline">
@@ -391,7 +371,7 @@ export function PortfolioCard({ group, expanded, onToggle, onEdit, onDelete, onD
             <article className="idea-card idea-card--portfolio" onClick={onToggle}>
                 <span className="idea-card__caret idea-card__caret--lead">{expanded ? '▾' : '▸'}</span>
                 <div className="idea-card__icon idea-card__icon--portfolio" aria-hidden="true">
-                    <GlobeIcon />
+                    <AtlasBadge size={42} />
                 </div>
 
                 <div className="idea-card__body">
@@ -478,7 +458,7 @@ export function BuildingPortfolioCard({ portfolio }) {
     return (
         <article className="idea-card idea-card--portfolio idea-card--building">
             <span className="idea-card__caret idea-card__caret--lead" aria-hidden="true" />
-            <div className="idea-card__icon idea-card__icon--portfolio" aria-hidden="true"><GlobeIcon /></div>
+            <div className="idea-card__icon idea-card__icon--portfolio" aria-hidden="true"><AtlasBadge size={42} /></div>
             <div className="idea-card__body">
                 <div className="idea-card__titleline">
                     <span className="idea-card__pf-name">{portfolio.name}</span>

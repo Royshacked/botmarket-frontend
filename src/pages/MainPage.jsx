@@ -10,6 +10,7 @@ import { readStoredReasoning } from '../cmps/reasoningOptions.js'
 import { readStoredRoutingMode } from '../cmps/routingModeOptions.js'
 import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
 import { ScannerPanel }      from '../cmps/ScannerPanel/ScannerPanel.jsx'
+import { KairosPanel }       from '../cmps/KairosPanel/KairosPanel.jsx'
 import { Radar }             from '../cmps/Radar/Radar.jsx'
 import { TradingViewChart }  from '../cmps/TradingViewChart/TradingViewChart.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
@@ -247,6 +248,7 @@ export function MainPage() {
     // own chat stream) so the agent-bar "live" dot can pulse for Atlas/Argus too.
     const [portfolioLoading, setPortfolioLoading] = useState(false)
     const [scannerLoading,   setScannerLoading]   = useState(false)
+    const [kairosLoading,    setKairosLoading]    = useState(false)
     const [dismissedConfirmIds, setDismissedConfirmIds] = useState(() => new Set())
     const [placingOrders, setPlacingOrders] = useState(false)
     const [pendingDeleteIdea, setPendingDeleteIdea] = useState(null)
@@ -1306,12 +1308,12 @@ export function MainPage() {
                                 </button>
                                 <span className="chat-agentbar__crumb" aria-hidden="true">/</span>
                                 <span className="chat-agentbar__current">
-                                    {activeTab === 'portfolio' ? 'Atlas' : activeTab === 'scanner' ? 'Argus' : 'Idea'}
+                                    {activeTab === 'portfolio' ? 'Atlas' : activeTab === 'scanner' ? 'Argus' : activeTab === 'kairos' ? 'Kairos' : 'Idea'}
                                 </span>
                                 <ThreadHistory agent={activeTab} onResume={handleResumeActiveThread} />
 
                                 <div className="chat-agentbar__right">
-                                    {(activeTab === 'idea' || activeTab === 'portfolio') && (
+                                    {(activeTab === 'idea' || activeTab === 'portfolio' || activeTab === 'kairos') && (
                                         <AccountSelector
                                             accounts={availableAccounts}
                                             selectedIds={selectedAccounts}
@@ -1326,7 +1328,9 @@ export function MainPage() {
                                                 ? (isLoading ? 'loading' : analysisState?.structured_state?.active_asset ? 'building' : 'idle')
                                                 : activeTab === 'portfolio'
                                                     ? (portfolioLoading ? 'loading' : buildingPortfolio ? 'building' : 'idle')
-                                                    : (scannerLoading ? 'loading' : 'idle')
+                                                    : activeTab === 'scanner'
+                                                        ? (scannerLoading ? 'loading' : 'idle')
+                                                        : (kairosLoading ? 'loading' : 'idle')
                                         }`} />
                                         live
                                     </span>
@@ -1365,6 +1369,15 @@ export function MainPage() {
                                 onAccountsChange={setSelectedAccounts}
                                 mainAccountId={mainAccountId}
                                 onMainAccountChange={setMainAccountId}
+                            />
+                        </div>
+                        <div className="chat-tabs__panel" style={{ display: activeTab === 'kairos' ? 'flex' : 'none' }}>
+                            <KairosPanel
+                                onLoadingChange={setKairosLoading}
+                                availableAccounts={availableAccounts}
+                                selectedAccounts={selectedAccounts}
+                                mainAccountId={mainAccountId}
+                                workspace={workspace}
                             />
                         </div>
 

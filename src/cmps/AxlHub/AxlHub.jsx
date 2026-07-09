@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { AgentSummon, AgentTurnTag } from './AgentSummon.jsx'
+import { AgentGlyph } from './AgentBadges.jsx'
 import { AGENTS, AGENT_LIST, SUMMON_MS } from './agentMeta.jsx'
 import { axlService } from '../../services/axl/axl.service.remote'
 import { ChatInputRow } from '../ChatInputRow.jsx'
@@ -173,9 +174,7 @@ export function AxlHub({ user, onPick }) {
                     }
                     sub={`${summoning.brand} will be right with you`}
                 >
-                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                        {summoning.icon}
-                    </svg>
+                    <AgentGlyph agentKey={summoning.tab} icon={summoning.icon} size={54} />
                 </AgentSummon>
             </div>
         )
@@ -196,9 +195,7 @@ export function AxlHub({ user, onPick }) {
                             onClick={() => handlePick(opt)}
                             title={`Open ${opt.brand}`}
                         >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                {opt.icon}
-                            </svg>
+                            <AgentGlyph agentKey={opt.tab} icon={opt.icon} size={20} />
                             {opt.brand}
                         </button>
                     ))}
@@ -258,7 +255,7 @@ export function AxlHub({ user, onPick }) {
                         </svg>
 
                         <h2 className="axl-hub__greeting">
-                            Hi{name ? ` ${name}` : ''}, I&apos;m <span className="axl-hub__wordmark"><b>a</b>xl</span>.
+                            Hi{name ? ` ${name}` : ''}, I&apos;m <span className="axl-hub__wordmark"><b>A</b>xl</span>.
                         </h2>
                         <p className="axl-hub__prompt">What would you like to build today?</p>
                     </div>
@@ -272,9 +269,7 @@ export function AxlHub({ user, onPick }) {
                                 onClick={() => handlePick(opt)}
                             >
                                 <span className="axl-hub__option-icon">
-                                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                                        {opt.icon}
-                                    </svg>
+                                    <AgentGlyph agentKey={opt.tab} icon={opt.icon} size={46} />
                                 </span>
                                 <span className="axl-hub__option-body">
                                     <span className="axl-hub__option-lead">{opt.lead}</span>

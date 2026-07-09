@@ -4,6 +4,7 @@ import { chatService } from '../../services/chat/chat.service'
 import { AxlBotGlyph } from '../AxlHub/AgentSummon'
 import { useDesign } from '../../customHooks/useDesign.js'
 import { AGENTS, BOT_IDS, isBotId } from '../AxlHub/agentMeta.jsx'
+import { AgentGlyph } from '../AxlHub/AgentBadges.jsx'
 
 // The agent behind a conversation, or null for a human DM. Drives the brand name,
 // tinted avatar and the "AGENT" chip.
@@ -16,11 +17,8 @@ function BotAvatarGlyph({ agentKey }) {
     if (agentKey === 'axl') return <AxlBotGlyph />
     const meta = AGENTS[agentKey]
     if (!meta) return null
-    return (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            {meta.icon}
-        </svg>
-    )
+    // Social-chat feed: each agent shows its own figure (Idea, Atlas, Argus, Kairos).
+    return <AgentGlyph agentKey={agentKey} icon={meta.icon} size={28} />
 }
 
 function timeAgo(ms) {

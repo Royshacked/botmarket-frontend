@@ -896,14 +896,11 @@ $sym-status-colors: (
 
     &__icon {
         flex: none;
-        width: 42px;
-        height: 42px;
-        border-radius: 10px;
+        width: 46px;
+        height: 46px;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: color-mix(in srgb, var(--accent) 10%, transparent);
-        border: 1px solid var(--accent-deep);
         color: var(--accent-light);
 
         &--group {

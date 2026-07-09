@@ -5,6 +5,7 @@ import { manualService } from '../../services/manual/manual.service.remote'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { AGENTS, isBotId, CONVERSATIONAL_BOT_ID } from '../AxlHub/agentMeta.jsx'
+import { AgentGlyph } from '../AxlHub/AgentBadges.jsx'
 
 // Compact "from <agent>" attribution chip for notification cards: the agent's
 // sigil + brand, tinted by its hue. Makes a card read as coming from Idea / Atlas
@@ -12,9 +13,7 @@ import { AGENTS, isBotId, CONVERSATIONAL_BOT_ID } from '../AxlHub/agentMeta.jsx'
 function CardAgentTag({ agent }) {
     return (
         <span className={`social-chat__card-agent social-chat__card-agent--${agent.hue}`}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                {agent.icon}
-            </svg>
+            <AgentGlyph agentKey={agent.tab} icon={agent.icon} size={16} />
             <span>{agent.brand}</span>
         </span>
     )

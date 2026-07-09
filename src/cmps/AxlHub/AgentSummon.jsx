@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types'
 import { BrandTitle } from '../BrandTitle.jsx'
+import { AgentGlyph } from './AgentBadges.jsx'
 import './AxlHub.scss'
 
 // ── Agent presentational pieces ────────────────────────────────────────────────
@@ -33,9 +34,7 @@ export function AgentIntro({ agent, children }) {
     return (
         <div className={`agent-intro agent-intro--${agent.hue}`}>
             <span className="agent-intro__icon">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    {agent.icon}
-                </svg>
+                <AgentGlyph agentKey={agent.tab} icon={agent.icon} size={48} />
             </span>
             <p className="agent-intro__greeting">
                 Hi, I&apos;m <span className="agent-intro__brand"><BrandTitle text={agent.brand} /></span>.
@@ -58,9 +57,7 @@ export function AgentTurnTag({ agent, active = false }) {
     return (
         <span className={`agent-turn-tag${active ? ' is-active' : ''}`}>
             <span className="agent-turn-tag__icon">
-                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    {agent.icon}
-                </svg>
+                <AgentGlyph agentKey={agent.tab} icon={agent.icon} size={26} />
             </span>
             <span className="agent-turn-tag__name">{agent.brand}</span>
         </span>
