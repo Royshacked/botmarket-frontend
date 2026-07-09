@@ -34,9 +34,11 @@ const BROKERS = [
     { type: 'ibkr',    label: 'IBKR'    },
 ]
 
-// One shared AI setting drives all three agents; each consumer reads its own
-// per-agent localStorage keys, so a change is mirrored to every agent's keys.
-const AI_AGENT_KEYS = ['idea', 'scanner', 'portfolio']
+// One shared AI setting drives every agent; each consumer reads its own per-agent
+// localStorage keys, so a change is mirrored to every agent's keys. 'kairos' is the
+// Kairos build agent (client-read); 'hermes' is the Kairos monitor (server-read by
+// the kairos monitor via the synced account preferences).
+const AI_AGENT_KEYS = ['idea', 'scanner', 'portfolio', 'kairos', 'hermes']
 
 export function UserProfile() {
     const { user, setUser, signout } = useAuth()

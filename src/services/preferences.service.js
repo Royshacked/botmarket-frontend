@@ -30,6 +30,9 @@ const PREF_KEYS = [
     'ideaModel', 'ideaReasoning', 'ideaRoutingMode',
     'scannerModel', 'scannerReasoning', 'scannerRoutingMode',
     'portfolioModel', 'portfolioReasoning', 'portfolioRoutingMode',
+    'kairosModel', 'kairosReasoning', 'kairosRoutingMode',
+    // Hermes = the Kairos monitor; its model is read server-side from this synced blob.
+    'hermesModel', 'hermesReasoning', 'hermesRoutingMode',
 ]
 
 function loggedinUserId() {
