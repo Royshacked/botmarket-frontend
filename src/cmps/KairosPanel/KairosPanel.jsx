@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
-import { kairosService } from '../../services/kairos/kairos.service.remote.js'
+import { kairosService, CALLS_CHANGED } from '../../services/kairos/kairos.service.remote.js'
 import { ChatMarkdown } from '../ChatMarkdown.jsx'
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
@@ -13,11 +13,14 @@ import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { ChatReasoning } from '../ChatReasoning.jsx'
+import { ChatPhaseHeading } from '../ChatPhaseHeading.jsx'
 import { HermesBadge } from '../AxlHub/AgentBadges.jsx'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import './KairosPanel.scss'
 
 const SUGGESTIONS = ['Day-trade setup on NVDA today', 'Swing idea for TSLA']
+
+const KAIROS_PHASE_LABELS = { 1: 'Classify', 2: 'Zones', 3: 'Risk', 4: 'Trigger', 5: 'Size & account' }
 
 // call.broker → workspace mode (mirrors backend deriveMode); default paper.
 function brokerMode(broker) {
@@ -29,6 +32,9 @@ function brokerMode(broker) {
 const READINESS = new Set(['ready', 'expiring'])
 
 function MessageBubble({ msg }) {
+    if (msg.role === 'phase') {
+        return <ChatPhaseHeading phase={msg.phase} label={KAIROS_PHASE_LABELS[msg.phase]} total={5} />
+    }
     if (msg.role === 'user') {
         return <div className="portfolio-panel__bubble portfolio-panel__bubble--user">{msg.content}</div>
     }
@@ -49,21 +55,24 @@ function MessageBubble({ msg }) {
     )
 }
 
-// Draft preview of the emitted (unsaved) call — zones / reference levels / patterns.
-function CallDraft({ call }) {
+// Draft/detail preview of a call — zones / reference levels / patterns. Reused by the call popup,
+// where `showHead={false}` skips the asset/type/bias line + thesis (the popup renders its own).
+export function CallDraft({ call, showHead = true }) {
     const zones = call.entry_zones ?? []
     const refs  = call.reference_levels ?? []
     const pats  = call.patterns ?? []
     return (
         <div className="kairos-panel__draft">
-            <div className="kairos-panel__draft-head">
-                <HermesBadge size={22} />
-                <span className="kairos-panel__asset">{call.asset}</span>
-                <span className="kairos-panel__type">{call.trade_type}</span>
-                <span className={`kairos-panel__dir kairos-panel__dir--${call.bias}`}>{call.bias}</span>
-                {call.sizing?.max_size != null && <span className="kairos-panel__size">max {call.sizing.max_size}</span>}
-            </div>
-            {call.thesis && <div className="kairos-panel__thesis">{call.thesis}</div>}
+            {showHead && (
+                <div className="kairos-panel__draft-head">
+                    <HermesBadge size={22} />
+                    <span className="kairos-panel__asset">{call.asset}</span>
+                    <span className="kairos-panel__type">{call.trade_type}</span>
+                    <span className={`kairos-panel__dir kairos-panel__dir--${call.bias}`}>{call.bias}</span>
+                    {call.sizing?.max_size != null && <span className="kairos-panel__size">max {call.sizing.max_size}</span>}
+                </div>
+            )}
+            {showHead && call.thesis && <div className="kairos-panel__thesis">{call.thesis}</div>}
             {zones.length > 0 && (
                 <div className="kairos-panel__chips">
                     {zones.map((z, i) => (
@@ -112,16 +121,16 @@ function ReadinessCard({ call, busy, onAct }) {
                     </div>
                     {p.rationale && <div className="kairos-panel__card-note">{p.rationale}</div>}
                     <div className="kairos-panel__card-actions">
-                        <button className="kairos-panel__btn kairos-panel__btn--go" disabled={busy} onClick={() => onAct(call.id, 'confirm')}>Confirm entry</button>
-                        <button className="kairos-panel__btn" disabled={busy} onClick={() => onAct(call.id, 'dismiss')}>Dismiss</button>
+                        <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" disabled={busy} onClick={() => onAct(call.id, 'confirm')}>Confirm entry</button>
+                        <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" disabled={busy} onClick={() => onAct(call.id, 'dismiss')}>Dismiss</button>
                     </div>
                 </>
             ) : (
                 <>
                     <div className="kairos-panel__card-note">{a?.edit_proposal?.why ?? 'Near expiry — re-map or let it go.'}</div>
                     <div className="kairos-panel__card-actions">
-                        <button className="kairos-panel__btn kairos-panel__btn--go" disabled={busy} onClick={() => onAct(call.id, 'edit')}>Accept edit</button>
-                        <button className="kairos-panel__btn" disabled={busy} onClick={() => onAct(call.id, 'dismiss')}>Dismiss</button>
+                        <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" disabled={busy} onClick={() => onAct(call.id, 'edit')}>Accept edit</button>
+                        <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" disabled={busy} onClick={() => onAct(call.id, 'dismiss')}>Dismiss</button>
                     </div>
                 </>
             )}
@@ -129,7 +138,7 @@ function ReadinessCard({ call, busy, onAct }) {
     )
 }
 
-export function KairosPanel({ onLoadingChange, availableAccounts = [], selectedAccounts = [], mainAccountId = null, workspace = 'paper' }) {
+export function KairosPanel({ onLoadingChange, onGenerated, availableAccounts = [], selectedAccounts = [], mainAccountId = null, workspace = 'paper' }) {
     const chat = useChatStream()
     const { messages } = chat
 
@@ -144,7 +153,11 @@ export function KairosPanel({ onLoadingChange, availableAccounts = [], selectedA
     const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
 
     const refreshCalls = useCallback(async () => { setCalls(await kairosService.listCalls()) }, [])
-    useEffect(() => { refreshCalls() }, [refreshCalls])
+    useEffect(() => {
+        refreshCalls()
+        window.addEventListener(CALLS_CHANGED, refreshCalls)   // sync with the Axl Lists Calls tab
+        return () => window.removeEventListener(CALLS_CHANGED, refreshCalls)
+    }, [refreshCalls])
 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable closure
     const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
@@ -152,7 +165,7 @@ export function KairosPanel({ onLoadingChange, availableAccounts = [], selectedA
 
     async function _send(text) {
         if (!text || chat.isLoading) return
-        const history = messages.filter(m => !m.streaming).map(m => ({ role: m.role, content: m.content }))
+        const history = messages.filter(m => !m.streaming && m.role !== 'phase').map(m => ({ role: m.role, content: m.content }))
         history.push({ role: 'user', content: text })
 
         const { signal, handlers } = chat.begin(text, {
@@ -198,6 +211,7 @@ export function KairosPanel({ onLoadingChange, availableAccounts = [], selectedA
             await kairosService.generateCall(pendingCall, ideaAccounts, mainAccountId)
             setPendingCall(null)
             await refreshCalls()
+            onGenerated?.()   // call generated — return to the axl hub
         } catch (err) {
             console.error('[kairos] generate', err)
         }
@@ -277,7 +291,7 @@ export function KairosPanel({ onLoadingChange, availableAccounts = [], selectedA
 
             {!chat.isLoading && callReady && (
                 <div className="portfolio-panel__action-bubble">
-                    <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={handleGenerate} disabled={!canGenerate}>
+                    <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update kairos-panel__generate-btn" onClick={handleGenerate} disabled={!canGenerate}>
                         {ideaAccounts.length === 0 ? 'Mark an account to generate' : 'Generate call'}
                     </button>
                 </div>
@@ -310,6 +324,7 @@ export function KairosPanel({ onLoadingChange, availableAccounts = [], selectedA
 
 KairosPanel.propTypes = {
     onLoadingChange:  PropTypes.func,
+    onGenerated:      PropTypes.func,
     availableAccounts: PropTypes.array,
     selectedAccounts:  PropTypes.array,
     mainAccountId:     PropTypes.string,

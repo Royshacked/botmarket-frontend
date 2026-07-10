@@ -216,7 +216,8 @@
         font-weight: 600;
         flex-shrink: 0;
 
-        // The meditating axl bot glyph inherits the avatar's accent via currentColor.
+        // Bot/agent avatars: no filled disc — the themed glyph sits on an empty background.
+        &--bot { background: none; }
         &--bot svg { width: 24px; height: 24px; }
     }
 
@@ -758,9 +759,8 @@
     // Bot token → rounded square, accent-tinted (per-agent identity hues below:
     // Idea cyan, Atlas green, Argus violet — intentionally constant, not accent).
     &__conv-avatar--bot {
-        border-radius: 9px;
-        background: color-mix(in srgb, var(--accent-bright) 10%, transparent);
-        border: 1px solid var(--border-mid);
+        background: none;
+        border: none;
         color: var(--accent-light);
 
         &.social-chat__conv-avatar--cyan   { color: #22d3ee; }

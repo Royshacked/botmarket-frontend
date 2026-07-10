@@ -8,6 +8,7 @@ import { AppHeaderAxl } from './cmps/AppHeaderAxl.jsx'
 import { MainPage } from './pages/MainPage.jsx'
 import { UserProfile } from './pages/UserProfile.jsx'
 import { IdeaPage } from './pages/IdeaPage.jsx'
+import { CallPage } from './pages/CallPage.jsx'
 
 export function RootCmp() {
     const { user, isLoading } = useContext(AuthContext)
@@ -15,6 +16,8 @@ export function RootCmp() {
 
     // Idea pop-out window — no chrome, full viewport
     if (location.pathname.startsWith('/idea/')) return <IdeaPage />
+    // Kairos call pop-out window
+    if (location.pathname.startsWith('/call/')) return <CallPage />
 
     const onProfile = location.pathname === '/profile'
 

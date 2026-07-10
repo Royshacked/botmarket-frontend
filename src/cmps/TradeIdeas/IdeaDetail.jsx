@@ -1,11 +1,7 @@
-import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { TradingViewChart } from '../TradingViewChart/TradingViewChart.jsx'
-import { posKey } from './PositionsTable.jsx'
-import { PositionsCards } from './TradeIdeaCards.jsx'
-import { ClosePositionDialog } from './ClosePositionDialog.jsx'
-import { EditOrdersDialog } from './EditOrdersDialog.jsx'
 import { ConditionTreeView, isAllAnd } from './ConditionTree.jsx'
+import { PopoutFooter } from './PopoutFooter.jsx'
 import { brokerSymbolLabel, deriveIdeaInterval, phaseTree, isSystemStatus } from './tradeIdea.utils.js'
 
 // Shared idea body — chart (left) + conditions (right) + positions (bottom).
@@ -15,26 +11,7 @@ import { brokerSymbolLabel, deriveIdeaInterval, phaseTree, isSystemStatus } from
 // When `closePosition` is supplied the position cards are interactive — each card
 // gets close / edit-orders controls (same as the Positions tab) and this body
 // renders the confirm + edit dialogs itself. Without it the cards are read-only.
-export function IdeaDetail({ idea, positions = [], closePosition, onPositionsChanged }) {
-    const interactive = typeof closePosition === 'function'
-    const [pendingClose,  setPendingClose]  = useState(null)
-    const [closingId,     setClosingId]     = useState(null)
-    const [editOrdersPos, setEditOrdersPos] = useState(null)
-
-    async function confirmClose() {
-        const position = pendingClose
-        if (!position) return
-        setClosingId(posKey(position))
-        try {
-            await closePosition(position.broker, position.id, position.accountId)
-            setPendingClose(null)
-        } catch (err) {
-            console.error('[positions] close failed', err)
-        } finally {
-            setClosingId(null)
-        }
-    }
-
+export function IdeaDetail({ idea, positions = [], closePosition, onPositionsChanged, onDelete }) {
     const entryTree = phaseTree(idea, 'entry')
     const stopTree  = phaseTree(idea, 'stop')
     const tpTree    = phaseTree(idea, 'tp')
@@ -109,37 +86,13 @@ export function IdeaDetail({ idea, positions = [], closePosition, onPositionsCha
                 </div>
             </div>
 
-            <div className="idea-dialog__positions">
-                <span className="idea-dialog__section-title">Positions</span>
-                {ideaPositions.length > 0 ? (
-                    <PositionsCards
-                        positions={ideaPositions}
-                        closingId={interactive ? closingId : undefined}
-                        onClose={interactive ? setPendingClose : undefined}
-                        onEditOrders={interactive ? setEditOrdersPos : undefined}
-                    />
-                ) : (
-                    <p className="idea-dialog__positions-empty">No open positions for this idea</p>
-                )}
-            </div>
-
-            {interactive && (
-                <>
-                    <ClosePositionDialog
-                        position={pendingClose}
-                        closing={!!pendingClose && closingId === posKey(pendingClose)}
-                        onConfirm={confirmClose}
-                        onCancel={() => setPendingClose(null)}
-                    />
-                    {editOrdersPos && (
-                        <EditOrdersDialog
-                            position={editOrdersPos}
-                            onClose={() => setEditOrdersPos(null)}
-                            onChanged={onPositionsChanged}
-                        />
-                    )}
-                </>
-            )}
+            <PopoutFooter
+                positions={ideaPositions}
+                closePosition={closePosition}
+                onPositionsChanged={onPositionsChanged}
+                onDelete={onDelete}
+                deleteTitle="Delete idea"
+            />
         </>
     )
 }
@@ -149,4 +102,5 @@ IdeaDetail.propTypes = {
     positions:          PropTypes.array,
     closePosition:      PropTypes.func,
     onPositionsChanged: PropTypes.func,
+    onDelete:           PropTypes.func,
 }

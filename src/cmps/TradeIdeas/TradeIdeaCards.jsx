@@ -23,7 +23,7 @@ const BUILDING = 'building'
 
 // ── Shared inline icons (match the app's monoline SVG set) ─────────────────────
 
-function EditIcon() {
+export function EditIcon() {
     return (
         <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <path d="M11.5 1.5L14.5 4.5L5.5 13.5H2.5V10.5L11.5 1.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
@@ -32,7 +32,7 @@ function EditIcon() {
     )
 }
 
-function BinIcon() {
+export function BinIcon() {
     return (
         <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <path d="M2.5 4H13.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>

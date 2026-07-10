@@ -88,6 +88,11 @@ export function IdeaPage() {
             .catch(() => setErr('Failed to load idea'))
     }, [id])
 
+    async function handleDelete() {
+        try { await tradeIdeasService.deleteIdea(id); window.close() }
+        catch (e) { console.error('[idea-page] delete failed', e) }   // e.g. delete-locked (live position)
+    }
+
     const centreStyle = { position: 'fixed', inset: 0, background: 'var(--bg-base)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }
     if (err)   return <div style={centreStyle}>{err}</div>
     if (!idea) return <div style={centreStyle}>Loading…</div>
@@ -134,6 +139,7 @@ export function IdeaPage() {
                 positions={positions}
                 closePosition={closePosition}
                 onPositionsChanged={refreshPositions}
+                onDelete={handleDelete}
             />
         </div>
     )

@@ -1,0 +1,32 @@
+// The call pop-out reuses the idea pop-out shell (IdeaPage.scss: .idea-page + .idea-dialog__*).
+// Only the call-specific header controls + action row live here.
+.call-page {
+    &__header-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    &__delete {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        background: none;
+        border: 1px solid var(--border-mid);
+        border-radius: 6px;
+        color: var(--text-secondary);
+        cursor: pointer;
+        svg { width: 15px; height: 15px; }
+        &:hover:not(:disabled) {
+            color: var(--color-short, #ff6b6b);
+            border-color: color-mix(in srgb, var(--color-short, #ff6b6b) 50%, transparent);
+        }
+        &:disabled { opacity: .5; cursor: default; }
+    }
+    &__actions {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 4px;
+    }
+}

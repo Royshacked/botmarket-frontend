@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 
 import { ChatPanel }         from '../cmps/ChatPanel/ChatPanel.jsx'
 import { AxlHub }            from '../cmps/AxlHub/AxlHub.jsx'
@@ -14,6 +14,7 @@ import { KairosPanel }       from '../cmps/KairosPanel/KairosPanel.jsx'
 import { Radar }             from '../cmps/Radar/Radar.jsx'
 import { TradingViewChart }  from '../cmps/TradingViewChart/TradingViewChart.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
+import { kairosService, CALLS_CHANGED } from '../services/kairos/kairos.service.remote.js'
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
@@ -249,6 +250,28 @@ export function MainPage() {
     const [portfolioLoading, setPortfolioLoading] = useState(false)
     const [scannerLoading,   setScannerLoading]   = useState(false)
     const [kairosLoading,    setKairosLoading]    = useState(false)
+    const [calls,            setCalls]            = useState([])
+    const [callBusyId,       setCallBusyId]       = useState(null)
+
+    // Kairos calls for the Axl Lists Calls tab. Holds all the user's calls (workspace-filtered in
+    // the list); reloads on the shared 'kairos-calls-changed' event (generate / act / delete).
+    const loadCalls = useCallback(async () => { setCalls(await kairosService.listCalls()) }, [])
+    useEffect(() => {
+        loadCalls()
+        window.addEventListener(CALLS_CHANGED, loadCalls)
+        return () => window.removeEventListener(CALLS_CHANGED, loadCalls)
+    }, [loadCalls])
+
+    async function handleActCall(id, action) {
+        setCallBusyId(id)
+        try { await kairosService.actOnCall(id, action) }   // service broadcasts → loadCalls
+        catch (err) { console.error('[kairos] act', err) }
+        finally { setCallBusyId(null) }
+    }
+    async function handleDeleteCall(id) {
+        try { await kairosService.deleteCall(id) }
+        catch (err) { console.error('[kairos] delete', err) }
+    }
     const [dismissedConfirmIds, setDismissedConfirmIds] = useState(() => new Set())
     const [placingOrders, setPlacingOrders] = useState(false)
     const [pendingDeleteIdea, setPendingDeleteIdea] = useState(null)
@@ -954,6 +977,7 @@ export function MainPage() {
                     console.error('[portfolio] chat state save failed', err)
                 )
             }
+            handleBackToAxl()   // plan generated — return to the axl hub
         } catch (err) {
             console.error('[portfolio] batch create failed', err)
         }
@@ -1033,6 +1057,7 @@ export function MainPage() {
             await portfolioService.saveChatState(portfolioId, chatMessages).catch(err =>
                 console.error('[portfolio] chat state save failed', err)
             )
+            handleBackToAxl()   // plan updated — return to the axl hub
         } catch (err) {
             console.error('[portfolio] update plan failed', err)
             loadIdeas()
@@ -1209,6 +1234,7 @@ export function MainPage() {
                 threadsService.linkThread(threadId, { subjectType: 'scan', subjectId: saved.id, artifactName: scan?.thesis ?? null })
             }
         }
+        handleBackToAxl()   // list generated — return to the axl hub
     }
 
     // Edit a saved list (pencil) → reopen its conversation in the scanner, in edit
@@ -1227,6 +1253,7 @@ export function MainPage() {
     async function handleUpdateList(scanId, scan) {
         const saved = await updateScan(scanId, scan)
         if (saved) setNewsTab('scans')
+        handleBackToAxl()   // list updated — return to the axl hub
     }
 
     // Resume an unfinished idea-building draft: restore the conversation + analysisState
@@ -1374,6 +1401,7 @@ export function MainPage() {
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'kairos' ? 'flex' : 'none' }}>
                             <KairosPanel
                                 onLoadingChange={setKairosLoading}
+                                onGenerated={handleBackToAxl}
                                 availableAccounts={availableAccounts}
                                 selectedAccounts={selectedAccounts}
                                 mainAccountId={mainAccountId}
@@ -1441,6 +1469,10 @@ export function MainPage() {
                             positionsLoading={positionsLoading}
                             onRefreshPositions={refreshPositions}
                             onClosePosition={closePosition}
+                            calls={calls.filter(c => (c.broker === 'ctrader' ? 'live' : c.broker === 'manual' ? 'manual' : 'paper') === workspace)}
+                            onActCall={handleActCall}
+                            onDeleteCall={handleDeleteCall}
+                            callBusyId={callBusyId}
                         />
                     </div>
                 </div>

@@ -1,0 +1,30 @@
+// Shared pop-out footer (idea + call windows): positions component + delete button. The positions
+// list reuses the `.idea-dialog__positions` styling; only the head row + delete button live here.
+.popout-footer {
+    &__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 6px;
+    }
+    &__delete {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        background: none;
+        border: 1px solid var(--border-mid);
+        border-radius: 6px;
+        color: var(--text-secondary);
+        font-size: .78rem;
+        cursor: pointer;
+        transition: color .15s, border-color .15s;
+        svg { width: 14px; height: 14px; }
+        &:hover:not(:disabled) {
+            color: var(--color-short, #ff6b6b);
+            border-color: color-mix(in srgb, var(--color-short, #ff6b6b) 50%, transparent);
+        }
+        &:disabled { opacity: .5; cursor: default; }
+    }
+}

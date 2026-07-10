@@ -135,22 +135,29 @@ function InvalidationAlertBubble({ msg, onClose, onDismiss }) {
         ? 'Setup drifting'
         : `Invalidation${inPosition ? ' (in position)' : ''}`
 
+    // Taking an action (edit / close) also marks the card handled so it collapses to a "taken
+    // care of" state — not just Dismiss. dismissOutcome records which, for the collapsed label.
     function handleReview() {
+        onDismiss?.(msg.id, 'editing')
         eventBus.emit(INVALIDATION_EDIT_IDEA, { ideaId })
         onClose?.()
     }
 
     function handleCloseTrade() {
+        onDismiss?.(msg.id, 'closing')
         eventBus.emit(INVALIDATION_CLOSE_TRADE, { ideaId })
         onClose?.()
     }
 
-    // Local acknowledge. The server latch (invalidation_status) already stops
-    // re-alerting for this idea, so dismissing just collapses the bubble.
+    // Handled: the card collapses to an acknowledged state. The server latch
+    // (invalidation_status) already stops re-alerting, so this is purely the visual "done".
     if (dismissed) {
+        const label = msg.dismissOutcome === 'editing' ? '✓ Opened in chat'
+            : msg.dismissOutcome === 'closing' ? '✓ Closing'
+            : 'Dismissed'
         return (
             <div className="social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--dismissed">
-                <div className="social-chat__invalidation-alert-header">Dismissed &middot; {asset}</div>
+                <div className="social-chat__invalidation-alert-header">{label} &middot; {asset}</div>
             </div>
         )
     }
@@ -172,7 +179,7 @@ function InvalidationAlertBubble({ msg, onClose, onDismiss }) {
                 )}
                 <button
                     className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
-                    onClick={() => onDismiss?.(msg.id)}
+                    onClick={() => onDismiss?.(msg.id, 'dismissed')}
                 >Dismiss</button>
             </div>
         </div>

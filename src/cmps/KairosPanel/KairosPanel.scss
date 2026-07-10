@@ -1,5 +1,7 @@
 // Kairos panel — leans on PortfolioPanel.scss for the chat shell (bubbles, messages,
 // build-summary, action bar). Only the Kairos-specific call preview + readiness cards here.
+// Neutral surfaces use theme tokens (--border/--bg-raised/…) so they follow the user's
+// theme + accent (the call pop-out reuses these classes).
 
 .kairos-panel {
     &__suggestions {
@@ -10,17 +12,20 @@
     }
     &__suggestion {
         padding: 6px 12px;
-        border: 1px solid rgba(255, 255, 255, 0.15);
+        border: 1px solid var(--border-mid);
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.04);
+        background: var(--bg-raised);
         color: inherit;
         font-size: 0.82rem;
         cursor: pointer;
-        &:hover:not(:disabled) { background: rgba(255, 255, 255, 0.1); }
+        &:hover:not(:disabled) { background: var(--bg-hover); }
         &:disabled { opacity: 0.5; cursor: default; }
     }
 
     &__asset { font-weight: 700; }
+    // The Generate action is a single button — size it to content instead of stretching full-width
+    // (the shared .portfolio-panel__review-btn is flex:1, meant for multi-button action bars).
+    &__generate-btn { flex: 0 0 auto; }
     &__draft-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     &__card-title { display: flex; align-items: center; gap: 6px; }
     &__type,
@@ -29,8 +34,8 @@
     &__dir {
         font-size: 0.72rem;
         text-transform: uppercase;
-        &--long  { color: #3ecf8e; }
-        &--short { color: #ff6b6b; }
+        &--long  { color: var(--pos, #3ecf8e); }
+        &--short { color: var(--neg, #ff6b6b); }
         &--both  { color: #d9a441; }
     }
 
@@ -41,21 +46,21 @@
         padding: 3px 8px;
         border-radius: 6px;
         font-size: 0.74rem;
-        background: rgba(255, 255, 255, 0.06);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        &--zone { border-color: rgba(62, 207, 142, 0.4); }
+        background: var(--bg-raised);
+        border: 1px solid var(--border);
+        &--zone { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
         &--ref  { opacity: 0.8; }
-        &--pat  { border-color: rgba(120, 160, 255, 0.35); }
+        &--pat  { border-color: color-mix(in srgb, var(--accent-light) 45%, transparent); }
     }
 
     // ── Readiness cards (ready / expiring) ──
     &__cards { display: flex; flex-direction: column; gap: 8px; padding: 8px 10px 0; }
     &__card {
-        border: 1px solid rgba(255, 255, 255, 0.14);
+        border: 1px solid var(--border-mid);
         border-radius: 10px;
         padding: 10px 12px;
-        background: rgba(255, 255, 255, 0.03);
-        &--ready    { border-color: rgba(62, 207, 142, 0.5); }
+        background: var(--bg-raised);
+        &--ready    { border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
         &--expiring { border-color: rgba(217, 164, 65, 0.5); }
     }
     &__card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
@@ -64,31 +69,13 @@
     &__card-note { font-size: 0.8rem; opacity: 0.8; margin-top: 4px; line-height: 1.35; }
     &__card-actions { display: flex; gap: 8px; margin-top: 10px; }
 
-    &__btn {
-        padding: 6px 14px;
-        border-radius: 8px;
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        background: rgba(255, 255, 255, 0.05);
-        color: inherit;
-        font-size: 0.82rem;
-        cursor: pointer;
-        &:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
-        &:disabled { opacity: 0.5; cursor: default; }
-        &--go {
-            border-color: rgba(62, 207, 142, 0.6);
-            background: rgba(62, 207, 142, 0.14);
-            font-weight: 600;
-            &:hover:not(:disabled) { background: rgba(62, 207, 142, 0.24); }
-        }
-    }
-
     // ── Active (waiting/watching) mini-list in the intro ──
     &__active { display: flex; flex-direction: column; gap: 4px; margin-top: 14px; }
     &__active-row {
         display: flex; align-items: center; justify-content: space-between;
         padding: 5px 10px;
         border-radius: 6px;
-        background: rgba(255, 255, 255, 0.04);
+        background: var(--bg-raised);
         font-size: 0.82rem;
     }
     &__active-status { font-size: 0.72rem; opacity: 0.65; text-transform: uppercase; }

@@ -30,8 +30,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 28px;
-    padding: 32px 24px;
+    gap: 18px;
+    padding: 18px 24px;
 }
 
 @keyframes axl-hub-enter {
@@ -64,9 +64,9 @@
 }
 
 .axl-hub__mark {
-    width: 76px;
-    height: 76px;
-    margin-bottom: 6px;
+    width: 60px;
+    height: 60px;
+    margin-bottom: 2px;
 
     .axl-hub__aura { fill: url(#axlHubAura); stroke: none; }
     .axl-hub__ring {
@@ -153,7 +153,7 @@
     align-items: center;
     gap: 14px;
     width: 100%;
-    padding: 14px 16px;
+    padding: 12px 16px;
     text-align: left;
     background: var(--bg-raised);
     border: 1px solid var(--border);
@@ -546,9 +546,6 @@
     height: 54px;
     margin-bottom: 6px;
     color: var(--hue);
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--hue) 12%, var(--bg-raised));
-    box-shadow: 0 0 20px -6px color-mix(in srgb, var(--hue) 65%, transparent);
 }
 
 .agent-intro__greeting {

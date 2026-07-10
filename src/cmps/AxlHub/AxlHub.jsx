@@ -195,7 +195,7 @@ export function AxlHub({ user, onPick }) {
                             onClick={() => handlePick(opt)}
                             title={`Open ${opt.brand}`}
                         >
-                            <AgentGlyph agentKey={opt.tab} icon={opt.icon} size={20} />
+                            <AgentGlyph agentKey={opt.tab} icon={opt.icon} size={22} bare />
                             {opt.brand}
                         </button>
                     ))}

@@ -28,8 +28,8 @@ export const chatService = {
         return httpService.post(`${BASE}/conversations/${convId}/read`)
     },
 
-    async dismissMessage(convId, msgId) {
-        return httpService.post(`${BASE}/conversations/${convId}/messages/${msgId}/dismiss`)
+    async dismissMessage(convId, msgId, outcome = null) {
+        return httpService.post(`${BASE}/conversations/${convId}/messages/${msgId}/dismiss`, { outcome })
     },
 
     async searchUsers(q) {

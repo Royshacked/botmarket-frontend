@@ -11,6 +11,7 @@ import { portfolioService } from '../../services/portfolio/portfolio.service.rem
 import { StatusIcon } from '../StatusIcon.jsx'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { IdeaCard, BrokerGroupCard, PortfolioCard, BuildingPortfolioCard, PositionsCards } from './TradeIdeaCards.jsx'
+import { CallCard } from './CallCard.jsx'
 import { useDesign } from '../../customHooks/useDesign.js'
 import './TradeIdeas.scss'
 
@@ -294,7 +295,7 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
     )
 }
 
-export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, loading = false, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition }) {
+export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, loading = false, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, calls = [], onActCall, onDeleteCall, callBusyId = null }) {
     const [expandedGroups, setExpandedGroups] = useState(new Set())
     const [activeFilter,   setActiveFilter]   = useState('ideas')
     const [closingId,      setClosingId]      = useState(null)
@@ -324,6 +325,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
     useEffect(() => {
         if (chatTab === 'portfolio')  setActiveFilter('portfolios')
         else if (chatTab === 'idea')  setActiveFilter('ideas')
+        else if (chatTab === 'kairos') setActiveFilter('calls')
     }, [chatTab])
 
     // When a portfolio starts taking shape in chat, move the list to the
@@ -394,6 +396,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
         : groups
 
     const showIdeas      = activeFilter === 'ideas'
+    const showCalls      = activeFilter === 'calls'
     const showPositions  = activeFilter === 'positions'
     const hasIdeasRows   = buildingIdea || ideaRows.length > 0
     const hasPortfolios  = visibleGroups.length > 0
@@ -409,11 +412,15 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                     <button
                         className={`trade-ideas-list__filter${activeFilter === 'ideas' ? ' active' : ''}`}
                         onClick={() => setActiveFilter('ideas')}
-                    >Ideas</button>
+                    >Ideas{ideaRows.length > 0 ? ` (${ideaRows.length})` : ''}</button>
+                    <button
+                        className={`trade-ideas-list__filter${activeFilter === 'calls' ? ' active' : ''}`}
+                        onClick={() => setActiveFilter('calls')}
+                    >Calls{calls.length > 0 ? ` (${calls.length})` : ''}</button>
                     <button
                         className={`trade-ideas-list__filter trade-ideas-list__filter--portfolio${activeFilter === 'portfolios' ? ' active' : ''}`}
                         onClick={() => setActiveFilter('portfolios')}
-                    >Portfolios</button>
+                    >Portfolios{visibleGroups.length > 0 ? ` (${visibleGroups.length})` : ''}</button>
                     <button
                         className={`trade-ideas-list__filter trade-ideas-list__filter--positions${activeFilter === 'positions' ? ' active' : ''}`}
                         onClick={selectPositions}
@@ -513,6 +520,23 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                                 ))}
                             </tbody>
                         </table>
+                    )
+                ) : showCalls ? (
+                    calls.length === 0 ? (
+                        <p className="trade-ideas-list__empty">No calls yet</p>
+                    ) : (
+                        <div className="ideas-cards">
+                            {calls.map(c => (
+                                <CallCard
+                                    key={c.id}
+                                    call={c}
+                                    busy={callBusyId === c.id}
+                                    onAct={onActCall}
+                                    onDelete={onDeleteCall}
+                                    onSymbolClick={onSymbolClick}
+                                />
+                            ))}
+                        </div>
                     )
                 ) : showPositions ? (
                     positions.length === 0 ? (
@@ -640,4 +664,8 @@ TradeIdeasList.propTypes = {
     positionsLoading: PropTypes.bool,
     onRefreshPositions: PropTypes.func,
     onClosePosition:  PropTypes.func,
+    calls:            PropTypes.array,
+    onActCall:        PropTypes.func,
+    onDeleteCall:     PropTypes.func,
+    callBusyId:       PropTypes.string,
 }
