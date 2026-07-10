@@ -25,7 +25,7 @@ import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.rem
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
 import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
-import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT } from '../services/event-bus.service'
+import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
 import { useChatStream }     from '../customHooks/useChatStream.js'
 import { useNewsFeed }       from '../customHooks/useNewsFeed.js'
@@ -318,7 +318,7 @@ export function MainPage() {
     const { scans, loading: scansLoading, createScan, updateScan, deleteScan } = useScans()
     const { user } = useAuth()
     const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
-    const { workspace } = useWorkspaceMode(user?._id)
+    const { workspace, setWorkspace } = useWorkspaceMode(user?._id)
     const { positions, loading: positionsLoading, refresh: refreshPositions, closePosition } = usePositions()
     const { ideas, setIdeas, loadIdeas, loading: ideasLoading, handleStatusChange, preEntryPrompt, setPreEntryPrompt } = useTradeIdeas()
     const [preEntryBusy, setPreEntryBusy] = useState(false)
@@ -678,6 +678,21 @@ export function MainPage() {
         return eventBus.on(MANUAL_FILLED, ({ idea }) => {
             if (idea) setIdeas(prev => prev.map(i => (i.id === idea.id ? idea : i)))
             refreshPositions(true)
+        })
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Entry-confirm card ("Confirm order") from social chat: switch to the idea's workspace and
+    // clear any prior dismiss so the OrderConfirmDialog surfaces for it. If the idea has already
+    // placed/closed, the dialog derivation simply won't resolve — harmless.
+    useEffect(() => {
+        return eventBus.on(ENTRY_CONFIRM_OPEN, ({ ideaId }) => {
+            const idea = ideasRef.current.find(i => i.id === ideaId)
+            if (!idea) return
+            setWorkspace(ideaWorkspace(idea))
+            setDismissedConfirmIds(prev => {
+                if (!prev.has(ideaId)) return prev
+                const next = new Set(prev); next.delete(ideaId); return next
+            })
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

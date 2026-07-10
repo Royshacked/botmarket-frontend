@@ -13,6 +13,8 @@ const TYPE_LABELS = {
     invalidation_alert: 'Trade alert',
     portfolio_review:   'Portfolio review',
     manual_fill:        'Fill confirmation',
+    entry_confirm:      'Confirm entry',
+    call_expiry:        'Call update',
 }
 
 // One-line preview for the incoming-message toast. Bot senders resolve to their

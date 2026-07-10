@@ -12,6 +12,9 @@ export const MANUAL_FILLED            = 'manual-filled'
 // entry / exit FillCard to social chat (carries { portfolioId }).
 export const MANUAL_PORTFOLIO_ACTIVATE = 'manual-portfolio-activate'
 export const MANUAL_PORTFOLIO_EXIT     = 'manual-portfolio-exit'
+// Paper/live entry-confirm card ("Confirm order") → the app switches to the idea's workspace
+// and surfaces the OrderConfirmDialog for it (carries { ideaId }).
+export const ENTRY_CONFIRM_OPEN        = 'entry-confirm-open'
 
 function createEventEmitter() {
     const listenersMap = {}

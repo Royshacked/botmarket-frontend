@@ -29,8 +29,6 @@ function brokerMode(broker) {
     return 'paper'
 }
 
-const READINESS = new Set(['ready', 'expiring'])
-
 function MessageBubble({ msg }) {
     if (msg.role === 'phase') {
         return <ChatPhaseHeading phase={msg.phase} label={KAIROS_PHASE_LABELS[msg.phase]} total={5} />
@@ -100,43 +98,9 @@ export function CallDraft({ call, showHead = true }) {
     )
 }
 
-// A saved call's readiness card (status ready → enter proposal; expiring → edit).
-function ReadinessCard({ call, busy, onAct }) {
-    const a = call.monitor_state?.last_assessment
-    const p = a?.proposal
-    const isReady = call.status === 'ready'
-    return (
-        <div className={`kairos-panel__card kairos-panel__card--${call.status}`}>
-            <div className="kairos-panel__card-head">
-                <span className="kairos-panel__card-title">
-                    <HermesBadge size={20} />
-                    <span className="kairos-panel__asset">{call.asset}</span>
-                </span>
-                <span className="kairos-panel__card-status">{isReady ? 'ready to enter' : 'expiring'}</span>
-            </div>
-            {isReady && p ? (
-                <>
-                    <div className="kairos-panel__card-row">
-                        Entry <b>{p.entry}</b> · Stop <b>{p.stop}</b> · TP <b>{p.take_profit?.[0]?.price ?? '—'}</b> · {p.size} · R:R {p.rr ?? '—'}
-                    </div>
-                    {p.rationale && <div className="kairos-panel__card-note">{p.rationale}</div>}
-                    <div className="kairos-panel__card-actions">
-                        <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" disabled={busy} onClick={() => onAct(call.id, 'confirm')}>Confirm entry</button>
-                        <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" disabled={busy} onClick={() => onAct(call.id, 'dismiss')}>Dismiss</button>
-                    </div>
-                </>
-            ) : (
-                <>
-                    <div className="kairos-panel__card-note">{a?.edit_proposal?.why ?? 'Near expiry — re-map or let it go.'}</div>
-                    <div className="kairos-panel__card-actions">
-                        <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" disabled={busy} onClick={() => onAct(call.id, 'edit')}>Accept edit</button>
-                        <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" disabled={busy} onClick={() => onAct(call.id, 'dismiss')}>Dismiss</button>
-                    </div>
-                </>
-            )}
-        </div>
-    )
-}
+// Ready/expiring calls are surfaced as social-chat cards (entry_confirm / call_expiry) that
+// route to the call pop-out (Confirm entry / Accept edit / Delete). They're also listed in the
+// Axl Lists "Calls" tab — so the panel no longer duplicates them as an in-panel readiness strip.
 
 export function KairosPanel({ onLoadingChange, onGenerated, availableAccounts = [], selectedAccounts = [], mainAccountId = null, workspace = 'paper' }) {
     const chat = useChatStream()
@@ -147,7 +111,6 @@ export function KairosPanel({ onLoadingChange, onGenerated, availableAccounts = 
     const [inputText,   setInputText]   = useState('')
     const [pendingCall, setPendingCall] = useState(null)
     const [calls,       setCalls]       = useState([])
-    const [actingId,    setActingId]    = useState(null)
     const textareaRef = useRef(null)
 
     const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
@@ -217,13 +180,6 @@ export function KairosPanel({ onLoadingChange, onGenerated, availableAccounts = 
         }
     }
 
-    async function act(id, action) {
-        setActingId(id)
-        try { await kairosService.actOnCall(id, action); await refreshCalls() }
-        catch (err) { console.error('[kairos] action', err) }
-        finally { setActingId(null) }
-    }
-
     function handleKeyDown(e) {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
     }
@@ -232,22 +188,15 @@ export function KairosPanel({ onLoadingChange, onGenerated, availableAccounts = 
     const canGenerate = callReady && ideaAccounts.length > 0
 
     const scoped     = calls.filter(c => brokerMode(c.broker) === workspace)
-    const readiness  = scoped.filter(c => READINESS.has(c.status))
     const active     = scoped.filter(c => c.status === 'waiting' || c.status === 'watching')
 
     const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, {
         onFinishStreaming: () => textareaRef.current?.focus(),
-        watch: `${chat.streamStatus}|${callReady}|${readiness.length}`,
+        watch: `${chat.streamStatus}|${callReady}`,
     })
 
     return (
         <div className="portfolio-panel kairos-panel">
-            {readiness.length > 0 && (
-                <div className="kairos-panel__cards">
-                    {readiness.map(c => <ReadinessCard key={c.id} call={c} busy={actingId === c.id} onAct={act} />)}
-                </div>
-            )}
-
             {callReady && (
                 <div className="portfolio-panel__build-summary">
                     <div className="portfolio-panel__build-summary-header">

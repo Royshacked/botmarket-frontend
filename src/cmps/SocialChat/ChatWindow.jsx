@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
-import { eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED } from '../../services/event-bus.service'
+import { eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN } from '../../services/event-bus.service'
 import { manualService } from '../../services/manual/manual.service.remote'
+import { kairosService } from '../../services/kairos/kairos.service.remote'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { AGENTS, isBotId, CONVERSATIONAL_BOT_ID } from '../AxlHub/agentMeta.jsx'
@@ -87,6 +88,10 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                                 ? <PortfolioReviewBubble msg={msg} onClose={onClose} />
                                 : (msg.type === 'manual_entry' || msg.type === 'manual_exit') && msg.payload
                                 ? <ManualFillCard msg={msg} onDismiss={onDismissMessage} />
+                                : msg.type === 'entry_confirm' && msg.payload
+                                ? <EntryConfirmBubble msg={msg} onClose={onClose} onDismiss={onDismissMessage} />
+                                : msg.type === 'call_expiry' && msg.payload
+                                ? <CallExpiryBubble msg={msg} onDismiss={onDismissMessage} />
                                 : <div className="social-chat__msg-bubble">{msg.content}</div>
                             }
                             <div className="social-chat__msg-time">{formatTime(msg.createdAt)}</div>
@@ -177,6 +182,102 @@ function InvalidationAlertBubble({ msg, onClose, onDismiss }) {
                         onClick={handleCloseTrade}
                     >Close</button>
                 )}
+                <button
+                    className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
+                    onClick={() => onDismiss?.(msg.id, 'dismissed')}
+                >Dismiss</button>
+            </div>
+        </div>
+    )
+}
+
+// Open a Kairos call's pop-out detail window — Confirm entry / Accept edit / Delete all live
+// there. CallPage fetches the call by id, so a chat card (which only has the id) can open it
+// straight without stashing data first.
+function openCallPopup(callId) {
+    window.open(`/call/${callId}`, `call-${callId}`, 'width=1180,height=760')
+}
+
+// "Entry triggered — confirm" card. Notify + route: an idea routes to the workspace's
+// OrderConfirmDialog (via the app), a Kairos call opens its pop-out where Confirm entry lives.
+// Same collapse-on-handled behaviour as the invalidation card (persisted via msg.dismissed).
+function EntryConfirmBubble({ msg, onClose, onDismiss }) {
+    const { kind, ideaId, callId, asset } = msg.payload
+    const isCall = kind === 'call'
+    const agent  = isCall ? AGENTS.kairos : AGENTS.idea
+
+    function handleConfirm() {
+        onDismiss?.(msg.id, 'confirmed')
+        if (isCall) openCallPopup(callId)
+        else        eventBus.emit(ENTRY_CONFIRM_OPEN, { ideaId })
+        onClose?.()
+    }
+
+    if (msg.dismissed) {
+        const label = msg.dismissOutcome === 'confirmed' ? '✓ Opened' : 'Dismissed'
+        return (
+            <div className="social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--dismissed">
+                <div className="social-chat__invalidation-alert-header">{label} &middot; {asset}</div>
+            </div>
+        )
+    }
+
+    return (
+        <div className="social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--confirm">
+            <CardAgentTag agent={agent} />
+            <div className="social-chat__invalidation-alert-header">Confirm entry &middot; {asset}</div>
+            <div className="social-chat__invalidation-alert-reason">{msg.content}</div>
+            <div className="social-chat__invalidation-alert-actions">
+                <button className="social-chat__invalidation-alert-btn" onClick={handleConfirm}>
+                    {isCall ? 'View call' : 'Confirm order'}
+                </button>
+                <button
+                    className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
+                    onClick={() => onDismiss?.(msg.id, 'dismissed')}
+                >Dismiss</button>
+            </div>
+        </div>
+    )
+}
+
+// "Trade thesis expiring / expired" card for a Kairos call. Edit re-maps it (opens the call
+// pop-out → Accept edit); Delete removes the call outright. Both persist as handled.
+function CallExpiryBubble({ msg, onDismiss }) {
+    const { callId, asset, kind, why } = msg.payload
+    const label = kind === 'expired' ? 'Thesis expired' : 'Thesis expiring'
+
+    function handleEdit() {
+        onDismiss?.(msg.id, 'editing')
+        openCallPopup(callId)
+    }
+
+    async function handleDelete() {
+        onDismiss?.(msg.id, 'deleted')
+        try { await kairosService.deleteCall(callId) } catch { /* list re-syncs on next load */ }
+    }
+
+    if (msg.dismissed) {
+        const label = msg.dismissOutcome === 'editing' ? '✓ Opened'
+            : msg.dismissOutcome === 'deleted' ? '✓ Deleted'
+            : 'Dismissed'
+        return (
+            <div className="social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--dismissed">
+                <div className="social-chat__invalidation-alert-header">{label} &middot; {asset}</div>
+            </div>
+        )
+    }
+
+    return (
+        <div className="social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--expiry">
+            <CardAgentTag agent={AGENTS.kairos} />
+            <div className="social-chat__invalidation-alert-header">{label} &middot; {asset}</div>
+            <div className="social-chat__invalidation-alert-reason">{why || msg.content}</div>
+            <div className="social-chat__invalidation-alert-actions">
+                <button className="social-chat__invalidation-alert-btn" onClick={handleEdit}>Edit call</button>
+                <button
+                    className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--close"
+                    onClick={handleDelete}
+                >Delete</button>
                 <button
                     className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
                     onClick={() => onDismiss?.(msg.id, 'dismissed')}

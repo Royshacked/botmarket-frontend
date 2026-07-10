@@ -106,7 +106,7 @@ export const AGENT_LIST = [AGENTS.idea, AGENTS.portfolio, AGENTS.scanner, AGENTS
 // the backend BOT_IDS. Each agent owns its own notifications: Idea posts invalidation
 // alerts, Atlas (portfolio) posts reviews, Argus (scanner) its scans. Only Axl is
 // conversational; the specialist threads are notify-only feeds. Axl is pinned first.
-export const BOT_IDS = ['axl', 'idea', 'portfolio', 'scanner']
+export const BOT_IDS = ['axl', 'idea', 'portfolio', 'scanner', 'kairos']
 export const isBotId = (id) => BOT_IDS.includes(id)
 // The one bot you can chat with; the rest are read-only alert feeds.
 export const CONVERSATIONAL_BOT_ID = 'axl'
