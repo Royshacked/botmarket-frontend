@@ -259,7 +259,10 @@ export function MainPage() {
     useEffect(() => {
         loadCalls()
         window.addEventListener(CALLS_CHANGED, loadCalls)
-        return () => window.removeEventListener(CALLS_CHANGED, loadCalls)
+        // The monitor changes a call's status server-side (waiting↔watching → ready/expiring) without
+        // firing CALLS_CHANGED, so poll to keep the list in step with the popup (which polls getCall).
+        const t = setInterval(loadCalls, 20_000)
+        return () => { window.removeEventListener(CALLS_CHANGED, loadCalls); clearInterval(t) }
     }, [loadCalls])
 
     async function handleActCall(id, action) {

@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import PropTypes from 'prop-types'
 import { CallDraft } from '../cmps/KairosPanel/KairosPanel.jsx'
 import { HermesBadge } from '../cmps/AxlHub/AgentBadges.jsx'
 import { StatusIcon } from '../cmps/StatusIcon.jsx'
@@ -22,6 +23,75 @@ const CALL_STATUS_ICON = {
 // TradingView interval per horizon.
 const TF_INTERVAL = { intraday: '5', day: '15', swing: 'D' }
 
+const REASON_LABEL = { closed: 'market closed', scheduled: 'heartbeat', zone_trip: 'in zone', expiry_review: 'expiry review' }
+
+// ── Monitor journal — the running, first-person monologue of every monitor wake ─────────────────
+// Timeline is appended oldest→newest by the backend; render chronologically and keep the box
+// pinned to the latest entry (chat-style). Cheap heartbeats are one-liners; a real assessment
+// carries the model's own read + the four-axis detail.
+function JournalAxes({ axes }) {
+    const rows = [
+        axes?.market       && ['market', axes.market.read,       axes.market.score],
+        axes?.news         && ['news',   axes.news.read,         axes.news.score],
+        axes?.price_action && ['price',  axes.price_action.read, axes.price_action.strength],
+    ].filter(Boolean)
+    const pats = Array.isArray(axes?.patterns_seen) ? axes.patterns_seen.filter(p => p?.present) : []
+    if (!rows.length && !pats.length) return null
+    return (
+        <div className="call-journal__axes">
+            {rows.map(([k, read, tag]) => (
+                <div key={k} className="call-journal__axis">
+                    <span className="call-journal__axis-k">{k}</span>
+                    {tag && <span className={`call-journal__axis-tag tag--${tag}`}>{tag}</span>}
+                    {read && <span className="call-journal__axis-read">{read}</span>}
+                </div>
+            ))}
+            {pats.length > 0 && (
+                <div className="call-journal__axis">
+                    <span className="call-journal__axis-k">patterns</span>
+                    <span className="call-journal__axis-read">{pats.map(p => p.note || p.id).join(' · ')}</span>
+                </div>
+            )}
+        </div>
+    )
+}
+JournalAxes.propTypes = { axes: PropTypes.object }
+
+function JournalEntry({ e }) {
+    const time     = e.at ? new Date(e.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
+    const isAssess = e.reason === 'zone_trip' || e.reason === 'expiry_review'
+    return (
+        <div className={`call-journal__entry call-journal__entry--${e.reason}`}>
+            <div className="call-journal__meta">
+                <span className="call-journal__time">{time}</span>
+                <span className="call-journal__reason">{REASON_LABEL[e.reason] ?? e.reason}</span>
+                {e.price != null && <span className="call-journal__price">@ {e.price}</span>}
+                {e.verdict && <span className={`call-journal__verdict verdict--${e.verdict}`}>{e.verdict}</span>}
+            </div>
+            <p className="call-journal__note">{e.note}</p>
+            {isAssess && e.fetched && <div className="call-journal__fetched">fetched {e.fetched}</div>}
+            {isAssess && <JournalAxes axes={e.axes} />}
+        </div>
+    )
+}
+JournalEntry.propTypes = { e: PropTypes.object.isRequired }
+
+function MonitorJournal({ timeline }) {
+    const boxRef = useRef(null)
+    const list   = Array.isArray(timeline) ? timeline : []
+    // Keep pinned to the newest entry as the journal grows (only scrolls the box, not the column).
+    useEffect(() => { const el = boxRef.current; if (el) el.scrollTop = el.scrollHeight }, [list.length])
+    if (!list.length) {
+        return <p className="call-journal__empty">No monitor activity yet — the journal fills in as Kairos wakes to check this call.</p>
+    }
+    return (
+        <div className="call-journal" ref={boxRef}>
+            {list.map((e, i) => <JournalEntry key={i} e={e} />)}
+        </div>
+    )
+}
+MonitorJournal.propTypes = { timeline: PropTypes.array }
+
 // Pop-out detail window for a Kairos call. Reuses the idea pop-out shell (IdeaPage.scss) — same
 // chart-left / column-right layout — with the call form (CallDraft) in the right column instead of
 // idea conditions. Data is injected by the opener (window.__callData / localStorage), API fallback.
@@ -42,6 +112,16 @@ export function CallPage() {
         kairosService.listCalls()
             .then(list => { const c = list.find(x => x.id === id); c ? setCall(c) : setErr('Call not found') })
             .catch(() => setErr('Failed to load call'))
+    }, [id])
+
+    // Live monitor journal: hydrate the full call (incl. monitor_state.timeline) and poll it while
+    // the pop-out is open, so new monitor wakes drop in. Silent on failure (keeps the fast-paint call).
+    useEffect(() => {
+        let alive = true
+        async function pull() { const c = await kairosService.getCall(id); if (alive && c) setCall(c) }
+        pull()
+        const t = setInterval(pull, 20_000)
+        return () => { alive = false; clearInterval(t) }
     }, [id])
 
     async function refresh() {
@@ -130,6 +210,11 @@ export function CallPage() {
                     {call.monitor_state?.memo && (
                         <div className="idea-dialog__field"><span>Monitor note</span><p className="idea-dialog__notes">{call.monitor_state.memo}</p></div>
                     )}
+
+                    <div className="idea-dialog__field">
+                        <span>Monitor journal <em>(live)</em></span>
+                        <MonitorJournal timeline={call.monitor_state?.timeline} />
+                    </div>
                 </div>
             </div>
 

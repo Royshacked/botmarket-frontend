@@ -11,20 +11,16 @@
     &__delete {
         display: inline-flex;
         align-items: center;
-        gap: 6px;
-        padding: 4px 10px;
+        justify-content: center;
+        padding: 4px;
         background: none;
-        border: 1px solid var(--border-mid);
+        border: none;
         border-radius: 6px;
-        color: var(--text-secondary);
-        font-size: .78rem;
+        color: var(--color-short, #ff6b6b);
         cursor: pointer;
-        transition: color .15s, border-color .15s;
-        svg { width: 14px; height: 14px; }
-        &:hover:not(:disabled) {
-            color: var(--color-short, #ff6b6b);
-            border-color: color-mix(in srgb, var(--color-short, #ff6b6b) 50%, transparent);
-        }
+        transition: background .15s;
+        svg { width: 16px; height: 16px; }
+        &:hover:not(:disabled) { background: color-mix(in srgb, var(--color-short, #ff6b6b) 14%, transparent); }
         &:disabled { opacity: .5; cursor: default; }
     }
 }

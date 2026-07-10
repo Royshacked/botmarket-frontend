@@ -74,8 +74,15 @@ export function useMicInput({ onTranscript }) {
             recorder.start()
             setIsRecording(true)
         } catch (err) {
-            console.error('[mic] getUserMedia failed', err)
-            setError('Microphone access denied')
+            // Classify by DOMException name — the generic "access denied" was misleading for the
+            // common no-device case. These are user-environment conditions, not code errors → warn.
+            const name = err?.name
+            const msg = (name === 'NotFoundError' || name === 'DevicesNotFoundError') ? 'No microphone found'
+                : (name === 'NotAllowedError' || name === 'PermissionDeniedError')    ? 'Microphone access denied'
+                : (name === 'NotReadableError' || name === 'TrackStartError')          ? 'Microphone is unavailable (in use by another app)'
+                : 'Could not access the microphone'
+            console.warn('[mic] getUserMedia failed:', name || err)
+            setError(msg)
         }
     }, [onTranscript])
 

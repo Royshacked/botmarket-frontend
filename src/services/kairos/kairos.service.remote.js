@@ -12,6 +12,7 @@ export const kairosService = {
     sendStream,
     generateCall,
     listCalls,
+    getCall,
     actOnCall,
     deleteCall,
 }
@@ -44,6 +45,12 @@ async function listCalls() {
         const data = await httpService.get(BASE)
         return Array.isArray(data) ? data : []
     } catch { return [] }
+}
+
+// One call incl. its monitor_state.timeline — the pop-out polls this for the live journal.
+async function getCall(id) {
+    try { return await httpService.get(`${BASE}/${encodeURIComponent(id)}`) }
+    catch { return null }
 }
 
 // action ∈ 'confirm' | 'edit' | 'dismiss'

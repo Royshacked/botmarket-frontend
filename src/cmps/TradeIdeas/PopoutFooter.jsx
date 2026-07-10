@@ -42,8 +42,8 @@ export function PopoutFooter({ positions = [], closePosition, onPositionsChanged
             <div className="popout-footer__head">
                 <span className="idea-dialog__section-title">Positions</span>
                 {onDelete && (
-                    <button className="popout-footer__delete" title={deleteTitle} onClick={onDelete}>
-                        <BinIcon /><span>Delete</span>
+                    <button className="popout-footer__delete" title={deleteTitle} aria-label={deleteTitle} onClick={onDelete}>
+                        <BinIcon />
                     </button>
                 )}
             </div>
