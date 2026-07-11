@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { AuthContext } from '../context/AuthContext'
 import { SocialChat } from './SocialChat/SocialChat'
+import { MarketClocks } from './MarketClocks'
 import { useChatWs } from '../customHooks/useChatWs'
 import { useWorkspaceMode } from '../customHooks/useWorkspaceMode'
 
@@ -196,6 +197,9 @@ export function AppHeaderAxl() {
                         <span className="msg-text" ref={textRef} />
                     </span>
                 </div>
+
+                {/* world market session dials */}
+                <MarketClocks />
 
                 {/* right cluster */}
                 <div className="app-header-axl__right">

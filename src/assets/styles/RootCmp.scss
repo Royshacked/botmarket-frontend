@@ -38,7 +38,7 @@
         "chat ideas news";
     column-gap: 0;     // columns share a single border seam (see border-merge rules below)
     row-gap: 12px;
-    padding: 12px 0;
+    padding: 0;   // was 12px 0
 }
 
 .workspace__chart {

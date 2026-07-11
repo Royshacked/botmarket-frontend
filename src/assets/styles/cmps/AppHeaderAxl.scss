@@ -35,7 +35,8 @@
     --axl-cyan:    #5FB9D9;
     --axl-violet:  #9E9BE3;
     --axl-ease: cubic-bezier(0.22, 1, 0.36, 1);
-    --axl-h: 84px;
+    // Sized to seat the analog dials (label lives on the face; status row hidden).
+    --axl-h: 108px;
 
     position: sticky;
     top: 0;
@@ -73,6 +74,7 @@
 
     // ── signature: calm water as the header's bottom edge ──
     &__edge {
+        display: none;   // wave edge hidden — delete this line to restore the calm-water wave
         position: absolute;
         left: 0;
         right: 0;
@@ -188,7 +190,7 @@
         justify-content: center;
 
         .msg {
-            display: inline-flex;
+            display: none;   // demo/ambient chat hidden — change back to inline-flex to restore it
             align-items: center;
             gap: 9px;
             max-width: 100%;
@@ -435,3 +437,73 @@
         box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent);
     }
 }
+
+// ── World market session dials (MarketClocks) ─────────────────────────────────
+// Four 12h analog clocks reading each market's LOCAL time (hour + minute hands, an
+// AM/PM marker in place of a digital readout). The trading session rides the rim as
+// an arc. Open glows in the app accent; closed dims but keeps the arc readable.
+.market-clocks {
+    --mc-dial: 96px;   // single size knob; the media queries below just retune it
+    --mc-arc-closed: #5e1212;   // session arc — dark red when the market is closed
+    --mc-arc-open:   #1c7a3e;   // session arc — dark green when the market is open
+
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    // Centered in the middle of the header, independent of the side content widths.
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 2;
+
+    &__item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        cursor: default;
+    }
+
+    &__dial { display: block; width: var(--mc-dial); height: var(--mc-dial); }
+
+    // Circle — an opaque base disc + soft accent-gradient face + gradient ring (mirroring
+    // the axl bot mark). Constant in both states; face fill + ring stroke set inline.
+    &__base { fill: var(--axl-panel); }
+    &__ring { fill: none; stroke-width: 1.1; opacity: 0.5; }
+    &__tick { display: none; }
+
+    // Dials — hands, hub, label — the accent hue of the axl "a" (--axl-aurora), constant.
+    &__hand { stroke: var(--axl-aurora); stroke-linecap: round; }
+    &__hand--hour { stroke-width: 1.3; }
+    &__hand--min  { stroke-width: 0.9; }
+    &__hub  { fill: var(--axl-aurora); }
+    &__label { fill: var(--axl-aurora); font-family: 'Space Mono', monospace; font-size: 3.3px; letter-spacing: 0.04em; }   // market name, on the face
+
+    // Top 12/24 marker — a dial element, always the dial hue.
+    &__sun  { fill: var(--axl-aurora); font-family: 'Space Mono', monospace; font-size: 3.6px; font-weight: 700; letter-spacing: 0.02em; }
+    // Session arc carries the open/closed signal: dark red when shut, dark green when open.
+    &__arc  { fill: none; stroke: var(--mc-arc-closed); stroke-width: 2.2; stroke-linecap: round; opacity: 0.7; transition: stroke 0.4s ease, opacity 0.4s ease; }
+
+    &__status {
+        display: none;   // status line hidden for now — delete this line to restore it
+        margin-top: 6px;   // sits just below the dial (name now lives on the face)
+        font-size: 0.55rem;
+        line-height: 1;
+        letter-spacing: 0.02em;
+        color: var(--axl-fog-dim);
+        white-space: nowrap;
+    }
+
+    // Open: the session arc turns dark green.
+    &__item.is-open {
+        .market-clocks__arc { stroke: var(--mc-arc-open); opacity: 0.9; }
+    }
+
+}
+
+// Tight-width fallbacks: shrink, then shed the dials before the stream so the core
+// cluster survives.
+@media (max-width: 1320px) { .market-clocks { --mc-dial: 78px; gap: 13px; } }
+@media (max-width: 1120px) { .market-clocks { --mc-dial: 62px; gap: 11px; } }
+@media (max-width: 1040px) { .market-clocks { display: none; } }
