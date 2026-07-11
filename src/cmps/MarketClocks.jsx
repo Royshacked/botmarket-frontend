@@ -149,7 +149,14 @@ export function MarketClocks() {
                 const [aStart, aEnd] = sessionFractions(r)
                 const [mx, my] = handPoint((local.minutes % 60) / 60, 11)    // minute hand
                 const [hx, hy] = handPoint((local.minutes % 720) / 720, 7)   // hour hand
-                const meridiem = local.minutes >= 720 ? 'PM' : 'AM'
+                // One label: the hour we're in (or just passed), in REAL 24h form (AM 8 → PM 20),
+                // drawn AT its own dial mark (8:30 → "8" at the 8-o'clock position). No 12/24 marker.
+                const hourNow  = Math.floor(local.minutes / 60)   // real 24h hour
+                const markFrac = (hourNow % 12) / 12              // its position on the 12h dial
+                const [nx, ny] = handPoint(markFrac, 10.8)        // where the number sits
+                // When the number lands in the lower half, move the region name up top so the two
+                // don't collide (otherwise the name keeps its usual spot just below centre).
+                const labelY = ny > C ? 11 : 25
                 const title = `${r.label} · ${r.city} ${local.hhmm} · ${open ? 'Open' : 'Closed'} · ${range}`
 
                 return (
@@ -193,13 +200,13 @@ export function MarketClocks() {
                                 const [x, y] = handPoint(c.frac, 11.6)
                                 return <polygon key={c.frac} className="market-clocks__star" points={starPoints(x, y, 2, 0.9)} />
                             })}
-                            {/* Top marker doubles as the day-half cue: 12 in the morning, 24 in the afternoon */}
-                            {r.deco === 'sun' && (() => {
-                                const [x, y] = handPoint(0, 10.8)
-                                return <text className="market-clocks__sun" x={x.toFixed(2)} y={y.toFixed(2)} textAnchor="middle" dominantBaseline="central">{meridiem === 'AM' ? '12' : '24'}</text>
-                            })()}
+                            {/* Current hour (real 24h) at its own dial mark. Replaces the fixed 12/24 marker. */}
+                            {r.deco === 'sun' && (
+                                <text className="market-clocks__hour" x={nx.toFixed(2)} y={ny.toFixed(2)}
+                                      textAnchor="middle" dominantBaseline="central">{hourNow}</text>
+                            )}
 
-                            <text className="market-clocks__label" x="18" y="25" textAnchor="middle" dominantBaseline="central">{r.label}</text>
+                            <text className="market-clocks__label" x="18" y={labelY} textAnchor="middle" dominantBaseline="central">{r.label}</text>
                             <line className="market-clocks__hand market-clocks__hand--hour" x1="18" y1="18" x2={hx.toFixed(2)} y2={hy.toFixed(2)} />
                             <line className="market-clocks__hand market-clocks__hand--min" x1="18" y1="18" x2={mx.toFixed(2)} y2={my.toFixed(2)} />
                             <circle className="market-clocks__hub" cx="18" cy="18" r="1.4" />

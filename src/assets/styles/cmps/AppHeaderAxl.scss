@@ -480,8 +480,8 @@
     &__hub  { fill: var(--axl-aurora); }
     &__label { fill: var(--axl-aurora); font-family: 'Space Mono', monospace; font-size: 3.3px; letter-spacing: 0.04em; }   // market name, on the face
 
-    // Top 12/24 marker — a dial element, always the dial hue.
-    &__sun  { fill: var(--axl-aurora); font-family: 'Space Mono', monospace; font-size: 3.6px; font-weight: 700; letter-spacing: 0.02em; }
+    // The two hour numbers the hand sits between (real 24h hour) — dial elements, dial hue.
+    &__hour { fill: var(--axl-aurora); font-family: 'Space Mono', monospace; font-size: 3.6px; font-weight: 700; letter-spacing: 0.02em; }
     // Session arc carries the open/closed signal: dark red when shut, dark green when open.
     &__arc  { fill: none; stroke: var(--mc-arc-closed); stroke-width: 2.2; stroke-linecap: round; opacity: 0.7; transition: stroke 0.4s ease, opacity 0.4s ease; }
 
