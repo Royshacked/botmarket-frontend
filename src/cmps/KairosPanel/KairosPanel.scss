@@ -22,6 +22,19 @@
         &:disabled { opacity: 0.5; cursor: default; }
     }
 
+    // "building…" chip beside the asset while the call preview is still filling in.
+    .portfolio-panel__build-summary-badge {
+        margin-left: 8px;
+        padding: 1px 8px;
+        border-radius: 999px;
+        background: var(--bg-raised);
+        border: 1px solid var(--border-mid);
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        opacity: 0.85;
+    }
+
     &__asset { font-weight: 700; }
     // The Generate action is a single button — size it to content instead of stretching full-width
     // (the shared .portfolio-panel__review-btn is flex:1, meant for multi-button action bars).
@@ -68,20 +81,9 @@
     &__card-row { font-size: 0.85rem; b { font-weight: 700; } }
     &__card-note { font-size: 0.8rem; opacity: 0.8; margin-top: 4px; line-height: 1.35; }
     &__card-actions { display: flex; gap: 8px; margin-top: 10px; }
-
-    // ── Active (waiting/watching) mini-list in the intro ──
-    &__active { display: flex; flex-direction: column; gap: 4px; margin-top: 14px; }
-    &__active-row {
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 5px 10px;
-        border-radius: 6px;
-        background: var(--bg-raised);
-        font-size: 0.82rem;
-    }
-    &__active-status { font-size: 0.72rem; opacity: 0.65; text-transform: uppercase; }
 }
 
-// Kairos track record (closed-calls performance) + in-position flag in the intro watch-list.
+// Kairos track record (closed-calls performance) in the intro.
 .kairos-panel {
     &__perf {
         display: flex;
@@ -96,11 +98,5 @@
         color: var(--text-secondary);
 
         b { color: var(--text-primary); font-weight: 700; }
-    }
-
-    &__active-flag {
-        margin-right: 5px;
-        color: var(--color-warning);
-        animation: manage-pulse 1.6s ease-in-out infinite;
     }
 }

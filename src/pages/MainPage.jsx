@@ -91,6 +91,26 @@ function deriveBuildingIdea(analysisState) {
     }
 }
 
+// Derive a live "building" call from the Kairos draft — a hammer row in the Calls tab, shown
+// once the agent has settled a ticker but not yet saved (mirrors deriveBuildingIdea). Carries
+// the same shape a saved call row reads (asset/bias/trade_type/entry_zones/…) so CallCard renders.
+function deriveBuildingCall(draft) {
+    if (!draft?.asset) return null   // nothing to show until a ticker is settled
+    return {
+        id:               '__building_call__',
+        status:           'building',
+        asset:            draft.asset,
+        asset_class:      draft.asset_class      || null,
+        bias:             draft.bias             || null,
+        trade_type:       draft.trade_type       || null,
+        thesis:           draft.thesis           || null,
+        entry_zones:      draft.entry_zones      || [],
+        reference_levels: draft.reference_levels || [],
+        patterns:         draft.patterns         || [],
+        sizing:           draft.sizing           || null,
+    }
+}
+
 function _periodPhrase(period) {
     if (!period) return ''
     const range = period.start && period.end && period.start !== period.end
@@ -252,6 +272,12 @@ export function MainPage() {
     const [kairosLoading,    setKairosLoading]    = useState(false)
     const [calls,            setCalls]            = useState([])
     const [callBusyId,       setCallBusyId]       = useState(null)
+    // Live draft call reported up from KairosPanel → a "building" row in the Calls tab.
+    const [kairosPendingCall, setKairosPendingCall] = useState(null)
+    // Editing a saved call in the Kairos chat (parity with editingIdeaId): the call whose plan is
+    // being re-worked + a keyed restore payload seeding the panel's chat history + draft.
+    const [editingCallId,    setEditingCallId]    = useState(null)
+    const [kairosChatRestore, setKairosChatRestore] = useState(null)
 
     // Kairos calls for the Axl Lists Calls tab. Holds all the user's calls (workspace-filtered in
     // the list); reloads on the shared 'kairos-calls-changed' event (generate / act / delete).
@@ -274,6 +300,37 @@ export function MainPage() {
     async function handleDeleteCall(id) {
         try { await kairosService.deleteCall(id) }
         catch (err) { console.error('[kairos] delete', err) }
+    }
+    // Calls-tab edit pencil → reopen the call in the Kairos chat (parity with handleEditIdea):
+    // seed the panel with the saved call's build conversation (chat_state) + its plan as the draft,
+    // restore its marked accounts, and switch to the Kairos tab. The saved row is hidden while
+    // editing (filtered below) — the live "building" row stands in for it.
+    function handleEditCall(call) {
+        const draft = call.chat_state?.draft ?? {
+            asset:            call.asset,
+            asset_class:      call.asset_class      ?? null,
+            trade_type:       call.trade_type       ?? null,
+            bias:             call.bias             ?? null,
+            thesis:           call.thesis           ?? null,
+            timeframe_ladder: call.timeframe_ladder ?? [],
+            entry_zones:      call.entry_zones      ?? [],
+            reference_levels: call.reference_levels ?? [],
+            patterns:         call.patterns         ?? [],
+            sizing:           call.sizing           ?? null,
+            valid_until:      call.valid_until      ?? null,
+        }
+        setKairosChatRestore({ key: `${call.id}-${Date.now()}`, call: draft, messages: call.chat_state?.messages ?? [] })
+        setEditingCallId(call.id)
+        setSelectedAccounts(Array.isArray(call.accounts) ? call.accounts : [])
+        setMainAccountId(call.main_account_id ?? null)
+        setChartSymbol(call.asset || 'SPY')
+        setActiveTab('kairos')
+    }
+    function handleCallEditDone() {
+        setEditingCallId(null)
+        setKairosChatRestore(null)
+        setKairosPendingCall(null)
+        handleBackToAxl()   // call updated / edit cancelled — return to the axl hub
     }
     const [dismissedConfirmIds, setDismissedConfirmIds] = useState(() => new Set())
     const [placingOrders, setPlacingOrders] = useState(false)
@@ -309,6 +366,8 @@ export function MainPage() {
             handleCancelBuild()
             setScannerChatRestore(null)
             setPortfolioChatRestore(null)
+            setEditingCallId(null)
+            setKairosChatRestore(null)
             setChatResetKey(k => k + 1)
         }, RETURN_MS)
     }
@@ -324,6 +383,12 @@ export function MainPage() {
     const [preEntryBusy, setPreEntryBusy] = useState(false)
 
     const buildingIdea = deriveBuildingIdea(analysisState)
+    const buildingCall = deriveBuildingCall(kairosPendingCall)
+    // While editing, the live draft REPLACES the saved row in place (same id → the existing Axl-list
+    // row turns to 'building') instead of adding a separate row. A brand-new build keeps its
+    // synthetic __building__ id so it renders as a new top row.
+    const buildingIdeaRow = buildingIdea && editingIdeaId ? { ...buildingIdea, id: editingIdeaId } : buildingIdea
+    const buildingCallRow = buildingCall && editingCallId ? { ...buildingCall, id: editingCallId } : buildingCall
     // buildingPortfolio is reported up from PortfolioPanel (assets recommended /
     // pending plan) → drives the list's "building" portfolio row.
 
@@ -1426,10 +1491,13 @@ export function MainPage() {
                             <KairosPanel
                                 onLoadingChange={setKairosLoading}
                                 onGenerated={handleBackToAxl}
+                                onPendingCall={setKairosPendingCall}
+                                chatRestore={kairosChatRestore}
+                                editingCallId={editingCallId}
+                                onEditDone={handleCallEditDone}
                                 availableAccounts={availableAccounts}
                                 selectedAccounts={selectedAccounts}
                                 mainAccountId={mainAccountId}
-                                workspace={workspace}
                             />
                         </div>
 
@@ -1475,10 +1543,9 @@ export function MainPage() {
                         <TradeIdeasList
                             ideas={ideas
                                 .filter(i => ideaWorkspace(i) === workspace)   // scope to the active workspace (live/paper/manual)
-                                .filter(i => i.status !== 'closed')
-                                .filter(i => i.id !== editingIdeaId)}
+                                .filter(i => i.status !== 'closed')}
                             chatTab={activeTab}
-                            buildingIdea={buildingIdea}
+                            buildingIdea={buildingIdeaRow}
                             buildingPortfolio={buildingPortfolio}
                             loading={ideasLoading}
                             onDelete={handleDeleteIdea}
@@ -1493,9 +1560,12 @@ export function MainPage() {
                             positionsLoading={positionsLoading}
                             onRefreshPositions={refreshPositions}
                             onClosePosition={closePosition}
-                            calls={calls.filter(c => (c.broker === 'ctrader' ? 'live' : c.broker === 'manual' ? 'manual' : 'paper') === workspace)}
+                            calls={calls
+                                .filter(c => (c.broker === 'ctrader' ? 'live' : c.broker === 'manual' ? 'manual' : 'paper') === workspace)}
+                            buildingCall={buildingCallRow}
                             onActCall={handleActCall}
                             onDeleteCall={handleDeleteCall}
+                            onEditCall={handleEditCall}
                             callBusyId={callBusyId}
                         />
                     </div>

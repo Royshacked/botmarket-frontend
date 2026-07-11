@@ -22,6 +22,11 @@ const CALL_STATUS_ICON = {
     confirmed: 'hit', in_position: 'long', closed: 'closed', expired: 'closed', dismissed: 'closed',
 }
 
+// Pre-entry calls can be re-worked in the Kairos chat (the pencil = "Edit in chat", parity with
+// ideas). Once a position is live (confirmed/in_position) or the call is done, the pencil just
+// opens the pop-out — editing the plan mid-position is handled via management cards, not the chat.
+const CHAT_EDITABLE = new Set(['waiting', 'watching', 'ready', 'expiring'])
+
 const fmtR = r => (r == null ? '—' : `${r > 0 ? '+' : ''}${r}R`)
 
 // Pop-out detail window for a call (mirrors openIdeaPopup): stash the data, open /call/:id.
@@ -51,18 +56,21 @@ function summary(call) {
     return `${z.side ?? call.bias ?? ''} ${z.lower}–${z.upper}${z.kind ? ` · ${z.kind}` : ''}${more}`.trim()
 }
 
-export function CallCard({ call, busy = false, onAct, onDelete, onSymbolClick }) {
+export function CallCard({ call, busy = false, onAct, onDelete, onEdit, onSymbolClick }) {
     const isReady = call.status === 'ready'
+    const isBuilding = call.status === 'building'   // live draft (not yet saved) — hammer row
+    const canChatEdit = !!onEdit && CHAT_EDITABLE.has(call.status)
     const hasPending = call.status === 'in_position' && !!call.position_state?.pending_action
 
     function handleCardClick(ev) {
+        if (isBuilding) return                                  // building row is not clickable
         if (ev.target.closest('.idea-card__controls')) return   // buttons handle themselves
         if (ev.target.closest('.idea-card__sym')) return        // ticker → chart
         openCallPopup(call)
     }
 
     return (
-        <article className={`idea-card idea-card--${call.status}`} onClick={handleCardClick} title="Open call">
+        <article className={`idea-card idea-card--${call.status}`} onClick={handleCardClick} title={isBuilding ? 'Building…' : 'Open call'}>
             <div className="idea-card__icon" aria-hidden="true"><HermesBadge size={42} /></div>
 
             <div className="idea-card__body">
@@ -83,17 +91,33 @@ export function CallCard({ call, busy = false, onAct, onDelete, onSymbolClick })
             </div>
 
             <div className="idea-card__controls">
-                {hasPending && <span className="idea-card__manage-dot" title={`Kairos suggests: ${call.position_state.pending_action.verdict}`}>⚑</span>}
-                <span className={`idea-card__status-badge status--${call.status}`} title={STATUS_LABEL[call.status] ?? call.status}>
-                    <StatusIcon status={CALL_STATUS_ICON[call.status] ?? call.status} />
-                </span>
-                {isReady && (
-                    <button className="idea-card__status-toggle status--waiting" disabled={busy} title="Confirm entry"
-                        onClick={() => onAct(call.id, 'confirm')}>✓</button>
-                )}
-                <button className="idea-card__edit-btn" title="Open call" onClick={() => openCallPopup(call)}><EditIcon /></button>
-                {onDelete && (
-                    <button className="idea-card__delete" disabled={busy} title="Delete call" onClick={() => onDelete(call.id)}><BinIcon /></button>
+                {isBuilding ? (
+                    // Live draft in chat — hammer, no actions (Generate lives in the Kairos panel).
+                    <svg className="idea-row__building-bot" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg" title="Building…" aria-hidden="true">
+                        {/* hammer — building in progress */}
+                        <path d="m15 12-8.373 8.373a1 1 0 1 1-3-3L12 9"/>
+                        <path d="m18 15 4-4"/>
+                        <path d="m21.5 11.5-1.914-1.914A2 2 0 0 1 19 8.172V7l-2.26-2.26a6 6 0 0 0-4.202-1.756L9 2.96l.92.82A6.18 6.18 0 0 1 12 8.4V10l2 2h1.172a2 2 0 0 1 1.414.586z"/>
+                    </svg>
+                ) : (
+                    <>
+                        {hasPending && <span className="idea-card__manage-dot" title={`Kairos suggests: ${call.position_state.pending_action.verdict}`}>⚑</span>}
+                        <span className={`idea-card__status-badge status--${call.status}`} title={STATUS_LABEL[call.status] ?? call.status}>
+                            <StatusIcon status={CALL_STATUS_ICON[call.status] ?? call.status} />
+                        </span>
+                        {isReady && (
+                            <button className="idea-card__status-toggle status--waiting" disabled={busy} title="Confirm entry"
+                                onClick={() => onAct(call.id, 'confirm')}>✓</button>
+                        )}
+                        <button
+                            className="idea-card__edit-btn"
+                            title={canChatEdit ? 'Edit in chat' : 'Open call'}
+                            onClick={e => { e.stopPropagation(); canChatEdit ? onEdit(call) : openCallPopup(call) }}
+                        ><EditIcon /></button>
+                        {onDelete && (
+                            <button className="idea-card__delete" disabled={busy} title="Delete call" onClick={() => onDelete(call.id)}><BinIcon /></button>
+                        )}
+                    </>
                 )}
             </div>
         </article>
@@ -105,5 +129,6 @@ CallCard.propTypes = {
     busy:          PropTypes.bool,
     onAct:         PropTypes.func.isRequired,
     onDelete:      PropTypes.func,
+    onEdit:        PropTypes.func,
     onSymbolClick: PropTypes.func,
 }

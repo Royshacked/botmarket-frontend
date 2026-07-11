@@ -11,6 +11,7 @@ const BASE = 'api/kairos'
 export const kairosService = {
     sendStream,
     generateCall,
+    updateCall,
     listCalls,
     getCall,
     getPerformance,
@@ -24,21 +25,34 @@ function _announceChange() { window.dispatchEvent(new Event(CALLS_CHANGED)) }
 export { CALLS_CHANGED }
 
 async function sendStream(messages, opts = {}) {
-    const { model, reasoningEffort, routingMode, currentPhase, signal, accounts = [] } = opts
+    const { model, reasoningEffort, routingMode, currentPhase, signal, accounts = [], chatState } = opts
     await postSSE(
         `${API_BASE}/${BASE}/stream`,
-        { messages, model, reasoningEffort, routingMode, currentPhase, accounts },
+        { messages, model, reasoningEffort, routingMode, currentPhase, accounts, chatState },
         buildStreamHandlers(opts),
         { signal },
     )
 }
 
 // Persist a drafted call. `accounts` are the full marked-account objects (bank icon); the server
-// binds the main account's broker + resolves the symbol gate.
-async function generateCall(call, accounts = [], mainAccountId = null) {
-    const saved = await httpService.post(BASE, { call, accounts, mainAccountId })
+// binds the main account's broker + resolves the symbol gate. `chatState` (build conversation +
+// draft) is stored so the Calls-tab edit pencil can reopen the call in chat with its history.
+async function generateCall(call, accounts = [], mainAccountId = null, chatState = undefined) {
+    const saved = await httpService.post(BASE, { call, accounts, mainAccountId, chat_state: chatState })
     _announceChange()
     return saved
+}
+
+// Edit in place (parity with updateIdea). Full plan update: pass { call, accounts, mainAccountId,
+// chatState } → re-finalize on the existing call. Progressive save mid-edit: pass { chatState }
+// alone → just persist the build conversation (no plan change / re-arm).
+async function updateCall(id, { call, accounts = [], mainAccountId = null, chatState } = {}) {
+    const body = call
+        ? { call, accounts, mainAccountId, chat_state: chatState }
+        : { chat_state: chatState }
+    const res = await httpService.put(`${BASE}/${encodeURIComponent(id)}`, body)
+    _announceChange()
+    return res
 }
 
 async function listCalls() {

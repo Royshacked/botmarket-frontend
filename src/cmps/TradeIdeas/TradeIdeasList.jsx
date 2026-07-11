@@ -55,6 +55,28 @@ function _separateIdeas(ideas) {
     return { standalone, groups, brokerGroups }
 }
 
+// Portfolio table row in the 'building' state (hammer) — reused for a brand-new portfolio taking
+// shape (top row) and for an existing portfolio being edited (substituted for its group in place).
+function BuildingPortfolioRow({ portfolio }) {
+    return (
+        <tr className="portfolio-group-row portfolio-group-row--building">
+            <td className="portfolio-group-row__name">{portfolio.name}</td>
+            <td className="portfolio-group-row__count">{portfolio.ideasCount}</td>
+            <td className="portfolio-group-row__created">—</td>
+            <td className="portfolio-group-row__pnl">—</td>
+            <td className="portfolio-group-row__status">
+                <svg className="idea-row__building-bot" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg" title="Building…" aria-hidden="true">
+                    {/* hammer — building in progress */}
+                    <path d="m15 12-8.373 8.373a1 1 0 1 1-3-3L12 9"/>
+                    <path d="m18 15 4-4"/>
+                    <path d="m21.5 11.5-1.914-1.914A2 2 0 0 1 19 8.172V7l-2.26-2.26a6 6 0 0 0-4.202-1.756L9 2.96l.92.82A6.18 6.18 0 0 1 12 8.4V10l2 2h1.172a2 2 0 0 1 1.414.586z"/>
+                </svg>
+            </td>
+        </tr>
+    )
+}
+BuildingPortfolioRow.propTypes = { portfolio: PropTypes.object.isRequired }
+
 function BrokerGroupRow({ group, expanded, onToggle, onDelete, onStatusChange, onOpen, onSymbolClick }) {
     const lead      = group.ideas[0]
     const asset     = lead?.asset
@@ -295,7 +317,7 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
     )
 }
 
-export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, loading = false, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, calls = [], onActCall, onDeleteCall, callBusyId = null }) {
+export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, buildingCall, loading = false, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, calls = [], onActCall, onDeleteCall, onEditCall, callBusyId = null }) {
     const [expandedGroups, setExpandedGroups] = useState(new Set())
     const [activeFilter,   setActiveFilter]   = useState('ideas')
     const [closingId,      setClosingId]      = useState(null)
@@ -334,6 +356,12 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
     useEffect(() => {
         if (isBuildingPortfolio) setActiveFilter('portfolios')
     }, [isBuildingPortfolio])
+
+    // A Kairos call taking shape in chat → surface the building row in the Calls slot.
+    const isBuildingCall = !!buildingCall
+    useEffect(() => {
+        if (isBuildingCall) setActiveFilter('calls')
+    }, [isBuildingCall])
 
     // Clicking an idea row opens it straight in its own pop-out window.
     function handleOpen(idea) { openIdeaPopup(idea) }
@@ -379,7 +407,27 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
         })
     }
 
-    const { standalone, groups, brokerGroups } = _separateIdeas(ideas)
+    // Editing substitution: when the building draft carries a real (saved) id, swap it into the
+    // list IN PLACE — the existing row turns to 'building' — rather than adding a separate top row.
+    // Group keys (portfolioId/groupId/savedAt) are carried over so it stays in its group + position.
+    const editBuildIdeaId = buildingIdea && buildingIdea.id !== '__building__' ? buildingIdea.id : null
+    const ideaInList = editBuildIdeaId != null && ideas.some(i => i.id === editBuildIdeaId)
+    const effectiveIdeas = ideaInList
+        ? ideas.map(i => i.id === editBuildIdeaId
+            ? { ...buildingIdea, portfolioId: i.portfolioId, groupId: i.groupId, portfolioName: i.portfolioName, savedAt: i.savedAt }
+            : i)
+        : ideas
+    // A brand-new build (or an edit whose row isn't in the current view) gets a prepended top row;
+    // an edit whose row IS in the list is substituted in place above, so no top row.
+    const topBuildingIdea = buildingIdea && !ideaInList ? buildingIdea : null
+
+    const { standalone, groups, brokerGroups } = _separateIdeas(effectiveIdeas)
+
+    // Same in-place substitution for a call being edited (Kairos Calls tab).
+    const editBuildCallId = buildingCall && buildingCall.id !== '__building_call__' ? buildingCall.id : null
+    const callInList      = editBuildCallId != null && calls.some(c => c.id === editBuildCallId)
+    const effectiveCalls  = callInList ? calls.map(c => c.id === editBuildCallId ? buildingCall : c) : calls
+    const topBuildingCall = buildingCall && !callInList ? buildingCall : null
 
     // Interleave standalone ideas and multi-broker groups by recency so a forked
     // idea sorts where its creation time puts it (one row, expandable).
@@ -388,17 +436,18 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
         ...brokerGroups.map(g => ({ kind: 'group', savedAt: g.savedAt || 0, item: g })),
     ].sort((a, b) => b.savedAt - a.savedAt)
 
-    // While editing a portfolio, its building row stands in for the saved one — hide
-    // the saved group so we don't show a duplicate (building row + original row).
-    const editingPortfolioId = buildingPortfolio?.portfolioId ?? null
-    const visibleGroups = editingPortfolioId
-        ? groups.filter(g => g.portfolioId !== editingPortfolioId)
-        : groups
+    // A portfolio being edited turns its existing group row to 'building' IN PLACE (same as ideas /
+    // calls) — keep the group, substitute the building row for it in the map below. A brand-new
+    // portfolio (no id yet) prepends a building row at the top instead.
+    const editPortfolioId = buildingPortfolio?.portfolioId ?? null
+    const visibleGroups = groups
+    const pfInList = editPortfolioId != null && groups.some(g => g.portfolioId === editPortfolioId)
+    const topBuildingPortfolio = buildingPortfolio && !pfInList ? buildingPortfolio : null
 
     const showIdeas      = activeFilter === 'ideas'
     const showCalls      = activeFilter === 'calls'
     const showPositions  = activeFilter === 'positions'
-    const hasIdeasRows   = buildingIdea || ideaRows.length > 0
+    const hasIdeasRows   = topBuildingIdea || ideaRows.length > 0
     const hasPortfolios  = visibleGroups.length > 0
 
     return (
@@ -442,10 +491,10 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                         <p className="trade-ideas-list__empty">No ideas yet</p>
                     ) : cardMode ? (
                         <div className="ideas-cards">
-                            {buildingIdea && (
+                            {topBuildingIdea && (
                                 <IdeaCard
                                     key="__building__"
-                                    idea={buildingIdea}
+                                    idea={topBuildingIdea}
                                     onDelete={onCancelBuild}
                                     onStatusChange={() => {}}
                                     onOpen={() => {}}
@@ -487,10 +536,10 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                                 </tr>
                             </thead>
                             <tbody>
-                                {buildingIdea && (
+                                {topBuildingIdea && (
                                     <TradeIdeaRow
                                         key="__building__"
-                                        idea={buildingIdea}
+                                        idea={topBuildingIdea}
                                         onDelete={onCancelBuild}
                                         onStatusChange={() => {}}
                                         onOpen={() => {}}
@@ -522,17 +571,26 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                         </table>
                     )
                 ) : showCalls ? (
-                    calls.length === 0 ? (
+                    (!topBuildingCall && effectiveCalls.length === 0) ? (
                         <p className="trade-ideas-list__empty">No calls yet</p>
                     ) : (
                         <div className="ideas-cards">
-                            {calls.map(c => (
+                            {topBuildingCall && (
+                                <CallCard
+                                    key="__building_call__"
+                                    call={topBuildingCall}
+                                    onAct={() => {}}
+                                    onSymbolClick={onSymbolClick}
+                                />
+                            )}
+                            {effectiveCalls.map(c => (
                                 <CallCard
                                     key={c.id}
                                     call={c}
                                     busy={callBusyId === c.id}
                                     onAct={onActCall}
                                     onDelete={onDeleteCall}
+                                    onEdit={onEditCall}
                                     onSymbolClick={onSymbolClick}
                                 />
                             ))}
@@ -563,22 +621,26 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                         <p className="trade-ideas-list__empty">No portfolios yet</p>
                     ) : cardMode ? (
                         <div className="ideas-cards">
-                            {buildingPortfolio && <BuildingPortfolioCard portfolio={buildingPortfolio} />}
+                            {topBuildingPortfolio && <BuildingPortfolioCard portfolio={topBuildingPortfolio} />}
                             {visibleGroups.map(group => (
-                                <PortfolioCard
-                                    key={group.portfolioId}
-                                    group={group}
-                                    expanded={expandedGroups.has(group.portfolioId)}
-                                    onToggle={() => toggleGroup(group.portfolioId)}
-                                    onEdit={onEditPortfolio}
-                                    isReviewDue={dueReviewIds.has(group.portfolioId)}
-                                    onDelete={onDelete}
-                                    onDeletePortfolio={onDeletePortfolio}
-                                    onStatusChange={onStatusChange}
-                                    onOpen={handleOpen}
-                                    onSymbolClick={onSymbolClick}
-                                    positions={positions}
-                                />
+                                group.portfolioId === editPortfolioId ? (
+                                    <BuildingPortfolioCard key={group.portfolioId} portfolio={buildingPortfolio} />
+                                ) : (
+                                    <PortfolioCard
+                                        key={group.portfolioId}
+                                        group={group}
+                                        expanded={expandedGroups.has(group.portfolioId)}
+                                        onToggle={() => toggleGroup(group.portfolioId)}
+                                        onEdit={onEditPortfolio}
+                                        isReviewDue={dueReviewIds.has(group.portfolioId)}
+                                        onDelete={onDelete}
+                                        onDeletePortfolio={onDeletePortfolio}
+                                        onStatusChange={onStatusChange}
+                                        onOpen={handleOpen}
+                                        onSymbolClick={onSymbolClick}
+                                        positions={positions}
+                                    />
+                                )
                             ))}
                         </div>
                     ) : (
@@ -593,37 +655,26 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                                 </tr>
                             </thead>
                             <tbody>
-                                {buildingPortfolio && (
-                                    <tr className="portfolio-group-row portfolio-group-row--building">
-                                        <td className="portfolio-group-row__name">{buildingPortfolio.name}</td>
-                                        <td className="portfolio-group-row__count">{buildingPortfolio.ideasCount}</td>
-                                        <td className="portfolio-group-row__created">—</td>
-                                        <td className="portfolio-group-row__pnl">—</td>
-                                        <td className="portfolio-group-row__status">
-                                            <svg className="idea-row__building-bot" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg" title="Building…" aria-hidden="true">
-                                                {/* hammer — building in progress */}
-                                                <path d="m15 12-8.373 8.373a1 1 0 1 1-3-3L12 9"/>
-                                                <path d="m18 15 4-4"/>
-                                                <path d="m21.5 11.5-1.914-1.914A2 2 0 0 1 19 8.172V7l-2.26-2.26a6 6 0 0 0-4.202-1.756L9 2.96l.92.82A6.18 6.18 0 0 1 12 8.4V10l2 2h1.172a2 2 0 0 1 1.414.586z"/>
-                                            </svg>
-                                        </td>
-                                    </tr>
-                                )}
+                                {topBuildingPortfolio && <BuildingPortfolioRow portfolio={topBuildingPortfolio} />}
                                 {visibleGroups.map(group => (
-                                    <PortfolioGroupRow
-                                        key={group.portfolioId}
-                                        group={group}
-                                        expanded={expandedGroups.has(group.portfolioId)}
-                                        onToggle={() => toggleGroup(group.portfolioId)}
-                                        onEdit={onEditPortfolio}
-                                        isReviewDue={dueReviewIds.has(group.portfolioId)}
-                                        onDelete={onDelete}
-                                        onDeletePortfolio={onDeletePortfolio}
-                                        onStatusChange={onStatusChange}
-                                        onOpen={handleOpen}
-                                        onSymbolClick={onSymbolClick}
-                                        positions={positions}
-                                    />
+                                    group.portfolioId === editPortfolioId ? (
+                                        <BuildingPortfolioRow key={group.portfolioId} portfolio={buildingPortfolio} />
+                                    ) : (
+                                        <PortfolioGroupRow
+                                            key={group.portfolioId}
+                                            group={group}
+                                            expanded={expandedGroups.has(group.portfolioId)}
+                                            onToggle={() => toggleGroup(group.portfolioId)}
+                                            onEdit={onEditPortfolio}
+                                            isReviewDue={dueReviewIds.has(group.portfolioId)}
+                                            onDelete={onDelete}
+                                            onDeletePortfolio={onDeletePortfolio}
+                                            onStatusChange={onStatusChange}
+                                            onOpen={handleOpen}
+                                            onSymbolClick={onSymbolClick}
+                                            positions={positions}
+                                        />
+                                    )
                                 ))}
                             </tbody>
                         </table>
@@ -654,6 +705,7 @@ TradeIdeasList.propTypes = {
     chatTab:          PropTypes.string,
     buildingIdea:     PropTypes.object,
     buildingPortfolio: PropTypes.object,
+    buildingCall:     PropTypes.object,
     onDelete:         PropTypes.func.isRequired,
     onCancelBuild:    PropTypes.func.isRequired,
     onStatusChange:   PropTypes.func.isRequired,
@@ -667,5 +719,6 @@ TradeIdeasList.propTypes = {
     calls:            PropTypes.array,
     onActCall:        PropTypes.func,
     onDeleteCall:     PropTypes.func,
+    onEditCall:       PropTypes.func,
     callBusyId:       PropTypes.string,
 }

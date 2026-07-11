@@ -2,6 +2,20 @@
     box-sizing: border-box;
 }
 
+// Theme + accent-aware scrollbars everywhere (Firefox + WebKit/Blink). Every scrollbar's colors
+// follow the app's --accent / theme tokens, so none of the raw OS scrollbars leak through (e.g.
+// a container that starts overflowing when the viewport width changes). Individual panels may
+// still override the WIDTH via a more specific selector; the colors stay consistent app-wide.
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-deep) transparent;
+}
+::-webkit-scrollbar             { width: 8px; height: 8px; }
+::-webkit-scrollbar-track       { background: transparent; }
+::-webkit-scrollbar-thumb       { background: var(--accent-deep); border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+::-webkit-scrollbar-corner      { background: transparent; }
+
 html {
     line-height: 1.6;
     color: $clr2;
