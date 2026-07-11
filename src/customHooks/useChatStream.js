@@ -88,25 +88,46 @@ export function useChatStream() {
         return { signal: ctrl.signal, handlers }
     }
 
+    // ── Resume (▶) — shared across every agent chat ────────────────────────────────
+    // A stopped assistant turn is resumable whether or not it captured any text — this is a
+    // property of the stream state machine, so it lives here (not re-derived in each panel).
+    // The button (ChatInputRow) shows ▶ whenever canResume && the input is empty.
+    const lastMsg   = messages[messages.length - 1]
+    const canResume = !isLoading && lastMsg?.role === 'assistant' && !!lastMsg?.stopped
+
+    // The resumable partial for the current last message: real partial text (trailing whitespace
+    // trimmed for a clean prefill), or '' when it was stopped before any token (→ regenerate).
+    function resumeBase() {
+        const last = messagesRef.current[messagesRef.current.length - 1]
+        return (last?.content && last.content !== '_(stopped)_') ? last.content.replace(/\s+$/, '') : ''
+    }
+
+    // Prepare the model-facing history for a resume: drop the trailing stopped placeholder / empty
+    // turn, then — only when continuing a real partial (base non-empty) — end the history with that
+    // partial as the assistant prefill. An empty base leaves the history ending at the user turn so
+    // the model regenerates. `history` is the panel's already-filtered+mapped [{role,content}] list.
+    function finalizeResumeHistory(history, base) {
+        const h = history.filter(m => m.content && m.content !== '_(stopped)_')
+        if (base && h.length && h[h.length - 1].role === 'assistant') {
+            h[h.length - 1] = { role: 'assistant', content: base }
+        }
+        return h
+    }
+
     /**
-     * Continue a stopped assistant reply IN PLACE (no new user turn). Reopens the
-     * last assistant bubble as the streaming target, keeping its partial text as the
-     * base — the caller sends the conversation history ending with that partial as an
-     * assistant prefill, so the model resumes the same message. New tokens append to
-     * the same bubble; the caller's onDone finishes with `base + continuation`.
-     *
-     * Returns null when there's nothing continuable (last bubble isn't a partial
-     * assistant reply) so the caller can no-op.
+     * Resume a stopped assistant reply. With a real partial it CONTINUES the same bubble in place
+     * (prefill); stopped before any token it REGENERATES a fresh reply. Reopens the last assistant
+     * bubble as the streaming target; the caller's onDone finishes with `base + continuation`
+     * (base is '' for a regenerate). Returns null when the last bubble isn't a stopped reply.
      */
     function beginContinue(extraHandlers = {}) {
         const msgs = messagesRef.current
         const last = msgs[msgs.length - 1]
-        if (!last || last.role !== 'assistant') return null
-        // Trailing whitespace is trimmed to match the prefill the caller sends (Anthropic
-        // rejects a prefill that ends in whitespace) so the on-screen base and the model's
-        // continuation join seamlessly.
-        const base = (last.content && last.content !== '_(stopped)_') ? last.content.replace(/\s+$/, '') : ''
-        if (!base) return null
+        if (!last || last.role !== 'assistant' || !last.stopped) return null
+        // The resumable partial (trailing whitespace trimmed — Anthropic rejects a prefill that
+        // ends in whitespace). Empty base = the reply was stopped before any token → REGENERATE:
+        // reopen an empty bubble and let the model produce a fresh reply (no prefill).
+        const base = resumeBase()
 
         // Reopen the frozen bubble for streaming; drop the stopped flag, keep the text.
         setMessages(prev => {
@@ -190,7 +211,9 @@ export function useChatStream() {
         setMessages(prev => {
             const next = [...prev]
             const i = next.length - 1
-            if (next[i]?.role === 'assistant') next[i] = { role: 'assistant', content: base, stopped: true }
+            // Empty base (a failed regenerate) keeps the placeholder so the bubble stays a
+            // resumable stopped turn rather than an empty box.
+            if (next[i]?.role === 'assistant') next[i] = { role: 'assistant', content: base || '_(stopped)_', stopped: true }
             return next
         })
         setIsLoading(false)
@@ -209,6 +232,7 @@ export function useChatStream() {
         phase, setPhase,
         begin, beginContinue, finishStreaming, endStream, reset,
         handleStop, freezeError, restoreStopped,
+        canResume, resumeBase, finalizeResumeHistory,
         reasoningRef,
     }
 }

@@ -256,14 +256,15 @@ export function PortfolioPanel({
         if (isLoading) return
         const last = messages[messages.length - 1]
         if (!last || last.role !== 'assistant' || !last.stopped) return
-        const base = (last.content || '').replace(/\s+$/, '')   // prefill: no trailing whitespace
-        if (!base) return
+        const base = chat.resumeBase()   // '' = stopped before any token → regenerate
         setEditDirty(true)
 
-        const history = messages
-            .filter(m => !m.streaming && m.role !== 'phase')
-            .map(m => ({ role: m.role, content: m.content }))
-        if (history.length) history[history.length - 1] = { role: 'assistant', content: base }
+        const history = chat.finalizeResumeHistory(
+            messages
+                .filter(m => !m.streaming && m.role !== 'phase')
+                .map(m => ({ role: m.role, content: m.content })),
+            base,
+        )
 
         const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
         pendingTickersRef.current = []
@@ -467,10 +468,6 @@ export function PortfolioPanel({
 
     const showChangedMind = !!editingPortfolioId && !editDirty && !isReviewMode
     const mainActionBar = !isLoading && (isReviewMode ? !!editingPortfolioId : (planReady || showChangedMind))
-    // A stopped reply with real text can be resumed in place — the play/send button
-    // in the input row surfaces this, independent of the footer action bar.
-    const lastMsg = messages[messages.length - 1]
-    const canContinue = !isLoading && lastMsg?.role === 'assistant' && !!lastMsg?.stopped && !!(lastMsg.content && lastMsg.content.trim())
 
     return (
         <div className="portfolio-panel">
@@ -616,7 +613,7 @@ export function PortfolioPanel({
                 sendDisabled={!inputText.trim() || isLoading}
                 isStreaming={isLoading}
                 onStop={handleStop}
-                canResume={canContinue}
+                canResume={chat.canResume}
                 onResume={_continue}
                 onClear={handleClear}
                 clearDisabled={isLoading || !messages.length || !!editingPortfolioId}

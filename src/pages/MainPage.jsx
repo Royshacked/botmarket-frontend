@@ -548,19 +548,19 @@ export function MainPage() {
         if (isLoading) return
         const last = messages[messages.length - 1]
         if (!last || last.role !== 'assistant' || !last.stopped) return
-        const base = (last.content || '').replace(/\s+$/, '')
-        if (!base) return
+        const base = chat.resumeBase()   // '' = stopped before any token → regenerate
 
         const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
 
-        // Model-facing history: the text conversation ending with the partial assistant
-        // turn (phase headings + chart image bubbles excluded).
-        const history = messages
-            .filter(m => (m.role === 'user' || m.role === 'assistant') && !m.streaming && m.type !== 'chart' && typeof m.content === 'string' && m.content.trim())
-            .map(m => ({ role: m.role, content: m.content.trim() }))
-        if (history.length && history[history.length - 1].role === 'assistant') {
-            history[history.length - 1] = { role: 'assistant', content: base }
-        }
+        // Model-facing history: the text conversation (phase headings + chart image bubbles
+        // excluded), ended with the partial as an assistant prefill when continuing, or at the
+        // user turn when regenerating — the shared finalizeResumeHistory decides which.
+        const history = chat.finalizeResumeHistory(
+            messages
+                .filter(m => (m.role === 'user' || m.role === 'assistant') && !m.streaming && m.type !== 'chart' && typeof m.content === 'string' && m.content.trim())
+                .map(m => ({ role: m.role, content: m.content.trim() })),
+            base,
+        )
 
         const cont = chat.beginContinue({
             onInterval: (interval) => { if (interval) setChartInterval(interval) },
@@ -1370,10 +1370,6 @@ export function MainPage() {
         return handleResumeIdeaThread(threadId)
     }
 
-    // A stopped idea reply with real text can be resumed in place.
-    const lastIdeaMsg = messages[messages.length - 1]
-    const canContinueIdea = !isLoading && lastIdeaMsg?.role === 'assistant' && !!lastIdeaMsg?.stopped && !!(lastIdeaMsg.content && lastIdeaMsg.content.trim())
-
     // Shared by the desktop workspace chat and the mobile chat sheet so the two
     // instances never drift. The mobile sheet overrides onGenerate to also close.
     const chatPanelProps = {
@@ -1383,7 +1379,7 @@ export function MainPage() {
         onGenerate:          handleGenerate,
         onClear:             handleCancelBuild,
         onStop:              chat.handleStop,
-        canResume:           canContinueIdea,
+        canResume:           chat.canResume,
         onResume:            _continueIdea,
         isLoading,
         streamStatus,

@@ -210,14 +210,15 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, chatR
         if (chat.isLoading) return
         const last = messages[messages.length - 1]
         if (!last || last.role !== 'assistant' || !last.stopped) return
-        const base = (last.content || '').replace(/\s+$/, '')   // prefill: no trailing whitespace
-        if (!base) return
+        const base = chat.resumeBase()   // '' = stopped before any token → regenerate
         setEditDirty(true)
 
-        const history = messages
-            .filter(m => !m.streaming && m.role !== 'phase')
-            .map(m => ({ role: m.role, content: m.content }))
-        if (history.length) history[history.length - 1] = { role: 'assistant', content: base }
+        const history = chat.finalizeResumeHistory(
+            messages
+                .filter(m => !m.streaming && m.role !== 'phase')
+                .map(m => ({ role: m.role, content: m.content })),
+            base,
+        )
 
         const cont = chat.beginContinue({
             onError: () => chat.restoreStopped(base),   // keep the partial + Continue on failure
@@ -344,8 +345,6 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, chatR
     const showChangedMind = isEditing && !editDirty
 
     // Stopped mid-reply → the input's Stop turns into a Play to resume that bubble (like other chats).
-    const lastMsg     = messages[messages.length - 1]
-    const canContinue = !chat.isLoading && lastMsg?.role === 'assistant' && !!lastMsg?.stopped && !!(lastMsg.content && lastMsg.content.trim())
 
     const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, {
         onFinishStreaming: () => textareaRef.current?.focus(),
@@ -416,7 +415,7 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, chatR
                 sendDisabled={!inputText.trim() || chat.isLoading}
                 isStreaming={chat.isLoading}
                 onStop={chat.handleStop}
-                canResume={canContinue}
+                canResume={chat.canResume}
                 onResume={_continue}
                 onClear={handleClear}
                 clearDisabled={chat.isLoading || isEditing || !messages.length}

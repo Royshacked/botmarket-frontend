@@ -226,15 +226,17 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
         if (chat.isLoading) return
         const last = messages[messages.length - 1]
         if (!last || last.role !== 'assistant' || !last.stopped) return
-        const base = (last.content || '').replace(/\s+$/, '')   // prefill: no trailing whitespace
-        if (!base) return
+        const base = chat.resumeBase()   // '' = stopped before any token → regenerate
         setEditDirty(true)
 
-        // History ends with the partial assistant turn — Anthropic continues it.
-        const history = messages
-            .filter(m => !m.streaming && m.role !== 'phase')
-            .map(m => ({ role: m.role, content: m.content }))
-        if (history.length) history[history.length - 1] = { role: 'assistant', content: base }
+        // Continuing: history ends with the partial as an assistant prefill. Regenerating (empty
+        // base): it ends at the user turn. finalizeResumeHistory decides which.
+        const history = chat.finalizeResumeHistory(
+            messages
+                .filter(m => !m.streaming && m.role !== 'phase')
+                .map(m => ({ role: m.role, content: m.content })),
+            base,
+        )
 
         pendingTickersRef.current = []
         const cont = chat.beginContinue({
@@ -344,8 +346,6 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
     const listReady = !!pendingScan && pendingScan.candidates?.length > 0
     const showChangedMind = !!editingScanId && !editDirty
     // A stopped reply with real text can be resumed in place.
-    const lastMsg = messages[messages.length - 1]
-    const canContinue = !chat.isLoading && lastMsg?.role === 'assistant' && !!lastMsg?.stopped && !!(lastMsg.content && lastMsg.content.trim())
     // Argus has FINISHED at least one Phase-1 turn (not merely started+stopped). Gates
     // the setup chips so they don't pop up when the user stops before Argus has asked
     // anything — but still show (with prior picks marked) once a real turn has landed.
@@ -449,7 +449,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
                 sendDisabled={!inputText.trim() || chat.isLoading}
                 isStreaming={chat.isLoading}
                 onStop={chat.handleStop}
-                canResume={canContinue}
+                canResume={chat.canResume}
                 onResume={_continue}
                 onClear={handleClear}
                 clearDisabled={chat.isLoading || !messages.length}
