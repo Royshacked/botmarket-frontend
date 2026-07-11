@@ -199,7 +199,7 @@ export function MarketClocks() {
                                 return <text className="market-clocks__sun" x={x.toFixed(2)} y={y.toFixed(2)} textAnchor="middle" dominantBaseline="central">{meridiem === 'AM' ? '12' : '24'}</text>
                             })()}
 
-                            <text className="market-clocks__label" x="18" y="11.6" textAnchor="middle" dominantBaseline="central">{r.label}</text>
+                            <text className="market-clocks__label" x="18" y="25" textAnchor="middle" dominantBaseline="central">{r.label}</text>
                             <line className="market-clocks__hand market-clocks__hand--hour" x1="18" y1="18" x2={hx.toFixed(2)} y2={hy.toFixed(2)} />
                             <line className="market-clocks__hand market-clocks__hand--min" x1="18" y1="18" x2={mx.toFixed(2)} y2={my.toFixed(2)} />
                             <circle className="market-clocks__hub" cx="18" cy="18" r="1.4" />

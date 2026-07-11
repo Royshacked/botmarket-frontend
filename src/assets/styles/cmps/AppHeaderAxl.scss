@@ -443,7 +443,7 @@
 // AM/PM marker in place of a digital readout). The trading session rides the rim as
 // an arc. Open glows in the app accent; closed dims but keeps the arc readable.
 .market-clocks {
-    --mc-dial: 96px;   // single size knob; the media queries below just retune it
+    --mc-dial: 86px;   // single size knob; the media queries below just retune it
     --mc-arc-closed: #5e1212;   // session arc — dark red when the market is closed
     --mc-arc-open:   #1c7a3e;   // session arc — dark green when the market is open
 
@@ -504,6 +504,6 @@
 
 // Tight-width fallbacks: shrink, then shed the dials before the stream so the core
 // cluster survives.
-@media (max-width: 1320px) { .market-clocks { --mc-dial: 78px; gap: 13px; } }
-@media (max-width: 1120px) { .market-clocks { --mc-dial: 62px; gap: 11px; } }
+@media (max-width: 1320px) { .market-clocks { --mc-dial: 70px; gap: 13px; } }
+@media (max-width: 1120px) { .market-clocks { --mc-dial: 56px; gap: 11px; } }
 @media (max-width: 1040px) { .market-clocks { display: none; } }
