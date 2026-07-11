@@ -18,7 +18,7 @@
 }
 
 // ── Workspace grid ───────────────────────────────────────────────────────────
-// Columns: chat 33.75% | chart 41.25% | news 25%
+// Columns: chat 32% | chart 36% | news 32%
 // Rows:    top (chat + chart + news), bottom (ideas strip spanning chart+news).
 // Chat spans both rows so it stays a full-height left column.
 .workspace {
@@ -31,7 +31,7 @@
     //     "chat chart news"
     //     "chat ideas ideas";
     // --- Trial: chat + radar 30% each, ideas list only below chart ---
-    grid-template-columns: 30% 40% 30%;
+    grid-template-columns: 32% 36% 32%;
     grid-template-rows: 6fr 4fr;
     grid-template-areas:
         "chat chart news"
