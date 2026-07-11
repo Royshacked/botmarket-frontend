@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { kairosService, CALLS_CHANGED } from '../../services/kairos/kairos.service.remote.js'
+import { threadsService, newThreadId } from '../../services/threads/threads.service.remote.js'
 import { ChatMarkdown } from '../ChatMarkdown.jsx'
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
@@ -95,7 +96,7 @@ export function CallDraft({ call, showHead = true }) {
 // route to the call pop-out (Confirm entry / Accept edit / Delete). They're also listed in the
 // Axl Lists "Calls" tab — so the panel no longer duplicates them as an in-panel readiness strip.
 
-export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, chatRestore = null, editingCallId = null, onEditDone, availableAccounts = [], selectedAccounts = [], mainAccountId = null }) {
+export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, chatRestore = null, editingCallId = null, onEditDone, availableAccounts = [], selectedAccounts = [], mainAccountId = null, resumeRef = null }) {
     const chat = useChatStream()
     const { messages } = chat
 
@@ -108,6 +109,7 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, chatR
     // button offers a clean "I'll do it later" exit (mirrors the idea edit's "changed my mind").
     const [editDirty,   setEditDirty]   = useState(false)
     const textareaRef = useRef(null)
+    const threadIdRef = useRef(newThreadId())   // call construction draft thread
 
     const isEditing = !!editingCallId
 
@@ -168,6 +170,15 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, chatR
                     const msgs = [...history, { role: 'assistant', content: data.reply }]
                     kairosService.updateCall(editingCallId, { chatState: { messages: msgs, draft: nextCall } })
                         .catch(err => console.error('[kairos] chat_state save', err))
+                } else {
+                    // Construction only: persist the call-building conversation as a draft thread
+                    // (mirrors Scanner). The backend enforces the substantive floor (phase ≥ 2) + TTL.
+                    threadsService.saveDraft({
+                        threadId: threadIdRef.current, agent: 'kairos',
+                        messages: [...history, { role: 'assistant', content: data.reply }],
+                        phase: data.phase ?? null, subjectType: 'call',
+                        state: nextCall ? { draft: nextCall } : null,
+                    })
                 }
             },
         })
@@ -219,6 +230,13 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, chatR
                     const msgs = [...history.slice(0, -1), { role: 'assistant', content }]
                     kairosService.updateCall(editingCallId, { chatState: { messages: msgs, draft: nextCall } })
                         .catch(err => console.error('[kairos] chat_state save', err))
+                } else {
+                    threadsService.saveDraft({
+                        threadId: threadIdRef.current, agent: 'kairos',
+                        messages: [...history.slice(0, -1), { role: 'assistant', content }],
+                        phase: data.phase ?? null, subjectType: 'call',
+                        state: nextCall ? { draft: nextCall } : null,
+                    })
                 }
             },
         })
@@ -254,12 +272,34 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, chatR
         setPendingCall(null)
         setInputText('')
         setEditDirty(false)
+        threadIdRef.current = newThreadId()   // fresh construction thread; abandoned draft TTL-expires
     }
+
+    // Resume an unfinished call-building draft: restore its conversation (+ last draft) and keep
+    // writing to the SAME thread. Generated calls use the edit/update flow (handleEditCall) instead.
+    async function handleResumeThread(threadId) {
+        const t = await threadsService.getThread(threadId)
+        if (!t) return
+        chat.setMessages(t.messages ?? [])
+        chat.setPhase(null)
+        setPendingCall(t.state?.draft ?? null)
+        setInputText('')
+        setEditDirty(false)
+        threadIdRef.current = t.threadId
+    }
+    // Expose resume to the shared agent-bar hamburger (MainPage).
+    if (resumeRef) resumeRef.current = handleResumeThread
 
     async function handleGenerate() {
         if (!pendingCall || ideaAccounts.length === 0) return
         try {
-            await kairosService.generateCall(pendingCall, ideaAccounts, mainAccountId, { messages: persistedMessages(), draft: pendingCall })
+            const saved = await kairosService.generateCall(pendingCall, ideaAccounts, mainAccountId, { messages: persistedMessages(), draft: pendingCall })
+            // Link the construction draft thread to the created call (clears its TTL so the
+            // conversation lives with the call). saved = the persisted call doc (has .id).
+            if (saved?.id) {
+                threadsService.linkThread(threadIdRef.current, { subjectType: 'call', subjectId: saved.id, artifactName: pendingCall.asset ?? null })
+            }
+            threadIdRef.current = newThreadId()   // next build gets a fresh draft thread
             setPendingCall(null)
             await refreshPerf()
             onGenerated?.()   // call generated — return to the axl hub
@@ -402,4 +442,5 @@ KairosPanel.propTypes = {
     availableAccounts: PropTypes.array,
     selectedAccounts:  PropTypes.array,
     mainAccountId:     PropTypes.string,
+    resumeRef:         PropTypes.object,
 }

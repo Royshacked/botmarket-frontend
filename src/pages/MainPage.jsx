@@ -317,6 +317,7 @@ export function MainPage() {
             reference_levels: call.reference_levels ?? [],
             patterns:         call.patterns         ?? [],
             sizing:           call.sizing           ?? null,
+            active_from:      call.active_from      ?? null,
             valid_until:      call.valid_until      ?? null,
         }
         setKairosChatRestore({ key: `${call.id}-${Date.now()}`, call: draft, messages: call.chat_state?.messages ?? [] })
@@ -348,6 +349,7 @@ export function MainPage() {
     const ideaThreadIdRef   = useRef(newThreadId())   // idea construction draft thread
     const portfolioResumeRef = useRef(null)           // PortfolioPanel exposes its resume fn here
     const scannerResumeRef   = useRef(null)           // ScannerPanel exposes its resume fn here
+    const kairosResumeRef    = useRef(null)           // KairosPanel exposes its resume fn here
 
     // Leaving an agent plays a short "heading back to axl" beat (mirrors the summon
     // on the way in) before the hub returns. The timer is cleared on unmount so it
@@ -1364,6 +1366,7 @@ export function MainPage() {
     function handleResumeActiveThread(threadId) {
         if (activeTab === 'portfolio') return portfolioResumeRef.current?.(threadId)
         if (activeTab === 'scanner')   return scannerResumeRef.current?.(threadId)
+        if (activeTab === 'kairos')    return kairosResumeRef.current?.(threadId)
         return handleResumeIdeaThread(threadId)
     }
 
@@ -1492,6 +1495,7 @@ export function MainPage() {
                                 onLoadingChange={setKairosLoading}
                                 onGenerated={handleBackToAxl}
                                 onPendingCall={setKairosPendingCall}
+                                resumeRef={kairosResumeRef}
                                 chatRestore={kairosChatRestore}
                                 editingCallId={editingCallId}
                                 onEditDone={handleCallEditDone}

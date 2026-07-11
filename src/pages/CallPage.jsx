@@ -253,6 +253,7 @@ export function CallPage() {
                     {call.bias && <span className={`idea-page__direction direction--${call.bias}`}>{call.bias}</span>}
                     {call.trade_type && <span className="idea-page__meta">{call.trade_type}</span>}
                     {call.sizing?.max_size != null && <span className="idea-page__meta">max {call.sizing.max_size}</span>}
+                    {call.active_from && <span className="idea-page__meta">from {new Date(call.active_from).toLocaleString()}</span>}
                     {call.valid_until && <span className="idea-page__meta">valid until {new Date(call.valid_until).toLocaleString()}</span>}
                 </span>
                 <span className={`idea-page__status status--${iconStatus}`} title={STATUS_LABEL[call.status] ?? call.status}>
