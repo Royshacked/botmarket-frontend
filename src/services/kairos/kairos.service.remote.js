@@ -13,6 +13,7 @@ export const kairosService = {
     generateCall,
     listCalls,
     getCall,
+    getPerformance,
     actOnCall,
     deleteCall,
 }
@@ -53,7 +54,15 @@ async function getCall(id) {
     catch { return null }
 }
 
-// action ∈ 'confirm' | 'edit' | 'dismiss'
+// Kairos track record — aggregate of closed calls' outcomes.
+async function getPerformance() {
+    try { return await httpService.get(`${BASE}/performance`) }
+    catch { return null }
+}
+
+// Readiness: 'confirm' | 'edit' | 'dismiss'. In-position management (accept a pending card):
+// 'move_stop' | 'take_partial' | 'exit_now' | 'let_run'; 'dismiss' on an in-position call clears the
+// management card without closing the position.
 async function actOnCall(id, action) {
     const res = await httpService.post(`${BASE}/${encodeURIComponent(id)}/action`, { action })
     _announceChange()

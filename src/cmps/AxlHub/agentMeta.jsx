@@ -65,7 +65,7 @@ export const AGENTS = {
     kairos: {
         tab:   'kairos',
         brand: 'Kairos',
-        hue:   'cyan',
+        hue:   'amber',   // distinct from Idea's cyan — Kairos = the opportune moment
         lead:  'Time a discretionary trade',
         blurb: 'Read a chart, map the levels, and get the nod when the moment lines up.',
         intro: "Let's find a ticker, map the levels, and I'll watch for the moment to enter.",

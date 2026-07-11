@@ -10,16 +10,19 @@ import { formatCreatedAt } from './tradeIdea.utils.js'
 
 const STATUS_LABEL = {
     waiting: 'watching', watching: 'near zone', ready: 'ready', expiring: 'expiring',
-    confirmed: 'entered', expired: 'expired', dismissed: 'dismissed',
+    confirmed: 'awaiting fill', in_position: 'in position', closed: 'closed',
+    expired: 'expired', dismissed: 'dismissed',
 }
 
 // Reuse the idea StatusIcon set — map each call status to the closest idea icon.
-// (waiting→hourglass, watching→radar, ready→bullseye, confirmed→trend, expired/dismissed→flag;
+// (waiting→hourglass, watching→radar, ready→bullseye, in_position→trend, closed→flag;
 // 'expiring' has no icon and falls back to its text label.)
 const CALL_STATUS_ICON = {
     waiting: 'waiting', watching: 'looking', ready: 'hit',
-    confirmed: 'long', expired: 'closed', dismissed: 'closed',
+    confirmed: 'hit', in_position: 'long', closed: 'closed', expired: 'closed', dismissed: 'closed',
 }
+
+const fmtR = r => (r == null ? '—' : `${r > 0 ? '+' : ''}${r}R`)
 
 // Pop-out detail window for a call (mirrors openIdeaPopup): stash the data, open /call/:id.
 function openCallPopup(call) {
@@ -30,9 +33,17 @@ function openCallPopup(call) {
 }
 
 function summary(call) {
-    const p = call.monitor_state?.last_assessment?.proposal
+    const p  = call.monitor_state?.last_assessment?.proposal
+    const ps = call.position_state
     if (call.status === 'ready' && p) {
         return `Enter ${p.entry} · stop ${p.stop} · tp ${p.take_profit?.[0]?.price ?? '—'}${p.rr ? ` · R:R ${p.rr}` : ''}`
+    }
+    if (call.status === 'in_position' && ps) {
+        return `in @${ps.entry?.fill_price ?? ps.entry?.intended ?? '—'} · stop ${ps.stop?.current ?? '—'} · ${fmtR(ps.metrics?.r_multiple_now)}`
+    }
+    if (call.status === 'closed' && ps?.outcome) {
+        const o = ps.outcome
+        return `${o.reason ?? 'closed'} · ${fmtR(o.r_multiple)}${o.pnl != null ? ` · P&L ${o.pnl}` : ''}`
     }
     const z = call.entry_zones?.[0]
     if (!z) return '—'
@@ -42,6 +53,7 @@ function summary(call) {
 
 export function CallCard({ call, busy = false, onAct, onDelete, onSymbolClick }) {
     const isReady = call.status === 'ready'
+    const hasPending = call.status === 'in_position' && !!call.position_state?.pending_action
 
     function handleCardClick(ev) {
         if (ev.target.closest('.idea-card__controls')) return   // buttons handle themselves
@@ -71,6 +83,7 @@ export function CallCard({ call, busy = false, onAct, onDelete, onSymbolClick })
             </div>
 
             <div className="idea-card__controls">
+                {hasPending && <span className="idea-card__manage-dot" title={`Kairos suggests: ${call.position_state.pending_action.verdict}`}>⚑</span>}
                 <span className={`idea-card__status-badge status--${call.status}`} title={STATUS_LABEL[call.status] ?? call.status}>
                     <StatusIcon status={CALL_STATUS_ICON[call.status] ?? call.status} />
                 </span>

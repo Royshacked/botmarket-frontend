@@ -111,11 +111,15 @@ export function KairosPanel({ onLoadingChange, onGenerated, availableAccounts = 
     const [inputText,   setInputText]   = useState('')
     const [pendingCall, setPendingCall] = useState(null)
     const [calls,       setCalls]       = useState([])
+    const [perf,        setPerf]        = useState(null)
     const textareaRef = useRef(null)
 
     const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
 
-    const refreshCalls = useCallback(async () => { setCalls(await kairosService.listCalls()) }, [])
+    const refreshCalls = useCallback(async () => {
+        setCalls(await kairosService.listCalls())
+        setPerf(await kairosService.getPerformance())
+    }, [])
     useEffect(() => {
         refreshCalls()
         window.addEventListener(CALLS_CHANGED, refreshCalls)   // sync with the Axl Lists Calls tab
@@ -188,7 +192,8 @@ export function KairosPanel({ onLoadingChange, onGenerated, availableAccounts = 
     const canGenerate = callReady && ideaAccounts.length > 0
 
     const scoped     = calls.filter(c => brokerMode(c.broker) === workspace)
-    const active     = scoped.filter(c => c.status === 'waiting' || c.status === 'watching')
+    // Live watch-list: pre-entry (waiting/watching) + managed positions (in_position).
+    const active     = scoped.filter(c => ['waiting', 'watching', 'in_position'].includes(c.status))
 
     const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, {
         onFinishStreaming: () => textareaRef.current?.focus(),
@@ -215,6 +220,14 @@ export function KairosPanel({ onLoadingChange, onGenerated, availableAccounts = 
                                 <button key={s} className="kairos-panel__suggestion" onClick={() => _send(s)} disabled={chat.isLoading}>{s}</button>
                             ))}
                         </div>
+                        {perf?.closed > 0 && (
+                            <div className="kairos-panel__perf">
+                                <span><b>{perf.closed}</b> closed</span>
+                                {perf.win_rate != null && <span><b>{Math.round(perf.win_rate * 100)}%</b> win</span>}
+                                {perf.avg_r != null && <span><b>{perf.avg_r > 0 ? '+' : ''}{perf.avg_r}R</b> avg</span>}
+                                {perf.total_pnl != null && <span>P&amp;L <b>{perf.total_pnl}</b></span>}
+                            </div>
+                        )}
                         {active.length > 0 && (
                             <div className="kairos-panel__active">
                                 {active.map(c => (
@@ -223,7 +236,12 @@ export function KairosPanel({ onLoadingChange, onGenerated, availableAccounts = 
                                             <HermesBadge size={16} />
                                             <span className="kairos-panel__asset">{c.asset}</span>
                                         </span>
-                                        <span className="kairos-panel__active-status">{c.status}</span>
+                                        <span className="kairos-panel__active-status">
+                                            {c.status === 'in_position' && c.position_state?.pending_action && <span className="kairos-panel__active-flag" title="Kairos suggests an action">⚑</span>}
+                                            {c.status === 'in_position'
+                                                ? `in · ${c.position_state?.metrics?.r_multiple_now != null ? `${c.position_state.metrics.r_multiple_now > 0 ? '+' : ''}${c.position_state.metrics.r_multiple_now}R` : '—'}`
+                                                : c.status}
+                                        </span>
                                     </span>
                                 ))}
                             </div>

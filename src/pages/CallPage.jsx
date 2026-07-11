@@ -13,17 +13,32 @@ import './CallPage.scss'                          // call-only bits (delete, act
 
 const STATUS_LABEL = {
     waiting: 'watching for zone', watching: 'near a zone', ready: 'ready to enter',
-    expiring: 'expiring', confirmed: 'entered', expired: 'expired', dismissed: 'dismissed',
+    expiring: 'expiring', confirmed: 'entered — awaiting fill', in_position: 'in position',
+    closed: 'closed', expired: 'expired', dismissed: 'dismissed',
 }
 // Map a call status to the closest idea StatusIcon (waiting→hourglass, watching→radar, …).
 const CALL_STATUS_ICON = {
     waiting: 'waiting', watching: 'looking', ready: 'hit',
-    confirmed: 'long', expired: 'closed', dismissed: 'closed',
+    confirmed: 'hit', in_position: 'long', closed: 'closed', expired: 'closed', dismissed: 'closed',
 }
 // TradingView interval per horizon.
 const TF_INTERVAL = { intraday: '5', day: '15', swing: 'D' }
 
-const REASON_LABEL = { closed: 'market closed', scheduled: 'heartbeat', zone_trip: 'in zone', expiry_review: 'expiry review' }
+const REASON_LABEL = {
+    closed: 'market closed', scheduled: 'heartbeat', zone_trip: 'in zone', expiry_review: 'expiry review',
+    entry: 'entered', in_position: 'managing', close: 'closed',
+}
+// In-position management verdict → button label + human proposal line.
+const MANAGE_LABEL = { move_stop: 'Move stop', take_partial: 'Take partial', exit_now: 'Exit now', let_run: 'Let it run' }
+function proposalLine(verdict, p) {
+    if (!p) return null
+    if (verdict === 'move_stop')    return `New stop ${p.new_stop}${p.ref ? ` (${p.ref})` : ''}`
+    if (verdict === 'take_partial') return `Close ${p.size_pct}% here`
+    if (verdict === 'let_run')      return p.cancel_tp ? 'Cancel the take-profit' : `Raise the take-profit to ${p.new_tp}`
+    if (verdict === 'exit_now')     return p.reason || 'Flatten the position now'
+    return null
+}
+const fmtR = r => (r == null ? '—' : `${r > 0 ? '+' : ''}${r}R`)
 
 // ── Monitor journal — the running, first-person monologue of every monitor wake ─────────────────
 // Timeline is appended oldest→newest by the backend; render chronologically and keep the box
@@ -59,7 +74,7 @@ JournalAxes.propTypes = { axes: PropTypes.object }
 
 function JournalEntry({ e }) {
     const time     = e.at ? new Date(e.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
-    const isAssess = e.reason === 'zone_trip' || e.reason === 'expiry_review'
+    const isAssess = e.reason === 'zone_trip' || e.reason === 'expiry_review' || e.reason === 'in_position'
     return (
         <div className={`call-journal__entry call-journal__entry--${e.reason}`}>
             <div className="call-journal__meta">
@@ -91,6 +106,73 @@ function MonitorJournal({ timeline }) {
     )
 }
 MonitorJournal.propTypes = { timeline: PropTypes.array }
+
+// ── In-position state: the live trade + its outcome (Phase 5) ────────────────────────────────────
+function PositionPanel({ ps, status }) {
+    const e = ps.entry ?? {}, s = ps.stop ?? {}, m = ps.metrics ?? {}, o = ps.outcome
+    const targets = Array.isArray(ps.targets) ? ps.targets : []
+    const taken   = Array.isArray(ps.taken) ? ps.taken : []
+    const closed  = status === 'closed'
+    return (
+        <div className={`call-position call-position--${status}`}>
+            <div className="call-position__grid">
+                <div className="call-position__cell"><span>Entry</span><b>{e.fill_price ?? e.intended ?? '—'}</b></div>
+                <div className="call-position__cell"><span>Stop</span><b>{s.current ?? '—'}</b>{s.initial != null && s.initial !== s.current && <em> (init {s.initial})</em>}</div>
+                <div className="call-position__cell"><span>Size</span><b>{e.size ?? '—'}</b></div>
+                {!closed && <div className="call-position__cell"><span>R now</span><b className={m.r_multiple_now > 0 ? 'pos' : m.r_multiple_now < 0 ? 'neg' : ''}>{fmtR(m.r_multiple_now)}</b></div>}
+                {!closed && ps.phase && <div className="call-position__cell"><span>Phase</span><b>{ps.phase}</b></div>}
+                {!closed && (m.mfe != null || m.mae != null) && <div className="call-position__cell"><span>MFE / MAE</span><b>{fmtR(m.mfe)} / {fmtR(m.mae)}</b></div>}
+            </div>
+
+            {targets.length > 0 && (
+                <div className="call-position__targets">
+                    <span className="call-position__label">Targets</span>
+                    {targets.map(t => (
+                        <span key={t.id} className={`call-position__target ${t.hit_at ? 'is-hit' : ''}`}>{t.price}{t.hit_at ? ' ✓' : ''}</span>
+                    ))}
+                </div>
+            )}
+
+            {taken.length > 0 && (
+                <div className="call-position__taken">
+                    <span className="call-position__label">Taken</span>
+                    {taken.map((t, i) => <span key={i} className="call-position__taken-row">{t.kind} {t.size ?? ''}{t.r_multiple != null ? ` · ${fmtR(t.r_multiple)}` : ''}</span>)}
+                </div>
+            )}
+
+            {closed && o && (
+                <div className={`call-position__outcome ${o.r_multiple > 0 ? 'is-win' : o.r_multiple < 0 ? 'is-loss' : ''}`}>
+                    <span className="call-position__outcome-reason">{o.reason}</span>
+                    <span className="call-position__outcome-r">{fmtR(o.r_multiple)}</span>
+                    {o.exit_price != null && <span className="call-position__outcome-bit">exit {o.exit_price}</span>}
+                    {o.pnl != null && <span className="call-position__outcome-bit">P&amp;L {o.pnl}</span>}
+                </div>
+            )}
+        </div>
+    )
+}
+PositionPanel.propTypes = { ps: PropTypes.object.isRequired, status: PropTypes.string }
+
+// The pending management proposal Hermes wants the user to accept (Phase 5, propose-everything).
+function ManagementCard({ pending, busy, onAccept, onDismiss }) {
+    const v = pending?.verdict
+    if (!v) return null
+    return (
+        <div className={`kairos-panel__card kairos-panel__card--manage verdict--${v}`}>
+            <div className="kairos-panel__card-head">
+                <span className="kairos-panel__card-status">Kairos suggests</span>
+                <span className={`call-journal__verdict verdict--${v}`}>{v}</span>
+            </div>
+            <div className="kairos-panel__card-row">{proposalLine(v, pending.proposal)}</div>
+            {pending.proposal?.reason && v !== 'exit_now' && <div className="kairos-panel__card-note">{pending.proposal.reason}</div>}
+            <div className="call-page__actions">
+                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" disabled={busy} onClick={() => onAccept(v)}>{MANAGE_LABEL[v] ?? 'Accept'}</button>
+                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" disabled={busy} onClick={onDismiss}>Dismiss</button>
+            </div>
+        </div>
+    )
+}
+ManagementCard.propTypes = { pending: PropTypes.object, busy: PropTypes.bool, onAccept: PropTypes.func.isRequired, onDismiss: PropTypes.func.isRequired }
 
 // Pop-out detail window for a Kairos call. Reuses the idea pop-out shell (IdeaPage.scss) — same
 // chart-left / column-right layout — with the call form (CallDraft) in the right column instead of
@@ -152,7 +234,11 @@ export function CallPage() {
     const p          = a?.proposal
     const isReady    = call.status === 'ready'
     const expiring   = call.status === 'expiring'
-    const iconStatus = CALL_STATUS_ICON[call.status] ?? call.status
+    const ps         = call.position_state
+    const inPosition = call.status === 'in_position'
+    const closed     = call.status === 'closed'
+    const pending    = ps?.pending_action
+    const iconStatus = (inPosition && ps?.entry?.direction === 'short') ? 'short' : (CALL_STATUS_ICON[call.status] ?? call.status)
 
     // Positions on this asset (a confirmed call becomes a real idea with a position).
     const callSymbols   = [call.asset, call.broker_symbol].filter(Boolean).map(s => String(s).toUpperCase())
@@ -185,6 +271,18 @@ export function CallPage() {
                             {isReady && <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" disabled={busy} onClick={() => act('confirm')}>Confirm entry</button>}
                             {expiring && <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" disabled={busy} onClick={() => act('edit')}>Accept edit</button>}
                             <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" disabled={busy} onClick={() => act('dismiss')}>Dismiss</button>
+                        </div>
+                    )}
+
+                    {inPosition && pending && (
+                        <ManagementCard pending={pending} busy={busy} onAccept={v => act(v)} onDismiss={() => act('dismiss')} />
+                    )}
+
+                    {ps && (inPosition || closed) && <PositionPanel ps={ps} status={call.status} />}
+
+                    {inPosition && (
+                        <div className="call-page__actions call-page__actions--manage">
+                            <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" disabled={busy} onClick={() => act('exit_now')}>Exit now</button>
                         </div>
                     )}
 

@@ -420,6 +420,7 @@
         &--cyan   { color: #22d3ee; }
         &--green  { color: #34d399; }
         &--violet { color: #a78bfa; }
+        &--amber  { color: #f59e0b; }
     }
 
     // ── Invalidation alert message ─────────────────────────────────────────
@@ -491,6 +492,11 @@
 
     &__invalidation-alert--dismissed {
         opacity: 0.55;
+    }
+    // A collapsed but replayable entry-confirm chip: click/Enter re-opens its target.
+    &__invalidation-alert--reopen {
+        cursor: pointer;
+        &:hover { opacity: 0.8; }
     }
 
     // ── Manual (broker-less) FillCard ──────────────────────────────────────────
@@ -766,6 +772,7 @@
         &.social-chat__conv-avatar--cyan   { color: #22d3ee; }
         &.social-chat__conv-avatar--green  { color: #34d399; }
         &.social-chat__conv-avatar--violet { color: #a78bfa; }
+        &.social-chat__conv-avatar--amber  { color: #f59e0b; }
     }
 
     // Notify-only footer for specialist bot threads (in place of the composer).

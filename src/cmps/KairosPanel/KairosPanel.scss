@@ -80,3 +80,27 @@
     }
     &__active-status { font-size: 0.72rem; opacity: 0.65; text-transform: uppercase; }
 }
+
+// Kairos track record (closed-calls performance) + in-position flag in the intro watch-list.
+.kairos-panel {
+    &__perf {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin: 10px 0 6px;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg-raised);
+        font-size: 0.72rem;
+        color: var(--text-secondary);
+
+        b { color: var(--text-primary); font-weight: 700; }
+    }
+
+    &__active-flag {
+        margin-right: 5px;
+        color: var(--color-warning);
+        animation: manage-pulse 1.6s ease-in-out infinite;
+    }
+}

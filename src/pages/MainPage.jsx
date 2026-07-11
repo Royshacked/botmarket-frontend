@@ -638,6 +638,8 @@ export function MainPage() {
     ideasRef.current = ideas
     const positionsRef = useRef(positions)
     positionsRef.current = positions
+    const workspaceRef = useRef(workspace)   // for []-dep event handlers that must read the live workspace
+    workspaceRef.current = workspace
     useEffect(() => {
         return eventBus.on(INVALIDATION_EDIT_IDEA, ({ ideaId }) => {
             const idea = ideasRef.current.find(i => i.id === ideaId)
@@ -688,7 +690,11 @@ export function MainPage() {
         return eventBus.on(ENTRY_CONFIRM_OPEN, ({ ideaId }) => {
             const idea = ideasRef.current.find(i => i.id === ideaId)
             if (!idea) return
-            setWorkspace(ideaWorkspace(idea))
+            // Only switch workspace for a CROSS-workspace idea (that switch flips the backend paper
+            // flag so the right accounts load — required to place the order). Never re-flip global
+            // trading mode when the idea already belongs to the active workspace: confirming a
+            // same-workspace card must not churn account-wide state (badge, positions, selectors).
+            if (ideaWorkspace(idea) !== workspaceRef.current) setWorkspace(ideaWorkspace(idea))
             setDismissedConfirmIds(prev => {
                 if (!prev.has(ideaId)) return prev
                 const next = new Set(prev); next.delete(ideaId); return next

@@ -92,6 +92,8 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                                 ? <EntryConfirmBubble msg={msg} onClose={onClose} onDismiss={onDismissMessage} />
                                 : msg.type === 'call_expiry' && msg.payload
                                 ? <CallExpiryBubble msg={msg} onDismiss={onDismissMessage} />
+                                : msg.type === 'call_manage' && msg.payload
+                                ? <CallManageBubble msg={msg} onDismiss={onDismissMessage} />
                                 : <div className="social-chat__msg-bubble">{msg.content}</div>
                             }
                             <div className="social-chat__msg-time">{formatTime(msg.createdAt)}</div>
@@ -206,17 +208,31 @@ function EntryConfirmBubble({ msg, onClose, onDismiss }) {
     const isCall = kind === 'call'
     const agent  = isCall ? AGENTS.kairos : AGENTS.idea
 
-    function handleConfirm() {
-        onDismiss?.(msg.id, 'confirmed')
+    // Route to the action surface: a call opens its pop-out; an idea asks the app to surface the
+    // OrderConfirmDialog. Either target may fail to materialize (idea still loading, another
+    // user's idea, orders that don't resolve to a session account) — so this stays replayable.
+    function openTarget() {
         if (isCall) openCallPopup(callId)
         else        eventBus.emit(ENTRY_CONFIRM_OPEN, { ideaId })
+    }
+
+    function handleConfirm() {
+        onDismiss?.(msg.id, 'confirmed')
+        openTarget()
         onClose?.()
     }
 
     if (msg.dismissed) {
         const label = msg.dismissOutcome === 'confirmed' ? '✓ Opened' : 'Dismissed'
+        // A 'confirmed' card keeps its target replayable: the dialog/pop-out it routed to may not
+        // have surfaced, so let the collapsed chip re-trigger it instead of dead-ending.
+        const reopen = msg.dismissOutcome === 'confirmed'
         return (
-            <div className="social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--dismissed">
+            <div
+                className={'social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--dismissed' + (reopen ? ' social-chat__invalidation-alert--reopen' : '')}
+                {...(reopen ? { role: 'button', tabIndex: 0, title: 'Re-open', onClick: openTarget,
+                    onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTarget() } } } : {})}
+            >
                 <div className="social-chat__invalidation-alert-header">{label} &middot; {asset}</div>
             </div>
         )
@@ -278,6 +294,42 @@ function CallExpiryBubble({ msg, onDismiss }) {
                     className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--close"
                     onClick={handleDelete}
                 >Delete</button>
+                <button
+                    className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
+                    onClick={() => onDismiss?.(msg.id, 'dismissed')}
+                >Dismiss</button>
+            </div>
+        </div>
+    )
+}
+
+// "Kairos wants to manage the position" card. Notify + route: opens the call pop-out where the
+// user accepts (move stop / take partial / exit / let run) or dismisses the suggestion.
+const MANAGE_VERB_COPY = { move_stop: 'move the stop', take_partial: 'take a partial', exit_now: 'exit now', let_run: 'let it run' }
+function CallManageBubble({ msg, onDismiss }) {
+    const { callId, asset, verdict, read } = msg.payload
+
+    function handleOpen() {
+        onDismiss?.(msg.id, 'opened')
+        openCallPopup(callId)
+    }
+
+    if (msg.dismissed) {
+        const label = msg.dismissOutcome === 'opened' ? '✓ Opened' : 'Dismissed'
+        return (
+            <div className="social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--dismissed">
+                <div className="social-chat__invalidation-alert-header">{label} &middot; {asset}</div>
+            </div>
+        )
+    }
+
+    return (
+        <div className="social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--manage">
+            <CardAgentTag agent={AGENTS.kairos} />
+            <div className="social-chat__invalidation-alert-header">Manage {asset} &middot; {MANAGE_VERB_COPY[verdict] ?? verdict}</div>
+            <div className="social-chat__invalidation-alert-reason">{read || msg.content}</div>
+            <div className="social-chat__invalidation-alert-actions">
+                <button className="social-chat__invalidation-alert-btn" onClick={handleOpen}>Review</button>
                 <button
                     className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
                     onClick={() => onDismiss?.(msg.id, 'dismissed')}

@@ -34,11 +34,12 @@ const BROKERS = [
     { type: 'ibkr',    label: 'IBKR'    },
 ]
 
-// One shared AI setting drives every agent; each consumer reads its own per-agent
-// localStorage keys, so a change is mirrored to every agent's keys. 'kairos' is the
-// Kairos build agent (client-read); 'hermes' is the Kairos monitor (server-read by
-// the kairos monitor via the synced account preferences).
-const AI_AGENT_KEYS = ['idea', 'scanner', 'portfolio', 'kairos', 'hermes']
+// One shared AI setting drives every CONVERSATIONAL agent; each consumer reads its own
+// per-agent localStorage keys, so a change is mirrored to every agent's keys. 'kairos' is
+// the Kairos build agent (client-read). Hermes — the Kairos monitor — is deliberately NOT
+// here: it's a background job with no routing-mode/phase concept, so it gets its own
+// dedicated model+reasoning control below (server-read via the synced account preferences).
+const AI_AGENT_KEYS = ['idea', 'scanner', 'portfolio', 'kairos']
 
 export function UserProfile() {
     const { user, setUser, signout } = useAuth()
@@ -76,6 +77,20 @@ export function UserProfile() {
         const suffix = field.charAt(0).toUpperCase() + field.slice(1)
         AI_AGENT_KEYS.forEach(agent => localStorage.setItem(`${agent}${suffix}`, value))
         setAiPref(prev => ({ ...prev, [field]: value }))
+        queuePrefSync()
+    }
+
+    // Hermes (the Kairos monitor) — its own model + reasoning, independent of the shared AI
+    // mode above. No routing mode: it's a single-shot background vision read, so the model and
+    // reasoning are always explicit. Written to the hermesModel/hermesReasoning keys the backend
+    // monitor reads server-side from the synced account preferences.
+    const [hermesPref, setHermesPref] = useState({
+        model:     readStoredModel('hermesModel'),
+        reasoning: readStoredReasoning('hermesReasoning'),
+    })
+    function handleHermesPref(field, value) {
+        localStorage.setItem(`hermes${field.charAt(0).toUpperCase() + field.slice(1)}`, value)
+        setHermesPref(prev => ({ ...prev, [field]: value }))
         queuePrefSync()
     }
 
@@ -313,6 +328,38 @@ export function UserProfile() {
                                     </div>
                                 </>
                             )}
+                        </div>
+
+                        {/* Kairos monitor (Hermes) — background readiness watcher; its own model +
+                            reasoning, always explicit (no routing mode for a single-shot job). */}
+                        <div className="user-profile__agent">
+                            <span className="user-profile__agent-name">Kairos monitor · Hermes</span>
+                            <div className="user-profile__agent-field">
+                                <span className="user-profile__label">Model</span>
+                                <select
+                                    className="user-profile__select"
+                                    style={{ width: 'auto', minWidth: '9rem' }}
+                                    value={hermesPref.model}
+                                    onChange={e => handleHermesPref('model', e.target.value)}
+                                >
+                                    {MODEL_OPTIONS.map(m => (
+                                        <option key={m.id} value={m.id}>{m.short}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="user-profile__agent-field">
+                                <span className="user-profile__label">Reasoning</span>
+                                <select
+                                    className="user-profile__select"
+                                    style={{ width: 'auto', minWidth: '9rem' }}
+                                    value={hermesPref.reasoning}
+                                    onChange={e => handleHermesPref('reasoning', e.target.value)}
+                                >
+                                    {REASONING_OPTIONS.map(r => (
+                                        <option key={r.id} value={r.id}>{r.label}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                     </section>
 
