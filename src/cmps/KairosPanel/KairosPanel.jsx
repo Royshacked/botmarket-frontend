@@ -112,7 +112,9 @@ export function CallDraft({ call, showHead = true }) {
 // Axl Lists "Calls" tab — so the panel no longer duplicates them as an in-panel readiness strip.
 
 export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, chatRestore = null, editingCallId = null, onEditDone, availableAccounts = [], selectedAccounts = [], mainAccountId = null, resumeRef = null }) {
-    const chat = useChatStream()
+    // threadPhases: Kairos runs all 5 phases in ONE reply, so thread each phase's content under its
+    // own heading (other agents emit one phase per turn and don't need it).
+    const chat = useChatStream({ threadPhases: true })
     const { messages } = chat
 
     useEffect(() => { onLoadingChange?.(chat.isLoading) }, [chat.isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
@@ -176,7 +178,10 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, chatR
 
         const { signal, handlers } = chat.begin(text, {
             onDone: (data) => {
-                chat.finishStreaming({ role: 'assistant', content: data.reply })
+                // Keep-accumulated finish (no content passed): the streamed phase bubbles already hold
+                // the reply threaded per phase — swapping in the whole data.reply would collapse them
+                // back into one bubble. (Persistence below still stores the full reply for the model.)
+                chat.finishStreaming({ role: 'assistant' })
                 const nextCall = data.call ?? pendingCall
                 if (data.call) setPendingCall(data.call)
                 // Progressively save the build conversation while editing so a reload/leave keeps it

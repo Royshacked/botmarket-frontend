@@ -111,6 +111,17 @@ function deriveBuildingCall(draft) {
     }
 }
 
+// The chart interval for a Kairos call: the primary ladder rung the agent set (the coarsest /
+// structure view you'd place zones on), falling back to a horizon default. TradingViewChart maps
+// these spellings ("1hr"/"15min"/"day"…) via its TV_INTERVAL table.
+function deriveCallInterval(tf, tradeType) {
+    if (tf) return tf
+    if (tradeType === 'intraday') return '5min'
+    if (tradeType === 'day')      return '15min'
+    if (tradeType === 'swing')    return 'day'
+    return DEFAULT_CHART_INTERVAL
+}
+
 function _periodPhrase(period) {
     if (!period) return ''
     const range = period.start && period.end && period.start !== period.end
@@ -325,6 +336,7 @@ export function MainPage() {
         setSelectedAccounts(Array.isArray(call.accounts) ? call.accounts : [])
         setMainAccountId(call.main_account_id ?? null)
         setChartSymbol(call.asset || 'SPY')
+        setChartInterval(deriveCallInterval(draft.timeframe_ladder?.[0], draft.trade_type))
         setActiveTab('kairos')
     }
     function handleCallEditDone() {
@@ -391,6 +403,18 @@ export function MainPage() {
     // synthetic __building__ id so it renders as a new top row.
     const buildingIdeaRow = buildingIdea && editingIdeaId ? { ...buildingIdea, id: editingIdeaId } : buildingIdea
     const buildingCallRow = buildingCall && editingCallId ? { ...buildingCall, id: editingCallId } : buildingCall
+
+    // While building/editing a Kairos call, keep the chart on the call's asset + primary timeframe
+    // (mirrors the Idea chat's live asset/interval sync). Gated to the Kairos tab so it doesn't
+    // hijack the chart when the user is browsing ideas; fires as the draft settles a ticker/ladder.
+    const kairosAsset = kairosPendingCall?.asset
+    const kairosTf    = kairosPendingCall?.timeframe_ladder?.[0]
+    const kairosType  = kairosPendingCall?.trade_type
+    useEffect(() => {
+        if (activeTab !== 'kairos' || !kairosAsset) return
+        setChartSymbol(kairosAsset)
+        setChartInterval(deriveCallInterval(kairosTf, kairosType))
+    }, [activeTab, kairosAsset, kairosTf, kairosType])
     // buildingPortfolio is reported up from PortfolioPanel (assets recommended /
     // pending plan) → drives the list's "building" portfolio row.
 

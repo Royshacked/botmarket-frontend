@@ -35,31 +35,36 @@
         opacity: 0.85;
     }
 
-    &__asset { font-weight: 700; }
+    // Call preview — mirror the Idea chat's build-summary typography (flat 11px mono body, 9px
+    // chips, muted labels) so both agents' previews read as one compact system, not oversized cards.
+    &__draft { display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-family: var(--font-mono); }
+    &__asset { color: var(--accent-light); font-weight: 700; letter-spacing: 0.06em; }
     // The Generate action is a single button — size it to content instead of stretching full-width
     // (the shared .portfolio-panel__review-btn is flex:1, meant for multi-button action bars).
     &__generate-btn { flex: 0 0 auto; }
     &__draft-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     &__card-title { display: flex; align-items: center; gap: 6px; }
     &__type,
-    &__size { font-size: 0.72rem; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.03em; }
+    &__size { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
 
     &__dir {
-        font-size: 0.72rem;
+        font-size: 9px;
+        font-weight: 600;
         text-transform: uppercase;
-        &--long  { color: var(--pos, #3ecf8e); }
-        &--short { color: var(--neg, #ff6b6b); }
+        &--long  { color: var(--color-long); }
+        &--short { color: var(--color-short); }
         &--both  { color: #d9a441; }
     }
 
-    &__thesis { font-size: 0.85rem; opacity: 0.85; margin: 6px 0; line-height: 1.35; }
+    &__thesis { font-size: 11px; color: var(--text-secondary); line-height: 1.35; }
 
-    &__chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-    &__assess { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+    &__chips { display: flex; flex-wrap: wrap; gap: 4px; }
+    &__assess { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
     &__chip {
-        padding: 3px 8px;
-        border-radius: 6px;
-        font-size: 0.74rem;
+        padding: 1px 5px;
+        border-radius: 2px;
+        font-size: 9px;
+        letter-spacing: 0.04em;
         background: var(--bg-raised);
         border: 1px solid var(--border);
         &--zone { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }

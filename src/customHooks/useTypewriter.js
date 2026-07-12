@@ -68,7 +68,14 @@ export function useTypewriter(setMessages, paceCps = PACE_DEFAULT) {
             setMessages(prev => {
                 const msgs = [...prev]
                 const last = msgs[msgs.length - 1]
-                if (last?.streaming) msgs[msgs.length - 1] = fin.msg
+                // `msg.content === undefined` = keep-accumulated mode (phase-threaded chats): the
+                // last bubble already holds this phase's streamed text, so just drop the streaming
+                // flag + merge extras (reasoning) instead of swapping in a whole-reply content.
+                if (last?.streaming) {
+                    msgs[msgs.length - 1] = fin.msg.content === undefined
+                        ? { ...last, ...fin.msg, streaming: false }
+                        : fin.msg
+                }
                 finalized = msgs
                 return msgs
             })
@@ -83,6 +90,16 @@ export function useTypewriter(setMessages, paceCps = PACE_DEFAULT) {
     const start = useCallback(() => { ensureTimer() }, [])  // eslint-disable-line react-hooks/exhaustive-deps
 
     const enqueue = useCallback((text) => { queueRef.current += text }, [])
+
+    // Reveal-and-clear the remaining backlog synchronously, returning it. Used at a phase boundary
+    // to flush the previous phase's un-typed tail into its bubble before that bubble is frozen, so
+    // pace-lag can't misattribute it to the next phase.
+    const drainQueue = useCallback(() => {
+        const q = queueRef.current
+        queueRef.current = ''
+        accRef.current   = 0
+        return q
+    }, [])
 
     // Stream finished cleanly: keep typing the rest of the queue, then set `msg`
     // (the final reply, without a `streaming` flag). onComplete receives the
@@ -105,5 +122,5 @@ export function useTypewriter(setMessages, paceCps = PACE_DEFAULT) {
     // Stop the timer if the component unmounts mid-stream.
     useEffect(() => () => clearInterval(timerRef.current), [])
 
-    return { enqueue, start, stop, finish }
+    return { enqueue, start, stop, finish, drainQueue }
 }

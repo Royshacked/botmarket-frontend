@@ -41,7 +41,7 @@ import { toolStatusLabel } from '../services/toolStatusLabels.js'
  *   reasoningRef: React.MutableRefObject<string>,
  * }}
  */
-export function useChatStream() {
+export function useChatStream({ threadPhases = false } = {}) {
     const [messages, setMessages]         = useState([])
     const [isLoading, setIsLoading]       = useState(false)
     const [streamStatus, setStreamStatus] = useState('')
@@ -56,7 +56,7 @@ export function useChatStream() {
     messagesRef.current = messages
 
     const { paceCps } = useTextPace()
-    const { enqueue: enqueueToken, start: startDrain, stop: stopDrain, finish: finishDrain } = useTypewriter(setMessages, paceCps)
+    const { enqueue: enqueueToken, start: startDrain, stop: stopDrain, finish: finishDrain, drainQueue } = useTypewriter(setMessages, paceCps)
     const { handleStop, freezeError } = makeStreamHandlers({ abortRef, stopDrain, setMessages, setIsLoading })
 
     /**
@@ -171,11 +171,29 @@ export function useChatStream() {
                 const changed = p !== sendPhase
                 setPhase(p)
                 if (!changed) return
+                // In threadPhases mode (Kairos runs all phases in ONE reply), if the current bubble
+                // already holds text, freeze it as the previous phase's bubble and open a fresh
+                // streaming bubble under the new heading — so each phase's content threads under its
+                // own heading instead of all collapsing under the last one. Drain the typewriter
+                // backlog first so the previous phase's un-typed tail lands in ITS bubble, not the next.
+                const tail = threadPhases ? drainQueue() : ''
                 setMessages(prev => {
                     const idx = prev.findIndex(m => m.streaming)
                     if (idx < 0) return prev
                     const next = [...prev]
-                    next.splice(idx, 0, { role: 'phase', phase: p })
+                    const cur = next[idx]
+                    const curContent = (cur.content || '') + tail
+                    if (!threadPhases || curContent.trim() === '') {
+                        // One-phase-per-turn (other agents) or no content yet → heading before the bubble.
+                        if (tail) next[idx] = { ...cur, content: curContent }
+                        next.splice(idx, 0, { role: 'phase', phase: p })
+                        return next
+                    }
+                    next[idx] = { ...cur, content: curContent, streaming: false }
+                    next.splice(idx + 1, 0,
+                        { role: 'phase', phase: p },
+                        { role: 'assistant', content: '', streaming: true },
+                    )
                     return next
                 })
             },
