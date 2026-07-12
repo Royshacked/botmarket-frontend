@@ -333,7 +333,7 @@ export function UserProfile() {
                         {/* Kairos monitor (Hermes) — background readiness watcher; its own model +
                             reasoning, always explicit (no routing mode for a single-shot job). */}
                         <div className="user-profile__agent">
-                            <span className="user-profile__agent-name">Kairos monitor · Hermes</span>
+                            <span className="user-profile__agent-name">Hermes (monitor)</span>
                             <div className="user-profile__agent-field">
                                 <span className="user-profile__label">Model</span>
                                 <select
