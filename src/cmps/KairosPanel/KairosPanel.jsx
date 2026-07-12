@@ -16,12 +16,13 @@ import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { ChatReasoning } from '../ChatReasoning.jsx'
 import { ChatPhaseHeading } from '../ChatPhaseHeading.jsx'
 import { HermesBadge } from '../AxlHub/AgentBadges.jsx'
+import { ConvictionChip } from '../ConvictionChip/ConvictionChip.jsx'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import './KairosPanel.scss'
 
 const SUGGESTIONS = ['Looking for an intraday trade?', "Let's day trade!", "Let's go for a swing!"]
 
-const KAIROS_PHASE_LABELS = { 1: 'Classify', 2: 'Zones', 3: 'Risk', 4: 'Trigger', 5: 'Size & account' }
+const KAIROS_PHASE_LABELS = { 1: 'Classify', 2: 'Analyse & zones', 3: 'Risk', 4: 'Trigger', 5: 'Validate & size' }
 
 function MessageBubble({ msg }) {
     if (msg.role === 'phase') {
@@ -35,7 +36,7 @@ function MessageBubble({ msg }) {
         return (
             <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant">
                 {reasoning}
-                <span className="portfolio-panel__thinking">reading the chart…</span>
+                <span className="portfolio-panel__thinking">thinking…</span>
             </div>
         )
     }
@@ -53,6 +54,10 @@ export function CallDraft({ call, showHead = true }) {
     const zones = call.entry_zones ?? []
     const refs  = call.reference_levels ?? []
     const pats  = call.patterns ?? []
+    // Only show the assess row when it has real content: a bucketed conviction level and/or a
+    // positive R:R. Guards a mid-stream draft that may carry rr:0/null or an out-of-enum level.
+    const showConv = ['low', 'medium', 'high'].includes(call.conviction?.level)
+    const showRr   = Number.isFinite(call.rr) && call.rr > 0
     return (
         <div className="kairos-panel__draft">
             {showHead && (
@@ -65,6 +70,16 @@ export function CallDraft({ call, showHead = true }) {
                 </div>
             )}
             {showHead && call.thesis && <div className="kairos-panel__thesis">{call.thesis}</div>}
+            {(showConv || showRr) && (
+                <div className="kairos-panel__assess">
+                    {showConv && <ConvictionChip conviction={call.conviction} />}
+                    {showRr && (
+                        <span className={`kairos-panel__chip kairos-panel__chip--rr${call.rr < 1.5 ? ' is-thin' : ''}`}>
+                            {call.rr.toFixed(1)}R
+                        </span>
+                    )}
+                </div>
+            )}
             {zones.length > 0 && (
                 <div className="kairos-panel__chips">
                     {zones.map((z, i) => (

@@ -55,6 +55,7 @@
     &__thesis { font-size: 0.85rem; opacity: 0.85; margin: 6px 0; line-height: 1.35; }
 
     &__chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    &__assess { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
     &__chip {
         padding: 3px 8px;
         border-radius: 6px;
@@ -64,6 +65,11 @@
         &--zone { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
         &--ref  { opacity: 0.8; }
         &--pat  { border-color: color-mix(in srgb, var(--accent-light) 45%, transparent); }
+        &--rr {
+            font-weight: 700;
+            border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+            &.is-thin { border-color: rgba(217, 164, 65, 0.6); color: rgb(217, 164, 65); }
+        }
     }
 
     // ── Readiness cards (ready / expiring) ──
