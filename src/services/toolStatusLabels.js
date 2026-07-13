@@ -11,6 +11,8 @@ const LABELS = {
     get_candles:          'Reading price action…',
     get_price_action:     'Reading price action…',
     get_chart:            'Looking at the chart…',
+    get_orderblocks:      'Mapping order blocks…',
+    get_false_breaks:     'Checking false breaks…',
     get_indicators:       'Computing indicators…',
     get_cycle_analysis:   'Analyzing cycles…',
     get_risk_metrics:     'Computing risk metrics…',
