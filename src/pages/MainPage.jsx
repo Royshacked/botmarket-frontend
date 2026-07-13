@@ -362,6 +362,10 @@ export function MainPage() {
     const portfolioResumeRef = useRef(null)           // PortfolioPanel exposes its resume fn here
     const scannerResumeRef   = useRef(null)           // ScannerPanel exposes its resume fn here
     const kairosResumeRef    = useRef(null)           // KairosPanel exposes its resume fn here
+    // Ids of ideas BORN from a "Buy Market" click (created solely to carry the immediate
+    // order). If their placement fails outright we roll them back out of existence rather
+    // than strand a phantom 'hit' idea on "Update idea". Cleared once placed or rolled back.
+    const buyMarketBornRef   = useRef(new Set())
 
     // Leaving an agent plays a short "heading back to axl" beat (mirrors the summon
     // on the way in) before the hub returns. The timer is cleared on unmount so it
@@ -845,6 +849,9 @@ export function MainPage() {
                 mainAccountId,
             })
             setIdeas(prev => [...saved, ...prev])
+            // Mark these as born-from-buy-market so a failed placement can roll them back
+            // (the edit-branch above flips a PRE-EXISTING idea and must never be deleted).
+            saved.forEach(s => { if (s?.id) buyMarketBornRef.current.add(s.id) })
             // Keep chat open so user can add stops/TPs; point edit session at the
             // primary idea (first returned, before any broker-fork children).
             if (saved[0]?.id) setEditingIdeaId(saved[0].id)
@@ -988,6 +995,7 @@ export function MainPage() {
         try {
             const updated = await tradeIdeasService.placeOrders(idea.id, orders)
             if (updated) setIdeas(prev => prev.map(i => i.id === idea.id ? updated : i))
+            buyMarketBornRef.current.delete(idea.id)   // placed — no longer a phantom
         } catch (err) {
             console.error('[tradeIdeas] place orders failed', err)
             // Surface the broker's rejection reason (e.g. "symbol 'QQQ' not found on
@@ -996,8 +1004,22 @@ export function MainPage() {
             const data      = err?.response?.data
             const brokerErr = data?.results?.find(r => r && r.ok === false && r.error)?.error
             showErrorMsg(`Order placement failed: ${brokerErr || data?.error || err.message}`)
-            // Keep the idea in 'hit' so the user can retry from the detail dialog
-            setDismissedConfirmIds(prev => new Set(prev).add(idea.id))
+
+            if (buyMarketBornRef.current.has(idea.id)) {
+                // Buy-market idea whose order never placed: it exists only to carry this
+                // order, so roll it back out of existence and return the chat to its
+                // pre-buy state instead of leaving a phantom 'hit' idea stuck on
+                // "Update idea". ('hit' is not delete-locked — only long/short are.)
+                buyMarketBornRef.current.delete(idea.id)
+                setEditingIdeaId(prev => (prev === idea.id ? null : prev))
+                setIdeas(prev => prev.filter(i => i.id !== idea.id))
+                tradeIdeasService.deleteIdea(idea.id)
+                    .catch(e => console.error('[tradeIdeas] rollback delete failed', e))
+            } else {
+                // Conditional idea (reached 'hit' via the monitor) or a pre-existing idea
+                // flipped to immediate: keep it in 'hit' so the user can retry.
+                setDismissedConfirmIds(prev => new Set(prev).add(idea.id))
+            }
         } finally {
             setPlacingOrders(false)
         }
