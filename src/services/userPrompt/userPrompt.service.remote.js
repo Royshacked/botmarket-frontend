@@ -6,6 +6,18 @@ export const userPromptService = {
     continuePromptStream,
 }
 
+// The idea agent has no idea what timezone the user is in — so "enter at 16:40" is
+// ambiguous. Send the browser's current instant + IANA timezone so the agent resolves
+// clock/date times against the user's LOCAL time and stores time-condition bounds as
+// absolute UTC. See project_timestamp_ideas (Phase 2).
+function clientTimeContext() {
+    try {
+        return { clientNow: Date.now(), clientTz: Intl.DateTimeFormat().resolvedOptions().timeZone || null }
+    } catch {
+        return { clientNow: Date.now() }
+    }
+}
+
 /**
  * Stream a chat response via SSE.
  *
@@ -23,7 +35,7 @@ export const userPromptService = {
 async function sendPromptStream(userPrompt, analysisState = null, callbacks = {}, ideaAccounts = [], model, reasoningEffort, routingMode, currentPhase) {
     await postSSE(
         `${API_BASE}/api/idea/stream`,
-        { userPrompt, analysisState, ideaAccounts, model, reasoningEffort, routingMode, currentPhase },
+        { userPrompt, analysisState, ideaAccounts, model, reasoningEffort, routingMode, currentPhase, ...clientTimeContext() },
         buildStreamHandlers(callbacks),
         { signal: callbacks.signal },
     )
@@ -38,7 +50,7 @@ async function sendPromptStream(userPrompt, analysisState = null, callbacks = {}
 async function continuePromptStream(messages, analysisState = null, callbacks = {}, ideaAccounts = [], model, reasoningEffort, routingMode, currentPhase) {
     await postSSE(
         `${API_BASE}/api/idea/stream`,
-        { messages, analysisState, ideaAccounts, model, reasoningEffort, routingMode, currentPhase },
+        { messages, analysisState, ideaAccounts, model, reasoningEffort, routingMode, currentPhase, ...clientTimeContext() },
         buildStreamHandlers(callbacks),
         { signal: callbacks.signal },
     )

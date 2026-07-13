@@ -25,7 +25,7 @@ import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.rem
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
 import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
-import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN } from '../services/event-bus.service'
+import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
 import { useChatStream }     from '../customHooks/useChatStream.js'
 import { useNewsFeed }       from '../customHooks/useNewsFeed.js'
@@ -794,6 +794,26 @@ export function MainPage() {
                 if (!prev.has(ideaId)) return prev
                 const next = new Set(prev); next.delete(ideaId); return next
             })
+        })
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Entry-confirm card "Edit": reopen the triggered idea in its chat to change it (→ building).
+    useEffect(() => {
+        return eventBus.on(ENTRY_CONFIRM_EDIT, ({ ideaId }) => {
+            const idea = ideasRef.current.find(i => i.id === ideaId)
+            if (idea) handleEditIdea(idea)
+        })
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Entry-confirm card "Dismiss": park the triggered idea back to 'waiting' (re-armable),
+    // same server transition as the workspace hit-card dismiss. Only when the idea is still
+    // 'hit' — the card lingers in social chat, so a late dismiss (after the idea already
+    // entered/closed) must NOT revert it. The backend also refuses closed→waiting; this just
+    // avoids the doomed round-trip. See project_timestamp_ideas (Issue 2).
+    useEffect(() => {
+        return eventBus.on(ENTRY_CONFIRM_DISMISS, ({ ideaId }) => {
+            const idea = ideasRef.current.find(i => i.id === ideaId)
+            if (idea?.status === 'hit') handleDismissConfirm(idea)
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

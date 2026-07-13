@@ -448,6 +448,12 @@
         .social-chat__invalidation-alert--drifting & { background: rgba(59,130,246,.12); color: #3b82f6; }
     }
 
+    // Inline "why it surfaced" tag on an entry-confirm header (e.g. scheduled time passed).
+    &__invalidation-alert-tag {
+        font-weight: 500;
+        opacity: .72;
+    }
+
     &__invalidation-alert-reason {
         padding: 5px 10px 7px;
         font-size: .76rem;

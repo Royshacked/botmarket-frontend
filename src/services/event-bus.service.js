@@ -15,6 +15,10 @@ export const MANUAL_PORTFOLIO_EXIT     = 'manual-portfolio-exit'
 // Paper/live entry-confirm card ("Confirm order") → the app switches to the idea's workspace
 // and surfaces the OrderConfirmDialog for it (carries { ideaId }).
 export const ENTRY_CONFIRM_OPEN        = 'entry-confirm-open'
+// Entry-confirm card "Edit" → reopen the idea in its chat to change it (idea → building).
+export const ENTRY_CONFIRM_EDIT        = 'entry-confirm-edit'
+// Entry-confirm card "Dismiss" → park the triggered idea back to 'waiting' (re-armable).
+export const ENTRY_CONFIRM_DISMISS     = 'entry-confirm-dismiss'
 
 function createEventEmitter() {
     const listenersMap = {}

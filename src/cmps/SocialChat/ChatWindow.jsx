@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
-import { eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN } from '../../services/event-bus.service'
+import { eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS } from '../../services/event-bus.service'
 import { manualService } from '../../services/manual/manual.service.remote'
 import { kairosService } from '../../services/kairos/kairos.service.remote'
 import { ChatInputRow } from '../ChatInputRow.jsx'
@@ -203,8 +203,11 @@ function openCallPopup(callId) {
 // "Entry triggered — confirm" card. Notify + route: an idea routes to the workspace's
 // OrderConfirmDialog (via the app), a Kairos call opens its pop-out where Confirm entry lives.
 // Same collapse-on-handled behaviour as the invalidation card (persisted via msg.dismissed).
+// A time-scheduled entry can surface late; mark WHY so the copy is honest.
+const ENTRY_CONFIRM_NOTE = { passed_earlier: 'Scheduled time already passed', off_hours: 'Fired while market was closed' }
+
 function EntryConfirmBubble({ msg, onClose, onDismiss }) {
-    const { kind, ideaId, callId, asset } = msg.payload
+    const { kind, ideaId, callId, asset, note } = msg.payload
     const isCall = kind === 'call'
     const agent  = isCall ? AGENTS.kairos : AGENTS.idea
 
@@ -222,8 +225,23 @@ function EntryConfirmBubble({ msg, onClose, onDismiss }) {
         onClose?.()
     }
 
+    // Idea cards only (a Kairos call is managed in its own pop-out): Edit reopens the idea in
+    // its chat (→ building); Dismiss parks it back to 'waiting'. Both also collapse the card.
+    function handleEdit() {
+        onDismiss?.(msg.id, 'editing')
+        eventBus.emit(ENTRY_CONFIRM_EDIT, { ideaId })
+        onClose?.()
+    }
+
+    function handleDismiss() {
+        onDismiss?.(msg.id, 'dismissed')
+        if (!isCall) eventBus.emit(ENTRY_CONFIRM_DISMISS, { ideaId })
+    }
+
     if (msg.dismissed) {
-        const label = msg.dismissOutcome === 'confirmed' ? '✓ Opened' : 'Dismissed'
+        const label = msg.dismissOutcome === 'confirmed' ? '✓ Opened'
+            : msg.dismissOutcome === 'editing' ? '✓ Opened in chat'
+            : 'Dismissed'
         // A 'confirmed' card keeps its target replayable: the dialog/pop-out it routed to may not
         // have surfaced, so let the collapsed chip re-trigger it instead of dead-ending.
         const reopen = msg.dismissOutcome === 'confirmed'
@@ -241,15 +259,21 @@ function EntryConfirmBubble({ msg, onClose, onDismiss }) {
     return (
         <div className="social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--confirm">
             <CardAgentTag agent={agent} />
-            <div className="social-chat__invalidation-alert-header">Confirm entry &middot; {asset}</div>
+            <div className="social-chat__invalidation-alert-header">
+                Confirm entry &middot; {asset}
+                {ENTRY_CONFIRM_NOTE[note] && <span className="social-chat__invalidation-alert-tag"> &middot; {ENTRY_CONFIRM_NOTE[note]}</span>}
+            </div>
             <div className="social-chat__invalidation-alert-reason">{msg.content}</div>
             <div className="social-chat__invalidation-alert-actions">
                 <button className="social-chat__invalidation-alert-btn" onClick={handleConfirm}>
                     {isCall ? 'View call' : 'Confirm order'}
                 </button>
+                {!isCall && (
+                    <button className="social-chat__invalidation-alert-btn" onClick={handleEdit}>Edit</button>
+                )}
                 <button
                     className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
-                    onClick={() => onDismiss?.(msg.id, 'dismissed')}
+                    onClick={handleDismiss}
                 >Dismiss</button>
             </div>
         </div>
