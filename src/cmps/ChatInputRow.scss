@@ -11,6 +11,10 @@
     flex-shrink: 0;
     width: 32px;
     height: 32px;
+    // Reset the global `button` rule (_forms.scss: padding 5px 10px + margin 5px)
+    // so the hover pill is a clean 32×32 circle and the row gap stays 2px.
+    margin: 0;
+    padding: 0;
     display: grid;
     place-items: center;
     border: none;
@@ -19,6 +23,9 @@
     color: var(--text-secondary);
     cursor: pointer;
     transition: color 0.15s, background 0.15s, opacity 0.15s;
+    // Block-level SVG drops the inline baseline descender gap that otherwise
+    // pushes the icon off-centre within the circular hover background.
+    svg { display: block; }
     &:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
     &:disabled { opacity: 0.35; cursor: not-allowed; }
 }
