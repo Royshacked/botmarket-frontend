@@ -232,7 +232,7 @@
     }
 
     td {
-        padding: 6px 8px 6px 0;
+        padding: 4px 8px 4px 0;
         border-bottom: 1px solid var(--bg-hover);
         vertical-align: middle;
         white-space: nowrap;
@@ -553,25 +553,29 @@ $sym-status-colors: (
     font-size: 0.75rem;
     color: var(--text-primary);
 
-    .col-pos-asset   { width: 12%; }
-    .col-pos-dir     { width: 9%;  }
-    .col-pos-broker  { width: 11%; }
-    .col-pos-entered { width: 11%; }
-    .col-pos-qty     { width: 9%;  text-align: right; }
-    .col-pos-price   { width: 12%; text-align: right; }
-    .col-pos-pnl     { width: 13%; text-align: right; }
-    .col-pos-account { width: 12%; }
-    .col-pos-close   { width: 11%; text-align: center; }
+    .col-pos-asset   { width: 10%; }
+    .col-pos-dir     { width: 6%;  }
+    .col-pos-qty     { width: 7%;  text-align: right; }
+    .col-pos-price   { width: 11%; text-align: right; }
+    .col-pos-entered { width: 15%; }
+    .col-pos-mode    { width: 8%;  }
+    .col-pos-broker  { width: 8%;  }
+    .col-pos-account { width: 9%;  }
+    .col-pos-pnl     { width: 10%; text-align: right; }
+    .col-pos-pnl-pct { width: 8%;  text-align: right; }
+    .col-pos-close   { width: 8%;  text-align: center; }
 
     // Small left padding on the first column only (container is flush left).
     th:first-child, td:first-child { padding-left: 8px; }
 
+    // Fixed header height so the sticky portfolio group row can pin flush beneath it.
     thead tr {
         position: sticky;
         top: 0;
         background: var(--bg-base);
-        z-index: 1;
+        z-index: 3;
     }
+    thead th { height: 28px; box-sizing: border-box; }
 
     th {
         text-align: left;
@@ -585,7 +589,7 @@ $sym-status-colors: (
         white-space: nowrap;
         overflow: hidden;
 
-        &.col-pos-qty, &.col-pos-price, &.col-pos-pnl { text-align: right; }
+        &.col-pos-qty, &.col-pos-price, &.col-pos-pnl, &.col-pos-pnl-pct { text-align: right; }
         &.col-pos-close { text-align: center; }
     }
 }
@@ -596,7 +600,7 @@ $sym-status-colors: (
     &--clickable { cursor: pointer; }
 
     td {
-        padding: 6px 8px;
+        padding: 4px 8px;
         border-bottom: 1px solid var(--bg-hover);
         vertical-align: middle;
         white-space: nowrap;
@@ -622,13 +626,17 @@ $sym-status-colors: (
     &__qty,
     &__price { text-align: right; font-family: var(--font-mono); }
 
-    &__pnl {
+    &__mode { overflow: visible; }
+
+    &__pnl,
+    &__pnl-pct {
         text-align: right;
         font-family: var(--font-mono);
         font-weight: 600;
         &.pnl--pos { color: #4caf50; }
         &.pnl--neg { color: #ef5350; }
     }
+    &__pnl-pct { font-size: 0.7rem; }
 
     &__controls { text-align: center; display: flex; gap: 6px; justify-content: center; align-items: center; }
 
@@ -674,6 +682,92 @@ $sym-status-colors: (
     }
 }
 
+// ── Live / Paper / Manual workspace chip (positions) ──────────────────────────
+.workspace-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    line-height: 1.5;
+    border: 1px solid transparent;
+
+    &--live {
+        color: var(--accent-light);
+        background: color-mix(in srgb, var(--accent) 14%, transparent);
+        border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+    }
+    &--paper {
+        color: #d0a24c;
+        background: color-mix(in srgb, #d0a24c 14%, transparent);
+        border-color: color-mix(in srgb, #d0a24c 30%, transparent);
+    }
+    &--manual {
+        color: #8a7fd0;
+        background: color-mix(in srgb, #8a7fd0 16%, transparent);
+        border-color: color-mix(in srgb, #8a7fd0 32%, transparent);
+    }
+}
+
+// ── Positions portfolio / account group (Positions tab) — collapsible summary rows ──
+// Cells align to the position columns below. The PORTFOLIO row pins just under the
+// sticky column-header (28px) while its rows scroll past; the ACCOUNT sub-row is
+// indented and scrolls with its positions. Sticky lives on the cell (robust for table
+// rows) with an opaque base under the accent tint so scrolling rows don't bleed through.
+.position-group-row {
+    cursor: pointer;
+
+    > td {
+        padding: 4px 8px;
+        border-bottom: 1px solid color-mix(in srgb, var(--accent) 14%, transparent);
+        vertical-align: middle;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    // Portfolio row: accent-tinted + sticky under the header.
+    &--portfolio > td {
+        position: sticky;
+        top: 28px;
+        z-index: 2;
+        background: linear-gradient(color-mix(in srgb, var(--accent) 5%, transparent), color-mix(in srgb, var(--accent) 5%, transparent)), var(--bg-base);
+    }
+    &--portfolio:hover > td {
+        background: linear-gradient(color-mix(in srgb, var(--accent) 9%, transparent), color-mix(in srgb, var(--accent) 9%, transparent)), var(--bg-base);
+    }
+
+    // Account sub-row: fainter tint, indented lead cell, not sticky.
+    &--account > td { background: color-mix(in srgb, var(--accent) 2%, transparent); }
+    &--account:hover > td { background: var(--bg-hover); }
+    &--account .position-group-row__lead { padding-left: 22px; }
+    &--account .position-group-row__name { color: var(--text-secondary); font-size: 0.72rem; }
+
+    &__lead { overflow: hidden; text-overflow: ellipsis; }
+    &__caret { color: var(--accent); font-size: 0.6rem; margin-right: 8px; }
+    &__name {
+        font-weight: 600;
+        color: var(--accent-light);
+        font-size: 0.75rem;
+        font-family: var(--font-mono);
+        letter-spacing: 0.04em;
+    }
+    &__count  { color: var(--text-muted); font-size: 0.7rem; margin-left: 6px; }
+    &__entered { color: var(--text-muted); font-size: 0.7rem; }
+    &__mode { overflow: visible; }
+    &__broker, &__account { color: var(--text-secondary); }
+    &__pnl, &__pnl-pct {
+        text-align: right;
+        font-family: var(--font-mono);
+        font-weight: 600;
+        &.pnl--pos { color: #4caf50; }
+        &.pnl--neg { color: #ef5350; }
+    }
+    &__pnl-pct { font-size: 0.7rem; }
+}
+
 // The portfolios table's column-header row is sticky at the top; give it a fixed
 // height so the portfolio header below can pin flush beneath it.
 .portfolios-table thead th { height: 28px; box-sizing: border-box; }
@@ -689,7 +783,7 @@ $sym-status-colors: (
         position: sticky;
         top: 28px;
         z-index: 2;
-        padding: 7px 8px 7px 0;
+        padding: 5px 8px 5px 0;
         border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
         vertical-align: middle;
         white-space: nowrap;
@@ -868,18 +962,18 @@ $sym-status-colors: (
 .ideas-cards {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    padding: 12px;
+    gap: 6px;
+    padding: 10px;
 }
 
 .idea-card {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
     background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 12px 14px;
+    border-radius: 10px;
+    padding: 8px 12px;
     cursor: pointer;
     transition: background 0.12s, border-color 0.12s;
 
@@ -1134,6 +1228,16 @@ $card-status-colors: (
 
 .idea-card--broker-child { background: color-mix(in srgb, var(--accent) 2%, transparent); }
 
+// Positions tab group headers: per-account sub-cards are lighter, iconless, and
+// slightly tighter than the portfolio header they nest under.
+.idea-card-group--account { margin-top: 6px; }
+.idea-card--account-group {
+    background: color-mix(in srgb, var(--accent) 2%, transparent);
+    padding: 6px 12px;
+
+    .idea-card__pf-name { font-size: 0.78rem; color: var(--text-secondary); }
+}
+
 // ── Portfolio card (Portfolios tab) ────────────────────────────────────────────
 .idea-card {
     &__caret--lead {
@@ -1186,6 +1290,22 @@ $card-status-colors: (
     // ── Position card ──────────────────────────────────────────────────────────
     // Idea-less positions aren't clickable (nothing to open).
     &--static { cursor: default; }
+
+    // Money P&L pill stacked over the price-move %, right-aligned in the controls.
+    &__pnl-stack {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 2px;
+    }
+    &__pnl-pct {
+        font-family: var(--font-mono);
+        font-size: 0.66rem;
+        font-weight: 600;
+        &.pnl--pos { color: var(--color-long); }
+        &.pnl--neg { color: var(--color-short); }
+        &--flat    { color: var(--text-muted); }
+    }
 
     // Direction-tinted icon tile (long = green, short = red).
     &__icon--pos.direction--long {

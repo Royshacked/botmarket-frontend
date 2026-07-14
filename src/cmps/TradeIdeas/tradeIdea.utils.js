@@ -211,6 +211,19 @@ export function formatNum(n, maxDecimals = 5) {
 }
 
 /**
+ * Price for the positions UI — always ≥2 decimals, up to 5 so sub-dollar / FX
+ * instruments (e.g. EURUSD 1.08501, DOGE 0.16234) keep their precision while
+ * indices and stocks read cleanly at two (19,234.25 / 152.30). Em-dash for
+ * non-numbers.
+ * @param {number} n
+ * @returns {string}
+ */
+export function formatPrice(n) {
+    if (n == null || isNaN(Number(n))) return '—'
+    return Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })
+}
+
+/**
  * Signed money P&L with two decimals and an optional currency suffix
  * (e.g. "+12.50 USD"). Em-dash for non-numbers.
  * @param {number} n
@@ -225,6 +238,33 @@ export function formatPnl(n, currency) {
 }
 
 /**
+ * Signed percentage P&L with two decimals and a % suffix (e.g. "+3.25%").
+ * Em-dash for non-numbers. Pairs with positionPnlPct.
+ * @param {number} n
+ * @returns {string}
+ */
+export function formatPnlPct(n) {
+    if (n == null || isNaN(Number(n))) return '—'
+    const v = Number(n)
+    return `${v > 0 ? '+' : ''}${v.toFixed(2)}%`
+}
+
+/**
+ * True when a broker position belongs to an idea — matched on broker + account +
+ * positionId (a positionId is only unique within its account). The single link
+ * predicate shared by matchPositionsForIdea, positionOwnerIdea and groupPositions
+ * so the position↔idea join is defined in exactly one place.
+ * @returns {boolean}
+ */
+export function positionBelongsToIdea(pos, idea) {
+    return (idea?.brokerOrders ?? []).some(bo =>
+        String(bo.positionId ?? '') === String(pos?.id ?? '') &&
+        bo.broker === pos?.broker &&
+        String(bo.accountId ?? '') === String(pos?.accountId ?? '')
+    )
+}
+
+/**
  * Open broker positions belonging to an idea, matched on broker + account +
  * positionId (a positionId is only unique within its account) — mirrors the
  * matching used to open a position's owning idea.
@@ -233,11 +273,138 @@ export function formatPnl(n, currency) {
 export function matchPositionsForIdea(idea, positions = []) {
     const links = idea?.brokerOrders ?? []
     if (!links.length || !positions.length) return []
-    return positions.filter(p => links.some(bo =>
-        String(bo.positionId ?? '') === String(p.id ?? '') &&
-        bo.broker === p.broker &&
-        String(bo.accountId ?? '') === String(p.accountId ?? '')
-    ))
+    return positions.filter(p => positionBelongsToIdea(p, idea))
+}
+
+/**
+ * The idea that owns a broker position (the inverse of matchPositionsForIdea), or
+ * null when no loaded idea links it — e.g. a broker position whose idea was deleted.
+ * @returns {object|null}
+ */
+export function positionOwnerIdea(pos, ideas = []) {
+    return ideas.find(i => positionBelongsToIdea(pos, i)) ?? null
+}
+
+/**
+ * Group open positions for the Positions tab by their owning idea's portfolio.
+ *
+ * A position links to an idea (via brokerOrders); an idea may carry a portfolioId.
+ * Positions whose idea is in a portfolio collapse under a portfolio group; every
+ * other position (standalone idea, or an idea-less/orphan broker position) renders
+ * flat in `loose`. Positions are already one-per-account at the broker, so a single
+ * idea or portfolio spanning N accounts naturally yields N rows — no extra splitting.
+ *
+ * @param {object[]} positions
+ * @param {object[]} ideas
+ * @returns {{ portfolios: Array<{portfolioId:string,name:string,savedAt:number,positions:object[],ideas:object[]}>, loose: object[] }}
+ */
+export function groupPositions(positions = [], ideas = []) {
+    const pfMap = new Map()   // portfolioId → group
+    const loose = []
+
+    for (const pos of positions) {
+        const idea  = positionOwnerIdea(pos, ideas)
+        const pfId  = idea?.portfolioId
+        if (!pfId) { loose.push(pos); continue }
+
+        if (!pfMap.has(pfId)) {
+            pfMap.set(pfId, {
+                portfolioId: pfId,
+                name:        idea.portfolioName || 'Portfolio',
+                savedAt:     idea.savedAt || 0,
+                positions:   [],
+                ideas:       [],
+            })
+        }
+        const g = pfMap.get(pfId)
+        g.positions.push(pos)
+        if (!g.ideas.includes(idea)) g.ideas.push(idea)
+    }
+
+    const portfolios = [...pfMap.values()]
+        .map(g => ({ ...g, accounts: _positionsByAccount(g.positions) }))
+        .sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0))
+    return { portfolios, loose }
+}
+
+// Split positions into per-account sub-groups, first-seen order preserved. A
+// portfolio spanning several accounts renders one collapsible sub-row per account.
+function _positionsByAccount(positions = []) {
+    const m = new Map()
+    for (const p of positions) {
+        const key = String(p.accountId ?? '—')
+        if (!m.has(key)) m.set(key, { accountId: p.accountId ?? null, accountNo: p.accountNo ?? null, positions: [] })
+        m.get(key).positions.push(p)
+    }
+    return [...m.values()]
+}
+
+/**
+ * Aggregate a set of positions into the fields a portfolio / account summary row
+ * shows: count, summed money P&L, return-on-cost % (Σpnl ÷ Σ|entry·qty|, the same
+ * quantity as a single position's price-move %), earliest entry time, workspace, and
+ * the single broker / account number when the set is uniform (else null → the caller
+ * shows "N accts" / hides the broker). P&L is null when nothing in the set is priced.
+ *
+ * @param {object[]} positions
+ * @returns {{count:number,pnl:number|null,currency:string|null,pnlPct:number|null,enteredAt:number|null,workspace:'paper'|'manual'|'live',broker:string|null,accountNo:string|null}}
+ */
+export function summarizePositions(positions = []) {
+    let pnl = 0, cost = 0, enteredAt = null, currency = null, anyPnl = false
+    const brokers = new Set(), accounts = new Set()
+
+    for (const p of positions) {
+        const raw = Number(p.pnl)
+        if (p.pnl != null && !isNaN(raw)) { pnl += raw; anyPnl = true }
+        const entry = Number(p.entryPrice), qty = Math.abs(Number(p.volume))
+        if (isFinite(entry) && entry > 0 && isFinite(qty)) cost += entry * qty
+        if (p.openedAt != null) enteredAt = enteredAt == null ? p.openedAt : Math.min(enteredAt, p.openedAt)
+        currency = currency ?? (p.currency ?? null)
+        if (p.broker) brokers.add(p.broker)
+        if (p.accountNo != null) accounts.add(String(p.accountNo))
+    }
+
+    return {
+        count:     positions.length,
+        pnl:       anyPnl ? pnl : null,
+        currency,
+        pnlPct:    anyPnl && cost > 0 ? (pnl / cost) * 100 : null,
+        enteredAt,
+        workspace: positions.length ? positionWorkspace(positions[0]) : 'live',
+        broker:    brokers.size  === 1 ? [...brokers][0]  : null,
+        accountNo: accounts.size === 1 ? [...accounts][0] : null,
+    }
+}
+
+/**
+ * Unrealized P&L of a position as a percentage of its entry price — the simple
+ * price-move return, signed by direction: (mark − entry) / entry × dir × 100.
+ * Uses the position's own live mark (currentPrice), so it needs no cost basis.
+ * Returns null when the mark or entry is missing / zero (shows '—' rather than 0).
+ * @returns {number|null}
+ */
+export function positionPnlPct(pos) {
+    const entry = Number(pos?.entryPrice)
+    const mark  = Number(pos?.currentPrice)
+    // Non-positive / non-finite entry or mark = unpriced (null/0 sentinel) or bad data.
+    if (!isFinite(entry) || entry <= 0 || !isFinite(mark) || mark <= 0) return null
+    const sign = pos?.direction === 'short' ? -1 : 1
+    return ((mark - entry) / entry) * sign * 100
+}
+
+/**
+ * The workspace a broker position belongs to: 'paper' | 'manual' | 'live'. Mirrors the
+ * idea-side deriver (isPaperIdea / isManualIdea) with the same dual signal: the broker
+ * stamped on the position, then the `paper-<userId>` / `manual-<userId>` account-id
+ * prefix as a fallback (a paper/manual position whose broker field isn't the literal
+ * workspace name still resolves by its virtual account id).
+ * @returns {'paper'|'manual'|'live'}
+ */
+export function positionWorkspace(pos) {
+    const acct = String(pos?.accountId ?? '')
+    if (pos?.broker === 'paper'  || acct.startsWith('paper-'))  return 'paper'
+    if (pos?.broker === 'manual' || acct.startsWith('manual-')) return 'manual'
+    return 'live'
 }
 
 /**

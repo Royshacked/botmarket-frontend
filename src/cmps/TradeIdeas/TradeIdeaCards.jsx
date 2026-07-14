@@ -3,11 +3,13 @@ import { useState } from 'react'
 import {
     conditionSummary, formatCreatedAt, formatCreatedAtFull, needsExitConditions,
     activationStatus, brokerSymbolLabel, brokerChildLabel, isDeleteLocked, isManualIdea,
-    isSystemStatus, formatPnl, formatNum, portfolioPnl, ideaPnl,
+    isSystemStatus, formatPnl, formatPnlPct, formatNum, formatPrice, portfolioPnl, ideaPnl,
+    positionPnlPct, positionWorkspace, groupPositions, summarizePositions,
 } from './tradeIdea.utils.js'
 import { ActivatePortfolioDialog } from './ActivatePortfolioDialog.jsx'
 import { eventBus, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT } from '../../services/event-bus.service'
-import { posKey } from './PositionsTable.jsx'
+import { posKey, WorkspaceBadge } from './PositionsTable.jsx'
+import { useExpandedSet } from '../../customHooks/useExpandedSet.js'
 import { StatusIcon } from '../StatusIcon.jsx'
 import { MinosBadge, AtlasBadge } from '../AxlHub/AgentBadges.jsx'
 
@@ -478,8 +480,10 @@ BuildingPortfolioCard.propTypes = { portfolio: PropTypes.object.isRequired }
 
 export function PositionCard({ position, closing, onClose, onEditOrders, onOpen }) {
     const dir       = position.direction
-    const brokerLbl = BROKER_LABELS[position.broker] ?? position.broker ?? '—'
-    const pnl       = { pnl: Number(position.pnl), currency: position.currency }
+    const ws        = positionWorkspace(position)
+    // Broker only carries meaning for a live position (paper / manual have none).
+    const brokerLbl = ws === 'live' ? (BROKER_LABELS[position.broker] ?? position.broker ?? '—') : null
+    const pct       = positionPnlPct(position)
 
     function handleCardClick(ev) {
         if (ev.target.closest('.idea-card__controls')) return
@@ -498,17 +502,18 @@ export function PositionCard({ position, closing, onClose, onEditOrders, onOpen 
                 <div className="idea-card__titleline">
                     <span className="idea-card__sym">{position.symbol ?? '—'}</span>
                     {dir && <span className={`idea-card__pill idea-card__pill--dir direction--${dir}`}>{dir}</span>}
-                    <span className="idea-card__broker-badge">{brokerLbl}</span>
+                    <WorkspaceBadge workspace={ws} />
+                    {brokerLbl && <span className="idea-card__broker-badge">{brokerLbl}</span>}
                     {position.accountNo && <span className="idea-card__broker-count">{position.accountNo}</span>}
                 </div>
                 <div className="idea-card__summary">
-                    <span className="idea-card__summary-text">{formatNum(position.volume)} @ {formatNum(position.entryPrice)}</span>
-                    <span className="idea-card__date"> · Entered {formatCreatedAt(position.openedAt) || '—'}</span>
+                    <span className="idea-card__summary-text">{formatNum(position.volume)} @ {formatPrice(position.entryPrice)}</span>
+                    <span className="idea-card__date"> · Entered {formatCreatedAtFull(position.openedAt) || '—'}</span>
                 </div>
             </div>
 
             <div className="idea-card__controls">
-                <PnlPill pnl={pnl} />
+                <PnlStack pnl={position.pnl == null ? null : Number(position.pnl)} currency={position.currency} pct={pct} />
                 {onEditOrders && (
                     <button
                         className="idea-card__edit-btn"
@@ -538,10 +543,147 @@ PositionCard.propTypes = {
     onOpen:       PropTypes.func,
 }
 
-export function PositionsCards({ positions = [], closingId, onClose, onEditOrders, onOpen }) {
+// Money P&L pill stacked over the price-move % — used on position cards and group headers.
+function PnlStack({ pnl, currency, pct }) {
+    const pctClass = pct == null ? ' idea-card__pnl-pct--flat' : pct > 0 ? ' pnl--pos' : pct < 0 ? ' pnl--neg' : ' idea-card__pnl-pct--flat'
+    return (
+        <span className="idea-card__pnl-stack">
+            <PnlPill pnl={pnl == null ? null : { pnl, currency }} />
+            <span className={`idea-card__pnl-pct${pctClass}`}>{formatPnlPct(pct)}</span>
+        </span>
+    )
+}
+PnlStack.propTypes = { pnl: PropTypes.number, currency: PropTypes.string, pct: PropTypes.number }
+
+// Collapsible summary header card (portfolio or account) — mirrors PortfolioCard's shape
+// with the aggregate fields the positions view shows: mode · broker (live) · account ·
+// N positions · entered · P&L $ / %. Only the portfolio variant is sticky (via the
+// `idea-card--portfolio` class the group's sticky rule targets).
+function GroupSummaryHeader({ variant, icon, title, accountText, summary, expanded, onToggle }) {
+    const brokerLbl = summary.workspace === 'live' ? (BROKER_LABELS[summary.broker] ?? summary.broker ?? null) : null
+    const sticky    = variant === 'portfolio' ? ' idea-card--portfolio' : ''
+    return (
+        <article className={`idea-card idea-card--position-group idea-card--${variant}-group${sticky}`} onClick={onToggle}>
+            <span className="idea-card__caret idea-card__caret--lead">{expanded ? '▾' : '▸'}</span>
+            {icon}
+            <div className="idea-card__body">
+                <div className="idea-card__titleline">
+                    <span className="idea-card__pf-name">{title}</span>
+                    <WorkspaceBadge workspace={summary.workspace} />
+                    {brokerLbl && <span className="idea-card__broker-badge">{brokerLbl}</span>}
+                    {accountText && <span className="idea-card__broker-count">{accountText}</span>}
+                </div>
+                <div className="idea-card__summary">
+                    <span className="idea-card__summary-text">{summary.count} position{summary.count === 1 ? '' : 's'}</span>
+                    <span className="idea-card__date"> · Entered {formatCreatedAtFull(summary.enteredAt) || '—'}</span>
+                </div>
+            </div>
+            <div className="idea-card__controls">
+                <PnlStack pnl={summary.pnl} currency={summary.currency} pct={summary.pnlPct} />
+            </div>
+        </article>
+    )
+}
+GroupSummaryHeader.propTypes = {
+    variant:     PropTypes.oneOf(['portfolio', 'account']).isRequired,
+    icon:        PropTypes.node,
+    title:       PropTypes.string.isRequired,
+    accountText: PropTypes.string,
+    summary:     PropTypes.object.isRequired,
+    expanded:    PropTypes.bool,
+    onToggle:    PropTypes.func.isRequired,
+}
+
+// A portfolio's positions under one collapsible header card. When it spans several
+// accounts, its positions nest under a collapsible per-account sub-card; a single-account
+// portfolio lists its position cards directly. Collapse state (portfolio + `pfId:acctId`
+// account keys) is shared via the parent's expanded set.
+function PositionPortfolioGroup({ group, isExpanded, toggle, closingId, onClose, onEditOrders, onOpen }) {
+    const multiAccount = group.accounts.length > 1
+    const pfSummary    = summarizePositions(group.positions)
+    const card = position => (
+        <PositionCard
+            key={posKey(position)}
+            position={position}
+            closing={closingId === posKey(position)}
+            onClose={onClose}
+            onEditOrders={onEditOrders}
+            onOpen={onOpen}
+        />
+    )
+
+    return (
+        <div className="idea-card-group idea-card-group--positions">
+            <GroupSummaryHeader
+                variant="portfolio"
+                icon={<div className="idea-card__icon idea-card__icon--portfolio" aria-hidden="true"><AtlasBadge size={42} /></div>}
+                title={group.name}
+                accountText={multiAccount ? `${group.accounts.length} accts` : (pfSummary.accountNo ?? null)}
+                summary={pfSummary}
+                expanded={isExpanded(group.portfolioId)}
+                onToggle={() => toggle(group.portfolioId)}
+            />
+            {isExpanded(group.portfolioId) && (
+                <div className="idea-card-group__children">
+                    {multiAccount
+                        ? group.accounts.map(acct => {
+                            const aKey   = `${group.portfolioId}:${acct.accountId ?? '—'}`
+                            const acctNo = acct.accountNo ?? acct.accountId ?? '—'
+                            return (
+                                <div className="idea-card-group idea-card-group--account" key={aKey}>
+                                    <GroupSummaryHeader
+                                        variant="account"
+                                        title={`Account ${acctNo}`}
+                                        summary={summarizePositions(acct.positions)}
+                                        expanded={isExpanded(aKey)}
+                                        onToggle={() => toggle(aKey)}
+                                    />
+                                    {isExpanded(aKey) && (
+                                        <div className="idea-card-group__children">{acct.positions.map(card)}</div>
+                                    )}
+                                </div>
+                            )
+                        })
+                        : group.positions.map(card)}
+                </div>
+            )}
+        </div>
+    )
+}
+
+PositionPortfolioGroup.propTypes = {
+    group:        PropTypes.object.isRequired,
+    isExpanded:   PropTypes.func.isRequired,
+    toggle:       PropTypes.func.isRequired,
+    closingId:    PropTypes.string,
+    onClose:      PropTypes.func,
+    onEditOrders: PropTypes.func,
+    onOpen:       PropTypes.func,
+}
+
+// Positions tab (card design). With `ideas`, positions whose idea belongs to a
+// portfolio collapse under a PositionPortfolioGroup; everything else renders as a
+// flat card. Without `ideas` (the idea pop-out footer) every position is flat.
+export function PositionsCards({ positions = [], ideas = [], closingId, onClose, onEditOrders, onOpen }) {
+    const { portfolios, loose } = groupPositions(positions, ideas)
+    // Portfolios start collapsed (spec: a portfolio shows collapsed, click to expand).
+    const { isExpanded, toggle } = useExpandedSet()
+
     return (
         <div className="ideas-cards">
-            {positions.map(position => (
+            {portfolios.map(group => (
+                <PositionPortfolioGroup
+                    key={group.portfolioId}
+                    group={group}
+                    isExpanded={isExpanded}
+                    toggle={toggle}
+                    closingId={closingId}
+                    onClose={onClose}
+                    onEditOrders={onEditOrders}
+                    onOpen={onOpen}
+                />
+            ))}
+            {loose.map(position => (
                 <PositionCard
                     key={posKey(position)}
                     position={position}
@@ -557,6 +699,7 @@ export function PositionsCards({ positions = [], closingId, onClose, onEditOrder
 
 PositionsCards.propTypes = {
     positions:    PropTypes.array,
+    ideas:        PropTypes.array,
     closingId:    PropTypes.string,
     onClose:      PropTypes.func,
     onEditOrders: PropTypes.func,
