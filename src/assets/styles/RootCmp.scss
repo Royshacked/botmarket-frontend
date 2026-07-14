@@ -32,12 +32,12 @@
     //     "chat ideas ideas";
     // --- Trial: chat + radar 30% each, ideas list only below chart ---
     grid-template-columns: 32% 36% 32%;
-    grid-template-rows: 6fr 4fr;
+    grid-template-rows: 1fr 1fr;   // middle column splits chart / ideas 50–50
     grid-template-areas:
         "chat chart news"
         "chat ideas news";
     column-gap: 0;     // columns share a single border seam (see border-merge rules below)
-    row-gap: 12px;
+    row-gap: 0;        // chart + ideas run flush — no horizontal gap through the middle column
     padding: 0;   // was 12px 0
 }
 
