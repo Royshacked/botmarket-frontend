@@ -44,6 +44,45 @@ const fmtR = r => (r == null ? '—' : `${r > 0 ? '+' : ''}${r}R`)
 // Timeline is appended oldest→newest by the backend; render chronologically and keep the box
 // pinned to the latest entry (chat-style). Cheap heartbeats are one-liners; a real assessment
 // carries the model's own read + the four-axis detail.
+// Round over-precise prices inside a journal string — the model sometimes emits raw floats like
+// "33.2445543465656" in its prose. Cap decimals by magnitude (equities 2dp, forex ~4dp, sub-$1 6dp)
+// and only ever SHORTEN (min with the actual count) so clean numbers like "33.24" or "4.5%" are
+// left untouched. Matches only numbers with 3+ decimals, so integers and short decimals are skipped.
+function tidyPrices(text) {
+    if (!text) return text
+    return text.replace(/\d+\.\d{3,}/g, (m) => {
+        const n = Number(m)
+        if (!Number.isFinite(n)) return m
+        const abs = Math.abs(n)
+        const cap = abs >= 10 ? 2 : abs >= 1 ? 4 : 6
+        return n.toFixed(Math.min(m.split('.')[1].length, cap))
+    })
+}
+
+// One assessment axis: the label + conclusion tag are the always-visible summary row (a toggle),
+// and the analysis read collapses below it — default collapsed to keep the journal compact.
+function JournalAxis({ label, read, tag }) {
+    const [open, setOpen] = useState(false)
+    const hasRead = !!read
+    return (
+        <div className="call-journal__axis">
+            <button
+                type="button"
+                className="call-journal__axis-head"
+                onClick={() => hasRead && setOpen(o => !o)}
+                aria-expanded={hasRead ? open : undefined}
+                disabled={!hasRead}
+            >
+                <span className="call-journal__axis-k">{label}</span>
+                {tag && <span className={`call-journal__axis-tag tag--${tag}`}>{tag}</span>}
+                {hasRead && <span className="call-journal__axis-caret">{open ? '▾' : '▸'}</span>}
+            </button>
+            {hasRead && open && <p className="call-journal__axis-read">{tidyPrices(read)}</p>}
+        </div>
+    )
+}
+JournalAxis.propTypes = { label: PropTypes.string, read: PropTypes.string, tag: PropTypes.string }
+
 function JournalAxes({ axes }) {
     const rows = [
         axes?.market       && ['market', axes.market.read,       axes.market.score],
@@ -54,17 +93,13 @@ function JournalAxes({ axes }) {
     if (!rows.length && !pats.length) return null
     return (
         <div className="call-journal__axes">
-            {rows.map(([k, read, tag]) => (
-                <div key={k} className="call-journal__axis">
-                    <span className="call-journal__axis-k">{k}</span>
-                    {tag && <span className={`call-journal__axis-tag tag--${tag}`}>{tag}</span>}
-                    {read && <span className="call-journal__axis-read">{read}</span>}
-                </div>
-            ))}
+            {rows.map(([k, read, tag]) => <JournalAxis key={k} label={k} read={read} tag={tag} />)}
             {pats.length > 0 && (
                 <div className="call-journal__axis">
-                    <span className="call-journal__axis-k">patterns</span>
-                    <span className="call-journal__axis-read">{pats.map(p => p.note || p.id).join(' · ')}</span>
+                    <div className="call-journal__axis-head call-journal__axis-head--static">
+                        <span className="call-journal__axis-k">patterns</span>
+                    </div>
+                    <p className="call-journal__axis-read">{tidyPrices(pats.map(p => p.note || p.id).join(' · '))}</p>
                 </div>
             )}
         </div>
@@ -80,10 +115,10 @@ function JournalEntry({ e }) {
             <div className="call-journal__meta">
                 <span className="call-journal__time">{time}</span>
                 <span className="call-journal__reason">{REASON_LABEL[e.reason] ?? e.reason}</span>
-                {e.price != null && <span className="call-journal__price">@ {e.price}</span>}
+                {e.price != null && <span className="call-journal__price">@ {tidyPrices(String(e.price))}</span>}
                 {e.verdict && <span className={`call-journal__verdict verdict--${e.verdict}`}>{e.verdict}</span>}
             </div>
-            <p className="call-journal__note">{e.note}</p>
+            <p className="call-journal__note">{tidyPrices(e.note)}</p>
             {isAssess && e.fetched && <div className="call-journal__fetched">fetched {e.fetched}</div>}
             {isAssess && <JournalAxes axes={e.axes} />}
         </div>

@@ -444,8 +444,8 @@
 // an arc. Open glows in the app accent; closed dims but keeps the arc readable.
 .market-clocks {
     --mc-dial: 86px;   // single size knob; the media queries below just retune it
-    --mc-arc-closed: #5e1212;   // session arc — dark red when the market is closed
-    --mc-arc-open:   #1c7a3e;   // session arc — dark green when the market is open
+    // --mc-arc-open / --mc-arc-closed are now shared :root tokens (setup/_themes.scss),
+    // reused by the price-chart candle colors — kept in one place so the two stay in sync.
 
     display: flex;
     align-items: center;

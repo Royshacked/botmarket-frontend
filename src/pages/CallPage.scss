@@ -127,17 +127,49 @@
         border-top: 1px dashed var(--border);
     }
 
+    // Each axis is now a titled block: the label + conclusion tag sit on a header row,
+    // and the analysis read flows full-width beneath it (more room for the text).
     &__axis {
         display: flex;
-        align-items: baseline;
-        gap: 6px;
+        flex-direction: column;
+        gap: 2px;
         font-size: 0.72rem;
         line-height: 1.4;
     }
 
+    // Summary/toggle row — label + conclusion tag, always visible; a caret hints the
+    // collapsible analysis below. Reset button chrome so it reads as a plain text row.
+    &__axis-head {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        width: 100%;
+        padding: 0;
+        border: none;
+        background: none;
+        font: inherit;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+
+        &:disabled { cursor: default; }
+        &:hover:not(:disabled) .call-journal__axis-caret { color: var(--accent-light); }
+
+        // Patterns row isn't collapsible — no pointer affordance.
+        &--static { cursor: default; }
+    }
+
+    &__axis-caret {
+        margin-left: auto;
+        flex-shrink: 0;
+        font-size: 0.6rem;
+        line-height: 1;
+        color: var(--accent);
+        transition: color 0.15s;
+    }
+
     &__axis-k {
         flex-shrink: 0;
-        width: 46px;
         font-family: var(--font-mono);
         font-size: 0.6rem;
         text-transform: uppercase;
@@ -158,7 +190,7 @@
         &.tag--adverse, &.tag--blocking, &.tag--weak { color: var(--color-short); }
     }
 
-    &__axis-read { color: var(--text-secondary); }
+    &__axis-read { margin: 0; color: var(--text-secondary); }   // full-width analysis under the title
 }
 
 // ── In-position state panel (Phase 5) ──────────────────────────────────────────

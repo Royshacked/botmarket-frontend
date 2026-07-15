@@ -19,6 +19,10 @@ import './PopoutFooter.scss'
 // IdeaDetail is also rendered by the floating TradeIdeaDialog) so both pop-outs share this footer.
 export function PopoutFooter({ positions = [], closePosition, onPositionsChanged, onDelete, deleteTitle = 'Delete' }) {
     const interactive = typeof closePosition === 'function'
+    // In position → deleting would orphan the open position, so lock the bin (mirrors the
+    // list's isDeleteLocked / the backend's 409 reason:'in_position'). `positions` is already
+    // scoped to this entity, so a non-empty list means this idea/call is live.
+    const inPosition = positions.length > 0
     const [pendingClose,  setPendingClose]  = useState(null)
     const [closingId,     setClosingId]     = useState(null)
     const [editOrdersPos, setEditOrdersPos] = useState(null)
@@ -42,7 +46,13 @@ export function PopoutFooter({ positions = [], closePosition, onPositionsChanged
             <div className="popout-footer__head">
                 <span className="idea-dialog__section-title">Positions</span>
                 {onDelete && (
-                    <button className="popout-footer__delete" title={deleteTitle} aria-label={deleteTitle} onClick={onDelete}>
+                    <button
+                        className="popout-footer__delete"
+                        title={inPosition ? 'Close the open position before deleting' : deleteTitle}
+                        aria-label={deleteTitle}
+                        onClick={onDelete}
+                        disabled={inPosition}
+                    >
                         <BinIcon />
                     </button>
                 )}

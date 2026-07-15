@@ -274,6 +274,11 @@
 
     --color-long:    #4caf50;
     --color-short:   #ef5350;
+
+    // Market-session colors — shared by the header session dials (MarketClocks) and the
+    // price-chart candles: in-session green (up candle) / closed-session red (down candle).
+    --mc-arc-open:   #1c7a3e;   // in-session  — dark green
+    --mc-arc-closed: #5e1212;   // closed session — dark red
     --color-hit:     #4caf50;
     --color-looking: #ff9800;
     --color-waiting: #ef5350;

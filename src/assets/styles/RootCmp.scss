@@ -32,7 +32,7 @@
     //     "chat ideas ideas";
     // --- Trial 2: ideas list full-height on the RIGHT; radar tucked below the chart ---
     grid-template-columns: 32% 36% 32%;
-    grid-template-rows: 1fr 1fr;   // middle column splits chart / radar 50–50
+    grid-template-rows: 55% 45%;   // middle column splits chart / radar 55–45 (favouring the chart)
     grid-template-areas:
         "chat chart ideas"
         "chat news  ideas";

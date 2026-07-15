@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
-import { init, dispose } from 'klinecharts'
+import { init, dispose, utils } from 'klinecharts'
 import { marketService } from '../../services/market/market.service.remote'
 import './PriceChart.scss'
 
@@ -47,29 +47,107 @@ function precisionOf(candles) {
     return Math.min(dec, cap)
 }
 
-// Dark theme — ports the old embed's tokens. The pane background lives on the container (SCSS)
-// because the KLineCharts canvas is transparent.
-const GRID = 'rgba(20, 60, 120, 0.12)', AXIS = 'rgba(20, 60, 120, 0.35)', AXTEXT = '#7a9bc0'
-const CROSS = 'rgba(138, 184, 232, 0.55)', UP = '#4caf50', DOWN = '#ef5350'
-const CHART_STYLES = {
-    grid: { horizontal: { color: GRID }, vertical: { color: GRID } },
-    candle: {
-        bar: {
-            upColor: UP, downColor: DOWN, noChangeColor: AXTEXT,
-            upBorderColor: UP, downBorderColor: DOWN, noChangeBorderColor: AXTEXT,
-            upWickColor: UP, downWickColor: DOWN, noChangeWickColor: AXTEXT,
+// Chart colors are pulled from the app's theme tokens (the CSS custom properties on :root) so the
+// grid / axis / crosshair follow theme + accent switches. The KLineCharts canvas can't read CSS
+// vars itself, so we resolve them to concrete colors at init and re-apply on theme change (see the
+// MutationObserver below). The pane background lives on the container (SCSS, --bg-wash) because the
+// canvas is transparent. Fallbacks are the old ocean tokens, in case a var is missing.
+// Fade a #rrggbb token to an rgba() at the given alpha — the volume bars reuse the candle
+// session colors but sit slightly translucent behind price. Non-hex input is returned as-is.
+function fade(hex, alpha) {
+    const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex)
+    if (!m) return hex
+    const [r, g, b] = [m[1], m[2], m[3]].map(h => parseInt(h, 16))
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+// Bottom-axis date labels: MM/DD, with a 2-digit year anchor only on Jan 1 (e.g. 01/01/26 among
+// 12/28 / 01/08 ticks). Only the date axis ('xAxis' + the day/week 'YYYY-MM-DD' template) is
+// reshaped — intraday time labels and the tooltip/crosshair timestamps delegate to klinecharts'
+// default. dateTimeFormat is klinecharts' own timezone-aware Intl formatter, so parts stay correct.
+function formatChartDate({ dateTimeFormat, timestamp, template, type }) {
+    if (type === 'xAxis' && template === 'YYYY-MM-DD') {
+        const p = {}
+        for (const part of dateTimeFormat.formatToParts(new Date(timestamp))) p[part.type] = part.value
+        const md = `${p.month}/${p.day}`
+        return p.month === '01' && p.day === '01' ? `${md}/${String(p.year).slice(-2)}` : md
+    }
+    return utils.formatDate(dateTimeFormat, timestamp, template)
+}
+
+function readThemeStyles() {
+    const cs = getComputedStyle(document.documentElement)
+    const v = (name, fallback) => cs.getPropertyValue(name).trim() || fallback
+
+    const GRID   = v('--glow',           'rgba(20, 60, 120, 0.12)')   // faint accent-tinted gridlines
+    const AXIS   = v('--border',         'rgba(20, 60, 120, 0.35)')   // axis / tick / separator lines
+    const AXTEXT = v('--text-secondary', '#7a9bc0')                   // axis labels, last-price mark
+    const CROSS  = v('--border-strong',  'rgba(138, 184, 232, 0.55)') // crosshair lines
+    const TIP    = v('--text-primary',   '#c9dcf2')                   // crosshair / candle tooltip text
+    const TIPBG  = v('--bg-surface',     '#071222')                   // crosshair label background
+    // Candle up/down reuse the header session-dial colors (MarketClocks): in-session green /
+    // closed-session red — one shared source (--mc-arc-open / --mc-arc-closed in _themes.scss).
+    const UP     = v('--mc-arc-open',    '#1c7a3e')
+    const DOWN   = v('--mc-arc-closed',  '#5e1212')
+    // All chart text/numbers use the app's mono stack (--font-mono) instead of klinecharts'
+    // default Helvetica Neue, so axis, crosshair, price mark and tooltips match the app.
+    const FONT   = v('--font-mono',      "'IBM Plex Mono', monospace")
+
+    return {
+        grid: { horizontal: { color: GRID }, vertical: { color: GRID } },
+        candle: {
+            bar: {
+                upColor: UP, downColor: DOWN, noChangeColor: AXTEXT,
+                upBorderColor: UP, downBorderColor: DOWN, noChangeBorderColor: AXTEXT,
+                upWickColor: UP, downWickColor: DOWN, noChangeWickColor: AXTEXT,
+            },
+            // Last-price marker: solid line + price pill tinted the candle up/down session color at
+            // reduced opacity, so it reads as a subtle overlay. In klinecharts the line AND the pill
+            // background both take upColor/downColor (chosen by the last candle's direction) — there
+            // is no separate line color, so fading these fades both together.
+            priceMark: {
+                last: {
+                    upColor:       fade(UP, 0.7),
+                    downColor:     fade(DOWN, 0.7),
+                    noChangeColor: fade(AXTEXT, 0.7),
+                    line: { style: 'solid' },
+                    text: { family: FONT },
+                },
+            },
+            // The ticker/TF/OHLC readout now lives in the DOM header (price-chart__header) so it
+            // can't overlap the candles — so the built-in floating legend is turned off.
+            tooltip: { showRule: 'none' },
         },
-        priceMark: { last: { line: { color: AXTEXT }, text: { backgroundColor: AXTEXT } } },
-        tooltip: { text: { color: '#c9dcf2' } },
-    },
-    indicator: { bars: [{ upColor: 'rgba(76,175,80,0.5)', downColor: 'rgba(239,83,80,0.5)', noChangeColor: AXTEXT }] },
-    xAxis: { axisLine: { color: AXIS }, tickLine: { color: AXIS }, tickText: { color: AXTEXT } },
-    yAxis: { axisLine: { color: AXIS }, tickLine: { color: AXIS }, tickText: { color: AXTEXT } },
-    crosshair: {
-        horizontal: { line: { color: CROSS }, text: { backgroundColor: '#071222', color: '#c9dcf2' } },
-        vertical:   { line: { color: CROSS }, text: { backgroundColor: '#071222', color: '#c9dcf2' } },
-    },
-    separator: { color: AXIS },
+        // Volume bars: same in-session green / closed-session red as the candles, faded so they
+        // sit behind price. Bumped past the old 0.5 since the session colors are already dark.
+        // Its floating tooltip is off too — volume is shown in the DOM header alongside OHLC.
+        indicator: {
+            bars: [{ upColor: fade(UP, 0.65), downColor: fade(DOWN, 0.65), noChangeColor: AXTEXT }],
+            tooltip: { showRule: 'none' },
+        },
+        xAxis: { axisLine: { color: AXIS }, tickLine: { color: AXIS }, tickText: { color: AXTEXT, family: FONT } },
+        yAxis: { axisLine: { color: AXIS }, tickLine: { color: AXIS }, tickText: { color: AXTEXT, family: FONT } },
+        crosshair: {
+            horizontal: { line: { color: CROSS }, text: { backgroundColor: TIPBG, color: TIP, family: FONT } },
+            vertical:   { line: { color: CROSS }, text: { backgroundColor: TIPBG, color: TIP, family: FONT } },
+        },
+        separator: { color: AXIS },
+    }
+}
+
+// Price / volume formatting for the DOM header. Prices use the chart's live precision; volume
+// folds into K/M/B like the old floating legend did.
+function fmtNum(v, dp) {
+    const n = Number(v)
+    return Number.isFinite(n) ? n.toFixed(dp) : '—'
+}
+function fmtVol(v) {
+    const n = Number(v)
+    if (!Number.isFinite(n)) return '—'
+    if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`
+    if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`
+    if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`
+    return String(Math.round(n))
 }
 
 export function PriceChart({ symbol = 'SPY', interval = 'D' }) {
@@ -79,6 +157,16 @@ export function PriceChart({ symbol = 'SPY', interval = 'D' }) {
     const intervalRef  = useRef(interval)
     const precRef      = useRef(2)
 
+    // Header OHLCV readout. `bar` is the candle shown in the header: the hovered bar while the
+    // crosshair is over the chart, otherwise the latest bar. latestBarRef/hoveringRef let the
+    // once-registered loader + crosshair callback update it without stale closures.
+    const [bar, setBar]  = useState(null)
+    const latestBarRef   = useRef(null)
+    const hoveringRef    = useRef(false)
+    const hoverIdxRef    = useRef(-1)       // skip re-renders while hovering the same bar
+    // Show the latest bar in the header unless the crosshair is actively hovering one.
+    const showLatest = () => { if (!hoveringRef.current) setBar(latestBarRef.current) }
+
     // Init once: chart + volume pane + data loader (history + 15s realtime) + ResizeObserver.
     useEffect(() => {
         const el = containerRef.current
@@ -86,11 +174,44 @@ export function PriceChart({ symbol = 'SPY', interval = 'D' }) {
         const chart = init(el, {
             locale: 'en-US',   // klinecharts registers 'en-US'/'zh-CN' — 'en' is unregistered → tooltip i18n crash
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            styles: CHART_STYLES,
+            styles: readThemeStyles(),
         })
         if (!chart) return
         chartRef.current = chart
-        chart.createIndicator('VOL', false)   // volume sub-pane
+        // Volume sub-pane. calcParams:[] drops the default MA5/10/20 average lines (VOL's default
+        // is [5,10,20]) — regenerateFigures then keeps only the volume bars.
+        chart.createIndicator({ name: 'VOL', calcParams: [] }, false)
+        chart.setFormatter({ formatDate: formatChartDate })   // bottom axis MM/DD, year (yy) only on Jan 1
+
+        // Header OHLCV tracks the crosshair: hovering a bar shows that bar; leaving the chart
+        // falls back to the latest. onCrosshairChange only fires over a real bar, so the reset
+        // to latest is done on mouseleave. klinecharts hands the subscriber the RAW crosshair
+        // ({x,y,paneId}) — not the enriched one — so resolve the hovered bar from the pixel x via
+        // convertFromPixel + getDataList (and still accept an enriched payload if a build sends one).
+        const onCrosshair = (data) => {
+            if (!data) return
+            let kd = data.kLineData
+            let idx = data.dataIndex
+            if (!kd && typeof data.x === 'number') {
+                idx = chart.convertFromPixel({ x: data.x, y: data.y ?? 0 })?.dataIndex
+                const list = chart.getDataList()
+                if (idx != null && list.length) kd = list[Math.max(0, Math.min(idx, list.length - 1))]
+            }
+            if (!kd || idx === hoverIdxRef.current) return
+            hoveringRef.current = true
+            hoverIdxRef.current = idx
+            setBar(kd)
+        }
+        chart.subscribeAction('onCrosshairChange', onCrosshair)
+        const onLeave = () => { hoveringRef.current = false; hoverIdxRef.current = -1; showLatest() }
+        el.addEventListener('mouseleave', onLeave)
+
+        // Re-resolve the theme tokens and re-apply when the palette changes. Both the theme
+        // (data-theme) and the dev design-trial variant (data-design) live as attributes on
+        // <html> and each remaps --border / --glow / --text-secondary / --bg-surface. Canvas
+        // colors can't track CSS vars live, so we push fresh styles on each switch.
+        const themeObserver = new MutationObserver(() => chart.setStyles(readThemeStyles()))
+        themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-design'] })
 
         let pollId = null
         chart.setDataLoader({
@@ -104,6 +225,8 @@ export function PriceChart({ symbol = 'SPY', interval = 'D' }) {
                     // Deliver first (never leave the chart empty), then refine price decimals —
                     // a changed precision re-runs getBars, which re-delivers with the right dp.
                     callback(candles, false)
+                    latestBarRef.current = candles[candles.length - 1] ?? null
+                    showLatest()
                     const prec = precisionOf(candles)
                     if (prec !== precRef.current) {
                         precRef.current = prec
@@ -121,7 +244,11 @@ export function PriceChart({ symbol = 'SPY', interval = 'D' }) {
                     try {
                         const res = await marketService.getCandles(symbolRef.current, intervalRef.current)
                         const arr = res?.candles
-                        if (Array.isArray(arr) && arr.length) callback(arr[arr.length - 1])
+                        if (Array.isArray(arr) && arr.length) {
+                            callback(arr[arr.length - 1])
+                            latestBarRef.current = arr[arr.length - 1]
+                            showLatest()
+                        }
                     } catch { /* transient — next tick retries */ }
                 }, 15_000)
             },
@@ -134,6 +261,9 @@ export function PriceChart({ symbol = 'SPY', interval = 'D' }) {
         return () => {
             clearInterval(pollId)
             ro.disconnect()
+            themeObserver.disconnect()
+            chart.unsubscribeAction('onCrosshairChange', onCrosshair)
+            el.removeEventListener('mouseleave', onLeave)
             dispose(el)
             chartRef.current = null
         }
@@ -150,7 +280,28 @@ export function PriceChart({ symbol = 'SPY', interval = 'D' }) {
         chart.setPeriod(toPeriod(interval))
     }, [symbol, interval])
 
-    return <div className="price-chart" ref={containerRef} />
+    // Direction tint for the close: up when close ≥ open, down otherwise.
+    const isUp = bar ? Number(bar.close) >= Number(bar.open) : true
+    const dp = precRef.current
+
+    return (
+        <div className="price-chart">
+            <div className="price-chart__header">
+                <span className="price-chart__sym">{symbol}</span>
+                <span className="price-chart__tf">{interval}</span>
+                {bar && (
+                    <span className="price-chart__ohlc">
+                        <span><i>O</i>{fmtNum(bar.open, dp)}</span>
+                        <span><i>H</i>{fmtNum(bar.high, dp)}</span>
+                        <span><i>L</i>{fmtNum(bar.low, dp)}</span>
+                        <span className={isUp ? 'is-up' : 'is-down'}><i>C</i>{fmtNum(bar.close, dp)}</span>
+                        <span><i>Vol</i>{fmtVol(bar.volume)}</span>
+                    </span>
+                )}
+            </div>
+            <div className="price-chart__canvas" ref={containerRef} />
+        </div>
+    )
 }
 
 PriceChart.propTypes = {

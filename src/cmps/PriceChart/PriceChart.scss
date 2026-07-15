@@ -1,9 +1,68 @@
 .price-chart {
     width: 100%;
     height: 100%;
-    // Dark pane background — the KLineCharts canvas is transparent, so the container shows through.
-    background: #020810;
+    display: flex;
+    flex-direction: column;
+    // Pane background — the KLineCharts canvas is transparent, so this shows through. Uses the same
+    // theme token as ChatPanel (--bg-wash → --bg-base) so the chart matches the chat panel and
+    // follows theme/accent switches.
+    background: var(--bg-wash);
     border: 1px solid var(--border);
     border-radius: 6px;
     overflow: hidden;
+
+    // ── Header row: ticker · tf · OHLCV ─────────────────────────────────────
+    // A real DOM row above the canvas, so the candles (which fill __canvas below) can never
+    // overlap it — replaces KLineCharts' floating in-pane legend. Mono font + app tokens.
+    &__header {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 4px 10px;
+        border-bottom: 1px solid var(--border);
+        font-family: var(--font-mono);
+        font-size: 11px;
+        line-height: 1.4;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+
+    &__sym {
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        color: var(--text-primary);
+    }
+
+    &__tf {
+        color: var(--accent-light);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+
+    &__ohlc {
+        display: flex;
+        gap: 8px;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--text-secondary);
+        font-variant-numeric: tabular-nums;
+
+        span { display: inline-flex; align-items: baseline; gap: 3px; }
+
+        // O / H / L / C / Vol labels — muted, like the rest of the app's readouts.
+        i { font-style: normal; color: var(--text-muted); }
+
+        // Tint only the close value by direction; keep its label muted.
+        .is-up   { color: var(--color-long); }
+        .is-down { color: var(--color-short); }
+        .is-up i, .is-down i { color: var(--text-muted); }
+    }
+
+    // ── KLineCharts mount — fills the remaining height below the header ──────
+    &__canvas {
+        flex: 1;
+        min-height: 0;
+    }
 }
