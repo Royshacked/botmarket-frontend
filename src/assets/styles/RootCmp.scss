@@ -54,12 +54,11 @@
 // corners are squared so the seams run flush top-to-bottom.
 .workspace__chat  .chat-panel { border-top-right-radius: 0; border-bottom-right-radius: 0; }
 .workspace__news  .news-feed  { border-top-left-radius: 0;  border-bottom-left-radius: 0;  }
-.workspace__chart .tv-chart {
+.workspace__chart .price-chart {
     border-left: none;
     border-right: none;
     border-radius: 0;
     border-color: color-mix(in srgb, var(--border) 12%, transparent);  // very faint top/bottom seams — the chart's hard dark bg makes a full-strength border read much heavier than the chat/radar ones
-    iframe { border-radius: 0; }
 }
 
 .workspace__chat {
