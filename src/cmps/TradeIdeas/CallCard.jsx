@@ -71,7 +71,7 @@ export function CallCard({ call, busy = false, onAct, onDelete, onEdit, onSymbol
 
     return (
         <article className={`idea-card idea-card--${call.status}`} onClick={handleCardClick} title={isBuilding ? 'Building…' : 'Open call'}>
-            <div className="idea-card__icon" aria-hidden="true"><HermesBadge size={42} /></div>
+            <div className="idea-card__icon" aria-hidden="true"><HermesBadge size={34} /></div>
 
             <div className="idea-card__body">
                 <div className="idea-card__titleline">

@@ -18,9 +18,9 @@
 }
 
 // ── Workspace grid ───────────────────────────────────────────────────────────
-// Columns: chat 32% | chart 36% | news 32%
-// Rows:    top (chat + chart + news), bottom (ideas strip spanning chart+news).
-// Chat spans both rows so it stays a full-height left column.
+// Columns: chat 32% | middle 36% (chart over radar) | ideas 32%
+// Rows:    top (chat + chart + ideas), bottom (chat + radar + ideas).
+// Chat and ideas each span both rows so they stay full-height side columns.
 .workspace {
     flex: 1;
     min-height: 0;
@@ -30,12 +30,12 @@
     // grid-template-areas:
     //     "chat chart news"
     //     "chat ideas ideas";
-    // --- Trial: chat + radar 30% each, ideas list only below chart ---
+    // --- Trial 2: ideas list full-height on the RIGHT; radar tucked below the chart ---
     grid-template-columns: 32% 36% 32%;
-    grid-template-rows: 1fr 1fr;   // middle column splits chart / ideas 50–50
+    grid-template-rows: 1fr 1fr;   // middle column splits chart / radar 50–50
     grid-template-areas:
-        "chat chart news"
-        "chat ideas news";
+        "chat chart ideas"
+        "chat news  ideas";
     column-gap: 0;     // columns share a single border seam (see border-merge rules below)
     row-gap: 0;        // chart + ideas run flush — no horizontal gap through the middle column
     padding: 0;   // was 12px 0
@@ -53,7 +53,9 @@
 // chart drops its own left/right borders so they don't double up, and the inner
 // corners are squared so the seams run flush top-to-bottom.
 .workspace__chat  .chat-panel { border-top-right-radius: 0; border-bottom-right-radius: 0; }
-.workspace__news  .news-feed  { border-top-left-radius: 0;  border-bottom-left-radius: 0;  }
+// Trial 2: Radar now lives BELOW the chart in the middle column — drop its side + top
+// borders and radius so it merges into the middle seams and runs flush under the chart.
+.workspace__news  .news-feed  { border-left: none; border-right: none; border-top: none; border-radius: 0; }
 .workspace__chart .tv-chart {
     border-left: none;
     border-right: none;
@@ -71,11 +73,20 @@
     position: relative;   // anchor for the "back to axl" return overlay
 }
 
-// Trade ideas strip — spans the chart + news columns, below both
+// Trial 2: trade-ideas list is now the full-height RIGHT column. It's a transparent,
+// border-less strip, so the grid cell itself becomes the panel — mirroring the chat
+// panel on the far left: same bg-wash / 1px border / 6px radius, with the INNER (left)
+// corners squared so it merges into the middle seam and only the outer edge rounds.
 .workspace__ideas {
     grid-area: ideas;
     min-height: 0;
     min-width: 0;
+    background: var(--bg-wash);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    overflow: hidden;
 }
 
 // ── Chat agent panels (axl hub routes here; breadcrumb bar lives in AxlHub.scss) ──

@@ -962,8 +962,9 @@ $sym-status-colors: (
 .ideas-cards {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 10px;
+    // Trial 2: near-full-width cards — 4px side inset, 8px vertical rhythm (matches Radar).
+    gap: 8px;
+    padding: 8px 4px;
 }
 
 .idea-card {
@@ -973,7 +974,8 @@ $sym-status-colors: (
     background: var(--bg-surface);
     border: 1px solid var(--border);
     border-radius: 10px;
-    padding: 8px 12px;
+    // Trial 2: trimmed to ~80% height — slimmer padding + smaller icon/badge below.
+    padding: 5px 12px;
     cursor: pointer;
     transition: background 0.12s, border-color 0.12s;
 
@@ -990,8 +992,8 @@ $sym-status-colors: (
 
     &__icon {
         flex: none;
-        width: 46px;
-        height: 46px;
+        width: 38px;
+        height: 38px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1081,7 +1083,7 @@ $sym-status-colors: (
         display: flex;
         align-items: center;
         gap: 6px;
-        margin-top: 5px;
+        margin-top: 3px;
         font-size: 0.78rem;
         color: var(--text-secondary);
         min-width: 0;
@@ -1287,16 +1289,47 @@ $card-status-colors: (
 
     &__pnl-arrow { font-size: 0.66rem; line-height: 1; }
 
+    // Collapsible portfolio / group headers read as section headers over their children —
+    // slim them below the item cards: smaller badge, tighter padding + name.
+    &--portfolio,
+    &--position-group,
+    &--portfolio-group {
+        padding-top: 3px;
+        padding-bottom: 3px;
+
+        .idea-card__icon { width: 30px; height: 30px; }
+        .idea-card__icon > svg { width: 100%; height: 100%; }   // scale the 34px badge to fit
+        .idea-card__pf-name { font-size: 0.85rem; }
+        .idea-card__summary { margin-top: 2px; }
+    }
+
     // ── Position card ──────────────────────────────────────────────────────────
     // Idea-less positions aren't clickable (nothing to open).
     &--static { cursor: default; }
 
+    // Position cards pack many chips into the title row (sym · dir · workspace · broker
+    // · account#); left to wrap they become two lines and stay tall. Keep the row on ONE
+    // line — the account# ellipsizes on overflow — so the card matches the other cards.
+    &--position .idea-card__titleline {
+        flex-wrap: nowrap;
+        min-width: 0;
+        overflow: hidden;
+    }
+    &--position .idea-card__broker-count {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
     // Money P&L pill stacked over the price-move %, right-aligned in the controls.
+    // Trial 2: P&L money + % on ONE row (was stacked) so position cards drop the extra
+    // line and match the height of the other Axl-list cards.
     &__pnl-stack {
         display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        gap: 2px;
+        flex-direction: row;
+        align-items: baseline;
+        gap: 6px;
     }
     &__pnl-pct {
         font-family: var(--font-mono);

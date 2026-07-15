@@ -120,7 +120,7 @@ export function IdeaCard({ idea, onDelete, onStatusChange, onOpen, onSymbolClick
             className={`idea-card idea-card--${status}${isBrokerChild ? ' idea-card--broker-child' : ''}`}
             onClick={handleCardClick}
         >
-            <div className="idea-card__icon" aria-hidden="true"><MinosBadge size={42} /></div>
+            <div className="idea-card__icon" aria-hidden="true"><MinosBadge size={34} /></div>
 
             <div className="idea-card__body">
                 <div className="idea-card__titleline">
@@ -373,7 +373,7 @@ export function PortfolioCard({ group, expanded, onToggle, onEdit, onDelete, onD
             <article className="idea-card idea-card--portfolio" onClick={onToggle}>
                 <span className="idea-card__caret idea-card__caret--lead">{expanded ? '▾' : '▸'}</span>
                 <div className="idea-card__icon idea-card__icon--portfolio" aria-hidden="true">
-                    <AtlasBadge size={42} />
+                    <AtlasBadge size={34} />
                 </div>
 
                 <div className="idea-card__body">
@@ -460,7 +460,7 @@ export function BuildingPortfolioCard({ portfolio }) {
     return (
         <article className="idea-card idea-card--portfolio idea-card--building">
             <span className="idea-card__caret idea-card__caret--lead" aria-hidden="true" />
-            <div className="idea-card__icon idea-card__icon--portfolio" aria-hidden="true"><AtlasBadge size={42} /></div>
+            <div className="idea-card__icon idea-card__icon--portfolio" aria-hidden="true"><AtlasBadge size={34} /></div>
             <div className="idea-card__body">
                 <div className="idea-card__titleline">
                     <span className="idea-card__pf-name">{portfolio.name}</span>
@@ -616,7 +616,7 @@ function PositionPortfolioGroup({ group, isExpanded, toggle, closingId, onClose,
         <div className="idea-card-group idea-card-group--positions">
             <GroupSummaryHeader
                 variant="portfolio"
-                icon={<div className="idea-card__icon idea-card__icon--portfolio" aria-hidden="true"><AtlasBadge size={42} /></div>}
+                icon={<div className="idea-card__icon idea-card__icon--portfolio" aria-hidden="true"><AtlasBadge size={34} /></div>}
                 title={group.name}
                 accountText={multiAccount ? `${group.accounts.length} accts` : (pfSummary.accountNo ?? null)}
                 summary={pfSummary}
