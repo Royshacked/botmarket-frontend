@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types'
-import { TradingViewChart } from '../TradingViewChart/TradingViewChart.jsx'
+import { PriceChart } from '../PriceChart/PriceChart.jsx'
 import { ConditionTreeView, isAllAnd } from './ConditionTree.jsx'
 import { PopoutFooter } from './PopoutFooter.jsx'
 import { brokerSymbolLabel, deriveIdeaInterval, phaseTree, isSystemStatus } from './tradeIdea.utils.js'
@@ -35,7 +35,7 @@ export function IdeaDetail({ idea, positions = [], closePosition, onPositionsCha
         <>
             <div className="idea-dialog__main">
                 <div className="idea-dialog__chart">
-                    <TradingViewChart symbol={idea.asset || 'SPY'} interval={deriveIdeaInterval(idea) || 'D'} />
+                    <PriceChart symbol={idea.asset || 'SPY'} interval={deriveIdeaInterval(idea) || 'D'} />
                 </div>
 
                 <div className="idea-dialog__conditions">

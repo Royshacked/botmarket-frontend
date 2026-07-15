@@ -56,12 +56,11 @@
 // Trial 2: Radar now lives BELOW the chart in the middle column — drop its side + top
 // borders and radius so it merges into the middle seams and runs flush under the chart.
 .workspace__news  .news-feed  { border-left: none; border-right: none; border-top: none; border-radius: 0; }
-.workspace__chart .tv-chart {
+.workspace__chart .price-chart {
     border-left: none;
     border-right: none;
     border-radius: 0;
     border-color: color-mix(in srgb, var(--border) 12%, transparent);  // very faint top/bottom seams — the chart's hard dark bg makes a full-strength border read much heavier than the chat/radar ones
-    iframe { border-radius: 0; }
 }
 
 .workspace__chat {

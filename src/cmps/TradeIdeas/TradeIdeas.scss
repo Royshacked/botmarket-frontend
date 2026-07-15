@@ -1472,7 +1472,7 @@ $card-status-colors: (
         border-right: 1px solid var(--accent-deep);
 
         // TradingView iframe needs explicit height on its container
-        .tv-chart { height: 100%; }
+        .price-chart { height: 100%; }
     }
 
     &__conditions {

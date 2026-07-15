@@ -1,0 +1,9 @@
+.price-chart {
+    width: 100%;
+    height: 100%;
+    // Dark pane background — the KLineCharts canvas is transparent, so the container shows through.
+    background: #020810;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+}

@@ -12,7 +12,7 @@ import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
 import { ScannerPanel }      from '../cmps/ScannerPanel/ScannerPanel.jsx'
 import { KairosPanel }       from '../cmps/KairosPanel/KairosPanel.jsx'
 import { Radar }             from '../cmps/Radar/Radar.jsx'
-import { TradingViewChart }  from '../cmps/TradingViewChart/TradingViewChart.jsx'
+import { PriceChart }  from '../cmps/PriceChart/PriceChart.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
 import { kairosService, CALLS_CHANGED } from '../services/kairos/kairos.service.remote.js'
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
@@ -112,8 +112,8 @@ function deriveBuildingCall(draft) {
 }
 
 // The chart interval for a Kairos call: the primary ladder rung the agent set (the coarsest /
-// structure view you'd place zones on), falling back to a horizon default. TradingViewChart maps
-// these spellings ("1hr"/"15min"/"day"…) via its TV_INTERVAL table.
+// structure view you'd place zones on), falling back to a horizon default. PriceChart maps
+// these spellings ("1hr"/"15min"/"day"…) to KLineCharts periods via its PERIOD_MAP.
 function deriveCallInterval(tf, tradeType) {
     if (tf) return tf
     if (tradeType === 'intraday') return '5min'
@@ -1467,7 +1467,7 @@ export function MainPage() {
                 {/* ── Desktop / tablet workspace ── */}
                 <div className="workspace">
                     <div className="workspace__chart">
-                        <TradingViewChart symbol={chartSymbol} interval={chartInterval} />
+                        <PriceChart symbol={chartSymbol} interval={chartInterval} />
                     </div>
                     <div className="workspace__chat">
                         {activeTab === 'axl' ? (

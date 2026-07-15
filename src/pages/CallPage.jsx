@@ -4,7 +4,7 @@ import { CallDraft } from '../cmps/KairosPanel/KairosPanel.jsx'
 import { HermesBadge } from '../cmps/AxlHub/AgentBadges.jsx'
 import { StatusIcon } from '../cmps/StatusIcon.jsx'
 import { PopoutFooter } from '../cmps/TradeIdeas/PopoutFooter.jsx'
-import { TradingViewChart } from '../cmps/TradingViewChart/TradingViewChart.jsx'
+import { PriceChart } from '../cmps/PriceChart/PriceChart.jsx'
 import { usePositions } from '../customHooks/usePositions.js'
 import { kairosService } from '../services/kairos/kairos.service.remote.js'
 import '../cmps/KairosPanel/KairosPanel.scss'   // CallDraft chips/cards
@@ -263,7 +263,7 @@ export function CallPage() {
 
             <div className="idea-dialog__main">
                 <div className="idea-dialog__chart">
-                    <TradingViewChart symbol={call.asset || 'SPY'} interval={TF_INTERVAL[call.trade_type] ?? '15'} />
+                    <PriceChart symbol={call.asset || 'SPY'} interval={TF_INTERVAL[call.trade_type] ?? '15'} />
                 </div>
 
                 <div className="idea-dialog__conditions">
