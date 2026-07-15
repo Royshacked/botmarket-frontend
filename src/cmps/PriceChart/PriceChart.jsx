@@ -30,17 +30,21 @@ function toPeriod(interval) {
     return PERIOD_MAP[String(interval ?? '').trim().toLowerCase()] ?? { type: 'day', span: 1 }
 }
 
-// Price decimals inferred from recent closes (2–6) so equities show 2dp while forex / small-cap
-// crypto aren't truncated. Sampled from the tail — cheap and representative.
+// Price decimals for the axis/tooltip. FMP returns noisy floats (e.g. 324.08499), so a raw
+// decimal count over-states precision — equities would render ~5dp. Cap the count by price
+// magnitude (pricier instruments need fewer): AAPL 324 → 2dp, forex 1.0850 → 4dp, penny → 6dp.
 function precisionOf(candles) {
-    let max = 2
+    if (!candles.length) return 2
+    const ref = Math.abs(Number(candles[candles.length - 1].close)) || 0
+    const cap = ref >= 10 ? 2 : ref >= 1 ? 4 : 6   // equities 2dp; forex ~1.08 4dp; sub-$1 up to 6dp
+    let dec = 2
     for (const c of candles.slice(-40)) {
         const s = String(c.close)
         const dot = s.indexOf('.')
-        if (dot >= 0) max = Math.max(max, s.length - dot - 1)
-        if (max >= 6) break
+        if (dot >= 0) dec = Math.max(dec, s.length - dot - 1)
+        if (dec >= cap) break
     }
-    return Math.min(max, 6)
+    return Math.min(dec, cap)
 }
 
 // Dark theme — ports the old embed's tokens. The pane background lives on the container (SCSS)
