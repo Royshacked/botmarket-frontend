@@ -1,8 +1,10 @@
+import { useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { PriceChart } from '../PriceChart/PriceChart.jsx'
 import { ConditionTreeView, isAllAnd } from './ConditionTree.jsx'
 import { PopoutFooter } from './PopoutFooter.jsx'
 import { brokerSymbolLabel, deriveIdeaInterval, phaseTree, isSystemStatus } from './tradeIdea.utils.js'
+import { deriveIdeaOverlay } from './chartOverlay.js'
 
 // Shared idea body — chart (left) + conditions (right) + positions (bottom).
 // Rendered by both the floating dialog and the popped-out idea window so the two
@@ -31,11 +33,14 @@ export function IdeaDetail({ idea, positions = [], closePosition, onPositionsCha
     const ideaSymbols   = [idea.asset, brokerSymbolLabel(idea)].filter(Boolean).map(s => String(s).toUpperCase())
     const ideaPositions = positions.filter(p => p.symbol && ideaSymbols.includes(String(p.symbol).toUpperCase()))
 
+    // Levels + indicators to draw on this idea's chart (stable identity so the chart doesn't thrash).
+    const { levels, indicators } = useMemo(() => deriveIdeaOverlay(idea, ideaPositions), [idea, ideaPositions])
+
     return (
         <>
             <div className="idea-dialog__main">
                 <div className="idea-dialog__chart">
-                    <PriceChart symbol={idea.asset || 'SPY'} interval={deriveIdeaInterval(idea) || 'D'} />
+                    <PriceChart symbol={idea.asset || 'SPY'} interval={deriveIdeaInterval(idea) || 'D'} levels={levels} indicators={indicators} />
                 </div>
 
                 <div className="idea-dialog__conditions">

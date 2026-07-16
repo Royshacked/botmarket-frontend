@@ -1,8 +1,84 @@
 import { useEffect, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
-import { init, dispose, utils } from 'klinecharts'
+import { init, dispose, utils, registerOverlay, registerIndicator } from 'klinecharts'
 import { marketService } from '../../services/market/market.service.remote'
 import './PriceChart.scss'
+
+// ── Custom klinecharts registrations (module-level: registries are global, register once) ──
+// VWAP + ATR aren't klinecharts built-ins — same templates the backend headless renderer uses
+// (botmarket-backend services/chartRender/klineRender.provider.js). Keep in sync.
+let _registered = false
+function registerChartExtras() {
+    if (_registered) return
+    _registered = true
+
+    // Session-anchored VWAP (reset each UTC day), drawn on the candle pane's price axis.
+    registerIndicator({
+        name: 'VWAP', shortName: 'VWAP', series: 'price',
+        figures: [{ key: 'vwap', title: 'VWAP: ', type: 'line' }],
+        calc: (dataList) => {
+            let cumPV = 0, cumV = 0, dayKey = null
+            return dataList.map((k) => {
+                const d = new Date(k.timestamp)
+                const key = `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`
+                if (key !== dayKey) { dayKey = key; cumPV = 0; cumV = 0 }
+                const tp = (k.high + k.low + k.close) / 3
+                const v  = k.volume || 0
+                cumPV += tp * v; cumV += v
+                return { vwap: cumV > 0 ? cumPV / cumV : k.close }
+            })
+        },
+    })
+    // ATR — mean True Range over N, own pane.
+    registerIndicator({
+        name: 'ATR', shortName: 'ATR', calcParams: [14],
+        figures: [{ key: 'atr', title: 'ATR: ', type: 'line' }],
+        calc: (dataList, { calcParams }) => {
+            const n = calcParams[0] || 14
+            const trs = []
+            return dataList.map((k, i) => {
+                const prev = dataList[i - 1]
+                const tr = i === 0 ? k.high - k.low
+                    : Math.max(k.high - k.low, Math.abs(k.high - prev.close), Math.abs(k.low - prev.close))
+                trs.push(tr)
+                if (trs.length < n) return {}
+                return { atr: trs.slice(-n).reduce((a, b) => a + b, 0) / n }
+            })
+        },
+    })
+    // tradeLevel — a horizontal dashed line across the candle pane + a right-edge label pill.
+    // Price comes from points[0].value; { color, label } ride on extendData.
+    registerOverlay({
+        name: 'tradeLevel',
+        totalStep: 1,
+        needDefaultPointFigure: false,
+        needDefaultXAxisFigure: false,
+        needDefaultYAxisFigure: false,
+        createPointFigures: ({ overlay, coordinates, bounding }) => {
+            const y = coordinates[0]?.y
+            if (y == null) return []
+            const { color = '#8ab8e8', label = '' } = overlay.extendData || {}
+            return [
+                { type: 'line', ignoreEvent: true, attrs: { coordinates: [{ x: 0, y }, { x: bounding.width, y }] }, styles: { color, size: 1, style: 'dashed' } },
+                // Label pill on the LEFT edge (oldest bars) so it never covers the current candles /
+                // last-price marker on the right.
+                { type: 'text', ignoreEvent: true, attrs: { x: 2, y, text: label, align: 'left', baseline: 'middle' },
+                  styles: { color: '#0a0f1a', backgroundColor: color, size: 10, family: 'monospace', paddingLeft: 4, paddingRight: 4, paddingTop: 2, paddingBottom: 2, borderRadius: 2 } },
+            ]
+        },
+    })
+}
+
+// Semantic colors per level kind (bright enough to read on the dark chart pane in any theme).
+const LEVEL_COLORS = {
+    entry: '#8ab8e8', stop: '#ef5350', tp: '#4caf50',
+    zone: '#c9a227', ref: '#7a9bc0', invalidation: '#e0902b', exit: '#9aa7b4',
+}
+
+// Distinct line colors so stacked indicators (e.g. EMA(20) vs EMA(50) vs VWAP on the candle pane)
+// are told apart. Deliberately clear of the level colors (blue/red/green) so indicators don't read
+// as entry/stop/tp lines.
+const INDICATOR_PALETTE = ['#e0a63b', '#4aa3ff', '#c77dff', '#39d3c3', '#ff8fab', '#b5c400']
 
 // Self-hosted price chart on KLineCharts v10, fed by our /api/market/candles (FMP-first).
 // Replaces the old TradingView embed (which fetched its own data). Props are drop-in
@@ -123,7 +199,14 @@ function readThemeStyles() {
         // Its floating tooltip is off too — volume is shown in the DOM header alongside OHLC.
         indicator: {
             bars: [{ upColor: fade(UP, 0.65), downColor: fade(DOWN, 0.65), noChangeColor: AXTEXT }],
-            tooltip: { showRule: 'none' },
+            // Always-on label so you can tell which indicator is which ("EMA(20)", "RSI(14)",
+            // "VWAP") at the top-left of each pane — with its current value alongside.
+            tooltip: {
+                showRule: 'always',
+                showType: 'standard',
+                title:  { show: true, showName: true, showParams: true, color: AXTEXT, family: FONT, size: 11, weight: 'normal' },
+                legend: { color: TIP, family: FONT, size: 11 },
+            },
         },
         xAxis: { axisLine: { color: AXIS }, tickLine: { color: AXIS }, tickText: { color: AXTEXT, family: FONT } },
         yAxis: { axisLine: { color: AXIS }, tickLine: { color: AXIS }, tickText: { color: AXTEXT, family: FONT } },
@@ -150,12 +233,17 @@ function fmtVol(v) {
     return String(Math.round(n))
 }
 
-export function PriceChart({ symbol = 'SPY', interval = 'D' }) {
+export function PriceChart({ symbol = 'SPY', interval = 'D', levels = [], indicators = [] }) {
     const containerRef = useRef(null)
     const chartRef     = useRef(null)
     const symbolRef    = useRef(symbol)     // read by the loader (which is registered once)
     const intervalRef  = useRef(interval)
     const precRef      = useRef(2)
+    const indHandlesRef = useRef({ overlayNames: [], paneIds: [] })  // created indicators, for reconcile
+    // `ready` flips once the first bars are loaded (overlays/indicators need the price scale first);
+    // `precision` mirrors precRef so level labels redraw when the decimal count settles.
+    const [ready, setReady]         = useState(false)
+    const [precision, setPrecision] = useState(2)
 
     // Header OHLCV readout. `bar` is the candle shown in the header: the hovered bar while the
     // crosshair is over the chart, otherwise the latest bar. latestBarRef/hoveringRef let the
@@ -171,6 +259,7 @@ export function PriceChart({ symbol = 'SPY', interval = 'D' }) {
     useEffect(() => {
         const el = containerRef.current
         if (!el) return
+        registerChartExtras()   // custom VWAP/ATR indicators + tradeLevel overlay (idempotent)
         const chart = init(el, {
             locale: 'en-US',   // klinecharts registers 'en-US'/'zh-CN' — 'en' is unregistered → tooltip i18n crash
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -230,8 +319,10 @@ export function PriceChart({ symbol = 'SPY', interval = 'D' }) {
                     const prec = precisionOf(candles)
                     if (prec !== precRef.current) {
                         precRef.current = prec
+                        setPrecision(prec)
                         chart.setSymbol({ ticker: symbolRef.current, pricePrecision: prec, volumePrecision: 0 })
                     }
+                    if (candles.length) setReady(true)   // price scale exists → overlays can draw
                 } catch {
                     callback([], false)
                 }
@@ -280,6 +371,70 @@ export function PriceChart({ symbol = 'SPY', interval = 'D' }) {
         chart.setPeriod(toPeriod(interval))
     }, [symbol, interval])
 
+    // Stable content keys so the draw effects below run only when the levels/indicators actually
+    // CHANGE — not on every parent re-render. The parents derive these arrays fresh each render
+    // (e.g. IdeaDetail's positions.filter(), CallPage's 20s call poll), so keying on array identity
+    // would tear down + rebuild the overlays/indicator panes needlessly (and flash the sub-pane).
+    const levelsKey     = JSON.stringify(levels)
+    const indicatorsKey = JSON.stringify(indicators)
+
+    // Trade levels → horizontal tradeLevel overlays on the candle pane. Cleared + redrawn as a
+    // group whenever the levels (or precision, for the label) change. Gated on `ready` so the
+    // price scale exists. Labels format the price with the chart's live precision.
+    useEffect(() => {
+        const chart = chartRef.current
+        if (!chart || !ready) return
+        chart.removeOverlay({ groupId: 'trade-levels' })
+        for (const lv of levels) {
+            if (lv?.price == null) continue
+            const color = LEVEL_COLORS[lv.kind] || LEVEL_COLORS.entry
+            chart.createOverlay({
+                name: 'tradeLevel',
+                points: [{ value: lv.price }],
+                extendData: { color, label: `${lv.label} ${fmtNum(lv.price, precision)}` },
+                groupId: 'trade-levels',
+                lock: true,
+                paneId: 'candle_pane',
+            })
+        }
+        return () => { chartRef.current?.removeOverlay({ groupId: 'trade-levels' }) }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [levelsKey, ready, precision])
+
+    // Relevant indicators → createIndicator (overlay ones share the candle pane; the rest get their
+    // own sub-pane with a stable id so we can remove them on reconcile). VOL is excluded upstream
+    // (the chart always shows a volume pane).
+    useEffect(() => {
+        const chart = chartRef.current
+        if (!chart || !ready) return
+        const prev = indHandlesRef.current
+        prev.overlayNames.forEach(n => chart.removeIndicator({ paneId: 'candle_pane', name: n }))
+        prev.paneIds.forEach(id => chart.removeIndicator({ paneId: id }))
+
+        // VWAP is session-anchored → meaningless on daily+ charts (each bar is its own session), so
+        // only draw it on intraday timeframes.
+        const isIntraday = ['minute', 'hour'].includes(toPeriod(interval).type)
+        const drawable = indicators.filter(d => d.name !== 'VWAP' || isIntraday)
+
+        const overlayNames = [], paneIds = []
+        drawable.forEach((d, i) => {
+            // Give each indicator a distinct line color. `lines` covers single- and multi-line
+            // indicators (EMA=1, BOLL=3); extra entries past an indicator's line count are ignored.
+            const color = INDICATOR_PALETTE[i % INDICATOR_PALETTE.length]
+            const styles = { lines: [{ color }, { color }, { color }] }
+            if (d.overlay) {
+                chart.createIndicator({ name: d.name, calcParams: d.calcParams, paneId: 'candle_pane', styles }, true)
+                overlayNames.push(d.name)
+            } else {
+                const paneId = `ind-${i}-${d.name}`
+                chart.createIndicator({ name: d.name, calcParams: d.calcParams, paneId, styles }, false)
+                paneIds.push(paneId)
+            }
+        })
+        indHandlesRef.current = { overlayNames, paneIds }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [indicatorsKey, ready, interval])
+
     // Direction tint for the close: up when close ≥ open, down otherwise.
     const isUp = bar ? Number(bar.close) >= Number(bar.open) : true
     const dp = precRef.current
@@ -307,4 +462,15 @@ export function PriceChart({ symbol = 'SPY', interval = 'D' }) {
 PriceChart.propTypes = {
     symbol:   PropTypes.string,
     interval: PropTypes.string,
+    levels:   PropTypes.arrayOf(PropTypes.shape({
+        kind:  PropTypes.string,
+        price: PropTypes.number,
+        label: PropTypes.string,
+        side:  PropTypes.string,
+    })),
+    indicators: PropTypes.arrayOf(PropTypes.shape({
+        name:       PropTypes.string,
+        calcParams: PropTypes.array,
+        overlay:    PropTypes.bool,
+    })),
 }

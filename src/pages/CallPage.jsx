@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import PropTypes from 'prop-types'
+import { deriveCallOverlay } from '../cmps/TradeIdeas/chartOverlay.js'
 import { CallDraft } from '../cmps/KairosPanel/KairosPanel.jsx'
 import { HermesBadge } from '../cmps/AxlHub/AgentBadges.jsx'
 import { StatusIcon } from '../cmps/StatusIcon.jsx'
@@ -241,6 +242,10 @@ export function CallPage() {
         return () => { alive = false; clearInterval(t) }
     }, [id])
 
+    // Levels + indicators to draw on this call's chart (before the early returns — rules of hooks;
+    // deriveCallOverlay tolerates a null call). Stable identity so the chart doesn't thrash.
+    const callOverlay = useMemo(() => deriveCallOverlay(call), [call])
+
     async function refresh() {
         const list = await kairosService.listCalls()
         setCall(list.find(x => x.id === id) ?? null)
@@ -298,7 +303,7 @@ export function CallPage() {
 
             <div className="idea-dialog__main">
                 <div className="idea-dialog__chart">
-                    <PriceChart symbol={call.asset || 'SPY'} interval={TF_INTERVAL[call.trade_type] ?? '15'} />
+                    <PriceChart symbol={call.asset || 'SPY'} interval={TF_INTERVAL[call.trade_type] ?? '15'} levels={callOverlay.levels} indicators={callOverlay.indicators} />
                 </div>
 
                 <div className="idea-dialog__conditions">
