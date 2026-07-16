@@ -174,6 +174,26 @@ export function deriveIdeaInterval(idea) {
 }
 
 /**
+ * Chart interval for a Kairos call's pop-out / detail chart.
+ *
+ * Prefers the rung Hermes actually assessed on (`monitor_state.chosen_timeframe`,
+ * recorded as `timeframe_used` on each assessment) so the chart matches what the
+ * monitor is reading. Falls back to the most recent assessment's record, then a
+ * per-horizon default until the first assessment has run. Returns a spelling
+ * PriceChart's PERIOD_MAP understands ('5min'/'15min'/'1hr'/'day'/'5'/'15'/'D'…).
+ *
+ * @param {object} call
+ * @returns {string}
+ */
+export function deriveCallChartInterval(call) {
+    const HORIZON_DEFAULT = { intraday: '5', day: '15', swing: 'D' }
+    return call?.monitor_state?.chosen_timeframe
+        || call?.monitor_state?.last_assessment?.timeframe_used
+        || HORIZON_DEFAULT[call?.trade_type]
+        || '15'
+}
+
+/**
  * Compact created-at label for the ideas table (e.g. "Jun 12").
  *
  * @param {number} ms  Epoch milliseconds (idea.savedAt)

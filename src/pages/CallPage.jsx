@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { deriveCallOverlay } from '../cmps/TradeIdeas/chartOverlay.js'
+import { deriveCallChartInterval } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { CallDraft } from '../cmps/KairosPanel/KairosPanel.jsx'
 import { HermesBadge } from '../cmps/AxlHub/AgentBadges.jsx'
 import { StatusIcon } from '../cmps/StatusIcon.jsx'
@@ -22,9 +23,6 @@ const CALL_STATUS_ICON = {
     waiting: 'waiting', watching: 'looking', ready: 'hit',
     confirmed: 'hit', in_position: 'long', closed: 'closed', expired: 'closed', dismissed: 'closed',
 }
-// TradingView interval per horizon.
-const TF_INTERVAL = { intraday: '5', day: '15', swing: 'D' }
-
 const REASON_LABEL = {
     closed: 'market closed', scheduled: 'heartbeat', zone_trip: 'in zone', expiry_review: 'expiry review',
     entry: 'entered', in_position: 'managing', close: 'closed',
@@ -284,6 +282,10 @@ export function CallPage() {
     const callSymbols   = [call.asset, call.broker_symbol].filter(Boolean).map(s => String(s).toUpperCase())
     const callPositions = positions.filter(p => p.symbol && callSymbols.includes(String(p.symbol).toUpperCase()))
 
+    // Chart timeframe = the rung Hermes actually assessed on, so the pop-out chart matches what
+    // the monitor is reading (falls back to a horizon default until the first assessment runs).
+    const chartTf = deriveCallChartInterval(call)
+
     return (
         <div className="idea-page" style={rootStyle}>
             <div className="idea-page__header">
@@ -303,7 +305,7 @@ export function CallPage() {
 
             <div className="idea-dialog__main">
                 <div className="idea-dialog__chart">
-                    <PriceChart symbol={call.asset || 'SPY'} interval={TF_INTERVAL[call.trade_type] ?? '15'} levels={callOverlay.levels} indicators={callOverlay.indicators} />
+                    <PriceChart symbol={call.asset || 'SPY'} interval={chartTf} levels={callOverlay.levels} indicators={callOverlay.indicators} />
                 </div>
 
                 <div className="idea-dialog__conditions">
