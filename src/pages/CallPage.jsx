@@ -315,6 +315,17 @@ export function CallPage() {
                         </div>
                     )}
 
+                    {closed && ps?.reentry?.offered && (
+                        <div className="kairos-panel__card kairos-panel__card--reentry">
+                            <div className="kairos-panel__card-head"><span className="kairos-panel__card-status">stopped out — re-enter?</span></div>
+                            {ps.reentry.why && <div className="kairos-panel__card-note">{ps.reentry.why}</div>}
+                            <div className="call-page__actions">
+                                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" disabled={busy} onClick={() => act('reentry')}>Re-enter</button>
+                                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" disabled={busy} onClick={() => act('decline_reentry')}>Close</button>
+                            </div>
+                        </div>
+                    )}
+
                     {inPosition && pending && (
                         <ManagementCard pending={pending} busy={busy} onAccept={v => act(v)} onDismiss={() => act('dismiss')} />
                     )}

@@ -76,7 +76,8 @@ async function getPerformance() {
 
 // Readiness: 'confirm' | 'edit' | 'dismiss'. In-position management (accept a pending card):
 // 'move_stop' | 'take_partial' | 'exit_now' | 'let_run'; 'dismiss' on an in-position call clears the
-// management card without closing the position.
+// management card without closing the position. Stop-out re-entry offer: 'reentry' (revive the closed
+// call to waiting) | 'decline_reentry' (leave it closed).
 async function actOnCall(id, action) {
     const res = await httpService.post(`${BASE}/${encodeURIComponent(id)}/action`, { action })
     _announceChange()

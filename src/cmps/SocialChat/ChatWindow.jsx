@@ -94,6 +94,8 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                                 ? <CallExpiryBubble msg={msg} onDismiss={onDismissMessage} />
                                 : msg.type === 'call_manage' && msg.payload
                                 ? <CallManageBubble msg={msg} onDismiss={onDismissMessage} />
+                                : msg.type === 'call_reentry' && msg.payload
+                                ? <CallReentryBubble msg={msg} onDismiss={onDismissMessage} />
                                 : <div className="social-chat__msg-bubble">{msg.content}</div>
                             }
                             <div className="social-chat__msg-time">{formatTime(msg.createdAt)}</div>
@@ -354,6 +356,43 @@ function CallManageBubble({ msg, onDismiss }) {
             <div className="social-chat__invalidation-alert-reason">{read || msg.content}</div>
             <div className="social-chat__invalidation-alert-actions">
                 <button className="social-chat__invalidation-alert-btn" onClick={handleOpen}>Review</button>
+                <button
+                    className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
+                    onClick={() => onDismiss?.(msg.id, 'dismissed')}
+                >Dismiss</button>
+            </div>
+        </div>
+    )
+}
+
+// "Stopped out — re-enter?" card for a Kairos call. Notify + route: opens the call pop-out where the
+// user picks Re-enter (revive the plan → the monitor watches it again) or Close (leave it terminal).
+function CallReentryBubble({ msg, onDismiss }) {
+    const { callId, asset, exit_price, why } = msg.payload
+
+    function handleOpen() {
+        onDismiss?.(msg.id, 'opened')
+        openCallPopup(callId)
+    }
+
+    if (msg.dismissed) {
+        const label = msg.dismissOutcome === 'opened' ? '✓ Opened' : 'Dismissed'
+        return (
+            <div className="social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--dismissed">
+                <div className="social-chat__invalidation-alert-header">{label} &middot; {asset}</div>
+            </div>
+        )
+    }
+
+    return (
+        <div className="social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--reentry">
+            <CardAgentTag agent={AGENTS.kairos} />
+            <div className="social-chat__invalidation-alert-header">
+                Stopped out &middot; {asset}{Number.isFinite(exit_price) ? ` @ ${exit_price}` : ''} — re-enter?
+            </div>
+            <div className="social-chat__invalidation-alert-reason">{why || msg.content}</div>
+            <div className="social-chat__invalidation-alert-actions">
+                <button className="social-chat__invalidation-alert-btn" onClick={handleOpen}>Review re-entry</button>
                 <button
                     className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
                     onClick={() => onDismiss?.(msg.id, 'dismissed')}
