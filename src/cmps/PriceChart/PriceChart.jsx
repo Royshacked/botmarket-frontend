@@ -123,11 +123,10 @@ function precisionOf(candles) {
     return Math.min(dec, cap)
 }
 
-// Chart colors are pulled from the app's theme tokens (the CSS custom properties on :root) so the
-// grid / axis / crosshair follow theme + accent switches. The KLineCharts canvas can't read CSS
-// vars itself, so we resolve them to concrete colors at init and re-apply on theme change (see the
-// MutationObserver below). The pane background lives on the container (SCSS, --bg-wash) because the
-// canvas is transparent. Fallbacks are the old ocean tokens, in case a var is missing.
+// The chart is theme-independent: its chrome (grid / axis / crosshair / tooltip) is a FIXED
+// neutral palette and its pane is a fixed black (SCSS), so switching the app's theme color leaves
+// the chart untouched. Only the candle direction colors and the mono font are read from tokens,
+// and those are constant across themes — so there's no need to re-resolve on theme change.
 // Fade a #rrggbb token to an rgba() at the given alpha — the volume bars reuse the candle
 // session colors but sit slightly translucent behind price. Non-hex input is returned as-is.
 function fade(hex, alpha) {
@@ -155,14 +154,19 @@ function readThemeStyles() {
     const cs = getComputedStyle(document.documentElement)
     const v = (name, fallback) => cs.getPropertyValue(name).trim() || fallback
 
-    const GRID   = v('--glow',           'rgba(20, 60, 120, 0.12)')   // faint accent-tinted gridlines
-    const AXIS   = v('--border',         'rgba(20, 60, 120, 0.35)')   // axis / tick / separator lines
-    const AXTEXT = v('--text-secondary', '#7a9bc0')                   // axis labels, last-price mark
-    const CROSS  = v('--border-strong',  'rgba(138, 184, 232, 0.55)') // crosshair lines
-    const TIP    = v('--text-primary',   '#c9dcf2')                   // crosshair / candle tooltip text
-    const TIPBG  = v('--bg-surface',     '#071222')                   // crosshair label background
+    // Chart chrome is pinned to a FIXED neutral-on-black palette — the pane stays black (SCSS) and
+    // the grid / axis / crosshair / tooltip never pick up the app's theme-color (accent) switches.
+    // The chart is intentionally theme-independent; only the candle direction colors and mono font
+    // below still track their (theme-constant) tokens.
+    const GRID   = 'rgba(255, 255, 255, 0.05)'   // faint neutral gridlines
+    const AXIS   = 'rgba(255, 255, 255, 0.18)'   // axis / tick / separator lines
+    const AXTEXT = '#8b8b8b'                      // axis labels, last-price mark
+    const CROSS  = 'rgba(255, 255, 255, 0.45)'   // crosshair lines
+    const TIP    = '#e6e6e6'                      // crosshair / candle tooltip text
+    const TIPBG  = '#141414'                      // crosshair label background
     // Candle up/down reuse the header session-dial colors (MarketClocks): in-session green /
-    // closed-session red — one shared source (--mc-arc-open / --mc-arc-closed in _themes.scss).
+    // closed-session red — one shared source (--mc-arc-open / --mc-arc-closed in _themes.scss),
+    // constant across themes.
     const UP     = v('--mc-arc-open',    '#1c7a3e')
     const DOWN   = v('--mc-arc-closed',  '#5e1212')
     // All chart text/numbers use the app's mono stack (--font-mono) instead of klinecharts'
@@ -295,12 +299,8 @@ export function PriceChart({ symbol = 'SPY', interval = 'D', levels = [], indica
         const onLeave = () => { hoveringRef.current = false; hoverIdxRef.current = -1; showLatest() }
         el.addEventListener('mouseleave', onLeave)
 
-        // Re-resolve the theme tokens and re-apply when the palette changes. Both the theme
-        // (data-theme) and the dev design-trial variant (data-design) live as attributes on
-        // <html> and each remaps --border / --glow / --text-secondary / --bg-surface. Canvas
-        // colors can't track CSS vars live, so we push fresh styles on each switch.
-        const themeObserver = new MutationObserver(() => chart.setStyles(readThemeStyles()))
-        themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-design'] })
+        // No theme observer: the chart's palette is fixed (black pane + neutral chrome), so it
+        // deliberately does NOT follow the app's data-theme / data-design switches.
 
         let pollId = null
         chart.setDataLoader({
@@ -352,7 +352,6 @@ export function PriceChart({ symbol = 'SPY', interval = 'D', levels = [], indica
         return () => {
             clearInterval(pollId)
             ro.disconnect()
-            themeObserver.disconnect()
             chart.unsubscribeAction('onCrosshairChange', onCrosshair)
             el.removeEventListener('mouseleave', onLeave)
             dispose(el)

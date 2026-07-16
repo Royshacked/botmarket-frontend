@@ -60,7 +60,8 @@
     border-left: none;
     border-right: none;
     border-radius: 0;
-    border-color: color-mix(in srgb, var(--border) 12%, transparent);  // very faint top/bottom seams — the chart's hard dark bg makes a full-strength border read much heavier than the chat/radar ones
+    border-color: color-mix(in srgb, var(--border) 12%, transparent);  // very faint bottom seam — the chart's hard dark bg makes a full-strength border read much heavier than the chat/radar ones
+    border-top-color: var(--border);  // top edge runs flush with the chat (left) + ideas (right) column tops at full strength
 }
 
 .workspace__chat {
