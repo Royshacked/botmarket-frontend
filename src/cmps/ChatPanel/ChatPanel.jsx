@@ -182,6 +182,15 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
 
     const showChangedMind = isEditing && !editDirty && !isPostOrderEdit
 
+    // In edit mode there is ALWAYS an enabled escape: leave without saving. It sits at the end of
+    // every turn (and after a Stop — the action bar shows whenever !isLoading), next to whatever
+    // primary action is offered (Update / Buy Market / a disabled Update while not-yet-ready).
+    const laterBtn = isEditing ? (
+        <button className="chat-panel__generate chat-panel__generate--cancel" onClick={onClear}>
+            I&apos;ll do it later
+        </button>
+    ) : null
+
     // Scroll-watch token: changes whenever the action bubble content changes so the
     // chat re-pins to bottom when buttons appear (e.g. idea becomes generate-ready).
     const actionWatch = `${streamStatus}|${ideaReady}|${generateReady}|${isInvalidationReview}|${isEditing}|${isImmediate}|${isPostOrderEdit}`
@@ -273,7 +282,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
 
             {/* Action bar — a footer below the scroll area (not inside it) so it stays
                 pinned above the input without ever covering the messages. */}
-            {!isLoading && (isInvalidationReview ? isEditing : canBuyMarket || editReady || ideaReady || showChangedMind) && (
+            {!isLoading && (isInvalidationReview ? isEditing : isEditing || canBuyMarket || editReady || ideaReady) && (
                 <div className="chat-panel__action-bubble">
                     {dismissConfirm ? (
                         <div className="chat-panel__dismiss-confirm">
@@ -304,35 +313,41 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                             </button>
                         </>
                     ) : canBuyMarket ? (
-                        generateReady ? (
-                            <button
-                                className={`chat-panel__market-btn chat-panel__market-btn--${direction}`}
-                                onClick={onBuyMarket}
-                            >
-                                {direction === 'short' ? 'Sell Market' : 'Buy Market'}
-                            </button>
-                        ) : (
-                            <button
-                                className={`chat-panel__market-btn chat-panel__market-btn--${direction}`}
-                                disabled
-                                title="Select a broker account above to place this trade"
-                            >
-                                {direction === 'short' ? 'Sell Market' : 'Buy Market'}
-                            </button>
-                        )
-                    ) : showChangedMind ? (
-                        <button className="chat-panel__generate chat-panel__generate--cancel" onClick={onClear}>
-                            I&apos;ll do it later
-                        </button>
+                        <>
+                            {generateReady ? (
+                                <button
+                                    className={`chat-panel__market-btn chat-panel__market-btn--${direction}`}
+                                    onClick={onBuyMarket}
+                                >
+                                    {direction === 'short' ? 'Sell Market' : 'Buy Market'}
+                                </button>
+                            ) : (
+                                <button
+                                    className={`chat-panel__market-btn chat-panel__market-btn--${direction}`}
+                                    disabled
+                                    title="Select a broker account above to place this trade"
+                                >
+                                    {direction === 'short' ? 'Sell Market' : 'Buy Market'}
+                                </button>
+                            )}
+                            {laterBtn}
+                        </>
                     ) : (
-                        <button
-                            className="chat-panel__generate"
-                            onClick={generateReady ? onGenerate : undefined}
-                            disabled={!generateReady}
-                            title={generateReady ? undefined : 'Select a broker account above to generate this idea'}
-                        >
-                            {isEditing ? 'Update idea' : 'Generate idea'}
-                        </button>
+                        <>
+                            {/* No "Update idea" until the user has actually changed something
+                                (showChangedMind) — but the "I'll do it later" escape is always there. */}
+                            {!showChangedMind && (
+                                <button
+                                    className="chat-panel__generate"
+                                    onClick={generateReady ? onGenerate : undefined}
+                                    disabled={!generateReady}
+                                    title={generateReady ? undefined : 'Select a broker account above to generate this idea'}
+                                >
+                                    {isEditing ? 'Update idea' : 'Generate idea'}
+                                </button>
+                            )}
+                            {laterBtn}
+                        </>
                     )}
                 </div>
             )}

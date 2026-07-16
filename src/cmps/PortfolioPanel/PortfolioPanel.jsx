@@ -467,7 +467,15 @@ export function PortfolioPanel({
     }
 
     const showChangedMind = !!editingPortfolioId && !editDirty && !isReviewMode
-    const mainActionBar = !isLoading && (isReviewMode ? !!editingPortfolioId : (planReady || showChangedMind))
+    const mainActionBar = !isLoading && (isReviewMode ? !!editingPortfolioId : (!!editingPortfolioId || planReady))
+
+    // In edit mode there's ALWAYS an enabled escape (leave without saving), shown at the end of
+    // every turn and after a Stop — next to "Update plan" instead of only before the first edit.
+    const laterBtn = editingPortfolioId ? (
+        <button className="portfolio-panel__generate portfolio-panel__generate--cancel" onClick={handleCancelEdit}>
+            I&apos;ll do it later
+        </button>
+    ) : null
 
     return (
         <div className="portfolio-panel">
@@ -585,19 +593,22 @@ export function PortfolioPanel({
                                 Dismiss
                             </button>
                         </>
-                    ) : showChangedMind ? (
-                        <button className="portfolio-panel__generate portfolio-panel__generate--cancel" onClick={handleCancelEdit}>
-                            I&apos;ll do it later
-                        </button>
                     ) : (
-                        <button
-                            className="portfolio-panel__generate"
-                            onClick={canGenerate ? handleGenerate : undefined}
-                            disabled={!canGenerate}
-                            title={canGenerate ? undefined : 'Select a broker account above to generate this plan'}
-                        >
-                            {editingPortfolioId ? 'Update plan' : 'Generate plan'}
-                        </button>
+                        <>
+                            {/* No "Update plan" until the user has actually changed something
+                                (showChangedMind) — but the "I'll do it later" escape is always there. */}
+                            {!showChangedMind && (
+                                <button
+                                    className="portfolio-panel__generate"
+                                    onClick={canGenerate ? handleGenerate : undefined}
+                                    disabled={!canGenerate}
+                                    title={canGenerate ? undefined : 'Select a broker account above to generate this plan'}
+                                >
+                                    {editingPortfolioId ? 'Update plan' : 'Generate plan'}
+                                </button>
+                            )}
+                            {laterBtn}
+                        </>
                     )}
                 </div>
             )}

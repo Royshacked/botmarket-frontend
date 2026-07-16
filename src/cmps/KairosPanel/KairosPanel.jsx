@@ -363,6 +363,13 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, chatR
     const canGenerate = callReady && ideaAccounts.length > 0
     // Editing but nothing changed yet → offer a clean exit instead of "Update call".
     const showChangedMind = isEditing && !editDirty
+    // In edit mode there's ALWAYS an enabled escape (leave without saving), shown at the end of
+    // every turn and after a Stop — next to "Update call" instead of only before the first edit.
+    const laterBtn = isEditing ? (
+        <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later kairos-panel__generate-btn" onClick={handleCancelEdit}>
+            I&apos;ll do it later
+        </button>
+    ) : null
 
     // Stopped mid-reply → the input's Stop turns into a Play to resume that bubble (like other chats).
 
@@ -410,17 +417,16 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, chatR
                 <div ref={messagesEndRef} />
             </div>
 
-            {!chat.isLoading && (showChangedMind || callReady) && (
+            {!chat.isLoading && (isEditing || callReady) && (
                 <div className="portfolio-panel__action-bubble">
-                    {showChangedMind ? (
-                        <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later kairos-panel__generate-btn" onClick={handleCancelEdit}>
-                            I&apos;ll do it later
-                        </button>
-                    ) : (
+                    {/* No "Update call" until the user has actually changed something
+                        (showChangedMind) — but the "I'll do it later" escape is always there. */}
+                    {!showChangedMind && (
                         <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update kairos-panel__generate-btn" onClick={isEditing ? handleUpdate : handleGenerate} disabled={!canGenerate}>
                             {ideaAccounts.length === 0 ? 'Mark an account to generate' : isEditing ? 'Update call' : 'Generate call'}
                         </button>
                     )}
+                    {laterBtn}
                 </div>
             )}
 

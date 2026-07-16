@@ -345,6 +345,13 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
 
     const listReady = !!pendingScan && pendingScan.candidates?.length > 0
     const showChangedMind = !!editingScanId && !editDirty
+    // In edit mode there's ALWAYS an enabled escape (leave without saving), shown at the end of
+    // every turn and after a Stop — next to "Update list" instead of only before the first edit.
+    const laterBtn = editingScanId ? (
+        <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={handleClear}>
+            I&apos;ll do it later
+        </button>
+    ) : null
     // A stopped reply with real text can be resumed in place.
     // Argus has FINISHED at least one Phase-1 turn (not merely started+stopped). Gates
     // the setup chips so they don't pop up when the user stops before Argus has asked
@@ -424,17 +431,16 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
 
             {/* Action bar — a footer below the scroll area (not inside it) so it stays
                 pinned above the input without ever covering the messages. */}
-            {!chat.isLoading && (listReady || showChangedMind) && (
+            {!chat.isLoading && (!!editingScanId || listReady) && (
                 <div className="portfolio-panel__action-bubble">
-                    {showChangedMind ? (
-                        <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={handleClear}>
-                            I&apos;ll do it later
-                        </button>
-                    ) : (
+                    {/* "Update/Generate list" only once there's a ready list; the "I'll do it later"
+                        escape is always present in edit mode. */}
+                    {!showChangedMind && listReady && (
                         <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={handleGenerate}>
                             {editingScanId ? 'Update list' : 'Generate list'}
                         </button>
                     )}
+                    {laterBtn}
                 </div>
             )}
 
