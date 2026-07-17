@@ -332,13 +332,10 @@ export function CallPage() {
                         <ManagementCard pending={pending} busy={busy} onAccept={v => act(v)} onDismiss={() => act('dismiss')} />
                     )}
 
-                    {ps && (inPosition || closed) && <PositionPanel ps={ps} status={call.status} />}
-
-                    {inPosition && (
-                        <div className="call-page__actions call-page__actions--manage">
-                            <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" disabled={busy} onClick={() => act('exit_now')}>Exit now</button>
-                        </div>
-                    )}
+                    {/* Closed only: the outcome summary. While in-position the live position + its Close
+                        live in the PopoutFooter below (and management proposals in the ManagementCard),
+                        so no duplicate position box / Exit button up here. */}
+                    {ps && closed && <PositionPanel ps={ps} status={call.status} />}
 
                     {call.thesis && (
                         <div className="idea-dialog__field"><span>Thesis</span><p className="idea-dialog__notes">{call.thesis}</p></div>

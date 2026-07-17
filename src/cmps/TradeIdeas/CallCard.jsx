@@ -102,7 +102,7 @@ export function CallCard({ call, busy = false, onAct, onDelete, onEdit, onSymbol
                 ) : (
                     <>
                         {hasPending && <span className="idea-card__manage-dot" title={`Kairos suggests: ${call.position_state.pending_action.verdict}`}>⚑</span>}
-                        <span className={`idea-card__status-badge status--${call.status}`} title={STATUS_LABEL[call.status] ?? call.status}>
+                        <span className={`idea-card__status-badge status--${CALL_STATUS_ICON[call.status] ?? call.status}`} title={STATUS_LABEL[call.status] ?? call.status}>
                             <StatusIcon status={CALL_STATUS_ICON[call.status] ?? call.status} />
                         </span>
                         {isReady && (

@@ -22,11 +22,11 @@ import './KairosPanel.scss'
 
 const SUGGESTIONS = ['Looking for an intraday trade?', "Let's day trade!", "Let's go for a swing!"]
 
-const KAIROS_PHASE_LABELS = { 1: 'Classify', 2: 'Analyse & zones', 3: 'Risk', 4: 'Trigger', 5: 'Validate & size' }
+const KAIROS_PHASE_LABELS = { 1: 'Classify', 2: 'Regime', 3: 'Fundamentals', 4: 'Technicals', 5: 'Zones', 6: 'Risk', 7: 'Validate & size' }
 
 function MessageBubble({ msg }) {
     if (msg.role === 'phase') {
-        return <ChatPhaseHeading phase={msg.phase} label={KAIROS_PHASE_LABELS[msg.phase]} total={5} />
+        return <ChatPhaseHeading phase={msg.phase} label={KAIROS_PHASE_LABELS[msg.phase]} total={7} />
     }
     if (msg.role === 'user') {
         return <div className="portfolio-panel__bubble portfolio-panel__bubble--user">{msg.content}</div>

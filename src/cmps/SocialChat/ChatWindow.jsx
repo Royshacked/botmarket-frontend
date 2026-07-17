@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
-import { eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS } from '../../services/event-bus.service'
+import { eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN } from '../../services/event-bus.service'
 import { manualService } from '../../services/manual/manual.service.remote'
 import { kairosService } from '../../services/kairos/kairos.service.remote'
 import { ChatInputRow } from '../ChatInputRow.jsx'
@@ -213,11 +213,12 @@ function EntryConfirmBubble({ msg, onClose, onDismiss }) {
     const isCall = kind === 'call'
     const agent  = isCall ? AGENTS.kairos : AGENTS.idea
 
-    // Route to the action surface: a call opens its pop-out; an idea asks the app to surface the
-    // OrderConfirmDialog. Either target may fail to materialize (idea still loading, another
-    // user's idea, orders that don't resolve to a session account) — so this stays replayable.
+    // Route to the action surface: both a call and an idea ask the app to surface the shared
+    // OrderConfirmDialog (a call reviews its Hermes-proposed entry, an idea its triggered order).
+    // Either target may fail to materialize (still loading, another user's, orders that don't
+    // resolve to a session account) — so this stays replayable.
     function openTarget() {
-        if (isCall) openCallPopup(callId)
+        if (isCall) eventBus.emit(CALL_CONFIRM_OPEN,  { callId })
         else        eventBus.emit(ENTRY_CONFIRM_OPEN, { ideaId })
     }
 
@@ -268,7 +269,7 @@ function EntryConfirmBubble({ msg, onClose, onDismiss }) {
             <div className="social-chat__invalidation-alert-reason">{msg.content}</div>
             <div className="social-chat__invalidation-alert-actions">
                 <button className="social-chat__invalidation-alert-btn" onClick={handleConfirm}>
-                    {isCall ? 'View call' : 'Confirm order'}
+                    Confirm order
                 </button>
                 {!isCall && (
                     <button className="social-chat__invalidation-alert-btn" onClick={handleEdit}>Edit</button>

@@ -25,7 +25,7 @@ import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.rem
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
 import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
-import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS } from '../services/event-bus.service'
+import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
 import { useChatStream }     from '../customHooks/useChatStream.js'
 import { useNewsFeed }       from '../customHooks/useNewsFeed.js'
@@ -353,6 +353,7 @@ export function MainPage() {
         handleBackToAxl()   // call updated / edit cancelled — return to the axl hub
     }
     const [dismissedConfirmIds, setDismissedConfirmIds] = useState(() => new Set())
+    const [callConfirmId, setCallConfirmId] = useState(null)   // Kairos call showing the OrderConfirmDialog
     const [placingOrders, setPlacingOrders] = useState(false)
     const [pendingDeleteIdea, setPendingDeleteIdea] = useState(null)
     const [pendingRebalance,  setPendingRebalance]  = useState(null)
@@ -474,6 +475,25 @@ export function MainPage() {
         if (i.orderState !== 'awaiting_confirm' && i.orderState != null) continue
         const orders = ordersForIdea(i)
         if (orders.length > 0) { confirmIdea = i; confirmOrders = orders; break }
+    }
+
+    // Kairos call awaiting order confirmation: the call the user tapped "Confirm order" on, at
+    // 'ready'/'expiring' with a Hermes proposal + marked accounts. Shaped as an idea so the SHARED
+    // OrderConfirmDialog + buildOrderPreview work unchanged; onConfirm routes to actOnCall('confirm').
+    let confirmCallAsIdea = null, confirmCallOrders = []
+    if (callConfirmId && !confirmIdea) {
+        const c = calls.find(x => x.id === callConfirmId)
+        const p = c?.monitor_state?.last_assessment?.proposal
+        if (c && (c.status === 'ready' || c.status === 'expiring') && p && Array.isArray(c.accounts) && c.accounts.length) {
+            const asIdea = {
+                asset: c.asset, asset_class: c.asset_class, direction: c.bias,
+                accounts: c.accounts, mainAccountId: c.main_account_id,
+                quantity: Number(p.size) || Number(c.sizing?.max_size) || 0, type: 'market',
+                conviction: c.conviction, entryTriggeredAt: c.monitor_state?.last_assessment?.at ?? null,
+            }
+            const orders = buildOrderPreview(asIdea, availableAccounts)
+            if (orders.length) { confirmCallAsIdea = asIdea; confirmCallOrders = orders }
+        }
     }
 
     async function handleSend(userPrompt, currentAnalysisState) {
@@ -744,6 +764,8 @@ export function MainPage() {
     // positions without being recreated on every render.
     const ideasRef = useRef(ideas)
     ideasRef.current = ideas
+    const callsRef = useRef(calls)
+    callsRef.current = calls
     const positionsRef = useRef(positions)
     positionsRef.current = positions
     const workspaceRef = useRef(workspace)   // for []-dep event handlers that must read the live workspace
@@ -829,6 +851,34 @@ export function MainPage() {
             if (idea?.status === 'hit') handleDismissConfirm(idea)
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Kairos call entry-confirm card ("Confirm order") → surface the SAME OrderConfirmDialog the idea
+    // flow uses, driven by the call's Hermes-proposed entry. Switch to the call's workspace first so
+    // its marked accounts are loaded (buildOrderPreview needs them to resolve broker/qty).
+    useEffect(() => {
+        return eventBus.on(CALL_CONFIRM_OPEN, ({ callId }) => {
+            const call = callsRef.current.find(c => c.id === callId)
+            if (!call) return
+            if (ideaWorkspace(call) !== workspaceRef.current) setWorkspace(ideaWorkspace(call))
+            setCallConfirmId(callId)
+        })
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Confirm the call's proposed entry → materialize + place via the Kairos handoff (actOnCall).
+    async function handleConfirmCallOrder() {
+        if (!callConfirmId) return
+        setPlacingOrders(true)
+        try {
+            await kairosService.actOnCall(callConfirmId, 'confirm')   // service broadcasts CALLS_CHANGED → loadCalls
+            setCallConfirmId(null)
+        } catch (err) {
+            console.error('[kairos] confirm call order', err)
+            showErrorMsg('Could not place the order')
+        } finally {
+            setPlacingOrders(false)
+        }
+    }
+    function handleDismissCallConfirm() { setCallConfirmId(null) }
 
     // Manual portfolio activate → mark every pending leg awaiting-fill + post the N-leg
     // entry FillCard; reload so the legs reflect the new state (the card arrives via WS).
@@ -1761,6 +1811,17 @@ export function MainPage() {
                     onConfirm={handleConfirmOrders}
                     onDismiss={handleDismissConfirm}
                     onReset={handleResetWindow}
+                />
+            )}
+
+            {/* Same dialog, driven by a Kairos call's proposed entry (no waiting-window → no onReset). */}
+            {confirmCallAsIdea && confirmCallOrders.length > 0 && (
+                <OrderConfirmDialog
+                    idea={confirmCallAsIdea}
+                    orders={confirmCallOrders}
+                    placing={placingOrders}
+                    onConfirm={handleConfirmCallOrder}
+                    onDismiss={handleDismissCallConfirm}
                 />
             )}
 

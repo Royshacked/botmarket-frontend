@@ -18,7 +18,7 @@ export function OrderConfirmDialog({ idea, orders, placing, onConfirm, onDismiss
     const confirmDisabled = placing || marketClosed
 
     const handleDismiss = () => onDismiss(idea)
-    const handleReset   = () => onReset(idea)
+    const handleReset   = () => onReset?.(idea)
 
     return (
         <div className="order-confirm__backdrop" onClick={placing ? undefined : handleDismiss}>
@@ -93,12 +93,14 @@ export function OrderConfirmDialog({ idea, orders, placing, onConfirm, onDismiss
                         onClick={handleDismiss}
                         disabled={placing}
                     >Dismiss</button>
-                    <button
-                        className="order-confirm__btn order-confirm__btn--reset"
-                        onClick={handleReset}
-                        disabled={placing}
-                        title="Ignore this event and watch only for new ones"
-                    >Reset window</button>
+                    {onReset && (
+                        <button
+                            className="order-confirm__btn order-confirm__btn--reset"
+                            onClick={handleReset}
+                            disabled={placing}
+                            title="Ignore this event and watch only for new ones"
+                        >Reset window</button>
+                    )}
                     <button
                         className="order-confirm__btn order-confirm__btn--confirm"
                         onClick={() => onConfirm(idea, orders)}
@@ -117,5 +119,5 @@ OrderConfirmDialog.propTypes = {
     placing:   PropTypes.bool,
     onConfirm: PropTypes.func.isRequired,
     onDismiss: PropTypes.func.isRequired,
-    onReset:   PropTypes.func.isRequired,
+    onReset:   PropTypes.func,   // optional — a Kairos call has no waiting-window to reset
 }
