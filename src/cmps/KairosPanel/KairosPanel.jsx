@@ -111,7 +111,7 @@ export function CallDraft({ call, showHead = true }) {
 // route to the call pop-out (Confirm entry / Accept edit / Delete). They're also listed in the
 // Axl Lists "Calls" tab — so the panel no longer duplicates them as an in-panel readiness strip.
 
-export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, chatRestore = null, editingCallId = null, onEditDone, availableAccounts = [], selectedAccounts = [], mainAccountId = null, resumeRef = null }) {
+export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpenArgus, scanResult = null, chatRestore = null, editingCallId = null, onEditDone, availableAccounts = [], selectedAccounts = [], mainAccountId = null, resumeRef = null }) {
     // threadPhases: Kairos runs all 5 phases in ONE reply, so thread each phase's content under its
     // own heading (other agents emit one phase per turn and don't need it).
     const chat = useChatStream({ threadPhases: true })
@@ -122,6 +122,9 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, chatR
     const [inputText,   setInputText]   = useState('')
     const [pendingCall, setPendingCall] = useState(null)
     const [perf,        setPerf]        = useState(null)
+    // Discovery hand-off: a "find me a ticker" turn returns a scan_request (bias + horizon) instead
+    // of a call — we surface an "Open Argus" chip that routes to the scanner with those constraints.
+    const [scanRequest, setScanRequest] = useState(null)
     // Editing an existing call: until the user actually changes something via chat, the primary
     // button offers a clean "I'll do it later" exit (mirrors the idea edit's "changed my mind").
     const [editDirty,   setEditDirty]   = useState(false)
@@ -173,6 +176,7 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, chatR
     async function _send(text) {
         if (!text || chat.isLoading) return
         setEditDirty(true)
+        setScanRequest(null)   // a new user turn supersedes any pending "Open Argus" offer
         const history = messages.filter(m => !m.streaming && m.role !== 'phase').map(m => ({ role: m.role, content: m.content }))
         history.push({ role: 'user', content: text })
 
@@ -184,6 +188,7 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, chatR
                 chat.finishStreaming({ role: 'assistant' })
                 const nextCall = data.call ?? pendingCall
                 if (data.call) setPendingCall(data.call)
+                if (data.scan_request) setScanRequest(data.scan_request)   // offer the Argus hand-off
                 // Progressively save the build conversation while editing so a reload/leave keeps it
                 // (history built here is authoritative — reading `messages` right after lags a turn).
                 if (editingCallId) {
@@ -247,6 +252,7 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, chatR
                 chat.finishStreaming({ role: 'assistant', content })
                 const nextCall = data.call ?? pendingCall
                 if (data.call) setPendingCall(data.call)
+                if (data.scan_request) setScanRequest(data.scan_request)
                 if (editingCallId) {
                     const msgs = [...history.slice(0, -1), { role: 'assistant', content }]
                     kairosService.updateCall(editingCallId, { chatState: { messages: msgs, draft: nextCall } })
@@ -291,10 +297,23 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, chatR
     function handleClear() {
         chat.reset()
         setPendingCall(null)
+        setScanRequest(null)
         setInputText('')
         setEditDirty(false)
         threadIdRef.current = newThreadId()   // fresh construction thread; abandoned draft TTL-expires
     }
+
+    // Return leg of the Argus hand-off: the user picked a candidate → we're handed the ticker (+ its
+    // scan read). Kairos still holds the bias + horizon in this (never-unmounted) conversation, so we
+    // just drop the ticker in as a new turn and let it resume into Phase 2. Keyed so it fires once.
+    useEffect(() => {
+        if (!scanResult?.ticker) return
+        const tag = [scanResult.direction, scanResult.style].filter(Boolean).join(' ')
+        const msg = `Argus found ${scanResult.ticker}${tag ? ` (${tag})` : ''} for us.`
+            + (scanResult.analysis ? ` Its read: ${scanResult.analysis}` : '')
+            + " Let's build the call."
+        _send(msg)
+    }, [scanResult?.key])   // eslint-disable-line react-hooks/exhaustive-deps
 
     // Resume an unfinished call-building draft: restore its conversation (+ last draft) and keep
     // writing to the SAME thread. Generated calls use the edit/update flow (handleEditCall) instead.
@@ -417,6 +436,17 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, chatR
                 <div ref={messagesEndRef} />
             </div>
 
+            {!chat.isLoading && scanRequest && (
+                <div className="portfolio-panel__action-bubble">
+                    <button
+                        className="portfolio-panel__review-btn portfolio-panel__review-btn--update kairos-panel__generate-btn"
+                        onClick={() => { onOpenArgus?.(scanRequest); setScanRequest(null) }}
+                    >
+                        Open Argus
+                    </button>
+                </div>
+            )}
+
             {!chat.isLoading && (isEditing || callReady) && (
                 <div className="portfolio-panel__action-bubble">
                     {/* No "Update call" until the user has actually changed something
@@ -461,6 +491,8 @@ KairosPanel.propTypes = {
     onLoadingChange:  PropTypes.func,
     onGenerated:      PropTypes.func,
     onPendingCall:    PropTypes.func,
+    onOpenArgus:      PropTypes.func,
+    scanResult:       PropTypes.object,
     chatRestore:      PropTypes.object,
     editingCallId:    PropTypes.string,
     onEditDone:       PropTypes.func,

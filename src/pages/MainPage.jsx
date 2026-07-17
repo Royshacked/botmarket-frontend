@@ -289,6 +289,13 @@ export function MainPage() {
     // being re-worked + a keyed restore payload seeding the panel's chat history + draft.
     const [editingCallId,    setEditingCallId]    = useState(null)
     const [kairosChatRestore, setKairosChatRestore] = useState(null)
+    // Kairos → Argus discovery hand-off. `scanHandoff` tracks an active session (and, once the user
+    // generates the origin list, its scanId — the ONLY list whose candidates get a "→ Kairos" button).
+    // `scannerSeed` pushes the bias/horizon constraints into a freshly-remounted Argus; `kairosScanResult`
+    // carries the picked ticker back into the (never-unmounted) Kairos draft.
+    const [scanHandoff,      setScanHandoff]      = useState({ active: false, request: null })
+    const [scannerSeed,      setScannerSeed]      = useState(null)
+    const [kairosScanResult, setKairosScanResult] = useState(null)
 
     // Kairos calls for the Axl Lists Calls tab. Holds all the user's calls (workspace-filtered in
     // the list); reloads on the shared 'kairos-calls-changed' event (generate / act / delete).
@@ -386,6 +393,12 @@ export function MainPage() {
             setPortfolioChatRestore(null)
             setEditingCallId(null)
             setKairosChatRestore(null)
+            // Clear the discovery hand-off: consumed seed (so a fresh Argus remount can't re-fire the
+            // constraints scan), the return payload, and the origin flag (so a stale hand-off can't
+            // leave a later normal scan stuck in single-pick mode).
+            setScannerSeed(null)
+            setKairosScanResult(null)
+            setScanHandoff({ active: false, request: null })
             setChatResetKey(k => k + 1)
         }, RETURN_MS)
     }
@@ -1348,6 +1361,51 @@ export function MainPage() {
         setChartSymbol(symbol)
     }
 
+    // ── Kairos ↔ Argus discovery hand-off ────────────────────────────────────
+    // Route OUT: Kairos emitted a <scan_request> (bias + horizon) and the user tapped "Open Argus".
+    // Remount Argus fresh (chatResetKey) — which leaves the never-keyed Kairos panel untouched so its
+    // draft survives — then seed it with the constraints. `handoff` flips Argus into single-pick mode
+    // (it converges to ONE ticker and emits <kairos_pick> instead of a watchlist).
+    function buildScanSeedMessage(req) {
+        const bits = [`direction: ${req.direction}`]
+        if (req.style)       bits.push(`horizon: ${req.style}`)
+        if (req.period_hint) bits.push(`window: ${req.period_hint}`)
+        let msg = `Find me one ticker to trade — ${bits.join(', ')}.`
+        if (req.angle_hint) msg += ` Angle: ${req.angle_hint}.`
+        return msg
+    }
+    function handleOpenArgus(scanRequest) {
+        if (!scanRequest?.direction) return
+        setScanHandoff({ active: true, request: scanRequest })
+        setKairosScanResult(null)
+        setScannerChatRestore(null)                             // no edit-restore should interfere
+        setScannerSeed({ key: Date.now(), message: buildScanSeedMessage(scanRequest) })
+        setChatResetKey(k => k + 1)                             // remount Argus fresh (Kairos is unkeyed → survives)
+        setActiveTab('scanner')
+    }
+    // Route BACK: Argus emitted a <kairos_pick> and the user tapped "Back to Kairos" → hand the ticker
+    // (+ its read) to Kairos, which still holds the bias/horizon. Does NOT reset Kairos or bounce Axl.
+    function handleBackToKairos(pick) {
+        if (!pick?.ticker) return
+        setKairosScanResult({
+            key:       Date.now(),
+            ticker:    pick.ticker,
+            direction: pick.direction === 'short' ? 'short' : 'long',
+            style:     scanHandoff.request?.style ?? null,        // Kairos's own horizon (authoritative)
+            analysis:  pick.analysis ?? pick.thesis ?? null,
+        })
+        setScanHandoff({ active: false, request: null })
+        setScannerSeed(null)
+        setChatResetKey(k => k + 1)   // remount Argus fresh (clears its pick/chat); Kairos is unkeyed → draft survives
+        setActiveTab('kairos')
+    }
+    // Dismiss the hand-off → back to Axl, clearing the origin state.
+    function handleCancelKairosHandoff() {
+        setScanHandoff({ active: false, request: null })
+        setKairosScanResult(null)
+        handleBackToAxl()
+    }
+
     // Scan candidate → idea: carries the scanner's intended direction.
     function handleBuildFromCandidate(candidate, scan) {
         if (!candidate?.ticker) return
@@ -1530,6 +1588,10 @@ export function MainPage() {
                                 onUpdateList={handleUpdateList}
                                 onLoadingChange={setScannerLoading}
                                 chatRestore={scannerChatRestore}
+                                scanSeed={scannerSeed}
+                                handoff={scanHandoff.active}
+                                onBackToKairos={handleBackToKairos}
+                                onDismissHandoff={handleCancelKairosHandoff}
                             />
                         </div>
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'portfolio' ? 'flex' : 'none' }}>
@@ -1557,6 +1619,8 @@ export function MainPage() {
                                 onLoadingChange={setKairosLoading}
                                 onGenerated={handleBackToAxl}
                                 onPendingCall={setKairosPendingCall}
+                                onOpenArgus={handleOpenArgus}
+                                scanResult={kairosScanResult}
                                 resumeRef={kairosResumeRef}
                                 chatRestore={kairosChatRestore}
                                 editingCallId={editingCallId}

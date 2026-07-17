@@ -11,10 +11,10 @@ export const scannerService = {
 }
 
 async function sendStream(messages, opts = {}) {
-    const { model, reasoningEffort, routingMode, currentPhase, signal, editList = null } = opts
+    const { model, reasoningEffort, routingMode, currentPhase, signal, editList = null, handoff = false } = opts
     await postSSE(
         `${API_BASE}/${BASE}/stream`,
-        { messages, model, editList, reasoningEffort, routingMode, currentPhase },
+        { messages, model, editList, handoff, reasoningEffort, routingMode, currentPhase },
         buildStreamHandlers(opts),
         { signal },
     )

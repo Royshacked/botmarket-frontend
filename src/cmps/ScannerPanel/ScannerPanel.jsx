@@ -124,7 +124,7 @@ function MessageBubble({ msg, onTickerSelect }) {
     )
 }
 
-export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onLoadingChange, chatRestore = null, resumeRef = null }) {
+export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onLoadingChange, chatRestore = null, scanSeed = null, handoff = false, onBackToKairos, onDismissHandoff, resumeRef = null }) {
     const chat = useChatStream()
     const { messages, setMessages } = chat
 
@@ -136,6 +136,8 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
     const [editingScanId,  setEditingScanId]  = useState(null)
     const [editDirty,      setEditDirty]      = useState(false)
     const [selectedAngles, setSelectedAngles] = useState(() => new Set())
+    // Kairos hand-off single pick (emitted at the end of a hand-off scan) → "Back to Kairos" button.
+    const [kairosPick,     setKairosPick]     = useState(null)
     // Reopen a saved list to edit it (clicked from its pencil): restore the chat,
     // enter edit mode, and prime the pending list with its current contents so the
     // agent can refine it and "Update list" persists back to the same scan.
@@ -154,6 +156,14 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
     const textareaRef       = useRef(null)
     const threadIdRef       = useRef(newThreadId())   // scan construction draft thread
 
+    // Kairos hand-off seed: MainPage remounts this panel fresh (chatResetKey) then pushes a
+    // constraints message (direction/horizon/window). We just send it — Argus reads the constraints
+    // and asks for the scan angle, exactly as if the user opened a fresh scan. Keyed so it fires once.
+    useEffect(() => {
+        if (!scanSeed?.message) return
+        _send(scanSeed.message)
+    }, [scanSeed?.key])   // eslint-disable-line react-hooks/exhaustive-deps
+
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable closure
     const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
     const { isRecording, isTranscribing, toggle: toggleMic, cancel: cancelMic } = useMicInput({ onTranscript })
@@ -161,6 +171,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
     async function _send(text) {
         if (!text || chat.isLoading) return
         setEditDirty(true)
+        setKairosPick(null)   // a new turn supersedes any prior hand-off pick
         // NOTE: the chip selection is intentionally NOT cleared here — it persists as
         // "marked" so that after a scan the user can see their prior pick and refine it.
         // It's reset only on Clear or when a saved list is restored.
@@ -181,6 +192,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
                 pendingTickersRef.current = []
                 chat.finishStreaming({ role: 'assistant', content: data.reply, tickers })
                 if (data.scan?.candidates?.length) setPendingScan(data.scan)
+                if (data.kairos_pick) setKairosPick(data.kairos_pick)   // hand-off: single pick → button
                 // Construction only: persist the scan-building conversation as a draft thread.
                 // The backend enforces the substantive floor (scanner = past nucleus) + TTL.
                 if (!editingScanId) {
@@ -203,6 +215,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
                 // When editing, tell the agent the list's current contents so it can
                 // add / remove / change names against it.
                 editList:        editingScanId ? (pendingScan || null) : null,
+                handoff,   // Kairos hand-off mode: find ONE ticker, emit <kairos_pick>
                 signal,
                 ...handlers,
             })
@@ -250,6 +263,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
                 const content = base + data.reply
                 chat.finishStreaming({ role: 'assistant', content, tickers })
                 if (data.scan?.candidates?.length) setPendingScan(data.scan)
+                if (data.kairos_pick) setKairosPick(data.kairos_pick)
                 if (!editingScanId) {
                     threadsService.saveDraft({
                         threadId: threadIdRef.current, agent: 'scanner',
@@ -269,6 +283,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
                 routingMode:     readStoredRoutingMode('scannerRoutingMode'),
                 currentPhase:    chat.phase,
                 editList:        editingScanId ? (pendingScan || null) : null,
+                handoff,
                 signal:          cont.signal,
                 ...cont.handlers,
             })
@@ -297,6 +312,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
     function handleClear() {
         chat.reset()
         setPendingScan(null)
+        setKairosPick(null)
         setEditingScanId(null)
         setInputText('')
         setEditDirty(false)
@@ -429,9 +445,27 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
                 </div>
             )}
 
+            {/* Kairos hand-off: Argus settled on a single pick → hand it back or dismiss. */}
+            {!chat.isLoading && kairosPick && (
+                <div className="portfolio-panel__action-bubble">
+                    <button
+                        className="portfolio-panel__review-btn portfolio-panel__review-btn--update"
+                        onClick={() => onBackToKairos?.(kairosPick)}
+                    >
+                        Back to Kairos · {kairosPick.ticker}{kairosPick.direction ? ` · ${kairosPick.direction}` : ''}
+                    </button>
+                    <button
+                        className="portfolio-panel__review-btn portfolio-panel__review-btn--later"
+                        onClick={() => onDismissHandoff?.()}
+                    >
+                        Dismiss
+                    </button>
+                </div>
+            )}
+
             {/* Action bar — a footer below the scroll area (not inside it) so it stays
                 pinned above the input without ever covering the messages. */}
-            {!chat.isLoading && (!!editingScanId || listReady) && (
+            {!chat.isLoading && !kairosPick && (!!editingScanId || listReady) && (
                 <div className="portfolio-panel__action-bubble">
                     {/* "Update/Generate list" only once there's a ready list; the "I'll do it later"
                         escape is always present in edit mode. */}
@@ -477,4 +511,8 @@ ScannerPanel.propTypes = {
     onUpdateList:    PropTypes.func,
     onLoadingChange: PropTypes.func,
     chatRestore:     PropTypes.object,
+    scanSeed:        PropTypes.object,
+    handoff:         PropTypes.bool,
+    onBackToKairos:  PropTypes.func,
+    onDismissHandoff: PropTypes.func,
 }
