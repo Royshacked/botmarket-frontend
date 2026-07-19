@@ -9,8 +9,10 @@ export function UserMsg() {
 		const unsubscribe = eventBus.on(SHOW_MSG, msg => {
 			setMsg(msg)
 			if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current)
-			// Broker rejections are worth reading — give errors a longer dwell.
-			timeoutIdRef.current = setTimeout(closeMsg, msg?.type === 'error' ? 6000 : 3000)
+			// Broker rejections are worth reading; a clickable chat preview needs time to read
+			// who it's from AND click through — both get a longer dwell than a plain toast.
+			const longDwell = msg?.type === 'error' || msg?.type === 'chat'
+			timeoutIdRef.current = setTimeout(closeMsg, longDwell ? 6000 : 3000)
 		})
 
 		return unsubscribe

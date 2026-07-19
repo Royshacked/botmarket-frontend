@@ -18,14 +18,14 @@ const TYPE_LABELS = {
 }
 
 // One-line preview for the incoming-message toast. Bot senders resolve to their
-// brand (Idea / Atlas / Argus / axl); human DMs fall back to a neutral label
-// since the sender's name isn't on the message payload.
-function chatPreview(msg) {
-    const brand = isBotId(msg?.senderId) ? (AGENTS[msg.senderId]?.brand ?? null) : null
-    const body  = (msg?.content && String(msg.content).trim())
+// brand (Idea / Atlas / Argus / axl); human DMs use `senderName` (attached to the
+// WS payload by the server) so the toast shows who it's from.
+export function chatPreview(msg) {
+    const who  = isBotId(msg?.senderId) ? (AGENTS[msg.senderId]?.brand ?? null) : (msg?.senderName ?? null)
+    const body = (msg?.content && String(msg.content).trim())
         ? String(msg.content).replace(/\s+/g, ' ').slice(0, 80)
         : (TYPE_LABELS[msg?.type] ?? 'New message')
-    return brand ? `💬 ${brand}: ${body}` : `💬 ${body}`
+    return who ? `💬 ${who}: ${body}` : `💬 ${body}`
 }
 
 export function useChatWs(userId) {
