@@ -24,7 +24,7 @@ function CardAgentTag({ agent }) {
 // agent attribution + how it resolved (`outcome`) + what it was (`reason`), so a scrolled-back
 // card still reads (parity with the Atlas review card, which stays informative when resolved).
 // `reopen`, when set, makes the whole chip a button that re-triggers its original target.
-function ResolvedChip({ agent, outcome, asset, reason, reopen = null }) {
+function ResolvedChip({ agent, outcome, asset, reason, qualifier = null, reopen = null }) {
     return (
         <div
             className={'social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--dismissed' + (reopen ? ' social-chat__invalidation-alert--reopen' : '')}
@@ -32,7 +32,7 @@ function ResolvedChip({ agent, outcome, asset, reason, reopen = null }) {
                 onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); reopen() } } } : {})}
         >
             {agent && <CardAgentTag agent={agent} />}
-            <div className="social-chat__invalidation-alert-header">{outcome} &middot; {asset}</div>
+            <div className="social-chat__invalidation-alert-header">{outcome} &middot; {asset}{qualifier ? <> &middot; {qualifier}</> : null}</div>
             {reason && (
                 <div className="social-chat__invalidation-alert-reason social-chat__invalidation-alert-reason--resolved">{reason}</div>
             )}
@@ -340,8 +340,9 @@ export function CallExpiryBubble({ msg, onClose, onDismiss }) {
 // "Kairos wants to manage the position" card. Notify + route: opens the call pop-out where the
 // user accepts (move stop / take partial / exit / let run) or dismisses the suggestion.
 const MANAGE_VERB_COPY = { move_stop: 'move the stop', take_partial: 'take a partial', exit_now: 'exit now', let_run: 'let it run' }
-function CallManageBubble({ msg, onDismiss }) {
+export function CallManageBubble({ msg, onDismiss }) {
     const { callId, asset, verdict, read } = msg.payload
+    const verb = MANAGE_VERB_COPY[verdict] ?? verdict
 
     function handleOpen() {
         onDismiss?.(msg.id, 'opened')
@@ -350,13 +351,13 @@ function CallManageBubble({ msg, onDismiss }) {
 
     if (msg.dismissed) {
         const label = msg.dismissOutcome === 'opened' ? '✓ Opened' : 'Dismissed'
-        return <ResolvedChip agent={AGENTS.kairos} outcome={label} asset={asset} reason={read || msg.content} />
+        return <ResolvedChip agent={AGENTS.kairos} outcome={label} asset={asset} qualifier={verb} reason={read || msg.content} />
     }
 
     return (
         <div className="social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--manage">
             <CardAgentTag agent={AGENTS.kairos} />
-            <div className="social-chat__invalidation-alert-header">Manage {asset} &middot; {MANAGE_VERB_COPY[verdict] ?? verdict}</div>
+            <div className="social-chat__invalidation-alert-header">Manage {asset} &middot; {verb}</div>
             <div className="social-chat__invalidation-alert-reason">{read || msg.content}</div>
             <div className="social-chat__invalidation-alert-actions">
                 <button className="social-chat__invalidation-alert-btn" onClick={handleOpen}>Review</button>
