@@ -20,4 +20,9 @@ export default defineConfig({
 		outDir: '../botmarket-backend/public',
 		emptyOutDir: true,
 	},
+	// Component tests run under jsdom. Tests import { describe, it, expect, vi } from 'vitest'
+	// explicitly, so `globals` stays off; @testing-library cleanup is called per-test.
+	test: {
+		environment: 'jsdom',
+	},
 })

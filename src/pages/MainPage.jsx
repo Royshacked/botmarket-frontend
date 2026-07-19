@@ -25,7 +25,7 @@ import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.rem
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
 import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
-import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN } from '../services/event-bus.service'
+import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, CALL_EXPIRY_EDIT } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
 import { useChatStream }     from '../customHooks/useChatStream.js'
 import { useNewsFeed }       from '../customHooks/useNewsFeed.js'
@@ -861,6 +861,17 @@ export function MainPage() {
             if (!call) return
             if (ideaWorkspace(call) !== workspaceRef.current) setWorkspace(ideaWorkspace(call))
             setCallConfirmId(callId)
+        })
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Call-expiry card "Edit call" → reopen the call in Kairos's in-app edit mode (same pipeline as
+    // the Calls-tab pencil). handleEditCall re-maps the thesis and "Update call" re-arms the monitor
+    // — updateKairosCall re-arms to 'waiting' whether the call was 'expiring' (alive) or 'expired'
+    // (terminal), so both expiry cards route here.
+    useEffect(() => {
+        return eventBus.on(CALL_EXPIRY_EDIT, ({ callId }) => {
+            const call = callsRef.current.find(c => c.id === callId)
+            if (call) handleEditCall(call)
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
-import { eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN } from '../../services/event-bus.service'
+import { eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, CALL_EXPIRY_EDIT } from '../../services/event-bus.service'
 import { manualService } from '../../services/manual/manual.service.remote'
 import { kairosService } from '../../services/kairos/kairos.service.remote'
 import { ChatInputRow } from '../ChatInputRow.jsx'
@@ -91,7 +91,7 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                                 : msg.type === 'entry_confirm' && msg.payload
                                 ? <EntryConfirmBubble msg={msg} onClose={onClose} onDismiss={onDismissMessage} />
                                 : msg.type === 'call_expiry' && msg.payload
-                                ? <CallExpiryBubble msg={msg} onDismiss={onDismissMessage} />
+                                ? <CallExpiryBubble msg={msg} onClose={onClose} onDismiss={onDismissMessage} />
                                 : msg.type === 'call_manage' && msg.payload
                                 ? <CallManageBubble msg={msg} onDismiss={onDismissMessage} />
                                 : msg.type === 'call_reentry' && msg.payload
@@ -283,15 +283,18 @@ function EntryConfirmBubble({ msg, onClose, onDismiss }) {
     )
 }
 
-// "Trade thesis expiring / expired" card for a Kairos call. Edit re-maps it (opens the call
-// pop-out → Accept edit); Delete removes the call outright. Both persist as handled.
-function CallExpiryBubble({ msg, onDismiss }) {
+// "Trade thesis expiring / expired" card for a Kairos call. Edit re-maps it in Kairos's in-app
+// edit mode (same path as the Calls-tab pencil → re-arms the monitor on save); Delete removes the
+// call outright. Works for both 'expiring' (alive) and 'expired' (terminal) calls. Both persist
+// as handled.
+export function CallExpiryBubble({ msg, onClose, onDismiss }) {
     const { callId, asset, kind, why } = msg.payload
     const label = kind === 'expired' ? 'Thesis expired' : 'Thesis expiring'
 
     function handleEdit() {
         onDismiss?.(msg.id, 'editing')
-        openCallPopup(callId)
+        eventBus.emit(CALL_EXPIRY_EDIT, { callId })
+        onClose?.()
     }
 
     async function handleDelete() {
@@ -300,7 +303,7 @@ function CallExpiryBubble({ msg, onDismiss }) {
     }
 
     if (msg.dismissed) {
-        const label = msg.dismissOutcome === 'editing' ? '✓ Opened'
+        const label = msg.dismissOutcome === 'editing' ? '✓ Opened in chat'
             : msg.dismissOutcome === 'deleted' ? '✓ Deleted'
             : 'Dismissed'
         return (

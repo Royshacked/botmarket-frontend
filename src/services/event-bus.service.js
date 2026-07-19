@@ -16,6 +16,10 @@ export const MANUAL_PORTFOLIO_EXIT     = 'manual-portfolio-exit'
 // and surfaces the OrderConfirmDialog for it (carries { ideaId }).
 export const ENTRY_CONFIRM_OPEN        = 'entry-confirm-open'
 export const CALL_CONFIRM_OPEN         = 'call-confirm-open'
+// Call-expiry card "Edit call" → reopen the call in Kairos's in-app edit mode to re-map the
+// thesis (re-arms the monitor on save). Works for both 'expiring' (alive) and 'expired'
+// (terminal) calls — updateKairosCall re-arms to 'waiting' regardless of prior status.
+export const CALL_EXPIRY_EDIT          = 'call-expiry-edit'
 // Entry-confirm card "Edit" → reopen the idea in its chat to change it (idea → building).
 export const ENTRY_CONFIRM_EDIT        = 'entry-confirm-edit'
 // Entry-confirm card "Dismiss" → park the triggered idea back to 'waiting' (re-armable).
