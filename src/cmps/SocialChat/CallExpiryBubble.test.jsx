@@ -83,11 +83,17 @@ describe('CallExpiryBubble', () => {
         expect(window.open).not.toHaveBeenCalled()
     })
 
-    it('collapses to an informative chip: keeps outcome + reason, drops actions', () => {
+    it('collapses to an informative chip: keeps outcome + kind qualifier + reason, drops actions', () => {
         render(<CallExpiryBubble msg={makeMsg({ dismissed: true, dismissOutcome: 'editing' })} onDismiss={vi.fn()} />)
 
         expect(screen.getByText(/Opened in chat/)).toBeTruthy()   // how it resolved
+        expect(screen.getByText(/expired/)).toBeTruthy()          // kind qualifier (payload kind: 'expired')
         expect(screen.getByText('setup drifted')).toBeTruthy()    // the reason survives (Option 1 parity)
         expect(screen.queryByText('Edit call')).toBeNull()        // actions are gone once collapsed
+    })
+
+    it('maps the alive card (payload kind: edit) to an "expiring" qualifier', () => {
+        render(<CallExpiryBubble msg={makeMsg({ dismissed: true, dismissOutcome: 'dismissed', payload: { callId: 'c9', asset: 'QQQ', kind: 'edit', why: 'still valid' } })} onDismiss={vi.fn()} />)
+        expect(screen.getByText(/expiring/)).toBeTruthy()
     })
 })

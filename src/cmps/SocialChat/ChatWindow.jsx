@@ -151,7 +151,7 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
     )
 }
 
-function InvalidationAlertBubble({ msg, onClose, onDismiss }) {
+export function InvalidationAlertBubble({ msg, onClose, onDismiss }) {
     const { reason, asset, status, inPosition, ideaId } = msg.payload
     // Dismissal is persisted on the message (msg.dismissed), so the choice survives
     // reload and the alert never reappears actionable.
@@ -184,7 +184,7 @@ function InvalidationAlertBubble({ msg, onClose, onDismiss }) {
         const label = msg.dismissOutcome === 'editing' ? '✓ Opened in chat'
             : msg.dismissOutcome === 'closing' ? '✓ Closing'
             : 'Dismissed'
-        return <ResolvedChip agent={AGENTS.idea} outcome={label} asset={asset} reason={reason} />
+        return <ResolvedChip agent={AGENTS.idea} outcome={label} asset={asset} qualifier={kind} reason={reason} />
     }
 
     return (
@@ -298,6 +298,7 @@ function EntryConfirmBubble({ msg, onClose, onDismiss }) {
 export function CallExpiryBubble({ msg, onClose, onDismiss }) {
     const { callId, asset, kind, why } = msg.payload
     const label = kind === 'expired' ? 'Thesis expired' : 'Thesis expiring'
+    const kindLabel = kind === 'expired' ? 'expired' : 'expiring'   // payload kind is 'edit'|'expired'
 
     function handleEdit() {
         onDismiss?.(msg.id, 'editing')
@@ -314,7 +315,7 @@ export function CallExpiryBubble({ msg, onClose, onDismiss }) {
         const label = msg.dismissOutcome === 'editing' ? '✓ Opened in chat'
             : msg.dismissOutcome === 'deleted' ? '✓ Deleted'
             : 'Dismissed'
-        return <ResolvedChip agent={AGENTS.kairos} outcome={label} asset={asset} reason={why || msg.content} />
+        return <ResolvedChip agent={AGENTS.kairos} outcome={label} asset={asset} qualifier={kindLabel} reason={why || msg.content} />
     }
 
     return (
