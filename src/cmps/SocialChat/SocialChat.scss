@@ -468,6 +468,16 @@
         line-height: 1.4;
     }
 
+    // Resolved chip: the reason stays as a single tidy line (the bubble is already dimmed to
+    // 0.55 via --dismissed), so a handled card keeps its context without re-expanding the chat.
+    &__invalidation-alert-reason--resolved {
+        padding-top: 0;
+        font-size: .72rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
     &__invalidation-alert-actions {
         display: flex;
         flex-wrap: wrap;

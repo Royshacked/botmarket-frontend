@@ -83,10 +83,11 @@ describe('CallExpiryBubble', () => {
         expect(window.open).not.toHaveBeenCalled()
     })
 
-    it('collapses to an "Opened in chat" acknowledgement once handled', () => {
+    it('collapses to an informative chip: keeps outcome + reason, drops actions', () => {
         render(<CallExpiryBubble msg={makeMsg({ dismissed: true, dismissOutcome: 'editing' })} onDismiss={vi.fn()} />)
 
-        expect(screen.getByText(/Opened in chat/)).toBeTruthy()
-        expect(screen.queryByText('Edit call')).toBeNull()   // actions are gone once collapsed
+        expect(screen.getByText(/Opened in chat/)).toBeTruthy()   // how it resolved
+        expect(screen.getByText('setup drifted')).toBeTruthy()    // the reason survives (Option 1 parity)
+        expect(screen.queryByText('Edit call')).toBeNull()        // actions are gone once collapsed
     })
 })

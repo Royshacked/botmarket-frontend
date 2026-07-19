@@ -20,6 +20,26 @@ function CardAgentTag({ agent }) {
     )
 }
 
+// Shared collapsed state for the Idea/Kairos "notify + route" cards once handled. Keeps the
+// agent attribution + how it resolved (`outcome`) + what it was (`reason`), so a scrolled-back
+// card still reads (parity with the Atlas review card, which stays informative when resolved).
+// `reopen`, when set, makes the whole chip a button that re-triggers its original target.
+function ResolvedChip({ agent, outcome, asset, reason, reopen = null }) {
+    return (
+        <div
+            className={'social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--dismissed' + (reopen ? ' social-chat__invalidation-alert--reopen' : '')}
+            {...(reopen ? { role: 'button', tabIndex: 0, title: 'Re-open', onClick: reopen,
+                onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); reopen() } } } : {})}
+        >
+            {agent && <CardAgentTag agent={agent} />}
+            <div className="social-chat__invalidation-alert-header">{outcome} &middot; {asset}</div>
+            {reason && (
+                <div className="social-chat__invalidation-alert-reason social-chat__invalidation-alert-reason--resolved">{reason}</div>
+            )}
+        </div>
+    )
+}
+
 function formatTime(ms) {
     if (!ms) return ''
     return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -164,11 +184,7 @@ function InvalidationAlertBubble({ msg, onClose, onDismiss }) {
         const label = msg.dismissOutcome === 'editing' ? '✓ Opened in chat'
             : msg.dismissOutcome === 'closing' ? '✓ Closing'
             : 'Dismissed'
-        return (
-            <div className="social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--dismissed">
-                <div className="social-chat__invalidation-alert-header">{label} &middot; {asset}</div>
-            </div>
-        )
+        return <ResolvedChip agent={AGENTS.idea} outcome={label} asset={asset} reason={reason} />
     }
 
     return (
@@ -247,16 +263,8 @@ function EntryConfirmBubble({ msg, onClose, onDismiss }) {
             : 'Dismissed'
         // A 'confirmed' card keeps its target replayable: the dialog/pop-out it routed to may not
         // have surfaced, so let the collapsed chip re-trigger it instead of dead-ending.
-        const reopen = msg.dismissOutcome === 'confirmed'
-        return (
-            <div
-                className={'social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--dismissed' + (reopen ? ' social-chat__invalidation-alert--reopen' : '')}
-                {...(reopen ? { role: 'button', tabIndex: 0, title: 'Re-open', onClick: openTarget,
-                    onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTarget() } } } : {})}
-            >
-                <div className="social-chat__invalidation-alert-header">{label} &middot; {asset}</div>
-            </div>
-        )
+        const reopen = msg.dismissOutcome === 'confirmed' ? openTarget : null
+        return <ResolvedChip agent={agent} outcome={label} asset={asset} reason={msg.content} reopen={reopen} />
     }
 
     return (
@@ -306,11 +314,7 @@ export function CallExpiryBubble({ msg, onClose, onDismiss }) {
         const label = msg.dismissOutcome === 'editing' ? '✓ Opened in chat'
             : msg.dismissOutcome === 'deleted' ? '✓ Deleted'
             : 'Dismissed'
-        return (
-            <div className="social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--dismissed">
-                <div className="social-chat__invalidation-alert-header">{label} &middot; {asset}</div>
-            </div>
-        )
+        return <ResolvedChip agent={AGENTS.kairos} outcome={label} asset={asset} reason={why || msg.content} />
     }
 
     return (
@@ -346,11 +350,7 @@ function CallManageBubble({ msg, onDismiss }) {
 
     if (msg.dismissed) {
         const label = msg.dismissOutcome === 'opened' ? '✓ Opened' : 'Dismissed'
-        return (
-            <div className="social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--dismissed">
-                <div className="social-chat__invalidation-alert-header">{label} &middot; {asset}</div>
-            </div>
-        )
+        return <ResolvedChip agent={AGENTS.kairos} outcome={label} asset={asset} reason={read || msg.content} />
     }
 
     return (
@@ -381,11 +381,7 @@ function CallReentryBubble({ msg, onDismiss }) {
 
     if (msg.dismissed) {
         const label = msg.dismissOutcome === 'opened' ? '✓ Opened' : 'Dismissed'
-        return (
-            <div className="social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--dismissed">
-                <div className="social-chat__invalidation-alert-header">{label} &middot; {asset}</div>
-            </div>
-        )
+        return <ResolvedChip agent={AGENTS.kairos} outcome={label} asset={asset} reason={why || msg.content} />
     }
 
     return (
