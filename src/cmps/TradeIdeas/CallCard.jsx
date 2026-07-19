@@ -22,10 +22,12 @@ const CALL_STATUS_ICON = {
     confirmed: 'hit', in_position: 'long', closed: 'closed', expired: 'closed', dismissed: 'closed',
 }
 
-// Pre-entry calls can be re-worked in the Kairos chat (the pencil = "Edit in chat", parity with
-// ideas). Once a position is live (confirmed/in_position) or the call is done, the pencil just
-// opens the pop-out — editing the plan mid-position is handled via management cards, not the chat.
-const CHAT_EDITABLE = new Set(['waiting', 'watching', 'ready', 'expiring'])
+// Pre-entry calls — and expired ones — can be re-worked in the Kairos chat (the pencil = "Edit in
+// chat", parity with ideas). Re-mapping an expired thesis re-arms the monitor (updateKairosCall
+// resets it to 'waiting'), matching the social-chat expiry card's "Edit call". Once a position is
+// live (confirmed/in_position) or the call is closed/dismissed, the pencil just opens the pop-out —
+// editing the plan mid-position is handled via management cards, not the chat.
+const CHAT_EDITABLE = new Set(['waiting', 'watching', 'ready', 'expiring', 'expired'])
 
 const fmtR = r => (r == null ? '—' : `${r > 0 ? '+' : ''}${r}R`)
 

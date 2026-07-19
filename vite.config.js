@@ -20,9 +20,12 @@ export default defineConfig({
 		outDir: '../botmarket-backend/public',
 		emptyOutDir: true,
 	},
-	// Component tests run under jsdom. Tests import { describe, it, expect, vi } from 'vitest'
-	// explicitly, so `globals` stays off; @testing-library cleanup is called per-test.
+	// Component/DOM tests (.test.jsx) run under vitest + jsdom; pure-function tests (.test.js)
+	// stay on Node's built-in runner (`node --test`, see their headers). Scope vitest to .jsx so
+	// the two runners don't fight over the same files. Tests import { describe, it, expect, vi }
+	// from 'vitest' explicitly, so `globals` stays off; @testing-library cleanup is called per-test.
 	test: {
 		environment: 'jsdom',
+		include: ['src/**/*.test.jsx'],
 	},
 })
