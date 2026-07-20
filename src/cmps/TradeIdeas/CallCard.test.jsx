@@ -67,4 +67,15 @@ describe('CallCard edit pencil', () => {
         expect(onEdit).not.toHaveBeenCalled()
         expect(window.open).toHaveBeenCalledTimes(1)
     })
+
+    it('dims the pencil (--locked) when editing is off, and keeps it plain when editable', () => {
+        const { container: inPos } = render(<CallCard call={makeCall({ status: 'in_position' })} onEdit={vi.fn()} onAct={vi.fn()} />)
+        const locked = inPos.querySelector('.idea-card__edit-btn')
+        expect(locked.classList.contains('idea-card__edit-btn--locked')).toBe(true)
+        expect(locked.getAttribute('title')).toBe('Open call (editing off in position)')
+
+        cleanup()
+        const { container: editable } = render(<CallCard call={makeCall({ status: 'expired' })} onEdit={vi.fn()} onAct={vi.fn()} />)
+        expect(editable.querySelector('.idea-card__edit-btn').classList.contains('idea-card__edit-btn--locked')).toBe(false)
+    })
 })

@@ -1167,6 +1167,14 @@ $sym-status-colors: (
             color: #ef5350;
             &:hover { color: #ff6b6b; }
         }
+        // Not chat-editable (a call in position / confirmed / closed): the plan can't be
+        // re-edited — mid-trade changes go via management cards — so the pencil is dimmed to
+        // a dark, disabled look. It still clicks through to the pop-out (title says so).
+        &--locked {
+            color: var(--text-muted);
+            opacity: 0.5;
+            &:hover { color: var(--text-muted); }
+        }
     }
 
     &__delete {

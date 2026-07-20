@@ -104,8 +104,8 @@ export function CallCard({ call, busy = false, onAct, onDelete, onEdit, onSymbol
                                 onClick={() => onAct(call.id, 'confirm')}>✓</button>
                         )}
                         <button
-                            className="idea-card__edit-btn"
-                            title={canChatEdit ? 'Edit in chat' : 'Open call'}
+                            className={`idea-card__edit-btn${canChatEdit ? '' : ' idea-card__edit-btn--locked'}`}
+                            title={canChatEdit ? 'Edit in chat' : 'Open call (editing off in position)'}
                             onClick={e => { e.stopPropagation(); canChatEdit ? onEdit(call) : openCallPopup(call) }}
                         ><EditIcon /></button>
                         {onDelete && (
