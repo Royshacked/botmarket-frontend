@@ -303,6 +303,7 @@ export function PriceChart({ symbol = 'SPY', interval = 'D', levels = [], indica
         // deliberately does NOT follow the app's data-theme / data-design switches.
 
         let pollId = null
+        let quoteId = null
         chart.setDataLoader({
             // History. v1 serves the server's default window; pagination (more:false) is a
             // later phase.
@@ -327,23 +328,46 @@ export function PriceChart({ symbol = 'SPY', interval = 'D', levels = [], indica
                     callback([], false)
                 }
             },
-            // Realtime: poll the same endpoint every 15s and push the latest bar; skip a hidden tab.
+            // Realtime, two feeds (both skip a hidden tab):
+            //  • Candles every 15s — but only to introduce a NEW bar (newer timestamp). It must not
+            //    overwrite the current bar's close: the candle close lags the live price (esp. on
+            //    daily/4h, where it's stale all session), and the quote feed below owns that.
+            //  • Quote every 5s — patches the current bar's close/high/low from the real-time price
+            //    so it actually ticks mid-bar. Null price (futures/index) → no patch, candle-only.
             subscribeBar: ({ callback }) => {
                 clearInterval(pollId)
+                clearInterval(quoteId)
                 pollId = setInterval(async () => {
                     if (document.hidden) return
                     try {
                         const res = await marketService.getCandles(symbolRef.current, intervalRef.current)
                         const arr = res?.candles
-                        if (Array.isArray(arr) && arr.length) {
-                            callback(arr[arr.length - 1])
-                            latestBarRef.current = arr[arr.length - 1]
+                        if (!Array.isArray(arr) || !arr.length) return
+                        const last = arr[arr.length - 1]
+                        const cur  = latestBarRef.current
+                        if (!cur || last.timestamp > cur.timestamp) {   // new bar only
+                            callback(last)
+                            latestBarRef.current = last
                             showLatest()
                         }
                     } catch { /* transient — next tick retries */ }
                 }, 15_000)
+                quoteId = setInterval(async () => {
+                    if (document.hidden) return
+                    const base = latestBarRef.current
+                    if (!base) return
+                    try {
+                        const q  = await marketService.getQuote(symbolRef.current)
+                        const px = Number(q?.price)
+                        if (!Number.isFinite(px) || px <= 0) return   // null (uncovered) → Number(null)=0; never patch to 0
+                        const patched = { ...base, close: px, high: Math.max(base.high, px), low: Math.min(base.low, px) }
+                        callback(patched)
+                        latestBarRef.current = patched
+                        showLatest()
+                    } catch { /* transient — next tick retries */ }
+                }, 5_000)
             },
-            unsubscribeBar: () => { clearInterval(pollId); pollId = null },
+            unsubscribeBar: () => { clearInterval(pollId); clearInterval(quoteId); pollId = null; quoteId = null },
         })
 
         const ro = new ResizeObserver(() => chart.resize())
@@ -351,6 +375,7 @@ export function PriceChart({ symbol = 'SPY', interval = 'D', levels = [], indica
 
         return () => {
             clearInterval(pollId)
+            clearInterval(quoteId)
             ro.disconnect()
             chart.unsubscribeAction('onCrosshairChange', onCrosshair)
             el.removeEventListener('mouseleave', onLeave)

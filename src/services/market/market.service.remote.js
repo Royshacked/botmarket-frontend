@@ -3,6 +3,7 @@ import { httpService } from '../http.service'
 export const marketService = {
     getStatus,
     getCandles,
+    getQuote,
 }
 
 /**
@@ -31,4 +32,16 @@ async function getCandles(symbol, interval, { from, to } = {}) {
         ...(from != null ? { from } : {}),
         ...(to != null ? { to } : {}),
     })
+}
+
+/**
+ * Real-time last price for the chart's current-bar tick — `{ price, dayHigh, dayLow }`, or
+ * `{ price: null }` when the server can't price the symbol (futures/index → chart stays on
+ * candle-only). Cheap and ~3s-fresh, so the chart can poll it faster than the candle history.
+ *
+ * @param {string} symbol
+ * @returns {Promise<{ symbol: string, price: number|null, dayHigh?: number, dayLow?: number, tsSec?: number }>}
+ */
+async function getQuote(symbol) {
+    return httpService.get('api/market/quote', { symbol })
 }

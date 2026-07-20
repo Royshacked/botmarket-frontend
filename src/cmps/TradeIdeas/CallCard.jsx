@@ -2,7 +2,7 @@ import PropTypes from 'prop-types'
 import { HermesBadge } from '../AxlHub/AgentBadges.jsx'
 import { BinIcon, EditIcon } from './TradeIdeaCards.jsx'
 import { StatusIcon } from '../StatusIcon.jsx'
-import { formatCreatedAt } from './tradeIdea.utils.js'
+import { formatCreatedAt, openCallPopup } from './tradeIdea.utils.js'
 
 // A Kairos "call" row for the Axl Lists Calls tab — parity with IdeaCard: Hermes mark, a status
 // badge, confirm (when ready), an edit/open pencil (pops out the detail window), and delete.
@@ -30,14 +30,6 @@ const CALL_STATUS_ICON = {
 const CHAT_EDITABLE = new Set(['waiting', 'watching', 'ready', 'expiring', 'expired'])
 
 const fmtR = r => (r == null ? '—' : `${r > 0 ? '+' : ''}${r}R`)
-
-// Pop-out detail window for a call (mirrors openIdeaPopup): stash the data, open /call/:id.
-function openCallPopup(call) {
-    localStorage.setItem(`popup-call-${call.id}`, JSON.stringify(call))
-    const popup = window.open(`/call/${call.id}`, `call-${call.id}`, 'width=1180,height=760')
-    if (popup) popup.__callData = call
-    return popup
-}
 
 function summary(call) {
     const p  = call.monitor_state?.last_assessment?.proposal

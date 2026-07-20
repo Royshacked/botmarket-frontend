@@ -4,7 +4,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-    groupPositions, positionOwnerIdea, positionBelongsToIdea, summarizePositions,
+    groupPositions, positionOwnerIdea, positionBelongsToIdea, positionOpenTarget, summarizePositions,
     positionPnlPct, positionWorkspace, formatPrice, formatPnlPct,
 } from './tradeIdea.utils.js'
 
@@ -28,6 +28,34 @@ test('positionOwnerIdea finds the linking idea, else null', () => {
     const ideas = [idea('p1'), idea('p2')]
     assert.equal(positionOwnerIdea(pos('p2'), ideas)?.id, 'p2')
     assert.equal(positionOwnerIdea(pos('ghost'), ideas), null) // orphan broker position
+})
+
+test('positionOpenTarget: a stamped callId routes to its Call (full object when loaded)', () => {
+    const call = { id: 'call_1', asset: 'EXTR', status: 'in_position' }
+    const p    = pos('px1', { callId: 'call_1' })
+    const t    = positionOpenTarget(p, [], [call])
+    assert.equal(t.kind, 'call')
+    assert.equal(t.call, call)                        // loaded call → passed for instant render
+})
+
+test('positionOpenTarget: a stamped callId with the call not loaded falls back to the id', () => {
+    const p = pos('px1', { callId: 'call_1' })
+    const t = positionOpenTarget(p, [], [])           // call not in the list
+    assert.deepEqual(t, { kind: 'call', call: 'call_1' })  // bare id → CallPage fetches it
+})
+
+test('positionOpenTarget: no callId routes to the owning idea, else null', () => {
+    const ideas = [idea('p1')]
+    assert.deepEqual(positionOpenTarget(pos('p1'), ideas, []), { kind: 'idea', idea: ideas[0] })
+    assert.equal(positionOpenTarget(pos('orphan'), ideas, []), null)   // owner-less → no-op
+})
+
+test('positionOpenTarget: callId wins even when an idea also matches', () => {
+    // A call position's execution idea is hidden from `ideas`, but guard the precedence anyway.
+    const call  = { id: 'call_1' }
+    const ideas = [idea('px1')]                        // would match by positionId
+    const t     = positionOpenTarget(pos('px1', { callId: 'call_1' }), ideas, [call])
+    assert.equal(t.kind, 'call')
 })
 
 test('groupPositions buckets portfolio positions and leaves the rest loose', () => {

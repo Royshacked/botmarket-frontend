@@ -5,7 +5,7 @@ import { ClosePositionDialog } from './ClosePositionDialog.jsx'
 import { EditOrdersDialog } from './EditOrdersDialog.jsx'
 import { ActivatePortfolioDialog } from './ActivatePortfolioDialog.jsx'
 import { PositionsTable, posKey } from './PositionsTable.jsx'
-import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel, isDeleteLocked, isManualIdea, openIdeaPopup, formatPnl, ideaPnl, portfolioPnl, positionOwnerIdea } from './tradeIdea.utils.js'
+import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel, isDeleteLocked, isManualIdea, openIdeaPopup, openCallPopup, formatPnl, ideaPnl, portfolioPnl, positionOpenTarget } from './tradeIdea.utils.js'
 import { eventBus, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, REVIEW_RESOLVED } from '../../services/event-bus.service'
 import { portfolioService } from '../../services/portfolio/portfolio.service.remote.js'
 import { StatusIcon } from '../StatusIcon.jsx'
@@ -366,13 +366,15 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
     // Clicking an idea row opens it straight in its own pop-out window.
     function handleOpen(idea) { openIdeaPopup(idea) }
 
-    // Clicking a position row opens the idea that owns it. A position links to an idea
-    // via a brokerOrders entry carrying its positionId — matched on broker + account +
-    // positionId (a positionId is only unique within its account). Idea-less positions
-    // (e.g. paper trades with no surviving idea) are a no-op.
+    // Clicking a position row opens the entity that owns it. A call-originated position carries
+    // its owning callId (stamped server-side — its execution idea is hidden from the ideas list),
+    // so route those to the Call pop-out. Otherwise it links to a visible idea via a brokerOrders
+    // entry (matched on broker + account + positionId). Truly owner-less positions (e.g. a paper
+    // trade whose idea was deleted) are a no-op.
     function handleOpenPosition(position) {
-        const idea = positionOwnerIdea(position, ideas)
-        if (idea) openIdeaPopup(idea)
+        const target = positionOpenTarget(position, ideas, calls)
+        if (target?.kind === 'call')      openCallPopup(target.call)
+        else if (target?.kind === 'idea') openIdeaPopup(target.idea)
     }
 
     function selectPositions() {

@@ -53,6 +53,24 @@ export function openIdeaPopup(idea) {
     return popup
 }
 
+/**
+ * Pop-out detail window for a Kairos call (mirrors openIdeaPopup). Accepts a full call object
+ * (stashed for instant render) or a bare call id (CallPage fetches it from the API). Used by the
+ * Call cards, social-chat bubbles, and the Positions tab (a call-originated position → its Call).
+ *
+ * @param {import('../../types.js').Call|string} call  a call object or its id
+ * @returns {Window|null}
+ */
+export function openCallPopup(call) {
+    const id = typeof call === 'string' ? call : call?.id
+    if (!id) return null
+    const isObj = call && typeof call === 'object'
+    if (isObj) localStorage.setItem(`popup-call-${id}`, JSON.stringify(call))
+    const popup = window.open(`/call/${id}`, `call-${id}`, 'width=1180,height=760')
+    if (popup && isObj) popup.__callData = call
+    return popup
+}
+
 // Field triples per trade phase. Single source for how entry/stop/tp conditions
 // are stored (nested tree, legacy flat array + logic) so every consumer reads the
 // same way instead of re-deriving field names.
@@ -303,6 +321,25 @@ export function matchPositionsForIdea(idea, positions = []) {
  */
 export function positionOwnerIdea(pos, ideas = []) {
     return ideas.find(i => positionBelongsToIdea(pos, i)) ?? null
+}
+
+/**
+ * What clicking a position row should open. A call-originated position carries a stamped `callId`
+ * (its execution idea is ownedBy:'hermes' and hidden from the ideas list, so it can't resolve to a
+ * visible idea) → open the Call pop-out, preferring the loaded call object for an instant render and
+ * falling back to the bare id (CallPage fetches it). Otherwise open its owning visible idea. Returns
+ * null for an owner-less/orphan broker position (e.g. a paper trade whose idea was deleted) → no-op.
+ * Pure — the single source for the Positions-tab open routing.
+ *
+ * @returns {{ kind: 'call', call: object|string } | { kind: 'idea', idea: object } | null}
+ */
+export function positionOpenTarget(pos, ideas = [], calls = []) {
+    if (pos?.callId) {
+        const call = calls.find(c => c.id === pos.callId)
+        return { kind: 'call', call: call ?? pos.callId }
+    }
+    const idea = positionOwnerIdea(pos, ideas)
+    return idea ? { kind: 'idea', idea } : null
 }
 
 /**
