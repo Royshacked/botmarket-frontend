@@ -1454,7 +1454,9 @@ export function MainPage() {
             ticker:    pick.ticker,
             direction: pick.direction === 'short' ? 'short' : 'long',
             style:     scanHandoff.request?.style ?? null,        // Kairos's own horizon (authoritative)
+            thesis:    pick.thesis ?? null,
             analysis:  pick.analysis ?? pick.thesis ?? null,
+            recommended_mode: pick.recommended_mode ?? null,       // Argus's lens suggestion → pre-fills the chip
         })
         setScanHandoff({ active: false, request: null })
         setScannerSeed(null)

@@ -135,6 +135,7 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
     const [editDirty,   setEditDirty]   = useState(false)
     const textareaRef = useRef(null)
     const threadIdRef = useRef(newThreadId())   // call construction draft thread
+    const seedRef     = useRef(null)            // one-shot Argus candidate seed for the next send (K3)
 
     const isEditing = !!editingCallId
 
@@ -183,6 +184,7 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
         if (!text || chat.isLoading) return
         setEditDirty(true)
         setScanRequest(null)   // a new user turn supersedes any pending "Open Argus" offer
+        const seed = seedRef.current; seedRef.current = null   // one-shot: only this turn carries the Argus seed
         const history = messages.filter(m => !m.streaming && m.role !== 'phase').map(m => ({ role: m.role, content: m.content }))
         history.push({ role: 'user', content: text })
 
@@ -224,6 +226,7 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
                 // Feed the draft-so-far back so the model carries settled fields forward
                 // (its own <call> block is stripped from the visible history). `mode` = the build lens.
                 chatState:       { active_asset: pendingCall?.asset || '', draft: pendingCall, mode },
+                seed,            // K3: structured Argus candidate (one-shot on the hand-off turn)
                 signal,
                 ...handlers,
             })
@@ -314,11 +317,16 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
     // just drop the ticker in as a new turn and let it resume into Phase 2. Keyed so it fires once.
     useEffect(() => {
         if (!scanResult?.ticker) return
-        const tag = [scanResult.direction, scanResult.style].filter(Boolean).join(' ')
-        const msg = `Argus found ${scanResult.ticker}${tag ? ` (${tag})` : ''} for us.`
-            + (scanResult.analysis ? ` Its read: ${scanResult.analysis}` : '')
-            + " Let's build the call."
-        _send(msg)
+        // K3: pass the candidate as a STRUCTURED seed (not free text) + pre-fill the lens chip from
+        // Argus's recommendation (the user can still override before/after).
+        if (scanResult.recommended_mode) pickMode(scanResult.recommended_mode)
+        seedRef.current = {
+            ticker:    scanResult.ticker,
+            direction: scanResult.direction ?? null,
+            thesis:    scanResult.thesis ?? null,
+            analysis:  scanResult.analysis ?? null,
+        }
+        _send(`Let's build the ${scanResult.ticker} call.`)
     }, [scanResult?.key])   // eslint-disable-line react-hooks/exhaustive-deps
 
     // Resume an unfinished call-building draft: restore its conversation (+ last draft) and keep
