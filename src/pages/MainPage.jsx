@@ -327,6 +327,7 @@ export function MainPage() {
         const draft = call.chat_state?.draft ?? {
             asset:            call.asset,
             asset_class:      call.asset_class      ?? null,
+            mode:             call.mode             ?? null,   // relight the lens chip on edit
             trade_type:       call.trade_type       ?? null,
             bias:             call.bias             ?? null,
             thesis:           call.thesis           ?? null,
