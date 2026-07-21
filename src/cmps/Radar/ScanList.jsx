@@ -168,7 +168,7 @@ function Candidate({ c, onSelect }) {
                     name={c.name}
                     logo={c.logo}
                     onSelect={() => onSelect?.(c)}
-                    title="Build a trade idea from this"
+                    title="Build a Kairos call from this"
                 />
                 <span className="scan-list__cand-thesis">{c.thesis}</span>
                 <ScoreBadge total={c.score?.total} />

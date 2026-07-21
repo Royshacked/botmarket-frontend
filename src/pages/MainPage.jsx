@@ -122,57 +122,8 @@ function deriveCallInterval(tf, tradeType) {
     return DEFAULT_CHART_INTERVAL
 }
 
-function _periodPhrase(period) {
-    if (!period) return ''
-    const range = period.start && period.end && period.start !== period.end
-        ? `${period.start} – ${period.end}`
-        : (period.start || period.end || '')
-    return [period.label, range && `(${range})`].filter(Boolean).join(' ')
-}
-
-// Readable summary of a scan candidate, shown as an assistant bubble when the
-// user opens it — markdown so it renders nicely in the chat.
-function buildCandidateSummary(c, period) {
-    const dir   = c.direction === 'short' ? 'short' : 'long'
-    const lines = [`**Scan pick — ${c.ticker}${c.name ? ` · ${c.name}` : ''} — ${dir.toUpperCase()}**`]
-
-    const when = _periodPhrase(period)
-    if (when) lines.push(`*Time horizon: ${when}*`)
-
-    if (c.thesis)   lines.push(`\n**Thesis:** ${c.thesis}`)
-    if (c.analysis) lines.push(`\n${c.analysis}`)
-
-    const signals = c.signals && Object.entries(c.signals).filter(([, v]) => v)
-    if (signals?.length) {
-        lines.push('\n**Signals**')
-        signals.forEach(([k, v]) => lines.push(`- **${k}:** ${v}`))
-    }
-    if (c.sources?.length) {
-        lines.push('\n**Sources**')
-        c.sources.forEach(s => lines.push(`- [${s.title || s.url}](${s.url})`))
-    }
-
-    lines.push(`\n_Ask me about entry, stop, or take-profit and I'll build this into a trade — I already have the scan context above._`)
-    return lines.join('\n')
-}
-
-// Same context, phrased for the idea agent's system prompt (recent_chat_summary).
-// Lets the agent answer the user's first question already knowing the candidate,
-// without pre-filling structured trade fields (keeps the idea flow natural).
-function buildCandidateContext(c, period) {
-    const dir  = c.direction === 'short' ? 'short' : 'long'
-    const when = _periodPhrase(period)
-    const signals = c.signals && Object.entries(c.signals).filter(([, v]) => v)
-    return [
-        `The user opened this trade idea from a market scan and is reading the candidate summary.`,
-        `Pick: ${c.ticker}${c.name ? ` (${c.name})` : ''}, intended direction ${dir}.`,
-        when ? `Time horizon: ${when} — treat this as the idea's intended time condition.` : '',
-        c.thesis   ? `Scanner thesis: ${c.thesis}` : '',
-        c.analysis ? `Scanner analysis: ${c.analysis}` : '',
-        signals?.length ? `Signals — ${signals.map(([k, v]) => `${k}: ${v}`).join('; ')}.` : '',
-        `Do not respond yet; when the user asks, use this context to help shape the trade (entry, stop, take-profit) and set the time condition from the horizon.`,
-    ].filter(Boolean).join(' ')
-}
+// (Scan candidates now seed the KAIROS chat via handleBuildFromCandidate — the idea-summary/context
+// builders they used were removed with that reroute. See K3, KAIROS_MODES.md.)
 
 // Finnhub session codes → readable when-phrasing for the earnings print.
 const _EARN_WHEN_PHRASE = { bmo: 'before the open', amc: 'after the close', dmh: 'during market hours' }
@@ -1471,15 +1422,20 @@ export function MainPage() {
     }
 
     // Scan candidate → idea: carries the scanner's intended direction.
+    // K3: a scan-list candidate is a Kairos SEED — same path as the Argus hand-off (point 6). Routes to
+    // the Kairos chat with the candidate's ticker + read (+ Argus's recommended lens if the scan carried one).
     function handleBuildFromCandidate(candidate, scan) {
         if (!candidate?.ticker) return
-        const period = scan?.period
-        seedIdeaChat({
-            symbol:    candidate.ticker,
-            summary:   buildCandidateSummary(candidate, period),
-            context:   buildCandidateContext(candidate, period),
+        setKairosScanResult({
+            key:       Date.now(),
+            ticker:    candidate.ticker,
             direction: candidate.direction === 'short' ? 'short' : 'long',
+            style:     scan?.style ?? null,
+            thesis:    candidate.thesis ?? null,
+            analysis:  candidate.analysis ?? candidate.thesis ?? null,
+            recommended_mode: candidate.recommended_mode ?? null,
         })
+        setActiveTab('kairos')
     }
 
     // Earnings ticker → idea: earnings has no built-in bias, so direction stays open.
