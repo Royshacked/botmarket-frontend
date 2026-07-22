@@ -1429,6 +1429,10 @@ export function MainPage() {
     // the Kairos chat with the candidate's ticker + read (+ Argus's recommended lens if the scan carried one).
     function handleBuildFromCandidate(candidate, scan) {
         if (!candidate?.ticker) return
+        // A forward-dated list is period-scoped (main category = period). Carry that period as the
+        // call's scheduled window so Kairos/Hermes gate monitoring to it (no watching before it opens).
+        const p = scan?.period
+        const window = (p && (p.start || p.end)) ? { from: p.start ?? null, to: p.end ?? null } : null
         setKairosScanResult({
             key:       Date.now(),
             ticker:    candidate.ticker,
@@ -1437,6 +1441,7 @@ export function MainPage() {
             thesis:    candidate.thesis ?? null,
             analysis:  candidate.analysis ?? candidate.thesis ?? null,
             recommended_mode: candidate.recommended_mode ?? null,
+            window,
         })
         setActiveTab('kairos')
     }

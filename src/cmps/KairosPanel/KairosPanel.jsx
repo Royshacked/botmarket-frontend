@@ -136,6 +136,7 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
     const textareaRef = useRef(null)
     const threadIdRef = useRef(newThreadId())   // call construction draft thread
     const seedRef     = useRef(null)            // one-shot Argus candidate seed for the next send (K3)
+    const buildWindowRef = useRef(null)         // forward-dated list window {from,to} → gates the call at generate (persists across the build, unlike the one-shot seed)
 
     const isEditing = !!editingCallId
 
@@ -320,11 +321,15 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
         // K3: pass the candidate as a STRUCTURED seed (not free text) + pre-fill the lens chip from
         // Argus's recommendation (the user can still override before/after).
         if (scanResult.recommended_mode) pickMode(scanResult.recommended_mode)
+        // A forward-dated list carries a window → remember it for the whole build (the seed is one-shot,
+        // so the model loses it after turn 1; the code gates the call from this ref at generate).
+        buildWindowRef.current = scanResult.window ?? null
         seedRef.current = {
             ticker:    scanResult.ticker,
             direction: scanResult.direction ?? null,
             thesis:    scanResult.thesis ?? null,
             analysis:  scanResult.analysis ?? null,
+            window:    scanResult.window ?? null,   // narrated in the ARGUS SEED block (server sets the actual gate)
         }
         _send(`Let's build the ${scanResult.ticker} call.`)
     }, [scanResult?.key])   // eslint-disable-line react-hooks/exhaustive-deps
@@ -347,13 +352,17 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
     async function handleGenerate() {
         if (!pendingCall || ideaAccounts.length === 0) return
         try {
-            const saved = await kairosService.generateCall(pendingCall, ideaAccounts, mainAccountId, { messages: persistedMessages(), draft: pendingCall })
+            // Forward-dated build: hand the remembered window to the server, which gates the call to it
+            // (active_from/valid_until) unless the model already set explicit bounds. Transient — not stored.
+            const payload = buildWindowRef.current ? { ...pendingCall, build_window: buildWindowRef.current } : pendingCall
+            const saved = await kairosService.generateCall(payload, ideaAccounts, mainAccountId, { messages: persistedMessages(), draft: pendingCall })
             // Link the construction draft thread to the created call (clears its TTL so the
             // conversation lives with the call). saved = the persisted call doc (has .id).
             if (saved?.id) {
                 threadsService.linkThread(threadIdRef.current, { subjectType: 'call', subjectId: saved.id, artifactName: pendingCall.asset ?? null })
             }
             threadIdRef.current = newThreadId()   // next build gets a fresh draft thread
+            buildWindowRef.current = null          // window consumed
             setPendingCall(null)
             await refreshPerf()
             onGenerated?.()   // call generated — return to the axl hub
