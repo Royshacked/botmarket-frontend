@@ -16,6 +16,7 @@ import { Radar }             from '../cmps/Radar/Radar.jsx'
 import { PriceChart }  from '../cmps/PriceChart/PriceChart.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
 import { kairosService, CALLS_CHANGED } from '../services/kairos/kairos.service.remote.js'
+import { analystService, COVERAGE_CHANGED } from '../services/analyst/analyst.service.remote.js'
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
@@ -249,6 +250,8 @@ export function MainPage() {
     const [scannerSeed,      setScannerSeed]      = useState(null)
     const [kairosScanResult, setKairosScanResult] = useState(null)
     const [analystScanResult, setAnalystScanResult] = useState(null)   // Argus investing candidate → Analyst research seed
+    const [coverage,        setCoverage]          = useState([])       // the Analyst's living book (Radar Coverage tab)
+    const [coverageLoading, setCoverageLoading]   = useState(false)
 
     // Kairos calls for the Axl Lists Calls tab. Holds all the user's calls (workspace-filtered in
     // the list); reloads on the shared 'kairos-calls-changed' event (generate / act / delete).
@@ -261,6 +264,25 @@ export function MainPage() {
         const t = setInterval(loadCalls, 20_000)
         return () => { window.removeEventListener(CALLS_CHANGED, loadCalls); clearInterval(t) }
     }, [loadCalls])
+
+    // The Analyst's living coverage book (Radar Coverage tab). Reloads on initiate/retire
+    // (COVERAGE_CHANGED); polled so the monitor's status/gap updates surface.
+    const coverageLoadedRef = useRef(false)
+    const loadCoverage = useCallback(async () => {
+        if (!coverageLoadedRef.current) setCoverageLoading(true)   // spinner only on first load, not on polls
+        try { setCoverage(await analystService.listCoverage()); coverageLoadedRef.current = true }
+        finally { setCoverageLoading(false) }
+    }, [])
+    useEffect(() => {
+        loadCoverage()
+        window.addEventListener(COVERAGE_CHANGED, loadCoverage)
+        const t = setInterval(loadCoverage, 60_000)
+        return () => { window.removeEventListener(COVERAGE_CHANGED, loadCoverage); clearInterval(t) }
+    }, [loadCoverage])
+    async function handleRetireCoverage(cov) {
+        if (!cov?.id) return
+        try { await analystService.retireCoverage(cov.id) } catch (err) { console.error('[analyst] retire', err) }
+    }
 
     async function handleActCall(id, action) {
         setCallBusyId(id)
@@ -1679,7 +1701,7 @@ export function MainPage() {
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'analyst' ? 'flex' : 'none' }}>
                             <AnalystPanel
                                 scanResult={analystScanResult}
-                                onInitiated={handleBackToAxl}
+                                onInitiated={() => { setNewsTab('coverage'); handleBackToAxl() }}
                             />
                         </div>
 
@@ -1709,6 +1731,9 @@ export function MainPage() {
                             onCandidateSelect={handleBuildFromCandidate}
                             onDeleteScan={deleteScan}
                             onEditScan={handleEditScan}
+                            coverage={coverage}
+                            coverageLoading={coverageLoading}
+                            onRetireCoverage={handleRetireCoverage}
                             earnings={earnings}
                             earningsFrom={earningsFrom}
                             earningsTo={earningsTo}

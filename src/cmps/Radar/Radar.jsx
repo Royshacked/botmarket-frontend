@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { ScanList } from './ScanList.jsx'
+import { CoverageBook } from './CoverageBook.jsx'
 import { RadarTicker } from './RadarTicker.jsx'
 import { useDesign } from '../../customHooks/useDesign.js'
 import './Radar.scss'
@@ -30,6 +31,9 @@ export function Radar({
     ipo = [],
     ipoLoading = false,
     onIpoSelect,
+    coverage = [],
+    coverageLoading = false,
+    onRetireCoverage,
 }) {
     // In the cards design the nav rides in the header beside the title (like Axl
     // Lists); every other design keeps the full-width underline tabs on their own row.
@@ -64,6 +68,12 @@ export function Radar({
                 onClick={() => onTabChange?.('fed')}
             >
                 Fed{fed.length > 0 && <span className="news-feed__tab-count">{fed.length}</span>}
+            </button>
+            <button
+                className={`news-feed__tab${tab === 'coverage' ? ' news-feed__tab--active' : ''}`}
+                onClick={() => onTabChange?.('coverage')}
+            >
+                Coverage{coverage.length > 0 && <span className="news-feed__tab-count">{coverage.length}</span>}
             </button>
         </div>
     )
@@ -110,6 +120,10 @@ export function Radar({
             ) : tab === 'ipo' ? (
                 <div className="news-feed__list">
                     <IpoList items={ipo} loading={ipoLoading} onSelect={onIpoSelect} />
+                </div>
+            ) : tab === 'coverage' ? (
+                <div className="news-feed__list">
+                    <CoverageBook coverage={coverage} loading={coverageLoading} onRetire={onRetireCoverage} />
                 </div>
             ) : (
                 <div className="news-feed__list">
@@ -397,4 +411,7 @@ Radar.propTypes = {
     ipo:               PropTypes.array,
     ipoLoading:        PropTypes.bool,
     onIpoSelect:       PropTypes.func,
+    coverage:          PropTypes.array,
+    coverageLoading:   PropTypes.bool,
+    onRetireCoverage:  PropTypes.func,
 }
