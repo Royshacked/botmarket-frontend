@@ -139,6 +139,8 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
     // Argus profile (P4a): Trading (technical/catalyst → Kairos) vs Investing (fundamental/quality →
     // the Analyst). Hidden in hand-off mode (a Kairos hand-off is always a trade).
     const [profile,        setProfile]        = useState('trading')
+    const profileRef = useRef(profile)      // live mirror so a seed-set profile reaches the same-tick _send
+    profileRef.current = profile
     // Kairos hand-off single pick (emitted at the end of a hand-off scan) → "Back to Kairos" button.
     const [kairosPick,     setKairosPick]     = useState(null)
     // Reopen a saved list to edit it (clicked from its pencil): restore the chat,
@@ -164,6 +166,8 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
     // and asks for the scan angle, exactly as if the user opened a fresh scan. Keyed so it fires once.
     useEffect(() => {
         if (!scanSeed?.message) return
+        // Atlas → Argus investing hand-off carries the profile; set it (ref first so this same-tick send uses it).
+        if (scanSeed.profile === 'investing' || scanSeed.profile === 'trading') { profileRef.current = scanSeed.profile; setProfile(scanSeed.profile) }
         _send(scanSeed.message)
     }, [scanSeed?.key])   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -219,7 +223,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
                 // add / remove / change names against it.
                 editList:        editingScanId ? (pendingScan || null) : null,
                 handoff,   // Kairos hand-off mode: find ONE ticker, emit <kairos_pick>
-                profile:         handoff ? 'trading' : profile,   // Investing profile → the Analyst
+                profile:         handoff ? 'trading' : profileRef.current,   // Investing profile → the Analyst
                 signal,
                 ...handlers,
             })
@@ -288,7 +292,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
                 currentPhase:    chat.phase,
                 editList:        editingScanId ? (pendingScan || null) : null,
                 handoff,
-                profile:         handoff ? 'trading' : profile,
+                profile:         handoff ? 'trading' : profileRef.current,
                 signal:          cont.signal,
                 ...cont.handlers,
             })

@@ -1423,6 +1423,24 @@ export function MainPage() {
         setChatResetKey(k => k + 1)                             // remount Argus fresh (Kairos is unkeyed → survives)
         setActiveTab('scanner')
     }
+
+    // Route OUT: Atlas emitted a <screen_request> (a sleeve mandate) → open Argus in the INVESTING
+    // profile, seeded with the mandate. Not a single-pick hand-off — a fundamental candidate list that
+    // routes on to the Analyst.
+    function handleSourceInArgus(sr) {
+        if (!sr || (!sr.sector && !sr.style)) return
+        const bits = [sr.style, sr.cap_band ? `${sr.cap_band}-cap` : null].filter(Boolean)
+        let msg = `Screen for a ${bits.join(' ') || 'quality'} sleeve${sr.sector ? ` in ${sr.sector}` : ''}.`
+        if (sr.constraints) msg += ` Constraints: ${sr.constraints}.`
+        if (sr.note)        msg += ` (${sr.note})`
+        setScanHandoff({ active: false, request: null })
+        setKairosScanResult(null)
+        setScannerChatRestore(null)
+        setScannerSeed({ key: Date.now(), message: msg, profile: 'investing' })
+        setChatResetKey(k => k + 1)   // remount Argus fresh
+        setActiveTab('scanner')
+        setNewsTab('scans')
+    }
     // Route BACK: Argus emitted a <kairos_pick> and the user tapped "Back to Kairos" → hand the ticker
     // (+ its read) to Kairos, which still holds the bias/horizon. Does NOT reset Kairos or bounce Axl.
     function handleBackToKairos(pick) {
@@ -1673,6 +1691,7 @@ export function MainPage() {
                                 onLoadingChange={setPortfolioLoading}
                                 onReviewResolved={handleBackToAxl}
                                 onAcceptReview={handleAcceptReview}
+                                onSourceInArgus={handleSourceInArgus}
                                 chatRestore={portfolioChatRestore}
                                 availableAccounts={availableAccounts}
                                 selectedAccounts={selectedAccounts}
