@@ -112,6 +112,14 @@ const SCORE_AXES = [
     ['relativeStrength', 'Rel. strength'],
     ['liquidity',        'Liquidity'],
 ]
+// Investing profile (Argus P4a): a fundamental scorecard instead of the trade axes.
+const INVESTING_AXES = [
+    ['quality',       'Quality'],
+    ['valuation',     'Valuation'],
+    ['growth',        'Growth'],
+    ['balance_sheet', 'Balance sheet'],
+]
+const axesFor = profile => (profile === 'investing' ? INVESTING_AXES : SCORE_AXES)
 
 // Green ≥75, amber 55–74, red <55 — same bands the agent maps to conviction level.
 function scoreTier(v) {
@@ -130,8 +138,8 @@ function ScoreBadge({ total }) {
     )
 }
 
-function ScoreBars({ score }) {
-    const axes = SCORE_AXES.filter(([k]) => Number.isFinite(score?.[k]))
+function ScoreBars({ score, profile }) {
+    const axes = axesFor(profile).filter(([k]) => Number.isFinite(score?.[k]))
     if (!axes.length) return null
     return (
         <div className="scan-list__scorecard">
@@ -151,10 +159,10 @@ function ScoreBars({ score }) {
     )
 }
 
-function Candidate({ c, onSelect }) {
+function Candidate({ c, onSelect, profile }) {
     const [open, setOpen] = useState(false)
     const signals = c.signals || {}
-    const hasScoreBars = SCORE_AXES.some(([k]) => Number.isFinite(c.score?.[k]))
+    const hasScoreBars = axesFor(profile).some(([k]) => Number.isFinite(c.score?.[k]))
     const hasDetail = c.analysis || c.conviction?.rationale || hasScoreBars || Object.values(signals).some(Boolean) || (c.sources?.length > 0)
 
     return (
@@ -168,7 +176,7 @@ function Candidate({ c, onSelect }) {
                     name={c.name}
                     logo={c.logo}
                     onSelect={() => onSelect?.(c)}
-                    title="Build a Kairos call from this"
+                    title={profile === 'investing' ? 'Research this in the Analyst' : 'Build a Kairos call from this'}
                 />
                 <span className="scan-list__cand-thesis">{c.thesis}</span>
                 <ScoreBadge total={c.score?.total} />
@@ -190,7 +198,7 @@ function Candidate({ c, onSelect }) {
             {open && (
                 <div className="scan-list__cand-detail">
                     {c.analysis && <p className="scan-list__analysis">{c.analysis}</p>}
-                    <ScoreBars score={c.score} />
+                    <ScoreBars score={c.score} profile={profile} />
                     {c.conviction?.rationale && (
                         <p className="scan-list__analysis scan-list__conviction-why">
                             <ConvictionChip conviction={c.conviction} /> {c.conviction.rationale}
@@ -259,7 +267,7 @@ function ScanCard({ scan, collapsed, onToggle, onCandidateSelect, onDelete, onEd
             {!collapsed && (
                 <div className="scan-list__cands">
                     {scan.candidates.map(c => (
-                        <Candidate key={c.ticker} c={c} onSelect={(cand) => onCandidateSelect?.(cand, scan)} />
+                        <Candidate key={c.ticker} c={c} profile={scan.profile} onSelect={(cand) => onCandidateSelect?.(cand, scan)} />
                     ))}
                 </div>
             )}

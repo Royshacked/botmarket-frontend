@@ -11,6 +11,7 @@ import { readStoredRoutingMode } from '../cmps/routingModeOptions.js'
 import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
 import { ScannerPanel }      from '../cmps/ScannerPanel/ScannerPanel.jsx'
 import { KairosPanel }       from '../cmps/KairosPanel/KairosPanel.jsx'
+import { AnalystPanel }      from '../cmps/AnalystPanel/AnalystPanel.jsx'
 import { Radar }             from '../cmps/Radar/Radar.jsx'
 import { PriceChart }  from '../cmps/PriceChart/PriceChart.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
@@ -247,6 +248,7 @@ export function MainPage() {
     const [scanHandoff,      setScanHandoff]      = useState({ active: false, request: null })
     const [scannerSeed,      setScannerSeed]      = useState(null)
     const [kairosScanResult, setKairosScanResult] = useState(null)
+    const [analystScanResult, setAnalystScanResult] = useState(null)   // Argus investing candidate → Analyst research seed
 
     // Kairos calls for the Axl Lists Calls tab. Holds all the user's calls (workspace-filtered in
     // the list); reloads on the shared 'kairos-calls-changed' event (generate / act / delete).
@@ -1427,8 +1429,23 @@ export function MainPage() {
     // Scan candidate → idea: carries the scanner's intended direction.
     // K3: a scan-list candidate is a Kairos SEED — same path as the Argus hand-off (point 6). Routes to
     // the Kairos chat with the candidate's ticker + read (+ Argus's recommended lens if the scan carried one).
+    // Argus INVESTING candidate → the Analyst for research (a coverage thesis), not a Kairos trade.
+    function handleResearchCandidate(candidate, scan) {
+        if (!candidate?.ticker) return
+        setAnalystScanResult({
+            key:      Date.now(),
+            ticker:   candidate.ticker,
+            sector:   scan?.thesis ?? null,       // the sleeve/mandate label seeds the sector context
+            thesis:   candidate.thesis ?? null,
+            analysis: candidate.analysis ?? candidate.thesis ?? null,
+        })
+        setActiveTab('analyst')
+    }
+
     function handleBuildFromCandidate(candidate, scan) {
         if (!candidate?.ticker) return
+        // Investing lists produce RESEARCH candidates → route to the Analyst; trading → Kairos.
+        if (scan?.profile === 'investing' || scan?.destination === 'analyst') return handleResearchCandidate(candidate, scan)
         // A forward-dated list is period-scoped (main category = period). Carry that period as the
         // call's scheduled window so Kairos/Hermes gate monitoring to it (no watching before it opens).
         const p = scan?.period
@@ -1575,7 +1592,7 @@ export function MainPage() {
                                 </button>
                                 <span className="chat-agentbar__crumb" aria-hidden="true">/</span>
                                 <span className="chat-agentbar__current">
-                                    {activeTab === 'portfolio' ? 'Atlas' : activeTab === 'scanner' ? 'Argus' : activeTab === 'kairos' ? 'Kairos' : 'Idea'}
+                                    {activeTab === 'portfolio' ? 'Atlas' : activeTab === 'scanner' ? 'Argus' : activeTab === 'kairos' ? 'Kairos' : activeTab === 'analyst' ? 'The Analyst' : 'Idea'}
                                 </span>
                                 <ThreadHistory agent={activeTab} onResume={handleResumeActiveThread} />
 
@@ -1656,6 +1673,13 @@ export function MainPage() {
                                 availableAccounts={availableAccounts}
                                 selectedAccounts={selectedAccounts}
                                 mainAccountId={mainAccountId}
+                            />
+                        </div>
+
+                        <div className="chat-tabs__panel" style={{ display: activeTab === 'analyst' ? 'flex' : 'none' }}>
+                            <AnalystPanel
+                                scanResult={analystScanResult}
+                                onInitiated={handleBackToAxl}
                             />
                         </div>
 
