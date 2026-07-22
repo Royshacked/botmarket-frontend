@@ -236,6 +236,9 @@ function ScanCard({ scan, collapsed, onToggle, onCandidateSelect, onDelete, onEd
                     </svg>
                 </span>
                 <span className="scan-list__thesis">{scan.thesis}</span>
+                {scan.stale && (
+                    <span className="scan-list__stale" title="This list's period has passed — it may be out of date">stale</span>
+                )}
                 <span className={`scan-list__card-dir scan-list__card-dir--${dir}`}>{dir}</span>
                 <span className="scan-list__count">{scan.candidates.length}</span>
                 <button className="scan-list__edit" onClick={e => { e.stopPropagation(); onEditScan?.(scan) }} aria-label="Edit list" title="Edit this list in the scanner chat">
