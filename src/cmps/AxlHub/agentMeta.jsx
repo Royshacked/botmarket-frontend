@@ -77,6 +77,22 @@ export const AGENTS = {
             </>
         ),
     },
+    analyst: {
+        tab:   'analyst',
+        brand: 'The Analyst',
+        hue:   'violet',   // research desk — shares the discovery family with Argus
+        lead:  'Research a name',
+        blurb: 'A living thesis per name — our price target vs the Street, kept alive.',
+        intro: "Let's build a view — where we differ from the Street, and why it holds.",
+        hint:  "Name a ticker and I'll research it into a coverage thesis: our estimate + target vs consensus, with monitorable kill-criteria.",
+        icon: (
+            <>
+                <path d="M5 3.5 H15 L19 7.5 V20.5 H5 Z"/>
+                <path d="M14.5 3.5 V8 H19"/>
+                <path d="M8 12 L10.3 14.3 L15 9.6"/>
+            </>
+        ),
+    },
 }
 
 // Axl itself — the meta-layer. Not a specialist, so it's intentionally NOT in
@@ -100,7 +116,7 @@ AGENTS.axl = {
     ),
 }
 
-export const AGENT_LIST = [AGENTS.idea, AGENTS.portfolio, AGENTS.scanner, AGENTS.kairos]
+export const AGENT_LIST = [AGENTS.idea, AGENTS.portfolio, AGENTS.scanner, AGENTS.kairos, AGENTS.analyst]
 
 // The social-chat notification bots — one per agent, ids matching the AGENTS keys and
 // the backend BOT_IDS. Each agent owns its own notifications: Idea posts invalidation
