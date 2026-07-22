@@ -1375,15 +1375,18 @@ export function MainPage() {
     }
 
     // ── Kairos ↔ Argus discovery hand-off ────────────────────────────────────
-    // Route OUT: Kairos emitted a <scan_request> (bias + horizon) and the user tapped "Open Argus".
-    // Remount Argus fresh (chatResetKey) — which leaves the never-keyed Kairos panel untouched so its
-    // draft survives — then seed it with the constraints. `handoff` flips Argus into single-pick mode
-    // (it converges to ONE ticker and emits <kairos_pick> instead of a watchlist).
+    // Route OUT: Kairos emitted a <scan_request> (bias + horizon, optional ticker) and the user tapped
+    // "Open Argus". Remount Argus fresh (chatResetKey) — which leaves the never-keyed Kairos panel
+    // untouched so its draft survives — then seed it with the constraints. `handoff` flips Argus into
+    // single-pick mode (it emits <kairos_pick>, not a watchlist). With a ticker the seed asks Argus to
+    // VALIDATE that named name (feasibility + lens gate); without one it's open discovery.
     function buildScanSeedMessage(req) {
         const bits = [`direction: ${req.direction}`]
         if (req.style)       bits.push(`horizon: ${req.style}`)
         if (req.period_hint) bits.push(`window: ${req.period_hint}`)
-        let msg = `Find me one ticker to trade — ${bits.join(', ')}.`
+        let msg = req.ticker
+            ? `Validate ${req.ticker} for a trade — ${bits.join(', ')}.`
+            : `Find me one ticker to trade — ${bits.join(', ')}.`
         if (req.angle_hint) msg += ` Angle: ${req.angle_hint}.`
         return msg
     }

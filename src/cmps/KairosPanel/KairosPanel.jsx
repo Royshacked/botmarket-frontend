@@ -457,7 +457,7 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
                         className="portfolio-panel__review-btn portfolio-panel__review-btn--update kairos-panel__generate-btn"
                         onClick={() => { onOpenArgus?.(scanRequest); setScanRequest(null) }}
                     >
-                        Open Argus
+                        {scanRequest.ticker ? `Validate ${scanRequest.ticker} in Argus` : 'Open Argus'}
                     </button>
                 </div>
             )}
