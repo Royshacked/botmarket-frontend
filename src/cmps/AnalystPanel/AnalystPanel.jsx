@@ -113,6 +113,40 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated }
         }
     }
 
+    // Resume a stopped reply (▶): continue the same bubble (or regenerate if stopped before any token).
+    async function _continue() {
+        if (isLoading) return
+        const last = messages[messages.length - 1]
+        if (!last || last.role !== 'assistant' || !last.stopped) return
+        const base = chat.resumeBase()
+        const history = chat.finalizeResumeHistory(
+            messages.filter(m => !m.streaming && m.role !== 'phase').map(m => ({ role: m.role, content: m.content })),
+            base,
+        )
+        const cont = chat.beginContinue({
+            onError: () => chat.restoreStopped(base),
+            onDone: (data) => {
+                chat.finishStreaming({ role: 'assistant', content: base + data.reply })
+                if (data.coverage) setPendingCoverage(data.coverage)
+            },
+        })
+        if (!cont) return
+        try {
+            await analystService.sendStream(history, {
+                model:           readStoredModel('analystModel'),
+                reasoningEffort: readStoredReasoning('analystReasoning'),
+                chatState:       { active_symbol: pendingRef.current?.symbol || '', draft: pendingRef.current },
+                signal:          cont.signal,
+                ...cont.handlers,
+            })
+        } catch (err) {
+            console.error('[analyst]', err)
+            chat.restoreStopped(base)
+        } finally {
+            chat.endStream()
+        }
+    }
+
     // Argus investing candidate handed over → seed the research (fires once per keyed result).
     useEffect(() => {
         if (!scanResult?.ticker) return
@@ -172,7 +206,8 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated }
                 sendDisabled={!inputText.trim() || isLoading}
                 isStreaming={isLoading}
                 onStop={chat.handleStop}
-                canResume={false}
+                canResume={chat.canResume}
+                onResume={_continue}
                 onClear={handleClear}
                 clearDisabled={isLoading || !messages.length}
                 clearTitle="Clear chat"
