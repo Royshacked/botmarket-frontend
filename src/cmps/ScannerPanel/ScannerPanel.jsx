@@ -136,6 +136,9 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
     const [editingScanId,  setEditingScanId]  = useState(null)
     const [editDirty,      setEditDirty]      = useState(false)
     const [selectedAngles, setSelectedAngles] = useState(() => new Set())
+    // Argus profile (P4a): Trading (technical/catalyst → Kairos) vs Investing (fundamental/quality →
+    // the Analyst). Hidden in hand-off mode (a Kairos hand-off is always a trade).
+    const [profile,        setProfile]        = useState('trading')
     // Kairos hand-off single pick (emitted at the end of a hand-off scan) → "Back to Kairos" button.
     const [kairosPick,     setKairosPick]     = useState(null)
     // Reopen a saved list to edit it (clicked from its pencil): restore the chat,
@@ -216,6 +219,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
                 // add / remove / change names against it.
                 editList:        editingScanId ? (pendingScan || null) : null,
                 handoff,   // Kairos hand-off mode: find ONE ticker, emit <kairos_pick>
+                profile:         handoff ? 'trading' : profile,   // Investing profile → the Analyst
                 signal,
                 ...handlers,
             })
@@ -284,6 +288,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
                 currentPhase:    chat.phase,
                 editList:        editingScanId ? (pendingScan || null) : null,
                 handoff,
+                profile:         handoff ? 'trading' : profile,
                 signal:          cont.signal,
                 ...cont.handlers,
             })
@@ -475,6 +480,26 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
                         </button>
                     )}
                     {laterBtn}
+                </div>
+            )}
+
+            {!handoff && (
+                <div className="scanner-panel__profiles" role="group" aria-label="Scan lens">
+                    <span className="scanner-panel__profiles-label">lens</span>
+                    <button
+                        type="button"
+                        className={`scanner-panel__profile-chip${profile === 'trading' ? ' is-active' : ''}`}
+                        onClick={() => setProfile('trading')}
+                        disabled={chat.isLoading}
+                        title="Technical / catalyst setups → build a Kairos trade"
+                    >Trading</button>
+                    <button
+                        type="button"
+                        className={`scanner-panel__profile-chip${profile === 'investing' ? ' is-active' : ''}`}
+                        onClick={() => setProfile('investing')}
+                        disabled={chat.isLoading}
+                        title="Fundamental / quality candidates → research in the Analyst"
+                    >Investing</button>
                 </div>
             )}
 
