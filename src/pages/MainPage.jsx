@@ -1639,7 +1639,7 @@ export function MainPage() {
                                 </button>
                                 <span className="chat-agentbar__crumb" aria-hidden="true">/</span>
                                 <span className="chat-agentbar__current">
-                                    {activeTab === 'portfolio' ? 'Atlas' : activeTab === 'scanner' ? 'Argus' : activeTab === 'kairos' ? 'Kairos' : activeTab === 'analyst' ? 'The Analyst' : 'Idea'}
+                                    {activeTab === 'portfolio' ? 'Atlas' : activeTab === 'scanner' ? 'Argus' : activeTab === 'kairos' ? 'Kairos' : activeTab === 'analyst' ? 'Prometheus' : 'Idea'}
                                 </span>
                                 <ThreadHistory agent={activeTab} onResume={handleResumeActiveThread} />
 

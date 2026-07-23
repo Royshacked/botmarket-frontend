@@ -34,7 +34,7 @@ describe('CoverageEventBubble', () => {
     afterEach(() => { vi.restoreAllMocks(); cleanup() })
 
     const msg = {
-        id: 'm1', type: 'coverage_event', content: 'The Analyst — NVDA reached our price target.',
+        id: 'm1', type: 'coverage_event', content: 'NVDA reached our price target.',
         payload: { kind: 'coverage', symbol: 'NVDA', coverageId: 'cov1', state: 'target_hit' },
     }
 

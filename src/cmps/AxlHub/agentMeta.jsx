@@ -79,17 +79,19 @@ export const AGENTS = {
     },
     analyst: {
         tab:   'analyst',
-        brand: 'The Analyst',
+        brand: 'Prometheus',
         hue:   'violet',   // research desk — shares the discovery family with Argus
         lead:  'Research a name',
         blurb: 'A living thesis per name — our price target vs the Street, kept alive.',
         intro: "Let's build a view — where we differ from the Street, and why it holds.",
         hint:  "Name a ticker and I'll research it into a coverage thesis: our estimate + target vs consensus, with monitorable kill-criteria.",
+        // The fire of forethought — Prometheus. Spark of insight above a double flame
+        // (matches axl-bot.svg's language), stroke-only in the shared 0–24 glyph space.
         icon: (
             <>
-                <path d="M5 3.5 H15 L19 7.5 V20.5 H5 Z"/>
-                <path d="M14.5 3.5 V8 H19"/>
-                <path d="M8 12 L10.3 14.3 L15 9.6"/>
+                <path d="M12 1.5 L12.4 2.4 L13.3 2.8 L12.4 3.2 L12 4.1 L11.6 3.2 L10.7 2.8 L11.6 2.4 Z"/>
+                <path d="M12 5 C13.4 8 15.8 10 15.8 14.5 C15.8 18.5 14.2 20.8 12 21.4 C9.8 20.8 8.2 18.5 8.2 14.8 C8.2 11.5 10.2 10.2 10.6 7.8 C10.8 6.4 11.2 5.7 12 5 Z"/>
+                <path d="M12 10 C13 12 13.9 13.4 13.9 15.6 C13.9 18 12.6 19.6 12 19.9 C11.2 19.5 10.3 18 10.3 15.8 C10.3 13.8 11.3 12.8 11.5 11.2 C11.6 10.6 11.7 10.3 12 10 Z"/>
             </>
         ),
     },

@@ -176,7 +176,7 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated }
             <div className="portfolio-panel__messages" ref={messagesRef} onScroll={handleScroll}>
                 {messages.length === 0 && (
                     <div className="analyst-panel__intro">
-                        <h3>The Analyst</h3>
+                        <h3>Prometheus</h3>
                         <p>Buy-side research — a living thesis per name: a variant view, our price target vs the Street, and monitorable kill-criteria. Name a ticker (or open one from an Argus investing list).</p>
                     </div>
                 )}
