@@ -224,6 +224,7 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
                 routingMode:     readStoredRoutingMode('kairosRoutingMode'),
                 currentPhase:    chat.phase,
                 accounts:        ideaAccounts,
+                mainAccountId,   // which marked account the call binds to (venue anchor)
                 // Feed the draft-so-far back so the model carries settled fields forward
                 // (its own <call> block is stripped from the visible history). `mode` = the build lens.
                 chatState:       { active_asset: pendingCall?.asset || '', draft: pendingCall, mode },
@@ -286,6 +287,7 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
                 routingMode:     readStoredRoutingMode('kairosRoutingMode'),
                 currentPhase:    chat.phase,
                 accounts:        ideaAccounts,
+                mainAccountId,   // which marked account the call binds to (venue anchor)
                 chatState:       { active_asset: pendingCall?.asset || '', draft: pendingCall, mode },
                 signal:          cont.signal,
                 ...cont.handlers,

@@ -566,7 +566,8 @@ export function MainPage() {
                 readStoredModel('ideaModel'),
                 readStoredReasoning('ideaReasoning'),
                 readStoredRoutingMode('ideaRoutingMode'),
-                chat.phase
+                chat.phase,
+                mainAccountId
             )
         } catch (err) {
             console.error(err)
@@ -664,7 +665,8 @@ export function MainPage() {
                 readStoredModel('ideaModel'),
                 readStoredReasoning('ideaReasoning'),
                 readStoredRoutingMode('ideaRoutingMode'),
-                chat.phase
+                chat.phase,
+                mainAccountId
             )
         } catch (err) {
             console.error(err)

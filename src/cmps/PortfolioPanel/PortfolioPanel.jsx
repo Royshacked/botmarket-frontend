@@ -88,6 +88,7 @@ export function PortfolioPanel({
     chatRestore       = null,
     availableAccounts = [],
     selectedAccounts  = [],
+    mainAccountId     = null,
     resumeRef         = null,
 }) {
     const chat = useChatStream()
@@ -234,6 +235,7 @@ export function PortfolioPanel({
 
         try {
             await portfolioService.sendStream(history, ideaAccounts, {
+                mainAccountId,   // reference account Atlas sizes the others against
                 portfolioId:     editingPortfolioId,
                 portfolioIdeas:  editingPortfolioIdeas,
                 threadId:        editingPortfolioId ? null : threadIdRef.current,
@@ -305,6 +307,7 @@ export function PortfolioPanel({
 
         try {
             await portfolioService.sendStream(history, ideaAccounts, {
+                mainAccountId,   // reference account Atlas sizes the others against
                 portfolioId:     editingPortfolioId,
                 portfolioIdeas:  editingPortfolioIdeas,
                 threadId:        editingPortfolioId ? null : threadIdRef.current,
@@ -670,4 +673,5 @@ PortfolioPanel.propTypes = {
     chatRestore:         PropTypes.object,
     availableAccounts:   PropTypes.array,
     selectedAccounts:    PropTypes.arrayOf(PropTypes.string),
+    mainAccountId:       PropTypes.string,
 }
