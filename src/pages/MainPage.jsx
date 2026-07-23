@@ -27,7 +27,7 @@ import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.rem
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
 import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
-import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, CALL_EXPIRY_EDIT } from '../services/event-bus.service'
+import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
 import { useChatStream }     from '../customHooks/useChatStream.js'
 import { useNewsFeed }       from '../customHooks/useNewsFeed.js'
@@ -852,6 +852,11 @@ export function MainPage() {
             if (call) handleEditCall(call)
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Coverage-update card "Open coverage" → surface the Analyst (its living coverage book).
+    useEffect(() => {
+        return eventBus.on(OPEN_COVERAGE, () => setActiveTab('analyst'))
+    }, [])
 
     // Confirm the call's proposed entry → materialize + place via the Kairos handoff (actOnCall).
     async function handleConfirmCallOrder() {

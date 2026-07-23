@@ -28,8 +28,15 @@ export const chatService = {
         return httpService.post(`${BASE}/conversations/${convId}/read`)
     },
 
+    // Resolve a card's lifecycle — the one path every card takes. status 'done' (the user acted on
+    // the primary) or 'dismissed' (acknowledged, no action); outcome records which action for the
+    // collapsed label. Supersedes dismissMessage (kept below as a thin alias for any old caller).
+    async resolveMessage(convId, msgId, { status = 'dismissed', outcome = null } = {}) {
+        return httpService.post(`${BASE}/conversations/${convId}/messages/${msgId}/resolve`, { status, outcome })
+    },
+
     async dismissMessage(convId, msgId, outcome = null) {
-        return httpService.post(`${BASE}/conversations/${convId}/messages/${msgId}/dismiss`, { outcome })
+        return this.resolveMessage(convId, msgId, { status: 'dismissed', outcome })
     },
 
     async searchUsers(q) {

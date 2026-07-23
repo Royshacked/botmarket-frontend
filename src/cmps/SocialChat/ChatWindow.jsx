@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
-import { eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, CALL_EXPIRY_EDIT } from '../../services/event-bus.service'
+import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE } from '../../services/event-bus.service'
 import { manualService } from '../../services/manual/manual.service.remote'
-import { kairosService } from '../../services/kairos/kairos.service.remote'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { AGENTS, isBotId, CONVERSATIONAL_BOT_ID } from '../AxlHub/agentMeta.jsx'
 import { AgentGlyph } from '../AxlHub/AgentBadges.jsx'
+import { readResolution } from './cardResolution.js'
 
 // Compact "from <agent>" attribution chip for notification cards: the agent's
 // sigil + brand, tinted by its hue. Makes a card read as coming from Idea / Atlas
@@ -20,10 +20,9 @@ function CardAgentTag({ agent }) {
     )
 }
 
-// Shared collapsed state for the Idea/Kairos "notify + route" cards once handled. Keeps the
-// agent attribution + how it resolved (`outcome`) + what it was (`reason`), so a scrolled-back
-// card still reads (parity with the Atlas review card, which stays informative when resolved).
-// `reopen`, when set, makes the whole chip a button that re-triggers its original target.
+// Shared collapsed state for a handled "notify + route" card. Keeps the agent attribution + how it
+// resolved (`outcome`) + what it was (`reason`), so a scrolled-back card still reads. `reopen`, when
+// set, makes the whole chip a button that re-triggers its original target.
 function ResolvedChip({ agent, outcome, asset, reason, qualifier = null, reopen = null }) {
     return (
         <div
@@ -40,25 +39,68 @@ function ResolvedChip({ agent, outcome, asset, reason, qualifier = null, reopen 
     )
 }
 
+// The ONE shell every notify-and-route card renders through: agent tag + heading + body, then the
+// standard TWO-button footer — the primary "do something" + Dismiss. Collapses to the shared
+// ResolvedChip once resolved. Strictly two buttons: any finer choice lives in the surface the
+// primary opens. `primaryLabel` mirrors msg.actions.primary.label (backend), with a card fallback.
+function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = null, body, primaryLabel, onPrimary, onResolve, onDismiss, msg, resolvedLabels = {}, reopenOnDone = false }) {
+    const { resolved, status, outcome } = readResolution(msg)
+    if (resolved) {
+        const label  = resolvedLabels[outcome] ?? (status === 'done' ? '✓ Done' : 'Dismissed')
+        const reopen = (reopenOnDone && status === 'done') ? onPrimary : null
+        return <ResolvedChip agent={agent} outcome={label} asset={asset} qualifier={qualifier} reason={body} reopen={reopen} />
+    }
+    const label   = primaryLabel ?? msg.actions?.primary?.label ?? 'Open'
+    const dismiss = onDismiss ?? (() => onResolve?.(msg.id, { status: 'dismissed', outcome: 'dismissed' }))
+    return (
+        <div className={`social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--${kind}`}>
+            <CardAgentTag agent={agent} />
+            <div className="social-chat__invalidation-alert-header">{heading}</div>
+            {body && <div className="social-chat__invalidation-alert-reason">{body}</div>}
+            <div className="social-chat__invalidation-alert-actions">
+                <button className="social-chat__invalidation-alert-btn" onClick={onPrimary}>{label}</button>
+                <button
+                    className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
+                    onClick={dismiss}
+                >Dismiss</button>
+            </div>
+        </div>
+    )
+}
+
 function formatTime(ms) {
     if (!ms) return ''
     return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
-export function ChatWindow({ conversation, messages, currentUserId, loading, hasMore, onClose, onSend, onLoadMore, onDismissMessage }) {
+export function ChatWindow({ conversation, messages, currentUserId, loading, hasMore, onClose, onSend, onLoadMore, onResolveMessage, scrollToMsgId, onScrolledToMsg }) {
     const [draft,   setDraft]   = useState('')
     const [sending, setSending] = useState(false)
-    const bottomRef  = useRef(null)
+    const bottomRef   = useRef(null)
     const textareaRef = useRef(null)
+    const msgRefs     = useRef({})
 
     // Same mic-to-text as the agent chats; transcript is appended to the draft.
     const { isRecording, isTranscribing, toggle: toggleMic, cancel: cancelMic } = useMicInput({
         onTranscript: text => setDraft(d => (d ? `${d} ${text}` : text)),
     })
 
+    // Default: keep the newest message in view. A deep-link scroll (from a notification click)
+    // takes precedence — don't yank to the bottom when we're trying to land on a specific card.
     useEffect(() => {
+        if (scrollToMsgId) return
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }, [messages])
+    }, [messages, scrollToMsgId])
+
+    // Land on the clicked notification once it's loaded into the list, then clear the target
+    // (a one-shot). block:'center' brings the card into the middle so it's obviously the one.
+    useEffect(() => {
+        if (!scrollToMsgId) return
+        const el = msgRefs.current[scrollToMsgId]
+        if (!el) return
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        onScrolledToMsg?.()
+    }, [scrollToMsgId, messages, onScrolledToMsg])
 
     async function handleSend() {
         const text = draft.trim()
@@ -96,26 +138,30 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                 )}
 
                 {messages.map(msg => {
-                    const isMine = msg.senderId === currentUserId
+                    const isMine    = msg.senderId === currentUserId
+                    const highlight = msg.id === scrollToMsgId
                     return (
                         <div
                             key={msg.id}
-                            className={`social-chat__msg ${isMine ? 'social-chat__msg--mine' : 'social-chat__msg--theirs'}`}
+                            ref={el => { if (el) msgRefs.current[msg.id] = el }}
+                            className={`social-chat__msg ${isMine ? 'social-chat__msg--mine' : 'social-chat__msg--theirs'}${highlight ? ' social-chat__msg--highlight' : ''}`}
                         >
                             {msg.type === 'invalidation_alert' && msg.payload
-                                ? <InvalidationAlertBubble msg={msg} onClose={onClose} onDismiss={onDismissMessage} />
+                                ? <InvalidationAlertBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'portfolio_review' && msg.payload
-                                ? <PortfolioReviewBubble msg={msg} onClose={onClose} />
+                                ? <PortfolioReviewBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : (msg.type === 'manual_entry' || msg.type === 'manual_exit') && msg.payload
-                                ? <ManualFillCard msg={msg} onDismiss={onDismissMessage} />
+                                ? <ManualFillCard msg={msg} onResolve={onResolveMessage} />
                                 : msg.type === 'entry_confirm' && msg.payload
-                                ? <EntryConfirmBubble msg={msg} onClose={onClose} onDismiss={onDismissMessage} />
+                                ? <EntryConfirmBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'call_expiry' && msg.payload
-                                ? <CallExpiryBubble msg={msg} onClose={onClose} onDismiss={onDismissMessage} />
+                                ? <CallExpiryBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'call_manage' && msg.payload
-                                ? <CallManageBubble msg={msg} onDismiss={onDismissMessage} />
+                                ? <CallManageBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'call_reentry' && msg.payload
-                                ? <CallReentryBubble msg={msg} onDismiss={onDismissMessage} />
+                                ? <CallReentryBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
+                                : msg.type === 'coverage_event' && msg.payload
+                                ? <CoverageEventBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : <div className="social-chat__msg-bubble">{msg.content}</div>
                             }
                             <div className="social-chat__msg-time">{formatTime(msg.createdAt)}</div>
@@ -151,273 +197,191 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
     )
 }
 
-export function InvalidationAlertBubble({ msg, onClose, onDismiss }) {
-    const { reason, asset, status, inPosition, ideaId } = msg.payload
-    // Dismissal is persisted on the message (msg.dismissed), so the choice survives
-    // reload and the alert never reappears actionable.
-    const dismissed = !!msg.dismissed
-    // 'drifting' = pre-entry, price running away from a distant entry (softer nudge);
-    // 'fired' = the entry envelope broke. Fall back to 'fired' for older payloads.
-    const isDrifting = status === 'drifting'
-    const kind  = isDrifting ? 'drifting' : 'fired'
-    const label = isDrifting
-        ? 'Setup drifting'
-        : `Invalidation${inPosition ? ' (in position)' : ''}`
+// ── Cards ────────────────────────────────────────────────────────────────────
+// Every card is a thin adapter over NotificationCard: it supplies the agent, heading/body, the
+// primary "do something" (route + resolve done) and — where dismissing has a side effect — a
+// custom dismiss. Strictly two buttons; finer actions (close/delete/edit) live in the surface the
+// primary opens (the idea chat, the call pop-out, the Calls tab).
 
-    // Taking an action (edit / close) also marks the card handled so it collapses to a "taken
-    // care of" state — not just Dismiss. dismissOutcome records which, for the collapsed label.
-    function handleReview() {
-        onDismiss?.(msg.id, 'editing')
+export function InvalidationAlertBubble({ msg, onClose, onResolve }) {
+    const { reason, asset, status, inPosition, ideaId } = msg.payload
+    const isDrifting = status === 'drifting'
+    const kind    = isDrifting ? 'drifting' : 'fired'
+    const heading = isDrifting
+        ? `Setup drifting · ${asset}`
+        : `Invalidation${inPosition ? ' (in position)' : ''} · ${asset}`
+
+    // Primary routes to the idea's own chat, where you re-map or close it. (The old inline "Close"
+    // now lives there / in the positions tab — strictly two buttons on the card.)
+    function handlePrimary() {
+        onResolve?.(msg.id, { status: 'done', outcome: 'editing' })
         eventBus.emit(INVALIDATION_EDIT_IDEA, { ideaId })
         onClose?.()
     }
 
-    function handleCloseTrade() {
-        onDismiss?.(msg.id, 'closing')
-        eventBus.emit(INVALIDATION_CLOSE_TRADE, { ideaId })
-        onClose?.()
-    }
-
-    // Handled: the card collapses to an acknowledged state. The server latch
-    // (invalidation_status) already stops re-alerting, so this is purely the visual "done".
-    if (dismissed) {
-        const label = msg.dismissOutcome === 'editing' ? '✓ Opened in chat'
-            : msg.dismissOutcome === 'closing' ? '✓ Closing'
-            : 'Dismissed'
-        return <ResolvedChip agent={AGENTS.idea} outcome={label} asset={asset} qualifier={kind} reason={reason} />
-    }
-
     return (
-        <div className={`social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--${kind}`}>
-            <CardAgentTag agent={AGENTS.idea} />
-            <div className="social-chat__invalidation-alert-header">
-                {label} &middot; {asset}
-            </div>
-            <div className="social-chat__invalidation-alert-reason">{reason}</div>
-            <div className="social-chat__invalidation-alert-actions">
-                <button className="social-chat__invalidation-alert-btn" onClick={handleReview}>Edit in chat</button>
-                {inPosition && (
-                    <button
-                        className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--close"
-                        onClick={handleCloseTrade}
-                    >Close</button>
-                )}
-                <button
-                    className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
-                    onClick={() => onDismiss?.(msg.id, 'dismissed')}
-                >Dismiss</button>
-            </div>
-        </div>
+        <NotificationCard
+            agent={AGENTS.idea} kind={kind} heading={heading} asset={asset} qualifier={kind} body={reason}
+            primaryLabel={msg.actions?.primary?.label ?? 'Edit in chat'} onPrimary={handlePrimary}
+            onResolve={onResolve} msg={msg}
+            resolvedLabels={{ editing: '✓ Opened in chat', closing: '✓ Closing' }}
+        />
     )
 }
 
-// Open a Kairos call's pop-out detail window — Confirm entry / Accept edit / Delete all live
-// there. CallPage fetches the call by id, so a chat card (which only has the id) can open it
-// straight without stashing data first.
+// Open a Kairos call's pop-out detail window — Confirm entry / Accept edit / Delete all live there.
 function openCallPopup(callId) {
     window.open(`/call/${callId}`, `call-${callId}`, 'width=1180,height=760')
 }
 
-// "Entry triggered — confirm" card. Notify + route: an idea routes to the workspace's
-// OrderConfirmDialog (via the app), a Kairos call opens its pop-out where Confirm entry lives.
-// Same collapse-on-handled behaviour as the invalidation card (persisted via msg.dismissed).
-// A time-scheduled entry can surface late; mark WHY so the copy is honest.
+// "Entry triggered — confirm" card. An idea routes to the workspace's OrderConfirmDialog; a Kairos
+// call opens its pop-out where Confirm entry lives. Replayable on the collapsed chip.
 const ENTRY_CONFIRM_NOTE = { passed_earlier: 'Scheduled time already passed', off_hours: 'Fired while market was closed' }
 
-function EntryConfirmBubble({ msg, onClose, onDismiss }) {
+function EntryConfirmBubble({ msg, onClose, onResolve }) {
     const { kind, ideaId, callId, asset, note } = msg.payload
     const isCall = kind === 'call'
     const agent  = isCall ? AGENTS.kairos : AGENTS.idea
 
-    // Route to the action surface: both a call and an idea ask the app to surface the shared
-    // OrderConfirmDialog (a call reviews its Hermes-proposed entry, an idea its triggered order).
-    // Either target may fail to materialize (still loading, another user's, orders that don't
-    // resolve to a session account) — so this stays replayable.
-    function openTarget() {
+    function route() {
         if (isCall) eventBus.emit(CALL_CONFIRM_OPEN,  { callId })
         else        eventBus.emit(ENTRY_CONFIRM_OPEN, { ideaId })
     }
-
-    function handleConfirm() {
-        onDismiss?.(msg.id, 'confirmed')
-        openTarget()
+    function handlePrimary() {
+        onResolve?.(msg.id, { status: 'done', outcome: 'confirmed' })
+        route()
         onClose?.()
     }
-
-    // Idea cards only (a Kairos call is managed in its own pop-out): Edit reopens the idea in
-    // its chat (→ building); Dismiss parks it back to 'waiting'. Both also collapse the card.
-    function handleEdit() {
-        onDismiss?.(msg.id, 'editing')
-        eventBus.emit(ENTRY_CONFIRM_EDIT, { ideaId })
-        onClose?.()
-    }
-
+    // Dismissing an idea entry parks it back to 'waiting' (re-armable); a call just collapses.
     function handleDismiss() {
-        onDismiss?.(msg.id, 'dismissed')
+        onResolve?.(msg.id, { status: 'dismissed', outcome: 'dismissed' })
         if (!isCall) eventBus.emit(ENTRY_CONFIRM_DISMISS, { ideaId })
     }
 
-    if (msg.dismissed) {
-        const label = msg.dismissOutcome === 'confirmed' ? '✓ Opened'
-            : msg.dismissOutcome === 'editing' ? '✓ Opened in chat'
-            : 'Dismissed'
-        // A 'confirmed' card keeps its target replayable: the dialog/pop-out it routed to may not
-        // have surfaced, so let the collapsed chip re-trigger it instead of dead-ending.
-        const reopen = msg.dismissOutcome === 'confirmed' ? openTarget : null
-        return <ResolvedChip agent={agent} outcome={label} asset={asset} reason={msg.content} reopen={reopen} />
-    }
+    const heading = (
+        <>Confirm entry &middot; {asset}
+            {ENTRY_CONFIRM_NOTE[note] && <span className="social-chat__invalidation-alert-tag"> &middot; {ENTRY_CONFIRM_NOTE[note]}</span>}
+        </>
+    )
 
     return (
-        <div className="social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--confirm">
-            <CardAgentTag agent={agent} />
-            <div className="social-chat__invalidation-alert-header">
-                Confirm entry &middot; {asset}
-                {ENTRY_CONFIRM_NOTE[note] && <span className="social-chat__invalidation-alert-tag"> &middot; {ENTRY_CONFIRM_NOTE[note]}</span>}
-            </div>
-            <div className="social-chat__invalidation-alert-reason">{msg.content}</div>
-            <div className="social-chat__invalidation-alert-actions">
-                <button className="social-chat__invalidation-alert-btn" onClick={handleConfirm}>
-                    Confirm order
-                </button>
-                {!isCall && (
-                    <button className="social-chat__invalidation-alert-btn" onClick={handleEdit}>Edit</button>
-                )}
-                <button
-                    className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
-                    onClick={handleDismiss}
-                >Dismiss</button>
-            </div>
-        </div>
+        <NotificationCard
+            agent={agent} kind="confirm" heading={heading} asset={asset} body={msg.content}
+            primaryLabel={msg.actions?.primary?.label ?? 'Confirm order'} onPrimary={handlePrimary}
+            onDismiss={handleDismiss} onResolve={onResolve} msg={msg} reopenOnDone
+            resolvedLabels={{ confirmed: '✓ Opened' }}
+        />
     )
 }
 
-// "Trade thesis expiring / expired" card for a Kairos call. Edit re-maps it in Kairos's in-app
-// edit mode (same path as the Calls-tab pencil → re-arms the monitor on save); Delete removes the
-// call outright. Works for both 'expiring' (alive) and 'expired' (terminal) calls. Both persist
-// as handled.
-export function CallExpiryBubble({ msg, onClose, onDismiss }) {
+// "Trade thesis expiring / expired" card for a Kairos call. Primary re-maps it in Kairos's in-app
+// edit mode (re-arms the monitor on save). Delete now lives in the Calls tab / call pop-out.
+export function CallExpiryBubble({ msg, onClose, onResolve }) {
     const { callId, asset, kind, why } = msg.payload
-    const label = kind === 'expired' ? 'Thesis expired' : 'Thesis expiring'
+    const heading   = `${kind === 'expired' ? 'Thesis expired' : 'Thesis expiring'} · ${asset}`
     const kindLabel = kind === 'expired' ? 'expired' : 'expiring'   // payload kind is 'edit'|'expired'
 
-    function handleEdit() {
-        onDismiss?.(msg.id, 'editing')
+    function handlePrimary() {
+        onResolve?.(msg.id, { status: 'done', outcome: 'editing' })
         eventBus.emit(CALL_EXPIRY_EDIT, { callId })
         onClose?.()
     }
 
-    async function handleDelete() {
-        onDismiss?.(msg.id, 'deleted')
-        try { await kairosService.deleteCall(callId) } catch { /* list re-syncs on next load */ }
-    }
-
-    if (msg.dismissed) {
-        const label = msg.dismissOutcome === 'editing' ? '✓ Opened in chat'
-            : msg.dismissOutcome === 'deleted' ? '✓ Deleted'
-            : 'Dismissed'
-        return <ResolvedChip agent={AGENTS.kairos} outcome={label} asset={asset} qualifier={kindLabel} reason={why || msg.content} />
-    }
-
     return (
-        <div className="social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--expiry">
-            <CardAgentTag agent={AGENTS.kairos} />
-            <div className="social-chat__invalidation-alert-header">{label} &middot; {asset}</div>
-            <div className="social-chat__invalidation-alert-reason">{why || msg.content}</div>
-            <div className="social-chat__invalidation-alert-actions">
-                <button className="social-chat__invalidation-alert-btn" onClick={handleEdit}>Edit call</button>
-                <button
-                    className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--close"
-                    onClick={handleDelete}
-                >Delete</button>
-                <button
-                    className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
-                    onClick={() => onDismiss?.(msg.id, 'dismissed')}
-                >Dismiss</button>
-            </div>
-        </div>
+        <NotificationCard
+            agent={AGENTS.kairos} kind="expiry" heading={heading} asset={asset} qualifier={kindLabel} body={why || msg.content}
+            primaryLabel={msg.actions?.primary?.label ?? 'Edit call'} onPrimary={handlePrimary}
+            onResolve={onResolve} msg={msg}
+            resolvedLabels={{ editing: '✓ Opened in chat', deleted: '✓ Deleted' }}
+        />
     )
 }
 
-// "Kairos wants to manage the position" card. Notify + route: opens the call pop-out where the
-// user accepts (move stop / take partial / exit / let run) or dismisses the suggestion.
+// "Kairos wants to manage the position" card. Primary opens the call pop-out where the user accepts
+// (move stop / take partial / exit / let run) or dismisses.
 const MANAGE_VERB_COPY = { move_stop: 'move the stop', take_partial: 'take a partial', exit_now: 'exit now', let_run: 'let it run' }
-export function CallManageBubble({ msg, onDismiss }) {
+export function CallManageBubble({ msg, onClose, onResolve }) {
     const { callId, asset, verdict, read } = msg.payload
     const verb = MANAGE_VERB_COPY[verdict] ?? verdict
 
-    function handleOpen() {
-        onDismiss?.(msg.id, 'opened')
+    function handlePrimary() {
+        onResolve?.(msg.id, { status: 'done', outcome: 'opened' })
         openCallPopup(callId)
-    }
-
-    if (msg.dismissed) {
-        const label = msg.dismissOutcome === 'opened' ? '✓ Opened' : 'Dismissed'
-        return <ResolvedChip agent={AGENTS.kairos} outcome={label} asset={asset} qualifier={verb} reason={read || msg.content} />
+        onClose?.()
     }
 
     return (
-        <div className="social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--manage">
-            <CardAgentTag agent={AGENTS.kairos} />
-            <div className="social-chat__invalidation-alert-header">Manage {asset} &middot; {verb}</div>
-            <div className="social-chat__invalidation-alert-reason">{read || msg.content}</div>
-            <div className="social-chat__invalidation-alert-actions">
-                <button className="social-chat__invalidation-alert-btn" onClick={handleOpen}>Review</button>
-                <button
-                    className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
-                    onClick={() => onDismiss?.(msg.id, 'dismissed')}
-                >Dismiss</button>
-            </div>
-        </div>
+        <NotificationCard
+            agent={AGENTS.kairos} kind="manage" heading={`Manage ${asset} · ${verb}`} asset={asset} qualifier={verb} body={read || msg.content}
+            primaryLabel={msg.actions?.primary?.label ?? 'Review'} onPrimary={handlePrimary}
+            onResolve={onResolve} msg={msg}
+            resolvedLabels={{ opened: '✓ Opened' }}
+        />
     )
 }
 
-// "Stopped out — re-enter?" card for a Kairos call. Notify + route: opens the call pop-out where the
-// user picks Re-enter (revive the plan → the monitor watches it again) or Close (leave it terminal).
-function CallReentryBubble({ msg, onDismiss }) {
+// "Stopped out — re-enter?" card for a Kairos call. Primary opens the call pop-out where the user
+// picks Re-enter (revive the plan) or Close (leave it terminal).
+function CallReentryBubble({ msg, onClose, onResolve }) {
     const { callId, asset, exit_price, why } = msg.payload
+    const heading = `Stopped out · ${asset}${Number.isFinite(exit_price) ? ` @ ${exit_price}` : ''} — re-enter?`
 
-    function handleOpen() {
-        onDismiss?.(msg.id, 'opened')
+    function handlePrimary() {
+        onResolve?.(msg.id, { status: 'done', outcome: 'opened' })
         openCallPopup(callId)
-    }
-
-    if (msg.dismissed) {
-        const label = msg.dismissOutcome === 'opened' ? '✓ Opened' : 'Dismissed'
-        return <ResolvedChip agent={AGENTS.kairos} outcome={label} asset={asset} reason={why || msg.content} />
+        onClose?.()
     }
 
     return (
-        <div className="social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--reentry">
-            <CardAgentTag agent={AGENTS.kairos} />
-            <div className="social-chat__invalidation-alert-header">
-                Stopped out &middot; {asset}{Number.isFinite(exit_price) ? ` @ ${exit_price}` : ''} — re-enter?
-            </div>
-            <div className="social-chat__invalidation-alert-reason">{why || msg.content}</div>
-            <div className="social-chat__invalidation-alert-actions">
-                <button className="social-chat__invalidation-alert-btn" onClick={handleOpen}>Review re-entry</button>
-                <button
-                    className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
-                    onClick={() => onDismiss?.(msg.id, 'dismissed')}
-                >Dismiss</button>
-            </div>
-        </div>
+        <NotificationCard
+            agent={AGENTS.kairos} kind="reentry" heading={heading} asset={asset} body={why || msg.content}
+            primaryLabel={msg.actions?.primary?.label ?? 'Review re-entry'} onPrimary={handlePrimary}
+            onResolve={onResolve} msg={msg}
+            resolvedLabels={{ opened: '✓ Opened' }}
+        />
     )
 }
 
-function PortfolioReviewBubble({ msg, onClose }) {
-    const { portfolioId, portfolioName, mode, account, lastReviewAt, resolved, outcome, nextReviewAt } = msg.payload
+// "Coverage update" card for the Analyst — a living thesis hit a material verdict (target hit /
+// thesis broken / validating / diverging). Primary opens the Analyst (its coverage book).
+const COVERAGE_STATE_COPY = { target_hit: 'target hit', thesis_broken: 'thesis broken', validating: 'validating', diverging: 'diverging' }
+export function CoverageEventBubble({ msg, onClose, onResolve }) {
+    const { symbol, coverageId, state } = msg.payload
+    const stateCopy = COVERAGE_STATE_COPY[state] ?? state
+    const heading   = `Coverage · ${symbol}${stateCopy ? ` — ${stateCopy}` : ''}`
+
+    function handlePrimary() {
+        onResolve?.(msg.id, { status: 'done', outcome: 'opened' })
+        eventBus.emit(OPEN_COVERAGE, { coverageId, symbol })
+        onClose?.()
+    }
+
+    return (
+        <NotificationCard
+            agent={AGENTS.analyst} kind="coverage" heading={heading} asset={symbol} qualifier={stateCopy} body={msg.content}
+            primaryLabel={msg.actions?.primary?.label ?? 'Open coverage'} onPrimary={handlePrimary}
+            onResolve={onResolve} msg={msg}
+            resolvedLabels={{ opened: '✓ Opened' }}
+        />
+    )
+}
+
+function PortfolioReviewBubble({ msg, onClose, onResolve }) {
+    const { portfolioId, portfolioName, mode, account, lastReviewAt, nextReviewAt, outcome: legacyOutcome } = msg.payload
+    const { resolved, outcome } = readResolution(msg)
     const fmtDate = (ms) => new Date(ms).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
     const lastReview = lastReviewAt ? fmtDate(lastReviewAt) : 'never'
     const modeLabel = mode ? mode.charAt(0).toUpperCase() + mode.slice(1) : null
 
+    // Primary only ROUTES — the review is marked resolved server-side when the user actually
+    // finishes it (resolvePortfolioReviewCard), so we don't collapse the card on the click.
     function handleReview() {
         eventBus.emit(PORTFOLIO_REVIEW, { portfolioId, reviewMode: true })
         onClose?.()
     }
 
-    // Once the review cycle is resolved (dismissed or an update applied), the card stops
-    // routing into an active review and shows the outcome + when the next one is due.
-    const outcomeLabel = outcome === 'updated' ? 'Updated' : outcome === 'reviewed' ? 'Reviewed' : 'Dismissed'
+    const outLabel = (outcome === 'updated' || legacyOutcome === 'updated') ? 'Updated'
+        : (outcome === 'reviewed' || legacyOutcome === 'reviewed') ? 'Reviewed' : 'Dismissed'
 
     return (
         <div className={`social-chat__msg-bubble social-chat__portfolio-review${resolved ? ' social-chat__portfolio-review--resolved' : ''}`}>
@@ -438,28 +402,34 @@ function PortfolioReviewBubble({ msg, onClose }) {
             {resolved ? (
                 <>
                     <div className="social-chat__portfolio-review-meta">
-                        {outcomeLabel}{nextReviewAt ? ` · next review ${fmtDate(nextReviewAt)}` : ''}
+                        {outLabel}{nextReviewAt ? ` · next review ${fmtDate(nextReviewAt)}` : ''}
                     </div>
                     <div className="social-chat__portfolio-review-done">✓ Review complete</div>
                 </>
             ) : (
                 <>
                     <div className="social-chat__portfolio-review-meta">Last reviewed: {lastReview}</div>
-                    <button className="social-chat__portfolio-review-btn" onClick={handleReview}>
-                        Review Portfolio →
-                    </button>
+                    <div className="social-chat__invalidation-alert-actions">
+                        <button className="social-chat__invalidation-alert-btn" onClick={handleReview}>
+                            Review portfolio
+                        </button>
+                        <button
+                            className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
+                            onClick={() => onResolve?.(msg.id, { status: 'dismissed', outcome: 'dismissed' })}
+                        >Dismiss</button>
+                    </div>
                 </>
             )}
         </div>
     )
 }
 
-// The unified manual-mode FillCard: broker-less mode can't place/close, so the user reports
-// the real fill here. N legs (1 for an idea, N for a portfolio); each leg opens/closes the
-// instant its price is submitted (incremental, partial baskets fine). Entry legs also carry
-// an editable quantity. On a successful fill it emits MANUAL_FILLED so the app patches the
-// idea + refreshes positions. Dismissal persists on the message like the other cards.
-function ManualFillCard({ msg, onDismiss }) {
+// The unified manual-mode FillCard: broker-less mode can't place/close, so the user reports the
+// real fill here. N legs (1 for an idea, N for a portfolio); each leg opens/closes the instant its
+// price is submitted (incremental, partial baskets fine). Entry legs also carry an editable
+// quantity. On a successful fill it emits MANUAL_FILLED. Follows the same resolve lifecycle: the
+// footer button resolves the card 'done' (all legs filled) or 'dismissed'.
+function ManualFillCard({ msg, onResolve }) {
     const { kind, reason, portfolioName, legs = [] } = msg.payload
     const isEntry = kind === 'entry'
 
@@ -491,10 +461,12 @@ function ManualFillCard({ msg, onDismiss }) {
         }
     }
 
-    if (msg.dismissed) {
+    const { resolved, status } = readResolution(msg)
+    if (resolved) {
+        const label = status === 'done' ? (isEntry ? '✓ Filled' : '✓ Closed') : 'Dismissed'
         return (
             <div className="social-chat__msg-bubble social-chat__manual-card social-chat__manual-card--dismissed">
-                <div className="social-chat__manual-card-header">Dismissed &middot; {isEntry ? 'entry' : 'exit'}</div>
+                <div className="social-chat__manual-card-header">{label} &middot; {isEntry ? 'entry' : 'exit'}</div>
             </div>
         )
     }
@@ -549,7 +521,7 @@ function ManualFillCard({ msg, onDismiss }) {
             <div className="social-chat__manual-card-actions">
                 <button
                     className="social-chat__manual-btn social-chat__manual-btn--dismiss"
-                    onClick={() => onDismiss?.(msg.id)}
+                    onClick={() => onResolve?.(msg.id, { status: allDone ? 'done' : 'dismissed', outcome: allDone ? 'filled' : 'dismissed' })}
                 >{allDone ? 'Done' : 'Dismiss'}</button>
             </div>
         </div>
@@ -557,12 +529,15 @@ function ManualFillCard({ msg, onDismiss }) {
 }
 
 ChatWindow.propTypes = {
-    conversation:  PropTypes.object,
-    messages:      PropTypes.array.isRequired,
-    currentUserId: PropTypes.string,
-    loading:       PropTypes.bool,
-    hasMore:       PropTypes.bool,
-    onClose:       PropTypes.func,
-    onSend:        PropTypes.func.isRequired,
-    onLoadMore:    PropTypes.func.isRequired,
+    conversation:     PropTypes.object,
+    messages:         PropTypes.array.isRequired,
+    currentUserId:    PropTypes.string,
+    loading:          PropTypes.bool,
+    hasMore:          PropTypes.bool,
+    onClose:          PropTypes.func,
+    onSend:           PropTypes.func.isRequired,
+    onLoadMore:       PropTypes.func.isRequired,
+    onResolveMessage: PropTypes.func,
+    scrollToMsgId:    PropTypes.string,
+    onScrolledToMsg:  PropTypes.func,
 }

@@ -12,9 +12,13 @@ import { AGENTS, isBotId } from '../cmps/AxlHub/agentMeta.jsx'
 const TYPE_LABELS = {
     invalidation_alert: 'Trade alert',
     portfolio_review:   'Portfolio review',
-    manual_fill:        'Fill confirmation',
+    manual_entry:       'Fill confirmation',
+    manual_exit:        'Close confirmation',
     entry_confirm:      'Confirm entry',
     call_expiry:        'Call update',
+    call_manage:        'Manage position',
+    call_reentry:       'Re-entry?',
+    coverage_event:     'Coverage update',
 }
 
 // One-line preview for the incoming-message toast. Bot senders resolve to their
@@ -32,9 +36,11 @@ export function useChatWs(userId) {
     const navigate = useNavigate()
     const [unread, setUnread] = useState(0)
     const [showChat, setShowChat] = useState(false)
-    // Conversation to auto-open when the chat panel is launched from a preview
-    // toast; null on a plain header-button open.
+    // Conversation (and specific message) to auto-open when the chat panel is launched
+    // from a preview toast; null on a plain header-button open. pendingMsgId lets the
+    // window scroll straight to the notification the user clicked.
     const [pendingConvId, setPendingConvId] = useState(null)
+    const [pendingMsgId, setPendingMsgId]   = useState(null)
     const showChatRef = useRef(false)
     useEffect(() => { showChatRef.current = showChat }, [showChat])
 
@@ -75,7 +81,7 @@ export function useChatWs(userId) {
             showUserMsg({
                 txt:     chatPreview(msg),
                 type:    'chat',
-                onClick: () => { setPendingConvId(convId); setShowChat(true) },
+                onClick: () => { setPendingConvId(convId); setPendingMsgId(msg?.id ?? null); setShowChat(true) },
             })
         }
         chatWsService.on('new_message', onNewMessage)
@@ -91,5 +97,5 @@ export function useChatWs(userId) {
         // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only OAuth redirect; navigate is stable
     }, [])
 
-    return { unread, setUnread, showChat, setShowChat, pendingConvId, setPendingConvId }
+    return { unread, setUnread, showChat, setShowChat, pendingConvId, setPendingConvId, pendingMsgId, setPendingMsgId }
 }

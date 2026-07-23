@@ -24,6 +24,8 @@ export const CALL_EXPIRY_EDIT          = 'call-expiry-edit'
 export const ENTRY_CONFIRM_EDIT        = 'entry-confirm-edit'
 // Entry-confirm card "Dismiss" → park the triggered idea back to 'waiting' (re-armable).
 export const ENTRY_CONFIRM_DISMISS     = 'entry-confirm-dismiss'
+// Coverage-update card "Open coverage" → open the Analyst (its living coverage book).
+export const OPEN_COVERAGE             = 'open-coverage'
 
 function createEventEmitter() {
     const listenersMap = {}
