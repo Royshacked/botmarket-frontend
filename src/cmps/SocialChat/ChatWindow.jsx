@@ -487,14 +487,19 @@ function ManualFillCard({ msg, onResolve }) {
         const row   = rows[leg.ideaId] ?? {}
         const price = Number(row.price)
         if (!(price > 0)) { patch(leg.ideaId, { err: 'Enter a valid price' }); return }
-        const qty = isEntry ? Number(row.qty) : undefined
-        if (isEntry && !(qty > 0)) { patch(leg.ideaId, { err: 'Enter a valid quantity' }); return }
+        // Entries (incl. a scale-in add) and a partial exit (trim) all carry a size; a full exit doesn't.
+        const needsQty = isEntry || leg.partial
+        const qty = needsQty ? Number(row.qty) : undefined
+        if (needsQty && !(qty > 0)) { patch(leg.ideaId, { err: 'Enter a valid quantity' }); return }
 
         patch(leg.ideaId, { status: 'saving', err: null })
         try {
-            const idea = isEntry
+            // An add leg rides the entry card but scales INTO a live position → its own endpoint.
+            const idea = leg.add
+                ? await manualService.confirmAdd(leg.ideaId, { price, quantity: qty })
+                : isEntry
                 ? await manualService.confirmEntry(leg.ideaId, { price, quantity: qty })
-                : await manualService.confirmExit(leg.ideaId, { price })
+                : await manualService.confirmExit(leg.ideaId, { price, quantity: qty })
             patch(leg.ideaId, { status: 'done', err: null })
             eventBus.emit(MANUAL_FILLED, { idea })
         } catch (err) {
@@ -526,18 +531,21 @@ function ManualFillCard({ msg, onResolve }) {
                 {legs.map(leg => {
                     const row  = rows[leg.ideaId] ?? {}
                     const done = row.status === 'done'
+                    const showQty  = isEntry || leg.partial   // entries, scale-in adds, and trims carry a size
+                    const verb     = leg.add ? 'Add' : isEntry ? 'Fill' : leg.partial ? 'Trim' : 'Close'
+                    const verbPast = leg.add ? 'added' : isEntry ? 'filled' : leg.partial ? 'trimmed' : 'closed'
                     return (
                         <div key={leg.ideaId} className={`social-chat__manual-leg${done ? ' is-done' : ''}`}>
                             <div className="social-chat__manual-leg-meta">
                                 <span className={`social-chat__manual-leg-dir social-chat__manual-leg-dir--${leg.direction}`}>{String(leg.direction).toUpperCase()}</span>
                                 <span className="social-chat__manual-leg-asset">{leg.asset}</span>
-                                {isEntry && leg.quantity != null && <span className="social-chat__manual-leg-qty">&times; {leg.quantity}</span>}
+                                {showQty && leg.quantity != null && <span className="social-chat__manual-leg-qty">&times; {leg.quantity}</span>}
                             </div>
                             {done ? (
-                                <span className="social-chat__manual-leg-done">✓ {isEntry ? 'filled' : 'closed'} @ {row.price}</span>
+                                <span className="social-chat__manual-leg-done">✓ {verbPast} @ {row.price}</span>
                             ) : (
                                 <div className="social-chat__manual-leg-inputs">
-                                    {isEntry && (
+                                    {showQty && (
                                         <input
                                             className="social-chat__manual-input" type="number" step="any" placeholder="qty"
                                             value={row.qty} onChange={e => patch(leg.ideaId, { qty: e.target.value })}
@@ -551,7 +559,7 @@ function ManualFillCard({ msg, onResolve }) {
                                     <button
                                         className="social-chat__manual-btn" disabled={row.status === 'saving'}
                                         onClick={() => submit(leg)}
-                                    >{row.status === 'saving' ? '…' : (isEntry ? 'Fill' : 'Close')}</button>
+                                    >{row.status === 'saving' ? '…' : verb}</button>
                                 </div>
                             )}
                             {row.err && <div className="social-chat__manual-leg-err">{row.err}</div>}

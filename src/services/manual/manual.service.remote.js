@@ -22,6 +22,7 @@ export const manualService = {
     // lifecycle confirmations
     confirmEntry,
     confirmExit,
+    confirmAdd,
     activatePortfolio,
     requestPortfolioExit,
 }
@@ -65,9 +66,18 @@ async function confirmEntry(ideaId, { price, quantity } = {}) {
     return res.idea ?? null
 }
 
-/** Report a real exit fill for a manual idea → closes the position. @returns {Promise<object|null>} updated idea */
-async function confirmExit(ideaId, { price } = {}) {
-    const res = await httpService.post(`${IDEAS}/${ideaId}/manual-exit`, { price })
+/**
+ * Report a real exit fill for a manual idea → closes the position, or TRIMS it when `quantity` is
+ * less than the open size (a partial close). @returns {Promise<object|null>} updated idea
+ */
+async function confirmExit(ideaId, { price, quantity } = {}) {
+    const res = await httpService.post(`${IDEAS}/${ideaId}/manual-exit`, { price, quantity })
+    return res.idea ?? null
+}
+
+/** Report a real ADD (scale-in) fill for a live manual idea → grows the position. @returns {Promise<object|null>} updated idea */
+async function confirmAdd(ideaId, { price, quantity } = {}) {
+    const res = await httpService.post(`${IDEAS}/${ideaId}/manual-add`, { price, quantity })
     return res.idea ?? null
 }
 
