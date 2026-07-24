@@ -45,9 +45,10 @@
 // :hover lift once the entrance settles.
 .axl-hub__intro  { animation: axl-hub-rise 0.42s cubic-bezier(0.22, 0.61, 0.36, 1) 0.02s backwards; }
 .axl-hub__option { animation: axl-hub-rise 0.42s cubic-bezier(0.22, 0.61, 0.36, 1) backwards; }
-.axl-hub__option:nth-child(1) { animation-delay: 0.10s; }
-.axl-hub__option:nth-child(2) { animation-delay: 0.16s; }
-.axl-hub__option:nth-child(3) { animation-delay: 0.22s; }
+.axl-hub__option:nth-child(1) { animation-delay: 0.08s; }
+.axl-hub__option:nth-child(2) { animation-delay: 0.14s; }
+.axl-hub__option:nth-child(3) { animation-delay: 0.20s; }
+.axl-hub__option:nth-child(4) { animation-delay: 0.26s; }
 
 @keyframes axl-hub-rise {
     from { opacity: 0; transform: translateY(12px); }
@@ -223,6 +224,78 @@
     text-transform: none;
     letter-spacing: 0.02em;
     color: var(--text-primary);
+}
+
+// ── Axl routing comment (streams while intent is being resolved) ──
+.axl-hub__route-comment {
+    width: 100%;
+    max-width: 420px;
+    padding: 11px 16px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--text-secondary);
+    text-align: center;
+    animation: axl-hub-enter 0.22s ease both;
+}
+
+.axl-hub__thinking {
+    opacity: 0.5;
+    font-style: italic;
+}
+
+// ── free-text intent input row ──
+.axl-hub__intent-row {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-wash-surface);
+}
+
+.axl-hub__intent-input {
+    flex: 1;
+    padding: 8px 12px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+
+    &::placeholder { color: var(--text-muted); }
+    &:focus { border-color: var(--accent); }
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.axl-hub__intent-send {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+
+    svg { width: 16px; height: 16px; }
+
+    &:hover:not(:disabled) {
+        color: var(--accent-light);
+        border-color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 10%, transparent);
+    }
+
+    &:disabled { opacity: 0.35; cursor: not-allowed; }
 }
 
 // ── summoning state (axl calls the chosen agent before its chat opens) ──

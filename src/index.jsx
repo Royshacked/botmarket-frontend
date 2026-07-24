@@ -1,6 +1,6 @@
 import ReactDOM from 'react-dom/client'
 
-import { BrowserRouter as Router } from 'react-router-dom'
+import { BrowserRouter as Router } from 'react-router'
 
 import { RootCmp } from './RootCmp'
 import { AuthProvider } from './context/AuthContext'

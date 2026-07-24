@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import { chatWsService } from '../services/chat/chatWs.service'
 import { chatService } from '../services/chat/chat.service'
 import { playNotify } from '../services/sound.service'

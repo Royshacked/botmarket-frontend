@@ -1,6 +1,6 @@
 import { useContext, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router'
 import { AuthContext } from '../context/AuthContext'
 import { SocialChat } from './SocialChat/SocialChat'
 import { MarketClocks } from './MarketClocks'

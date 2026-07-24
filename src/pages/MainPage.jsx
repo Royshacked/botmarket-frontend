@@ -225,6 +225,7 @@ export function MainPage() {
     const [editingIdeaId,     setEditingIdeaId]     = useState(null)
     const [isInvalidationReview, setIsInvalidationReview] = useState(false)
     const [activeTab, setActiveTab]             = useState('axl')
+    const [activePipeline, setActivePipeline]   = useState(null)   // pipeline key from Axl reception
     const [newsTab, setNewsTab]                 = useState('news')
     const [scannerChatRestore, setScannerChatRestore] = useState(null)
     const [portfolioChatRestore, setPortfolioChatRestore] = useState(null)
@@ -360,6 +361,7 @@ export function MainPage() {
         setReturningToAxl(true)
         returnTimerRef.current = setTimeout(() => {
             setActiveTab('axl')
+            setActivePipeline(null)
             setNewsTab('news')
             setReturningToAxl(false)
             // Fresh slate: clear the Idea chat, drop any pending edit-restore, and
@@ -1626,7 +1628,7 @@ export function MainPage() {
                         {activeTab === 'axl' ? (
                             <AxlHub
                                 user={user}
-                                onPick={(tab) => { setActiveTab(tab); setNewsTab(tab === 'scanner' ? 'scans' : 'news') }}
+                                onPick={(tab, opts) => { setActiveTab(tab); setActivePipeline(opts?.pipeline ?? null); setNewsTab(tab === 'scanner' ? 'scans' : 'news') }}
                             />
                         ) : (
                             <div className="chat-agentbar">
@@ -1678,6 +1680,7 @@ export function MainPage() {
                             <ScannerPanel
                                 key={`scanner-${chatResetKey}`}
                                 resumeRef={scannerResumeRef}
+                                pipeline={activePipeline}
                                 onTickerSelect={handleScannerSymbol}
                                 onGenerateList={handleGenerateList}
                                 onUpdateList={handleUpdateList}
