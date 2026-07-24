@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { readResolution } from './cardResolution.js'
-import { CoverageEventBubble } from './ChatWindow.jsx'
-import { eventBus, OPEN_COVERAGE } from '../../services/event-bus.service.js'
+import { CoverageEventBubble, CoverageRefreshedBubble } from './ChatWindow.jsx'
+import { eventBus, OPEN_COVERAGE, PORTFOLIO_REVIEW } from '../../services/event-bus.service.js'
 
 vi.mock('../../services/manual/manual.service.remote', () => ({ manualService: {} }))
 
@@ -53,5 +53,43 @@ describe('CoverageEventBubble', () => {
         render(<CoverageEventBubble msg={{ ...msg, status: 'done', resolveOutcome: 'opened' }} onResolve={vi.fn()} />)
         expect(screen.getByText(/Opened/)).toBeTruthy()
         expect(screen.queryByText('Open coverage')).toBeNull()
+    })
+})
+
+describe('CoverageRefreshedBubble', () => {
+    beforeEach(() => vi.spyOn(eventBus, 'emit'))
+    afterEach(() => { vi.restoreAllMocks(); cleanup() })
+
+    const fromReview = {
+        id: 'm2', type: 'coverage_refreshed', content: 'Fresh research on NVDA is ready.',
+        payload: { kind: 'coverage', symbol: 'NVDA', coverageId: 'cov1', portfolioId: 'pf1', ok: true },
+    }
+
+    it('primary "Resume review" reopens the portfolio review + resolves done', () => {
+        const onResolve = vi.fn(), onClose = vi.fn()
+        render(<CoverageRefreshedBubble msg={fromReview} onClose={onClose} onResolve={onResolve} />)
+
+        fireEvent.click(screen.getByText('Resume review'))
+
+        expect(eventBus.emit).toHaveBeenCalledWith(PORTFOLIO_REVIEW, { portfolioId: 'pf1', reviewMode: true })
+        expect(onResolve).toHaveBeenCalledWith('m2', { status: 'done', outcome: 'resumed' })
+        expect(onClose).toHaveBeenCalled()
+    })
+
+    it('with no portfolioId, primary opens coverage instead', () => {
+        const onResolve = vi.fn()
+        const standalone = { ...fromReview, payload: { ...fromReview.payload, portfolioId: null } }
+        render(<CoverageRefreshedBubble msg={standalone} onClose={vi.fn()} onResolve={onResolve} />)
+
+        fireEvent.click(screen.getByText('Open coverage'))
+
+        expect(eventBus.emit).toHaveBeenCalledWith(OPEN_COVERAGE, { coverageId: 'cov1', symbol: 'NVDA' })
+        expect(onResolve).toHaveBeenCalledWith('m2', { status: 'done', outcome: 'opened' })
+    })
+
+    it('a failed refresh (ok:false) still shows the resume action', () => {
+        render(<CoverageRefreshedBubble msg={{ ...fromReview, payload: { ...fromReview.payload, ok: false } }} onClose={vi.fn()} onResolve={vi.fn()} />)
+        expect(screen.getByText(/refresh failed/)).toBeTruthy()
+        expect(screen.getByText('Resume review')).toBeTruthy()
     })
 })

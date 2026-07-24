@@ -19,6 +19,7 @@ const TYPE_LABELS = {
     call_manage:        'Manage position',
     call_reentry:       'Re-entry?',
     coverage_event:     'Coverage update',
+    coverage_refreshed: 'Research refreshed',
 }
 
 // One-line preview for the incoming-message toast. Bot senders resolve to their

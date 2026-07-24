@@ -162,6 +162,8 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                                 ? <CallReentryBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'coverage_event' && msg.payload
                                 ? <CoverageEventBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
+                                : msg.type === 'coverage_refreshed' && msg.payload
+                                ? <CoverageRefreshedBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : <div className="social-chat__msg-bubble">{msg.content}</div>
                             }
                             <div className="social-chat__msg-time">{formatTime(msg.createdAt)}</div>
@@ -366,8 +368,37 @@ export function CoverageEventBubble({ msg, onClose, onResolve }) {
     )
 }
 
+// "Research refreshed" card for Prometheus — an async coverage refresh (requested by Atlas mid-review)
+// has rewritten a held name's thesis. When it came from a portfolio review, the primary RESUMES that
+// review (so Atlas re-reads the fresh coverage); otherwise it opens the coverage. `ok:false` = the
+// refresh couldn't produce updated coverage (existing thesis left in place); still lets the user resume.
+export function CoverageRefreshedBubble({ msg, onClose, onResolve }) {
+    const { symbol, coverageId, portfolioId, ok } = msg.payload
+    const heading = `Research · ${symbol}${ok === false ? ' — refresh failed' : ' refreshed'}`
+
+    function handlePrimary() {
+        if (portfolioId) {
+            onResolve?.(msg.id, { status: 'done', outcome: 'resumed' })
+            eventBus.emit(PORTFOLIO_REVIEW, { portfolioId, reviewMode: true })
+        } else {
+            onResolve?.(msg.id, { status: 'done', outcome: 'opened' })
+            eventBus.emit(OPEN_COVERAGE, { coverageId, symbol })
+        }
+        onClose?.()
+    }
+
+    return (
+        <NotificationCard
+            agent={AGENTS.analyst} kind="coverage" heading={heading} asset={symbol} body={msg.content}
+            primaryLabel={msg.actions?.primary?.label ?? (portfolioId ? 'Resume review' : 'Open coverage')} onPrimary={handlePrimary}
+            onResolve={onResolve} msg={msg}
+            resolvedLabels={{ resumed: '✓ Resumed', opened: '✓ Opened' }}
+        />
+    )
+}
+
 function PortfolioReviewBubble({ msg, onClose, onResolve }) {
-    const { portfolioId, portfolioName, mode, account, lastReviewAt, nextReviewAt, outcome: legacyOutcome } = msg.payload
+    const { portfolioId, portfolioName, mode, account, lastReviewAt, nextReviewAt, triggers, outcome: legacyOutcome } = msg.payload
     const { resolved, outcome } = readResolution(msg)
     const fmtDate = (ms) => new Date(ms).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
     const lastReview = lastReviewAt ? fmtDate(lastReviewAt) : 'never'
@@ -409,6 +440,16 @@ function PortfolioReviewBubble({ msg, onClose, onResolve }) {
             ) : (
                 <>
                     <div className="social-chat__portfolio-review-meta">Last reviewed: {lastReview}</div>
+                    {Array.isArray(triggers) && triggers.length > 0 && (
+                        <div className="social-chat__portfolio-review-triggers">
+                            {triggers.slice(0, 4).map((t, i) => (
+                                <span
+                                    key={i}
+                                    className={`social-chat__portfolio-review-trigger social-chat__portfolio-review-trigger--${t.severity ?? 'medium'}`}
+                                >{t.label}</span>
+                            ))}
+                        </div>
+                    )}
                     <div className="social-chat__invalidation-alert-actions">
                         <button className="social-chat__invalidation-alert-btn" onClick={handleReview}>
                             Review portfolio
