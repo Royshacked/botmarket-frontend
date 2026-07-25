@@ -59,7 +59,7 @@ const DESKS = [
     },
 ]
 
-export function AxlHub({ user, onPick }) {
+export function AxlHub({ user, onPick, onChat }) {
     const name = firstName(user?.fullname)
     const [summoning, setSummoning]     = useState(null)
     const [draft, setDraft]             = useState('')
@@ -236,7 +236,7 @@ export function AxlHub({ user, onPick }) {
             </div>
 
             {/* ── free-text intent input ── */}
-            <div className="axl-hub__intent-row">
+            <div className="axl-hub__intent-row" style={{ gap: '8px' }}>
                 <input
                     ref={inputRef}
                     className="axl-hub__intent-input"
@@ -259,6 +259,17 @@ export function AxlHub({ user, onPick }) {
                         <path d="M5 12h14M12 5l7 7-7 7" />
                     </svg>
                 </button>
+                {onChat && (
+                    <button
+                        type="button"
+                        className="axl-hub__chat-link"
+                        onClick={onChat}
+                        disabled={isRouting}
+                        aria-label="Open Axl chat"
+                    >
+                        chat
+                    </button>
+                )}
             </div>
         </div>
     )
@@ -267,4 +278,5 @@ export function AxlHub({ user, onPick }) {
 AxlHub.propTypes = {
     user:   PropTypes.object,
     onPick: PropTypes.func.isRequired,
+    onChat: PropTypes.func,
 }

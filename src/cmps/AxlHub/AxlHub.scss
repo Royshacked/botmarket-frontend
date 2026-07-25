@@ -304,6 +304,24 @@
     &:disabled { opacity: 0.35; cursor: not-allowed; }
 }
 
+.axl-hub__chat-link {
+    flex-shrink: 0;
+    padding: 0 10px;
+    height: 34px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-family: var(--font-mono);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+
+    &:hover:not(:disabled) { color: var(--accent-light); border-color: var(--accent); }
+    &:disabled { opacity: 0.35; cursor: not-allowed; }
+}
+
 // ── summoning state (axl calls the chosen agent before its chat opens) ──
 .axl-summon {
     --hue: var(--accent-light);

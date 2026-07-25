@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 
 import { ChatPanel }         from '../cmps/ChatPanel/ChatPanel.jsx'
 import { AxlHub }            from '../cmps/AxlHub/AxlHub.jsx'
+import { AxlChatPanel }      from '../cmps/AxlHub/AxlChatPanel.jsx'
 import { AgentSummon, AxlBotGlyph } from '../cmps/AxlHub/AgentSummon.jsx'
 import { RETURN_MS }        from '../cmps/AxlHub/agentMeta.jsx'
 import { AccountSelector }   from '../cmps/ChatPanel/AccountSelector.jsx'
@@ -1629,6 +1630,7 @@ export function MainPage() {
                             <AxlHub
                                 user={user}
                                 onPick={(tab, opts) => { setActiveTab(tab); setActivePipeline(opts?.pipeline ?? null); setNewsTab(tab === 'scanner' ? 'scans' : 'news') }}
+                                onChat={() => setActiveTab('axl-chat')}
                             />
                         ) : (
                             <div className="chat-agentbar">
@@ -1644,7 +1646,7 @@ export function MainPage() {
                                 </button>
                                 <span className="chat-agentbar__crumb" aria-hidden="true">/</span>
                                 <span className="chat-agentbar__current">
-                                    {activeTab === 'portfolio' ? 'Atlas' : activeTab === 'scanner' ? 'Argus' : activeTab === 'kairos' ? 'Kairos' : activeTab === 'analyst' ? 'Prometheus' : 'Idea'}
+                                    {activeTab === 'portfolio' ? 'Atlas' : activeTab === 'scanner' ? 'Argus' : activeTab === 'kairos' ? 'Kairos' : activeTab === 'analyst' ? 'Prometheus' : activeTab === 'axl-chat' ? 'Axl' : 'Idea'}
                                 </span>
                                 <ThreadHistory agent={activeTab} onResume={handleResumeActiveThread} />
 
@@ -1735,6 +1737,10 @@ export function MainPage() {
                                 scanResult={analystScanResult}
                                 onInitiated={() => { setNewsTab('coverage'); handleBackToAxl() }}
                             />
+                        </div>
+
+                        <div className="chat-tabs__panel" style={{ display: activeTab === 'axl-chat' ? 'flex' : 'none' }}>
+                            <AxlChatPanel />
                         </div>
 
                         {/* Departure beat — covers the agent chat while heading home to axl. */}
