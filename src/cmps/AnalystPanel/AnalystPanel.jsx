@@ -65,7 +65,7 @@ export function CoverageDraft({ coverage }) {
 }
 CoverageDraft.propTypes = { coverage: PropTypes.object.isRequired }
 
-export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated }) {
+export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated, coverage = [] }) {
     const chat = useChatStream({ threadPhases: true })
     const { messages, isLoading } = chat
     const [inputText, setInputText] = useState('')
@@ -75,6 +75,14 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated }
     const seedRef     = useRef(null)   // one-shot Argus investing seed for the next send
     const pendingRef  = useRef(null)
     pendingRef.current = pendingCoverage
+
+    // Existing coverage for the pending symbol — drives "Update vs Initiate" mode.
+    // Match any status: the backend blocks initiation for retired coverage too, so we must update it.
+    const existingCoverage = pendingCoverage
+        ? (coverage || []).find(c => c.symbol === pendingCoverage.symbol) ?? null
+        : null
+    const existingRef = useRef(null)
+    existingRef.current = existingCoverage
 
     const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, { watch: chat.streamStatus })
 
@@ -100,7 +108,7 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated }
                 model:           readStoredModel('analystModel'),
                 reasoningEffort: readStoredReasoning('analystReasoning'),
                 // Feed the draft-so-far back so the model carries settled fields forward.
-                chatState:       { active_symbol: pendingRef.current?.symbol || seed?.ticker || '', draft: pendingRef.current },
+                chatState:       { active_symbol: pendingRef.current?.symbol || seed?.ticker || '', draft: pendingRef.current, existing_coverage: existingRef.current },
                 seed,            // structured Argus investing candidate (one-shot on the hand-off turn)
                 signal,
                 ...handlers,
@@ -135,7 +143,7 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated }
             await analystService.sendStream(history, {
                 model:           readStoredModel('analystModel'),
                 reasoningEffort: readStoredReasoning('analystReasoning'),
-                chatState:       { active_symbol: pendingRef.current?.symbol || '', draft: pendingRef.current },
+                chatState:       { active_symbol: pendingRef.current?.symbol || '', draft: pendingRef.current, existing_coverage: existingRef.current },
                 signal:          cont.signal,
                 ...cont.handlers,
             })
@@ -162,12 +170,37 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated }
         if (!pendingCoverage) return
         setInitiateErr('')
         try {
-            const saved = await analystService.initiateCoverage(pendingCoverage)
+            let saved
+            if (existingCoverage) {
+                saved = await analystService.updateCoverage(existingCoverage.id, {
+                    ...pendingCoverage,
+                    revision_kind: 'remodel',
+                    revision_note: `Coverage updated via Prometheus`,
+                })
+            } else {
+                saved = await analystService.initiateCoverage(pendingCoverage)
+            }
             setPendingCoverage(null)
             onInitiated?.(saved)
         } catch (err) {
-            const already = String(err?.message || err).includes('409') || String(err?.body?.error || '').includes('already_covered')
-            setInitiateErr(already ? `Already covering ${pendingCoverage.symbol}.` : 'Could not initiate coverage.')
+            // 409 fallback: backend blocked initiation because coverage exists but wasn't in our
+            // client-side list (stale load, retired status missed). Use the id from the error to update.
+            const errData = err?.response?.data
+            if (!existingCoverage && errData?.error === 'already_covered' && errData?.id) {
+                try {
+                    const saved = await analystService.updateCoverage(errData.id, {
+                        ...pendingCoverage,
+                        revision_kind: 'remodel',
+                        revision_note: 'Coverage updated via Prometheus',
+                    })
+                    setPendingCoverage(null)
+                    onInitiated?.(saved)
+                } catch {
+                    setInitiateErr('Could not update coverage.')
+                }
+                return
+            }
+            setInitiateErr(`Could not ${existingCoverage ? 'update' : 'initiate'} coverage.`)
         }
     }
 
@@ -190,7 +223,7 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated }
                     <CoverageDraft coverage={pendingCoverage} />
                     {initiateErr && <div className="analyst-panel__err">{initiateErr}</div>}
                     <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={handleInitiate}>
-                        Initiate coverage on {pendingCoverage.symbol}
+                        {existingCoverage ? `Update coverage on ${pendingCoverage.symbol}` : `Initiate coverage on ${pendingCoverage.symbol}`}
                     </button>
                 </div>
             )}
@@ -216,7 +249,8 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated }
     )
 }
 AnalystPanel.propTypes = {
-    scanResult:     PropTypes.object,
+    scanResult:      PropTypes.object,
     onLoadingChange: PropTypes.func,
-    onInitiated:    PropTypes.func,
+    onInitiated:     PropTypes.func,
+    coverage:        PropTypes.array,
 }

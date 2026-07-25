@@ -4,7 +4,8 @@ import { ChatPanel }         from '../cmps/ChatPanel/ChatPanel.jsx'
 import { AxlHub }            from '../cmps/AxlHub/AxlHub.jsx'
 import { AxlChatPanel }      from '../cmps/AxlHub/AxlChatPanel.jsx'
 import { AgentSummon, AxlBotGlyph } from '../cmps/AxlHub/AgentSummon.jsx'
-import { RETURN_MS }        from '../cmps/AxlHub/agentMeta.jsx'
+import { RETURN_MS, DESKS, AGENTS } from '../cmps/AxlHub/agentMeta.jsx'
+import { AgentGlyph } from '../cmps/AxlHub/AgentBadges.jsx'
 import { AccountSelector }   from '../cmps/ChatPanel/AccountSelector.jsx'
 import { readStoredModel }   from '../cmps/modelOptions.js'
 import { readStoredReasoning } from '../cmps/reasoningOptions.js'
@@ -39,6 +40,48 @@ import { useWorkspaceMode }  from '../customHooks/useWorkspaceMode.js'
 import { usePositions }      from '../customHooks/usePositions.js'
 import { useTradeIdeas }     from '../customHooks/useTradeIdeas.js'
 import { useAuth }           from '../context/AuthContext.jsx'
+
+// Maps activeTab → the step name used in DESKS.steps[] for pipeline highlighting.
+const TAB_TO_STEP = {
+    scanner:    'Argus',
+    kairos:     'Kairos',
+    portfolio:  'Atlas',
+    analyst:    'Prometheus',
+    idea:       'Idea',
+    'axl-chat': 'Axl',
+}
+
+// Agentbar breadcrumb: plain agent name when no pipeline is active, full
+// pipeline path with the current step highlighted when one is set.
+function PipelineCrumb({ pipeline, activeTab }) {
+    const desk        = pipeline ? DESKS.find(d => d.key === pipeline) : null
+    const currentStep = TAB_TO_STEP[activeTab]
+    if (!desk) return (
+        <>
+            <span className="chat-agentbar__crumb" aria-hidden="true">/</span>
+            <span className="chat-agentbar__current">{currentStep ?? activeTab}</span>
+        </>
+    )
+    return (
+        <div className="chat-agentbar__pipeline">
+            <span className="chat-agentbar__pipeline-label">{desk.label}</span>
+            <span className="chat-agentbar__pipeline-sep" aria-hidden="true">·</span>
+            {desk.steps.map((step, i) => (
+                <span key={step.label} className="chat-agentbar__pipeline-group">
+                    {i > 0 && <span className="chat-agentbar__pipeline-line" aria-hidden="true" />}
+                    {i > 0 && step.tab && AGENTS[step.tab] && (
+                        <span className={`chat-agentbar__pipeline-icon${step.tab === activeTab ? ' is-active' : ''}`}>
+                            <AgentGlyph agentKey={step.tab} icon={AGENTS[step.tab].icon} size={11} />
+                        </span>
+                    )}
+                    <span className={`chat-agentbar__pipeline-step${step.tab === activeTab ? ' is-active' : ''}`}>
+                        <span className="chat-agentbar__pipeline-text">{step.label}</span>
+                    </span>
+                </span>
+            ))}
+        </div>
+    )
+}
 
 // Chart defaults — restored when a build/edit session ends.
 const DEFAULT_CHART_SYMBOL   = 'SPY'
@@ -1641,11 +1684,7 @@ export function MainPage() {
                                     </svg>
                                     axl
                                 </button>
-                                <span className="chat-agentbar__crumb" aria-hidden="true">/</span>
-                                <span className="chat-agentbar__current">
-                                    {activeTab === 'portfolio' ? 'Atlas' : activeTab === 'scanner' ? 'Argus' : activeTab === 'kairos' ? 'Kairos' : activeTab === 'analyst' ? 'Prometheus' : activeTab === 'axl-chat' ? 'Axl' : 'Idea'}
-                                </span>
-                                <ThreadHistory agent={activeTab} onResume={handleResumeActiveThread} />
+                                <PipelineCrumb pipeline={activePipeline} activeTab={activeTab} />
 
                                 <div className="chat-agentbar__right">
                                     {(activeTab === 'idea' || activeTab === 'portfolio' || activeTab === 'kairos') && (
@@ -1657,18 +1696,7 @@ export function MainPage() {
                                             onMainChange={setMainAccountId}
                                         />
                                     )}
-                                    <span className="chat-agentbar__live">
-                                        <span className={`chat-agentbar__dot ${
-                                            activeTab === 'idea'
-                                                ? (isLoading ? 'loading' : analysisState?.structured_state?.active_asset ? 'building' : 'idle')
-                                                : activeTab === 'portfolio'
-                                                    ? (portfolioLoading ? 'loading' : buildingPortfolio ? 'building' : 'idle')
-                                                    : activeTab === 'scanner'
-                                                        ? (scannerLoading ? 'loading' : 'idle')
-                                                        : (kairosLoading ? 'loading' : 'idle')
-                                        }`} />
-                                        live
-                                    </span>
+                                    <ThreadHistory agent={activeTab} onResume={handleResumeActiveThread} />
                                 </div>
                             </div>
                         )}
@@ -1732,12 +1760,13 @@ export function MainPage() {
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'analyst' ? 'flex' : 'none' }}>
                             <AnalystPanel
                                 scanResult={analystScanResult}
+                                coverage={coverage}
                                 onInitiated={() => { setNewsTab('coverage'); handleBackToAxl() }}
                             />
                         </div>
 
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'axl-chat' ? 'flex' : 'none' }}>
-                            <AxlChatPanel />
+                            <AxlChatPanel onPick={(tab, opts) => { setActiveTab(tab); setActivePipeline(opts?.pipeline ?? null); setNewsTab(tab === 'scanner' ? 'scans' : 'news') }} />
                         </div>
 
                         {/* Departure beat — covers the agent chat while heading home to axl. */}
