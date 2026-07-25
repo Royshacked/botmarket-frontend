@@ -130,18 +130,16 @@ export function AxlHub({ user, onPick, onChat }) {
     return (
         <div className="axl-hub">
             {/* ── pipeline header ── */}
-            <div className="axl-hub__header">
+            <div className="panel-header axl-hub__header">
                 {hoveredDesk ? (
                     <span className="axl-hub__pipeline-path" key={hoveredDesk.key}>
                         <span className="axl-hub__pipeline-desk">{hoveredDesk.label}</span>
-                        {hoveredDesk.steps.map((step, i) => (
-                            <span key={step.label} className="axl-hub__pipeline-step-group">
-                                {i > 0 && <span className="axl-hub__pipeline-line" aria-hidden="true" />}
-                                <span className="axl-hub__pipeline-step">
-                                    <span className="axl-hub__pipeline-text">{step.label}</span>
-                                </span>
-                            </span>
-                        ))}
+                        {hoveredDesk.steps.flatMap((step, i) => [
+                            <span key={`l${i}`} className="axl-hub__pipeline-line" aria-hidden="true" />,
+                            <span key={step.label} className="axl-hub__pipeline-step">
+                                <span className="axl-hub__pipeline-text">{step.label}</span>
+                            </span>,
+                        ])}
                     </span>
                 ) : (
                     <span className="axl-hub__pipeline-idle">Where would you like to start?</span>

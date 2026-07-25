@@ -465,7 +465,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
 
     return (
         <section className="trade-ideas-list full">
-            <div className="trade-ideas-list__header">
+            <div className="panel-header trade-ideas-list__header">
                 {atHub ? (
                     <span className="trade-ideas-list__header-title">What do you want to see?</span>
                 ) : (

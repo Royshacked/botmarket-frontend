@@ -1,3 +1,15 @@
+// Shared panel-header — all workspace panel headers use this base.
+// Each component's own class adds padding, color, and any unique props.
+.panel-header {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    gap: 8px;
+    height: 47px;
+    background: var(--bg-wash-surface);
+    border-bottom: 1px solid var(--border);
+}
+
 // Font Sizes
 .fs12 { font-size: rem(12px); }
 .fs14 { font-size: rem(14px); }

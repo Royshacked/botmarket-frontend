@@ -32,7 +32,7 @@ export function Radar({
 }) {
     return (
         <div className="news-feed">
-            <div className="news-feed__header">
+            <div className="panel-header news-feed__header">
                 <div className="news-feed__header-top">
                     <svg className="news-feed__title-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                         {/* Signal arcs */}

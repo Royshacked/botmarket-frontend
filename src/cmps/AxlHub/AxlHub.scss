@@ -136,14 +136,9 @@
 
 // ── pipeline header ──
 .axl-hub__header {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    gap: 8px;
     padding: 7px 20px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg-wash-surface);
     font-family: var(--font-mono);
+    font-size: 13px;
     white-space: nowrap;
     overflow: hidden;
 }
@@ -159,40 +154,38 @@
 .axl-hub__pipeline-path {
     display: flex;
     align-items: center;
-    gap: 4px;
+    width: 100%;
+    gap: 0;
     animation: axl-hub-enter 0.18s ease both;
 }
 
 .axl-hub__pipeline-desk {
+    flex-shrink: 0;
     font-weight: 700;
+    font-size: 11px;
     text-transform: uppercase;
+    letter-spacing: 0.1em;
     color: var(--text-secondary);
-    margin-right: 2px;
-}
-
-.axl-hub__pipeline-step-group {
-    display: flex;
-    align-items: center;
-    gap: 0;
 }
 
 .axl-hub__pipeline-line {
-    display: block;
-    width: 18px;
+    flex: 1;
     height: 1px;
     background: var(--border);
-    flex-shrink: 0;
+    min-width: 12px;
 }
 
 .axl-hub__pipeline-step {
+    flex-shrink: 0;
     display: inline-flex;
     align-items: center;
     color: var(--text-muted);
 }
 
 .axl-hub__pipeline-text {
-    font-size: 8px;
-    letter-spacing: 0.06em;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     white-space: nowrap;
 }
@@ -460,14 +453,8 @@
 
 // ── agent breadcrumb bar (shown once inside an agent, replaces the tab row) ──
 .chat-agentbar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
-    padding: 6px 12px;
-    border-top: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-    background: var(--bg-wash-surface);
+    padding: 6px 20px;
+    overflow: hidden;
     animation: axl-hub-enter 0.28s ease both;
     // Raise the strip above the chat panel that follows it in the DOM, so the
     // account-selector / thread-history dropdowns overlay the chat instead of being
@@ -501,14 +488,14 @@
 .chat-agentbar__crumb {
     color: var(--text-muted);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 11px;
     letter-spacing: 0.1em;
 }
 
 .chat-agentbar__current {
-    color: var(--text-secondary);
+    color: var(--text-primary);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -523,18 +510,18 @@
 }
 
 .chat-agentbar__pipeline-label {
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--text-muted);
+    color: var(--text-primary);
     white-space: nowrap;
 }
 
 .chat-agentbar__pipeline-sep {
     color: var(--text-muted);
     opacity: 0.35;
-    font-size: 10px;
+    font-size: 11px;
 }
 
 .chat-agentbar__pipeline-group {
@@ -568,7 +555,7 @@
 .chat-agentbar__pipeline-step {
     display: inline-flex;
     align-items: center;
-    color: var(--text-muted);
+    color: var(--text-secondary);
 
     &.is-active {
         color: var(--accent-light);
@@ -577,7 +564,7 @@
 }
 
 .chat-agentbar__pipeline-text {
-    font-size: 8.5px;
+    font-size: 11px;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     white-space: nowrap;

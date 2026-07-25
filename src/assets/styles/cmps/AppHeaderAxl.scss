@@ -44,10 +44,7 @@
     flex-shrink: 0;
     height: var(--axl-h);
     font-family: 'Hanken Grotesk', system-ui, sans-serif;
-    // Follows the background-spectrum slider (--bg-base), kept translucent for blur.
-    background: color-mix(in srgb, var(--bg-base) 82%, transparent);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    background: var(--bg-surface);
     color: var(--axl-birch);
 
     // aurora hue-wash, blooming up from the wave at the bottom edge

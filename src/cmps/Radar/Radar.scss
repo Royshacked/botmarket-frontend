@@ -10,13 +10,7 @@
     color: var(--text-primary);
 
     &__header {
-        display: flex;
-        align-items: center;
-        flex-shrink: 0;
-        gap: 8px;
         padding: 7px 20px;
-        background: var(--bg-wash-surface);
-        border-bottom: 1px solid var(--border);
         color: var(--accent-light);
     }
 

@@ -13,16 +13,6 @@
     font-family: var(--font-sans);
     color: var(--text-primary);
 
-    // ── Header ──────────────────────────────────────────────────────────
-    &__header {
-        display: flex;
-        align-items: center;
-        flex-shrink: 0;
-        padding: 7px 20px;
-        background: var(--bg-wash-surface);
-        border-bottom: 1px solid var(--border);
-    }
-
     &__title-icon {
         flex-shrink: 0;
         width: 36px;

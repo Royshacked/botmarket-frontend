@@ -1659,7 +1659,7 @@ export function MainPage() {
                                 onChat={() => setActiveTab('axl-chat')}
                             />
                         ) : (
-                            <div className="chat-agentbar">
+                            <div className="panel-header chat-agentbar">
                                 <button
                                     className="chat-agentbar__back"
                                     onClick={handleBackToAxl}
