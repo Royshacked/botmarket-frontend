@@ -10,6 +10,8 @@ import { eventBus, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, REVIEW_RESO
 import { portfolioService } from '../../services/portfolio/portfolio.service.remote.js'
 import { StatusIcon } from '../StatusIcon.jsx'
 import { BrandTitle } from '../BrandTitle.jsx'
+import { MinosBadge, HermesBadge, AtlasBadge, ArgusBadge, AgentGlyph } from '../AxlHub/AgentBadges.jsx'
+import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { IdeaCard, BrokerGroupCard, PortfolioCard, BuildingPortfolioCard, PositionsCards } from './TradeIdeaCards.jsx'
 import { CallCard } from './CallCard.jsx'
 import { useDesign } from '../../customHooks/useDesign.js'
@@ -320,7 +322,7 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
 
 export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, buildingCall, loading = false, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, calls = [], onActCall, onDeleteCall, onEditCall, callBusyId = null, radar }) {
     const [expandedGroups, setExpandedGroups] = useState(new Set())
-    const [activeFilter,   setActiveFilter]   = useState('ideas')
+    const [activeFilter,   setActiveFilter]   = useState(null)    // null = hub landing
     const [closingId,      setClosingId]      = useState(null)
     const [pendingClose,   setPendingClose]   = useState(null)
     const [editOrdersPos,  setEditOrdersPos]  = useState(null)
@@ -346,9 +348,10 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
     // Follow the chat tab: idea mode shows ideas, portfolio mode shows portfolios.
     // The user can still override via the filter buttons until the tab changes again.
     useEffect(() => {
-        if (chatTab === 'portfolio')  setActiveFilter('portfolios')
-        else if (chatTab === 'idea')  setActiveFilter('ideas')
+        if (chatTab === 'portfolio')   setActiveFilter('portfolios')
+        else if (chatTab === 'idea')   setActiveFilter('ideas')
         else if (chatTab === 'kairos') setActiveFilter('calls')
+        else if (chatTab === 'axl')    setActiveFilter(null)   // return to hub when back at AxlHub
     }, [chatTab])
 
     // When a portfolio starts taking shape in chat, move the list to the
@@ -443,6 +446,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
     const pfInList = editPortfolioId != null && groups.some(g => g.portfolioId === editPortfolioId)
     const topBuildingPortfolio = buildingPortfolio && !pfInList ? buildingPortfolio : null
 
+    const atHub          = activeFilter === null
     const showIdeas      = activeFilter === 'ideas'
     const showCalls      = activeFilter === 'calls'
     const showPositions  = activeFilter === 'positions'
@@ -450,46 +454,128 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
     const hasIdeasRows   = topBuildingIdea || ideaRows.length > 0
     const hasPortfolios  = visibleGroups.length > 0
 
+    const SECTION_LABELS = { ideas: 'Ideas', calls: 'Calls', portfolios: 'Portfolios', positions: 'Positions', radar: 'Radar' }
+    // radar sub-tab label shown in the breadcrumb when a deep-link card was used
+    const radarTabLabel = { scans: 'Scans', earnings: 'Earnings', coverage: 'Coverage', fed: 'Fed', ipo: 'IPO' }
+    const sectionCount = activeFilter === 'ideas'      ? ideaRows.length
+        : activeFilter === 'calls'      ? effectiveCalls.length
+        : activeFilter === 'portfolios' ? visibleGroups.length
+        : activeFilter === 'positions'  ? positions.length
+        : 0
+
     return (
         <section className="trade-ideas-list full">
             <div className="trade-ideas-list__header">
-                <svg className="trade-ideas-list__header-icon" viewBox="0 0 10 18" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path d="M6 0L0 10h4.5L3 18l7-10H5.5L6 0z"/>
-                </svg>
-                <span className="trade-ideas-list__header-title"><BrandTitle text="Axl Lists" /></span>
-                <div className="trade-ideas-list__filters">
-                    <button
-                        className={`trade-ideas-list__filter${activeFilter === 'ideas' ? ' active' : ''}`}
-                        onClick={() => setActiveFilter('ideas')}
-                    >Ideas{ideaRows.length > 0 ? ` (${ideaRows.length})` : ''}</button>
-                    <button
-                        className={`trade-ideas-list__filter${activeFilter === 'calls' ? ' active' : ''}`}
-                        onClick={() => setActiveFilter('calls')}
-                    >Calls{calls.length > 0 ? ` (${calls.length})` : ''}</button>
-                    <button
-                        className={`trade-ideas-list__filter trade-ideas-list__filter--portfolio${activeFilter === 'portfolios' ? ' active' : ''}`}
-                        onClick={() => setActiveFilter('portfolios')}
-                    >Portfolios{visibleGroups.length > 0 ? ` (${visibleGroups.length})` : ''}</button>
-                    <button
-                        className={`trade-ideas-list__filter trade-ideas-list__filter--positions${activeFilter === 'positions' ? ' active' : ''}`}
-                        onClick={selectPositions}
-                    >Positions{positions.length > 0 ? ` (${positions.length})` : ''}</button>
-                    {radar && (
-                        <button
-                            className={`trade-ideas-list__filter${activeFilter === 'radar' ? ' active' : ''}`}
-                            onClick={() => setActiveFilter('radar')}
-                        >Radar</button>
-                    )}
-                </div>
+                {atHub ? (
+                    <span className="trade-ideas-list__header-title">What do you want to see?</span>
+                ) : (
+                    <>
+                        <button className="trade-ideas-list__back" onClick={() => setActiveFilter(null)} aria-label="Back to Axl Lists">
+                            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <polyline points="7,2 3,6 7,10"/>
+                                <line x1="3" y1="6" x2="11" y2="6"/>
+                            </svg>
+                            Lists
+                        </button>
+                        <span className="trade-ideas-list__crumb" aria-hidden="true">/</span>
+                        <span className="trade-ideas-list__section">
+                            {activeFilter === 'radar' && radar?.tab
+                                ? radarTabLabel[radar.tab] ?? 'Radar'
+                                : SECTION_LABELS[activeFilter]}
+                            {sectionCount > 0 ? ` (${sectionCount})` : ''}
+                        </span>
+                    </>
+                )}
             </div>
 
-            {showRadar && radar && (
-                <div className="trade-ideas-list__radar">
-                    <Radar {...radar} />
+            {atHub ? (
+                <div className="trade-ideas-list__hub">
+                    <div className="trade-ideas-list__hub-grid">
+                        <button className="trade-ideas-list__hub-card" onClick={() => setActiveFilter('ideas')}>
+                            <span className="trade-ideas-list__hub-card-icon">
+                                <MinosBadge size={30} />
+                            </span>
+                            <span className="trade-ideas-list__hub-card-body">
+                                <span className="trade-ideas-list__hub-card-label">Ideas</span>
+                                {ideaRows.length > 0 && <span className="trade-ideas-list__hub-card-count">{ideaRows.length} active</span>}
+                            </span>
+                        </button>
+                        <button className="trade-ideas-list__hub-card" onClick={() => setActiveFilter('calls')}>
+                            <span className="trade-ideas-list__hub-card-icon">
+                                <HermesBadge size={30} />
+                            </span>
+                            <span className="trade-ideas-list__hub-card-body">
+                                <span className="trade-ideas-list__hub-card-label">Calls</span>
+                                {effectiveCalls.length > 0 && <span className="trade-ideas-list__hub-card-count">{effectiveCalls.length} active</span>}
+                            </span>
+                        </button>
+                        <button className="trade-ideas-list__hub-card" onClick={() => setActiveFilter('portfolios')}>
+                            <span className="trade-ideas-list__hub-card-icon">
+                                <AtlasBadge size={30} />
+                            </span>
+                            <span className="trade-ideas-list__hub-card-body">
+                                <span className="trade-ideas-list__hub-card-label">Portfolios</span>
+                                {visibleGroups.length > 0 && <span className="trade-ideas-list__hub-card-count">{visibleGroups.length} books</span>}
+                            </span>
+                        </button>
+                        <button className="trade-ideas-list__hub-card" onClick={selectPositions}>
+                            <span className="trade-ideas-list__hub-card-icon">
+                                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 5.5l6-3 6 3-6 3z"/><path d="M2 8.5l6 3 6-3"/><path d="M2 11.5l6 3 6-3"/></svg>
+                            </span>
+                            <span className="trade-ideas-list__hub-card-body">
+                                <span className="trade-ideas-list__hub-card-label">Positions</span>
+                                {positions.length > 0 && <span className="trade-ideas-list__hub-card-count">{positions.length} open</span>}
+                            </span>
+                        </button>
+                        {radar && (<>
+                            <button className="trade-ideas-list__hub-card" onClick={() => { setActiveFilter('radar'); radar.onTabChange?.('fed') }}>
+                                <span className="trade-ideas-list__hub-card-icon">
+                                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none"/><path d="M5.2 10.8a4 4 0 0 1 0-5.6M10.8 5.2a4 4 0 0 1 0 5.6"/><path d="M3.1 12.9A7 7 0 0 1 3.1 3.1M12.9 3.1a7 7 0 0 1 0 9.8"/></svg>
+                                </span>
+                                <span className="trade-ideas-list__hub-card-body">
+                                    <span className="trade-ideas-list__hub-card-label">Fed</span>
+                                    {(radar.fed?.length ?? 0) > 0 && <span className="trade-ideas-list__hub-card-count">{radar.fed.length} events</span>}
+                                </span>
+                            </button>
+                            <button className="trade-ideas-list__hub-card" onClick={() => { setActiveFilter('radar'); radar.onTabChange?.('scans') }}>
+                                <span className="trade-ideas-list__hub-card-icon">
+                                    <ArgusBadge size={30} />
+                                </span>
+                                <span className="trade-ideas-list__hub-card-body">
+                                    <span className="trade-ideas-list__hub-card-label">Scans</span>
+                                    {(radar.scans?.length ?? 0) > 0 && <span className="trade-ideas-list__hub-card-count">{radar.scans.length} lists</span>}
+                                </span>
+                            </button>
+                            <button className="trade-ideas-list__hub-card" onClick={() => { setActiveFilter('radar'); radar.onTabChange?.('earnings') }}>
+                                <span className="trade-ideas-list__hub-card-icon">
+                                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="2" y="3" width="12" height="11" rx="1.5"/><line x1="2" y1="7" x2="14" y2="7"/><line x1="5" y1="1.5" x2="5" y2="4.5"/><line x1="11" y1="1.5" x2="11" y2="4.5"/></svg>
+                                </span>
+                                <span className="trade-ideas-list__hub-card-body">
+                                    <span className="trade-ideas-list__hub-card-label">Earnings</span>
+                                    {(radar.earnings?.length ?? 0) > 0 && <span className="trade-ideas-list__hub-card-count">{radar.earnings.length} upcoming</span>}
+                                </span>
+                            </button>
+                            <button className="trade-ideas-list__hub-card" onClick={() => { setActiveFilter('radar'); radar.onTabChange?.('coverage') }}>
+                                <span className="trade-ideas-list__hub-card-icon">
+                                    <AgentGlyph agentKey="analyst" icon={AGENTS.analyst.icon} size={30} />
+                                </span>
+                                <span className="trade-ideas-list__hub-card-body">
+                                    <span className="trade-ideas-list__hub-card-label">Coverage</span>
+                                    {(radar.coverage?.length ?? 0) > 0 && <span className="trade-ideas-list__hub-card-count">{radar.coverage.length} tracked</span>}
+                                </span>
+                            </button>
+                        </>)}
+                    </div>
                 </div>
-            )}
+            ) : (
+                <>
+                    {showRadar && radar && (
+                        <div className="trade-ideas-list__radar">
+                            <Radar {...radar} />
+                        </div>
+                    )}
 
-            <div className="trade-ideas-list__scroll" style={showRadar ? { display: 'none' } : undefined}>
+                    <div className="trade-ideas-list__scroll" style={showRadar ? { display: 'none' } : undefined}>
                 {/* Workspace switch (live/paper/manual) is re-fetching the ideas — the
                     Positions tab has its own loading state, so skip the overlay there. */}
                 {loading && !showPositions && (
@@ -694,7 +780,9 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                         </table>
                     )
                 )}
-            </div>
+                    </div>
+                </>
+            )}
 
             <ClosePositionDialog
                 position={pendingClose}

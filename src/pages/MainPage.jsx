@@ -32,7 +32,6 @@ import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
 import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
 import { useChatStream }     from '../customHooks/useChatStream.js'
-import { useNewsFeed }       from '../customHooks/useNewsFeed.js'
 import { useCalendarEvents } from '../customHooks/useCalendarEvents.js'
 import { useScans }          from '../customHooks/useScans.js'
 import { useBrokerAccounts } from '../customHooks/useBrokerAccounts.js'
@@ -270,7 +269,7 @@ export function MainPage() {
     const [isInvalidationReview, setIsInvalidationReview] = useState(false)
     const [activeTab, setActiveTab]             = useState('axl')
     const [activePipeline, setActivePipeline]   = useState(null)   // pipeline key from Axl reception
-    const [newsTab, setNewsTab]                 = useState('news')
+    const [newsTab, setNewsTab]                 = useState('scans')
     const [scannerChatRestore, setScannerChatRestore] = useState(null)
     const [portfolioChatRestore, setPortfolioChatRestore] = useState(null)
     const [buildingPortfolio, setBuildingPortfolio] = useState(null)
@@ -406,7 +405,7 @@ export function MainPage() {
         returnTimerRef.current = setTimeout(() => {
             setActiveTab('axl')
             setActivePipeline(null)
-            setNewsTab('news')
+            setNewsTab('scans')
             setReturningToAxl(false)
             // Fresh slate: clear the Idea chat, drop any pending edit-restore, and
             // remount Atlas/Argus so re-entering any agent from the hub starts a new
@@ -426,7 +425,6 @@ export function MainPage() {
         }, RETURN_MS)
     }
 
-    const news = useNewsFeed()
     const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading } = useCalendarEvents()
     const { scans, loading: scansLoading, createScan, updateScan, deleteScan } = useScans()
     const { user } = useAuth()
@@ -523,12 +521,7 @@ export function MainPage() {
 
         const { signal, handlers } = chat.begin(userPrompt, {
             onInterval: (interval) => { if (interval) setChartInterval(interval) },
-            onAsset: (symbol) => {
-                if (symbol) {
-                    setChartSymbol(symbol)
-                    news.previewAsset(symbol)
-                }
-            },
+            onAsset: (symbol) => { if (symbol) setChartSymbol(symbol) },
 
             // Agent surfaced a chart it wants the user to see — drop an
             // image bubble in just before the streaming assistant reply.
@@ -592,13 +585,11 @@ export function MainPage() {
                     }).catch(err => console.error('[chat_state] save failed', err))
                 }
                 setAnalysisState(data.analysisState ?? null)
-                const newAsset   = data.analysisState?.structured_state?.active_asset
-                const newCompany = data.analysisState?.structured_state?.active_company_name
+                const newAsset = data.analysisState?.structured_state?.active_asset
                 if (newAsset) setChartSymbol(newAsset)
                 // Follow the established timeframe even if the LLM omitted <interval>
                 const newInterval = deriveIdeaInterval(data.analysisState?.structured_state?.pending_trade)
                 if (newInterval) setChartInterval(newInterval)
-                news.focusAsset(newAsset, newCompany)
                 if (data.ideaSaved) loadIdeas()
             },
         })
@@ -648,7 +639,7 @@ export function MainPage() {
 
         const cont = chat.beginContinue({
             onInterval: (interval) => { if (interval) setChartInterval(interval) },
-            onAsset: (symbol) => { if (symbol) { setChartSymbol(symbol); news.previewAsset(symbol) } },
+            onAsset: (symbol) => { if (symbol) setChartSymbol(symbol) },
             onChart: (data) => {
                 if (!data?.imageBase64) return
                 setMessages(prev => {
@@ -691,12 +682,10 @@ export function MainPage() {
                     }).catch(err => console.error('[chat_state] save failed', err))
                 }
                 setAnalysisState(finalState)
-                const newAsset   = finalState?.structured_state?.active_asset
-                const newCompany = finalState?.structured_state?.active_company_name
+                const newAsset = finalState?.structured_state?.active_asset
                 if (newAsset) setChartSymbol(newAsset)
                 const newInterval = deriveIdeaInterval(finalState?.structured_state?.pending_trade)
                 if (newInterval) setChartInterval(newInterval)
-                news.focusAsset(newAsset, newCompany)
                 if (data.ideaSaved) loadIdeas()
             },
         })
@@ -728,7 +717,6 @@ export function MainPage() {
         ideaThreadIdRef.current = newThreadId()   // fresh construction thread; abandoned draft TTL-expires
         setEditingIdeaId(null)
         setIsInvalidationReview(false)
-        news.clearAsset()
         setChartSymbol(DEFAULT_CHART_SYMBOL)
         setChartInterval(DEFAULT_CHART_INTERVAL)
         chat.setPhase(null)
@@ -1017,7 +1005,6 @@ export function MainPage() {
                 setIsInvalidationReview(false)
                 setAnalysisState(null)
                 setMessages([])
-                news.clearAsset()
                 setChartSymbol(DEFAULT_CHART_SYMBOL)
                 setChartInterval(DEFAULT_CHART_INTERVAL)
                 latestMessagesRef.current = []
@@ -1041,7 +1028,6 @@ export function MainPage() {
                 ideaThreadIdRef.current = newThreadId()   // next build gets a fresh draft thread
                 setAnalysisState(null)
                 setMessages([])
-                news.clearAsset()
                 setChartSymbol(DEFAULT_CHART_SYMBOL)
                 setChartInterval(DEFAULT_CHART_INTERVAL)
                 latestMessagesRef.current = []
@@ -1669,7 +1655,7 @@ export function MainPage() {
                         {activeTab === 'axl' ? (
                             <AxlHub
                                 user={user}
-                                onPick={(tab, opts) => { setActiveTab(tab); setActivePipeline(opts?.pipeline ?? null); setNewsTab(tab === 'scanner' ? 'scans' : 'news') }}
+                                onPick={(tab, opts) => { setActiveTab(tab); setActivePipeline(opts?.pipeline ?? null); setNewsTab('scans') }}
                                 onChat={() => setActiveTab('axl-chat')}
                             />
                         ) : (
@@ -1766,7 +1752,7 @@ export function MainPage() {
                         </div>
 
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'axl-chat' ? 'flex' : 'none' }}>
-                            <AxlChatPanel onPick={(tab, opts) => { setActiveTab(tab); setActivePipeline(opts?.pipeline ?? null); setNewsTab(tab === 'scanner' ? 'scans' : 'news') }} />
+                            <AxlChatPanel onPick={(tab, opts) => { setActiveTab(tab); setActivePipeline(opts?.pipeline ?? null); setNewsTab('scans') }} />
                         </div>
 
                         {/* Departure beat — covers the agent chat while heading home to axl. */}
@@ -1811,12 +1797,8 @@ export function MainPage() {
                             onEditCall={handleEditCall}
                             callBusyId={callBusyId}
                             radar={{
-                                articles:          news.activeNewsSymbol ? news.assetArticles : news.newsArticles,
-                                isLoading:         news.activeNewsSymbol ? news.assetNewsLoading : news.newsLoading,
-                                sentimentLoading:  !!news.activeNewsSymbol && news.assetSentimentLoading,
                                 tab:               newsTab,
                                 onTabChange:       setNewsTab,
-                                activeSymbol:      news.activeNewsSymbol,
                                 scans,
                                 scansLoading,
                                 onCandidateSelect: handleBuildFromCandidate,

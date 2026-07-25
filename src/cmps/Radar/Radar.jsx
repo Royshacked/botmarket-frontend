@@ -3,19 +3,14 @@ import { BrandTitle } from '../BrandTitle.jsx'
 import { ScanList } from './ScanList.jsx'
 import { CoverageBook } from './CoverageBook.jsx'
 import { RadarTicker } from './RadarTicker.jsx'
-import { useDesign } from '../../customHooks/useDesign.js'
 import './Radar.scss'
 
-// Market-intelligence panel: incoming News (headlines + sentiment) and Scans
-// (scanner candidate lists), surfaced under one "Axl Radar" brand. Styling is
-// kept under the original `news-feed` CSS namespace.
+// Market-intelligence panel: Scans (scanner candidate lists), calendar events,
+// and coverage book — surfaced under one "Axl Radar" brand. Styling is kept under
+// the original `news-feed` CSS namespace.
 export function Radar({
-    articles = [],
-    isLoading,
-    sentimentLoading = false,
-    tab = 'news',
+    tab = 'scans',
     onTabChange,
-    activeSymbol = null,
     scans = [],
     scansLoading = false,
     onCandidateSelect,
@@ -35,51 +30,8 @@ export function Radar({
     coverageLoading = false,
     onRetireCoverage,
 }) {
-    // In the cards design the nav rides in the header beside the title (like Axl
-    // Lists); every other design keeps the full-width underline tabs on their own row.
-    const cardMode = useDesign() === 'cards'
-
-    const tabsEl = (
-        <div className="news-feed__tabs">
-            <button
-                className={`news-feed__tab${tab === 'news' ? ' news-feed__tab--active' : ''}`}
-                onClick={() => onTabChange?.('news')}
-            >{activeSymbol ? `${activeSymbol} News` : 'News'}</button>
-            <button
-                className={`news-feed__tab news-feed__tab--scans${tab === 'scans' ? ' news-feed__tab--active' : ''}`}
-                onClick={() => onTabChange?.('scans')}
-            >
-                Scans{scans.length > 0 && <span className="news-feed__tab-count">{scans.length}</span>}
-            </button>
-            <button
-                className={`news-feed__tab${tab === 'earnings' ? ' news-feed__tab--active' : ''}`}
-                onClick={() => onTabChange?.('earnings')}
-            >
-                Earnings{earnings.length > 0 && <span className="news-feed__tab-count">{earnings.length}</span>}
-            </button>
-            <button
-                className={`news-feed__tab${tab === 'ipo' ? ' news-feed__tab--active' : ''}`}
-                onClick={() => onTabChange?.('ipo')}
-            >
-                IPO{ipo.length > 0 && <span className="news-feed__tab-count">{ipo.length}</span>}
-            </button>
-            <button
-                className={`news-feed__tab${tab === 'fed' ? ' news-feed__tab--active' : ''}`}
-                onClick={() => onTabChange?.('fed')}
-            >
-                Fed{fed.length > 0 && <span className="news-feed__tab-count">{fed.length}</span>}
-            </button>
-            <button
-                className={`news-feed__tab${tab === 'coverage' ? ' news-feed__tab--active' : ''}`}
-                onClick={() => onTabChange?.('coverage')}
-            >
-                Coverage{coverage.length > 0 && <span className="news-feed__tab-count">{coverage.length}</span>}
-            </button>
-        </div>
-    )
-
     return (
-        <div className={`news-feed${cardMode ? ' news-feed--cards' : ''}`}>
+        <div className="news-feed">
             <div className="news-feed__header">
                 <div className="news-feed__header-top">
                     <svg className="news-feed__title-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -94,10 +46,7 @@ export function Radar({
                     </svg>
                     <span className="news-feed__title"><BrandTitle text="Axl Radar" /></span>
                 </div>
-                {cardMode && tabsEl}
             </div>
-
-            {!cardMode && tabsEl}
 
             {tab === 'scans' ? (
                 <div className="news-feed__list">
@@ -125,64 +74,7 @@ export function Radar({
                 <div className="news-feed__list">
                     <CoverageBook coverage={coverage} loading={coverageLoading} onRetire={onRetireCoverage} />
                 </div>
-            ) : (
-                <div className="news-feed__list">
-                    {isLoading && (
-                        <div className="news-feed__loader">
-                            <span /><span /><span />
-                        </div>
-                    )}
-
-                    {!isLoading && articles.length === 0 && (
-                        <p className="news-feed__empty">No news today yet.</p>
-                    )}
-
-                    {!isLoading && [...articles].sort((a, b) => (b.datetime ?? 0) - (a.datetime ?? 0)).map((article, i) => (
-                        <a
-                            key={article.url || i}
-                            className="news-feed__item"
-                            href={article.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            <div className="news-feed__item-body">
-                                <div className="news-feed__item-meta">
-                                    <span className="news-feed__source">{article.source}</span>
-                                    <span className="news-feed__time">{_formatTime(article.datetime)}</span>
-                                </div>
-                                <div className="news-feed__item-content">
-                                    <div className="news-feed__item-text">
-                                        <p className="news-feed__headline">{article.headline}</p>
-                                        {article.summary && (
-                                            <p className="news-feed__summary">{article.summary}</p>
-                                        )}
-                                    </div>
-                                    {article.image && (
-                                        <img
-                                            className="news-feed__item-img"
-                                            src={article.image}
-                                            alt=""
-                                            loading="lazy"
-                                            // Some publishers block hotlinking (403 / cross-origin
-                                            // resource policy) — hide the broken image gracefully.
-                                            onError={e => { e.currentTarget.style.display = 'none' }}
-                                        />
-                                    )}
-                                </div>
-                                {article.sentiment ? (
-                                    <span className={`news-feed__sentiment news-feed__sentiment--${article.sentiment}`}>
-                                        {article.sentiment} {article.confidence ? `${Math.round(article.confidence * 100)}%` : ''}
-                                    </span>
-                                ) : sentimentLoading && (
-                                    <span className="news-feed__sentiment news-feed__sentiment--pending">
-                                        <span /><span /><span />
-                                    </span>
-                                )}
-                            </div>
-                        </a>
-                    ))}
-                </div>
-            )}
+            ) : null}
         </div>
     )
 }
@@ -390,12 +282,8 @@ function _money(v) {
 }
 
 Radar.propTypes = {
-    articles:          PropTypes.array,
-    isLoading:         PropTypes.bool,
-    sentimentLoading:  PropTypes.bool,
     tab:               PropTypes.string,
     onTabChange:       PropTypes.func,
-    activeSymbol:      PropTypes.string,
     scans:             PropTypes.array,
     scansLoading:      PropTypes.bool,
     onCandidateSelect: PropTypes.func,
