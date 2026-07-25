@@ -13,6 +13,7 @@ import { BrandTitle } from '../BrandTitle.jsx'
 import { IdeaCard, BrokerGroupCard, PortfolioCard, BuildingPortfolioCard, PositionsCards } from './TradeIdeaCards.jsx'
 import { CallCard } from './CallCard.jsx'
 import { useDesign } from '../../customHooks/useDesign.js'
+import { Radar } from '../Radar/Radar.jsx'
 import './TradeIdeas.scss'
 
 function _separateIdeas(ideas) {
@@ -317,7 +318,7 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
     )
 }
 
-export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, buildingCall, loading = false, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, calls = [], onActCall, onDeleteCall, onEditCall, callBusyId = null }) {
+export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, buildingCall, loading = false, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, calls = [], onActCall, onDeleteCall, onEditCall, callBusyId = null, radar }) {
     const [expandedGroups, setExpandedGroups] = useState(new Set())
     const [activeFilter,   setActiveFilter]   = useState('ideas')
     const [closingId,      setClosingId]      = useState(null)
@@ -445,6 +446,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
     const showIdeas      = activeFilter === 'ideas'
     const showCalls      = activeFilter === 'calls'
     const showPositions  = activeFilter === 'positions'
+    const showRadar      = activeFilter === 'radar'
     const hasIdeasRows   = topBuildingIdea || ideaRows.length > 0
     const hasPortfolios  = visibleGroups.length > 0
 
@@ -472,10 +474,22 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                         className={`trade-ideas-list__filter trade-ideas-list__filter--positions${activeFilter === 'positions' ? ' active' : ''}`}
                         onClick={selectPositions}
                     >Positions{positions.length > 0 ? ` (${positions.length})` : ''}</button>
+                    {radar && (
+                        <button
+                            className={`trade-ideas-list__filter${activeFilter === 'radar' ? ' active' : ''}`}
+                            onClick={() => setActiveFilter('radar')}
+                        >Radar</button>
+                    )}
                 </div>
             </div>
 
-            <div className="trade-ideas-list__scroll">
+            {showRadar && radar && (
+                <div className="trade-ideas-list__radar">
+                    <Radar {...radar} />
+                </div>
+            )}
+
+            <div className="trade-ideas-list__scroll" style={showRadar ? { display: 'none' } : undefined}>
                 {/* Workspace switch (live/paper/manual) is re-fetching the ideas — the
                     Positions tab has its own loading state, so skip the overlay there. */}
                 {loading && !showPositions && (
@@ -721,4 +735,5 @@ TradeIdeasList.propTypes = {
     onDeleteCall:     PropTypes.func,
     onEditCall:       PropTypes.func,
     callBusyId:       PropTypes.string,
+    radar:            PropTypes.object,
 }

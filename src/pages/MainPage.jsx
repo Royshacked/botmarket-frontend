@@ -1622,9 +1622,6 @@ export function MainPage() {
             <main>
                 {/* ── Desktop / tablet workspace ── */}
                 <div className="workspace">
-                    <div className="workspace__chart">
-                        <PriceChart symbol={chartSymbol} interval={chartInterval} />
-                    </div>
                     <div className="workspace__chat">
                         {activeTab === 'axl' ? (
                             <AxlHub
@@ -1756,34 +1753,6 @@ export function MainPage() {
                             </div>
                         )}
                     </div>
-                    <div className="workspace__news">
-                        <Radar
-                            articles={news.activeNewsSymbol ? news.assetArticles : news.newsArticles}
-                            isLoading={news.activeNewsSymbol ? news.assetNewsLoading : news.newsLoading}
-                            sentimentLoading={!!news.activeNewsSymbol && news.assetSentimentLoading}
-                            tab={newsTab}
-                            onTabChange={setNewsTab}
-                            activeSymbol={news.activeNewsSymbol}
-                            scans={scans}
-                            scansLoading={scansLoading}
-                            onCandidateSelect={handleBuildFromCandidate}
-                            onDeleteScan={deleteScan}
-                            onEditScan={handleEditScan}
-                            coverage={coverage}
-                            coverageLoading={coverageLoading}
-                            onRetireCoverage={handleRetireCoverage}
-                            earnings={earnings}
-                            earningsFrom={earningsFrom}
-                            earningsTo={earningsTo}
-                            earningsLoading={earningsLoading}
-                            onEarningSelect={handleBuildFromEarning}
-                            fed={fed}
-                            fedLoading={fedLoading}
-                            ipo={ipo}
-                            ipoLoading={ipoLoading}
-                            onIpoSelect={handleBuildFromIpo}
-                        />
-                    </div>
                     <div className="workspace__ideas">
                         <TradeIdeasList
                             ideas={ideas
@@ -1812,6 +1781,32 @@ export function MainPage() {
                             onDeleteCall={handleDeleteCall}
                             onEditCall={handleEditCall}
                             callBusyId={callBusyId}
+                            radar={{
+                                articles:          news.activeNewsSymbol ? news.assetArticles : news.newsArticles,
+                                isLoading:         news.activeNewsSymbol ? news.assetNewsLoading : news.newsLoading,
+                                sentimentLoading:  !!news.activeNewsSymbol && news.assetSentimentLoading,
+                                tab:               newsTab,
+                                onTabChange:       setNewsTab,
+                                activeSymbol:      news.activeNewsSymbol,
+                                scans,
+                                scansLoading,
+                                onCandidateSelect: handleBuildFromCandidate,
+                                onDeleteScan:      deleteScan,
+                                onEditScan:        handleEditScan,
+                                coverage,
+                                coverageLoading,
+                                onRetireCoverage:  handleRetireCoverage,
+                                earnings,
+                                earningsFrom,
+                                earningsTo,
+                                earningsLoading,
+                                onEarningSelect:   handleBuildFromEarning,
+                                fed,
+                                fedLoading,
+                                ipo,
+                                ipoLoading,
+                                onIpoSelect:       handleBuildFromIpo,
+                            }}
                         />
                     </div>
                 </div>
