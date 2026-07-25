@@ -111,7 +111,7 @@ export function AxlChatPanel({ onLoadingChange }) {
                     <AgentIntro
                         agent={AGENTS.axl}
                         introOverride="Ask me anything — how the platform works, what a notification means, or open a chart for any ticker."
-                        hintOverride="Try: "Show me AAPL on the 1h" or "How do I build a scan?""
+                        hintOverride={'Try: “Show me AAPL on the 1h” or “How do I build a scan?”'}
                     />
                 )}
                 {messages.map((msg, i) => <MessageBubble key={i} msg={msg} />)}
