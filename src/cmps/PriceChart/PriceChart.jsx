@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react'
 import PropTypes from 'prop-types'
 import { init, dispose, utils, registerOverlay, registerIndicator } from 'klinecharts'
 import { marketService } from '../../services/market/market.service.remote'
@@ -237,13 +237,36 @@ function fmtVol(v) {
     return String(Math.round(n))
 }
 
-export function PriceChart({ symbol = 'SPY', interval = 'D', levels = [], indicators = [] }) {
+export const PriceChart = forwardRef(function PriceChart({ symbol = 'SPY', interval = 'D', levels = [], indicators = [], drawings = [] }, ref) {
     const containerRef = useRef(null)
     const chartRef     = useRef(null)
     const symbolRef    = useRef(symbol)     // read by the loader (which is registered once)
     const intervalRef  = useRef(interval)
     const precRef      = useRef(2)
-    const indHandlesRef = useRef({ overlayNames: [], paneIds: [] })  // created indicators, for reconcile
+    const indHandlesRef  = useRef({ overlayNames: [], paneIds: [] })  // created indicators, for reconcile
+    const userDrawingIds = useRef([])                                  // IDs of user-drawn overlays (for undo/clear)
+
+    useImperativeHandle(ref, () => ({
+        // Activate an interactive drawing tool by KLineCharts overlay name.
+        // Returns immediately; the chart waits for the user to click points on the canvas.
+        activateTool: (toolType) => {
+            const chart = chartRef.current
+            if (!chart) return
+            const id = chart.createOverlay({ name: toolType, groupId: 'user-drawings' })
+            if (id != null) userDrawingIds.current.push(...(Array.isArray(id) ? id : [id]))
+        },
+        // Remove the most recently drawn overlay.
+        undoLastDrawing: () => {
+            const ids = userDrawingIds.current
+            if (!ids.length) return
+            chartRef.current?.removeOverlay({ id: ids.pop() })
+        },
+        // Remove all user-drawn overlays.
+        clearAllDrawings: () => {
+            chartRef.current?.removeOverlay({ groupId: 'user-drawings' })
+            userDrawingIds.current = []
+        },
+    }))
     // `ready` flips once the first bars are loaded (overlays/indicators need the price scale first);
     // `precision` mirrors precRef so level labels redraw when the decimal count settles.
     const [ready, setReady]         = useState(false)
@@ -425,6 +448,22 @@ export function PriceChart({ symbol = 'SPY', interval = 'D', levels = [], indica
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [levelsKey, ready, precision])
 
+    // Prompt-driven drawings → programmatic overlays (e.g. horizontal price lines from Axl).
+    // Only horizontal-style overlays with a `value` point make sense here — trendlines need bar
+    // timestamps that the LLM can't reliably produce. Cleared + redrawn when drawings[] changes.
+    const drawingsKey = JSON.stringify(drawings)
+    useEffect(() => {
+        const chart = chartRef.current
+        if (!chart || !ready || !drawings.length) return
+        chart.removeOverlay({ groupId: 'prompt-drawings' })
+        for (const d of drawings) {
+            if (!d?.type || !Array.isArray(d.points)) continue
+            chart.createOverlay({ name: d.type, points: d.points, groupId: 'prompt-drawings', lock: true })
+        }
+        return () => { chartRef.current?.removeOverlay({ groupId: 'prompt-drawings' }) }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [drawingsKey, ready])
+
     // Relevant indicators → createIndicator (overlay ones share the candle pane; the rest get their
     // own sub-pane with a stable id so we can remove them on reconcile). VOL is excluded upstream
     // (the chart always shows a volume pane).
@@ -481,7 +520,7 @@ export function PriceChart({ symbol = 'SPY', interval = 'D', levels = [], indica
             <div className="price-chart__canvas" ref={containerRef} />
         </div>
     )
-}
+})
 
 PriceChart.propTypes = {
     symbol:   PropTypes.string,
@@ -496,5 +535,10 @@ PriceChart.propTypes = {
         name:       PropTypes.string,
         calcParams: PropTypes.array,
         overlay:    PropTypes.bool,
+    })),
+    // Prompt-driven overlays: { type: KLineCharts overlay name, points: [{value}] }
+    drawings: PropTypes.arrayOf(PropTypes.shape({
+        type:   PropTypes.string,
+        points: PropTypes.array,
     })),
 }
