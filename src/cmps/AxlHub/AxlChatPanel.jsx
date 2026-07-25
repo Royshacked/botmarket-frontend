@@ -76,18 +76,13 @@ export function AxlChatPanel({ onLoadingChange, onPick }) {
 
         const { signal, handlers } = chat.begin(text, {
             onDone: (data) => {
-                if (data.chart?.ticker && data.chart?.timeframe) {
-                    setMessages(prev => {
-                        const msgs = [...prev]
-                        const chartMsg = { role: 'assistant', type: 'chart', ticker: data.chart.ticker, timeframe: data.chart.timeframe }
-                        const lastIdx = msgs.length - 1
-                        if (msgs[lastIdx]?.streaming) msgs.splice(lastIdx, 0, chartMsg)
-                        else msgs.push(chartMsg)
-                        return msgs
-                    })
-                }
+                // Finalize reply first so the chart appends after it (not before),
+                // keeping the chart at the bottom where auto-scroll will land.
                 const reasoning = chat.reasoningRef.current
                 chat.finishStreaming({ role: 'assistant', content: data.reply, ...(reasoning ? { reasoning } : {}) })
+                if (data.chart?.ticker && data.chart?.timeframe) {
+                    setMessages(prev => [...prev, { role: 'assistant', type: 'chart', ticker: data.chart.ticker, timeframe: data.chart.timeframe }])
+                }
                 onLoadingChange?.(false)
             },
         })

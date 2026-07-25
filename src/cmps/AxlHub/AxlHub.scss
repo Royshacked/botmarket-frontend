@@ -310,8 +310,8 @@
 
 
 .axl-hub__chart {
-    width: 100%;
-    max-width: 560px;
+    width: calc(100% + 48px);
+    margin-inline: -24px;
     animation: axl-hub-enter 0.22s ease both;
 }
 
