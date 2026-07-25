@@ -23,7 +23,7 @@ function readAiPref() {
 
 const PAGE = 50
 
-export function SocialChat({ currentUserId, initialConvId, onUnreadChange, onClose }) {
+export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnreadChange, onClose }) {
     const [conversations, setConversations] = useState([])
     const [activeConv,    setActiveConv]    = useState(null)
     const [messages,      setMessages]      = useState([])
@@ -34,6 +34,9 @@ export function SocialChat({ currentUserId, initialConvId, onUnreadChange, onClo
     // Auto-open target (from a preview-toast click). Consumed once per value so a
     // later conversations-list refresh doesn't yank the user back to it.
     const consumedConvRef = useRef(null)
+    // The specific message a notification click wants to land on — ChatWindow scrolls
+    // to it once it's loaded, then calls back to clear it (a one-shot highlight).
+    const [scrollToMsgId, setScrollToMsgId] = useState(null)
 
     // Play the close (bubble-deflate) animation, then let the parent unmount us.
     // Keep the duration in sync with the social-chat-bubble-out keyframe.
@@ -97,9 +100,10 @@ export function SocialChat({ currentUserId, initialConvId, onUnreadChange, onClo
         const conv = conversations.find(c => c.id === initialConvId)
         if (!conv) return
         consumedConvRef.current = initialConvId
+        setScrollToMsgId(initialMsgId ?? null)   // land on the clicked notification once it loads
         handleSelectConv(conv)
         // eslint-disable-next-line react-hooks/exhaustive-deps -- handleSelectConv is a stable per-render decl; re-adding it would loop
-    }, [initialConvId, conversations])
+    }, [initialConvId, initialMsgId, conversations])
 
     // ── Select conversation ─────────────────────────────────────────────────
     async function handleSelectConv(conv) {
@@ -150,16 +154,17 @@ export function SocialChat({ currentUserId, initialConvId, onUnreadChange, onClo
         handleSelectConv(conv)
     }
 
-    // Persist a message dismissal (e.g. an invalidation alert) so the choice sticks:
-    // patch it locally now, and mark it dismissed server-side so it stays acknowledged
-    // on reload. Does not touch the idea's invalidation latch.
-    async function handleDismissMessage(msgId, outcome = null) {
+    // Resolve a card (done | dismissed) so the choice sticks: patch it locally now, and persist
+    // server-side so it stays collapsed on reload. Does not touch the idea's invalidation latch.
+    async function handleResolveMessage(msgId, { status = 'dismissed', outcome = null } = {}) {
         if (!activeConv) return
-        setMessages(prev => prev.map(m => m.id === msgId ? { ...m, dismissed: true, dismissOutcome: outcome } : m))
+        setMessages(prev => prev.map(m => m.id === msgId
+            ? { ...m, status, resolvedAt: Date.now(), resolveOutcome: outcome }
+            : m))
         try {
-            await chatService.dismissMessage(activeConv.id, msgId, outcome)
+            await chatService.resolveMessage(activeConv.id, msgId, { status, outcome })
         } catch (err) {
-            console.error('[SocialChat] dismiss failed', err)
+            console.error('[SocialChat] resolve failed', err)
         }
     }
 
@@ -191,7 +196,9 @@ export function SocialChat({ currentUserId, initialConvId, onUnreadChange, onClo
                         onClose={handleClose}
                         onSend={handleSend}
                         onLoadMore={handleLoadMore}
-                        onDismissMessage={handleDismissMessage}
+                        onResolveMessage={handleResolveMessage}
+                        scrollToMsgId={scrollToMsgId}
+                        onScrolledToMsg={() => setScrollToMsgId(null)}
                     />
                 </div>
             </div>
@@ -201,6 +208,8 @@ export function SocialChat({ currentUserId, initialConvId, onUnreadChange, onClo
 
 SocialChat.propTypes = {
     currentUserId:  PropTypes.string,
+    initialConvId:  PropTypes.string,
+    initialMsgId:   PropTypes.string,
     onUnreadChange: PropTypes.func,
     onClose:        PropTypes.func,
 }

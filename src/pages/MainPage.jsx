@@ -2,8 +2,10 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 
 import { ChatPanel }         from '../cmps/ChatPanel/ChatPanel.jsx'
 import { AxlHub }            from '../cmps/AxlHub/AxlHub.jsx'
+import { AxlChatPanel }      from '../cmps/AxlHub/AxlChatPanel.jsx'
 import { AgentSummon, AxlBotGlyph } from '../cmps/AxlHub/AgentSummon.jsx'
-import { RETURN_MS }        from '../cmps/AxlHub/agentMeta.jsx'
+import { RETURN_MS, DESKS, AGENTS } from '../cmps/AxlHub/agentMeta.jsx'
+import { AgentGlyph } from '../cmps/AxlHub/AgentBadges.jsx'
 import { AccountSelector }   from '../cmps/ChatPanel/AccountSelector.jsx'
 import { readStoredModel }   from '../cmps/modelOptions.js'
 import { readStoredReasoning } from '../cmps/reasoningOptions.js'
@@ -11,10 +13,12 @@ import { readStoredRoutingMode } from '../cmps/routingModeOptions.js'
 import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
 import { ScannerPanel }      from '../cmps/ScannerPanel/ScannerPanel.jsx'
 import { KairosPanel }       from '../cmps/KairosPanel/KairosPanel.jsx'
+import { AnalystPanel }      from '../cmps/AnalystPanel/AnalystPanel.jsx'
 import { Radar }             from '../cmps/Radar/Radar.jsx'
 import { PriceChart }  from '../cmps/PriceChart/PriceChart.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
 import { kairosService, CALLS_CHANGED } from '../services/kairos/kairos.service.remote.js'
+import { analystService, COVERAGE_CHANGED } from '../services/analyst/analyst.service.remote.js'
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
@@ -25,10 +29,9 @@ import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.rem
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
 import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
-import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, CALL_EXPIRY_EDIT } from '../services/event-bus.service'
+import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
 import { useChatStream }     from '../customHooks/useChatStream.js'
-import { useNewsFeed }       from '../customHooks/useNewsFeed.js'
 import { useCalendarEvents } from '../customHooks/useCalendarEvents.js'
 import { useScans }          from '../customHooks/useScans.js'
 import { useBrokerAccounts } from '../customHooks/useBrokerAccounts.js'
@@ -36,6 +39,48 @@ import { useWorkspaceMode }  from '../customHooks/useWorkspaceMode.js'
 import { usePositions }      from '../customHooks/usePositions.js'
 import { useTradeIdeas }     from '../customHooks/useTradeIdeas.js'
 import { useAuth }           from '../context/AuthContext.jsx'
+
+// Maps activeTab → the step name used in DESKS.steps[] for pipeline highlighting.
+const TAB_TO_STEP = {
+    scanner:    'Argus',
+    kairos:     'Kairos',
+    portfolio:  'Atlas',
+    analyst:    'Prometheus',
+    idea:       'Idea',
+    'axl-chat': 'Axl',
+}
+
+// Agentbar breadcrumb: plain agent name when no pipeline is active, full
+// pipeline path with the current step highlighted when one is set.
+function PipelineCrumb({ pipeline, activeTab }) {
+    const desk        = pipeline ? DESKS.find(d => d.key === pipeline) : null
+    const currentStep = TAB_TO_STEP[activeTab]
+    if (!desk) return (
+        <>
+            <span className="chat-agentbar__crumb" aria-hidden="true">/</span>
+            <span className="chat-agentbar__current">{currentStep ?? activeTab}</span>
+        </>
+    )
+    return (
+        <div className="chat-agentbar__pipeline">
+            <span className="chat-agentbar__pipeline-label">{desk.label}</span>
+            <span className="chat-agentbar__pipeline-sep" aria-hidden="true">·</span>
+            {desk.steps.map((step, i) => (
+                <span key={step.label} className="chat-agentbar__pipeline-group">
+                    {i > 0 && <span className="chat-agentbar__pipeline-line" aria-hidden="true" />}
+                    {i > 0 && step.tab && AGENTS[step.tab] && (
+                        <span className={`chat-agentbar__pipeline-icon${step.tab === activeTab ? ' is-active' : ''}`}>
+                            <AgentGlyph agentKey={step.tab} icon={AGENTS[step.tab].icon} size={11} />
+                        </span>
+                    )}
+                    <span className={`chat-agentbar__pipeline-step${step.tab === activeTab ? ' is-active' : ''}`}>
+                        <span className="chat-agentbar__pipeline-text">{step.label}</span>
+                    </span>
+                </span>
+            ))}
+        </div>
+    )
+}
 
 // Chart defaults — restored when a build/edit session ends.
 const DEFAULT_CHART_SYMBOL   = 'SPY'
@@ -122,57 +167,8 @@ function deriveCallInterval(tf, tradeType) {
     return DEFAULT_CHART_INTERVAL
 }
 
-function _periodPhrase(period) {
-    if (!period) return ''
-    const range = period.start && period.end && period.start !== period.end
-        ? `${period.start} – ${period.end}`
-        : (period.start || period.end || '')
-    return [period.label, range && `(${range})`].filter(Boolean).join(' ')
-}
-
-// Readable summary of a scan candidate, shown as an assistant bubble when the
-// user opens it — markdown so it renders nicely in the chat.
-function buildCandidateSummary(c, period) {
-    const dir   = c.direction === 'short' ? 'short' : 'long'
-    const lines = [`**Scan pick — ${c.ticker}${c.name ? ` · ${c.name}` : ''} — ${dir.toUpperCase()}**`]
-
-    const when = _periodPhrase(period)
-    if (when) lines.push(`*Time horizon: ${when}*`)
-
-    if (c.thesis)   lines.push(`\n**Thesis:** ${c.thesis}`)
-    if (c.analysis) lines.push(`\n${c.analysis}`)
-
-    const signals = c.signals && Object.entries(c.signals).filter(([, v]) => v)
-    if (signals?.length) {
-        lines.push('\n**Signals**')
-        signals.forEach(([k, v]) => lines.push(`- **${k}:** ${v}`))
-    }
-    if (c.sources?.length) {
-        lines.push('\n**Sources**')
-        c.sources.forEach(s => lines.push(`- [${s.title || s.url}](${s.url})`))
-    }
-
-    lines.push(`\n_Ask me about entry, stop, or take-profit and I'll build this into a trade — I already have the scan context above._`)
-    return lines.join('\n')
-}
-
-// Same context, phrased for the idea agent's system prompt (recent_chat_summary).
-// Lets the agent answer the user's first question already knowing the candidate,
-// without pre-filling structured trade fields (keeps the idea flow natural).
-function buildCandidateContext(c, period) {
-    const dir  = c.direction === 'short' ? 'short' : 'long'
-    const when = _periodPhrase(period)
-    const signals = c.signals && Object.entries(c.signals).filter(([, v]) => v)
-    return [
-        `The user opened this trade idea from a market scan and is reading the candidate summary.`,
-        `Pick: ${c.ticker}${c.name ? ` (${c.name})` : ''}, intended direction ${dir}.`,
-        when ? `Time horizon: ${when} — treat this as the idea's intended time condition.` : '',
-        c.thesis   ? `Scanner thesis: ${c.thesis}` : '',
-        c.analysis ? `Scanner analysis: ${c.analysis}` : '',
-        signals?.length ? `Signals — ${signals.map(([k, v]) => `${k}: ${v}`).join('; ')}.` : '',
-        `Do not respond yet; when the user asks, use this context to help shape the trade (entry, stop, take-profit) and set the time condition from the horizon.`,
-    ].filter(Boolean).join(' ')
-}
+// (Scan candidates now seed the KAIROS chat via handleBuildFromCandidate — the idea-summary/context
+// builders they used were removed with that reroute. See K3, KAIROS_MODES.md.)
 
 // Finnhub session codes → readable when-phrasing for the earnings print.
 const _EARN_WHEN_PHRASE = { bmo: 'before the open', amc: 'after the close', dmh: 'during market hours' }
@@ -272,7 +268,8 @@ export function MainPage() {
     const [editingIdeaId,     setEditingIdeaId]     = useState(null)
     const [isInvalidationReview, setIsInvalidationReview] = useState(false)
     const [activeTab, setActiveTab]             = useState('axl')
-    const [newsTab, setNewsTab]                 = useState('news')
+    const [activePipeline, setActivePipeline]   = useState(null)   // pipeline key from Axl reception
+    const [newsTab, setNewsTab]                 = useState('scans')
     const [scannerChatRestore, setScannerChatRestore] = useState(null)
     const [portfolioChatRestore, setPortfolioChatRestore] = useState(null)
     const [buildingPortfolio, setBuildingPortfolio] = useState(null)
@@ -296,6 +293,9 @@ export function MainPage() {
     const [scanHandoff,      setScanHandoff]      = useState({ active: false, request: null })
     const [scannerSeed,      setScannerSeed]      = useState(null)
     const [kairosScanResult, setKairosScanResult] = useState(null)
+    const [analystScanResult, setAnalystScanResult] = useState(null)   // Argus investing candidate → Analyst research seed
+    const [coverage,        setCoverage]          = useState([])       // the Analyst's living book (Radar Coverage tab)
+    const [coverageLoading, setCoverageLoading]   = useState(false)
 
     // Kairos calls for the Axl Lists Calls tab. Holds all the user's calls (workspace-filtered in
     // the list); reloads on the shared 'kairos-calls-changed' event (generate / act / delete).
@@ -308,6 +308,25 @@ export function MainPage() {
         const t = setInterval(loadCalls, 20_000)
         return () => { window.removeEventListener(CALLS_CHANGED, loadCalls); clearInterval(t) }
     }, [loadCalls])
+
+    // The Analyst's living coverage book (Radar Coverage tab). Reloads on initiate/retire
+    // (COVERAGE_CHANGED); polled so the monitor's status/gap updates surface.
+    const coverageLoadedRef = useRef(false)
+    const loadCoverage = useCallback(async () => {
+        if (!coverageLoadedRef.current) setCoverageLoading(true)   // spinner only on first load, not on polls
+        try { setCoverage(await analystService.listCoverage()); coverageLoadedRef.current = true }
+        finally { setCoverageLoading(false) }
+    }, [])
+    useEffect(() => {
+        loadCoverage()
+        window.addEventListener(COVERAGE_CHANGED, loadCoverage)
+        const t = setInterval(loadCoverage, 60_000)
+        return () => { window.removeEventListener(COVERAGE_CHANGED, loadCoverage); clearInterval(t) }
+    }, [loadCoverage])
+    async function handleRetireCoverage(cov) {
+        if (!cov?.id) return
+        try { await analystService.retireCoverage(cov.id) } catch (err) { console.error('[analyst] retire', err) }
+    }
 
     async function handleActCall(id, action) {
         setCallBusyId(id)
@@ -327,6 +346,7 @@ export function MainPage() {
         const draft = call.chat_state?.draft ?? {
             asset:            call.asset,
             asset_class:      call.asset_class      ?? null,
+            mode:             call.mode             ?? null,   // relight the lens chip on edit
             trade_type:       call.trade_type       ?? null,
             bias:             call.bias             ?? null,
             thesis:           call.thesis           ?? null,
@@ -384,7 +404,8 @@ export function MainPage() {
         setReturningToAxl(true)
         returnTimerRef.current = setTimeout(() => {
             setActiveTab('axl')
-            setNewsTab('news')
+            setActivePipeline(null)
+            setNewsTab('scans')
             setReturningToAxl(false)
             // Fresh slate: clear the Idea chat, drop any pending edit-restore, and
             // remount Atlas/Argus so re-entering any agent from the hub starts a new
@@ -404,7 +425,6 @@ export function MainPage() {
         }, RETURN_MS)
     }
 
-    const news = useNewsFeed()
     const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading } = useCalendarEvents()
     const { scans, loading: scansLoading, createScan, updateScan, deleteScan } = useScans()
     const { user } = useAuth()
@@ -501,12 +521,7 @@ export function MainPage() {
 
         const { signal, handlers } = chat.begin(userPrompt, {
             onInterval: (interval) => { if (interval) setChartInterval(interval) },
-            onAsset: (symbol) => {
-                if (symbol) {
-                    setChartSymbol(symbol)
-                    news.previewAsset(symbol)
-                }
-            },
+            onAsset: (symbol) => { if (symbol) setChartSymbol(symbol) },
 
             // Agent surfaced a chart it wants the user to see — drop an
             // image bubble in just before the streaming assistant reply.
@@ -570,13 +585,11 @@ export function MainPage() {
                     }).catch(err => console.error('[chat_state] save failed', err))
                 }
                 setAnalysisState(data.analysisState ?? null)
-                const newAsset   = data.analysisState?.structured_state?.active_asset
-                const newCompany = data.analysisState?.structured_state?.active_company_name
+                const newAsset = data.analysisState?.structured_state?.active_asset
                 if (newAsset) setChartSymbol(newAsset)
                 // Follow the established timeframe even if the LLM omitted <interval>
                 const newInterval = deriveIdeaInterval(data.analysisState?.structured_state?.pending_trade)
                 if (newInterval) setChartInterval(newInterval)
-                news.focusAsset(newAsset, newCompany)
                 if (data.ideaSaved) loadIdeas()
             },
         })
@@ -590,7 +603,8 @@ export function MainPage() {
                 readStoredModel('ideaModel'),
                 readStoredReasoning('ideaReasoning'),
                 readStoredRoutingMode('ideaRoutingMode'),
-                chat.phase
+                chat.phase,
+                mainAccountId
             )
         } catch (err) {
             console.error(err)
@@ -625,7 +639,7 @@ export function MainPage() {
 
         const cont = chat.beginContinue({
             onInterval: (interval) => { if (interval) setChartInterval(interval) },
-            onAsset: (symbol) => { if (symbol) { setChartSymbol(symbol); news.previewAsset(symbol) } },
+            onAsset: (symbol) => { if (symbol) setChartSymbol(symbol) },
             onChart: (data) => {
                 if (!data?.imageBase64) return
                 setMessages(prev => {
@@ -668,12 +682,10 @@ export function MainPage() {
                     }).catch(err => console.error('[chat_state] save failed', err))
                 }
                 setAnalysisState(finalState)
-                const newAsset   = finalState?.structured_state?.active_asset
-                const newCompany = finalState?.structured_state?.active_company_name
+                const newAsset = finalState?.structured_state?.active_asset
                 if (newAsset) setChartSymbol(newAsset)
                 const newInterval = deriveIdeaInterval(finalState?.structured_state?.pending_trade)
                 if (newInterval) setChartInterval(newInterval)
-                news.focusAsset(newAsset, newCompany)
                 if (data.ideaSaved) loadIdeas()
             },
         })
@@ -688,7 +700,8 @@ export function MainPage() {
                 readStoredModel('ideaModel'),
                 readStoredReasoning('ideaReasoning'),
                 readStoredRoutingMode('ideaRoutingMode'),
-                chat.phase
+                chat.phase,
+                mainAccountId
             )
         } catch (err) {
             console.error(err)
@@ -704,7 +717,6 @@ export function MainPage() {
         ideaThreadIdRef.current = newThreadId()   // fresh construction thread; abandoned draft TTL-expires
         setEditingIdeaId(null)
         setIsInvalidationReview(false)
-        news.clearAsset()
         setChartSymbol(DEFAULT_CHART_SYMBOL)
         setChartInterval(DEFAULT_CHART_INTERVAL)
         chat.setPhase(null)
@@ -875,6 +887,11 @@ export function MainPage() {
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+    // Coverage-update card "Open coverage" → surface the Analyst (its living coverage book).
+    useEffect(() => {
+        return eventBus.on(OPEN_COVERAGE, () => setActiveTab('analyst'))
+    }, [])
+
     // Confirm the call's proposed entry → materialize + place via the Kairos handoff (actOnCall).
     async function handleConfirmCallOrder() {
         if (!callConfirmId) return
@@ -988,7 +1005,6 @@ export function MainPage() {
                 setIsInvalidationReview(false)
                 setAnalysisState(null)
                 setMessages([])
-                news.clearAsset()
                 setChartSymbol(DEFAULT_CHART_SYMBOL)
                 setChartInterval(DEFAULT_CHART_INTERVAL)
                 latestMessagesRef.current = []
@@ -1012,7 +1028,6 @@ export function MainPage() {
                 ideaThreadIdRef.current = newThreadId()   // next build gets a fresh draft thread
                 setAnalysisState(null)
                 setMessages([])
-                news.clearAsset()
                 setChartSymbol(DEFAULT_CHART_SYMBOL)
                 setChartInterval(DEFAULT_CHART_INTERVAL)
                 latestMessagesRef.current = []
@@ -1308,18 +1323,21 @@ export function MainPage() {
             const promises   = []
             const skippedLive = []
             for (const change of update.changes) {
-                if (change.action === 'update_idea' && change.ideaId && change.patch) {
-                    promises.push(tradeIdeasService.updateIdea(change.ideaId, change.patch))
-                } else if (change.action === 'remove_idea' && change.ideaId) {
+                // `_item` vocab (a holding is a portfolio_item); legacy `_idea`/`ideaId`/`idea` accepted.
+                const id   = change.itemId ?? change.ideaId
+                const spec = change.item   ?? change.idea
+                if ((change.action === 'update_item' || change.action === 'update_idea') && id && change.patch) {
+                    promises.push(tradeIdeasService.updateIdea(id, change.patch))
+                } else if ((change.action === 'remove_item' || change.action === 'remove_idea') && id) {
                     // A live leg (in position / hit) can't be deleted — keep it and flag
                     // it rather than fail the whole batch. The rest of the changes apply.
-                    const target = ideaById.get(change.ideaId)
+                    const target = ideaById.get(id)
                     if (target && isDeleteLocked(target)) { skippedLive.push(target); continue }
-                    promises.push(tradeIdeasService.deleteIdea(change.ideaId))
-                } else if (change.action === 'add_idea' && change.idea) {
+                    promises.push(tradeIdeasService.deleteIdea(id))
+                } else if ((change.action === 'add_item' || change.action === 'add_idea') && spec) {
                     const existing = ideas.filter(i => i.portfolioId === update.portfolioId)
                     promises.push(tradeIdeasService.createIdea({
-                        ...change.idea,
+                        ...spec,
                         portfolioId:   update.portfolioId,
                         portfolioName: existing[0]?.portfolioName || 'Portfolio',
                         accounts:      selectedAccounts,
@@ -1423,15 +1441,18 @@ export function MainPage() {
     }
 
     // ── Kairos ↔ Argus discovery hand-off ────────────────────────────────────
-    // Route OUT: Kairos emitted a <scan_request> (bias + horizon) and the user tapped "Open Argus".
-    // Remount Argus fresh (chatResetKey) — which leaves the never-keyed Kairos panel untouched so its
-    // draft survives — then seed it with the constraints. `handoff` flips Argus into single-pick mode
-    // (it converges to ONE ticker and emits <kairos_pick> instead of a watchlist).
+    // Route OUT: Kairos emitted a <scan_request> (bias + horizon, optional ticker) and the user tapped
+    // "Open Argus". Remount Argus fresh (chatResetKey) — which leaves the never-keyed Kairos panel
+    // untouched so its draft survives — then seed it with the constraints. `handoff` flips Argus into
+    // single-pick mode (it emits <kairos_pick>, not a watchlist). With a ticker the seed asks Argus to
+    // VALIDATE that named name (feasibility + lens gate); without one it's open discovery.
     function buildScanSeedMessage(req) {
         const bits = [`direction: ${req.direction}`]
         if (req.style)       bits.push(`horizon: ${req.style}`)
         if (req.period_hint) bits.push(`window: ${req.period_hint}`)
-        let msg = `Find me one ticker to trade — ${bits.join(', ')}.`
+        let msg = req.ticker
+            ? `Validate ${req.ticker} for a trade — ${bits.join(', ')}.`
+            : `Find me one ticker to trade — ${bits.join(', ')}.`
         if (req.angle_hint) msg += ` Angle: ${req.angle_hint}.`
         return msg
     }
@@ -1444,6 +1465,24 @@ export function MainPage() {
         setChatResetKey(k => k + 1)                             // remount Argus fresh (Kairos is unkeyed → survives)
         setActiveTab('scanner')
     }
+
+    // Route OUT: Atlas emitted a <screen_request> (a sleeve mandate) → open Argus in the INVESTING
+    // profile, seeded with the mandate. Not a single-pick hand-off — a fundamental candidate list that
+    // routes on to the Analyst.
+    function handleSourceInArgus(sr) {
+        if (!sr || (!sr.sector && !sr.style)) return
+        const bits = [sr.style, sr.cap_band ? `${sr.cap_band}-cap` : null].filter(Boolean)
+        let msg = `Screen for a ${bits.join(' ') || 'quality'} sleeve${sr.sector ? ` in ${sr.sector}` : ''}.`
+        if (sr.constraints) msg += ` Constraints: ${sr.constraints}.`
+        if (sr.note)        msg += ` (${sr.note})`
+        setScanHandoff({ active: false, request: null })
+        setKairosScanResult(null)
+        setScannerChatRestore(null)
+        setScannerSeed({ key: Date.now(), message: msg, profile: 'investing' })
+        setChatResetKey(k => k + 1)   // remount Argus fresh
+        setActiveTab('scanner')
+        setNewsTab('scans')
+    }
     // Route BACK: Argus emitted a <kairos_pick> and the user tapped "Back to Kairos" → hand the ticker
     // (+ its read) to Kairos, which still holds the bias/horizon. Does NOT reset Kairos or bounce Axl.
     function handleBackToKairos(pick) {
@@ -1453,7 +1492,9 @@ export function MainPage() {
             ticker:    pick.ticker,
             direction: pick.direction === 'short' ? 'short' : 'long',
             style:     scanHandoff.request?.style ?? null,        // Kairos's own horizon (authoritative)
+            thesis:    pick.thesis ?? null,
             analysis:  pick.analysis ?? pick.thesis ?? null,
+            recommended_mode: pick.recommended_mode ?? null,       // Argus's lens suggestion → pre-fills the chip
         })
         setScanHandoff({ active: false, request: null })
         setScannerSeed(null)
@@ -1468,15 +1509,40 @@ export function MainPage() {
     }
 
     // Scan candidate → idea: carries the scanner's intended direction.
+    // K3: a scan-list candidate is a Kairos SEED — same path as the Argus hand-off (point 6). Routes to
+    // the Kairos chat with the candidate's ticker + read (+ Argus's recommended lens if the scan carried one).
+    // Argus INVESTING candidate → the Analyst for research (a coverage thesis), not a Kairos trade.
+    function handleResearchCandidate(candidate, scan) {
+        if (!candidate?.ticker) return
+        setAnalystScanResult({
+            key:      Date.now(),
+            ticker:   candidate.ticker,
+            sector:   scan?.thesis ?? null,       // the sleeve/mandate label seeds the sector context
+            thesis:   candidate.thesis ?? null,
+            analysis: candidate.analysis ?? candidate.thesis ?? null,
+        })
+        setActiveTab('analyst')
+    }
+
     function handleBuildFromCandidate(candidate, scan) {
         if (!candidate?.ticker) return
-        const period = scan?.period
-        seedIdeaChat({
-            symbol:    candidate.ticker,
-            summary:   buildCandidateSummary(candidate, period),
-            context:   buildCandidateContext(candidate, period),
+        // Investing lists produce RESEARCH candidates → route to the Analyst; trading → Kairos.
+        if (scan?.profile === 'investing' || scan?.destination === 'analyst') return handleResearchCandidate(candidate, scan)
+        // A forward-dated list is period-scoped (main category = period). Carry that period as the
+        // call's scheduled window so Kairos/Hermes gate monitoring to it (no watching before it opens).
+        const p = scan?.period
+        const window = (p && (p.start || p.end)) ? { from: p.start ?? null, to: p.end ?? null } : null
+        setKairosScanResult({
+            key:       Date.now(),
+            ticker:    candidate.ticker,
             direction: candidate.direction === 'short' ? 'short' : 'long',
+            style:     scan?.style ?? null,
+            thesis:    candidate.thesis ?? null,
+            analysis:  candidate.analysis ?? candidate.thesis ?? null,
+            recommended_mode: candidate.recommended_mode ?? null,
+            window,
         })
+        setActiveTab('kairos')
     }
 
     // Earnings ticker → idea: earnings has no built-in bias, so direction stays open.
@@ -1585,14 +1651,12 @@ export function MainPage() {
             <main>
                 {/* ── Desktop / tablet workspace ── */}
                 <div className="workspace">
-                    <div className="workspace__chart">
-                        <PriceChart symbol={chartSymbol} interval={chartInterval} />
-                    </div>
                     <div className="workspace__chat">
                         {activeTab === 'axl' ? (
                             <AxlHub
                                 user={user}
-                                onPick={(tab) => { setActiveTab(tab); setNewsTab(tab === 'scanner' ? 'scans' : 'news') }}
+                                onPick={(tab, opts) => { setActiveTab(tab); setActivePipeline(opts?.pipeline ?? null); setNewsTab('scans') }}
+                                onChat={() => setActiveTab('axl-chat')}
                             />
                         ) : (
                             <div className="chat-agentbar">
@@ -1606,11 +1670,7 @@ export function MainPage() {
                                     </svg>
                                     axl
                                 </button>
-                                <span className="chat-agentbar__crumb" aria-hidden="true">/</span>
-                                <span className="chat-agentbar__current">
-                                    {activeTab === 'portfolio' ? 'Atlas' : activeTab === 'scanner' ? 'Argus' : activeTab === 'kairos' ? 'Kairos' : 'Idea'}
-                                </span>
-                                <ThreadHistory agent={activeTab} onResume={handleResumeActiveThread} />
+                                <PipelineCrumb pipeline={activePipeline} activeTab={activeTab} />
 
                                 <div className="chat-agentbar__right">
                                     {(activeTab === 'idea' || activeTab === 'portfolio' || activeTab === 'kairos') && (
@@ -1622,18 +1682,7 @@ export function MainPage() {
                                             onMainChange={setMainAccountId}
                                         />
                                     )}
-                                    <span className="chat-agentbar__live">
-                                        <span className={`chat-agentbar__dot ${
-                                            activeTab === 'idea'
-                                                ? (isLoading ? 'loading' : analysisState?.structured_state?.active_asset ? 'building' : 'idle')
-                                                : activeTab === 'portfolio'
-                                                    ? (portfolioLoading ? 'loading' : buildingPortfolio ? 'building' : 'idle')
-                                                    : activeTab === 'scanner'
-                                                        ? (scannerLoading ? 'loading' : 'idle')
-                                                        : (kairosLoading ? 'loading' : 'idle')
-                                        }`} />
-                                        live
-                                    </span>
+                                    <ThreadHistory agent={activeTab} onResume={handleResumeActiveThread} />
                                 </div>
                             </div>
                         )}
@@ -1644,6 +1693,7 @@ export function MainPage() {
                             <ScannerPanel
                                 key={`scanner-${chatResetKey}`}
                                 resumeRef={scannerResumeRef}
+                                pipeline={activePipeline}
                                 onTickerSelect={handleScannerSymbol}
                                 onGenerateList={handleGenerateList}
                                 onUpdateList={handleUpdateList}
@@ -1667,6 +1717,7 @@ export function MainPage() {
                                 onLoadingChange={setPortfolioLoading}
                                 onReviewResolved={handleBackToAxl}
                                 onAcceptReview={handleAcceptReview}
+                                onSourceInArgus={handleSourceInArgus}
                                 chatRestore={portfolioChatRestore}
                                 availableAccounts={availableAccounts}
                                 selectedAccounts={selectedAccounts}
@@ -1692,6 +1743,18 @@ export function MainPage() {
                             />
                         </div>
 
+                        <div className="chat-tabs__panel" style={{ display: activeTab === 'analyst' ? 'flex' : 'none' }}>
+                            <AnalystPanel
+                                scanResult={analystScanResult}
+                                coverage={coverage}
+                                onInitiated={() => { setNewsTab('coverage'); handleBackToAxl() }}
+                            />
+                        </div>
+
+                        <div className="chat-tabs__panel" style={{ display: activeTab === 'axl-chat' ? 'flex' : 'none' }}>
+                            <AxlChatPanel onPick={(tab, opts) => { setActiveTab(tab); setActivePipeline(opts?.pipeline ?? null); setNewsTab('scans') }} />
+                        </div>
+
                         {/* Departure beat — covers the agent chat while heading home to axl. */}
                         {returningToAxl && (
                             <div className="chat-return-overlay" role="status" aria-live="polite">
@@ -1704,31 +1767,6 @@ export function MainPage() {
                                 </AgentSummon>
                             </div>
                         )}
-                    </div>
-                    <div className="workspace__news">
-                        <Radar
-                            articles={news.activeNewsSymbol ? news.assetArticles : news.newsArticles}
-                            isLoading={news.activeNewsSymbol ? news.assetNewsLoading : news.newsLoading}
-                            sentimentLoading={!!news.activeNewsSymbol && news.assetSentimentLoading}
-                            tab={newsTab}
-                            onTabChange={setNewsTab}
-                            activeSymbol={news.activeNewsSymbol}
-                            scans={scans}
-                            scansLoading={scansLoading}
-                            onCandidateSelect={handleBuildFromCandidate}
-                            onDeleteScan={deleteScan}
-                            onEditScan={handleEditScan}
-                            earnings={earnings}
-                            earningsFrom={earningsFrom}
-                            earningsTo={earningsTo}
-                            earningsLoading={earningsLoading}
-                            onEarningSelect={handleBuildFromEarning}
-                            fed={fed}
-                            fedLoading={fedLoading}
-                            ipo={ipo}
-                            ipoLoading={ipoLoading}
-                            onIpoSelect={handleBuildFromIpo}
-                        />
                     </div>
                     <div className="workspace__ideas">
                         <TradeIdeasList
@@ -1758,6 +1796,28 @@ export function MainPage() {
                             onDeleteCall={handleDeleteCall}
                             onEditCall={handleEditCall}
                             callBusyId={callBusyId}
+                            radar={{
+                                tab:               newsTab,
+                                onTabChange:       setNewsTab,
+                                scans,
+                                scansLoading,
+                                onCandidateSelect: handleBuildFromCandidate,
+                                onDeleteScan:      deleteScan,
+                                onEditScan:        handleEditScan,
+                                coverage,
+                                coverageLoading,
+                                onRetireCoverage:  handleRetireCoverage,
+                                earnings,
+                                earningsFrom,
+                                earningsTo,
+                                earningsLoading,
+                                onEarningSelect:   handleBuildFromEarning,
+                                fed,
+                                fedLoading,
+                                ipo,
+                                ipoLoading,
+                                onIpoSelect:       handleBuildFromIpo,
+                            }}
                         />
                     </div>
                 </div>
@@ -1876,13 +1936,18 @@ function RebalanceConfirmDialog({ update, ideas, applying, onConfirm, onCancel }
     const assetOf  = (id) => ideaById.get(id)?.asset ?? id ?? '—'
     const pct      = (n) => `${Math.round((Number(n) || 0) * 100)}%`
 
+    // A holding is a portfolio_item, so the vocabulary is `_item`; the legacy `_idea` verbs and the
+    // `ideaId`/`idea` fields are still accepted (an in-flight block from before the rename).
     function describe(change) {
+        const id   = change.itemId ?? change.ideaId
+        const spec = change.item   ?? change.idea
         switch (change.action) {
-            case 'exit_idea':   return `Exit ${assetOf(change.ideaId)}${change.reason ? ` — ${change.reason}` : ''}`
-            case 'trim_idea':   return `Trim ${assetOf(change.ideaId)} by ${pct(change.reduceFraction)}${change.targetAllocationRatio != null ? ` → target ${pct(change.targetAllocationRatio)}` : ''}`
-            case 'add_idea':    return `Add ${change.idea?.asset ?? '?'} (${change.idea?.direction ?? 'long'}${change.idea?.allocationRatio != null ? `, target ${pct(change.idea.allocationRatio)}` : ''})`
-            case 'update_idea': return `Update ${assetOf(change.ideaId)}: ${Object.keys(change.patch ?? {}).join(', ') || 'fields'}`
-            case 'remove_idea': return `Remove ${assetOf(change.ideaId)} (pending)`
+            case 'exit_item':   case 'exit_idea':   return `Exit ${assetOf(id)}${change.reason ? ` — ${change.reason}` : ''}`
+            case 'trim_item':   case 'trim_idea':   return `Trim ${assetOf(id)} by ${pct(change.reduceFraction)}${change.targetAllocationRatio != null ? ` → target ${pct(change.targetAllocationRatio)}` : ''}`
+            case 'add_to_item': case 'add_to_idea': return `Add to ${assetOf(id)}: +${pct(change.addFraction)}${change.targetAllocationRatio != null ? ` → target ${pct(change.targetAllocationRatio)}` : ''}`
+            case 'add_item':    case 'add_idea':    return `Add ${spec?.asset ?? '?'} (${spec?.direction ?? 'long'}${spec?.allocationRatio != null ? `, target ${pct(spec.allocationRatio)}` : ''})`
+            case 'update_item': case 'update_idea': return `Update ${assetOf(id)}: ${Object.keys(change.patch ?? {}).join(', ') || 'fields'}`
+            case 'remove_item': case 'remove_idea': return `Remove ${assetOf(id)} (pending)`
             default:            return change.action
         }
     }

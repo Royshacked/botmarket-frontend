@@ -74,6 +74,32 @@
         color: var(--text-primary);
     }
 
+    &__radar {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+
+        .news-feed {
+            flex: 1;
+            min-height: 0;
+            border-radius: 0;
+            border: none;
+            border-top: 1px solid var(--border);
+
+            // Hide the "Axl Radar" branded header — Axl Lists already provides the outer brand.
+            // In non-cards mode the header only holds the title so remove it entirely.
+            // In cards mode the header also holds the tab strip, so hide just the title row.
+            &__header { display: none; }
+        }
+
+        [data-design="cards"] & .news-feed {
+            &__header     { display: flex; }
+            &__header-top { display: none; }
+        }
+    }
+
     &__scroll {
         position: relative;                            // anchor the workspace-switch overlay
         flex: 1;

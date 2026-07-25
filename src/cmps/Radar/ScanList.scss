@@ -149,6 +149,20 @@
         min-width: 0;
     }
 
+    // Derived-on-read staleness flag (#7): the list's period end has passed.
+    &__stale {
+        font-family: var(--font-mono);
+        font-size: 9px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 1px 6px;
+        border-radius: 8px;
+        color: var(--text-muted);
+        background: var(--bg-base);
+        border: 1px dashed var(--border);
+    }
+
     &__edit {
         display: inline-flex;
         align-items: center;

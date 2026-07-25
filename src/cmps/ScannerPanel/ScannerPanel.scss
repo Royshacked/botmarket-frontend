@@ -137,3 +137,41 @@
         .scanner-panel__angles { margin-top: 0; }
     }
 }
+
+// Profile toggle (Trading | Investing) above the input — the scan lens.
+.scanner-panel__profiles {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px 0;
+
+    &-label {
+        font-family: var(--font-mono);
+        font-size: 9px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        margin-right: 2px;
+    }
+}
+.scanner-panel__profile-chip {
+    font-size: 11px;
+    padding: 3px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.12s ease;
+
+    &:hover:not(:disabled) { color: var(--text-primary); border-color: var(--text-muted); }
+    &:disabled { opacity: 0.5; cursor: default; }
+
+    &.is-active {
+        color: var(--accent-text, var(--text-primary));
+        border-color: var(--accent, var(--text-primary));
+        background: var(--accent-bg, rgba(127, 127, 127, 0.1));
+        font-weight: 600;
+    }
+}
+

@@ -20,10 +20,6 @@ import './ScannerPanel.scss'
 
 const SCAN_PHASE_LABELS = { 1: 'Thesis', 2: 'Discovery', 3: 'Filtering', 4: 'Ranked List' }
 
-// Starter prompts — onboarding scaffolding only; the agent understands any
-// timeframe the user types, these are just one-tap entry points (the "when").
-const SUGGESTIONS = ['Stocks for today?', 'Anything for the coming week?']
-
 // Famous scan angles (the "what") — thesis picks for Phase 1. `label` is what the
 // user sees; `phrase` is the noun phrase we compose into the message so the agent
 // slots it in as the scan's angle. Multi-select: several can be combined into one
@@ -39,6 +35,26 @@ const ANGLES = [
     { label: 'Sector rotation',    phrase: 'sector-rotation plays' },
     { label: 'Oversold bounce',    phrase: 'oversold bounce setups' },
 ]
+
+// Per-pipeline intro shown in Argus's empty state. `profile` is the lens to lock to
+// (null = show the selector). `hint` overrides the default AgentIntro hint text.
+const PIPELINE_CONFIG = {
+    trade: {
+        profile: 'trading',
+        intro:   "Bring me a ticker to validate, or describe what you're after and I'll surface candidates for Kairos.",
+        hint:    'Name a ticker or tell me the setup type — I\'ll check it and hand you to Kairos.',
+    },
+    portfolio: {
+        profile: 'investing',
+        intro:   "Tell me your investment thesis or time horizon and I'll scan for long-term portfolio candidates.",
+        hint:    'Share your thesis, sector focus, or time horizon to start.',
+    },
+    scan: {
+        profile: null,   // user picks the lens
+        intro:   null,   // use Argus default
+        hint:    null,
+    },
+}
 
 // Compose the natural-language message from the selected angle labels. One angle →
 // a plain "Scan for X"; several → the intersection thesis ("names that fit both /
@@ -124,7 +140,8 @@ function MessageBubble({ msg, onTickerSelect }) {
     )
 }
 
-export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onLoadingChange, chatRestore = null, scanSeed = null, handoff = false, onBackToKairos, onDismissHandoff, resumeRef = null }) {
+export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, onUpdateList, onLoadingChange, chatRestore = null, scanSeed = null, handoff = false, onBackToKairos, onDismissHandoff, resumeRef = null }) {
+    const pipelineCfg = PIPELINE_CONFIG[pipeline] ?? PIPELINE_CONFIG.scan
     const chat = useChatStream()
     const { messages, setMessages } = chat
 
@@ -136,6 +153,11 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
     const [editingScanId,  setEditingScanId]  = useState(null)
     const [editDirty,      setEditDirty]      = useState(false)
     const [selectedAngles, setSelectedAngles] = useState(() => new Set())
+    // Profile: locked by pipeline context (trade → trading, portfolio → investing)
+    // or user-selectable (scan desk). In hand-off mode always trading.
+    const [profile,        setProfile]        = useState(() => pipelineCfg.profile ?? 'trading')
+    const profileRef = useRef(profile)      // live mirror so a seed-set profile reaches the same-tick _send
+    profileRef.current = profile
     // Kairos hand-off single pick (emitted at the end of a hand-off scan) → "Back to Kairos" button.
     const [kairosPick,     setKairosPick]     = useState(null)
     // Reopen a saved list to edit it (clicked from its pencil): restore the chat,
@@ -161,6 +183,8 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
     // and asks for the scan angle, exactly as if the user opened a fresh scan. Keyed so it fires once.
     useEffect(() => {
         if (!scanSeed?.message) return
+        // Atlas → Argus investing hand-off carries the profile; set it (ref first so this same-tick send uses it).
+        if (scanSeed.profile === 'investing' || scanSeed.profile === 'trading') { profileRef.current = scanSeed.profile; setProfile(scanSeed.profile) }
         _send(scanSeed.message)
     }, [scanSeed?.key])   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -216,6 +240,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
                 // add / remove / change names against it.
                 editList:        editingScanId ? (pendingScan || null) : null,
                 handoff,   // Kairos hand-off mode: find ONE ticker, emit <kairos_pick>
+                profile:         handoff ? 'trading' : profileRef.current,   // Investing profile → the Analyst
                 signal,
                 ...handlers,
             })
@@ -284,6 +309,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
                 currentPhase:    chat.phase,
                 editList:        editingScanId ? (pendingScan || null) : null,
                 handoff,
+                profile:         handoff ? 'trading' : profileRef.current,
                 signal:          cont.signal,
                 ...cont.handlers,
             })
@@ -414,15 +440,11 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
                             Editing your list — ask me to add, remove, or change names, then hit Update list.
                         </div>
                     ) : (
-                        <AgentIntro agent={AGENTS.scanner}>
-                            <div className="scanner-panel__suggestions">
-                                {SUGGESTIONS.map(s => (
-                                    <button key={s} className="scanner-panel__suggestion" onClick={() => _send(s)} disabled={chat.isLoading}>
-                                        {s}
-                                    </button>
-                                ))}
-                            </div>
-                        </AgentIntro>
+                        <AgentIntro
+                            agent={AGENTS.scanner}
+                            introOverride={pipelineCfg.intro}
+                            hintOverride={pipelineCfg.hint}
+                        />
                     )
                 )}
                 {messages.map((msg, i) => <MessageBubble key={i} msg={msg} onTickerSelect={onTickerSelect} />)}
@@ -478,6 +500,26 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
                 </div>
             )}
 
+            {!handoff && pipelineCfg.profile === null && (
+                <div className="scanner-panel__profiles" role="group" aria-label="Scan lens">
+                    <span className="scanner-panel__profiles-label">lens</span>
+                    <button
+                        type="button"
+                        className={`scanner-panel__profile-chip${profile === 'trading' ? ' is-active' : ''}`}
+                        onClick={() => setProfile('trading')}
+                        disabled={chat.isLoading}
+                        title="Technical / catalyst setups → build a Kairos trade"
+                    >Trading</button>
+                    <button
+                        type="button"
+                        className={`scanner-panel__profile-chip${profile === 'investing' ? ' is-active' : ''}`}
+                        onClick={() => setProfile('investing')}
+                        disabled={chat.isLoading}
+                        title="Fundamental / quality candidates → research in the Analyst"
+                    >Investing</button>
+                </div>
+            )}
+
             <ChatInputRow
                 prefix="portfolio-panel"
                 textareaRef={textareaRef}
@@ -506,6 +548,7 @@ export function ScannerPanel({ onTickerSelect, onGenerateList, onUpdateList, onL
 }
 
 ScannerPanel.propTypes = {
+    pipeline:        PropTypes.string,
     onTickerSelect:  PropTypes.func.isRequired,
     onGenerateList:  PropTypes.func,
     onUpdateList:    PropTypes.func,

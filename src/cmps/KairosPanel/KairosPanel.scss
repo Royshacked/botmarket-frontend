@@ -22,6 +22,57 @@
         &:disabled { opacity: 0.5; cursor: default; }
     }
 
+    // ── Mode (lens) selector — the 3 build-lens chips above the input ──
+    &__modes {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 6px 10px 0;
+    }
+    &__modes-label {
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        font-family: var(--font-mono);
+        margin-right: 2px;
+    }
+    &__mode-chip {
+        padding: 3px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--border-mid);
+        background: var(--bg-raised);
+        color: var(--text-muted);
+        font-size: 0.74rem;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        &:hover:not(:disabled) { background: var(--bg-hover); }
+        &:disabled { opacity: 0.5; cursor: default; }
+        &.is-active {
+            color: var(--accent-light);
+            border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+            background: color-mix(in srgb, var(--accent) 14%, transparent);
+        }
+    }
+    // The built call's lens, shown beside the asset in the build-summary header.
+    &__mode-tag {
+        margin-left: 8px;
+        padding: 1px 8px;
+        border-radius: 999px;
+        border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+        color: var(--accent-light);
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        font-family: var(--font-mono);
+    }
+    // Fit-signal "rebuild in the fitter lens" action — warning-tinted so it reads as a nudge.
+    &__fit-switch {
+        border-color: rgba(217, 164, 65, 0.6) !important;
+        color: rgb(217, 164, 65) !important;
+    }
+
     // "building…" chip beside the asset while the call preview is still filling in.
     .portfolio-panel__build-summary-badge {
         margin-left: 8px;

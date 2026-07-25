@@ -25,10 +25,10 @@ function _announceChange() { window.dispatchEvent(new Event(CALLS_CHANGED)) }
 export { CALLS_CHANGED }
 
 async function sendStream(messages, opts = {}) {
-    const { model, reasoningEffort, routingMode, currentPhase, signal, accounts = [], chatState } = opts
+    const { model, reasoningEffort, routingMode, currentPhase, signal, accounts = [], mainAccountId = null, chatState, seed } = opts
     await postSSE(
         `${API_BASE}/${BASE}/stream`,
-        { messages, model, reasoningEffort, routingMode, currentPhase, accounts, chatState },
+        { messages, model, reasoningEffort, routingMode, currentPhase, accounts, mainAccountId, chatState, seed },
         buildStreamHandlers(opts),
         { signal },
     )

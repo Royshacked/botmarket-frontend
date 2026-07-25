@@ -84,9 +84,11 @@ export function PortfolioPanel({
     onLoadingChange,
     onReviewResolved,
     onAcceptReview,
+    onSourceInArgus,
     chatRestore       = null,
     availableAccounts = [],
     selectedAccounts  = [],
+    mainAccountId     = null,
     resumeRef         = null,
 }) {
     const chat = useChatStream()
@@ -97,6 +99,7 @@ export function PortfolioPanel({
 
     const [inputText,             setInputText]             = useState('')
     const [pendingPlan,           setPendingPlan]           = useState(null)
+    const [screenRequest,         setScreenRequest]         = useState(null)   // Atlas → Argus investing mandate hand-off
     const [editingPortfolioId,    setEditingPortfolioId]    = useState(null)
     const [editingPortfolioIdeas, setEditingPortfolioIdeas] = useState([])
     const [editDirty,             setEditDirty]             = useState(false)
@@ -188,6 +191,7 @@ export function PortfolioPanel({
     async function _send(text) {
         if (!text || isLoading) return
         setEditDirty(true)
+        setScreenRequest(null)   // a new turn supersedes any pending "Source in Argus" offer
 
         const history = messages
             .filter(m => !m.streaming && m.role !== 'phase')
@@ -209,6 +213,7 @@ export function PortfolioPanel({
                 if (data.thesis) { latestThesisRef.current = data.thesis; setPortfolioThesis(data.thesis) }
                 chat.finishStreaming({ role: 'assistant', content: data.reply, tickers })
                 if (data.plan?.ideas?.length) setPendingPlan(data.plan)
+                if (data.screen_request) setScreenRequest(data.screen_request)   // offer the Argus investing hand-off
                 // Pass any thesis emitted in THIS same turn so a confirmed review
                 // rebalance persists it (reason 'accepted-rebalance'). Only the
                 // same-turn proposal is attached — never the restored existing thesis.
@@ -230,6 +235,7 @@ export function PortfolioPanel({
 
         try {
             await portfolioService.sendStream(history, ideaAccounts, {
+                mainAccountId,   // reference account Atlas sizes the others against
                 portfolioId:     editingPortfolioId,
                 portfolioIdeas:  editingPortfolioIdeas,
                 threadId:        editingPortfolioId ? null : threadIdRef.current,
@@ -281,6 +287,7 @@ export function PortfolioPanel({
                 if (data.thesis) { latestThesisRef.current = data.thesis; setPortfolioThesis(data.thesis) }
                 chat.finishStreaming({ role: 'assistant', content: base + data.reply, tickers })
                 if (data.plan?.ideas?.length) setPendingPlan(data.plan)
+                if (data.screen_request) setScreenRequest(data.screen_request)   // offer the Argus investing hand-off
                 if (data.update?.changes?.length) {
                     // Review mode: surface an inline Accept/Dismiss on the proposal.
                     // Construction/edit: hand off to the existing apply path.
@@ -300,6 +307,7 @@ export function PortfolioPanel({
 
         try {
             await portfolioService.sendStream(history, ideaAccounts, {
+                mainAccountId,   // reference account Atlas sizes the others against
                 portfolioId:     editingPortfolioId,
                 portfolioIdeas:  editingPortfolioIdeas,
                 threadId:        editingPortfolioId ? null : threadIdRef.current,
@@ -551,6 +559,18 @@ export function PortfolioPanel({
                 <div ref={messagesEndRef} />
             </div>
 
+            {/* Atlas → Argus: hand a sleeve's mandate to the investing screening desk. */}
+            {!isLoading && screenRequest && (
+                <div className="portfolio-panel__action-bubble">
+                    <button
+                        className="portfolio-panel__review-btn portfolio-panel__review-btn--update"
+                        onClick={() => { onSourceInArgus?.(screenRequest); setScreenRequest(null) }}
+                    >
+                        Source {screenRequest.sector || screenRequest.style || 'this sleeve'} in Argus
+                    </button>
+                </div>
+            )}
+
             {/* Action bar — a footer below the scroll area (not inside it) so it stays
                 pinned above the input without ever covering the messages. */}
             {mainActionBar && (
@@ -649,7 +669,9 @@ PortfolioPanel.propTypes = {
     onLoadingChange:     PropTypes.func,
     onReviewResolved:    PropTypes.func,
     onAcceptReview:      PropTypes.func,
+    onSourceInArgus:     PropTypes.func,
     chatRestore:         PropTypes.object,
     availableAccounts:   PropTypes.array,
     selectedAccounts:    PropTypes.arrayOf(PropTypes.string),
+    mainAccountId:       PropTypes.string,
 }

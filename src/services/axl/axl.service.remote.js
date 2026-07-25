@@ -3,6 +3,7 @@ import { postSSE, buildStreamHandlers } from '../sse.util'
 
 export const axlService = {
     streamAxl,
+    routeIntent,
 }
 
 /**
@@ -14,6 +15,16 @@ export const axlService = {
  * @param {Array}  messages  full [{ role, content }] history to answer against
  * @param {object} opts      { model, reasoningEffort, routingMode, signal, ...handlers }
  */
+async function routeIntent(message, opts = {}) {
+    const { signal } = opts
+    await postSSE(
+        `${API_BASE}/api/axl/route`,
+        { message },
+        buildStreamHandlers(opts),
+        { signal },
+    )
+}
+
 async function streamAxl(messages, opts = {}) {
     const { model, reasoningEffort, routingMode, signal } = opts
     await postSSE(

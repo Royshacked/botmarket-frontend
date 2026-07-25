@@ -30,7 +30,7 @@ export function AxlBotGlyph() {
 // In-chat introduction prompt: the agent's empty-state greeting, styled to echo
 // axl's own hub greeting (icon + "Hi, I'm …" + a line). Rendered inside each
 // panel's fresh/empty message area; extra guidance or starter chips go as children.
-export function AgentIntro({ agent, children }) {
+export function AgentIntro({ agent, introOverride, hintOverride, children }) {
     return (
         <div className={`agent-intro agent-intro--${agent.hue}`}>
             <span className="agent-intro__icon">
@@ -39,16 +39,18 @@ export function AgentIntro({ agent, children }) {
             <p className="agent-intro__greeting">
                 Hi, I&apos;m <span className="agent-intro__brand"><BrandTitle text={agent.brand} /></span>.
             </p>
-            <p className="agent-intro__intro">{agent.intro}</p>
-            {agent.hint && <p className="agent-intro__hint">{agent.hint}</p>}
+            <p className="agent-intro__intro">{introOverride ?? agent.intro}</p>
+            {(hintOverride ?? agent.hint) && <p className="agent-intro__hint">{hintOverride ?? agent.hint}</p>}
             {children}
         </div>
     )
 }
 
 AgentIntro.propTypes = {
-    agent:    PropTypes.object.isRequired,
-    children: PropTypes.node,
+    agent:         PropTypes.object.isRequired,
+    introOverride: PropTypes.string,
+    hintOverride:  PropTypes.string,
+    children:      PropTypes.node,
 }
 
 // Per-turn attribution tag (Claude-style): a small sigil + agent name shown under

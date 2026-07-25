@@ -44,10 +44,10 @@ async function completeReview(portfolioId, reviewCadence, outcome) {
 }
 
 async function sendStream(messages, ideaAccounts = [], opts = {}) {
-    const { portfolioId = null, portfolioIdeas = [], threadId = null, reviewMode = false, mandate = null, model, reasoningEffort, routingMode, currentPhase, signal } = opts
+    const { mainAccountId = null, portfolioId = null, portfolioIdeas = [], threadId = null, reviewMode = false, mandate = null, model, reasoningEffort, routingMode, currentPhase, signal } = opts
     await postSSE(
         `${API_BASE}/${BASE}/stream`,
-        { messages, ideaAccounts, portfolioId, portfolioIdeas, threadId, reviewMode, mandate, model, reasoningEffort, routingMode, currentPhase },
+        { messages, ideaAccounts, mainAccountId, portfolioId, portfolioIdeas, threadId, reviewMode, mandate, model, reasoningEffort, routingMode, currentPhase },
         buildStreamHandlers(opts),
         { signal },
     )

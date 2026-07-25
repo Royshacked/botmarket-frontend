@@ -1,6 +1,6 @@
 import { useContext, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router'
 import { AuthContext } from '../context/AuthContext'
 import { SocialChat } from './SocialChat/SocialChat'
 import { MarketClocks } from './MarketClocks'
@@ -56,7 +56,7 @@ export function AppHeaderAxl() {
     const textRef   = useRef(null)
     const tagRef    = useRef(null)
 
-    const { unread, setUnread, showChat, setShowChat, pendingConvId, setPendingConvId } = useChatWs(user?._id)
+    const { unread, setUnread, showChat, setShowChat, pendingConvId, setPendingConvId, pendingMsgId, setPendingMsgId } = useChatWs(user?._id)
     const { workspace, setWorkspace } = useWorkspaceMode(user?._id)
 
     // ── ambient aurora candlesticks (built once into the .ticks svg) ──
@@ -269,8 +269,9 @@ export function AppHeaderAxl() {
                 <SocialChat
                     currentUserId={user._id}
                     initialConvId={pendingConvId}
+                    initialMsgId={pendingMsgId}
                     onUnreadChange={setUnread}
-                    onClose={() => { setShowChat(false); setPendingConvId(null) }}
+                    onClose={() => { setShowChat(false); setPendingConvId(null); setPendingMsgId(null) }}
                 />,
                 document.body
             )}

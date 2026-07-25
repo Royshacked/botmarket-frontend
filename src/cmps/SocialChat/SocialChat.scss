@@ -677,6 +677,25 @@
         line-height: 1.4;
     }
 
+    // Themis's "why look" chips — the cheap-gate triggers that woke this review (earnings, drift,
+    // conviction drop, regime, adverse move, coverage flip). High = amber, medium = muted.
+    &__portfolio-review-triggers {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        padding: 0 14px 10px;
+    }
+
+    &__portfolio-review-trigger {
+        padding: 1px 8px;
+        border-radius: 999px;
+        font-size: 0.68rem;
+        line-height: 1.5;
+        border: 1px solid currentColor;
+        &--high   { color: #f59e0b; }
+        &--medium { color: var(--text-secondary, var(--text-muted)); }
+    }
+
     // Resolved (dismissed / updated) review card — muted, no action.
     &__portfolio-review--resolved {
         opacity: 0.72;

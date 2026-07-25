@@ -6,6 +6,7 @@ import { ChatMarkdown } from '../ChatMarkdown.jsx'
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
 import { readStoredRoutingMode } from '../routingModeOptions.js'
+import { KAIROS_MODES, DEFAULT_KAIROS_MODE, readStoredKairosMode } from '../kairosModeOptions.js'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useChatStream } from '../../customHooks/useChatStream.js'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
@@ -122,6 +123,10 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
     const [inputText,   setInputText]   = useState('')
     const [pendingCall, setPendingCall] = useState(null)
     const [perf,        setPerf]        = useState(null)
+    // Analysis mode (the build lens) — the user's explicit per-call choice. Sent as chatState.mode;
+    // relit from a saved call.mode on edit. (No default is imposed server-side; the chip IS the choice.)
+    const [mode,        setMode]        = useState(() => readStoredKairosMode('kairosMode'))
+    const pickMode = (id) => { setMode(id); try { localStorage.setItem('kairosMode', id) } catch { /* private mode */ } }
     // Discovery hand-off: a "find me a ticker" turn returns a scan_request (bias + horizon) instead
     // of a call — we surface an "Open Argus" chip that routes to the scanner with those constraints.
     const [scanRequest, setScanRequest] = useState(null)
@@ -130,6 +135,8 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
     const [editDirty,   setEditDirty]   = useState(false)
     const textareaRef = useRef(null)
     const threadIdRef = useRef(newThreadId())   // call construction draft thread
+    const seedRef     = useRef(null)            // one-shot Argus candidate seed for the next send (K3)
+    const buildWindowRef = useRef(null)         // forward-dated list window {from,to} → gates the call at generate (persists across the build, unlike the one-shot seed)
 
     const isEditing = !!editingCallId
 
@@ -144,6 +151,7 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
         chat.setMessages(chatRestore.messages ?? [])
         chat.setPhase(null)
         setPendingCall(chatRestore.call ?? null)
+        setMode(chatRestore.call?.mode ?? DEFAULT_KAIROS_MODE)   // relight the chip in the call's build lens
         setInputText('')
         setEditDirty(false)
     }, [chatRestore?.key])   // eslint-disable-line react-hooks/exhaustive-deps
@@ -177,6 +185,7 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
         if (!text || chat.isLoading) return
         setEditDirty(true)
         setScanRequest(null)   // a new user turn supersedes any pending "Open Argus" offer
+        const seed = seedRef.current; seedRef.current = null   // one-shot: only this turn carries the Argus seed
         const history = messages.filter(m => !m.streaming && m.role !== 'phase').map(m => ({ role: m.role, content: m.content }))
         history.push({ role: 'user', content: text })
 
@@ -215,9 +224,11 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
                 routingMode:     readStoredRoutingMode('kairosRoutingMode'),
                 currentPhase:    chat.phase,
                 accounts:        ideaAccounts,
+                mainAccountId,   // which marked account the call binds to (venue anchor)
                 // Feed the draft-so-far back so the model carries settled fields forward
-                // (its own <call> block is stripped from the visible history).
-                chatState:       { active_asset: pendingCall?.asset || '', draft: pendingCall },
+                // (its own <call> block is stripped from the visible history). `mode` = the build lens.
+                chatState:       { active_asset: pendingCall?.asset || '', draft: pendingCall, mode },
+                seed,            // K3: structured Argus candidate (one-shot on the hand-off turn)
                 signal,
                 ...handlers,
             })
@@ -276,7 +287,8 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
                 routingMode:     readStoredRoutingMode('kairosRoutingMode'),
                 currentPhase:    chat.phase,
                 accounts:        ideaAccounts,
-                chatState:       { active_asset: pendingCall?.asset || '', draft: pendingCall },
+                mainAccountId,   // which marked account the call binds to (venue anchor)
+                chatState:       { active_asset: pendingCall?.asset || '', draft: pendingCall, mode },
                 signal:          cont.signal,
                 ...cont.handlers,
             })
@@ -308,11 +320,20 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
     // just drop the ticker in as a new turn and let it resume into Phase 2. Keyed so it fires once.
     useEffect(() => {
         if (!scanResult?.ticker) return
-        const tag = [scanResult.direction, scanResult.style].filter(Boolean).join(' ')
-        const msg = `Argus found ${scanResult.ticker}${tag ? ` (${tag})` : ''} for us.`
-            + (scanResult.analysis ? ` Its read: ${scanResult.analysis}` : '')
-            + " Let's build the call."
-        _send(msg)
+        // K3: pass the candidate as a STRUCTURED seed (not free text) + pre-fill the lens chip from
+        // Argus's recommendation (the user can still override before/after).
+        if (scanResult.recommended_mode) pickMode(scanResult.recommended_mode)
+        // A forward-dated list carries a window → remember it for the whole build (the seed is one-shot,
+        // so the model loses it after turn 1; the code gates the call from this ref at generate).
+        buildWindowRef.current = scanResult.window ?? null
+        seedRef.current = {
+            ticker:    scanResult.ticker,
+            direction: scanResult.direction ?? null,
+            thesis:    scanResult.thesis ?? null,
+            analysis:  scanResult.analysis ?? null,
+            window:    scanResult.window ?? null,   // narrated in the ARGUS SEED block (server sets the actual gate)
+        }
+        _send(`Let's build the ${scanResult.ticker} call.`)
     }, [scanResult?.key])   // eslint-disable-line react-hooks/exhaustive-deps
 
     // Resume an unfinished call-building draft: restore its conversation (+ last draft) and keep
@@ -333,13 +354,17 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
     async function handleGenerate() {
         if (!pendingCall || ideaAccounts.length === 0) return
         try {
-            const saved = await kairosService.generateCall(pendingCall, ideaAccounts, mainAccountId, { messages: persistedMessages(), draft: pendingCall })
+            // Forward-dated build: hand the remembered window to the server, which gates the call to it
+            // (active_from/valid_until) unless the model already set explicit bounds. Transient — not stored.
+            const payload = buildWindowRef.current ? { ...pendingCall, build_window: buildWindowRef.current } : pendingCall
+            const saved = await kairosService.generateCall(payload, ideaAccounts, mainAccountId, { messages: persistedMessages(), draft: pendingCall })
             // Link the construction draft thread to the created call (clears its TTL so the
             // conversation lives with the call). saved = the persisted call doc (has .id).
             if (saved?.id) {
                 threadsService.linkThread(threadIdRef.current, { subjectType: 'call', subjectId: saved.id, artifactName: pendingCall.asset ?? null })
             }
             threadIdRef.current = newThreadId()   // next build gets a fresh draft thread
+            buildWindowRef.current = null          // window consumed
             setPendingCall(null)
             await refreshPerf()
             onGenerated?.()   // call generated — return to the axl hub
@@ -404,6 +429,7 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
                     <div className="portfolio-panel__build-summary-header">
                         <span className="portfolio-panel__build-summary-title">your call —</span>
                         <span className="portfolio-panel__build-summary-name">{pendingCall.asset}</span>
+                        {pendingCall.mode && <span className="kairos-panel__mode-tag">{pendingCall.mode}</span>}
                         {!callReady && <span className="portfolio-panel__build-summary-badge">building…</span>}
                     </div>
                     <CallDraft call={pendingCall} />
@@ -442,7 +468,19 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
                         className="portfolio-panel__review-btn portfolio-panel__review-btn--update kairos-panel__generate-btn"
                         onClick={() => { onOpenArgus?.(scanRequest); setScanRequest(null) }}
                     >
-                        Open Argus
+                        {scanRequest.ticker ? `Validate ${scanRequest.ticker} in Argus` : 'Open Argus'}
+                    </button>
+                </div>
+            )}
+
+            {/* Fit signal: the build lens found no clean read → offer a one-tap rebuild in the fitter lens. */}
+            {!chat.isLoading && pendingCall?.lens_fit?.fit === 'weak' && pendingCall.lens_fit.suggested_mode && (
+                <div className="portfolio-panel__action-bubble">
+                    <button
+                        className="portfolio-panel__review-btn kairos-panel__generate-btn kairos-panel__fit-switch"
+                        onClick={() => { const sm = pendingCall.lens_fit.suggested_mode; pickMode(sm); _send(`Rebuild this as a ${sm} setup.`) }}
+                    >
+                        Weak {pendingCall.mode} fit — rebuild as {pendingCall.lens_fit.suggested_mode}?
                     </button>
                 </div>
             )}
@@ -459,6 +497,22 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
                     {laterBtn}
                 </div>
             )}
+
+            <div className="kairos-panel__modes" role="group" aria-label="Analysis mode">
+                <span className="kairos-panel__modes-label">lens</span>
+                {KAIROS_MODES.map(m => (
+                    <button
+                        key={m.id}
+                        type="button"
+                        className={`kairos-panel__mode-chip${mode === m.id ? ' is-active' : ''}`}
+                        title={m.title}
+                        onClick={() => pickMode(m.id)}
+                        disabled={chat.isLoading}
+                    >
+                        {m.short}
+                    </button>
+                ))}
+            </div>
 
             <ChatInputRow
                 prefix="portfolio-panel"

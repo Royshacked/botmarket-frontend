@@ -18,50 +18,15 @@
 }
 
 // ── Workspace grid ───────────────────────────────────────────────────────────
-// Columns: chat 32% | middle 36% (chart over radar) | ideas 32%
-// Rows:    top (chat + chart + ideas), bottom (chat + radar + ideas).
-// Chat and ideas each span both rows so they stay full-height side columns.
+// Two equal columns: chat (left) | ideas (right)
 .workspace {
     flex: 1;
     min-height: 0;
     display: grid;
-    // --- Original layout (revert to restore) ---
-    // grid-template-columns: 30% 40% 30%;
-    // grid-template-areas:
-    //     "chat chart news"
-    //     "chat ideas ideas";
-    // --- Trial 2: ideas list full-height on the RIGHT; radar tucked below the chart ---
-    grid-template-columns: 32% 36% 32%;
-    grid-template-rows: 55% 45%;   // middle column splits chart / radar 55–45 (favouring the chart)
-    grid-template-areas:
-        "chat chart ideas"
-        "chat news  ideas";
-    column-gap: 0;     // columns share a single border seam (see border-merge rules below)
-    row-gap: 0;        // chart + ideas run flush — no horizontal gap through the middle column
-    padding: 0;   // was 12px 0
-}
-
-.workspace__chart {
-    grid-area: chart;
-    min-height: 0;
-    min-width: 0;
-}
-
-// ── Merge the column borders into single shared seams ─────────────────────────
-// With the column gap gone, the chat's right border and the news's left border
-// become the two vertical dividers (they span both rows). The middle column's
-// chart drops its own left/right borders so they don't double up, and the inner
-// corners are squared so the seams run flush top-to-bottom.
-.workspace__chat  .chat-panel { border-top-right-radius: 0; border-bottom-right-radius: 0; }
-// Trial 2: Radar now lives BELOW the chart in the middle column — drop its side + top
-// borders and radius so it merges into the middle seams and runs flush under the chart.
-.workspace__news  .news-feed  { border-left: none; border-right: none; border-top: none; border-radius: 0; }
-.workspace__chart .price-chart {
-    border-left: none;
-    border-right: none;
-    border-radius: 0;
-    border-color: color-mix(in srgb, var(--border) 12%, transparent);  // very faint bottom seam — the chart's hard dark bg makes a full-strength border read much heavier than the chat/radar ones
-    border-top-color: var(--border);  // top edge runs flush with the chat (left) + ideas (right) column tops at full strength
+    grid-template-columns: 50% 50%;
+    grid-template-areas: "chat ideas";
+    column-gap: 0;
+    padding: 0;
 }
 
 .workspace__chat {
@@ -73,10 +38,8 @@
     position: relative;   // anchor for the "back to axl" return overlay
 }
 
-// Trial 2: trade-ideas list is now the full-height RIGHT column. It's a transparent,
-// border-less strip, so the grid cell itself becomes the panel — mirroring the chat
-// panel on the far left: same bg-wash / 1px border / 6px radius, with the INNER (left)
-// corners squared so it merges into the middle seam and only the outer edge rounds.
+.workspace__chat .chat-panel { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+
 .workspace__ideas {
     grid-area: ideas;
     min-height: 0;
@@ -110,24 +73,12 @@
     .chat-tabs__panel { animation: none; }
 }
 
-.workspace__news {
-    grid-area: news;
-    min-height: 0;
-    min-width: 0;
-}
-
 // ── Tablet: 768px – 1023px ────────────────────────────────────────────────────
-// News column collapses; chat + chart split 50/50, ideas span both below
+// Already 2-column on desktop; tablet inherits the same layout.
 @media (max-width: 1023px) {
     .workspace {
         grid-template-columns: 50% 50%;
-        grid-template-areas:
-            "chat chart"
-            "ideas ideas";
-    }
-
-    .workspace__news {
-        display: none;
+        grid-template-areas: "chat ideas";
     }
 }
 

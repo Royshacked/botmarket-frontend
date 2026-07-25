@@ -32,10 +32,10 @@ function clientTimeContext() {
  * @param {function} callbacks.onError    - called with an error message string
  * @param {Array}    ideaAccounts
  */
-async function sendPromptStream(userPrompt, analysisState = null, callbacks = {}, ideaAccounts = [], model, reasoningEffort, routingMode, currentPhase) {
+async function sendPromptStream(userPrompt, analysisState = null, callbacks = {}, ideaAccounts = [], model, reasoningEffort, routingMode, currentPhase, mainAccountId = null) {
     await postSSE(
         `${API_BASE}/api/idea/stream`,
-        { userPrompt, analysisState, ideaAccounts, model, reasoningEffort, routingMode, currentPhase, ...clientTimeContext() },
+        { userPrompt, analysisState, ideaAccounts, mainAccountId, model, reasoningEffort, routingMode, currentPhase, ...clientTimeContext() },
         buildStreamHandlers(callbacks),
         { signal: callbacks.signal },
     )
@@ -47,10 +47,10 @@ async function sendPromptStream(userPrompt, analysisState = null, callbacks = {}
  * and the model continues that same assistant message (Anthropic prefill). The reply
  * that streams back is the continuation only — the caller prepends the partial.
  */
-async function continuePromptStream(messages, analysisState = null, callbacks = {}, ideaAccounts = [], model, reasoningEffort, routingMode, currentPhase) {
+async function continuePromptStream(messages, analysisState = null, callbacks = {}, ideaAccounts = [], model, reasoningEffort, routingMode, currentPhase, mainAccountId = null) {
     await postSSE(
         `${API_BASE}/api/idea/stream`,
-        { messages, analysisState, ideaAccounts, model, reasoningEffort, routingMode, currentPhase, ...clientTimeContext() },
+        { messages, analysisState, ideaAccounts, mainAccountId, model, reasoningEffort, routingMode, currentPhase, ...clientTimeContext() },
         buildStreamHandlers(callbacks),
         { signal: callbacks.signal },
     )

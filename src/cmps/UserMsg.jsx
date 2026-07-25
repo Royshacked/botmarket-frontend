@@ -9,9 +9,11 @@ export function UserMsg() {
 		const unsubscribe = eventBus.on(SHOW_MSG, msg => {
 			setMsg(msg)
 			if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current)
-			// Broker rejections are worth reading; a clickable chat preview needs time to read
-			// who it's from AND click through — both get a longer dwell than a plain toast.
-			const longDwell = msg?.type === 'error' || msg?.type === 'chat'
+			// A notification (a bot chat preview) is NEVER auto-dismissed — it persists until the
+			// user clicks it (which routes to the message in social chat) or closes it. Plain app
+			// toasts (success/error/info) still auto-hide; errors get a longer read.
+			if (msg?.type === 'chat') return
+			const longDwell = msg?.type === 'error'
 			timeoutIdRef.current = setTimeout(closeMsg, longDwell ? 6000 : 3000)
 		})
 
