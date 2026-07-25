@@ -7,8 +7,10 @@ import { useMicInput } from '../../customHooks/useMicInput.js'
 import { ChatMarkdown } from '../ChatMarkdown.jsx'
 import { ChatReasoning } from '../ChatReasoning.jsx'
 import { ChatInputRow } from '../ChatInputRow.jsx'
+import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { AgentIntro, AgentTurnTag } from './AgentSummon.jsx'
-import { AGENTS } from './agentMeta.jsx'
+import { AGENTS, DESKS } from './agentMeta.jsx'
+import { AgentGlyph } from './AgentBadges.jsx'
 import { ChartBubble } from '../PriceChart/ChartBubble.jsx'
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
@@ -30,14 +32,14 @@ function MessageBubble({ msg }) {
         <div className="axl-chat__bubble axl-chat__bubble--assistant">
             <ChatReasoning text={msg.reasoning} live={msg.streaming && !msg.content} />
             {msg.streaming && !msg.content
-                ? <span className="axl-chat__thinking">thinking…</span>
+                ? <ToolStatusChip label="thinking…" />
                 : <ChatMarkdown>{msg.content ?? ''}</ChatMarkdown>
             }
         </div>
     )
 }
 
-export function AxlChatPanel({ onLoadingChange }) {
+export function AxlChatPanel({ onLoadingChange, onPick }) {
     const chat = useChatStream()
     const { messages, setMessages, isLoading } = chat
     const [input, setInput] = useState('')
@@ -53,6 +55,12 @@ export function AxlChatPanel({ onLoadingChange }) {
         if (!trimmed || isLoading) return
         setInput('')
         _send(trimmed)
+    }
+
+    function handleClear() {
+        chat.handleStop?.()
+        setMessages([])
+        setInput('')
     }
 
     function handleKeyDown(e) {
@@ -107,6 +115,22 @@ export function AxlChatPanel({ onLoadingChange }) {
     return (
         <div className="axl-chat">
             <div className="axl-chat__messages" ref={messagesRef} onScroll={handleScroll}>
+                {messages.length > 0 && (
+                    <div className="axl-chat__desk-strip">
+                        {DESKS.map(desk => (
+                            <button
+                                key={desk.key}
+                                type="button"
+                                className={`axl-chat__desk-chip axl-chat__desk-chip--${desk.hue}`}
+                                onClick={() => onPick?.(desk.entryTab, { pipeline: desk.key })}
+                                title={desk.label}
+                            >
+                                <AgentGlyph agentKey={desk.agentKey} icon={AGENTS[desk.agentKey]?.icon} size={13} />
+                                <span>{desk.lead}</span>
+                            </button>
+                        ))}
+                    </div>
+                )}
                 {messages.length === 0 && (
                     <AgentIntro
                         agent={AGENTS.axl}
@@ -116,11 +140,7 @@ export function AxlChatPanel({ onLoadingChange }) {
                 )}
                 {messages.map((msg, i) => <MessageBubble key={i} msg={msg} />)}
 
-                {isLoading && !messages.some(m => m.streaming) && (
-                    <div className="axl-chat__bubble axl-chat__bubble--assistant">
-                        <span className="axl-chat__thinking">thinking…</span>
-                    </div>
-                )}
+                {isLoading && <ToolStatusChip label={chat.streamStatus || 'thinking…'} />}
 
                 {(isLoading || messages.some(m => m.role === 'assistant' && m.content)) && (
                     <AgentTurnTag agent={AGENTS.axl} active={isLoading} />
@@ -140,6 +160,8 @@ export function AxlChatPanel({ onLoadingChange }) {
                 sendDisabled={isLoading}
                 isStreaming={isLoading}
                 onStop={chat.handleStop}
+                onClear={handleClear}
+                clearDisabled={isLoading || messages.length === 0}
                 onToggleMic={toggleMic}
                 onCancelMic={cancelMic}
                 isRecording={isRecording}
@@ -153,6 +175,7 @@ export function AxlChatPanel({ onLoadingChange }) {
 
 AxlChatPanel.propTypes = {
     onLoadingChange: PropTypes.func,
+    onPick:          PropTypes.func,
 }
 
 MessageBubble.propTypes = {

@@ -128,3 +128,63 @@ export const BOT_IDS = ['axl', 'idea', 'portfolio', 'scanner', 'kairos', 'analys
 export const isBotId = (id) => BOT_IDS.includes(id)
 // The one bot you can chat with; the rest are read-only alert feeds.
 export const CONVERSATIONAL_BOT_ID = 'axl'
+
+// ── Reception desks ────────────────────────────────────────────────────────────
+// Axl routes the user into one of these 4 pipelines. `entryTab` is the first agent
+// tab to open; `agentKey` drives the summon icon; `steps` is the ordered pipeline.
+// Each step: `tab` is the agent's activeTab key (null for background agents like Hermes/Themis).
+export const DESKS = [
+    {
+        key:      'trade',
+        label:    'Trading Desk',
+        lead:     'Trade an asset',
+        blurb:    'Intraday, day, or swing — Argus validates, Kairos plans the setup, Hermes monitors.',
+        hue:      'cyan',
+        entryTab: 'scanner',
+        agentKey: 'kairos',
+        steps: [
+            { tab: 'scanner', label: 'Scan' },
+            { tab: 'kairos',  label: 'Build trade' },
+            { tab: null,      label: 'Execute & monitor' },
+        ],
+    },
+    {
+        key:      'portfolio',
+        label:    'Portfolio Desk',
+        lead:     'Build a portfolio',
+        blurb:    'Long-term or swing — Argus scans, Prometheus researches, Atlas allocates.',
+        hue:      'green',
+        entryTab: 'scanner',
+        agentKey: 'portfolio',
+        steps: [
+            { tab: 'scanner',   label: 'Scan' },
+            { tab: 'analyst',   label: 'Research' },
+            { tab: 'portfolio', label: 'Allocate' },
+            { tab: null,        label: 'Monitor' },
+        ],
+    },
+    {
+        key:      'scan',
+        label:    'Scan Desk',
+        lead:     'Produce a watchlist',
+        blurb:    'Argus sweeps the market and generates a candidate list for later setups.',
+        hue:      'violet',
+        entryTab: 'scanner',
+        agentKey: 'scanner',
+        steps: [
+            { tab: 'scanner', label: 'Scan' },
+        ],
+    },
+    {
+        key:      'research',
+        label:    'Research Desk',
+        lead:     'Research a company',
+        blurb:    'Prometheus builds a living coverage thesis — our view vs the Street.',
+        hue:      'amber',
+        entryTab: 'analyst',
+        agentKey: 'analyst',
+        steps: [
+            { tab: 'analyst', label: 'Research' },
+        ],
+    },
+]

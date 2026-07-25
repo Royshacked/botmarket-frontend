@@ -37,15 +37,51 @@
         }
     }
 
-    &__thinking {
-        color: var(--text-muted);
-        font-style: italic;
-        font-size: 12px;
-    }
 
     &__chart-bubble {
         align-self: stretch;
         width: 100%;
         max-width: 560px;
+    }
+
+    // Sticky desk shortcut strip — appears at the top of the scroll area once a
+    // conversation starts so the user can still jump to a desk without going back.
+    &__desk-strip {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 8px 0 10px;
+        margin-bottom: 4px;
+        background: var(--bg-wash);
+        border-bottom: 1px solid var(--border);
+    }
+
+    &__desk-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 9px 4px 6px;
+        background: var(--bg-raised);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        color: var(--text-secondary);
+        font-size: 11px;
+        font-family: var(--font-mono);
+        white-space: nowrap;
+        cursor: pointer;
+        transition: color 0.15s, border-color 0.15s, background 0.15s;
+
+        svg { opacity: 0.7; flex-shrink: 0; }
+
+        &:hover {
+            color: var(--text-primary);
+            border-color: var(--accent);
+            background: color-mix(in srgb, var(--accent) 8%, var(--bg-raised));
+
+            svg { opacity: 1; }
+        }
     }
 }
