@@ -1,15 +1,13 @@
 // ── Monitor Dashboard (mobile-only) ───────────────────────────────────────────
 
 .monitor-dashboard {
-    display: none;
+    display: flex;
     flex-direction: column;
     gap: 0;
     background: var(--bg-wash);
     min-height: 0;
     flex: 1;
     overflow-y: auto;
-
-    @media (max-width: 767px) { display: flex; }
 
     scrollbar-width: thin;
     scrollbar-color: var(--accent-deep) var(--bg-base);

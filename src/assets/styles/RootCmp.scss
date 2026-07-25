@@ -74,7 +74,6 @@
 }
 
 // ── Tablet: 768px – 1023px ────────────────────────────────────────────────────
-// Already 2-column on desktop; tablet inherits the same layout.
 @media (max-width: 1023px) {
     .workspace {
         grid-template-columns: 50% 50%;
@@ -83,129 +82,83 @@
 }
 
 // ── Mobile: < 768px ───────────────────────────────────────────────────────────
-// Full switch to Monitor Mode — workspace hidden (trade ideas inside workspace)
+// Two tabs via bottom nav — Hub (full agent workspace) | Monitor (trade ideas).
 @media (max-width: 767px) {
-    // Hide desktop-only panels
-    .workspace { display: none; }
+    // Collapse workspace to single chat column; ideas panel hides.
+    .workspace {
+        grid-template-columns: 1fr;
+        grid-template-areas: "chat";
+    }
+    .workspace.mobile-hidden { display: none; }
+    .workspace__ideas { display: none; }
 
-    // Let main fill viewport so dashboard can scroll
-    .main-container main {
-        overflow-y: auto;
+    // Panels go full-bleed on mobile — no borders or radius.
+    .axl-hub,
+    .workspace__chat .chat-panel,
+    .workspace__chat .chat-tabs__panel > * {
+        border: none;
+        border-radius: 0;
     }
 
-    // Tighten header on small screens
+    // Tighten header on small screens.
     .app-header {
         padding: 0 0.75rem;
         min-height: 3.2rem;
-
         h1 { font-size: 0.75rem; letter-spacing: 0.1em; }
-
         &__logo { width: 2rem; height: 2rem; }
     }
 }
 
 // ── Very small screens: < 380px ───────────────────────────────────────────────
 @media (max-width: 379px) {
-    .app-header h1 { display: none; }  // logo only — saves space
+    .app-header h1 { display: none; }
 }
 
-// ── Mobile chat: floating trigger + full-screen sheet ─────────────────────────
-// Desktop builds ideas in the workspace chat column; on mobile (where the
-// workspace is hidden) the same ChatPanel opens as a full-screen sheet from a FAB.
-.mobile-chat-fab,
-.mobile-chat-sheet { display: none; }
+// ── Mobile monitor tab wrapper ─────────────────────────────────────────────────
+.mobile-monitor {
+    display: none;
 
-@media (max-width: 767px) {
-    .mobile-chat-fab {
-        position: fixed;
-        right: 18px;
-        bottom: 18px;
-        z-index: 40;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 54px;
-        height: 54px;
-        border: none;
-        border-radius: 50%;
-        background: var(--accent);
-        color: #fff;
-        cursor: pointer;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
-        transition: background 0.15s, transform 0.1s;
-
-        svg { width: 26px; height: 26px; }
-
-        &:hover  { background: var(--accent-light); }
-        &:active { transform: scale(0.94); }
-    }
-
-    .mobile-chat-sheet {
-        position: fixed;
-        inset: 0;
-        z-index: 50;
-        display: flex;
-        flex-direction: column;
-        background: var(--bg-base);
-        animation: mobile-chat-sheet-in 0.18s ease-out;
-
-        &__bar {
-            flex-shrink: 0;
+    @media (max-width: 767px) {
+        &--active {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 10px 16px;
-            background: var(--bg-surface);
-            border-bottom: 1px solid var(--border);
-        }
-
-        &__title {
-            font-family: var(--font-mono);
-            font-size: 0.7rem;
-            font-weight: 600;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            color: var(--text-secondary);
-        }
-
-        &__bar-right {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        &__close {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 32px;
-            height: 32px;
-            border: none;
-            border-radius: 6px;
-            background: transparent;
-            color: var(--text-muted);
-            font-size: 1rem;
-            line-height: 1;
-            cursor: pointer;
-            transition: color 0.15s, background 0.15s;
-
-            &:hover { color: var(--text-primary); background: var(--glow-mid); }
-        }
-
-        // ChatPanel is height:100% — give it a flexible, scrollable body.
-        &__body {
             flex: 1;
             min-height: 0;
-            display: flex;
             flex-direction: column;
-            padding: 8px;
-
-            .chat-panel { border: none; border-radius: 0; }
         }
     }
 }
 
-@keyframes mobile-chat-sheet-in {
-    from { opacity: 0; transform: translateY(12px); }
-    to   { opacity: 1; transform: translateY(0); }
+// ── Mobile bottom nav ─────────────────────────────────────────────────────────
+.mobile-nav {
+    display: none;
+
+    @media (max-width: 767px) {
+        display: flex;
+        flex-shrink: 0;
+        background: var(--bg-surface);
+        border-top: 1px solid var(--border);
+    }
+
+    &__tab {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        padding: 9px 0 10px;
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        font-family: var(--font-mono);
+        font-size: 0.58rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: color 0.15s;
+
+        svg { width: 20px; height: 20px; }
+
+        &.is-active { color: var(--accent-light); }
+    }
 }

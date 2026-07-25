@@ -379,7 +379,7 @@ export function MainPage() {
     const [pendingRebalance,  setPendingRebalance]  = useState(null)
     const [applyingRebalance, setApplyingRebalance] = useState(false)
     const [deletingIdea, setDeletingIdea] = useState(false)
-    const [mobileChatOpen, setMobileChatOpen] = useState(false)
+    const [mobileView, setMobileView] = useState('hub')   // 'hub' | 'monitor'
     const [returningToAxl, setReturningToAxl] = useState(false)
     // Bumped each time we head home to axl so the Atlas/Argus panels remount fresh
     // — going back to axl and re-entering an agent always starts a new chat.
@@ -768,8 +768,9 @@ export function MainPage() {
         setMainAccountId(idea.mainAccountId ?? null)
         // Editing an idea from a list (ideas list / mobile monitor / invalidation alert)
         // opens the Idea chat — otherwise the restored state stays hidden behind the Axl
-        // hub or another agent's panel.
+        // hub or another agent's panel. On mobile, also switch to the hub tab.
         setActiveTab('idea')
+        setMobileView('hub')
     }
 
     // Keep refs so the invalidation-alert handlers always see the latest ideas /
@@ -1621,8 +1622,6 @@ export function MainPage() {
         return handleResumeIdeaThread(threadId)
     }
 
-    // Shared by the desktop workspace chat and the mobile chat sheet so the two
-    // instances never drift. The mobile sheet overrides onGenerate to also close.
     const chatPanelProps = {
         messages,
         analysisState,
@@ -1640,8 +1639,8 @@ export function MainPage() {
         onBuyMarket:         handleBuyMarket,
         isPostOrderEdit:     !!ideas.find(i => i.id === editingIdeaId && isPostOrderStatus(i.status)),
         // The chat is header-less everywhere now — account selection lives in the
-        // agent strip (desktop) / the mobile sheet bar; availableAccounts +
-        // selectedAccounts are still read for the build summary + generate gating.
+        // agent strip; availableAccounts + selectedAccounts are still read for
+        // the build summary + generate gating.
         availableAccounts,
         selectedAccounts,
     }
@@ -1649,8 +1648,8 @@ export function MainPage() {
     return (
         <>
             <main>
-                {/* ── Desktop / tablet workspace ── */}
-                <div className="workspace">
+                {/* ── Workspace (desktop 2-col + mobile hub tab) ── */}
+                <div className={`workspace${mobileView !== 'hub' ? ' mobile-hidden' : ''}`}>
                     <div className="workspace__chat">
                         {activeTab === 'axl' ? (
                             <AxlHub
@@ -1822,57 +1821,41 @@ export function MainPage() {
                     </div>
                 </div>
 
-                {/* ── Mobile monitor dashboard ── */}
-                <MonitorDashboard
-                    ideas={ideas.filter(i => ideaWorkspace(i) === workspace).filter(i => i.status !== 'closed')}
-                    onDelete={handleDeleteIdea}
-                    onEdit={handleEditIdea}
-                />
-            </main>
-
-            {/* ── Mobile chat: floating trigger + full-screen sheet ── */}
-            <button
-                className="mobile-chat-fab"
-                onClick={() => setMobileChatOpen(true)}
-                aria-label="Build a trade idea"
-            >
-                <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <line x1="10" y1="5" x2="10" y2="2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                    <circle cx="10" cy="1.5" r="1" fill="currentColor"/>
-                    <rect x="2" y="5" width="16" height="12" rx="3" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-                    <circle cx="7" cy="10" r="1.8" fill="currentColor"/>
-                    <circle cx="13" cy="10" r="1.8" fill="currentColor"/>
-                    <rect x="6.5" y="13" width="7" height="1.5" rx="0.75" fill="currentColor"/>
-                </svg>
-            </button>
-
-            {mobileChatOpen && (
-                <div className="mobile-chat-sheet">
-                    <div className="mobile-chat-sheet__bar">
-                        <span className="mobile-chat-sheet__title">Build idea</span>
-                        <div className="mobile-chat-sheet__bar-right">
-                            <AccountSelector
-                                accounts={availableAccounts}
-                                selectedIds={selectedAccounts}
-                                onChange={setSelectedAccounts}
-                                mainAccountId={mainAccountId}
-                                onMainChange={setMainAccountId}
-                            />
-                            <button
-                                className="mobile-chat-sheet__close"
-                                onClick={() => setMobileChatOpen(false)}
-                                aria-label="Close"
-                            >✕</button>
-                        </div>
-                    </div>
-                    <div className="mobile-chat-sheet__body">
-                        <ChatPanel
-                            {...chatPanelProps}
-                            onGenerate={async () => { await handleGenerate(); setMobileChatOpen(false) }}
-                        />
-                    </div>
+                {/* ── Mobile monitor tab ── */}
+                <div className={`mobile-monitor${mobileView === 'monitor' ? ' mobile-monitor--active' : ''}`}>
+                    <MonitorDashboard
+                        ideas={ideas.filter(i => ideaWorkspace(i) === workspace).filter(i => i.status !== 'closed')}
+                        onDelete={handleDeleteIdea}
+                        onEdit={handleEditIdea}
+                    />
                 </div>
-            )}
+
+                {/* ── Mobile bottom nav ── */}
+                <nav className="mobile-nav" aria-label="Mobile navigation">
+                    <button
+                        className={`mobile-nav__tab${mobileView === 'hub' ? ' is-active' : ''}`}
+                        onClick={() => setMobileView('hub')}
+                        aria-label="Hub"
+                    >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                            <polyline points="9 22 9 12 15 12 15 22"/>
+                        </svg>
+                        <span>Hub</span>
+                    </button>
+                    <button
+                        className={`mobile-nav__tab${mobileView === 'monitor' ? ' is-active' : ''}`}
+                        onClick={() => setMobileView('monitor')}
+                        aria-label="Monitor"
+                    >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+                            <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+                            <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+                        </svg>
+                        <span>Monitor</span>
+                    </button>
+                </nav>
+            </main>
 
             {confirmIdea && confirmOrders.length > 0 && (
                 <OrderConfirmDialog
