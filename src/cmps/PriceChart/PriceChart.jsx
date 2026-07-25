@@ -91,16 +91,16 @@ const INDICATOR_PALETTE = ['#e0a63b', '#4aa3ff', '#c77dff', '#39d3c3', '#ff8fab'
 // interval spelling -> klinecharts Period { type, span }. Covers app words, the old TV codes
 // (M = month, D = day), and legacy daily/weekly/monthly — the same set the backend accepts.
 const PERIOD_MAP = {
-    '1min': { type: 'minute', span: 1 },  '1':  { type: 'minute', span: 1 },
-    '5min': { type: 'minute', span: 5 },  '5':  { type: 'minute', span: 5 },
-    '15min':{ type: 'minute', span: 15 }, '15': { type: 'minute', span: 15 },
-    '30min':{ type: 'minute', span: 30 }, '30': { type: 'minute', span: 30 },
-    '1hr':  { type: 'hour', span: 1 }, '1hour': { type: 'hour', span: 1 }, '60':  { type: 'hour', span: 1 },
-    '2hr':  { type: 'hour', span: 2 }, '2hour': { type: 'hour', span: 2 }, '120': { type: 'hour', span: 2 },
-    '4hr':  { type: 'hour', span: 4 }, '4hour': { type: 'hour', span: 4 }, '240': { type: 'hour', span: 4 },
-    'day':  { type: 'day', span: 1 }, 'daily':  { type: 'day', span: 1 }, 'd': { type: 'day', span: 1 },
-    'week': { type: 'week', span: 1 }, 'weekly': { type: 'week', span: 1 }, 'w': { type: 'week', span: 1 },
-    'month':{ type: 'month', span: 1 }, 'monthly': { type: 'month', span: 1 }, 'm': { type: 'month', span: 1 },
+    '1min': { type: 'minute', span: 1 },  '1m': { type: 'minute', span: 1 },  '1':  { type: 'minute', span: 1 },
+    '5min': { type: 'minute', span: 5 },  '5m': { type: 'minute', span: 5 },  '5':  { type: 'minute', span: 5 },
+    '15min':{ type: 'minute', span: 15 }, '15m':{ type: 'minute', span: 15 }, '15': { type: 'minute', span: 15 },
+    '30min':{ type: 'minute', span: 30 }, '30m':{ type: 'minute', span: 30 }, '30': { type: 'minute', span: 30 },
+    '1hr':  { type: 'hour', span: 1 }, '1h': { type: 'hour', span: 1 }, '1hour': { type: 'hour', span: 1 }, '60':  { type: 'hour', span: 1 },
+    '2hr':  { type: 'hour', span: 2 }, '2h': { type: 'hour', span: 2 }, '2hour': { type: 'hour', span: 2 }, '120': { type: 'hour', span: 2 },
+    '4hr':  { type: 'hour', span: 4 }, '4h': { type: 'hour', span: 4 }, '4hour': { type: 'hour', span: 4 }, '240': { type: 'hour', span: 4 },
+    'day':  { type: 'day', span: 1 }, '1d': { type: 'day', span: 1 }, 'daily':  { type: 'day', span: 1 }, 'd': { type: 'day', span: 1 },
+    'week': { type: 'week', span: 1 }, '1w': { type: 'week', span: 1 }, 'weekly': { type: 'week', span: 1 }, 'w': { type: 'week', span: 1 },
+    'month':{ type: 'month', span: 1 }, '1mo': { type: 'month', span: 1 }, 'monthly': { type: 'month', span: 1 }, 'm': { type: 'month', span: 1 },
 }
 function toPeriod(interval) {
     return PERIOD_MAP[String(interval ?? '').trim().toLowerCase()] ?? { type: 'day', span: 1 }

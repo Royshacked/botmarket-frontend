@@ -1,0 +1,55 @@
+.chart-bubble {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #000;
+
+    &__header {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 10px;
+        border: none;
+        border-bottom: 1px solid var(--border);
+        background: transparent;
+        cursor: pointer;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-secondary);
+        text-align: left;
+
+        &:hover { background: rgba(255, 255, 255, 0.03); }
+    }
+
+    &--collapsed &__header {
+        border-bottom: none;
+    }
+
+    &__title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    &__ticker {
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        color: var(--text-primary);
+    }
+
+    &__tf {
+        color: var(--accent-light);
+        letter-spacing: 0.08em;
+    }
+
+    &__caret {
+        color: var(--text-muted);
+        font-size: 10px;
+    }
+
+    &__body {
+        height: 300px;
+    }
+}

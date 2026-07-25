@@ -5,6 +5,7 @@ import { AgentSummon } from './AgentSummon.jsx'
 import { AgentGlyph } from './AgentBadges.jsx'
 import { AGENTS, SUMMON_MS } from './agentMeta.jsx'
 import { axlService } from '../../services/axl/axl.service.remote'
+import { ChartBubble } from '../PriceChart/ChartBubble.jsx'
 import './AxlHub.scss'
 
 // ── axl · reception ────────────────────────────────────────────────────────────
@@ -65,6 +66,7 @@ export function AxlHub({ user, onPick }) {
     const [comment, setComment]         = useState('')
     const [isRouting, setIsRouting]     = useState(false)
     const [pendingDesk, setPendingDesk] = useState(null)
+    const [chartData, setChartData]     = useState(null)
     const timerRef  = useRef(null)
     const abortRef  = useRef(null)
     const inputRef  = useRef(null)
@@ -103,6 +105,7 @@ export function AxlHub({ user, onPick }) {
         if (!t || isRouting) return
         setDraft('')
         setComment('')
+        setChartData(null)
         setIsRouting(true)
         abortRef.current = new AbortController()
 
@@ -112,8 +115,12 @@ export function AxlHub({ user, onPick }) {
                 onToken: (text) => setComment(prev => prev + text),
                 onDone:  (data) => {
                     setIsRouting(false)
-                    const desk = DESKS.find(d => d.key === data.route)
-                    if (desk) setPendingDesk(desk)
+                    if (data.chart?.ticker && data.chart?.timeframe) {
+                        setChartData(data.chart)
+                    } else {
+                        const desk = DESKS.find(d => d.key === data.route)
+                        if (desk) setPendingDesk(desk)
+                    }
                 },
                 onError: () => setIsRouting(false),
             })
@@ -217,6 +224,13 @@ export function AxlHub({ user, onPick }) {
                 {(comment || isRouting) && (
                     <div className="axl-hub__route-comment" aria-live="polite">
                         {comment || <span className="axl-hub__thinking">thinking…</span>}
+                    </div>
+                )}
+
+                {/* ── Chart bubble (when Axl resolves a chart intent) ── */}
+                {chartData && (
+                    <div className="axl-hub__chart">
+                        <ChartBubble ticker={chartData.ticker} timeframe={chartData.timeframe} />
                     </div>
                 )}
             </div>

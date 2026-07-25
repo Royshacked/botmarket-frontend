@@ -246,6 +246,12 @@
     font-style: italic;
 }
 
+.axl-hub__chart {
+    width: 100%;
+    max-width: 560px;
+    animation: axl-hub-enter 0.22s ease both;
+}
+
 // ── free-text intent input row ──
 .axl-hub__intent-row {
     flex-shrink: 0;
