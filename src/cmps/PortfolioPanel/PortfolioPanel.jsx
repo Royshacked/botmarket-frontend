@@ -1,21 +1,19 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { portfolioService } from '../../services/portfolio/portfolio.service.remote.js'
-import { threadsService }   from '../../services/threads/threads.service.remote.js'
+import { threadsService, newThreadId } from '../../services/threads/threads.service.remote.js'
 import { showErrorMsg, eventBus, REVIEW_RESOLVED } from '../../services/event-bus.service'
-import { ChatMarkdown } from '../ChatMarkdown.jsx'
+import { ChatBubble } from '../ChatBubble.jsx'
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
 import { readStoredRoutingMode } from '../routingModeOptions.js'
 import { useMicInput } from '../../customHooks/useMicInput.js'
-import { useChatStream } from '../../customHooks/useChatStream.js'
+import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
-import { ChatPhaseHeading } from '../ChatPhaseHeading.jsx'
-import { ChatReasoning } from '../ChatReasoning.jsx'
 import './PortfolioPanel.scss'
 
 const PHASE_LABELS = { 1: 'Mandate', 2: 'Macro', 3: 'Architecture', 4: 'Selection', 5: 'Sizing', 6: 'Review' }
@@ -24,56 +22,15 @@ const PHASE_LABELS = { 1: 'Mandate', 2: 'Macro', 3: 'Architecture', 4: 'Selectio
 // then confirms "hold as-is" or emits a <portfolio_update> the user accepts/dismisses.
 const REVIEW_REQUEST = "Run my scheduled portfolio review now: assess performance and each holding against our thesis and mandate, then either confirm we hold as-is or propose specific changes (rebalance, trim, add, exit, or swap)."
 
-function TickerChip({ symbol, onSelect }) {
-    return (
-        <button className="portfolio-panel__ticker-chip" onClick={() => onSelect(symbol)}>
-            {symbol}
-            <span className="portfolio-panel__ticker-chip-hint">Build idea →</span>
-        </button>
-    )
-}
-
-function MessageBubble({ msg, onTickerSelect }) {
-    if (msg.role === 'phase') return <ChatPhaseHeading phase={msg.phase} label={PHASE_LABELS[msg.phase]} total={6} />
-
-    const isUser = msg.role === 'user'
-
-    if (isUser) {
-        return <div className="portfolio-panel__bubble portfolio-panel__bubble--user">{msg.content}</div>
-    }
-
-    const reasoning = <ChatReasoning text={msg.reasoning} live={msg.streaming && !msg.content} />
-
-    if (!msg.content && msg.streaming) {
-        return (
-            <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant">
-                {reasoning}
-                <span className="portfolio-panel__thinking">thinking…</span>
-            </div>
-        )
-    }
-
-    return (
-        <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant">
-            {reasoning}
-            <div className="portfolio-panel__bubble-text">
-                <ChatMarkdown>{msg.content}</ChatMarkdown>
-            </div>
-            {msg.tickers?.length > 0 && (
-                <div className="portfolio-panel__tickers">
-                    {msg.tickers.map(sym => (
-                        <TickerChip key={sym} symbol={sym} onSelect={onTickerSelect} />
-                    ))}
-                </div>
-            )}
-        </div>
-    )
-}
-
-// Client-minted id for the construction conversation's DRAFT thread (see thread.service
-// on the backend). Subject-independent: it exists before the portfolio does and is linked
-// to the portfolioId on generate. A fresh id starts each new construction chat.
-const newThreadId = () => `thr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+const MessageBubble = ({ msg, onTickerSelect }) => (
+    <ChatBubble
+        msg={msg}
+        phaseLabels={PHASE_LABELS}
+        phaseTotal={6}
+        onTickerSelect={onTickerSelect}
+        tickerHint="Build idea →"
+    />
+)
 
 export function PortfolioPanel({
     onTickerSelect,
@@ -193,9 +150,7 @@ export function PortfolioPanel({
         setEditDirty(true)
         setScreenRequest(null)   // a new turn supersedes any pending "Source in Argus" offer
 
-        const history = messages
-            .filter(m => !m.streaming && m.role !== 'phase')
-            .map(m => ({ role: m.role, content: m.content }))
+        const history = toChatHistory(messages)
         history.push({ role: 'user', content: text })
 
         const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
@@ -266,9 +221,7 @@ export function PortfolioPanel({
         setEditDirty(true)
 
         const history = chat.finalizeResumeHistory(
-            messages
-                .filter(m => !m.streaming && m.role !== 'phase')
-                .map(m => ({ role: m.role, content: m.content })),
+            toChatHistory(messages),
             base,
         )
 

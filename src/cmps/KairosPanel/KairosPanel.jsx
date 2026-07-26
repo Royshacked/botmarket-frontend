@@ -2,20 +2,18 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { kairosService, CALLS_CHANGED } from '../../services/kairos/kairos.service.remote.js'
 import { threadsService, newThreadId } from '../../services/threads/threads.service.remote.js'
-import { ChatMarkdown } from '../ChatMarkdown.jsx'
+import { ChatBubble } from '../ChatBubble.jsx'
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
 import { readStoredRoutingMode } from '../routingModeOptions.js'
 import { KAIROS_MODES, DEFAULT_KAIROS_MODE, readStoredKairosMode } from '../kairosModeOptions.js'
 import { useMicInput } from '../../customHooks/useMicInput.js'
-import { useChatStream } from '../../customHooks/useChatStream.js'
+import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
-import { ChatReasoning } from '../ChatReasoning.jsx'
-import { ChatPhaseHeading } from '../ChatPhaseHeading.jsx'
 import { HermesBadge } from '../AxlHub/AgentBadges.jsx'
 import { ConvictionChip } from '../ConvictionChip/ConvictionChip.jsx'
 import '../PortfolioPanel/PortfolioPanel.scss'
@@ -25,29 +23,9 @@ const SUGGESTIONS = ['Looking for an intraday trade?', "Let's day trade!", "Let'
 
 const KAIROS_PHASE_LABELS = { 1: 'Classify', 2: 'Regime', 3: 'Fundamentals', 4: 'Technicals', 5: 'Zones', 6: 'Risk', 7: 'Validate & size' }
 
-function MessageBubble({ msg }) {
-    if (msg.role === 'phase') {
-        return <ChatPhaseHeading phase={msg.phase} label={KAIROS_PHASE_LABELS[msg.phase]} total={7} />
-    }
-    if (msg.role === 'user') {
-        return <div className="portfolio-panel__bubble portfolio-panel__bubble--user">{msg.content}</div>
-    }
-    const reasoning = <ChatReasoning text={msg.reasoning} live={msg.streaming && !msg.content} />
-    if (!msg.content && msg.streaming) {
-        return (
-            <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant">
-                {reasoning}
-                <span className="portfolio-panel__thinking">thinking…</span>
-            </div>
-        )
-    }
-    return (
-        <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant">
-            {reasoning}
-            <div className="portfolio-panel__bubble-text"><ChatMarkdown>{msg.content}</ChatMarkdown></div>
-        </div>
-    )
-}
+const MessageBubble = ({ msg }) => (
+    <ChatBubble msg={msg} phaseLabels={KAIROS_PHASE_LABELS} phaseTotal={7} />
+)
 
 // Draft/detail preview of a call — zones / reference levels / patterns. Reused by the call popup,
 // where `showHead={false}` skips the asset/type/bias line + thesis (the popup renders its own).
@@ -186,7 +164,7 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
         setEditDirty(true)
         setScanRequest(null)   // a new user turn supersedes any pending "Open Argus" offer
         const seed = seedRef.current; seedRef.current = null   // one-shot: only this turn carries the Argus seed
-        const history = messages.filter(m => !m.streaming && m.role !== 'phase').map(m => ({ role: m.role, content: m.content }))
+        const history = toChatHistory(messages)
         history.push({ role: 'user', content: text })
 
         const { signal, handlers } = chat.begin(text, {
@@ -250,9 +228,7 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
         setEditDirty(true)
 
         const history = chat.finalizeResumeHistory(
-            messages
-                .filter(m => !m.streaming && m.role !== 'phase')
-                .map(m => ({ role: m.role, content: m.content })),
+            toChatHistory(messages),
             base,
         )
 

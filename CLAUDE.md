@@ -9,6 +9,12 @@ repo (botmarket-backend) holds the domain spec — see its README.md / APP_SPEC.
 - Follow existing patterns: components in `src/cmps/`, routed views in `src/pages/`, logic in
   `src/customHooks/`, API calls in `src/services/<x>/<x>.service.remote.js` (never `fetch` directly
   in a component — go through `httpService`).
+- Shared mechanism → one place; no duplicated components. When two or more callers need the
+  same *mechanism* — a UI shell, a hook, a formatter, an API call — route them through ONE
+  component/hook/service instead of copy-pasting (or subtly diverging) it. Before adding a
+  second copy, look for the existing one and extend it (props/variants/children). Nuance:
+  share the shell, not the content — per-domain copy/payload stays with its caller (e.g. one
+  `NotificationCard` shell, but each agent builds its own card body).
 - Obey the Rules of Hooks: hooks are unconditional and top-level, same order every render. Changing
   a hook's count/order breaks Fast Refresh and remounts.
 - SCSS uses BEM-ish names: `.cmp__element--modifier`; styles live in `src/assets/styles/cmps/` or

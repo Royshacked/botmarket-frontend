@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types'
 import { formatCreatedAtFull, formatNum, formatPnl } from './tradeIdea.utils.js'
 import { useMarketStatus } from '../../customHooks/useMarketStatus.js'
+import { Modal } from '../Modal.jsx'
 import './ClosePositionDialog.scss'
 
 const BROKER_LABELS = { ctrader: 'cTrader', ibkr: 'IBKR' }
@@ -27,20 +28,27 @@ export function ClosePositionDialog({ position, closing, onConfirm, onCancel }) 
     const brokerLbl = BROKER_LABELS[position.broker] ?? position.broker ?? '—'
 
     return (
-        <div className="close-position__backdrop" onClick={closing ? undefined : onCancel}>
-            <div className="close-position" onClick={e => e.stopPropagation()}>
-                <div className="close-position__header">
-                    <span className="close-position__title">
-                        Close position
-                        <span className="close-position__asset">{position.symbol ?? '—'}</span>
-                        <span className={`close-position__direction direction--${position.direction}`}>
-                            {position.direction ?? ''}
-                        </span>
-                    </span>
-                    <button className="close-position__close" onClick={onCancel} disabled={closing}>×</button>
-                </div>
-
-                <div className="close-position__body">
+        <Modal
+            ns="close-position"
+            busy={closing}
+            onClose={onCancel}
+            title="Close position"
+            asset={position.symbol ?? '—'}
+            direction={position.direction}
+            footer={<>
+                <button
+                    className="close-position__btn close-position__btn--cancel"
+                    onClick={onCancel}
+                    disabled={closing}
+                >Cancel</button>
+                <button
+                    className="close-position__btn close-position__btn--confirm"
+                    onClick={onConfirm}
+                    disabled={confirmDisabled}
+                    title={marketClosed ? 'Market is closed' : undefined}
+                >{closing ? 'Closing…' : marketClosed ? 'Market closed' : 'Close position'}</button>
+            </>}
+        >
                     <p className="close-position__lead">
                         This closes the <strong>full</strong> position at market — it can’t be undone.
                     </p>
@@ -60,23 +68,7 @@ export function ClosePositionDialog({ position, closing, onConfirm, onCancel }) 
                         <div><dt>Opened</dt><dd>{formatCreatedAtFull(position.openedAt) || '—'}</dd></div>
                         <div><dt>P&amp;L</dt><dd className={pnlClass}>{formatPnl(position.pnl, position.currency)}</dd></div>
                     </dl>
-                </div>
-
-                <div className="close-position__footer">
-                    <button
-                        className="close-position__btn close-position__btn--cancel"
-                        onClick={onCancel}
-                        disabled={closing}
-                    >Cancel</button>
-                    <button
-                        className="close-position__btn close-position__btn--confirm"
-                        onClick={onConfirm}
-                        disabled={confirmDisabled}
-                        title={marketClosed ? 'Market is closed' : undefined}
-                    >{closing ? 'Closing…' : marketClosed ? 'Market closed' : 'Close position'}</button>
-                </div>
-            </div>
-        </div>
+        </Modal>
     )
 }
 

@@ -2,6 +2,7 @@ import PropTypes from 'prop-types'
 import { formatCreatedAtFull } from './tradeIdea.utils.js'
 import { useMarketStatus } from '../../customHooks/useMarketStatus.js'
 import { ConvictionChip } from '../ConvictionChip/ConvictionChip.jsx'
+import { Modal } from '../Modal.jsx'
 import './OrderConfirmDialog.scss'
 
 /**
@@ -21,20 +22,35 @@ export function OrderConfirmDialog({ idea, orders, placing, onConfirm, onDismiss
     const handleReset   = () => onReset?.(idea)
 
     return (
-        <div className="order-confirm__backdrop" onClick={placing ? undefined : handleDismiss}>
-            <div className="order-confirm" onClick={e => e.stopPropagation()}>
-                <div className="order-confirm__header">
-                    <span className="order-confirm__title">
-                        Entry triggered
-                        <span className="order-confirm__asset">{idea.asset || '—'}</span>
-                        <span className={`order-confirm__direction direction--${idea.direction}`}>
-                            {idea.direction ?? ''}
-                        </span>
-                    </span>
-                    <button className="order-confirm__close" onClick={handleDismiss} disabled={placing}>×</button>
-                </div>
-
-                <div className="order-confirm__body">
+        <Modal
+            ns="order-confirm"
+            busy={placing}
+            onClose={handleDismiss}
+            title="Entry triggered"
+            asset={idea.asset || '—'}
+            direction={idea.direction}
+            footer={<>
+                <button
+                    className="order-confirm__btn order-confirm__btn--dismiss"
+                    onClick={handleDismiss}
+                    disabled={placing}
+                >Dismiss</button>
+                {onReset && (
+                    <button
+                        className="order-confirm__btn order-confirm__btn--reset"
+                        onClick={handleReset}
+                        disabled={placing}
+                        title="Ignore this event and watch only for new ones"
+                    >Reset window</button>
+                )}
+                <button
+                    className="order-confirm__btn order-confirm__btn--confirm"
+                    onClick={() => onConfirm(idea, orders)}
+                    disabled={confirmDisabled}
+                    title={marketClosed ? 'Market is closed' : undefined}
+                >{placing ? 'Placing…' : marketClosed ? 'Market closed' : 'Confirm & place'}</button>
+            </>}
+        >
                     <p className="order-confirm__triggered">
                         Triggered at {formatCreatedAtFull(idea.entryTriggeredAt) || '—'}
                     </p>
@@ -85,31 +101,7 @@ export function OrderConfirmDialog({ idea, orders, placing, onConfirm, onDismiss
                             ))}
                         </tbody>
                     </table>
-                </div>
-
-                <div className="order-confirm__footer">
-                    <button
-                        className="order-confirm__btn order-confirm__btn--dismiss"
-                        onClick={handleDismiss}
-                        disabled={placing}
-                    >Dismiss</button>
-                    {onReset && (
-                        <button
-                            className="order-confirm__btn order-confirm__btn--reset"
-                            onClick={handleReset}
-                            disabled={placing}
-                            title="Ignore this event and watch only for new ones"
-                        >Reset window</button>
-                    )}
-                    <button
-                        className="order-confirm__btn order-confirm__btn--confirm"
-                        onClick={() => onConfirm(idea, orders)}
-                        disabled={confirmDisabled}
-                        title={marketClosed ? 'Market is closed' : undefined}
-                    >{placing ? 'Placing…' : marketClosed ? 'Market closed' : 'Confirm & place'}</button>
-                </div>
-            </div>
-        </div>
+        </Modal>
     )
 }
 

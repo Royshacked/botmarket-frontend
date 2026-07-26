@@ -11,6 +11,11 @@ export function AuthProvider({ children }) {
     // On mount — check if a session cookie already exists.
     // Guard with a timeout so a hung request (e.g. backend restarting) falls
     // through to the sign-in screen instead of sticking on "Connecting to server…".
+    //
+    // DELIBERATELY raw fetch, not httpService: a 401 here is the EXPECTED answer for a
+    // logged-out visitor, and httpService turns any 401 into sessionStorage.clear() +
+    // a redirect to '/' — which from the sign-in screen is a reload loop. Same reason
+    // in AuthModal. Every other call in the app must go through httpService.
     useEffect(() => {
         const ctrl = new AbortController()
         const timer = setTimeout(() => ctrl.abort(), 8000)

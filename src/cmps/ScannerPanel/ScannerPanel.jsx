@@ -2,19 +2,17 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { scannerService } from '../../services/scanner/scanner.service.remote.js'
 import { threadsService, newThreadId } from '../../services/threads/threads.service.remote.js'
-import { ChatMarkdown } from '../ChatMarkdown.jsx'
+import { ChatBubble } from '../ChatBubble.jsx'
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
 import { readStoredRoutingMode } from '../routingModeOptions.js'
 import { useMicInput } from '../../customHooks/useMicInput.js'
-import { useChatStream } from '../../customHooks/useChatStream.js'
+import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
-import { ChatPhaseHeading } from '../ChatPhaseHeading.jsx'
-import { ChatReasoning } from '../ChatReasoning.jsx'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import './ScannerPanel.scss'
 
@@ -98,47 +96,15 @@ function AngleChips({ selected, onToggle, onScan, disabled }) {
     )
 }
 
-function TickerChip({ symbol, onSelect }) {
-    return (
-        <button className="portfolio-panel__ticker-chip" onClick={() => onSelect(symbol)}>
-            {symbol}
-            <span className="portfolio-panel__ticker-chip-hint">View →</span>
-        </button>
-    )
-}
-
-function MessageBubble({ msg, onTickerSelect }) {
-    if (msg.role === 'phase') {
-        return <ChatPhaseHeading phase={msg.phase} label={SCAN_PHASE_LABELS[msg.phase]} total={4} />
-    }
-    if (msg.role === 'user') {
-        return <div className="portfolio-panel__bubble portfolio-panel__bubble--user">{msg.content}</div>
-    }
-
-    const reasoning = <ChatReasoning text={msg.reasoning} live={msg.streaming && !msg.content} />
-
-    if (!msg.content && msg.streaming) {
-        return (
-            <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant">
-                {reasoning}
-                <span className="portfolio-panel__thinking">scanning…</span>
-            </div>
-        )
-    }
-    return (
-        <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant">
-            {reasoning}
-            <div className="portfolio-panel__bubble-text">
-                <ChatMarkdown>{msg.content}</ChatMarkdown>
-            </div>
-            {msg.tickers?.length > 0 && (
-                <div className="portfolio-panel__tickers">
-                    {msg.tickers.map(sym => <TickerChip key={sym} symbol={sym} onSelect={onTickerSelect} />)}
-                </div>
-            )}
-        </div>
-    )
-}
+const MessageBubble = ({ msg, onTickerSelect }) => (
+    <ChatBubble
+        msg={msg}
+        phaseLabels={SCAN_PHASE_LABELS}
+        phaseTotal={4}
+        placeholder="scanning…"
+        onTickerSelect={onTickerSelect}
+    />
+)
 
 export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, onUpdateList, onLoadingChange, chatRestore = null, scanSeed = null, handoff = false, onBackToKairos, onDismissHandoff, resumeRef = null }) {
     const pipelineCfg = PIPELINE_CONFIG[pipeline] ?? PIPELINE_CONFIG.scan
@@ -200,9 +166,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
         // "marked" so that after a scan the user can see their prior pick and refine it.
         // It's reset only on Clear or when a saved list is restored.
 
-        const history = messages
-            .filter(m => !m.streaming && m.role !== 'phase')
-            .map(m => ({ role: m.role, content: m.content }))
+        const history = toChatHistory(messages)
         history.push({ role: 'user', content: text })
 
         pendingTickersRef.current = []
@@ -270,9 +234,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
         // Continuing: history ends with the partial as an assistant prefill. Regenerating (empty
         // base): it ends at the user turn. finalizeResumeHistory decides which.
         const history = chat.finalizeResumeHistory(
-            messages
-                .filter(m => !m.streaming && m.role !== 'phase')
-                .map(m => ({ role: m.role, content: m.content })),
+            toChatHistory(messages),
             base,
         )
 

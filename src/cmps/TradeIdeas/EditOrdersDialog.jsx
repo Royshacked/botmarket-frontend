@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
+import { Modal } from '../Modal.jsx'
 import { brokerService } from '../../services/broker/broker.service.remote.js'
 import { formatNum } from './tradeIdea.utils.js'
 import './EditOrdersDialog.scss'
@@ -84,18 +85,17 @@ export function EditOrdersDialog({ position, onClose, onChanged }) {
     }
 
     return (
-        <div className="edit-orders__backdrop" onClick={busy ? undefined : onClose}>
-            <div className="edit-orders" onClick={e => e.stopPropagation()}>
-                <div className="edit-orders__header">
-                    <span className="edit-orders__title">
-                        Edit orders
-                        <span className="edit-orders__asset">{symbol ?? '—'}</span>
-                        <span className={`edit-orders__direction direction--${direction}`}>{direction ?? ''}</span>
-                    </span>
-                    <button className="edit-orders__close" onClick={onClose} disabled={busy}>×</button>
-                </div>
-
-                <div className="edit-orders__body">
+        <Modal
+            ns="edit-orders"
+            busy={busy}
+            onClose={onClose}
+            title="Edit orders"
+            asset={symbol ?? '—'}
+            direction={direction}
+            footer={
+                <button className="edit-orders__btn edit-orders__btn--done" onClick={onClose} disabled={busy}>Done</button>
+            }
+        >
                     <p className="edit-orders__meta">
                         {brokerLbl} · position size {formatNum(volume)}{currency ? '' : ''}
                     </p>
@@ -158,13 +158,7 @@ export function EditOrdersDialog({ position, onClose, onChanged }) {
                             Resting orders can be set while the market is closed — they only trigger once it reopens, and a gap can fill a stop beyond your price.
                         </p>
                     </div>
-                </div>
-
-                <div className="edit-orders__footer">
-                    <button className="edit-orders__btn edit-orders__btn--done" onClick={onClose} disabled={busy}>Done</button>
-                </div>
-            </div>
-        </div>
+        </Modal>
     )
 }
 

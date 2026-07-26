@@ -5,6 +5,29 @@ import { makeStreamHandlers } from './useStreamStop.js'
 import { toolStatusLabel } from '../services/toolStatusLabels.js'
 
 /**
+ * The conversation reduced to role + content, minus the UI-only rows (the streaming
+ * placeholder and phase headings). This is both what the AGENT is sent before `begin()` /
+ * inside `finalizeResumeHistory()`, and what gets persisted as chat_state where the caller
+ * needs no stricter guard — the same reduction, inlined ten times before this.
+ *
+ * NOT every message list reduces this way, and the variants that remain are deliberate,
+ * not copies to fold in later:
+ *   - AxlChatPanel additionally drops `type: 'chart'` bubbles (they carry no content).
+ *   - KairosPanel's persistedMessages() is stricter (role + string content) because it
+ *     writes chat_state, not a request payload.
+ *   - ScannerPanel's handleGenerate chatLog KEEPS phase rows and `tickers` so reopening
+ *     a saved list re-renders the conversation exactly.
+ *
+ * @param {object[]} messages
+ * @returns {{ role: string, content: string }[]}
+ */
+export function toChatHistory(messages) {
+    return messages
+        .filter(m => !m.streaming && m.role !== 'phase')
+        .map(m => ({ role: m.role, content: m.content }))
+}
+
+/**
  * Shared streaming machinery for the three agent chats (idea / scanner /
  * portfolio). Owns the messages list, loading/status/phase state, the typewriter
  * drain, the abort wiring, and the delicate "keep Stop live until the drain
@@ -15,7 +38,7 @@ import { toolStatusLabel } from '../services/toolStatusLabels.js'
  *   const chat = useChatStream()
  *   async function send(text) {
  *     if (!text || chat.isLoading) return
- *     const history = [...]                         // panel builds its own history
+ *     const history = toChatHistory(chat.messages)  // shared — see below
  *     const { signal, handlers } = chat.begin(text, {
  *       onDone: (data) => {                         // panel-specific completion
  *         chat.finishStreaming({ role: 'assistant', content: data.reply, ...extras })

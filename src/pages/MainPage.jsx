@@ -31,7 +31,7 @@ import { threadsService, newThreadId } from '../services/threads/threads.service
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
 import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
-import { useChatStream }     from '../customHooks/useChatStream.js'
+import { useChatStream, toChatHistory } from '../customHooks/useChatStream.js'
 import { useCalendarEvents } from '../customHooks/useCalendarEvents.js'
 import { useScans }          from '../customHooks/useScans.js'
 import { useBrokerAccounts } from '../customHooks/useBrokerAccounts.js'
@@ -1217,7 +1217,7 @@ export function MainPage() {
             if (newIdeas.length > 0) {
                 const portfolioId = newIdeas[0].portfolioId
                 const portfolioName = plan?.name ?? newIdeas[0]?.portfolioName ?? null
-                const chatMessages = messages.filter(m => !m.streaming && m.role !== 'phase').map(m => ({ role: m.role, content: m.content }))
+                const chatMessages = toChatHistory(messages)
                 // threadId links the construction draft thread to the new portfolio (clears its TTL).
                 portfolioService.saveChatState(portfolioId, chatMessages, mandate, thesis, threadId, portfolioName).catch(err =>
                     console.error('[portfolio] chat state save failed', err)
@@ -1299,7 +1299,7 @@ export function MainPage() {
                 setIdeas(prev => prev.map(i => i.portfolioId === portfolioId ? { ...i, accounts: accountIds, mainAccountId } : i))
             }
 
-            const chatMessages = messages.filter(m => !m.streaming && m.role !== 'phase').map(m => ({ role: m.role, content: m.content }))
+            const chatMessages = toChatHistory(messages)
             await portfolioService.saveChatState(portfolioId, chatMessages).catch(err =>
                 console.error('[portfolio] chat state save failed', err)
             )

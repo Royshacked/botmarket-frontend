@@ -3,36 +3,19 @@ import PropTypes from 'prop-types'
 import { analystService } from '../../services/analyst/analyst.service.remote.js'
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
-import { useChatStream } from '../../customHooks/useChatStream.js'
+import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
-import { ChatMarkdown } from '../ChatMarkdown.jsx'
-import { ChatReasoning } from '../ChatReasoning.jsx'
-import { ChatPhaseHeading } from '../ChatPhaseHeading.jsx'
+import { ChatBubble } from '../ChatBubble.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import './AnalystPanel.scss'
 
 const ANALYST_PHASE_LABELS = { 1: 'Profile', 2: 'The Street', 3: 'Our view', 4: 'Valuation', 5: 'The call', 6: 'Coverage' }
 
-function MessageBubble({ msg }) {
-    if (msg.role === 'phase') return <ChatPhaseHeading phase={msg.phase} label={ANALYST_PHASE_LABELS[msg.phase]} total={6} />
-    if (msg.role === 'user')  return <div className="portfolio-panel__bubble portfolio-panel__bubble--user">{msg.content}</div>
-    const reasoning = <ChatReasoning text={msg.reasoning} live={msg.streaming && !msg.content} />
-    if (!msg.content && msg.streaming) {
-        return (
-            <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant">
-                {reasoning}<span className="portfolio-panel__thinking">researching…</span>
-            </div>
-        )
-    }
-    return (
-        <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant">
-            {reasoning}
-            <div className="portfolio-panel__bubble-text"><ChatMarkdown>{msg.content}</ChatMarkdown></div>
-        </div>
-    )
-}
+const MessageBubble = ({ msg }) => (
+    <ChatBubble msg={msg} phaseLabels={ANALYST_PHASE_LABELS} phaseTotal={6} placeholder="researching…" />
+)
 MessageBubble.propTypes = { msg: PropTypes.object.isRequired }
 
 // The drafted coverage preview — the variant-perception thesis, our PT vs the Street (the gap = the
@@ -93,7 +76,7 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated, 
         setInputText('')
         setInitiateErr('')
         const seed = seedRef.current; seedRef.current = null
-        const history = messages.filter(m => !m.streaming && m.role !== 'phase').map(m => ({ role: m.role, content: m.content }))
+        const history = toChatHistory(messages)
         history.push({ role: 'user', content: text })
 
         const { signal, handlers } = chat.begin(text, {
@@ -128,7 +111,7 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated, 
         if (!last || last.role !== 'assistant' || !last.stopped) return
         const base = chat.resumeBase()
         const history = chat.finalizeResumeHistory(
-            messages.filter(m => !m.streaming && m.role !== 'phase').map(m => ({ role: m.role, content: m.content })),
+            toChatHistory(messages),
             base,
         )
         const cont = chat.beginContinue({

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { API_BASE } from '../services/config.js'
+import { calendarService } from '../services/calendar/calendar.service.remote.js'
 
 const REFRESH_MS = 60 * 60 * 1000  // re-fetch once per hour
 
@@ -18,54 +18,30 @@ export function useCalendarEvents() {
     useEffect(() => {
         let active = true
 
-        async function fetchEarnings() {
-            setEarningsLoading(true)
+        // One load shape for all three tabs: flag loading, fetch, drop the result if the
+        // hook unmounted mid-flight. The service already degrades failures to empty.
+        async function load(fetcher, setLoading, apply) {
+            setLoading(true)
             try {
-                const res  = await fetch(`${API_BASE}/api/calendar/earnings`, { credentials: 'include' })
-                const data = await res.json()
-                if (!active) return
-                setEarnings(Array.isArray(data.items) ? data.items : [])
-                setEarningsFrom(data.from || null)
-                setEarningsTo(data.to || null)
-            } catch {
-                if (active) setEarnings([])
+                const data = await fetcher()
+                if (active) apply(data)
             } finally {
-                if (active) setEarningsLoading(false)
+                if (active) setLoading(false)
             }
         }
 
-        async function fetchFed() {
-            setFedLoading(true)
-            try {
-                const res  = await fetch(`${API_BASE}/api/calendar/fed`, { credentials: 'include' })
-                const data = await res.json()
-                if (!active) return
-                setFed(Array.isArray(data.items) ? data.items : [])
-            } catch {
-                if (active) setFed([])
-            } finally {
-                if (active) setFedLoading(false)
-            }
+        function refresh() {
+            load(calendarService.getEarnings, setEarningsLoading, ({ items, from, to }) => {
+                setEarnings(items)
+                setEarningsFrom(from)
+                setEarningsTo(to)
+            })
+            load(calendarService.getFed, setFedLoading, setFed)
+            load(calendarService.getIpo, setIpoLoading, setIpo)
         }
 
-        async function fetchIpo() {
-            setIpoLoading(true)
-            try {
-                const res  = await fetch(`${API_BASE}/api/calendar/ipo`, { credentials: 'include' })
-                const data = await res.json()
-                if (!active) return
-                setIpo(Array.isArray(data.items) ? data.items : [])
-            } catch {
-                if (active) setIpo([])
-            } finally {
-                if (active) setIpoLoading(false)
-            }
-        }
-
-        fetchEarnings()
-        fetchFed()
-        fetchIpo()
-        const t = setInterval(() => { fetchEarnings(); fetchFed(); fetchIpo() }, REFRESH_MS)
+        refresh()
+        const t = setInterval(refresh, REFRESH_MS)
 
         return () => { active = false; clearInterval(t) }
     }, [])
