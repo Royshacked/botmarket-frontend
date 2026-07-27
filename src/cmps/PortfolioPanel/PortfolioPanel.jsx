@@ -7,10 +7,9 @@ import { ChatBubble } from '../ChatBubble.jsx'
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
 import { readStoredRoutingMode } from '../routingModeOptions.js'
-import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
-import { useChatScroll } from '../../customHooks/useChatScroll.js'
-import { ChatInputRow } from '../ChatInputRow.jsx'
+import { AgentMessages } from '../AgentMessages.jsx'
+import { AgentChatInput } from '../AgentChatInput.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
@@ -54,7 +53,6 @@ export function PortfolioPanel({
     // Report streaming state up so the agent-bar "live" dot can pulse for Atlas.
     useEffect(() => { onLoadingChange?.(isLoading) }, [isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
 
-    const [inputText,             setInputText]             = useState('')
     const [pendingPlan,           setPendingPlan]           = useState(null)
     const [screenRequest,         setScreenRequest]         = useState(null)   // Atlas → Argus investing mandate hand-off
     const [editingPortfolioId,    setEditingPortfolioId]    = useState(null)
@@ -72,7 +70,6 @@ export function PortfolioPanel({
         if (!chatRestore) return
         setMessages(chatRestore.messages ?? [])
         setPendingPlan(null)
-        setInputText('')
         setEditDirty(false)
         setDismissConfirm(false)
         setEditingPortfolioId(chatRestore.portfolioId ?? null)
@@ -128,7 +125,6 @@ export function PortfolioPanel({
     const pendingTickersRef = useRef([])
     const latestMandateRef  = useRef(null)
     const latestThesisRef   = useRef(null)
-    const textareaRef       = useRef(null)
     const threadIdRef       = useRef(newThreadId())   // construction draft thread
     const reviewTriggeredRef = useRef(false)          // the "Review" button fired this turn
 
@@ -140,10 +136,6 @@ export function PortfolioPanel({
     const planReady    = !!pendingPlan && pendingPlan.ideas.length > 0 && pendingPlan.ideas.every(i => Number(i.quantity) > 0)
     const canGenerate  = planReady && (!!editingPortfolioId || selectedAccounts?.length > 0)
     const actionWatch = `${streamStatus}|${planReady}|${canGenerate}|${isReviewMode}|${!!editingPortfolioId}`
-    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, {
-        onFinishStreaming: () => textareaRef.current?.focus(),
-        watch: actionWatch,
-    })
 
     async function _send(text) {
         if (!text || isLoading) return
@@ -281,12 +273,6 @@ export function PortfolioPanel({
         }
     }
 
-    function handleSend() {
-        const text = inputText.trim()
-        setInputText('')
-        _send(text)
-    }
-
     // "Review" button: fire Atlas's review pass. Its proposal (if any) lands in
     // reviewUpdate (→ inline Accept/Dismiss).
     function handleRunReview() {
@@ -331,7 +317,6 @@ export function PortfolioPanel({
     function handleClear() {
         setMessages([])
         setPendingPlan(null)
-        setInputText('')
         latestMandateRef.current = null
         threadIdRef.current = newThreadId()   // fresh construction thread; the abandoned draft TTL-expires
     }
@@ -343,7 +328,6 @@ export function PortfolioPanel({
         if (!t) return
         setMessages(t.messages ?? [])
         setPendingPlan(null)
-        setInputText('')
         setEditingPortfolioId(null)
         setEditingPortfolioIdeas([])
         latestMandateRef.current = t.mandate ?? null
@@ -357,7 +341,6 @@ export function PortfolioPanel({
     function handleCancelEdit() {
         setMessages([])
         setPendingPlan(null)
-        setInputText('')
         setEditingPortfolioId(null)
         setEditingPortfolioIdeas([])
         setEditDirty(false)
@@ -418,13 +401,6 @@ export function PortfolioPanel({
         setReviewRan(false)
         setPendingPlan(null); setMessages([]); setInputText('')
         onReviewResolved?.()
-    }
-
-    function handleKeyDown(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault()
-            handleSend()
-        }
     }
 
     const showChangedMind = !!editingPortfolioId && !editDirty && !isReviewMode
@@ -488,7 +464,7 @@ export function PortfolioPanel({
                 </div>
             )}
 
-            <div className="portfolio-panel__messages" ref={messagesRef} onScroll={handleScroll}>
+            <AgentMessages chat={chat}>
                 {messages.length === 0 && <AgentIntro agent={AGENTS.portfolio} />}
                 {messages.map((msg, i) => (
                     <MessageBubble key={i} msg={msg} onTickerSelect={onTickerSelect} />
@@ -509,8 +485,7 @@ export function PortfolioPanel({
                     <AgentTurnTag agent={AGENTS.portfolio} active={isLoading} />
                 )}
 
-                <div ref={messagesEndRef} />
-            </div>
+            </AgentMessages>
 
             {/* Atlas → Argus: hand a sleeve's mandate to the investing screening desk. */}
             {!isLoading && screenRequest && (
@@ -586,28 +561,14 @@ export function PortfolioPanel({
                 </div>
             )}
 
-            <ChatInputRow
-                prefix="portfolio-panel"
-                textareaRef={textareaRef}
-                value={inputText}
-                onChange={e => setInputText(e.target.value)}
-                onKeyDown={handleKeyDown}
+            <AgentChatInput
+                chat={chat}
                 placeholder="Describe your portfolio goals… (Enter to send, Shift+Enter for newline)"
-                onSend={handleSend}
-                sendDisabled={!inputText.trim() || isLoading}
-                isStreaming={isLoading}
-                onStop={handleStop}
-                canResume={chat.canResume}
-                onResume={_continue}
+                onSend={_send}
                 onClear={handleClear}
-                clearDisabled={isLoading || !messages.length || !!editingPortfolioId}
-                clearTitle="Clear chat"
-                onToggleMic={toggleMic}
-                onCancelMic={cancelMic}
-                isRecording={isRecording}
-                isTranscribing={isTranscribing}
-                micDisabled={isLoading || isTranscribing}
-                textareaDisabled={isLoading || isRecording}
+                onResume={_continue}
+                busy={isLoading}
+                clearLocked={!!editingPortfolioId}
             />
         </div>
     )

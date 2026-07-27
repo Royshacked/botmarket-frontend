@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { mentorService } from '../../services/mentor/mentor.service.remote.js'
 import { threadsService, newThreadId } from '../../services/threads/threads.service.remote.js'
@@ -6,10 +6,9 @@ import { ChatBubble } from '../ChatBubble.jsx'
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
 import { readStoredRoutingMode } from '../routingModeOptions.js'
-import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
-import { useChatScroll } from '../../customHooks/useChatScroll.js'
-import { ChatInputRow } from '../ChatInputRow.jsx'
+import { AgentMessages } from '../AgentMessages.jsx'
+import { AgentChatInput } from '../AgentChatInput.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
@@ -49,7 +48,6 @@ export function MentorPanel({
 
     useEffect(() => { onLoadingChange?.(chat.isLoading) }, [chat.isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
 
-    const [inputText,    setInputText]    = useState('')
     const [pendingSetup, setPendingSetup] = useState(null)
     const [readiness,    setReadiness]    = useState(null)
     const [coverage,     setCoverage]     = useState([])
@@ -61,7 +59,6 @@ export function MentorPanel({
     const [busy,         setBusy]         = useState(false)
     const [editDirty,    setEditDirty]    = useState(false)
 
-    const textareaRef = useRef(null)
     const threadIdRef = useRef(newThreadId())
 
     const isEditing = !!editingSetupId
@@ -77,7 +74,6 @@ export function MentorPanel({
         setCoverage(chatRestore.coverage ?? [])
         setCandidates(null)
         setGenerated(null)
-        setInputText('')
         setEditDirty(false)
     }, [chatRestore?.key])   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -88,10 +84,6 @@ export function MentorPanel({
             .filter(m => !m.streaming && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
             .map(m => ({ role: m.role, content: m.content }))
     }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable closure
-    const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
-    const { isRecording, isTranscribing, toggle: toggleMic, cancel: cancelMic } = useMicInput({ onTranscript })
 
     // The chatState the server echoes back into the system prompt. The draft matters most: Mentor's
     // own <setup> block is stripped from the visible history, so without this a thin re-emit on an
@@ -193,12 +185,6 @@ export function MentorPanel({
         }
     }
 
-    function handleSend() {
-        const text = inputText.trim()
-        setInputText('')
-        _send(text)
-    }
-
     function handleClear() {
         chat.reset()
         setPendingSetup(null)
@@ -206,7 +192,6 @@ export function MentorPanel({
         setCoverage([])
         setCandidates(null)
         setGenerated(null)
-        setInputText('')
         setEditDirty(false)
         threadIdRef.current = newThreadId()
     }
@@ -227,7 +212,6 @@ export function MentorPanel({
         setPendingSetup(t.state?.draft ?? null)
         setCoverage(t.state?.coverage ?? [])
         setCandidates(null)
-        setInputText('')
         setEditDirty(false)
         threadIdRef.current = t.threadId
     }
@@ -274,10 +258,6 @@ export function MentorPanel({
         }
     }
 
-    function handleKeyDown(e) {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
-    }
-
     const hasPreview = !!pendingSetup?.asset
     // A missing account is a readiness gap like any other, so it belongs in `missing` rather than
     // being a separate silent reason the button is dark.
@@ -285,10 +265,6 @@ export function MentorPanel({
         ? { ready: false, missing: [...(readiness?.missing ?? []), 'trading account'] }
         : readiness
     const ready = !!effectiveReadiness?.ready
-    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, {
-        onFinishStreaming: () => textareaRef.current?.focus(),
-        watch: `${chat.streamStatus}|${hasPreview}|${!!candidates}`,
-    })
 
     return (
         <div className="portfolio-panel mentor-panel">
@@ -308,7 +284,7 @@ export function MentorPanel({
                 </div>
             )}
 
-            <div className="portfolio-panel__messages" ref={messagesRef} onScroll={handleScroll}>
+            <AgentMessages chat={chat} watch={`${hasPreview}|${!!candidates}`}>
                 {messages.length === 0 && (
                     <AgentIntro agent={AGENTS.mentor}>
                         <div className="mentor-panel__suggestions">
@@ -323,8 +299,7 @@ export function MentorPanel({
                 {(chat.isLoading || messages.some(m => m.role === 'assistant' && m.content)) && (
                     <AgentTurnTag agent={AGENTS.mentor} active={chat.isLoading} />
                 )}
-                <div ref={messagesEndRef} />
-            </div>
+            </AgentMessages>
 
             {!chat.isLoading && candidates?.length > 0 && (
                 <CandidatePicker candidates={candidates} onPick={handlePickCandidate} />
@@ -378,28 +353,13 @@ export function MentorPanel({
                 </div>
             )}
 
-            <ChatInputRow
-                prefix="portfolio-panel"
-                textareaRef={textareaRef}
-                value={inputText}
-                onChange={e => setInputText(e.target.value)}
-                onKeyDown={handleKeyDown}
+            <AgentChatInput
+                chat={chat}
                 placeholder="A ticker, a direction and a horizon — plus your levels if you have them (Enter to send)"
-                onSend={handleSend}
-                sendDisabled={!inputText.trim() || chat.isLoading}
-                isStreaming={chat.isLoading}
-                onStop={chat.handleStop}
-                canResume={chat.canResume}
-                onResume={_continue}
+                onSend={_send}
                 onClear={handleClear}
-                clearDisabled={chat.isLoading || isEditing || !messages.length}
-                clearTitle="Clear chat"
-                onToggleMic={toggleMic}
-                onCancelMic={cancelMic}
-                isRecording={isRecording}
-                isTranscribing={isTranscribing}
-                micDisabled={chat.isLoading || isTranscribing}
-                textareaDisabled={chat.isLoading || isRecording}
+                onResume={_continue}
+                clearLocked={isEditing}
             />
         </div>
     )

@@ -7,10 +7,9 @@ import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
 import { readStoredRoutingMode } from '../routingModeOptions.js'
 import { KAIROS_MODES, DEFAULT_KAIROS_MODE, readStoredKairosMode } from '../kairosModeOptions.js'
-import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
-import { useChatScroll } from '../../customHooks/useChatScroll.js'
-import { ChatInputRow } from '../ChatInputRow.jsx'
+import { AgentMessages } from '../AgentMessages.jsx'
+import { AgentChatInput } from '../AgentChatInput.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
@@ -98,7 +97,6 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
 
     useEffect(() => { onLoadingChange?.(chat.isLoading) }, [chat.isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
 
-    const [inputText,   setInputText]   = useState('')
     const [pendingCall, setPendingCall] = useState(null)
     const [perf,        setPerf]        = useState(null)
     // Analysis mode (the build lens) — the user's explicit per-call choice. Sent as chatState.mode;
@@ -111,7 +109,6 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
     // Editing an existing call: until the user actually changes something via chat, the primary
     // button offers a clean "I'll do it later" exit (mirrors the idea edit's "changed my mind").
     const [editDirty,   setEditDirty]   = useState(false)
-    const textareaRef = useRef(null)
     const threadIdRef = useRef(newThreadId())   // call construction draft thread
     const seedRef     = useRef(null)            // one-shot Argus candidate seed for the next send (K3)
     const buildWindowRef = useRef(null)         // forward-dated list window {from,to} → gates the call at generate (persists across the build, unlike the one-shot seed)
@@ -130,7 +127,6 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
         chat.setPhase(null)
         setPendingCall(chatRestore.call ?? null)
         setMode(chatRestore.call?.mode ?? DEFAULT_KAIROS_MODE)   // relight the chip in the call's build lens
-        setInputText('')
         setEditDirty(false)
     }, [chatRestore?.key])   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -155,9 +151,6 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
         return () => window.removeEventListener(CALLS_CHANGED, refreshPerf)
     }, [refreshPerf])
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable closure
-    const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
-    const { isRecording, isTranscribing, toggle: toggleMic, cancel: cancelMic } = useMicInput({ onTranscript })
 
     async function _send(text) {
         if (!text || chat.isLoading) return
@@ -276,17 +269,10 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
         }
     }
 
-    function handleSend() {
-        const text = inputText.trim()
-        setInputText('')
-        _send(text)
-    }
-
     function handleClear() {
         chat.reset()
         setPendingCall(null)
         setScanRequest(null)
-        setInputText('')
         setEditDirty(false)
         threadIdRef.current = newThreadId()   // fresh construction thread; abandoned draft TTL-expires
     }
@@ -320,7 +306,6 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
         chat.setMessages(t.messages ?? [])
         chat.setPhase(null)
         setPendingCall(t.state?.draft ?? null)
-        setInputText('')
         setEditDirty(false)
         threadIdRef.current = t.threadId
     }
@@ -372,10 +357,6 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
         onEditDone?.()
     }
 
-    function handleKeyDown(e) {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
-    }
-
     // Preview shows as soon as the agent has settled a ticker; readiness (Generate) needs the
     // full construction gate — a trade type, ≥1 real entry zone, and a max size.
     const hasPreview  = !!pendingCall?.asset
@@ -393,10 +374,6 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
 
     // Stopped mid-reply → the input's Stop turns into a Play to resume that bubble (like other chats).
 
-    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, {
-        onFinishStreaming: () => textareaRef.current?.focus(),
-        watch: `${chat.streamStatus}|${hasPreview}`,
-    })
 
     return (
         <div className="portfolio-panel kairos-panel">
@@ -412,7 +389,7 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
                 </div>
             )}
 
-            <div className="portfolio-panel__messages" ref={messagesRef} onScroll={handleScroll}>
+            <AgentMessages chat={chat} watch={`${hasPreview}`}>
                 {messages.length === 0 && (
                     <AgentIntro agent={AGENTS.kairos}>
                         <div className="kairos-panel__suggestions">
@@ -435,8 +412,7 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
                 {(chat.isLoading || messages.some(m => m.role === 'assistant' && m.content)) && (
                     <AgentTurnTag agent={AGENTS.kairos} active={chat.isLoading} />
                 )}
-                <div ref={messagesEndRef} />
-            </div>
+            </AgentMessages>
 
             {!chat.isLoading && scanRequest && (
                 <div className="portfolio-panel__action-bubble">
@@ -490,28 +466,13 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
                 ))}
             </div>
 
-            <ChatInputRow
-                prefix="portfolio-panel"
-                textareaRef={textareaRef}
-                value={inputText}
-                onChange={e => setInputText(e.target.value)}
-                onKeyDown={handleKeyDown}
+            <AgentChatInput
+                chat={chat}
                 placeholder="A ticker + how you'd trade it — intraday, day, or swing (Enter to send)"
-                onSend={handleSend}
-                sendDisabled={!inputText.trim() || chat.isLoading}
-                isStreaming={chat.isLoading}
-                onStop={chat.handleStop}
-                canResume={chat.canResume}
-                onResume={_continue}
+                onSend={_send}
                 onClear={handleClear}
-                clearDisabled={chat.isLoading || isEditing || !messages.length}
-                clearTitle="Clear chat"
-                onToggleMic={toggleMic}
-                onCancelMic={cancelMic}
-                isRecording={isRecording}
-                isTranscribing={isTranscribing}
-                micDisabled={chat.isLoading || isTranscribing}
-                textareaDisabled={chat.isLoading || isRecording}
+                onResume={_continue}
+                clearLocked={isEditing}
             />
         </div>
     )

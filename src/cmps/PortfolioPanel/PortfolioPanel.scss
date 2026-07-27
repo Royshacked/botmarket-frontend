@@ -1,3 +1,12 @@
+// NB: despite the name, this file IS the shared agent-chat shell. Nine files import it — every
+// agent panel (Kairos, Scanner, Analyst, Mentor), ChatBubble and AxlHub — for the `.portfolio-panel`
+// frame: __messages, __bubble, __action-bubble, __review-btn and the ChatInputRow prefix.
+//
+// It is shared by convention rather than by name, which is why a new panel "just works" after
+// importing a competitor's stylesheet. Renaming it to _chatShell.scss is the honest fix; it is a
+// nine-file, visually-unverifiable change, so it is deliberately left for a pass where the panels
+// can be eyeballed side by side rather than smuggled into a refactor.
+
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap');
 
 .portfolio-panel {
