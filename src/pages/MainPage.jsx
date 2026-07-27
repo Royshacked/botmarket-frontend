@@ -13,6 +13,7 @@ import { readStoredRoutingMode } from '../cmps/routingModeOptions.js'
 import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
 import { ScannerPanel }      from '../cmps/ScannerPanel/ScannerPanel.jsx'
 import { KairosPanel }       from '../cmps/KairosPanel/KairosPanel.jsx'
+import { MentorPanel }       from '../cmps/MentorPanel/MentorPanel.jsx'
 import { AnalystPanel }      from '../cmps/AnalystPanel/AnalystPanel.jsx'
 import { Radar }             from '../cmps/Radar/Radar.jsx'
 import { PriceChart }  from '../cmps/PriceChart/PriceChart.jsx'
@@ -29,7 +30,7 @@ import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.rem
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
 import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
-import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE } from '../services/event-bus.service'
+import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
 import { useChatStream, toChatHistory } from '../customHooks/useChatStream.js'
 import { useCalendarEvents } from '../customHooks/useCalendarEvents.js'
@@ -390,6 +391,7 @@ export function MainPage() {
     const portfolioResumeRef = useRef(null)           // PortfolioPanel exposes its resume fn here
     const scannerResumeRef   = useRef(null)           // ScannerPanel exposes its resume fn here
     const kairosResumeRef    = useRef(null)           // KairosPanel exposes its resume fn here
+    const mentorResumeRef    = useRef(null)           // MentorPanel exposes its resume fn here
     // Ids of ideas BORN from a "Buy Market" click (created solely to carry the immediate
     // order). If their placement fails outright we roll them back out of existence rather
     // than strand a phantom 'hit' idea on "Update idea". Cleared once placed or rolled back.
@@ -890,6 +892,14 @@ export function MainPage() {
     // Coverage-update card "Open coverage" → surface the Analyst (its living coverage book).
     useEffect(() => {
         return eventBus.on(OPEN_COVERAGE, () => setActiveTab('analyst'))
+    }, [])
+
+    // A Talos entry card routes here. It cannot yet open the OrderConfirmDialog the way an idea
+    // does: that resolves the entity out of the loaded IDEAS list, and setups are a different kind
+    // (getIdeas filters kind:'idea'). Until the setups list is loaded into the workspace, land the
+    // user on Mentor rather than silently doing nothing.
+    useEffect(() => {
+        return eventBus.on(SETUP_CONFIRM_OPEN, () => setActiveTab('mentor'))
     }, [])
 
     // Confirm the call's proposed entry → materialize + place via the Kairos handoff (actOnCall).
@@ -1618,6 +1628,7 @@ export function MainPage() {
         if (activeTab === 'portfolio') return portfolioResumeRef.current?.(threadId)
         if (activeTab === 'scanner')   return scannerResumeRef.current?.(threadId)
         if (activeTab === 'kairos')    return kairosResumeRef.current?.(threadId)
+        if (activeTab === 'mentor')    return mentorResumeRef.current?.(threadId)
         return handleResumeIdeaThread(threadId)
     }
 
@@ -1673,7 +1684,7 @@ export function MainPage() {
                                 <PipelineCrumb pipeline={activePipeline} activeTab={activeTab} />
 
                                 <div className="chat-agentbar__right">
-                                    {(activeTab === 'idea' || activeTab === 'portfolio' || activeTab === 'kairos') && (
+                                    {(activeTab === 'idea' || activeTab === 'portfolio' || activeTab === 'kairos' || activeTab === 'mentor') && (
                                         <AccountSelector
                                             accounts={availableAccounts}
                                             selectedIds={selectedAccounts}
@@ -1737,6 +1748,16 @@ export function MainPage() {
                                 chatRestore={kairosChatRestore}
                                 editingCallId={editingCallId}
                                 onEditDone={handleCallEditDone}
+                                availableAccounts={availableAccounts}
+                                selectedAccounts={selectedAccounts}
+                                mainAccountId={mainAccountId}
+                            />
+                        </div>
+
+                        <div className="chat-tabs__panel" style={{ display: activeTab === 'mentor' ? 'flex' : 'none' }}>
+                            <MentorPanel
+                                onGenerated={handleBackToAxl}
+                                resumeRef={mentorResumeRef}
                                 availableAccounts={availableAccounts}
                                 selectedAccounts={selectedAccounts}
                                 mainAccountId={mainAccountId}

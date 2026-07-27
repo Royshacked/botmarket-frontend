@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
-import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE } from '../../services/event-bus.service'
+import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE } from '../../services/event-bus.service'
 import { manualService } from '../../services/manual/manual.service.remote'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
@@ -241,28 +241,34 @@ function openCallPopup(callId) {
 const ENTRY_CONFIRM_NOTE = { passed_earlier: 'Scheduled time already passed', off_hours: 'Fired while market was closed' }
 
 function EntryConfirmBubble({ msg, onClose, onResolve }) {
-    const { kind, ideaId, callId, asset, note } = msg.payload
-    const isCall = kind === 'call'
-    const agent  = isCall ? AGENTS.kairos : AGENTS.idea
+    const { kind, ideaId, callId, setupId, asset, note, warning } = msg.payload
+    const isCall  = kind === 'call'
+    const isSetup = kind === 'setup'
+    const agent   = isCall ? AGENTS.kairos : isSetup ? AGENTS.mentor : AGENTS.idea
 
     function route() {
-        if (isCall) eventBus.emit(CALL_CONFIRM_OPEN,  { callId })
-        else        eventBus.emit(ENTRY_CONFIRM_OPEN, { ideaId })
+        if (isCall)       eventBus.emit(CALL_CONFIRM_OPEN,  { callId })
+        else if (isSetup) eventBus.emit(SETUP_CONFIRM_OPEN, { setupId })
+        else              eventBus.emit(ENTRY_CONFIRM_OPEN, { ideaId })
     }
     function handlePrimary() {
         onResolve?.(msg.id, { status: 'done', outcome: 'confirmed' })
         route()
         onClose?.()
     }
-    // Dismissing an idea entry parks it back to 'waiting' (re-armable); a call just collapses.
+    // Dismissing an idea entry parks it back to 'waiting' (re-armable); a call or setup collapses.
     function handleDismiss() {
         onResolve?.(msg.id, { status: 'dismissed', outcome: 'dismissed' })
-        if (!isCall) eventBus.emit(ENTRY_CONFIRM_DISMISS, { ideaId })
+        if (!isCall && !isSetup) eventBus.emit(ENTRY_CONFIRM_DISMISS, { ideaId })
     }
 
+    // A setup's card fires on ANY Talos verdict — advisory, never a veto — so when the verdict was
+    // not "enter" the objection has to be visible BEFORE the button, not after. It rides in the
+    // heading rather than the body, which is the agent's own copy.
     const heading = (
         <>Confirm entry &middot; {asset}
             {ENTRY_CONFIRM_NOTE[note] && <span className="social-chat__invalidation-alert-tag"> &middot; {ENTRY_CONFIRM_NOTE[note]}</span>}
+            {warning && <span className="social-chat__invalidation-alert-tag"> &middot; {warning}</span>}
         </>
     )
 
