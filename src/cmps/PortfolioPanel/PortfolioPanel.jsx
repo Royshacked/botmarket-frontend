@@ -128,10 +128,6 @@ export function PortfolioPanel({
     const threadIdRef       = useRef(newThreadId())   // construction draft thread
     const reviewTriggeredRef = useRef(false)          // the "Review" button fired this turn
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- _send is a stable closure for this purpose
-    const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
-    const { isRecording, isTranscribing, toggle: toggleMic, cancel: cancelMic } = useMicInput({ onTranscript })
-
     const planHasSize  = !!pendingPlan && (Number(pendingPlan.positionSize) > 0)
     const planReady    = !!pendingPlan && pendingPlan.ideas.length > 0 && pendingPlan.ideas.every(i => Number(i.quantity) > 0)
     const canGenerate  = planReady && (!!editingPortfolioId || selectedAccounts?.length > 0)
