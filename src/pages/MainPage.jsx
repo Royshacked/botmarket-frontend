@@ -48,6 +48,7 @@ const TAB_TO_STEP = {
     portfolio:  'Atlas',
     analyst:    'Prometheus',
     idea:       'Idea',
+    mentor:     'Mentor',
     'axl-chat': 'Axl',
 }
 

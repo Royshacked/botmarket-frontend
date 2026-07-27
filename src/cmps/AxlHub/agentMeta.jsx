@@ -1,5 +1,5 @@
 // ── Shared agent metadata + transition timings ─────────────────────────────────
-// One source of truth for the three specialist agents (brand, hue, icon, copy) so
+// One source of truth for the specialist agents (brand, hue, icon, copy) so
 // the hub cards, the "summoning" beat and the in-chat introductions stay in sync.
 //
 // Data only — no component exports live here on purpose: mixing components with
@@ -116,10 +116,9 @@ export const AGENTS = {
     },
 }
 
-// Axl itself — the meta-layer. Not a specialist, so it's intentionally NOT in
-// AGENT_LIST (the hub cards / routing nav stay the three specialists). Kept here so
-// the shared chat pieces (AgentTurnTag: the sigil + name under a turn) work for Axl
-// too. Icon = a compact 24-space meditating bot.
+// Axl itself — the meta-layer. Not a specialist, so it owns no desk and never appears as a hub
+// card. Kept here so the shared chat pieces (AgentTurnTag: the sigil + name under a turn) work for
+// Axl too. Icon = a compact 24-space meditating bot.
 AGENTS.axl = {
     tab:   'axl',
     brand: 'axl',
@@ -137,7 +136,8 @@ AGENTS.axl = {
     ),
 }
 
-export const AGENT_LIST = [AGENTS.idea, AGENTS.portfolio, AGENTS.scanner, AGENTS.kairos, AGENTS.mentor, AGENTS.analyst]
+// NB: there is deliberately no AGENT_LIST. The hub renders from DESKS (pipelines), not from a
+// list of agents — an agent becomes reachable by belonging to a desk, not by being enumerated.
 
 // The social-chat notification bots — one per agent, ids matching the AGENTS keys and
 // the backend BOT_IDS. Each agent owns its own notifications: Idea posts invalidation
@@ -149,7 +149,7 @@ export const isBotId = (id) => BOT_IDS.includes(id)
 export const CONVERSATIONAL_BOT_ID = 'axl'
 
 // ── Reception desks ────────────────────────────────────────────────────────────
-// Axl routes the user into one of these 4 pipelines. `entryTab` is the first agent
+// Axl routes the user into one of these pipelines. `entryTab` is the first agent
 // tab to open; `agentKey` drives the summon icon; `steps` is the ordered pipeline.
 // Each step: `tab` is the agent's activeTab key (null for background agents like Hermes/Themis).
 export const DESKS = [
@@ -192,6 +192,19 @@ export const DESKS = [
         agentKey: 'scanner',
         steps: [
             { tab: 'scanner', label: 'Scan' },
+        ],
+    },
+    {
+        key:      'assist',
+        label:    'Assist Desk',
+        lead:     'Work on your own trade',
+        blurb:    'You bring the ticker and your plan — Mentor pressure-tests it, Talos watches the zones.',
+        hue:      'green',
+        entryTab: 'mentor',
+        agentKey: 'mentor',
+        steps: [
+            { tab: 'mentor', label: 'Build setup' },
+            { tab: null,     label: 'Arm & monitor' },
         ],
     },
     {
