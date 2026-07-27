@@ -1,6 +1,5 @@
 import { httpService } from '../http.service'
-import { API_BASE } from '../config'
-import { postSSE, buildStreamHandlers } from '../sse.util'
+import { streamAgent } from '../agentStream'
 
 // Kairos remote service. Mirrors scanner.service.remote: an SSE build stream plus CRUD for the
 // artifact (here a "call"). The stream emits a DRAFT call in `done` (data.call); the user clicks
@@ -25,13 +24,8 @@ function _announceChange() { window.dispatchEvent(new Event(CALLS_CHANGED)) }
 export { CALLS_CHANGED }
 
 async function sendStream(messages, opts = {}) {
-    const { model, reasoningEffort, routingMode, currentPhase, signal, accounts = [], mainAccountId = null, chatState, seed } = opts
-    await postSSE(
-        `${API_BASE}/${BASE}/stream`,
-        { messages, model, reasoningEffort, routingMode, currentPhase, accounts, mainAccountId, chatState, seed },
-        buildStreamHandlers(opts),
-        { signal },
-    )
+    const { model, reasoningEffort, routingMode, currentPhase, accounts = [], mainAccountId = null, chatState, seed } = opts
+    await streamAgent(BASE, { messages, model, reasoningEffort, routingMode, currentPhase, accounts, mainAccountId, chatState, seed }, opts)
 }
 
 // Persist a drafted call. `accounts` are the full marked-account objects (bank icon); the server

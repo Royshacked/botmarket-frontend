@@ -1,6 +1,5 @@
 import { httpService } from '../http.service'
-import { API_BASE } from '../config'
-import { postSSE, buildStreamHandlers } from '../sse.util'
+import { streamAgent } from '../agentStream'
 
 // Analyst remote service. Mirrors kairos.service.remote: an SSE research stream plus CRUD for the
 // artifact (here `coverage`). The stream emits a DRAFT coverage in `done` (data.coverage); the user
@@ -25,13 +24,8 @@ export { COVERAGE_CHANGED }
 // Streaming research chat. `seed` (a structured Argus investing candidate) pre-seeds the research on
 // a hand-off turn; `brokerContext` gives the analyst the user's book. done → { reply, phase, coverage }.
 async function sendStream(messages, opts = {}) {
-    const { model, reasoningEffort, signal, chatState, seed, brokerContext } = opts
-    await postSSE(
-        `${API_BASE}/${BASE}/stream`,
-        { messages, model, reasoningEffort, chatState, seed, brokerContext },
-        buildStreamHandlers(opts),
-        { signal },
-    )
+    const { model, reasoningEffort, chatState, seed, brokerContext } = opts
+    await streamAgent(BASE, { messages, model, reasoningEffort, chatState, seed, brokerContext }, opts)
 }
 
 // Persist a drafted coverage (initiation is an event — one per name; a duplicate → 409 already_covered).

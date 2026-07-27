@@ -1,6 +1,5 @@
 import { httpService } from '../http.service'
-import { API_BASE } from '../config'
-import { postSSE, buildStreamHandlers } from '../sse.util'
+import { streamAgent, clientTimeContext } from '../agentStream'
 
 // Mentor remote service (Pipeline F). Mirrors kairos.service.remote: an SSE build stream plus CRUD
 // for the artifact — here a "setup". The stream emits a DRAFT setup in `done` (data.setup) or a
@@ -31,30 +30,14 @@ const SETUPS_CHANGED = 'mentor-setups-changed'
 function _announceChange() { window.dispatchEvent(new Event(SETUPS_CHANGED)) }
 export { SETUPS_CHANGED }
 
-// The agent has no idea what timezone the user is in, and Mentor authors absolute UTC bounds
-// (active_from / valid_until) from what they say in their own clock ("through Friday"). Send the
-// browser instant + IANA zone so it converts against the user's calendar, not the server's.
-function clientTimeContext() {
-    try {
-        return { clientNow: Date.now(), clientTz: Intl.DateTimeFormat().resolvedOptions().timeZone || null }
-    } catch {
-        return { clientNow: Date.now() }
-    }
-}
-
 /**
  * Stream a build turn. `chatState` carries the live worksheet forward:
  *   { active_asset, draft, coverage }
  * The draft is echoed back into the system prompt, so an omitted field survives a thin re-emit.
  */
 async function sendStream(messages, opts = {}) {
-    const { model, reasoningEffort, routingMode, signal, accounts = [], mainAccountId = null, chatState } = opts
-    await postSSE(
-        `${API_BASE}/${BASE}/stream`,
-        { messages, model, reasoningEffort, routingMode, accounts, mainAccountId, chatState, ...clientTimeContext() },
-        buildStreamHandlers(opts),
-        { signal },
-    )
+    const { model, reasoningEffort, routingMode, accounts = [], mainAccountId = null, chatState } = opts
+    await streamAgent(BASE, { messages, model, reasoningEffort, routingMode, accounts, mainAccountId, chatState, ...clientTimeContext() }, opts)
 }
 
 /**
