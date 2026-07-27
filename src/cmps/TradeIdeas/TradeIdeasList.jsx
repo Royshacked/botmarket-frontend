@@ -9,7 +9,6 @@ import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel,
 import { eventBus, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, REVIEW_RESOLVED } from '../../services/event-bus.service'
 import { portfolioService } from '../../services/portfolio/portfolio.service.remote.js'
 import { StatusIcon } from '../StatusIcon.jsx'
-import { BrandTitle } from '../BrandTitle.jsx'
 import { MinosBadge, HermesBadge, TalosBadge, AtlasBadge, ArgusBadge, AgentGlyph } from '../AxlHub/AgentBadges.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { IdeaCard, BrokerGroupCard, PortfolioCard, BuildingPortfolioCard, PositionsCards } from './TradeIdeaCards.jsx'

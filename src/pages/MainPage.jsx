@@ -15,8 +15,6 @@ import { ScannerPanel }      from '../cmps/ScannerPanel/ScannerPanel.jsx'
 import { KairosPanel }       from '../cmps/KairosPanel/KairosPanel.jsx'
 import { MentorPanel }       from '../cmps/MentorPanel/MentorPanel.jsx'
 import { AnalystPanel }      from '../cmps/AnalystPanel/AnalystPanel.jsx'
-import { Radar }             from '../cmps/Radar/Radar.jsx'
-import { PriceChart }  from '../cmps/PriceChart/PriceChart.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
 import { kairosService, CALLS_CHANGED } from '../services/kairos/kairos.service.remote.js'
 import { analystService, COVERAGE_CHANGED } from '../services/analyst/analyst.service.remote.js'
@@ -267,8 +265,8 @@ export function MainPage() {
     const { messages, setMessages, isLoading, streamStatus } = chat
 
     const [analysisState, setAnalysisState] = useState(null)
-    const [chartSymbol, setChartSymbol]   = useState(DEFAULT_CHART_SYMBOL)
-    const [chartInterval, setChartInterval] = useState(DEFAULT_CHART_INTERVAL)
+    const [, setChartSymbol]   = useState(DEFAULT_CHART_SYMBOL)
+    const [, setChartInterval] = useState(DEFAULT_CHART_INTERVAL)
     const [editingIdeaId,     setEditingIdeaId]     = useState(null)
     const [isInvalidationReview, setIsInvalidationReview] = useState(false)
     const [activeTab, setActiveTab]             = useState('axl')
@@ -279,9 +277,9 @@ export function MainPage() {
     const [buildingPortfolio, setBuildingPortfolio] = useState(null)
     // Streaming state reported up from the portfolio/scanner panels (they own their
     // own chat stream) so the agent-bar "live" dot can pulse for Atlas/Argus too.
-    const [portfolioLoading, setPortfolioLoading] = useState(false)
-    const [scannerLoading,   setScannerLoading]   = useState(false)
-    const [kairosLoading,    setKairosLoading]    = useState(false)
+    const [, setPortfolioLoading] = useState(false)
+    const [, setScannerLoading]   = useState(false)
+    const [, setKairosLoading]    = useState(false)
     const [calls,            setCalls]            = useState([])
     const [callBusyId,       setCallBusyId]       = useState(null)
     // Live draft call reported up from KairosPanel → a "building" row in the Calls tab.

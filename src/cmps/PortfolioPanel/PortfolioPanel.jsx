@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { portfolioService } from '../../services/portfolio/portfolio.service.remote.js'
 import { threadsService, newThreadId } from '../../services/threads/threads.service.remote.js'
@@ -48,7 +48,7 @@ export function PortfolioPanel({
     resumeRef         = null,
 }) {
     const chat = useChatStream()
-    const { messages, setMessages, isLoading, streamStatus, handleStop } = chat
+    const { messages, setMessages, isLoading, streamStatus } = chat
 
     // Report streaming state up so the agent-bar "live" dot can pulse for Atlas.
     useEffect(() => { onLoadingChange?.(isLoading) }, [isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
@@ -131,7 +131,6 @@ export function PortfolioPanel({
     const planHasSize  = !!pendingPlan && (Number(pendingPlan.positionSize) > 0)
     const planReady    = !!pendingPlan && pendingPlan.ideas.length > 0 && pendingPlan.ideas.every(i => Number(i.quantity) > 0)
     const canGenerate  = planReady && (!!editingPortfolioId || selectedAccounts?.length > 0)
-    const actionWatch = `${streamStatus}|${planReady}|${canGenerate}|${isReviewMode}|${!!editingPortfolioId}`
 
     async function _send(text) {
         if (!text || isLoading) return
@@ -305,7 +304,7 @@ export function PortfolioPanel({
         setEditDirty(false)
         setIsReviewMode(false)
         setDismissConfirm(false)
-        setPendingPlan(null); setMessages([]); setInputText('')
+        setPendingPlan(null); setMessages([])
         eventBus.emit(REVIEW_RESOLVED, { portfolioId })   // clear the red pencil
         onReviewResolved?.()
     }
@@ -373,7 +372,7 @@ export function PortfolioPanel({
             if (!planReady) return
             if (onGeneratePlan) onGeneratePlan(pendingPlan, messages, latestMandateRef.current, latestThesisRef.current, threadIdRef.current)
         }
-        setPendingPlan(null); setMessages([]); setInputText('')
+        setPendingPlan(null); setMessages([])
         latestMandateRef.current = null
         threadIdRef.current = newThreadId()   // next construction chat gets a fresh draft thread
         // Generating/updating a plan (like resolving a review) hands the chat back to
@@ -395,7 +394,7 @@ export function PortfolioPanel({
         setDismissConfirm(false)
         setReviewUpdate(null)
         setReviewRan(false)
-        setPendingPlan(null); setMessages([]); setInputText('')
+        setPendingPlan(null); setMessages([])
         onReviewResolved?.()
     }
 
@@ -460,7 +459,7 @@ export function PortfolioPanel({
                 </div>
             )}
 
-            <AgentMessages chat={chat}>
+            <AgentMessages chat={chat} watch={`${planReady}|${canGenerate}|${isReviewMode}|${!!editingPortfolioId}`}>
                 {messages.length === 0 && <AgentIntro agent={AGENTS.portfolio} />}
                 {messages.map((msg, i) => (
                     <MessageBubble key={i} msg={msg} onTickerSelect={onTickerSelect} />

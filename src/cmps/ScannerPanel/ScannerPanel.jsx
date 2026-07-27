@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { scannerService } from '../../services/scanner/scanner.service.remote.js'
 import { threadsService, newThreadId } from '../../services/threads/threads.service.remote.js'
@@ -340,7 +340,6 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
     // anything — but still show (with prior picks marked) once a real turn has landed.
     const hasCompletedArgusTurn = messages.some(m => m.role === 'assistant' && !m.streaming && !m.stopped && !!(m.content && m.content.trim()))
     const showAngleStrip = !chat.isLoading && !editingScanId && chat.phase === 1 && !listReady && hasCompletedArgusTurn
-    const actionWatch = `${chat.streamStatus}|${listReady}|${!!editingScanId}`
 
     return (
         <div className="portfolio-panel scanner-panel">
