@@ -552,10 +552,7 @@ export function isDeleteLocked(idea) {
  * @returns {boolean}
  */
 export function isPaperIdea(idea) {
-    if (idea?.broker === 'paper') return true
-    if (String(idea?.mainAccountId ?? '').startsWith('paper-')) return true
-    return (idea?.accounts ?? []).some(a =>
-        String(typeof a === 'object' ? a.id : a).startsWith('paper-'))
+    return ideaWorkspaceMode(idea) === 'paper'
 }
 
 /**
@@ -567,10 +564,37 @@ export function isPaperIdea(idea) {
  * @returns {boolean}
  */
 export function isManualIdea(idea) {
-    if (idea?.broker === 'manual') return true
-    if (String(idea?.mainAccountId ?? '').startsWith('manual-')) return true
-    return (idea?.accounts ?? []).some(a =>
-        String(typeof a === 'object' ? a.id : a).startsWith('manual-'))
+    return ideaWorkspaceMode(idea) === 'manual'
+}
+
+/**
+ * The workspace an idea belongs to: 'paper' | 'manual' | 'live'.
+ *
+ * PREFERS the server-stamped `mode`. That field is frozen when the venue is bound at save time —
+ * the one moment it is genuinely knowable — so re-deriving it here is recomputing a decision the
+ * backend already made, in a second repo, where the two rules can silently drift. They DID drift:
+ * a broker-only variant on the backend recorded legacy paper fills as live trades.
+ *
+ * The local derivation below survives ONLY as a fallback for documents saved before `mode` was
+ * stamped, and mirrors backend services/venue.resolve.resolveMode exactly (broker first, then the
+ * `paper-`/`manual-` account-id prefix). Once a backfill migration stamps the old docs, this whole
+ * function collapses to `idea?.mode ?? 'live'` and the duplicate rule is gone.
+ *
+ * Kept in sync by a shared case table — see tradeIdea.workspace.test.js and the backend's
+ * venueResolve.test.js, which assert the SAME inputs.
+ */
+export function ideaWorkspaceMode(idea) {
+    if (idea?.mode === 'paper' || idea?.mode === 'manual' || idea?.mode === 'live') return idea.mode
+
+    if (idea?.broker === 'paper' || idea?.broker === 'manual') return idea.broker
+
+    const ids = [idea?.mainAccountId, idea?.accountId, ...(Array.isArray(idea?.accounts) ? idea.accounts : [])]
+    for (const raw of ids) {
+        const id = String((raw && typeof raw === 'object' ? (raw.id ?? raw.accountId) : raw) ?? '')
+        if (id.startsWith('paper-'))  return 'paper'
+        if (id.startsWith('manual-')) return 'manual'
+    }
+    return 'live'
 }
 
 /**
