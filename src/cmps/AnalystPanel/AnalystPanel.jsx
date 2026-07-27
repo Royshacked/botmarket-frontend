@@ -65,7 +65,6 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated, 
     const existingRef = useRef(null)
     existingRef.current = existingCoverage
 
-
     useEffect(() => { onLoadingChange?.(isLoading) }, [isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
 
     async function _send(text) {
@@ -141,6 +140,46 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated, 
         _send(`Research ${scanResult.ticker} for coverage.`)
     }, [scanResult?.key])   // eslint-disable-line react-hooks/exhaustive-deps
 
+    function handleClear()     { chat.reset(); setPendingCoverage(null); setInitiateErr('') }
+
+    async function handleInitiate() {
+        if (!pendingCoverage) return
+        setInitiateErr('')
+        try {
+            let saved
+            if (existingCoverage) {
+                saved = await analystService.updateCoverage(existingCoverage.id, {
+                    ...pendingCoverage,
+                    revision_kind: 'remodel',
+                    revision_note: `Coverage updated via Prometheus`,
+                })
+            } else {
+                saved = await analystService.initiateCoverage(pendingCoverage)
+            }
+            setPendingCoverage(null)
+            onInitiated?.(saved)
+        } catch (err) {
+            // 409 fallback: backend blocked initiation because coverage exists but wasn't in our
+            // client-side list (stale load, retired status missed). Use the id from the error to update.
+            const errData = err?.response?.data
+            if (!existingCoverage && errData?.error === 'already_covered' && errData?.id) {
+                try {
+                    const saved = await analystService.updateCoverage(errData.id, {
+                        ...pendingCoverage,
+                        revision_kind: 'remodel',
+                        revision_note: 'Coverage updated via Prometheus',
+                    })
+                    setPendingCoverage(null)
+                    onInitiated?.(saved)
+                } catch {
+                    setInitiateErr('Could not update coverage.')
+                }
+                return
+            }
+            setInitiateErr(`Could not ${existingCoverage ? 'update' : 'initiate'} coverage.`)
+        }
+    }
+
     return (
         <div className="portfolio-panel analyst-panel">
             <AgentMessages chat={chat}>
@@ -170,7 +209,6 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated, 
                 onSend={_send}
                 onClear={handleClear}
                 onResume={_continue}
-                busy={isLoading}
             />
         </div>
     )
