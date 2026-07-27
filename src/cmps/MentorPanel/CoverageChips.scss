@@ -1,0 +1,45 @@
+// Mentor's progress display. Deliberately NOT a stepper: the chips carry no order, no
+// connecting line and no numbers, because the conversation genuinely isn't linear. An
+// uncovered chip is dashed and dim; a covered one fills in and takes the accent.
+.coverage-chips {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+
+    &__chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 2px 9px 2px 7px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        white-space: nowrap;
+        color: var(--text-dim);
+        background: transparent;
+        transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+
+        &.is-covered {
+            color: var(--accent-light);
+            border-color: var(--border-mid);
+            background: var(--bg-raised);
+        }
+    }
+
+    &__mark {
+        display: inline-flex;
+        width: 11px;
+        height: 11px;
+        flex-shrink: 0;
+
+        svg { width: 100%; height: 100%; }
+    }
+
+    &--compact &__label { display: none; }
+    &--compact &__chip  { padding: 3px; }
+}

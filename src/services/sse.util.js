@@ -6,7 +6,7 @@
  * adding a new SSE event is a one-line change here, not in three services.
  *
  * @param {object} cb  { onToken, onTicker, onAsset, onInterval, onChart,
- *                       onPhase, onStatus, onReasoning, onDone, onError }
+ *                       onPhase, onCoverage, onStatus, onReasoning, onDone, onError }
  * @returns {Object<string, function>}
  */
 export function buildStreamHandlers(cb = {}) {
@@ -17,6 +17,9 @@ export function buildStreamHandlers(cb = {}) {
         interval:  (d) => cb.onInterval?.(d.interval),
         chart:     (d) => cb.onChart?.(d),
         phase:     (d) => cb.onPhase?.(d.phase),
+        // Mentor's progress signal. Unlike `phase` (one number, a step) this is the CUMULATIVE
+        // set of dimensions read so far — order-free, because Mentor works by invariants, not steps.
+        coverage:  (d) => cb.onCoverage?.(d.coverage),
         status:    (d) => cb.onStatus?.(d.tool),
         reasoning: (d) => cb.onReasoning?.(d.text),
         done:      (d) => cb.onDone?.(d),
