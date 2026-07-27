@@ -77,6 +77,25 @@ export const AGENTS = {
             </>
         ),
     },
+    mentor: {
+        tab:   'mentor',
+        brand: 'Mentor',
+        hue:   'green',   // the counsel desk — steady, not the amber urgency of Kairos
+        lead:  'Work on your own trade',
+        blurb: 'Bring a ticker and your plan. Mentor analyses it, argues with it, and sharpens it.',
+        intro: "Bring me a ticker and how you'd trade it — I'll pressure-test it and we'll build the setup together.",
+        // Mentor never screens: the ticker always comes from the user (Pipeline F). The hint says so,
+        // so nobody arrives expecting a scan — that's Argus's desk.
+        hint:  "Name a ticker, a direction and a horizon. Bring your own levels or ask me to place them — if you don't have a name yet, Argus is the one who finds them.",
+        // A guiding hand over a rising path — counsel that prepares you and steps aside.
+        icon: (
+            <>
+                <path d="M3.5 18.5 L9 12.5 L13 15.5 L20.5 6.5" />
+                <path d="M15.5 6.2 H20.8 V11.4" />
+                <circle cx="9" cy="12.5" r="1.5" />
+            </>
+        ),
+    },
     analyst: {
         tab:   'analyst',
         brand: 'Prometheus',
@@ -118,13 +137,13 @@ AGENTS.axl = {
     ),
 }
 
-export const AGENT_LIST = [AGENTS.idea, AGENTS.portfolio, AGENTS.scanner, AGENTS.kairos, AGENTS.analyst]
+export const AGENT_LIST = [AGENTS.idea, AGENTS.portfolio, AGENTS.scanner, AGENTS.kairos, AGENTS.mentor, AGENTS.analyst]
 
 // The social-chat notification bots — one per agent, ids matching the AGENTS keys and
 // the backend BOT_IDS. Each agent owns its own notifications: Idea posts invalidation
 // alerts, Atlas (portfolio) posts reviews, Argus (scanner) its scans. Only Axl is
 // conversational; the specialist threads are notify-only feeds. Axl is pinned first.
-export const BOT_IDS = ['axl', 'idea', 'portfolio', 'scanner', 'kairos', 'analyst']
+export const BOT_IDS = ['axl', 'idea', 'portfolio', 'scanner', 'kairos', 'mentor', 'analyst']
 export const isBotId = (id) => BOT_IDS.includes(id)
 // The one bot you can chat with; the rest are read-only alert feeds.
 export const CONVERSATIONAL_BOT_ID = 'axl'
