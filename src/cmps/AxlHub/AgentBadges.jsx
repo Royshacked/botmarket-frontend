@@ -111,6 +111,22 @@ export function MinosBadge(props) {
     )
 }
 
+// Talos — the setup-monitoring persona. The bronze automaton given to Minos, circling Crete on a
+// fixed rotation: a sentinel figure inside its patrol ring, with the perimeter marks it watches.
+export function TalosBadge(props) {
+    return (
+        <Badge {...props} title="Talos">
+            <circle cx="100" cy="104" r="46" strokeDasharray="10 8" />
+            <circle cx="100" cy="70" r="11" />
+            <line x1="100" y1="81" x2="100" y2="120" />
+            <line x1="79" y1="96" x2="121" y2="96" />
+            <path d="M100,120 L86,146" />
+            <path d="M100,120 L114,146" />
+            <circle cx="100" cy="70" r="3.2" fill="currentColor" stroke="none" />
+        </Badge>
+    )
+}
+
 // Hermes — the call-monitoring persona (winged caduceus; messenger of the opportune moment).
 export function HermesBadge(props) {
     return (

@@ -58,3 +58,18 @@
         em     { font-style: normal; color: var(--accent-light); }
     }
 }
+
+// Generate + the readiness hint, at the foot of the conversation rather than in the preview.
+.mentor-panel__generate {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 5px;
+}
+
+.mentor-panel__missing {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-align: center;
+
+    em { font-style: normal; color: var(--accent-light); }
+}

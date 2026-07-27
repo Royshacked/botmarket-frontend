@@ -12,7 +12,10 @@ import './SetupSummary.scss'
 //   • the WATCH LIST, which is what Talos will actually check. The user should be able to see the
 //     monitoring cost of their own setup — an undeclared dimension is never fetched, and a declared
 //     one is paid for on every wake.
-//   • READINESS, naming what is still missing instead of just disabling a button.
+//
+// It does NOT own Generate or readiness. Those live at the BOTTOM of the chat pane with the other
+// agent actions (where Kairos puts its Generate too): the preview is a reference you glance up at,
+// while the thing you press belongs where your attention already is — under the conversation.
 
 const KIND_LABEL = {
     price_action: 'Price action',
@@ -30,12 +33,11 @@ const fmtDate = (iso) => {
     catch { return iso }
 }
 
-export function SetupSummary({ setup, readiness, onChange, onGenerate, generating = false, readOnly = false }) {
+export function SetupSummary({ setup, onChange, readOnly = false }) {
     if (!setup?.asset) {
         return <div className="setup-summary setup-summary--empty">Your setup will build here as you talk it through.</div>
     }
 
-    const { ready, missing = [] } = readiness ?? {}
     const dir = setup.direction ? setup.direction.toUpperCase() : null
 
     return (
@@ -107,31 +109,12 @@ export function SetupSummary({ setup, readiness, onChange, onGenerate, generatin
                 </p>
             )}
 
-            {!readOnly && (
-                <footer className="setup-summary__foot">
-                    <button
-                        type="button"
-                        className="setup-summary__generate"
-                        disabled={!ready || generating}
-                        onClick={onGenerate}
-                    >
-                        {generating ? 'Generating…' : 'Generate setup'}
-                    </button>
-                    {!ready && missing.length > 0 && (
-                        <span className="setup-summary__missing">Still needs: {missing.join(', ')}</span>
-                    )}
-                    {ready && <span className="setup-summary__hint">Generates as <strong>waiting</strong> — arm it to start monitoring.</span>}
-                </footer>
-            )}
         </div>
     )
 }
 
 SetupSummary.propTypes = {
-    setup:      PropTypes.object,
-    readiness:  PropTypes.shape({ ready: PropTypes.bool, missing: PropTypes.arrayOf(PropTypes.string) }),
-    onChange:   PropTypes.func,
-    onGenerate: PropTypes.func,
-    generating: PropTypes.bool,
-    readOnly:   PropTypes.bool,
+    setup:    PropTypes.object,
+    onChange: PropTypes.func,
+    readOnly: PropTypes.bool,
 }

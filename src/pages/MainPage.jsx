@@ -32,6 +32,7 @@ import { threadsService, newThreadId } from '../services/threads/threads.service
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
 import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
+import { mentorService } from '../services/mentor/mentor.service.remote.js'
 import { useChatStream, toChatHistory } from '../customHooks/useChatStream.js'
 import { useCalendarEvents } from '../customHooks/useCalendarEvents.js'
 import { useScans }          from '../customHooks/useScans.js'
@@ -39,6 +40,7 @@ import { useBrokerAccounts } from '../customHooks/useBrokerAccounts.js'
 import { useWorkspaceMode }  from '../customHooks/useWorkspaceMode.js'
 import { usePositions }      from '../customHooks/usePositions.js'
 import { useTradeIdeas }     from '../customHooks/useTradeIdeas.js'
+import { useSetups }         from '../customHooks/useSetups.js'
 import { useAuth }           from '../context/AuthContext.jsx'
 
 // Maps activeTab → the step name used in DESKS.steps[] for pipeline highlighting.
@@ -392,6 +394,22 @@ export function MainPage() {
     const portfolioResumeRef = useRef(null)           // PortfolioPanel exposes its resume fn here
     const scannerResumeRef   = useRef(null)           // ScannerPanel exposes its resume fn here
     const kairosResumeRef    = useRef(null)           // KairosPanel exposes its resume fn here
+    const { setups, setupsLoading } = useSetups()
+    const [setupBusyId, setSetupBusyId] = useState(null)
+
+    // Arm / disarm / delete a setup from the Lists surface. Arming is the real gate — the server
+    // re-runs the readiness check and refuses with `cannot_arm_<reason>`, so surface that rather
+    // than swallowing it.
+    async function _setupAction(setup, fn, verb) {
+        setSetupBusyId(setup.id)
+        try { await fn(setup.id) }
+        catch (err) { showErrorMsg(`Couldn't ${verb} ${setup.asset}: ${err?.message ?? 'unknown error'}`) }
+        finally { setSetupBusyId(null) }
+    }
+    const handleArmSetup     = (su) => _setupAction(su, mentorService.armSetup,    'arm')
+    const handleDisarmSetup  = (su) => _setupAction(su, mentorService.disarmSetup, 'stop watching')
+    const handleDeleteSetup  = (su) => _setupAction(su, mentorService.deleteSetup, 'delete')
+    const handleOpenSetup    = () => setActiveTab('mentor')
     const mentorResumeRef    = useRef(null)           // MentorPanel exposes its resume fn here
     // Ids of ideas BORN from a "Buy Market" click (created solely to carry the immediate
     // order). If their placement fails outright we roll them back out of existence rather
@@ -1814,6 +1832,13 @@ export function MainPage() {
                             calls={calls
                                 .filter(c => (c.broker === 'ctrader' ? 'live' : c.broker === 'manual' ? 'manual' : 'paper') === workspace)}
                             buildingCall={buildingCallRow}
+                            setups={setups}
+                            setupsLoading={setupsLoading}
+                            onArmSetup={handleArmSetup}
+                            onDisarmSetup={handleDisarmSetup}
+                            onDeleteSetup={handleDeleteSetup}
+                            onOpenSetup={handleOpenSetup}
+                            setupBusyId={setupBusyId}
                             onActCall={handleActCall}
                             onDeleteCall={handleDeleteCall}
                             onEditCall={handleEditCall}

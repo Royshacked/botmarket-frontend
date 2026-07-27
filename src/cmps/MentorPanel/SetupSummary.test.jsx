@@ -123,13 +123,19 @@ describe('ZoneEditor', () => {
 })
 
 describe('SetupSummary', () => {
+    it('renders zones read-only without an editor when told to', () => {
+        render(<SetupSummary setup={SETUP} readOnly />)
+        // Read-only is how the preview renders once the setup is generated.
+        expect(screen.getByLabelText('Entry ez1 lower edge').disabled).toBe(true)
+    })
+
     it('prompts before there is anything to show', () => {
         render(<SetupSummary setup={{}} />)
         expect(screen.getByText(/will build here as you talk it through/)).toBeTruthy()
     })
 
     it('shows the nucleus, the lens and the thesis', () => {
-        render(<SetupSummary setup={SETUP} readiness={{ ready: true, missing: [] }} />)
+        render(<SetupSummary setup={SETUP} />)
         expect(screen.getByText('NVDA')).toBeTruthy()
         expect(screen.getByText('LONG')).toBeTruthy()
         expect(screen.getByText('smc')).toBeTruthy()
@@ -137,7 +143,7 @@ describe('SetupSummary', () => {
     })
 
     it('lists what Talos will actually check, so the monitoring cost is visible', () => {
-        render(<SetupSummary setup={SETUP} readiness={{ ready: true, missing: [] }} />)
+        render(<SetupSummary setup={SETUP} />)
         const watch = screen.getByText('Talos watches').closest('section')
         expect(within(watch).getByText(/CHoCH up on the 1hr/)).toBeTruthy()
         expect(within(watch).getByText(/SMH leading/)).toBeTruthy()
@@ -146,41 +152,21 @@ describe('SetupSummary', () => {
     })
 
     it('flags a thin R:R rather than showing it as a neutral number', () => {
-        render(<SetupSummary setup={{ ...SETUP, rr: 1.1 }} readiness={{ ready: true, missing: [] }} />)
+        render(<SetupSummary setup={{ ...SETUP, rr: 1.1 }} />)
         expect(screen.getByText('1.1').className).toMatch(/is-thin/)
     })
 
     it('does not flag a healthy R:R', () => {
-        render(<SetupSummary setup={SETUP} readiness={{ ready: true, missing: [] }} />)
+        render(<SetupSummary setup={SETUP} />)
         expect(screen.getByText('2.11').className).not.toMatch(/is-thin/)
     })
 
-    it('names what is missing instead of just disabling the button', () => {
-        render(<SetupSummary setup={SETUP} readiness={{ ready: false, missing: ['quantity', 'trading account'] }} />)
-        expect(screen.getByRole('button', { name: /Generate setup/ }).disabled).toBe(true)
-        expect(screen.getByText(/Still needs: quantity, trading account/)).toBeTruthy()
-    })
 
-    it('generates when ready, and says the setup will NOT be monitored yet', () => {
-        const onGenerate = vi.fn()
-        render(<SetupSummary setup={SETUP} readiness={{ ready: true, missing: [] }} onGenerate={onGenerate} />)
-
-        const btn = screen.getByRole('button', { name: /Generate setup/ })
-        expect(btn.disabled).toBe(false)
-        fireEvent.click(btn)
-        expect(onGenerate).toHaveBeenCalled()
-        // Generate and Arm are separate steps — the copy must not imply monitoring has started.
-        expect(screen.getByText(/arm it to start monitoring/i)).toBeTruthy()
-    })
 
     it('surfaces stamped event risk, which is checked whether or not news was declared', () => {
         const withEvents = { ...SETUP, event_risk: [{ date: '2026-07-29', label: 'FOMC Rate Decision' }] }
-        render(<SetupSummary setup={withEvents} readiness={{ ready: true, missing: [] }} />)
+        render(<SetupSummary setup={withEvents} />)
         expect(screen.getByText(/FOMC Rate Decision/)).toBeTruthy()
     })
 
-    it('hides Generate entirely in read-only mode', () => {
-        render(<SetupSummary setup={SETUP} readiness={{ ready: true, missing: [] }} readOnly />)
-        expect(screen.queryByRole('button', { name: /Generate setup/ })).toBeNull()
-    })
 })

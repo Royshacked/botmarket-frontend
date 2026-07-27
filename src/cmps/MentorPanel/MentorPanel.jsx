@@ -279,7 +279,12 @@ export function MentorPanel({
     }
 
     const hasPreview = !!pendingSetup?.asset
-    const ready      = !!readiness?.ready && accounts.length > 0
+    // A missing account is a readiness gap like any other, so it belongs in `missing` rather than
+    // being a separate silent reason the button is dark.
+    const effectiveReadiness = accounts.length === 0
+        ? { ready: false, missing: [...(readiness?.missing ?? []), 'trading account'] }
+        : readiness
+    const ready = !!effectiveReadiness?.ready
     const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, {
         onFinishStreaming: () => textareaRef.current?.focus(),
         watch: `${chat.streamStatus}|${hasPreview}|${!!candidates}`,
@@ -296,12 +301,7 @@ export function MentorPanel({
                     {hasPreview && (
                         <SetupSummary
                             setup={pendingSetup}
-                            readiness={accounts.length === 0
-                                ? { ready: false, missing: [...(readiness?.missing ?? []), 'trading account'] }
-                                : readiness}
                             onChange={setPendingSetup}
-                            onGenerate={handleGenerate}
-                            generating={busy}
                             readOnly={!!generated}
                         />
                     )}
@@ -328,6 +328,25 @@ export function MentorPanel({
 
             {!chat.isLoading && candidates?.length > 0 && (
                 <CandidatePicker candidates={candidates} onPick={handlePickCandidate} />
+            )}
+
+            {/* Generate lives HERE, at the foot of the conversation, not in the preview above —
+                the preview is a reference, this is the action. Shown as soon as there is a setup so
+                the user can see what is still missing rather than hunting for a hidden button. */}
+            {!chat.isLoading && hasPreview && !generated && !isEditing && (
+                <div className="portfolio-panel__action-bubble mentor-panel__generate">
+                    <button
+                        className="portfolio-panel__review-btn portfolio-panel__review-btn--update mentor-panel__btn"
+                        onClick={handleGenerate}
+                        disabled={!ready || busy}
+                    >
+                        {busy ? 'Generating…' : 'Generate setup'}
+                    </button>
+                    {!ready && effectiveReadiness?.missing?.length > 0 && (
+                        <span className="mentor-panel__missing">Still needs: {effectiveReadiness.missing.join(', ')}</span>
+                    )}
+                    {ready && <span className="mentor-panel__missing">Generates as <em>waiting</em> — arm it to start monitoring.</span>}
+                </div>
             )}
 
             {/* Generated but not armed: the setup exists and is NOT being watched. This is the one
