@@ -2,7 +2,7 @@ import PropTypes from 'prop-types'
 import { ChatMarkdown } from './ChatMarkdown.jsx'
 import { ChatReasoning } from './ChatReasoning.jsx'
 import { ChatPhaseHeading } from './ChatPhaseHeading.jsx'
-import { ChatChartImage } from './ChatChartImage.jsx'
+import { ChatChart } from './ChatChart.jsx'
 // The bubble styles live in PortfolioPanel.scss under the shared `portfolio-panel__*`
 // namespace (every agent panel already renders into it). Imported here so this
 // component's styling is explicit rather than relying on whichever panel loaded first.
@@ -38,7 +38,7 @@ export function ChatBubble({
     // A chart the agent rendered mid-turn. Every agent that surfaces one renders it through the
     // same component — the row arrives here because useChatStream inserts it for ALL of them.
     if (msg.type === 'chart') {
-        return <ChatChartImage msg={msg} />
+        return <ChatChart msg={msg} />
     }
     if (msg.role === 'user') {
         return <div className="portfolio-panel__bubble portfolio-panel__bubble--user">{msg.content}</div>

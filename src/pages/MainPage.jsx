@@ -18,7 +18,6 @@ import { AnalystPanel }      from '../cmps/AnalystPanel/AnalystPanel.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
 import { FloorLeft }         from '../cmps/Floor/FloorLeft.jsx'
 import { FloorLists }        from '../cmps/Floor/FloorLists.jsx'
-import { ChartSurface }      from '../cmps/PriceChart/ChartSurface.jsx'
 import { kairosService, CALLS_CHANGED } from '../services/kairos/kairos.service.remote.js'
 import { analystService, COVERAGE_CHANGED } from '../services/analyst/analyst.service.remote.js'
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
@@ -44,7 +43,6 @@ import { useWorkspaceMode }  from '../customHooks/useWorkspaceMode.js'
 import { usePositions }      from '../customHooks/usePositions.js'
 import { useTradeIdeas }     from '../customHooks/useTradeIdeas.js'
 import { useEntityList } from '../customHooks/useEntityList.js'
-import { useChartSurface }   from '../customHooks/useChartSurface.js'
 import { useDesign }         from '../customHooks/useDesign.js'
 import { useSetups }         from '../customHooks/useSetups.js'
 import { useAuth }           from '../context/AuthContext.jsx'
@@ -446,10 +444,9 @@ export function MainPage() {
     const { workspace, setWorkspace } = useWorkspaceMode(user?._id)
     const { positions, loading: positionsLoading, refresh: refreshPositions, closePosition } = usePositions()
     const { ideas, setIdeas, loadIdeas, loading: ideasLoading, handleStatusChange, preEntryPrompt, setPreEntryPrompt } = useTradeIdeas()
-    // The one chart any agent can open (services/chartSurface.service.js). It renders in the lists
-    // panel, so this page just relays the request — no agent-specific wiring, and a new agent needs
-    // none either: its stream's `chart_open` event lands on the surface directly.
-    const { chart: openedChart, close: closeChart } = useChartSurface()
+    // NOTE: the chart used to take over this page's lists panel (and the Floor's right column). It
+    // now docks at the bottom of the chat that asked for it (cmps/ChatChartDock.jsx) — the same
+    // shared store, rendered where the user was actually looking — so this page owns no chart state.
     // Floor design trial (Ctrl+Shift+D → "Floor (3-col)"). Only this page reads it: the trial adds
     // two side columns and swaps the right one, so nothing below the workspace needs to know.
     const floorMode = useDesign() === 'floor'
@@ -1845,16 +1842,7 @@ export function MainPage() {
                     </div>
                     {floorMode ? (
                         <div className="workspace__right">
-                            {/* The chart takes this column exactly as it takes the lists panel in the
-                                live design — same surface, same close, one occupant at a time. */}
-                            {openedChart ? (
-                                <ChartSurface
-                                    ticker={openedChart.ticker}
-                                    timeframe={openedChart.timeframe}
-                                    drawings={openedChart.drawings ?? []}
-                                    onClose={closeChart}
-                                />
-                            ) : (
+                            {(
                                 <FloorLists
                                     calls={calls.filter(c => (c.broker === 'ctrader' ? 'live' : c.broker === 'manual' ? 'manual' : 'paper') === workspace)}
                                     setups={setups}
@@ -1924,8 +1912,6 @@ export function MainPage() {
                                 ipoLoading,
                                 onIpoSelect:       handleBuildFromIpo,
                             }}
-                            chart={openedChart}
-                            onCloseChart={closeChart}
                         />
                     </div>
                     )}

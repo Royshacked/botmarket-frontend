@@ -310,9 +310,11 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
 
     async function handleGenerate() {
         if (!pendingScan) return
-        // Persist the conversation alongside the list so reopening it returns here.
+        // Persist the conversation alongside the list so reopening it returns here. Chart rows are
+        // dropped: a chart the user asked to LOOK at is not part of the list, and persisting one as
+        // a content-less turn would reopen the thread with an empty bubble in it.
         const chatLog = messages
-            .filter(m => !m.streaming)
+            .filter(m => !m.streaming && m.type !== 'chart')
             .map(m => ({ role: m.role, content: m.content, ...(m.tickers?.length ? { tickers: m.tickers } : {}) }))
 
         if (editingScanId) {

@@ -179,11 +179,14 @@ export function useChatStream({ threadPhases = false } = {}) {
         return {
             onToken:  (t)    => { setStreamStatus(''); enqueueToken(t) },
             onStatus: (tool) => setStreamStatus(toolStatusLabel(tool)),
-            // An agent surfaced a chart it wants the user to see (get_chart with show_to_user).
-            // Handled HERE so every agent chat shows it identically — Idea, Kairos, Atlas and
-            // Mentor all emit the same `chart` event, and this hook is the one place that knows
-            // where the row goes: just BEFORE the streaming bubble, so the chart reads as part of
-            // the turn that produced it and auto-scroll still lands on the text.
+            // A chart the AGENT rendered and read (get_chart with show_to_user) — an inline row in
+            // the thread, because it is evidence belonging to the turn that produced it. A chart the
+            // USER asked for never arrives here: it docks at the bottom of the chat instead
+            // (services/sse.util.js routes `live` payloads straight to the chart store).
+            //
+            // Handled HERE so every agent chat shows it identically, and because this hook is the one
+            // place that knows WHERE the row goes: just BEFORE the streaming bubble, so the chart
+            // reads as part of that turn and auto-scroll still lands on the text.
             onChart: (data) => {
                 if (!data?.imageBase64) return
                 setMessages(prev => {
@@ -257,6 +260,22 @@ export function useChatStream({ threadPhases = false } = {}) {
     function finishStreaming(finalMsg) {
         deferRef.current = true
         const msg = reasoningRef.current ? { reasoning: reasoningRef.current, ...finalMsg } : finalMsg
+
+        // A turn that produced NO text drops its bubble instead of leaving an empty one. This is the
+        // normal shape of "give SPY": the chart row is already in the thread and agents are told not
+        // to narrate a chart, so the reply is genuinely empty — an empty bubble would be the only
+        // thing that looked broken about it.
+        //
+        // `content === undefined` is keep-accumulated mode (phase-threaded chats), NOT an empty
+        // reply — the bubble already holds this phase's text. Reasoning also keeps the bubble: it has
+        // something to show.
+        if (typeof msg.content === 'string' && !msg.content.trim() && !msg.reasoning) {
+            stopDrain()
+            setMessages(prev => (prev.at(-1)?.streaming ? prev.slice(0, -1) : prev))
+            setIsLoading(false)
+            return
+        }
+
         finishDrain(msg, () => setIsLoading(false))
     }
 

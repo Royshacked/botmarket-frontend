@@ -8,7 +8,8 @@ import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { ConvictionChip } from '../ConvictionChip/ConvictionChip.jsx'
-import { ChatChartImage } from '../ChatChartImage.jsx'
+import { ChatChart } from '../ChatChart.jsx'
+import { ChatChartDock } from '../ChatChartDock.jsx'
 import { ChatPhaseHeading } from '../ChatPhaseHeading.jsx'
 import { ChatReasoning } from '../ChatReasoning.jsx'
 import './ChatPanel.scss'
@@ -230,7 +231,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                     msg.role === 'phase' ? (
                         <ChatPhaseHeading key={i} phase={msg.phase} label={PHASE_LABELS[msg.phase]} total={5} />
                     ) : msg.type === 'chart' ? (
-                        <ChatChartImage key={i} msg={msg} />
+                        <ChatChart key={i} msg={msg} />
                     ) : (
                         <div key={i} className={`chat-panel__bubble chat-panel__bubble--${msg.role}`}>
                             {msg.role === 'assistant' ? (
@@ -340,6 +341,9 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                     )}
                 </div>
             )}
+
+            {/* Above the composer, outside the scrolling thread — same place every chat docks it. */}
+            <ChatChartDock />
 
             <ChatInputRow
                 prefix="chat-panel"

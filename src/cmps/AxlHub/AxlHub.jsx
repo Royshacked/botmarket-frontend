@@ -8,6 +8,8 @@ import { axlService } from '../../services/axl/axl.service.remote'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
+import { ChatChartDock } from '../ChatChartDock.jsx'
+import { closeChart } from '../../services/chartSurface.service.js'
 import './AxlHub.scss'
 
 // ── axl · reception ────────────────────────────────────────────────────────────
@@ -76,10 +78,9 @@ export function AxlHub({ user, onPick, onChat }) {
                 onToken: (text) => setComment(prev => prev + text),
                 onDone:  (data) => {
                     setIsRouting(false)
-                    // A chart request already opened the workspace chart mid-stream (the shared
-                    // `chart_open` event → the chart surface in the lists panel). Axl's sentence
-                    // stays on screen and NO desk routing happens — the user asked to look, not to
-                    // be moved somewhere.
+                    // A chart request needs no wiring here: the `chart` event already docked it
+                    // (services/sse.util.js → the shared store → ChatChartDock below). NO desk
+                    // routing happens — the user asked to look, not to be moved somewhere.
                     if (data.chart?.ticker) return
                     const desk = DESKS.find(d => d.key === data.route)
                     if (desk) setPendingDesk(desk)
@@ -222,8 +223,7 @@ export function AxlHub({ user, onPick, onChat }) {
                     </div>
                 )}
 
-                {/* ── Axl's routing comment (a chart request keeps it: the chart itself
-                       opens in the lists panel, so this sentence is all the chat shows) ── */}
+                {/* ── Axl's routing comment, then a chart if one was asked for ── */}
                 {isRouting && !comment && <ToolStatusChip label="thinking…" />}
                 {comment && (
                     <div className="axl-hub__route-comment" aria-live="polite">{comment}</div>
@@ -241,6 +241,10 @@ export function AxlHub({ user, onPick, onChat }) {
                 )}
             </div>
 
+            {/* Same dock as every agent chat: above the input, below the body. The hub's Clear also
+                closes it — one Clear, one clean slate, rather than a chart under an empty hub. */}
+            <ChatChartDock />
+
             <ChatInputRow
                 prefix="axl"
                 value={draft}
@@ -250,7 +254,7 @@ export function AxlHub({ user, onPick, onChat }) {
                 placeholder="Or describe what you'd like to do…"
                 onSend={handleIntent}
                 sendDisabled={isRouting}
-                onClear={() => { setDraft(''); setComment('') }}
+                onClear={() => { setDraft(''); setComment(''); closeChart() }}
                 clearDisabled={!draft && !comment}
                 onToggleMic={toggleMic}
                 onCancelMic={cancelMic}

@@ -5,9 +5,9 @@ import { CHART_OPEN, CHART_CLOSE, closeChart, currentChart } from '../services/c
 /**
  * Subscribe to the shared chart surface (services/chartSurface.service.js).
  *
- * Whoever renders the workspace lists panel calls this and shows `chart` when it's non-null.
- * Seeded from the service's current request so a late mount (panel switch mid-stream) doesn't
- * miss an already-opened chart.
+ * ChatChartDock calls this and shows `chart` when it's non-null. Seeded from the service's current
+ * request so a late mount — switching agent tabs, or a panel mounting mid-stream — picks up the
+ * already-docked chart instead of losing it.
  *
  * @returns {{ chart: object|null, close: () => void }}
  */

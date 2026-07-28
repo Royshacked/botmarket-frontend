@@ -1,9 +1,10 @@
 import { useState, useRef, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { ChatInputRow } from './ChatInputRow.jsx'
+import { ChatChartDock } from './ChatChartDock.jsx'
 import { useMicInput } from '../customHooks/useMicInput.js'
 
-// The composer every agent chat uses.
+// The bottom of every agent chat: the docked chart, then the composer.
 //
 // ChatInputRow was already shared, but each panel still hand-wired the SAME eighteen props to it:
 // the mic hook, the textarea ref, Enter-to-send, and six disabled flags all derived mechanically
@@ -13,6 +14,11 @@ import { useMicInput } from '../customHooks/useMicInput.js'
 //
 // This owns the draft text and the mic, and derives the rest. A panel supplies what is actually
 // its own: what the box says, what happens on send, and what its Clear means.
+//
+// It also renders the chart dock immediately above the input, which is why five panels needed no
+// change to get one: ChatChartDock takes no props (it reads the shared chart store), and "just above
+// the composer, outside the scrolling thread" is exactly where a docked chart belongs. Panels that
+// build their own composer (ChatPanel, AxlChatPanel) render the dock themselves, in the same place.
 
 export function AgentChatInput({
     chat,
@@ -53,29 +59,32 @@ export function AgentChatInput({
     }
 
     return (
-        <ChatInputRow
-            prefix={prefix}
-            textareaRef={textareaRef}
-            value={inputText}
-            onChange={e => setInputText(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            onSend={send}
-            sendDisabled={!inputText.trim() || isLoading}
-            isStreaming={isLoading}
-            onStop={chat?.handleStop}
-            canResume={chat?.canResume}
-            onResume={onResume}
-            onClear={onClear ? clear : undefined}
-            clearDisabled={isLoading || clearLocked || !(chat?.messages?.length)}
-            clearTitle={clearTitle}
-            onToggleMic={toggleMic}
-            onCancelMic={cancelMic}
-            isRecording={isRecording}
-            isTranscribing={isTranscribing}
-            micDisabled={isLoading || isTranscribing}
-            textareaDisabled={isLoading || isRecording}
-        />
+        <>
+            <ChatChartDock />
+            <ChatInputRow
+                prefix={prefix}
+                textareaRef={textareaRef}
+                value={inputText}
+                onChange={e => setInputText(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={placeholder}
+                onSend={send}
+                sendDisabled={!inputText.trim() || isLoading}
+                isStreaming={isLoading}
+                onStop={chat?.handleStop}
+                canResume={chat?.canResume}
+                onResume={onResume}
+                onClear={onClear ? clear : undefined}
+                clearDisabled={isLoading || clearLocked || !(chat?.messages?.length)}
+                clearTitle={clearTitle}
+                onToggleMic={toggleMic}
+                onCancelMic={cancelMic}
+                isRecording={isRecording}
+                isTranscribing={isTranscribing}
+                micDisabled={isLoading || isTranscribing}
+                textareaDisabled={isLoading || isRecording}
+            />
+        </>
     )
 }
 

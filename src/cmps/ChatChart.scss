@@ -1,7 +1,7 @@
-// The agent-rendered chart row. Own namespace on purpose: the same picture in every agent's
-// thread, rather than four panel-specific copies that drift apart.
-// (Forked from the old `chat-panel__chart*` rules, which only the Idea chat had.)
-.chat-chart-image {
+// The agent's still-chart row inside a chat thread. Own namespace on purpose: the same row in every
+// agent's thread, rather than four panel-specific copies that drift apart. (The live chart the user
+// asked for is not here — it docks at the bottom of the chat, see ChatChartDock.scss.)
+.chat-chart {
     display: flex;
     flex-direction: column;
     gap: 4px;

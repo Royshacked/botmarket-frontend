@@ -11,21 +11,20 @@ const DRAW_TOOLS = [
 ]
 
 /**
- * The workspace chart — the ONE place a chart is rendered for the user.
- *
- * Any agent opens it through the shared chart surface (services/chartSurface.service.js); this is
- * only the view. It fills whatever it's put in (the lists panel), so the chart gets the full pane
- * rather than a chat-width bubble — which is the whole point of moving it out of the thread.
- *
- * Replaces the old inline ChartBubble: same PriceChart, same drawing tools, minus the collapse
- * (nothing to collapse into — closing returns the panel to the lists).
+ * The app's ONE interactive chart (drawing tools, live candles) — the view half of the shared chart
+ * surface (services/chartSurface.service.js). It fills whatever it's put in, so its host decides the
+ * size; today that host is ChatChartDock, which pins it to the bottom of the chat the user asked for
+ * it in.
  *
  * @param {string}   ticker
  * @param {string}   timeframe   any spelling PriceChart's PERIOD_MAP knows ('1hr', '15min', 'day'…)
  * @param {object[]} [drawings]  prompt-driven overlays (e.g. horizontal price lines)
  * @param {Function} onClose
+ * @param {Function} [onCollapse] when given, adds a collapse control beside Close. Docked hosts pass
+ *                   it so the thread can have its room back without losing the chart; a host that
+ *                   owns its whole pane has nothing to collapse into and omits it.
  */
-export function ChartSurface({ ticker, timeframe, drawings = [], onClose }) {
+export function ChartSurface({ ticker, timeframe, drawings = [], onClose, onCollapse }) {
     const [activeTool, setActiveTool] = useState(null)
     const chartRef = useRef(null)
 
@@ -65,8 +64,21 @@ export function ChartSurface({ ticker, timeframe, drawings = [], onClose }) {
                     ✕
                 </button>
 
+                {onCollapse && (
+                    <button
+                        className="chart-surface__close chart-surface__collapse"
+                        onClick={onCollapse}
+                        title="Collapse the chart"
+                        aria-label="Collapse the chart"
+                    >
+                        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <polyline points="3,4.5 6,7.5 9,4.5" />
+                        </svg>
+                        Hide
+                    </button>
+                )}
                 <button
-                    className="chart-surface__close"
+                    className={`chart-surface__close${onCollapse ? ' chart-surface__close--paired' : ''}`}
                     onClick={onClose}
                     title="Close the chart"
                     aria-label="Close the chart"
@@ -100,5 +112,6 @@ ChartSurface.propTypes = {
         type:   PropTypes.string,
         points: PropTypes.array,
     })),
-    onClose:   PropTypes.func.isRequired,
+    onClose:    PropTypes.func.isRequired,
+    onCollapse: PropTypes.func,
 }

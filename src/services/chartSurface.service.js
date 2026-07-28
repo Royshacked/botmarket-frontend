@@ -2,17 +2,21 @@ import { eventBus } from './event-bus.service.js'
 
 // ── The chart surface ─────────────────────────────────────────────────────────
 //
-// ONE live chart in the app, opened the same way by every agent.
+// ONE live, interactive chart in the app — and this cell is what makes it one.
 //
-// The backend half of this is the shared `<chart>` emit tag (services/agentIO.js): any agent that
-// forwards `onOpenChart` gets its controller emitting the `chart_open` SSE event. That event is
-// wired straight to `openChart()` in the shared stream-handler builder (services/sse.util.js), so
-// a NEW agent costs nothing on this side — no panel prop, no per-chat bubble, no wiring.
+// It is DOCKED at the bottom of whichever chat asked for it (cmps/ChatChartDock.jsx), above the
+// input row: a chart the user is reading price off is a reference they keep glancing at, so it holds
+// its place while the conversation scrolls, and it follows them between agent chats. Asking for a
+// new one replaces what's docked; Close empties the cell.
 //
-// The surface itself is rendered by whoever owns the workspace lists panel (MainPage →
-// TradeIdeasList), which subscribes through the `useChartSurface` hook. Keeping the request in an
-// event + module-level cell (rather than in a panel's state) is what lets an agent buried three
-// components deep open a chart without prop-drilling a callback to it.
+// Two kinds of caller write to it: the `chart` stream event when an agent was asked to show a chart
+// (services/sse.util.js routes the `live` payload straight here), and any in-app UI that wants to
+// put a chart up — which is what `drawings` and `source` are for (an idea/call pop-out, a ticker
+// chip). Keeping the request in an event + module cell, rather than in a panel's state, is what lets
+// an agent buried three components deep dock a chart with no prop-drilling and no panel wiring.
+//
+// Every reader subscribes through the `useChartSurface` hook. In practice that is ChatChartDock,
+// rendered by each chat surface — including AgentChatInput, which covers five panels at once.
 
 export const CHART_OPEN  = 'chart-open'
 export const CHART_CLOSE = 'chart-close'

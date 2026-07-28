@@ -7,9 +7,14 @@ import {
     CHART_OPEN, CHART_CLOSE,
 } from './chartSurface.service.js'
 
-// The chart surface: ONE chart, opened the same way by every agent. What's pinned here is the
-// property that makes a new agent free — an agent's `chart_open` stream event reaches the surface
-// with no panel wiring in between.
+// The chart surface: the module cell that makes "ONE chart in the app" true. ChatChartDock renders
+// it, pinned at the bottom of whichever chat asked for it.
+//
+// Two kinds of writer: the `chart` stream event when a user asked an agent to see a chart, and direct
+// `openChart()` calls from in-app UI. What's pinned here is the cell's contract (normalize,
+// open/replace, close, last-request memory) and the routing rule that keeps the two chart kinds
+// apart: a LIVE request docks; an agent's still IMAGE must not, because it belongs to its turn in
+// the thread.
 
 test('a request is normalized: ticker upper-cased, timeframe defaulted', () => {
     const r = normalizeChartRequest({ ticker: ' nvda ' })
@@ -65,29 +70,35 @@ test('closing clears the surface and tells subscribers', () => {
     assert.equal(currentChart(), null)
 })
 
-test('the chart_open stream event opens the surface with NO callback wired', () => {
-    // This is the "new agent costs nothing" guarantee: its stream goes through the shared
-    // handler builder, so its chart lands on the surface without a panel prop or a bubble.
+test('a LIVE chart event docks with NO callback wired', () => {
+    // The "a new agent costs nothing" guarantee, and the reason no panel owns chart state: the live
+    // payload goes through the shared handler builder straight into this cell, which every chat's
+    // dock is already subscribed to.
     closeChart()
     const handlers = buildStreamHandlers({})
-    handlers.chart_open({ ticker: 'msft', timeframe: '4hr' })
+    handlers.chart({ symbol: 'msft', timeframe: '4hr', live: true })
     assert.deepEqual([currentChart().ticker, currentChart().timeframe], ['MSFT', '4hr'])
 })
 
-test('a panel can still take the chart over by passing onOpenChart', () => {
+test("an agent's still image goes to the thread, never the dock", () => {
+    // The two kinds must not collapse into one. A get_chart image is evidence of what the model saw,
+    // and docking it would both redraw it live and evict whatever chart the user was reading.
     closeChart()
     const seen = []
-    const handlers = buildStreamHandlers({ onOpenChart: d => seen.push(d) })
-    handlers.chart_open({ ticker: 'AMD', timeframe: 'day' })
-    assert.equal(seen.length, 1)
-    assert.equal(currentChart(), null, 'the shared surface is not touched when overridden')
+    const handlers = buildStreamHandlers({ onChart: d => seen.push(d) })
+
+    handlers.chart({ symbol: 'NVDA', timeframe: 'day', imageBase64: 'x' })
+
+    assert.deepEqual(seen, [{ symbol: 'NVDA', timeframe: 'day', imageBase64: 'x' }])
+    assert.equal(currentChart(), null, 'the dock stays untouched')
 })
 
-test('the image-chart event is untouched — an agents rendered analysis still goes to its chat', () => {
-    // `chart` (a rendered PNG the agent looked at) and `chart_open` (the user asking to see the
-    // live chart) are different things and must not collapse into one.
-    const seen = []
-    const handlers = buildStreamHandlers({ onChart: d => seen.push(d) })
-    handlers.chart({ symbol: 'NVDA', imageBase64: 'x' })
-    assert.deepEqual(seen, [{ symbol: 'NVDA', imageBase64: 'x' }])
+test('a docked chart survives a panel switch, but only until it is closed', () => {
+    // currentChart() is what seeds a freshly mounted dock (useChartSurface) — switching agent tabs
+    // unmounts one dock and mounts another, and the chart must make the trip.
+    closeChart()
+    openChart({ symbol: 'SPY', timeframe: 'day' })
+    assert.equal(currentChart().ticker, 'SPY')
+    closeChart()
+    assert.equal(currentChart(), null)
 })

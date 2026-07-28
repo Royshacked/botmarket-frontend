@@ -49,8 +49,13 @@
         flex-shrink: 0;
     }
 
+    // Collapse + Close sit together at the right end. `margin-left: auto` pushes whichever comes
+    // FIRST away from the tools; the second one (Close, when paired) drops it so the pair stays
+    // together instead of splitting across the strip.
     &__close {
         margin-left: auto;
+
+        &--paired { margin-left: 4px; }
         display: inline-flex;
         align-items: center;
         gap: 5px;

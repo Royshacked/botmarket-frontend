@@ -6,6 +6,8 @@ import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { ChatMarkdown } from '../ChatMarkdown.jsx'
 import { ChatReasoning } from '../ChatReasoning.jsx'
+import { ChatChart } from '../ChatChart.jsx'
+import { ChatChartDock } from '../ChatChartDock.jsx'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { AgentIntro, AgentTurnTag } from './AgentSummon.jsx'
@@ -16,10 +18,16 @@ import { readStoredReasoning } from '../reasoningOptions.js'
 import { readStoredRoutingMode } from '../routingModeOptions.js'
 import './AxlChatPanel.scss'
 
-function MessageBubble({ msg }) {
+// Exported for the shared chart-row test (cmps/ChatChart.test.jsx): Axl's chat is the one that
+// renders its own bubbles instead of going through ChatBubble, so it's the one that can silently
+// lose the chart row.
+export function MessageBubble({ msg }) {
     if (msg.role === 'user') {
         return <div className="axl-chat__bubble axl-chat__bubble--user">{msg.content}</div>
     }
+    // A chart Axl was asked for. Not a bubble — the shared chart row, identical to every other
+    // agent chat (this panel has its own bubbles, so it routes to the component ChatBubble uses).
+    if (msg.type === 'chart') return <ChatChart msg={msg} />
     return (
         <div className="axl-chat__bubble axl-chat__bubble--assistant">
             <ChatReasoning text={msg.reasoning} live={msg.streaming && !msg.content} />
@@ -68,8 +76,8 @@ export function AxlChatPanel({ onLoadingChange, onPick }) {
 
         const { signal, handlers } = chat.begin(text, {
             onDone: (data) => {
-                // A chart request needs nothing here: the shared `chart_open` event already put
-                // the chart on the workspace surface (the lists panel) while the reply streamed.
+                // A chart request needs nothing here: the shared `chart` event already dropped the
+                // chart row into this chat (useChatStream's onChart) while the reply streamed.
                 const reasoning = chat.reasoningRef.current
                 chat.finishStreaming({ role: 'assistant', content: data.reply, ...(reasoning ? { reasoning } : {}) })
                 onLoadingChange?.(false)
@@ -132,6 +140,8 @@ export function AxlChatPanel({ onLoadingChange, onPick }) {
 
                 <div ref={messagesEndRef} />
             </div>
+
+            <ChatChartDock />
 
             <ChatInputRow
                 prefix="axl-chat"
