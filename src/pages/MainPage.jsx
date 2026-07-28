@@ -16,12 +16,15 @@ import { KairosPanel }       from '../cmps/KairosPanel/KairosPanel.jsx'
 import { MentorPanel }       from '../cmps/MentorPanel/MentorPanel.jsx'
 import { AnalystPanel }      from '../cmps/AnalystPanel/AnalystPanel.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
+import { FloorLeft }         from '../cmps/Floor/FloorLeft.jsx'
+import { FloorLists }        from '../cmps/Floor/FloorLists.jsx'
+import { ChartSurface }      from '../cmps/PriceChart/ChartSurface.jsx'
 import { kairosService, CALLS_CHANGED } from '../services/kairos/kairos.service.remote.js'
 import { analystService, COVERAGE_CHANGED } from '../services/analyst/analyst.service.remote.js'
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
-import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace, positionOpenTarget, openCallPopup, openIdeaPopup } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { MonitorDashboard }  from '../cmps/MonitorDashboard/MonitorDashboard.jsx'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
@@ -42,6 +45,7 @@ import { usePositions }      from '../customHooks/usePositions.js'
 import { useTradeIdeas }     from '../customHooks/useTradeIdeas.js'
 import { useEntityList } from '../customHooks/useEntityList.js'
 import { useChartSurface }   from '../customHooks/useChartSurface.js'
+import { useDesign }         from '../customHooks/useDesign.js'
 import { useSetups }         from '../customHooks/useSetups.js'
 import { useAuth }           from '../context/AuthContext.jsx'
 
@@ -446,7 +450,19 @@ export function MainPage() {
     // panel, so this page just relays the request — no agent-specific wiring, and a new agent needs
     // none either: its stream's `chart_open` event lands on the surface directly.
     const { chart: openedChart, close: closeChart } = useChartSurface()
+    // Floor design trial (Ctrl+Shift+D → "Floor (3-col)"). Only this page reads it: the trial adds
+    // two side columns and swaps the right one, so nothing below the workspace needs to know.
+    const floorMode = useDesign() === 'floor'
     const [preEntryBusy, setPreEntryBusy] = useState(false)
+
+    // A position row in the Floor's book opens whatever OWNS it — a call-originated position routes
+    // to the Call pop-out, otherwise to its idea. Same rule TradeIdeasList uses for its Positions
+    // tab; the routing is the entity's, not the panel's, so both surfaces ask positionOpenTarget.
+    function handleOpenPositionFromFloor(position) {
+        const target = positionOpenTarget(position, ideas, calls)
+        if (target?.kind === 'call')      openCallPopup(target.call)
+        else if (target?.kind === 'idea') openIdeaPopup(target.idea)
+    }
 
     const buildingIdea = deriveBuildingIdea(analysisState)
     const buildingCall = deriveBuildingCall(kairosPendingCall)
@@ -1682,6 +1698,24 @@ export function MainPage() {
             <main>
                 {/* ── Desktop / tablet workspace ── */}
                 <div className="workspace">
+                    {/* Floor trial (Ctrl+Shift+D): the book + calendar take a left column. The chat
+                        and the right column are unchanged below — only the side columns are added,
+                        so the trial can't regress the live layout by rearranging it. */}
+                    {floorMode && (
+                        <div className="workspace__left">
+                            <FloorLeft
+                                positions={positions}
+                                positionsLoading={positionsLoading}
+                                onOpenPosition={handleOpenPositionFromFloor}
+                                earnings={earnings}
+                                fed={fed}
+                                ipo={ipo}
+                                calendarLoading={earningsLoading || fedLoading || ipoLoading}
+                                onEarningSelect={handleBuildFromEarning}
+                                onIpoSelect={handleBuildFromIpo}
+                            />
+                        </div>
+                    )}
                     <div className="workspace__chat">
                         {activeTab === 'axl' ? (
                             <AxlHub
@@ -1809,6 +1843,30 @@ export function MainPage() {
                             </div>
                         )}
                     </div>
+                    {floorMode ? (
+                        <div className="workspace__right">
+                            {/* The chart takes this column exactly as it takes the lists panel in the
+                                live design — same surface, same close, one occupant at a time. */}
+                            {openedChart ? (
+                                <ChartSurface
+                                    ticker={openedChart.ticker}
+                                    timeframe={openedChart.timeframe}
+                                    drawings={openedChart.drawings ?? []}
+                                    onClose={closeChart}
+                                />
+                            ) : (
+                                <FloorLists
+                                    calls={calls.filter(c => (c.broker === 'ctrader' ? 'live' : c.broker === 'manual' ? 'manual' : 'paper') === workspace)}
+                                    setups={setups}
+                                    ideas={ideas.filter(i => ideaWorkspace(i) === workspace).filter(i => i.status !== 'closed')}
+                                    positions={positions}
+                                    scans={scans}
+                                    coverage={coverage}
+                                    onCandidateSelect={handleBuildFromCandidate}
+                                />
+                            )}
+                        </div>
+                    ) : (
                     <div className="workspace__ideas">
                         <TradeIdeasList
                             ideas={ideas
@@ -1870,6 +1928,7 @@ export function MainPage() {
                             onCloseChart={closeChart}
                         />
                     </div>
+                    )}
                 </div>
 
                 {/* ── Mobile monitor dashboard ── */}

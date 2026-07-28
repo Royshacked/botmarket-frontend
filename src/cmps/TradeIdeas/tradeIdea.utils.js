@@ -367,6 +367,39 @@ export function positionOpenTarget(pos, ideas = [], calls = []) {
  * other position (standalone idea, or an idea-less/orphan broker position) renders
  * flat in `loose`. Positions are already one-per-account at the broker, so a single
  * idea or portfolio spanning N accounts naturally yields N rows — no extra splitting.
+/**
+ * Ideas grouped into their portfolios, newest first. Ideas with no `portfolioId` are not returned —
+ * this answers "what books exist", not "where does every idea live".
+ *
+ * Distinct from groupPositions() above, which groups POSITIONS and therefore only ever sees books
+ * that already have something open. A book being constructed, or one whose ideas are all still
+ * pre-entry, exists here and not there.
+ *
+ * NOTE: TradeIdeasList's private `_separateIdeas` builds the same portfolio map inline, alongside
+ * the broker-fork grouping it also needs. It should collapse onto this once the Floor design either
+ * graduates or is dropped — folding it in now would mean editing the shipped list for a trial.
+ *
+ * @param {object[]} ideas
+ * @returns {Array<{portfolioId:string,name:string,savedAt:number,ideas:object[]}>}
+ */
+export function portfoliosFromIdeas(ideas = []) {
+    const m = new Map()
+    for (const idea of ideas) {
+        if (!idea?.portfolioId) continue
+        if (!m.has(idea.portfolioId)) {
+            m.set(idea.portfolioId, {
+                portfolioId: idea.portfolioId,
+                name:        idea.portfolioName || 'Portfolio',
+                savedAt:     idea.savedAt,
+                ideas:       [],
+            })
+        }
+        m.get(idea.portfolioId).ideas.push(idea)
+    }
+    return [...m.values()].sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0))
+}
+
+/**
  *
  * @param {object[]} positions
  * @param {object[]} ideas
