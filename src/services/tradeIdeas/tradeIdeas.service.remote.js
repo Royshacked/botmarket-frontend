@@ -30,15 +30,15 @@ async function createIdea(idea) {
     return Array.isArray(res.ideas) ? res.ideas : (res.idea ? [res.idea] : [])
 }
 
-const getIdeas = () => api.list()
+function getIdeas() { return api.list() }
 
 async function getIdea(id) {
     const res = await api.get(id)
     return res?.idea ?? null
 }
 
-const deleteIdea = (id)        => api.remove(id)
-const updateIdea = (id, patch) => api.patch(id, patch)
+function deleteIdea(id)        { return api.remove(id) }
+function updateIdea(id, patch) { return api.patch(id, patch) }
 
 async function createBatch(plan, accounts = [], mainAccountId = null, portfolioId = null) {
     const res = await api.post('/batch', { plan, accounts, mainAccountId, portfolioId })

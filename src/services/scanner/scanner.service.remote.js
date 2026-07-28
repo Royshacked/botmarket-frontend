@@ -19,7 +19,7 @@ async function sendStream(messages, opts = {}) {
 // `listKey`: this route answers `{ scans: [...] }` rather than a bare array.
 const api = makeEntityApi({ base: `${BASE}/scans`, listKey: 'scans' })
 
-const listScans = () => api.list()
+function listScans() { return api.list() }
 
 async function createScan(scan) {
     const data = await api.post('', { scan })
@@ -31,7 +31,7 @@ async function updateScan(id, scan) {
     return data.scan
 }
 
-const deleteScan = (id) => api.remove(id)
+function deleteScan(id) { return api.remove(id) }
 
 async function saveChatState(messages) {
     return httpService.post(`${BASE}/chat-state`, { messages })

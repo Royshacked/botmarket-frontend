@@ -27,15 +27,16 @@ async function sendStream(messages, opts = {}) {
 }
 
 // Initiation is an EVENT — one per name; a duplicate → 409 already_covered.
-const initiateCoverage = (coverage) => api.post('', { coverage })
+function initiateCoverage(coverage) { return api.post('', { coverage }) }
 
-const listCoverage = ({ sector, status } = {}) =>
-    api.list({ ...(sector ? { sector } : {}), ...(status ? { status } : {}) })
+function listCoverage({ sector, status } = {}) {
+    return api.list({ ...(sector ? { sector } : {}), ...(status ? { status } : {}) })
+}
 
-const getCoverage = (id) => api.get(id)
+function getCoverage(id) { return api.get(id) }
 
 // In-place update of a live thesis (appends a revision server-side). `patch` = the changed fields
 // (+ optional revision_kind / revision_note).
-const updateCoverage = (id, patch) => api.put(id, { patch })
+function updateCoverage(id, patch) { return api.put(id, { patch }) }
 
-const retireCoverage = (id) => api.remove(id)
+function retireCoverage(id) { return api.remove(id) }

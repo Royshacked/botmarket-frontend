@@ -50,20 +50,20 @@ function updateSetup(id, setup, accounts = [], mainAccountId = null, chatState =
     return api.post('/generate', { setup, accounts, mainAccountId, chat_state: chatState, updateId: id })
 }
 
-const listSetups = (status = null) => api.list(status ? { status } : undefined)
+function listSetups(status = null) { return api.list(status ? { status } : undefined) }
 
 /** One setup incl. monitor_state.timeline — the detail view polls this for Talos's live journal. */
-const getSetup = (id) => api.get(id)
+function getSetup(id) { return api.get(id) }
 
 /**
  * Arm: 'waiting' → 'looking'. This is the real gate — the server re-runs the full readiness check,
  * so a setup whose broker disconnected after Generate is refused here rather than polled forever.
  * The rejection reason comes back as `cannot_arm_<reason>`; surface it, don't swallow it.
  */
-const armSetup = (id) => api.patch(id, { status: 'looking' })
+function armSetup(id) { return api.patch(id, { status: 'looking' }) }
 
 /** Disarm: back to 'waiting'. Talos stops watching; the setup is kept. */
-const disarmSetup = (id) => api.patch(id, { status: 'waiting' })
+function disarmSetup(id) { return api.patch(id, { status: 'waiting' }) }
 
 /** Delete. A live position is delete-locked server-side (409-ish `in_position`). */
-const deleteSetup = (id) => api.remove(id)
+function deleteSetup(id) { return api.remove(id) }
