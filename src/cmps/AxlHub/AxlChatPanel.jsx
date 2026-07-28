@@ -11,20 +11,12 @@ import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { AgentIntro, AgentTurnTag } from './AgentSummon.jsx'
 import { AGENTS, DESKS } from './agentMeta.jsx'
 import { AgentGlyph } from './AgentBadges.jsx'
-import { ChartBubble } from '../PriceChart/ChartBubble.jsx'
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
 import { readStoredRoutingMode } from '../routingModeOptions.js'
 import './AxlChatPanel.scss'
 
 function MessageBubble({ msg }) {
-    if (msg.type === 'chart') {
-        return (
-            <div className="axl-chat__chart-bubble">
-                <ChartBubble ticker={msg.ticker} timeframe={msg.timeframe} />
-            </div>
-        )
-    }
     if (msg.role === 'user') {
         return <div className="axl-chat__bubble axl-chat__bubble--user">{msg.content}</div>
     }
@@ -71,18 +63,15 @@ export function AxlChatPanel({ onLoadingChange, onPick }) {
         if (!text || isLoading) return
 
         const history = messages
-            .filter(m => (m.role === 'user' || m.role === 'assistant') && !m.streaming && m.type !== 'chart' && m.content?.trim())
+            .filter(m => (m.role === 'user' || m.role === 'assistant') && !m.streaming && m.content?.trim())
             .map(m => ({ role: m.role, content: m.content.trim() }))
 
         const { signal, handlers } = chat.begin(text, {
             onDone: (data) => {
-                // Finalize reply first so the chart appends after it (not before),
-                // keeping the chart at the bottom where auto-scroll will land.
+                // A chart request needs nothing here: the shared `chart_open` event already put
+                // the chart on the workspace surface (the lists panel) while the reply streamed.
                 const reasoning = chat.reasoningRef.current
                 chat.finishStreaming({ role: 'assistant', content: data.reply, ...(reasoning ? { reasoning } : {}) })
-                if (data.chart?.ticker && data.chart?.timeframe) {
-                    setMessages(prev => [...prev, { role: 'assistant', type: 'chart', ticker: data.chart.ticker, timeframe: data.chart.timeframe }])
-                }
                 onLoadingChange?.(false)
             },
         })

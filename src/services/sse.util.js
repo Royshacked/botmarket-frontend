@@ -1,3 +1,5 @@
+import { openChart } from './chartSurface.service.js'
+
 /**
  * Build the SSE event→handler map shared by every streaming agent (idea /
  * scanner / portfolio) from a callback bag. Each stream only emits a subset of
@@ -5,7 +7,7 @@
  * so one builder safely covers all three. Centralises the event→field wiring so
  * adding a new SSE event is a one-line change here, not in three services.
  *
- * @param {object} cb  { onToken, onTicker, onAsset, onInterval, onChart,
+ * @param {object} cb  { onToken, onTicker, onAsset, onInterval, onChart, onOpenChart,
  *                       onPhase, onCoverage, onStatus, onReasoning, onDone, onError }
  * @returns {Object<string, function>}
  */
@@ -16,6 +18,12 @@ export function buildStreamHandlers(cb = {}) {
         asset:     (d) => cb.onAsset?.(d.symbol),
         interval:  (d) => cb.onInterval?.(d.interval),
         chart:     (d) => cb.onChart?.(d),
+        // The user asked an agent — any agent — to open a chart. Unlike every other entry here
+        // this DEFAULTS to acting (the shared chart surface) instead of no-op'ing on a missing
+        // callback: the chart is a workspace-level surface, not a property of whichever chat asked
+        // for it, so a new agent needs no wiring on this side at all. A panel that wants it
+        // elsewhere passes onOpenChart and takes over.
+        chart_open: (d) => (cb.onOpenChart ?? openChart)(d),
         phase:     (d) => cb.onPhase?.(d.phase),
         // Mentor's progress signal. Unlike `phase` (one number, a step) this is the CUMULATIVE
         // set of dimensions read so far — order-free, because Mentor works by invariants, not steps.

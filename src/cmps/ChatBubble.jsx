@@ -2,6 +2,7 @@ import PropTypes from 'prop-types'
 import { ChatMarkdown } from './ChatMarkdown.jsx'
 import { ChatReasoning } from './ChatReasoning.jsx'
 import { ChatPhaseHeading } from './ChatPhaseHeading.jsx'
+import { ChatChartImage } from './ChatChartImage.jsx'
 // The bubble styles live in PortfolioPanel.scss under the shared `portfolio-panel__*`
 // namespace (every agent panel already renders into it). Imported here so this
 // component's styling is explicit rather than relying on whichever panel loaded first.
@@ -14,8 +15,7 @@ import './PortfolioPanel/PortfolioPanel.scss'
  * chips render — so those are the props.
  *
  * AxlChatPanel deliberately keeps its own bubble: different SCSS namespace
- * (`axl-chat__*`), a ToolStatusChip placeholder instead of a text span, and a
- * `type: 'chart'` row this one has no concept of.
+ * (`axl-chat__*`) and a ToolStatusChip placeholder instead of a text span.
  *
  * @param {object}   msg            message row ({ role, content, reasoning, streaming, phase, tickers })
  * @param {object}   [phaseLabels]  phase number → label, for `role: 'phase'` rows
@@ -34,6 +34,11 @@ export function ChatBubble({
 }) {
     if (msg.role === 'phase') {
         return <ChatPhaseHeading phase={msg.phase} label={phaseLabels?.[msg.phase]} total={phaseTotal} />
+    }
+    // A chart the agent rendered mid-turn. Every agent that surfaces one renders it through the
+    // same component — the row arrives here because useChatStream inserts it for ALL of them.
+    if (msg.type === 'chart') {
+        return <ChatChartImage msg={msg} />
     }
     if (msg.role === 'user') {
         return <div className="portfolio-panel__bubble portfolio-panel__bubble--user">{msg.content}</div>

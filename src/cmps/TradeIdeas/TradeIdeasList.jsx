@@ -17,6 +17,7 @@ import { CallCard } from './CallCard.jsx'
 import { isArmed } from '../../services/entityStatus.js'
 import { useDesign } from '../../customHooks/useDesign.js'
 import { Radar } from '../Radar/Radar.jsx'
+import { ChartSurface } from '../PriceChart/ChartSurface.jsx'
 import './TradeIdeas.scss'
 
 function _separateIdeas(ideas) {
@@ -355,7 +356,7 @@ CardList.propTypes = {
     renderCard: PropTypes.func, lead: PropTypes.node,
 }
 
-export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, buildingCall, loading = false, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, calls = [], onActCall, onDeleteCall, onEditCall, callBusyId = null, setups = [], setupsLoading = false, onArmSetup, onDisarmSetup, onDeleteSetup, onOpenSetup, setupBusyId = null, radar }) {
+export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, buildingCall, loading = false, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, calls = [], onActCall, onDeleteCall, onEditCall, callBusyId = null, setups = [], setupsLoading = false, onArmSetup, onDisarmSetup, onDeleteSetup, onOpenSetup, setupBusyId = null, radar, chart = null, onCloseChart }) {
     const [expandedGroups, setExpandedGroups] = useState(new Set())
     const [activeFilter,   setActiveFilter]   = useState(null)    // null = hub landing
     const [closingId,      setClosingId]      = useState(null)
@@ -546,6 +547,15 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
     ]
     const section = SECTIONS.find(x => x.key === activeFilter) ?? null
 
+    // An agent-opened chart TAKES OVER the panel (that's the point — the chart wants the whole
+    // pane, not a chat-width bubble). Closing it drops back to the lists hub rather than to
+    // whichever section happened to be open, so the user always lands on the buttons.
+    const chartOpen = !!chart
+    function handleCloseChart() {
+        setActiveFilter(null)
+        onCloseChart?.()
+    }
+
     const SECTION_LABELS = Object.fromEntries(SECTIONS.map(x => [x.key, x.label]).concat([['radar', 'Radar']]))
     // radar sub-tab label shown in the breadcrumb when a deep-link card was used
     const radarTabLabel = { scans: 'Scans', earnings: 'Earnings', coverage: 'Coverage', fed: 'Fed', ipo: 'IPO' }
@@ -554,11 +564,15 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
     return (
         <section className="trade-ideas-list full">
             <div className="trade-ideas-list__header">
-                {atHub ? (
+                {atHub && !chartOpen ? (
                     <span className="trade-ideas-list__header-title">What do you want to see?</span>
                 ) : (
                     <>
-                        <button className="trade-ideas-list__back" onClick={() => setActiveFilter(null)} aria-label="Back to Axl Lists">
+                        <button
+                            className="trade-ideas-list__back"
+                            onClick={chartOpen ? handleCloseChart : () => setActiveFilter(null)}
+                            aria-label="Back to Axl Lists"
+                        >
                             <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                                 <polyline points="7,2 3,6 7,10"/>
                                 <line x1="3" y1="6" x2="11" y2="6"/>
@@ -567,16 +581,25 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                         </button>
                         <span className="trade-ideas-list__crumb" aria-hidden="true">/</span>
                         <span className="trade-ideas-list__section">
-                            {activeFilter === 'radar' && radar?.tab
-                                ? radarTabLabel[radar.tab] ?? 'Radar'
-                                : SECTION_LABELS[activeFilter]}
-                            {sectionCount > 0 ? ` (${sectionCount})` : ''}
+                            {chartOpen
+                                ? `${chart.ticker} · ${String(chart.timeframe).toUpperCase()}`
+                                : (activeFilter === 'radar' && radar?.tab
+                                    ? radarTabLabel[radar.tab] ?? 'Radar'
+                                    : SECTION_LABELS[activeFilter])}
+                            {!chartOpen && sectionCount > 0 ? ` (${sectionCount})` : ''}
                         </span>
                     </>
                 )}
             </div>
 
-            {atHub ? (
+            {chartOpen ? (
+                <ChartSurface
+                    ticker={chart.ticker}
+                    timeframe={chart.timeframe}
+                    drawings={chart.drawings ?? []}
+                    onClose={handleCloseChart}
+                />
+            ) : atHub ? (
                 <div className="trade-ideas-list__hub">
                     <div className="trade-ideas-list__hub-grid">
                         {SECTIONS.filter(x => !x.hubOnlyWithRadar || radar).map(x => (
@@ -864,4 +887,11 @@ TradeIdeasList.propTypes = {
     onEditCall:       PropTypes.func,
     callBusyId:       PropTypes.string,
     radar:            PropTypes.object,
+    // The agent-opened chart (shared chart surface) — null when nothing is on it.
+    chart:            PropTypes.shape({
+        ticker:    PropTypes.string.isRequired,
+        timeframe: PropTypes.string,
+        drawings:  PropTypes.array,
+    }),
+    onCloseChart:     PropTypes.func,
 }

@@ -41,6 +41,7 @@ import { useWorkspaceMode }  from '../customHooks/useWorkspaceMode.js'
 import { usePositions }      from '../customHooks/usePositions.js'
 import { useTradeIdeas }     from '../customHooks/useTradeIdeas.js'
 import { useEntityList } from '../customHooks/useEntityList.js'
+import { useChartSurface }   from '../customHooks/useChartSurface.js'
 import { useSetups }         from '../customHooks/useSetups.js'
 import { useAuth }           from '../context/AuthContext.jsx'
 
@@ -441,6 +442,10 @@ export function MainPage() {
     const { workspace, setWorkspace } = useWorkspaceMode(user?._id)
     const { positions, loading: positionsLoading, refresh: refreshPositions, closePosition } = usePositions()
     const { ideas, setIdeas, loadIdeas, loading: ideasLoading, handleStatusChange, preEntryPrompt, setPreEntryPrompt } = useTradeIdeas()
+    // The one chart any agent can open (services/chartSurface.service.js). It renders in the lists
+    // panel, so this page just relays the request — no agent-specific wiring, and a new agent needs
+    // none either: its stream's `chart_open` event lands on the surface directly.
+    const { chart: openedChart, close: closeChart } = useChartSurface()
     const [preEntryBusy, setPreEntryBusy] = useState(false)
 
     const buildingIdea = deriveBuildingIdea(analysisState)
@@ -547,25 +552,7 @@ export function MainPage() {
             onInterval: (interval) => { if (interval) setChartInterval(interval) },
             onAsset: (symbol) => { if (symbol) setChartSymbol(symbol) },
 
-            // Agent surfaced a chart it wants the user to see — drop an
-            // image bubble in just before the streaming assistant reply.
-            onChart: (data) => {
-                if (!data?.imageBase64) return
-                setMessages(prev => {
-                    const msgs = [...prev]
-                    const chartMsg = {
-                        role:        'assistant',
-                        type:        'chart',
-                        symbol:      data.symbol,
-                        timeframe:   data.timeframe,
-                        imageBase64: data.imageBase64,
-                    }
-                    const lastIdx = msgs.length - 1
-                    if (msgs[lastIdx]?.streaming) msgs.splice(lastIdx, 0, chartMsg)
-                    else msgs.push(chartMsg)
-                    return msgs
-                })
-            },
+            // (a surfaced chart lands as its own row — useChatStream's shared onChart)
 
             onDone: (data) => {
                 const reasoning = chat.reasoningRef.current
@@ -664,17 +651,6 @@ export function MainPage() {
         const cont = chat.beginContinue({
             onInterval: (interval) => { if (interval) setChartInterval(interval) },
             onAsset: (symbol) => { if (symbol) setChartSymbol(symbol) },
-            onChart: (data) => {
-                if (!data?.imageBase64) return
-                setMessages(prev => {
-                    const msgs = [...prev]
-                    const chartMsg = { role: 'assistant', type: 'chart', symbol: data.symbol, timeframe: data.timeframe, imageBase64: data.imageBase64 }
-                    const lastIdx = msgs.length - 1
-                    if (msgs[lastIdx]?.streaming) msgs.splice(lastIdx, 0, chartMsg)
-                    else msgs.push(chartMsg)
-                    return msgs
-                })
-            },
             onError: () => chat.restoreStopped(base),
             onDone: (data) => {
                 const reasoning = chat.reasoningRef.current
@@ -1890,6 +1866,8 @@ export function MainPage() {
                                 ipoLoading,
                                 onIpoSelect:       handleBuildFromIpo,
                             }}
+                            chart={openedChart}
+                            onCloseChart={closeChart}
                         />
                     </div>
                 </div>

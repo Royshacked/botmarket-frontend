@@ -12,7 +12,6 @@ import { toolStatusLabel } from '../services/toolStatusLabels.js'
  *
  * NOT every message list reduces this way, and the variants that remain are deliberate,
  * not copies to fold in later:
- *   - AxlChatPanel additionally drops `type: 'chart'` bubbles (they carry no content).
  *   - KairosPanel's persistedMessages() is stricter (role + string content) because it
  *     writes chat_state, not a request payload.
  *   - ScannerPanel's handleGenerate chatLog KEEPS phase rows and `tickers` so reopening
@@ -23,7 +22,9 @@ import { toolStatusLabel } from '../services/toolStatusLabels.js'
  */
 export function toChatHistory(messages) {
     return messages
-        .filter(m => !m.streaming && m.role !== 'phase')
+        // Chart rows carry an image, not text — sending one as a content-less assistant turn is
+        // how a model request ends up malformed. They're display-only in every panel.
+        .filter(m => !m.streaming && m.role !== 'phase' && m.type !== 'chart')
         .map(m => ({ role: m.role, content: m.content }))
 }
 
@@ -44,7 +45,7 @@ export function toChatHistory(messages) {
  *         chat.finishStreaming({ role: 'assistant', content: data.reply, ...extras })
  *         // ...side effects (setPendingPlan, analysisState, …)
  *       },
- *       // optional extra/override handlers (onTicker, onAsset, onChart, …)
+ *       // optional extra/override handlers (onTicker, onAsset, …; onChart is built in)
  *     })
  *     try { await service.sendStream(history, { ...params, signal, ...handlers }) }
  *     catch { chat.freezeError() }
@@ -86,8 +87,8 @@ export function useChatStream({ threadPhases = false } = {}) {
      * Optimistically append the user turn + a streaming assistant placeholder,
      * reset per-send state, open an AbortController, and return its signal plus the
      * shared SSE handler bag. Spread `handlers` into the service call; pass
-     * `extraHandlers` to add (onTicker/onAsset/onChart) or override (onDone — which
-     * every caller supplies).
+     * `extraHandlers` to add (onTicker/onAsset) or override (onDone — which every caller
+     * supplies; onChart is handled here by default and only rarely needs overriding).
      */
     function begin(userText, extraHandlers = {}) {
         setMessages(prev => [
@@ -178,6 +179,28 @@ export function useChatStream({ threadPhases = false } = {}) {
         return {
             onToken:  (t)    => { setStreamStatus(''); enqueueToken(t) },
             onStatus: (tool) => setStreamStatus(toolStatusLabel(tool)),
+            // An agent surfaced a chart it wants the user to see (get_chart with show_to_user).
+            // Handled HERE so every agent chat shows it identically — Idea, Kairos, Atlas and
+            // Mentor all emit the same `chart` event, and this hook is the one place that knows
+            // where the row goes: just BEFORE the streaming bubble, so the chart reads as part of
+            // the turn that produced it and auto-scroll still lands on the text.
+            onChart: (data) => {
+                if (!data?.imageBase64) return
+                setMessages(prev => {
+                    const msgs = [...prev]
+                    const chartMsg = {
+                        role:        'assistant',
+                        type:        'chart',
+                        symbol:      data.symbol,
+                        timeframe:   data.timeframe,
+                        imageBase64: data.imageBase64,
+                    }
+                    const lastIdx = msgs.length - 1
+                    if (msgs[lastIdx]?.streaming) msgs.splice(lastIdx, 0, chartMsg)
+                    else msgs.push(chartMsg)
+                    return msgs
+                })
+            },
             onReasoning: (t) => {
                 reasoningRef.current += t
                 const acc = reasoningRef.current

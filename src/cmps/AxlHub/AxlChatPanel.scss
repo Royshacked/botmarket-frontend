@@ -38,12 +38,6 @@
     }
 
 
-    &__chart-bubble {
-        align-self: stretch;
-        width: calc(100% + 32px);
-        margin-inline: -16px;
-    }
-
     // Sticky desk shortcut strip — appears at the top of the scroll area once a
     // conversation starts so the user can still jump to a desk without going back.
     &__desk-strip {

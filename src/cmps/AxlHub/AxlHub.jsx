@@ -8,7 +8,6 @@ import { axlService } from '../../services/axl/axl.service.remote'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
-import { ChartBubble } from '../PriceChart/ChartBubble.jsx'
 import './AxlHub.scss'
 
 // ── axl · reception ────────────────────────────────────────────────────────────
@@ -29,7 +28,6 @@ export function AxlHub({ user, onPick, onChat }) {
     const [comment, setComment]         = useState('')
     const [isRouting, setIsRouting]     = useState(false)
     const [pendingDesk, setPendingDesk] = useState(null)
-    const [chartData, setChartData]     = useState(null)
     const [hoveredDesk, setHoveredDesk] = useState(null)
     const timerRef  = useRef(null)
     const abortRef  = useRef(null)
@@ -69,7 +67,6 @@ export function AxlHub({ user, onPick, onChat }) {
         if (!t || isRouting) return
         setDraft('')
         setComment('')
-        setChartData(null)
         setIsRouting(true)
         abortRef.current = new AbortController()
 
@@ -79,13 +76,13 @@ export function AxlHub({ user, onPick, onChat }) {
                 onToken: (text) => setComment(prev => prev + text),
                 onDone:  (data) => {
                     setIsRouting(false)
-                    if (data.chart?.ticker && data.chart?.timeframe) {
-                        setComment('')
-                        setChartData(data.chart)
-                    } else {
-                        const desk = DESKS.find(d => d.key === data.route)
-                        if (desk) setPendingDesk(desk)
-                    }
+                    // A chart request already opened the workspace chart mid-stream (the shared
+                    // `chart_open` event → the chart surface in the lists panel). Axl's sentence
+                    // stays on screen and NO desk routing happens — the user asked to look, not to
+                    // be moved somewhere.
+                    if (data.chart?.ticker) return
+                    const desk = DESKS.find(d => d.key === data.route)
+                    if (desk) setPendingDesk(desk)
                 },
                 onError: () => setIsRouting(false),
             })
@@ -102,7 +99,7 @@ export function AxlHub({ user, onPick, onChat }) {
     const onTranscript = useCallback((text) => { if (text) handleIntent(text) }, []) // eslint-disable-line react-hooks/exhaustive-deps
     const { isRecording, isTranscribing, toggle: toggleMic, cancel: cancelMic } = useMicInput({ onTranscript })
 
-    const hasResult = comment || isRouting || chartData
+    const hasResult = comment || isRouting
 
     if (summoning) {
         const agent = AGENTS[summoning.agentKey]
@@ -225,19 +222,11 @@ export function AxlHub({ user, onPick, onChat }) {
                     </div>
                 )}
 
-                {/* ── Axl's routing comment (not shown for chart results) ── */}
-                {isRouting && !comment && !chartData && (
-                    <ToolStatusChip label="thinking…" />
-                )}
-                {comment && !chartData && (
+                {/* ── Axl's routing comment (a chart request keeps it: the chart itself
+                       opens in the lists panel, so this sentence is all the chat shows) ── */}
+                {isRouting && !comment && <ToolStatusChip label="thinking…" />}
+                {comment && (
                     <div className="axl-hub__route-comment" aria-live="polite">{comment}</div>
-                )}
-
-                {/* ── Chart bubble (when Axl resolves a chart intent) ── */}
-                {chartData && (
-                    <div className="axl-hub__chart">
-                        <ChartBubble ticker={chartData.ticker} timeframe={chartData.timeframe} />
-                    </div>
                 )}
 
                 {onChat && (
@@ -261,8 +250,8 @@ export function AxlHub({ user, onPick, onChat }) {
                 placeholder="Or describe what you'd like to do…"
                 onSend={handleIntent}
                 sendDisabled={isRouting}
-                onClear={() => { setDraft(''); setComment(''); setChartData(null) }}
-                clearDisabled={!draft && !comment && !chartData}
+                onClear={() => { setDraft(''); setComment('') }}
+                clearDisabled={!draft && !comment}
                 onToggleMic={toggleMic}
                 onCancelMic={cancelMic}
                 isRecording={isRecording}
