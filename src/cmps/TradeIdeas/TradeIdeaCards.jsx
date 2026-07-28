@@ -12,6 +12,11 @@ import { posKey, WorkspaceBadge } from './PositionsTable.jsx'
 import { useExpandedSet } from '../../customHooks/useExpandedSet.js'
 import { StatusIcon } from '../StatusIcon.jsx'
 import { MinosBadge, AtlasBadge } from '../AxlHub/AgentBadges.jsx'
+import { EntityCard, SymbolCell, Pill, StatusBadge, EditButton, DeleteButton } from '../EntityCard/EntityCard.jsx'
+import { EditIcon, BinIcon, BuildingIcon, TargetIcon, PositionIcon, OrdersIcon, CloseIcon } from '../EntityCard/entityIcons.jsx'
+
+// Icons re-exported for the files that have always imported them from here (CallCard, PopoutFooter).
+export { EditIcon, BinIcon }
 
 const BROKER_LABELS = { ctrader: 'cTrader', ibkr: 'IBKR' }
 
@@ -22,76 +27,6 @@ const BROKER_LABELS = { ctrader: 'cTrader', ibkr: 'IBKR' }
 // in lockstep.
 
 const BUILDING = 'building'
-
-// ── Shared inline icons (match the app's monoline SVG set) ─────────────────────
-
-export function EditIcon() {
-    return (
-        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <path d="M11.5 1.5L14.5 4.5L5.5 13.5H2.5V10.5L11.5 1.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
-            <path d="M9.5 3.5L12.5 6.5" stroke="currentColor" strokeWidth="1.4"/>
-        </svg>
-    )
-}
-
-export function BinIcon() {
-    return (
-        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <path d="M2.5 4H13.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-            <path d="M6.5 4V2.8C6.5 2.36 6.86 2 7.3 2H8.7C9.14 2 9.5 2.36 9.5 2.8V4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-            <path d="M3.7 4L4.3 13C4.34 13.56 4.8 14 5.36 14H10.64C11.2 14 11.66 13.56 11.7 13L12.3 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M6.5 6.5V11.5M9.5 6.5V11.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-        </svg>
-    )
-}
-
-function BuildingIcon() {
-    return (
-        <svg className="idea-card__building-bot" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            {/* hammer — building in progress */}
-            <path d="m15 12-8.373 8.373a1 1 0 1 1-3-3L12 9"/>
-            <path d="m18 15 4-4"/>
-            <path d="m21.5 11.5-1.914-1.914A2 2 0 0 1 19 8.172V7l-2.26-2.26a6 6 0 0 0-4.202-1.756L9 2.96l.92.82A6.18 6.18 0 0 1 12 8.4V10l2 2h1.172a2 2 0 0 1 1.414.586z"/>
-        </svg>
-    )
-}
-
-function TargetIcon() {
-    return (
-        <svg className="idea-card__target" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <circle cx="8" cy="8" r="6"/>
-            <circle cx="8" cy="8" r="2.4"/>
-        </svg>
-    )
-}
-
-function PositionIcon() {
-    // Live-position mark — a price pulse line.
-    return (
-        <svg className="idea-card__icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <path d="M3 13h3l2.5-6 3.5 12 2.5-9 2 3h4.5"/>
-        </svg>
-    )
-}
-
-function OrdersIcon() {
-    return (
-        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <circle cx="3.5" cy="4"  r="1" fill="currentColor"/>
-            <circle cx="3.5" cy="8"  r="1" fill="currentColor"/>
-            <circle cx="3.5" cy="12" r="1" fill="currentColor"/>
-            <path d="M6.5 4H13.5M6.5 8H13.5M6.5 12H13.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-        </svg>
-    )
-}
-
-function CloseIcon() {
-    return (
-        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-        </svg>
-    )
-}
 
 // ── Single idea card ───────────────────────────────────────────────────────────
 
@@ -109,94 +44,80 @@ export function IdeaCard({ idea, onDelete, onStatusChange, onOpen, onSymbolClick
     const noAccount = !isBrokerChild && !isBuilding && status !== 'closed' &&
         (!Array.isArray(idea.accounts) || idea.accounts.length === 0)
 
-    function handleCardClick(ev) {
-        if (isBuilding) return
-        if (ev.target.closest('.idea-card__controls')) return
-        onOpen(idea)
-    }
+    const title = (
+        <>
+            {isBrokerChild
+                ? <span className="idea-card__broker">{brokerChildLabel(idea)}</span>
+                : <SymbolCell symbol={asset} onSymbolClick={onSymbolClick} />}
+            {direction && <Pill variant="dir" className={`direction--${direction}`}>{direction}</Pill>}
+            {type && <Pill variant="type">{type}</Pill>}
+            {!isBrokerChild && brokerSym && (
+                <span className="idea-card__broker-badge" title={`Trades as ${brokerSym} on the broker`}>{brokerSym}</span>
+            )}
+            {noAccount && (
+                <span className="idea-card__no-account" title="No broker account attached — this idea will alert only (no order placed). Edit to attach an account.">⚠</span>
+            )}
+            {showPnl && pnl && (
+                <span className={`idea-card__pnl${pnl.pnl > 0 ? ' pnl--pos' : pnl.pnl < 0 ? ' pnl--neg' : ''}`}>
+                    {formatPnl(pnl.pnl, pnl.currency)}
+                </span>
+            )}
+        </>
+    )
+
+    const cardSummary = (
+        <>
+            <TargetIcon />
+            <span className="idea-card__summary-text">{summary || '—'}</span>
+            <span className="idea-card__date" title={formatCreatedAtFull(savedAt)}> · {createdAt || '—'}</span>
+        </>
+    )
+
+    const controls = (
+        <>
+            {idea.orderState === 'awaiting_market' && (
+                <span className="idea-card__await-market" title="Order deferred until the market opens">⏳</span>
+            )}
+
+            {isBuilding ? <BuildingIcon /> : isSystemStatus(status) ? (
+                <StatusBadge status={status} />
+            ) : (
+                <StatusBadge
+                    status={status}
+                    onToggle={() => onStatusChange(id, status === 'waiting' ? activationStatus(idea) : 'waiting')}
+                    label={status === 'waiting' ? `Activate (→ ${activationStatus(idea)})`
+                        : status === 'resting' ? 'Cancel resting order (→ waiting)'
+                        : 'Switch to waiting'}
+                />
+            )}
+
+            {!isBuilding && onEdit && (
+                <EditButton
+                    onClick={() => onEdit(idea)}
+                    alert={needsExits}
+                    title={needsExits ? 'Missing stop / take profit — click to add' : 'Edit in chat'}
+                />
+            )}
+            {!isBuilding && onDelete && (
+                <DeleteButton
+                    onClick={() => onDelete(id)}
+                    title="Delete idea"
+                    lockedReason={deleteLocked ? 'Live on the broker — close the position first to delete' : null}
+                />
+            )}
+        </>
+    )
 
     return (
-        <article
-            className={`idea-card idea-card--${status}${isBrokerChild ? ' idea-card--broker-child' : ''}`}
-            onClick={handleCardClick}
-        >
-            <div className="idea-card__icon" aria-hidden="true"><MinosBadge size={34} /></div>
-
-            <div className="idea-card__body">
-                <div className="idea-card__titleline">
-                    {isBrokerChild ? (
-                        <span className="idea-card__broker">{brokerChildLabel(idea)}</span>
-                    ) : (
-                        <span
-                            className="idea-card__sym"
-                            onClick={e => { e.stopPropagation(); if (asset && onSymbolClick) onSymbolClick(asset) }}
-                            title={asset ? `View ${asset} chart` : undefined}
-                            style={{ cursor: asset ? 'pointer' : 'default' }}
-                        >{asset || '—'}</span>
-                    )}
-                    {direction && (
-                        <span className={`idea-card__pill idea-card__pill--dir direction--${direction}`}>{direction}</span>
-                    )}
-                    {type && <span className="idea-card__pill idea-card__pill--type">{type}</span>}
-                    {!isBrokerChild && brokerSym && (
-                        <span className="idea-card__broker-badge" title={`Trades as ${brokerSym} on the broker`}>{brokerSym}</span>
-                    )}
-                    {noAccount && (
-                        <span className="idea-card__no-account" title="No broker account attached — this idea will alert only (no order placed). Edit to attach an account.">⚠</span>
-                    )}
-                    {showPnl && pnl && (
-                        <span className={`idea-card__pnl${pnl.pnl > 0 ? ' pnl--pos' : pnl.pnl < 0 ? ' pnl--neg' : ''}`}>
-                            {formatPnl(pnl.pnl, pnl.currency)}
-                        </span>
-                    )}
-                </div>
-                <div className="idea-card__summary">
-                    <TargetIcon />
-                    <span className="idea-card__summary-text">{summary || '—'}</span>
-                    <span className="idea-card__date" title={formatCreatedAtFull(savedAt)}> · {createdAt || '—'}</span>
-                </div>
-            </div>
-
-            <div className="idea-card__controls">
-                {idea.orderState === 'awaiting_market' && (
-                    <span className="idea-card__await-market" title="Order deferred until the market opens">⏳</span>
-                )}
-
-                {isBuilding ? (
-                    <BuildingIcon />
-                ) : isSystemStatus(status) ? (
-                    <span className={`idea-card__status-badge status--${status}`}>
-                        <StatusIcon status={status} />
-                    </span>
-                ) : (
-                    <button
-                        className={`idea-card__status-toggle status--${status}`}
-                        onClick={e => { e.stopPropagation(); onStatusChange(id, status === 'waiting' ? activationStatus(idea) : 'waiting') }}
-                        title={status === 'waiting' ? `Activate (→ ${activationStatus(idea)})`
-                            : status === 'resting' ? 'Cancel resting order (→ waiting)'
-                            : 'Switch to waiting'}
-                    >
-                        <StatusIcon status={status} />
-                    </button>
-                )}
-
-                {!isBuilding && onEdit && (
-                    <button
-                        className={`idea-card__edit-btn${needsExits ? ' idea-card__edit-btn--alert' : ''}`}
-                        onClick={e => { e.stopPropagation(); onEdit(idea) }}
-                        title={needsExits ? 'Missing stop / take profit — click to add' : 'Edit in chat'}
-                    ><EditIcon /></button>
-                )}
-                {!isBuilding && onDelete && (
-                    <button
-                        className="idea-card__delete"
-                        onClick={e => { e.stopPropagation(); if (!deleteLocked) onDelete(id) }}
-                        disabled={deleteLocked}
-                        title={deleteLocked ? 'Live on the broker — close the position first to delete' : 'Delete idea'}
-                    ><BinIcon /></button>
-                )}
-            </div>
-        </article>
+        <EntityCard
+            status={status}
+            badge={<MinosBadge size={34} />}
+            title={title}
+            summary={cardSummary}
+            controls={controls}
+            onOpen={isBuilding ? undefined : () => onOpen(idea)}
+            className={isBrokerChild ? 'idea-card--broker-child' : ''}
+        />
     )
 }
 

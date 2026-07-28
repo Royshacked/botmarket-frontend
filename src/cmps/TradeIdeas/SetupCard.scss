@@ -1,59 +1,12 @@
-// A setup row. Arm state leads, because "generated" and "being watched" look identical in the
-// data and only one of them is actually doing anything.
+// What a SETUP adds to the shared card shell — nothing more.
+//
+// The frame, lifecycle colours, pills, status control and delete button all come from
+// `.idea-card` (see cmps/EntityCard/EntityCard.jsx). This file used to carry a parallel
+// `.setup-card` block that re-drew all of that, which is why a setup looked like a different
+// application than the idea sitting one tab away.
 .setup-card {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 10px 12px;
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg-surface);
-    font-size: 12px;
-
-    // Unarmed is the state that needs attention — nothing is watching it.
-    &--waiting { border-left-color: var(--text-dim); }
-    &--looking { border-left-color: var(--accent); }
-    &--hit     { border-left-color: var(--accent-bright); }
-    &--long    { border-left-color: var(--long-text); }
-    &--short   { border-left-color: var(--short-text); }
-    &--closed  { opacity: 0.55; }
-
-    &__head { display: flex; align-items: center; gap: 8px; }
-
-    &__asset {
-        padding: 0;
-        border: none;
-        background: none;
-        color: inherit;
-        font-family: var(--font-mono);
-        font-size: 14px;
-        font-weight: 700;
-        letter-spacing: 0.03em;
-        cursor: pointer;
-
-        &:hover { color: var(--accent-light); }
-    }
-
-    &__dir,
-    &__tag {
-        font-family: var(--font-mono);
-        font-size: 9px;
-        letter-spacing: 0.07em;
-        text-transform: uppercase;
-        padding: 1px 6px;
-        border: 1px solid var(--border);
-        border-radius: 999px;
-        color: var(--text-dim);
-    }
-
-    &__dir--long  { color: var(--long-text);  border-color: var(--long-border); }
-    &__dir--short { color: var(--short-text); border-color: var(--short-border); }
-
-    &__tag--lens   { color: var(--accent-light); border-color: var(--border-mid); }
-    &__tag--paper  { color: var(--accent-light); }
-    &__tag--manual { color: var(--accent); }
-
+    // Arm state, in words. Colour alone cannot say "nothing is watching this", and that is the
+    // one thing about a setup that is expensive to misread.
     &__state {
         margin-left: auto;
         font-family: var(--font-mono);
@@ -61,21 +14,19 @@
         letter-spacing: 0.08em;
         text-transform: uppercase;
         color: var(--text-dim);
+
+        // Unarmed is the state that needs attention — nothing is watching it.
+        &--unarmed  { color: var(--text-dim); }
+        &--waiting  { color: var(--accent-light); }
+        // In the zone but not yet fulfilled: close, but deliberately NOT a call to action — it
+        // must not read as loudly as 'ready', which is the only state that asks for a decision.
+        &--watching { color: var(--accent); }
+        &--ready    { color: var(--accent-bright); }
+        // Post-confirm: the order is at the broker, nothing left to decide.
+        &--hit      { color: var(--accent-light); }
+        &--long     { color: var(--long-text); }
+        &--short    { color: var(--short-text); }
     }
-
-    &__tags { display: flex; gap: 4px; flex-wrap: wrap; }
-
-    &__levels {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-        font-family: var(--font-mono);
-        font-size: 10px;
-
-        em { font-style: normal; color: var(--text-dim); margin-right: 3px; }
-    }
-
-    &__metrics { display: flex; align-items: center; gap: 10px; }
 
     &__rr {
         font-family: var(--font-mono);
@@ -91,29 +42,12 @@
         color: var(--text-dim);
     }
 
+    // Talos's running monologue — what it saw on its last look.
     &__memo {
-        margin: 0;
+        margin: 2px 0 0;
         font-size: 10px;
         line-height: 1.45;
         color: var(--text-dim);
         font-style: italic;
-    }
-
-    &__actions { display: flex; gap: 6px; margin-top: 2px; }
-
-    &__btn {
-        padding: 4px 10px;
-        border: 1px solid var(--border);
-        border-radius: 5px;
-        background: transparent;
-        color: var(--text-dim);
-        font-size: 11px;
-        cursor: pointer;
-
-        &:hover:not(:disabled) { color: var(--accent-light); border-color: var(--border-mid); background: var(--bg-hover); }
-        &:disabled { opacity: 0.5; cursor: default; }
-
-        &--primary { color: var(--accent-bright); border-color: var(--border-mid); background: var(--accent-deep); }
-        &--danger:hover:not(:disabled) { color: var(--short-text); border-color: var(--short-border); }
     }
 }

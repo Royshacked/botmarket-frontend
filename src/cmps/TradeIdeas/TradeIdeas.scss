@@ -1070,6 +1070,8 @@ $sym-status-colors: (
         &--type { color: var(--text-secondary); border: 1px solid var(--accent-deep); }
         &--dir.direction--long  { color: var(--color-long);  background: color-mix(in srgb, var(--color-long) 14%, transparent); }
         &--dir.direction--short { color: var(--color-short); background: color-mix(in srgb, var(--color-short) 14%, transparent); }
+        // The build lens a kind was authored through (a setup's trade_mode, a call's mode).
+        &--lens { color: var(--accent-light); border: 1px solid var(--border-mid); }
     }
 
     &__broker-badge {
