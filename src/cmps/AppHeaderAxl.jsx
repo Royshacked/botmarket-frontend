@@ -8,10 +8,13 @@ import { useChatWs } from '../customHooks/useChatWs'
 import { useWorkspaceMode } from '../customHooks/useWorkspaceMode'
 
 // ── AppHeader · "axl" style (trial) ───────────────────────────────────────────
-// The calm aurora header: animated calm-water wave bottom edge, ambient breathing
-// candlesticks, a centered AI prompt/reply stream, a status pill and the profile
-// cluster. Keeps TRADVICE content + the original navigate-to-profile / "Back to
-// Trading" behavior; only the look changes. Styles live in AppHeaderAxl.scss.
+// The calm aurora header: animated calm-water wave bottom edge, a centered AI
+// prompt/reply stream, a status pill and the profile cluster. Keeps TRADVICE
+// content + the original navigate-to-profile / "Back to Trading" behavior; only
+// the look changes. Styles live in AppHeaderAxl.scss.
+//
+// The ambient breathing candlestick band that used to sit on the waterline is gone:
+// it was decoration that read as data, in a header whose whole job is to stay quiet.
 //
 // Self-contained on purpose (header-first): nothing here touches the app-wide
 // theme. RootCmp swaps this in when localStorage.headerStyle !== 'classic'.
@@ -50,7 +53,6 @@ export function AppHeaderAxl() {
     const { pathname } = useLocation()
     const onProfile    = pathname === '/profile'
 
-    const ticksRef  = useRef(null)
     const streamRef = useRef(null)
     const msgRef    = useRef(null)
     const textRef   = useRef(null)
@@ -58,51 +60,6 @@ export function AppHeaderAxl() {
 
     const { unread, setUnread, showChat, setShowChat, pendingConvId, setPendingConvId, pendingMsgId, setPendingMsgId } = useChatWs(user?._id)
     const { workspace, setWorkspace } = useWorkspaceMode(user?._id)
-
-    // ── ambient aurora candlesticks (built once into the .ticks svg) ──
-    useEffect(() => {
-        const wrap = ticksRef.current
-        if (!wrap) return
-        const NS = 'http://www.w3.org/2000/svg'
-        const W = 1200, base = 50            // viewBox width + waterline
-        const hues = ['c-green', 'c-teal', 'c-cyan', 'c-violet']
-        const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-
-        const svg = document.createElementNS(NS, 'svg')
-        svg.setAttribute('viewBox', `0 0 ${W} 60`)
-        svg.setAttribute('preserveAspectRatio', 'none')
-
-        let i = 0
-        for (let x = 22; x <= W - 12; x += 42, i++) {
-            const h = 8 + Math.round(Math.random() * 22)
-            const top = base - h
-            const wickUp = 2 + Math.round(Math.random() * 6)
-            const wickDn = 2 + Math.round(Math.random() * 4)
-
-            const g = document.createElementNS(NS, 'g')
-            g.setAttribute('class', 'grp ' + hues[i % hues.length])
-            if (!reduce) {
-                g.style.setProperty('--dur', (6 + Math.random() * 4).toFixed(2) + 's')
-                g.style.animationDelay = (-Math.random() * 9).toFixed(2) + 's'
-            }
-
-            const wick = document.createElementNS(NS, 'line')
-            wick.setAttribute('class', 'wick')
-            wick.setAttribute('x1', x); wick.setAttribute('x2', x)
-            wick.setAttribute('y1', top - wickUp); wick.setAttribute('y2', base + wickDn)
-
-            const body = document.createElementNS(NS, 'rect')
-            body.setAttribute('class', 'candle')
-            body.setAttribute('x', x - 1.5); body.setAttribute('y', top)
-            body.setAttribute('width', 3); body.setAttribute('height', h)
-            body.setAttribute('rx', 0.8)
-
-            g.appendChild(wick); g.appendChild(body)
-            svg.appendChild(g)
-        }
-        wrap.appendChild(svg)
-        return () => { wrap.removeChild(svg) }
-    }, [])
 
     // ── centered axl stream: messages arrive one at a time and fade ──
     useEffect(() => {
@@ -140,8 +97,6 @@ export function AppHeaderAxl() {
 
     return (
         <header className="app-header-axl full">
-            {/* ambient breathing candlesticks */}
-            <div className="app-header-axl__ticks" ref={ticksRef} aria-hidden="true" />
 
             <div className="app-header-axl__inner">
                 {/* brand — axl meditating bot */}

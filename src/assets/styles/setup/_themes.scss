@@ -207,16 +207,6 @@
     --popover-divider:       rgba(33, 54, 63, 0.60);
     --popover-btn-hover-bg:  rgba(78, 144, 124, 0.18);
 
-    // Soft aurora bloom — re-enabled at a low, calm intensity (≈ half the base
-    // opacity). We override only the four hue stops (dimmer, still derived from
-    // --aurora-hue) and inherit the shared --aurora-wash geometry from the :root
-    // block below, so the bloom follows the accent/aurora hue slider. Cascades into
-    // --bg-wash / --bg-wash-surface (backdrop, header, panels).
-    --aurora-1: hsla(calc(var(--aurora-hue) - 33), 52%, 67%, 0.07);
-    --aurora-2: hsla(var(--aurora-hue),            52%, 58%, 0.055);
-    --aurora-3: hsla(calc(var(--aurora-hue) + 22), 62%, 61%, 0.055);
-    --aurora-4: hsla(calc(var(--aurora-hue) + 69), 56%, 75%, 0.07);
-
     // H1 wordmark — every gradient stop is the same colour (no colour transition);
     // the aurora glow is kept.
     --h1-grad-top:    #EEF3F2;
@@ -235,30 +225,16 @@
     --font-sans: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
     --font-mono: 'IBM Plex Mono', monospace;
 
-    // Aurora-washed backgrounds — the app-header hue-wash, blooming up from the
-    // bottom edge, over the night base / surface. The four hues are derived from a
-    // single anchor hue (--aurora-hue, the brand teal) plus fixed offsets, so the
-    // whole aurora rotates together when the profile hue slider changes
-    // --aurora-hue (e.g. teal → green; cyan/violet follow). The wash geometry lives
-    // once in --aurora-wash and is reused by the header (AppHeaderAxl.scss) and the
-    // app backdrop (RootCmp.scss) so the whole app stays identical + in sync.
-    --aurora-hue: 174;                                              // anchor: brand teal; the hue slider rotates this
-    --aurora-1: hsla(calc(var(--aurora-hue) - 33), 52%, 67%, 0.14); // green  (anchor − 33)
-    --aurora-2: hsla(var(--aurora-hue),            52%, 58%, 0.11); // teal   (anchor)
-    --aurora-3: hsla(calc(var(--aurora-hue) + 22), 62%, 61%, 0.11); // cyan   (anchor + 22)
-    --aurora-4: hsla(calc(var(--aurora-hue) + 69), 56%, 75%, 0.14); // violet (anchor + 69)
-    // Each bloom is anchored to the element's OWN bottom edge (y 100%) with
-    // full-height reach, so the aurora is visible on the short header AND on the
-    // tall app backdrop / panels alike — not just where the element happens to be
-    // short. Same wash everywhere; the slider rotates all four hues together.
-    --aurora-wash:
-        radial-gradient(78% 108% at 12% 100%, var(--aurora-1), transparent 72%),
-        radial-gradient(66% 100% at 42% 100%, var(--aurora-2), transparent 72%),
-        radial-gradient(70% 104% at 73% 100%, var(--aurora-3), transparent 72%),
-        radial-gradient(74% 108% at 95% 100%, var(--aurora-4), transparent 72%);
-    // Aurora wash is header-only now — panels/components use plain base/surface (the
-    // --bg-wash* tokens stay so their ~30 consumers don't each need editing). The header
-    // (AppHeaderAxl.scss) still applies --aurora-wash directly.
+    // The aurora ANCHOR HUE. It no longer washes any background — the header now sits on plain
+    // --bg-base — but it still drives the header's calm-water wave below, so the profile hue
+    // slider (themeService.setAuroraHue) keeps working and keeps that line in sync with the accent.
+    //
+    // Gone with the wash: --aurora-1..4 (the four bloom stops) and --aurora-wash (their geometry).
+    // They had exactly one consumer, the header's ::after, and nothing inherited them.
+    --aurora-hue: 174;   // anchor: brand teal; the hue slider rotates this
+
+    // Surfaces are plain base/surface. The --bg-wash* names are kept because ~30 components read
+    // them; they are now aliases, not a wash.
     --bg-wash:         var(--bg-base);
     --bg-wash-surface: var(--bg-surface);
 

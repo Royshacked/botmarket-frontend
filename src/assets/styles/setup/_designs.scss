@@ -53,8 +53,6 @@
     --color-short: #ff5c6c;
     --color-hit:   #36d399;
 
-    --aurora-wash: linear-gradient(transparent, transparent);
-
     --h1-grad-top: #ffe199; --h1-grad-mid1: #ffd27a; --h1-grad-mid2: #e0a000;
     --h1-grad-mid3: #e0a000; --h1-grad-bottom: #b88000;
     --h1-glow-1: rgba(224,160,0,0.6); --h1-glow-2: rgba(224,160,0,0.35); --h1-glow-3: rgba(224,160,0,0.18);
@@ -133,11 +131,6 @@
     --glow:          rgba(139, 123, 240, 0.16);
     --glow-soft:     rgba(139, 123, 240, 0.07);
     --glow-mid:      rgba(139, 123, 240, 0.11);
-
-    // Soft violet + coral bloom from the bottom edge
-    --aurora-wash:
-        radial-gradient(80% 110% at 18% 100%, rgba(139,123,240,0.16), transparent 70%),
-        radial-gradient(70% 100% at 80% 100%, rgba(255,138,160,0.12), transparent 70%);
 
     --h1-grad-top: #ffffff; --h1-grad-mid1: #ddd5ff; --h1-grad-mid2: #b9acff;
     --h1-grad-mid3: #8b7bf0; --h1-grad-bottom: #6a5ad0;
@@ -219,10 +212,6 @@
     --color-long:  #00f5a0;
     --color-short: #ff2e6b;
     --color-hit:   #00f5a0;
-
-    --aurora-wash:
-        radial-gradient(75% 110% at 12% 100%, rgba(255,46,136,0.14), transparent 70%),
-        radial-gradient(75% 110% at 88% 100%, rgba(0,229,255,0.12), transparent 70%);
 
     --h1-grad-top: #ffc2dd; --h1-grad-mid1: #ff7ab5; --h1-grad-mid2: #ff2e88;
     --h1-grad-mid3: #ff2e88; --h1-grad-bottom: #c01060;
@@ -308,9 +297,6 @@
     --color-long:  #3ddc97;
     --color-short: #f0616e;
     --color-hit:   #3ddc97;
-
-    // Barely-there emerald lift from the bottom-left — keeps it calm and flat.
-    --aurora-wash: radial-gradient(70% 90% at 10% 100%, rgba(31,157,107,0.07), transparent 72%);
 
     --h1-grad-top: #eef3f2; --h1-grad-mid1: #cfe9dd; --h1-grad-mid2: #6fd8a8;
     --h1-grad-mid3: #3ddc97; --h1-grad-bottom: #1f9d6b;
