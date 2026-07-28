@@ -31,6 +31,8 @@ import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
 import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
 import { mentorService } from '../services/mentor/mentor.service.remote.js'
+import { isSetupAwaitingConfirm } from '../cmps/TradeIdeas/setupStatus.js'
+import { isAwaitingConfirm } from '../services/entityStatus.js'
 import { useChatStream, toChatHistory } from '../customHooks/useChatStream.js'
 import { useCalendarEvents } from '../customHooks/useCalendarEvents.js'
 import { useScans }          from '../customHooks/useScans.js'
@@ -38,6 +40,7 @@ import { useBrokerAccounts } from '../customHooks/useBrokerAccounts.js'
 import { useWorkspaceMode }  from '../customHooks/useWorkspaceMode.js'
 import { usePositions }      from '../customHooks/usePositions.js'
 import { useTradeIdeas }     from '../customHooks/useTradeIdeas.js'
+import { useEntityList } from '../customHooks/useEntityList.js'
 import { useSetups }         from '../customHooks/useSetups.js'
 import { useAuth }           from '../context/AuthContext.jsx'
 
@@ -280,7 +283,6 @@ export function MainPage() {
     const [, setPortfolioLoading] = useState(false)
     const [, setScannerLoading]   = useState(false)
     const [, setKairosLoading]    = useState(false)
-    const [calls,            setCalls]            = useState([])
     const [callBusyId,       setCallBusyId]       = useState(null)
     // Live draft call reported up from KairosPanel → a "building" row in the Calls tab.
     const [kairosPendingCall, setKairosPendingCall] = useState(null)
@@ -296,35 +298,22 @@ export function MainPage() {
     const [scannerSeed,      setScannerSeed]      = useState(null)
     const [kairosScanResult, setKairosScanResult] = useState(null)
     const [analystScanResult, setAnalystScanResult] = useState(null)   // Argus investing candidate → Analyst research seed
-    const [coverage,        setCoverage]          = useState([])       // the Analyst's living book (Radar Coverage tab)
-    const [coverageLoading, setCoverageLoading]   = useState(false)
 
     // Kairos calls for the Axl Lists Calls tab. Holds all the user's calls (workspace-filtered in
     // the list); reloads on the shared 'kairos-calls-changed' event (generate / act / delete).
-    const loadCalls = useCallback(async () => { setCalls(await kairosService.listCalls()) }, [])
-    useEffect(() => {
-        loadCalls()
-        window.addEventListener(CALLS_CHANGED, loadCalls)
-        // The monitor changes a call's status server-side (waiting↔watching → ready/expiring) without
-        // firing CALLS_CHANGED, so poll to keep the list in step with the popup (which polls getCall).
-        const t = setInterval(loadCalls, 20_000)
-        return () => { window.removeEventListener(CALLS_CHANGED, loadCalls); clearInterval(t) }
-    }, [loadCalls])
+    // Polled because the monitor changes a call's status server-side (waiting↔watching →
+    // ready/expiring) without firing CALLS_CHANGED — same reason the popup polls getCall.
+    const loadCallsFn = useCallback(() => kairosService.listCalls(), [])
+    const { items: calls } = useEntityList({
+        load: loadCallsFn, changeEvent: CALLS_CHANGED, pollMs: 20_000, log: '[calls]',
+    })
 
     // The Analyst's living coverage book (Radar Coverage tab). Reloads on initiate/retire
     // (COVERAGE_CHANGED); polled so the monitor's status/gap updates surface.
-    const coverageLoadedRef = useRef(false)
-    const loadCoverage = useCallback(async () => {
-        if (!coverageLoadedRef.current) setCoverageLoading(true)   // spinner only on first load, not on polls
-        try { setCoverage(await analystService.listCoverage()); coverageLoadedRef.current = true }
-        finally { setCoverageLoading(false) }
-    }, [])
-    useEffect(() => {
-        loadCoverage()
-        window.addEventListener(COVERAGE_CHANGED, loadCoverage)
-        const t = setInterval(loadCoverage, 60_000)
-        return () => { window.removeEventListener(COVERAGE_CHANGED, loadCoverage); clearInterval(t) }
-    }, [loadCoverage])
+    const loadCoverageFn = useCallback(() => analystService.listCoverage(), [])
+    const { items: coverage, loading: coverageLoading } = useEntityList({
+        load: loadCoverageFn, changeEvent: COVERAGE_CHANGED, pollMs: 60_000, log: '[coverage]',
+    })
     async function handleRetireCoverage(cov) {
         if (!cov?.id) return
         try { await analystService.retireCoverage(cov.id) } catch (err) { console.error('[analyst] retire', err) }
@@ -332,7 +321,7 @@ export function MainPage() {
 
     async function handleActCall(id, action) {
         setCallBusyId(id)
-        try { await kairosService.actOnCall(id, action) }   // service broadcasts → loadCalls
+        try { await kairosService.actOnCall(id, action) }   // service broadcasts CALLS_CHANGED → the list reloads
         catch (err) { console.error('[kairos] act', err) }
         finally { setCallBusyId(null) }
     }
@@ -376,6 +365,7 @@ export function MainPage() {
     }
     const [dismissedConfirmIds, setDismissedConfirmIds] = useState(() => new Set())
     const [callConfirmId, setCallConfirmId] = useState(null)   // Kairos call showing the OrderConfirmDialog
+    const [setupConfirmId, setSetupConfirmId] = useState(null) // Mentor setup showing the OrderConfirmDialog
     const [placingOrders, setPlacingOrders] = useState(false)
     const [pendingDeleteIdea, setPendingDeleteIdea] = useState(null)
     const [pendingRebalance,  setPendingRebalance]  = useState(null)
@@ -392,7 +382,7 @@ export function MainPage() {
     const portfolioResumeRef = useRef(null)           // PortfolioPanel exposes its resume fn here
     const scannerResumeRef   = useRef(null)           // ScannerPanel exposes its resume fn here
     const kairosResumeRef    = useRef(null)           // KairosPanel exposes its resume fn here
-    const { setups, setupsLoading } = useSetups()
+    const { setups, setupsLoading, refreshSetups } = useSetups()
     const [setupBusyId, setSetupBusyId] = useState(null)
 
     // Arm / disarm / delete a setup from the Lists surface. Arming is the real gate — the server
@@ -517,13 +507,13 @@ export function MainPage() {
     }
 
     // Kairos call awaiting order confirmation: the call the user tapped "Confirm order" on, at
-    // 'ready'/'expiring' with a Hermes proposal + marked accounts. Shaped as an idea so the SHARED
+    // awaiting confirm with a Hermes proposal + marked accounts. Shaped as an idea so the SHARED
     // OrderConfirmDialog + buildOrderPreview work unchanged; onConfirm routes to actOnCall('confirm').
     let confirmCallAsIdea = null, confirmCallOrders = []
     if (callConfirmId && !confirmIdea) {
         const c = calls.find(x => x.id === callConfirmId)
         const p = c?.monitor_state?.last_assessment?.proposal
-        if (c && (c.status === 'ready' || c.status === 'expiring') && p && Array.isArray(c.accounts) && c.accounts.length) {
+        if (c && isAwaitingConfirm(c.status) && p && Array.isArray(c.accounts) && c.accounts.length) {
             const asIdea = {
                 asset: c.asset, asset_class: c.asset_class, direction: c.bias,
                 accounts: c.accounts, mainAccountId: c.main_account_id,
@@ -532,6 +522,21 @@ export function MainPage() {
             }
             const orders = buildOrderPreview(asIdea, availableAccounts)
             if (orders.length) { confirmCallAsIdea = asIdea; confirmCallOrders = orders }
+        }
+    }
+
+    // Talos-triggered setup awaiting order confirmation. Unlike a call (whose plan is a Hermes
+    // PROPOSAL that only becomes orders at confirm time), Talos already stamped an executable
+    // `pendingOrder.plan` when it flipped the setup to 'hit' — so this reads the real plan rather
+    // than rebuilding a preview, and confirming places it through the kind-blind order endpoint.
+    let confirmSetup = null, confirmSetupOrders = []
+    if (setupConfirmId && !confirmIdea && !confirmCallAsIdea) {
+        const su = setups.find(x => x.id === setupConfirmId)
+        // Same gate as an idea: still 'hit', still awaiting confirm, not already placed.
+        if (su && isSetupAwaitingConfirm(su.status) && !su.ordersPlacedAt &&
+            (su.orderState === 'awaiting_confirm' || su.orderState == null)) {
+            const orders = Array.isArray(su.pendingOrder?.plan) ? su.pendingOrder.plan : []
+            if (orders.length) { confirmSetup = su; confirmSetupOrders = orders }
         }
     }
 
@@ -897,7 +902,7 @@ export function MainPage() {
 
     // Call-expiry card "Edit call" → reopen the call in Kairos's in-app edit mode (same pipeline as
     // the Calls-tab pencil). handleEditCall re-maps the thesis and "Update call" re-arms the monitor
-    // — updateKairosCall re-arms to 'waiting' whether the call was 'expiring' (alive) or 'expired'
+    // — updateKairosCall re-arms to 'waiting' whether or not the thesis had gone stale
     // (terminal), so both expiry cards route here.
     useEffect(() => {
         return eventBus.on(CALL_EXPIRY_EDIT, ({ callId }) => {
@@ -911,12 +916,15 @@ export function MainPage() {
         return eventBus.on(OPEN_COVERAGE, () => setActiveTab('analyst'))
     }, [])
 
-    // A Talos entry card routes here. It cannot yet open the OrderConfirmDialog the way an idea
-    // does: that resolves the entity out of the loaded IDEAS list, and setups are a different kind
-    // (getIdeas filters kind:'idea'). Until the setups list is loaded into the workspace, land the
-    // user on Mentor rather than silently doing nothing.
+    // A Talos entry card routes here: social-chat card → Confirm → the order dialog. The setups
+    // list is loaded in this component (useSetups), so the setup is resolved the same way an idea
+    // is; if it can't be resolved (not yet reloaded, or already placed) fall back to Mentor rather
+    // than leaving the click dead.
     useEffect(() => {
-        return eventBus.on(SETUP_CONFIRM_OPEN, () => setActiveTab('mentor'))
+        return eventBus.on(SETUP_CONFIRM_OPEN, ({ setupId }) => {
+            if (setupId) setSetupConfirmId(setupId)
+            else setActiveTab('mentor')
+        })
     }, [])
 
     // Confirm the call's proposed entry → materialize + place via the Kairos handoff (actOnCall).
@@ -924,7 +932,7 @@ export function MainPage() {
         if (!callConfirmId) return
         setPlacingOrders(true)
         try {
-            await kairosService.actOnCall(callConfirmId, 'confirm')   // service broadcasts CALLS_CHANGED → loadCalls
+            await kairosService.actOnCall(callConfirmId, 'confirm')   // service broadcasts CALLS_CHANGED → the list reloads
             setCallConfirmId(null)
         } catch (err) {
             console.error('[kairos] confirm call order', err)
@@ -934,6 +942,25 @@ export function MainPage() {
         }
     }
     function handleDismissCallConfirm() { setCallConfirmId(null) }
+
+    // Confirm a setup's entry. Execution is kind-blind (placeOrdersForIdea resolves the entity by
+    // id, not by kind), so the setup's own plan places through the same endpoint an idea uses.
+    async function handleConfirmSetupOrders(setup, orders) {
+        setPlacingOrders(true)
+        try {
+            await tradeIdeasService.placeOrders(setup.id, orders)
+            setSetupConfirmId(null)
+            refreshSetups()
+        } catch (err) {
+            console.error('[setups] place orders failed', err)
+            const data      = err?.response?.data
+            const brokerErr = data?.results?.find(r => r && r.ok === false && r.error)?.error
+            showErrorMsg(`Order placement failed: ${brokerErr || data?.error || err.message}`)
+        } finally {
+            setPlacingOrders(false)
+        }
+    }
+    function handleDismissSetupConfirm() { setSetupConfirmId(null) }
 
     // Manual portfolio activate → mark every pending leg awaiting-fill + post the N-leg
     // entry FillCard; reload so the legs reflect the new state (the card arrives via WS).
@@ -1927,6 +1954,17 @@ export function MainPage() {
                     onConfirm={handleConfirmOrders}
                     onDismiss={handleDismissConfirm}
                     onReset={handleResetWindow}
+                />
+            )}
+
+            {/* Same dialog, driven by a Talos-triggered setup's stamped order plan. */}
+            {confirmSetup && confirmSetupOrders.length > 0 && (
+                <OrderConfirmDialog
+                    idea={confirmSetup}
+                    orders={confirmSetupOrders}
+                    placing={placingOrders}
+                    onConfirm={handleConfirmSetupOrders}
+                    onDismiss={handleDismissSetupConfirm}
                 />
             )}
 
