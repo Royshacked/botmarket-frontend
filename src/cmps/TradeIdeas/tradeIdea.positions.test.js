@@ -31,7 +31,7 @@ test('positionOwnerIdea finds the linking idea, else null', () => {
 })
 
 test('positionOpenTarget: a stamped callId routes to its Call (full object when loaded)', () => {
-    const call = { id: 'call_1', asset: 'EXTR', status: 'in_position' }
+    const call = { id: 'call_1', asset: 'EXTR', status: 'long' }
     const p    = pos('px1', { callId: 'call_1' })
     const t    = positionOpenTarget(p, [], [call])
     assert.equal(t.kind, 'call')

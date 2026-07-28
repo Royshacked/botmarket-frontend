@@ -64,9 +64,9 @@ test('call pre-proposal → entry_zones + reference_levels', () => {
     assert.deepEqual(indicators, [{ name: 'VWAP', calcParams: [], overlay: true }])
 })
 
-test('call ready → proposal entry/stop/tp', () => {
+test('call awaiting confirm → proposal entry/stop/tp', () => {
     const call = {
-        status: 'ready', bias: 'long',
+        status: 'hit', bias: 'long',
         monitor_state: { last_assessment: { proposal: { entry: 101, stop: 98, take_profit: [{ price: 106 }, { price: 110 }] } } },
     }
     const { levels } = deriveCallOverlay(call)
@@ -74,7 +74,7 @@ test('call ready → proposal entry/stop/tp', () => {
         [['entry', 101, 'Entry'], ['stop', 98, 'Stop'], ['tp', 106, 'TP1'], ['tp', 110, 'TP2']])
 })
 
-test('call in_position → position fill/stop/targets, closed adds exit', () => {
+test('a LIVE call → position fill/stop/targets, closed adds exit', () => {
     const base = {
         position_state: {
             entry: { fill_price: 101.5, intended: 101, direction: 'long' },
@@ -82,7 +82,9 @@ test('call in_position → position fill/stop/targets, closed adds exit', () => 
             targets: [{ price: 106, hit_at: 123 }, { price: 110 }],
         },
     }
-    const inPos = deriveCallOverlay({ ...base, status: 'in_position' })
+    // Live is 'long'/'short' — the shared ladder. Gating this on the retired 'in_position'
+    // literal is what kept a live call's own levels off its chart.
+    const inPos = deriveCallOverlay({ ...base, status: 'long' })
     assert.deepEqual(inPos.levels.map(l => [l.kind, l.price, l.label]),
         [['entry', 101.5, 'Entry'], ['stop', 99, 'Stop'], ['tp', 106, 'TP1 ✓'], ['tp', 110, 'TP2']])
 
