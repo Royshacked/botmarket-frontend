@@ -1,3 +1,5 @@
+import { openEntityPopup } from '../EntityCard/entityPopup.js'
+
 /**
  * Condition tree → compact one-liner string.
  *
@@ -38,37 +40,34 @@ export function treeToOneliner(node, isRoot = true) {
 }
 
 /**
- * Open an idea in its own pop-out window (the /idea/:id page). The idea object is
- * handed to the new window directly (and mirrored to localStorage as a fallback)
- * so it renders instantly without a round-trip; IdeaPage also falls back to the
- * API when neither is present, so a direct URL still works.
+ * Open an idea in its own pop-out window (the /idea/:id page).
+ *
+ * Thin wrappers over the ONE opener in entityPopup.js — kept as named exports because the call
+ * sites read better (`openCallPopup(call)` says what it does) and because they are imported from a
+ * dozen places. The mechanism, the hand-off and the window sizing live in entityPopup.
  *
  * @param {import('../../types.js').Idea} idea
  * @returns {Window|null}
  */
 export function openIdeaPopup(idea) {
-    localStorage.setItem(`popup-idea-${idea.id}`, JSON.stringify(idea))
-    const popup = window.open(`/idea/${idea.id}`, `idea-${idea.id}`, 'width=960,height=720')
-    if (popup) popup.__ideaData = idea
-    return popup
+    return openEntityPopup('idea', idea)
 }
 
 /**
- * Pop-out detail window for a Kairos call (mirrors openIdeaPopup). Accepts a full call object
- * (stashed for instant render) or a bare call id (CallPage fetches it from the API). Used by the
- * Call cards, social-chat bubbles, and the Positions tab (a call-originated position → its Call).
+ * Pop-out detail window for a Kairos call. Accepts a full call object (stashed for instant render)
+ * or a bare call id (the page then fetches it). Used by the Call cards, social-chat bubbles, and
+ * the Positions tab (a call-originated position → its Call).
  *
- * @param {import('../../types.js').Call|string} call  a call object or its id
+ * @param {import('../../types.js').Call|string} call
  * @returns {Window|null}
  */
 export function openCallPopup(call) {
-    const id = typeof call === 'string' ? call : call?.id
-    if (!id) return null
-    const isObj = call && typeof call === 'object'
-    if (isObj) localStorage.setItem(`popup-call-${id}`, JSON.stringify(call))
-    const popup = window.open(`/call/${id}`, `call-${id}`, 'width=1180,height=760')
-    if (popup && isObj) popup.__callData = call
-    return popup
+    return openEntityPopup('call', call)
+}
+
+/** Pop-out detail window for a Mentor setup (watched by Talos). */
+export function openSetupPopup(setup) {
+    return openEntityPopup('setup', setup)
 }
 
 // Field triples per trade phase. Single source for how entry/stop/tp conditions
@@ -313,6 +312,24 @@ export function matchPositionsForIdea(idea, positions = []) {
     if (!links.length || !positions.length) return []
     return positions.filter(p => positionBelongsToIdea(p, idea))
 }
+
+/**
+ * Open broker positions belonging to ANY entity — idea, setup or call.
+ *
+ * The same join as matchPositionsForIdea under a kind-neutral name: `brokerOrders` is an envelope
+ * field, so every kind carries it (Talos stamps execution onto a setup; a call self-shadows with
+ * its own linkage since P3b). This is the ONE way a detail view answers "which positions are
+ * mine".
+ *
+ * It exists because the three pop-outs each matched by SYMBOL instead, which is not an identity:
+ * a portfolio holding and a setup on the same ticker are different entities, so opening a setup on
+ * AVGO showed the portfolio's AVGO position too — and PopoutFooter reads a non-empty list as "in
+ * position", which then delete-locked a setup that owned nothing.
+ *
+ * Strict by design: no symbol fallback. An entity with no linked position owns no position, which
+ * is the whole point.
+ */
+export const positionsForEntity = matchPositionsForIdea
 
 /**
  * The idea that owns a broker position (the inverse of matchPositionsForIdea), or

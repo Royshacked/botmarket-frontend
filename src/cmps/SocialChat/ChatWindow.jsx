@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
+// The call pop-out (Confirm entry / Accept edit / Delete live there) — one opener, shared
+// with the Calls list, so the window name and size can't drift between the two entry points.
+import { openCallPopup } from '../TradeIdeas/tradeIdea.utils.js'
 import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE } from '../../services/event-bus.service'
 import { manualService } from '../../services/manual/manual.service.remote'
 import { ChatInputRow } from '../ChatInputRow.jsx'
@@ -229,11 +232,6 @@ export function InvalidationAlertBubble({ msg, onClose, onResolve }) {
             resolvedLabels={{ editing: '✓ Opened in chat', closing: '✓ Closing' }}
         />
     )
-}
-
-// Open a Kairos call's pop-out detail window — Confirm entry / Accept edit / Delete all live there.
-function openCallPopup(callId) {
-    window.open(`/call/${callId}`, `call-${callId}`, 'width=1180,height=760')
 }
 
 // "Entry triggered — confirm" card. An idea routes to the workspace's OrderConfirmDialog; a Kairos

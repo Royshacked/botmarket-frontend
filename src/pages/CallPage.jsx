@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { deriveCallOverlay } from '../cmps/TradeIdeas/chartOverlay.js'
-import { deriveCallChartInterval } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { deriveCallChartInterval, positionsForEntity } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { CallDraft } from '../cmps/KairosPanel/KairosPanel.jsx'
 import { HermesBadge } from '../cmps/AxlHub/AgentBadges.jsx'
-import { StatusIcon } from '../cmps/StatusIcon.jsx'
+import { EntityPopupShell } from '../cmps/EntityCard/EntityPopupShell.jsx'
+import { useEntityPopup } from '../customHooks/useEntityPopup.js'
+import { isAwaitingConfirm, isLivePosition, isTerminal, isInvalidated } from '../services/entityStatus.js'
 import { PopoutFooter } from '../cmps/TradeIdeas/PopoutFooter.jsx'
 import { PriceChart } from '../cmps/PriceChart/PriceChart.jsx'
 import { usePositions } from '../customHooks/usePositions.js'
@@ -13,15 +15,10 @@ import '../cmps/KairosPanel/KairosPanel.scss'   // CallDraft chips/cards
 import './IdeaPage.scss'                          // REUSE the idea pop-out shell (header + chart 70 / column 30)
 import './CallPage.scss'                          // call-only bits (delete, action row)
 
+// The shared ladder — the StatusIcon set covers every rung, so there is no remap table.
 const STATUS_LABEL = {
-    waiting: 'watching for zone', watching: 'near a zone', ready: 'ready to enter',
-    expiring: 'expiring', confirmed: 'entered — awaiting fill', in_position: 'in position',
-    closed: 'closed', expired: 'expired', dismissed: 'dismissed',
-}
-// Map a call status to the closest idea StatusIcon (waiting→hourglass, watching→radar, …).
-const CALL_STATUS_ICON = {
-    waiting: 'waiting', watching: 'looking', ready: 'hit',
-    confirmed: 'hit', in_position: 'long', closed: 'closed', expired: 'closed', dismissed: 'closed',
+    waiting: 'not watched', looking: 'watching for the zone', hit: 'ready to enter — confirm',
+    long: 'in position', short: 'in position', closed: 'closed',
 }
 const REASON_LABEL = {
     closed: 'market closed', scheduled: 'heartbeat', zone_trip: 'in zone', expiry_review: 'expiry review',
@@ -212,42 +209,19 @@ ManagementCard.propTypes = { pending: PropTypes.object, busy: PropTypes.bool, on
 // chart-left / column-right layout — with the call form (CallDraft) in the right column instead of
 // idea conditions. Data is injected by the opener (window.__callData / localStorage), API fallback.
 export function CallPage() {
-    const id = window.location.pathname.split('/').at(-1)
-    const [call, setCall] = useState(null)
+    // Hand-off, hydration and the API fallback live in the shared hook. The poll is the live
+    // monitor journal: getCall carries monitor_state.timeline, so new Hermes wakes drop in while
+    // the pop-out is open.
+    const { id, entity: call, error: err, refresh } = useEntityPopup(
+        'call', kairosService.getCall, { pollMs: 20_000, notFound: 'Call not found' },
+    )
     const [busy, setBusy] = useState(false)
-    const [err,  setErr]  = useState(null)
     const { positions, refresh: refreshPositions, closePosition } = usePositions()
-
-    useEffect(() => {
-        if (window.__callData?.id === id) { setCall(window.__callData); delete window.__callData; return }
-        const cached = localStorage.getItem(`popup-call-${id}`)
-        if (cached) {
-            try { setCall(JSON.parse(cached)); localStorage.removeItem(`popup-call-${id}`); return }
-            catch { /* fall through */ }
-        }
-        kairosService.listCalls()
-            .then(list => { const c = list.find(x => x.id === id); c ? setCall(c) : setErr('Call not found') })
-            .catch(() => setErr('Failed to load call'))
-    }, [id])
-
-    // Live monitor journal: hydrate the full call (incl. monitor_state.timeline) and poll it while
-    // the pop-out is open, so new monitor wakes drop in. Silent on failure (keeps the fast-paint call).
-    useEffect(() => {
-        let alive = true
-        async function pull() { const c = await kairosService.getCall(id); if (alive && c) setCall(c) }
-        pull()
-        const t = setInterval(pull, 20_000)
-        return () => { alive = false; clearInterval(t) }
-    }, [id])
 
     // Levels + indicators to draw on this call's chart (before the early returns — rules of hooks;
     // deriveCallOverlay tolerates a null call). Stable identity so the chart doesn't thrash.
     const callOverlay = useMemo(() => deriveCallOverlay(call), [call])
 
-    async function refresh() {
-        const list = await kairosService.listCalls()
-        setCall(list.find(x => x.id === id) ?? null)
-    }
     async function act(action) {
         setBusy(true)
         try { await kairosService.actOnCall(id, action); await refresh() }
@@ -260,49 +234,44 @@ export function CallPage() {
         catch (e) { console.error('[call-page] delete', e); setBusy(false) }
     }
 
-    // Mirror IdeaPage's proven root exactly: pin to the popup viewport so the flex
-    // column (header → chart/main → footer) always resolves a real height.
-    const rootStyle = { position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-base)', color: 'var(--text-primary)', overflow: 'hidden' }
-    const centreStyle = { ...rootStyle, alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: '1rem' }
-
-    if (err)   return <div className="idea-page idea-page--err" style={centreStyle}>{err}</div>
-    if (!call) return <div className="idea-page idea-page--loading" style={centreStyle}>Loading…</div>
+    if (err || !call) return <EntityPopupShell error={err} loading={!call} />
 
     const a          = call.monitor_state?.last_assessment
     const p          = a?.proposal
-    const isReady    = call.status === 'ready'
-    const expiring   = call.status === 'expiring'
+    const isReady    = isAwaitingConfirm(call.status)
+    const expiring   = isInvalidated(call.invalidation_status)
     const ps         = call.position_state
-    const inPosition = call.status === 'in_position'
-    const closed     = call.status === 'closed'
+    const inPosition = isLivePosition(call.status)
+    const closed     = isTerminal(call.status)
     const pending    = ps?.pending_action
-    const iconStatus = (inPosition && ps?.entry?.direction === 'short') ? 'short' : (CALL_STATUS_ICON[call.status] ?? call.status)
+    // A live position's icon follows the DIRECTION, which position_state knows more reliably
+    // than the status does on a call that was filled short.
+    const iconStatus = (inPosition && ps?.entry?.direction === 'short') ? 'short' : call.status
 
-    // Positions on this asset (a confirmed call becomes a real idea with a position).
-    const callSymbols   = [call.asset, call.broker_symbol].filter(Boolean).map(s => String(s).toUpperCase())
-    const callPositions = positions.filter(p => p.symbol && callSymbols.includes(String(p.symbol).toUpperCase()))
+    // Positions belonging to THIS call — matched by broker linkage, not by symbol. A confirmed
+    // call carries its own brokerOrders (P3b self-shadow), so another entity holding the same
+    // ticker is not this call's position and must not appear here.
+    const callPositions = positionsForEntity(call, positions)
 
     // Chart timeframe = the rung Hermes actually assessed on, so the pop-out chart matches what
     // the monitor is reading (falls back to a horizon default until the first assessment runs).
     const chartTf = deriveCallChartInterval(call)
 
     return (
-        <div className="idea-page" style={rootStyle}>
-            <div className="idea-page__header">
-                <span className="idea-page__title">
-                    <HermesBadge size={22} />
-                    <span className="idea-page__asset">{call.asset || '—'}</span>
-                    {call.bias && <span className={`idea-page__direction direction--${call.bias}`}>{call.bias}</span>}
-                    {call.trade_type && <span className="idea-page__meta">{call.trade_type}</span>}
-                    {call.sizing?.max_size != null && <span className="idea-page__meta">max {call.sizing.max_size}</span>}
-                    {call.active_from && <span className="idea-page__meta">from {new Date(call.active_from).toLocaleString()}</span>}
-                    {call.valid_until && <span className="idea-page__meta">valid until {new Date(call.valid_until).toLocaleString()}</span>}
-                </span>
-                <span className={`idea-page__status status--${iconStatus}`} title={STATUS_LABEL[call.status] ?? call.status}>
-                    <StatusIcon status={iconStatus} />
-                </span>
-            </div>
-
+        <EntityPopupShell
+            badge={<HermesBadge size={22} />}
+            asset={call.asset}
+            direction={call.bias}
+            status={call.status}
+            iconStatus={iconStatus}
+            statusLabel={STATUS_LABEL[call.status] ?? call.status}
+            meta={[
+                call.trade_type ?? null,
+                call.sizing?.max_size != null ? `max ${call.sizing.max_size}` : null,
+                call.active_from ? `from ${new Date(call.active_from).toLocaleString()}` : null,
+                call.valid_until ? `valid until ${new Date(call.valid_until).toLocaleString()}` : null,
+            ]}
+        >
             <div className="idea-dialog__main">
                 <div className="idea-dialog__chart">
                     <PriceChart symbol={call.asset || 'SPY'} interval={chartTf} levels={callOverlay.levels} indicators={callOverlay.indicators} />
@@ -374,6 +343,6 @@ export function CallPage() {
                 onDelete={del}
                 deleteTitle="Delete call"
             />
-        </div>
+        </EntityPopupShell>
     )
 }

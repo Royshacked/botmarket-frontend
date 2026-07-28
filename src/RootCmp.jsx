@@ -9,6 +9,7 @@ import { MainPage } from './pages/MainPage.jsx'
 import { UserProfile } from './pages/UserProfile.jsx'
 import { IdeaPage } from './pages/IdeaPage.jsx'
 import { CallPage } from './pages/CallPage.jsx'
+import { SetupPage } from './pages/SetupPage.jsx'
 
 export function RootCmp() {
     const { user, isLoading } = useContext(AuthContext)
@@ -18,6 +19,8 @@ export function RootCmp() {
     if (location.pathname.startsWith('/idea/')) return <IdeaPage />
     // Kairos call pop-out window
     if (location.pathname.startsWith('/call/')) return <CallPage />
+    // Mentor setup pop-out window (watched by Talos)
+    if (location.pathname.startsWith('/setup/')) return <SetupPage />
 
     const onProfile = location.pathname === '/profile'
 
