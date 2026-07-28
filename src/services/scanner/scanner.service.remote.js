@@ -1,5 +1,6 @@
 import { httpService } from '../http.service'
 import { streamAgent } from '../agentStream'
+import { makeEntityApi } from '../entityApi'
 
 const BASE = 'api/scanner'
 
@@ -14,27 +15,23 @@ async function sendStream(messages, opts = {}) {
     await streamAgent(BASE, { messages, model, editList, handoff, profile, reasoningEffort, routingMode, currentPhase }, opts)
 }
 
-async function listScans() {
-    // Swallow load failures to an empty list; httpService already logs + handles 401.
-    try {
-        const data = await httpService.get(`${BASE}/scans`)
-        return Array.isArray(data.scans) ? data.scans : []
-    } catch { return [] }
-}
+// The scans list is an owner-scoped list like any other, so it rides the shared transport.
+// `listKey`: this route answers `{ scans: [...] }` rather than a bare array.
+const api = makeEntityApi({ base: `${BASE}/scans`, listKey: 'scans' })
+
+const listScans = () => api.list()
 
 async function createScan(scan) {
-    const data = await httpService.post(`${BASE}/scans`, { scan })
+    const data = await api.post('', { scan })
     return data.scan
 }
 
 async function updateScan(id, scan) {
-    const data = await httpService.put(`${BASE}/scans/${encodeURIComponent(id)}`, { scan })
+    const data = await api.put(id, { scan })
     return data.scan
 }
 
-async function deleteScan(id) {
-    return httpService.delete(`${BASE}/scans/${encodeURIComponent(id)}`)
-}
+const deleteScan = (id) => api.remove(id)
 
 async function saveChatState(messages) {
     return httpService.post(`${BASE}/chat-state`, { messages })
