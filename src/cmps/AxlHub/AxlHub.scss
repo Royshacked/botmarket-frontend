@@ -136,12 +136,16 @@
 // and the row's own margin provides the inset.
 
 // ── pipeline header ──
+// Height from the shared --header-h (see _themes.scss). This one carried no title icon, so it sat
+// noticeably shorter than the agent panel headers it sits above — the hub is what you see FIRST,
+// so it was the most visible break in the line.
 .axl-hub__header {
     flex-shrink: 0;
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 7px 20px;
+    height: var(--header-h);
+    padding: 0 20px;
     border-bottom: 1px solid var(--border);
     background: var(--bg-wash-surface);
     font-family: var(--font-mono);

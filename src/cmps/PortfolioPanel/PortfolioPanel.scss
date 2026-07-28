@@ -21,11 +21,15 @@
     color: var(--text-primary);
 
     // ── Header ──────────────────────────────────────────────────────────
+    // Shared by Portfolio, Kairos, Mentor, Scanner and Analyst (they all import this stylesheet),
+    // so this one rule is what keeps the header from jumping as you switch agents. Height comes
+    // from --header-h (see _themes.scss).
     &__header {
         display: flex;
         align-items: center;
         flex-shrink: 0;
-        padding: 7px 20px;
+        height: var(--header-h);
+        padding: 0 20px;
         background: var(--bg-wash-surface);
         border-bottom: 1px solid var(--border);
     }

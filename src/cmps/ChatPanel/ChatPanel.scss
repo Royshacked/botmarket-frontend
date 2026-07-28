@@ -14,11 +14,14 @@
     color: var(--text-primary);
 
     // ── Header ──────────────────────────────────────────────────────────
+    // Height comes from the shared --header-h (see _themes.scss) so this header lines up with the
+    // sibling agent panels and the Floor design's column headings.
     &__header {
         display: flex;
         align-items: center;
         flex-shrink: 0;
-        padding: 7px 20px;
+        height: var(--header-h);
+        padding: 0 20px;
         background: var(--bg-wash-surface);
         border-bottom: 1px solid var(--border);
     }

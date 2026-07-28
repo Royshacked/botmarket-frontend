@@ -238,6 +238,18 @@
     --bg-wash:         var(--bg-base);
     --bg-wash-surface: var(--bg-surface);
 
+    // ── Panel header height — one number, app-wide ────────────────────────────
+    // Every column header sits on this line: the agent chat headers (.chat-panel__header and the
+    // shared .portfolio-panel__header behind Portfolio/Kairos/Mentor/Scanner/Analyst) and the
+    // Floor design's column headings. Headers that miss each other by a few pixels are the single
+    // most visible way a multi-column layout stops reading as one app, and three stylesheets each
+    // holding their own copy of the number is how that drift starts.
+    //
+    // 54px = the .axl-hub__option row ("Trade an asset" and siblings), which is what these were
+    // matched to: a 36px title icon clears it with room, so raising it is safe, lowering below
+    // ~38px is not.
+    --header-h: 54px;
+
     // Header wave gradient stops (the calm-water line at the header's bottom edge).
     // Same green→teal→cyan→blue→violet signature as the aurora, derived from the
     // shared --aurora-hue with fixed offsets, so the wave rotates with the accent/

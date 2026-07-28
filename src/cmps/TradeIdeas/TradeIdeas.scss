@@ -7,12 +7,16 @@
     flex-direction: column;
     min-height: 0;
 
+    // Height from --header-h (see _themes.scss). This is the LIVE design's right column, sitting
+    // directly beside the chat panel — the one pairing where a few pixels of mismatch is visible
+    // on every screen.
     &__header {
         flex-shrink: 0;
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 7px 20px;
+        height: var(--header-h);
+        padding: 0 20px;
         background: var(--bg-wash-surface);
         border-bottom: 1px solid var(--border);
         color: var(--accent-light);
