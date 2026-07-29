@@ -1,3 +1,12 @@
+// NB: despite the name, this file IS the shared agent-chat shell. Nine files import it — every
+// agent panel (Kairos, Scanner, Analyst, Mentor), ChatBubble and AxlHub — for the `.portfolio-panel`
+// frame: __messages, __bubble, __action-bubble, __review-btn and the ChatInputRow prefix.
+//
+// It is shared by convention rather than by name, which is why a new panel "just works" after
+// importing a competitor's stylesheet. Renaming it to _chatShell.scss is the honest fix; it is a
+// nine-file, visually-unverifiable change, so it is deliberately left for a pass where the panels
+// can be eyeballed side by side rather than smuggled into a refactor.
+
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap');
 
 .portfolio-panel {
@@ -12,11 +21,15 @@
     color: var(--text-primary);
 
     // ── Header ──────────────────────────────────────────────────────────
+    // Shared by Portfolio, Kairos, Mentor, Scanner and Analyst (they all import this stylesheet),
+    // so this one rule is what keeps the header from jumping as you switch agents. Height comes
+    // from --header-h (see _themes.scss).
     &__header {
         display: flex;
         align-items: center;
         flex-shrink: 0;
-        padding: 7px 20px;
+        height: var(--header-h);
+        padding: 0 20px;
         background: var(--bg-wash-surface);
         border-bottom: 1px solid var(--border);
     }
@@ -117,10 +130,13 @@
     }
 
     // ── Messages ─────────────────────────────────────────────────────────
+    // overflow-x hidden for the same reason as ChatPanel's thread — this is the surface every
+    // agent panel (and the Axl chat) reuses, so an over-wide child here shifts all of them.
     &__messages {
         flex: 1;
         min-height: 0;
         overflow-y: auto;
+        overflow-x: hidden;
         padding: 16px 20px;
         display: flex;
         flex-direction: column;

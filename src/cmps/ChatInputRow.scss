@@ -32,15 +32,29 @@
 
 .chat-input-row {
     flex-shrink: 0;
+    // Three-quarter width, centred in its panel. `min-width` keeps it usable when
+    // a panel column is narrow; `max-width` keeps the old 10px side gutters so it
+    // can never touch (or overflow) the panel edge.
+    box-sizing: border-box;
+    width: 75%;
+    min-width: 260px;
+    max-width: calc(100% - 20px);
     display: flex;
     align-items: center;
     gap: 2px;
-    margin: 6px 10px 10px;
+    margin: 6px auto 10px;
     padding: 4px 5px 4px 7px;
     background: var(--bg-raised);
     border: 1px solid var(--border);
     border-radius: 16px;
-    transition: border-color 0.15s, box-shadow 0.15s;
+    // The lift/settle between the landing and docked states is the same move in
+    // both directions — margin + padding + radius animate, focus ring stays snappy.
+    transition:
+        border-color 0.15s,
+        box-shadow 0.25s,
+        margin 0.45s cubic-bezier(0.22, 0.61, 0.36, 1),
+        padding 0.3s cubic-bezier(0.22, 0.61, 0.36, 1),
+        border-radius 0.3s;
 
     &:focus-within {
         border-color: color-mix(in srgb, var(--accent-light) 55%, transparent);
@@ -119,6 +133,32 @@
     &__resume {
         color: var(--accent-light);
         &:not(:disabled):hover { color: var(--accent-bright); }
+    }
+}
+
+// ── Landing state (`empty` prop) ───────────────────────────────────────────────
+// No thread yet → the composer is what the screen is about: it sits well above the
+// floor, roomier and softly lit, so the eye lands on it instead of on a footer pill.
+// The moment a thread exists the modifier drops and it settles back down — same
+// element, so the move is a transition, not a remount.
+.chat-input-row--empty {
+    margin-bottom: clamp(24px, 15vh, 150px);
+    padding: 8px 8px 8px 12px;
+    border-radius: 22px;
+    box-shadow: 0 12px 32px -14px color-mix(in srgb, var(--accent-light) 26%, transparent);
+
+    // Focusing the landing composer must not cost it its lift — the base
+    // `:focus-within` ring would otherwise replace the glow the moment it's clicked.
+    &:focus-within {
+        box-shadow:
+            0 0 0 3px color-mix(in srgb, var(--accent-light) 12%, transparent),
+            0 12px 32px -14px color-mix(in srgb, var(--accent-light) 26%, transparent);
+    }
+
+    .chat-input-row__textarea {
+        font-size: 15px;
+        min-height: 54px;
+        padding: 10px 6px;
     }
 }
 

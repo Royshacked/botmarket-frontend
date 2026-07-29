@@ -4,8 +4,8 @@ import { analystService } from '../../services/analyst/analyst.service.remote.js
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
 import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
-import { useChatScroll } from '../../customHooks/useChatScroll.js'
-import { ChatInputRow } from '../ChatInputRow.jsx'
+import { AgentMessages } from '../AgentMessages.jsx'
+import { AgentChatInput } from '../AgentChatInput.jsx'
 import { ChatBubble } from '../ChatBubble.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import '../PortfolioPanel/PortfolioPanel.scss'
@@ -51,10 +51,8 @@ CoverageDraft.propTypes = { coverage: PropTypes.object.isRequired }
 export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated, coverage = [] }) {
     const chat = useChatStream({ threadPhases: true })
     const { messages, isLoading } = chat
-    const [inputText, setInputText] = useState('')
     const [pendingCoverage, setPendingCoverage] = useState(null)
     const [initiateErr, setInitiateErr] = useState('')
-    const textareaRef = useRef(null)
     const seedRef     = useRef(null)   // one-shot Argus investing seed for the next send
     const pendingRef  = useRef(null)
     pendingRef.current = pendingCoverage
@@ -67,13 +65,10 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated, 
     const existingRef = useRef(null)
     existingRef.current = existingCoverage
 
-    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, { watch: chat.streamStatus })
-
     useEffect(() => { onLoadingChange?.(isLoading) }, [isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
 
     async function _send(text) {
         if (!text || isLoading) return
-        setInputText('')
         setInitiateErr('')
         const seed = seedRef.current; seedRef.current = null
         const history = toChatHistory(messages)
@@ -145,8 +140,6 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated, 
         _send(`Research ${scanResult.ticker} for coverage.`)
     }, [scanResult?.key])   // eslint-disable-line react-hooks/exhaustive-deps
 
-    function handleSend()      { const t = inputText.trim(); if (t) _send(t) }
-    function handleKeyDown(e)  { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }
     function handleClear()     { chat.reset(); setPendingCoverage(null); setInitiateErr('') }
 
     async function handleInitiate() {
@@ -189,7 +182,7 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated, 
 
     return (
         <div className="portfolio-panel analyst-panel">
-            <div className="portfolio-panel__messages" ref={messagesRef} onScroll={handleScroll}>
+            <AgentMessages chat={chat}>
                 {messages.length === 0 && (
                     <div className="analyst-panel__intro">
                         <h3>Prometheus</h3>
@@ -198,8 +191,7 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated, 
                 )}
                 {messages.map((msg, i) => <MessageBubble key={i} msg={msg} />)}
                 {isLoading && <ToolStatusChip label={chat.streamStatus} />}
-                <div ref={messagesEndRef} />
-            </div>
+            </AgentMessages>
 
             {!isLoading && pendingCoverage && (
                 <div className="analyst-panel__draft-wrap">
@@ -211,22 +203,12 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated, 
                 </div>
             )}
 
-            <ChatInputRow
-                prefix="portfolio-panel"
-                textareaRef={textareaRef}
-                value={inputText}
-                onChange={e => setInputText(e.target.value)}
-                onKeyDown={handleKeyDown}
+            <AgentChatInput
+                chat={chat}
                 placeholder="A ticker to research — e.g. “Cover NVDA” (Enter to send)"
-                onSend={handleSend}
-                sendDisabled={!inputText.trim() || isLoading}
-                isStreaming={isLoading}
-                onStop={chat.handleStop}
-                canResume={chat.canResume}
-                onResume={_continue}
+                onSend={_send}
                 onClear={handleClear}
-                clearDisabled={isLoading || !messages.length}
-                clearTitle="Clear chat"
+                onResume={_continue}
             />
         </div>
     )

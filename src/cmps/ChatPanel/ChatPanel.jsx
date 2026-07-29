@@ -8,6 +8,8 @@ import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { ConvictionChip } from '../ConvictionChip/ConvictionChip.jsx'
+import { ChatChart } from '../ChatChart.jsx'
+import { ChatChartDock } from '../ChatChartDock.jsx'
 import { ChatPhaseHeading } from '../ChatPhaseHeading.jsx'
 import { ChatReasoning } from '../ChatReasoning.jsx'
 import './ChatPanel.scss'
@@ -226,22 +228,12 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
             <div className="chat-panel__messages" ref={messagesRef} onScroll={handleScroll}>
                 {messages.length === 0 && <AgentIntro agent={AGENTS.idea} />}
                 {messages.map((msg, i) => (
-                    msg.role === 'phase' ? (
+                    // `hidden` = a history-only note (a wordless turn that docked a chart): it keeps
+                    // the thread the model sees alternating, and has nothing for the user to read.
+                    msg.hidden ? null : msg.role === 'phase' ? (
                         <ChatPhaseHeading key={i} phase={msg.phase} label={PHASE_LABELS[msg.phase]} total={5} />
                     ) : msg.type === 'chart' ? (
-                        <div key={i} className="chat-panel__bubble chat-panel__bubble--assistant chat-panel__chart">
-                            <img
-                                className="chat-panel__chart-img"
-                                src={`data:image/png;base64,${msg.imageBase64}`}
-                                alt={`${msg.symbol ?? ''} ${msg.timeframe ?? ''} chart`}
-                                loading="lazy"
-                            />
-                            {(msg.symbol || msg.timeframe) && (
-                                <span className="chat-panel__chart-caption">
-                                    {[msg.symbol, msg.timeframe].filter(Boolean).join(' · ')}
-                                </span>
-                            )}
-                        </div>
+                        <ChatChart key={i} msg={msg} />
                     ) : (
                         <div key={i} className={`chat-panel__bubble chat-panel__bubble--${msg.role}`}>
                             {msg.role === 'assistant' ? (
@@ -352,8 +344,12 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                 </div>
             )}
 
+            {/* Above the composer, outside the scrolling thread — same place every chat docks it. */}
+            <ChatChartDock />
+
             <ChatInputRow
                 prefix="chat-panel"
+                empty={messages.length === 0}
                 textareaRef={inputRef}
                 value={input}
                 onChange={e => setInput(e.target.value)}

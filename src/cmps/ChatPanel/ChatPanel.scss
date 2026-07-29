@@ -14,11 +14,14 @@
     color: var(--text-primary);
 
     // ── Header ──────────────────────────────────────────────────────────
+    // Height comes from the shared --header-h (see _themes.scss) so this header lines up with the
+    // sibling agent panels and the Floor design's column headings.
     &__header {
         display: flex;
         align-items: center;
         flex-shrink: 0;
-        padding: 7px 20px;
+        height: var(--header-h);
+        padding: 0 20px;
         background: var(--bg-wash-surface);
         border-bottom: 1px solid var(--border);
     }
@@ -282,10 +285,15 @@
     }
 
     // ── Messages list ────────────────────────────────────────────────────
+    // overflow-x is pinned to hidden: declaring only overflow-y makes the OTHER axis compute to
+    // `auto`, so a single over-wide child (a long token, a wide table) grows a horizontal bar
+    // across the whole thread. Content that genuinely needs to scroll sideways — code blocks —
+    // does it inside its own box (ChatMarkdown.scss), which is where it belongs.
     &__messages {
         flex: 1;
         min-height: 0;
         overflow-y: auto;
+        overflow-x: hidden;
         padding: 16px 20px;
         display: flex;
         flex-direction: column;
@@ -359,30 +367,6 @@
             border-radius: 2px;
             text-align: center;
         }
-    }
-
-    // ── Chart image bubble ───────────────────────────────────────────────
-    &__chart {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        max-width: 92%;
-        padding-left: 0;
-    }
-
-    &__chart-img {
-        display: block;
-        width: 100%;
-        height: auto;
-        border: 1px solid var(--border);
-        border-radius: 4px;
-    }
-
-    &__chart-caption {
-        font-family: var(--font-mono);
-        font-size: 11px;
-        letter-spacing: 0.05em;
-        color: var(--text-secondary);
     }
 
     // ── Thinking indicator ───────────────────────────────────────────────

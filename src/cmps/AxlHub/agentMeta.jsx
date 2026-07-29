@@ -1,5 +1,5 @@
 // ── Shared agent metadata + transition timings ─────────────────────────────────
-// One source of truth for the three specialist agents (brand, hue, icon, copy) so
+// One source of truth for the specialist agents (brand, hue, icon, copy) so
 // the hub cards, the "summoning" beat and the in-chat introductions stay in sync.
 //
 // Data only — no component exports live here on purpose: mixing components with
@@ -77,6 +77,25 @@ export const AGENTS = {
             </>
         ),
     },
+    mentor: {
+        tab:   'mentor',
+        brand: 'Mentor',
+        hue:   'green',   // the counsel desk — steady, not the amber urgency of Kairos
+        lead:  'Work on your own trade',
+        blurb: 'Bring a ticker and your plan. Mentor analyses it, argues with it, and sharpens it.',
+        intro: "Bring me a ticker and how you'd trade it — I'll pressure-test it and we'll build the setup together.",
+        // Mentor never screens: the ticker always comes from the user (Pipeline F). The hint says so,
+        // so nobody arrives expecting a scan — that's Argus's desk.
+        hint:  "Name a ticker, a direction and a horizon. Bring your own levels or ask me to place them — if you don't have a name yet, Argus is the one who finds them.",
+        // A guiding hand over a rising path — counsel that prepares you and steps aside.
+        icon: (
+            <>
+                <path d="M3.5 18.5 L9 12.5 L13 15.5 L20.5 6.5" />
+                <path d="M15.5 6.2 H20.8 V11.4" />
+                <circle cx="9" cy="12.5" r="1.5" />
+            </>
+        ),
+    },
     analyst: {
         tab:   'analyst',
         brand: 'Prometheus',
@@ -97,10 +116,9 @@ export const AGENTS = {
     },
 }
 
-// Axl itself — the meta-layer. Not a specialist, so it's intentionally NOT in
-// AGENT_LIST (the hub cards / routing nav stay the three specialists). Kept here so
-// the shared chat pieces (AgentTurnTag: the sigil + name under a turn) work for Axl
-// too. Icon = a compact 24-space meditating bot.
+// Axl itself — the meta-layer. Not a specialist, so it owns no desk and never appears as a hub
+// card. Kept here so the shared chat pieces (AgentTurnTag: the sigil + name under a turn) work for
+// Axl too. Icon = a compact 24-space meditating bot.
 AGENTS.axl = {
     tab:   'axl',
     brand: 'axl',
@@ -118,19 +136,20 @@ AGENTS.axl = {
     ),
 }
 
-export const AGENT_LIST = [AGENTS.idea, AGENTS.portfolio, AGENTS.scanner, AGENTS.kairos, AGENTS.analyst]
+// NB: there is deliberately no AGENT_LIST. The hub renders from DESKS (pipelines), not from a
+// list of agents — an agent becomes reachable by belonging to a desk, not by being enumerated.
 
 // The social-chat notification bots — one per agent, ids matching the AGENTS keys and
 // the backend BOT_IDS. Each agent owns its own notifications: Idea posts invalidation
 // alerts, Atlas (portfolio) posts reviews, Argus (scanner) its scans. Only Axl is
 // conversational; the specialist threads are notify-only feeds. Axl is pinned first.
-export const BOT_IDS = ['axl', 'idea', 'portfolio', 'scanner', 'kairos', 'analyst']
+export const BOT_IDS = ['axl', 'idea', 'portfolio', 'scanner', 'kairos', 'mentor', 'analyst']
 export const isBotId = (id) => BOT_IDS.includes(id)
 // The one bot you can chat with; the rest are read-only alert feeds.
 export const CONVERSATIONAL_BOT_ID = 'axl'
 
 // ── Reception desks ────────────────────────────────────────────────────────────
-// Axl routes the user into one of these 4 pipelines. `entryTab` is the first agent
+// Axl routes the user into one of these pipelines. `entryTab` is the first agent
 // tab to open; `agentKey` drives the summon icon; `steps` is the ordered pipeline.
 // Each step: `tab` is the agent's activeTab key (null for background agents like Hermes/Themis).
 export const DESKS = [
@@ -173,6 +192,19 @@ export const DESKS = [
         agentKey: 'scanner',
         steps: [
             { tab: 'scanner', label: 'Scan' },
+        ],
+    },
+    {
+        key:      'assist',
+        label:    'Assist Desk',
+        lead:     'Work on your own trade',
+        blurb:    'You bring the ticker and your plan — Mentor pressure-tests it, Talos watches the zones.',
+        hue:      'green',
+        entryTab: 'mentor',
+        agentKey: 'mentor',
+        steps: [
+            { tab: 'mentor', label: 'Build setup' },
+            { tab: null,     label: 'Arm & monitor' },
         ],
     },
     {

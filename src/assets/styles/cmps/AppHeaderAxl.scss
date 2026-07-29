@@ -1,7 +1,19 @@
 // ─── AppHeader · "axl" style (trial) ──────────────────────────────────────────
-// A calm, aurora-themed header: animated calm-water wave bottom edge, ambient
-// breathing candlesticks, a centered AI prompt/reply stream, a status pill and a
-// profile cluster. Ported from the axl mock and adapted to TRADVICE content.
+// A calm header on the plain theme background: animated calm-water wave bottom edge,
+// a centered AI prompt/reply stream, a status pill and a profile cluster. Ported from
+// the axl mock and adapted to TRADVICE content.
+//
+// Two decorations have been stripped since the port, both for the same reason — the
+// header's job is to stay quiet — and each took its now-orphaned tokens with it:
+//   • the ambient breathing candlestick band, plus --axl-green/teal/cyan/violet;
+//   • the aurora bloom and the translucency/blur behind it, plus --aurora-wash and
+//     --aurora-1..4 (_themes.scss and all four [data-design] blocks).
+//
+// The header therefore draws NO edge of its own: __edge (the calm-water wave) is
+// display:none, so the 1px line you see beneath it is the top border of the panels
+// below (.chat-panel / .portfolio-panel / .floor-left / .floor-lists).
+// --aurora-hue and --wave-1..5 are kept only because deleting the one display:none
+// restores the wave; nothing renders them today.
 //
 // Self-contained: all colours live in local custom properties on .app-header-axl,
 // so this style does NOT depend on — or affect — the app-wide theme tokens. That
@@ -28,12 +40,6 @@
     --axl-birch:   var(--text-primary);
     --axl-aurora:  var(--accent-light);
     --axl-aurora-dim: var(--accent);
-    // Decorative ambient candlestick hues (≈0.05 effective opacity) — kept as the
-    // multi-hue aurora signature; not part of the per-design recolour.
-    --axl-green:   #7FD69E;
-    --axl-teal:    #5BCBC0;
-    --axl-cyan:    #5FB9D9;
-    --axl-violet:  #9E9BE3;
     --axl-ease: cubic-bezier(0.22, 1, 0.36, 1);
     // Sized to seat the analog dials (label lives on the face; status row hidden).
     --axl-h: 108px;
@@ -44,22 +50,14 @@
     flex-shrink: 0;
     height: var(--axl-h);
     font-family: 'Hanken Grotesk', system-ui, sans-serif;
-    // Follows the background-spectrum slider (--bg-base), kept translucent for blur.
-    background: color-mix(in srgb, var(--bg-base) 82%, transparent);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    // Plain theme background — the SAME surface as the app under it, so the header reads as the
+    // top of one page rather than a separate pane laid over it.
+    //
+    // What went with it: the 82%-translucency + backdrop-blur (invisible behind an opaque fill,
+    // and it cost a compositing layer on a sticky element), and the --aurora-wash bloom that used
+    // to sit on ::after. No border here — the line below the header belongs to the panels.
+    background: var(--bg-base);
     color: var(--axl-birch);
-
-    // aurora hue-wash, blooming up from the wave at the bottom edge
-    &::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        z-index: 0;
-        pointer-events: none;
-        // shared, hue-slider-driven aurora wash (see --aurora-wash in _themes.scss)
-        background: var(--aurora-wash);
-    }
 
     &__inner {
         position: relative;
@@ -106,29 +104,6 @@
         .w3 { stop-color: var(--wave-3); }
         .w4 { stop-color: var(--wave-4); }
         .w5 { stop-color: var(--wave-5); }
-    }
-
-    // ── ambient aurora candlesticks, breathing up from the waterline ──
-    &__ticks {
-        position: absolute;
-        inset: 0;
-        z-index: 0;
-        overflow: hidden;
-        pointer-events: none;
-
-        svg { display: block; width: 100%; height: 100%; opacity: 0.18; }
-        .wick   { stroke-width: 0.8; opacity: 0.28; }
-        .candle { fill-opacity: 0.3; }
-        .c-green  { fill: var(--axl-green);  stroke: var(--axl-green); }
-        .c-teal   { fill: var(--axl-teal);   stroke: var(--axl-teal); }
-        .c-cyan   { fill: var(--axl-cyan);   stroke: var(--axl-cyan); }
-        .c-violet { fill: var(--axl-violet); stroke: var(--axl-violet); }
-        .grp {
-            transform-box: fill-box;
-            transform-origin: 50% 100%;
-            animation: axl-candle-breathe var(--dur, 7s) ease-in-out infinite;
-            will-change: transform;
-        }
     }
 
     // ── brand ──
@@ -386,14 +361,8 @@
     from { transform: translateX(0); }
     to   { transform: translateX(-50%); }
 }
-@keyframes axl-candle-breathe {
-    0%, 100% { transform: scaleY(0.70); }
-    50%      { transform: scaleY(1.06); }
-}
-
 @media (prefers-reduced-motion: reduce) {
     .app-header-axl__edge svg { animation: none !important; }
-    .app-header-axl__ticks .grp { animation: none !important; }
     .app-header-axl__profile,
     .app-header-axl__stream .msg { transition: none !important; }
 }

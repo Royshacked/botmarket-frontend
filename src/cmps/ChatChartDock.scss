@@ -1,0 +1,111 @@
+// The docked chart: pinned between the thread and the input row, in every agent chat and at Axl's
+// reception. Not part of the scrolling message list — that is the whole point, it stays while the
+// conversation moves.
+.chat-chart-dock {
+    flex-shrink: 0;                 // the thread gives up space, never the chart
+    display: flex;
+    flex-direction: column;
+    height: clamp(320px, 55vh, 560px);
+
+    // An object sitting between the thread and the composer, not a slab wedged against both. It
+    // shares the input pill's geometry (ChatInputRow.scss) so the two read as a pair: same 75%
+    // centred width, same rounded frame. The pill's 6px top margin closes the gap below, and 8px
+    // above separates it from the last message.
+    box-sizing: border-box;
+    width: 75%;
+    min-width: 260px;
+    max-width: calc(100% - 20px);
+    margin: 8px auto 0;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;               // clip the chart's corners to the radius
+    background: transparent;        // no slab — the panel reads through wherever the chart doesn't paint
+    animation: chat-chart-dock-in 0.18s ease both;
+
+    // No black slab in the dock. The workspace chart pins its pane to a fixed #000 on purpose
+    // (theme-independent — see PriceChart.scss), and that stays true where it belongs, in the
+    // lists panel. Docked in a chat it is a floating object in the thread, so it drops the fill
+    // and the panel wash reads through; every theme's base is near-black, so the neutral grid and
+    // axis set in PriceChart.jsx still read correctly. The inner frames go too — the dock's own
+    // border is the frame, and three nested 1px boxes is two too many.
+    .chart-surface,
+    .price-chart {
+        background: transparent;
+    }
+    .price-chart {
+        border: none;
+        border-radius: 0;
+    }
+
+    // ── Collapsed: a slim bar that keeps the chart one click away ───────────────
+    &--collapsed {
+        height: auto;
+        flex-direction: row;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 6px 5px 10px;
+        border-radius: 14px;        // nearer the pill's 16px: at this height it IS a pill
+        background: var(--bg-raised);
+    }
+
+    // The whole label is the restore target — a 2px chevron is a mean thing to ask someone to hit.
+    &__restore {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 2px 4px;
+        border: none;
+        border-radius: 4px;
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+        text-align: left;
+        transition: background 0.1s, color 0.1s;
+
+        svg { width: 11px; height: 11px; flex-shrink: 0; }
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-primary);
+        }
+    }
+
+    &__label {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        letter-spacing: 0.07em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__btn {
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        background: transparent;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: background 0.1s, color 0.1s, border-color 0.1s;
+
+        svg { width: 10px; height: 10px; }
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: var(--accent-deep);
+            color: var(--accent-light);
+        }
+    }
+}
+
+@keyframes chat-chart-dock-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: none; }
+}

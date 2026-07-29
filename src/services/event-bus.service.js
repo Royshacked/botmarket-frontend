@@ -15,9 +15,12 @@ export const MANUAL_PORTFOLIO_EXIT     = 'manual-portfolio-exit'
 // Paper/live entry-confirm card ("Confirm order") → the app switches to the idea's workspace
 // and surfaces the OrderConfirmDialog for it (carries { ideaId }).
 export const ENTRY_CONFIRM_OPEN        = 'entry-confirm-open'
+// A `setup` (Mentor/Talos) reached its zone. Separate from ENTRY_CONFIRM_OPEN because that one
+// resolves the entity out of the loaded IDEAS list, which setups are not in — see MainPage.
+export const SETUP_CONFIRM_OPEN        = 'setup-confirm-open'
 export const CALL_CONFIRM_OPEN         = 'call-confirm-open'
 // Call-expiry card "Edit call" → reopen the call in Kairos's in-app edit mode to re-map the
-// thesis (re-arms the monitor on save). Works for both 'expiring' (alive) and 'expired'
+// thesis (re-arms the monitor on save). A stale thesis is the invalidation axis, not a status
 // (terminal) calls — updateKairosCall re-arms to 'waiting' regardless of prior status.
 export const CALL_EXPIRY_EDIT          = 'call-expiry-edit'
 // Entry-confirm card "Edit" → reopen the idea in its chat to change it (idea → building).

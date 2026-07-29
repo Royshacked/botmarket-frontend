@@ -1,3 +1,4 @@
+import { isLivePosition, isTerminal, isAwaitingConfirm, isInvalidated } from '../../services/entityStatus.js'
 // Derive what to draw on an idea/call's chart: trade LEVELS (entry/stop/tp/zones) + relevant
 // INDICATORS. Consumed by IdeaDetail / CallPage → PriceChart, which just draws the spec.
 //
@@ -163,7 +164,7 @@ export function deriveCallOverlay(call) {
     const status = call.status
     const side   = ps?.entry?.direction || call.bias || null
 
-    if (ps && (status === 'in_position' || status === 'closed')) {
+    if (ps && (isLivePosition(status) || isTerminal(status))) {
         const entry = ps.entry?.fill_price ?? ps.entry?.intended
         if (num(entry) != null) levels.push({ kind: 'entry', price: num(entry), label: 'Entry', side })
         if (num(ps.stop?.current) != null) levels.push({ kind: 'stop', price: num(ps.stop.current), label: 'Stop', side })
@@ -173,7 +174,7 @@ export function deriveCallOverlay(call) {
         if (status === 'closed' && num(ps.outcome?.exit_price) != null) {
             levels.push({ kind: 'exit', price: num(ps.outcome.exit_price), label: 'Exit', side })
         }
-    } else if (p && (status === 'ready' || status === 'expiring')) {
+    } else if (p && (isAwaitingConfirm(status) || isInvalidated(call.invalidation_status))) {
         if (num(p.entry) != null) levels.push({ kind: 'entry', price: num(p.entry), label: 'Entry', side })
         if (num(p.stop)  != null) levels.push({ kind: 'stop',  price: num(p.stop),  label: 'Stop',  side })
         ;(p.take_profit || []).forEach((t, i) => {

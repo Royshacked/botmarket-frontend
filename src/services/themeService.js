@@ -29,7 +29,9 @@ const DEFAULT_TONE = 0   // darkest end → reproduces the original dark theme
 // fixed offsets in _themes.scss. 174 = the brand teal (the current look).
 const DEFAULT_AURORA_HUE = 174
 
-// Set the global aurora anchor hue — re-tints the shared --aurora-wash everywhere.
+// Set the global aurora anchor hue. Since the background wash was dropped, its one remaining
+// consumer is the header's calm-water wave (--wave-1..5 in _themes.scss derive from it), so this
+// rotates that line with the accent.
 export function applyAuroraHue(hue) {
     document.documentElement.style.setProperty('--aurora-hue', String(hue))
 }
@@ -379,9 +381,8 @@ export function initAccent() {
 
 // Apply whichever theme was last saved. Call once before first render.
 export function initTheme() {
-    // The aurora wash hue is global — it tints the shared --aurora-wash used by the
-    // header and every panel, in both the axl and classic header styles, so it's
-    // applied up front regardless of which theming path runs below.
+    // The aurora anchor hue is global — it tints the header's wave in both the axl and classic
+    // header styles, so it's applied up front regardless of which theming path runs below.
     applyAuroraHue(loadAuroraHue())
 
     // Header-style trial: while the axl header is active (headerStyle !== 'classic'),

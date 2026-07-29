@@ -9,15 +9,23 @@
 import { initTheme, clearHueTheme, initAccent } from './themeService'
 
 // First entry is the live app (no override). The rest map to [data-design] blocks.
-// 'cards' is a structural-only trial (see applyDesign): it keeps the live Axl
-// palette and only swaps the Axl Lists Ideas tab from a table to stacked cards.
+// 'cards' and 'floor' are structural-only trials (see applyDesign + STRUCTURAL_ONLY):
+// they keep the live Axl palette and change layout instead of colour.
+//   • cards — swaps the Axl Lists Ideas tab from a table to stacked cards.
+//   • floor — the whole workspace becomes three columns: book + calendar | chat | desks.
 export const DESIGNS = [
     { id: 'terminal', label: 'Terminal' },
     { id: 'neon',     label: 'Neon' },
     { id: 'slate',    label: 'Slate Pro' },
     { id: 'cards',    label: 'Cards' },
+    { id: 'floor',    label: 'Floor (3-col)' },
     { id: 'current',  label: 'Axl (current)' },
 ]
+
+// Trials that change STRUCTURE, not palette: keep the theme's inline tokens (so the app still
+// looks like itself) and only flag the layout layer on <html>. A palette trial does the opposite —
+// see the else branch in applyDesign.
+const STRUCTURAL_ONLY = new Set(['cards', 'floor'])
 
 // initTheme() writes these --bg-* tokens INLINE on <html> (the bg spectrum), which
 // would out-rank any [data-design] CSS block. We strip them so the design layer's
@@ -37,11 +45,11 @@ export function applyDesign(id) {
     if (!id || id === 'current') {
         root.removeAttribute('data-design')
         initTheme()                       // restore axl theme + bg spectrum + aurora
-    } else if (id === 'cards') {
+    } else if (STRUCTURAL_ONLY.has(id)) {
         // Structural-only trial: keep the live Axl palette (don't strip the theme's
-        // inline tokens), just flag the card layout layer on <html>.
+        // inline tokens), just flag the layout layer on <html>.
         initTheme()
-        root.setAttribute('data-design', 'cards')
+        root.setAttribute('data-design', id)
     } else {
         // Let the [data-design] CSS block fully own the palette: drop the inline theme
         // vars (generated spectrum + bg spectrum) that would otherwise out-rank it.

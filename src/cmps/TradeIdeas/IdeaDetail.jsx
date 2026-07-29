@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { PriceChart } from '../PriceChart/PriceChart.jsx'
 import { ConditionTreeView, isAllAnd } from './ConditionTree.jsx'
 import { PopoutFooter } from './PopoutFooter.jsx'
-import { brokerSymbolLabel, deriveIdeaInterval, phaseTree, isSystemStatus } from './tradeIdea.utils.js'
+import { deriveIdeaInterval, phaseTree, isSystemStatus, positionsForEntity } from './tradeIdea.utils.js'
 import { deriveIdeaOverlay } from './chartOverlay.js'
 
 // Shared idea body — chart (left) + conditions (right) + positions (bottom).
@@ -28,10 +28,10 @@ export function IdeaDetail({ idea, positions = [], closePosition, onPositionsCha
     const entryStatesEmpty = !condStates.entry || Object.keys(condStates.entry).length === 0
     const entryFallbackMet = entryPassed && entryStatesEmpty && isAllAnd(entryTree)
 
-    // Open positions belonging to this idea — matched by the asset or its broker
-    // symbol alias (NQ ↔ US100). "for now" we show the same table as the Positions tab.
-    const ideaSymbols   = [idea.asset, brokerSymbolLabel(idea)].filter(Boolean).map(s => String(s).toUpperCase())
-    const ideaPositions = positions.filter(p => p.symbol && ideaSymbols.includes(String(p.symbol).toUpperCase()))
+    // Open positions belonging to THIS idea — matched by broker linkage (broker + account +
+    // positionId), not by symbol. Two entities can hold the same ticker, so a symbol match shows
+    // someone else's position here and makes PopoutFooter read it as "in position".
+    const ideaPositions = positionsForEntity(idea, positions)
 
     // Levels + indicators to draw on this idea's chart (stable identity so the chart doesn't thrash).
     const { levels, indicators } = useMemo(() => deriveIdeaOverlay(idea, ideaPositions), [idea, ideaPositions])

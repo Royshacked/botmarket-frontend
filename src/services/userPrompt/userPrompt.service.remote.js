@@ -1,21 +1,11 @@
-import { API_BASE } from '../config'
-import { postSSE, buildStreamHandlers } from '../sse.util'
+import { streamAgent, clientTimeContext } from '../agentStream'
+
+// The idea agent's endpoint. Mentor speaks to /api/mentor; this one predates it.
+const BASE = 'api/idea'
 
 export const userPromptService = {
     sendPromptStream,
     continuePromptStream,
-}
-
-// The idea agent has no idea what timezone the user is in — so "enter at 16:40" is
-// ambiguous. Send the browser's current instant + IANA timezone so the agent resolves
-// clock/date times against the user's LOCAL time and stores time-condition bounds as
-// absolute UTC. See project_timestamp_ideas (Phase 2).
-function clientTimeContext() {
-    try {
-        return { clientNow: Date.now(), clientTz: Intl.DateTimeFormat().resolvedOptions().timeZone || null }
-    } catch {
-        return { clientNow: Date.now() }
-    }
 }
 
 /**
@@ -33,12 +23,7 @@ function clientTimeContext() {
  * @param {Array}    ideaAccounts
  */
 async function sendPromptStream(userPrompt, analysisState = null, callbacks = {}, ideaAccounts = [], model, reasoningEffort, routingMode, currentPhase, mainAccountId = null) {
-    await postSSE(
-        `${API_BASE}/api/idea/stream`,
-        { userPrompt, analysisState, ideaAccounts, mainAccountId, model, reasoningEffort, routingMode, currentPhase, ...clientTimeContext() },
-        buildStreamHandlers(callbacks),
-        { signal: callbacks.signal },
-    )
+    await streamAgent(BASE, { userPrompt, analysisState, ideaAccounts, mainAccountId, model, reasoningEffort, routingMode, currentPhase, ...clientTimeContext() }, callbacks)
 }
 
 /**
@@ -48,10 +33,5 @@ async function sendPromptStream(userPrompt, analysisState = null, callbacks = {}
  * that streams back is the continuation only — the caller prepends the partial.
  */
 async function continuePromptStream(messages, analysisState = null, callbacks = {}, ideaAccounts = [], model, reasoningEffort, routingMode, currentPhase, mainAccountId = null) {
-    await postSSE(
-        `${API_BASE}/api/idea/stream`,
-        { messages, analysisState, ideaAccounts, mainAccountId, model, reasoningEffort, routingMode, currentPhase, ...clientTimeContext() },
-        buildStreamHandlers(callbacks),
-        { signal: callbacks.signal },
-    )
+    await streamAgent(BASE, { messages, analysisState, ideaAccounts, mainAccountId, model, reasoningEffort, routingMode, currentPhase, ...clientTimeContext() }, callbacks)
 }

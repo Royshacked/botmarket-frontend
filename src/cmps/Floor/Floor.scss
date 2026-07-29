@@ -1,0 +1,637 @@
+// ── Floor design trial ────────────────────────────────────────────────────────
+//
+// Rows, not cards. The whole stylesheet holds to three rules:
+//   1. NO box per item — one shared container, hairline separators, so N items read as one column
+//      instead of N competing rectangles.
+//   2. Columns ALIGN across rows. That shared vertical axis is what makes a dense list feel
+//      designed; cards can't do it because each is its own formatting context.
+//   3. Colour is spent only on direction, lifecycle and P&L sign. Everything else is 2–3 steps of
+//      the neutral ramp.
+//
+// Every token is the app's own, so this follows the active theme and any [data-design] palette.
+
+// Shared row geometry — the alignment contract both columns obey.
+$row-h:      30px;
+$row-pad-x:  10px;
+// Trailing edge. Right-aligned numbers sat flush against the column border, which made them
+// read as clipped and left the P&L touching the divider. Bigger than the leading pad on purpose:
+// a right-aligned value needs visible air after it, a left-aligned label does not.
+$row-pad-end: 18px;
+$sym-w:      58px;
+$indent:     13px;
+
+// Every header in this design is ONE height, and it is the SAME one the agent chat headers use —
+// see --header-h in _themes.scss, which is where the number lives. Three columns whose headers
+// line up read as one bar across the app; three that miss by a few pixels read as three panels
+// that happen to be adjacent.
+$header-h: var(--header-h);
+
+// ...and one type treatment for the SECTION HEADINGS only (Positions / Calendar / Lists), lifted
+// from .chat-panel__title so a Floor heading and a chat heading are the same object. Shared as a
+// placeholder rather than copied, since "same as the chat panel" is the actual requirement — a
+// future change there should be a one-line change here.
+%floor-header-type {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-primary);
+}
+
+// ── Section headers (both columns) ───────────────────────────────────────────
+.floor-sec {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: $header-h;
+    padding: 0 12px;
+    background: var(--bg-wash-surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+
+    &__title {
+        @extend %floor-header-type;
+        margin: 0;
+    }
+
+    &__tabs { margin-left: auto; display: flex; gap: 2px; }
+
+    &__tab {
+        font: inherit;
+        font-size: 10.5px;
+        color: var(--text-muted);
+        background: none;
+        border: 0;
+        border-radius: 5px;
+        padding: 3px 7px;
+        cursor: pointer;
+        transition: color .14s, background .14s;
+
+        &:hover { color: var(--text-secondary); background: var(--bg-hover); }
+        &--on   { color: var(--text-primary); background: var(--bg-surface); }
+    }
+}
+
+.floor-empty {
+    font-size: 11.5px;
+    color: var(--text-dim);
+    padding: 14px 12px;
+    margin: 0;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LEFT — the book, and the calendar
+// ══════════════════════════════════════════════════════════════════════════════
+.floor-left {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    background: var(--bg-base);
+    // border-TOP matches the line the chat panel already draws (.chat-panel / .portfolio-panel
+    // carry a full 1px border). Sitting directly under the app header, that line reads as the app
+    // header's bottom edge — so without it here, the edge stopped at the middle column.
+    border-top: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+
+    // Two halves. Neither is allowed to starve the other: each takes half and scrolls its own
+    // overflow, so a 40-position book can't push the calendar off the column.
+    &__half {
+        flex: 1 1 50%;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+
+        & + & { border-top: 1px solid var(--border); }
+    }
+
+    &__scroll {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;   // naming only one axis lets the other compute to `auto` — see .floor-lists
+        padding: 6px 0 10px;
+
+        &::-webkit-scrollbar { width: 7px; }
+        &::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 4px; }
+    }
+}
+
+// ── Account block ────────────────────────────────────────────────────────────
+.floor-acct {
+    &__row {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        height: $row-h;
+        padding: 0 $row-pad-end 0 $row-pad-x;
+        background: none;
+        border: 0;
+        font: inherit;
+        color: var(--text-primary);
+        cursor: pointer;
+        text-align: left;
+
+        &:hover { background: var(--bg-hover); }
+    }
+
+    &__chev {
+        width: 12px; height: 12px;
+        color: var(--text-dim);
+        flex-shrink: 0;
+        transition: transform .16s;
+    }
+    &--open &__chev { transform: rotate(90deg); }
+
+    &__no {
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        font-weight: 600;
+        letter-spacing: .2px;
+    }
+
+    &__count {
+        margin-left: auto;
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        color: var(--text-dim);
+    }
+
+    &__pnl {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-muted);
+        min-width: 62px;
+        text-align: right;
+
+        &.is-pos { color: var(--color-long); }
+        &.is-neg { color: var(--color-short); }
+    }
+
+    &__body { padding-bottom: 4px; }
+}
+
+// ── Position row ─────────────────────────────────────────────────────────────
+.floor-pos {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 26px;
+    padding: 0 $row-pad-end 0 ($row-pad-x + $indent);
+    background: none;
+    border: 0;
+    font: inherit;
+    cursor: pointer;
+    text-align: left;
+
+    &:hover { background: var(--bg-hover); }
+
+    // Larger than the row glyphs elsewhere: inside an opened account this is the first thing
+    // scanned down the list — which way is each of these facing — so it earns the extra weight.
+    &__dir {
+        font-size: 14px;
+        line-height: 1;
+        width: 11px;
+        flex-shrink: 0;
+        &--long  { color: var(--color-long); }
+        &--short { color: var(--color-short); }
+    }
+
+    &__sym {
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        font-weight: 700;
+        color: var(--text-primary);
+        width: $sym-w;
+        flex-shrink: 0;
+    }
+
+    &__qty {
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        color: var(--text-dim);
+        flex: 1;
+        // Takes the free space between the fixed symbol and the right-aligned P&L, so it is the
+        // cell that has to give — truncate rather than push the row past the pane.
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__pnl, &__pct {
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        color: var(--text-muted);
+        text-align: right;
+
+        &.is-pos { color: var(--color-long); }
+        &.is-neg { color: var(--color-short); }
+    }
+    &__pnl { min-width: 58px; }
+    &__pct { min-width: 46px; }
+}
+
+// ── Calendar ─────────────────────────────────────────────────────────────────
+.floor-cal {
+    // Days need a real break, not 8px of margin. Fed rows carry no ticker — they're a column of
+    // similar-length prose — so without a rule the eye can't find where one date ends and the next
+    // starts, and the whole tab reads as one undifferentiated block.
+    &__day + &__day {
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px solid var(--border);
+    }
+
+    &__date {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .9px;
+        color: var(--text-secondary);   // was --text-dim: the date is the anchor, not a footnote
+        padding: 0 $row-pad-end 6px $row-pad-x;
+    }
+
+    &__row {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 25px;
+        padding: 0 $row-pad-end 0 $row-pad-x;
+        background: none;
+        border: 0;
+        font: inherit;
+        text-align: left;
+        color: var(--text-secondary);
+
+        &--btn { cursor: pointer; &:hover { background: var(--bg-hover); } }
+    }
+
+    &__sym {
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        font-weight: 700;
+        color: var(--text-primary);
+        width: $sym-w;
+        flex-shrink: 0;
+    }
+
+    // Narrower than the ticker column: this holds "08:30", not a symbol. Still a FIXED width and
+    // still rendered when empty, so event names stay on one left edge — Fed feeds mix timed and
+    // untimed entries, and letting the column collapse per row gives a ragged margin.
+    &__time {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--text-dim);
+        width: 40px;
+        flex-shrink: 0;
+    }
+
+    &__label {
+        font-size: 11.5px;
+        color: var(--text-muted);
+        flex: 1;
+        min-width: 0;         // see .floor-row__sym--wide
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__when {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--text-dim);
+        min-width: 36px;
+        text-align: right;
+    }
+
+    &__impact {
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: .7px;
+        color: var(--text-dim);
+
+        &--high   { color: var(--color-short); }
+        &--medium { color: var(--color-warning); }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RIGHT — the four desks
+// ══════════════════════════════════════════════════════════════════════════════
+.floor-lists {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    background: var(--bg-base);
+    border-top: 1px solid var(--border);   // same edge as .floor-left — see the note there
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+    // Pin the other axis. CSS forces a `visible` axis to `auto` when its partner scrolls, so this
+    // box had an unasked-for horizontal scroller — and since the ::-webkit rule below only sets
+    // `width`, that bar rendered at the default ~15px height rather than the intended 7px.
+    overflow-x: hidden;
+
+    &::-webkit-scrollbar { width: 7px; }
+    &::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 4px; }
+
+    // The column heading sits INSIDE this scroller (unlike the left column, whose halves each own
+    // their own scroll box), so it has to be pinned or it scrolls away from the thing it names.
+    > .floor-sec {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+    }
+}
+
+.floor-desk {
+    // Every desk is CONTENT-height, open or closed. An open desk that took the leftover space
+    // would shove the remaining headers to the bottom of the column, leaving a gap between the
+    // list and the next desk and making the four headers jump around on every toggle. Sized to
+    // content, the closed headers sit directly under whatever is open and barely move.
+    flex: 0 0 auto;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+
+    // No header fill. The --bg-wash-surface belongs to real column headings (.floor-sec, the chat
+    // panel); wearing it here made four buttons impersonate four headers, and stacked them into a
+    // block of chrome above the one list you actually opened. Plain column background, hover only.
+    &__head {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: $header-h;
+        padding: 0 $row-pad-end 0 12px;
+        background: none;
+        border: 0;
+        font: inherit;
+        color: var(--text-primary);
+        cursor: pointer;
+        text-align: left;
+        flex-shrink: 0;
+
+        &:hover { background: var(--bg-hover); }
+    }
+
+    &__chev {
+        width: 12px; height: 12px;
+        color: var(--text-dim);
+        flex-shrink: 0;
+        transition: transform .16s;
+    }
+    &--open &__chev { transform: rotate(90deg); color: var(--accent-light); }
+
+    // Deliberately NOT the header type: a desk label is a control you click, not a column
+    // heading. Matching the headers' mono caps would make four buttons read as four sections.
+    &__label {
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: .2px;
+    }
+    &--open &__label { color: var(--accent-light); }
+
+    &__count {
+        margin-left: auto;
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        color: var(--text-dim);
+    }
+
+    // Content-height, but capped: past the cap the LIST scrolls inside itself rather than growing
+    // on and pushing the other three headers below the fold — which is the same complaint as
+    // stretching, just arrived at from the other direction.
+    &__body {
+        min-height: 0;
+        max-height: 60vh;
+        overflow-y: auto;
+        overflow-x: hidden;   // as .floor-lists — the desk rows truncate, they don't scroll sideways
+        padding-bottom: 8px;
+
+        &::-webkit-scrollbar { width: 7px; }
+        &::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 4px; }
+    }
+}
+
+// ── Lifecycle group label ────────────────────────────────────────────────────
+.floor-grp {
+    & + & { margin-top: 7px; }
+
+    &__label {
+        font-size: 9.5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text-dim);
+        padding: 0 $row-pad-end 4px 12px;
+
+        // Only the two buckets that want something from you get colour. "Watching" and
+        // "Not watched" stay neutral — most rows live there, and colouring them would make
+        // the urgent ones stop reading as urgent.
+        &--ready       { color: var(--color-warning); }
+        &--in_position { color: var(--accent-light); }
+    }
+}
+
+// ── The row — one geometry for every desk ────────────────────────────────────
+.floor-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: $row-h;
+    // Same trailing pad as the left column's position rows: status, score and P&L are all
+    // right-aligned here too, and they were sitting flush against the column edge.
+    padding: 0 $row-pad-end 0 12px;
+    background: none;
+    border: 0;
+    font: inherit;
+    color: var(--text-primary);
+    cursor: pointer;
+    text-align: left;
+
+    &:hover { background: var(--bg-hover); }
+    &--static { cursor: default; &:hover { background: none; } }
+    &--sub    { padding-left: 12px + $indent; height: 26px; }
+
+    // Matches the position rows in the left column. With the redundant long/short WORD gone from
+    // the status column, the glyph is the only thing carrying direction — so it has to be legible
+    // rather than a hint.
+    &__dir {
+        font-size: 14px;
+        line-height: 1;
+        width: 11px;
+        flex-shrink: 0;
+        &--long  { color: var(--color-long); }
+        &--short { color: var(--color-short); }
+    }
+
+    &__sym {
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        font-weight: 700;
+        width: $sym-w;
+        flex-shrink: 0;
+
+        // A thesis or a book name isn't a ticker — it takes the free space and truncates.
+        // `min-width: 0` is what MAKES it truncate: a flex item defaults to min-width:auto, which
+        // for nowrap text resolves to max-content, so the item refuses to shrink and the ellipsis
+        // never engages — the row just forces the pane wider.
+        &--wide {
+            font-family: var(--font-sans);
+            font-weight: 500;
+            font-size: 12px;
+            width: auto;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    }
+
+    &__kind {
+        font-size: 10.5px;
+        color: var(--text-muted);
+        flex: 1;
+        min-width: 0;         // see __sym--wide — without it the ellipsis never engages
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+
+        &--dim { color: var(--text-dim); }
+    }
+
+    &__status {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: .7px;
+        color: var(--text-dim);
+        min-width: 62px;
+        text-align: right;
+
+        &--long, &--short { color: var(--accent-light); }
+        &--hit            { color: var(--color-warning); }
+        &--looking        { color: var(--text-secondary); }
+        &--target_hit     { color: var(--color-long); }
+        &--thesis_broken  { color: var(--color-short); }
+    }
+
+    &__stale {
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: .8px;
+        color: var(--color-warning);
+        opacity: .8;
+    }
+
+    &__pnl {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-muted);
+        min-width: 62px;
+        text-align: right;
+
+        &.is-pos { color: var(--color-long); }
+        &.is-neg { color: var(--color-short); }
+    }
+
+    &__score {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 700;
+        min-width: 24px;
+        text-align: right;
+
+        &--hi  { color: var(--accent-light); }
+        &--mid { color: var(--color-warning); }
+        &--lo  { color: var(--text-muted); }
+    }
+
+    &__rating {
+        font-size: 9.5px;
+        text-transform: uppercase;
+        letter-spacing: .7px;
+        color: var(--text-muted);
+
+        &--strong_buy, &--buy   { color: var(--color-long); }
+        &--sell, &--strong_sell { color: var(--color-short); }
+    }
+
+    &__pt {
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        color: var(--text-muted);
+        flex: 1;
+        text-align: right;
+    }
+
+    &__chev {
+        width: 12px;
+        height: 12px;
+        color: var(--text-dim);
+        flex-shrink: 0;
+        transition: transform .16s;
+
+        &--open { transform: rotate(90deg); color: var(--accent-light); }
+    }
+
+    &__gap {
+        margin-left: 4px;
+        &.is-pos { color: var(--color-long); }
+        &.is-neg { color: var(--color-short); }
+    }
+}
+
+// ── Expanded detail (coverage thesis) ────────────────────────────────────────
+// The one place in this design that carries prose. It sits INSIDE a row's indent rather than
+// spanning the column, so an open thesis still reads as belonging to its name — and it keeps the
+// row grid intact above and below it.
+.floor-detail {
+    padding: 2px $row-pad-end 12px (12px + $indent);
+    border-left: 1px solid var(--border);
+    margin-left: 17px;
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+
+    &__prose { margin: 0 0 10px; }
+
+    &__block {
+        margin-bottom: 10px;
+
+        ul { margin: 0; padding-left: 14px; }
+        li { margin-bottom: 3px; }
+    }
+
+    &__label {
+        display: block;
+        font-family: var(--font-mono);
+        font-size: 9.5px;
+        text-transform: uppercase;
+        letter-spacing: .9px;
+        color: var(--text-dim);
+        margin-bottom: 4px;
+    }
+
+    &__revs {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--text-dim);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .floor-acct__chev,
+    .floor-row__chev,
+    .floor-desk__chev { transition: none; }
+}

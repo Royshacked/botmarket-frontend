@@ -10,7 +10,8 @@ import './Radar.scss'
 // the original `news-feed` CSS namespace.
 export function Radar({
     tab = 'scans',
-    onTabChange,
+    // NB: no onTabChange — the tab BUTTONS live in TradeIdeasList, which calls
+    // radar.onTabChange off the props object. Radar itself only renders the active tab.
     scans = [],
     scansLoading = false,
     onCandidateSelect,
@@ -238,10 +239,6 @@ function _compact(n) {
     return String(v)
 }
 
-function _formatTime(unixSec) {
-    if (!unixSec) return ''
-    return new Date(unixSec * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
-}
 
 function _fmtDate(iso) {
     if (!iso) return ''

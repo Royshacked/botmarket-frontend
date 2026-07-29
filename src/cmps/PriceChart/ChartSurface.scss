@@ -1,0 +1,93 @@
+// The workspace chart pane. Fills its container (the lists panel) — the chart is the point of the
+// surface, so everything else is a thin strip above it.
+.chart-surface {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: #000;   // matches the PriceChart pane, which is deliberately theme-independent
+
+    &__toolbar {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        padding: 4px 10px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-wash-surface);
+    }
+
+    &__tool {
+        padding: 2px 7px;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        background: transparent;
+        color: var(--text-secondary);
+        font-family: var(--font-mono);
+        font-size: 10px;
+        cursor: pointer;
+        line-height: 1.6;
+        transition: background 0.1s, color 0.1s, border-color 0.1s;
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-primary);
+        }
+
+        &--active {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--accent-light);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+    }
+
+    &__tool-sep {
+        width: 1px;
+        height: 12px;
+        background: var(--border);
+        margin: 0 4px;
+        flex-shrink: 0;
+    }
+
+    // Collapse + Close sit together at the right end. `margin-left: auto` pushes whichever comes
+    // FIRST away from the tools; the second one (Close, when paired) drops it so the pair stays
+    // together instead of splitting across the strip.
+    &__close {
+        margin-left: auto;
+
+        &--paired { margin-left: 4px; }
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 2px 8px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: transparent;
+        color: var(--text-secondary);
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: background 0.1s, color 0.1s, border-color 0.1s;
+
+        svg { width: 10px; height: 10px; }
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: var(--accent-deep);
+            color: var(--accent-light);
+        }
+    }
+
+    // ── The chart itself — everything left over ──────────────────────────────
+    &__body {
+        flex: 1;
+        min-height: 0;
+
+        .price-chart {
+            border: none;
+            border-radius: 0;
+        }
+    }
+}

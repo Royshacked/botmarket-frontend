@@ -1,0 +1,75 @@
+// Mentor's shell. Rides PortfolioPanel.scss for the chat frame (messages, action bubbles,
+// input row) and only adds what's specific to the setup build.
+.mentor-panel {
+    &__build {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    // The coverage chips sit ON the summary header rather than above the chat: they describe the
+    // setup being built, not the conversation.
+    &__build-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    &__suggestions {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 10px;
+    }
+
+    &__suggestion {
+        padding: 7px 12px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: transparent;
+        color: inherit;
+        font-size: 12px;
+        text-align: left;
+        cursor: pointer;
+
+        &:hover:not(:disabled) { border-color: var(--accent); background: var(--bg-hover); }
+        &:disabled { opacity: 0.5; cursor: default; }
+    }
+
+    &__btn { white-space: nowrap; }
+
+    // Generated-but-not-armed. The one state where doing nothing means nothing gets watched, so it
+    // is a deliberate stop with two explicit exits rather than a toast that scrolls away.
+    &__armed {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+    }
+
+    &__armed-copy {
+        margin: 0 0 2px;
+        font-size: 11px;
+        line-height: 1.5;
+        color: var(--text-dim);
+        text-align: center;
+
+        strong { color: inherit; font-family: var(--font-mono); }
+        em     { font-style: normal; color: var(--accent-light); }
+    }
+}
+
+// Generate + the readiness hint, at the foot of the conversation rather than in the preview.
+.mentor-panel__generate {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 5px;
+}
+
+.mentor-panel__missing {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-align: center;
+
+    em { font-style: normal; color: var(--accent-light); }
+}

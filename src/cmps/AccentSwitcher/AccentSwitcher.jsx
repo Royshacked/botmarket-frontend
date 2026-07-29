@@ -10,8 +10,8 @@ import './AccentSwitcher.scss'
 // Accent picker on two knobs: hue (the colour, full wheel) and shade (depth —
 // drag left to deepen toward dark/rich, right to lighten). Recolors the whole
 // accent spectrum (accent family + glows + headings/wordmark) live as inline vars
-// on <html>, overriding the active theme/design accent. The hue also drives the
-// global aurora wash (--aurora-hue), so the backdrop/header glow tracks the accent.
+// on <html>, overriding the active theme/design accent. The hue also drives the global aurora
+// anchor (--aurora-hue), so the header's calm-water wave tracks the accent.
 // Until the user moves it, no override is applied — "reset" returns to the default.
 export function AccentSwitcher() {
     const savedHue = loadAccentHue()

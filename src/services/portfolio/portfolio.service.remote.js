@@ -1,6 +1,5 @@
 import { httpService } from '../http.service'
-import { API_BASE } from '../config'
-import { postSSE, buildStreamHandlers } from '../sse.util'
+import { streamAgent } from '../agentStream'
 
 const BASE = 'api/portfolio'
 
@@ -44,11 +43,6 @@ async function completeReview(portfolioId, reviewCadence, outcome) {
 }
 
 async function sendStream(messages, ideaAccounts = [], opts = {}) {
-    const { mainAccountId = null, portfolioId = null, portfolioIdeas = [], threadId = null, reviewMode = false, mandate = null, model, reasoningEffort, routingMode, currentPhase, signal } = opts
-    await postSSE(
-        `${API_BASE}/${BASE}/stream`,
-        { messages, ideaAccounts, mainAccountId, portfolioId, portfolioIdeas, threadId, reviewMode, mandate, model, reasoningEffort, routingMode, currentPhase },
-        buildStreamHandlers(opts),
-        { signal },
-    )
+    const { mainAccountId = null, portfolioId = null, portfolioIdeas = [], threadId = null, reviewMode = false, mandate = null, model, reasoningEffort, routingMode, currentPhase } = opts
+    await streamAgent(BASE, { messages, ideaAccounts, mainAccountId, portfolioId, portfolioIdeas, threadId, reviewMode, mandate, model, reasoningEffort, routingMode, currentPhase }, opts)
 }

@@ -15,7 +15,6 @@ const WORKSPACE_LABELS = { live: 'Live', paper: 'Paper', manual: 'Manual' }
 export const posKey = p => `${p.broker}:${p.accountId ?? '—'}:${p.id}`
 
 // Live / Paper / Manual workspace chip — shared with the card renderer.
-// eslint-disable-next-line react-refresh/only-export-components -- tiny presentational helper colocated with positions
 export function WorkspaceBadge({ workspace }) {
     return <span className={`workspace-badge workspace-badge--${workspace}`}>{WORKSPACE_LABELS[workspace] ?? workspace}</span>
 }

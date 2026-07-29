@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { scannerService } from '../../services/scanner/scanner.service.remote.js'
 import { threadsService, newThreadId } from '../../services/threads/threads.service.remote.js'
@@ -6,10 +6,9 @@ import { ChatBubble } from '../ChatBubble.jsx'
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
 import { readStoredRoutingMode } from '../routingModeOptions.js'
-import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
-import { useChatScroll } from '../../customHooks/useChatScroll.js'
-import { ChatInputRow } from '../ChatInputRow.jsx'
+import { AgentMessages } from '../AgentMessages.jsx'
+import { AgentChatInput } from '../AgentChatInput.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
@@ -114,7 +113,6 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
     // Report streaming state up so the agent-bar "live" dot can pulse for Argus.
     useEffect(() => { onLoadingChange?.(chat.isLoading) }, [chat.isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
 
-    const [inputText,      setInputText]      = useState('')
     const [pendingScan,    setPendingScan]    = useState(null)
     const [editingScanId,  setEditingScanId]  = useState(null)
     const [editDirty,      setEditDirty]      = useState(false)
@@ -134,14 +132,12 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
         setMessages(chatRestore.messages ?? [])
         setEditingScanId(chatRestore.scanId ?? null)
         setPendingScan(chatRestore.scan ?? null)
-        setInputText('')
         setEditDirty(false)
         setSelectedAngles(new Set())
         // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only when a new restore is pushed (keyed by .key)
     }, [chatRestore?.key])
 
     const pendingTickersRef = useRef([])
-    const textareaRef       = useRef(null)
     const threadIdRef       = useRef(newThreadId())   // scan construction draft thread
 
     // Kairos hand-off seed: MainPage remounts this panel fresh (chatResetKey) then pushes a
@@ -154,9 +150,6 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
         _send(scanSeed.message)
     }, [scanSeed?.key])   // eslint-disable-line react-hooks/exhaustive-deps
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable closure
-    const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
-    const { isRecording, isTranscribing, toggle: toggleMic, cancel: cancelMic } = useMicInput({ onTranscript })
 
     async function _send(text) {
         if (!text || chat.isLoading) return
@@ -214,12 +207,6 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
         } finally {
             chat.endStream()
         }
-    }
-
-    function handleSend() {
-        const text = inputText.trim()
-        setInputText('')
-        _send(text)
     }
 
     // Resume a stopped reply in place: send the conversation ending with the partial
@@ -302,7 +289,6 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
         setPendingScan(null)
         setKairosPick(null)
         setEditingScanId(null)
-        setInputText('')
         setEditDirty(false)
         setSelectedAngles(new Set())
         threadIdRef.current = newThreadId()   // fresh construction thread; abandoned draft TTL-expires
@@ -316,7 +302,6 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
         setMessages(t.messages ?? [])
         setPendingScan(t.state?.scan ?? null)
         setEditingScanId(null)
-        setInputText('')
         setEditDirty(false)
         threadIdRef.current = t.threadId
     }
@@ -325,9 +310,11 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
 
     async function handleGenerate() {
         if (!pendingScan) return
-        // Persist the conversation alongside the list so reopening it returns here.
+        // Persist the conversation alongside the list so reopening it returns here. Chart rows are
+        // dropped: a chart the user asked to LOOK at is not part of the list, and persisting one as
+        // a content-less turn would reopen the thread with an empty bubble in it.
         const chatLog = messages
-            .filter(m => !m.streaming)
+            .filter(m => !m.streaming && m.type !== 'chart')
             .map(m => ({ role: m.role, content: m.content, ...(m.tickers?.length ? { tickers: m.tickers } : {}) }))
 
         if (editingScanId) {
@@ -337,13 +324,6 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
             await onGenerateList?.({ ...pendingScan, chat: chatLog }, threadIdRef.current)
             setPendingScan(null)
             threadIdRef.current = newThreadId()   // next scan build gets a fresh draft thread
-        }
-    }
-
-    function handleKeyDown(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault()
-            handleSend()
         }
     }
 
@@ -362,11 +342,6 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
     // anything — but still show (with prior picks marked) once a real turn has landed.
     const hasCompletedArgusTurn = messages.some(m => m.role === 'assistant' && !m.streaming && !m.stopped && !!(m.content && m.content.trim()))
     const showAngleStrip = !chat.isLoading && !editingScanId && chat.phase === 1 && !listReady && hasCompletedArgusTurn
-    const actionWatch = `${chat.streamStatus}|${listReady}|${!!editingScanId}`
-    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, {
-        onFinishStreaming: () => textareaRef.current?.focus(),
-        watch: actionWatch,
-    })
 
     return (
         <div className="portfolio-panel scanner-panel">
@@ -395,7 +370,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                 </div>
             )}
 
-            <div className="portfolio-panel__messages" ref={messagesRef} onScroll={handleScroll}>
+            <AgentMessages chat={chat} watch={`${listReady}|${!!editingScanId}`}>
                 {messages.length === 0 && (
                     editingScanId ? (
                         <div className="portfolio-panel__empty">
@@ -416,8 +391,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                     <AgentTurnTag agent={AGENTS.scanner} active={chat.isLoading} />
                 )}
 
-                <div ref={messagesEndRef} />
-            </div>
+            </AgentMessages>
 
             {/* Thesis-phase angle strip — once the user has started but the agent is
                 still nailing down the thesis (Phase 1), keep the famous setups one tap
@@ -482,28 +456,12 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                 </div>
             )}
 
-            <ChatInputRow
-                prefix="portfolio-panel"
-                textareaRef={textareaRef}
-                value={inputText}
-                onChange={e => setInputText(e.target.value)}
-                onKeyDown={handleKeyDown}
+            <AgentChatInput
+                chat={chat}
                 placeholder="What should I scan for? (Enter to send, Shift+Enter for newline)"
-                onSend={handleSend}
-                sendDisabled={!inputText.trim() || chat.isLoading}
-                isStreaming={chat.isLoading}
-                onStop={chat.handleStop}
-                canResume={chat.canResume}
-                onResume={_continue}
+                onSend={_send}
                 onClear={handleClear}
-                clearDisabled={chat.isLoading || !messages.length}
-                clearTitle="Clear chat"
-                onToggleMic={toggleMic}
-                onCancelMic={cancelMic}
-                isRecording={isRecording}
-                isTranscribing={isTranscribing}
-                micDisabled={chat.isLoading || isTranscribing}
-                textareaDisabled={chat.isLoading || isRecording}
+                onResume={_continue}
             />
         </div>
     )

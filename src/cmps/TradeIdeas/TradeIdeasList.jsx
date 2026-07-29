@@ -5,15 +5,16 @@ import { ClosePositionDialog } from './ClosePositionDialog.jsx'
 import { EditOrdersDialog } from './EditOrdersDialog.jsx'
 import { ActivatePortfolioDialog } from './ActivatePortfolioDialog.jsx'
 import { PositionsTable, posKey } from './PositionsTable.jsx'
-import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel, isDeleteLocked, isManualIdea, openIdeaPopup, openCallPopup, formatPnl, ideaPnl, portfolioPnl, positionOpenTarget } from './tradeIdea.utils.js'
+import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel, isDeleteLocked, isManualIdea, openIdeaPopup, openCallPopup, openSetupPopup, formatPnl, ideaPnl, portfolioPnl, positionOpenTarget } from './tradeIdea.utils.js'
 import { eventBus, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, REVIEW_RESOLVED } from '../../services/event-bus.service'
 import { portfolioService } from '../../services/portfolio/portfolio.service.remote.js'
 import { StatusIcon } from '../StatusIcon.jsx'
-import { BrandTitle } from '../BrandTitle.jsx'
-import { MinosBadge, HermesBadge, AtlasBadge, ArgusBadge, AgentGlyph } from '../AxlHub/AgentBadges.jsx'
+import { MinosBadge, HermesBadge, TalosBadge, AtlasBadge, ArgusBadge, AgentGlyph } from '../AxlHub/AgentBadges.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { IdeaCard, BrokerGroupCard, PortfolioCard, BuildingPortfolioCard, PositionsCards } from './TradeIdeaCards.jsx'
+import { SetupCard } from './SetupCard.jsx'
 import { CallCard } from './CallCard.jsx'
+import { isArmed } from '../../services/entityStatus.js'
 import { useDesign } from '../../customHooks/useDesign.js'
 import { Radar } from '../Radar/Radar.jsx'
 import './TradeIdeas.scss'
@@ -320,7 +321,41 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
     )
 }
 
-export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, buildingCall, loading = false, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, calls = [], onActCall, onDeleteCall, onEditCall, callBusyId = null, radar }) {
+/**
+ * One tile on the Lists hub. Every section renders through this — a new entity kind adds a SECTION
+ * entry (below) and gets its tile, breadcrumb label and count for free.
+ */
+function HubTile({ label, icon, count, onClick }) {
+    return (
+        <button className="trade-ideas-list__hub-card" onClick={onClick}>
+            <span className="trade-ideas-list__hub-card-icon">{icon}</span>
+            <span className="trade-ideas-list__hub-card-body">
+                <span className="trade-ideas-list__hub-card-label">{label}</span>
+                {count && <span className="trade-ideas-list__hub-card-count">{count}</span>}
+            </span>
+        </button>
+    )
+}
+HubTile.propTypes = { label: PropTypes.string, icon: PropTypes.node, count: PropTypes.node, onClick: PropTypes.func }
+
+/**
+ * The default body for an entity section: a flat list of cards with loading and empty states.
+ *
+ * Ideas and portfolios opt out (`body` on their SECTION) because they are genuinely different —
+ * a sortable table, broker-fork groups, portfolio roll-ups. Everything else is this, so a new kind
+ * supplies `items` and a `renderCard` and writes no layout at all.
+ */
+function CardList({ items, loading, empty, renderCard, lead = null }) {
+    if (loading) return <p className="trade-ideas-list__empty">Loading…</p>
+    if (!lead && items.length === 0) return <p className="trade-ideas-list__empty">{empty}</p>
+    return <div className="ideas-cards">{lead}{items.map(renderCard)}</div>
+}
+CardList.propTypes = {
+    items: PropTypes.array, loading: PropTypes.bool, empty: PropTypes.string,
+    renderCard: PropTypes.func, lead: PropTypes.node,
+}
+
+export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, buildingCall, loading = false, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, calls = [], onActCall, onDeleteCall, onEditCall, callBusyId = null, setups = [], setupsLoading = false, onArmSetup, onDisarmSetup, onDeleteSetup, onOpenSetup, setupBusyId = null, radar }) {
     const [expandedGroups, setExpandedGroups] = useState(new Set())
     const [activeFilter,   setActiveFilter]   = useState(null)    // null = hub landing
     const [closingId,      setClosingId]      = useState(null)
@@ -351,6 +386,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
         if (chatTab === 'portfolio')   setActiveFilter('portfolios')
         else if (chatTab === 'idea')   setActiveFilter('ideas')
         else if (chatTab === 'kairos') setActiveFilter('calls')
+        else if (chatTab === 'mentor') setActiveFilter('setups')
         else if (chatTab === 'axl')    setActiveFilter(null)   // return to hub when back at AxlHub
     }, [chatTab])
 
@@ -448,20 +484,72 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
 
     const atHub          = activeFilter === null
     const showIdeas      = activeFilter === 'ideas'
-    const showCalls      = activeFilter === 'calls'
     const showPositions  = activeFilter === 'positions'
     const showRadar      = activeFilter === 'radar'
     const hasIdeasRows   = topBuildingIdea || ideaRows.length > 0
     const hasPortfolios  = visibleGroups.length > 0
 
-    const SECTION_LABELS = { ideas: 'Ideas', calls: 'Calls', portfolios: 'Portfolios', positions: 'Positions', radar: 'Radar' }
+    // ── The section registry ──────────────────────────────────────────────────
+    //
+    // ONE entry per entity kind drives its hub tile, breadcrumb label, count and body. Adding a new
+    // agent's entity is an entry here — not a `showX` flag, a SECTION_LABELS key, a branch of the
+    // count ternary, a render branch and six more props, which is what it used to cost.
+    //
+    // `body` opts out of the default CardList for the kinds that genuinely differ (a sortable
+    // table, broker-fork groups). Everything else supplies `items` + `renderCard` and no layout.
+    const SECTIONS = [
+        {
+            key: 'ideas', label: 'Ideas', icon: <MinosBadge size={30} />,
+            count: ideaRows.length, hubCount: ideaRows.length ? `${ideaRows.length} active` : null,
+            body: 'custom',
+        },
+        {
+            key: 'calls', label: 'Calls', icon: <HermesBadge size={30} />,
+            count: effectiveCalls.length, hubCount: effectiveCalls.length ? `${effectiveCalls.length} active` : null,
+            items: effectiveCalls, empty: 'No calls yet',
+            lead: topBuildingCall
+                ? <CallCard key="__building_call__" call={topBuildingCall} onAct={() => {}} onSymbolClick={onSymbolClick} />
+                : null,
+            renderCard: (c) => (
+                <CallCard
+                    key={c.id} call={c} busy={callBusyId === c.id}
+                    onAct={onActCall} onDelete={onDeleteCall} onEdit={onEditCall} onSymbolClick={onSymbolClick}
+                />
+            ),
+        },
+        {
+            key: 'setups', label: 'Setups', icon: <TalosBadge size={30} />, hubOnlyWithRadar: true,
+            count: setups.length,
+            hubCount: setups.length
+                ? `${setups.filter(x => isArmed(x.status)).length} watched · ${setups.length} total`
+                : null,
+            items: setups, loading: setupsLoading, empty: 'No setups yet — build one with Mentor.',
+            renderCard: (su) => (
+                <SetupCard
+                    key={su.id} setup={su} busy={setupBusyId === su.id}
+                    onArm={onArmSetup} onDisarm={onDisarmSetup} onDelete={onDeleteSetup}
+                    onOpen={openSetupPopup} onEdit={onOpenSetup} onSymbolClick={onSymbolClick}
+                />
+            ),
+        },
+        {
+            key: 'portfolios', label: 'Portfolios', icon: <AtlasBadge size={30} />,
+            count: visibleGroups.length, hubCount: visibleGroups.length ? `${visibleGroups.length} books` : null,
+            body: 'custom',
+        },
+        {
+            key: 'positions', label: 'Positions', onSelect: selectPositions,
+            icon: <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 5.5l6-3 6 3-6 3z"/><path d="M2 8.5l6 3 6-3"/><path d="M2 11.5l6 3 6-3"/></svg>,
+            count: positions.length, hubCount: positions.length ? `${positions.length} open` : null,
+            body: 'custom',
+        },
+    ]
+    const section = SECTIONS.find(x => x.key === activeFilter) ?? null
+
+    const SECTION_LABELS = Object.fromEntries(SECTIONS.map(x => [x.key, x.label]).concat([['radar', 'Radar']]))
     // radar sub-tab label shown in the breadcrumb when a deep-link card was used
     const radarTabLabel = { scans: 'Scans', earnings: 'Earnings', coverage: 'Coverage', fed: 'Fed', ipo: 'IPO' }
-    const sectionCount = activeFilter === 'ideas'      ? ideaRows.length
-        : activeFilter === 'calls'      ? effectiveCalls.length
-        : activeFilter === 'portfolios' ? visibleGroups.length
-        : activeFilter === 'positions'  ? positions.length
-        : 0
+    const sectionCount = section?.count ?? 0
 
     return (
         <section className="trade-ideas-list full">
@@ -470,7 +558,11 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                     <span className="trade-ideas-list__header-title">What do you want to see?</span>
                 ) : (
                     <>
-                        <button className="trade-ideas-list__back" onClick={() => setActiveFilter(null)} aria-label="Back to Axl Lists">
+                        <button
+                            className="trade-ideas-list__back"
+                            onClick={() => setActiveFilter(null)}
+                            aria-label="Back to Axl Lists"
+                        >
                             <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                                 <polyline points="7,2 3,6 7,10"/>
                                 <line x1="3" y1="6" x2="11" y2="6"/>
@@ -491,44 +583,14 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
             {atHub ? (
                 <div className="trade-ideas-list__hub">
                     <div className="trade-ideas-list__hub-grid">
-                        <button className="trade-ideas-list__hub-card" onClick={() => setActiveFilter('ideas')}>
-                            <span className="trade-ideas-list__hub-card-icon">
-                                <MinosBadge size={30} />
-                            </span>
-                            <span className="trade-ideas-list__hub-card-body">
-                                <span className="trade-ideas-list__hub-card-label">Ideas</span>
-                                {ideaRows.length > 0 && <span className="trade-ideas-list__hub-card-count">{ideaRows.length} active</span>}
-                            </span>
-                        </button>
-                        <button className="trade-ideas-list__hub-card" onClick={() => setActiveFilter('calls')}>
-                            <span className="trade-ideas-list__hub-card-icon">
-                                <HermesBadge size={30} />
-                            </span>
-                            <span className="trade-ideas-list__hub-card-body">
-                                <span className="trade-ideas-list__hub-card-label">Calls</span>
-                                {effectiveCalls.length > 0 && <span className="trade-ideas-list__hub-card-count">{effectiveCalls.length} active</span>}
-                            </span>
-                        </button>
-                        <button className="trade-ideas-list__hub-card" onClick={() => setActiveFilter('portfolios')}>
-                            <span className="trade-ideas-list__hub-card-icon">
-                                <AtlasBadge size={30} />
-                            </span>
-                            <span className="trade-ideas-list__hub-card-body">
-                                <span className="trade-ideas-list__hub-card-label">Portfolios</span>
-                                {visibleGroups.length > 0 && <span className="trade-ideas-list__hub-card-count">{visibleGroups.length} books</span>}
-                            </span>
-                        </button>
-                        <button className="trade-ideas-list__hub-card" onClick={selectPositions}>
-                            <span className="trade-ideas-list__hub-card-icon">
-                                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 5.5l6-3 6 3-6 3z"/><path d="M2 8.5l6 3 6-3"/><path d="M2 11.5l6 3 6-3"/></svg>
-                            </span>
-                            <span className="trade-ideas-list__hub-card-body">
-                                <span className="trade-ideas-list__hub-card-label">Positions</span>
-                                {positions.length > 0 && <span className="trade-ideas-list__hub-card-count">{positions.length} open</span>}
-                            </span>
-                        </button>
+                        {SECTIONS.filter(x => !x.hubOnlyWithRadar || radar).map(x => (
+                            <HubTile
+                                key={x.key} label={x.label} icon={x.icon} count={x.hubCount}
+                                onClick={x.onSelect ?? (() => setActiveFilter(x.key))}
+                            />
+                        ))}
                         {radar && (<>
-                            <button className="trade-ideas-list__hub-card" onClick={() => { setActiveFilter('radar'); radar.onTabChange?.('fed') }}>
+                        <button className="trade-ideas-list__hub-card" onClick={() => { setActiveFilter('radar'); radar.onTabChange?.('fed') }}>
                                 <span className="trade-ideas-list__hub-card-icon">
                                     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none"/><path d="M5.2 10.8a4 4 0 0 1 0-5.6M10.8 5.2a4 4 0 0 1 0 5.6"/><path d="M3.1 12.9A7 7 0 0 1 3.1 3.1M12.9 3.1a7 7 0 0 1 0 9.8"/></svg>
                                 </span>
@@ -668,32 +730,14 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                             </tbody>
                         </table>
                     )
-                ) : showCalls ? (
-                    (!topBuildingCall && effectiveCalls.length === 0) ? (
-                        <p className="trade-ideas-list__empty">No calls yet</p>
-                    ) : (
-                        <div className="ideas-cards">
-                            {topBuildingCall && (
-                                <CallCard
-                                    key="__building_call__"
-                                    call={topBuildingCall}
-                                    onAct={() => {}}
-                                    onSymbolClick={onSymbolClick}
-                                />
-                            )}
-                            {effectiveCalls.map(c => (
-                                <CallCard
-                                    key={c.id}
-                                    call={c}
-                                    busy={callBusyId === c.id}
-                                    onAct={onActCall}
-                                    onDelete={onDeleteCall}
-                                    onEdit={onEditCall}
-                                    onSymbolClick={onSymbolClick}
-                                />
-                            ))}
-                        </div>
-                    )
+                ) : section?.renderCard ? (
+                    <CardList
+                        items={section.items}
+                        loading={section.loading}
+                        empty={section.empty}
+                        lead={section.lead}
+                        renderCard={section.renderCard}
+                    />
                 ) : showPositions ? (
                     positions.length === 0 ? (
                         <p className="trade-ideas-list__empty">{positionsLoading ? 'Loading positions…' : 'No open positions'}</p>

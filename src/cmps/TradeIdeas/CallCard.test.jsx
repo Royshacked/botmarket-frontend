@@ -8,7 +8,10 @@ function makeCall(overrides = {}) {
         asset:       'FITB',
         bias:        'long',
         trade_type:  'swing',
-        status:      'expired',
+        // A thesis that went stale is `looking` + the INVALIDATION latch — not a status of its
+        // own. 'expired' was a call-only lifecycle word; it no longer exists.
+        status:              'looking',
+        invalidation_status: 'fired',
         entry_zones: [{ side: 'long', lower: 40, upper: 41, kind: 'demand' }],
         savedAt:     1_700_000_000_000,
     }
@@ -32,19 +35,19 @@ describe('CallCard edit pencil', () => {
         cleanup()
     })
 
-    it('routes an EXPIRED call to in-app edit (onEdit), not the pop-out', () => {
+    it('routes an INVALIDATED call to in-app edit (onEdit), not the pop-out', () => {
         const onEdit = vi.fn()
-        const { container } = render(<CallCard call={makeCall({ status: 'expired' })} onEdit={onEdit} onAct={vi.fn()} />)
+        const { container } = render(<CallCard call={makeCall()} onEdit={onEdit} onAct={vi.fn()} />)
 
         clickPencil(container)
 
         expect(onEdit).toHaveBeenCalledTimes(1)
-        expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 'call_FITB_5a9103df', status: 'expired' }))
-        expect(window.open).not.toHaveBeenCalled()   // the regression: expired must not open the pop-out
+        expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 'call_FITB_5a9103df' }))
+        expect(window.open).not.toHaveBeenCalled()   // the regression: a stale thesis must re-map in chat
     })
 
-    it('labels the expired pencil "Edit in chat"', () => {
-        const { container } = render(<CallCard call={makeCall({ status: 'expired' })} onEdit={vi.fn()} onAct={vi.fn()} />)
+    it('labels the invalidated pencil "Edit in chat"', () => {
+        const { container } = render(<CallCard call={makeCall()} onEdit={vi.fn()} onAct={vi.fn()} />)
         expect(container.querySelector('.idea-card__edit-btn').getAttribute('title')).toBe('Edit in chat')
     })
 
@@ -60,7 +63,7 @@ describe('CallCard edit pencil', () => {
 
     it('still opens the pop-out for an IN-POSITION call (mid-trade edits go via management cards)', () => {
         const onEdit = vi.fn()
-        const { container } = render(<CallCard call={makeCall({ status: 'in_position' })} onEdit={onEdit} onAct={vi.fn()} />)
+        const { container } = render(<CallCard call={makeCall({ status: 'long', invalidation_status: null })} onEdit={onEdit} onAct={vi.fn()} />)
 
         clickPencil(container)
 
@@ -69,13 +72,13 @@ describe('CallCard edit pencil', () => {
     })
 
     it('dims the pencil (--locked) when editing is off, and keeps it plain when editable', () => {
-        const { container: inPos } = render(<CallCard call={makeCall({ status: 'in_position' })} onEdit={vi.fn()} onAct={vi.fn()} />)
+        const { container: inPos } = render(<CallCard call={makeCall({ status: 'long', invalidation_status: null })} onEdit={vi.fn()} onAct={vi.fn()} />)
         const locked = inPos.querySelector('.idea-card__edit-btn')
         expect(locked.classList.contains('idea-card__edit-btn--locked')).toBe(true)
         expect(locked.getAttribute('title')).toBe('Open call (editing off in position)')
 
         cleanup()
-        const { container: editable } = render(<CallCard call={makeCall({ status: 'expired' })} onEdit={vi.fn()} onAct={vi.fn()} />)
+        const { container: editable } = render(<CallCard call={makeCall()} onEdit={vi.fn()} onAct={vi.fn()} />)
         expect(editable.querySelector('.idea-card__edit-btn').classList.contains('idea-card__edit-btn--locked')).toBe(false)
     })
 })

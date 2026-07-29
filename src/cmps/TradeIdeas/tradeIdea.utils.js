@@ -1,3 +1,5 @@
+import { openEntityPopup } from '../EntityCard/entityPopup.js'
+
 /**
  * Condition tree → compact one-liner string.
  *
@@ -38,37 +40,34 @@ export function treeToOneliner(node, isRoot = true) {
 }
 
 /**
- * Open an idea in its own pop-out window (the /idea/:id page). The idea object is
- * handed to the new window directly (and mirrored to localStorage as a fallback)
- * so it renders instantly without a round-trip; IdeaPage also falls back to the
- * API when neither is present, so a direct URL still works.
+ * Open an idea in its own pop-out window (the /idea/:id page).
+ *
+ * Thin wrappers over the ONE opener in entityPopup.js — kept as named exports because the call
+ * sites read better (`openCallPopup(call)` says what it does) and because they are imported from a
+ * dozen places. The mechanism, the hand-off and the window sizing live in entityPopup.
  *
  * @param {import('../../types.js').Idea} idea
  * @returns {Window|null}
  */
 export function openIdeaPopup(idea) {
-    localStorage.setItem(`popup-idea-${idea.id}`, JSON.stringify(idea))
-    const popup = window.open(`/idea/${idea.id}`, `idea-${idea.id}`, 'width=960,height=720')
-    if (popup) popup.__ideaData = idea
-    return popup
+    return openEntityPopup('idea', idea)
 }
 
 /**
- * Pop-out detail window for a Kairos call (mirrors openIdeaPopup). Accepts a full call object
- * (stashed for instant render) or a bare call id (CallPage fetches it from the API). Used by the
- * Call cards, social-chat bubbles, and the Positions tab (a call-originated position → its Call).
+ * Pop-out detail window for a Kairos call. Accepts a full call object (stashed for instant render)
+ * or a bare call id (the page then fetches it). Used by the Call cards, social-chat bubbles, and
+ * the Positions tab (a call-originated position → its Call).
  *
- * @param {import('../../types.js').Call|string} call  a call object or its id
+ * @param {import('../../types.js').Call|string} call
  * @returns {Window|null}
  */
 export function openCallPopup(call) {
-    const id = typeof call === 'string' ? call : call?.id
-    if (!id) return null
-    const isObj = call && typeof call === 'object'
-    if (isObj) localStorage.setItem(`popup-call-${id}`, JSON.stringify(call))
-    const popup = window.open(`/call/${id}`, `call-${id}`, 'width=1180,height=760')
-    if (popup && isObj) popup.__callData = call
-    return popup
+    return openEntityPopup('call', call)
+}
+
+/** Pop-out detail window for a Mentor setup (watched by Talos). */
+export function openSetupPopup(setup) {
+    return openEntityPopup('setup', setup)
 }
 
 // Field triples per trade phase. Single source for how entry/stop/tp conditions
@@ -315,6 +314,24 @@ export function matchPositionsForIdea(idea, positions = []) {
 }
 
 /**
+ * Open broker positions belonging to ANY entity — idea, setup or call.
+ *
+ * The same join as matchPositionsForIdea under a kind-neutral name: `brokerOrders` is an envelope
+ * field, so every kind carries it (Talos stamps execution onto a setup; a call self-shadows with
+ * its own linkage since P3b). This is the ONE way a detail view answers "which positions are
+ * mine".
+ *
+ * It exists because the three pop-outs each matched by SYMBOL instead, which is not an identity:
+ * a portfolio holding and a setup on the same ticker are different entities, so opening a setup on
+ * AVGO showed the portfolio's AVGO position too — and PopoutFooter reads a non-empty list as "in
+ * position", which then delete-locked a setup that owned nothing.
+ *
+ * Strict by design: no symbol fallback. An entity with no linked position owns no position, which
+ * is the whole point.
+ */
+export const positionsForEntity = matchPositionsForIdea
+
+/**
  * The idea that owns a broker position (the inverse of matchPositionsForIdea), or
  * null when no loaded idea links it — e.g. a broker position whose idea was deleted.
  * @returns {object|null}
@@ -350,6 +367,39 @@ export function positionOpenTarget(pos, ideas = [], calls = []) {
  * other position (standalone idea, or an idea-less/orphan broker position) renders
  * flat in `loose`. Positions are already one-per-account at the broker, so a single
  * idea or portfolio spanning N accounts naturally yields N rows — no extra splitting.
+/**
+ * Ideas grouped into their portfolios, newest first. Ideas with no `portfolioId` are not returned —
+ * this answers "what books exist", not "where does every idea live".
+ *
+ * Distinct from groupPositions() above, which groups POSITIONS and therefore only ever sees books
+ * that already have something open. A book being constructed, or one whose ideas are all still
+ * pre-entry, exists here and not there.
+ *
+ * NOTE: TradeIdeasList's private `_separateIdeas` builds the same portfolio map inline, alongside
+ * the broker-fork grouping it also needs. It should collapse onto this once the Floor design either
+ * graduates or is dropped — folding it in now would mean editing the shipped list for a trial.
+ *
+ * @param {object[]} ideas
+ * @returns {Array<{portfolioId:string,name:string,savedAt:number,ideas:object[]}>}
+ */
+export function portfoliosFromIdeas(ideas = []) {
+    const m = new Map()
+    for (const idea of ideas) {
+        if (!idea?.portfolioId) continue
+        if (!m.has(idea.portfolioId)) {
+            m.set(idea.portfolioId, {
+                portfolioId: idea.portfolioId,
+                name:        idea.portfolioName || 'Portfolio',
+                savedAt:     idea.savedAt,
+                ideas:       [],
+            })
+        }
+        m.get(idea.portfolioId).ideas.push(idea)
+    }
+    return [...m.values()].sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0))
+}
+
+/**
  *
  * @param {object[]} positions
  * @param {object[]} ideas
@@ -552,10 +602,7 @@ export function isDeleteLocked(idea) {
  * @returns {boolean}
  */
 export function isPaperIdea(idea) {
-    if (idea?.broker === 'paper') return true
-    if (String(idea?.mainAccountId ?? '').startsWith('paper-')) return true
-    return (idea?.accounts ?? []).some(a =>
-        String(typeof a === 'object' ? a.id : a).startsWith('paper-'))
+    return ideaWorkspaceMode(idea) === 'paper'
 }
 
 /**
@@ -567,10 +614,37 @@ export function isPaperIdea(idea) {
  * @returns {boolean}
  */
 export function isManualIdea(idea) {
-    if (idea?.broker === 'manual') return true
-    if (String(idea?.mainAccountId ?? '').startsWith('manual-')) return true
-    return (idea?.accounts ?? []).some(a =>
-        String(typeof a === 'object' ? a.id : a).startsWith('manual-'))
+    return ideaWorkspaceMode(idea) === 'manual'
+}
+
+/**
+ * The workspace an idea belongs to: 'paper' | 'manual' | 'live'.
+ *
+ * PREFERS the server-stamped `mode`. That field is frozen when the venue is bound at save time —
+ * the one moment it is genuinely knowable — so re-deriving it here is recomputing a decision the
+ * backend already made, in a second repo, where the two rules can silently drift. They DID drift:
+ * a broker-only variant on the backend recorded legacy paper fills as live trades.
+ *
+ * The local derivation below survives ONLY as a fallback for documents saved before `mode` was
+ * stamped, and mirrors backend services/venue.resolve.resolveMode exactly (broker first, then the
+ * `paper-`/`manual-` account-id prefix). Once a backfill migration stamps the old docs, this whole
+ * function collapses to `idea?.mode ?? 'live'` and the duplicate rule is gone.
+ *
+ * Kept in sync by a shared case table — see tradeIdea.workspace.test.js and the backend's
+ * venueResolve.test.js, which assert the SAME inputs.
+ */
+export function ideaWorkspaceMode(idea) {
+    if (idea?.mode === 'paper' || idea?.mode === 'manual' || idea?.mode === 'live') return idea.mode
+
+    if (idea?.broker === 'paper' || idea?.broker === 'manual') return idea.broker
+
+    const ids = [idea?.mainAccountId, idea?.accountId, ...(Array.isArray(idea?.accounts) ? idea.accounts : [])]
+    for (const raw of ids) {
+        const id = String((raw && typeof raw === 'object' ? (raw.id ?? raw.accountId) : raw) ?? '')
+        if (id.startsWith('paper-'))  return 'paper'
+        if (id.startsWith('manual-')) return 'manual'
+    }
+    return 'live'
 }
 
 /**

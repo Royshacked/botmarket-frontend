@@ -7,7 +7,8 @@
     overflow: hidden;
     background: var(--bg-wash);
     border: 1px solid var(--border);
-    border-radius: 6px 0 0 6px;   // mirror the chat-panel framing in this column
+    border-radius: 0 0 0 6px;     // mirror the chat-panel framing in this column — bottom-left only;
+                                  // the top-left stays square so the header meets the corner flush
 
     // Replays each time the hub re-mounts (i.e. on every "back to axl").
     animation: axl-hub-enter 0.34s ease both;
@@ -26,6 +27,7 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden;   // otherwise the unset axis computes to `auto` and a wide card scrolls the landing
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -49,6 +51,7 @@
 .axl-hub__option:nth-child(2) { animation-delay: 0.14s; }
 .axl-hub__option:nth-child(3) { animation-delay: 0.20s; }
 .axl-hub__option:nth-child(4) { animation-delay: 0.26s; }
+.axl-hub__option:nth-child(5) { animation-delay: 0.32s; }
 
 @keyframes axl-hub-rise {
     from { opacity: 0; transform: translateY(12px); }
@@ -135,12 +138,16 @@
 // and the row's own margin provides the inset.
 
 // ── pipeline header ──
+// Height from the shared --header-h (see _themes.scss). This one carried no title icon, so it sat
+// noticeably shorter than the agent panel headers it sits above — the hub is what you see FIRST,
+// so it was the most visible break in the line.
 .axl-hub__header {
     flex-shrink: 0;
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 7px 20px;
+    height: var(--header-h);
+    padding: 0 20px;
     border-bottom: 1px solid var(--border);
     background: var(--bg-wash-surface);
     font-family: var(--font-mono);
@@ -294,41 +301,37 @@
 }
 
 // ── Axl routing comment (streams while intent is being resolved) ──
-.axl-hub__route-comment {
+// ── the conversation ────────────────────────────────────────────────────────────
+// Axl's thread lives inside the hub body (which is the scroll container), under the desk chips.
+.axl-hub__thread {
     width: 100%;
-    max-width: 420px;
-    padding: 11px 16px;
-    background: var(--bg-raised);
-    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.axl-hub__bubble {
+    max-width: 80%;
+    padding: 8px 12px;
     border-radius: 10px;
     font-size: 13px;
     line-height: 1.55;
-    color: var(--text-secondary);
-    text-align: center;
-    animation: axl-hub-enter 0.22s ease both;
-}
+    word-break: break-word;
 
+    &--user {
+        align-self: flex-end;
+        background: var(--accent);
+        color: #fff;
+        border-bottom-right-radius: 3px;
+    }
 
-.axl-hub__chart {
-    width: calc(100% + 48px);
-    margin-inline: -24px;
-    animation: axl-hub-enter 0.22s ease both;
-}
-
-// "or chat with axl" — subtle footer link inside the hub body.
-.axl-hub__chat-link {
-    background: none;
-    border: none;
-    padding: 0;
-    color: var(--text-muted);
-    font-size: 11px;
-    font-family: var(--font-mono);
-    cursor: pointer;
-    opacity: 0.6;
-    transition: opacity 0.15s, color 0.15s;
-
-    &:hover:not(:disabled) { color: var(--accent-light); opacity: 1; }
-    &:disabled { opacity: 0.25; cursor: not-allowed; }
+    &--assistant {
+        align-self: flex-start;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        color: var(--text-primary);
+        border-bottom-left-radius: 3px;
+    }
 }
 
 // ── summoning state (axl calls the chosen agent before its chat opens) ──

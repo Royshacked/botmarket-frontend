@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 
 import { ChatPanel }         from '../cmps/ChatPanel/ChatPanel.jsx'
 import { AxlHub }            from '../cmps/AxlHub/AxlHub.jsx'
-import { AxlChatPanel }      from '../cmps/AxlHub/AxlChatPanel.jsx'
 import { AgentSummon, AxlBotGlyph } from '../cmps/AxlHub/AgentSummon.jsx'
 import { RETURN_MS, DESKS, AGENTS } from '../cmps/AxlHub/agentMeta.jsx'
 import { AgentGlyph } from '../cmps/AxlHub/AgentBadges.jsx'
@@ -13,24 +12,28 @@ import { readStoredRoutingMode } from '../cmps/routingModeOptions.js'
 import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
 import { ScannerPanel }      from '../cmps/ScannerPanel/ScannerPanel.jsx'
 import { KairosPanel }       from '../cmps/KairosPanel/KairosPanel.jsx'
+import { MentorPanel }       from '../cmps/MentorPanel/MentorPanel.jsx'
 import { AnalystPanel }      from '../cmps/AnalystPanel/AnalystPanel.jsx'
-import { Radar }             from '../cmps/Radar/Radar.jsx'
-import { PriceChart }  from '../cmps/PriceChart/PriceChart.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
+import { FloorLeft }         from '../cmps/Floor/FloorLeft.jsx'
+import { FloorLists }        from '../cmps/Floor/FloorLists.jsx'
 import { kairosService, CALLS_CHANGED } from '../services/kairos/kairos.service.remote.js'
 import { analystService, COVERAGE_CHANGED } from '../services/analyst/analyst.service.remote.js'
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
-import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace, positionOpenTarget, openCallPopup, openIdeaPopup } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { MonitorDashboard }  from '../cmps/MonitorDashboard/MonitorDashboard.jsx'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
 import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
-import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE } from '../services/event-bus.service'
+import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
+import { mentorService } from '../services/mentor/mentor.service.remote.js'
+import { isSetupAwaitingConfirm } from '../cmps/TradeIdeas/setupStatus.js'
+import { isAwaitingConfirm } from '../services/entityStatus.js'
 import { useChatStream, toChatHistory } from '../customHooks/useChatStream.js'
 import { useCalendarEvents } from '../customHooks/useCalendarEvents.js'
 import { useScans }          from '../customHooks/useScans.js'
@@ -38,6 +41,9 @@ import { useBrokerAccounts } from '../customHooks/useBrokerAccounts.js'
 import { useWorkspaceMode }  from '../customHooks/useWorkspaceMode.js'
 import { usePositions }      from '../customHooks/usePositions.js'
 import { useTradeIdeas }     from '../customHooks/useTradeIdeas.js'
+import { useEntityList } from '../customHooks/useEntityList.js'
+import { useDesign }         from '../customHooks/useDesign.js'
+import { useSetups }         from '../customHooks/useSetups.js'
 import { useAuth }           from '../context/AuthContext.jsx'
 
 // Maps activeTab → the step name used in DESKS.steps[] for pipeline highlighting.
@@ -47,7 +53,7 @@ const TAB_TO_STEP = {
     portfolio:  'Atlas',
     analyst:    'Prometheus',
     idea:       'Idea',
-    'axl-chat': 'Axl',
+    mentor:     'Mentor',
 }
 
 // Agentbar breadcrumb: plain agent name when no pipeline is active, full
@@ -263,8 +269,8 @@ export function MainPage() {
     const { messages, setMessages, isLoading, streamStatus } = chat
 
     const [analysisState, setAnalysisState] = useState(null)
-    const [chartSymbol, setChartSymbol]   = useState(DEFAULT_CHART_SYMBOL)
-    const [chartInterval, setChartInterval] = useState(DEFAULT_CHART_INTERVAL)
+    const [, setChartSymbol]   = useState(DEFAULT_CHART_SYMBOL)
+    const [, setChartInterval] = useState(DEFAULT_CHART_INTERVAL)
     const [editingIdeaId,     setEditingIdeaId]     = useState(null)
     const [isInvalidationReview, setIsInvalidationReview] = useState(false)
     const [activeTab, setActiveTab]             = useState('axl')
@@ -275,10 +281,9 @@ export function MainPage() {
     const [buildingPortfolio, setBuildingPortfolio] = useState(null)
     // Streaming state reported up from the portfolio/scanner panels (they own their
     // own chat stream) so the agent-bar "live" dot can pulse for Atlas/Argus too.
-    const [portfolioLoading, setPortfolioLoading] = useState(false)
-    const [scannerLoading,   setScannerLoading]   = useState(false)
-    const [kairosLoading,    setKairosLoading]    = useState(false)
-    const [calls,            setCalls]            = useState([])
+    const [, setPortfolioLoading] = useState(false)
+    const [, setScannerLoading]   = useState(false)
+    const [, setKairosLoading]    = useState(false)
     const [callBusyId,       setCallBusyId]       = useState(null)
     // Live draft call reported up from KairosPanel → a "building" row in the Calls tab.
     const [kairosPendingCall, setKairosPendingCall] = useState(null)
@@ -294,35 +299,22 @@ export function MainPage() {
     const [scannerSeed,      setScannerSeed]      = useState(null)
     const [kairosScanResult, setKairosScanResult] = useState(null)
     const [analystScanResult, setAnalystScanResult] = useState(null)   // Argus investing candidate → Analyst research seed
-    const [coverage,        setCoverage]          = useState([])       // the Analyst's living book (Radar Coverage tab)
-    const [coverageLoading, setCoverageLoading]   = useState(false)
 
     // Kairos calls for the Axl Lists Calls tab. Holds all the user's calls (workspace-filtered in
     // the list); reloads on the shared 'kairos-calls-changed' event (generate / act / delete).
-    const loadCalls = useCallback(async () => { setCalls(await kairosService.listCalls()) }, [])
-    useEffect(() => {
-        loadCalls()
-        window.addEventListener(CALLS_CHANGED, loadCalls)
-        // The monitor changes a call's status server-side (waiting↔watching → ready/expiring) without
-        // firing CALLS_CHANGED, so poll to keep the list in step with the popup (which polls getCall).
-        const t = setInterval(loadCalls, 20_000)
-        return () => { window.removeEventListener(CALLS_CHANGED, loadCalls); clearInterval(t) }
-    }, [loadCalls])
+    // Polled because the monitor changes a call's status server-side (waiting↔watching →
+    // ready/expiring) without firing CALLS_CHANGED — same reason the popup polls getCall.
+    const loadCallsFn = useCallback(() => kairosService.listCalls(), [])
+    const { items: calls } = useEntityList({
+        load: loadCallsFn, changeEvent: CALLS_CHANGED, pollMs: 20_000, log: '[calls]',
+    })
 
     // The Analyst's living coverage book (Radar Coverage tab). Reloads on initiate/retire
     // (COVERAGE_CHANGED); polled so the monitor's status/gap updates surface.
-    const coverageLoadedRef = useRef(false)
-    const loadCoverage = useCallback(async () => {
-        if (!coverageLoadedRef.current) setCoverageLoading(true)   // spinner only on first load, not on polls
-        try { setCoverage(await analystService.listCoverage()); coverageLoadedRef.current = true }
-        finally { setCoverageLoading(false) }
-    }, [])
-    useEffect(() => {
-        loadCoverage()
-        window.addEventListener(COVERAGE_CHANGED, loadCoverage)
-        const t = setInterval(loadCoverage, 60_000)
-        return () => { window.removeEventListener(COVERAGE_CHANGED, loadCoverage); clearInterval(t) }
-    }, [loadCoverage])
+    const loadCoverageFn = useCallback(() => analystService.listCoverage(), [])
+    const { items: coverage, loading: coverageLoading } = useEntityList({
+        load: loadCoverageFn, changeEvent: COVERAGE_CHANGED, pollMs: 60_000, log: '[coverage]',
+    })
     async function handleRetireCoverage(cov) {
         if (!cov?.id) return
         try { await analystService.retireCoverage(cov.id) } catch (err) { console.error('[analyst] retire', err) }
@@ -330,7 +322,7 @@ export function MainPage() {
 
     async function handleActCall(id, action) {
         setCallBusyId(id)
-        try { await kairosService.actOnCall(id, action) }   // service broadcasts → loadCalls
+        try { await kairosService.actOnCall(id, action) }   // service broadcasts CALLS_CHANGED → the list reloads
         catch (err) { console.error('[kairos] act', err) }
         finally { setCallBusyId(null) }
     }
@@ -374,6 +366,7 @@ export function MainPage() {
     }
     const [dismissedConfirmIds, setDismissedConfirmIds] = useState(() => new Set())
     const [callConfirmId, setCallConfirmId] = useState(null)   // Kairos call showing the OrderConfirmDialog
+    const [setupConfirmId, setSetupConfirmId] = useState(null) // Mentor setup showing the OrderConfirmDialog
     const [placingOrders, setPlacingOrders] = useState(false)
     const [pendingDeleteIdea, setPendingDeleteIdea] = useState(null)
     const [pendingRebalance,  setPendingRebalance]  = useState(null)
@@ -390,6 +383,23 @@ export function MainPage() {
     const portfolioResumeRef = useRef(null)           // PortfolioPanel exposes its resume fn here
     const scannerResumeRef   = useRef(null)           // ScannerPanel exposes its resume fn here
     const kairosResumeRef    = useRef(null)           // KairosPanel exposes its resume fn here
+    const { setups, setupsLoading, refreshSetups } = useSetups()
+    const [setupBusyId, setSetupBusyId] = useState(null)
+
+    // Arm / disarm / delete a setup from the Lists surface. Arming is the real gate — the server
+    // re-runs the readiness check and refuses with `cannot_arm_<reason>`, so surface that rather
+    // than swallowing it.
+    async function _setupAction(setup, fn, verb) {
+        setSetupBusyId(setup.id)
+        try { await fn(setup.id) }
+        catch (err) { showErrorMsg(`Couldn't ${verb} ${setup.asset}: ${err?.message ?? 'unknown error'}`) }
+        finally { setSetupBusyId(null) }
+    }
+    const handleArmSetup     = (su) => _setupAction(su, mentorService.armSetup,    'arm')
+    const handleDisarmSetup  = (su) => _setupAction(su, mentorService.disarmSetup, 'stop watching')
+    const handleDeleteSetup  = (su) => _setupAction(su, mentorService.deleteSetup, 'delete')
+    const handleOpenSetup    = () => setActiveTab('mentor')
+    const mentorResumeRef    = useRef(null)           // MentorPanel exposes its resume fn here
     // Ids of ideas BORN from a "Buy Market" click (created solely to carry the immediate
     // order). If their placement fails outright we roll them back out of existence rather
     // than strand a phantom 'hit' idea on "Update idea". Cleared once placed or rolled back.
@@ -432,7 +442,22 @@ export function MainPage() {
     const { workspace, setWorkspace } = useWorkspaceMode(user?._id)
     const { positions, loading: positionsLoading, refresh: refreshPositions, closePosition } = usePositions()
     const { ideas, setIdeas, loadIdeas, loading: ideasLoading, handleStatusChange, preEntryPrompt, setPreEntryPrompt } = useTradeIdeas()
+    // NOTE: the chart used to take over this page's lists panel (and the Floor's right column). It
+    // now docks at the bottom of the chat that asked for it (cmps/ChatChartDock.jsx) — the same
+    // shared store, rendered where the user was actually looking — so this page owns no chart state.
+    // Floor design trial (Ctrl+Shift+D → "Floor (3-col)"). Only this page reads it: the trial adds
+    // two side columns and swaps the right one, so nothing below the workspace needs to know.
+    const floorMode = useDesign() === 'floor'
     const [preEntryBusy, setPreEntryBusy] = useState(false)
+
+    // A position row in the Floor's book opens whatever OWNS it — a call-originated position routes
+    // to the Call pop-out, otherwise to its idea. Same rule TradeIdeasList uses for its Positions
+    // tab; the routing is the entity's, not the panel's, so both surfaces ask positionOpenTarget.
+    function handleOpenPositionFromFloor(position) {
+        const target = positionOpenTarget(position, ideas, calls)
+        if (target?.kind === 'call')      openCallPopup(target.call)
+        else if (target?.kind === 'idea') openIdeaPopup(target.idea)
+    }
 
     const buildingIdea = deriveBuildingIdea(analysisState)
     const buildingCall = deriveBuildingCall(kairosPendingCall)
@@ -498,13 +523,13 @@ export function MainPage() {
     }
 
     // Kairos call awaiting order confirmation: the call the user tapped "Confirm order" on, at
-    // 'ready'/'expiring' with a Hermes proposal + marked accounts. Shaped as an idea so the SHARED
+    // awaiting confirm with a Hermes proposal + marked accounts. Shaped as an idea so the SHARED
     // OrderConfirmDialog + buildOrderPreview work unchanged; onConfirm routes to actOnCall('confirm').
     let confirmCallAsIdea = null, confirmCallOrders = []
     if (callConfirmId && !confirmIdea) {
         const c = calls.find(x => x.id === callConfirmId)
         const p = c?.monitor_state?.last_assessment?.proposal
-        if (c && (c.status === 'ready' || c.status === 'expiring') && p && Array.isArray(c.accounts) && c.accounts.length) {
+        if (c && isAwaitingConfirm(c.status) && p && Array.isArray(c.accounts) && c.accounts.length) {
             const asIdea = {
                 asset: c.asset, asset_class: c.asset_class, direction: c.bias,
                 accounts: c.accounts, mainAccountId: c.main_account_id,
@@ -516,6 +541,21 @@ export function MainPage() {
         }
     }
 
+    // Talos-triggered setup awaiting order confirmation. Unlike a call (whose plan is a Hermes
+    // PROPOSAL that only becomes orders at confirm time), Talos already stamped an executable
+    // `pendingOrder.plan` when it flipped the setup to 'hit' — so this reads the real plan rather
+    // than rebuilding a preview, and confirming places it through the kind-blind order endpoint.
+    let confirmSetup = null, confirmSetupOrders = []
+    if (setupConfirmId && !confirmIdea && !confirmCallAsIdea) {
+        const su = setups.find(x => x.id === setupConfirmId)
+        // Same gate as an idea: still 'hit', still awaiting confirm, not already placed.
+        if (su && isSetupAwaitingConfirm(su.status) && !su.ordersPlacedAt &&
+            (su.orderState === 'awaiting_confirm' || su.orderState == null)) {
+            const orders = Array.isArray(su.pendingOrder?.plan) ? su.pendingOrder.plan : []
+            if (orders.length) { confirmSetup = su; confirmSetupOrders = orders }
+        }
+    }
+
     async function handleSend(userPrompt, currentAnalysisState) {
         const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
 
@@ -523,25 +563,7 @@ export function MainPage() {
             onInterval: (interval) => { if (interval) setChartInterval(interval) },
             onAsset: (symbol) => { if (symbol) setChartSymbol(symbol) },
 
-            // Agent surfaced a chart it wants the user to see — drop an
-            // image bubble in just before the streaming assistant reply.
-            onChart: (data) => {
-                if (!data?.imageBase64) return
-                setMessages(prev => {
-                    const msgs = [...prev]
-                    const chartMsg = {
-                        role:        'assistant',
-                        type:        'chart',
-                        symbol:      data.symbol,
-                        timeframe:   data.timeframe,
-                        imageBase64: data.imageBase64,
-                    }
-                    const lastIdx = msgs.length - 1
-                    if (msgs[lastIdx]?.streaming) msgs.splice(lastIdx, 0, chartMsg)
-                    else msgs.push(chartMsg)
-                    return msgs
-                })
-            },
+            // (a surfaced chart lands as its own row — useChatStream's shared onChart)
 
             onDone: (data) => {
                 const reasoning = chat.reasoningRef.current
@@ -640,17 +662,6 @@ export function MainPage() {
         const cont = chat.beginContinue({
             onInterval: (interval) => { if (interval) setChartInterval(interval) },
             onAsset: (symbol) => { if (symbol) setChartSymbol(symbol) },
-            onChart: (data) => {
-                if (!data?.imageBase64) return
-                setMessages(prev => {
-                    const msgs = [...prev]
-                    const chartMsg = { role: 'assistant', type: 'chart', symbol: data.symbol, timeframe: data.timeframe, imageBase64: data.imageBase64 }
-                    const lastIdx = msgs.length - 1
-                    if (msgs[lastIdx]?.streaming) msgs.splice(lastIdx, 0, chartMsg)
-                    else msgs.push(chartMsg)
-                    return msgs
-                })
-            },
             onError: () => chat.restoreStopped(base),
             onDone: (data) => {
                 const reasoning = chat.reasoningRef.current
@@ -878,7 +889,7 @@ export function MainPage() {
 
     // Call-expiry card "Edit call" → reopen the call in Kairos's in-app edit mode (same pipeline as
     // the Calls-tab pencil). handleEditCall re-maps the thesis and "Update call" re-arms the monitor
-    // — updateKairosCall re-arms to 'waiting' whether the call was 'expiring' (alive) or 'expired'
+    // — updateKairosCall re-arms to 'waiting' whether or not the thesis had gone stale
     // (terminal), so both expiry cards route here.
     useEffect(() => {
         return eventBus.on(CALL_EXPIRY_EDIT, ({ callId }) => {
@@ -892,12 +903,23 @@ export function MainPage() {
         return eventBus.on(OPEN_COVERAGE, () => setActiveTab('analyst'))
     }, [])
 
+    // A Talos entry card routes here: social-chat card → Confirm → the order dialog. The setups
+    // list is loaded in this component (useSetups), so the setup is resolved the same way an idea
+    // is; if it can't be resolved (not yet reloaded, or already placed) fall back to Mentor rather
+    // than leaving the click dead.
+    useEffect(() => {
+        return eventBus.on(SETUP_CONFIRM_OPEN, ({ setupId }) => {
+            if (setupId) setSetupConfirmId(setupId)
+            else setActiveTab('mentor')
+        })
+    }, [])
+
     // Confirm the call's proposed entry → materialize + place via the Kairos handoff (actOnCall).
     async function handleConfirmCallOrder() {
         if (!callConfirmId) return
         setPlacingOrders(true)
         try {
-            await kairosService.actOnCall(callConfirmId, 'confirm')   // service broadcasts CALLS_CHANGED → loadCalls
+            await kairosService.actOnCall(callConfirmId, 'confirm')   // service broadcasts CALLS_CHANGED → the list reloads
             setCallConfirmId(null)
         } catch (err) {
             console.error('[kairos] confirm call order', err)
@@ -907,6 +929,25 @@ export function MainPage() {
         }
     }
     function handleDismissCallConfirm() { setCallConfirmId(null) }
+
+    // Confirm a setup's entry. Execution is kind-blind (placeOrdersForIdea resolves the entity by
+    // id, not by kind), so the setup's own plan places through the same endpoint an idea uses.
+    async function handleConfirmSetupOrders(setup, orders) {
+        setPlacingOrders(true)
+        try {
+            await tradeIdeasService.placeOrders(setup.id, orders)
+            setSetupConfirmId(null)
+            refreshSetups()
+        } catch (err) {
+            console.error('[setups] place orders failed', err)
+            const data      = err?.response?.data
+            const brokerErr = data?.results?.find(r => r && r.ok === false && r.error)?.error
+            showErrorMsg(`Order placement failed: ${brokerErr || data?.error || err.message}`)
+        } finally {
+            setPlacingOrders(false)
+        }
+    }
+    function handleDismissSetupConfirm() { setSetupConfirmId(null) }
 
     // Manual portfolio activate → mark every pending leg awaiting-fill + post the N-leg
     // entry FillCard; reload so the legs reflect the new state (the card arrives via WS).
@@ -1618,6 +1659,7 @@ export function MainPage() {
         if (activeTab === 'portfolio') return portfolioResumeRef.current?.(threadId)
         if (activeTab === 'scanner')   return scannerResumeRef.current?.(threadId)
         if (activeTab === 'kairos')    return kairosResumeRef.current?.(threadId)
+        if (activeTab === 'mentor')    return mentorResumeRef.current?.(threadId)
         return handleResumeIdeaThread(threadId)
     }
 
@@ -1651,12 +1693,29 @@ export function MainPage() {
             <main>
                 {/* ── Desktop / tablet workspace ── */}
                 <div className="workspace">
+                    {/* Floor trial (Ctrl+Shift+D): the book + calendar take a left column. The chat
+                        and the right column are unchanged below — only the side columns are added,
+                        so the trial can't regress the live layout by rearranging it. */}
+                    {floorMode && (
+                        <div className="workspace__left">
+                            <FloorLeft
+                                positions={positions}
+                                positionsLoading={positionsLoading}
+                                onOpenPosition={handleOpenPositionFromFloor}
+                                earnings={earnings}
+                                fed={fed}
+                                ipo={ipo}
+                                calendarLoading={earningsLoading || fedLoading || ipoLoading}
+                                onEarningSelect={handleBuildFromEarning}
+                                onIpoSelect={handleBuildFromIpo}
+                            />
+                        </div>
+                    )}
                     <div className="workspace__chat">
                         {activeTab === 'axl' ? (
                             <AxlHub
                                 user={user}
                                 onPick={(tab, opts) => { setActiveTab(tab); setActivePipeline(opts?.pipeline ?? null); setNewsTab('scans') }}
-                                onChat={() => setActiveTab('axl-chat')}
                             />
                         ) : (
                             <div className="chat-agentbar">
@@ -1673,7 +1732,7 @@ export function MainPage() {
                                 <PipelineCrumb pipeline={activePipeline} activeTab={activeTab} />
 
                                 <div className="chat-agentbar__right">
-                                    {(activeTab === 'idea' || activeTab === 'portfolio' || activeTab === 'kairos') && (
+                                    {(activeTab === 'idea' || activeTab === 'portfolio' || activeTab === 'kairos' || activeTab === 'mentor') && (
                                         <AccountSelector
                                             accounts={availableAccounts}
                                             selectedIds={selectedAccounts}
@@ -1743,16 +1802,22 @@ export function MainPage() {
                             />
                         </div>
 
+                        <div className="chat-tabs__panel" style={{ display: activeTab === 'mentor' ? 'flex' : 'none' }}>
+                            <MentorPanel
+                                onGenerated={handleBackToAxl}
+                                resumeRef={mentorResumeRef}
+                                availableAccounts={availableAccounts}
+                                selectedAccounts={selectedAccounts}
+                                mainAccountId={mainAccountId}
+                            />
+                        </div>
+
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'analyst' ? 'flex' : 'none' }}>
                             <AnalystPanel
                                 scanResult={analystScanResult}
                                 coverage={coverage}
                                 onInitiated={() => { setNewsTab('coverage'); handleBackToAxl() }}
                             />
-                        </div>
-
-                        <div className="chat-tabs__panel" style={{ display: activeTab === 'axl-chat' ? 'flex' : 'none' }}>
-                            <AxlChatPanel onPick={(tab, opts) => { setActiveTab(tab); setActivePipeline(opts?.pipeline ?? null); setNewsTab('scans') }} />
                         </div>
 
                         {/* Departure beat — covers the agent chat while heading home to axl. */}
@@ -1768,6 +1833,21 @@ export function MainPage() {
                             </div>
                         )}
                     </div>
+                    {floorMode ? (
+                        <div className="workspace__right">
+                            {(
+                                <FloorLists
+                                    calls={calls.filter(c => (c.broker === 'ctrader' ? 'live' : c.broker === 'manual' ? 'manual' : 'paper') === workspace)}
+                                    setups={setups}
+                                    ideas={ideas.filter(i => ideaWorkspace(i) === workspace).filter(i => i.status !== 'closed')}
+                                    positions={positions}
+                                    scans={scans}
+                                    coverage={coverage}
+                                    onCandidateSelect={handleBuildFromCandidate}
+                                />
+                            )}
+                        </div>
+                    ) : (
                     <div className="workspace__ideas">
                         <TradeIdeasList
                             ideas={ideas
@@ -1792,6 +1872,13 @@ export function MainPage() {
                             calls={calls
                                 .filter(c => (c.broker === 'ctrader' ? 'live' : c.broker === 'manual' ? 'manual' : 'paper') === workspace)}
                             buildingCall={buildingCallRow}
+                            setups={setups}
+                            setupsLoading={setupsLoading}
+                            onArmSetup={handleArmSetup}
+                            onDisarmSetup={handleDisarmSetup}
+                            onDeleteSetup={handleDeleteSetup}
+                            onOpenSetup={handleOpenSetup}
+                            setupBusyId={setupBusyId}
                             onActCall={handleActCall}
                             onDeleteCall={handleDeleteCall}
                             onEditCall={handleEditCall}
@@ -1820,6 +1907,7 @@ export function MainPage() {
                             }}
                         />
                     </div>
+                    )}
                 </div>
 
                 {/* ── Mobile monitor dashboard ── */}
@@ -1882,6 +1970,17 @@ export function MainPage() {
                     onConfirm={handleConfirmOrders}
                     onDismiss={handleDismissConfirm}
                     onReset={handleResetWindow}
+                />
+            )}
+
+            {/* Same dialog, driven by a Talos-triggered setup's stamped order plan. */}
+            {confirmSetup && confirmSetupOrders.length > 0 && (
+                <OrderConfirmDialog
+                    idea={confirmSetup}
+                    orders={confirmSetupOrders}
+                    placing={placingOrders}
+                    onConfirm={handleConfirmSetupOrders}
+                    onDismiss={handleDismissSetupConfirm}
                 />
             )}
 

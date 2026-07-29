@@ -12,7 +12,6 @@ import { toolStatusLabel } from '../services/toolStatusLabels.js'
  *
  * NOT every message list reduces this way, and the variants that remain are deliberate,
  * not copies to fold in later:
- *   - AxlChatPanel additionally drops `type: 'chart'` bubbles (they carry no content).
  *   - KairosPanel's persistedMessages() is stricter (role + string content) because it
  *     writes chat_state, not a request payload.
  *   - ScannerPanel's handleGenerate chatLog KEEPS phase rows and `tickers` so reopening
@@ -23,7 +22,9 @@ import { toolStatusLabel } from '../services/toolStatusLabels.js'
  */
 export function toChatHistory(messages) {
     return messages
-        .filter(m => !m.streaming && m.role !== 'phase')
+        // Chart rows carry an image, not text — sending one as a content-less assistant turn is
+        // how a model request ends up malformed. They're display-only in every panel.
+        .filter(m => !m.streaming && m.role !== 'phase' && m.type !== 'chart')
         .map(m => ({ role: m.role, content: m.content }))
 }
 
@@ -44,7 +45,7 @@ export function toChatHistory(messages) {
  *         chat.finishStreaming({ role: 'assistant', content: data.reply, ...extras })
  *         // ...side effects (setPendingPlan, analysisState, …)
  *       },
- *       // optional extra/override handlers (onTicker, onAsset, onChart, …)
+ *       // optional extra/override handlers (onTicker, onAsset, …; onChart is built in)
  *     })
  *     try { await service.sendStream(history, { ...params, signal, ...handlers }) }
  *     catch { chat.freezeError() }
@@ -71,6 +72,9 @@ export function useChatStream({ threadPhases = false } = {}) {
     const [phase, setPhase]               = useState(null)
 
     const reasoningRef = useRef('')
+    // The live chart THIS turn docked, if any — see finishStreaming, which turns it into the turn's
+    // history record when the reply itself is wordless.
+    const liveChartRef = useRef(null)
     const abortRef     = useRef(null)
     const deferRef     = useRef(false)
     const phaseRef     = useRef(null)
@@ -86,8 +90,8 @@ export function useChatStream({ threadPhases = false } = {}) {
      * Optimistically append the user turn + a streaming assistant placeholder,
      * reset per-send state, open an AbortController, and return its signal plus the
      * shared SSE handler bag. Spread `handlers` into the service call; pass
-     * `extraHandlers` to add (onTicker/onAsset/onChart) or override (onDone — which
-     * every caller supplies).
+     * `extraHandlers` to add (onTicker/onAsset) or override (onDone — which every caller
+     * supplies; onChart is handled here by default and only rarely needs overriding).
      */
     function begin(userText, extraHandlers = {}) {
         setMessages(prev => [
@@ -98,6 +102,7 @@ export function useChatStream({ threadPhases = false } = {}) {
         setIsLoading(true)
         setStreamStatus('')
         reasoningRef.current = ''
+        liveChartRef.current = null   // per-turn: only THIS turn's chart may become its history note
         deferRef.current     = false
         startDrain()
 
@@ -162,6 +167,7 @@ export function useChatStream({ threadPhases = false } = {}) {
         setIsLoading(true)
         setStreamStatus('')
         reasoningRef.current = ''
+        liveChartRef.current = null   // per-turn: only THIS turn's chart may become its history note
         deferRef.current     = false
         startDrain()
 
@@ -178,6 +184,34 @@ export function useChatStream({ threadPhases = false } = {}) {
         return {
             onToken:  (t)    => { setStreamStatus(''); enqueueToken(t) },
             onStatus: (tool) => setStreamStatus(toolStatusLabel(tool)),
+            // A chart the AGENT rendered and read (get_chart with show_to_user) — an inline row in
+            // the thread, because it is evidence belonging to the turn that produced it. A chart the
+            // USER asked for never arrives here: it docks at the bottom of the chat instead
+            // (services/sse.util.js routes `live` payloads straight to the chart store).
+            //
+            // Handled HERE so every agent chat shows it identically, and because this hook is the one
+            // place that knows WHERE the row goes: just BEFORE the streaming bubble, so the chart
+            // reads as part of that turn and auto-scroll still lands on the text.
+            // The turn docked a chart the user asked for. Nothing to render (the dock owns it), but
+            // the turn must not end up looking like it never happened — see finishStreaming.
+            onLiveChart: (data) => { liveChartRef.current = data },
+            onChart: (data) => {
+                if (!data?.imageBase64) return
+                setMessages(prev => {
+                    const msgs = [...prev]
+                    const chartMsg = {
+                        role:        'assistant',
+                        type:        'chart',
+                        symbol:      data.symbol,
+                        timeframe:   data.timeframe,
+                        imageBase64: data.imageBase64,
+                    }
+                    const lastIdx = msgs.length - 1
+                    if (msgs[lastIdx]?.streaming) msgs.splice(lastIdx, 0, chartMsg)
+                    else msgs.push(chartMsg)
+                    return msgs
+                })
+            },
             onReasoning: (t) => {
                 reasoningRef.current += t
                 const acc = reasoningRef.current
@@ -234,6 +268,35 @@ export function useChatStream({ threadPhases = false } = {}) {
     function finishStreaming(finalMsg) {
         deferRef.current = true
         const msg = reasoningRef.current ? { reasoning: reasoningRef.current, ...finalMsg } : finalMsg
+
+        // A turn that produced NO text leaves no visible bubble — the normal shape of "give SPY",
+        // since agents are told not to narrate a chart and the chart itself is docked, not written.
+        //
+        // But it still needs a RECORD, or the turn never happened as far as the model is concerned:
+        // the history would hold two user messages in a row, the server coalesces consecutive
+        // same-role turns, and the next question arrives glued to the old one — which had Axl
+        // answering "what does Radar do?" while re-charting the SPY from two turns back. So a
+        // wordless turn that docked a chart keeps a HIDDEN assistant note saying what it showed.
+        // That is also what lets "now the 4h" resolve: the model can see which chart is up.
+        //
+        // `content === undefined` is keep-accumulated mode (phase-threaded chats), NOT an empty
+        // reply — the bubble already holds this phase's text. Reasoning keeps the bubble too: it has
+        // something to show.
+        if (typeof msg.content === 'string' && !msg.content.trim() && !msg.reasoning) {
+            const chart = liveChartRef.current
+            const note  = chart?.symbol
+                ? { role: 'assistant', content: `Showed the ${chart.symbol} ${chart.timeframe ?? 'day'} chart.`, hidden: true }
+                : null
+            stopDrain()
+            setMessages(prev => {
+                if (!prev.at(-1)?.streaming) return prev
+                const next = prev.slice(0, -1)
+                return note ? [...next, note] : next
+            })
+            setIsLoading(false)
+            return
+        }
+
         finishDrain(msg, () => setIsLoading(false))
     }
 
