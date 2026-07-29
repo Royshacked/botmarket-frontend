@@ -4,6 +4,7 @@ import { analystService } from '../../services/analyst/analyst.service.remote.js
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
 import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
+import { useSeedTurn } from '../../customHooks/useSeedTurn.js'
 import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
 import { ChatBubble } from '../ChatBubble.jsx'
@@ -48,7 +49,7 @@ export function CoverageDraft({ coverage }) {
 }
 CoverageDraft.propTypes = { coverage: PropTypes.object.isRequired }
 
-export function AnalystPanel({ scanResult = null, editCoverage = null, onLoadingChange, onInitiated, coverage = [] }) {
+export function AnalystPanel({ scanResult = null, editCoverage = null, seed = null, onLoadingChange, onInitiated, coverage = [] }) {
     const chat = useChatStream({ threadPhases: true })
     const { messages, isLoading } = chat
     const [pendingCoverage, setPendingCoverage] = useState(null)
@@ -70,7 +71,7 @@ export function AnalystPanel({ scanResult = null, editCoverage = null, onLoading
     async function _send(text) {
         if (!text || isLoading) return
         setInitiateErr('')
-        const seed = seedRef.current; seedRef.current = null
+        const candidate = seedRef.current; seedRef.current = null   // NB: the Argus payload, not the `seed` prop
         const history = toChatHistory(messages)
         history.push({ role: 'user', content: text })
 
@@ -86,8 +87,8 @@ export function AnalystPanel({ scanResult = null, editCoverage = null, onLoading
                 model:           readStoredModel('analystModel'),
                 reasoningEffort: readStoredReasoning('analystReasoning'),
                 // Feed the draft-so-far back so the model carries settled fields forward.
-                chatState:       { active_symbol: pendingRef.current?.symbol || seed?.ticker || '', draft: pendingRef.current, existing_coverage: existingRef.current },
-                seed,            // structured Argus investing candidate (one-shot on the hand-off turn)
+                chatState:       { active_symbol: pendingRef.current?.symbol || candidate?.ticker || '', draft: pendingRef.current, existing_coverage: existingRef.current },
+                seed: candidate, // structured Argus investing candidate (one-shot on the hand-off turn)
                 signal,
                 ...handlers,
             })
@@ -139,6 +140,11 @@ export function AnalystPanel({ scanResult = null, editCoverage = null, onLoading
         seedRef.current = { ticker: scanResult.ticker, sector: scanResult.sector ?? null, thesis: scanResult.thesis ?? null, analysis: scanResult.analysis ?? null }
         _send(`Research ${scanResult.ticker} for coverage.`)
     }, [scanResult?.key])   // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Axl routed the user here with the name already resolved (MainPage's handleAxlPick) → open on
+    // it. The bare-ticker cousin of the Argus hand-off above: no scan behind it, so no `seed` for
+    // the backend — just the turn that starts the research.
+    useSeedTurn(seed, _send)
 
     // The coverage pencil → re-open Prometheus on a name already in the book. Setting
     // pendingCoverage to the live doc is what puts the panel in UPDATE mode: `existingCoverage`
@@ -232,6 +238,7 @@ export function AnalystPanel({ scanResult = null, editCoverage = null, onLoading
 AnalystPanel.propTypes = {
     scanResult:      PropTypes.object,
     editCoverage:    PropTypes.object,
+    seed:            PropTypes.object,
     onLoadingChange: PropTypes.func,
     onInitiated:     PropTypes.func,
     coverage:        PropTypes.array,

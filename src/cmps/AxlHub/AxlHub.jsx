@@ -64,10 +64,10 @@ export function AxlHub({ user, onPick }) {
     const chat = useChatStream()
     const { messages, isLoading } = chat
 
-    const [summoning, setSummoning]     = useState(null)
-    const [draft, setDraft]             = useState('')
-    const [pendingDesk, setPendingDesk] = useState(null)
-    const [hoveredDesk, setHoveredDesk] = useState(null)
+    const [summoning, setSummoning]       = useState(null)
+    const [draft, setDraft]               = useState('')
+    const [pendingRoute, setPendingRoute] = useState(null)   // { desk, symbol } — the reply's hand-off
+    const [hoveredDesk, setHoveredDesk]   = useState(null)
     const timerRef  = useRef(null)
     const inputRef  = useRef(null)
 
@@ -78,18 +78,21 @@ export function AxlHub({ user, onPick }) {
     // Once Axl's reply has finished streaming, pause briefly so the user can read it, then start
     // the summon animation to the desk it routed them to.
     useEffect(() => {
-        if (!pendingDesk || isLoading) return
+        if (!pendingRoute || isLoading) return
         const t = setTimeout(() => {
-            _summon(pendingDesk)
-            setPendingDesk(null)
+            _summon(pendingRoute.desk, pendingRoute.symbol)
+            setPendingRoute(null)
         }, 900)
         return () => clearTimeout(t)
-    }, [pendingDesk, isLoading]) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [pendingRoute, isLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
-    function _summon(desk) {
+    // `symbol` is the name Axl already has from the conversation, riding along with the desk so the
+    // first agent opens ON it instead of asking for a ticker the user just gave. A desk the user
+    // picked by BUTTON carries none — that click says which desk, not which name.
+    function _summon(desk, symbol = null) {
         setSummoning(desk)
         timerRef.current = setTimeout(
-            () => onPick(desk.entryTab, { pipeline: desk.key }),
+            () => onPick(desk.entryTab, { pipeline: desk.key, symbol }),
             SUMMON_MS,
         )
     }
@@ -116,8 +119,9 @@ export function AxlHub({ user, onPick }) {
                 chat.finishStreaming({ role: 'assistant', content: data.reply, ...(reasoning ? { reasoning } : {}) })
                 // A chart request needs nothing here — the `chart` event already docked it below.
                 // A ROUTE means Axl is handing them to a desk: let the reply land, then summon.
+                // No route (a clarifying question, a plain answer) simply keeps them here.
                 const desk = DESKS.find(d => d.key === data.route)
-                if (desk) setPendingDesk(desk)
+                if (desk) setPendingRoute({ desk, symbol: data.routeSymbol ?? null })
             },
         })
 
