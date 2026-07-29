@@ -91,6 +91,28 @@ describe('ChatChartDock', () => {
         expect(screen.getByTestId('price-chart').getAttribute('data-symbol')).toBe('NVDA')
     })
 
+    it('a request for what is ALREADY docked leaves a collapsed dock collapsed', () => {
+        // Models do re-emit the chart tag while answering something else. Having the chart pop back
+        // open on every such turn is worse than the stray request.
+        render(<ChatChartDock />)
+        act(() => { openChart({ symbol: 'SPY', timeframe: 'day' }) })
+        act(() => { screen.getByLabelText('Collapse the chart').click() })
+        act(() => { openChart({ symbol: 'SPY', timeframe: 'day' }) })
+
+        expect(screen.queryByTestId('price-chart')).toBeNull()
+        expect(screen.getByText('SPY · DAY')).toBeTruthy()
+    })
+
+    it('but re-asking after a CLOSE opens it again, even for the same view', () => {
+        render(<ChatChartDock />)
+        act(() => { openChart({ symbol: 'SPY', timeframe: 'day' }) })
+        act(() => { screen.getByLabelText('Collapse the chart').click() })
+        act(() => { screen.getByLabelText('Close the chart').click() })
+        act(() => { openChart({ symbol: 'SPY', timeframe: 'day' }) })
+
+        expect(screen.getByTestId('price-chart').getAttribute('data-symbol')).toBe('SPY')
+    })
+
     it('a late mount picks up the already-docked chart instead of losing it', () => {
         // Switching agent tabs unmounts one dock and mounts another; the chart must survive the trip.
         act(() => { openChart({ symbol: 'SPY', timeframe: 'day' }) })

@@ -32,6 +32,9 @@ export function ChatBubble({
     onTickerSelect = null,
     tickerHint     = 'View →',
 }) {
+    // A history-only note (a wordless turn that docked a chart). It exists so the thread the model
+    // sees still alternates; there is nothing for the user to read.
+    if (msg.hidden) return null
     if (msg.role === 'phase') {
         return <ChatPhaseHeading phase={msg.phase} label={phaseLabels?.[msg.phase]} total={phaseTotal} />
     }

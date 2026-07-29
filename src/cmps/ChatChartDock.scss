@@ -6,7 +6,15 @@
     display: flex;
     flex-direction: column;
     height: clamp(320px, 55vh, 560px);
-    border-top: 1px solid var(--border);
+
+    // An object sitting between the thread and the composer, not a slab wedged against both. The
+    // 10px side gutter and the bordered, rounded frame are the input pill's own language
+    // (ChatInputRow.scss) so the two read as a pair; the pill's 6px top margin closes the gap below,
+    // and 8px above separates it from the last message.
+    margin: 8px 10px 0;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;               // clip the chart's corners to the radius
     background: #000;               // matches the chart pane, which is deliberately theme-independent
     animation: chat-chart-dock-in 0.18s ease both;
 
@@ -16,8 +24,9 @@
         flex-direction: row;
         align-items: center;
         gap: 6px;
-        padding: 5px 10px;
-        background: var(--bg-wash-surface);
+        padding: 5px 6px 5px 10px;
+        border-radius: 14px;        // nearer the pill's 16px: at this height it IS a pill
+        background: var(--bg-raised);
     }
 
     // The whole label is the restore target — a 2px chevron is a mean thing to ask someone to hit.

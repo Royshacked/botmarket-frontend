@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 
 import { ChatPanel }         from '../cmps/ChatPanel/ChatPanel.jsx'
 import { AxlHub }            from '../cmps/AxlHub/AxlHub.jsx'
-import { AxlChatPanel }      from '../cmps/AxlHub/AxlChatPanel.jsx'
 import { AgentSummon, AxlBotGlyph } from '../cmps/AxlHub/AgentSummon.jsx'
 import { RETURN_MS, DESKS, AGENTS } from '../cmps/AxlHub/agentMeta.jsx'
 import { AgentGlyph } from '../cmps/AxlHub/AgentBadges.jsx'
@@ -55,7 +54,6 @@ const TAB_TO_STEP = {
     analyst:    'Prometheus',
     idea:       'Idea',
     mentor:     'Mentor',
-    'axl-chat': 'Axl',
 }
 
 // Agentbar breadcrumb: plain agent name when no pipeline is active, full
@@ -1718,7 +1716,6 @@ export function MainPage() {
                             <AxlHub
                                 user={user}
                                 onPick={(tab, opts) => { setActiveTab(tab); setActivePipeline(opts?.pipeline ?? null); setNewsTab('scans') }}
-                                onChat={() => setActiveTab('axl-chat')}
                             />
                         ) : (
                             <div className="chat-agentbar">
@@ -1821,10 +1818,6 @@ export function MainPage() {
                                 coverage={coverage}
                                 onInitiated={() => { setNewsTab('coverage'); handleBackToAxl() }}
                             />
-                        </div>
-
-                        <div className="chat-tabs__panel" style={{ display: activeTab === 'axl-chat' ? 'flex' : 'none' }}>
-                            <AxlChatPanel onPick={(tab, opts) => { setActiveTab(tab); setActivePipeline(opts?.pipeline ?? null); setNewsTab('scans') }} />
                         </div>
 
                         {/* Departure beat — covers the agent chat while heading home to axl. */}

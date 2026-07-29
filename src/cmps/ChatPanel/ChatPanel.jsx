@@ -228,7 +228,9 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
             <div className="chat-panel__messages" ref={messagesRef} onScroll={handleScroll}>
                 {messages.length === 0 && <AgentIntro agent={AGENTS.idea} />}
                 {messages.map((msg, i) => (
-                    msg.role === 'phase' ? (
+                    // `hidden` = a history-only note (a wordless turn that docked a chart): it keeps
+                    // the thread the model sees alternating, and has nothing for the user to read.
+                    msg.hidden ? null : msg.role === 'phase' ? (
                         <ChatPhaseHeading key={i} phase={msg.phase} label={PHASE_LABELS[msg.phase]} total={5} />
                     ) : msg.type === 'chart' ? (
                         <ChatChart key={i} msg={msg} />

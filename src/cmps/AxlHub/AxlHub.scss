@@ -299,35 +299,37 @@
 }
 
 // ── Axl routing comment (streams while intent is being resolved) ──
-.axl-hub__route-comment {
+// ── the conversation ────────────────────────────────────────────────────────────
+// Axl's thread lives inside the hub body (which is the scroll container), under the desk chips.
+.axl-hub__thread {
     width: 100%;
-    max-width: 420px;
-    padding: 11px 16px;
-    background: var(--bg-raised);
-    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.axl-hub__bubble {
+    max-width: 80%;
+    padding: 8px 12px;
     border-radius: 10px;
     font-size: 13px;
     line-height: 1.55;
-    color: var(--text-secondary);
-    text-align: center;
-    animation: axl-hub-enter 0.22s ease both;
-}
+    word-break: break-word;
 
+    &--user {
+        align-self: flex-end;
+        background: var(--accent);
+        color: #fff;
+        border-bottom-right-radius: 3px;
+    }
 
-// "or chat with axl" — subtle footer link inside the hub body.
-.axl-hub__chat-link {
-    background: none;
-    border: none;
-    padding: 0;
-    color: var(--text-muted);
-    font-size: 11px;
-    font-family: var(--font-mono);
-    cursor: pointer;
-    opacity: 0.6;
-    transition: opacity 0.15s, color 0.15s;
-
-    &:hover:not(:disabled) { color: var(--accent-light); opacity: 1; }
-    &:disabled { opacity: 0.25; cursor: not-allowed; }
+    &--assistant {
+        align-self: flex-start;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        color: var(--text-primary);
+        border-bottom-left-radius: 3px;
+    }
 }
 
 // ── summoning state (axl calls the chosen agent before its chat opens) ──

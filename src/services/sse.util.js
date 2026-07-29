@@ -7,7 +7,7 @@ import { openChart } from './chartSurface.service.js'
  * so one builder safely covers all three. Centralises the event→field wiring so
  * adding a new SSE event is a one-line change here, not in three services.
  *
- * @param {object} cb  { onToken, onTicker, onAsset, onInterval, onChart,
+ * @param {object} cb  { onToken, onTicker, onAsset, onInterval, onChart, onLiveChart,
  *                       onPhase, onCoverage, onStatus, onReasoning, onDone, onError }
  * @returns {Object<string, function>}
  */
@@ -26,7 +26,9 @@ export function buildStreamHandlers(cb = {}) {
         //                 dock is a surface, not a message, so no panel wires anything for it.
         //   `imageBase64` the AGENT rendered it and read it → an inline row in the thread, belonging
         //                 to the turn that produced it (cb.onChart → useChatStream → ChatChart).
-        chart:     (d) => (d?.live ? openChart(d) : cb.onChart?.(d)),
+        // `onLiveChart` is a NOTIFICATION, not a destination: the dock is already handled, but the
+        // chat needs to know its turn produced a chart so the thread keeps a record of it.
+        chart:     (d) => (d?.live ? (openChart(d), cb.onLiveChart?.(d)) : cb.onChart?.(d)),
         phase:     (d) => cb.onPhase?.(d.phase),
         // Mentor's progress signal. Unlike `phase` (one number, a step) this is the CUMULATIVE
         // set of dimensions read so far — order-free, because Mentor works by invariants, not steps.

@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, cleanup, renderHook, act } from '@testing-library/react'
 import { ChatChart } from './ChatChart.jsx'
 import { ChatBubble } from './ChatBubble.jsx'
-import { MessageBubble as AxlMessageBubble } from './AxlHub/AxlChatPanel.jsx'
+import { MessageBubble as AxlMessageBubble } from './AxlHub/AxlHub.jsx'
 import { useChatStream, toChatHistory } from '../customHooks/useChatStream.js'
 
 // The in-thread chart row: the STILL image an agent rendered and read. The live chart a user asked
@@ -49,18 +49,18 @@ describe('ChatBubble routes chart rows to the shared component', () => {
 })
 
 describe('Axl renders the same row from its own bubbles', () => {
-    // Axl has NO tools, so the shared <chart> tag is the only way it can ever show a chart — and its
-    // panel predates ChatBubble, so without this route the row would vanish in exactly the one chat
-    // the user is most likely to type "give SPY" into.
+    // Axl keeps its own bubble (own SCSS namespace, a status chip while thinking), so it is the one
+    // surface that can silently lose a chart row — in exactly the chat a user is most likely to type
+    // "give SPY" into.
     it('a type:chart row renders the chart, not an empty Axl bubble', () => {
         const { container } = render(<AxlMessageBubble msg={{ role: 'assistant', type: 'chart', symbol: 'SPY', timeframe: 'day', imageBase64: 'CCC' }} />)
         expect(container.querySelector('.chat-chart__img').getAttribute('src')).toBe('data:image/png;base64,CCC')
-        expect(container.querySelector('.axl-chat__bubble')).toBeNull()
+        expect(container.querySelector('.axl-hub__bubble')).toBeNull()
     })
 
     it('a normal assistant row still renders as an Axl bubble', () => {
         const { container } = render(<AxlMessageBubble msg={{ role: 'assistant', content: 'hello' }} />)
-        expect(container.querySelector('.axl-chat__bubble--assistant')).toBeTruthy()
+        expect(container.querySelector('.axl-hub__bubble--assistant')).toBeTruthy()
         expect(container.textContent).toContain('hello')
     })
 })
@@ -99,6 +99,39 @@ describe('useChatStream owns where the chart row goes', () => {
         const msgs = result.current.messages
         expect(msgs.map(m => m.role)).toEqual(['user'])
         expect(msgs.some(m => m.streaming)).toBe(false)
+    })
+
+    it('but a chart-only turn DOES leave a hidden note, so the thread still alternates', () => {
+        // Without it the history is two user turns in a row, the server coalesces them, and the next
+        // question arrives glued to the last one — which had Axl re-charting while answering
+        // something else entirely. The note is also what lets "now the 4h" resolve.
+        const { result } = renderHook(() => useChatStream())
+        let handlers
+        act(() => { handlers = result.current.begin('give spy').handlers })
+        act(() => { handlers.onLiveChart({ symbol: 'SPY', timeframe: 'day', live: true }) })
+        act(() => { result.current.finishStreaming({ role: 'assistant', content: '' }) })
+
+        const msgs = result.current.messages
+        expect(msgs.map(m => m.role)).toEqual(['user', 'assistant'])
+        expect(msgs[1]).toMatchObject({ content: 'Showed the SPY day chart.', hidden: true })
+        expect(toChatHistory(msgs)).toEqual([
+            { role: 'user', content: 'give spy' },
+            { role: 'assistant', content: 'Showed the SPY day chart.' },
+        ])
+    })
+
+    it("the note is THIS turn's chart, never a stale one from an earlier turn", () => {
+        const { result } = renderHook(() => useChatStream())
+        let handlers
+        act(() => { handlers = result.current.begin('give spy').handlers })
+        act(() => { handlers.onLiveChart({ symbol: 'SPY', timeframe: 'day', live: true }) })
+        act(() => { result.current.finishStreaming({ role: 'assistant', content: '' }) })
+
+        // A later wordless turn that docked nothing must not claim it showed SPY again.
+        act(() => { result.current.begin('and?') })
+        act(() => { result.current.finishStreaming({ role: 'assistant', content: '' }) })
+
+        expect(result.current.messages.filter(m => m.hidden)).toHaveLength(1)
     })
 
     // The non-empty paths finalize through the typewriter drain, which runs on an interval started

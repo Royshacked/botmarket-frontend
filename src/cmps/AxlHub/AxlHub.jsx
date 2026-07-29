@@ -5,51 +5,86 @@ import { AgentSummon } from './AgentSummon.jsx'
 import { AgentGlyph } from './AgentBadges.jsx'
 import { AGENTS, SUMMON_MS, DESKS } from './agentMeta.jsx'
 import { axlService } from '../../services/axl/axl.service.remote'
+import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
+import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
+import { ChatMarkdown } from '../ChatMarkdown.jsx'
+import { ChatReasoning } from '../ChatReasoning.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { ChatChartDock } from '../ChatChartDock.jsx'
+import { ChatChart } from '../ChatChart.jsx'
 import { closeChart } from '../../services/chartSurface.service.js'
+import { readStoredModel } from '../modelOptions.js'
+import { readStoredReasoning } from '../reasoningOptions.js'
+import { readStoredRoutingMode } from '../routingModeOptions.js'
 import './AxlHub.scss'
 
-// ── axl · reception ────────────────────────────────────────────────────────────
-// Axl greets the user and presents 4 pipeline desk buttons. The user either
-// picks a desk directly (instant summon) or types their intent in free text
-// (Axl streams a short comment, resolves the right desk, then summons it).
+// ── axl ────────────────────────────────────────────────────────────────────────
+// The ONE Axl surface, and where the user lands. Axl greets them, shows the desk
+// buttons, and holds a real conversation: it answers app questions, docks charts,
+// remembers the thread, and summons a desk when the reply carries a route.
+//
+// This used to be two screens. The landing box talked to a one-shot `/route`
+// doorman — no history, no app knowledge — while the Axl that could actually
+// converse sat behind an "or chat with axl" link. So the front door answered
+// questions by inventing them, and a follow-up ("give spy" … "now the 4h") had
+// nothing to resolve against. One agent, one endpoint, one screen.
 
 function firstName(fullname = '') {
     const n = String(fullname).trim().split(/\s+/)[0]
     return n || ''
 }
 
+// Axl keeps its own bubble rather than the shared ChatBubble: its own SCSS namespace, and a
+// ToolStatusChip while thinking instead of a text placeholder.
+export function MessageBubble({ msg }) {
+    // A history-only note (a wordless turn that docked a chart) — nothing for the user to read.
+    if (msg.hidden) return null
+    // A chart Axl was asked to READ (an agent-rendered still). The live chart the user asked for
+    // isn't a message at all — it's docked below the thread.
+    if (msg.type === 'chart') return <ChatChart msg={msg} />
 
-export function AxlHub({ user, onPick, onChat }) {
+    if (msg.role === 'user') {
+        return <div className="axl-hub__bubble axl-hub__bubble--user">{msg.content}</div>
+    }
+    return (
+        <div className="axl-hub__bubble axl-hub__bubble--assistant">
+            <ChatReasoning text={msg.reasoning} live={msg.streaming && !msg.content} />
+            {msg.streaming && !msg.content
+                ? <ToolStatusChip label="thinking…" />
+                : <ChatMarkdown>{msg.content ?? ''}</ChatMarkdown>
+            }
+        </div>
+    )
+}
+
+export function AxlHub({ user, onPick }) {
     const name = firstName(user?.fullname)
+    const chat = useChatStream()
+    const { messages, isLoading } = chat
+
     const [summoning, setSummoning]     = useState(null)
     const [draft, setDraft]             = useState('')
-    const [comment, setComment]         = useState('')
-    const [isRouting, setIsRouting]     = useState(false)
     const [pendingDesk, setPendingDesk] = useState(null)
     const [hoveredDesk, setHoveredDesk] = useState(null)
     const timerRef  = useRef(null)
-    const abortRef  = useRef(null)
     const inputRef  = useRef(null)
 
-    useEffect(() => () => {
-        clearTimeout(timerRef.current)
-        abortRef.current?.abort()
-    }, [])
+    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages)
 
-    // Once Axl's comment has finished streaming, pause briefly so the user can
-    // read it, then start the summon animation to the resolved desk.
+    useEffect(() => () => clearTimeout(timerRef.current), [])
+
+    // Once Axl's reply has finished streaming, pause briefly so the user can read it, then start
+    // the summon animation to the desk it routed them to.
     useEffect(() => {
-        if (!pendingDesk || isRouting) return
+        if (!pendingDesk || isLoading) return
         const t = setTimeout(() => {
             _summon(pendingDesk)
             setPendingDesk(null)
         }, 900)
         return () => clearTimeout(t)
-    }, [pendingDesk, isRouting]) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [pendingDesk, isLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
     function _summon(desk) {
         setSummoning(desk)
@@ -60,47 +95,68 @@ export function AxlHub({ user, onPick, onChat }) {
     }
 
     function handleDeskPick(desk) {
-        if (summoning || isRouting) return
+        if (summoning || isLoading) return
         _summon(desk)
     }
 
-    async function handleIntent(overrideText) {
-        const t = (typeof overrideText === 'string' ? overrideText : draft).trim()
-        if (!t || isRouting) return
+    function handleSend() {
+        const trimmed = draft.trim()
+        if (!trimmed || isLoading) return
         setDraft('')
-        setComment('')
-        setIsRouting(true)
-        abortRef.current = new AbortController()
+        _send(trimmed)
+    }
+
+    async function _send(text) {
+        if (!text || isLoading) return
+
+        const history = toChatHistory(messages)
+        const { signal, handlers } = chat.begin(text, {
+            onDone: (data) => {
+                const reasoning = chat.reasoningRef.current
+                chat.finishStreaming({ role: 'assistant', content: data.reply, ...(reasoning ? { reasoning } : {}) })
+                // A chart request needs nothing here — the `chart` event already docked it below.
+                // A ROUTE means Axl is handing them to a desk: let the reply land, then summon.
+                const desk = DESKS.find(d => d.key === data.route)
+                if (desk) setPendingDesk(desk)
+            },
+        })
 
         try {
-            await axlService.routeIntent(t, {
-                signal:  abortRef.current.signal,
-                onToken: (text) => setComment(prev => prev + text),
-                onDone:  (data) => {
-                    setIsRouting(false)
-                    // A chart request needs no wiring here: the `chart` event already docked it
-                    // (services/sse.util.js → the shared store → ChatChartDock below). NO desk
-                    // routing happens — the user asked to look, not to be moved somewhere.
-                    if (data.chart?.ticker) return
-                    const desk = DESKS.find(d => d.key === data.route)
-                    if (desk) setPendingDesk(desk)
+            await axlService.streamAxl(
+                [...history, { role: 'user', content: text }],
+                {
+                    model:           readStoredModel('axlModel'),
+                    reasoningEffort: readStoredReasoning('axlReasoning'),
+                    routingMode:     readStoredRoutingMode('axlRoutingMode'),
+                    signal,
+                    ...handlers,
                 },
-                onError: () => setIsRouting(false),
-            })
+            )
         } catch (err) {
-            if (err?.name !== 'AbortError') console.error('[axl:route]', err)
-            setIsRouting(false)
+            console.error('[axl]', err)
+            chat.freezeError('Error communicating with Axl. Please try again.')
+        } finally {
+            chat.endStream()
         }
     }
 
-    function handleKeyDown(e) {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleIntent() }
+    function handleClear() {
+        chat.handleStop?.()
+        chat.setMessages([])
+        setDraft('')
+        // One Clear, one clean slate — a chart left docked under an empty hub reads as a leftover.
+        closeChart()
     }
 
-    const onTranscript = useCallback((text) => { if (text) handleIntent(text) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    function handleKeyDown(e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
+    }
+
+    const onTranscript = useCallback((text) => { if (text) _send(text) }, []) // eslint-disable-line react-hooks/exhaustive-deps
     const { isRecording, isTranscribing, toggle: toggleMic, cancel: cancelMic } = useMicInput({ onTranscript })
 
-    const hasResult = comment || isRouting
+    // The landing (greeting + desk cards) gives way to the thread on the first message.
+    const hasThread = messages.length > 0
 
     if (summoning) {
         const agent = AGENTS[summoning.agentKey]
@@ -146,8 +202,12 @@ export function AxlHub({ user, onPick, onChat }) {
                 )}
             </div>
 
-            <div className={`axl-hub__body${hasResult ? ' axl-hub__body--active' : ''}`}>
-                {!hasResult && (
+            <div
+                className={`axl-hub__body${hasThread ? ' axl-hub__body--active' : ''}`}
+                ref={messagesRef}
+                onScroll={handleScroll}
+            >
+                {!hasThread && (
                     /* ── greeting ── */
                     <div className="axl-hub__intro">
                         <svg className="axl-hub__mark" viewBox="0 0 44 44" aria-hidden="true">
@@ -183,8 +243,8 @@ export function AxlHub({ user, onPick, onChat }) {
                     </div>
                 )}
 
-                {hasResult ? (
-                    /* ── inline desk chips (replaces cards once a result is showing) ── */
+                {hasThread ? (
+                    /* ── inline desk chips (replace the cards once the conversation starts) ── */
                     <div className="axl-hub__desk-strip">
                         {DESKS.map(desk => (
                             <button
@@ -192,7 +252,7 @@ export function AxlHub({ user, onPick, onChat }) {
                                 type="button"
                                 className={`axl-hub__desk-chip axl-hub__desk-chip--${desk.hue}`}
                                 onClick={() => handleDeskPick(desk)}
-                                disabled={isRouting}
+                                disabled={isLoading}
                                 title={desk.label}
                             >
                                 <AgentGlyph agentKey={desk.agentKey} icon={AGENTS[desk.agentKey]?.icon} size={13} />
@@ -201,7 +261,7 @@ export function AxlHub({ user, onPick, onChat }) {
                         ))}
                     </div>
                 ) : (
-                    /* ── 4 desk cards (2×2 grid) ── */
+                    /* ── desk cards (2×2 grid) ── */
                     <div className="axl-hub__options">
                         {DESKS.map((desk, i) => (
                             <button
@@ -212,7 +272,7 @@ export function AxlHub({ user, onPick, onChat }) {
                                 onClick={() => handleDeskPick(desk)}
                                 onMouseEnter={() => setHoveredDesk(desk)}
                                 onMouseLeave={() => setHoveredDesk(null)}
-                                disabled={isRouting}
+                                disabled={isLoading}
                             >
                                 <span className="axl-hub__option-icon">
                                     <AgentGlyph agentKey={desk.agentKey} icon={AGENTS[desk.agentKey]?.icon} size={32} />
@@ -223,26 +283,16 @@ export function AxlHub({ user, onPick, onChat }) {
                     </div>
                 )}
 
-                {/* ── Axl's routing comment, then a chart if one was asked for ── */}
-                {isRouting && !comment && <ToolStatusChip label="thinking…" />}
-                {comment && (
-                    <div className="axl-hub__route-comment" aria-live="polite">{comment}</div>
-                )}
-
-                {onChat && (
-                    <button
-                        type="button"
-                        className="axl-hub__chat-link"
-                        onClick={onChat}
-                        disabled={isRouting}
-                    >
-                        or chat with axl
-                    </button>
+                {hasThread && (
+                    <div className="axl-hub__thread">
+                        {messages.map((msg, i) => <MessageBubble key={i} msg={msg} />)}
+                        {isLoading && chat.streamStatus && <ToolStatusChip label={chat.streamStatus} />}
+                        <div ref={messagesEndRef} />
+                    </div>
                 )}
             </div>
 
-            {/* Same dock as every agent chat: above the input, below the body. The hub's Clear also
-                closes it — one Clear, one clean slate, rather than a chart under an empty hub. */}
+            {/* Same dock as every agent chat: above the input, below the thread. */}
             <ChatChartDock />
 
             <ChatInputRow
@@ -251,17 +301,19 @@ export function AxlHub({ user, onPick, onChat }) {
                 onChange={e => setDraft(e.target.value)}
                 onKeyDown={handleKeyDown}
                 textareaRef={inputRef}
-                placeholder="Or describe what you'd like to do…"
-                onSend={handleIntent}
-                sendDisabled={isRouting}
-                onClear={() => { setDraft(''); setComment(''); closeChart() }}
-                clearDisabled={!draft && !comment}
+                placeholder="Ask Axl anything, or say what you'd like to do…"
+                onSend={handleSend}
+                sendDisabled={!draft.trim() || isLoading}
+                isStreaming={isLoading}
+                onStop={chat.handleStop}
+                onClear={handleClear}
+                clearDisabled={isLoading || (!draft && !hasThread)}
                 onToggleMic={toggleMic}
                 onCancelMic={cancelMic}
                 isRecording={isRecording}
                 isTranscribing={isTranscribing}
-                micDisabled={isRouting || isTranscribing}
-                textareaDisabled={isRouting || isRecording}
+                micDisabled={isLoading || isTranscribing}
+                textareaDisabled={isLoading || isRecording}
             />
         </div>
     )
@@ -270,5 +322,8 @@ export function AxlHub({ user, onPick, onChat }) {
 AxlHub.propTypes = {
     user:   PropTypes.object,
     onPick: PropTypes.func.isRequired,
-    onChat: PropTypes.func,
+}
+
+MessageBubble.propTypes = {
+    msg: PropTypes.object.isRequired,
 }

@@ -23,9 +23,13 @@ export function ChatChartDock() {
     const { chart, close } = useChartSurface()
     const [collapsed, setCollapsed] = useState(false)
 
-    // A new request re-expands a collapsed dock: asking to see a chart means you want to see it.
-    // Keyed on `at` too, so re-asking for the SAME view (which the store stamps afresh) also counts.
-    useEffect(() => { setCollapsed(false) }, [chart?.ticker, chart?.timeframe, chart?.at])
+    // A request for a DIFFERENT view re-expands a collapsed dock: asking to see a chart means you
+    // want to see it. Keyed on identity rather than the store's `at` stamp, so a request for exactly
+    // what is already docked leaves the dock as the user left it — models do re-emit the chart tag
+    // while answering something else, and having the chart pop back open every time would be worse
+    // than the stray request itself. Closing empties the key, so re-asking after a Close still opens.
+    const chartKey = chart ? `${chart.ticker}|${chart.timeframe}` : null
+    useEffect(() => { if (chartKey) setCollapsed(false) }, [chartKey])
 
     if (!chart) return null
 

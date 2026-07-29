@@ -72,6 +72,9 @@ export function useChatStream({ threadPhases = false } = {}) {
     const [phase, setPhase]               = useState(null)
 
     const reasoningRef = useRef('')
+    // The live chart THIS turn docked, if any — see finishStreaming, which turns it into the turn's
+    // history record when the reply itself is wordless.
+    const liveChartRef = useRef(null)
     const abortRef     = useRef(null)
     const deferRef     = useRef(false)
     const phaseRef     = useRef(null)
@@ -99,6 +102,7 @@ export function useChatStream({ threadPhases = false } = {}) {
         setIsLoading(true)
         setStreamStatus('')
         reasoningRef.current = ''
+        liveChartRef.current = null   // per-turn: only THIS turn's chart may become its history note
         deferRef.current     = false
         startDrain()
 
@@ -163,6 +167,7 @@ export function useChatStream({ threadPhases = false } = {}) {
         setIsLoading(true)
         setStreamStatus('')
         reasoningRef.current = ''
+        liveChartRef.current = null   // per-turn: only THIS turn's chart may become its history note
         deferRef.current     = false
         startDrain()
 
@@ -187,6 +192,9 @@ export function useChatStream({ threadPhases = false } = {}) {
             // Handled HERE so every agent chat shows it identically, and because this hook is the one
             // place that knows WHERE the row goes: just BEFORE the streaming bubble, so the chart
             // reads as part of that turn and auto-scroll still lands on the text.
+            // The turn docked a chart the user asked for. Nothing to render (the dock owns it), but
+            // the turn must not end up looking like it never happened — see finishStreaming.
+            onLiveChart: (data) => { liveChartRef.current = data },
             onChart: (data) => {
                 if (!data?.imageBase64) return
                 setMessages(prev => {
@@ -261,17 +269,30 @@ export function useChatStream({ threadPhases = false } = {}) {
         deferRef.current = true
         const msg = reasoningRef.current ? { reasoning: reasoningRef.current, ...finalMsg } : finalMsg
 
-        // A turn that produced NO text drops its bubble instead of leaving an empty one. This is the
-        // normal shape of "give SPY": the chart row is already in the thread and agents are told not
-        // to narrate a chart, so the reply is genuinely empty — an empty bubble would be the only
-        // thing that looked broken about it.
+        // A turn that produced NO text leaves no visible bubble — the normal shape of "give SPY",
+        // since agents are told not to narrate a chart and the chart itself is docked, not written.
+        //
+        // But it still needs a RECORD, or the turn never happened as far as the model is concerned:
+        // the history would hold two user messages in a row, the server coalesces consecutive
+        // same-role turns, and the next question arrives glued to the old one — which had Axl
+        // answering "what does Radar do?" while re-charting the SPY from two turns back. So a
+        // wordless turn that docked a chart keeps a HIDDEN assistant note saying what it showed.
+        // That is also what lets "now the 4h" resolve: the model can see which chart is up.
         //
         // `content === undefined` is keep-accumulated mode (phase-threaded chats), NOT an empty
-        // reply — the bubble already holds this phase's text. Reasoning also keeps the bubble: it has
+        // reply — the bubble already holds this phase's text. Reasoning keeps the bubble too: it has
         // something to show.
         if (typeof msg.content === 'string' && !msg.content.trim() && !msg.reasoning) {
+            const chart = liveChartRef.current
+            const note  = chart?.symbol
+                ? { role: 'assistant', content: `Showed the ${chart.symbol} ${chart.timeframe ?? 'day'} chart.`, hidden: true }
+                : null
             stopDrain()
-            setMessages(prev => (prev.at(-1)?.streaming ? prev.slice(0, -1) : prev))
+            setMessages(prev => {
+                if (!prev.at(-1)?.streaming) return prev
+                const next = prev.slice(0, -1)
+                return note ? [...next, note] : next
+            })
             setIsLoading(false)
             return
         }
