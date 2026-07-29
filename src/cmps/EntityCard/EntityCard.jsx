@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types'
 import { StatusIcon } from '../StatusIcon.jsx'
 import { EditIcon, BinIcon, BuildingIcon } from './entityIcons.jsx'
+import { IconButton } from './IconButton.jsx'
 
 // ONE card shell for every entity list — ideas, calls, setups.
 //
@@ -134,38 +135,55 @@ StatusBadge.propTypes = {
     label: PropTypes.string, onToggle: PropTypes.func, disabled: PropTypes.bool,
 }
 
-export function EditButton({ onClick, title = 'Edit in chat', alert = false, locked = false }) {
+// Edit and Delete are the two icon buttons the entity surfaces name explicitly — thin meaning on
+// top of the shared IconButton: which glyph, and what "unavailable" means for this action.
+
+/**
+ * Edit. `locked` means the entity can't be re-worked in its build chat any more (past entry) —
+ * it greys out AND disables, so what the button looks like and what it does agree. The card body
+ * still opens the pop-out. `alert` / `due` are resting-red states (missing exits, review owed).
+ */
+export function EditButton({ onClick, title = 'Edit in chat', alert = false, due = false, locked = false, disabled = false, size = 'md', className = '' }) {
     return (
-        <button
-            className={`idea-card__edit-btn${alert ? ' idea-card__edit-btn--alert' : ''}${locked ? ' idea-card__edit-btn--locked' : ''}`}
-            onClick={e => { e.stopPropagation(); onClick(e) }}
+        <IconButton
+            icon={<EditIcon />}
+            onClick={onClick}
             title={title}
-        ><EditIcon /></button>
+            tone={alert ? 'alert' : due ? 'due' : 'plain'}
+            size={size}
+            disabled={locked || disabled}
+            className={`${locked ? 'icon-btn--locked ' : ''}${className}`.trim()}
+        />
     )
 }
 EditButton.propTypes = {
     onClick: PropTypes.func.isRequired, title: PropTypes.string,
-    alert: PropTypes.bool, locked: PropTypes.bool,
+    alert: PropTypes.bool, due: PropTypes.bool, locked: PropTypes.bool, disabled: PropTypes.bool,
+    size: PropTypes.oneOf(['md', 'sm']), className: PropTypes.string,
 }
 
 /**
  * Delete. `lockedReason` both disables the button and explains why — every kind has some state
  * where deleting would orphan something at the broker, and each phrases it its own way.
  */
-export function DeleteButton({ onClick, title = 'Delete', lockedReason = null, disabled = false }) {
-    const locked = !!lockedReason
+export function DeleteButton({ onClick, title = 'Delete', lockedReason = null, disabled = false, size = 'md', className = '' }) {
     return (
-        <button
-            className="idea-card__delete"
-            onClick={e => { e.stopPropagation(); if (!locked) onClick(e) }}
-            disabled={locked || disabled}
-            title={lockedReason ?? title}
-        ><BinIcon /></button>
+        <IconButton
+            icon={<BinIcon />}
+            onClick={onClick}
+            title={title}
+            lockedReason={lockedReason}
+            tone="danger"
+            size={size}
+            disabled={disabled}
+            className={className}
+        />
     )
 }
 DeleteButton.propTypes = {
     onClick: PropTypes.func.isRequired, title: PropTypes.string,
     lockedReason: PropTypes.string, disabled: PropTypes.bool,
+    size: PropTypes.oneOf(['md', 'sm']), className: PropTypes.string,
 }
 
 export { BuildingIcon }

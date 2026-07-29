@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { posKey } from './PositionsTable.jsx'
-import { PositionsCards, BinIcon } from './TradeIdeaCards.jsx'
+import { PositionsCards } from './TradeIdeaCards.jsx'
+import { DeleteButton } from '../EntityCard/EntityCard.jsx'
 import { ClosePositionDialog } from './ClosePositionDialog.jsx'
 import { EditOrdersDialog } from './EditOrdersDialog.jsx'
 import './PopoutFooter.scss'
@@ -46,15 +47,12 @@ export function PopoutFooter({ positions = [], closePosition, onPositionsChanged
             <div className="popout-footer__head">
                 <span className="idea-dialog__section-title">Positions</span>
                 {onDelete && (
-                    <button
-                        className="popout-footer__delete"
-                        title={inPosition ? 'Close the open position before deleting' : deleteTitle}
-                        aria-label={deleteTitle}
+                    <DeleteButton
                         onClick={onDelete}
-                        disabled={inPosition}
-                    >
-                        <BinIcon />
-                    </button>
+                        title={deleteTitle}
+                        lockedReason={inPosition ? 'Close the open position before deleting' : null}
+                        className="popout-footer__delete"
+                    />
                 )}
             </div>
 

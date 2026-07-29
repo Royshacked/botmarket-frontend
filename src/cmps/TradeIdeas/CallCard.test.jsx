@@ -18,10 +18,10 @@ function makeCall(overrides = {}) {
     return { ...base, ...overrides }
 }
 
-// The pencil is the only .idea-card__edit-btn; the <article> also carries title="Open call",
+// The pencil is the only .icon-btn; the <article> also carries title="Open call",
 // so select by class rather than title to stay unambiguous.
 function clickPencil(container) {
-    fireEvent.click(container.querySelector('.idea-card__edit-btn'))
+    fireEvent.click(container.querySelector('.icon-btn'))
 }
 
 describe('CallCard edit pencil', () => {
@@ -48,37 +48,44 @@ describe('CallCard edit pencil', () => {
 
     it('labels the invalidated pencil "Edit in chat"', () => {
         const { container } = render(<CallCard call={makeCall()} onEdit={vi.fn()} onAct={vi.fn()} />)
-        expect(container.querySelector('.idea-card__edit-btn').getAttribute('title')).toBe('Edit in chat')
+        expect(container.querySelector('.icon-btn').getAttribute('title')).toBe('Edit in chat')
     })
 
-    it('still opens the pop-out for a CLOSED call (terminal, not re-armable)', () => {
+    // The pencil used to grey out but still fire, opening the pop-out. A control that looks dead
+    // and acts alive is the worse of the two: it's now disabled outright, and the card body is the
+    // one way to the pop-out.
+    it('disables the pencil on a CLOSED call (terminal, not re-armable)', () => {
         const onEdit = vi.fn()
         const { container } = render(<CallCard call={makeCall({ status: 'closed' })} onEdit={onEdit} onAct={vi.fn()} />)
 
         clickPencil(container)
 
+        expect(container.querySelector('.icon-btn').disabled).toBe(true)
         expect(onEdit).not.toHaveBeenCalled()
-        expect(window.open).toHaveBeenCalledTimes(1)
+        expect(window.open).not.toHaveBeenCalled()
     })
 
-    it('still opens the pop-out for an IN-POSITION call (mid-trade edits go via management cards)', () => {
+    it('disables the pencil IN POSITION (mid-trade edits go via management cards)', () => {
         const onEdit = vi.fn()
         const { container } = render(<CallCard call={makeCall({ status: 'long', invalidation_status: null })} onEdit={onEdit} onAct={vi.fn()} />)
 
         clickPencil(container)
 
+        expect(container.querySelector('.icon-btn').disabled).toBe(true)
         expect(onEdit).not.toHaveBeenCalled()
-        expect(window.open).toHaveBeenCalledTimes(1)
+        expect(window.open).not.toHaveBeenCalled()
     })
 
-    it('dims the pencil (--locked) when editing is off, and keeps it plain when editable', () => {
+    it('greys the pencil (--locked) when editing is off, and keeps it plain when editable', () => {
         const { container: inPos } = render(<CallCard call={makeCall({ status: 'long', invalidation_status: null })} onEdit={vi.fn()} onAct={vi.fn()} />)
-        const locked = inPos.querySelector('.idea-card__edit-btn')
-        expect(locked.classList.contains('idea-card__edit-btn--locked')).toBe(true)
-        expect(locked.getAttribute('title')).toBe('Open call (editing off in position)')
+        const locked = inPos.querySelector('.icon-btn')
+        expect(locked.classList.contains('icon-btn--locked')).toBe(true)
+        expect(locked.getAttribute('title')).toBe('Editing is off once the position is live')
 
         cleanup()
-        const { container: editable } = render(<CallCard call={makeCall()} onEdit={vi.fn()} onAct={vi.fn()} />)
-        expect(editable.querySelector('.idea-card__edit-btn').classList.contains('idea-card__edit-btn--locked')).toBe(false)
+        const editablePencil = render(<CallCard call={makeCall()} onEdit={vi.fn()} onAct={vi.fn()} />)
+            .container.querySelector('.icon-btn')
+        expect(editablePencil.classList.contains('icon-btn--locked')).toBe(false)
+        expect(editablePencil.disabled).toBe(false)
     })
 })

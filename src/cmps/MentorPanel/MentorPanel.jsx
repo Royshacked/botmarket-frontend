@@ -124,7 +124,11 @@ export function MentorPanel({
     function _persist(history, reply, setup) {
         const msgs = [...history, { role: 'assistant', content: reply }]
         if (editingSetupId) {
-            mentorService.updateSetup(editingSetupId, setup, accounts, mainAccountId, { messages: msgs, draft: setup, coverage })
+            // Conversation ONLY — never the plan. A mid-edit turn that went through updateSetup
+            // would re-run the venue gate and send a watched setup back to 'waiting', so Talos
+            // would stop watching because the user asked a question. The plan is written when
+            // they press "Update setup".
+            mentorService.saveChatState(editingSetupId, { messages: msgs, draft: setup, coverage })
                 .catch(err => console.error('[mentor] chat_state save', err))
         } else {
             threadsService.saveDraft({

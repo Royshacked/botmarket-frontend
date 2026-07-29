@@ -29,7 +29,7 @@ describe('EntityCard click routing', () => {
                 onOpen={onOpen}
             />,
         )
-        fireEvent.click(container.querySelector('.idea-card__delete'))
+        fireEvent.click(container.querySelector('.icon-btn'))
         expect(onDelete).toHaveBeenCalledTimes(1)
         expect(onOpen).not.toHaveBeenCalled()
     })
@@ -68,7 +68,7 @@ describe('shared controls', () => {
         const { container } = render(
             <DeleteButton onClick={onDelete} lockedReason="In a live position — close it at the broker first" />,
         )
-        const btn = container.querySelector('.idea-card__delete')
+        const btn = container.querySelector('.icon-btn')
         expect(btn.disabled).toBe(true)
         expect(btn.title).toMatch(/live position/i)
         fireEvent.click(btn)

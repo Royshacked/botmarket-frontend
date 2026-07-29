@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
+import { EditButton, DeleteButton } from '../EntityCard/EntityCard.jsx'
 import { ConvictionChip } from '../ConvictionChip/ConvictionChip.jsx'
 import { RadarTicker } from './RadarTicker.jsx'
 import './ScanList.scss'
@@ -249,20 +250,10 @@ function ScanCard({ scan, collapsed, onToggle, onCandidateSelect, onDelete, onEd
                 )}
                 <span className={`scan-list__card-dir scan-list__card-dir--${dir}`}>{dir}</span>
                 <span className="scan-list__count">{scan.candidates.length}</span>
-                <button className="scan-list__edit" onClick={e => { e.stopPropagation(); onEditScan?.(scan) }} aria-label="Edit list" title="Edit this list in the scanner chat">
-                    <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                        <path d="M11.5 1.5L14.5 4.5L5.5 13.5H2.5V10.5L11.5 1.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
-                        <path d="M9.5 3.5L12.5 6.5" stroke="currentColor" strokeWidth="1.4"/>
-                    </svg>
-                </button>
-                <button className="scan-list__delete" onClick={e => { e.stopPropagation(); onDelete?.(scan.id) }} aria-label="Delete list" title="Delete list">
-                    <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                        <path d="M2.5 4H13.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                        <path d="M6.5 4V2.8C6.5 2.36 6.86 2 7.3 2H8.7C9.14 2 9.5 2.36 9.5 2.8V4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                        <path d="M3.7 4L4.3 13C4.34 13.56 4.8 14 5.36 14H10.64C11.2 14 11.66 13.56 11.7 13L12.3 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M6.5 6.5V11.5M9.5 6.5V11.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                    </svg>
-                </button>
+                {/* The shared controls — this card used to re-inline the pencil and bin paths,
+                    so the glyphs could drift from every other list in the app. */}
+                <EditButton onClick={() => onEditScan?.(scan)} title="Edit this list in the scanner chat" size="sm" />
+                <DeleteButton onClick={() => onDelete?.(scan.id)} title="Delete list" size="sm" className="scan-list__delete" />
             </div>
             {!collapsed && (
                 <div className="scan-list__cands">

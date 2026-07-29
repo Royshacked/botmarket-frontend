@@ -1,0 +1,57 @@
+// The one icon-button style. See IconButton.jsx for why it exists.
+//
+// The colour rule, which is the whole point of having one file: AVAILABLE = the title colour, so
+// an action reads as ordinary text you can click rather than a highlight competing with the status
+// colours that actually carry meaning. UNAVAILABLE = muted grey, and disabled for real.
+.icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 0;
+    outline: none;
+    appearance: none;
+    padding: 2px 3px;
+    flex-shrink: 0;
+    line-height: 0;
+    color: var(--text-primary);
+    cursor: pointer;
+
+    svg { width: 16px; height: 16px; display: block; }
+    &:focus { outline: none; }
+    &:hover { color: var(--accent-light); }
+
+    // Destructive: red on approach. The one action worth colouring before it's taken.
+    &--danger:hover { color: var(--color-short, #ff6b6b); }
+
+    // Resting red — the control is ASKING for attention rather than waiting for it.
+    // `alert`: something is missing (an idea with no stop). `due`: a review is owed.
+    &--alert {
+        color: #ef5350;
+        animation: status-pulse 1.3s ease-in-out infinite;   // defined in TradeIdeas.scss
+        &:hover { color: #ff6b6b; }
+    }
+    &--due {
+        color: #ef5350;
+        &:hover { color: #ff6b6b; }
+    }
+
+    // The Floor's 26px sub-rows can't carry a 16px glyph without crowding the line.
+    &--sm {
+        padding: 2px;
+        svg { width: 13px; height: 13px; }
+    }
+
+    // `--locked` carries no styling of its own: "locked" always means disabled, and the rule below
+    // already draws that. It stays as a marker the surfaces (and their tests) can read.
+
+    // One disabled look, whatever caused it (locked / busy) — and it beats the tones above, so a
+    // red "review due" pencil still greys out when the review can't be opened.
+    &:disabled {
+        color: var(--text-muted);
+        opacity: 0.5;
+        cursor: not-allowed;
+        animation: none;
+        &:hover { color: var(--text-muted); }
+    }
+}

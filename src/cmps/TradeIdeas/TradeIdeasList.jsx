@@ -13,6 +13,7 @@ import { MinosBadge, HermesBadge, TalosBadge, AtlasBadge, ArgusBadge, AgentGlyph
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { IdeaCard, BrokerGroupCard, PortfolioCard, BuildingPortfolioCard, PositionsCards } from './TradeIdeaCards.jsx'
 import { SetupCard } from './SetupCard.jsx'
+import { EditButton, DeleteButton } from '../EntityCard/EntityCard.jsx'
 import { CallCard } from './CallCard.jsx'
 import { isArmed } from '../../services/entityStatus.js'
 import { useDesign } from '../../customHooks/useDesign.js'
@@ -119,12 +120,11 @@ function BrokerGroupRow({ group, expanded, onToggle, onDelete, onStatusChange, o
                 <td className="idea-row__created">{formatCreatedAt(group.savedAt) || '—'}</td>
                 <td className="idea-row__notes">{summary || '—'}</td>
                 <td className="idea-row__controls">
-                    <button
-                        className="idea-row__delete"
+                    <DeleteButton
                         onClick={handleDeleteAll}
-                        disabled={anyLocked}
-                        title={anyLocked ? 'A broker leg is live — close the position first to delete' : 'Delete all broker legs of this idea'}
-                    >×</button>
+                        title="Delete all broker legs of this idea"
+                        lockedReason={anyLocked ? 'A broker leg is live — close the position first to delete' : null}
+                    />
                     {allWaiting ? (
                         <button className="idea-row__status-toggle status--waiting" onClick={handleActivateAll} title="Activate all broker legs"><StatusIcon status="waiting" /></button>
                     ) : (
@@ -247,29 +247,16 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
                         >{isManual ? (anyOpen ? 'exit' : 'fill') : 'active'}</button>
                     )}
                     <span className="idea-row__actions">
-                        <button
-                            className={`idea-row__edit-btn${isReviewDue ? ' idea-row__edit-btn--due' : ''}`}
-                            onClick={e => { e.stopPropagation(); onEdit(group.portfolioId, isReviewDue ? { reviewMode: true } : undefined) }}
+                        <EditButton
+                            onClick={() => onEdit(group.portfolioId, isReviewDue ? { reviewMode: true } : undefined)}
+                            due={isReviewDue}
                             title={isReviewDue ? 'Review due — open review in chat' : 'Edit portfolio in chat'}
-                        >
-                            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                <path d="M11.5 1.5L14.5 4.5L5.5 13.5H2.5V10.5L11.5 1.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
-                                <path d="M9.5 3.5L12.5 6.5" stroke="currentColor" strokeWidth="1.4"/>
-                            </svg>
-                        </button>
-                        <button
-                            className="idea-row__delete idea-row__delete--bin"
+                        />
+                        <DeleteButton
                             onClick={handleDeleteAll}
-                            disabled={anyLocked}
-                            title={anyLocked ? 'A position is live — close it first to delete this portfolio' : 'Delete all ideas in this portfolio'}
-                        >
-                            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                <path d="M2.5 4H13.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                                <path d="M6.5 4V2.8C6.5 2.36 6.86 2 7.3 2H8.7C9.14 2 9.5 2.36 9.5 2.8V4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                                <path d="M3.7 4L4.3 13C4.34 13.56 4.8 14 5.36 14H10.64C11.2 14 11.66 13.56 11.7 13L12.3 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-                                <path d="M6.5 6.5V11.5M9.5 6.5V11.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                            </svg>
-                        </button>
+                            title="Delete all ideas in this portfolio"
+                            lockedReason={anyLocked ? 'A position is live — close it first to delete this portfolio' : null}
+                        />
                     </span>
                 </td>
             </tr>
@@ -355,7 +342,7 @@ CardList.propTypes = {
     renderCard: PropTypes.func, lead: PropTypes.node,
 }
 
-export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, buildingCall, loading = false, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, calls = [], onActCall, onDeleteCall, onEditCall, callBusyId = null, setups = [], setupsLoading = false, onArmSetup, onDisarmSetup, onDeleteSetup, onOpenSetup, setupBusyId = null, radar }) {
+export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, buildingCall, loading = false, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, calls = [], onActCall, onDeleteCall, onEditCall, callBusyId = null, setups = [], setupsLoading = false, onArmSetup, onDisarmSetup, onDeleteSetup, onEditSetup, setupBusyId = null, radar }) {
     const [expandedGroups, setExpandedGroups] = useState(new Set())
     const [activeFilter,   setActiveFilter]   = useState(null)    // null = hub landing
     const [closingId,      setClosingId]      = useState(null)
@@ -524,11 +511,13 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                 ? `${setups.filter(x => isArmed(x.status)).length} watched · ${setups.length} total`
                 : null,
             items: setups, loading: setupsLoading, empty: 'No setups yet — build one with Mentor.',
+            // The pencil reopens the BUILD conversation (onEditSetup). It used to be wired to
+            // onOpenSetup, which only switched to the Mentor tab and landed on an empty chat.
             renderCard: (su) => (
                 <SetupCard
                     key={su.id} setup={su} busy={setupBusyId === su.id}
                     onArm={onArmSetup} onDisarm={onDisarmSetup} onDelete={onDeleteSetup}
-                    onOpen={openSetupPopup} onEdit={onOpenSetup} onSymbolClick={onSymbolClick}
+                    onOpen={openSetupPopup} onEdit={onEditSetup} onSymbolClick={onSymbolClick}
                 />
             ),
         },
@@ -867,5 +856,12 @@ TradeIdeasList.propTypes = {
     onDeleteCall:     PropTypes.func,
     onEditCall:       PropTypes.func,
     callBusyId:       PropTypes.string,
+    setups:           PropTypes.array,
+    setupsLoading:    PropTypes.bool,
+    onArmSetup:       PropTypes.func,
+    onDisarmSetup:    PropTypes.func,
+    onDeleteSetup:    PropTypes.func,
+    onEditSetup:      PropTypes.func,
+    setupBusyId:      PropTypes.string,
     radar:            PropTypes.object,
 }

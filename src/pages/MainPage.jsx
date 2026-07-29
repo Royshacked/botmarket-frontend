@@ -279,6 +279,9 @@ export function MainPage() {
     const [kairosScanResult, setKairosScanResult] = useState(null)
     const [analystScanResult, setAnalystScanResult] = useState(null)   // Argus investing candidate → Analyst research seed
     const [mentorSeed,       setMentorSeed]       = useState(null)     // calendar row (earnings/IPO) → Mentor's opening turn
+    // Editing a saved setup in the Mentor chat — the setup twin of editingCallId + its restore.
+    const [editingSetupId,   setEditingSetupId]   = useState(null)
+    const [mentorChatRestore, setMentorChatRestore] = useState(null)
 
     // Kairos calls for the Axl Lists Calls tab. Holds all the user's calls (workspace-filtered in
     // the list); reloads on the shared 'kairos-calls-changed' event (generate / act / delete).
@@ -378,7 +381,54 @@ export function MainPage() {
     const handleArmSetup     = (su) => _setupAction(su, mentorService.armSetup,    'arm')
     const handleDisarmSetup  = (su) => _setupAction(su, mentorService.disarmSetup, 'stop watching')
     const handleDeleteSetup  = (su) => _setupAction(su, mentorService.deleteSetup, 'delete')
-    const handleOpenSetup    = () => setActiveTab('mentor')
+
+    // Setup pencil → back into the Mentor chat that BUILT it, the same move handleEditCall makes
+    // for a call. Mentor persists `chat_state` (messages + draft + coverage) on Generate and on
+    // every edit turn, so the conversation reopens where it left off.
+    //
+    // The fallback draft matters more here than it does for a call: a setup saved before chat_state
+    // was carried has no messages to restore, and without a worksheet the panel would open on an
+    // empty chat that quietly loses the zones. Rebuilt from the doc, the user edits a real setup —
+    // they just don't get the reasoning that produced it.
+    function handleEditSetup(setup) {
+        const draft = setup.chat_state?.draft ?? {
+            asset:       setup.asset,
+            asset_class: setup.asset_class ?? null,
+            direction:   setup.direction   ?? null,
+            type:        setup.type        ?? null,
+            trade_mode:  setup.trade_mode  ?? null,
+            timeframe:   setup.timeframe   ?? null,
+            ladder:      setup.ladder      ?? [],
+            thesis:      setup.thesis      ?? null,
+            watch:       setup.watch       ?? [],
+            entry_zones: setup.entry_zones ?? [],
+            stop_zones:  setup.stop_zones  ?? [],
+            tp_zones:    setup.tp_zones    ?? [],
+            quantity:    setup.quantity    ?? null,
+            rr:          setup.rr          ?? null,
+            conviction:  setup.conviction  ?? null,
+            active_from: setup.active_from ?? null,
+            valid_until: setup.valid_until ?? null,
+        }
+        setMentorChatRestore({
+            key:      `${setup.id}-${Date.now()}`,
+            setup:    draft,
+            messages: setup.chat_state?.messages ?? [],
+            coverage: setup.chat_state?.coverage ?? [],
+        })
+        setEditingSetupId(setup.id)
+        // The venue is re-bound on Update from the MARKED accounts, so restore the ones this setup
+        // was generated against — otherwise an edit could silently re-bind it to another broker.
+        setSelectedAccounts(Array.isArray(setup.accounts) ? setup.accounts : [])
+        setMainAccountId(setup.mainAccountId ?? null)
+        setChartSymbol(setup.asset || 'SPY')
+        setActiveTab('mentor')
+    }
+    function handleSetupEditDone() {
+        setEditingSetupId(null)
+        setMentorChatRestore(null)
+        handleBackToAxl()   // setup updated / edit cancelled — return to the axl hub
+    }
     const mentorResumeRef    = useRef(null)           // MentorPanel exposes its resume fn here
     // Ids of ideas BORN from a "Buy Market" click (created solely to carry the immediate
     // order). If their placement fails outright we roll them back out of existence rather
@@ -1763,6 +1813,9 @@ export function MainPage() {
                                 onGenerated={handleBackToAxl}
                                 seed={mentorSeed}
                                 resumeRef={mentorResumeRef}
+                                editingSetupId={editingSetupId}
+                                chatRestore={mentorChatRestore}
+                                onEditDone={handleSetupEditDone}
                                 availableAccounts={availableAccounts}
                                 selectedAccounts={selectedAccounts}
                                 mainAccountId={mainAccountId}
@@ -1792,6 +1845,11 @@ export function MainPage() {
                     </div>
                     {floorMode ? (
                         <div className="workspace__right">
+                            {/* The Floor's row actions run the SAME handlers as the ideas table —
+                                it's a second surface onto the same entities, not a second set of
+                                rules about them, so delete confirms, live-position locks and the
+                                chat restores all come along. Setups get no pencil: nothing wires
+                                SetupCard's onEdit either, so there is no setup edit path yet. */}
                             {(
                                 <FloorLists
                                     calls={calls.filter(c => (c.broker === 'ctrader' ? 'live' : c.broker === 'manual' ? 'manual' : 'paper') === workspace)}
@@ -1801,6 +1859,15 @@ export function MainPage() {
                                     scans={scans}
                                     coverage={coverage}
                                     onCandidateSelect={handleBuildFromCandidate}
+                                    onEditCall={handleEditCall}
+                                    onDeleteCall={handleDeleteCall}
+                                    onEditSetup={handleEditSetup}
+                                    onDeleteSetup={handleDeleteSetup}
+                                    onEditPortfolio={handleEditPortfolio}
+                                    onDeletePortfolio={handleDeletePortfolio}
+                                    onDeleteIdea={handleDeleteIdea}
+                                    onEditScan={handleEditScan}
+                                    onDeleteScan={deleteScan}
                                 />
                             )}
                         </div>
@@ -1834,7 +1901,7 @@ export function MainPage() {
                             onArmSetup={handleArmSetup}
                             onDisarmSetup={handleDisarmSetup}
                             onDeleteSetup={handleDeleteSetup}
-                            onOpenSetup={handleOpenSetup}
+                            onEditSetup={handleEditSetup}
                             setupBusyId={setupBusyId}
                             onActCall={handleActCall}
                             onDeleteCall={handleDeleteCall}

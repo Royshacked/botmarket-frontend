@@ -9,10 +9,19 @@ window.HTMLElement.prototype.scrollIntoView = vi.fn()
 // tree mounts and every call is observable.
 const armSetup      = vi.fn().mockResolvedValue({ id: 's1', status: 'looking' })
 const generateSetup = vi.fn().mockResolvedValue({ id: 's1', asset: 'NVDA', status: 'waiting' })
+const updateSetup   = vi.fn().mockResolvedValue({ id: 's1', asset: 'NVDA', status: 'waiting' })
+const saveChatState = vi.fn().mockResolvedValue({})
 const sendStream    = vi.fn().mockResolvedValue(undefined)
 
 vi.mock('../../services/mentor/mentor.service.remote.js', () => ({
-    mentorService: { sendStream: (...a) => sendStream(...a), generateSetup: (...a) => generateSetup(...a), armSetup: (...a) => armSetup(...a), updateSetup: vi.fn().mockResolvedValue({}), listSetups: vi.fn().mockResolvedValue([]) },
+    mentorService: {
+        sendStream:    (...a) => sendStream(...a),
+        generateSetup: (...a) => generateSetup(...a),
+        updateSetup:   (...a) => updateSetup(...a),
+        saveChatState: (...a) => saveChatState(...a),
+        armSetup:      (...a) => armSetup(...a),
+        listSetups:    vi.fn().mockResolvedValue([]),
+    },
     SETUPS_CHANGED: 'mentor-setups-changed',
 }))
 vi.mock('../../services/threads/threads.service.remote.js', () => ({
@@ -190,5 +199,51 @@ describe('MentorPanel', () => {
 
         await runTurn({ reply: 'more thoughts' })
         await waitFor(() => expect(screen.queryByText('Sweep and reclaim')).toBeNull())
+    })
+
+    // ── Edit mode ─────────────────────────────────────────────────────────────
+    // The setup pencil reopens THIS conversation. Which is only possible because Generate saves
+    // chat_state with the setup — see the generate test above.
+
+    it('reopens the saved conversation and worksheet from a chat restore', () => {
+        const restore = {
+            key: 'r1',
+            setup: SETUP,
+            messages: [{ role: 'user', content: 'long NVDA swing' }, { role: 'assistant', content: 'Here is the plan.' }],
+            coverage: ['markets'],
+        }
+        render(<MentorPanel {...props({ editingSetupId: 's1', chatRestore: restore })} />)
+
+        expect(screen.getByText('long NVDA swing')).toBeTruthy()
+        expect(screen.getByText('Here is the plan.')).toBeTruthy()
+        expect(screen.getByTitle(/^Markets — read/)).toBeTruthy()
+    })
+
+    // The regression this guards: routing a mid-edit turn through updateSetup would re-run the
+    // venue gate and send a WATCHED setup back to 'waiting' — Talos would stop watching it because
+    // the user asked a question about it. Only "Update setup" writes the plan.
+    it('a turn while editing saves the conversation only — never the plan', async () => {
+        render(<MentorPanel {...props({ editingSetupId: 's1', chatRestore: { key: 'r1', setup: SETUP, messages: [], coverage: [] } })} />)
+        await runTurn({ reply: 'how about a tighter stop', setup: SETUP })
+
+        await waitFor(() => expect(saveChatState).toHaveBeenCalled())
+        expect(saveChatState.mock.calls[0][0]).toBe('s1')
+        expect(saveChatState.mock.calls[0][1].draft.asset).toBe('NVDA')
+        expect(updateSetup).not.toHaveBeenCalled()
+    })
+
+    it('Update setup writes the plan once, then hands the edit back', async () => {
+        const onEditDone = vi.fn()
+        render(<MentorPanel {...props({ editingSetupId: 's1', onEditDone, chatRestore: { key: 'r1', setup: SETUP, messages: [], coverage: [] } })} />)
+        // The Update button appears only once the edit is dirty — there is nothing to write until
+        // the conversation has actually changed something.
+        expect(screen.queryByRole('button', { name: /Update setup/ })).toBeNull()
+        await runTurn({ reply: 'tightened', setup: SETUP, readiness: { ready: true, missing: [] } })
+
+        fireEvent.click(await screen.findByRole('button', { name: /Update setup/ }))
+        await waitFor(() => expect(updateSetup).toHaveBeenCalled())
+        expect(updateSetup.mock.calls[0][0]).toBe('s1')
+        await waitFor(() => expect(onEditDone).toHaveBeenCalled())
+        expect(generateSetup).not.toHaveBeenCalled()   // an edit must never create a second setup
     })
 })

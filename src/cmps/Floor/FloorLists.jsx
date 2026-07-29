@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
-import { groupByLifecycle } from '../../services/entityStatus.js'
+import { groupByLifecycle, isPreEntry, isLivePosition } from '../../services/entityStatus.js'
 import {
     openCallPopup, openSetupPopup, openIdeaPopup,
-    portfoliosFromIdeas, portfolioPnl, formatPnl,
+    portfoliosFromIdeas, portfolioPnl, formatPnl, isDeleteLocked,
 } from '../TradeIdeas/tradeIdea.utils.js'
+import { EditButton, DeleteButton } from '../EntityCard/EntityCard.jsx'
 import { tradeFloorItems } from './floor.utils.js'
 import './Floor.scss'
 
@@ -62,34 +63,116 @@ Desk.propTypes = {
 const Empty = ({ children }) => <p className="floor-empty">{children}</p>
 Empty.propTypes = { children: PropTypes.node }
 
+// ── The row shell that carries actions ────────────────────────────────────────
+//
+// A row IS a <button> and a button cannot contain a button, so edit/delete ride in a SIBLING
+// overlay pinned to the row's right edge rather than as two more cells inside it. That also keeps
+// the row grid — which every desk shares — exactly as it was: nothing shifts when the controls
+// appear, because they were never in the flow.
+//
+// Reveal is on hover OR focus-within (see Floor.scss): hover alone would strand the buttons for
+// the keyboard, since they live inside the very row you have to reach to show them.
+//
+// Same split as everywhere else in the app — the shell is shared, the JUDGMENT isn't. WHICH
+// actions a row offers, what they're called, and when they lock stays with the desk that owns
+// the entity, because only that desk knows what deleting one of its rows would orphan.
+function RowHost({ actions, children }) {
+    return (
+        <div className="floor-rowhost">
+            {children}
+            {actions && <span className="floor-rowhost__actions">{actions}</span>}
+        </div>
+    )
+}
+RowHost.propTypes = { actions: PropTypes.node, children: PropTypes.node }
+
 // ── Trading floor ─────────────────────────────────────────────────────────────
 
-function TradeRows({ calls, setups }) {
+// The two kinds keep their own action contracts — the same ones CallCard and SetupCard use, so a
+// call and a setup behave identically whether you reach them from a card or from this line:
+//
+//  · the pencil returns the entity to the chat that BUILT it (Kairos / Mentor), and only while the
+//    trade is pre-entry — once a position is live, changes go through management cards, not a
+//    re-run of the build conversation;
+//  · the bin locks while a position is live — deleting would leave that position open at the
+//    broker with nothing left describing it, so no monitor manages its stop. The server refuses
+//    it (409 reason:'in_position') for every kind; don't render an action that can only fail.
+function callActions(call, onEdit, onDelete) {
+    if (!onEdit && !onDelete) return null
+    return (
+        <>
+            {onEdit && isPreEntry(call.status) && (
+                <EditButton onClick={() => onEdit(call)} title="Edit call in Kairos chat" size="sm" />
+            )}
+            {onDelete && (
+                <DeleteButton
+                    onClick={() => onDelete(call.id)}
+                    title="Delete call"
+                    lockedReason={isLivePosition(call.status) ? 'In a live position — close it at the broker first' : null}
+                    size="sm"
+                />
+            )}
+        </>
+    )
+}
+
+function setupActions(setup, onEdit, onDelete) {
+    if (!onEdit && !onDelete) return null
+    return (
+        <>
+            {onEdit && isPreEntry(setup.status ?? 'waiting') && (
+                <EditButton onClick={() => onEdit(setup)} title="Edit setup in Mentor chat" size="sm" />
+            )}
+            {onDelete && (
+                <DeleteButton
+                    onClick={() => onDelete(setup)}
+                    title="Delete setup"
+                    lockedReason={isLivePosition(setup.status) ? 'In a live position — close it at the broker first' : null}
+                    size="sm"
+                />
+            )}
+        </>
+    )
+}
+
+function TradeRows({ calls, setups, onEditCall, onDeleteCall, onEditSetup, onDeleteSetup }) {
     const items = tradeFloorItems(calls, setups)
     if (!items.length) return <Empty>No calls or setups.</Empty>
+
+    const actionsFor = it => (it.kind === 'call'
+        ? callActions(it.entity, onEditCall, onDeleteCall)
+        : setupActions(it.entity, onEditSetup, onDeleteSetup))
 
     return groupByLifecycle(items).map(group => (
         <div key={group.key} className="floor-grp">
             <div className={`floor-grp__label floor-grp__label--${group.key}`}>{group.label}</div>
             {group.items.map(it => (
-                <button
-                    key={`${it.kind}:${it.id}`}
-                    className="floor-row"
-                    onClick={() => openFor(it)}
-                    title={`Open this ${it.kind}`}
-                >
-                    <span className={`floor-row__dir floor-row__dir--${it.direction}`} aria-hidden="true">
-                        {it.direction === 'short' ? '▾' : '▴'}
-                    </span>
-                    <span className="floor-row__sym">{it.ticker ?? '—'}</span>
-                    <span className="floor-row__kind">{it.kind}</span>
-                    <span className={`floor-row__status floor-row__status--${it.status}`}>{it.status}</span>
-                </button>
+                <RowHost key={`${it.kind}:${it.id}`} actions={actionsFor(it)}>
+                    <button
+                        className="floor-row"
+                        onClick={() => openFor(it)}
+                        title={`Open this ${it.kind}`}
+                    >
+                        <span className={`floor-row__dir floor-row__dir--${it.direction}`} aria-hidden="true">
+                            {it.direction === 'short' ? '▾' : '▴'}
+                        </span>
+                        <span className="floor-row__sym">{it.ticker ?? '—'}</span>
+                        <span className="floor-row__kind">{it.kind}</span>
+                        <span className={`floor-row__status floor-row__status--${it.status}`}>{it.status}</span>
+                    </button>
+                </RowHost>
             ))}
         </div>
     ))
 }
-TradeRows.propTypes = { calls: PropTypes.array, setups: PropTypes.array }
+TradeRows.propTypes = {
+    calls:         PropTypes.array,
+    setups:        PropTypes.array,
+    onEditCall:    PropTypes.func,
+    onDeleteCall:  PropTypes.func,
+    onEditSetup:   PropTypes.func,
+    onDeleteSetup: PropTypes.func,
+}
 
 // ── Portfolio floor ───────────────────────────────────────────────────────────
 
@@ -108,7 +191,7 @@ const pctOf = (ratio) => (Number.isFinite(Number(ratio)) ? `${Math.round(Number(
 const STATUS_TEXT = { long: 'in position', short: 'in position' }
 const statusText = (status) => STATUS_TEXT[status] ?? status
 
-function PortfolioRows({ ideas, positions }) {
+function PortfolioRows({ ideas, positions, onEditPortfolio, onDeletePortfolio, onDeleteIdea }) {
     const books = portfoliosFromIdeas(ideas)
     const [open, setOpen] = useState(() => new Set())
     if (!books.length) return <Empty>No portfolios.</Empty>
@@ -119,46 +202,98 @@ function PortfolioRows({ ideas, positions }) {
         return next
     })
 
+    // The book's own actions, which are NOT the sum of its holdings': editing reopens the whole
+    // construction in the Atlas chat, and deleting removes every leg plus the chat history. That's
+    // why ONE live leg locks the bin for the entire book — the same rule the ideas table applies.
+    function bookActions(b) {
+        if (!onEditPortfolio && !onDeletePortfolio) return null
+        const anyLocked = b.ideas.some(isDeleteLocked)
+        return (
+            <>
+                {onEditPortfolio && (
+                    <EditButton onClick={() => onEditPortfolio(b.portfolioId)} title="Edit portfolio in chat" size="sm" />
+                )}
+                {onDeletePortfolio && (
+                    <DeleteButton
+                        onClick={() => onDeletePortfolio(b.portfolioId)}
+                        title="Delete all holdings in this portfolio"
+                        lockedReason={anyLocked ? 'A position is live — close it first to delete this portfolio' : null}
+                        size="sm"
+                    />
+                )}
+            </>
+        )
+    }
+
+    // A holding gets a bin but NO pencil, and that is a statement about the entity rather than a
+    // gap: a holding exists as part of a book's construction — its weight only means something
+    // against the other legs — so it is edited by reopening the BOOK in Atlas, which the row above
+    // already offers. (The per-holding chat that would have edited one leg on its own is the
+    // archived Idea agent; routing a pencil there would open a chat that cannot send.)
+    //
+    // Deleting one leg is different: it's removing a position from the book, not re-planning it,
+    // and the rest of the book stands without it.
+    function holdingActions(h) {
+        if (!onDeleteIdea) return null
+        return (
+            <DeleteButton
+                onClick={() => onDeleteIdea(h.id)}
+                title="Delete holding"
+                lockedReason={isDeleteLocked(h) ? 'In a live position — close it at the broker first' : null}
+                size="sm"
+            />
+        )
+    }
+
     return books.map(b => {
         const isOpen = open.has(b.portfolioId)
         const pnl    = portfolioPnl(b.ideas, positions)
         return (
             <div key={b.portfolioId} className="floor-sub">
-                <button className="floor-row" onClick={() => toggle(b.portfolioId)} aria-expanded={isOpen}>
-                    <span className="floor-row__sym floor-row__sym--wide">{b.name}</span>
-                    <span className="floor-row__kind">({b.ideas.length} holdings)</span>
-                    <span className={`floor-row__pnl ${pnl?.pnl > 0 ? 'is-pos' : pnl?.pnl < 0 ? 'is-neg' : ''}`}>
-                        {pnl ? formatPnl(pnl.pnl, pnl.currency) : '—'}
-                    </span>
-                </button>
+                <RowHost actions={bookActions(b)}>
+                    <button className="floor-row" onClick={() => toggle(b.portfolioId)} aria-expanded={isOpen}>
+                        <span className="floor-row__sym floor-row__sym--wide">{b.name}</span>
+                        <span className="floor-row__kind">({b.ideas.length} holdings)</span>
+                        <span className={`floor-row__pnl ${pnl?.pnl > 0 ? 'is-pos' : pnl?.pnl < 0 ? 'is-neg' : ''}`}>
+                            {pnl ? formatPnl(pnl.pnl, pnl.currency) : '—'}
+                        </span>
+                    </button>
+                </RowHost>
 
                 {isOpen && b.ideas.map(h => (
-                    <button
-                        key={h.id}
-                        className="floor-row floor-row--sub"
-                        onClick={() => openIdeaPopup(h)}
-                        title="Open this holding"
-                    >
-                        <span className={`floor-row__dir floor-row__dir--${h.direction}`} aria-hidden="true">
-                            {h.direction === 'short' ? '▾' : '▴'}
-                        </span>
-                        <span className="floor-row__sym">{h.asset ?? '—'}</span>
-                        {/* allocationRatio is a 0–1 ratio, not a percentage */}
-                        <span className="floor-row__kind floor-row__kind--dim">{pctOf(h.allocationRatio)}</span>
-                        <span className={`floor-row__status floor-row__status--${h.status}`}>{statusText(h.status)}</span>
-                    </button>
+                    <RowHost key={h.id} actions={holdingActions(h)}>
+                        <button
+                            className="floor-row floor-row--sub"
+                            onClick={() => openIdeaPopup(h)}
+                            title="Open this holding"
+                        >
+                            <span className={`floor-row__dir floor-row__dir--${h.direction}`} aria-hidden="true">
+                                {h.direction === 'short' ? '▾' : '▴'}
+                            </span>
+                            <span className="floor-row__sym">{h.asset ?? '—'}</span>
+                            {/* allocationRatio is a 0–1 ratio, not a percentage */}
+                            <span className="floor-row__kind floor-row__kind--dim">{pctOf(h.allocationRatio)}</span>
+                            <span className={`floor-row__status floor-row__status--${h.status}`}>{statusText(h.status)}</span>
+                        </button>
+                    </RowHost>
                 ))}
             </div>
         )
     })
 }
-PortfolioRows.propTypes = { ideas: PropTypes.array, positions: PropTypes.array }
+PortfolioRows.propTypes = {
+    ideas:             PropTypes.array,
+    positions:         PropTypes.array,
+    onEditPortfolio:   PropTypes.func,
+    onDeletePortfolio: PropTypes.func,
+    onDeleteIdea:      PropTypes.func,
+}
 
 // ── Scans ─────────────────────────────────────────────────────────────────────
 // A scan's row is its thesis; its candidates are the sub-rows. Expanding is local to the row, so
 // several scans can be open at once — unlike the desks, these are peers being compared.
 
-function ScanRows({ scans, onCandidateSelect }) {
+function ScanRows({ scans, onCandidateSelect, onEditScan, onDeleteScan }) {
     const [open, setOpen] = useState(() => new Set())
     if (!scans.length) return <Empty>No lists yet.</Empty>
 
@@ -168,20 +303,35 @@ function ScanRows({ scans, onCandidateSelect }) {
         return next
     })
 
+    // Actions belong to the LIST, not to the names on it. A candidate is a line in a scan's result,
+    // not a record of its own — there is nothing to open in a chat and nothing to delete. Editing
+    // the list is how a candidate leaves it; clicking one still means "build from this".
+    function scanActions(s) {
+        if (!onEditScan && !onDeleteScan) return null
+        return (
+            <>
+                {onEditScan && <EditButton onClick={() => onEditScan(s)} title="Edit list in the scanner chat" size="sm" />}
+                {onDeleteScan && <DeleteButton onClick={() => onDeleteScan(s.id)} title="Delete list" size="sm" />}
+            </>
+        )
+    }
+
     return scans.map(s => {
         const isOpen = open.has(s.id)
         return (
             <div key={s.id} className="floor-sub">
-                <button className="floor-row" onClick={() => toggle(s.id)} aria-expanded={isOpen}>
-                    <span className={`floor-row__dir floor-row__dir--${s.direction}`} aria-hidden="true">
-                        {s.direction === 'short' ? '▾' : '▴'}
-                    </span>
-                    <span className="floor-row__sym floor-row__sym--wide">{s.thesis}</span>
-                    {/* The candidate count belongs to the thesis, so it rides directly after it —
-                        a lone number on the right edge reads as a column of its own. */}
-                    <span className="floor-row__count">({s.candidates?.length ?? 0})</span>
-                    {s.stale && <span className="floor-row__stale">stale</span>}
-                </button>
+                <RowHost actions={scanActions(s)}>
+                    <button className="floor-row" onClick={() => toggle(s.id)} aria-expanded={isOpen}>
+                        <span className={`floor-row__dir floor-row__dir--${s.direction}`} aria-hidden="true">
+                            {s.direction === 'short' ? '▾' : '▴'}
+                        </span>
+                        <span className="floor-row__sym floor-row__sym--wide">{s.thesis}</span>
+                        {/* The candidate count belongs to the thesis, so it rides directly after it —
+                            a lone number on the right edge reads as a column of its own. */}
+                        <span className="floor-row__count">({s.candidates?.length ?? 0})</span>
+                        {s.stale && <span className="floor-row__stale">stale</span>}
+                    </button>
+                </RowHost>
                 {isOpen && (s.candidates ?? []).map(c => (
                     <button
                         key={c.ticker}
@@ -202,7 +352,12 @@ function ScanRows({ scans, onCandidateSelect }) {
         )
     })
 }
-ScanRows.propTypes = { scans: PropTypes.array, onCandidateSelect: PropTypes.func }
+ScanRows.propTypes = {
+    scans:             PropTypes.array,
+    onCandidateSelect: PropTypes.func,
+    onEditScan:        PropTypes.func,
+    onDeleteScan:      PropTypes.func,
+}
 
 // ── Coverage ──────────────────────────────────────────────────────────────────
 
@@ -294,6 +449,9 @@ export function FloorLists({
     calls = [], setups = [], ideas = [], positions = [],
     scans = [], coverage = [],
     onCandidateSelect,
+    onEditCall, onDeleteCall, onEditSetup, onDeleteSetup,
+    onEditPortfolio, onDeletePortfolio, onDeleteIdea,
+    onEditScan, onDeleteScan,
     initialDesk = 'trade',
 }) {
     // One desk open at a time — clicking the open one closes it, leaving all four collapsed. That
@@ -324,9 +482,28 @@ export function FloorLists({
                     count={counts[desk.key]}
                     onToggle={toggle}
                 >
-                    {desk.key === 'trade'     && <TradeRows calls={calls} setups={setups} />}
-                    {desk.key === 'portfolio' && <PortfolioRows ideas={ideas} positions={positions} />}
-                    {desk.key === 'scans'     && <ScanRows scans={scans} onCandidateSelect={onCandidateSelect} />}
+                    {desk.key === 'trade'     && (
+                        <TradeRows
+                            calls={calls} setups={setups}
+                            onEditCall={onEditCall} onDeleteCall={onDeleteCall}
+                            onEditSetup={onEditSetup} onDeleteSetup={onDeleteSetup}
+                        />
+                    )}
+                    {desk.key === 'portfolio' && (
+                        <PortfolioRows
+                            ideas={ideas} positions={positions}
+                            onEditPortfolio={onEditPortfolio} onDeletePortfolio={onDeletePortfolio}
+                            onDeleteIdea={onDeleteIdea}
+                        />
+                    )}
+                    {desk.key === 'scans'     && (
+                        <ScanRows
+                            scans={scans} onCandidateSelect={onCandidateSelect}
+                            onEditScan={onEditScan} onDeleteScan={onDeleteScan}
+                        />
+                    )}
+                    {/* Coverage keeps its rows action-less for now — retiring a name is a research
+                        decision with its own flow, not a bin. */}
                     {desk.key === 'coverage'  && <CoverageRows coverage={coverage} />}
                 </Desk>
             ))}
@@ -342,5 +519,14 @@ FloorLists.propTypes = {
     scans:             PropTypes.array,
     coverage:          PropTypes.array,
     onCandidateSelect: PropTypes.func,
+    onEditCall:        PropTypes.func,
+    onDeleteCall:      PropTypes.func,
+    onEditSetup:       PropTypes.func,
+    onDeleteSetup:     PropTypes.func,
+    onEditPortfolio:   PropTypes.func,
+    onDeletePortfolio: PropTypes.func,
+    onDeleteIdea:      PropTypes.func,
+    onEditScan:        PropTypes.func,
+    onDeleteScan:      PropTypes.func,
     initialDesk:       PropTypes.string,
 }

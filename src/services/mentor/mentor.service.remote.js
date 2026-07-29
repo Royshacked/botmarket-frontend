@@ -19,6 +19,7 @@ export const mentorService = {
     sendStream,
     generateSetup,
     updateSetup,
+    saveChatState,
     listSetups,
     getSetup,
     armSetup,
@@ -48,6 +49,19 @@ function generateSetup(setup, accounts = [], mainAccountId = null, chatState = u
 /** Edit an existing setup in place. Pre-position this re-arms it; in position it is a light edit. */
 function updateSetup(id, setup, accounts = [], mainAccountId = null, chatState = undefined) {
     return api.post('/generate', { setup, accounts, mainAccountId, chat_state: chatState, updateId: id })
+}
+
+/**
+ * Progressive save mid-edit: persist the build CONVERSATION alone, with no plan rewrite. Parity
+ * with kairos's `updateCall({ chatState })`, and the distinction matters more here than there —
+ * routing this through updateSetup would re-run the readiness gate, re-bind the venue from the
+ * currently-marked accounts, and send a WATCHED setup back to 'waiting' on every turn. Talos would
+ * stop watching a live setup because the user asked Mentor a question about it.
+ *
+ * The plan itself is written when the user presses "Update setup" — that is what an edit IS.
+ */
+function saveChatState(id, chatState) {
+    return api.patch(id, { chat_state: chatState })
 }
 
 function listSetups(status = null) { return api.list(status ? { status } : undefined) }

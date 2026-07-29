@@ -611,6 +611,46 @@ $header-h: var(--header-h);
     }
 }
 
+// ── Hover actions ────────────────────────────────────────────────────────────
+// Edit/delete are an OVERLAY on the row's right edge, not two more cells in it. Two reasons, and
+// the second is the load-bearing one:
+//   · the row is a <button> and a button can't contain a button;
+//   · a permanent gutter would cost every desk ~40px of a column whose entire premise is that one
+//     line holds one fact — and it would shift the right-aligned values on all four desks to buy
+//     controls that are visible on one row at a time.
+//
+// So they cover the row's rightmost value (status / P&L / count) while you hover. That's the cell
+// you finished reading before you reached for the bin.
+.floor-rowhost {
+    position: relative;
+
+    // The pointer is over the ACTIONS, not the row button, whenever you're actually clicking one —
+    // so the row's own :hover would drop out from under you mid-reach. Hover the host instead.
+    // `--static` keeps its no-hover rule: a row that doesn't open shouldn't light up.
+    &:hover .floor-row:not(.floor-row--static) { background: var(--bg-hover); }
+
+    &__actions {
+        position: absolute;
+        top: 0;
+        right: $row-pad-end - 8px;
+        height: 100%;
+        display: none;
+        align-items: center;
+        gap: 1px;
+        // Fades in over whatever it covers instead of butting against it with a hard edge.
+        padding-left: 16px;
+        background: linear-gradient(to right, transparent, var(--bg-hover) 16px);
+    }
+
+    // :focus-within as well as :hover — the buttons live inside the row you'd have to hover to
+    // reveal them, so hover alone would put them permanently out of the keyboard's reach.
+    &:hover &__actions,
+    &:focus-within &__actions { display: flex; }
+
+    // Row scale is asked for at the call site (`size="sm"`), not overridden here — the shared
+    // button owns its own sizes, so the Floor can't drift from the cards by a pixel.
+}
+
 // ── Expanded detail (coverage thesis) ────────────────────────────────────────
 // The one place in this design that carries prose. It sits INSIDE a row's indent rather than
 // spanning the column, so an open thesis still reads as belonging to its name — and it keeps the

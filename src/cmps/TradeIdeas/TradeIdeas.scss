@@ -408,67 +408,9 @@
         animation: status-pulse 1.8s ease-in-out infinite;
     }
 
-    &__edit-btn {
-        background: none;
-        border: none;
-        outline: none;
-        appearance: none;
-        color: var(--accent-light);
-        cursor: pointer;
-        padding: 2px 3px;
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        line-height: 0;
+    // The row's edit/delete controls live in the ONE shared .icon-btn (EntityCard/IconButton).
+    // Their colour on a status-tinted row is set by the $sym-status-colors block below.
 
-        svg { width: 16px; height: 16px; }
-
-        &:hover { color: var(--accent-bright); }
-
-        // Idea generated without a stop / take profit — pulse red to remind the
-        // user to add exits (e.g. immediate ideas fired without conditions).
-        &--alert {
-            color: #ef5350;
-            animation: status-pulse 1.3s ease-in-out infinite;
-            &:hover { color: #ff6b6b; }
-        }
-
-        // Portfolio review due — the pencil turns red so the row signals a pending
-        // review; clicking it opens the Atlas chat in review mode.
-        &--due {
-            color: #ef5350;
-            &:hover { color: #ff6b6b; }
-        }
-    }
-
-    &__delete {
-        background: none;
-        border: none;
-        color: var(--accent-light);
-        cursor: pointer;
-        font-size: 1rem;
-        line-height: 1;
-        padding: 2px 4px;
-        flex-shrink: 0;
-        &:hover { color: var(--color-short); }
-
-        // Live idea (in position / hit): deleting would orphan the broker position,
-        // so the bin is locked until it's closed.
-        &:disabled {
-            opacity: 0.35;
-            cursor: not-allowed;
-            &:hover { color: var(--text-muted); }
-        }
-
-        // Trash-bin icon variant (per-idea delete)
-        &--bin {
-            display: flex;
-            align-items: center;
-            line-height: 0;
-            padding: 2px 3px;
-            svg { width: 16px; height: 16px; }
-        }
-    }
 
     &__building-bot {
         width: 22px;
@@ -502,8 +444,10 @@ $sym-status-colors: (
     .idea-row--#{$st} td:not(.idea-row__direction),
     .idea-row--#{$st} .idea-row__status-badge .status-icon,
     .idea-row--#{$st} .idea-row__status-toggle .status-icon,
-    .idea-row--#{$st} .idea-row__edit-btn,
-    .idea-row--#{$st} .idea-row__delete {
+    // The row's controls are the shared .icon-btn now; on a tinted row they take the row's colour
+    // so they still read as part of it. NOT when disabled — an unavailable control is grey
+    // everywhere in the app, and a tinted "dead" bin looked live.
+    .idea-row--#{$st} .icon-btn:not(:disabled) {
         color: #{$clr};
     }
 }
@@ -1171,52 +1115,9 @@ $sym-status-colors: (
         color: var(--accent-light);
     }
 
-    &__edit-btn,
-    &__delete {
-        background: none;
-        border: none;
-        outline: none;
-        color: var(--accent-light);
-        cursor: pointer;
-        padding: 2px 3px;
-        display: inline-flex;
-        align-items: center;
-        line-height: 0;
+    // Card actions are the ONE shared .icon-btn (EntityCard/IconButton) — five copies of this
+    // block had drifted into four resting colours before it existed.
 
-        svg { width: 16px; height: 16px; }
-        &:focus { outline: none; }
-    }
-
-    &__edit-btn {
-        &:hover { color: var(--accent-bright); }
-        &--alert {
-            color: #ef5350;
-            animation: status-pulse 1.3s ease-in-out infinite;
-            &:hover { color: #ff6b6b; }
-        }
-        // Portfolio review due — red pencil that opens review mode.
-        &--due {
-            color: #ef5350;
-            &:hover { color: #ff6b6b; }
-        }
-        // Not chat-editable (a call in position / confirmed / closed): the plan can't be
-        // re-edited — mid-trade changes go via management cards — so the pencil is dimmed to
-        // a dark, disabled look. It still clicks through to the pop-out (title says so).
-        &--locked {
-            color: var(--text-muted);
-            opacity: 0.5;
-            &:hover { color: var(--text-muted); }
-        }
-    }
-
-    &__delete {
-        &:hover { color: var(--color-short); }
-        &:disabled {
-            opacity: 0.35;
-            cursor: not-allowed;
-            &:hover { color: var(--text-muted); }
-        }
-    }
 
     &__building-bot {
         width: 22px;

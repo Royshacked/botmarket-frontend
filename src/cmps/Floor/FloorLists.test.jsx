@@ -178,3 +178,98 @@ describe('FloorLists', () => {
         expect(name.nextElementSibling.textContent).toBe('(2)')
     })
 })
+
+// ── Row actions ───────────────────────────────────────────────────────────────
+// Edit/delete on the row are a second SURFACE onto the same entities, not a second set of rules
+// about them: the same handlers, the same live-position locks, the same "a candidate isn't a
+// record" line the rest of the app draws.
+
+describe('FloorLists row actions', () => {
+    it('offers edit and delete on a trading-floor row, wired to that entity', () => {
+        const onEditCall = vi.fn(), onDeleteCall = vi.fn()
+        render(<FloorLists calls={[call()]} onEditCall={onEditCall} onDeleteCall={onDeleteCall} />)
+
+        fireEvent.click(screen.getByTitle('Edit call in Kairos chat'))
+        fireEvent.click(screen.getByTitle('Delete call'))
+        expect(onEditCall.mock.calls[0][0].id).toBe('c1')     // the call itself — it seeds the chat
+        expect(onDeleteCall).toHaveBeenCalledWith('c1')       // the id — same contract as CallCard
+    })
+
+    // The row opens a pop-out; the buttons on it must not.
+    it('does not open the pop-out when an action is clicked', () => {
+        const open = vi.spyOn(window, 'open').mockReturnValue(null)
+        render(<FloorLists calls={[call()]} onDeleteCall={vi.fn()} />)
+
+        fireEvent.click(screen.getByTitle('Delete call'))
+        expect(open).not.toHaveBeenCalled()
+    })
+
+    // Past entry the plan can't be re-run in the chat — changes go through management cards — and
+    // the bin is locked because the server refuses it (409 in_position) for every kind.
+    it('drops the pencil and locks the bin once a call is past entry', () => {
+        render(<FloorLists calls={[call({ status: 'long' })]} onEditCall={vi.fn()} onDeleteCall={vi.fn()} />)
+        expect(screen.queryByTitle('Edit call in Kairos chat')).toBeNull()
+        expect(screen.getByTitle(/close it at the broker first/i).disabled).toBe(true)
+    })
+
+    it('locks a live setup’s bin too', () => {
+        render(<FloorLists setups={[setup({ status: 'short' })]} onDeleteSetup={vi.fn()} />)
+        expect(screen.getByTitle(/close it at the broker first/i).disabled).toBe(true)
+    })
+
+    it('offers the setup pencil while it is still pre-entry', () => {
+        const onEditSetup = vi.fn()
+        render(<FloorLists setups={[setup()]} onEditSetup={onEditSetup} />)
+        fireEvent.click(screen.getByTitle('Edit setup in Mentor chat'))
+        expect(onEditSetup.mock.calls[0][0].id).toBe('s1')
+    })
+
+    it('renders no actions at all when no handlers are given', () => {
+        render(<FloorLists calls={[call()]} />)
+        expect(document.querySelector('.floor-rowhost__actions')).toBeNull()
+    })
+
+    // One live leg locks the WHOLE book: deleting it deletes every leg plus the chat.
+    it('locks a portfolio’s bin when any holding is live, but not the healthy holdings’ own bins', () => {
+        const ideas = [
+            { id: 'i1', portfolioId: 'p1', portfolioName: 'Core', asset: 'SPY', direction: 'long', status: 'long' },
+            { id: 'i2', portfolioId: 'p1', portfolioName: 'Core', asset: 'TLT', direction: 'long', status: 'waiting' },
+        ]
+        render(<FloorLists ideas={ideas} onDeletePortfolio={vi.fn()} onDeleteIdea={vi.fn()} />)
+        fireEvent.click(deskBtn('Portfolio floor'))
+        expect(screen.getByTitle(/close it first to delete this portfolio/i).disabled).toBe(true)
+
+        fireEvent.click(screen.getByText('Core').closest('button'))
+        const bins = screen.getAllByTitle('Delete holding')
+        expect(bins).toHaveLength(1)              // the live leg's bin is locked, not titled 'Delete holding'
+        expect(bins[0].disabled).toBe(false)
+    })
+
+    // A holding is edited by reopening the BOOK — its weight only means something against the
+    // other legs — and the per-holding chat that would have edited one alone is the archived Idea
+    // agent. So the pencil lives on the book row and nowhere below it.
+    it('gives the portfolio row a pencil and the holdings none', () => {
+        const ideas = [{ id: 'i1', portfolioId: 'p1', portfolioName: 'Core', asset: 'SPY', direction: 'long', status: 'waiting' }]
+        render(<FloorLists ideas={ideas} onEditPortfolio={vi.fn()} onDeleteIdea={vi.fn()} />)
+        fireEvent.click(deskBtn('Portfolio floor'))
+        fireEvent.click(screen.getByText('Core').closest('button'))
+
+        expect(screen.getAllByTitle('Edit portfolio in chat')).toHaveLength(1)
+        expect(screen.getByTitle('Delete holding')).toBeTruthy()
+        expect(screen.queryByTitle(/Edit holding/)).toBeNull()
+    })
+
+    // A candidate is a line in a scan's result, not a record — there is nothing to delete.
+    it('puts the scan’s actions on the list, never on a candidate', () => {
+        const scans = [{ id: 'x', thesis: 'Semis', direction: 'long', candidates: [{ ticker: 'NVDA' }] }]
+        const onDeleteScan = vi.fn()
+        render(<FloorLists scans={scans} onEditScan={vi.fn()} onDeleteScan={onDeleteScan} />)
+        fireEvent.click(deskBtn('Scans'))
+        fireEvent.click(screen.getByText('Semis').closest('button'))
+
+        expect(screen.getByText('NVDA').closest('.floor-rowhost')).toBeNull()
+        expect(screen.getAllByTitle('Delete list')).toHaveLength(1)
+        fireEvent.click(screen.getByTitle('Delete list'))
+        expect(onDeleteScan).toHaveBeenCalledWith('x')
+    })
+})

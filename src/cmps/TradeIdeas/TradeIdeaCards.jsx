@@ -13,10 +13,8 @@ import { useExpandedSet } from '../../customHooks/useExpandedSet.js'
 import { StatusIcon } from '../StatusIcon.jsx'
 import { MinosBadge, AtlasBadge } from '../AxlHub/AgentBadges.jsx'
 import { EntityCard, SymbolCell, Pill, StatusBadge, EditButton, DeleteButton } from '../EntityCard/EntityCard.jsx'
-import { EditIcon, BinIcon, BuildingIcon, TargetIcon, PositionIcon, OrdersIcon, CloseIcon } from '../EntityCard/entityIcons.jsx'
-
-// Icons re-exported for the files that have always imported them from here (CallCard, PopoutFooter).
-export { EditIcon, BinIcon }
+import { IconButton } from '../EntityCard/IconButton.jsx'
+import { BuildingIcon, TargetIcon, PositionIcon, OrdersIcon, CloseIcon } from '../EntityCard/entityIcons.jsx'
 
 const BROKER_LABELS = { ctrader: 'cTrader', ibkr: 'IBKR' }
 
@@ -190,12 +188,11 @@ export function BrokerGroupCard({ group, expanded, onToggle, onDelete, onStatusC
                     ) : (
                         <span className="idea-card__status-badge idea-card__status-badge--group" title="Expand to manage each broker">active</span>
                     )}
-                    <button
-                        className="idea-card__delete"
+                    <DeleteButton
                         onClick={handleDeleteAll}
-                        disabled={anyLocked}
-                        title={anyLocked ? 'A broker leg is live — close the position first to delete' : 'Delete all broker legs of this idea'}
-                    ><BinIcon /></button>
+                        title="Delete all broker legs of this idea"
+                        lockedReason={anyLocked ? 'A broker leg is live — close the position first to delete' : null}
+                    />
                 </div>
             </article>
 
@@ -318,17 +315,16 @@ export function PortfolioCard({ group, expanded, onToggle, onEdit, onDelete, onD
                             {isManual ? (anyOpen ? 'exit' : 'fill') : 'active'}
                         </button>
                     )}
-                    <button
-                        className={`idea-card__edit-btn${isReviewDue ? ' idea-card__edit-btn--due' : ''}`}
-                        onClick={e => { e.stopPropagation(); onEdit(group.portfolioId, isReviewDue ? { reviewMode: true } : undefined) }}
+                    <EditButton
+                        onClick={() => onEdit(group.portfolioId, isReviewDue ? { reviewMode: true } : undefined)}
+                        due={isReviewDue}
                         title={isReviewDue ? 'Review due — open review in chat' : 'Edit portfolio in chat'}
-                    ><EditIcon /></button>
-                    <button
-                        className="idea-card__delete"
+                    />
+                    <DeleteButton
                         onClick={handleDeleteAll}
-                        disabled={anyLocked}
-                        title={anyLocked ? 'A position is live — close it first to delete this portfolio' : 'Delete all ideas in this portfolio'}
-                    ><BinIcon /></button>
+                        title="Delete all ideas in this portfolio"
+                        lockedReason={anyLocked ? 'A position is live — close it first to delete this portfolio' : null}
+                    />
                 </div>
             </article>
 
@@ -435,21 +431,23 @@ export function PositionCard({ position, closing, onClose, onEditOrders, onOpen 
 
             <div className="idea-card__controls">
                 <PnlStack pnl={position.pnl == null ? null : Number(position.pnl)} currency={position.currency} pct={pct} />
+                {/* Not edit/delete, but the same control: the shared button carries any glyph. */}
                 {onEditOrders && (
-                    <button
-                        className="idea-card__edit-btn"
+                    <IconButton
+                        icon={<OrdersIcon />}
                         disabled={closing}
-                        onClick={e => { e.stopPropagation(); onEditOrders(position) }}
+                        onClick={() => onEditOrders(position)}
                         title="Open working orders (stop / TP) for this position"
-                    ><OrdersIcon /></button>
+                    />
                 )}
                 {onClose && (
-                    <button
-                        className="idea-card__delete"
+                    <IconButton
+                        icon={closing ? <span className="idea-card__closing">…</span> : <CloseIcon />}
+                        tone="danger"
                         disabled={closing}
-                        onClick={e => { e.stopPropagation(); onClose(position) }}
+                        onClick={() => onClose(position)}
                         title="Close this position at market"
-                    >{closing ? <span className="idea-card__closing">…</span> : <CloseIcon />}</button>
+                    />
                 )}
             </div>
         </article>

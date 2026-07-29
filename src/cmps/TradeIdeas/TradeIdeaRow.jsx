@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types'
 import { conditionSummary, formatCreatedAt, formatCreatedAtFull, needsExitConditions, activationStatus, brokerSymbolLabel, brokerChildLabel, isDeleteLocked, isSystemStatus, formatPnl } from './tradeIdea.utils.js'
 import { StatusIcon } from '../StatusIcon.jsx'
+import { EditButton, DeleteButton } from '../EntityCard/EntityCard.jsx'
 
 const BUILDING = 'building'
 
@@ -96,31 +97,18 @@ export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolC
 
                 <span className="idea-row__actions">
                     {!isBuilding && onEdit && (
-                        <button
-                            className={`idea-row__edit-btn${needsExits ? ' idea-row__edit-btn--alert' : ''}`}
-                            onClick={e => { e.stopPropagation(); onEdit(idea) }}
+                        <EditButton
+                            onClick={() => onEdit(idea)}
+                            alert={needsExits}
                             title={needsExits ? 'Missing stop / take profit — click to add' : 'Edit in chat'}
-                        >
-                            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                <path d="M11.5 1.5L14.5 4.5L5.5 13.5H2.5V10.5L11.5 1.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
-                                <path d="M9.5 3.5L12.5 6.5" stroke="currentColor" strokeWidth="1.4"/>
-                            </svg>
-                        </button>
+                        />
                     )}
                     {!isBuilding && onDelete && (
-                        <button
-                            className="idea-row__delete idea-row__delete--bin"
-                            onClick={e => { e.stopPropagation(); if (!deleteLocked) onDelete(id) }}
-                            disabled={deleteLocked}
-                            title={deleteLocked ? 'Live on the broker — close the position first to delete' : 'Delete idea'}
-                        >
-                            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                <path d="M2.5 4H13.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                                <path d="M6.5 4V2.8C6.5 2.36 6.86 2 7.3 2H8.7C9.14 2 9.5 2.36 9.5 2.8V4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                                <path d="M3.7 4L4.3 13C4.34 13.56 4.8 14 5.36 14H10.64C11.2 14 11.66 13.56 11.7 13L12.3 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-                                <path d="M6.5 6.5V11.5M9.5 6.5V11.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                            </svg>
-                        </button>
+                        <DeleteButton
+                            onClick={() => onDelete(id)}
+                            title="Delete idea"
+                            lockedReason={deleteLocked ? 'Live on the broker — close the position first to delete' : null}
+                        />
                     )}
                 </span>
             </td>

@@ -25,8 +25,12 @@ repo (botmarket-backend) holds the domain spec — see its README.md / APP_SPEC.
   `paper-mode-changed`); dispatch on the source, listen in the consuming hook.
 - `npm run build` writes into `../botmarket-backend/public/`. If you build to typecheck and aren't
   deploying, discard those artifacts from the backend repo afterward.
-- There is no test framework here yet. If asked to "write tests," flag that a runner needs setting
-  up first (propose Vitest + React Testing Library) rather than assuming one exists.
+- Tests run on **Vitest + React Testing Library** (`npx vitest run`); suites live beside the
+  component as `<Cmp>.test.jsx`. Write them after a feature like the backend does.
+- The shared shells, before you build a new one: `EntityCard` (one card frame for every kind),
+  `IconButton` + its `EditButton` / `DeleteButton` wrappers (every edit/delete/glyph control —
+  colour, disabled treatment and stopPropagation live there, not per surface), `makeEntityApi`
+  (one REST transport per owner-scoped kind), `useChatStream` (every agent chat).
 
 # Inner QA Loop (run after every implementation)
 After producing any code, before considering the task done, check:

@@ -81,12 +81,24 @@ export function CallCard({ call, busy = false, onAct, onDelete, onEdit, onSymbol
                     onClick={e => { e.stopPropagation(); onAct(call.id, 'confirm') }}
                 >✓</button>
             )}
+            {/* Past entry the pencil is disabled, not a second door to the pop-out — the card
+                itself opens that. A control that greys out and still fires is worse than either. */}
             <EditButton
-                onClick={() => (canChatEdit ? onEdit(call) : openCallPopup(call))}
-                title={canChatEdit ? 'Edit in chat' : 'Open call (editing off in position)'}
+                onClick={() => onEdit?.(call)}
+                title={canChatEdit ? 'Edit in chat' : 'Editing is off once the position is live'}
                 locked={!canChatEdit}
             />
-            {onDelete && <DeleteButton onClick={() => onDelete(call.id)} title="Delete call" disabled={busy} />}
+            {/* A live position is delete-locked server-side (409 reason:'in_position') — the call is
+                what Hermes manages the position THROUGH, so deleting it leaves an open position
+                with nothing running its stop. Same rule as a setup and a holding. */}
+            {onDelete && (
+                <DeleteButton
+                    onClick={() => onDelete(call.id)}
+                    title="Delete call"
+                    lockedReason={isLivePosition(call.status) ? 'In a live position — close it at the broker first' : null}
+                    disabled={busy}
+                />
+            )}
         </>
     )
 

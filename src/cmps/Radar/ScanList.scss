@@ -163,20 +163,6 @@
         border: 1px dashed var(--border);
     }
 
-    &__edit {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        background: none;
-        border: none;
-        color: var(--text-muted);
-        cursor: pointer;
-        padding: 2px;
-        flex-shrink: 0;
-        svg { width: 14px; height: 14px; display: block; }
-        &:hover { color: var(--accent-bright); }
-    }
-
     &__card-dir {
         font-family: var(--font-mono);
         font-size: 9px;
@@ -196,20 +182,8 @@
         color: var(--text-muted);
     }
 
-    &__delete {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        background: none;
-        border: none;
-        color: var(--text-muted);
-        cursor: pointer;
-        padding: 2px;
-        margin-left: -6px;   // sit tight next to the edit pencil
-        flex-shrink: 0;
-        svg { width: 15px; height: 15px; display: block; }
-        &:hover { color: var(--short-text); }
-    }
+    // The controls are the shared .icon-btn; only the tuck against the pencil is local.
+    &__delete { margin-left: -6px; }
 
     // ── Candidate row ───────────────────────────────────────────────────
     &__cands { display: flex; flex-direction: column; }
