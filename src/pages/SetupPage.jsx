@@ -1,8 +1,8 @@
-import { useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { TalosBadge } from '../cmps/AxlHub/AgentBadges.jsx'
 import { EntityPopupShell } from '../cmps/EntityCard/EntityPopupShell.jsx'
 import { PopoutFooter } from '../cmps/TradeIdeas/PopoutFooter.jsx'
+import { MonitorJournal } from '../cmps/TradeIdeas/MonitorJournal.jsx'
 import { positionsForEntity } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { PriceChart } from '../cmps/PriceChart/PriceChart.jsx'
 import { ConvictionChip } from '../cmps/ConvictionChip/ConvictionChip'
@@ -23,15 +23,17 @@ import './SetupPage.scss'     // setup-only bits (zones, watch list, timeline)
 
 // Sentence-length copy, unlike the card's two-word labels — a pop-out has room to say what the
 // state MEANS. The ladder itself (and the icon borrow) lives in setupStatus.js.
+// The ONE shared ladder (services/entity/vocabulary.js). This table used to hold the setup's private
+// vocabulary — `unarmed`/`watching`/`ready` — which meant the words the app actually writes had no
+// copy at all: an armed setup sitting in `looking` printed the raw status. Being in a zone is
+// `armed_zone_id`, not a rung, so there is deliberately no separate "in zone" line here.
 const STATUS_COPY = {
-    unarmed:  'Not watched — generated but not armed, Talos is not looking at it yet',
-    waiting:  'Armed — Talos is watching for price to reach a zone',
-    watching: 'In zone — price is in your zone; Talos is reading whether the setup fills in. No action yet',
-    ready:    'Ready — the setup filled in and an order is awaiting your confirmation',
-    hit:      'Placed — the order is at the broker, awaiting fill',
-    long:     'In position (long)',
-    short:    'In position (short)',
-    closed:   'Closed',
+    waiting: 'Not watched — generated but not armed, Talos is not looking at it yet',
+    looking: 'Armed — Talos is watching for price to reach a zone',
+    hit:     'Triggered — the setup filled in and an order is awaiting your confirmation',
+    long:    'In position (long)',
+    short:   'In position (short)',
+    closed:  'Closed',
 }
 
 const fmtZone = z => (z?.lower === z?.upper ? `${z?.lower}` : `${z?.lower} – ${z?.upper}`)
@@ -54,28 +56,6 @@ function ZoneRow({ label, zones, tone }) {
     )
 }
 ZoneRow.propTypes = { label: PropTypes.string, zones: PropTypes.array, tone: PropTypes.string }
-
-/** Talos's running journal. Same behaviour as the call pop-out's: pinned to the newest entry. */
-function SetupTimeline({ timeline }) {
-    const boxRef = useRef(null)
-    const list   = Array.isArray(timeline) ? timeline : []
-    useEffect(() => { const el = boxRef.current; if (el) el.scrollTop = el.scrollHeight }, [list.length])
-
-    if (!list.length) {
-        return <p className="setup-page__empty">No monitor activity yet — the journal fills in as Talos wakes to check this setup.</p>
-    }
-    return (
-        <div className="setup-page__timeline" ref={boxRef}>
-            {list.map((e, i) => (
-                <div className="setup-page__timeline-entry" key={i}>
-                    {e.at && <span className="setup-page__timeline-at">{new Date(e.at).toLocaleString()}</span>}
-                    <p className="setup-page__timeline-note">{e.note ?? e.memo ?? JSON.stringify(e)}</p>
-                </div>
-            ))}
-        </div>
-    )
-}
-SetupTimeline.propTypes = { timeline: PropTypes.array }
 
 export function SetupPage() {
     // Polled because Talos writes to monitor_state (memo + timeline) while the window is open.
@@ -157,7 +137,10 @@ export function SetupPage() {
                     )}
 
                     <span className="setup-page__section-label">Talos journal</span>
-                    <SetupTimeline timeline={setup.monitor_state?.timeline} />
+                    <MonitorJournal
+                        timeline={setup.monitor_state?.timeline}
+                        empty="No monitor activity yet — the journal fills in as Talos wakes to check this setup."
+                    />
                 </div>
             </div>
 

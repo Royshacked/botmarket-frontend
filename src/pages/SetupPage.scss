@@ -76,34 +76,10 @@
         color: var(--text-dim);
     }
 
-    &__timeline {
-        max-height: 220px;
-        overflow-y: auto;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
+    // The journal box, its entries and its empty line now come from the shared
+    // MonitorJournal component (cmps/TradeIdeas/MonitorJournal.scss) — the setup pop-out and the
+    // call pop-out draw the same monologue, so only the section heading stays local.
 
-    &__timeline-entry {
-        padding-left: 8px;
-        border-left: 2px solid var(--accent-deep);
-    }
-
-    &__timeline-at {
-        display: block;
-        font-family: var(--font-mono);
-        font-size: 9px;
-        color: var(--text-dim);
-    }
-
-    &__timeline-note {
-        margin: 2px 0 0;
-        font-size: 11px;
-        line-height: 1.45;
-        color: var(--text-secondary);
-    }
-
-    &__empty { margin: 0; font-size: 11px; color: var(--text-dim); }
 
     // Arm / disarm lives in the header: it is the one action that decides whether anything is
     // happening at all, so it should not be buried below the fold.
