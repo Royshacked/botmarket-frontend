@@ -17,7 +17,19 @@ const idea = (o = {}) => ({
     ...o,
 })
 
+// Accounts start collapsed, so anything that inspects the rows underneath has to open one first.
+const openAcct = (no = '5001') => fireEvent.click(screen.getByText(no))
+
 describe('FloorLeft', () => {
+    // A refresh opens nothing on the reader's behalf — the column lands as a table of contents,
+    // the same rule the Lists column follows.
+    it('starts every account collapsed', () => {
+        render(<FloorLeft positions={[pos()]} ideas={[idea()]} />)
+
+        expect(screen.getByText('5001').closest('button').getAttribute('aria-expanded')).toBe('false')
+        expect(document.querySelector('.floor-acct__body')).toBeNull()
+    })
+
     // Same convention as the Lists column: a count is part of the name it counts, so it is
     // parenthesised and adjacent — not a bare number parked in a column of its own.
     it('prints an account’s position count in parentheses beside the account number', () => {
@@ -39,6 +51,7 @@ describe('FloorLeft', () => {
     // rendered anyway the row would be decoration.
     it('collapses a portfolio into one row, hiding its legs until it is opened', () => {
         render(<FloorLeft positions={[pos()]} ideas={[idea()]} />)
+        openAcct()
 
         expect(screen.getByText('Core')).toBeTruthy()
         expect(document.querySelector('.floor-pos')).toBeNull()
@@ -52,6 +65,7 @@ describe('FloorLeft', () => {
     // the account — no wrapper row, no extra indent.
     it('leaves a portfolio-less position flat under its account', () => {
         render(<FloorLeft positions={[pos({ id: 'p2', symbol: 'SPY' })]} ideas={[idea()]} />)
+        openAcct()
 
         expect(document.querySelector('.floor-book')).toBeNull()
         const row = document.querySelector('.floor-pos')

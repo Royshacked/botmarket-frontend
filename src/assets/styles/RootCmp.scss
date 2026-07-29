@@ -58,13 +58,12 @@
 // side columns are fixed, so the chat's measure changes only with the viewport, never as a
 // side effect of opening or closing something. (See cmps/Floor/Floor.scss for the rows.)
 //
-// The chart still takes over the right column, exactly as it does in the current design, which
-// is why the right column is the wider of the two.
-// Both side columns are 420px — symmetric, so the chat sits genuinely centred rather than
-// centred-in-the-leftovers. 840px of fixed chrome leaves the chat 600px at the 1440 breakpoint
-// below, which is the measure it should never drop under.
+// The chart still takes over the right column, exactly as it does in the current design.
+// Trial: proportional 22.5 / 55 / 22.5 instead of fixed side columns — the two side columns are
+// symmetric, so the chat sits genuinely centred rather than centred-in-the-leftovers, and now
+// every column scales with the viewport together.
 [data-design="floor"] .workspace {
-    grid-template-columns: 420px minmax(0, 1fr) 420px;
+    grid-template-columns: 22.5% minmax(0, 55%) 22.5%;
     grid-template-areas: "floor-left chat floor-right";
 }
 

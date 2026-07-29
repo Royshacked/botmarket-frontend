@@ -65,9 +65,8 @@ const posKey = p => `${p.broker}:${p.accountId}:${p.id}`
 
 function AccountBlock({ group, open, onToggle, onOpenPosition }) {
     const { summary } = group
-    // Books start CLOSED, the opposite of their account. An account open by default is the book you
-    // want without asking; a portfolio row exists precisely to stand in for its legs, so opening it
-    // for you would undo the row.
+    // Books start CLOSED, like the account above them: a portfolio row exists precisely to stand in
+    // for its legs, so opening it for you would undo the row.
     const { isExpanded, toggle } = useExpandedSet()
     return (
         <div className={`floor-acct${open ? ' floor-acct--open' : ''}`}>
@@ -205,18 +204,10 @@ export function FloorLeft({
     onEarningSelect, onIpoSelect,
 }) {
     const groups = positionsByAccount(positions, ideas)
-    // Accounts default OPEN — the book is the one thing you want to see without asking. Collapse is
-    // for when it grows past the half-column, which is also when it stops being glanceable.
-    const [closed, setClosed] = useState(() => new Set())
+    // Accounts default CLOSED, like every other list on the Floor — a refresh lands on a table of
+    // contents and opens nothing on the reader's behalf. Same Set-toggle the books below use.
+    const { isExpanded, toggle } = useExpandedSet()
     const [calTab, setCalTab] = useState('earnings')
-
-    function toggle(key) {
-        setClosed(prev => {
-            const next = new Set(prev)
-            next.has(key) ? next.delete(key) : next.add(key)
-            return next
-        })
-    }
 
     return (
         <aside className="floor-left">
@@ -238,7 +229,7 @@ export function FloorLeft({
                                 <AccountBlock
                                     key={g.key}
                                     group={g}
-                                    open={!closed.has(g.key)}
+                                    open={isExpanded(g.key)}
                                     onToggle={toggle}
                                     onOpenPosition={onOpenPosition}
                                 />

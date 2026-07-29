@@ -459,10 +459,12 @@ export function FloorLists({
     onEditPortfolio, onDeletePortfolio, onDeleteIdea,
     onEditScan, onDeleteScan,
     onEditCoverage, onRetireCoverage, onDeleteCoverage,
-    initialDesk = 'trade',
+    initialDesk = null,
 }) {
     // One desk open at a time — clicking the open one closes it, leaving all four collapsed. That
-    // "all closed" state is legitimate: it turns the column into a table of contents.
+    // "all closed" state is legitimate: it turns the column into a table of contents — which is
+    // also why it is the state a fresh load lands in. Opening a desk is a choice the reader makes,
+    // not one a refresh makes for them.
     const [openKey, setOpenKey] = useState(initialDesk)
     const toggle = key => setOpenKey(cur => (cur === key ? null : key))
 
