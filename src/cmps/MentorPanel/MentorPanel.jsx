@@ -7,6 +7,7 @@ import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
 import { readStoredRoutingMode } from '../routingModeOptions.js'
 import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
+import { useSeedTurn } from '../../customHooks/useSeedTurn.js'
 import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
@@ -80,12 +81,9 @@ export function MentorPanel({
     useEffect(() => { setEditDirty(false) }, [editingSetupId])
 
     // A calendar row (earnings / IPO) opened Mentor with the catalyst already worded as the user's
-    // turn — see MainPage's seedMentorChat. Sent, not staged: the ticker still comes from the user,
-    // the click just says it for them. Keyed so one click is one turn however often this re-renders,
-    // and it lands in whatever conversation is open rather than wiping a build in progress.
-    useEffect(() => {
-        if (seed?.message) _send(seed.message)
-    }, [seed?.key])   // eslint-disable-line react-hooks/exhaustive-deps
+    // turn — see MainPage's seedMentorChat. The shared hand-off seed (useSeedTurn): sent not staged,
+    // keyed so one click is one turn, landing in whatever conversation is open.
+    useSeedTurn(seed, _send)
 
     function persistedMessages() {
         return messages

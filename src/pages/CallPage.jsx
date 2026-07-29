@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { deriveCallOverlay } from '../cmps/TradeIdeas/chartOverlay.js'
 import { deriveCallChartInterval, positionsForEntity } from '../cmps/TradeIdeas/tradeIdea.utils.js'
@@ -8,6 +8,7 @@ import { EntityPopupShell } from '../cmps/EntityCard/EntityPopupShell.jsx'
 import { useEntityPopup } from '../customHooks/useEntityPopup.js'
 import { isAwaitingConfirm, isLivePosition, isTerminal, isInvalidated } from '../services/entityStatus.js'
 import { PopoutFooter } from '../cmps/TradeIdeas/PopoutFooter.jsx'
+import { MonitorJournal } from '../cmps/TradeIdeas/MonitorJournal.jsx'
 import { PriceChart } from '../cmps/PriceChart/PriceChart.jsx'
 import { usePositions } from '../customHooks/usePositions.js'
 import { kairosService } from '../services/kairos/kairos.service.remote.js'
@@ -20,10 +21,9 @@ const STATUS_LABEL = {
     waiting: 'not watched', looking: 'watching for the zone', hit: 'ready to enter — confirm',
     long: 'in position', short: 'in position', closed: 'closed',
 }
-const REASON_LABEL = {
-    closed: 'market closed', scheduled: 'heartbeat', zone_trip: 'in zone', expiry_review: 'expiry review',
-    entry: 'entered', in_position: 'managing', close: 'closed',
-}
+// The wake kinds only Hermes produces — the in-position era. Merged over the journal's shared
+// labels (see MonitorJournal); the readiness ones are common to every monitor.
+const REASON_LABEL = { entry: 'entered', in_position: 'managing', close: 'closed' }
 // In-position management verdict → button label + human proposal line.
 const MANAGE_LABEL = { move_stop: 'Move stop', take_partial: 'Take partial', exit_now: 'Exit now', let_run: 'Let it run' }
 function proposalLine(verdict, p) {
@@ -35,108 +35,6 @@ function proposalLine(verdict, p) {
     return null
 }
 const fmtR = r => (r == null ? '—' : `${r > 0 ? '+' : ''}${r}R`)
-
-// ── Monitor journal — the running, first-person monologue of every monitor wake ─────────────────
-// Timeline is appended oldest→newest by the backend; render chronologically and keep the box
-// pinned to the latest entry (chat-style). Cheap heartbeats are one-liners; a real assessment
-// carries the model's own read + the four-axis detail.
-// Round over-precise prices inside a journal string — the model sometimes emits raw floats like
-// "33.2445543465656" in its prose. Cap decimals by magnitude (equities 2dp, forex ~4dp, sub-$1 6dp)
-// and only ever SHORTEN (min with the actual count) so clean numbers like "33.24" or "4.5%" are
-// left untouched. Matches only numbers with 3+ decimals, so integers and short decimals are skipped.
-function tidyPrices(text) {
-    if (!text) return text
-    return text.replace(/\d+\.\d{3,}/g, (m) => {
-        const n = Number(m)
-        if (!Number.isFinite(n)) return m
-        const abs = Math.abs(n)
-        const cap = abs >= 10 ? 2 : abs >= 1 ? 4 : 6
-        return n.toFixed(Math.min(m.split('.')[1].length, cap))
-    })
-}
-
-// One assessment axis: the label + conclusion tag are the always-visible summary row (a toggle),
-// and the analysis read collapses below it — default collapsed to keep the journal compact.
-function JournalAxis({ label, read, tag }) {
-    const [open, setOpen] = useState(false)
-    const hasRead = !!read
-    return (
-        <div className="call-journal__axis">
-            <button
-                type="button"
-                className="call-journal__axis-head"
-                onClick={() => hasRead && setOpen(o => !o)}
-                aria-expanded={hasRead ? open : undefined}
-                disabled={!hasRead}
-            >
-                <span className="call-journal__axis-k">{label}</span>
-                {tag && <span className={`call-journal__axis-tag tag--${tag}`}>{tag}</span>}
-                {hasRead && <span className="call-journal__axis-caret">{open ? '▾' : '▸'}</span>}
-            </button>
-            {hasRead && open && <p className="call-journal__axis-read">{tidyPrices(read)}</p>}
-        </div>
-    )
-}
-JournalAxis.propTypes = { label: PropTypes.string, read: PropTypes.string, tag: PropTypes.string }
-
-function JournalAxes({ axes }) {
-    const rows = [
-        axes?.market       && ['market', axes.market.read,       axes.market.score],
-        axes?.news         && ['news',   axes.news.read,         axes.news.score],
-        axes?.price_action && ['price',  axes.price_action.read, axes.price_action.strength],
-    ].filter(Boolean)
-    const pats = Array.isArray(axes?.patterns_seen) ? axes.patterns_seen.filter(p => p?.present) : []
-    if (!rows.length && !pats.length) return null
-    return (
-        <div className="call-journal__axes">
-            {rows.map(([k, read, tag]) => <JournalAxis key={k} label={k} read={read} tag={tag} />)}
-            {pats.length > 0 && (
-                <div className="call-journal__axis">
-                    <div className="call-journal__axis-head call-journal__axis-head--static">
-                        <span className="call-journal__axis-k">patterns</span>
-                    </div>
-                    <p className="call-journal__axis-read">{tidyPrices(pats.map(p => p.note || p.id).join(' · '))}</p>
-                </div>
-            )}
-        </div>
-    )
-}
-JournalAxes.propTypes = { axes: PropTypes.object }
-
-function JournalEntry({ e }) {
-    const time     = e.at ? new Date(e.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
-    const isAssess = e.reason === 'zone_trip' || e.reason === 'expiry_review' || e.reason === 'in_position'
-    return (
-        <div className={`call-journal__entry call-journal__entry--${e.reason}`}>
-            <div className="call-journal__meta">
-                <span className="call-journal__time">{time}</span>
-                <span className="call-journal__reason">{REASON_LABEL[e.reason] ?? e.reason}</span>
-                {e.price != null && <span className="call-journal__price">@ {tidyPrices(String(e.price))}</span>}
-                {e.verdict && <span className={`call-journal__verdict verdict--${e.verdict}`}>{e.verdict}</span>}
-            </div>
-            <p className="call-journal__note">{tidyPrices(e.note)}</p>
-            {isAssess && e.fetched && <div className="call-journal__fetched">fetched {e.fetched}</div>}
-            {isAssess && <JournalAxes axes={e.axes} />}
-        </div>
-    )
-}
-JournalEntry.propTypes = { e: PropTypes.object.isRequired }
-
-function MonitorJournal({ timeline }) {
-    const boxRef = useRef(null)
-    const list   = Array.isArray(timeline) ? timeline : []
-    // Keep pinned to the newest entry as the journal grows (only scrolls the box, not the column).
-    useEffect(() => { const el = boxRef.current; if (el) el.scrollTop = el.scrollHeight }, [list.length])
-    if (!list.length) {
-        return <p className="call-journal__empty">No monitor activity yet — the journal fills in as Kairos wakes to check this call.</p>
-    }
-    return (
-        <div className="call-journal" ref={boxRef}>
-            {list.map((e, i) => <JournalEntry key={i} e={e} />)}
-        </div>
-    )
-}
-MonitorJournal.propTypes = { timeline: PropTypes.array }
 
 // ── In-position state: the live trade + its outcome (Phase 5) ────────────────────────────────────
 function PositionPanel({ ps, status }) {
@@ -192,7 +90,8 @@ function ManagementCard({ pending, busy, onAccept, onDismiss }) {
         <div className={`kairos-panel__card kairos-panel__card--manage verdict--${v}`}>
             <div className="kairos-panel__card-head">
                 <span className="kairos-panel__card-status">Kairos suggests</span>
-                <span className={`call-journal__verdict verdict--${v}`}>{v}</span>
+                {/* The journal's verdict pill, borrowed: the same word means the same thing here. */}
+                <span className={`monitor-journal__verdict verdict--${v}`}>{v}</span>
             </div>
             <div className="kairos-panel__card-row">{proposalLine(v, pending.proposal)}</div>
             {pending.proposal?.reason && v !== 'exit_now' && <div className="kairos-panel__card-note">{pending.proposal.reason}</div>}
@@ -331,7 +230,11 @@ export function CallPage() {
 
                     <div className="idea-dialog__field">
                         <span>Monitor journal <em>(live)</em></span>
-                        <MonitorJournal timeline={call.monitor_state?.timeline} />
+                        <MonitorJournal
+                            timeline={call.monitor_state?.timeline}
+                            empty="No monitor activity yet — the journal fills in as Kairos wakes to check this call."
+                            reasonLabels={REASON_LABEL}
+                        />
                     </div>
                 </div>
             </div>

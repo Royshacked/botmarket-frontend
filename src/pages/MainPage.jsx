@@ -279,6 +279,7 @@ export function MainPage() {
     const [kairosScanResult, setKairosScanResult] = useState(null)
     const [analystScanResult, setAnalystScanResult] = useState(null)   // Argus investing candidate → Analyst research seed
     const [analystEditCoverage, setAnalystEditCoverage] = useState(null)   // coverage pencil → re-open Prometheus on that name
+    const [analystSeed,      setAnalystSeed]      = useState(null)     // Axl's routed ticker → Prometheus's opening turn
     const [mentorSeed,       setMentorSeed]       = useState(null)     // calendar row (earnings/IPO) → Mentor's opening turn
     // Editing a saved setup in the Mentor chat — the setup twin of editingCallId + its restore.
     const [editingSetupId,   setEditingSetupId]   = useState(null)
@@ -1511,6 +1512,24 @@ export function MainPage() {
         setChartSymbol(symbol)
     }
 
+    // ── Axl reception → a desk ────────────────────────────────────────────────
+    // The hub summoned a desk (AxlHub's `onPick`). `opts.symbol` is the name Axl already resolved
+    // from the conversation, so the entry agent opens ON it — the point of routing is that the user
+    // doesn't say "NVDA" twice. Same keyed seed every hand-off uses (see useSeedTurn).
+    //
+    // Research and Assist take one: both are single-name desks, and each words the opening turn in
+    // ITS OWN job — Prometheus is asked for coverage, Mentor is handed a trade the user already has
+    // in mind. Trading and Portfolio enter at Argus, whose opening turn is a screen, not a ticker,
+    // so a seed there would start the wrong work.
+    function handleAxlPick(tab, opts = {}) {
+        setActiveTab(tab)
+        setActivePipeline(opts.pipeline ?? null)
+        setNewsTab('scans')
+        if (!opts.symbol) return
+        if (tab === 'analyst') setAnalystSeed({ key: Date.now(), message: `Research ${opts.symbol} for coverage.` })
+        if (tab === 'mentor')  setMentorSeed({ key: Date.now(), message: `I want to work on my own ${opts.symbol} trade.` })
+    }
+
     // ── Kairos ↔ Argus discovery hand-off ────────────────────────────────────
     // Route OUT: Kairos emitted a <scan_request> (bias + horizon, optional ticker) and the user tapped
     // "Open Argus". Remount Argus fresh (chatResetKey) — which leaves the never-keyed Kairos panel
@@ -1739,7 +1758,7 @@ export function MainPage() {
                         {activeTab === 'axl' ? (
                             <AxlHub
                                 user={user}
-                                onPick={(tab, opts) => { setActiveTab(tab); setActivePipeline(opts?.pipeline ?? null); setNewsTab('scans') }}
+                                onPick={handleAxlPick}
                             />
                         ) : (
                             <div className="chat-agentbar">
@@ -1844,6 +1863,7 @@ export function MainPage() {
                             <AnalystPanel
                                 scanResult={analystScanResult}
                                 editCoverage={analystEditCoverage}
+                                seed={analystSeed}
                                 coverage={coverage}
                                 onInitiated={() => { setNewsTab('coverage'); handleBackToAxl() }}
                             />
