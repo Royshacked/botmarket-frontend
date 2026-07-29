@@ -113,7 +113,7 @@ function EarningsList({ items, from, to, loading, onSelect }) {
                                     name={e.name}
                                     logo={e.logo}
                                     onSelect={() => onSelect?.(e)}
-                                    title={e.symbol ? `Build a trade idea around ${e.symbol}'s earnings` : ''}
+                                    title={e.symbol ? `Build a setup around ${e.symbol}'s earnings` : ''}
                                 />
                                 <span className={`earn-table__when earn-table__when--${_earnWhenClass(e.time)}`}>
                                     {_earnWhen(e.time)}
@@ -202,7 +202,7 @@ function IpoList({ items, loading, onSelect }) {
                                 name={e.name}
                                 logo={e.logo}
                                 onSelect={() => onSelect?.(e)}
-                                title={e.symbol ? `Build a trade idea around ${e.symbol}'s IPO` : ''}
+                                title={e.symbol ? `Build a setup around ${e.symbol}'s IPO` : ''}
                             />
                             {e.price && <span className="ipo-row__price">${e.price}</span>}
                             {e.status && (

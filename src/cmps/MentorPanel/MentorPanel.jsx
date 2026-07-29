@@ -40,7 +40,7 @@ const MessageBubble = ({ msg }) => <ChatBubble msg={msg} />
 
 export function MentorPanel({
     onLoadingChange, onGenerated, onPendingSetup,
-    chatRestore = null, editingSetupId = null, onEditDone,
+    chatRestore = null, seed = null, editingSetupId = null, onEditDone,
     availableAccounts = [], selectedAccounts = [], mainAccountId = null, resumeRef = null,
 }) {
     const chat = useChatStream()
@@ -78,6 +78,14 @@ export function MentorPanel({
     }, [chatRestore?.key])   // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => { setEditDirty(false) }, [editingSetupId])
+
+    // A calendar row (earnings / IPO) opened Mentor with the catalyst already worded as the user's
+    // turn — see MainPage's seedMentorChat. Sent, not staged: the ticker still comes from the user,
+    // the click just says it for them. Keyed so one click is one turn however often this re-renders,
+    // and it lands in whatever conversation is open rather than wiping a build in progress.
+    useEffect(() => {
+        if (seed?.message) _send(seed.message)
+    }, [seed?.key])   // eslint-disable-line react-hooks/exhaustive-deps
 
     function persistedMessages() {
         return messages
@@ -370,6 +378,7 @@ MentorPanel.propTypes = {
     onGenerated:       PropTypes.func,
     onPendingSetup:    PropTypes.func,
     chatRestore:       PropTypes.object,
+    seed:              PropTypes.object,
     editingSetupId:    PropTypes.string,
     onEditDone:        PropTypes.func,
     availableAccounts: PropTypes.array,

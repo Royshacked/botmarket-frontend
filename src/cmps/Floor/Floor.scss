@@ -153,14 +153,17 @@ $header-h: var(--header-h);
         letter-spacing: .2px;
     }
 
+    // Sits against the account number — it pulls back most of the row's 7px flex gap so the
+    // parenthetical reads as part of the name. The P&L below carries the auto margin instead.
     &__count {
-        margin-left: auto;
+        margin-left: -3px;
         font-family: var(--font-mono);
         font-size: 10.5px;
         color: var(--text-dim);
     }
 
     &__pnl {
+        margin-left: auto;
         font-family: var(--font-mono);
         font-size: 11px;
         color: var(--text-muted);
@@ -400,8 +403,10 @@ $header-h: var(--header-h);
     }
     &--open &__label { color: var(--accent-light); }
 
+    // Sits against the label — a parenthetical belongs tight to its noun, so it pulls back most of
+    // the head's 8px flex gap rather than taking a full column's distance from it.
     &__count {
-        margin-left: auto;
+        margin-left: -4px;
         font-family: var(--font-mono);
         font-size: 10.5px;
         color: var(--text-dim);
@@ -482,16 +487,20 @@ $header-h: var(--header-h);
         width: $sym-w;
         flex-shrink: 0;
 
-        // A thesis or a book name isn't a ticker — it takes the free space and truncates.
+        // A thesis or a book name isn't a ticker — it takes the width it needs and truncates.
         // `min-width: 0` is what MAKES it truncate: a flex item defaults to min-width:auto, which
         // for nowrap text resolves to max-content, so the item refuses to shrink and the ellipsis
         // never engages — the row just forces the pane wider.
+        //
+        // It SHRINKS but never GROWS (`flex: 0 1 auto`, not `flex: 1`). Growing would stretch the
+        // box past its text and push whatever follows — the item count — to the far edge, which is
+        // exactly what the count is not supposed to be. The slack goes to __kind instead.
         &--wide {
             font-family: var(--font-sans);
             font-weight: 500;
             font-size: 12px;
-            width: auto;
-            flex: 1;
+            width: auto;        // undo the base ticker width — `flex-basis: auto` resolves to it
+            flex: 0 1 auto;
             min-width: 0;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -526,7 +535,17 @@ $header-h: var(--header-h);
         &--thesis_broken  { color: var(--color-short); }
     }
 
+    // The count now follows the name directly, so the row has nothing else claiming the free space:
+    // `margin-left: auto` here is what keeps the stale flag on the right edge where it was.
+    &__count {
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        color: var(--text-dim);
+        flex-shrink: 0;
+    }
+
     &__stale {
+        margin-left: auto;
         font-size: 9px;
         text-transform: uppercase;
         letter-spacing: .8px;

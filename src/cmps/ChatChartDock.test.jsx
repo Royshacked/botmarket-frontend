@@ -113,6 +113,46 @@ describe('ChatChartDock', () => {
         expect(screen.getByTestId('price-chart').getAttribute('data-symbol')).toBe('SPY')
     })
 
+    // Collapsing swaps a big element for a small one in a different corner, so the fold is played by
+    // a leftover frame — the chart is unmounted immediately (it must stop polling the moment you
+    // hide it) and the empty frame shrinks in its place. It has to clean itself up.
+    it('collapsing leaves a frame folding into the corner, and takes it away when it lands', () => {
+        vi.useFakeTimers()
+        try {
+            render(<ChatChartDock />)
+            act(() => { openChart({ symbol: 'SPY', timeframe: 'day' }) })
+            act(() => { screen.getByLabelText('Collapse the chart').click() })
+
+            expect(document.querySelector('.chat-chart-dock--folding')).toBeTruthy()
+            expect(screen.queryByTestId('price-chart')).toBeNull()
+
+            act(() => { vi.runAllTimers() })
+            expect(document.querySelector('.chat-chart-dock--folding')).toBeNull()
+            expect(screen.getByText('SPY · DAY')).toBeTruthy()
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+
+    // The fold outlives the click that started it, so a Close landing inside that window used to
+    // leave a pending timer and a collapsed flag for the NEXT chart to inherit.
+    it('closing mid-fold does not leave the next chart born collapsed', () => {
+        vi.useFakeTimers()
+        try {
+            render(<ChatChartDock />)
+            act(() => { openChart({ symbol: 'SPY', timeframe: 'day' }) })
+            act(() => { screen.getByLabelText('Collapse the chart').click() })
+            act(() => { screen.getByLabelText('Close the chart').click() })
+            act(() => { openChart({ symbol: 'SPY', timeframe: 'day' }) })
+            act(() => { vi.runAllTimers() })
+
+            expect(screen.getByTestId('price-chart').getAttribute('data-symbol')).toBe('SPY')
+            expect(document.querySelector('.chat-chart-dock--folding')).toBeNull()
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+
     it('a late mount picks up the already-docked chart instead of losing it', () => {
         // Switching agent tabs unmounts one dock and mounts another; the chart must survive the trip.
         act(() => { openChart({ symbol: 'SPY', timeframe: 'day' }) })

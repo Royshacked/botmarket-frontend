@@ -163,6 +163,26 @@ describe('MentorPanel', () => {
         expect(sendStream.mock.calls[1][1].chatState.draft.asset).toBe('NVDA')
     })
 
+    // Clicking an earnings/IPO row in the calendar routes here, not to the idea desk. The catalyst
+    // arrives as the USER's turn — the click is them naming the ticker — so it must actually be
+    // sent, and sent once per click however often the panel re-renders.
+    it('a calendar seed opens the build as the user’s own turn, exactly once', async () => {
+        const seed = { key: 1, message: 'I want to build a setup around NVDA earnings — it reports on Thu, Jul 31 after the close.' }
+        const { rerender } = render(<MentorPanel {...props({ seed })} />)
+
+        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(1))
+        expect(sendStream.mock.calls[0][0].at(-1)).toEqual({ role: 'user', content: seed.message })
+
+        rerender(<MentorPanel {...props({ seed })} />)
+        expect(sendStream).toHaveBeenCalledTimes(1)
+    })
+
+    it('no seed sends nothing — the panel still opens on its intro', () => {
+        render(<MentorPanel {...props()} />)
+        expect(sendStream).not.toHaveBeenCalled()
+        expect(screen.getByText(/I want to buy NVDA on a pullback/)).toBeTruthy()
+    })
+
     it('a new user turn clears a stale candidate offer', async () => {
         render(<MentorPanel {...props()} />)
         await runTurn({ reply: 'options', setups: { candidates: [{ label: 'Sweep and reclaim', setup: SETUP }] } })

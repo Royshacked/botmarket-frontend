@@ -42,7 +42,9 @@ function AccountBlock({ group, open, onToggle, onOpenPosition }) {
                     active workspace, so every row here is that mode by construction. A per-row
                     badge would be restating the workspace switch on every line. */}
                 <span className="floor-acct__no">{group.accountNo}</span>
-                <span className="floor-acct__count">{summary.count}</span>
+                {/* Beside the account number, in parens — the count says how big THIS account is,
+                    so it reads as part of its name rather than as a column of its own. */}
+                <span className="floor-acct__count">({summary.count})</span>
                 <span className={`floor-acct__pnl ${pnlClass(summary.pnl)}`}>
                     {summary.pnl == null ? '—' : formatPnl(summary.pnl, summary.currency)}
                 </span>
@@ -124,7 +126,7 @@ function CalendarRows({ tab, earnings, fed, ipo, onEarningSelect, onIpoSelect })
                         key={e.symbol || i}
                         className="floor-cal__row floor-cal__row--btn"
                         onClick={() => onSelect?.(e)}
-                        title={e.symbol ? `Build a trade idea around ${e.symbol}` : undefined}
+                        title={e.symbol ? `Build a setup around ${e.symbol}` : undefined}
                     >
                         <span className="floor-cal__sym">{e.symbol ?? '—'}</span>
                         <span className="floor-cal__label">{e.name ?? ''}</span>

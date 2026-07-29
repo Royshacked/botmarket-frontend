@@ -182,70 +182,49 @@ function _earnWhenPhrase(code) {
     return _EARN_WHEN_PHRASE[(code || '').toLowerCase()] || ''
 }
 
-// Readable summary of an earnings event, shown as an assistant bubble when the
-// user opens a ticker from the Radar earnings tab. Markdown so it renders nicely.
-function buildEarningSummary(e, date) {
-    const lines = [`**Earnings play — ${e.symbol}${e.name ? ` · ${e.name}` : ''}**`]
-
-    const when = _earnWhenPhrase(e.time)
+// ── Calendar row → Mentor ────────────────────────────────────────────────────
+// Clicking an earnings or IPO row opens MENTOR with the catalyst already spoken, and it is spoken
+// as the USER's turn rather than as a briefing bubble from the agent. That is Mentor's model: the
+// setup comes out of the conversation, and its opening move is to ask what your lean is — an agent
+// summary posted before it has asked anything answers questions that were never put.
+//
+// Both events are the same shape — a DATE with a ticker attached, and no direction — which is what
+// the setup kind is built around (zones and a window, not a condition tree). The lean is left open
+// on purpose; picking one for the user is the judgment that belongs to them and to Mentor.
+function buildEarningSeed(e, date) {
+    const when    = _earnWhenPhrase(e.time)
     const dateStr = _fmtEarnDate(date || e.date)
-    const timing = [dateStr && `Reports ${dateStr}`, when].filter(Boolean).join(' ')
-    if (timing) lines.push(`*${timing}.*`)
+    const timing  = [dateStr && `on ${dateStr}`, when].filter(Boolean).join(' ')
 
     const est = []
     if (e.epsEstimated != null)     est.push(`EPS est. ${Number(e.epsEstimated).toFixed(2)}`)
     if (e.revenueEstimated != null) est.push(`Rev est. ${_moneyShort(e.revenueEstimated)}`)
-    if (est.length) lines.push(`\n**Estimates:** ${est.join(' · ')}`)
 
-    lines.push(`\n_This is an earnings-driven setup. Tell me your lean — play the run-up into the print, or the reaction after it — and I'll build the entry, stop, and take-profit around the event._`)
-    return lines.join('\n')
-}
-
-// Same earnings context, phrased for the idea agent's system prompt so it can
-// answer the user's first question already knowing the catalyst and timing.
-function buildEarningContext(e, date) {
-    const when = _earnWhenPhrase(e.time)
-    const dateStr = _fmtEarnDate(date || e.date)
     return [
-        `The user opened this trade idea from the Radar earnings calendar and is reading the earnings summary.`,
-        `Ticker: ${e.symbol}${e.name ? ` (${e.name})` : ''}.`,
-        `Catalyst: scheduled earnings${dateStr ? ` on ${dateStr}` : ''}${when ? `, reporting ${when}` : ''} — treat this earnings event as the idea's driving catalyst and time anchor.`,
-        e.epsEstimated != null     ? `EPS estimate: ${Number(e.epsEstimated).toFixed(2)}.` : '',
-        e.revenueEstimated != null ? `Revenue estimate: ${_moneyShort(e.revenueEstimated)}.` : '',
-        `Direction is not yet chosen. Do not respond yet; when the user asks, help shape the trade (direction, entry, stop, take-profit) around the earnings event and set the time condition from the report date.`,
-    ].filter(Boolean).join(' ')
+        `I want to build a setup around ${e.symbol}${e.name ? ` (${e.name})` : ''} earnings`,
+        timing ? ` — it reports ${timing}` : '',
+        '.',
+        est.length ? ` ${est.join(' · ')}.` : '',
+        ` No direction picked yet — take me through playing the run-up into the print against the reaction after it.`,
+    ].join('')
 }
 
-// Readable summary of an upcoming IPO, shown as an assistant bubble when the user
-// opens a ticker from the Radar IPO tab.
-function buildIpoSummary(e) {
-    const lines = [`**IPO — ${e.symbol}${e.name ? ` · ${e.name}` : ''}**`]
-
+function buildIpoSeed(e) {
     const dateStr = _fmtEarnDate(e.date)
-    const timing = [dateStr && `Expected ${dateStr}`, e.exchange && `on ${e.exchange}`].filter(Boolean).join(' ')
-    if (timing) lines.push(`*${timing}.*`)
 
     const facts = []
-    if (e.price)  facts.push(`Price $${e.price}`)
-    if (e.value)  facts.push(`Deal ${_moneyShort(e.value)}`)
-    if (e.status) facts.push(`Status ${e.status}`)
-    if (facts.length) lines.push(`\n**Details:** ${facts.join(' · ')}`)
+    if (e.price)  facts.push(`priced around $${e.price}`)
+    if (e.value)  facts.push(`deal ${_moneyShort(e.value)}`)
+    if (e.status) facts.push(`status ${e.status}`)
 
-    lines.push(`\n_New listings can be volatile with little trading history. Tell me how you want to play it — the debut itself, or a setup once it's trading — and I'll build the entry, stop, and take-profit around the listing._`)
-    return lines.join('\n')
-}
-
-// Same IPO context, phrased for the idea agent's system prompt.
-function buildIpoContext(e) {
-    const dateStr = _fmtEarnDate(e.date)
     return [
-        `The user opened this trade idea from the Radar IPO calendar and is reading the IPO summary.`,
-        `Ticker: ${e.symbol}${e.name ? ` (${e.name})` : ''}${e.exchange ? `, listing on ${e.exchange}` : ''}.`,
-        `Catalyst: upcoming IPO${dateStr ? ` expected ${dateStr}` : ''}${e.status ? ` (status: ${e.status})` : ''} — treat the listing as the idea's driving catalyst and time anchor. A new listing usually has no price history yet, so lean on debut/aftermarket dynamics rather than historical levels.`,
-        e.price ? `Indicated price: $${e.price}.` : '',
-        e.value ? `Deal size: ${_moneyShort(e.value)}.` : '',
-        `Direction is not yet chosen. Do not respond yet; when the user asks, help shape the trade (direction, entry, stop, take-profit) around the listing and set the time condition from the expected date.`,
-    ].filter(Boolean).join(' ')
+        `I want to build a setup around the ${e.symbol}${e.name ? ` (${e.name})` : ''} IPO`,
+        dateStr ? ` — expected ${dateStr}` : '',
+        e.exchange ? ` on ${e.exchange}` : '',
+        '.',
+        facts.length ? ` (${facts.join(', ')}).` : '',
+        ` It's a new listing with little or no history, so no direction yet — take me through playing the debut against waiting for it to trade.`,
+    ].join('')
 }
 
 function _fmtEarnDate(iso) {
@@ -299,6 +278,7 @@ export function MainPage() {
     const [scannerSeed,      setScannerSeed]      = useState(null)
     const [kairosScanResult, setKairosScanResult] = useState(null)
     const [analystScanResult, setAnalystScanResult] = useState(null)   // Argus investing candidate → Analyst research seed
+    const [mentorSeed,       setMentorSeed]       = useState(null)     // calendar row (earnings/IPO) → Mentor's opening turn
 
     // Kairos calls for the Axl Lists Calls tab. Holds all the user's calls (workspace-filtered in
     // the list); reloads on the shared 'kairos-calls-changed' event (generate / act / delete).
@@ -1448,36 +1428,13 @@ export function MainPage() {
         if (ticker) setChartSymbol(ticker)
     }
 
-    // Shared Radar → idea handoff: open the idea chat at the formation phase with a
-    // readable summary shown as an assistant bubble (no auto-reply) and the same
-    // context seeded into analysisState so the agent already has it when the user
-    // asks their first question. `direction` is null when the source carries no
-    // bias (earnings/IPO) and set when it does (a scan pick).
-    function seedIdeaChat({ symbol, summary, context, direction = null }) {
-        if (!symbol || isLoading) return
-
-        const seededMessages = [{ role: 'assistant', content: summary }]
-        const seededState = {
-            recent_messages:     [],   // keep empty — agent context rides in the summary + context
-            recent_chat_summary: context,
-            structured_state: {
-                active_asset: symbol,
-                pending_trade: {
-                    direction, type: null, asset_class: null, quantity: null,
-                    entry_timeframe: null, stop_timeframe: null, tp_timeframe: null,
-                    entry_logic: 'AND', entry_conditions: [],
-                    stop_logic: 'OR', stop_conditions: [],
-                    tp_logic: 'OR', tp_conditions: [],
-                    additional_entries: [], notes: null,
-                },
-            },
-        }
-
-        setEditingIdeaId(null)
-        setMessages(seededMessages)
-        latestMessagesRef.current = seededMessages
-        setAnalysisState(seededState)
-        setActiveTab('idea')
+    // Shared calendar → Mentor handoff: open the setup desk with the catalyst already said, and put
+    // the ticker on the chart so the conversation and the chart open on the same name. The message
+    // rides in keyed (see MentorPanel's `seed`) so one click sends one turn.
+    function seedMentorChat(symbol, message) {
+        if (!symbol) return
+        setMentorSeed({ key: Date.now(), message })
+        setActiveTab('mentor')
         setChartSymbol(symbol)
     }
 
@@ -1586,25 +1543,18 @@ export function MainPage() {
         setActiveTab('kairos')
     }
 
-    // Earnings ticker → idea: earnings has no built-in bias, so direction stays open.
-    // Each row carries its own report date (the list spans the trading week).
+    // Earnings ticker → MENTOR: a scheduled print is a date with a ticker attached and no bias,
+    // which is a setup (zones + a window), not an idea's condition tree. Each row carries its own
+    // report date (the list spans the trading week).
     function handleBuildFromEarning(earning) {
         if (!earning?.symbol) return
-        seedIdeaChat({
-            symbol:  earning.symbol,
-            summary: buildEarningSummary(earning, earning.date),
-            context: buildEarningContext(earning, earning.date),
-        })
+        seedMentorChat(earning.symbol, buildEarningSeed(earning, earning.date))
     }
 
-    // IPO ticker → idea: the listing is the catalyst; direction stays open.
+    // IPO ticker → MENTOR: same shape — the listing is the date, direction stays open.
     function handleBuildFromIpo(ipoItem) {
         if (!ipoItem?.symbol) return
-        seedIdeaChat({
-            symbol:  ipoItem.symbol,
-            summary: buildIpoSummary(ipoItem),
-            context: buildIpoContext(ipoItem),
-        })
+        seedMentorChat(ipoItem.symbol, buildIpoSeed(ipoItem))
     }
 
     // Generate (save) a scan list from the scanner panel, then surface it.
@@ -1805,6 +1755,7 @@ export function MainPage() {
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'mentor' ? 'flex' : 'none' }}>
                             <MentorPanel
                                 onGenerated={handleBackToAxl}
+                                seed={mentorSeed}
                                 resumeRef={mentorResumeRef}
                                 availableAccounts={availableAccounts}
                                 selectedAccounts={selectedAccounts}

@@ -45,7 +45,7 @@ describe('FloorLists', () => {
 
     it('counts calls and setups together on the trading floor', () => {
         render(<FloorLists calls={[call(), call({ id: 'c2' })]} setups={[setup()]} />)
-        expect(within(deskBtn('Trading floor')).getByText('3')).toBeTruthy()
+        expect(within(deskBtn('Trading floor')).getByText('(3)')).toBeTruthy()
     })
 
     it('hides the count when a desk is empty rather than showing a zero', () => {
@@ -93,7 +93,7 @@ describe('FloorLists', () => {
         ]
         render(<FloorLists ideas={ideas} />)
         fireEvent.click(deskBtn('Portfolio floor'))
-        expect(screen.getByText('2 holdings')).toBeTruthy()
+        expect(screen.getByText('(2 holdings)')).toBeTruthy()
         expect(screen.queryByText('SPY')).toBeNull()
 
         fireEvent.click(screen.getByText('Core').closest('button'))
@@ -165,5 +165,16 @@ describe('FloorLists', () => {
         fireEvent.click(screen.getByText('Banks').closest('button'))
         expect(screen.getByText('NVDA')).toBeTruthy()
         expect(screen.getByText('JPM')).toBeTruthy()
+    })
+
+    // A count is part of the name it counts, so it is parenthesised and adjacent — not a bare
+    // number parked in a column of its own on the right edge.
+    it('prints a scan’s candidate count in parentheses immediately after the thesis', () => {
+        const scans = [{ id: 'x', thesis: 'Semis', direction: 'long', candidates: [{ ticker: 'NVDA' }, { ticker: 'AMD' }] }]
+        render(<FloorLists scans={scans} />)
+        fireEvent.click(deskBtn('Scans'))
+
+        const name = screen.getByText('Semis')
+        expect(name.nextElementSibling.textContent).toBe('(2)')
     })
 })

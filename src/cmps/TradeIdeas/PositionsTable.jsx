@@ -104,7 +104,7 @@ function PositionSummaryRow({ variant, label, summary, accountText, expanded, on
             <td className="position-group-row__lead" colSpan={4}>
                 <span className="position-group-row__caret">{expanded ? '▾' : '▸'}</span>
                 <span className="position-group-row__name">{label}</span>
-                <span className="position-group-row__count">· {summary.count} position{summary.count === 1 ? '' : 's'}</span>
+                <span className="position-group-row__count">({summary.count} position{summary.count === 1 ? '' : 's'})</span>
             </td>
             <td className="position-group-row__entered">{formatCreatedAtFull(summary.enteredAt) || '—'}</td>
             <td className="position-group-row__mode"><WorkspaceBadge workspace={summary.workspace} /></td>

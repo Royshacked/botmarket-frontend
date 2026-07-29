@@ -43,7 +43,9 @@ function Desk({ desk, open, count, onToggle, children }) {
                     <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
                 <span className="floor-desk__label">{desk.label}</span>
-                {count > 0 && <span className="floor-desk__count">{count}</span>}
+                {/* Parenthesised and next to the label, not parked on the right edge: the count is
+                    part of what the desk IS ("Scans (3)"), not a separate column to scan down. */}
+                {count > 0 && <span className="floor-desk__count">({count})</span>}
             </button>
             {open && <div className="floor-desk__body">{children}</div>}
         </section>
@@ -124,7 +126,7 @@ function PortfolioRows({ ideas, positions }) {
             <div key={b.portfolioId} className="floor-sub">
                 <button className="floor-row" onClick={() => toggle(b.portfolioId)} aria-expanded={isOpen}>
                     <span className="floor-row__sym floor-row__sym--wide">{b.name}</span>
-                    <span className="floor-row__kind">{b.ideas.length} holdings</span>
+                    <span className="floor-row__kind">({b.ideas.length} holdings)</span>
                     <span className={`floor-row__pnl ${pnl?.pnl > 0 ? 'is-pos' : pnl?.pnl < 0 ? 'is-neg' : ''}`}>
                         {pnl ? formatPnl(pnl.pnl, pnl.currency) : '—'}
                     </span>
@@ -175,8 +177,10 @@ function ScanRows({ scans, onCandidateSelect }) {
                         {s.direction === 'short' ? '▾' : '▴'}
                     </span>
                     <span className="floor-row__sym floor-row__sym--wide">{s.thesis}</span>
+                    {/* The candidate count belongs to the thesis, so it rides directly after it —
+                        a lone number on the right edge reads as a column of its own. */}
+                    <span className="floor-row__count">({s.candidates?.length ?? 0})</span>
                     {s.stale && <span className="floor-row__stale">stale</span>}
-                    <span className="floor-row__kind">{s.candidates?.length ?? 0}</span>
                 </button>
                 {isOpen && (s.candidates ?? []).map(c => (
                     <button
