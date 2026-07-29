@@ -349,6 +349,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
 
             <ChatInputRow
                 prefix="chat-panel"
+                empty={messages.length === 0}
                 textareaRef={inputRef}
                 value={input}
                 onChange={e => setInput(e.target.value)}

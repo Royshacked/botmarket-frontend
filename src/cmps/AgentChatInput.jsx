@@ -63,6 +63,7 @@ export function AgentChatInput({
             <ChatChartDock />
             <ChatInputRow
                 prefix={prefix}
+                empty={!(chat?.messages?.length)}
                 textareaRef={textareaRef}
                 value={inputText}
                 onChange={e => setInputText(e.target.value)}

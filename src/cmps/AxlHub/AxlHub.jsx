@@ -297,6 +297,7 @@ export function AxlHub({ user, onPick }) {
 
             <ChatInputRow
                 prefix="axl"
+                empty={!hasThread}
                 value={draft}
                 onChange={e => setDraft(e.target.value)}
                 onKeyDown={handleKeyDown}

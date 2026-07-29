@@ -731,6 +731,11 @@
 // mid border) — the agent chats keep their raised pill, this only targets the
 // `--social-chat` prefix modifier. Tracks theme + accent like the rest of the bubble.
 .chat-input-row--social-chat {
+    // Social chat is a messaging window, not an agent landing screen: it keeps the
+    // full-width composer (the shared base is the 75%, centred agent one).
+    width: auto;
+    min-width: 0;
+    max-width: none;
     margin: 8px 8px 12px;
     background: color-mix(in srgb, var(--accent-deep) 16%, var(--bg-deep));
     border-color: var(--border-mid);

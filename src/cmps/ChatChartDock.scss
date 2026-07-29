@@ -7,16 +7,35 @@
     flex-direction: column;
     height: clamp(320px, 55vh, 560px);
 
-    // An object sitting between the thread and the composer, not a slab wedged against both. The
-    // 10px side gutter and the bordered, rounded frame are the input pill's own language
-    // (ChatInputRow.scss) so the two read as a pair; the pill's 6px top margin closes the gap below,
-    // and 8px above separates it from the last message.
-    margin: 8px 10px 0;
+    // An object sitting between the thread and the composer, not a slab wedged against both. It
+    // shares the input pill's geometry (ChatInputRow.scss) so the two read as a pair: same 75%
+    // centred width, same rounded frame. The pill's 6px top margin closes the gap below, and 8px
+    // above separates it from the last message.
+    box-sizing: border-box;
+    width: 75%;
+    min-width: 260px;
+    max-width: calc(100% - 20px);
+    margin: 8px auto 0;
     border: 1px solid var(--border);
     border-radius: 12px;
     overflow: hidden;               // clip the chart's corners to the radius
-    background: #000;               // matches the chart pane, which is deliberately theme-independent
+    background: transparent;        // no slab — the panel reads through wherever the chart doesn't paint
     animation: chat-chart-dock-in 0.18s ease both;
+
+    // No black slab in the dock. The workspace chart pins its pane to a fixed #000 on purpose
+    // (theme-independent — see PriceChart.scss), and that stays true where it belongs, in the
+    // lists panel. Docked in a chat it is a floating object in the thread, so it drops the fill
+    // and the panel wash reads through; every theme's base is near-black, so the neutral grid and
+    // axis set in PriceChart.jsx still read correctly. The inner frames go too — the dock's own
+    // border is the frame, and three nested 1px boxes is two too many.
+    .chart-surface,
+    .price-chart {
+        background: transparent;
+    }
+    .price-chart {
+        border: none;
+        border-radius: 0;
+    }
 
     // ── Collapsed: a slim bar that keeps the chart one click away ───────────────
     &--collapsed {

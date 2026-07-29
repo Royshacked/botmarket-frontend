@@ -9,9 +9,15 @@ import './ChatInputRow.scss'
  * `prefix` is kept as an optional root modifier (`chat-input-row--<prefix>`) for
  * any panel-specific tweak, but all base styling lives in the shared stylesheet.
  * All disabled/visibility logic is decided by the parent and passed in.
+ *
+ * `empty` = this chat has no thread yet. It's the landing state: the composer
+ * lifts off the floor and grows, because on an empty screen it IS the subject.
+ * The first turn drops it back to the docked pill. Panels decide what "empty"
+ * means for them (no messages / no thread) and pass it in.
  */
 export function ChatInputRow({
     prefix,
+    empty = false,
     textareaRef,
     value,
     onChange,
@@ -34,7 +40,7 @@ export function ChatInputRow({
     textareaDisabled,
 }) {
     return (
-        <div className={`chat-input-row${prefix ? ` chat-input-row--${prefix}` : ''}`}>
+        <div className={`chat-input-row${prefix ? ` chat-input-row--${prefix}` : ''}${empty ? ' chat-input-row--empty' : ''}`}>
             <button
                 className={`chat-input-row__mic ${isRecording ? 'recording' : ''} ${isTranscribing ? 'transcribing' : ''}`}
                 onClick={onToggleMic}
@@ -133,6 +139,7 @@ export function ChatInputRow({
 
 ChatInputRow.propTypes = {
     prefix:           PropTypes.string.isRequired,
+    empty:            PropTypes.bool,
     textareaRef:      PropTypes.object,
     value:            PropTypes.string.isRequired,
     onChange:         PropTypes.func.isRequired,
