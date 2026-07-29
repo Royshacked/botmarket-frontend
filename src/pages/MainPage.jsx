@@ -492,7 +492,7 @@ export function MainPage() {
     // NOTE: the chart used to take over this page's lists panel (and the Floor's right column). It
     // now docks at the bottom of the chat that asked for it (cmps/ChatChartDock.jsx) — the same
     // shared store, rendered where the user was actually looking — so this page owns no chart state.
-    // Floor design trial (Ctrl+Shift+D → "Floor (3-col)"). Only this page reads it: the trial adds
+    // Floor design trial (Profile → Design → "Floor (3-col)"). Only this page reads it: the trial adds
     // two side columns and swaps the right one, so nothing below the workspace needs to know.
     const floorMode = useDesign() === 'floor'
     const [preEntryBusy, setPreEntryBusy] = useState(false)

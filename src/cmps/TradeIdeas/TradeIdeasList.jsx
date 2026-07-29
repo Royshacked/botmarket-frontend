@@ -11,12 +11,10 @@ import { portfolioService } from '../../services/portfolio/portfolio.service.rem
 import { StatusIcon } from '../StatusIcon.jsx'
 import { MinosBadge, HermesBadge, TalosBadge, AtlasBadge, ArgusBadge, AgentGlyph } from '../AxlHub/AgentBadges.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
-import { IdeaCard, BrokerGroupCard, PortfolioCard, BuildingPortfolioCard, PositionsCards } from './TradeIdeaCards.jsx'
 import { SetupCard } from './SetupCard.jsx'
 import { EditButton, DeleteButton } from '../EntityCard/EntityCard.jsx'
 import { CallCard } from './CallCard.jsx'
 import { isArmed } from '../../services/entityStatus.js'
-import { useDesign } from '../../customHooks/useDesign.js'
 import { Radar } from '../Radar/Radar.jsx'
 import './TradeIdeas.scss'
 
@@ -363,10 +361,6 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
         return () => { alive = false; off() }
     }, [ideas])
 
-    // Design trial: the 'cards' design renders the Ideas tab as stacked cards
-    // instead of the table (Portfolios / Positions tabs are unchanged).
-    const cardMode = useDesign() === 'cards'
-
     // Follow the chat tab: idea mode shows ideas, portfolio mode shows portfolios.
     // The user can still override via the filter buttons until the tab changes again.
     useEffect(() => {
@@ -638,40 +632,6 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                 {showIdeas ? (
                     !hasIdeasRows ? (
                         <p className="trade-ideas-list__empty">No ideas yet</p>
-                    ) : cardMode ? (
-                        <div className="ideas-cards">
-                            {topBuildingIdea && (
-                                <IdeaCard
-                                    key="__building__"
-                                    idea={topBuildingIdea}
-                                    onDelete={onCancelBuild}
-                                    onStatusChange={() => {}}
-                                    onOpen={() => {}}
-                                />
-                            )}
-                            {ideaRows.map(row => row.kind === 'group' ? (
-                                <BrokerGroupCard
-                                    key={row.item.groupId}
-                                    group={row.item}
-                                    expanded={expandedGroups.has(row.item.groupId)}
-                                    onToggle={() => toggleGroup(row.item.groupId)}
-                                    onDelete={onDelete}
-                                    onStatusChange={onStatusChange}
-                                    onOpen={handleOpen}
-                                    onSymbolClick={onSymbolClick}
-                                />
-                            ) : (
-                                <IdeaCard
-                                    key={row.item.id}
-                                    idea={row.item}
-                                    onDelete={onDelete}
-                                    onStatusChange={onStatusChange}
-                                    onOpen={handleOpen}
-                                    onSymbolClick={onSymbolClick}
-                                    onEdit={onEdit}
-                                />
-                            ))}
-                        </div>
                     ) : (
                         <table className="ideas-table">
                             <thead>
@@ -730,15 +690,6 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                 ) : showPositions ? (
                     positions.length === 0 ? (
                         <p className="trade-ideas-list__empty">{positionsLoading ? 'Loading positions…' : 'No open positions'}</p>
-                    ) : cardMode ? (
-                        <PositionsCards
-                            positions={positions}
-                            ideas={ideas}
-                            closingId={closingId}
-                            onClose={setPendingClose}
-                            onEditOrders={setEditOrdersPos}
-                            onOpen={handleOpenPosition}
-                        />
                     ) : (
                         <PositionsTable
                             positions={positions}
@@ -752,30 +703,6 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                 ) : (
                     (!hasPortfolios && !buildingPortfolio) ? (
                         <p className="trade-ideas-list__empty">No portfolios yet</p>
-                    ) : cardMode ? (
-                        <div className="ideas-cards">
-                            {topBuildingPortfolio && <BuildingPortfolioCard portfolio={topBuildingPortfolio} />}
-                            {visibleGroups.map(group => (
-                                group.portfolioId === editPortfolioId ? (
-                                    <BuildingPortfolioCard key={group.portfolioId} portfolio={buildingPortfolio} />
-                                ) : (
-                                    <PortfolioCard
-                                        key={group.portfolioId}
-                                        group={group}
-                                        expanded={expandedGroups.has(group.portfolioId)}
-                                        onToggle={() => toggleGroup(group.portfolioId)}
-                                        onEdit={onEditPortfolio}
-                                        isReviewDue={dueReviewIds.has(group.portfolioId)}
-                                        onDelete={onDelete}
-                                        onDeletePortfolio={onDeletePortfolio}
-                                        onStatusChange={onStatusChange}
-                                        onOpen={handleOpen}
-                                        onSymbolClick={onSymbolClick}
-                                        positions={positions}
-                                    />
-                                )
-                            ))}
-                        </div>
                     ) : (
                         <table className="portfolios-table">
                             <thead>

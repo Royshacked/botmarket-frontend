@@ -7,7 +7,7 @@
 // header's job is to stay quiet — and each took its now-orphaned tokens with it:
 //   • the ambient breathing candlestick band, plus --axl-green/teal/cyan/violet;
 //   • the aurora bloom and the translucency/blur behind it, plus --aurora-wash and
-//     --aurora-1..4 (_themes.scss and all four [data-design] blocks).
+//     --aurora-1..4 (_themes.scss).
 //
 // The header therefore draws NO edge of its own: __edge (the calm-water wave) is
 // display:none, so the 1px line you see beneath it is the top border of the panels
@@ -28,8 +28,7 @@
 .app-header-axl {
     // ── palette: derived from the app-wide tokens so the header re-themes with the
     // rest of the app. Under the live `axl` theme these tokens equal the original
-    // hardcoded aurora literals (so `current` is unchanged); each design trial
-    // (data-design on <html>) overrides the same tokens, so the header follows.
+    // hardcoded aurora literals (so `current` is unchanged).
     --axl-night:   var(--bg-base);
     --axl-night-2: var(--bg-hover);
     --axl-panel:   var(--bg-surface);

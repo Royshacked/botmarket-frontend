@@ -92,15 +92,9 @@
             border: none;
             border-top: 1px solid var(--border);
 
-            // Hide the "Axl Radar" branded header — Axl Lists already provides the outer brand.
-            // In non-cards mode the header only holds the title so remove it entirely.
-            // In cards mode the header also holds the tab strip, so hide just the title row.
+            // Hide the "Axl Radar" branded header — Axl Lists already provides the outer
+            // brand, and the header only holds the title here.
             &__header { display: none; }
-        }
-
-        [data-design="cards"] & .news-feed {
-            &__header     { display: flex; }
-            &__header-top { display: none; }
         }
     }
 
@@ -895,44 +889,11 @@ $sym-status-colors: (
     td:first-child { padding-left: 22px; }
 }
 
-// ── Ideas Cards (design trial 'cards') ─────────────────────────────────────────
-// The Ideas tab rendered as stacked cards instead of the table. Neutral surface —
-// lifecycle (waiting → live → closed) is carried by the icon tile + ticker colour +
-// pulse, not a full-card tint, so the LONG/SHORT + status pills stay legible.
-
-// Segmented pill nav (Ideas / Portfolios / Positions) — a single rounded container
-// with the active tab as an accent-tinted pill, matching the cards mockup.
-[data-design="cards"] .trade-ideas-list {
-    &__filters {
-        gap: 0;
-        padding: 3px;
-        background: var(--bg-deep);
-        border: 1px solid var(--border);
-        border-radius: 999px;
-    }
-
-    &__filter {
-        border: none;
-        border-radius: 999px;
-        background: transparent;
-        color: var(--text-muted);
-        font-size: 11px;
-        letter-spacing: 0.1em;
-        padding: 4px 12px;
-        transition: background 0.15s, color 0.15s;
-
-        &:hover { color: var(--accent-light); }
-
-        &.active,
-        &--portfolio.active,
-        &--positions.active {
-            background: color-mix(in srgb, var(--accent) 14%, transparent);
-            border-color: transparent;
-            color: var(--accent-light);
-        }
-    }
-}
-
+// ── Idea cards ────────────────────────────────────────────────────────────────
+// Card rendering of an idea (positions list, pop-out footer, CardList sections).
+// Neutral surface — lifecycle (waiting → live → closed) is carried by the icon tile
+// + ticker colour + pulse, not a full-card tint, so the LONG/SHORT + status pills
+// stay legible.
 .ideas-cards {
     display: flex;
     flex-direction: column;
@@ -1714,63 +1675,6 @@ $card-status-colors: (
         color: var(--text-dim);
         margin: 0;
         padding: 2px 0;
-    }
-}
-
-// ── Idea dialog + popped-out window (design trial 'cards') ─────────────────────
-// Aligns both the floating dialog and the pop-out window with the card language.
-// They share IdeaDetail, whose body uses `.idea-dialog__*` BEM classes, so those
-// rules reach both; the dialog shell/footer and the pop-out's own `.idea-page`
-// header are styled per surface. The pop-out loads the app fresh, so index.jsx →
-// initDesign() already applies the same `data-design` there — no extra wiring.
-[data-design="cards"] {
-    // Floating dialog shell + footer
-    .idea-dialog {
-        border: 1px solid var(--border);
-        border-radius: 16px;
-
-        &__header {
-            background: var(--bg-surface);
-            border-bottom: 1px solid var(--border);
-            border-radius: 16px 16px 0 0;
-        }
-
-        &__footer { border-top: 1px solid var(--border); }
-
-        &__btn {
-            border-radius: 999px;
-            padding: 7px 18px;
-            font-weight: 600;
-        }
-        &__btn--save,
-        &__btn--place { color: #06110c; }
-        &__btn--save  { background: var(--accent); }
-        &__btn--place { background: var(--color-long); }
-
-        select { border-radius: 8px; border-color: var(--border); }
-    }
-
-    // Popped-out window header → same surface treatment as the dialog header
-    .idea-page__header {
-        background: var(--bg-surface);
-        border-bottom: 1px solid var(--border);
-    }
-
-    // Shared IdeaDetail body — `.idea-dialog__*` BEM classes apply in both surfaces
-    .idea-dialog__chart     { border-right: 1px solid var(--border); }
-    .idea-dialog__positions { background: var(--bg-surface); border-top: 1px solid var(--border); }
-
-    // Conditions column lives in both — scope the tree + chips here (not under the
-    // dialog-only `.idea-dialog` container) so the pop-out gets them as well.
-    .idea-dialog__conditions {
-        .ctree__row {
-            border-radius: 8px;
-            border-color: var(--border);
-        }
-        .ctree__leaf--inline,
-        .ctree__leaf-type,
-        .ctree__leaf-qty,
-        .ctree__inline-op { border-radius: 999px; }
     }
 }
 

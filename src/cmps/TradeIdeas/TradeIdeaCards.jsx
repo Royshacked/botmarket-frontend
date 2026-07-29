@@ -18,11 +18,12 @@ import { BuildingIcon, TargetIcon, PositionIcon, OrdersIcon, CloseIcon } from '.
 
 const BROKER_LABELS = { ctrader: 'cTrader', ibkr: 'IBKR' }
 
-// Card layout for the Axl Lists Ideas tab (design trial 'cards'). Full parity with
+// Card renderings of an idea / broker group / portfolio / position. Full parity with
 // the table's TradeIdeaRow / BrokerGroupRow: same lifecycle colours, status toggle,
 // broker badge, ⚠ no-account, ⏳ await-market, building pulse, edit + delete — just
 // stacked cards instead of table rows. Reuses the same utils so the two renders stay
-// in lockstep.
+// in lockstep. PositionsCards is the live consumer (idea pop-out footer); the idea /
+// group / portfolio cards are kept as the card counterparts of the table rows.
 
 const BUILDING = 'building'
 

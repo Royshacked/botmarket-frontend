@@ -2,12 +2,11 @@ import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { chatService } from '../../services/chat/chat.service'
 import { AxlBotGlyph } from '../AxlHub/AgentSummon'
-import { useDesign } from '../../customHooks/useDesign.js'
 import { AGENTS, BOT_IDS, isBotId } from '../AxlHub/agentMeta.jsx'
 import { AgentGlyph } from '../AxlHub/AgentBadges.jsx'
 
-// The agent behind a conversation, or null for a human DM. Drives the brand name,
-// tinted avatar and the "AGENT" chip.
+// The agent behind a conversation, or null for a human DM. Drives the brand name
+// and the tinted avatar.
 function botMetaFor(otherId) {
     return isBotId(otherId) ? AGENTS[otherId] : null
 }
@@ -34,7 +33,6 @@ export function ConversationList({ conversations, activeId, currentUserId, onSel
     const [search,    setSearch]    = useState('')
     const [results,   setResults]   = useState([])
     const [searching, setSearching] = useState(false)
-    const cardMode = useDesign() === 'cards'
 
     async function handleSearch(q) {
         setSearch(q)
@@ -115,9 +113,6 @@ export function ConversationList({ conversations, activeId, currentUserId, onSel
                                 <div className="social-chat__conv-meta">
                                     <div className="social-chat__conv-name">
                                         <span>{name}</span>
-                                        {isBot && cardMode && (
-                                            <span className="social-chat__agent-chip">AGENT</span>
-                                        )}
                                         {conv.unread > 0 && (
                                             <span className="social-chat__unread-dot">{conv.unread}</span>
                                         )}

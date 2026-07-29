@@ -1,39 +1,26 @@
 // ── Design trial switcher (dev) ───────────────────────────────────────────────
-// Lets us A/B whole visual identities at runtime — colours, fonts, backgrounds,
-// button/title/bubble styling — without touching the theme system. Each design is
-// a scoped token + structural layer in setup/_designs.scss, selected by a
-// `data-design` attribute on <html>. 'current' = no attribute = the live axl look.
+// Lets us A/B a whole layout at runtime without touching the theme system. A design
+// is a structural layer selected by a `data-design` attribute on <html>;
+// 'current' = no attribute = the live axl look.
 //
-// Toggle with Ctrl+Shift+D (see DesignToggle.jsx), persisted in localStorage.
+// Picked from the Design dropdown in the profile page, persisted in localStorage.
 
-import { initTheme, clearHueTheme, initAccent } from './themeService'
+import { initTheme, initAccent } from './themeService'
 
 // First entry is the live app (no override). The rest map to [data-design] blocks.
-// 'cards' and 'floor' are structural-only trials (see applyDesign + STRUCTURAL_ONLY):
-// they keep the live Axl palette and change layout instead of colour.
-//   • cards — swaps the Axl Lists Ideas tab from a table to stacked cards.
+// Every trial here is STRUCTURAL: it keeps the live Axl palette and changes layout
+// instead of colour (palette trials were removed — see git history if we want one back).
 //   • floor — the whole workspace becomes three columns: book + calendar | chat | desks.
 export const DESIGNS = [
-    { id: 'terminal', label: 'Terminal' },
-    { id: 'neon',     label: 'Neon' },
-    { id: 'slate',    label: 'Slate Pro' },
-    { id: 'cards',    label: 'Cards' },
-    { id: 'floor',    label: 'Floor (3-col)' },
-    { id: 'current',  label: 'Axl (current)' },
+    { id: 'floor',   label: 'Floor (3-col)' },
+    { id: 'current', label: 'Axl (current)' },
 ]
 
-// Trials that change STRUCTURE, not palette: keep the theme's inline tokens (so the app still
-// looks like itself) and only flag the layout layer on <html>. A palette trial does the opposite —
-// see the else branch in applyDesign.
-const STRUCTURAL_ONLY = new Set(['cards', 'floor'])
-
-// initTheme() writes these --bg-* tokens INLINE on <html> (the bg spectrum), which
-// would out-rank any [data-design] CSS block. We strip them so the design layer's
-// palette can take over; switching back to 'current' re-runs initTheme() to restore.
-const INLINE_BG_TOKENS = ['--bg-base', '--bg-deep', '--bg-hover', '--bg-surface', '--bg-raised', '--bg-popover']
-
+// A stored id that no longer exists (a retired trial, or one synced from another
+// device) falls back to the live look rather than flagging a design with no CSS.
 export function loadDesign() {
-    return localStorage.getItem('design') || 'current'
+    const id = localStorage.getItem('design')
+    return DESIGNS.some(d => d.id === id) ? id : 'current'
 }
 
 export function saveDesign(id) {
@@ -42,23 +29,13 @@ export function saveDesign(id) {
 
 export function applyDesign(id) {
     const root = document.documentElement
-    if (!id || id === 'current') {
-        root.removeAttribute('data-design')
-        initTheme()                       // restore axl theme + bg spectrum + aurora
-    } else if (STRUCTURAL_ONLY.has(id)) {
-        // Structural-only trial: keep the live Axl palette (don't strip the theme's
-        // inline tokens), just flag the layout layer on <html>.
-        initTheme()
-        root.setAttribute('data-design', id)
-    } else {
-        // Let the [data-design] CSS block fully own the palette: drop the inline theme
-        // vars (generated spectrum + bg spectrum) that would otherwise out-rank it.
-        clearHueTheme()
-        for (const t of INLINE_BG_TOKENS) root.style.removeProperty(t)
-        root.setAttribute('data-design', id)
-    }
-    // Re-apply the user's accent override on top of the now-active palette — the
-    // steps above (initTheme / clearHueTheme) wipe the inline accent vars.
+    // Structural-only trials keep the live Axl palette (the theme's inline tokens
+    // stay), so all we do is flag — or clear — the layout layer on <html>.
+    initTheme()                           // restore axl theme + bg spectrum + aurora
+    if (!id || id === 'current') root.removeAttribute('data-design')
+    else                         root.setAttribute('data-design', id)
+    // Re-apply the user's accent override on top of the palette — initTheme() wipes
+    // the inline accent vars.
     initAccent()
 }
 
