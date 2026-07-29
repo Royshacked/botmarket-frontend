@@ -130,10 +130,13 @@
     }
 
     // ── Messages ─────────────────────────────────────────────────────────
+    // overflow-x hidden for the same reason as ChatPanel's thread — this is the surface every
+    // agent panel (and the Axl chat) reuses, so an over-wide child here shifts all of them.
     &__messages {
         flex: 1;
         min-height: 0;
         overflow-y: auto;
+        overflow-x: hidden;
         padding: 16px 20px;
         display: flex;
         flex-direction: column;

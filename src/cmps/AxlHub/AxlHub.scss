@@ -7,7 +7,8 @@
     overflow: hidden;
     background: var(--bg-wash);
     border: 1px solid var(--border);
-    border-radius: 6px 0 0 6px;   // mirror the chat-panel framing in this column
+    border-radius: 0 0 0 6px;     // mirror the chat-panel framing in this column — bottom-left only;
+                                  // the top-left stays square so the header meets the corner flush
 
     // Replays each time the hub re-mounts (i.e. on every "back to axl").
     animation: axl-hub-enter 0.34s ease both;
@@ -26,6 +27,7 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden;   // otherwise the unset axis computes to `auto` and a wide card scrolls the landing
     display: flex;
     flex-direction: column;
     align-items: center;

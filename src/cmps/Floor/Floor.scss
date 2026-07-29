@@ -111,6 +111,7 @@ $header-h: var(--header-h);
         flex: 1;
         min-height: 0;
         overflow-y: auto;
+        overflow-x: hidden;   // naming only one axis lets the other compute to `auto` — see .floor-lists
         padding: 6px 0 10px;
 
         &::-webkit-scrollbar { width: 7px; }
@@ -214,6 +215,12 @@ $header-h: var(--header-h);
         font-size: 10.5px;
         color: var(--text-dim);
         flex: 1;
+        // Takes the free space between the fixed symbol and the right-aligned P&L, so it is the
+        // cell that has to give — truncate rather than push the row past the pane.
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     &__pnl, &__pct {
@@ -290,6 +297,7 @@ $header-h: var(--header-h);
         font-size: 11.5px;
         color: var(--text-muted);
         flex: 1;
+        min-width: 0;         // see .floor-row__sym--wide
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -326,6 +334,10 @@ $header-h: var(--header-h);
     border-top: 1px solid var(--border);   // same edge as .floor-left — see the note there
     border-left: 1px solid var(--border);
     overflow-y: auto;
+    // Pin the other axis. CSS forces a `visible` axis to `auto` when its partner scrolls, so this
+    // box had an unasked-for horizontal scroller — and since the ::-webkit rule below only sets
+    // `width`, that bar rendered at the default ~15px height rather than the intended 7px.
+    overflow-x: hidden;
 
     &::-webkit-scrollbar { width: 7px; }
     &::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 4px; }
@@ -402,6 +414,7 @@ $header-h: var(--header-h);
         min-height: 0;
         max-height: 60vh;
         overflow-y: auto;
+        overflow-x: hidden;   // as .floor-lists — the desk rows truncate, they don't scroll sideways
         padding-bottom: 8px;
 
         &::-webkit-scrollbar { width: 7px; }
@@ -470,12 +483,16 @@ $header-h: var(--header-h);
         flex-shrink: 0;
 
         // A thesis or a book name isn't a ticker — it takes the free space and truncates.
+        // `min-width: 0` is what MAKES it truncate: a flex item defaults to min-width:auto, which
+        // for nowrap text resolves to max-content, so the item refuses to shrink and the ellipsis
+        // never engages — the row just forces the pane wider.
         &--wide {
             font-family: var(--font-sans);
             font-weight: 500;
             font-size: 12px;
             width: auto;
             flex: 1;
+            min-width: 0;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -486,6 +503,7 @@ $header-h: var(--header-h);
         font-size: 10.5px;
         color: var(--text-muted);
         flex: 1;
+        min-width: 0;         // see __sym--wide — without it the ellipsis never engages
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;

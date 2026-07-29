@@ -285,10 +285,15 @@
     }
 
     // ── Messages list ────────────────────────────────────────────────────
+    // overflow-x is pinned to hidden: declaring only overflow-y makes the OTHER axis compute to
+    // `auto`, so a single over-wide child (a long token, a wide table) grows a horizontal bar
+    // across the whole thread. Content that genuinely needs to scroll sideways — code blocks —
+    // does it inside its own box (ChatMarkdown.scss), which is where it belongs.
     &__messages {
         flex: 1;
         min-height: 0;
         overflow-y: auto;
+        overflow-x: hidden;
         padding: 16px 20px;
         display: flex;
         flex-direction: column;
