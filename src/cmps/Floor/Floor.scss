@@ -177,6 +177,72 @@ $header-h: var(--header-h);
     &__body { padding-bottom: 4px; }
 }
 
+// ── Portfolio row (inside an account) ────────────────────────────────────────
+//
+// The middle tier. It is deliberately NOT a second account row: same right-hand P&L column so the
+// two totals line up down the pane, but the name is set in the UI face rather than mono, because a
+// book has a written name and an account has a number — treating them alike would make the reader
+// check which one they're looking at.
+.floor-book {
+    &__row {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        height: 27px;
+        padding: 0 $row-pad-end 0 ($row-pad-x + $indent);
+        background: none;
+        border: 0;
+        font: inherit;
+        color: var(--text-primary);
+        cursor: pointer;
+        text-align: left;
+
+        &:hover { background: var(--bg-hover); }
+    }
+
+    &__chev {
+        width: 11px; height: 11px;
+        color: var(--text-dim);
+        flex-shrink: 0;
+        transition: transform .16s;
+    }
+    &--open &__chev { transform: rotate(90deg); }
+
+    &__name {
+        font-size: 11.5px;
+        font-weight: 600;
+        // The one cell that can give: a book name is free text, so it truncates rather than
+        // pushing the count and the P&L off the pane.
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__count {
+        margin-left: -3px;
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        color: var(--text-dim);
+        flex-shrink: 0;
+    }
+
+    &__pnl {
+        margin-left: auto;
+        padding-left: 8px;
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        color: var(--text-muted);
+        min-width: 62px;
+        text-align: right;
+        flex-shrink: 0;
+
+        &.is-pos { color: var(--color-long); }
+        &.is-neg { color: var(--color-short); }
+    }
+}
+
 // ── Position row ─────────────────────────────────────────────────────────────
 .floor-pos {
     width: 100%;
@@ -192,6 +258,10 @@ $header-h: var(--header-h);
     text-align: left;
 
     &:hover { background: var(--bg-hover); }
+
+    // A leg of a book sits one step further in — the only thing distinguishing it from a
+    // standalone position, which is the only thing that differs.
+    &--sub { padding-left: $row-pad-x + $indent * 2; }
 
     // Larger than the row glyphs elsewhere: inside an opened account this is the first thing
     // scanned down the list — which way is each of these facing — so it earns the extra weight.
@@ -691,6 +761,7 @@ $header-h: var(--header-h);
 
 @media (prefers-reduced-motion: reduce) {
     .floor-acct__chev,
+    .floor-book__chev,
     .floor-row__chev,
     .floor-desk__chev { transition: none; }
 }

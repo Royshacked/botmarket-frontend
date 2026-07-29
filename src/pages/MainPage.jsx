@@ -1723,6 +1723,7 @@ export function MainPage() {
                         <div className="workspace__left">
                             <FloorLeft
                                 positions={positions}
+                                ideas={ideas}
                                 positionsLoading={positionsLoading}
                                 onOpenPosition={handleOpenPositionFromFloor}
                                 earnings={earnings}

@@ -62,6 +62,77 @@ test('no positions yields no groups', () => {
     assert.deepEqual(positionsByAccount(), [])
 })
 
+// ── the book tier inside an account ───────────────────────────────────────────
+// An idea links to a position through brokerOrders (broker + accountId + positionId), which is the
+// same join the rest of the app uses — so these fixtures have to carry all three.
+const idea = (over = {}) => ({
+    id: 'i1', portfolioId: 'pf1', portfolioName: 'Core',
+    brokerOrders: [{ positionId: 'p1', broker: 'ctrader', accountId: 'A1' }],
+    ...over,
+})
+
+test('a position whose idea is in a portfolio lands in a book, not loose', () => {
+    const [g] = positionsByAccount([pos({ id: 'p1' })], [idea()])
+    assert.equal(g.books.length, 1)
+    assert.equal(g.books[0].name, 'Core')
+    assert.equal(g.books[0].positions.length, 1)
+    assert.equal(g.loose.length, 0)
+})
+
+test('a position with no portfolio stays loose beside the books', () => {
+    const [g] = positionsByAccount([pos({ id: 'p1' }), pos({ id: 'p2' })], [idea()])
+    assert.equal(g.books[0].positions.length, 1)
+    assert.deepEqual(g.loose.map(p => p.id), ['p2'])
+})
+
+// The tier order is account → book → leg precisely because a book can span accounts: each account
+// shows the book with only the legs IT holds, so neither row double-counts the other's money.
+test('a book spanning two accounts becomes one row per account, split by account', () => {
+    const groups = positionsByAccount(
+        [pos({ id: 'p1' }), pos({ id: 'p2', accountId: 'A2', accountNo: '222' })],
+        [idea({ brokerOrders: [
+            { positionId: 'p1', broker: 'ctrader', accountId: 'A1' },
+            { positionId: 'p2', broker: 'ctrader', accountId: 'A2' },
+        ] })],
+    )
+    assert.deepEqual(groups.map(g => g.books.length), [1, 1])
+    // Distinct keys, or expanding the book in one account would expand it in the other.
+    assert.notEqual(groups[0].books[0].key, groups[1].books[0].key)
+    assert.deepEqual(groups[0].books[0].positions.map(p => p.id), ['p1'])
+    assert.deepEqual(groups[1].books[0].positions.map(p => p.id), ['p2'])
+})
+
+test('a book carries a summary of its own legs only', () => {
+    const [g] = positionsByAccount(
+        [pos({ id: 'p1', pnl: 10 }), pos({ id: 'p2', pnl: 99 })],
+        [idea()],
+    )
+    assert.equal(g.books[0].summary.count, 1)
+    assert.equal(g.books[0].summary.pnl, 10)
+    // ...while the account still totals everything under it, book legs included.
+    assert.equal(g.summary.pnl, 109)
+})
+
+// An unnamed book is still a book — the row must not render blank.
+test('a portfolio with no name falls back to "Portfolio"', () => {
+    const [g] = positionsByAccount([pos({ id: 'p1' })], [idea({ portfolioName: undefined })])
+    assert.equal(g.books[0].name, 'Portfolio')
+})
+
+// The pre-tier behaviour, kept: with no ideas — or for an orphan broker position whose idea was
+// deleted — every position renders flat under its account exactly as before.
+test('with no ideas every position is loose and no book row appears', () => {
+    const [g] = positionsByAccount([pos({ id: 'p1' }), pos({ id: 'p2' })])
+    assert.deepEqual(g.books, [])
+    assert.equal(g.loose.length, 2)
+})
+
+test('an idea with no portfolioId leaves its position loose', () => {
+    const [g] = positionsByAccount([pos({ id: 'p1' })], [idea({ portfolioId: undefined })])
+    assert.deepEqual(g.books, [])
+    assert.equal(g.loose.length, 1)
+})
+
 // ── groupByDay ────────────────────────────────────────────────────────────────
 
 test('consecutive same-date items land in one day group', () => {

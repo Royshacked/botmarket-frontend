@@ -1,10 +1,20 @@
-import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, afterEach } from 'vitest'
+import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { FloorLeft } from './FloorLeft.jsx'
+
+// `globals` is off in vite.config, so nothing unmounts between tests on its own — without this a
+// later test querying the document sees the previous test's rows. Same line every other suite runs.
+afterEach(cleanup)
 
 const pos = (o = {}) => ({
     id: 'p1', broker: 'ctrader', accountId: 'a1', accountNo: '5001',
     symbol: 'NVDA', direction: 'long', volume: 1, pnl: 10, currency: 'USD', ...o,
+})
+
+const idea = (o = {}) => ({
+    id: 'i1', portfolioId: 'pf1', portfolioName: 'Core',
+    brokerOrders: [{ positionId: 'p1', broker: 'ctrader', accountId: 'a1' }],
+    ...o,
 })
 
 describe('FloorLeft', () => {
@@ -23,5 +33,29 @@ describe('FloorLeft', () => {
         const pnl = document.querySelector('.floor-acct__pnl')
         expect(pnl).toBeTruthy()
         expect(pnl.previousElementSibling.className).toContain('floor-acct__count')
+    })
+
+    // The point of the middle tier: a book stands in for its legs until you ask for them. If they
+    // rendered anyway the row would be decoration.
+    it('collapses a portfolio into one row, hiding its legs until it is opened', () => {
+        render(<FloorLeft positions={[pos()]} ideas={[idea()]} />)
+
+        expect(screen.getByText('Core')).toBeTruthy()
+        expect(document.querySelector('.floor-pos')).toBeNull()
+
+        fireEvent.click(screen.getByText('Core'))
+        expect(screen.getByText('NVDA')).toBeTruthy()
+        expect(document.querySelector('.floor-pos--sub')).toBeTruthy()
+    })
+
+    // A position in no portfolio has nothing to collapse under, so it keeps hanging straight off
+    // the account — no wrapper row, no extra indent.
+    it('leaves a portfolio-less position flat under its account', () => {
+        render(<FloorLeft positions={[pos({ id: 'p2', symbol: 'SPY' })]} ideas={[idea()]} />)
+
+        expect(document.querySelector('.floor-book')).toBeNull()
+        const row = document.querySelector('.floor-pos')
+        expect(row).toBeTruthy()
+        expect(row.className).not.toContain('floor-pos--sub')
     })
 })

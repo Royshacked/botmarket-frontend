@@ -4,6 +4,7 @@ import {
     positionPnlPct, formatPnl, formatPnlPct, formatNum,
 } from '../TradeIdeas/tradeIdea.utils.js'
 import { positionsByAccount, groupByDay } from './floor.utils.js'
+import { useExpandedSet } from '../../customHooks/useExpandedSet.js'
 import './Floor.scss'
 
 // The Floor's left column: the book on top, the calendar underneath.
@@ -13,9 +14,15 @@ import './Floor.scss'
 // act; acting happens in the chat or in the right column's lists. That's why there are no cards,
 // no controls and no per-row chrome here: this column is READ, not operated.
 //
-// Positions are grouped by ACCOUNT rather than by portfolio. A portfolio is a construction; an
-// account is where the money actually is, and exposure is an account-level question. Accounts data
-// (balance, equity, margin) lands here later — the account row is already the seam for it.
+// Positions are grouped by ACCOUNT first. A portfolio is a construction; an account is where the
+// money actually is, and exposure is an account-level question. Accounts data (balance, equity,
+// margin) lands here later — the account row is already the seam for it.
+//
+// Inside an account, a book gets its own row before its legs do. Fifteen holdings listed flat under
+// an account is fifteen lines you have to read to find the one fact you wanted — "how is the book
+// doing" — which is a fact the legs don't state anywhere. So the tiers are account → book → leg,
+// and only the leg tier is a position. Positions that belong to no book stay directly on the
+// account: inventing a "Standalone" wrapper for them would add a row that groups nothing.
 
 const CAL_TABS = [
     { key: 'earnings', label: 'Earnings' },
@@ -25,8 +32,43 @@ const CAL_TABS = [
 
 const pnlClass = n => (n == null ? '' : n > 0 ? 'is-pos' : n < 0 ? 'is-neg' : '')
 
+// One position. Shared by both tiers — a leg reads the same whether it hangs off the account or off
+// a book; only its indent says which. `sub` is that indent and nothing else.
+function PositionLine({ position: p, sub, onOpen }) {
+    const pct = positionPnlPct(p)
+    return (
+        <button
+            className={`floor-pos${sub ? ' floor-pos--sub' : ''}`}
+            onClick={() => onOpen?.(p)}
+            title={onOpen ? 'Open this position' : undefined}
+        >
+            <span className={`floor-pos__dir floor-pos__dir--${p.direction}`} aria-hidden="true">
+                {p.direction === 'short' ? '▾' : '▴'}
+            </span>
+            <span className="floor-pos__sym">{p.symbol ?? '—'}</span>
+            <span className="floor-pos__qty">{formatNum(p.volume)}</span>
+            <span className={`floor-pos__pnl ${pnlClass(Number(p.pnl))}`}>
+                {formatPnl(p.pnl, p.currency)}
+            </span>
+            <span className={`floor-pos__pct ${pnlClass(pct)}`}>{formatPnlPct(pct)}</span>
+        </button>
+    )
+}
+
+PositionLine.propTypes = {
+    position: PropTypes.object.isRequired,
+    sub:      PropTypes.bool,
+    onOpen:   PropTypes.func,
+}
+
+const posKey = p => `${p.broker}:${p.accountId}:${p.id}`
+
 function AccountBlock({ group, open, onToggle, onOpenPosition }) {
     const { summary } = group
+    // Books start CLOSED, the opposite of their account. An account open by default is the book you
+    // want without asking; a portfolio row exists precisely to stand in for its legs, so opening it
+    // for you would undo the row.
+    const { isExpanded, toggle } = useExpandedSet()
     return (
         <div className={`floor-acct${open ? ' floor-acct--open' : ''}`}>
             <button
@@ -52,27 +94,39 @@ function AccountBlock({ group, open, onToggle, onOpenPosition }) {
 
             {open && (
                 <div className="floor-acct__body">
-                    {group.positions.map(p => {
-                        const pct = positionPnlPct(p)
+                    {/* Books first, then the standalone legs — a grouped row is a heading, and
+                        headings don't come after the loose items they aren't heading. */}
+                    {group.books.map(book => {
+                        const bookOpen = isExpanded(book.key)
                         return (
-                            <button
-                                key={`${p.broker}:${p.accountId}:${p.id}`}
-                                className="floor-pos"
-                                onClick={() => onOpenPosition?.(p)}
-                                title={onOpenPosition ? 'Open this position' : undefined}
-                            >
-                                <span className={`floor-pos__dir floor-pos__dir--${p.direction}`} aria-hidden="true">
-                                    {p.direction === 'short' ? '▾' : '▴'}
-                                </span>
-                                <span className="floor-pos__sym">{p.symbol ?? '—'}</span>
-                                <span className="floor-pos__qty">{formatNum(p.volume)}</span>
-                                <span className={`floor-pos__pnl ${pnlClass(Number(p.pnl))}`}>
-                                    {formatPnl(p.pnl, p.currency)}
-                                </span>
-                                <span className={`floor-pos__pct ${pnlClass(pct)}`}>{formatPnlPct(pct)}</span>
-                            </button>
+                            <div key={book.key} className={`floor-book${bookOpen ? ' floor-book--open' : ''}`}>
+                                <button
+                                    className="floor-book__row"
+                                    onClick={() => toggle(book.key)}
+                                    aria-expanded={bookOpen}
+                                    title={bookOpen ? 'Collapse portfolio' : 'Expand portfolio'}
+                                >
+                                    <svg className="floor-book__chev" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                                        <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                    </svg>
+                                    <span className="floor-book__name">{book.name}</span>
+                                    {/* Same parenthetical-beside-the-name rule the account row uses. */}
+                                    <span className="floor-book__count">({book.summary.count})</span>
+                                    <span className={`floor-book__pnl ${pnlClass(book.summary.pnl)}`}>
+                                        {book.summary.pnl == null ? '—' : formatPnl(book.summary.pnl, book.summary.currency)}
+                                    </span>
+                                </button>
+
+                                {bookOpen && book.positions.map(p => (
+                                    <PositionLine key={posKey(p)} position={p} sub onOpen={onOpenPosition} />
+                                ))}
+                            </div>
                         )
                     })}
+
+                    {group.loose.map(p => (
+                        <PositionLine key={posKey(p)} position={p} onOpen={onOpenPosition} />
+                    ))}
                 </div>
             )}
         </div>
@@ -142,14 +196,15 @@ function CalendarRows({ tab, earnings, fed, ipo, onEarningSelect, onIpoSelect })
 
 /**
  * @param {object[]} positions
+ * @param {object[]} [ideas]           loaded ideas — the position→portfolio link for the book tier
  * @param {Function} [onOpenPosition]  row click — hands the position back to the caller
  */
 export function FloorLeft({
-    positions = [], positionsLoading = false, onOpenPosition,
+    positions = [], ideas = [], positionsLoading = false, onOpenPosition,
     earnings = [], fed = [], ipo = [], calendarLoading = false,
     onEarningSelect, onIpoSelect,
 }) {
-    const groups = positionsByAccount(positions)
+    const groups = positionsByAccount(positions, ideas)
     // Accounts default OPEN — the book is the one thing you want to see without asking. Collapse is
     // for when it grows past the half-column, which is also when it stops being glanceable.
     const [closed, setClosed] = useState(() => new Set())
@@ -222,6 +277,7 @@ export function FloorLeft({
 
 FloorLeft.propTypes = {
     positions:        PropTypes.array,
+    ideas:            PropTypes.array,
     positionsLoading: PropTypes.bool,
     onOpenPosition:   PropTypes.func,
     earnings:         PropTypes.array,
