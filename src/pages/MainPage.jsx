@@ -536,6 +536,10 @@ export function MainPage() {
         }
     }
 
+    // ⚠ ARCHIVED 2026-07-29 — the Idea chat's send path. Its panel only shows while
+    // activeTab === 'idea', which now only handleEditIdea can reach (legacy documents only).
+    // userPromptService posts to the unmounted /api/idea; the catch below is what the user
+    // would see. Kept with the panel rather than deleted — see handleEditIdea.
     async function handleSend(userPrompt, currentAnalysisState) {
         const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
 
@@ -714,6 +718,10 @@ export function MainPage() {
         latestMessagesRef.current = []
     }
 
+    // ⚠ ARCHIVED 2026-07-29 — reachable only from a legacy `idea`-kind document, and nothing
+    // builds those any more (Kairos builds calls, Mentor builds setups; the pencil on those
+    // routes to their own chats). Left wired so an old idea still opens rather than breaking the
+    // list, but the chat it opens can no longer send: /api/idea is unmounted.
     function handleEditIdea(idea, { invalidationReview = false } = {}) {
         const cs = idea.chat_state
         // Restore prior chat if available, otherwise seed state from the idea's conditions
@@ -1413,14 +1421,12 @@ export function MainPage() {
         return true
     }
 
+    // Atlas ticker chip click: preview the name on the chart, stay in the portfolio chat.
+    // It used to ALSO switch to the Idea tab — the only live path left into that tab. The Idea
+    // agent is ARCHIVED 2026-07-29 (server.js no longer mounts /api/idea), so landing the user
+    // there would hand them a chat whose first message fails. Same shape as handleScannerSymbol.
     function handleTickerSelect(ticker) {
-        // Switch to idea tab and set the chart to the selected ticker
-        setActiveTab('idea')
         setChartSymbol(ticker)
-        // If not already editing an idea, clear state so chat is ready for new idea
-        if (!editingIdeaId && messages.length === 0) {
-            setAnalysisState(null)
-        }
     }
 
     // Scanner ticker chip click (inside the scanner chat): just preview on the chart.

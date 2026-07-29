@@ -1,5 +1,11 @@
 import { streamAgent, clientTimeContext } from '../agentStream'
 
+// ⚠ ARCHIVED 2026-07-29 — this endpoint is no longer mounted. The Idea agent is superseded by
+// Kairos (kairos.service.remote.js → /api/kairos, builds a `call`) and Mentor (/api/mentor,
+// builds a `setup`); its backend monitor, Minos, is archived alongside it. Both functions below
+// would now 404. Kept so MainPage's archived idea paths still resolve — see the ARCHIVED notes on
+// handleEditIdea / handleSend there. To revive: re-mount /api/idea in the backend's server.js.
+//
 // The idea agent's endpoint. Mentor speaks to /api/mentor; this one predates it.
 const BASE = 'api/idea'
 

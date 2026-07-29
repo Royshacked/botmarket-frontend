@@ -13,6 +13,12 @@ export const SUMMON_MS = 2000   // "Summoning …" before the agent chat opens
 export const RETURN_MS = 2000   // "Heading back to axl" before the hub returns
 
 export const AGENTS = {
+    // ⚠ ARCHIVED 2026-07-29 — the Idea agent is superseded by Kairos (`call`) and Mentor
+    // (`setup`), and its backend route is unmounted. It belongs to no desk, so the hub cannot
+    // summon it (see the "no AGENT_LIST" note below — desks make an agent reachable). The entry
+    // STAYS because it is still read for display: BOT_IDS keeps its notification feed, and
+    // ThreadHistory / SocialChat render this brand + glyph for threads and alerts it already
+    // posted. Removing it would blank the name on that existing history.
     idea: {
         tab:   'idea',
         brand: 'Idea',
