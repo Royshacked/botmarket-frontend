@@ -93,12 +93,17 @@ export const AGENTS = {
         // Mentor never screens: the ticker always comes from the user (Pipeline F). The hint says so,
         // so nobody arrives expecting a scan — that's Argus's desk.
         hint:  "Name a ticker, a direction and a horizon. Bring your own levels or ask me to place them — if you don't have a name yet, Argus is the one who finds them.",
-        // A guiding hand over a rising path — counsel that prepares you and steps aside.
+        // Athena's owl — Mentor in the Odyssey *is* Athena in disguise. The 0–24 twin of
+        // MentorBadge (which is what actually renders: `mentor` has a ringed badge like the
+        // other desks); tufts + eyes only, the perch drops out at this size.
         icon: (
             <>
-                <path d="M3.5 18.5 L9 12.5 L13 15.5 L20.5 6.5" />
-                <path d="M15.5 6.2 H20.8 V11.4" />
-                <circle cx="9" cy="12.5" r="1.5" />
+                <path d="M12 7.2 C14.9 7.2 16.8 9.6 16.8 13.2 C16.8 17.3 14.6 19.7 12 19.7 C9.4 19.7 7.2 17.3 7.2 13.2 C7.2 9.6 9.1 7.2 12 7.2 Z" />
+                <path d="M8.6 8.6 L7.9 5.3 L10.6 7" />
+                <path d="M15.4 8.6 L16.1 5.3 L13.4 7" />
+                <circle cx="10" cy="12" r="1.7" />
+                <circle cx="14" cy="12" r="1.7" />
+                <path d="M11.5 13.2 L12.5 13.2 L12 14.6 Z" fill="currentColor" stroke="none" />
             </>
         ),
     },
@@ -110,13 +115,12 @@ export const AGENTS = {
         blurb: 'A living thesis per name — our price target vs the Street, kept alive.',
         intro: "Let's build a view — where we differ from the Street, and why it holds.",
         hint:  "Name a ticker and I'll research it into a coverage thesis: our estimate + target vs consensus, with monitorable kill-criteria.",
-        // The fire of forethought — Prometheus. Spark of insight above a double flame
-        // (matches axl-bot.svg's language), stroke-only in the shared 0–24 glyph space.
+        // The fire of forethought — Prometheus. Flame + hot core, the 0–24 twin of PrometheusBadge
+        // (which is what actually renders: `analyst` has a ringed badge like the other desks).
         icon: (
             <>
-                <path d="M12 1.5 L12.4 2.4 L13.3 2.8 L12.4 3.2 L12 4.1 L11.6 3.2 L10.7 2.8 L11.6 2.4 Z"/>
-                <path d="M12 5 C13.4 8 15.8 10 15.8 14.5 C15.8 18.5 14.2 20.8 12 21.4 C9.8 20.8 8.2 18.5 8.2 14.8 C8.2 11.5 10.2 10.2 10.6 7.8 C10.8 6.4 11.2 5.7 12 5 Z"/>
-                <path d="M12 10 C13 12 13.9 13.4 13.9 15.6 C13.9 18 12.6 19.6 12 19.9 C11.2 19.5 10.3 18 10.3 15.8 C10.3 13.8 11.3 12.8 11.5 11.2 C11.6 10.6 11.7 10.3 12 10 Z"/>
+                <path d="M12 3.8 C12.7 7 14.2 8.4 15.6 10.3 C16.8 11.9 17.4 13.4 17.4 15.1 C17.4 18 15 20.2 12 20.2 C9 20.2 6.6 18 6.6 15.1 C6.6 13.4 7.2 11.9 8.4 10.3 C9.8 8.4 11.3 7 12 3.8 Z"/>
+                <path d="M12 10.8 C12.4 12.6 13.7 13.6 13.7 15.4 C13.7 17.2 13 18.2 12 18.2 C11 18.2 10.3 17.2 10.3 15.4 C10.3 13.6 11.6 12.6 12 10.8 Z"/>
             </>
         ),
     },
