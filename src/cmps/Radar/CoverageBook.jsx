@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
 import './CoverageBook.scss'
+import { CoverageActions } from './CoverageActions.jsx'
 
 // The Analyst's living book — a read view of the `coverage` collection: our variant thesis, our
 // price target vs the Street (the gap = the edge), the rating, and the status the monitor maintains.
@@ -8,7 +9,7 @@ import './CoverageBook.scss'
 const RATING_LABEL = { strong_buy: 'strong buy', buy: 'buy', hold: 'hold', sell: 'sell', strong_sell: 'strong sell' }
 const STATUS_LABEL = { active: 'active', target_hit: 'target hit', thesis_broken: 'thesis broken', retired: 'retired', watchlist: 'watchlist' }
 
-function CoverageCard({ c, onRetire }) {
+function CoverageCard({ c, onEdit, onRetire, onDelete }) {
     const [open, setOpen] = useState(false)
     const pt   = c.price_target
     const gap  = c.gap
@@ -29,6 +30,11 @@ function CoverageCard({ c, onRetire }) {
                     </span>
                 )}
                 <span className={`coverage-book__status coverage-book__status--${c.status}`}>{STATUS_LABEL[c.status] ?? c.status}</span>
+                {/* On the ROW, not in the expanded detail. Actions that only appear once you have
+                    opened a thesis are actions nobody finds — and unlike the trade desks there is no
+                    hover overlay here to fall back on. CoverageActions stops its own clicks, so
+                    pressing Edit never toggles the card underneath. */}
+                <CoverageActions coverage={c} onEdit={onEdit} onRetire={onRetire} onDelete={onDelete} />
             </div>
 
             {open && (
@@ -48,28 +54,27 @@ function CoverageCard({ c, onRetire }) {
                     )}
                     <div className="coverage-book__foot">
                         {c.revisions?.length > 0 && <span className="coverage-book__revs">{c.revisions.length} revision{c.revisions.length > 1 ? 's' : ''}</span>}
-                        {c.status !== 'retired' && (
-                            <button className="coverage-book__retire" onClick={e => { e.stopPropagation(); onRetire?.(c) }}>Retire</button>
-                        )}
                     </div>
                 </div>
             )}
         </div>
     )
 }
-CoverageCard.propTypes = { c: PropTypes.object.isRequired, onRetire: PropTypes.func }
+CoverageCard.propTypes = { c: PropTypes.object.isRequired, onEdit: PropTypes.func, onRetire: PropTypes.func, onDelete: PropTypes.func }
 
-export function CoverageBook({ coverage = [], loading = false, onRetire }) {
+export function CoverageBook({ coverage = [], loading = false, onEdit, onRetire, onDelete }) {
     if (loading) return <div className="coverage-book__loader"><span /><span /><span /></div>
     if (!coverage.length) return <p className="coverage-book__empty">No coverage yet — research a name in the Analyst to start a living thesis.</p>
     return (
         <div className="coverage-book">
-            {coverage.map(c => <CoverageCard key={c.id ?? c.symbol} c={c} onRetire={onRetire} />)}
+            {coverage.map(c => <CoverageCard key={c.id ?? c.symbol} c={c} onEdit={onEdit} onRetire={onRetire} onDelete={onDelete} />)}
         </div>
     )
 }
 CoverageBook.propTypes = {
     coverage: PropTypes.array,
     loading:  PropTypes.bool,
+    onEdit:   PropTypes.func,
     onRetire: PropTypes.func,
+    onDelete: PropTypes.func,
 }

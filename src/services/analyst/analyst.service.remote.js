@@ -17,6 +17,7 @@ export const analystService = {
     getCoverage,
     updateCoverage,
     retireCoverage,
+    deleteCoverage,
 }
 
 // Streaming research chat. `seed` (a structured Argus investing candidate) pre-seeds the research on
@@ -39,4 +40,9 @@ function getCoverage(id) { return api.get(id) }
 // (+ optional revision_kind / revision_note).
 function updateCoverage(id, patch) { return api.put(id, { patch }) }
 
-function retireCoverage(id) { return api.remove(id) }
+// ARCHIVE: status → retired, the document and its revision trail stay in the book. A POST to its own
+// sub-route, not DELETE — the verb used to lie about what happened.
+function retireCoverage(id) { return api.post(`/${encodeURIComponent(id)}/retire`) }
+
+// PERMANENT: the document and its whole revision trail are removed. No undo — callers confirm first.
+function deleteCoverage(id) { return api.remove(id) }

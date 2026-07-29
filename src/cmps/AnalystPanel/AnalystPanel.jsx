@@ -48,7 +48,7 @@ export function CoverageDraft({ coverage }) {
 }
 CoverageDraft.propTypes = { coverage: PropTypes.object.isRequired }
 
-export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated, coverage = [] }) {
+export function AnalystPanel({ scanResult = null, editCoverage = null, onLoadingChange, onInitiated, coverage = [] }) {
     const chat = useChatStream({ threadPhases: true })
     const { messages, isLoading } = chat
     const [pendingCoverage, setPendingCoverage] = useState(null)
@@ -140,6 +140,22 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated, 
         _send(`Research ${scanResult.ticker} for coverage.`)
     }, [scanResult?.key])   // eslint-disable-line react-hooks/exhaustive-deps
 
+    // The coverage pencil → re-open Prometheus on a name already in the book. Setting
+    // pendingCoverage to the live doc is what puts the panel in UPDATE mode: `existingCoverage`
+    // matches on symbol, the stream carries `existing_coverage`, and Save becomes a `remodel`
+    // revision on the same doc rather than a fresh initiation. A NEW chat each time (reset first) —
+    // the prior conversation belonged to whatever was last researched here, not to this thesis.
+    useEffect(() => {
+        if (!editCoverage?.symbol) return
+        const doc = (coverage || []).find(c => c.symbol === editCoverage.symbol)
+        if (!doc) return
+        chat.reset()
+        setInitiateErr('')
+        setPendingCoverage(doc)
+        pendingRef.current = doc
+        _send(`Revise our coverage on ${doc.symbol}. What has changed since the last view, and does the thesis still hold?`)
+    }, [editCoverage?.key])   // eslint-disable-line react-hooks/exhaustive-deps
+
     function handleClear()     { chat.reset(); setPendingCoverage(null); setInitiateErr('') }
 
     async function handleInitiate() {
@@ -215,6 +231,7 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated, 
 }
 AnalystPanel.propTypes = {
     scanResult:      PropTypes.object,
+    editCoverage:    PropTypes.object,
     onLoadingChange: PropTypes.func,
     onInitiated:     PropTypes.func,
     coverage:        PropTypes.array,

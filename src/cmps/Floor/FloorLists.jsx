@@ -7,6 +7,7 @@ import {
 } from '../TradeIdeas/tradeIdea.utils.js'
 import { EditButton, DeleteButton } from '../EntityCard/EntityCard.jsx'
 import { tradeFloorItems } from './floor.utils.js'
+import { CoverageActions } from '../Radar/CoverageActions.jsx'
 import './Floor.scss'
 
 // The Floor's right column: four desks, one open at a time.
@@ -357,6 +358,9 @@ ScanRows.propTypes = {
     onCandidateSelect: PropTypes.func,
     onEditScan:        PropTypes.func,
     onDeleteScan:      PropTypes.func,
+    onEditCoverage:    PropTypes.func,
+    onRetireCoverage:  PropTypes.func,
+    onDeleteCoverage:  PropTypes.func,
 }
 
 // ── Coverage ──────────────────────────────────────────────────────────────────
@@ -368,7 +372,7 @@ const asList = (v) => (Array.isArray(v) ? v : [])
 const catalystText = (k) => (typeof k === 'string' ? k : `${k?.date ? `${k.date}: ` : ''}${k?.note ?? ''}`)
 const killText     = (k) => (typeof k === 'string' ? k : JSON.stringify(k))
 
-function CoverageRows({ coverage }) {
+function CoverageRows({ coverage, onEditCoverage, onRetireCoverage, onDeleteCoverage }) {
     // Several names open at once, like the scans: these are peers you compare, not sections you
     // navigate. (The desks above are the accordion; this is a list inside one.)
     const [open, setOpen] = useState(() => new Set())
@@ -391,31 +395,33 @@ function CoverageRows({ coverage }) {
 
         return (
             <div key={key} className="floor-sub">
-                <button
-                    className={`floor-row${hasDetail ? '' : ' floor-row--static'}`}
-                    onClick={hasDetail ? () => toggle(key) : undefined}
-                    aria-expanded={hasDetail ? isOpen : undefined}
-                    title={hasDetail ? (isOpen ? 'Hide thesis' : 'Show thesis') : undefined}
-                >
-                    {hasDetail && (
-                        <svg className={`floor-row__chev${isOpen ? ' floor-row__chev--open' : ''}`} viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                            <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                    )}
-                    <span className="floor-row__sym">{c.symbol}</span>
-                    {c.rating && <span className={`floor-row__rating floor-row__rating--${c.rating}`}>{RATING_LABEL[c.rating] ?? c.rating}</span>}
-                    {c.price_target?.value != null && (
-                        <span className="floor-row__pt">
-                            {c.price_target.value}
-                            {c.gap?.pct != null && (
-                                <span className={`floor-row__gap ${c.gap.pct >= 0 ? 'is-pos' : 'is-neg'}`}>
-                                    {c.gap.pct >= 0 ? '+' : ''}{c.gap.pct}%
-                                </span>
-                            )}
-                        </span>
-                    )}
-                    <span className={`floor-row__status floor-row__status--${c.status}`}>{c.status}</span>
-                </button>
+                <RowHost actions={<CoverageActions coverage={c} onEdit={onEditCoverage} onRetire={onRetireCoverage} onDelete={onDeleteCoverage} />}>
+                    <button
+                        className={`floor-row${hasDetail ? '' : ' floor-row--static'}`}
+                        onClick={hasDetail ? () => toggle(key) : undefined}
+                        aria-expanded={hasDetail ? isOpen : undefined}
+                        title={hasDetail ? (isOpen ? 'Hide thesis' : 'Show thesis') : undefined}
+                    >
+                        {hasDetail && (
+                            <svg className={`floor-row__chev${isOpen ? ' floor-row__chev--open' : ''}`} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                                <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                        )}
+                        <span className="floor-row__sym">{c.symbol}</span>
+                        {c.rating && <span className={`floor-row__rating floor-row__rating--${c.rating}`}>{RATING_LABEL[c.rating] ?? c.rating}</span>}
+                        {c.price_target?.value != null && (
+                            <span className="floor-row__pt">
+                                {c.price_target.value}
+                                {c.gap?.pct != null && (
+                                    <span className={`floor-row__gap ${c.gap.pct >= 0 ? 'is-pos' : 'is-neg'}`}>
+                                        {c.gap.pct >= 0 ? '+' : ''}{c.gap.pct}%
+                                    </span>
+                                )}
+                            </span>
+                        )}
+                        <span className={`floor-row__status floor-row__status--${c.status}`}>{c.status}</span>
+                    </button>
+                </RowHost>
 
                 {isOpen && (
                     <div className="floor-detail">
@@ -441,7 +447,7 @@ function CoverageRows({ coverage }) {
         )
     })
 }
-CoverageRows.propTypes = { coverage: PropTypes.array }
+CoverageRows.propTypes = { coverage: PropTypes.array, onEditCoverage: PropTypes.func, onRetireCoverage: PropTypes.func, onDeleteCoverage: PropTypes.func }
 
 // ── The column ────────────────────────────────────────────────────────────────
 
@@ -452,6 +458,7 @@ export function FloorLists({
     onEditCall, onDeleteCall, onEditSetup, onDeleteSetup,
     onEditPortfolio, onDeletePortfolio, onDeleteIdea,
     onEditScan, onDeleteScan,
+    onEditCoverage, onRetireCoverage, onDeleteCoverage,
     initialDesk = 'trade',
 }) {
     // One desk open at a time — clicking the open one closes it, leaving all four collapsed. That
@@ -502,9 +509,21 @@ export function FloorLists({
                             onEditScan={onEditScan} onDeleteScan={onDeleteScan}
                         />
                     )}
-                    {/* Coverage keeps its rows action-less for now — retiring a name is a research
-                        decision with its own flow, not a bin. */}
-                    {desk.key === 'coverage'  && <CoverageRows coverage={coverage} />}
+                    {/* Edit reopens Prometheus on the thesis; Retire archives it (trail kept);
+                        Delete removes it for good. Retiring is still a research decision, not a bin —
+                        which is exactly why it is a separate button from Delete.
+
+                        They ride in RowHost like every other desk — on the ROW, revealed on hover or
+                        focus. They started life in the expanded detail, which meant you had to open a
+                        thesis before you could act on one; actions you have to go looking for are
+                        actions nobody finds. Same component as the Radar book, so the book offers one
+                        set of controls wherever you meet it. */}
+                    {desk.key === 'coverage'  && (
+                        <CoverageRows
+                            coverage={coverage}
+                            onEditCoverage={onEditCoverage} onRetireCoverage={onRetireCoverage} onDeleteCoverage={onDeleteCoverage}
+                        />
+                    )}
                 </Desk>
             ))}
         </aside>
