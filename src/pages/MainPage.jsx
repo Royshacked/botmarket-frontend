@@ -278,6 +278,7 @@ export function MainPage() {
     const [scannerSeed,      setScannerSeed]      = useState(null)
     const [kairosScanResult, setKairosScanResult] = useState(null)
     const [analystScanResult, setAnalystScanResult] = useState(null)   // Argus investing candidate → Analyst research seed
+    const [analystEditCoverage, setAnalystEditCoverage] = useState(null)   // coverage pencil → re-open Prometheus on that name
     const [mentorSeed,       setMentorSeed]       = useState(null)     // calendar row (earnings/IPO) → Mentor's opening turn
     // Editing a saved setup in the Mentor chat — the setup twin of editingCallId + its restore.
     const [editingSetupId,   setEditingSetupId]   = useState(null)
@@ -298,9 +299,25 @@ export function MainPage() {
     const { items: coverage, loading: coverageLoading } = useEntityList({
         load: loadCoverageFn, changeEvent: COVERAGE_CHANGED, pollMs: 60_000, log: '[coverage]',
     })
+    // Retire ARCHIVES (status → retired, revision trail kept); delete REMOVES the document for good.
+    // Two operations, two endpoints — the confirm for delete lives in CoverageActions, next to the
+    // button, where it can name what is being lost.
     async function handleRetireCoverage(cov) {
         if (!cov?.id) return
         try { await analystService.retireCoverage(cov.id) } catch (err) { console.error('[analyst] retire', err) }
+    }
+    async function handleDeleteCoverage(cov) {
+        if (!cov?.id) return
+        try { await analystService.deleteCoverage(cov.id) } catch (err) { console.error('[analyst] delete', err) }
+    }
+
+    // The coverage pencil routes back into Prometheus, the same move the call and setup pencils make
+    // toward the agent that BUILT them. The panel matches the symbol against the live book and runs
+    // in update mode, so the turn revises the thesis instead of starting a fresh one.
+    function handleEditCoverage(cov) {
+        if (!cov?.symbol) return
+        setActiveTab('analyst')
+        setAnalystEditCoverage({ symbol: cov.symbol, key: `${cov.id}-${Date.now()}` })
     }
 
     async function handleActCall(id, action) {
@@ -1825,6 +1842,7 @@ export function MainPage() {
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'analyst' ? 'flex' : 'none' }}>
                             <AnalystPanel
                                 scanResult={analystScanResult}
+                                editCoverage={analystEditCoverage}
                                 coverage={coverage}
                                 onInitiated={() => { setNewsTab('coverage'); handleBackToAxl() }}
                             />
@@ -1868,6 +1886,9 @@ export function MainPage() {
                                     onDeleteIdea={handleDeleteIdea}
                                     onEditScan={handleEditScan}
                                     onDeleteScan={deleteScan}
+                                    onEditCoverage={handleEditCoverage}
+                                    onRetireCoverage={handleRetireCoverage}
+                                    onDeleteCoverage={handleDeleteCoverage}
                                 />
                             )}
                         </div>
@@ -1917,7 +1938,9 @@ export function MainPage() {
                                 onEditScan:        handleEditScan,
                                 coverage,
                                 coverageLoading,
+                                onEditCoverage:    handleEditCoverage,
                                 onRetireCoverage:  handleRetireCoverage,
+                                onDeleteCoverage:  handleDeleteCoverage,
                                 earnings,
                                 earningsFrom,
                                 earningsTo,

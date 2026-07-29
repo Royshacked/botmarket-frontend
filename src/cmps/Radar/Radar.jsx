@@ -29,7 +29,9 @@ export function Radar({
     onIpoSelect,
     coverage = [],
     coverageLoading = false,
+    onEditCoverage,
     onRetireCoverage,
+    onDeleteCoverage,
 }) {
     return (
         <div className="news-feed">
@@ -73,7 +75,7 @@ export function Radar({
                 </div>
             ) : tab === 'coverage' ? (
                 <div className="news-feed__list">
-                    <CoverageBook coverage={coverage} loading={coverageLoading} onRetire={onRetireCoverage} />
+                    <CoverageBook coverage={coverage} loading={coverageLoading} onEdit={onEditCoverage} onRetire={onRetireCoverage} onDelete={onDeleteCoverage} />
                 </div>
             ) : null}
         </div>
@@ -298,5 +300,7 @@ Radar.propTypes = {
     onIpoSelect:       PropTypes.func,
     coverage:          PropTypes.array,
     coverageLoading:   PropTypes.bool,
+    onEditCoverage:    PropTypes.func,
     onRetireCoverage:  PropTypes.func,
+    onDeleteCoverage:  PropTypes.func,
 }
