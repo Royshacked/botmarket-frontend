@@ -13,6 +13,7 @@ import { ChatMarkdown } from '../ChatMarkdown.jsx'
 import { ChatReasoning } from '../ChatReasoning.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { ChatChartDock } from '../ChatChartDock.jsx'
+import { ObjectiveChip } from './ObjectiveChip.jsx'
 import { ChatChart } from '../ChatChart.jsx'
 import { closeChart } from '../../services/chartSurface.service.js'
 import { readStoredModel } from '../modelOptions.js'
@@ -67,6 +68,7 @@ export function AxlHub({ user, onPick }) {
     const [summoning, setSummoning]       = useState(null)
     const [draft, setDraft]               = useState('')
     const [pendingRoute, setPendingRoute] = useState(null)   // { desk, symbol } — the reply's hand-off
+    const [objective, setObjective]       = useState(null)   // the goal Axl took down at intake
     const [hoveredDesk, setHoveredDesk]   = useState(null)
     const timerRef  = useRef(null)
     const inputRef  = useRef(null)
@@ -122,6 +124,9 @@ export function AxlHub({ user, onPick }) {
                 // No route (a clarifying question, a plain answer) simply keeps them here.
                 const desk = DESKS.find(d => d.key === data.route)
                 if (desk) setPendingRoute({ desk, symbol: data.routeSymbol ?? null })
+                // An intake turn carries the goal Axl captured. It arrives on any turn that saved
+                // or resolved one, so a later turn never blanks a goal that is still open.
+                if (data.objective) setObjective(data.objective)
             },
         })
 
@@ -148,6 +153,7 @@ export function AxlHub({ user, onPick }) {
         chat.handleStop?.()
         chat.setMessages([])
         setDraft('')
+        setObjective(null)
         // One Clear, one clean slate — a chart left docked under an empty hub reads as a leftover.
         closeChart()
     }
@@ -298,6 +304,8 @@ export function AxlHub({ user, onPick }) {
 
             {/* Same dock as every agent chat: above the input, below the thread. */}
             <ChatChartDock />
+
+            <ObjectiveChip objective={objective} onClear={() => setObjective(null)} />
 
             <ChatInputRow
                 prefix="axl"

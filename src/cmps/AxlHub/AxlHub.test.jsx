@@ -15,8 +15,8 @@ const { AxlHub } = await import('./AxlHub.jsx')
 
 // Reply with a desk hand-off, the way the server sends one: the tag is already parsed off, so the
 // client sees `route` (which desk) + `routeSymbol` (the name it should open on).
-function replyWith({ reply = 'Taking you to Prometheus.', route = null, routeSymbol = null } = {}) {
-    streamAxl.mockImplementation(async (_messages, opts) => { opts.onDone?.({ reply, route, routeSymbol }) })
+function replyWith({ reply = 'Taking you to Prometheus.', route = null, routeSymbol = null, objective = null } = {}) {
+    streamAxl.mockImplementation(async (_messages, opts) => { opts.onDone?.({ reply, route, routeSymbol, objective }) })
 }
 
 async function ask(text) {
@@ -82,5 +82,49 @@ describe('AxlHub — the desk hand-off', () => {
         await act(async () => { vi.advanceTimersByTime(5000) })
 
         expect(onPick).toHaveBeenCalledWith('analyst', { pipeline: 'research', symbol: null })
+    })
+})
+
+describe('AxlHub — the goal Axl took down', () => {
+    // The objective is what survives the hop to a desk. Showing it back is the only way the user
+    // can tell we understood, so an intake turn must put it on screen even though it does not route.
+    const objective = {
+        id: 'obj_1',
+        target: { pct: 5 },
+        horizon: { days: 7, until: '2026-08-06' },
+        risk: { maxDrawdownPct: 2 },
+    }
+
+    it('shows the captured goal after an intake turn', async () => {
+        render(<AxlHub user={{}} onPick={vi.fn()} />)
+        replyWith({ reply: 'Noted. One position or several?', objective })
+
+        await ask('I want to make 5% in the next week')
+
+        expect(screen.getByText(/\+5% by Aug 6/)).toBeTruthy()
+        expect(screen.getByText('risk 2%')).toBeTruthy()
+    })
+
+    it('keeps the goal on screen through a later turn that carries none', async () => {
+        // Only intake turns carry the objective. If a plain answer blanked it, the goal would
+        // flicker away mid-conversation while it is still very much open.
+        render(<AxlHub user={{}} onPick={vi.fn()} />)
+        replyWith({ reply: 'Noted.', objective })
+        await ask('I want to make 5% in the next week')
+
+        replyWith({ reply: 'A stop is where you accept the idea was wrong.' })
+        await ask('what is a stop?')
+
+        expect(screen.getByText(/\+5% by Aug 6/)).toBeTruthy()
+    })
+
+    it('Clear wipes the goal along with the thread', async () => {
+        render(<AxlHub user={{}} onPick={vi.fn()} />)
+        replyWith({ reply: 'Noted.', objective })
+        await ask('I want to make 5% in the next week')
+
+        await act(async () => { fireEvent.click(screen.getByTitle(/clear/i)) })
+
+        expect(screen.queryByText(/\+5% by Aug 6/)).toBe(null)
     })
 })
