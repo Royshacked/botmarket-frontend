@@ -21,10 +21,11 @@ export const analystService = {
 }
 
 // Streaming research chat. `seed` (a structured Argus investing candidate) pre-seeds the research on
-// a hand-off turn; `brokerContext` gives the analyst the user's book. done → { reply, phase, coverage }.
+// a hand-off turn. The analyst reads the user's book server-side now (get_trading_context), so the
+// client no longer ships a brokerContext. done → { reply, phase, coverage }.
 async function sendStream(messages, opts = {}) {
-    const { model, reasoningEffort, chatState, seed, brokerContext } = opts
-    await streamAgent(BASE, { messages, model, reasoningEffort, chatState, seed, brokerContext }, opts)
+    const { model, reasoningEffort, chatState, seed } = opts
+    await streamAgent(BASE, { messages, model, reasoningEffort, chatState, seed }, opts)
 }
 
 // Initiation is an EVENT — one per name; a duplicate → 409 already_covered.
