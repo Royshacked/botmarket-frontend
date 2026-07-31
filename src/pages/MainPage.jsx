@@ -54,6 +54,7 @@ const TAB_TO_STEP = {
     analyst:    'Prometheus',
     idea:       'Idea',
     mentor:     'Mentor',
+    ticket:     'Order ticket',
 }
 
 // Agentbar breadcrumb: plain agent name when no pipeline is active, full
@@ -495,10 +496,10 @@ export function MainPage() {
     // Floor design trial (Profile → Design → "Floor (3-col)"). Only this page reads it: the trial adds
     // two side columns and swaps the right one, so nothing below the workspace needs to know.
     const floorMode = useDesign() === 'floor'
-    // Immediate-trade ticket: whether the pad is showing in place of the chat thread, and which
-    // entity it is currently managing. The entity ITSELF is read from `ideas` (see handleTicketPlace)
-    // so a broker fill moves the ticket on without this page tracking the lifecycle twice.
-    const [ticketOpen, setTicketOpen]     = useState(false)
+    // Immediate-trade ticket. Whether the pad is SHOWING is just `activeTab === 'ticket'` — the hub
+    // opens it the way it opens a desk, so there is one notion of "what is in the chat column".
+    // Which entity it manages is state, but the entity ITSELF is read from `ideas`
+    // (see handleTicketPlace) so a broker fill moves the ticket on without tracking the lifecycle twice.
     const [ticketIdeaId, setTicketIdeaId] = useState(null)
     const [ticketBusy, setTicketBusy]     = useState(false)
     const [ticketError, setTicketError]   = useState(null)
@@ -1647,6 +1648,14 @@ export function MainPage() {
         setChartSymbol(symbol)
     }
 
+    // ── Axl reception → the order ticket ──────────────────────────────────────
+    // Trade by hand, picked in the hub beside the desks. No pipeline and no summon: the pad is one
+    // screen, and the agentbar's "← axl" is the way back, exactly as it is from a desk.
+    function handleOpenTicket() {
+        setActiveTab('ticket')
+        setActivePipeline(null)
+    }
+
     // ── Axl reception → a desk ────────────────────────────────────────────────
     // The hub summoned a desk (AxlHub's `onPick`). `opts.symbol` is the name Axl already resolved
     // from the conversation, so the entry agent opens ON it — the point of routing is that the user
@@ -1863,27 +1872,29 @@ export function MainPage() {
         // selectedAccounts are still read for the build summary + generate gating.
         availableAccounts,
         selectedAccounts,
-        // Non-null = the ticket stands in for the thread. Built here (not in ChatPanel) so the
-        // chat stays ignorant of orders, the way it already is of thread history.
-        ticketSlot: ticketOpen ? (
-            <TradeTicket
-                accounts={availableAccounts}
-                selectedAccounts={selectedAccounts}
-                onSelectAccounts={setSelectedAccounts}
-                mainAccountId={mainAccountId}
-                onMainChange={setMainAccountId}
-                ticket={ticketIdea}
-                positions={positions}
-                busy={ticketBusy}
-                error={ticketError}
-                onPlace={handleTicketPlace}
-                onAttachExits={handleTicketAttachExits}
-                onCancelResting={handleTicketCancelResting}
-                onClosePosition={handleTicketClose}
-                onReset={handleTicketReset}
-            />
-        ) : null,
     }
+
+    // The pad is built here, beside the agent panels, and shown by the same display switch they
+    // use. Always MOUNTED: a half-typed ticket (or a resting order it is tracking) survives a trip
+    // back to the hub, the way every desk's thread does.
+    const ticketPad = (
+        <TradeTicket
+            accounts={availableAccounts}
+            selectedAccounts={selectedAccounts}
+            onSelectAccounts={setSelectedAccounts}
+            mainAccountId={mainAccountId}
+            onMainChange={setMainAccountId}
+            ticket={ticketIdea}
+            positions={positions}
+            busy={ticketBusy}
+            error={ticketError}
+            onPlace={handleTicketPlace}
+            onAttachExits={handleTicketAttachExits}
+            onCancelResting={handleTicketCancelResting}
+            onClosePosition={handleTicketClose}
+            onReset={handleTicketReset}
+        />
+    )
 
     return (
         <>
@@ -1918,6 +1929,7 @@ export function MainPage() {
                             <AxlHub
                                 user={user}
                                 onPick={handleAxlPick}
+                                onOpenTicket={handleOpenTicket}
                             />
                         ) : (
                             <div className="chat-agentbar">
@@ -1934,24 +1946,9 @@ export function MainPage() {
                                 <PipelineCrumb pipeline={activePipeline} activeTab={activeTab} />
 
                                 <div className="chat-agentbar__right">
-                                    {/* Trade by hand. Only on the trade desk — the ticket takes over
-                                        that panel, and the other desks aren't where you'd reach for it. */}
-                                    {activeTab === 'idea' && (
-                                        <button
-                                            type="button"
-                                            className={`chat-agentbar__ticket${ticketOpen ? ' is-active' : ''}`}
-                                            onClick={() => setTicketOpen(o => !o)}
-                                            title={ticketOpen ? 'Back to the chat' : 'Trade now — open the order ticket'}
-                                            aria-pressed={ticketOpen}
-                                        >
-                                            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                                <path d="M3 13V7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                                                <path d="M8 13V3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                                                <path d="M13 13V9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                                            </svg>
-                                            trade
-                                        </button>
-                                    )}
+                                    {/* (Trading by hand is picked in the hub, beside the desks — the pad
+                                        is its own tab, so no strip toggle is needed here. The account
+                                        selector below stays off it: the pad carries its own.) */}
                                     {(activeTab === 'idea' || activeTab === 'portfolio' || activeTab === 'kairos' || activeTab === 'mentor') && (
                                         <AccountSelector
                                             accounts={availableAccounts}
@@ -2020,6 +2017,12 @@ export function MainPage() {
                                 selectedAccounts={selectedAccounts}
                                 mainAccountId={mainAccountId}
                             />
+                        </div>
+
+                        {/* Trade by hand — a panel of its own, not a mode of a desk's chat: it is
+                            reached from the hub, and it belongs to no pipeline. */}
+                        <div className="chat-tabs__panel" style={{ display: activeTab === 'ticket' ? 'flex' : 'none' }}>
+                            <div className="portfolio-panel">{ticketPad}</div>
                         </div>
 
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'mentor' ? 'flex' : 'none' }}>

@@ -1,4 +1,5 @@
-// The immediate-trade ticket. It stands in for the chat thread inside .chat-panel, so it fills the
+// The immediate-trade ticket. It stands in for the chat thread inside the trade desk's panel
+// (.kairos-panel — same flex-column / overflow-hidden shell as .chat-panel), so it fills the
 // height it is given and scrolls its own body — the panel around it never grows.
 .trade-ticket {
     display: flex;
