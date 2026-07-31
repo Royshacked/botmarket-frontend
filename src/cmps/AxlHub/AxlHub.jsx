@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { AgentSummon } from './AgentSummon.jsx'
 import { AgentGlyph } from './AgentBadges.jsx'
-import { AGENTS, SUMMON_MS, DESKS } from './agentMeta.jsx'
+import { AGENTS, SUMMON_MS, DESKS, TICKET_DESK } from './agentMeta.jsx'
 import { axlService } from '../../services/axl/axl.service.remote'
 import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
@@ -63,7 +63,18 @@ export function MessageBubble({ msg }) {
     )
 }
 
-export function AxlHub({ user, onPick }) {
+// The pad's mark — the desks show their agent's glyph, and this one has no agent to show.
+function TicketGlyph({ size = 32 }) {
+    return (
+        <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M3 13V7"  stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            <path d="M8 13V3"  stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            <path d="M13 13V9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+    )
+}
+
+export function AxlHub({ user, onPick, onOpenTicket }) {
     const name = firstName(user?.fullname)
     const chat = useChatStream()
     const { messages, isLoading } = chat
@@ -105,6 +116,14 @@ export function AxlHub({ user, onPick }) {
     function handleDeskPick(desk) {
         if (summoning || isLoading) return
         _summon(desk)
+    }
+
+    // The pad opens straight away — there is no agent to summon, and a wait would sit between
+    // the user and a market order, which is the one thing this route exists to avoid.
+    function handleTicketPick() {
+        if (summoning || isLoading) return
+        setHoveredDesk(null)
+        onOpenTicket?.()
     }
 
     function handleSend() {
@@ -272,9 +291,19 @@ export function AxlHub({ user, onPick }) {
                                 <span>{desk.lead}</span>
                             </button>
                         ))}
+                        <button
+                            type="button"
+                            className={`axl-hub__desk-chip axl-hub__desk-chip--${TICKET_DESK.hue}`}
+                            onClick={handleTicketPick}
+                            disabled={isLoading}
+                            title={TICKET_DESK.label}
+                        >
+                            <TicketGlyph size={13} />
+                            <span>{TICKET_DESK.lead}</span>
+                        </button>
                     </div>
                 ) : (
-                    /* ── desk cards (2×2 grid) ── */
+                    /* ── desk cards (2-col grid: 5 desks + the order ticket) ── */
                     <div className="axl-hub__options">
                         {DESKS.map((desk, i) => (
                             <button
@@ -293,6 +322,20 @@ export function AxlHub({ user, onPick }) {
                                 <span className="axl-hub__option-lead">{desk.lead}</span>
                             </button>
                         ))}
+                        {/* Trade by hand — last card, so the desks (where the work usually starts)
+                            keep the top of the grid. */}
+                        <button
+                            type="button"
+                            className={`axl-hub__option axl-hub__option--${TICKET_DESK.hue}`}
+                            style={{ animationDelay: `${0.08 + DESKS.length * 0.06}s` }}
+                            onClick={handleTicketPick}
+                            onMouseEnter={() => setHoveredDesk(TICKET_DESK)}
+                            onMouseLeave={() => setHoveredDesk(null)}
+                            disabled={isLoading}
+                        >
+                            <span className="axl-hub__option-icon"><TicketGlyph size={32} /></span>
+                            <span className="axl-hub__option-lead">{TICKET_DESK.lead}</span>
+                        </button>
                     </div>
                 )}
 
@@ -336,8 +379,13 @@ export function AxlHub({ user, onPick }) {
 }
 
 AxlHub.propTypes = {
-    user:   PropTypes.object,
-    onPick: PropTypes.func.isRequired,
+    user:         PropTypes.object,
+    onPick:       PropTypes.func.isRequired,
+    onOpenTicket: PropTypes.func,
+}
+
+TicketGlyph.propTypes = {
+    size: PropTypes.number,
 }
 
 MessageBubble.propTypes = {

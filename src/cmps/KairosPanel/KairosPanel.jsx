@@ -375,7 +375,6 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
 
     // Stopped mid-reply → the input's Stop turns into a Play to resume that bubble (like other chats).
 
-
     return (
         <div className="portfolio-panel kairos-panel">
             {hasPreview && (

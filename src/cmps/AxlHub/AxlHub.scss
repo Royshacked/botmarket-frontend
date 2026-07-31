@@ -511,6 +511,35 @@
     svg { width: 13px; height: 13px; }
 }
 
+// Opens the immediate-trade ticket in place of the thread. Shaped like __back (same strip, same
+// weight) but outlined when active, so it reads as a mode you're IN rather than a place you went.
+.chat-agentbar__ticket {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+
+    &:hover { color: var(--text-primary); background: var(--bg-raised); }
+
+    &.is-active {
+        color: var(--accent-light);
+        border-color: currentColor;
+    }
+
+    svg { width: 13px; height: 13px; }
+}
+
 .chat-agentbar__crumb {
     color: var(--text-muted);
     font-family: var(--font-mono);

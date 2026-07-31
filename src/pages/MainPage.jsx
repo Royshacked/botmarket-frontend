@@ -22,8 +22,8 @@ import { analystService, COVERAGE_CHANGED } from '../services/analyst/analyst.se
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
-import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace, positionOpenTarget, openCallPopup, openIdeaPopup } from '../cmps/TradeIdeas/tradeIdea.utils.js'
-import { MonitorDashboard }  from '../cmps/MonitorDashboard/MonitorDashboard.jsx'
+import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace, positionOpenTarget, openCallPopup, openIdeaPopup, matchPositionsForIdea } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { TradeTicket } from '../cmps/TradeTicket/TradeTicket.jsx'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
@@ -54,6 +54,7 @@ const TAB_TO_STEP = {
     analyst:    'Prometheus',
     idea:       'Idea',
     mentor:     'Mentor',
+    ticket:     'Order ticket',
 }
 
 // Agentbar breadcrumb: plain agent name when no pipeline is active, full
@@ -373,7 +374,6 @@ export function MainPage() {
     const [pendingRebalance,  setPendingRebalance]  = useState(null)
     const [applyingRebalance, setApplyingRebalance] = useState(false)
     const [deletingIdea, setDeletingIdea] = useState(false)
-    const [mobileChatOpen, setMobileChatOpen] = useState(false)
     const [returningToAxl, setReturningToAxl] = useState(false)
     // Bumped each time we head home to axl so the Atlas/Argus panels remount fresh
     // — going back to axl and re-entering an agent always starts a new chat.
@@ -496,6 +496,13 @@ export function MainPage() {
     // Floor design trial (Profile → Design → "Floor (3-col)"). Only this page reads it: the trial adds
     // two side columns and swaps the right one, so nothing below the workspace needs to know.
     const floorMode = useDesign() === 'floor'
+    // Immediate-trade ticket. Whether the pad is SHOWING is just `activeTab === 'ticket'` — the hub
+    // opens it the way it opens a desk, so there is one notion of "what is in the chat column".
+    // Which entity it manages is state, but the entity ITSELF is read from `ideas`
+    // (see handleTicketPlace) so a broker fill moves the ticket on without tracking the lifecycle twice.
+    const [ticketIdeaId, setTicketIdeaId] = useState(null)
+    const [ticketBusy, setTicketBusy]     = useState(false)
+    const [ticketError, setTicketError]   = useState(null)
     const [preEntryBusy, setPreEntryBusy] = useState(false)
 
     // A position row in the Floor's book opens whatever OWNS it — a call-originated position routes
@@ -1068,6 +1075,135 @@ export function MainPage() {
         }
     }
 
+    // ── Immediate-trade ticket ────────────────────────────────────────────────
+    // The discretionary order pad. It authors the SAME entity the chat's Buy Market does and
+    // places it through the SAME endpoints — a ticket trade is an idea like any other, so it is
+    // monitored, shows in the Floor, reaches the ledger and is visible to the agents. What is
+    // dropped is the conversation, not the pipeline.
+    //
+    // The live ticket is read out of `ideas` rather than held in its own state: the entity is the
+    // truth about whether it filled, and a fill that lands while this tab is in the background
+    // then moves the ticket on by itself.
+    const ticketIdea = ideas.find(i => i.id === ticketIdeaId) ?? null
+
+    async function handleTicketPlace({ asset, direction, quantity, orderType, price }) {
+        if (ticketBusy) return
+        setTicketBusy(true)
+        setTicketError(null)
+        try {
+            const resting = orderType === 'limit' || orderType === 'stop'
+            const saved = await tradeIdeasService.createIdea({
+                asset,
+                direction,
+                quantity,
+                accounts:      selectedAccounts,
+                mainAccountId,
+                // A market ticket is `immediate` — no entry conditions, so it goes straight to
+                // 'hit' with a built order plan. A limit/stop ticket instead states its trigger
+                // as a bare price and rests AT the broker, which is what the user asked for:
+                // the level is left with the venue, not watched by us.
+                ...(resting
+                    ? { entry_order_type: orderType, entry_price: price }
+                    : { immediate: true }),
+                notes: `Ticket — ${direction} ${quantity} ${asset} (${orderType})`,
+            })
+            if (!saved.length) throw new Error('the idea was not created')
+
+            // A ticket spanning two brokers forks into a child per broker; every child has to be
+            // sent, or the accounts the user picked would silently not trade.
+            const results = await Promise.allSettled(saved.map(s => (
+                resting
+                    ? tradeIdeasService.updateIdea(s.id, { status: 'resting' })
+                    : tradeIdeasService.placeOrders(s.id)
+            )))
+            const failed = results.filter(r => r.status === 'rejected')
+            if (failed.length === saved.length) {
+                // Nothing reached a broker, so the entity is a ghost: an idea sitting at 'hit'
+                // holding no position, which would show in the book as a trade that never was.
+                // Roll it back — the same guard handleBuyMarket keeps for its own born-here ideas.
+                await Promise.allSettled(saved.map(s => tradeIdeasService.deleteIdea(s.id)))
+                await loadIdeas()
+                throw failed[0].reason ?? new Error('the broker rejected the order')
+            }
+            if (failed.length) showErrorMsg(`${failed.length} of ${saved.length} broker orders failed`)
+
+            setTicketIdeaId(saved[0].id)
+            showSuccessMsg(resting ? `${orderType} order resting at the broker` : `${direction === 'short' ? 'Sold' : 'Bought'} ${quantity} ${asset}`)
+            await Promise.all([loadIdeas(), refreshPositions(true)])
+        } catch (err) {
+            console.error('[ticket] place failed', err)
+            setTicketError(err?.data?.error ?? err?.message ?? 'Could not place the order')
+        } finally {
+            setTicketBusy(false)
+        }
+    }
+
+    // Attach / move a protective level on the live ticket position. Only the leg the user touched
+    // is sent — the server merges it over the other one, so moving a stop can't drop a target.
+    async function handleTicketAttachExits({ stop, tp }) {
+        if (!ticketIdeaId || ticketBusy) return
+        setTicketBusy(true)
+        setTicketError(null)
+        try {
+            await tradeIdeasService.updateIdea(ticketIdeaId, {
+                ...(stop != null && { stop_price: stop }),
+                ...(tp   != null && { tp_price:   tp }),
+            })
+            showSuccessMsg(stop != null ? 'Stop is at the broker' : 'Target is at the broker')
+            await loadIdeas()
+        } catch (err) {
+            console.error('[ticket] attach exits failed', err)
+            setTicketError(err?.data?.error ?? err?.message ?? 'Could not place the protective order')
+        } finally {
+            setTicketBusy(false)
+        }
+    }
+
+    // Pull a resting entry. Deleting the idea is what cancels it — the delete path already
+    // cancels a resting entity's working orders, so this stays one call rather than a
+    // cancel-then-tidy pair that could half-fail.
+    async function handleTicketCancelResting() {
+        if (!ticketIdeaId || ticketBusy) return
+        setTicketBusy(true)
+        setTicketError(null)
+        try {
+            await tradeIdeasService.deleteIdea(ticketIdeaId)
+            setTicketIdeaId(null)
+            showSuccessMsg('Resting order cancelled')
+            await loadIdeas()
+        } catch (err) {
+            console.error('[ticket] cancel resting failed', err)
+            setTicketError(err?.data?.error ?? err?.message ?? 'Could not cancel the order')
+        } finally {
+            setTicketBusy(false)
+        }
+    }
+
+    async function handleTicketClose() {
+        if (!ticketIdea || ticketBusy) return
+        const open = matchPositionsForIdea(ticketIdea, positions)
+        if (!open.length) { setTicketError('No open position found for this ticket'); return }
+        setTicketBusy(true)
+        setTicketError(null)
+        try {
+            for (const pos of open) await closePosition(pos.broker, pos.id, pos.accountId)
+            showSuccessMsg('Position closed')
+            await Promise.all([loadIdeas(), refreshPositions(true)])
+        } catch (err) {
+            console.error('[ticket] close failed', err)
+            setTicketError(err?.data?.error ?? err?.message ?? 'Could not close the position')
+        } finally {
+            setTicketBusy(false)
+        }
+    }
+
+    // "New ticket" only lets go of the entity — it never deletes it. The position (or the closed
+    // trade) stays exactly where it belongs, in the book and the ledger.
+    function handleTicketReset() {
+        setTicketIdeaId(null)
+        setTicketError(null)
+    }
+
     async function handleGenerate() {
         if (!buildingIdea) {
             // Nothing to save — if we're editing, leave edit mode and head home to axl
@@ -1512,6 +1648,14 @@ export function MainPage() {
         setChartSymbol(symbol)
     }
 
+    // ── Axl reception → the order ticket ──────────────────────────────────────
+    // Trade by hand, picked in the hub beside the desks. No pipeline and no summon: the pad is one
+    // screen, and the agentbar's "← axl" is the way back, exactly as it is from a desk.
+    function handleOpenTicket() {
+        setActiveTab('ticket')
+        setActivePipeline(null)
+    }
+
     // ── Axl reception → a desk ────────────────────────────────────────────────
     // The hub summoned a desk (AxlHub's `onPick`). `opts.symbol` is the name Axl already resolved
     // from the conversation, so the entry agent opens ON it — the point of routing is that the user
@@ -1730,6 +1874,28 @@ export function MainPage() {
         selectedAccounts,
     }
 
+    // The pad is built here, beside the agent panels, and shown by the same display switch they
+    // use. Always MOUNTED: a half-typed ticket (or a resting order it is tracking) survives a trip
+    // back to the hub, the way every desk's thread does.
+    const ticketPad = (
+        <TradeTicket
+            accounts={availableAccounts}
+            selectedAccounts={selectedAccounts}
+            onSelectAccounts={setSelectedAccounts}
+            mainAccountId={mainAccountId}
+            onMainChange={setMainAccountId}
+            ticket={ticketIdea}
+            positions={positions}
+            busy={ticketBusy}
+            error={ticketError}
+            onPlace={handleTicketPlace}
+            onAttachExits={handleTicketAttachExits}
+            onCancelResting={handleTicketCancelResting}
+            onClosePosition={handleTicketClose}
+            onReset={handleTicketReset}
+        />
+    )
+
     return (
         <>
             <main>
@@ -1763,6 +1929,7 @@ export function MainPage() {
                             <AxlHub
                                 user={user}
                                 onPick={handleAxlPick}
+                                onOpenTicket={handleOpenTicket}
                             />
                         ) : (
                             <div className="chat-agentbar">
@@ -1779,6 +1946,9 @@ export function MainPage() {
                                 <PipelineCrumb pipeline={activePipeline} activeTab={activeTab} />
 
                                 <div className="chat-agentbar__right">
+                                    {/* (Trading by hand is picked in the hub, beside the desks — the pad
+                                        is its own tab, so no strip toggle is needed here. The account
+                                        selector below stays off it: the pad carries its own.) */}
                                     {(activeTab === 'idea' || activeTab === 'portfolio' || activeTab === 'kairos' || activeTab === 'mentor') && (
                                         <AccountSelector
                                             accounts={availableAccounts}
@@ -1847,6 +2017,12 @@ export function MainPage() {
                                 selectedAccounts={selectedAccounts}
                                 mainAccountId={mainAccountId}
                             />
+                        </div>
+
+                        {/* Trade by hand — a panel of its own, not a mode of a desk's chat: it is
+                            reached from the hub, and it belongs to no pipeline. */}
+                        <div className="chat-tabs__panel" style={{ display: activeTab === 'ticket' ? 'flex' : 'none' }}>
+                            <div className="portfolio-panel">{ticketPad}</div>
                         </div>
 
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'mentor' ? 'flex' : 'none' }}>
@@ -1983,57 +2159,12 @@ export function MainPage() {
                     )}
                 </div>
 
-                {/* ── Mobile monitor dashboard ── */}
-                <MonitorDashboard
-                    ideas={ideas.filter(i => ideaWorkspace(i) === workspace).filter(i => i.status !== 'closed')}
-                    onDelete={handleDeleteIdea}
-                    onEdit={handleEditIdea}
-                />
+                {/* ── Mobile ──
+                    No separate mobile surface: the workspace above collapses to its chat column
+                    (RootCmp.scss, < 768px), so a phone gets the header and the live desks. The
+                    monitor dashboard + chat FAB/sheet that used to stand in here are gone — the
+                    sheet opened the archived idea chat, which can no longer send. */}
             </main>
-
-            {/* ── Mobile chat: floating trigger + full-screen sheet ── */}
-            <button
-                className="mobile-chat-fab"
-                onClick={() => setMobileChatOpen(true)}
-                aria-label="Build a trade idea"
-            >
-                <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <line x1="10" y1="5" x2="10" y2="2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                    <circle cx="10" cy="1.5" r="1" fill="currentColor"/>
-                    <rect x="2" y="5" width="16" height="12" rx="3" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-                    <circle cx="7" cy="10" r="1.8" fill="currentColor"/>
-                    <circle cx="13" cy="10" r="1.8" fill="currentColor"/>
-                    <rect x="6.5" y="13" width="7" height="1.5" rx="0.75" fill="currentColor"/>
-                </svg>
-            </button>
-
-            {mobileChatOpen && (
-                <div className="mobile-chat-sheet">
-                    <div className="mobile-chat-sheet__bar">
-                        <span className="mobile-chat-sheet__title">Build idea</span>
-                        <div className="mobile-chat-sheet__bar-right">
-                            <AccountSelector
-                                accounts={availableAccounts}
-                                selectedIds={selectedAccounts}
-                                onChange={setSelectedAccounts}
-                                mainAccountId={mainAccountId}
-                                onMainChange={setMainAccountId}
-                            />
-                            <button
-                                className="mobile-chat-sheet__close"
-                                onClick={() => setMobileChatOpen(false)}
-                                aria-label="Close"
-                            >✕</button>
-                        </div>
-                    </div>
-                    <div className="mobile-chat-sheet__body">
-                        <ChatPanel
-                            {...chatPanelProps}
-                            onGenerate={async () => { await handleGenerate(); setMobileChatOpen(false) }}
-                        />
-                    </div>
-                </div>
-            )}
 
             {confirmIdea && confirmOrders.length > 0 && (
                 <OrderConfirmDialog

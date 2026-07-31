@@ -230,3 +230,20 @@ export const DESKS = [
         ],
     },
 ]
+
+// ── The order ticket ───────────────────────────────────────────────────────────
+// Trade by hand: it sits BESIDE the desks in the hub (same card, same chip) because that
+// is where the user decides what to do — but it is deliberately NOT in DESKS. A desk is a
+// pipeline an agent leads, and Axl routes into one by key; the pad has no agent and nothing
+// to route to, so keeping it out is what stops a reply from "summoning" it.
+export const TICKET_DESK = {
+    key:   'ticket',
+    label: 'Order Ticket',
+    lead:  'Trade now',
+    blurb: 'Buy or sell by hand — you bring the level, the app monitors and manages the position.',
+    hue:   'amber',
+    steps: [
+        { tab: 'ticket', label: 'Place order' },
+        { tab: null,     label: 'Manage & monitor' },
+    ],
+}

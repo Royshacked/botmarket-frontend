@@ -218,6 +218,9 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
         setInput('')
     }
 
+    // (The order ticket used to stand in for this thread; it now lives on the live trade desk —
+    //  KairosPanel — since this panel is only reachable for legacy documents.)
+
     return (
         <div className="chat-panel">
             {historySlot}
