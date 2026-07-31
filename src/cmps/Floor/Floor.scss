@@ -697,7 +697,11 @@ $header-h: var(--header-h);
     // The pointer is over the ACTIONS, not the row button, whenever you're actually clicking one —
     // so the row's own :hover would drop out from under you mid-reach. Hover the host instead.
     // `--static` keeps its no-hover rule: a row that doesn't open shouldn't light up.
-    &:hover .floor-row:not(.floor-row--static) { background: var(--bg-hover); }
+    // The book column's rows (.floor-pos / .floor-book__row) host actions too, so they get the
+    // same treatment — one rule, not a second copy per column.
+    &:hover .floor-row:not(.floor-row--static),
+    &:hover .floor-pos,
+    &:hover .floor-book__row { background: var(--bg-hover); }
 
     &__actions {
         position: absolute;
@@ -720,6 +724,9 @@ $header-h: var(--header-h);
     // Row scale is asked for at the call site (`size="sm"`), not overridden here — the shared
     // button owns its own sizes, so the Floor can't drift from the cards by a pixel.
 }
+
+// The close button's in-flight glyph, sized to the icon it stands in for so the row can't jump.
+.floor-closing { font-size: 12px; line-height: 1; }
 
 // ── Expanded detail (coverage thesis) ────────────────────────────────────────
 // The one place in this design that carries prose. It sits INSIDE a row's indent rather than

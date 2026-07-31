@@ -5,6 +5,10 @@ import {
 } from '../TradeIdeas/tradeIdea.utils.js'
 import { positionsByAccount, groupByDay } from './floor.utils.js'
 import { useExpandedSet } from '../../customHooks/useExpandedSet.js'
+import { RowHost } from './RowHost.jsx'
+import { IconButton } from '../EntityCard/IconButton.jsx'
+import { CloseIcon } from '../EntityCard/entityIcons.jsx'
+import { ClosePositionDialog } from '../TradeIdeas/ClosePositionDialog.jsx'
 import './Floor.scss'
 
 // The Floor's left column: the book on top, the calendar underneath.
@@ -32,26 +36,49 @@ const CAL_TABS = [
 
 const pnlClass = n => (n == null ? '' : n > 0 ? 'is-pos' : n < 0 ? 'is-neg' : '')
 
+// The one control this column carries: close at market. It rides in RowHost's overlay (a row IS a
+// button, and a button can't contain one) and it is the SAME control the pop-out's position cards
+// offer — same glyph, same tone, same confirm dialog — so a close is one thing wherever you meet it.
+function closeAction({ onClose, closing, title }) {
+    if (!onClose) return null
+    return (
+        <IconButton
+            icon={closing ? <span className="floor-closing">…</span> : <CloseIcon />}
+            tone="danger"
+            size="sm"
+            disabled={closing}
+            onClick={onClose}
+            title={title}
+        />
+    )
+}
+
 // One position. Shared by both tiers — a leg reads the same whether it hangs off the account or off
 // a book; only its indent says which. `sub` is that indent and nothing else.
-function PositionLine({ position: p, sub, onOpen }) {
+function PositionLine({ position: p, sub, onOpen, onClose, closing }) {
     const pct = positionPnlPct(p)
     return (
-        <button
-            className={`floor-pos${sub ? ' floor-pos--sub' : ''}`}
-            onClick={() => onOpen?.(p)}
-            title={onOpen ? 'Open this position' : undefined}
-        >
-            <span className={`floor-pos__dir floor-pos__dir--${p.direction}`} aria-hidden="true">
-                {p.direction === 'short' ? '▾' : '▴'}
-            </span>
-            <span className="floor-pos__sym">{p.symbol ?? '—'}</span>
-            <span className="floor-pos__qty">{formatNum(p.volume)}</span>
-            <span className={`floor-pos__pnl ${pnlClass(Number(p.pnl))}`}>
-                {formatPnl(p.pnl, p.currency)}
-            </span>
-            <span className={`floor-pos__pct ${pnlClass(pct)}`}>{formatPnlPct(pct)}</span>
-        </button>
+        <RowHost actions={closeAction({
+            onClose: onClose && (() => onClose(p)),
+            closing,
+            title: 'Close this position at market',
+        })}>
+            <button
+                className={`floor-pos${sub ? ' floor-pos--sub' : ''}`}
+                onClick={() => onOpen?.(p)}
+                title={onOpen ? 'Open this position' : undefined}
+            >
+                <span className={`floor-pos__dir floor-pos__dir--${p.direction}`} aria-hidden="true">
+                    {p.direction === 'short' ? '▾' : '▴'}
+                </span>
+                <span className="floor-pos__sym">{p.symbol ?? '—'}</span>
+                <span className="floor-pos__qty">{formatNum(p.volume)}</span>
+                <span className={`floor-pos__pnl ${pnlClass(Number(p.pnl))}`}>
+                    {formatPnl(p.pnl, p.currency)}
+                </span>
+                <span className={`floor-pos__pct ${pnlClass(pct)}`}>{formatPnlPct(pct)}</span>
+            </button>
+        </RowHost>
     )
 }
 
@@ -59,11 +86,13 @@ PositionLine.propTypes = {
     position: PropTypes.object.isRequired,
     sub:      PropTypes.bool,
     onOpen:   PropTypes.func,
+    onClose:  PropTypes.func,
+    closing:  PropTypes.bool,
 }
 
 const posKey = p => `${p.broker}:${p.accountId}:${p.id}`
 
-function AccountBlock({ group, open, onToggle, onOpenPosition }) {
+function AccountBlock({ group, open, onToggle, onOpenPosition, onClosePosition, onCloseBook, closingKey }) {
     const { summary } = group
     // Books start CLOSED, like the account above them: a portfolio row exists precisely to stand in
     // for its legs, so opening it for you would undo the row.
@@ -99,32 +128,54 @@ function AccountBlock({ group, open, onToggle, onOpenPosition }) {
                         const bookOpen = isExpanded(book.key)
                         return (
                             <div key={book.key} className={`floor-book${bookOpen ? ' floor-book--open' : ''}`}>
-                                <button
-                                    className="floor-book__row"
-                                    onClick={() => toggle(book.key)}
-                                    aria-expanded={bookOpen}
-                                    title={bookOpen ? 'Collapse portfolio' : 'Expand portfolio'}
-                                >
-                                    <svg className="floor-book__chev" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                                        <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                                    </svg>
-                                    <span className="floor-book__name">{book.name}</span>
-                                    {/* Same parenthetical-beside-the-name rule the account row uses. */}
-                                    <span className="floor-book__count">({book.summary.count})</span>
-                                    <span className={`floor-book__pnl ${pnlClass(book.summary.pnl)}`}>
-                                        {book.summary.pnl == null ? '—' : formatPnl(book.summary.pnl, book.summary.currency)}
-                                    </span>
-                                </button>
+                                {/* The book's close is the book's own action, not the sum of its legs':
+                                    it closes every position under it in one confirm. Which is why it
+                                    sits on the book row — the legs each keep their own. */}
+                                <RowHost actions={closeAction({
+                                    onClose: onCloseBook && (() => onCloseBook(book)),
+                                    closing: closingKey === book.key,
+                                    title: `Close all ${book.summary.count} position${book.summary.count === 1 ? '' : 's'} in this portfolio at market`,
+                                })}>
+                                    <button
+                                        className="floor-book__row"
+                                        onClick={() => toggle(book.key)}
+                                        aria-expanded={bookOpen}
+                                        title={bookOpen ? 'Collapse portfolio' : 'Expand portfolio'}
+                                    >
+                                        <svg className="floor-book__chev" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                                            <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                        </svg>
+                                        <span className="floor-book__name">{book.name}</span>
+                                        {/* Same parenthetical-beside-the-name rule the account row uses. */}
+                                        <span className="floor-book__count">({book.summary.count})</span>
+                                        <span className={`floor-book__pnl ${pnlClass(book.summary.pnl)}`}>
+                                            {book.summary.pnl == null ? '—' : formatPnl(book.summary.pnl, book.summary.currency)}
+                                        </span>
+                                    </button>
+                                </RowHost>
 
                                 {bookOpen && book.positions.map(p => (
-                                    <PositionLine key={posKey(p)} position={p} sub onOpen={onOpenPosition} />
+                                    <PositionLine
+                                        key={posKey(p)}
+                                        position={p}
+                                        sub
+                                        onOpen={onOpenPosition}
+                                        onClose={onClosePosition}
+                                        closing={closingKey === posKey(p)}
+                                    />
                                 ))}
                             </div>
                         )
                     })}
 
                     {group.loose.map(p => (
-                        <PositionLine key={posKey(p)} position={p} onOpen={onOpenPosition} />
+                        <PositionLine
+                            key={posKey(p)}
+                            position={p}
+                            onOpen={onOpenPosition}
+                            onClose={onClosePosition}
+                            closing={closingKey === posKey(p)}
+                        />
                     ))}
                 </div>
             )}
@@ -133,10 +184,13 @@ function AccountBlock({ group, open, onToggle, onOpenPosition }) {
 }
 
 AccountBlock.propTypes = {
-    group:          PropTypes.object.isRequired,
-    open:           PropTypes.bool,
-    onToggle:       PropTypes.func.isRequired,
-    onOpenPosition: PropTypes.func,
+    group:           PropTypes.object.isRequired,
+    open:            PropTypes.bool,
+    onToggle:        PropTypes.func.isRequired,
+    onOpenPosition:  PropTypes.func,
+    onClosePosition: PropTypes.func,
+    onCloseBook:     PropTypes.func,
+    closingKey:      PropTypes.string,
 }
 
 // ── Calendar ──────────────────────────────────────────────────────────────────
@@ -195,11 +249,14 @@ function CalendarRows({ tab, earnings, fed, ipo, onEarningSelect, onIpoSelect })
 
 /**
  * @param {object[]} positions
- * @param {object[]} [ideas]           loaded ideas — the position→portfolio link for the book tier
- * @param {Function} [onOpenPosition]  row click — hands the position back to the caller
+ * @param {object[]} [ideas]            loaded ideas — the position→portfolio link for the book tier
+ * @param {Function} [onOpenPosition]   row click — hands the position back to the caller
+ * @param {Function} [onClosePosition]  (broker, id, accountId) => Promise — closes one at market
+ * @param {Function} [onClosePositions] (targets[]) => Promise<{closed, failed}> — closes a book
  */
 export function FloorLeft({
     positions = [], ideas = [], positionsLoading = false, onOpenPosition,
+    onClosePosition, onClosePositions,
     earnings = [], fed = [], ipo = [], calendarLoading = false,
     onEarningSelect, onIpoSelect,
 }) {
@@ -208,6 +265,37 @@ export function FloorLeft({
     // contents and opens nothing on the reader's behalf. Same Set-toggle the books below use.
     const { isExpanded, toggle } = useExpandedSet()
     const [calTab, setCalTab] = useState('earnings')
+
+    // Closing at market is the one thing this column does, and it never does it on a click alone:
+    // the shared ClosePositionDialog reviews what's about to go (and gates it on the venue being
+    // open) first. One position or a whole book — same dialog, same confirm.
+    const [pending,    setPending]    = useState(null)   // {position} | {book}
+    const [closingKey, setClosingKey] = useState(null)
+    const [closeError, setCloseError] = useState(null)
+
+    async function confirmClose() {
+        if (!pending) return
+        const { position, book } = pending
+        setClosingKey(position ? posKey(position) : book.key)
+        setCloseError(null)
+        try {
+            if (position) {
+                await onClosePosition(position.broker, position.id, position.accountId)
+                setPending(null)
+                return
+            }
+            const { failed } = await onClosePositions(book.positions)
+            if (!failed.length) { setPending(null); return }
+            const names = failed.map(f => f.position.symbol ?? f.position.id).join(', ')
+            setCloseError(`${failed.length} of ${book.positions.length} could not be closed: ${names}`)
+            // Retry only what's still open, so a second confirm can't re-fire at legs that went through.
+            setPending({ book: { ...book, positions: failed.map(f => f.position) } })
+        } catch (err) {
+            setCloseError(err?.message ?? 'Close failed')
+        } finally {
+            setClosingKey(null)
+        }
+    }
 
     return (
         <aside className="floor-left">
@@ -232,6 +320,9 @@ export function FloorLeft({
                                     open={isExpanded(g.key)}
                                     onToggle={toggle}
                                     onOpenPosition={onOpenPosition}
+                                    onClosePosition={onClosePosition ? (p => setPending({ position: p })) : undefined}
+                                    onCloseBook={onClosePositions ? (b => setPending({ book: b })) : undefined}
+                                    closingKey={closingKey}
                                 />
                             ))}
                 </div>
@@ -262,6 +353,18 @@ export function FloorLeft({
                         />}
                 </div>
             </section>
+
+            {pending && (
+                <ClosePositionDialog
+                    position={pending.position}
+                    positions={pending.book?.positions}
+                    label={pending.book?.name}
+                    closing={closingKey != null}
+                    error={closeError}
+                    onConfirm={confirmClose}
+                    onCancel={() => { setPending(null); setCloseError(null) }}
+                />
+            )}
         </aside>
     )
 }
@@ -271,6 +374,8 @@ FloorLeft.propTypes = {
     ideas:            PropTypes.array,
     positionsLoading: PropTypes.bool,
     onOpenPosition:   PropTypes.func,
+    onClosePosition:  PropTypes.func,
+    onClosePositions: PropTypes.func,
     earnings:         PropTypes.array,
     fed:              PropTypes.array,
     ipo:              PropTypes.array,

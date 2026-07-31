@@ -93,6 +93,57 @@
         border-radius: 5px;
     }
 
+    &__error {
+        margin: 0 0 14px;
+        padding: 8px 10px;
+        font-size: 0.74rem;
+        line-height: 1.4;
+        color: #ffb4b4;
+        background: rgba(239, 83, 80, 0.1);
+        border: 1px solid rgba(239, 83, 80, 0.35);
+        border-radius: 5px;
+    }
+
+    // Group close: one line per position (asset · dir · qty · P&L), scrolling once
+    // the book is deeper than a screenful so the footer buttons stay reachable.
+    &__list {
+        margin: 0 0 14px;
+        padding: 0;
+        list-style: none;
+        max-height: 210px;
+        overflow-y: auto;
+        border: 1px solid var(--accent-deep);
+        border-radius: 5px;
+    }
+
+    &__list-item {
+        display: grid;
+        grid-template-columns: 1fr auto 3.5rem 5.5rem;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 10px;
+        font-size: 0.75rem;
+
+        & + & { border-top: 1px solid color-mix(in srgb, var(--accent) 14%, transparent); }
+    }
+
+    &__list-asset {
+        font-family: var(--font-mono);
+        font-weight: 600;
+        color: var(--text-primary);
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &__list-qty, &__list-pnl {
+        text-align: right;
+        font-family: var(--font-mono);
+        color: var(--text-secondary);
+
+        &.pnl--pos { color: #4caf50; }
+        &.pnl--neg { color: #ef5350; }
+    }
+
     &__details {
         margin: 0;
         display: grid;

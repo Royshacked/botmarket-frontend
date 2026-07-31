@@ -96,7 +96,11 @@ const pnlClassOf = n => n == null ? '' : n > 0 ? 'pnl--pos' : n < 0 ? 'pnl--neg'
 // A collapsible summary row (portfolio or account) whose cells align to the position
 // columns below it: name/id + position count in the lead cell, then entered · mode ·
 // broker (live only) · account · P&L $ · P&L %. `variant` drives the indent / sticky.
-function PositionSummaryRow({ variant, label, summary, accountText, expanded, onToggle, showControls }) {
+// `onCloseAll` adds the group-level "Close all" — in the LEAD cell, beside the name it
+// acts on. Not in the controls column: that column is 8% of a fixed-layout table (~40px,
+// sized for one 16px glyph) with `overflow: hidden`, so a worded button gets clipped to a
+// sliver there. The lead cell spans four columns and has the room.
+function PositionSummaryRow({ variant, label, summary, accountText, expanded, onToggle, showControls, onCloseAll, closing }) {
     const brokerLbl = summary.workspace === 'live' ? (BROKER_LABELS[summary.broker] ?? summary.broker ?? '—') : '—'
     return (
         <tr className={`position-group-row position-group-row--${variant}`} onClick={onToggle} title={expanded ? 'Collapse' : 'Expand'}>
@@ -105,6 +109,15 @@ function PositionSummaryRow({ variant, label, summary, accountText, expanded, on
                 <span className="position-group-row__caret">{expanded ? '▾' : '▸'}</span>
                 <span className="position-group-row__name">{label}</span>
                 <span className="position-group-row__count">({summary.count} position{summary.count === 1 ? '' : 's'})</span>
+                {onCloseAll && (
+                    <button
+                        className="position-group-row__close"
+                        disabled={closing}
+                        // The row itself toggles collapse — closing a book must not also fold it.
+                        onClick={e => { e.stopPropagation(); onCloseAll() }}
+                        title="Close every position in this group at market"
+                    >{closing ? 'Closing…' : 'Close all'}</button>
+                )}
             </td>
             <td className="position-group-row__entered">{formatCreatedAtFull(summary.enteredAt) || '—'}</td>
             <td className="position-group-row__mode"><WorkspaceBadge workspace={summary.workspace} /></td>
@@ -125,6 +138,8 @@ PositionSummaryRow.propTypes = {
     expanded:    PropTypes.bool,
     onToggle:    PropTypes.func.isRequired,
     showControls: PropTypes.bool,
+    onCloseAll:  PropTypes.func,
+    closing:     PropTypes.bool,
 }
 
 // The open-positions table. When `ideas` is given (the Positions tab) it groups
@@ -132,8 +147,12 @@ PositionSummaryRow.propTypes = {
 // standalone / idea-less positions stay flat. Without `ideas` (the read-only trade-idea
 // dialog) it renders a single flat list. When neither onClose nor onEditOrders is
 // given it renders read-only (no controls column).
-export function PositionsTable({ positions = [], ideas = [], closingId, onClose, onEditOrders, onOpen }) {
-    const showControls = !!(onClose || onEditOrders)
+//
+// `onCloseGroup({ key, label, positions })` adds a "Close all" to each portfolio (and
+// per-account sub-) summary row — the same market close as the per-row ✕, applied to
+// every position under that header; `closingGroupId` is the key currently in flight.
+export function PositionsTable({ positions = [], ideas = [], closingId, closingGroupId, onClose, onEditOrders, onOpen, onCloseGroup }) {
+    const showControls = !!(onClose || onEditOrders || onCloseGroup)
     const { portfolios, loose } = groupPositions(positions, ideas)
     // Portfolios (and their per-account sub-rows) start collapsed — click to expand.
     // Account sub-rows are keyed `<portfolioId>:<accountId>` so both live in one Set.
@@ -147,6 +166,12 @@ export function PositionsTable({ positions = [], ideas = [], closingId, onClose,
         onOpen,
     })
     const rows = list => list.map(position => <PositionRow key={posKey(position)} {...rowProps(position)} />)
+
+    // Close-all props for a summary row — omitted entirely when the caller can't close.
+    const closeAllProps = (key, label, list) => (onCloseGroup && list.length ? {
+        onCloseAll: () => onCloseGroup({ key, label, positions: list }),
+        closing:    closingGroupId === key,
+    } : {})
 
     return (
         <table className="positions-table">
@@ -178,6 +203,7 @@ export function PositionsTable({ positions = [], ideas = [], closingId, onClose,
                             expanded={isExpanded(group.portfolioId)}
                             onToggle={() => toggle(group.portfolioId)}
                             showControls={showControls}
+                            {...closeAllProps(group.portfolioId, group.name, group.positions)}
                         />
                         {isExpanded(group.portfolioId) && (
                             multiAccount
@@ -194,6 +220,7 @@ export function PositionsTable({ positions = [], ideas = [], closingId, onClose,
                                                 expanded={isExpanded(aKey)}
                                                 onToggle={() => toggle(aKey)}
                                                 showControls={showControls}
+                                                {...closeAllProps(aKey, `${group.name} · Account ${acctNo}`, acct.positions)}
                                             />
                                             {isExpanded(aKey) && rows(acct.positions)}
                                         </Fragment>
@@ -212,10 +239,12 @@ export function PositionsTable({ positions = [], ideas = [], closingId, onClose,
 }
 
 PositionsTable.propTypes = {
-    positions:    PropTypes.array,
-    ideas:        PropTypes.array,
-    closingId:    PropTypes.string,
-    onClose:      PropTypes.func,
-    onEditOrders: PropTypes.func,
-    onOpen:       PropTypes.func,
+    positions:      PropTypes.array,
+    ideas:          PropTypes.array,
+    closingId:      PropTypes.string,
+    closingGroupId: PropTypes.string,
+    onClose:        PropTypes.func,
+    onEditOrders:   PropTypes.func,
+    onOpen:         PropTypes.func,
+    onCloseGroup:   PropTypes.func,
 }

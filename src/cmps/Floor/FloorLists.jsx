@@ -7,6 +7,7 @@ import {
 } from '../TradeIdeas/tradeIdea.utils.js'
 import { EditButton, DeleteButton } from '../EntityCard/EntityCard.jsx'
 import { tradeFloorItems } from './floor.utils.js'
+import { RowHost } from './RowHost.jsx'
 import { CoverageActions } from '../Radar/CoverageActions.jsx'
 import './Floor.scss'
 
@@ -63,29 +64,6 @@ Desk.propTypes = {
 
 const Empty = ({ children }) => <p className="floor-empty">{children}</p>
 Empty.propTypes = { children: PropTypes.node }
-
-// ── The row shell that carries actions ────────────────────────────────────────
-//
-// A row IS a <button> and a button cannot contain a button, so edit/delete ride in a SIBLING
-// overlay pinned to the row's right edge rather than as two more cells inside it. That also keeps
-// the row grid — which every desk shares — exactly as it was: nothing shifts when the controls
-// appear, because they were never in the flow.
-//
-// Reveal is on hover OR focus-within (see Floor.scss): hover alone would strand the buttons for
-// the keyboard, since they live inside the very row you have to reach to show them.
-//
-// Same split as everywhere else in the app — the shell is shared, the JUDGMENT isn't. WHICH
-// actions a row offers, what they're called, and when they lock stays with the desk that owns
-// the entity, because only that desk knows what deleting one of its rows would orphan.
-function RowHost({ actions, children }) {
-    return (
-        <div className="floor-rowhost">
-            {children}
-            {actions && <span className="floor-rowhost__actions">{actions}</span>}
-        </div>
-    )
-}
-RowHost.propTypes = { actions: PropTypes.node, children: PropTypes.node }
 
 // ── Trading floor ─────────────────────────────────────────────────────────────
 
