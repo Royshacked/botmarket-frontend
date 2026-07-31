@@ -13,6 +13,7 @@ import { AgentChatInput } from '../AgentChatInput.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
+import { waitingLabel } from '../ToolStatusChip/waitingLabel.js'
 import { CoverageChips } from './CoverageChips.jsx'
 import { SetupSummary } from './SetupSummary.jsx'
 import { CandidatePicker } from './CandidatePicker.jsx'
@@ -305,7 +306,7 @@ export function MentorPanel({
                     </AgentIntro>
                 )}
                 {messages.map((msg, i) => <MessageBubble key={i} msg={msg} />)}
-                {chat.isLoading && <ToolStatusChip label={chat.streamStatus} />}
+                {chat.isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus: chat.streamStatus })} />}
                 {(chat.isLoading || messages.some(m => m.role === 'assistant' && m.content)) && (
                     <AgentTurnTag agent={AGENTS.mentor} active={chat.isLoading} />
                 )}

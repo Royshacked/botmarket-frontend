@@ -1,9 +1,10 @@
 // The ONE waiting mark: bold accent text with a slow opacity pulse. Every panel's
 // in-bubble "thinking…" and its below-thread tool status both render this — they are
 // the same state, so a panel-local copy would only be a way for them to drift apart.
+// No margin of its own: every thread that renders it is a flex column with its own `gap`, so a
+// margin here only stacked on top of that (and made waiting bubbles taller than settled ones).
 .tool-status-chip {
     display: inline-block;
-    margin: 4px 0 8px;
     font-family: var(--font-sans);
     font-size: 16px;
     font-weight: 700;

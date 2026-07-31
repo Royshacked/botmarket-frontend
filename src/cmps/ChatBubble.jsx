@@ -3,7 +3,6 @@ import { ChatMarkdown } from './ChatMarkdown.jsx'
 import { ChatReasoning } from './ChatReasoning.jsx'
 import { ChatPhaseHeading } from './ChatPhaseHeading.jsx'
 import { ChatChart } from './ChatChart.jsx'
-import { ToolStatusChip } from './ToolStatusChip/ToolStatusChip.jsx'
 // The bubble styles live in PortfolioPanel.scss under the shared `portfolio-panel__*`
 // namespace (every agent panel already renders into it). Imported here so this
 // component's styling is explicit rather than relying on whichever panel loaded first.
@@ -16,14 +15,12 @@ import './PortfolioPanel/PortfolioPanel.scss'
  * chips render — so those are the props.
  *
  * AxlChatPanel deliberately keeps its own bubble: different SCSS namespace
- * (`axl-chat__*`). The waiting placeholder is NOT bespoke though — every panel
- * renders the one shared ToolStatusChip, so "thinking…" and "fetching…" are the
- * same mark.
+ * (`axl-chat__*`). The waiting mark is not either one's business — it renders once
+ * per thread, below it, from the shared ToolStatusChip + waitingLabel.
  *
  * @param {object}   msg            message row ({ role, content, reasoning, streaming, phase, tickers })
  * @param {object}   [phaseLabels]  phase number → label, for `role: 'phase'` rows
  * @param {number}   [phaseTotal]   how many phases this agent has (renders "n / total")
- * @param {string}   [placeholder]  what to show while streaming with no content yet
  * @param {Function} [onTickerSelect] omit to hide ticker chips entirely
  * @param {string}   [tickerHint]   hover hint on a ticker chip
  */
@@ -31,7 +28,6 @@ export function ChatBubble({
     msg,
     phaseLabels    = null,
     phaseTotal     = 0,
-    placeholder    = 'thinking…',
     onTickerSelect = null,
     tickerHint     = 'View →',
 }) {
@@ -52,11 +48,14 @@ export function ChatBubble({
 
     const reasoning = <ChatReasoning text={msg.reasoning} live={msg.streaming && !msg.content} />
 
+    // A turn with no words yet carries no mark of its own — the waiting label renders ONCE, below
+    // the thread (see waitingLabel). Reasoning still belongs to the turn, so a bubble appears only
+    // when there is some; otherwise this row is nothing at all rather than an empty box.
     if (!msg.content && msg.streaming) {
+        if (!msg.reasoning) return null
         return (
             <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant">
                 {reasoning}
-                <ToolStatusChip label={placeholder} />
             </div>
         )
     }
@@ -97,7 +96,6 @@ ChatBubble.propTypes = {
     msg:            PropTypes.object.isRequired,
     phaseLabels:    PropTypes.object,
     phaseTotal:     PropTypes.number,
-    placeholder:    PropTypes.string,
     onTickerSelect: PropTypes.func,
     tickerHint:     PropTypes.string,
 }

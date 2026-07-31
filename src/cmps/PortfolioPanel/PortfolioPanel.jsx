@@ -13,6 +13,7 @@ import { AgentChatInput } from '../AgentChatInput.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
+import { waitingLabel } from '../ToolStatusChip/waitingLabel.js'
 import './PortfolioPanel.scss'
 
 const PHASE_LABELS = { 1: 'Mandate', 2: 'Macro', 3: 'Architecture', 4: 'Selection', 5: 'Sizing', 6: 'Review' }
@@ -464,7 +465,7 @@ export function PortfolioPanel({
                 {messages.map((msg, i) => (
                     <MessageBubble key={i} msg={msg} onTickerSelect={onTickerSelect} />
                 ))}
-                {isLoading && <ToolStatusChip label={streamStatus} />}
+                {isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus })} />}
                 {pendingPlan && !planReady && !planHasSize && (
                     <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant portfolio-panel__bubble--warning">
                         ⚠️ I need a position size before this plan can be generated. Tell me the total capital you want to deploy and I&apos;ll size each position by its allocation — or give me a quantity per asset.

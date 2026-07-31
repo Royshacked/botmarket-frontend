@@ -12,6 +12,7 @@ import { AgentChatInput } from '../AgentChatInput.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
+import { waitingLabel } from '../ToolStatusChip/waitingLabel.js'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import './ScannerPanel.scss'
 
@@ -100,7 +101,6 @@ const MessageBubble = ({ msg, onTickerSelect }) => (
         msg={msg}
         phaseLabels={SCAN_PHASE_LABELS}
         phaseTotal={4}
-        placeholder="scanning…"
         onTickerSelect={onTickerSelect}
     />
 )
@@ -385,7 +385,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                     )
                 )}
                 {messages.map((msg, i) => <MessageBubble key={i} msg={msg} onTickerSelect={onTickerSelect} />)}
-                {chat.isLoading && <ToolStatusChip label={chat.streamStatus} />}
+                {chat.isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus: chat.streamStatus, placeholder: 'scanning…' })} />}
 
                 {(chat.isLoading || messages.some(m => m.role === 'assistant' && m.content)) && (
                     <AgentTurnTag agent={AGENTS.scanner} active={chat.isLoading} />

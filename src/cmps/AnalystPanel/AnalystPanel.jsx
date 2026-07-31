@@ -9,13 +9,14 @@ import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
 import { ChatBubble } from '../ChatBubble.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
+import { waitingLabel } from '../ToolStatusChip/waitingLabel.js'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import './AnalystPanel.scss'
 
 const ANALYST_PHASE_LABELS = { 1: 'Profile', 2: 'The Street', 3: 'Our view', 4: 'Valuation', 5: 'The call', 6: 'Coverage' }
 
 const MessageBubble = ({ msg }) => (
-    <ChatBubble msg={msg} phaseLabels={ANALYST_PHASE_LABELS} phaseTotal={6} placeholder="researching…" />
+    <ChatBubble msg={msg} phaseLabels={ANALYST_PHASE_LABELS} phaseTotal={6} />
 )
 MessageBubble.propTypes = { msg: PropTypes.object.isRequired }
 
@@ -212,7 +213,7 @@ export function AnalystPanel({ scanResult = null, editCoverage = null, seed = nu
                     </div>
                 )}
                 {messages.map((msg, i) => <MessageBubble key={i} msg={msg} />)}
-                {isLoading && <ToolStatusChip label={chat.streamStatus} />}
+                {isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus: chat.streamStatus, placeholder: 'researching…' })} />}
             </AgentMessages>
 
             {!isLoading && pendingCoverage && (

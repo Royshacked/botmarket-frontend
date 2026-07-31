@@ -12,6 +12,7 @@ import { ChatInputRow } from '../ChatInputRow.jsx'
 import { ChatMarkdown } from '../ChatMarkdown.jsx'
 import { ChatReasoning } from '../ChatReasoning.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
+import { waitingLabel } from '../ToolStatusChip/waitingLabel.js'
 import { ChatChartDock } from '../ChatChartDock.jsx'
 import { ObjectiveChip } from './ObjectiveChip.jsx'
 import { ChatChart } from '../ChatChart.jsx'
@@ -37,8 +38,8 @@ function firstName(fullname = '') {
     return n || ''
 }
 
-// Axl keeps its own bubble rather than the shared ChatBubble: its own SCSS namespace, and a
-// ToolStatusChip while thinking instead of a text placeholder.
+// Axl keeps its own bubble rather than the shared ChatBubble — its own SCSS namespace. The waiting
+// mark is not its business either way: that renders once, below the thread, like every other desk.
 export function MessageBubble({ msg }) {
     // A history-only note (a wordless turn that docked a chart) — nothing for the user to read.
     if (msg.hidden) return null
@@ -49,16 +50,15 @@ export function MessageBubble({ msg }) {
     if (msg.role === 'user') {
         return <div className="axl-hub__bubble axl-hub__bubble--user">{msg.content}</div>
     }
-    // Before any words land the turn is just a status chip — no bubble chrome around it,
-    // so it reads the same as the bare tool-status chip the thread renders below.
+    // Before any words land the turn carries no mark of its own — the waiting label renders once,
+    // below the thread. Reasoning still belongs to the turn, and shows without the bubble's chrome;
+    // with neither there is nothing to draw at all.
     const pending = msg.streaming && !msg.content
+    if (pending && !msg.reasoning) return null
     return (
         <div className={`axl-hub__bubble axl-hub__bubble--assistant${pending ? ' axl-hub__bubble--pending' : ''}`}>
             <ChatReasoning text={msg.reasoning} live={pending} />
-            {pending
-                ? <ToolStatusChip label="thinking…" />
-                : <ChatMarkdown>{msg.content ?? ''}</ChatMarkdown>
-            }
+            {!pending && <ChatMarkdown>{msg.content ?? ''}</ChatMarkdown>}
         </div>
     )
 }
@@ -299,7 +299,7 @@ export function AxlHub({ user, onPick }) {
                 {hasThread && (
                     <div className="axl-hub__thread">
                         {messages.map((msg, i) => <MessageBubble key={i} msg={msg} />)}
-                        {isLoading && chat.streamStatus && <ToolStatusChip label={chat.streamStatus} />}
+                        {isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus: chat.streamStatus })} />}
                         <div ref={messagesEndRef} />
                     </div>
                 )}

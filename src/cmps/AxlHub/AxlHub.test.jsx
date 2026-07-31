@@ -129,14 +129,21 @@ describe('AxlHub — the goal Axl took down', () => {
     })
 })
 
-// Thinking / working / fetching are ONE state told three ways — the in-bubble "thinking…" used to
-// wear a border while the tool-status chip below the thread didn't.
+// Thinking / working / fetching are ONE state. Axl's bubble no longer draws it at all — the mark
+// renders once below the thread (see ToolStatusChip.test.jsx). What's left here is the bubble's own
+// job: don't leave an empty bordered box where the wait used to be.
 describe('AxlHub — the working indicator', () => {
-    it('a wordless streaming turn drops the bubble chrome, so the chip stands bare', () => {
+    it('a wordless streaming turn draws nothing — the mark lives below the thread', () => {
         const { container } = render(<MessageBubble msg={{ role: 'assistant', streaming: true, content: '' }} />)
 
-        expect(screen.getByText('thinking…')).toBeTruthy()
+        expect(container.innerHTML).toBe('')
+    })
+
+    it('a wordless turn that DID reason shows it, without the bubble chrome', () => {
+        const { container } = render(<MessageBubble msg={{ role: 'assistant', streaming: true, content: '', reasoning: 'which desk owns this' }} />)
+
         expect(container.querySelector('.axl-hub__bubble--pending')).toBeTruthy()
+        expect(container.querySelector('.chat-reasoning')).toBeTruthy()
     })
 
     it('once words land the bubble comes back', () => {

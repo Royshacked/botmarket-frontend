@@ -7,6 +7,7 @@ import { ChatInputRow } from '../ChatInputRow.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
+import { waitingLabel } from '../ToolStatusChip/waitingLabel.js'
 import { ConvictionChip } from '../ConvictionChip/ConvictionChip.jsx'
 import { ChatChart } from '../ChatChart.jsx'
 import { ChatChartDock } from '../ChatChartDock.jsx'
@@ -234,15 +235,14 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                         <ChatPhaseHeading key={i} phase={msg.phase} label={PHASE_LABELS[msg.phase]} total={5} />
                     ) : msg.type === 'chart' ? (
                         <ChatChart key={i} msg={msg} />
-                    ) : (
+                    // A turn with no words yet draws nothing — its waiting mark renders once, below
+                    // the thread. An empty bubble here would still cost the column's 10px gap.
+                    ) : msg.role === 'assistant' && msg.streaming && !msg.content && !msg.reasoning ? null : (
                         <div key={i} className={`chat-panel__bubble chat-panel__bubble--${msg.role}`}>
                             {msg.role === 'assistant' ? (
                                 <>
                                     <ChatReasoning text={msg.reasoning} live={msg.streaming && !msg.content} />
                                     <ChatMarkdown>{(msg.content ?? '').replace(/<asset>[\s\S]*?<\/asset>/g, '').trimStart()}</ChatMarkdown>
-                                    {msg.streaming && !msg.content && (
-                                        <ToolStatusChip label="thinking…" />
-                                    )}
                                 </>
                             ) : (
                                 msg.content
@@ -251,7 +251,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                     )
                 ))}
 
-                {isLoading && <ToolStatusChip label={streamStatus} />}
+                {isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus })} />}
 
                 {/* Typing dots only when loading but no streaming message yet */}
                 {isLoading && !messages.some(m => m.streaming) && (
