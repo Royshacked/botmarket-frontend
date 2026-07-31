@@ -24,7 +24,6 @@ import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
 import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace, positionOpenTarget, openCallPopup, openIdeaPopup, matchPositionsForIdea } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { TradeTicket } from '../cmps/TradeTicket/TradeTicket.jsx'
-import { MonitorDashboard }  from '../cmps/MonitorDashboard/MonitorDashboard.jsx'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
@@ -374,7 +373,6 @@ export function MainPage() {
     const [pendingRebalance,  setPendingRebalance]  = useState(null)
     const [applyingRebalance, setApplyingRebalance] = useState(false)
     const [deletingIdea, setDeletingIdea] = useState(false)
-    const [mobileChatOpen, setMobileChatOpen] = useState(false)
     const [returningToAxl, setReturningToAxl] = useState(false)
     // Bumped each time we head home to axl so the Atlas/Argus panels remount fresh
     // — going back to axl and re-entering an agent always starts a new chat.
@@ -2158,57 +2156,12 @@ export function MainPage() {
                     )}
                 </div>
 
-                {/* ── Mobile monitor dashboard ── */}
-                <MonitorDashboard
-                    ideas={ideas.filter(i => ideaWorkspace(i) === workspace).filter(i => i.status !== 'closed')}
-                    onDelete={handleDeleteIdea}
-                    onEdit={handleEditIdea}
-                />
+                {/* ── Mobile ──
+                    No separate mobile surface: the workspace above collapses to its chat column
+                    (RootCmp.scss, < 768px), so a phone gets the header and the live desks. The
+                    monitor dashboard + chat FAB/sheet that used to stand in here are gone — the
+                    sheet opened the archived idea chat, which can no longer send. */}
             </main>
-
-            {/* ── Mobile chat: floating trigger + full-screen sheet ── */}
-            <button
-                className="mobile-chat-fab"
-                onClick={() => setMobileChatOpen(true)}
-                aria-label="Build a trade idea"
-            >
-                <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <line x1="10" y1="5" x2="10" y2="2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                    <circle cx="10" cy="1.5" r="1" fill="currentColor"/>
-                    <rect x="2" y="5" width="16" height="12" rx="3" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-                    <circle cx="7" cy="10" r="1.8" fill="currentColor"/>
-                    <circle cx="13" cy="10" r="1.8" fill="currentColor"/>
-                    <rect x="6.5" y="13" width="7" height="1.5" rx="0.75" fill="currentColor"/>
-                </svg>
-            </button>
-
-            {mobileChatOpen && (
-                <div className="mobile-chat-sheet">
-                    <div className="mobile-chat-sheet__bar">
-                        <span className="mobile-chat-sheet__title">Build idea</span>
-                        <div className="mobile-chat-sheet__bar-right">
-                            <AccountSelector
-                                accounts={availableAccounts}
-                                selectedIds={selectedAccounts}
-                                onChange={setSelectedAccounts}
-                                mainAccountId={mainAccountId}
-                                onMainChange={setMainAccountId}
-                            />
-                            <button
-                                className="mobile-chat-sheet__close"
-                                onClick={() => setMobileChatOpen(false)}
-                                aria-label="Close"
-                            >✕</button>
-                        </div>
-                    </div>
-                    <div className="mobile-chat-sheet__body">
-                        <ChatPanel
-                            {...chatPanelProps}
-                            onGenerate={async () => { await handleGenerate(); setMobileChatOpen(false) }}
-                        />
-                    </div>
-                </div>
-            )}
 
             {confirmIdea && confirmOrders.length > 0 && (
                 <OrderConfirmDialog

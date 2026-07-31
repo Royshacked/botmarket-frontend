@@ -201,12 +201,67 @@
     }
 
     // ── right cluster ──
+    // `__right` is the anchor; `__cluster` holds the controls (workspace switch · messages ·
+    // profile). On desktop the cluster IS the bar's right end; on mobile the same markup drops
+    // into a sheet under `__burger` (see the mobile block at the bottom) — one set of controls,
+    // re-laid-out, never a second copy.
     &__right {
+        position: relative;
         display: flex;
         align-items: center;
         gap: 8px;
         margin-left: auto;
         height: 100%;
+    }
+
+    &__cluster {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 100%;
+    }
+
+    // Hamburger — hidden until the mobile breakpoint. Circular, matching the chat/profile
+    // buttons it stands in for.
+    &__burger {
+        display: none;
+        position: relative;
+        align-items: center;
+        justify-content: center;
+        width: 42px;
+        height: 42px;
+        cursor: pointer;
+        border-radius: 50%;
+        color: var(--axl-birch);
+        background: radial-gradient(circle at 50% 44%,
+            color-mix(in srgb, var(--accent-light) 20%, transparent),
+            color-mix(in srgb, var(--accent)       10%, transparent) 60%,
+            color-mix(in srgb, var(--accent-light) 13%, transparent));
+        border: 1px solid color-mix(in srgb, var(--accent-light) 42%, transparent);
+        transition: box-shadow 0.4s var(--axl-ease), border-color 0.25s var(--axl-ease), color 0.25s var(--axl-ease);
+
+        svg { width: 22px; height: 22px; }
+
+        &.is-open,
+        &:hover {
+            border-color: color-mix(in srgb, var(--accent-light) 70%, transparent);
+            color: var(--axl-aurora);
+            box-shadow: 0 0 10px rgba(116, 201, 174, 0.4);
+        }
+        &:focus-visible { outline: 2px solid var(--axl-aurora); outline-offset: 2px; }
+    }
+
+    // Messages lives inside the sheet on mobile, so its unread count has to reach the bar —
+    // a dot, not the number: the count is one tap away, the fact that there IS one isn't.
+    &__burger-dot {
+        position: absolute;
+        top: 2px;
+        right: 3px;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--color-short);
+        box-shadow: 0 0 0 2px var(--bg-base);
     }
 
     &__status {
@@ -351,6 +406,46 @@
         &__who { display: none; }
         &__inner { gap: 14px; }
     }
+
+    // ── Mobile: the same header, scaled, with the nav collapsed ───────────────
+    // The brand keeps its proportions at a smaller size — the chat below needs the height,
+    // and a 108px bar on a phone is a third of the fold. (Drop the --axl-h line to keep the
+    // header at full desktop size.)
+    @media (max-width: 767px) {
+        --axl-h: 74px;
+
+        &__inner { padding: 0 12px; gap: 10px; }
+        &__mark  { width: 46px; height: 46px; }
+        &__wordmark { font-size: 1.85rem; letter-spacing: 0.14em; }
+
+        &__burger { display: inline-flex; }
+
+        // The cluster becomes a sheet hanging off the hamburger: the workspace switch on its
+        // own row, then messages + profile.
+        &__cluster {
+            display: none;
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            z-index: 3;
+            height: auto;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 10px;
+            min-width: 208px;
+            padding: 12px;
+            border-radius: 12px;
+            background: var(--axl-panel);
+            border: 1px solid var(--axl-line);
+            box-shadow: 0 14px 34px -12px rgba(0, 0, 0, 0.6);
+
+            &.is-open { display: flex; }
+
+            .app-header-axl__modes { flex: 1 0 100%; justify-content: center; }
+            .app-header-axl__mode  { flex: 1; padding: 7px 8px; }
+        }
+    }
+
     @media (max-width: 480px) {
         &__divider { display: none; }
     }

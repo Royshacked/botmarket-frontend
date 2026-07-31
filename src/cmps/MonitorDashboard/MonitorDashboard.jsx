@@ -5,6 +5,12 @@ import { TradeIdeaDialog } from '../TradeIdeas/TradeIdeaDialog.jsx'
 import { brokerService }   from '../../services/broker/broker.service.remote.js'
 import './MonitorDashboard.scss'
 
+// ⚠ UNMOUNTED 2026-07-31 — "Monitor Mode" was the whole of the mobile app: below 768px the
+// workspace was hidden and this dashboard stood in its place. Mobile now shows the header +
+// the chat column (the live desks), so MainPage no longer renders this and nothing else does.
+// Kept intact rather than deleted — it is the only card list built for a phone, and a mobile
+// book/monitor surface would start from here.
+
 const BROKER_LABELS = {
     ctrader: 'cTrader',
     ibkr:    'IBKR',
