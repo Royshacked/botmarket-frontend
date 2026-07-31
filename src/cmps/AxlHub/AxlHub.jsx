@@ -49,10 +49,13 @@ export function MessageBubble({ msg }) {
     if (msg.role === 'user') {
         return <div className="axl-hub__bubble axl-hub__bubble--user">{msg.content}</div>
     }
+    // Before any words land the turn is just a status chip — no bubble chrome around it,
+    // so it reads the same as the bare tool-status chip the thread renders below.
+    const pending = msg.streaming && !msg.content
     return (
-        <div className="axl-hub__bubble axl-hub__bubble--assistant">
-            <ChatReasoning text={msg.reasoning} live={msg.streaming && !msg.content} />
-            {msg.streaming && !msg.content
+        <div className={`axl-hub__bubble axl-hub__bubble--assistant${pending ? ' axl-hub__bubble--pending' : ''}`}>
+            <ChatReasoning text={msg.reasoning} live={pending} />
+            {pending
                 ? <ToolStatusChip label="thinking…" />
                 : <ChatMarkdown>{msg.content ?? ''}</ChatMarkdown>
             }

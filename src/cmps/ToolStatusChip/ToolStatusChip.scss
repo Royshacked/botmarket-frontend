@@ -1,5 +1,6 @@
-// Matches the chat panels' "thinking…" indicator (ChatPanel __thinking):
-// bold accent text with a slow opacity pulse.
+// The ONE waiting mark: bold accent text with a slow opacity pulse. Every panel's
+// in-bubble "thinking…" and its below-thread tool status both render this — they are
+// the same state, so a panel-local copy would only be a way for them to drift apart.
 .tool-status-chip {
     display: inline-block;
     margin: 4px 0 8px;

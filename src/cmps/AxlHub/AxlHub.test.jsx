@@ -11,7 +11,7 @@ vi.mock('../../services/axl/axl.service.remote', () => ({
 vi.mock('../../customHooks/useMicInput.js', () => ({
     useMicInput: () => ({ isRecording: false, isTranscribing: false, toggle: vi.fn(), cancel: vi.fn() }),
 }))
-const { AxlHub } = await import('./AxlHub.jsx')
+const { AxlHub, MessageBubble } = await import('./AxlHub.jsx')
 
 // Reply with a desk hand-off, the way the server sends one: the tag is already parsed off, so the
 // client sees `route` (which desk) + `routeSymbol` (the name it should open on).
@@ -126,5 +126,23 @@ describe('AxlHub — the goal Axl took down', () => {
         await act(async () => { fireEvent.click(screen.getByTitle(/clear/i)) })
 
         expect(screen.queryByText(/\+5% by Aug 6/)).toBe(null)
+    })
+})
+
+// Thinking / working / fetching are ONE state told three ways — the in-bubble "thinking…" used to
+// wear a border while the tool-status chip below the thread didn't.
+describe('AxlHub — the working indicator', () => {
+    it('a wordless streaming turn drops the bubble chrome, so the chip stands bare', () => {
+        const { container } = render(<MessageBubble msg={{ role: 'assistant', streaming: true, content: '' }} />)
+
+        expect(screen.getByText('thinking…')).toBeTruthy()
+        expect(container.querySelector('.axl-hub__bubble--pending')).toBeTruthy()
+    })
+
+    it('once words land the bubble comes back', () => {
+        const { container } = render(<MessageBubble msg={{ role: 'assistant', streaming: true, content: 'Taking you to Prometheus.' }} />)
+
+        expect(container.querySelector('.axl-hub__bubble--pending')).toBe(null)
+        expect(container.querySelector('.axl-hub__bubble--assistant')).toBeTruthy()
     })
 })

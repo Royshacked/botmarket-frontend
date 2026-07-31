@@ -332,6 +332,15 @@
         color: var(--text-primary);
         border-bottom-left-radius: 3px;
     }
+
+    // Nothing to frame while the turn is still only a status chip — a bordered
+    // "thinking…" next to a bare "fetching…" was the same state drawn two ways.
+    &--pending {
+        max-width: 100%;
+        padding: 0;
+        background: none;
+        border: none;
+    }
 }
 
 // ── summoning state (axl calls the chosen agent before its chat opens) ──

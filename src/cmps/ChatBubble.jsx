@@ -3,6 +3,7 @@ import { ChatMarkdown } from './ChatMarkdown.jsx'
 import { ChatReasoning } from './ChatReasoning.jsx'
 import { ChatPhaseHeading } from './ChatPhaseHeading.jsx'
 import { ChatChart } from './ChatChart.jsx'
+import { ToolStatusChip } from './ToolStatusChip/ToolStatusChip.jsx'
 // The bubble styles live in PortfolioPanel.scss under the shared `portfolio-panel__*`
 // namespace (every agent panel already renders into it). Imported here so this
 // component's styling is explicit rather than relying on whichever panel loaded first.
@@ -15,7 +16,9 @@ import './PortfolioPanel/PortfolioPanel.scss'
  * chips render — so those are the props.
  *
  * AxlChatPanel deliberately keeps its own bubble: different SCSS namespace
- * (`axl-chat__*`) and a ToolStatusChip placeholder instead of a text span.
+ * (`axl-chat__*`). The waiting placeholder is NOT bespoke though — every panel
+ * renders the one shared ToolStatusChip, so "thinking…" and "fetching…" are the
+ * same mark.
  *
  * @param {object}   msg            message row ({ role, content, reasoning, streaming, phase, tickers })
  * @param {object}   [phaseLabels]  phase number → label, for `role: 'phase'` rows
@@ -53,7 +56,7 @@ export function ChatBubble({
         return (
             <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant">
                 {reasoning}
-                <span className="portfolio-panel__thinking">{placeholder}</span>
+                <ToolStatusChip label={placeholder} />
             </div>
         )
     }

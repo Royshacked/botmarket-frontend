@@ -252,15 +252,8 @@
         letter-spacing: 0.03em;
     }
 
-    // ── Thinking indicator ───────────────────────────────────────────────
-    &__thinking {
-        display: inline-block;
-        font-family: var(--font-sans);
-        font-size: 16px;
-        font-weight: 700;
-        color: var(--accent);
-        animation: pp-thinking 1.6s ease-in-out infinite;
-    }
+    // The thinking indicator is the shared ToolStatusChip (ToolStatusChip.scss) — it is the
+    // same state as the tool-status line below the thread, so it is the same mark.
 
     // ── Build summary (portfolio preview) ────────────────────────────────
     &__build-summary {
@@ -470,11 +463,6 @@
 @keyframes pp-building {
     0%, 100% { opacity: 0.7; transform: scale(1);    box-shadow: 0 0 0 0   transparent;  }
     50%       { opacity: 1;   transform: scale(1.35); box-shadow: 0 0 5px 1px currentColor; }
-}
-
-@keyframes pp-thinking {
-    0%, 100% { opacity: 0.25; }
-    50%       { opacity: 1;   }
 }
 
 @keyframes pp-build-in {

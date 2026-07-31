@@ -241,7 +241,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                                     <ChatReasoning text={msg.reasoning} live={msg.streaming && !msg.content} />
                                     <ChatMarkdown>{(msg.content ?? '').replace(/<asset>[\s\S]*?<\/asset>/g, '').trimStart()}</ChatMarkdown>
                                     {msg.streaming && !msg.content && (
-                                        <span className="chat-panel__thinking">thinking…</span>
+                                        <ToolStatusChip label="thinking…" />
                                     )}
                                 </>
                             ) : (
