@@ -169,7 +169,7 @@
         max-width: 78%;
         padding: 10px 14px;
         border-radius: 4px;
-        font-size: 13px;
+        font-size: var(--chat-text);
         line-height: 1.6;
         word-break: break-word;
 
@@ -179,7 +179,6 @@
             color: var(--accent-light);
             border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
             border-bottom-right-radius: 1px;
-            font-size: 16px;
         }
 
         &--assistant {
@@ -188,7 +187,6 @@
             background: none;
             color: var(--text-subtle);
             padding-left: 0;
-            font-size: 16px;
 
             p          { margin: 0 0 0.5em; &:last-child { margin-bottom: 0; } }
             ul, ol     { margin: 0 0 0.5em; padding-left: 1.4em; }

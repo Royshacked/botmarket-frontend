@@ -314,7 +314,7 @@
     max-width: 80%;
     padding: 8px 12px;
     border-radius: 10px;
-    font-size: 13px;
+    font-size: var(--chat-text);
     line-height: 1.55;
     word-break: break-word;
 
@@ -325,21 +325,22 @@
         border-bottom-right-radius: 3px;
     }
 
+    // No frame around what the desk says — matching every other agent chat
+    // (chat-panel__bubble--assistant, portfolio-panel__bubble--assistant). The USER's
+    // turn keeps its accent fill; that contrast is what separates the two voices, so a
+    // box around the reply was doing the same job twice.
     &--assistant {
         align-self: flex-start;
-        background: var(--bg-card);
-        border: 1px solid var(--border);
+        background: none;
+        border: none;
         color: var(--text-primary);
-        border-bottom-left-radius: 3px;
+        padding-left: 0;
     }
 
-    // Nothing to frame while the turn is still only a status chip — a bordered
-    // "thinking…" next to a bare "fetching…" was the same state drawn two ways.
+    // A wordless turn (reasoning only) also drops the padding the text needs.
     &--pending {
         max-width: 100%;
         padding: 0;
-        background: none;
-        border: none;
     }
 }
 

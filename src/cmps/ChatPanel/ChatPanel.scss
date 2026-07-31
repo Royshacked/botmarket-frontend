@@ -314,7 +314,7 @@
         max-width: 78%;
         padding: 10px 14px;
         border-radius: 4px;
-        font-size: 13px;
+        font-size: var(--chat-text);
         line-height: 1.6;
         word-break: break-word;
 
@@ -323,7 +323,6 @@
             background: var(--accent-deep);
             color: var(--accent-light);
             border-bottom-right-radius: 1px;
-            font-size: 16px;
         }
 
         &--assistant {
@@ -333,7 +332,6 @@
             color: var(--text-subtle);
             border: none;
             padding-left: 0;
-            font-size: 16px;
 
             p          { margin: 0 0 0.5em; &:last-child { margin-bottom: 0; } }
             ul, ol     { margin: 0 0 0.5em; padding-left: 1.4em; }

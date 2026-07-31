@@ -250,6 +250,15 @@
     // ~38px is not.
     --header-h: 54px;
 
+    // ── Chat body text — one number, every desk ───────────────────────────────
+    // What an agent SAYS, in all seven chats: .chat-panel__bubble (Idea), the shared
+    // .portfolio-panel__bubble (Atlas/Kairos/Argus/Mentor/Analyst) and .axl-hub__bubble.
+    // Held here for the same reason as --header-h: three stylesheets each owning a copy is
+    // how Axl ended up reading at 13px while every other desk sat at 16px.
+    // This is the app's primary reading surface — long-form analysis a user works through —
+    // so it runs a step above UI text rather than matching it.
+    --chat-text: 17px;
+
     // Header wave gradient stops (the calm-water line at the header's bottom edge).
     // Same green→teal→cyan→blue→violet signature as the aurora, derived from the
     // shared --aurora-hue with fixed offsets, so the wave rotates with the accent/
