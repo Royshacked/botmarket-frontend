@@ -722,6 +722,9 @@ $sym-status-colors: (
         font-family: var(--font-mono);
         letter-spacing: 0.04em;
     }
+    // Cap the name so a long book title can't push the count / Close all out of the
+    // (clipped) lead cell.
+    &__name { display: inline-block; max-width: 45%; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
     &__count  { color: var(--text-muted); font-size: 0.7rem; margin-left: 6px; }
     &__entered { color: var(--text-muted); font-size: 0.7rem; }
     &__mode { overflow: visible; }
@@ -734,6 +737,33 @@ $sym-status-colors: (
         &.pnl--neg { color: #ef5350; }
     }
     &__pnl-pct { font-size: 0.7rem; }
+
+    // Group-level close, inline in the lead cell after the position count. Worded and
+    // outlined, not an ✕, so it can't be mistaken for the single-row close beneath it —
+    // and it reads as destructive (red) before it's clicked, not only on hover.
+    &__close {
+        margin-left: 10px;
+        vertical-align: middle;
+        background: color-mix(in srgb, var(--color-short) 12%, transparent);
+        border: 1px solid color-mix(in srgb, var(--color-short) 40%, transparent);
+        border-radius: 4px;
+        color: var(--color-short);
+        font-family: var(--font-mono);
+        font-size: 0.6rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        padding: 1px 7px;
+        cursor: pointer;
+        transition: background 0.12s, border-color 0.12s;
+
+        &:hover:not(:disabled) {
+            background: color-mix(in srgb, var(--color-short) 24%, transparent);
+            border-color: var(--color-short);
+        }
+        &:disabled { opacity: 0.5; cursor: default; }
+        &:focus { outline: none; }
+    }
 }
 
 // The portfolios table's column-header row is sticky at the top; give it a fixed

@@ -488,7 +488,7 @@ export function MainPage() {
     const { user } = useAuth()
     const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
     const { workspace, setWorkspace } = useWorkspaceMode(user?._id)
-    const { positions, loading: positionsLoading, refresh: refreshPositions, closePosition } = usePositions()
+    const { positions, loading: positionsLoading, refresh: refreshPositions, closePosition, closePositions } = usePositions()
     const { ideas, setIdeas, loadIdeas, loading: ideasLoading, handleStatusChange, preEntryPrompt, setPreEntryPrompt } = useTradeIdeas()
     // NOTE: the chart used to take over this page's lists panel (and the Floor's right column). It
     // now docks at the bottom of the chat that asked for it (cmps/ChatChartDock.jsx) — the same
@@ -1740,6 +1740,10 @@ export function MainPage() {
                         so the trial can't regress the live layout by rearranging it. */}
                     {floorMode && (
                         <div className="workspace__left">
+                            {/* No close handlers on purpose: the Floor is where you WATCH the book.
+                                Closing lives in the Positions tab and the position pop-outs, so there
+                                is one place to go to act on a position — clicking a Floor row opens
+                                it, and the ✕ is there. */}
                             <FloorLeft
                                 positions={positions}
                                 ideas={ideas}
@@ -1935,6 +1939,7 @@ export function MainPage() {
                             positionsLoading={positionsLoading}
                             onRefreshPositions={refreshPositions}
                             onClosePosition={closePosition}
+                            onClosePositions={closePositions}
                             calls={calls
                                 .filter(c => (c.broker === 'ctrader' ? 'live' : c.broker === 'manual' ? 'manual' : 'paper') === workspace)}
                             buildingCall={buildingCallRow}

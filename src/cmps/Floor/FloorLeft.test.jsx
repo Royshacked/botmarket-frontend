@@ -72,4 +72,17 @@ describe('FloorLeft', () => {
         expect(row).toBeTruthy()
         expect(row.className).not.toContain('floor-pos--sub')
     })
+
+    // The Floor is for WATCHING the book. Closing lives in the Positions tab and the pop-out a row
+    // opens, so there is one place to go to act on a position — and no ✕ sitting a stray click away
+    // from a market order on the surface the user keeps open all day. This once shipped with close
+    // controls on both the leg and the book row; pinned so it can't drift back.
+    it('carries no close controls — not on a leg, not on a book row', () => {
+        render(<FloorLeft positions={[pos(), pos({ id: 'p2', symbol: 'SPY' })]} ideas={[idea()]} />)
+        openAcct()
+
+        expect(document.querySelector('.floor-rowhost')).toBeNull()
+        expect(document.querySelector('.icon-btn')).toBeNull()
+        expect(document.querySelector('.close-position__backdrop')).toBeNull()
+    })
 })
