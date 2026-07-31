@@ -22,7 +22,8 @@ import { analystService, COVERAGE_CHANGED } from '../services/analyst/analyst.se
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
-import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace, positionOpenTarget, openCallPopup, openIdeaPopup } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace, positionOpenTarget, openCallPopup, openIdeaPopup, matchPositionsForIdea } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { TradeTicket } from '../cmps/TradeTicket/TradeTicket.jsx'
 import { MonitorDashboard }  from '../cmps/MonitorDashboard/MonitorDashboard.jsx'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
@@ -496,6 +497,13 @@ export function MainPage() {
     // Floor design trial (Profile → Design → "Floor (3-col)"). Only this page reads it: the trial adds
     // two side columns and swaps the right one, so nothing below the workspace needs to know.
     const floorMode = useDesign() === 'floor'
+    // Immediate-trade ticket: whether the pad is showing in place of the chat thread, and which
+    // entity it is currently managing. The entity ITSELF is read from `ideas` (see handleTicketPlace)
+    // so a broker fill moves the ticket on without this page tracking the lifecycle twice.
+    const [ticketOpen, setTicketOpen]     = useState(false)
+    const [ticketIdeaId, setTicketIdeaId] = useState(null)
+    const [ticketBusy, setTicketBusy]     = useState(false)
+    const [ticketError, setTicketError]   = useState(null)
     const [preEntryBusy, setPreEntryBusy] = useState(false)
 
     // A position row in the Floor's book opens whatever OWNS it — a call-originated position routes
@@ -1066,6 +1074,135 @@ export function MainPage() {
         } catch (err) {
             console.error('[tradeIdeas] buy market failed', err)
         }
+    }
+
+    // ── Immediate-trade ticket ────────────────────────────────────────────────
+    // The discretionary order pad. It authors the SAME entity the chat's Buy Market does and
+    // places it through the SAME endpoints — a ticket trade is an idea like any other, so it is
+    // monitored, shows in the Floor, reaches the ledger and is visible to the agents. What is
+    // dropped is the conversation, not the pipeline.
+    //
+    // The live ticket is read out of `ideas` rather than held in its own state: the entity is the
+    // truth about whether it filled, and a fill that lands while this tab is in the background
+    // then moves the ticket on by itself.
+    const ticketIdea = ideas.find(i => i.id === ticketIdeaId) ?? null
+
+    async function handleTicketPlace({ asset, direction, quantity, orderType, price }) {
+        if (ticketBusy) return
+        setTicketBusy(true)
+        setTicketError(null)
+        try {
+            const resting = orderType === 'limit' || orderType === 'stop'
+            const saved = await tradeIdeasService.createIdea({
+                asset,
+                direction,
+                quantity,
+                accounts:      selectedAccounts,
+                mainAccountId,
+                // A market ticket is `immediate` — no entry conditions, so it goes straight to
+                // 'hit' with a built order plan. A limit/stop ticket instead states its trigger
+                // as a bare price and rests AT the broker, which is what the user asked for:
+                // the level is left with the venue, not watched by us.
+                ...(resting
+                    ? { entry_order_type: orderType, entry_price: price }
+                    : { immediate: true }),
+                notes: `Ticket — ${direction} ${quantity} ${asset} (${orderType})`,
+            })
+            if (!saved.length) throw new Error('the idea was not created')
+
+            // A ticket spanning two brokers forks into a child per broker; every child has to be
+            // sent, or the accounts the user picked would silently not trade.
+            const results = await Promise.allSettled(saved.map(s => (
+                resting
+                    ? tradeIdeasService.updateIdea(s.id, { status: 'resting' })
+                    : tradeIdeasService.placeOrders(s.id)
+            )))
+            const failed = results.filter(r => r.status === 'rejected')
+            if (failed.length === saved.length) {
+                // Nothing reached a broker, so the entity is a ghost: an idea sitting at 'hit'
+                // holding no position, which would show in the book as a trade that never was.
+                // Roll it back — the same guard handleBuyMarket keeps for its own born-here ideas.
+                await Promise.allSettled(saved.map(s => tradeIdeasService.deleteIdea(s.id)))
+                await loadIdeas()
+                throw failed[0].reason ?? new Error('the broker rejected the order')
+            }
+            if (failed.length) showErrorMsg(`${failed.length} of ${saved.length} broker orders failed`)
+
+            setTicketIdeaId(saved[0].id)
+            showSuccessMsg(resting ? `${orderType} order resting at the broker` : `${direction === 'short' ? 'Sold' : 'Bought'} ${quantity} ${asset}`)
+            await Promise.all([loadIdeas(), refreshPositions(true)])
+        } catch (err) {
+            console.error('[ticket] place failed', err)
+            setTicketError(err?.data?.error ?? err?.message ?? 'Could not place the order')
+        } finally {
+            setTicketBusy(false)
+        }
+    }
+
+    // Attach / move a protective level on the live ticket position. Only the leg the user touched
+    // is sent — the server merges it over the other one, so moving a stop can't drop a target.
+    async function handleTicketAttachExits({ stop, tp }) {
+        if (!ticketIdeaId || ticketBusy) return
+        setTicketBusy(true)
+        setTicketError(null)
+        try {
+            await tradeIdeasService.updateIdea(ticketIdeaId, {
+                ...(stop != null && { stop_price: stop }),
+                ...(tp   != null && { tp_price:   tp }),
+            })
+            showSuccessMsg(stop != null ? 'Stop is at the broker' : 'Target is at the broker')
+            await loadIdeas()
+        } catch (err) {
+            console.error('[ticket] attach exits failed', err)
+            setTicketError(err?.data?.error ?? err?.message ?? 'Could not place the protective order')
+        } finally {
+            setTicketBusy(false)
+        }
+    }
+
+    // Pull a resting entry. Deleting the idea is what cancels it — the delete path already
+    // cancels a resting entity's working orders, so this stays one call rather than a
+    // cancel-then-tidy pair that could half-fail.
+    async function handleTicketCancelResting() {
+        if (!ticketIdeaId || ticketBusy) return
+        setTicketBusy(true)
+        setTicketError(null)
+        try {
+            await tradeIdeasService.deleteIdea(ticketIdeaId)
+            setTicketIdeaId(null)
+            showSuccessMsg('Resting order cancelled')
+            await loadIdeas()
+        } catch (err) {
+            console.error('[ticket] cancel resting failed', err)
+            setTicketError(err?.data?.error ?? err?.message ?? 'Could not cancel the order')
+        } finally {
+            setTicketBusy(false)
+        }
+    }
+
+    async function handleTicketClose() {
+        if (!ticketIdea || ticketBusy) return
+        const open = matchPositionsForIdea(ticketIdea, positions)
+        if (!open.length) { setTicketError('No open position found for this ticket'); return }
+        setTicketBusy(true)
+        setTicketError(null)
+        try {
+            for (const pos of open) await closePosition(pos.broker, pos.id, pos.accountId)
+            showSuccessMsg('Position closed')
+            await Promise.all([loadIdeas(), refreshPositions(true)])
+        } catch (err) {
+            console.error('[ticket] close failed', err)
+            setTicketError(err?.data?.error ?? err?.message ?? 'Could not close the position')
+        } finally {
+            setTicketBusy(false)
+        }
+    }
+
+    // "New ticket" only lets go of the entity — it never deletes it. The position (or the closed
+    // trade) stays exactly where it belongs, in the book and the ledger.
+    function handleTicketReset() {
+        setTicketIdeaId(null)
+        setTicketError(null)
     }
 
     async function handleGenerate() {
@@ -1728,6 +1865,26 @@ export function MainPage() {
         // selectedAccounts are still read for the build summary + generate gating.
         availableAccounts,
         selectedAccounts,
+        // Non-null = the ticket stands in for the thread. Built here (not in ChatPanel) so the
+        // chat stays ignorant of orders, the way it already is of thread history.
+        ticketSlot: ticketOpen ? (
+            <TradeTicket
+                accounts={availableAccounts}
+                selectedAccounts={selectedAccounts}
+                onSelectAccounts={setSelectedAccounts}
+                mainAccountId={mainAccountId}
+                onMainChange={setMainAccountId}
+                ticket={ticketIdea}
+                positions={positions}
+                busy={ticketBusy}
+                error={ticketError}
+                onPlace={handleTicketPlace}
+                onAttachExits={handleTicketAttachExits}
+                onCancelResting={handleTicketCancelResting}
+                onClosePosition={handleTicketClose}
+                onReset={handleTicketReset}
+            />
+        ) : null,
     }
 
     return (
@@ -1779,6 +1936,24 @@ export function MainPage() {
                                 <PipelineCrumb pipeline={activePipeline} activeTab={activeTab} />
 
                                 <div className="chat-agentbar__right">
+                                    {/* Trade by hand. Only on the trade desk — the ticket takes over
+                                        that panel, and the other desks aren't where you'd reach for it. */}
+                                    {activeTab === 'idea' && (
+                                        <button
+                                            type="button"
+                                            className={`chat-agentbar__ticket${ticketOpen ? ' is-active' : ''}`}
+                                            onClick={() => setTicketOpen(o => !o)}
+                                            title={ticketOpen ? 'Back to the chat' : 'Trade now — open the order ticket'}
+                                            aria-pressed={ticketOpen}
+                                        >
+                                            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                                <path d="M3 13V7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                                                <path d="M8 13V3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                                                <path d="M13 13V9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                                            </svg>
+                                            trade
+                                        </button>
+                                    )}
                                     {(activeTab === 'idea' || activeTab === 'portfolio' || activeTab === 'kairos' || activeTab === 'mentor') && (
                                         <AccountSelector
                                             accounts={availableAccounts}

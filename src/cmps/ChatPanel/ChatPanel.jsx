@@ -148,7 +148,7 @@ function isIdeaReady(analysisState) {
 
 const PHASE_LABELS = { 1: 'Nucleus', 2: 'Formation', 3: 'Structure', 4: 'Exits', 5: 'Validation' }
 
-export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, onStop, canResume = false, onResume, isLoading, streamStatus = '', isEditing = false, isInvalidationReview = false, onDismissInvalidation, onBuyMarket, isPostOrderEdit = false, availableAccounts = [], selectedAccounts = [], historySlot = null }) {
+export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, onStop, canResume = false, onResume, isLoading, streamStatus = '', isEditing = false, isInvalidationReview = false, onDismissInvalidation, onBuyMarket, isPostOrderEdit = false, availableAccounts = [], selectedAccounts = [], historySlot = null, ticketSlot = null }) {
     const [input, setInput] = useState('')
     const [dismissConfirm, setDismissConfirm] = useState(false)
 
@@ -216,6 +216,14 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
         setEditDirty(true)
         onSend(trimmed, analysisState)
         setInput('')
+    }
+
+    // The order ticket STANDS IN FOR the thread rather than sitting alongside it: trading by hand
+    // and talking to the desk are two different intents, and splitting one panel between them
+    // would shrink both. Passed in as a node (like `historySlot`) so this component keeps knowing
+    // nothing about orders — the thread is simply not what's on screen right now.
+    if (ticketSlot) {
+        return <div className="chat-panel">{ticketSlot}</div>
     }
 
     return (
@@ -381,6 +389,7 @@ ChatPanel.propTypes = {
     onSend:            PropTypes.func.isRequired,
     onGenerate:        PropTypes.func.isRequired,
     historySlot:       PropTypes.node,
+    ticketSlot:        PropTypes.node,
     onClear:           PropTypes.func,
     onStop:            PropTypes.func,
     canResume:         PropTypes.bool,
