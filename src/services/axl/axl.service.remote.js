@@ -1,8 +1,10 @@
 import { API_BASE } from '../config'
 import { postSSE, buildStreamHandlers } from '../sse.util'
+import { httpService } from '../http.service'
 
 export const axlService = {
     streamAxl,
+    requestBrief,
 }
 
 /**
@@ -25,4 +27,17 @@ async function streamAxl(messages, opts = {}) {
         buildStreamHandlers(opts),
         { signal },
     )
+}
+
+/**
+ * Ask for today's market brief. The brief is POSTED into the social chat (it arrives over the WS
+ * like any other bot message) — this call only returns whether that happened, so there is nothing
+ * to render from the response.
+ *
+ * The long timeout is deliberate: a stale brief is rewritten on the server, which means a live
+ * model turn with web searches behind it. The default 30s would abort the request while the work
+ * carried on, and the user would see a failure for a brief that then quietly appeared.
+ */
+async function requestBrief() {
+    return httpService.post('api/axl/brief', {}, { timeout: 180000 })
 }

@@ -5,6 +5,7 @@ import PropTypes from 'prop-types'
 import { openCallPopup } from '../TradeIdeas/tradeIdea.utils.js'
 import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE } from '../../services/event-bus.service'
 import { manualService } from '../../services/manual/manual.service.remote'
+import { axlService } from '../../services/axl/axl.service.remote'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { AGENTS, isBotId, CONVERSATIONAL_BOT_ID } from '../AxlHub/agentMeta.jsx'
@@ -46,7 +47,7 @@ function ResolvedChip({ agent, outcome, asset, reason, qualifier = null, reopen 
 // standard TWO-button footer — the primary "do something" + Dismiss. Collapses to the shared
 // ResolvedChip once resolved. Strictly two buttons: any finer choice lives in the surface the
 // primary opens. `primaryLabel` mirrors msg.actions.primary.label (backend), with a card fallback.
-function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = null, body, primaryLabel, onPrimary, onResolve, onDismiss, msg, resolvedLabels = {}, reopenOnDone = false }) {
+function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = null, body, primaryLabel, onPrimary, onResolve, onDismiss, msg, resolvedLabels = {}, reopenOnDone = false, primaryDisabled = false }) {
     const { resolved, status, outcome } = readResolution(msg)
     if (resolved) {
         const label  = resolvedLabels[outcome] ?? (status === 'done' ? '✓ Done' : 'Dismissed')
@@ -61,7 +62,7 @@ function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = n
             <div className="social-chat__invalidation-alert-header">{heading}</div>
             {body && <div className="social-chat__invalidation-alert-reason">{body}</div>}
             <div className="social-chat__invalidation-alert-actions">
-                <button className="social-chat__invalidation-alert-btn" onClick={onPrimary}>{label}</button>
+                <button className="social-chat__invalidation-alert-btn" onClick={onPrimary} disabled={primaryDisabled}>{label}</button>
                 <button
                     className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
                     onClick={dismiss}
@@ -167,6 +168,8 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                                 ? <CoverageEventBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'coverage_refreshed' && msg.payload
                                 ? <CoverageRefreshedBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
+                                : msg.type === 'market_brief_offer'
+                                ? <MarketBriefOfferBubble msg={msg} onResolve={onResolveMessage} />
                                 : <div className="social-chat__msg-bubble">{msg.content}</div>
                             }
                             <div className="social-chat__msg-time">{formatTime(msg.createdAt)}</div>
@@ -376,6 +379,46 @@ export function CoverageEventBubble({ msg, onClose, onResolve }) {
 // has rewritten a held name's thesis. When it came from a portfolio review, the primary RESUMES that
 // review (so Atlas re-reads the fresh coverage); otherwise it opens the coverage. `ok:false` = the
 // refresh couldn't produce updated coverage (existing thesis left in place); still lets the user resume.
+/**
+ * The daily market-brief offer. Unlike every other card here, its primary does NOT route anywhere:
+ * the brief is written server-side and arrives as a normal Axl message over the WS, so the button's
+ * whole job is to ask for it and then get out of the way.
+ *
+ * Writing a stale brief is a live model turn, so this can take a while — hence the busy state. The
+ * card is only resolved once the request actually succeeds; a failure leaves it pressable, because
+ * a consumed card with no brief is the one outcome the user can't recover from.
+ */
+export function MarketBriefOfferBubble({ msg, onResolve, _request = axlService.requestBrief }) {
+    const [busy,  setBusy]  = useState(false)
+    const [error, setError] = useState(null)
+
+    async function handlePrimary() {
+        if (busy) return
+        setBusy(true)
+        setError(null)
+        try {
+            await _request()
+            onResolve?.(msg.id, { status: 'done', outcome: 'delivered' })
+        } catch {
+            setError("Couldn't write the brief just now — try again in a moment.")
+        } finally {
+            setBusy(false)
+        }
+    }
+
+    return (
+        <NotificationCard
+            agent={AGENTS.axl} kind="info" heading="Market brief"
+            body={error ?? msg.content}
+            primaryLabel={busy ? 'Writing…' : (msg.actions?.primary?.label ?? 'Get the brief')}
+            primaryDisabled={busy}
+            onPrimary={handlePrimary}
+            onResolve={onResolve} msg={msg}
+            resolvedLabels={{ delivered: '✓ Sent' }}
+        />
+    )
+}
+
 export function CoverageRefreshedBubble({ msg, onClose, onResolve }) {
     const { symbol, coverageId, portfolioId, ok } = msg.payload
     const heading = `Research · ${symbol}${ok === false ? ' — refresh failed' : ' refreshed'}`
