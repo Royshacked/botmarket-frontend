@@ -158,6 +158,8 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                                 ? <ManualFillCard msg={msg} onResolve={onResolveMessage} />
                                 : msg.type === 'entry_confirm' && msg.payload
                                 ? <EntryConfirmBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
+                                : msg.type === 'orders_ready' && msg.payload
+                                ? <OrdersReadyBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'call_expiry' && msg.payload
                                 ? <CallExpiryBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'call_manage' && msg.payload
@@ -277,6 +279,53 @@ function EntryConfirmBubble({ msg, onClose, onResolve }) {
         <NotificationCard
             agent={agent} kind="confirm" heading={heading} asset={asset} body={msg.content}
             primaryLabel={msg.actions?.primary?.label ?? 'Confirm order'} onPrimary={handlePrimary}
+            onDismiss={handleDismiss} onResolve={onResolve} msg={msg} reopenOnDone
+            resolvedLabels={{ confirmed: '✓ Opened' }}
+        />
+    )
+}
+
+// "The market opened and several parked orders are ready" — the batch card the market-open sweep
+// posts when more than one order comes off the bench at once (a portfolio activated overnight is
+// the usual case). One card instead of nine, because the OrderConfirmDialog already walks pending
+// orders one at a time: this only has to open the queue on the right workspace, and the dialog
+// takes it from there.
+//
+// It routes with the FIRST order's id and reuses the existing per-kind events rather than adding a
+// batch-specific one — the dialog's own selection logic decides what to show, so a card that named
+// a specific order could only ever disagree with it.
+function OrdersReadyBubble({ msg, onClose, onResolve }) {
+    const { kind, count, firstId, staleHours } = msg.payload
+    const isSetup = kind === 'setup'
+    const agent   = isSetup ? AGENTS.mentor : AGENTS.idea
+
+    function handlePrimary() {
+        onResolve?.(msg.id, { status: 'done', outcome: 'confirmed' })
+        if (isSetup) eventBus.emit(SETUP_CONFIRM_OPEN, { setupId: firstId })
+        else         eventBus.emit(ENTRY_CONFIRM_OPEN, { ideaId: firstId })
+        onClose?.()
+    }
+    // No ENTRY_CONFIRM_DISMISS here: that parks ONE idea back to 'waiting', and firing it for a
+    // batch would silently disarm the other orders the user never looked at. Dismissing the card
+    // dismisses the card — the orders stay confirmable in the workspace.
+    function handleDismiss() {
+        onResolve?.(msg.id, { status: 'dismissed', outcome: 'dismissed' })
+    }
+
+    const heading = (
+        <>Orders ready &middot; {count} waiting
+            {staleHours >= 12 && (
+                <span className="social-chat__invalidation-alert-tag"> &middot; priced {staleHours}h ago</span>
+            )}
+        </>
+    )
+
+    return (
+        <NotificationCard
+            agent={agent} kind="confirm" heading={heading} body={msg.content}
+            // The collapsed chip has no single asset to name, so it names the batch instead.
+            asset={`${count} order${count === 1 ? '' : 's'}`}
+            primaryLabel={msg.actions?.primary?.label ?? 'Review orders'} onPrimary={handlePrimary}
             onDismiss={handleDismiss} onResolve={onResolve} msg={msg} reopenOnDone
             resolvedLabels={{ confirmed: '✓ Opened' }}
         />

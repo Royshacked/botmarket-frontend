@@ -103,6 +103,99 @@
         border-radius: 5px;
     }
 
+    // The trade itself — entry / stop / target / risk. Sits above the routing table because it is
+    // the part the answer depends on.
+    &__plan {
+        margin: 0 0 12px;
+        padding: 10px 12px;
+        background: rgba(148, 163, 184, 0.07);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 6px;
+    }
+
+    &__plan-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 3px 0;
+        font-size: 0.8rem;
+
+        // The money line, separated from the levels it is derived from.
+        &--risk {
+            margin-top: 4px;
+            padding-top: 7px;
+            border-top: 1px solid rgba(148, 163, 184, 0.18);
+        }
+    }
+
+    &__plan-label {
+        color: #94a3b8;
+        letter-spacing: 0.02em;
+    }
+
+    &__plan-value {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+        color: #e2e8f0;
+        text-align: right;
+
+        &--stop    { color: #f87171; }
+        &--tp      { color: #4ade80; }
+        // "none" is a statement, not a value — it must not read as a filled-in field.
+        &--missing { color: #94a3b8; font-weight: 500; font-style: italic; }
+    }
+
+    &__plan-sub {
+        font-weight: 500;
+        font-size: 0.72rem;
+        color: #94a3b8;
+    }
+
+    // The applied balance ratio, on its own line under the quantity it explains.
+    &__qty-share {
+        display: block;
+        margin-top: 1px;
+        font-size: 0.66rem;
+        font-weight: 500;
+        color: #94a3b8;
+    }
+
+    &__alloc-note {
+        margin: -4px 0 12px;
+        font-size: 0.72rem;
+        line-height: 1.45;
+        color: #94a3b8;
+
+        strong { color: #cbd5e1; font-weight: 600; }
+    }
+
+    &__risk-warnings {
+        margin: 0 0 12px;
+        padding: 8px 10px 8px 26px;
+        font-size: 0.74rem;
+        line-height: 1.45;
+        color: #fbbf77;
+        background: rgba(234, 88, 12, 0.1);
+        border: 1px solid rgba(234, 88, 12, 0.35);
+        border-radius: 5px;
+
+        li + li { margin-top: 4px; }
+    }
+
+    // A plan that parked overnight. Cooler than --while-waiting on purpose: that one warns the
+    // trigger may not still hold, this one only says the price is old. Both can show at once.
+    &__stale-plan {
+        margin: 0 0 12px;
+        padding: 8px 10px;
+        font-size: 0.74rem;
+        line-height: 1.4;
+        color: #93c5fd;
+        background: rgba(59, 130, 246, 0.1);
+        border: 1px solid rgba(59, 130, 246, 0.35);
+        border-radius: 5px;
+    }
+
     &__table {
         width: 100%;
         border-collapse: collapse;
@@ -124,6 +217,15 @@
             border-bottom: 1px solid var(--bg-hover);
             color: var(--text-secondary);
             white-space: nowrap;
+        }
+
+        // The summed size — what the risk figure above is actually computed on.
+        tfoot td {
+            border-bottom: none;
+            border-top: 1px solid var(--accent-deep);
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+            color: var(--text-primary);
         }
     }
 

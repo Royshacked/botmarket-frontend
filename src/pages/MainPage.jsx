@@ -44,6 +44,7 @@ import { useTradeIdeas }     from '../customHooks/useTradeIdeas.js'
 import { useEntityList } from '../customHooks/useEntityList.js'
 import { useDesign }         from '../customHooks/useDesign.js'
 import { useSetups }         from '../customHooks/useSetups.js'
+import { deriveIdeaOverlay, deriveCallOverlay, deriveSetupOverlay } from '../cmps/TradeIdeas/chartOverlay.js'
 import { useAuth }           from '../context/AuthContext.jsx'
 
 // Maps activeTab → the step name used in DESKS.steps[] for pipeline highlighting.
@@ -576,11 +577,15 @@ export function MainPage() {
         const orders = ordersForIdea(i)
         if (orders.length > 0) { confirmIdea = i; confirmOrders = orders; break }
     }
+    // The plan's price levels for the confirm dialog, from the SAME extractor the chart uses. No
+    // positions passed: an idea awaiting confirmation is by definition not in one yet, so the entry
+    // comes from its conditions rather than a fill.
+    const confirmLevels = confirmIdea ? deriveIdeaOverlay(confirmIdea, []).levels : []
 
     // Kairos call awaiting order confirmation: the call the user tapped "Confirm order" on, at
     // awaiting confirm with a Hermes proposal + marked accounts. Shaped as an idea so the SHARED
     // OrderConfirmDialog + buildOrderPreview work unchanged; onConfirm routes to actOnCall('confirm').
-    let confirmCallAsIdea = null, confirmCallOrders = []
+    let confirmCallAsIdea = null, confirmCallOrders = [], confirmCallLevels = []
     if (callConfirmId && !confirmIdea) {
         const c = calls.find(x => x.id === callConfirmId)
         const p = c?.monitor_state?.last_assessment?.proposal
@@ -592,7 +597,13 @@ export function MainPage() {
                 conviction: c.conviction, entryTriggeredAt: c.monitor_state?.last_assessment?.at ?? null,
             }
             const orders = buildOrderPreview(asIdea, availableAccounts)
-            if (orders.length) { confirmCallAsIdea = asIdea; confirmCallOrders = orders }
+            if (orders.length) {
+                confirmCallAsIdea = asIdea
+                confirmCallOrders = orders
+                // Derived from the CALL, not from asIdea: the idea-shaped object exists only to
+                // satisfy buildOrderPreview and carries no proposal, so it has no levels to read.
+                confirmCallLevels = deriveCallOverlay(c).levels
+            }
         }
     }
 
@@ -610,6 +621,8 @@ export function MainPage() {
             if (orders.length) { confirmSetup = su; confirmSetupOrders = orders }
         }
     }
+    // A setup's plan is authored as zones, so its levels come from its own extractor.
+    const confirmSetupLevels = confirmSetup ? deriveSetupOverlay(confirmSetup).levels : []
 
     // ⚠ ARCHIVED 2026-07-29 — the Idea chat's send path. Its panel only shows while
     // activeTab === 'idea', which now only handleEditIdea can reach (legacy documents only).
@@ -903,8 +916,19 @@ export function MainPage() {
     // clear any prior dismiss so the OrderConfirmDialog surfaces for it. If the idea has already
     // placed/closed, the dialog derivation simply won't resolve — harmless.
     useEffect(() => {
-        return eventBus.on(ENTRY_CONFIRM_OPEN, ({ ideaId }) => {
-            const idea = ideasRef.current.find(i => i.id === ideaId)
+        return eventBus.on(ENTRY_CONFIRM_OPEN, async ({ ideaId }) => {
+            let idea = ideasRef.current.find(i => i.id === ideaId)
+            // The card can arrive AHEAD of the list. The market-open sweep flips a parked order to
+            // 'awaiting_confirm' server-side and posts its card over the websocket immediately,
+            // while this list only refreshes on its 30s poll — so a tab left open across the open
+            // holds a copy still reading 'awaiting_market', which the dialog derivation skips. The
+            // click would then do nothing at all, on precisely the flow the card exists to serve.
+            // Re-read before giving up, and only then: the common case (a fresh trigger already in
+            // the list) still costs no request.
+            if (!idea || idea.orderState === 'awaiting_market') {
+                const fresh = await loadIdeas()
+                idea = fresh?.find(i => i.id === ideaId) ?? idea
+            }
             if (!idea) return
             // Only switch workspace for a CROSS-workspace idea (that switch flips the backend paper
             // flag so the right accounts load — required to place the order). Never re-flip global
@@ -972,10 +996,16 @@ export function MainPage() {
     // than leaving the click dead.
     useEffect(() => {
         return eventBus.on(SETUP_CONFIRM_OPEN, ({ setupId }) => {
-            if (setupId) setSetupConfirmId(setupId)
-            else setActiveTab('mentor')
+            if (!setupId) { setActiveTab('mentor'); return }
+            setSetupConfirmId(setupId)
+            // Same race as the idea card above: the market-open sweep flips a parked setup and
+            // posts its card at once, while this list is up to 20s behind — and the dialog
+            // derivation skips a setup still reading 'awaiting_market'. Refreshing unconditionally
+            // here (rather than on a staleness check) because the id alone is stored: the setup
+            // itself is resolved later, during render, so there is nothing to test at this point.
+            refreshSetups?.()
         })
-    }, [])
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
     // Confirm the call's proposed entry → materialize + place via the Kairos handoff (actOnCall).
     async function handleConfirmCallOrder() {
@@ -2170,6 +2200,7 @@ export function MainPage() {
                 <OrderConfirmDialog
                     idea={confirmIdea}
                     orders={confirmOrders}
+                    levels={confirmLevels}
                     placing={placingOrders}
                     onConfirm={handleConfirmOrders}
                     onDismiss={handleDismissConfirm}
@@ -2182,6 +2213,7 @@ export function MainPage() {
                 <OrderConfirmDialog
                     idea={confirmSetup}
                     orders={confirmSetupOrders}
+                    levels={confirmSetupLevels}
                     placing={placingOrders}
                     onConfirm={handleConfirmSetupOrders}
                     onDismiss={handleDismissSetupConfirm}
@@ -2193,6 +2225,7 @@ export function MainPage() {
                 <OrderConfirmDialog
                     idea={confirmCallAsIdea}
                     orders={confirmCallOrders}
+                    levels={confirmCallLevels}
                     placing={placingOrders}
                     onConfirm={handleConfirmCallOrder}
                     onDismiss={handleDismissCallConfirm}
