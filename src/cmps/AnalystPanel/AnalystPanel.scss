@@ -11,6 +11,22 @@
         display: flex;
         flex-direction: column;
         gap: 8px;
+
+        // The card fills the column; the action under it is sized by its label. (A column flex
+        // container stretches its children on the cross axis, so the button needs to say no here
+        // even though `flex: 0 0 auto` already stops it growing along the main one.)
+        .portfolio-panel__review-btn { align-self: flex-start; }
+    }
+
+    // Shown when a research turn ended with no draft — a PASS, or a block that never landed.
+    &__ask {
+        align-items: center;
+    }
+
+    &__ask-hint {
+        font-size: 11px;
+        color: var(--text-muted);
+        line-height: 1.4;
     }
 
     &__draft {

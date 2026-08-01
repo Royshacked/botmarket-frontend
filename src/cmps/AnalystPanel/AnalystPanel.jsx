@@ -165,6 +165,18 @@ export function AnalystPanel({ scanResult = null, editCoverage = null, seed = nu
 
     function handleClear()     { chat.reset(); setPendingCoverage(null); setInitiateErr('') }
 
+    // A finished research turn with NO draft. Three things look identical from here: Prometheus
+    // PASSED on purpose (no edge — an honest answer the prompt asks for), the block never closed
+    // (a long reply cut short takes `</coverage>` with it), or its JSON didn't parse. In all three
+    // the user is left reading a full write-up with nothing to press, and the only escape was to
+    // guess the right sentence to type. So the ask lives at the foot of the conversation the way
+    // Mentor's Generate does — always there once a turn has answered, and it says what it will do.
+    const hasReply = messages.some(m => m.role === 'assistant' && m.content)
+    const askForDraft = () => _send(
+        'Write the coverage up now — emit the coverage block with everything you settled on. ' +
+        "If you're passing on this name, say so in one line instead."
+    )
+
     async function handleInitiate() {
         if (!pendingCoverage) return
         setInitiateErr('')
@@ -223,6 +235,17 @@ export function AnalystPanel({ scanResult = null, editCoverage = null, seed = nu
                     <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={handleInitiate}>
                         {existingCoverage ? `Update coverage on ${pendingCoverage.symbol}` : `Initiate coverage on ${pendingCoverage.symbol}`}
                     </button>
+                </div>
+            )}
+
+            {!isLoading && !pendingCoverage && hasReply && (
+                <div className="portfolio-panel__action-bubble analyst-panel__ask">
+                    <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={askForDraft}>
+                        Draft coverage
+                    </button>
+                    <span className="analyst-panel__ask-hint">
+                        No draft yet — Prometheus writes one only when it has a view.
+                    </span>
                 </div>
             )}
 

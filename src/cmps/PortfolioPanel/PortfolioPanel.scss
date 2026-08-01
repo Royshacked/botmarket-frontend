@@ -376,8 +376,12 @@
         border-top: 1px solid var(--border);
     }
 
+    // Sized by its own label, NOT by the row. `flex: 1` split the bar between however many
+    // buttons happened to be up, so one action became a full-width slab and three became thirds —
+    // worst on a phone, where the bar is the whole screen. Kairos had already opted out locally
+    // (kairos-panel__generate-btn); this is that opt-out made the rule.
     &__review-btn {
-        flex: 1;
+        flex: 0 0 auto;
         padding: 7px 10px;
         background: color-mix(in srgb, var(--text-primary) 14%, transparent);
         border: 1px solid var(--border);

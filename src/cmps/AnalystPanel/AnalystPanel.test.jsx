@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, waitFor, act, fireEvent } from '@testing-library/react'
 
 window.HTMLElement.prototype.scrollIntoView = vi.fn()
 
@@ -50,5 +50,46 @@ describe('AnalystPanel — Axl hand-off seed', () => {
         expect(history.at(-1)).toEqual({ role: 'user', content: 'Research AMD for coverage.' })
         expect(opts.seed).toMatchObject({ ticker: 'AMD', sector: 'Semis', thesis: 'AI cycle' })
         expect(opts.chatState.active_symbol).toBe('AMD')
+    })
+})
+
+// A research turn can finish with a full write-up and NO <coverage> block — Prometheus passed on
+// the name, or the block was cut off / didn't parse. All three look the same from the panel, and
+// all three used to leave the user reading a summary with nothing to press.
+describe('AnalystPanel — the coverage ask', () => {
+    // Play a turn to completion: some text, then the done payload.
+    async function finishTurn(done = {}) {
+        await waitFor(() => expect(sendStream).toHaveBeenCalled())
+        const [, opts] = lastCall()
+        await act(async () => {
+            opts.onToken('No edge.')
+            opts.onDone({ reply: 'No edge.', ...done })
+        })
+        return opts
+    }
+
+    it('offers to write the coverage up when the turn drafted nothing', async () => {
+        render(<AnalystPanel seed={{ key: 10, message: 'Research NVDA for coverage.' }} />)
+        await finishTurn()
+
+        const btn = await screen.findByRole('button', { name: 'Draft coverage' })
+        sendStream.mockClear()
+        fireEvent.click(btn)
+
+        await waitFor(() => expect(sendStream).toHaveBeenCalled())
+        expect(lastCall()[0].at(-1).content).toMatch(/emit the coverage block/i)
+    })
+
+    it('stands down once a draft arrives — the draft has its own action', async () => {
+        render(<AnalystPanel seed={{ key: 11, message: 'Research NVDA for coverage.' }} />)
+        await finishTurn({ coverage: { symbol: 'NVDA', thesis: 'Variant view.' } })
+
+        expect(await screen.findByRole('button', { name: /Initiate coverage on NVDA/ })).toBeTruthy()
+        expect(screen.queryByRole('button', { name: 'Draft coverage' })).toBe(null)
+    })
+
+    it('says nothing before the first turn has answered', () => {
+        render(<AnalystPanel />)
+        expect(screen.queryByRole('button', { name: 'Draft coverage' })).toBe(null)
     })
 })

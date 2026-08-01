@@ -459,8 +459,10 @@
         }
     }
 
+    // Sized by its own label, not by the row — same rule as the shared shell's review button
+    // (PortfolioPanel.scss). `flex: 1` made a lone action a full-width slab.
     &__review-btn {
-        flex: 1;
+        flex: 0 0 auto;
         padding: 7px 10px;
         background: color-mix(in srgb, var(--text-primary) 14%, transparent);
         border: 1px solid var(--border);
