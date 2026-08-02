@@ -316,8 +316,14 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
     // Expose resume to the shared agent-bar hamburger (MainPage).
     if (resumeRef) resumeRef.current = handleResumeThread
 
-    async function handleGenerate() {
+    // `thenResearch` collapses save-then-hand-off into ONE press. In the portfolio pipeline a saved
+    // list is never the goal — the names are — so making the user press "Generate list" and then
+    // "Send to research" was one button asking them to confirm a step they never wanted separately.
+    // The list is still saved either way: it carries the lens and the provenance, and it holds the
+    // names that did NOT get queued, which is what "also do KLAC" reads from later.
+    async function handleGenerate({ thenResearch = false, thenLeave = false } = {}) {
         if (!pendingScan) return
+        const scan = pendingScan   // captured: the state is cleared below, the hand-off needs it
         // Persist the conversation alongside the list so reopening it returns here. Chart rows are
         // dropped: a chart the user asked to LOOK at is not part of the list, and persisting one as
         // a content-less turn would reopen the thread with an empty bubble in it.
@@ -327,18 +333,24 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
 
         if (editingScanId) {
             // Update the existing list in place; stay in edit mode for more refining.
-            await onUpdateList?.(editingScanId, { ...pendingScan, chat: chatLog })
+            await onUpdateList?.(editingScanId, { ...scan, chat: chatLog })
             // A refined investing list has the same next step as a fresh one — the names still owe
             // Prometheus a look. Offering it only on first generation meant anyone who tightened
             // their list lost the hand-off for having improved it.
             if (profileRef.current === 'investing') setResearchOffer(pendingScan)
         } else {
-            await onGenerateList?.({ ...pendingScan, chat: chatLog }, threadIdRef.current)
+            await onGenerateList?.({ ...scan, chat: chatLog }, threadIdRef.current)
             // An INVESTING list is not the end of the road — the names are meant to go to Prometheus
             // for coverage and then back to Atlas. Hold the list so the hand-off can be offered right
             // here, instead of making the user go find the saved card to click names one at a time.
-            if (profileRef.current === 'investing') setResearchOffer(pendingScan)
+            if (profileRef.current === 'investing') {
+                if (thenResearch) onResearchList?.(scan)
+                // `thenLeave` is the save-and-go path — setting an offer we are walking away from
+                // would leave one primed behind us for no one.
+                else if (!thenLeave) setResearchOffer(scan)
+            }
             setPendingScan(null)
+            if (thenLeave) onResearchLater?.()
             threadIdRef.current = newThreadId()   // next scan build gets a fresh draft thread
         }
     }
@@ -465,9 +477,29 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                     {/* "Update/Generate list" only once there's a ready list; the "I'll do it later"
                         escape is always present in edit mode. */}
                     {!showChangedMind && listReady && (
-                        <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={handleGenerate}>
-                            {editingScanId ? 'Update list' : 'Generate list'}
-                        </button>
+                        profile === 'investing' && !editingScanId ? (
+                            // The pipeline's one press: save the list AND send the top of it on.
+                            <>
+                                <button
+                                    className="portfolio-panel__review-btn portfolio-panel__review-btn--update"
+                                    onClick={() => handleGenerate({ thenResearch: true })}
+                                >
+                                    Send top {Math.min(RESEARCH_TOP_N, pendingScan?.candidates?.length ?? 0)} to research →
+                                </button>
+                                {/* For the rarer case: keep the list, research later. Saves exactly as
+                                    before and lands in the hub, which is where a finished list went. */}
+                                <button
+                                    className="portfolio-panel__review-btn portfolio-panel__review-btn--later"
+                                    onClick={() => handleGenerate({ thenLeave: true })}
+                                >
+                                    Save list only
+                                </button>
+                            </>
+                        ) : (
+                            <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={() => handleGenerate()}>
+                                {editingScanId ? 'Update list' : 'Generate list'}
+                            </button>
+                        )
                     )}
                     {laterBtn}
                 </div>
