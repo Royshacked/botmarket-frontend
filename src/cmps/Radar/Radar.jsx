@@ -109,7 +109,7 @@ function EarningsList({ items, from, to, loading, onSelect }) {
                     <div key={g.date} className="earn-table__group">
                         <div className="earn-table__day">{_fmtFullDate(g.date)}</div>
                         {g.items.map((e, i) => (
-                            <div key={e.symbol || i} className="earn-table__row">
+                            <div key={`${e.symbol || 'row'}-${i}`} className="earn-table__row">
                                 <RadarTicker
                                     symbol={e.symbol}
                                     name={e.name}

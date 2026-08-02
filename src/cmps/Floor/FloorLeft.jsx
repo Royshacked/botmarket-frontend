@@ -176,7 +176,7 @@ function CalendarRows({ tab, earnings, fed, ipo, onEarningSelect, onIpoSelect })
                 const onSelect = tab === 'earnings' ? onEarningSelect : onIpoSelect
                 return (
                     <button
-                        key={e.symbol || i}
+                        key={`${e.symbol || 'row'}-${i}`}
                         className="floor-cal__row floor-cal__row--btn"
                         onClick={() => onSelect?.(e)}
                         title={e.symbol ? `Build a setup around ${e.symbol}` : undefined}
