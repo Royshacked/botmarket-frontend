@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useTextPace } from './useTextPace.js'
 import { useTypewriter } from './useTypewriter.js'
 import { makeStreamHandlers } from './useStreamStop.js'
 import { toolStatusLabel } from '../services/toolStatusLabels.js'
+import { reasoningPulse, pruneSamples } from './reasoningPulse.js'
 
 /**
  * The conversation reduced to role + content, minus the UI-only rows (the streaming
@@ -72,6 +73,21 @@ export function useChatStream({ threadPhases = false } = {}) {
     const [phase, setPhase]               = useState(null)
 
     const reasoningRef = useRef('')
+    // Live reasoning ACTIVITY (0-1), distinct from the accumulated text: a flat "thinking…" reads the
+    // same whether the model is mid chain-of-thought or stalled on a slow tool.
+    const reasoningSamplesRef = useRef([])
+    const [reasoningPulseValue, setReasoningPulseValue] = useState(null)
+
+    // Read the samples on a slow timer while a turn is live. 5Hz is fast enough to read as live and
+    // slow enough that a burst of deltas costs one render, not hundreds.
+    useEffect(() => {
+        if (!isLoading) { setReasoningPulseValue(null); return undefined }
+        const id = setInterval(() => {
+            const now = Date.now()
+            setReasoningPulseValue(reasoningPulse(pruneSamples(reasoningSamplesRef.current, now), now))
+        }, 200)
+        return () => clearInterval(id)
+    }, [isLoading])
     // The live chart THIS turn docked, if any — see finishStreaming, which turns it into the turn's
     // history record when the reply itself is wordless.
     const liveChartRef = useRef(null)
@@ -102,6 +118,7 @@ export function useChatStream({ threadPhases = false } = {}) {
         setIsLoading(true)
         setStreamStatus('')
         reasoningRef.current = ''
+        reasoningSamplesRef.current = []
         liveChartRef.current = null   // per-turn: only THIS turn's chart may become its history note
         deferRef.current     = false
         startDrain()
@@ -167,6 +184,7 @@ export function useChatStream({ threadPhases = false } = {}) {
         setIsLoading(true)
         setStreamStatus('')
         reasoningRef.current = ''
+        reasoningSamplesRef.current = []
         liveChartRef.current = null   // per-turn: only THIS turn's chart may become its history note
         deferRef.current     = false
         startDrain()
@@ -214,6 +232,9 @@ export function useChatStream({ threadPhases = false } = {}) {
             },
             onReasoning: (t) => {
                 reasoningRef.current += t
+                // Sample into a ref, never state: deltas arrive far faster than anything should
+                // re-render. The ticker below reads this on a slow timer.
+                reasoningSamplesRef.current.push({ t: Date.now(), n: t.length })
                 const acc = reasoningRef.current
                 setMessages(prev => {
                     const idx = prev.findIndex(m => m.streaming)
@@ -338,5 +359,6 @@ export function useChatStream({ threadPhases = false } = {}) {
         handleStop, freezeError, restoreStopped,
         canResume, resumeBase, finalizeResumeHistory,
         reasoningRef,
+        reasoningPulse: reasoningPulseValue,
     }
 }

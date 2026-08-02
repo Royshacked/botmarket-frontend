@@ -342,7 +342,7 @@ export function AxlHub({ user, onPick, onOpenTicket }) {
                 {hasThread && (
                     <div className="axl-hub__thread">
                         {messages.map((msg, i) => <MessageBubble key={i} msg={msg} />)}
-                        {isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus: chat.streamStatus })} />}
+                        {isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus: chat.streamStatus })} pulse={chat.reasoningPulse} />}
                         <div ref={messagesEndRef} />
                     </div>
                 )}

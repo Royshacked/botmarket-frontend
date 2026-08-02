@@ -75,3 +75,32 @@ describe('no bubble draws its own waiting mark', () => {
         expect(container.querySelector('.tool-status-chip')).toBeNull()
     })
 })
+
+// ── the live reasoning beat ───────────────────────────────────────────────────
+describe('ToolStatusChip — reasoning pulse', () => {
+    it('beats when reasoning is streaming, even with no label to show', () => {
+        const { container } = render(<ToolStatusChip label="" pulse={0.5} />)
+        expect(container.querySelector('.tool-status-chip--reasoning')).toBeTruthy()
+        expect(container.querySelector('.tool-status-chip__pulse')).toBeTruthy()
+        expect(container.textContent).toContain('reasoning')
+    })
+
+    it('a live tool status keeps the words and still beats', () => {
+        // The model can think while a tool is in flight — "fetching candles…" is the more useful
+        // thing to say, but the beat is what tells the user it is still working.
+        const { container } = render(<ToolStatusChip label="fetching candles…" pulse={0.8} />)
+        expect(container.textContent).toContain('fetching candles…')
+        expect(container.querySelector('.tool-status-chip__pulse')).toBeTruthy()
+    })
+
+    it('no pulse and no label renders nothing at all', () => {
+        const { container } = render(<ToolStatusChip label="" pulse={null} />)
+        expect(container.innerHTML).toBe('')
+    })
+
+    it('a faster pulse runs a shorter cycle', () => {
+        const cycle = p => render(<ToolStatusChip label="" pulse={p} />)
+            .container.querySelector('.tool-status-chip').style.getPropertyValue('--pulse-ms')
+        expect(parseInt(cycle(0.9), 10)).toBeLessThan(parseInt(cycle(0.1), 10))
+    })
+})

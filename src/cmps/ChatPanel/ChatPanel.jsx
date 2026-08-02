@@ -148,7 +148,7 @@ function isIdeaReady(analysisState) {
 
 const PHASE_LABELS = { 1: 'Nucleus', 2: 'Formation', 3: 'Structure', 4: 'Exits', 5: 'Validation' }
 
-export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, onStop, canResume = false, onResume, isLoading, streamStatus = '', isEditing = false, isInvalidationReview = false, onDismissInvalidation, onBuyMarket, isPostOrderEdit = false, availableAccounts = [], selectedAccounts = [], historySlot = null }) {
+export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, onStop, canResume = false, onResume, isLoading, streamStatus = '', reasoningPulse = null, isEditing = false, isInvalidationReview = false, onDismissInvalidation, onBuyMarket, isPostOrderEdit = false, availableAccounts = [], selectedAccounts = [], historySlot = null }) {
     const [input, setInput] = useState('')
     const [dismissConfirm, setDismissConfirm] = useState(false)
 
@@ -254,7 +254,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                     )
                 ))}
 
-                {isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus })} />}
+                {isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus })} pulse={reasoningPulse} />}
 
                 {/* Typing dots only when loading but no streaming message yet */}
                 {isLoading && !messages.some(m => m.streaming) && (
@@ -390,6 +390,7 @@ ChatPanel.propTypes = {
     onResume:          PropTypes.func,
     isLoading:         PropTypes.bool,
     streamStatus:      PropTypes.string,
+    reasoningPulse:    PropTypes.number,
     isEditing:         PropTypes.bool,
     isInvalidationReview:    PropTypes.bool,
     onDismissInvalidation:   PropTypes.func,

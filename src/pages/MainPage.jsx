@@ -253,7 +253,7 @@ function _moneyShort(v) {
 
 export function MainPage() {
     const chat = useChatStream()
-    const { messages, setMessages, isLoading, streamStatus } = chat
+    const { messages, setMessages, isLoading, streamStatus, reasoningPulse } = chat
 
     const [analysisState, setAnalysisState] = useState(null)
     const [, setChartSymbol]   = useState(DEFAULT_CHART_SYMBOL)
@@ -1973,6 +1973,7 @@ export function MainPage() {
         onResume:            _continueIdea,
         isLoading,
         streamStatus,
+        reasoningPulse,
         isEditing:           !!editingIdeaId,
         isInvalidationReview,
         onDismissInvalidation: handleDismissInvalidation,

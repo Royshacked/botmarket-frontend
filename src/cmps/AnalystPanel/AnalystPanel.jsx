@@ -266,7 +266,7 @@ export function AnalystPanel({ scanResult = null, editCoverage = null, seed = nu
                     </div>
                 )}
                 {messages.map((msg, i) => <MessageBubble key={i} msg={msg} />)}
-                {isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus: chat.streamStatus, placeholder: 'researching…' })} />}
+                {isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus: chat.streamStatus, placeholder: 'researching…' })} pulse={chat.reasoningPulse} />}
             </AgentMessages>
 
             {!isLoading && pendingCoverage && (

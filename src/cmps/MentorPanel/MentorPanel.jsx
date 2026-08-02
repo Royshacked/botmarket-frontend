@@ -306,7 +306,7 @@ export function MentorPanel({
                     </AgentIntro>
                 )}
                 {messages.map((msg, i) => <MessageBubble key={i} msg={msg} />)}
-                {chat.isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus: chat.streamStatus })} />}
+                {chat.isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus: chat.streamStatus })} pulse={chat.reasoningPulse} />}
                 {(chat.isLoading || messages.some(m => m.role === 'assistant' && m.content)) && (
                     <AgentTurnTag agent={AGENTS.mentor} active={chat.isLoading} />
                 )}
