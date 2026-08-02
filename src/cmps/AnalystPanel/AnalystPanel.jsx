@@ -50,11 +50,19 @@ export function CoverageDraft({ coverage }) {
 }
 CoverageDraft.propTypes = { coverage: PropTypes.object.isRequired }
 
-export function AnalystPanel({ scanResult = null, editCoverage = null, seed = null, onLoadingChange, onInitiated, coverage = [] }) {
+export function AnalystPanel({ scanResult = null, editCoverage = null, seed = null, onLoadingChange, onInitiated, onSleeveResearched, coverage = [] }) {
     const chat = useChatStream({ threadPhases: true })
     const { messages, isLoading } = chat
     const [pendingCoverage, setPendingCoverage] = useState(null)
     const [initiateErr, setInitiateErr] = useState('')
+    // The rest of a handed-over sleeve, and what has been covered so far in this run. `done` is what
+    // gets handed back to Atlas — the names it can actually construct from.
+    const [queue, setQueue] = useState([])
+    const [done,  setDone]  = useState([])
+    // Whether this run came from a sleeve hand-off at all. Distinct from `queue.length`: on the LAST
+    // name the queue is already empty, and keying off that sent the user home to Axl a click before
+    // the hand-back to Atlas could be offered.
+    const [sleeveRun, setSleeveRun] = useState(false)
     const seedRef     = useRef(null)   // one-shot Argus investing seed for the next send
     const pendingRef  = useRef(null)
     pendingRef.current = pendingCoverage
@@ -135,12 +143,32 @@ export function AnalystPanel({ scanResult = null, editCoverage = null, seed = nu
         }
     }
 
-    // Argus investing candidate handed over → seed the research (fires once per keyed result).
+    // Argus investing candidate(s) handed over → seed the research (fires once per keyed result).
+    //
+    // A sleeve arrives as a QUEUE, not one name: Argus ranks 4-8 candidates and the pipeline wants
+    // the top of that list researched before Atlas can construct anything. Each name is still its own
+    // cycle — research turn, draft, the user presses Initiate — because coverage is only ever saved on
+    // an explicit confirm. What the queue removes is the walk back to the list between names.
     useEffect(() => {
-        if (!scanResult?.ticker) return
-        seedRef.current = { ticker: scanResult.ticker, sector: scanResult.sector ?? null, thesis: scanResult.thesis ?? null, analysis: scanResult.analysis ?? null }
-        _send(`Research ${scanResult.ticker} for coverage.`)
+        const names = scanResult?.queue?.length ? scanResult.queue : (scanResult?.ticker ? [scanResult.ticker] : [])
+        if (!names.length) return
+        setQueue(names.slice(1))
+        setDone([])
+        setSleeveRun(!!scanResult?.queue?.length)
+        _sendResearch(names[0], names.slice(1))
     }, [scanResult?.key])   // eslint-disable-line react-hooks/exhaustive-deps
+
+    // One name's research turn. The rest of the run rides along in the text so Prometheus can pace
+    // itself and the user can see where they are — and `pool` carries the names NOT in the top slice,
+    // so "do KLAC as well" is a thing they can just ask for.
+    function _sendResearch(ticker, rest) {
+        seedRef.current = { ticker, sector: scanResult?.sector ?? null, thesis: scanResult?.thesis ?? null, analysis: scanResult?.analysis ?? null }
+        const pool = (scanResult?.pool ?? []).filter(t => t !== ticker && !rest.includes(t))
+        const lines = [`Research ${ticker} for coverage.`]
+        if (rest.length)  lines.push(`This is one of ${rest.length + 1} from the same sleeve — ${rest.join(', ')} follow after it. Do ${ticker} only for now.`)
+        if (pool.length)  lines.push(`Also on the list but not queued: ${pool.join(', ')}. Only research one of those if the user asks.`)
+        _send(lines.join(' '))
+    }
 
     // Axl routed the user here with the name already resolved (MainPage's handleAxlPick) → open on
     // it. The bare-ticker cousin of the Argus hand-off above: no scan behind it, so no `seed` for
@@ -177,6 +205,17 @@ export function AnalystPanel({ scanResult = null, editCoverage = null, seed = nu
         "If you're passing on this name, say so in one line instead."
     )
 
+    // Coverage saved → move the sleeve on. Only the SAVED names count as researched: a draft the
+    // user declined is not something Atlas should build on.
+    function _advance(saved) {
+        const covered = [...done, saved?.symbol].filter(Boolean)
+        setDone(covered)
+        const [next, ...rest] = queue
+        if (!next) return
+        setQueue(rest)
+        _sendResearch(next, rest)
+    }
+
     async function handleInitiate() {
         if (!pendingCoverage) return
         setInitiateErr('')
@@ -192,7 +231,8 @@ export function AnalystPanel({ scanResult = null, editCoverage = null, seed = nu
                 saved = await analystService.initiateCoverage(pendingCoverage)
             }
             setPendingCoverage(null)
-            onInitiated?.(saved)
+            onInitiated?.(saved, { sleeve: sleeveRun })
+            _advance(saved)
         } catch (err) {
             // 409 fallback: backend blocked initiation because coverage exists but wasn't in our
             // client-side list (stale load, retired status missed). Use the id from the error to update.
@@ -205,7 +245,8 @@ export function AnalystPanel({ scanResult = null, editCoverage = null, seed = nu
                         revision_note: 'Coverage updated via Prometheus',
                     })
                     setPendingCoverage(null)
-                    onInitiated?.(saved)
+                    onInitiated?.(saved, { sleeve: sleeveRun })
+                    _advance(saved)
                 } catch {
                     setInitiateErr('Could not update coverage.')
                 }
@@ -238,6 +279,24 @@ export function AnalystPanel({ scanResult = null, editCoverage = null, seed = nu
                 </div>
             )}
 
+            {/* The sleeve is researched — hand it back. Without this the pipeline dead-ends here:
+                Atlas reads coverage itself, but nothing was returning the user to it. Shown while
+                the queue is empty and at least one name got saved, so a declined draft doesn't
+                pretend to be research. */}
+            {!isLoading && !pendingCoverage && sleeveRun && !queue.length && done.length > 0 && (
+                <div className="portfolio-panel__action-bubble">
+                    <button
+                        className="portfolio-panel__review-btn portfolio-panel__review-btn--update"
+                        onClick={() => onSleeveResearched?.(done)}
+                    >
+                        Back to Atlas — {done.length} researched →
+                    </button>
+                    <span className="analyst-panel__ask-hint">
+                        {done.join(', ')} {done.length === 1 ? 'is' : 'are'} in coverage. Atlas builds the sleeve from there.
+                    </span>
+                </div>
+            )}
+
             {!isLoading && !pendingCoverage && hasReply && (
                 <div className="portfolio-panel__action-bubble analyst-panel__ask">
                     <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={askForDraft}>
@@ -265,5 +324,6 @@ AnalystPanel.propTypes = {
     seed:            PropTypes.object,
     onLoadingChange: PropTypes.func,
     onInitiated:     PropTypes.func,
+    onSleeveResearched: PropTypes.func,
     coverage:        PropTypes.array,
 }

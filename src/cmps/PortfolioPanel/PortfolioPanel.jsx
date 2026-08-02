@@ -8,6 +8,7 @@ import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
 import { readStoredRoutingMode } from '../routingModeOptions.js'
 import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
+import { useSeedTurn } from '../../customHooks/useSeedTurn.js'
 import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
@@ -42,6 +43,7 @@ export function PortfolioPanel({
     onReviewResolved,
     onAcceptReview,
     onSourceInArgus,
+    seed              = null,
     chatRestore       = null,
     availableAccounts = [],
     selectedAccounts  = [],
@@ -132,6 +134,12 @@ export function PortfolioPanel({
     const planHasSize  = !!pendingPlan && (Number(pendingPlan.positionSize) > 0)
     const planReady    = !!pendingPlan && pendingPlan.ideas.length > 0 && pendingPlan.ideas.every(i => Number(i.quantity) > 0)
     const canGenerate  = planReady && (!!editingPortfolioId || selectedAccounts?.length > 0)
+
+    // Prometheus hands the sleeve back once its names are in coverage (MainPage.handleSleeveResearched).
+    // Atlas reads coverage itself, so this only needs to restart the conversation — the value is that
+    // the user lands back in the SAME Atlas thread, mandate and architecture intact, instead of
+    // re-entering through Axl and losing it.
+    useSeedTurn(seed, (text) => _send(text))
 
     async function _send(text) {
         if (!text || isLoading) return

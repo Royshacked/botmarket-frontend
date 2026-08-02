@@ -11,7 +11,7 @@ import { readStoredModel }   from '../cmps/modelOptions.js'
 import { readStoredReasoning } from '../cmps/reasoningOptions.js'
 import { readStoredRoutingMode } from '../cmps/routingModeOptions.js'
 import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
-import { ScannerPanel }      from '../cmps/ScannerPanel/ScannerPanel.jsx'
+import { ScannerPanel, RESEARCH_TOP_N }      from '../cmps/ScannerPanel/ScannerPanel.jsx'
 import { KairosPanel }       from '../cmps/KairosPanel/KairosPanel.jsx'
 import { MentorPanel }       from '../cmps/MentorPanel/MentorPanel.jsx'
 import { AnalystPanel }      from '../cmps/AnalystPanel/AnalystPanel.jsx'
@@ -286,7 +286,8 @@ export function MainPage() {
     const [scanHandoff,      setScanHandoff]      = useState({ active: false, request: null })
     const [scannerSeed,      setScannerSeed]      = useState(null)
     const [kairosScanResult, setKairosScanResult] = useState(null)
-    const [analystScanResult, setAnalystScanResult] = useState(null)   // Argus investing candidate → Analyst research seed
+    const [analystScanResult, setAnalystScanResult] = useState(null)
+    const [portfolioSeed, setPortfolioSeed] = useState(null)   // Prometheus → Atlas nudge (see handleSleeveResearched)
     const [analystEditCoverage, setAnalystEditCoverage] = useState(null)   // coverage pencil → re-open Prometheus on that name
     const [analystSeed,      setAnalystSeed]      = useState(null)     // Axl's routed ticker → Prometheus's opening turn
     const [mentorSeed,       setMentorSeed]       = useState(null)     // calendar row (earnings/IPO) → Mentor's opening turn
@@ -1838,6 +1839,36 @@ export function MainPage() {
         setActiveTab('analyst')
     }
 
+    // Argus investing list → Prometheus, as a SLEEVE rather than a name. The top slice is queued;
+    // the rest ride along so "also do KLAC" works without walking back to the saved card. This is the
+    // hop that was missing — the list used to be a dead end unless the user clicked names one by one.
+    function handleResearchList(scan) {
+        const names = (scan?.candidates ?? []).map(c => c?.ticker).filter(Boolean)
+        if (!names.length) return
+        setAnalystScanResult({
+            key:    Date.now(),
+            queue:  names.slice(0, RESEARCH_TOP_N),
+            pool:   names,
+            sector: scan?.thesis ?? null,           // the sleeve label, as context for the research
+            ticker: names[0],                        // back-compat: single-name consumers read this
+        })
+        setActiveTab('analyst')
+    }
+
+    // Prometheus → Atlas, once the sleeve has coverage. Atlas reads coverage itself (get_coverage),
+    // so this carries no payload beyond the nudge — what it restores is the user, who otherwise had
+    // no way back and had to re-enter through Axl, which resets the mandate conversation.
+    function handleSleeveResearched(names = []) {
+        const list = names.filter(Boolean)
+        setPortfolioSeed({
+            key: Date.now(),
+            message: list.length
+                ? `Coverage is in for ${list.join(', ')}. Build the sleeve from it.`
+                : 'Coverage has been updated — build the sleeve from it.',
+        })
+        setActiveTab('portfolio')
+    }
+
     function handleBuildFromCandidate(candidate, scan) {
         if (!candidate?.ticker) return
         // Investing lists produce RESEARCH candidates → route to the Analyst; trading → Kairos.
@@ -2066,6 +2097,7 @@ export function MainPage() {
                                 onTickerSelect={handleScannerSymbol}
                                 onGenerateList={handleGenerateList}
                                 onUpdateList={handleUpdateList}
+                                onResearchList={handleResearchList}
                                 onLoadingChange={setScannerLoading}
                                 chatRestore={scannerChatRestore}
                                 scanSeed={scannerSeed}
@@ -2087,6 +2119,7 @@ export function MainPage() {
                                 onReviewResolved={handleBackToAxl}
                                 onAcceptReview={handleAcceptReview}
                                 onSourceInArgus={handleSourceInArgus}
+                                seed={portfolioSeed}
                                 chatRestore={portfolioChatRestore}
                                 availableAccounts={availableAccounts}
                                 selectedAccounts={selectedAccounts}
@@ -2138,7 +2171,14 @@ export function MainPage() {
                                 editCoverage={analystEditCoverage}
                                 seed={analystSeed}
                                 coverage={coverage}
-                                onInitiated={() => { setNewsTab('coverage'); handleBackToAxl() }}
+                                onSleeveResearched={handleSleeveResearched}
+                                // Leaving for Axl after a save is right for a ONE-name research run.
+                                // During a SLEEVE it would throw the user out between names, and on
+                                // the last one it would pre-empt the hand-back to Atlas entirely.
+                                onInitiated={(_saved, { sleeve } = {}) => {
+                                    setNewsTab('coverage')
+                                    if (!sleeve) handleBackToAxl()
+                                }}
                             />
                         </div>
 

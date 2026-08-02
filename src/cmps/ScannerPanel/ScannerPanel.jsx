@@ -16,6 +16,11 @@ import { waitingLabel } from '../ToolStatusChip/waitingLabel.js'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import './ScannerPanel.scss'
 
+// How many of a ranked investing list go to Prometheus on the hand-off. It researches FEW and DEEP —
+// each name is a full coverage cycle — and Argus already ranked them, so the top slice is the part
+// worth the time. The rest stay on the saved list and can be asked for by name in Prometheus.
+export const RESEARCH_TOP_N = 4
+
 const SCAN_PHASE_LABELS = { 1: 'Thesis', 2: 'Discovery', 3: 'Filtering', 4: 'Ranked List' }
 
 // Famous scan angles (the "what") — thesis picks for Phase 1. `label` is what the
@@ -105,7 +110,7 @@ const MessageBubble = ({ msg, onTickerSelect }) => (
     />
 )
 
-export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, onUpdateList, onLoadingChange, chatRestore = null, scanSeed = null, handoff = false, onBackToKairos, onDismissHandoff, resumeRef = null }) {
+export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, onUpdateList, onResearchList, onLoadingChange, chatRestore = null, scanSeed = null, handoff = false, onBackToKairos, onDismissHandoff, resumeRef = null }) {
     const pipelineCfg = PIPELINE_CONFIG[pipeline] ?? PIPELINE_CONFIG.scan
     const chat = useChatStream()
     const { messages, setMessages } = chat
@@ -114,6 +119,8 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
     useEffect(() => { onLoadingChange?.(chat.isLoading) }, [chat.isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
 
     const [pendingScan,    setPendingScan]    = useState(null)
+    // A just-generated investing list, held only to offer the research hand-off (see handleGenerate).
+    const [researchOffer,  setResearchOffer]  = useState(null)
     const [editingScanId,  setEditingScanId]  = useState(null)
     const [editDirty,      setEditDirty]      = useState(false)
     const [selectedAngles, setSelectedAngles] = useState(() => new Set())
@@ -155,6 +162,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
         if (!text || chat.isLoading) return
         setEditDirty(true)
         setKairosPick(null)   // a new turn supersedes any prior hand-off pick
+        setResearchOffer(null)
         // NOTE: the chip selection is intentionally NOT cleared here — it persists as
         // "marked" so that after a scan the user can see their prior pick and refine it.
         // It's reset only on Clear or when a saved list is restored.
@@ -322,6 +330,10 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
             await onUpdateList?.(editingScanId, { ...pendingScan, chat: chatLog })
         } else {
             await onGenerateList?.({ ...pendingScan, chat: chatLog }, threadIdRef.current)
+            // An INVESTING list is not the end of the road — the names are meant to go to Prometheus
+            // for coverage and then back to Atlas. Hold the list so the hand-off can be offered right
+            // here, instead of making the user go find the saved card to click names one at a time.
+            if (profileRef.current === 'investing') setResearchOffer(pendingScan)
             setPendingScan(null)
             threadIdRef.current = newThreadId()   // next scan build gets a fresh draft thread
         }
@@ -423,6 +435,24 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
 
             {/* Action bar — a footer below the scroll area (not inside it) so it stays
                 pinned above the input without ever covering the messages. */}
+            {/* Investing list generated → send the top of it to research. Argus ranked them, so the
+                top slice is the part worth Prometheus's time (it researches few and deep, and each
+                name is a full coverage cycle). The rest stay on the saved list and can be asked for
+                by name once the user is in Prometheus. */}
+            {!chat.isLoading && researchOffer?.candidates?.length > 0 && (
+                <div className="portfolio-panel__action-bubble">
+                    <button
+                        className="portfolio-panel__review-btn portfolio-panel__review-btn--update"
+                        onClick={() => { onResearchList?.(researchOffer); setResearchOffer(null) }}
+                    >
+                        Send top {Math.min(RESEARCH_TOP_N, researchOffer.candidates.length)} to research →
+                    </button>
+                    <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={() => setResearchOffer(null)}>
+                        Not now
+                    </button>
+                </div>
+            )}
+
             {!chat.isLoading && !kairosPick && (!!editingScanId || listReady) && (
                 <div className="portfolio-panel__action-bubble">
                     {/* "Update/Generate list" only once there's a ready list; the "I'll do it later"
