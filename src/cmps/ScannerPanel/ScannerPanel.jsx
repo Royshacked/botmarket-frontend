@@ -328,6 +328,10 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
         if (editingScanId) {
             // Update the existing list in place; stay in edit mode for more refining.
             await onUpdateList?.(editingScanId, { ...pendingScan, chat: chatLog })
+            // A refined investing list has the same next step as a fresh one — the names still owe
+            // Prometheus a look. Offering it only on first generation meant anyone who tightened
+            // their list lost the hand-off for having improved it.
+            if (profileRef.current === 'investing') setResearchOffer(pendingScan)
         } else {
             await onGenerateList?.({ ...pendingScan, chat: chatLog }, threadIdRef.current)
             // An INVESTING list is not the end of the road — the names are meant to go to Prometheus

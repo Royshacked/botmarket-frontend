@@ -1937,7 +1937,9 @@ export function MainPage() {
     async function handleUpdateList(scanId, scan) {
         const saved = await updateScan(scanId, scan)
         if (saved) setNewsTab('scans')
-        handleBackToAxl()   // list updated — return to the axl hub
+        // Same rule as handleGenerateList: an investing list is mid-pipeline whether it was just
+        // built or just refined, so leaving for the hub here pre-empts the research hand-off.
+        if (scan?.profile !== 'investing') handleBackToAxl()
     }
 
     // Resume an unfinished idea-building draft: restore the conversation + analysisState
