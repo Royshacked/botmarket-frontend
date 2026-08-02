@@ -1778,6 +1778,10 @@ export function MainPage() {
         const bits = [sr.style, sr.cap_band ? `${sr.cap_band}-cap` : null].filter(Boolean)
         let msg = `Screen for a ${bits.join(' ') || 'quality'} sleeve${sr.sector ? ` in ${sr.sector}` : ''}.`
         if (sr.constraints) msg += ` Constraints: ${sr.constraints}.`
+        // The mandate's selection school. This sentence IS the whole brief — Argus never sees Atlas's
+        // conversation — so the school has to be said out loud here or the screen ranks neutrally
+        // while Atlas believes it asked for its own bar.
+        if (sr.lens)        msg += ` Selection school: ${sr.lens} — echo it back as the list's lens.`
         if (sr.note)        msg += ` (${sr.note})`
         setScanHandoff({ active: false, request: null })
         setKairosScanResult(null)
