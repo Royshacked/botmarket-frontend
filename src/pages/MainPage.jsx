@@ -1914,7 +1914,11 @@ export function MainPage() {
                 threadsService.linkThread(threadId, { subjectType: 'scan', subjectId: saved.id, artifactName: scan?.thesis ?? null })
             }
         }
-        handleBackToAxl()   // list generated — return to the axl hub
+        // An INVESTING list is mid-pipeline, not finished: its names still have to go to Prometheus
+        // for coverage and come back to Atlas. Returning to the hub here threw the user out one beat
+        // before the research hand-off could be offered, which is the whole reason the list exists.
+        // A trading list has no such next step — the hub is the right place for it.
+        if (scan?.profile !== 'investing') handleBackToAxl()
     }
 
     // Edit a saved list (pencil) → reopen its conversation in the scanner, in edit
@@ -2099,6 +2103,7 @@ export function MainPage() {
                                 onGenerateList={handleGenerateList}
                                 onUpdateList={handleUpdateList}
                                 onResearchList={handleResearchList}
+                                onResearchLater={handleBackToAxl}
                                 onLoadingChange={setScannerLoading}
                                 chatRestore={scannerChatRestore}
                                 scanSeed={scannerSeed}

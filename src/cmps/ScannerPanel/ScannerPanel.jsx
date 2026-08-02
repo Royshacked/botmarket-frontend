@@ -110,7 +110,7 @@ const MessageBubble = ({ msg, onTickerSelect }) => (
     />
 )
 
-export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, onUpdateList, onResearchList, onLoadingChange, chatRestore = null, scanSeed = null, handoff = false, onBackToKairos, onDismissHandoff, resumeRef = null }) {
+export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, onUpdateList, onResearchList, onResearchLater, onLoadingChange, chatRestore = null, scanSeed = null, handoff = false, onBackToKairos, onDismissHandoff, resumeRef = null }) {
     const pipelineCfg = PIPELINE_CONFIG[pipeline] ?? PIPELINE_CONFIG.scan
     const chat = useChatStream()
     const { messages, setMessages } = chat
@@ -447,7 +447,10 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                     >
                         Send top {Math.min(RESEARCH_TOP_N, researchOffer.candidates.length)} to research →
                     </button>
-                    <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={() => setResearchOffer(null)}>
+                    {/* Declining research is the end of the road for this list, so it lands where a
+                        finished list always did — the hub. Clearing the offer in place would strand
+                        the user in a scanner with nothing left to do. */}
+                    <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={() => { setResearchOffer(null); onResearchLater?.() }}>
                         Not now
                     </button>
                 </div>
