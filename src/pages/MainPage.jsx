@@ -1776,7 +1776,13 @@ export function MainPage() {
     function handleSourceInArgus(sr) {
         if (!sr || (!sr.sector && !sr.style)) return
         const bits = [sr.style, sr.cap_band ? `${sr.cap_band}-cap` : null].filter(Boolean)
-        let msg = `Screen for a ${bits.join(' ') || 'quality'} sleeve${sr.sector ? ` in ${sr.sector}` : ''}.`
+        // Industry before sector when Atlas named one: it is the binding pond, and burying it after
+        // the sector reads as a hint rather than the constraint it is.
+        const where = sr.industry
+            ? ` in ${sr.industry}${sr.sector ? ` (${sr.sector})` : ''}`
+            : (sr.sector ? ` in ${sr.sector}` : '')
+        let msg = `Screen for a ${bits.join(' ') || 'quality'} sleeve${where}.`
+        if (sr.industry) msg += ` The industry is fixed — screen inside ${sr.industry}, don't widen to the sector.`
         if (sr.constraints) msg += ` Constraints: ${sr.constraints}.`
         // The mandate's selection school. This sentence IS the whole brief — Argus never sees Atlas's
         // conversation — so the school has to be said out loud here or the screen ranks neutrally
