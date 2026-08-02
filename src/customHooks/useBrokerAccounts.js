@@ -11,10 +11,19 @@ import { useWindowEvent } from './useWindowEvent.js'
  * existing main is left as-is (the user picks it explicitly).
  *
  * Paper mode is the workspace switch: the backend reports paper as connected while
- * paper mode is ON and returns the user's NAMED paper accounts. A paper idea binds to
- * exactly ONE account, so in paper mode we isolate the selector to the paper accounts
- * and keep a SINGLE one selected (the prior pick if still valid, else the first) —
- * the user picks which named account this idea simulates on.
+ * paper mode is ON and returns the user's NAMED paper accounts. In every workspace the
+ * selector is isolated to that workspace's accounts.
+ *
+ * PAPER IS MULTI-SELECT, like live. It used to be pinned to one account per idea, which
+ * was a frontend rule and nothing else: the paper store is N-accounts-per-user by design
+ * and its positions, orders and equity all carry an accountId, so an idea spread over two
+ * paper accounts plans and fills exactly as it does on two live ones (balance-scaled off
+ * the main). One account is still SEEDED when the selection is empty, because a paper
+ * ticket with nothing marked can't place — but the user can now add more.
+ *
+ * MANUAL stays one account per idea. That isn't a UI limit: in manual mode the user places
+ * the trade at their own broker and reports the fill back, so a second account has no
+ * distinct thing to report.
  *
  * @returns {{
  *   availableAccounts: import('../types.js').Account[],
@@ -55,17 +64,23 @@ export function useBrokerAccounts() {
             setIsPaper(ws === 'paper')
             setAvailableAccounts(all)
 
-            if (ws === 'paper' || ws === 'manual') {
-                // Virtual workspace → one account per idea: keep ONE selected (the prior
-                // pick if it still exists, else the first). main follows via the effect.
+            if (ws === 'manual') {
+                // One account per idea — the user reports one fill, from one broker.
                 setSelectedAccounts(prev => {
                     const kept = prev.find(id => all.some(a => a.id === id))
                     return all.length ? [kept ?? all[0].id] : []
                 })
             } else {
                 // Drop any selected ids that no longer exist — e.g. a virtual id after
-                // switching to the live workspace, or a disconnected account.
-                setSelectedAccounts(prev => prev.filter(id => all.some(a => a.id === id)))
+                // switching workspace, or a disconnected account.
+                const live = all.length ? (prev) => prev.filter(id => all.some(a => a.id === id)) : () => []
+                setSelectedAccounts(prev => {
+                    const kept = live(prev)
+                    // Paper seeds one so the ticket is placeable out of the box; live does not,
+                    // because auto-marking a real-money account is not ours to do.
+                    if (kept.length === 0 && ws === 'paper' && all.length) return [all[0].id]
+                    return kept
+                })
             }
         } catch (err) {
             console.error('[accounts] fetch failed', err)

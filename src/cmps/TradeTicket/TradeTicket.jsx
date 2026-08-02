@@ -206,7 +206,7 @@ export function TradeTicket({
                                 className={`${P}__input ${P}__input--symbol`}
                                 value={symbol}
                                 onChange={e => setSymbol(e.target.value.toUpperCase())}
-                                placeholder="AAPL"
+                                placeholder="select a ticker…"
                                 autoComplete="off"
                                 spellCheck="false"
                                 disabled={busy}

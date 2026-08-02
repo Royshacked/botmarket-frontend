@@ -600,6 +600,14 @@
         top: calc(100% + 6px);
         right: 0;
         z-index: 200;
+
+        // Anchored to the trigger's LEFT edge instead, when opening rightwards is what fits. The
+        // component measures its clipping ancestor and picks — see the flip in AccountSelector.
+        &--left {
+            right: auto;
+            left: 0;
+        }
+
         background: var(--bg-surface);
         border: 1px solid var(--border);
         border-radius: 4px;
@@ -609,6 +617,10 @@
     }
 
     &__dropdown-title {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
         font-family: var(--font-mono);
         font-size: 9px;
         font-weight: 700;
@@ -618,6 +630,14 @@
         padding: 7px 12px 5px;
         border-bottom: 1px solid var(--border);
         margin-bottom: 2px;
+    }
+
+    // The one-per-idea rule, stated beside the radios it explains.
+    &__dropdown-rule {
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: none;
+        color: var(--accent-light);
     }
 
     &__empty {
@@ -636,12 +656,14 @@
         cursor: pointer;
         transition: background 0.12s;
 
-        input[type='checkbox'] {
+        input[type='checkbox'],
+        input[type='radio'] {
             accent-color: var(--accent);
             cursor: pointer;
             width: 12px;
             height: 12px;
             flex-shrink: 0;
+            margin: 0;
         }
 
         &:hover { background: var(--bg-hover); }
