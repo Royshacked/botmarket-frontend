@@ -288,6 +288,12 @@ export function MainPage() {
     const [kairosScanResult, setKairosScanResult] = useState(null)
     const [analystScanResult, setAnalystScanResult] = useState(null)
     const [portfolioSeed, setPortfolioSeed] = useState(null)   // Prometheus → Atlas nudge (see handleSleeveResearched)
+    // A SLEEVE RUN: Atlas routed several sectors at once, Argus screens them back to back, and the
+    // survivors pool until the last one lands. `queue` is what is still to screen; `survivors` is
+    // what has cleared so far. Empty queue + empty survivors = no run in progress.
+    const [sleeveRun, setSleeveRun] = useState({ active: false, queue: [], survivors: [], done: [] })
+    const sleeveRunRef = useRef(sleeveRun)   // the save handler is async; the closure would be stale
+    sleeveRunRef.current = sleeveRun
     const [analystEditCoverage, setAnalystEditCoverage] = useState(null)   // coverage pencil → re-open Prometheus on that name
     const [analystSeed,      setAnalystSeed]      = useState(null)     // Axl's routed ticker → Prometheus's opening turn
     const [mentorSeed,       setMentorSeed]       = useState(null)     // calendar row (earnings/IPO) → Mentor's opening turn
@@ -1774,8 +1780,16 @@ export function MainPage() {
     // Route OUT: Atlas emitted a <screen_request> (a sleeve mandate) → open Argus in the INVESTING
     // profile, seeded with the mandate. Not a single-pick hand-off — a fundamental candidate list that
     // routes on to the Analyst.
-    function handleSourceInArgus(sr) {
-        if (!sr || (!sr.sector && !sr.style)) return
+    function handleSourceInArgus(requests) {
+        const sleeves = (Array.isArray(requests) ? requests : [requests]).filter(r => r && (r.sector || r.style))
+        if (!sleeves.length) return
+        setSleeveRun({ active: true, queue: sleeves.slice(1), survivors: [], done: [] })
+        _screenSleeve(sleeves[0])
+    }
+
+    // Seed Argus for ONE sleeve. Remounts it fresh so each sector is its own scan — a sleeve's list
+    // is its own artifact, and its ranking only means anything within its own pond.
+    function _screenSleeve(sr) {
         const bits = [sr.style, sr.cap_band ? `${sr.cap_band}-cap` : null].filter(Boolean)
         // Industry before sector when Atlas named one: it is the binding pond, and burying it after
         // the sector reads as a hint rather than the constraint it is.
@@ -1783,12 +1797,12 @@ export function MainPage() {
             ? ` in ${sr.industry}${sr.sector ? ` (${sr.sector})` : ''}`
             : (sr.sector ? ` in ${sr.sector}` : '')
         let msg = `Screen for a ${bits.join(' ') || 'quality'} sleeve${where}.`
-        if (sr.industry) msg += ` The industry is fixed — screen inside ${sr.industry}, don't widen to the sector.`
         if (sr.constraints) msg += ` Constraints: ${sr.constraints}.`
         // The mandate's selection school. This sentence IS the whole brief — Argus never sees Atlas's
         // conversation — so the school has to be said out loud here or the screen ranks neutrally
         // while Atlas believes it asked for its own bar.
         if (sr.lens)        msg += ` Selection school: ${sr.lens} — echo it back as the list's lens.`
+        if (sr.industry)    msg += ` The industry is fixed — screen inside ${sr.industry}, don't widen to the sector.`
         if (sr.note)        msg += ` (${sr.note})`
         setScanHandoff({ active: false, request: null })
         setKairosScanResult(null)
@@ -1798,6 +1812,7 @@ export function MainPage() {
         setActiveTab('scanner')
         setNewsTab('scans')
     }
+
     // Route BACK: Argus emitted a <kairos_pick> and the user tapped "Back to Kairos" → hand the ticker
     // (+ its read) to Kairos, which still holds the bias/horizon. Does NOT reset Kairos or bounce Axl.
     function handleBackToKairos(pick) {
@@ -1914,11 +1929,46 @@ export function MainPage() {
                 threadsService.linkThread(threadId, { subjectType: 'scan', subjectId: saved.id, artifactName: scan?.thesis ?? null })
             }
         }
+
+        // Mid-SLEEVE-RUN: this sector is done. Take its top names, then either screen the next sector
+        // or — once the last one lands — send everything to Prometheus as ONE queue. The user is not
+        // asked anything between sectors; being asked N times is the friction this replaced.
+        const run = sleeveRunRef.current
+        if (scan?.profile === 'investing' && run.active) {
+            const names   = (scan.candidates ?? []).map(c => c?.ticker).filter(Boolean)
+            const keep    = names.slice(0, RESEARCH_TOP_N)
+            const nextRun = {
+                active:    true,
+                queue:     run.queue.slice(1),
+                survivors: [...run.survivors, ...keep],
+                done:      [...run.done, ...names],
+            }
+            setSleeveRun(nextRun)
+            sleeveRunRef.current = nextRun
+            if (run.queue.length) { _screenSleeve(run.queue[0]); return }
+            _researchSurvivors(nextRun)
+            return
+        }
+
         // An INVESTING list is mid-pipeline, not finished: its names still have to go to Prometheus
         // for coverage and come back to Atlas. Returning to the hub here threw the user out one beat
         // before the research hand-off could be offered, which is the whole reason the list exists.
         // A trading list has no such next step — the hub is the right place for it.
         if (scan?.profile !== 'investing') handleBackToAxl()
+    }
+
+    // Every sector screened → the pooled survivors go to Prometheus as one queue, and the run ends.
+    function _researchSurvivors(run) {
+        setSleeveRun({ active: false, queue: [], survivors: [], done: [] })
+        if (!run.survivors.length) { handleBackToAxl(); return }
+        setAnalystScanResult({
+            key:    Date.now(),
+            queue:  run.survivors,
+            pool:   run.done,          // everything screened — "also do KLAC" reads from this
+            sector: null,              // several sleeves: no single label to claim
+            ticker: run.survivors[0],  // back-compat for single-name consumers
+        })
+        setActiveTab('analyst')
     }
 
     // Edit a saved list (pencil) → reopen its conversation in the scanner, in edit
@@ -2106,6 +2156,9 @@ export function MainPage() {
                                 onUpdateList={handleUpdateList}
                                 onResearchList={handleResearchList}
                                 onResearchLater={handleBackToAxl}
+                                // Mid sleeve-run Argus saves each sector itself — nobody is waiting
+                                // to press between sectors.
+                                autoGenerate={sleeveRun.active}
                                 onLoadingChange={setScannerLoading}
                                 chatRestore={scannerChatRestore}
                                 scanSeed={scannerSeed}

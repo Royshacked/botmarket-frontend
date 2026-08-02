@@ -110,7 +110,7 @@ const MessageBubble = ({ msg, onTickerSelect }) => (
     />
 )
 
-export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, onUpdateList, onResearchList, onResearchLater, onLoadingChange, chatRestore = null, scanSeed = null, handoff = false, onBackToKairos, onDismissHandoff, resumeRef = null }) {
+export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, onUpdateList, onResearchList, onResearchLater, autoGenerate = false, onLoadingChange, chatRestore = null, scanSeed = null, handoff = false, onBackToKairos, onDismissHandoff, resumeRef = null }) {
     const pipelineCfg = PIPELINE_CONFIG[pipeline] ?? PIPELINE_CONFIG.scan
     const chat = useChatStream()
     const { messages, setMessages } = chat
@@ -180,7 +180,14 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                 const tickers = [...pendingTickersRef.current]
                 pendingTickersRef.current = []
                 chat.finishStreaming({ role: 'assistant', content: data.reply, tickers })
-                if (data.scan?.candidates?.length) setPendingScan(data.scan)
+                if (data.scan?.candidates?.length) {
+                    setPendingScan(data.scan)
+                    // In a SLEEVE RUN nobody is steering between sectors — Atlas routed several at
+                    // once and the point is that it runs through. A complete list saves itself and
+                    // hands control back rather than waiting on a press no one is here to make. The
+                    // scan is passed explicitly: the state set above is not readable in this closure.
+                    if (autoGenerate) handleGenerate({ scan: data.scan })
+                }
                 if (data.kairos_pick) setKairosPick(data.kairos_pick)   // hand-off: single pick → button
                 // Construction only: persist the scan-building conversation as a draft thread.
                 // The backend enforces the substantive floor (scanner = past nucleus) + TTL.
@@ -244,7 +251,14 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                 pendingTickersRef.current = []
                 const content = base + data.reply
                 chat.finishStreaming({ role: 'assistant', content, tickers })
-                if (data.scan?.candidates?.length) setPendingScan(data.scan)
+                if (data.scan?.candidates?.length) {
+                    setPendingScan(data.scan)
+                    // In a SLEEVE RUN nobody is steering between sectors — Atlas routed several at
+                    // once and the point is that it runs through. A complete list saves itself and
+                    // hands control back rather than waiting on a press no one is here to make. The
+                    // scan is passed explicitly: the state set above is not readable in this closure.
+                    if (autoGenerate) handleGenerate({ scan: data.scan })
+                }
                 if (data.kairos_pick) setKairosPick(data.kairos_pick)
                 if (!editingScanId) {
                     threadsService.saveDraft({
@@ -321,9 +335,11 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
     // "Send to research" was one button asking them to confirm a step they never wanted separately.
     // The list is still saved either way: it carries the lens and the provenance, and it holds the
     // names that did NOT get queued, which is what "also do KLAC" reads from later.
-    async function handleGenerate({ thenResearch = false, thenLeave = false } = {}) {
-        if (!pendingScan) return
-        const scan = pendingScan   // captured: the state is cleared below, the hand-off needs it
+    async function handleGenerate({ thenResearch = false, thenLeave = false, scan: given = null } = {}) {
+        // Explicit `scan` for the auto path: it fires from inside onDone, where the state just set is
+        // not yet readable. Manual presses read the state as before.
+        const scan = given ?? pendingScan
+        if (!scan) return
         // Persist the conversation alongside the list so reopening it returns here. Chart rows are
         // dropped: a chart the user asked to LOOK at is not part of the list, and persisting one as
         // a content-less turn would reopen the thread with an empty bubble in it.

@@ -57,7 +57,7 @@ export function PortfolioPanel({
     useEffect(() => { onLoadingChange?.(isLoading) }, [isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
 
     const [pendingPlan,           setPendingPlan]           = useState(null)
-    const [screenRequest,         setScreenRequest]         = useState(null)   // Atlas → Argus investing mandate hand-off
+    const [screenRequests,        setScreenRequests]        = useState([])     // Atlas → Argus: EVERY sleeve routed this turn
     const [editingPortfolioId,    setEditingPortfolioId]    = useState(null)
     const [editingPortfolioIdeas, setEditingPortfolioIdeas] = useState([])
     const [editDirty,             setEditDirty]             = useState(false)
@@ -144,7 +144,7 @@ export function PortfolioPanel({
     async function _send(text) {
         if (!text || isLoading) return
         setEditDirty(true)
-        setScreenRequest(null)   // a new turn supersedes any pending "Source in Argus" offer
+        setScreenRequests([])    // a new turn supersedes any pending "Source in Argus" offer
 
         const history = toChatHistory(messages)
         history.push({ role: 'user', content: text })
@@ -164,7 +164,7 @@ export function PortfolioPanel({
                 if (data.thesis) { latestThesisRef.current = data.thesis; setPortfolioThesis(data.thesis) }
                 chat.finishStreaming({ role: 'assistant', content: data.reply, tickers })
                 if (data.plan?.ideas?.length) setPendingPlan(data.plan)
-                if (data.screen_request) setScreenRequest(data.screen_request)   // offer the Argus investing hand-off
+                if (data.screen_requests?.length) setScreenRequests(data.screen_requests)   // offer the Argus hand-off — all sleeves at once
                 // Pass any thesis emitted in THIS same turn so a confirmed review
                 // rebalance persists it (reason 'accepted-rebalance'). Only the
                 // same-turn proposal is attached — never the restored existing thesis.
@@ -236,7 +236,7 @@ export function PortfolioPanel({
                 if (data.thesis) { latestThesisRef.current = data.thesis; setPortfolioThesis(data.thesis) }
                 chat.finishStreaming({ role: 'assistant', content: base + data.reply, tickers })
                 if (data.plan?.ideas?.length) setPendingPlan(data.plan)
-                if (data.screen_request) setScreenRequest(data.screen_request)   // offer the Argus investing hand-off
+                if (data.screen_requests?.length) setScreenRequests(data.screen_requests)   // offer the Argus hand-off — all sleeves at once
                 if (data.update?.changes?.length) {
                     // Review mode: surface an inline Accept/Dismiss on the proposal.
                     // Construction/edit: hand off to the existing apply path.
@@ -492,13 +492,15 @@ export function PortfolioPanel({
             </AgentMessages>
 
             {/* Atlas → Argus: hand a sleeve's mandate to the investing screening desk. */}
-            {!isLoading && screenRequest && (
+            {!isLoading && screenRequests.length > 0 && (
                 <div className="portfolio-panel__action-bubble">
                     <button
                         className="portfolio-panel__review-btn portfolio-panel__review-btn--update"
-                        onClick={() => { onSourceInArgus?.(screenRequest); setScreenRequest(null) }}
+                        onClick={() => { onSourceInArgus?.(screenRequests); setScreenRequests([]) }}
                     >
-                        Source {screenRequest.sector || screenRequest.style || 'this sleeve'} in Argus
+                        {screenRequests.length === 1
+                            ? `Source ${screenRequests[0].sector || screenRequests[0].style || 'this sleeve'} in Argus`
+                            : `Screen ${screenRequests.length} sleeves in Argus →`}
                     </button>
                 </div>
             )}
