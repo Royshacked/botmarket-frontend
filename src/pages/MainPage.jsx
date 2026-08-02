@@ -1784,12 +1784,12 @@ export function MainPage() {
         const sleeves = (Array.isArray(requests) ? requests : [requests]).filter(r => r && (r.sector || r.style))
         if (!sleeves.length) return
         setSleeveRun({ active: true, queue: sleeves.slice(1), survivors: [], done: [] })
-        _screenSleeve(sleeves[0])
+        _screenSleeve(sleeves[0], { fresh: true })
     }
 
     // Seed Argus for ONE sleeve. Remounts it fresh so each sector is its own scan — a sleeve's list
     // is its own artifact, and its ranking only means anything within its own pond.
-    function _screenSleeve(sr) {
+    function _screenSleeve(sr, { fresh = false } = {}) {
         const bits = [sr.style, sr.cap_band ? `${sr.cap_band}-cap` : null].filter(Boolean)
         // Industry before sector when Atlas named one: it is the binding pond, and burying it after
         // the sector reads as a hint rather than the constraint it is.
@@ -1808,7 +1808,10 @@ export function MainPage() {
         setKairosScanResult(null)
         setScannerChatRestore(null)
         setScannerSeed({ key: Date.now(), message: msg, profile: 'investing' })
-        setScannerResetKey(k => k + 1)   // remount ARGUS alone — Atlas keeps the mandate that sent this
+        // Remount only when ENTERING the run — a fresh Argus for a fresh book. Between sectors the
+        // conversation continues: remounting there wiped the transcript the user had just watched
+        // build, and tore the panel down in the middle of the turn that triggered it.
+        if (fresh) setScannerResetKey(k => k + 1)
         setActiveTab('scanner')
         setNewsTab('scans')
     }
@@ -1922,6 +1925,9 @@ export function MainPage() {
     // Generate (save) a scan list from the scanner panel, then surface it.
     async function handleGenerateList(scan, threadId = null) {
         const saved = await createScan(scan)
+        // createScan swallows its error and answers null. Mid-run that is the difference between a
+        // sector that contributed names and one that vanished, so say it rather than move on quietly.
+        if (!saved) console.error('[scans] sector list did not save', scan?.thesis ?? scan?.sector ?? '(unnamed)')
         if (saved) {
             setNewsTab('scans')
             // Link the construction draft thread to the created scan (clears its TTL).
@@ -1960,7 +1966,17 @@ export function MainPage() {
     // Every sector screened → the pooled survivors go to Prometheus as one queue, and the run ends.
     function _researchSurvivors(run) {
         setSleeveRun({ active: false, queue: [], survivors: [], done: [] })
-        if (!run.survivors.length) { handleBackToAxl(); return }
+        // A run that screened every sector and produced nobody is a RESULT, not a non-event. Bouncing
+        // to the hub here looked identical to the pipeline breaking, which is exactly how it read.
+        // Send the user back to Atlas and say so — it is the desk that has to decide what now.
+        if (!run.survivors.length) {
+            setPortfolioSeed({
+                key: Date.now(),
+                message: 'Argus screened every sleeve and nothing cleared the bar. Tell me what came back short, and either widen a sleeve or change the frame.',
+            })
+            setActiveTab('portfolio')
+            return
+        }
         setAnalystScanResult({
             key:    Date.now(),
             queue:  run.survivors,

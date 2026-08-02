@@ -150,12 +150,19 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
     // Kairos hand-off seed: MainPage remounts this panel fresh (chatResetKey) then pushes a
     // constraints message (direction/horizon/window). We just send it — Argus reads the constraints
     // and asks for the scan angle, exactly as if the user opened a fresh scan. Keyed so it fires once.
+    // Fires once per seed key — but WAITS for any turn in flight, because _send bails while
+    // chat.isLoading. A sleeve run seeds the next sector from inside the previous one's onDone, which
+    // runs BEFORE the stream's finally, so a fire-and-forget seed would silently do nothing. It used
+    // to survive only because the panel was remounted, and the remount is what wiped the transcript.
+    const seededKeyRef = useRef(null)
     useEffect(() => {
-        if (!scanSeed?.message) return
+        if (!scanSeed?.message || chat.isLoading) return
+        if (seededKeyRef.current === scanSeed.key) return
+        seededKeyRef.current = scanSeed.key
         // Atlas → Argus investing hand-off carries the profile; set it (ref first so this same-tick send uses it).
         if (scanSeed.profile === 'investing' || scanSeed.profile === 'trading') { profileRef.current = scanSeed.profile; setProfile(scanSeed.profile) }
         _send(scanSeed.message)
-    }, [scanSeed?.key])   // eslint-disable-line react-hooks/exhaustive-deps
+    }, [scanSeed?.key, chat.isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
 
 
     async function _send(text) {
