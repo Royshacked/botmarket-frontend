@@ -47,9 +47,27 @@ describe('AnalystPanel — Axl hand-off seed', () => {
 
         await waitFor(() => expect(sendStream).toHaveBeenCalled())
         const [history, opts] = lastCall()
-        expect(history.at(-1)).toEqual({ role: 'user', content: 'Research AMD for coverage.' })
+        // The words name the SLEEVE now: a run spans several sectors, and researching a name without
+        // knowing which sleeve it is for produces a thesis aimed at the wrong book.
+        expect(history.at(-1).content).toMatch(/^Research AMD for coverage/)
+        expect(history.at(-1).content).toContain('Semis sleeve')
         expect(opts.seed).toMatchObject({ ticker: 'AMD', sector: 'Semis', thesis: 'AI cycle' })
         expect(opts.chatState.active_symbol).toBe('AMD')
+    })
+
+    it('a multi-sector run tells each name which sleeve it is for', async () => {
+        // The bug this guards: a three-sector run reached Prometheus carrying only the last sector,
+        // because the run was accumulated in a ref that every render overwrote from state.
+        render(<AnalystPanel scanResult={{
+            key: 'k2',
+            queue: ['NVDA', 'XOM'],
+            bySector: [{ sector: 'Technology', names: ['NVDA'] }, { sector: 'Energy', names: ['XOM'] }],
+        }} />)
+
+        await waitFor(() => expect(sendStream).toHaveBeenCalled())
+        const [history, opts] = lastCall()
+        expect(history.at(-1).content).toContain('Technology sleeve')
+        expect(opts.seed).toMatchObject({ ticker: 'NVDA', sector: 'Technology' })
     })
 })
 

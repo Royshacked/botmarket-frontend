@@ -162,9 +162,13 @@ export function AnalystPanel({ scanResult = null, editCoverage = null, seed = nu
     // itself and the user can see where they are — and `pool` carries the names NOT in the top slice,
     // so "do KLAC as well" is a thing they can just ask for.
     function _sendResearch(ticker, rest) {
-        seedRef.current = { ticker, sector: scanResult?.sector ?? null, thesis: scanResult?.thesis ?? null, analysis: scanResult?.analysis ?? null }
+        // Which sleeve this name is FOR. A run spans several sectors, and researching a utility with
+        // the tech sleeve's frame in mind produces a thesis for the wrong book.
+        const sleeve = (scanResult?.bySector ?? []).find(s => s.names?.includes(ticker))?.sector
+            ?? scanResult?.sector ?? null
+        seedRef.current = { ticker, sector: sleeve, thesis: scanResult?.thesis ?? null, analysis: scanResult?.analysis ?? null }
         const pool = (scanResult?.pool ?? []).filter(t => t !== ticker && !rest.includes(t))
-        const lines = [`Research ${ticker} for coverage.`]
+        const lines = [`Research ${ticker} for coverage${sleeve ? ` — it is a candidate for the ${sleeve} sleeve` : ''}.`]
         if (rest.length)  lines.push(`This is one of ${rest.length + 1} from the same sleeve — ${rest.join(', ')} follow after it. Do ${ticker} only for now.`)
         if (pool.length)  lines.push(`Also on the list but not queued: ${pool.join(', ')}. Only research one of those if the user asks.`)
         _send(lines.join(' '))

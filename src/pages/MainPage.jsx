@@ -291,9 +291,14 @@ export function MainPage() {
     // A SLEEVE RUN: Atlas routed several sectors at once, Argus screens them back to back, and the
     // survivors pool until the last one lands. `queue` is what is still to screen; `survivors` is
     // what has cleared so far. Empty queue + empty survivors = no run in progress.
-    const [sleeveRun, setSleeveRun] = useState({ active: false, queue: [], survivors: [], done: [] })
-    const sleeveRunRef = useRef(sleeveRun)   // the save handler is async; the closure would be stale
-    sleeveRunRef.current = sleeveRun
+    // The sleeve run lives in a REF, not in state. It is accumulated from an async save handler, and
+    // the render-time mirror this used to have (`ref.current = state`, re-run on EVERY render) could
+    // overwrite what that handler had just added — which is how a run that screened three sectors
+    // reached the Analyst carrying only the last one. State holds the one thing the UI needs.
+    // `sectors` keeps each sleeve's names under its own label instead of one flat pile, so the
+    // Analyst can say which sleeve a name is being researched FOR.
+    const sleeveRunRef = useRef({ active: false, queue: [], sectors: [] })
+    const [sleeveRunActive, setSleeveRunActive] = useState(false)
     const [analystEditCoverage, setAnalystEditCoverage] = useState(null)   // coverage pencil → re-open Prometheus on that name
     const [analystSeed,      setAnalystSeed]      = useState(null)     // Axl's routed ticker → Prometheus's opening turn
     const [mentorSeed,       setMentorSeed]       = useState(null)     // calendar row (earnings/IPO) → Mentor's opening turn
@@ -1783,7 +1788,8 @@ export function MainPage() {
     function handleSourceInArgus(requests) {
         const sleeves = (Array.isArray(requests) ? requests : [requests]).filter(r => r && (r.sector || r.style))
         if (!sleeves.length) return
-        setSleeveRun({ active: true, queue: sleeves.slice(1), survivors: [], done: [] })
+        sleeveRunRef.current = { active: true, queue: sleeves.slice(1), sectors: [] }
+        setSleeveRunActive(true)
         _screenSleeve(sleeves[0], { fresh: true })
     }
 
@@ -1941,18 +1947,14 @@ export function MainPage() {
         // asked anything between sectors; being asked N times is the friction this replaced.
         const run = sleeveRunRef.current
         if (scan?.profile === 'investing' && run.active) {
-            const names   = (scan.candidates ?? []).map(c => c?.ticker).filter(Boolean)
-            const keep    = names.slice(0, RESEARCH_TOP_N)
-            const nextRun = {
-                active:    true,
-                queue:     run.queue.slice(1),
-                survivors: [...run.survivors, ...keep],
-                done:      [...run.done, ...names],
-            }
-            setSleeveRun(nextRun)
-            sleeveRunRef.current = nextRun
-            if (run.queue.length) { _screenSleeve(run.queue[0]); return }
-            _researchSurvivors(nextRun)
+            const names = (scan.candidates ?? []).map(c => c?.ticker).filter(Boolean)
+            run.sectors.push({ sector: scan.thesis || scan.sector || `sleeve ${run.sectors.length + 1}`, names })
+            const next = run.queue[0]
+            run.queue  = run.queue.slice(1)
+            if (next) { _screenSleeve(next); return }
+            run.active = false
+            setSleeveRunActive(false)
+            _researchSurvivors(run.sectors)
             return
         }
 
@@ -1963,13 +1965,19 @@ export function MainPage() {
         if (scan?.profile !== 'investing') handleBackToAxl()
     }
 
-    // Every sector screened → the pooled survivors go to Prometheus as one queue, and the run ends.
-    function _researchSurvivors(run) {
-        setSleeveRun({ active: false, queue: [], survivors: [], done: [] })
-        // A run that screened every sector and produced nobody is a RESULT, not a non-event. Bouncing
-        // to the hub here looked identical to the pipeline breaking, which is exactly how it read.
-        // Send the user back to Atlas and say so — it is the desk that has to decide what now.
-        if (!run.survivors.length) {
+    // Every sector screened -> the top of EACH sleeve pools into one Prometheus queue. Built from the
+    // per-sector record, so a three-sector run hands over three sectors' names and the Analyst knows
+    // which sleeve each name is for.
+    function _researchSurvivors(sectors = []) {
+        const bySector = sectors
+            .map(sec => ({ sector: sec.sector, names: sec.names.slice(0, RESEARCH_TOP_N) }))
+            .filter(sec => sec.names.length)
+        const queue = bySector.flatMap(sec => sec.names)
+        const pool  = sectors.flatMap(sec => sec.names)
+
+        // A run that screened every sleeve and produced nobody is a RESULT, not a non-event. Falling
+        // through to the hub looked identical to the pipeline breaking, which is how it read.
+        if (!queue.length) {
             setPortfolioSeed({
                 key: Date.now(),
                 message: 'Argus screened every sleeve and nothing cleared the bar. Tell me what came back short, and either widen a sleeve or change the frame.',
@@ -1978,11 +1986,12 @@ export function MainPage() {
             return
         }
         setAnalystScanResult({
-            key:    Date.now(),
-            queue:  run.survivors,
-            pool:   run.done,          // everything screened — "also do KLAC" reads from this
-            sector: null,              // several sleeves: no single label to claim
-            ticker: run.survivors[0],  // back-compat for single-name consumers
+            key:      Date.now(),
+            queue,
+            pool,                    // everything screened - "also do KLAC" reads from this
+            bySector,                // which sleeve each name is being researched FOR
+            sector:   bySector.length === 1 ? bySector[0].sector : null,
+            ticker:   queue[0],      // back-compat for single-name consumers
         })
         setActiveTab('analyst')
     }
@@ -2174,7 +2183,7 @@ export function MainPage() {
                                 onResearchLater={handleBackToAxl}
                                 // Mid sleeve-run Argus saves each sector itself — nobody is waiting
                                 // to press between sectors.
-                                autoGenerate={sleeveRun.active}
+                                autoGenerate={sleeveRunActive}
                                 onLoadingChange={setScannerLoading}
                                 chatRestore={scannerChatRestore}
                                 scanSeed={scannerSeed}
