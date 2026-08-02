@@ -511,6 +511,21 @@
     svg { width: 13px; height: 13px; }
 }
 
+// One step back UP the pipeline, beside the leave-the-pipeline button. Same shape so the pair reads
+// as one control group, but a chevron instead of the long arrow and the step's own name in place of
+// "axl" — a shorter move, and it says where it lands. Cased normally: these are step names
+// ("Mandate", "Screen"), not the lowercase agent handle.
+.chat-agentbar__back--step {
+    padding-left: 4px;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    opacity: 0.85;
+
+    &:hover { opacity: 1; }
+
+    svg { width: 12px; height: 12px; }
+}
+
 // Opens the immediate-trade ticket in place of the thread. Shaped like __back (same strip, same
 // weight) but outlined when active, so it reads as a mode you're IN rather than a place you went.
 .chat-agentbar__ticket {

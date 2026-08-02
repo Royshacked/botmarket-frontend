@@ -4,6 +4,7 @@ import { ChatPanel }         from '../cmps/ChatPanel/ChatPanel.jsx'
 import { AxlHub }            from '../cmps/AxlHub/AxlHub.jsx'
 import { AgentSummon, AxlBotGlyph } from '../cmps/AxlHub/AgentSummon.jsx'
 import { RETURN_MS, DESKS, AGENTS } from '../cmps/AxlHub/agentMeta.jsx'
+import { resolveStepIndex, previousStep } from '../cmps/AxlHub/pipelineNav.js'
 import { AgentGlyph } from '../cmps/AxlHub/AgentBadges.jsx'
 import { AccountSelector }   from '../cmps/ChatPanel/AccountSelector.jsx'
 import { readStoredModel }   from '../cmps/modelOptions.js'
@@ -60,9 +61,14 @@ const TAB_TO_STEP = {
 
 // Agentbar breadcrumb: plain agent name when no pipeline is active, full
 // pipeline path with the current step highlighted when one is set.
-function PipelineCrumb({ pipeline, activeTab }) {
+function PipelineCrumb({ pipeline, activeTab, step = 0 }) {
     const desk        = pipeline ? DESKS.find(d => d.key === pipeline) : null
     const currentStep = TAB_TO_STEP[activeTab]
+    // `step` is the tracked position, not a tab match: an agent can appear twice in one pipeline
+    // (Atlas: mandate, then allocate) and the tab alone can't say which visit this is. Confirm it
+    // still agrees with the tab — standing somewhere outside the pipeline lights nothing, which is
+    // truer than lighting the wrong step.
+    const activeIdx   = desk?.steps[step]?.tab === activeTab ? step : -1
     if (!desk) return (
         <>
             <span className="chat-agentbar__crumb" aria-hidden="true">/</span>
@@ -77,11 +83,11 @@ function PipelineCrumb({ pipeline, activeTab }) {
                 <span key={step.label} className="chat-agentbar__pipeline-group">
                     {i > 0 && <span className="chat-agentbar__pipeline-line" aria-hidden="true" />}
                     {i > 0 && step.tab && AGENTS[step.tab] && (
-                        <span className={`chat-agentbar__pipeline-icon${step.tab === activeTab ? ' is-active' : ''}`}>
+                        <span className={`chat-agentbar__pipeline-icon${i === activeIdx ? ' is-active' : ''}`}>
                             <AgentGlyph agentKey={step.tab} icon={AGENTS[step.tab].icon} size={11} />
                         </span>
                     )}
-                    <span className={`chat-agentbar__pipeline-step${step.tab === activeTab ? ' is-active' : ''}`}>
+                    <span className={`chat-agentbar__pipeline-step${i === activeIdx ? ' is-active' : ''}`}>
                         <span className="chat-agentbar__pipeline-text">{step.label}</span>
                     </span>
                 </span>
@@ -256,6 +262,7 @@ export function MainPage() {
     const [isInvalidationReview, setIsInvalidationReview] = useState(false)
     const [activeTab, setActiveTab]             = useState('axl')
     const [activePipeline, setActivePipeline]   = useState(null)   // pipeline key from Axl reception
+    const [pipelineStep,   setPipelineStep]     = useState(0)      // index into that desk's steps[] — what "back" walks from
     const [newsTab, setNewsTab]                 = useState('scans')
     const [scannerChatRestore, setScannerChatRestore] = useState(null)
     const [portfolioChatRestore, setPortfolioChatRestore] = useState(null)
@@ -379,6 +386,11 @@ export function MainPage() {
     // Bumped each time we head home to axl so the Atlas/Argus panels remount fresh
     // — going back to axl and re-entering an agent always starts a new chat.
     const [chatResetKey, setChatResetKey] = useState(0)
+    // Bumped to remount ARGUS ALONE. Every hand-off that seeds it (Kairos discovery, Atlas sourcing)
+    // wants a clean panel — but the desk that SENT them there has to keep its conversation, or
+    // stepping back lands on a blank chat. Folded into chatResetKey, routing a sleeve to Argus wiped
+    // the Atlas mandate that authored the request.
+    const [scannerResetKey, setScannerResetKey] = useState(0)
     const returnTimerRef = useRef(null)
     const latestMessagesRef = useRef([])
     const ideaThreadIdRef   = useRef(newThreadId())   // idea construction draft thread
@@ -464,6 +476,7 @@ export function MainPage() {
         returnTimerRef.current = setTimeout(() => {
             setActiveTab('axl')
             setActivePipeline(null)
+            setPipelineStep(0)
             setNewsTab('scans')
             setReturningToAxl(false)
             // Fresh slate: clear the Idea chat, drop any pending edit-restore, and
@@ -1693,15 +1706,42 @@ export function MainPage() {
     //
     // Research and Assist take one: both are single-name desks, and each words the opening turn in
     // ITS OWN job — Prometheus is asked for coverage, Mentor is handed a trade the user already has
-    // in mind. Trading and Portfolio enter at Argus, whose opening turn is a screen, not a ticker,
-    // so a seed there would start the wrong work.
+    // in mind. Trading enters at Argus, whose opening turn is a screen, not a ticker, so a seed there
+    // would start the wrong work. Portfolio enters at Atlas, whose opening turn is the MANDATE — a
+    // ticker seed there would jump the frame it has to establish first (its Phase 1 gate).
     function handleAxlPick(tab, opts = {}) {
         setActiveTab(tab)
         setActivePipeline(opts.pipeline ?? null)
+        setPipelineStep(0)                                    // a desk always opens at its first step
         setNewsTab('scans')
         if (!opts.symbol) return
         if (tab === 'analyst') setAnalystSeed({ key: Date.now(), message: `Research ${opts.symbol} for coverage.` })
         if (tab === 'mentor')  setMentorSeed({ key: Date.now(), message: `I want to work on my own ${opts.symbol} trade.` })
+    }
+
+    // ── Walking the pipeline ──────────────────────────────────────────────────
+    // Follow the user along the desk's chain. Derived from the tab so every hand-off — the ones
+    // above, the ones below, and any added later — keeps the crumb and the back button honest
+    // without having to remember to stamp a step number. See pipelineNav.js for the ambiguity it
+    // resolves (Atlas stands at two different steps).
+    useEffect(() => {
+        if (!activePipeline) return
+        const steps = DESKS.find(d => d.key === activePipeline)?.steps ?? []
+        setPipelineStep(prev => resolveStepIndex(steps, activeTab, prev))
+    }, [activeTab, activePipeline])
+
+    // One step back up the chain. Distinct from the axl button beside it, which leaves the pipeline
+    // altogether: this keeps the desk and the work, so the user can re-read the mandate that framed
+    // a screen, or re-open the list a call came from, and carry on forward again.
+    //
+    // A plain tab switch, deliberately: every panel stays mounted (hidden, not unmounted), so going
+    // back finds the conversation as it was left. It must NOT bump a reset key.
+    const activeDesk   = activePipeline ? DESKS.find(d => d.key === activePipeline) : null
+    const backStep     = previousStep(activeDesk?.steps, pipelineStep)
+    function handleStepBack() {
+        if (!backStep) return
+        setPipelineStep(pipelineStep - 1)
+        setActiveTab(backStep.tab)
     }
 
     // ── Kairos ↔ Argus discovery hand-off ────────────────────────────────────
@@ -1726,7 +1766,7 @@ export function MainPage() {
         setKairosScanResult(null)
         setScannerChatRestore(null)                             // no edit-restore should interfere
         setScannerSeed({ key: Date.now(), message: buildScanSeedMessage(scanRequest) })
-        setChatResetKey(k => k + 1)                             // remount Argus fresh (Kairos is unkeyed → survives)
+        setScannerResetKey(k => k + 1)                          // remount Argus fresh (Kairos is unkeyed → survives)
         setActiveTab('scanner')
     }
 
@@ -1743,7 +1783,7 @@ export function MainPage() {
         setKairosScanResult(null)
         setScannerChatRestore(null)
         setScannerSeed({ key: Date.now(), message: msg, profile: 'investing' })
-        setChatResetKey(k => k + 1)   // remount Argus fresh
+        setScannerResetKey(k => k + 1)   // remount ARGUS alone — Atlas keeps the mandate that sent this
         setActiveTab('scanner')
         setNewsTab('scans')
     }
@@ -1762,7 +1802,7 @@ export function MainPage() {
         })
         setScanHandoff({ active: false, request: null })
         setScannerSeed(null)
-        setChatResetKey(k => k + 1)   // remount Argus fresh (clears its pick/chat); Kairos is unkeyed → draft survives
+        setScannerResetKey(k => k + 1)   // remount Argus fresh (clears its pick/chat); Kairos is unkeyed → draft survives
         setActiveTab('kairos')
     }
     // Dismiss the hand-off → back to Axl, clearing the origin state.
@@ -1973,7 +2013,20 @@ export function MainPage() {
                                     </svg>
                                     axl
                                 </button>
-                                <PipelineCrumb pipeline={activePipeline} activeTab={activeTab} />
+                                {backStep && (
+                                    <button
+                                        className="chat-agentbar__back chat-agentbar__back--step"
+                                        onClick={handleStepBack}
+                                        aria-label={`Back to ${backStep.label}`}
+                                        title={`Back to ${backStep.label}`}
+                                    >
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                            <path d="M15 18l-6-6 6-6" />
+                                        </svg>
+                                        {backStep.label}
+                                    </button>
+                                )}
+                                <PipelineCrumb pipeline={activePipeline} activeTab={activeTab} step={pipelineStep} />
 
                                 <div className="chat-agentbar__right">
                                     {/* (Trading by hand is picked in the hub, beside the desks — the pad
@@ -1997,7 +2050,7 @@ export function MainPage() {
                         </div>
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'scanner' ? 'flex' : 'none' }}>
                             <ScannerPanel
-                                key={`scanner-${chatResetKey}`}
+                                key={`scanner-${chatResetKey}-${scannerResetKey}`}
                                 resumeRef={scannerResumeRef}
                                 pipeline={activePipeline}
                                 onTickerSelect={handleScannerSymbol}

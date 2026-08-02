@@ -181,12 +181,18 @@ export const DESKS = [
         key:      'portfolio',
         label:    'Portfolio Desk',
         lead:     'Build a portfolio',
-        blurb:    'Long-term or swing — Argus scans, Prometheus researches, Atlas allocates.',
+        blurb:    'Long-term or swing — Atlas sets the mandate, Argus screens under it, Prometheus researches, Atlas allocates.',
         hue:      'green',
-        entryTab: 'scanner',
+        // Enters at ATLAS, not Argus. Unlike the trade desk, the portfolio pipeline starts with a
+        // frame, not a name: Atlas locks the mandate (objective, horizon, risk, constraints) and only
+        // then sources names — by emitting a <screen_request> that hands the sleeve to Argus's
+        // investing profile. Landing on Argus first asks the user to pick names with nothing to pick
+        // them AGAINST, and Atlas deliberately has no screener of its own to fall back on.
+        entryTab: 'portfolio',
         agentKey: 'portfolio',
         steps: [
-            { tab: 'scanner',   label: 'Scan' },
+            { tab: 'portfolio', label: 'Mandate' },
+            { tab: 'scanner',   label: 'Screen' },
             { tab: 'analyst',   label: 'Research' },
             { tab: 'portfolio', label: 'Allocate' },
             { tab: null,        label: 'Monitor' },

@@ -74,6 +74,30 @@ describe('AxlHub — the desk hand-off', () => {
         expect(screen.getByText(/A tradeable setup on it, or a research thesis\?/)).toBeTruthy()
     })
 
+    // The portfolio pipeline opens on ATLAS, not Argus. Atlas locks the mandate and only then sources
+    // names (through Argus, via <screen_request>) — and it has no screener of its own, so landing on
+    // Argus first asks the user to pick names with nothing to pick them against. Both entry paths —
+    // a route and a button click — read the same `entryTab`, so both are pinned here.
+    it('the portfolio route opens ATLAS — the mandate comes before any name', async () => {
+        const onPick = vi.fn()
+        render(<AxlHub user={{}} onPick={onPick} />)
+        replyWith({ route: 'portfolio' })
+
+        await ask('I want to make 5% with 5% drawdown, across a few names')
+
+        expect(onPick).toHaveBeenCalledWith('portfolio', { pipeline: 'portfolio', symbol: null })
+    })
+
+    it('the portfolio BUTTON opens Atlas too — same entry, same mandate-first order', async () => {
+        const onPick = vi.fn()
+        render(<AxlHub user={{}} onPick={onPick} />)
+
+        await act(async () => { fireEvent.click(screen.getByText('Build a portfolio')) })
+        await act(async () => { vi.advanceTimersByTime(5000) })
+
+        expect(onPick).toHaveBeenCalledWith('portfolio', { pipeline: 'portfolio', symbol: null })
+    })
+
     it('a desk picked by BUTTON carries no ticker — the click says the desk, not the name', async () => {
         const onPick = vi.fn()
         render(<AxlHub user={{}} onPick={onPick} />)
