@@ -244,7 +244,7 @@ export function InvalidationAlertBubble({ msg, onClose, onResolve }) {
 const ENTRY_CONFIRM_NOTE = { passed_earlier: 'Scheduled time already passed', off_hours: 'Fired while market was closed' }
 
 function EntryConfirmBubble({ msg, onClose, onResolve }) {
-    const { kind, ideaId, callId, setupId, asset, note, warning } = msg.payload
+    const { kind, ideaId, callId, setupId, asset, note, warning, scenario } = msg.payload
     const isCall  = kind === 'call'
     const isSetup = kind === 'setup'
     const agent   = isCall ? AGENTS.kairos : isSetup ? AGENTS.mentor : AGENTS.idea
@@ -268,8 +268,11 @@ function EntryConfirmBubble({ msg, onClose, onResolve }) {
     // A setup's card fires on ANY Talos verdict — advisory, never a veto — so when the verdict was
     // not "enter" the objection has to be visible BEFORE the button, not after. It rides in the
     // heading rather than the body, which is the agent's own copy.
+    // `scenario` names WHICH way in fired (only sent when the setup holds rivals): the order about
+    // to be confirmed belongs to one premise, at that premise's size and stop.
     const heading = (
         <>Confirm entry &middot; {asset}
+            {scenario && <span className="social-chat__invalidation-alert-tag"> &middot; {scenario}</span>}
             {ENTRY_CONFIRM_NOTE[note] && <span className="social-chat__invalidation-alert-tag"> &middot; {ENTRY_CONFIRM_NOTE[note]}</span>}
             {warning && <span className="social-chat__invalidation-alert-tag"> &middot; {warning}</span>}
         </>

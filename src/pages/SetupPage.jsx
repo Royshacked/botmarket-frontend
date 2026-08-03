@@ -17,9 +17,14 @@ import './SetupPage.scss'     // setup-only bits (zones, watch list, timeline)
 // because giving them one meant hand-writing a fourth copy of the hand-off, the hydration ladder
 // and the popup chrome. With those shared, the page is just this kind's content.
 //
-// What a setup is FOR is different from an idea or a call: it has no condition tree, only ZONES,
-// and `watch[]` is what Talos picked its tools from. Both are shown verbatim rather than
-// summarised — the zones are the entity, and the watch list is why the monitor looks where it does.
+// What a setup is FOR is different from an idea or a call: it has no condition tree, only ZONES —
+// and those zones belong to SCENARIOS, rival ways into the same trade, each with its own stop,
+// targets, conditions and death line. Everything is shown verbatim rather than summarised: the
+// premises are the entity, and their conditions are why the monitor looks where it does.
+//
+// The doc's flat `entry_zones`/`stop_zones`/`tp_zones` are deliberately NOT rendered here — they are
+// the execution projection of whichever premise armed, so showing them alongside the scenarios would
+// print the same levels twice and imply a fourth set of zones that nobody authored.
 
 // Sentence-length copy, unlike the card's two-word labels — a pop-out has room to say what the
 // state MEANS. The ladder itself (and the icon borrow) lives in setupStatus.js.
@@ -56,6 +61,51 @@ function ZoneRow({ label, zones, tone }) {
     )
 }
 ZoneRow.propTypes = { label: PropTypes.string, zones: PropTypes.array, tone: PropTypes.string }
+
+/** The monitor's instruction sheet, as prose. Free text — there is no taxonomy to render. */
+function ConditionRow({ label, conditions }) {
+    const list = Array.isArray(conditions) ? conditions : []
+    if (!list.length) return null
+    return (
+        <div className="setup-page__conditions">
+            <span className="setup-page__section-label">{label}</span>
+            <ul>{list.map((c, i) => (
+                <li key={c.id ?? i}>
+                    {c.text}
+                    {c.weight === 'primary' && <em className="setup-page__cond-tag"> primary</em>}
+                    {c.persistence === 'latching' && <em className="setup-page__cond-tag"> latching</em>}
+                </li>
+            ))}</ul>
+        </div>
+    )
+}
+ConditionRow.propTypes = { label: PropTypes.string, conditions: PropTypes.array }
+
+/**
+ * ONE WAY IN. A setup can hold rival premises — a false break at one level, a break-and-go at
+ * another — each owning its entry, stop, targets, conditions and its own death line. The first to
+ * fulfil takes the whole trade, so the sizes shown here are never added together.
+ */
+function ScenarioSection({ scenario, index, armed, dead }) {
+    if (!scenario) return null
+    const name = scenario.name?.trim() || `Way in ${index + 1}`
+    return (
+        <section className={`setup-page__scenario${armed ? ' is-armed' : ''}${dead ? ' is-dead' : ''}`} aria-label={`Scenario ${name}`}>
+            <span className="setup-page__section-label">
+                {name}
+                {armed && <em className="setup-page__cond-tag" title="Price reached this premise — this is the one that fired."> armed</em>}
+                {dead  && <em className="setup-page__cond-tag" title="This premise broke its own validity range. Any other way in is unaffected."> dead</em>}
+                {scenario.quantity != null && <em className="setup-page__cond-tag"> qty {scenario.quantity}</em>}
+                {Number.isFinite(scenario.rr) && <em className="setup-page__cond-tag"> {scenario.rr}R</em>}
+            </span>
+            <ZoneRow label="Entry"  zones={scenario.entry_zones} tone="entry" />
+            <ZoneRow label="Stop"   zones={scenario.stop_zones}  tone="stop" />
+            <ZoneRow label="Target" zones={scenario.tp_zones}    tone="tp" />
+            <ConditionRow label="Takes it when" conditions={scenario.conditions} />
+        </section>
+    )
+}
+ScenarioSection.propTypes = { scenario: PropTypes.object, index: PropTypes.number, armed: PropTypes.bool, dead: PropTypes.bool }
 
 export function SetupPage() {
     // Polled because Talos writes to monitor_state (memo + timeline) while the window is open.
@@ -114,23 +164,25 @@ export function SetupPage() {
                 <div className="idea-dialog__conditions setup-page__panel">
                     {setup.thesis && <p className="setup-page__thesis">{setup.thesis}</p>}
 
-                    <ZoneRow label="Entry"  zones={setup.entry_zones} tone="entry" />
-                    <ZoneRow label="Stop"   zones={setup.stop_zones}  tone="stop" />
-                    <ZoneRow label="Target" zones={setup.tp_zones}    tone="tp" />
+                    <ConditionRow label="Always" conditions={setup.conditions} />
+
+                    {/* Every way in, not just the projected one. A rival premise can be dead while
+                        another is still armed, and one set of levels would hide that entirely. */}
+                    {(setup.scenarios ?? []).map((sc, i) => (
+                        <ScenarioSection
+                            key={sc.id ?? i}
+                            scenario={sc}
+                            index={i}
+                            armed={setup.armed_scenario_id === sc.id}
+                            dead={setup.monitor_state?.scenarios?.[sc.id]?.invalidation_status === 'fired'}
+                        />
+                    ))}
 
                     <div className="setup-page__metrics">
                         <ConvictionChip conviction={setup.conviction} />
                         {setup.mode && <span className="setup-page__mode">{setup.mode}</span>}
                         {setup.brokerSymbol && <span className="setup-page__broker">trades as {setup.brokerSymbol}</span>}
                     </div>
-
-                    {/* watch[] is the setup's defining field: it is what Talos picks its tools from. */}
-                    {Array.isArray(setup.watch) && setup.watch.length > 0 && (
-                        <div className="setup-page__watch">
-                            <span className="setup-page__section-label">Watching</span>
-                            <ul>{setup.watch.map((w, i) => <li key={i}>{typeof w === 'string' ? w : (w.what ?? JSON.stringify(w))}</li>)}</ul>
-                        </div>
-                    )}
 
                     {setup.monitor_state?.memo && (
                         <p className="setup-page__memo">{setup.monitor_state.memo}</p>

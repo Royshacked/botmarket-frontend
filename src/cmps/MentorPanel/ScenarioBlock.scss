@@ -1,0 +1,95 @@
+// One way into the trade, drawn as its own card so two rival premises never read as one plan with
+// extra zones. The armed one is lifted; a dead one is dimmed but NOT hidden — "this way is gone,
+// the other is still live" is exactly what the user needs to see.
+.scenario-block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-soft, transparent);
+
+    &.is-armed {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px var(--accent-dim, transparent) inset;
+    }
+
+    &.is-dead {
+        opacity: 0.55;
+
+        .scenario-block__name { text-decoration: line-through; }
+    }
+
+    &__head {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    &__name {
+        margin: 0;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--text);
+    }
+
+    &__entry {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-dim);
+    }
+
+    &__badge {
+        font-family: var(--font-mono);
+        font-size: 9px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        border-radius: 3px;
+        padding: 0 4px;
+        cursor: help;
+
+        &--armed { color: var(--accent-light); border: 1px solid var(--accent); }
+        &--dead  { color: var(--text-dim);     border: 1px solid var(--border); }
+    }
+
+    &__rr,
+    &__size {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-dim);
+        cursor: help;
+    }
+
+    &__rr {
+        margin-left: auto;
+        color: var(--accent-light);
+
+        &.is-thin { color: var(--warn, #d08770); }
+    }
+
+    &__remove {
+        width: 18px;
+        height: 18px;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: transparent;
+        color: var(--text-dim);
+        font-size: 13px;
+        line-height: 1;
+        cursor: pointer;
+
+        &:hover { color: var(--accent-light); border-color: var(--border-mid); background: var(--bg-hover); }
+    }
+
+    &__validity {
+        margin: 0;
+        font-size: 11px;
+        color: var(--text-dim);
+        font-style: italic;
+        cursor: help;
+    }
+}

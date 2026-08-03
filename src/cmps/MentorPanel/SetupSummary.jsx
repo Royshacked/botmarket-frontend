@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types'
 import { ConvictionChip } from '../ConvictionChip/ConvictionChip'
-import { ZoneEditor } from './ZoneEditor'
+import { ScenarioBlock } from './ScenarioBlock.jsx'
+import { ConditionList } from './ConditionList.jsx'
 import './SetupSummary.scss'
 
 // The live worksheet — the setup as built so far, filling in turn by turn.
@@ -8,24 +9,18 @@ import './SetupSummary.scss'
 // Mentor re-emits the COMPLETE setup every turn, so this is a pure render of the current draft;
 // there is no separate state to reconcile. The panel owns the draft and hands it down.
 //
-// Two things here earn their space because nothing else in the app shows them:
-//   • the WATCH LIST, which is what Talos will actually check. The user should be able to see the
-//     monitoring cost of their own setup — an undeclared dimension is never fetched, and a declared
-//     one is paid for on every wake.
+// A SETUP IS A LIST OF WAYS IN. Each scenario owns its entry, stop, targets, conditions and its own
+// death line, and the first to fulfil takes the whole trade. Rendering one set of levels would hide
+// the second premise entirely — including the case where one has already died and another is still
+// armed — so every scenario gets a block.
+//
+// What earns its space here, because nothing else in the app shows it: the CONDITIONS, which are
+// what the monitor will actually check. An undeclared thing is never looked at, and a declared one
+// is paid for on every wake, so the user should see the instruction sheet they are writing.
 //
 // It does NOT own Generate or readiness. Those live at the BOTTOM of the chat pane with the other
 // agent actions (where Kairos puts its Generate too): the preview is a reference you glance up at,
 // while the thing you press belongs where your attention already is — under the conversation.
-
-const KIND_LABEL = {
-    price_action: 'Price action',
-    structure:    'Structure (SMC)',
-    correlation:  'Correlation',
-    market:       'Broad market',
-    news:         'News',
-    positioning:  'Positioning',
-    fundamental:  'Fundamentals',
-}
 
 const fmtDate = (iso) => {
     if (!iso) return null
@@ -38,7 +33,27 @@ export function SetupSummary({ setup, onChange, readOnly = false }) {
         return <div className="setup-summary setup-summary--empty">Your setup will build here as you talk it through.</div>
     }
 
-    const dir = setup.direction ? setup.direction.toUpperCase() : null
+    const dir       = setup.direction ? setup.direction.toUpperCase() : null
+    const scenarios = setup.scenarios ?? []
+    const deadOf    = (id) => setup.monitor_state?.scenarios?.[id]?.invalidation_status === 'fired'
+
+    // Writes back into `scenarios`, never into the flat zones: those are the server's execution
+    // projection of whichever premise armed, so an edit there is discarded on Generate.
+    function patchScenario(id, next) {
+        onChange?.({ ...setup, scenarios: scenarios.map(s => (s.id === id ? next : s)) })
+    }
+
+    function addScenario() {
+        const id = `s${scenarios.length + 1}`
+        onChange?.({
+            ...setup,
+            scenarios: [...scenarios, { id, name: '', entry_zones: [], stop_zones: [], tp_zones: [], conditions: [], validity: null }],
+        })
+    }
+
+    function removeScenario(id) {
+        onChange?.({ ...setup, scenarios: scenarios.filter(s => s.id !== id) })
+    }
 
     return (
         <div className="setup-summary">
@@ -60,41 +75,39 @@ export function SetupSummary({ setup, onChange, readOnly = false }) {
 
             {setup.thesis && <p className="setup-summary__thesis">{setup.thesis}</p>}
 
-            <ZoneEditor setup={setup} onChange={onChange} readOnly={readOnly} />
+            <ConditionList
+                conditions={setup.conditions}
+                title="Always — whichever way in"
+                hint="True of the trade whatever prints. Checked alongside the conditions of whichever premise price reaches, so it is written once rather than copied into each."
+            />
+
+            {scenarios.length === 0 && <p className="setup-summary__empty-ways">No way in drawn yet.</p>}
+
+            {scenarios.map((sc, i) => (
+                <ScenarioBlock
+                    key={sc.id ?? i}
+                    scenario={sc}
+                    direction={setup.direction}
+                    index={i}
+                    armed={setup.armed_scenario_id === sc.id}
+                    dead={deadOf(sc.id)}
+                    onChange={next => patchScenario(sc.id, next)}
+                    onRemove={removeScenario}
+                    removable={scenarios.length > 1}
+                    readOnly={readOnly}
+                />
+            ))}
+
+            {!readOnly && (
+                <button type="button" className="setup-summary__add-way" onClick={addScenario}
+                    title="A different premise — the other side of the level, a break instead of a fade. Whichever fulfils first takes the whole trade.">
+                    + another way in
+                </button>
+            )}
 
             <div className="setup-summary__metrics">
-                {setup.rr != null && (
-                    <span className="setup-summary__metric" title="Reward-to-risk, measured from the WORST edge of the entry band — never the midpoint.">
-                        <span className="setup-summary__metric-k">R:R</span>
-                        <span className={`setup-summary__metric-v${setup.rr < 1.5 ? ' is-thin' : ''}`}>{setup.rr}</span>
-                    </span>
-                )}
-                {setup.quantity != null && (
-                    <span className="setup-summary__metric">
-                        <span className="setup-summary__metric-k">Size</span>
-                        <span className="setup-summary__metric-v">{setup.quantity}</span>
-                    </span>
-                )}
                 <ConvictionChip conviction={setup.conviction} />
             </div>
-
-            {setup.watch?.length > 0 && (
-                <section className="setup-summary__watch">
-                    <h4 className="setup-summary__sub" title="What Talos will check when price reaches a zone. Only these are fetched — anything undeclared is never looked at.">
-                        Talos watches
-                    </h4>
-                    {setup.watch.map((w, i) => (
-                        <div className={`setup-summary__factor setup-summary__factor--${w.weight}`} key={`${w.kind}-${i}`}>
-                            <span className="setup-summary__factor-kind">
-                                {KIND_LABEL[w.kind] ?? w.kind}
-                                {w.timeframe && <em> {w.timeframe}</em>}
-                                {w.symbols?.length > 0 && <em> {w.symbols.join(', ')}</em>}
-                            </span>
-                            <span className="setup-summary__factor-look">{w.look_for}</span>
-                        </div>
-                    ))}
-                </section>
-            )}
 
             {(setup.active_from || setup.valid_until) && (
                 <p className="setup-summary__window">

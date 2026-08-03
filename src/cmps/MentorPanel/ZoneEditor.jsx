@@ -7,67 +7,77 @@ import './ZoneEditor.scss'
 // A setup is BANDS: entry / stop / take-profit, each a `lower`–`upper` range with a quantity. That's
 // a much simpler shape and it deserves a much simpler editor.
 //
+// IT EDITS A SCENARIO, NOT THE SETUP. A price zone is a scenario — a premise owning its own entry,
+// stop, targets and conditions — and the setup's flat `entry_zones`/`stop_zones`/`tp_zones` are the
+// server's EXECUTION PROJECTION of whichever premise armed, i.e. output. Writing to them would look
+// accepted here and be silently discarded on Generate, because normalizeSetup reads `scenarios`.
+//
 // Two rules this component enforces, because they're what make a band monitorable:
 //   • lower ≤ upper. Edges are SORTED on commit rather than rejected — the user is typing two
 //     numbers, and which one lands first is not a thing to scold them about.
 //   • a band may be zero-width. That's an exact level, not an error; the server accepts it and the
 //     gate is inclusive on both edges so it can still trip.
 //
-// Quantities are per-zone: entry zones sum to the position (multiple = scale-in), exit zones split
-// it (multiple = staged exits). The running total is shown so a mis-split is visible immediately.
+// Quantities: ONE entry zone per scenario, carrying the WHOLE position — scenarios are rivals, so
+// the first to fulfil takes the trade and sizes are never added across them. Exit zones split that
+// position (multiple = staged exits), and the running total is shown so a mis-split is visible.
 
 const GROUPS = [
-    { key: 'entry_zones', label: 'Entry',  hint: 'Where you want to be filled. Several zones = scale-in; whichever price reaches first acts.' },
-    { key: 'stop_zones',  label: 'Stop',   hint: 'Where the idea is wrong. The far edge rests at the broker as the failsafe.' },
-    { key: 'tp_zones',    label: 'Target', hint: 'Where you bank. Several zones = staged exits.' },
+    { key: 'entry_zones', label: 'Entry',  suffix: 'e', hint: 'Where you want to be filled. One per way in — a second entry is a second scenario, not a second zone.' },
+    { key: 'stop_zones',  label: 'Stop',   suffix: 's', hint: 'Where this premise is wrong. The far edge rests at the broker as the failsafe.' },
+    { key: 'tp_zones',    label: 'Target', suffix: 't', hint: 'Where you bank. Several zones = staged exits.' },
 ]
 
 const num = (v) => (v === '' || v == null ? null : Number(v))
 
-export function ZoneEditor({ setup, onChange, readOnly = false }) {
-    if (!setup) return null
+export function ZoneEditor({ scenario, onChange, readOnly = false }) {
+    if (!scenario) return null
+
+    const patch = (groupKey, zones) => onChange?.({ ...scenario, [groupKey]: zones })
 
     function updateZone(groupKey, id, field, raw) {
-        const zones = (setup[groupKey] ?? []).map(z => (z.id === id ? { ...z, [field]: num(raw) } : z))
-        onChange?.({ ...setup, [groupKey]: zones })
+        patch(groupKey, (scenario[groupKey] ?? []).map(z => (z.id === id ? { ...z, [field]: num(raw) } : z)))
     }
 
     // Sort the edges only when the user leaves the field — doing it per keystroke would fight
     // someone typing "199" into a box that currently reads higher than the other one.
     function commitZone(groupKey, id) {
-        const zones = (setup[groupKey] ?? []).map(z => {
+        patch(groupKey, (scenario[groupKey] ?? []).map(z => {
             if (z.id !== id) return z
             const { lower, upper } = z
             if (Number.isFinite(lower) && Number.isFinite(upper) && lower > upper) return { ...z, lower: upper, upper: lower }
             return z
-        })
-        onChange?.({ ...setup, [groupKey]: zones })
+        }))
     }
 
-    function addZone(groupKey) {
-        const zones  = setup[groupKey] ?? []
-        const prefix = groupKey === 'entry_zones' ? 'ez' : groupKey === 'stop_zones' ? 'sz' : 'tp'
-        const next   = { id: `${prefix}${zones.length + 1}`, lower: null, upper: null, quantity: null, note: null }
-        onChange?.({ ...setup, [groupKey]: [...zones, next] })
+    function addZone(groupKey, suffix) {
+        const zones = scenario[groupKey] ?? []
+        // Scoped to the scenario so ids stay unique document-wide — the monitor's `armed_zone_id`
+        // has to resolve to exactly one zone across every premise.
+        const next  = { id: `${scenario.id ?? 's'}${suffix}${zones.length + 1}`, lower: null, upper: null, quantity: null, note: null }
+        patch(groupKey, [...zones, next])
     }
 
     function removeZone(groupKey, id) {
-        onChange?.({ ...setup, [groupKey]: (setup[groupKey] ?? []).filter(z => z.id !== id) })
+        patch(groupKey, (scenario[groupKey] ?? []).filter(z => z.id !== id))
     }
 
     return (
         <div className="zone-editor">
-            {GROUPS.map(({ key, label, hint }) => {
-                const zones = setup[key] ?? []
+            {GROUPS.map(({ key, label, suffix, hint }) => {
+                const zones = scenario[key] ?? []
                 const total = zones.reduce((s, z) => s + (Number(z.quantity) || 0), 0)
+                // A scenario takes the whole position at one entry; scaling in is not supported yet
+                // and the server refuses it, so the affordance is not offered.
+                const canAdd = !readOnly && !(key === 'entry_zones' && zones.length >= 1)
 
                 return (
                     <section className="zone-editor__group" key={key}>
                         <header className="zone-editor__head">
                             <h4 className="zone-editor__title" title={hint}>{label}</h4>
                             {total > 0 && <span className="zone-editor__total">{total}</span>}
-                            {!readOnly && (
-                                <button type="button" className="zone-editor__add" onClick={() => addZone(key)} title={`Add a ${label.toLowerCase()} zone`}>
+                            {canAdd && (
+                                <button type="button" className="zone-editor__add" onClick={() => addZone(key, suffix)} title={`Add a ${label.toLowerCase()} zone`}>
                                     +
                                 </button>
                             )}
@@ -132,7 +142,8 @@ const zoneShape = PropTypes.shape({
 })
 
 ZoneEditor.propTypes = {
-    setup: PropTypes.shape({
+    scenario: PropTypes.shape({
+        id:          PropTypes.string,
         entry_zones: PropTypes.arrayOf(zoneShape),
         stop_zones:  PropTypes.arrayOf(zoneShape),
         tp_zones:    PropTypes.arrayOf(zoneShape),

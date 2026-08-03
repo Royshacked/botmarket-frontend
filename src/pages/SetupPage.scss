@@ -59,13 +59,38 @@
         color: var(--text-dim);
     }
 
-    &__watch {
+    // The monitor's instruction sheet — free text, so it reads as prose with the little structure
+    // that changes how it is judged tagged after it.
+    &__conditions {
         display: flex;
         flex-direction: column;
         gap: 4px;
 
         ul { margin: 0; padding-left: 16px; }
         li { font-size: 11px; line-height: 1.5; color: var(--text-secondary); }
+    }
+
+    &__cond-tag {
+        font-family: var(--font-mono);
+        font-size: 9px;
+        font-style: normal;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+    }
+
+    // One way into the trade. Rivals are drawn apart so two premises never read as one plan with
+    // extra zones; a dead one is dimmed rather than hidden, because "this way is gone and the other
+    // is still armed" is the thing worth seeing.
+    &__scenario {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 6px 8px;
+        border-left: 2px solid var(--border);
+
+        &.is-armed { border-left-color: var(--accent); }
+        &.is-dead  { opacity: 0.55; }
     }
 
     &__memo {

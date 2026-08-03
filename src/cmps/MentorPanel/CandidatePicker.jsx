@@ -45,10 +45,14 @@ export function CandidatePicker({ candidates = [], onPick }) {
 
                             {c.pitch && <span className="candidate-picker__pitch">{c.pitch}</span>}
 
+                            {/* The projected premise's levels. A candidate may itself hold rivals,
+                                so say when there is more than one way into it rather than showing
+                                one set of numbers as if it were the whole offer. */}
                             <span className="candidate-picker__levels">
                                 <span><em>in</em> {fmtZone(s.entry_zones?.[0])}</span>
                                 <span><em>stop</em> {fmtZone(s.stop_zones?.[0])}</span>
                                 <span><em>target</em> {fmtZone(s.tp_zones?.[0])}</span>
+                                {(s.scenarios?.length ?? 0) > 1 && <span><em>+{s.scenarios.length - 1}</em> more way in</span>}
                             </span>
 
                             <span className="candidate-picker__metrics">

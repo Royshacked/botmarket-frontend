@@ -34,13 +34,21 @@ const STATUS_COPY = {
 
 const fmtZone = (z) => (z?.lower === z?.upper ? `${z?.lower}` : `${z?.lower}–${z?.upper}`)
 
-/** in / stop / target on one line — the summary a setup is actually read for. */
+/**
+ * in / stop / target on one line — the summary a setup is actually read for.
+ *
+ * These are the doc's flat zones, which are the EXECUTION PROJECTION of whichever premise armed
+ * (pre-arm, the first authored). A setup can hold rivals, so the count of the others is appended:
+ * a card that showed one set of levels with no hint of a second way in would read as the whole plan.
+ */
 function zoneSummary(setup) {
     const parts = [
         `in ${fmtZone(setup.entry_zones?.[0])}`,
         `stop ${fmtZone(setup.stop_zones?.[0])}`,
     ]
     if (setup.tp_zones?.[0]) parts.push(`target ${fmtZone(setup.tp_zones[0])}`)
+    const others = Math.max((setup.scenarios?.length ?? 0) - 1, 0)
+    if (others > 0) parts.push(`+${others} more way${others > 1 ? 's' : ''} in`)
     return parts.join(' · ')
 }
 
