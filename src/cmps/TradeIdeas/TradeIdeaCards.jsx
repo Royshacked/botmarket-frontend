@@ -4,7 +4,7 @@ import {
     conditionSummary, formatCreatedAt, formatCreatedAtFull, needsExitConditions,
     activationStatus, brokerSymbolLabel, brokerChildLabel, isDeleteLocked, isManualIdea,
     isSystemStatus, formatPnl, formatPnlPct, formatNum, formatPrice, portfolioPnl, ideaPnl,
-    positionPnlPct, positionWorkspace, groupPositions, summarizePositions,
+    positionPnlPct, positionWorkspace, groupPositions, summarizePositions, isPortfolioReview,
 } from './tradeIdea.utils.js'
 import { ActivatePortfolioDialog } from './ActivatePortfolioDialog.jsx'
 import { eventBus, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT } from '../../services/event-bus.service'
@@ -247,7 +247,9 @@ export function PortfolioCard({ group, expanded, onToggle, onEdit, onDelete, onD
     const [showActivatePrompt, setShowActivatePrompt] = useState(false)
     const allWaiting = group.ideas.length > 0 && group.ideas.every(i => i.status === 'waiting')
     const isManual   = group.ideas.length > 0 && group.ideas.every(isManualIdea)
-    const anyOpen    = group.ideas.some(i => i.status === 'long' || i.status === 'short')
+    // One fact, read twice: it makes the manual toggle an EXIT rather than a re-post, and it makes
+    // reopening this book a review rather than a re-plan. Shared so the two can't drift apart.
+    const anyOpen    = isPortfolioReview(group.ideas)
     const pnl        = portfolioPnl(group.ideas, positions)
     // Any idea live on the broker → block the whole-portfolio delete (would orphan
     // the live position + delete the chat). Close it first.
@@ -316,10 +318,15 @@ export function PortfolioCard({ group, expanded, onToggle, onEdit, onDelete, onD
                             {isManual ? (anyOpen ? 'exit' : 'fill') : 'active'}
                         </button>
                     )}
+                    {/* `due` stays tied to the SCHEDULE — a live book is not perpetually overdue.
+                        The title tells the truth about what will open: handleEditPortfolio turns
+                        this into a review by itself once a position is live. */}
                     <EditButton
                         onClick={() => onEdit(group.portfolioId, isReviewDue ? { reviewMode: true } : undefined)}
                         due={isReviewDue}
-                        title={isReviewDue ? 'Review due — open review in chat' : 'Edit portfolio in chat'}
+                        title={isReviewDue ? 'Review due — open review in chat'
+                            : anyOpen ? 'In position — opens a review in chat'
+                                : 'Edit portfolio in chat'}
                     />
                     <DeleteButton
                         onClick={handleDeleteAll}

@@ -23,7 +23,7 @@ import { analystService, COVERAGE_CHANGED } from '../services/analyst/analyst.se
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
-import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace, positionOpenTarget, openCallPopup, openIdeaPopup, matchPositionsForIdea } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace, positionOpenTarget, openCallPopup, openIdeaPopup, matchPositionsForIdea, portfoliosFromIdeas, isPortfolioReview } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { TradeTicket } from '../cmps/TradeTicket/TradeTicket.jsx'
 import { apiError } from '../services/http.service.js'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
@@ -1041,7 +1041,7 @@ export function MainPage() {
             setActiveTab('analyst')
             setNewsTab('coverage')
         })
-    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [])
 
     // A Talos entry card routes here: social-chat card → Confirm → the order dialog. The setups
     // list is loaded in this component (useSetups), so the setup is resolved the same way an idea
@@ -1541,8 +1541,18 @@ export function MainPage() {
         }
     }
 
-    async function handleEditPortfolio(portfolioId, { reviewMode = false } = {}) {
+    // Which act this is belongs to the BOOK, not to the surface the click came from. Four paths reach
+    // here — three pencils and the Axl hand-off — and they disagreed: the two lists forced a review
+    // only when one was DUE, the Floor pencil never did, so the same live book was reviewed from one
+    // surface and RE-PLANNED from another, standing its open positions down to rewrite a plan the
+    // market had already acted on. Deciding it here is what makes the four agree.
+    //
+    // A caller may still FORCE a review (a due-review pencil, the review card, the pre-activation
+    // prompt) — that is a schedule or a request, and it is legitimate on a book with nothing live.
+    // None of them can force a plain edit on a book that holds a position. See isPortfolioReview.
+    async function handleEditPortfolio(portfolioId, { reviewMode: forceReview = false } = {}) {
         const portfolioIdeas = ideas.filter(i => i.portfolioId === portfolioId)
+        const reviewMode = forceReview || isPortfolioReview(portfolioIdeas)
 
         // Seed the account selector from the portfolio's own ideas so it reflects
         // what's actually attached (not stale global selection) — and so saving the
@@ -1737,7 +1747,75 @@ export function MainPage() {
     // in mind. Trading enters at Argus, whose opening turn is a screen, not a ticker, so a seed there
     // would start the wrong work. Portfolio enters at Atlas, whose opening turn is the MANDATE — a
     // ticker seed there would jump the frame it has to establish first (its Phase 1 gate).
+    // ── Axl hand-off → an item's own EDIT mode ────────────────────────────────
+    // A route opens a desk for new work; this reopens something the user already has. Axl names the
+    // kind and the handle (both come straight off `get_watched_items`, whose rows lead with
+    // `[kind:id]`), and the doc is handed to the SAME function the list-surface pencil calls — so an
+    // edit reached from a sentence and an edit reached from a click are the one edit, with the same
+    // conversation restored. Nothing new is built here; that is the whole point of the feature.
+    //
+    // Resolved against the lists this client already holds, which is also the authorization: a ref
+    // that isn't in the user's own list opens nothing, so a hallucinated or borrowed id is inert.
+    // Falls back to the symbol for the kinds that have one (Axl may have had no id to quote), and
+    // returns false when nothing matches so the caller can open the desk the ordinary way rather
+    // than leaving the hand-off dead — the same choice the OPEN_COVERAGE card makes.
+    function openForEdit({ kind, ref } = {}) {
+        if (!kind || !ref) return false
+        const handle = String(ref).toUpperCase()
+        // `handleOf` is the item's HUMAN name — a ticker for the three that have one, the book's own
+        // name for a portfolio. Kinds with neither (a scan is a list, not a name) leave it off.
+        const open = (list, opener, { idOf = (x) => x.id, handleOf = () => null } = {}) => {
+            const rows = Array.isArray(list) ? list : []
+            // By id first — ids are unique, so this is the exact hand-off and always wins.
+            // By name only as a fallback, and only when it names exactly ONE item: on two live
+            // NVDA calls a bare ticker is a coin flip, and losing it means the user is editing a
+            // different trade than the one they meant. Ambiguity opens nothing (the desk opens
+            // normally instead) rather than guessing at a live position.
+            const byName = rows.filter(x => String(handleOf(x) ?? '').toUpperCase() === handle)
+            const doc = rows.find(x => String(idOf(x)) === ref) ?? (byName.length === 1 ? byName[0] : null)
+            if (!doc) return false
+            opener(doc)
+            return true
+        }
+        switch (kind) {
+            case 'call':  return open(callsRef.current, handleEditCall,  { handleOf: c => c.asset })
+            case 'setup': return open(setups,           handleEditSetup, { handleOf: s => s.asset })
+            // Two differences from the others, both about arriving from a sentence rather than a
+            // click. The list is FILTERED to docs that have a symbol, because Prometheus matches on
+            // symbol and handleEditCoverage bails silently without one — "resolved" has to mean
+            // "will actually open", or we return true and leave the user at the hub with nothing.
+            // And the coverage list is brought forward: the pencil is normally pressed from it.
+            case 'coverage':
+                return open((coverageRef.current || []).filter(c => c.symbol),
+                    (cov) => { setNewsTab('coverage'); handleEditCoverage(cov) }, { handleOf: c => c.symbol })
+            // A scan has no name to fall back to — it is a list, not a name. Id or nothing.
+            case 'scan':  return open(scans, handleEditScan)
+            // A book is not a document of its own: it exists as the ideas that carry its id, which is
+            // why this reads the SAME derivation the lists render from rather than a second grouping.
+            // Its opener takes the id, not the row — the one kind whose editor is keyed, not handed.
+            //
+            // And the one kind with two modes — but nothing to say about it here: handleEditPortfolio
+            // reads the book's own state and opens a review rather than a re-plan when a position is
+            // live. Passing the mode from here too would be a second copy of that judgment.
+            case 'portfolio':
+                return open(portfoliosFromIdeas(ideas), (book) => handleEditPortfolio(book.portfolioId),
+                    { idOf: b => b.portfolioId, handleOf: b => b.name })
+            default:      return false
+        }
+    }
+
     function handleAxlPick(tab, opts = {}) {
+        // An edit hand-off names an ITEM, not a desk, and the item picks the tab: a call edits in
+        // Kairos even though the trading desk enters at Argus. So the tab argument is skipped and the
+        // opener sets its own — but the pipeline is still stamped, so the crumb and the back button
+        // read exactly as they do on any other arrival.
+        if (opts.edit) {
+            setActivePipeline(opts.pipeline ?? null)
+            setPipelineStep(0)
+            if (openForEdit(opts.edit)) return
+            // Nothing resolved (a list this client hasn't loaded, a ref that never existed) — fall
+            // through and open the desk normally. Worse than the edit, far better than nothing.
+        }
         setActiveTab(tab)
         setActivePipeline(opts.pipeline ?? null)
         setPipelineStep(0)                                    // a desk always opens at its first step

@@ -5,7 +5,7 @@ import { EditOrdersDialog } from './EditOrdersDialog.jsx'
 import { ActivatePortfolioDialog } from './ActivatePortfolioDialog.jsx'
 import { PositionsTable } from './PositionsTable.jsx'
 import { usePositionClose } from './usePositionClose.jsx'
-import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel, isDeleteLocked, isManualIdea, openIdeaPopup, openCallPopup, openSetupPopup, formatPnl, ideaPnl, portfolioPnl, positionOpenTarget } from './tradeIdea.utils.js'
+import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel, isDeleteLocked, isManualIdea, openIdeaPopup, openCallPopup, openSetupPopup, formatPnl, ideaPnl, portfolioPnl, positionOpenTarget, isPortfolioReview } from './tradeIdea.utils.js'
 import { eventBus, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, REVIEW_RESOLVED } from '../../services/event-bus.service'
 import { portfolioService } from '../../services/portfolio/portfolio.service.remote.js'
 import { StatusIcon } from '../StatusIcon.jsx'
@@ -160,7 +160,9 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
     const allWaiting = group.ideas.length > 0 && group.ideas.every(i => i.status === 'waiting')
     // Manual (broker-less) portfolio → activate/exit post FillCards instead of placing orders.
     const isManual = group.ideas.length > 0 && group.ideas.every(isManualIdea)
-    const anyOpen  = group.ideas.some(i => i.status === 'long' || i.status === 'short')
+    // One fact, read twice: it makes the manual toggle an EXIT rather than a re-post, and it makes
+    // reopening this book a review rather than a re-plan. Shared so the two can't drift apart.
+    const anyOpen  = isPortfolioReview(group.ideas)
     // Live total P&L = sum of the portfolio's open positions (null while nothing is live).
     const pnl      = portfolioPnl(group.ideas, positions)
     const pnlClass = pnl ? (pnl.pnl > 0 ? ' pnl--pos' : pnl.pnl < 0 ? ' pnl--neg' : '') : ''
@@ -245,10 +247,15 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
                         >{isManual ? (anyOpen ? 'exit' : 'fill') : 'active'}</button>
                     )}
                     <span className="idea-row__actions">
+                        {/* `due` stays tied to the SCHEDULE — a live book is not perpetually overdue.
+                            The title tells the truth about what will open: handleEditPortfolio turns
+                            this into a review by itself once a position is live. */}
                         <EditButton
                             onClick={() => onEdit(group.portfolioId, isReviewDue ? { reviewMode: true } : undefined)}
                             due={isReviewDue}
-                            title={isReviewDue ? 'Review due — open review in chat' : 'Edit portfolio in chat'}
+                            title={isReviewDue ? 'Review due — open review in chat'
+                                : anyOpen ? 'In position — opens a review in chat'
+                                    : 'Edit portfolio in chat'}
                         />
                         <DeleteButton
                             onClick={handleDeleteAll}

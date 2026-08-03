@@ -96,7 +96,7 @@ export function AxlHub({ user, onPick, onOpenTicket }) {
     useEffect(() => {
         if (!pendingRoute || isLoading) return
         const t = setTimeout(() => {
-            _summon(pendingRoute.desk, pendingRoute.symbol)
+            _summon(pendingRoute.desk, pendingRoute.symbol, pendingRoute.edit)
             setPendingRoute(null)
         }, 900)
         return () => clearTimeout(t)
@@ -105,10 +105,14 @@ export function AxlHub({ user, onPick, onOpenTicket }) {
     // `symbol` is the name Axl already has from the conversation, riding along with the desk so the
     // first agent opens ON it instead of asking for a ticker the user just gave. A desk the user
     // picked by BUTTON carries none — that click says which desk, not which name.
-    function _summon(desk, symbol = null) {
+    // `edit` ({ kind, ref }) is the other kind of hand-off: not "open this desk" but "reopen this
+    // item at it". The summon animation is identical — the user is still being taken to an agent —
+    // but the desk's entryTab is only a fallback from here on: the item picks its own tab (a call is
+    // edited in Kairos, though the trading desk ENTERS at Argus), which the host resolves.
+    function _summon(desk, symbol = null, edit = null) {
         setSummoning(desk)
         timerRef.current = setTimeout(
-            () => onPick(desk.entryTab, { pipeline: desk.key, symbol }),
+            () => onPick(desk.entryTab, { pipeline: desk.key, symbol, ...(edit ? { edit } : {}) }),
             SUMMON_MS,
         )
     }
@@ -144,8 +148,12 @@ export function AxlHub({ user, onPick, onOpenTicket }) {
                 // A chart request needs nothing here — the `chart` event already docked it below.
                 // A ROUTE means Axl is handing them to a desk: let the reply land, then summon.
                 // No route (a clarifying question, a plain answer) simply keeps them here.
-                const desk = DESKS.find(d => d.key === data.route)
-                if (desk) setPendingRoute({ desk, symbol: data.routeSymbol ?? null })
+                //
+                // An EDIT is the same hand-off aimed at a document instead of a blank page, and it
+                // names its own desk (kind → desk is decided on the server), so it is read first:
+                // a turn that reopens the user's TSLA call is going to Kairos whatever else it said.
+                const desk = DESKS.find(d => d.key === (data.edit?.desk ?? data.route))
+                if (desk) setPendingRoute({ desk, symbol: data.routeSymbol ?? null, edit: data.edit ?? null })
                 // An intake turn carries the goal Axl captured. It arrives on any turn that saved
                 // or resolved one, so a later turn never blanks a goal that is still open.
                 if (data.objective) setObjective(data.objective)

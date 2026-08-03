@@ -400,6 +400,30 @@ export function portfoliosFromIdeas(ideas = []) {
 }
 
 /**
+ * Reopening a BOOK is two different acts, and which one it is comes from the book's own state — not
+ * from who asked for it or how they said it.
+ *
+ * Nothing in a position yet → an EDIT. The plan is still a draft; re-planning it costs nothing, and
+ * it is exactly what "change my book" means while the book is only a proposal.
+ *
+ * Any leg in a position → a REVIEW. Re-planning would send every holding back to `waiting`, which
+ * takes a live position off monitoring in order to rewrite a plan the market has already acted on.
+ * A review instead reads the book where it stands and proposes changes the user confirms, so the
+ * positions are never quietly stood down. "I want to look at my book again" IS a review trigger —
+ * that is what the user is asking for, whichever word they use.
+ *
+ * `isDeleteLocked` is the app's existing word for "live at the broker" (long/short only — a 'hit'
+ * idea has a parked order and no position). It is the same predicate handleUpdatePlan uses to refuse
+ * a re-plan, which is this same fact seen from the far end of the edit.
+ *
+ * @param {object[]} bookIdeas  one portfolio's ideas (a row from portfoliosFromIdeas)
+ * @returns {boolean} true when reopening this book must be a review, not an edit
+ */
+export function isPortfolioReview(bookIdeas = []) {
+    return (Array.isArray(bookIdeas) ? bookIdeas : []).some(isDeleteLocked)
+}
+
+/**
  *
  * @param {object[]} positions
  * @param {object[]} ideas

@@ -15,8 +15,8 @@ const { AxlHub, MessageBubble } = await import('./AxlHub.jsx')
 
 // Reply with a desk hand-off, the way the server sends one: the tag is already parsed off, so the
 // client sees `route` (which desk) + `routeSymbol` (the name it should open on).
-function replyWith({ reply = 'Taking you to Prometheus.', route = null, routeSymbol = null, objective = null } = {}) {
-    streamAxl.mockImplementation(async (_messages, opts) => { opts.onDone?.({ reply, route, routeSymbol, objective }) })
+function replyWith({ reply = 'Taking you to Prometheus.', route = null, routeSymbol = null, objective = null, edit = null } = {}) {
+    streamAxl.mockImplementation(async (_messages, opts) => { opts.onDone?.({ reply, route, routeSymbol, objective, edit }) })
 }
 
 async function ask(text) {
@@ -106,6 +106,63 @@ describe('AxlHub — the desk hand-off', () => {
         await act(async () => { vi.advanceTimersByTime(5000) })
 
         expect(onPick).toHaveBeenCalledWith('analyst', { pipeline: 'research', symbol: null })
+    })
+})
+
+// Reopening something the user ALREADY has, as opposed to opening a desk on a blank page. The bug:
+// "show me my coverage" then "edit that one" routed to `research`, and Prometheus began a second
+// thesis on a name it already covered — because a desk key was the only thing a hand-off could say.
+describe('AxlHub — the edit hand-off', () => {
+    it('carries the ITEM to the desk that owns it, not just the desk', async () => {
+        const onPick = vi.fn()
+        render(<AxlHub user={{}} onPick={onPick} />)
+        replyWith({ reply: 'Reopening it in Prometheus.', edit: { kind: 'coverage', ref: 'cov_9', desk: 'research' } })
+
+        await ask('edit that ZTS coverage')
+
+        expect(onPick).toHaveBeenCalledWith('analyst', {
+            pipeline: 'research', symbol: null, edit: { kind: 'coverage', ref: 'cov_9', desk: 'research' },
+        })
+    })
+
+    // A call is EDITED in Kairos, but the trading desk ENTERS at Argus. The hand-off still names the
+    // desk (the pipeline crumb needs it) — the host is what picks the tab from the item.
+    it('a call edit travels under the trading desk, item and all', async () => {
+        const onPick = vi.fn()
+        render(<AxlHub user={{}} onPick={onPick} />)
+        replyWith({ reply: 'Opening it in Kairos.', edit: { kind: 'call', ref: 'c1', desk: 'trade' } })
+
+        await ask('change the entry on my TSLA call')
+
+        expect(onPick).toHaveBeenCalledWith('scanner', {
+            pipeline: 'trade', symbol: null, edit: { kind: 'call', ref: 'c1', desk: 'trade' },
+        })
+    })
+
+    // Atlas is both the portfolio desk's entry AND where a book is edited, so the two hand-offs look
+    // identical from the tab alone. `edit` is the only thing that separates "take the mandate again"
+    // from "re-work the plan you already have" — it has to survive the trip.
+    it('a book edit is distinguishable from entering the portfolio desk', async () => {
+        const onPick = vi.fn()
+        render(<AxlHub user={{}} onPick={onPick} />)
+        replyWith({ reply: 'Opening Core in Atlas.', edit: { kind: 'portfolio', ref: 'p1', desk: 'portfolio' } })
+
+        await ask('re-work my Core book')
+
+        expect(onPick).toHaveBeenCalledWith('portfolio', {
+            pipeline: 'portfolio', symbol: null, edit: { kind: 'portfolio', ref: 'p1', desk: 'portfolio' },
+        })
+    })
+
+    it('a plain route still carries NO edit — new work must not reopen anything', async () => {
+        const onPick = vi.fn()
+        render(<AxlHub user={{}} onPick={onPick} />)
+        replyWith({ route: 'research', routeSymbol: 'NVDA' })
+
+        await ask("let's research nvda")
+
+        expect(onPick).toHaveBeenCalledWith('analyst', { pipeline: 'research', symbol: 'NVDA' })
+        expect(onPick.mock.calls[0][1].edit).toBeUndefined()
     })
 })
 

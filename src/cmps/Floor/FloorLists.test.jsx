@@ -275,6 +275,26 @@ describe('FloorLists row actions', () => {
         expect(screen.queryByTitle(/Edit holding/)).toBeNull()
     })
 
+    // Reopening a book in positions is a REVIEW, not a re-plan — re-planning sends every holding
+    // back to 'waiting' and would take an open position off monitoring. handleEditPortfolio makes
+    // that call from the book's state, so this pencil passes no mode; what it must not do is promise
+    // an edit. It said "Edit portfolio in chat" on a live book for as long as the Floor has existed.
+    it('says a live book opens a REVIEW, since that is what pressing it does', () => {
+        const ideas = [
+            { id: 'i1', portfolioId: 'p1', portfolioName: 'Core', asset: 'SPY', direction: 'long', status: 'long' },
+            { id: 'i2', portfolioId: 'p1', portfolioName: 'Core', asset: 'QQQ', direction: 'long', status: 'waiting' },
+        ]
+        const onEditPortfolio = vi.fn()
+        render(<FloorLists ideas={ideas} onEditPortfolio={onEditPortfolio} onDeleteIdea={vi.fn()} />)
+        fireEvent.click(deskBtn('Portfolio floor'))
+        fireEvent.click(screen.getByText('Core').closest('button'))
+
+        expect(screen.queryByTitle('Edit portfolio in chat')).toBeNull()
+        fireEvent.click(screen.getByTitle('In position — opens a review in chat'))
+        // No mode argument: the book decides, and a second copy of that judgment here could disagree.
+        expect(onEditPortfolio).toHaveBeenCalledWith('p1')
+    })
+
     // A candidate is a line in a scan's result, not a record — there is nothing to delete.
     it('puts the scan’s actions on the list, never on a candidate', () => {
         const scans = [{ id: 'x', thesis: 'Semis', direction: 'long', candidates: [{ ticker: 'NVDA' }] }]

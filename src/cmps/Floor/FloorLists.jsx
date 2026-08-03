@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { groupByLifecycle, isPreEntry, isLivePosition } from '../../services/entityStatus.js'
 import {
     openCallPopup, openSetupPopup, openIdeaPopup,
-    portfoliosFromIdeas, portfolioPnl, formatPnl, isDeleteLocked,
+    portfoliosFromIdeas, portfolioPnl, formatPnl, isDeleteLocked, isPortfolioReview,
 } from '../TradeIdeas/tradeIdea.utils.js'
 import { EditButton, DeleteButton } from '../EntityCard/EntityCard.jsx'
 import { tradeFloorItems } from './floor.utils.js'
@@ -187,10 +187,18 @@ function PortfolioRows({ ideas, positions, onEditPortfolio, onDeletePortfolio, o
     function bookActions(b) {
         if (!onEditPortfolio && !onDeletePortfolio) return null
         const anyLocked = b.ideas.some(isDeleteLocked)
+        // The same live leg that locks the bin also decides what the pencil opens: handleEditPortfolio
+        // reviews a book in positions rather than re-planning it, so the title says which one it is.
+        // Nothing is passed in — the mode is the book's to decide, not this surface's.
+        const willReview = isPortfolioReview(b.ideas)
         return (
             <>
                 {onEditPortfolio && (
-                    <EditButton onClick={() => onEditPortfolio(b.portfolioId)} title="Edit portfolio in chat" size="sm" />
+                    <EditButton
+                        onClick={() => onEditPortfolio(b.portfolioId)}
+                        title={willReview ? 'In position — opens a review in chat' : 'Edit portfolio in chat'}
+                        size="sm"
+                    />
                 )}
                 {onDeletePortfolio && (
                     <DeleteButton
