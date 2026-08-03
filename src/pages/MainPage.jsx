@@ -297,8 +297,15 @@ export function MainPage() {
     // reached the Analyst carrying only the last one. State holds the one thing the UI needs.
     // `sectors` keeps each sleeve's names under its own label instead of one flat pile, so the
     // Analyst can say which sleeve a name is being researched FOR.
-    const sleeveRunRef = useRef({ active: false, queue: [], sectors: [] })
-    const [sleeveRunActive, setSleeveRunActive] = useState(false)
+    const sleeveRunRef = useRef({ active: false, queue: [], sectors: [], total: 0, current: null })
+    // What the UI shows about the run: which sleeve of how many, and its label. A run used to be
+    // invisible — three sectors were queued and the only evidence was Argus starting to talk again.
+    const [sleeveRun, setSleeveRun] = useState({ active: false, index: 0, total: 0, label: null })
+    // What the run produced, kept from the Argus hand-off until Prometheus hands back: which sleeve
+    // each queued name belongs to, which sleeves screened EMPTY, and the full queue (so the names
+    // whose coverage the user declined are derivable). Read once by handleSleeveResearched, which
+    // is the only place Atlas hears what did not come back.
+    const sleeveOutcomeRef = useRef({ unfilled: [], bySector: [], queue: [] })
     const [analystEditCoverage, setAnalystEditCoverage] = useState(null)   // coverage pencil → re-open Prometheus on that name
     const [analystSeed,      setAnalystSeed]      = useState(null)     // Axl's routed ticker → Prometheus's opening turn
     const [mentorSeed,       setMentorSeed]       = useState(null)     // calendar row (earnings/IPO) → Mentor's opening turn
@@ -890,6 +897,9 @@ export function MainPage() {
     ideasRef.current = ideas
     const callsRef = useRef(calls)
     callsRef.current = calls
+    // The coverage book, for the card handlers below — they mount once, so they can't close over the list.
+    const coverageRef = useRef(coverage)
+    coverageRef.current = coverage
     const positionsRef = useRef(positions)
     positionsRef.current = positions
     const workspaceRef = useRef(workspace)   // for []-dep event handlers that must read the live workspace
@@ -1010,10 +1020,27 @@ export function MainPage() {
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Coverage-update card "Open coverage" → surface the Analyst (its living coverage book).
+    // Coverage cards → the Analyst. WHICH Prometheus depends on what the card asked for, and the
+    // payload has always carried enough to tell: this used to drop it on the floor and open a blank
+    // chat, so a card saying "ZTS — target hit, revise the thesis" landed the user on an empty desk
+    // with the name it named nowhere in sight.
+    //
+    //   • a monitor VERDICT (mode 'revise') → the pencil's own pipeline: update mode on that doc, a
+    //     revise turn already in flight. The same move the Calls tab makes from its expiry card.
+    //   • a REFRESHED thesis (mode 'open') → just show it. The research already ran; firing another
+    //     multi-minute re-model to read the one that just landed is the opposite of the ask.
     useEffect(() => {
-        return eventBus.on(OPEN_COVERAGE, () => setActiveTab('analyst'))
-    }, [])
+        return eventBus.on(OPEN_COVERAGE, ({ coverageId, symbol, mode } = {}) => {
+            const book = coverageRef.current || []
+            const sym  = String(symbol ?? '').toUpperCase()
+            const cov  = book.find(c => c.id === coverageId) ?? book.find(c => String(c.symbol ?? '').toUpperCase() === sym)
+            if (mode === 'revise' && cov) { handleEditCoverage(cov); return }
+            // No doc resolved (a book this client hasn't reloaded yet) → still open the coverage
+            // surface rather than a blank chat, so the name is one click away instead of nowhere.
+            setActiveTab('analyst')
+            setNewsTab('coverage')
+        })
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
     // A Talos entry card routes here: social-chat card → Confirm → the order dialog. The setups
     // list is loaded in this component (useSetups), so the setup is resolved the same way an idea
@@ -1680,14 +1707,6 @@ export function MainPage() {
         return true
     }
 
-    // Atlas ticker chip click: preview the name on the chart, stay in the portfolio chat.
-    // It used to ALSO switch to the Idea tab — the only live path left into that tab. The Idea
-    // agent is ARCHIVED 2026-07-29 (server.js no longer mounts /api/idea), so landing the user
-    // there would hand them a chat whose first message fails. Same shape as handleScannerSymbol.
-    function handleTickerSelect(ticker) {
-        setChartSymbol(ticker)
-    }
-
     // Scanner ticker chip click (inside the scanner chat): just preview on the chart.
     function handleScannerSymbol(ticker) {
         if (ticker) setChartSymbol(ticker)
@@ -1788,14 +1807,52 @@ export function MainPage() {
     function handleSourceInArgus(requests) {
         const sleeves = (Array.isArray(requests) ? requests : [requests]).filter(r => r && (r.sector || r.style))
         if (!sleeves.length) return
-        sleeveRunRef.current = { active: true, queue: sleeves.slice(1), sectors: [] }
-        setSleeveRunActive(true)
+        sleeveRunRef.current = { active: true, queue: sleeves.slice(1), sectors: [], total: sleeves.length, current: null }
         _screenSleeve(sleeves[0], { fresh: true })
+    }
+
+    // What to call a sleeve in the UI and in the record handed back to Atlas. The industry is the
+    // binding pond when Atlas named one, so it leads.
+    const sleeveLabel = (sr) => sr?.industry || sr?.sector || sr?.style || 'sleeve'
+
+    /**
+     * Move the run on: the next sleeve, or the hand-off to Prometheus once they are all screened.
+     * ONE mover for both paths — a sector that produced a list (handleGenerateList) and one that
+     * produced nothing and was skipped — so the two can never advance the queue differently.
+     */
+    function _advanceSleeveRun() {
+        const run  = sleeveRunRef.current
+        const next = run.queue[0]
+        run.queue  = run.queue.slice(1)
+        if (next) { _screenSleeve(next); return }
+        run.active  = false
+        run.current = null
+        setSleeveRun({ active: false, index: 0, total: 0, label: null })
+        _researchSurvivors(run.sectors)
+    }
+
+    /**
+     * This sleeve produced no list — Argus said nothing cleared the bar, asked a question nobody is
+     * here to answer, or its block never closed. Record it as SCREENED-EMPTY and move on.
+     *
+     * The run used to have only a happy path: the advance lived inside "a list came back", so a
+     * listless turn stalled it silently and every remaining sleeve was lost. An empty sleeve is a
+     * RESULT — Atlas hears about it at the end (see _researchSurvivors) and can widen or drop it.
+     */
+    function handleSkipSleeve() {
+        const run = sleeveRunRef.current
+        if (!run.active) return
+        run.sectors.push({ sector: sleeveLabel(run.current), names: [], empty: true })
+        _advanceSleeveRun()
     }
 
     // Seed Argus for ONE sleeve. Remounts it fresh so each sector is its own scan — a sleeve's list
     // is its own artifact, and its ranking only means anything within its own pond.
     function _screenSleeve(sr, { fresh = false } = {}) {
+        const run = sleeveRunRef.current
+        run.current = sr
+        // index counts sleeves ENTERED, not finished: `total` minus what is still queued.
+        setSleeveRun({ active: true, index: run.total - run.queue.length, total: run.total, label: sleeveLabel(sr) })
         const bits = [sr.style, sr.cap_band ? `${sr.cap_band}-cap` : null].filter(Boolean)
         // Industry before sector when Atlas named one: it is the binding pond, and burying it after
         // the sector reads as a hint rather than the constraint it is.
@@ -1869,9 +1926,13 @@ export function MainPage() {
     function handleResearchList(scan) {
         const names = (scan?.candidates ?? []).map(c => c?.ticker).filter(Boolean)
         if (!names.length) return
+        const queue = names.slice(0, RESEARCH_TOP_N)
+        // A single list is a one-sleeve run as far as the hand-off back is concerned: no unfilled
+        // sleeves, but the queue still has to be recorded or a declined draft goes unmentioned.
+        sleeveOutcomeRef.current = { unfilled: [], bySector: [{ sector: scan?.thesis ?? null, names: queue }], queue }
         setAnalystScanResult({
             key:    Date.now(),
-            queue:  names.slice(0, RESEARCH_TOP_N),
+            queue,
             pool:   names,
             sector: scan?.thesis ?? null,           // the sleeve label, as context for the research
             ticker: names[0],                        // back-compat: single-name consumers read this
@@ -1879,17 +1940,49 @@ export function MainPage() {
         setActiveTab('analyst')
     }
 
-    // Prometheus → Atlas, once the sleeve has coverage. Atlas reads coverage itself (get_coverage),
-    // so this carries no payload beyond the nudge — what it restores is the user, who otherwise had
-    // no way back and had to re-enter through Axl, which resets the mandate conversation.
+    /**
+     * Prometheus → Atlas, once the run has coverage. Atlas reads coverage itself (get_coverage), so
+     * the names here are a nudge, not the payload — what this restores is the user, who otherwise
+     * had no way back and had to re-enter through Axl, which resets the mandate conversation.
+     *
+     * It also carries what did NOT come back. A sleeve that screened empty was filtered out of
+     * `bySector`, and a name whose draft the user declined was simply absent from `done` — so Atlas
+     * saw a shorter coverage list and no reason for it, and built a book quietly missing a sleeve its
+     * own architecture had called for. An unfilled sleeve is a decision (widen it, drop it,
+     * reallocate its weight), and a decision it cannot make without being told.
+     */
     function handleSleeveResearched(names = []) {
-        const list = names.filter(Boolean)
-        setPortfolioSeed({
-            key: Date.now(),
-            message: list.length
-                ? `Coverage is in for ${list.join(', ')}. Build the sleeve from it.`
-                : 'Coverage has been updated — build the sleeve from it.',
-        })
+        const covered  = names.filter(Boolean)
+        const outcome  = sleeveOutcomeRef.current
+        const inSleeve = (t) => outcome.bySector.find(s => s.names.includes(t))?.sector ?? null
+        // "AAPL, MSFT (Technology)" — the sleeve each researched name landed in, so Atlas can place
+        // it without inferring the mapping from the ticker.
+        const group = (list) => {
+            const by = new Map()
+            for (const t of list) {
+                const k = inSleeve(t) ?? ''      // '' = a one-off list, not a sleeve run: no label to give
+                if (!by.has(k)) by.set(k, [])
+                by.get(k).push(t)
+            }
+            return [...by].map(([sector, ts]) => `${ts.join(', ')}${sector ? ` (${sector})` : ''}`).join('; ')
+        }
+
+        const declined = outcome.queue.filter(t => !covered.includes(t))
+        const lines = [covered.length
+            ? `Coverage is in for ${group(covered)}. Build from it.`
+            : 'No coverage was initiated on this run.']
+        if (outcome.unfilled.length) {
+            lines.push(`These sleeves came back with NOTHING screened: ${outcome.unfilled.join(', ')}.`)
+        }
+        if (declined.length) {
+            lines.push(`Screened but NOT researched (no coverage initiated): ${group(declined)}.`)
+        }
+        if (outcome.unfilled.length || declined.length) {
+            lines.push('Do not fill those buckets from another sleeve\'s names — say what is unfilled and give me the choice: widen the sleeve and re-screen, drop it, or reallocate its weight across the rest.')
+        }
+
+        sleeveOutcomeRef.current = { unfilled: [], bySector: [], queue: [] }
+        setPortfolioSeed({ key: Date.now(), message: lines.join(' ') })
         setActiveTab('portfolio')
     }
 
@@ -1948,13 +2041,8 @@ export function MainPage() {
         const run = sleeveRunRef.current
         if (scan?.profile === 'investing' && run.active) {
             const names = (scan.candidates ?? []).map(c => c?.ticker).filter(Boolean)
-            run.sectors.push({ sector: scan.thesis || scan.sector || `sleeve ${run.sectors.length + 1}`, names })
-            const next = run.queue[0]
-            run.queue  = run.queue.slice(1)
-            if (next) { _screenSleeve(next); return }
-            run.active = false
-            setSleeveRunActive(false)
-            _researchSurvivors(run.sectors)
+            run.sectors.push({ sector: scan.thesis || scan.sector || sleeveLabel(run.current), names })
+            _advanceSleeveRun()
             return
         }
 
@@ -1969,18 +2057,33 @@ export function MainPage() {
     // per-sector record, so a three-sector run hands over three sectors' names and the Analyst knows
     // which sleeve each name is for.
     function _researchSurvivors(sectors = []) {
+        // Dedupe ACROSS sleeves before the top-N cut: overlapping ponds (a semis sleeve and a broad
+        // technology one) can surface the same name twice, and researching it twice costs the user
+        // a full coverage cycle to land on a 409. First sleeve to claim a name keeps it — and the
+        // cut runs after, so the second sleeve still gets its own four.
+        const claimed = new Set()
         const bySector = sectors
-            .map(sec => ({ sector: sec.sector, names: sec.names.slice(0, RESEARCH_TOP_N) }))
+            .map(sec => {
+                const fresh = sec.names.filter(t => !claimed.has(t))
+                fresh.forEach(t => claimed.add(t))
+                return { sector: sec.sector, names: fresh.slice(0, RESEARCH_TOP_N) }
+            })
             .filter(sec => sec.names.length)
         const queue = bySector.flatMap(sec => sec.names)
         const pool  = sectors.flatMap(sec => sec.names)
+        // Sleeves that screened to nothing — skipped mid-run, or a list whose candidates carried no
+        // ticker. Held for the hand-off back so Atlas is told a bucket is empty rather than left to
+        // notice (it doesn't) that a sector it planned for has no names under it.
+        const unfilled = sectors.filter(sec => !sec.names.length).map(sec => sec.sector)
+        sleeveOutcomeRef.current = { unfilled, bySector, queue }
 
         // A run that screened every sleeve and produced nobody is a RESULT, not a non-event. Falling
         // through to the hub looked identical to the pipeline breaking, which is how it read.
         if (!queue.length) {
+            sleeveOutcomeRef.current = { unfilled: [], bySector: [], queue: [] }
             setPortfolioSeed({
                 key: Date.now(),
-                message: 'Argus screened every sleeve and nothing cleared the bar. Tell me what came back short, and either widen a sleeve or change the frame.',
+                message: `Argus screened every sleeve and nothing cleared the bar${unfilled.length ? ` — ${unfilled.join(', ')}` : ''}. Nothing was researched, so there is no coverage to build from. Tell me what came back short, and either widen a sleeve or change the frame.`,
             })
             setActiveTab('portfolio')
             return
@@ -2185,8 +2288,10 @@ export function MainPage() {
                                 onResearchList={handleResearchList}
                                 onResearchLater={handleBackToAxl}
                                 // Mid sleeve-run Argus saves each sector itself — nobody is waiting
-                                // to press between sectors.
-                                autoGenerate={sleeveRunActive}
+                                // to press between sectors. The panel also shows where the run is
+                                // and offers the skip when a sector comes back with no list.
+                                sleeveRun={sleeveRun}
+                                onSkipSleeve={handleSkipSleeve}
                                 onLoadingChange={setScannerLoading}
                                 chatRestore={scannerChatRestore}
                                 scanSeed={scannerSeed}
@@ -2199,7 +2304,6 @@ export function MainPage() {
                             <PortfolioPanel
                                 key={`portfolio-${chatResetKey}`}
                                 resumeRef={portfolioResumeRef}
-                                onTickerSelect={handleTickerSelect}
                                 onGeneratePlan={handleGeneratePlan}
                                 onUpdatePlan={handleUpdatePlan}
                                 onPortfolioUpdate={handlePortfolioUpdate}

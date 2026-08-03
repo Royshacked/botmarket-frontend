@@ -21,8 +21,10 @@ import './PortfolioPanel/PortfolioPanel.scss'
  * @param {object}   msg            message row ({ role, content, reasoning, streaming, phase, tickers })
  * @param {object}   [phaseLabels]  phase number → label, for `role: 'phase'` rows
  * @param {number}   [phaseTotal]   how many phases this agent has (renders "n / total")
- * @param {Function} [onTickerSelect] omit to hide ticker chips entirely
- * @param {string}   [tickerHint]   hover hint on a ticker chip
+ * @param {Function} [onTickerSelect] omit to hide ticker chips entirely (unless staticTickers)
+ * @param {string}   [tickerHint]   hover hint on a clickable ticker chip
+ * @param {boolean}  [staticTickers] render the chips as plain labels — no click, no hint.
+ *                                   Atlas's holdings ARE the list; they don't lead anywhere.
  */
 export function ChatBubble({
     msg,
@@ -30,6 +32,7 @@ export function ChatBubble({
     phaseTotal     = 0,
     onTickerSelect = null,
     tickerHint     = 'View →',
+    staticTickers  = false,
 }) {
     // A history-only note (a wordless turn that docked a chart). It exists so the thread the model
     // sees still alternates; there is nothing for the user to read.
@@ -66,10 +69,15 @@ export function ChatBubble({
             <div className="portfolio-panel__bubble-text">
                 <ChatMarkdown>{msg.content}</ChatMarkdown>
             </div>
-            {onTickerSelect && msg.tickers?.length > 0 && (
+            {(onTickerSelect || staticTickers) && msg.tickers?.length > 0 && (
                 <div className="portfolio-panel__tickers">
                     {msg.tickers.map(sym => (
-                        <TickerChip key={sym} symbol={sym} hint={tickerHint} onSelect={onTickerSelect} />
+                        <TickerChip
+                            key={sym}
+                            symbol={sym}
+                            hint={onTickerSelect ? tickerHint : null}
+                            onSelect={onTickerSelect}
+                        />
                     ))}
                 </div>
             )}
@@ -77,11 +85,20 @@ export function ChatBubble({
     )
 }
 
-function TickerChip({ symbol, hint, onSelect }) {
+function TickerChip({ symbol, hint = null, onSelect = null }) {
+    // No handler → the chip is a label, not an action. A button that does nothing
+    // reads as broken, so it isn't one.
+    if (!onSelect) {
+        return (
+            <span className="portfolio-panel__ticker-chip portfolio-panel__ticker-chip--static">
+                {symbol}
+            </span>
+        )
+    }
     return (
         <button className="portfolio-panel__ticker-chip" onClick={() => onSelect(symbol)}>
             {symbol}
-            <span className="portfolio-panel__ticker-chip-hint">{hint}</span>
+            {hint && <span className="portfolio-panel__ticker-chip-hint">{hint}</span>}
         </button>
     )
 }
@@ -89,7 +106,7 @@ function TickerChip({ symbol, hint, onSelect }) {
 TickerChip.propTypes = {
     symbol:   PropTypes.string.isRequired,
     hint:     PropTypes.string,
-    onSelect: PropTypes.func.isRequired,
+    onSelect: PropTypes.func,
 }
 
 ChatBubble.propTypes = {
@@ -98,4 +115,5 @@ ChatBubble.propTypes = {
     phaseTotal:     PropTypes.number,
     onTickerSelect: PropTypes.func,
     tickerHint:     PropTypes.string,
+    staticTickers:  PropTypes.bool,
 }

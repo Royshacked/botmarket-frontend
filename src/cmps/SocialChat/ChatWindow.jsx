@@ -408,9 +408,11 @@ export function CoverageEventBubble({ msg, onClose, onResolve }) {
     const stateCopy = COVERAGE_STATE_COPY[state] ?? state
     const heading   = `Coverage · ${symbol}${stateCopy ? ` — ${stateCopy}` : ''}`
 
+    // A verdict card is Prometheus ASKING for a revision — so it opens the thesis in update mode, not
+    // a clean desk. `mode` is the ask; MainPage resolves the doc and runs the pencil's pipeline.
     function handlePrimary() {
         onResolve?.(msg.id, { status: 'done', outcome: 'opened' })
-        eventBus.emit(OPEN_COVERAGE, { coverageId, symbol })
+        eventBus.emit(OPEN_COVERAGE, { coverageId, symbol, mode: 'revise' })
         onClose?.()
     }
 
@@ -478,7 +480,8 @@ export function CoverageRefreshedBubble({ msg, onClose, onResolve }) {
             eventBus.emit(PORTFOLIO_REVIEW, { portfolioId, reviewMode: true })
         } else {
             onResolve?.(msg.id, { status: 'done', outcome: 'opened' })
-            eventBus.emit(OPEN_COVERAGE, { coverageId, symbol })
+            // 'open', not 'revise': this thesis was just rewritten — the ask is to READ it.
+            eventBus.emit(OPEN_COVERAGE, { coverageId, symbol, mode: 'open' })
         }
         onClose?.()
     }

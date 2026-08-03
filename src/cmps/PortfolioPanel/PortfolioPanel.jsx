@@ -23,18 +23,18 @@ const PHASE_LABELS = { 1: 'Mandate', 2: 'Macro', 3: 'Architecture', 4: 'Selectio
 // then confirms "hold as-is" or emits a <portfolio_update> the user accepts/dismisses.
 const REVIEW_REQUEST = "Run my scheduled portfolio review now: assess performance and each holding against our thesis and mandate, then either confirm we hold as-is or propose specific changes (rebalance, trim, add, exit, or swap)."
 
-const MessageBubble = ({ msg, onTickerSelect }) => (
+// Atlas's ticker chips are the holdings it just named — a label, not a doorway. They
+// used to link to the Idea desk, which is archived; there is nothing to build from here.
+const MessageBubble = ({ msg }) => (
     <ChatBubble
         msg={msg}
         phaseLabels={PHASE_LABELS}
         phaseTotal={6}
-        onTickerSelect={onTickerSelect}
-        tickerHint="Build idea →"
+        staticTickers
     />
 )
 
 export function PortfolioPanel({
-    onTickerSelect,
     onGeneratePlan,
     onUpdatePlan,
     onPortfolioUpdate,
@@ -471,7 +471,7 @@ export function PortfolioPanel({
             <AgentMessages chat={chat} watch={`${planReady}|${canGenerate}|${isReviewMode}|${!!editingPortfolioId}`}>
                 {messages.length === 0 && <AgentIntro agent={AGENTS.portfolio} />}
                 {messages.map((msg, i) => (
-                    <MessageBubble key={i} msg={msg} onTickerSelect={onTickerSelect} />
+                    <MessageBubble key={i} msg={msg} />
                 ))}
                 {isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus })} pulse={chat.reasoningPulse} />}
                 {pendingPlan && !planReady && !planHasSize && (
@@ -581,7 +581,6 @@ export function PortfolioPanel({
 }
 
 PortfolioPanel.propTypes = {
-    onTickerSelect:      PropTypes.func.isRequired,
     onGeneratePlan:      PropTypes.func,
     onUpdatePlan:        PropTypes.func,
     onPortfolioUpdate:   PropTypes.func,

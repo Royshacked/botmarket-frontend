@@ -191,7 +191,13 @@ export function AnalystPanel({ scanResult = null, editCoverage = null, seed = nu
         chat.reset()
         setInitiateErr('')
         setPendingCoverage(doc)
-        pendingRef.current = doc
+        // BOTH refs, and for the same reason: `_send` runs before React re-renders, so anything derived
+        // from `pendingCoverage` during render — `existingCoverage` included — is still null right here.
+        // Without this line the revise turn shipped `existing_coverage: null`, and the agent opened on
+        // a blank slate: the prompt's "this name is already in the book, revise it" block never
+        // rendered, on the one turn whose entire purpose is revising what is in the book.
+        pendingRef.current  = doc
+        existingRef.current = doc
         _send(`Revise our coverage on ${doc.symbol}. What has changed since the last view, and does the thesis still hold?`)
     }, [editCoverage?.key])   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -240,8 +246,13 @@ export function AnalystPanel({ scanResult = null, editCoverage = null, seed = nu
         } catch (err) {
             // 409 fallback: backend blocked initiation because coverage exists but wasn't in our
             // client-side list (stale load, retired status missed). Use the id from the error to update.
+            //
+            // The code rides on `reason`; `error` is the human sentence (sendReason sends both). This
+            // used to test `error === 'already_covered'`, which no response has ever matched — so the
+            // fallback never ran and a stale list surfaced as a flat "Could not initiate coverage."
             const errData = err?.response?.data
-            if (!existingCoverage && errData?.error === 'already_covered' && errData?.id) {
+            const reason  = errData?.reason ?? errData?.error
+            if (!existingCoverage && reason === 'already_covered' && errData?.id) {
                 try {
                     const saved = await analystService.updateCoverage(errData.id, {
                         ...pendingCoverage,
@@ -256,7 +267,12 @@ export function AnalystPanel({ scanResult = null, editCoverage = null, seed = nu
                 }
                 return
             }
-            setInitiateErr(`Could not ${existingCoverage ? 'update' : 'initiate'} coverage.`)
+            // A refusal the analyst can ACT on (the rating contradicts the target) explains itself —
+            // the backend's `detail` names which way it breaks. A flat "could not initiate" would send
+            // the user back to a thesis with nothing to fix.
+            setInitiateErr(errData?.detail
+                ? `${errData.error ?? 'Coverage refused'} — ${errData.detail}`
+                : `Could not ${existingCoverage ? 'update' : 'initiate'} coverage.`)
         }
     }
 

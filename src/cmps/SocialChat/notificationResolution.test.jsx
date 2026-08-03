@@ -38,13 +38,16 @@ describe('CoverageEventBubble', () => {
         payload: { kind: 'coverage', symbol: 'NVDA', coverageId: 'cov1', state: 'target_hit' },
     }
 
-    it('primary "Open coverage" routes to the Analyst + resolves done', () => {
+    // A verdict card ASKS for a revision, so it must open the thesis in update mode — `mode` is what
+    // carries that. Without it the handler could only open a blank Prometheus, on a card that names
+    // the very thesis it wanted revised.
+    it('primary "Open coverage" opens that thesis in REVISE mode + resolves done', () => {
         const onResolve = vi.fn(), onClose = vi.fn()
         render(<CoverageEventBubble msg={msg} onClose={onClose} onResolve={onResolve} />)
 
         fireEvent.click(screen.getByText('Open coverage'))
 
-        expect(eventBus.emit).toHaveBeenCalledWith(OPEN_COVERAGE, { coverageId: 'cov1', symbol: 'NVDA' })
+        expect(eventBus.emit).toHaveBeenCalledWith(OPEN_COVERAGE, { coverageId: 'cov1', symbol: 'NVDA', mode: 'revise' })
         expect(onResolve).toHaveBeenCalledWith('m1', { status: 'done', outcome: 'opened' })
         expect(onClose).toHaveBeenCalled()
     })
@@ -76,14 +79,16 @@ describe('CoverageRefreshedBubble', () => {
         expect(onClose).toHaveBeenCalled()
     })
 
-    it('with no portfolioId, primary opens coverage instead', () => {
+    // 'open', not 'revise': this thesis was rewritten seconds ago. Re-modelling it to read it would
+    // burn a multi-minute research run answering a question that was just answered.
+    it('with no portfolioId, primary opens the coverage to READ it', () => {
         const onResolve = vi.fn()
         const standalone = { ...fromReview, payload: { ...fromReview.payload, portfolioId: null } }
         render(<CoverageRefreshedBubble msg={standalone} onClose={vi.fn()} onResolve={onResolve} />)
 
         fireEvent.click(screen.getByText('Open coverage'))
 
-        expect(eventBus.emit).toHaveBeenCalledWith(OPEN_COVERAGE, { coverageId: 'cov1', symbol: 'NVDA' })
+        expect(eventBus.emit).toHaveBeenCalledWith(OPEN_COVERAGE, { coverageId: 'cov1', symbol: 'NVDA', mode: 'open' })
         expect(onResolve).toHaveBeenCalledWith('m2', { status: 'done', outcome: 'opened' })
     })
 

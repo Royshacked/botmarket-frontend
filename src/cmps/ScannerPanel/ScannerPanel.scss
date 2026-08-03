@@ -175,3 +175,33 @@
     }
 }
 
+
+// SLEEVE RUN strip — Atlas routed several sectors at once and Argus walks them unattended, so the
+// run has to say where it is. Sits in the footer, above the action bubble: same band as the other
+// between-turn controls, and it must never scroll away with the messages.
+.scanner-panel__sleeve-run {
+    flex-shrink: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 20px;
+    background: var(--bg-wash);
+    border-top: 1px solid var(--border);
+
+    &-pos {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+        white-space: nowrap;
+    }
+
+    &-hint {
+        flex: 1 1 220px;
+        font-size: 11px;
+        line-height: 1.4;
+        color: var(--text-muted);
+    }
+}

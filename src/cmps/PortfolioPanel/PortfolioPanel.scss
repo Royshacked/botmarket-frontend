@@ -241,6 +241,14 @@
             background: color-mix(in srgb, var(--accent) 18%, transparent);
             border-color: color-mix(in srgb, var(--accent) 60%, transparent);
         }
+
+        // Atlas's holdings: the same chip, but it is a label — nothing to click.
+        &--static,
+        &--static:hover {
+            cursor: default;
+            background: color-mix(in srgb, var(--accent) 8%, transparent);
+            border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+        }
     }
 
     &__ticker-chip-hint {
