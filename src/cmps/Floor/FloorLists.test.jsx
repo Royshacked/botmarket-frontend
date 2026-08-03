@@ -1,5 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { FloorLists } from './FloorLists.jsx'
 
 // The Floor's right column is an ACCORDION — one desk open at a time. That rule is the whole
@@ -230,6 +232,17 @@ describe('FloorLists row actions', () => {
     it('renders no actions at all when no handlers are given', () => {
         render(<FloorLists calls={[call()]} initialDesk="trade" />)
         expect(document.querySelector('.floor-rowhost__actions')).toBeNull()
+    })
+
+    // The overlay's reveal lives in CSS, so jsdom can't exercise it — but the rule regressed once
+    // already: :focus-within kept the buttons pinned to a row after a MOUSE click opened its thesis,
+    // and only unmounting the desk released them. Guard the selector itself.
+    it('reveals the overlay on keyboard focus, never on a lingering mouse focus', () => {
+        // Read from disk: vitest stubs stylesheet imports, so `?raw` would hand back an empty string.
+        const css = readFileSync(resolve(process.cwd(), 'src/cmps/Floor/Floor.scss'), 'utf8')
+        const reveal = css.slice(css.indexOf('.floor-rowhost'))
+        expect(reveal).toMatch(/:has\(:focus-visible\)\s+&__actions/)
+        expect(reveal).not.toMatch(/&:focus-within\s+&__actions/)
     })
 
     // One live leg locks the WHOLE book: deleting it deletes every leg plus the chat.
