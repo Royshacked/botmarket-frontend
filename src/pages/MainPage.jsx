@@ -25,6 +25,7 @@ import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
 import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace, positionOpenTarget, openCallPopup, openIdeaPopup, matchPositionsForIdea } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { TradeTicket } from '../cmps/TradeTicket/TradeTicket.jsx'
+import { apiError } from '../services/http.service.js'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
@@ -1085,9 +1086,7 @@ export function MainPage() {
             refreshSetups()
         } catch (err) {
             console.error('[setups] place orders failed', err)
-            const data      = err?.response?.data
-            const brokerErr = data?.results?.find(r => r && r.ok === false && r.error)?.error
-            showErrorMsg(`Order placement failed: ${brokerErr || data?.error || err.message}`)
+            showErrorMsg(`Order placement failed: ${apiError(err)}`)
         } finally {
             setPlacingOrders(false)
         }
@@ -1214,7 +1213,7 @@ export function MainPage() {
             await Promise.all([loadIdeas(), refreshPositions(true)])
         } catch (err) {
             console.error('[ticket] place failed', err)
-            setTicketError(err?.data?.error ?? err?.message ?? 'Could not place the order')
+            setTicketError(apiError(err, 'Could not place the order'))
         } finally {
             setTicketBusy(false)
         }
@@ -1235,7 +1234,7 @@ export function MainPage() {
             await loadIdeas()
         } catch (err) {
             console.error('[ticket] attach exits failed', err)
-            setTicketError(err?.data?.error ?? err?.message ?? 'Could not place the protective order')
+            setTicketError(apiError(err, 'Could not place the protective order'))
         } finally {
             setTicketBusy(false)
         }
@@ -1255,7 +1254,7 @@ export function MainPage() {
             await loadIdeas()
         } catch (err) {
             console.error('[ticket] cancel resting failed', err)
-            setTicketError(err?.data?.error ?? err?.message ?? 'Could not cancel the order')
+            setTicketError(apiError(err, 'Could not cancel the order'))
         } finally {
             setTicketBusy(false)
         }
@@ -1273,7 +1272,7 @@ export function MainPage() {
             await Promise.all([loadIdeas(), refreshPositions(true)])
         } catch (err) {
             console.error('[ticket] close failed', err)
-            setTicketError(err?.data?.error ?? err?.message ?? 'Could not close the position')
+            setTicketError(apiError(err, 'Could not close the position'))
         } finally {
             setTicketBusy(false)
         }
@@ -1423,11 +1422,9 @@ export function MainPage() {
         } catch (err) {
             console.error('[tradeIdeas] place orders failed', err)
             // Surface the broker's rejection reason (e.g. "symbol 'QQQ' not found on
-            // account") instead of failing silently. The 502 body carries per-account
-            // results; prefer a specific broker error, then the generic message.
-            const data      = err?.response?.data
-            const brokerErr = data?.results?.find(r => r && r.ok === false && r.error)?.error
-            showErrorMsg(`Order placement failed: ${brokerErr || data?.error || err.message}`)
+            // account") instead of failing silently — apiError prefers the per-account
+            // result over the summary line.
+            showErrorMsg(`Order placement failed: ${apiError(err)}`)
 
             if (buyMarketBornRef.current.has(idea.id)) {
                 // Buy-market idea whose order never placed: it exists only to carry this

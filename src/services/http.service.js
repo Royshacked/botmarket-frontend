@@ -1,5 +1,7 @@
 import Axios from 'axios'
-import { API_BASE } from './config'
+// Explicit extension: the `.test.js` suites run under plain `node --test` (see package.json
+// test:node), which does not do Vite's extensionless resolution.
+import { API_BASE } from './config.js'
 
 const axios = Axios.create({ withCredentials: true })
 
@@ -23,6 +25,26 @@ export const httpService = {
     delete(endpoint, data, options) {
         return ajax(endpoint, 'DELETE', data, options)
     }
+}
+
+/**
+ * The message to SHOW the user for a failed httpService call.
+ *
+ * Lives here because this module is what throws: `ajax` rethrows the raw axios error, so the
+ * server's message is at `err.response.data`, NOT `err.data`. Reaching for the latter always
+ * misses and silently falls through to axios's own text — which is why a perfectly descriptive
+ * "Nothing to update" reached the user as "Request failed with status code 400". One reader,
+ * next to the thrower, so a caller can't spell the path wrong.
+ *
+ * A multi-leg order answers with per-leg `results`; the specific rejection ("paper: no live
+ * price for ZTS") beats the summary line above it, so it wins when present.
+ */
+export function apiError(err, fallback = 'Something went wrong') {
+    const data = err?.response?.data
+    const leg  = Array.isArray(data?.results)
+        ? data.results.find(r => r && r.ok === false && r.error)?.error
+        : null
+    return leg || data?.error || err?.message || fallback
 }
 
 // A request must not hang forever: without a timeout a stalled socket (the Windows
