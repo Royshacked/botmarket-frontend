@@ -7,17 +7,18 @@ import PropTypes from 'prop-types'
 // the row grid — which every Floor list shares — exactly as it was: nothing shifts when the controls
 // appear, because they were never in the flow.
 //
-// Reveal is on hover OR focus-within (see Floor.scss): hover alone would strand the buttons for
-// the keyboard, since they live inside the very row you have to reach to show them.
+// Reveal is on hover OR keyboard focus (see Floor.scss): hover alone would strand the buttons for
+// the keyboard, since they live inside the very row you have to reach to show them. Keyboard focus
+// specifically — a mouse click on the row focuses it too, and a plain :focus-within reveal would
+// leave the overlay pinned to that row long after the pointer moved on.
 //
 // Same split as everywhere else in the app — the shell is shared, the JUDGMENT isn't. WHICH
 // actions a row offers, what they're called, and when they lock stays with the list that owns
 // the entity, because only that list knows what acting on one of its rows would do.
 //
 // Lives in its own module rather than inside FloorLists so the shell stays available to any Floor
-// list that grows actions. Today that is the right column's four desks (edit / delete) only — the
-// left column's book carries NO controls by design: the Floor is for watching, and acting on a
-// position happens in the Positions tab or the pop-out a row opens.
+// list that grows actions: the right column's four desks (edit / delete) and the left column's book
+// (close at market, per leg and per portfolio).
 export function RowHost({ actions, children }) {
     return (
         <div className="floor-rowhost">

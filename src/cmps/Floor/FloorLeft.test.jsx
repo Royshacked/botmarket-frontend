@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { FloorLeft } from './FloorLeft.jsx'
 
@@ -73,16 +73,78 @@ describe('FloorLeft', () => {
         expect(row.className).not.toContain('floor-pos--sub')
     })
 
-    // The Floor is for WATCHING the book. Closing lives in the Positions tab and the pop-out a row
-    // opens, so there is one place to go to act on a position — and no ✕ sitting a stray click away
-    // from a market order on the surface the user keeps open all day. This once shipped with close
-    // controls on both the leg and the book row; pinned so it can't drift back.
-    it('carries no close controls — not on a leg, not on a book row', () => {
+    // ── Closing ──────────────────────────────────────────────────────────────
+    //
+    // The column withheld these for a while (fcf7b27), on the grounds that closing lived in the
+    // Positions tab. The Floor then REPLACED that tab, which left the only ✕ inside a pop-out
+    // window opened from a row — so a book showed exposure it gave you no way out of. They are
+    // back, with the two guards that answered the original worry: hover-revealed rather than
+    // resting, and every one of them opens the confirm rather than firing.
+
+    it('offers no close control when the caller hands it no close handlers', () => {
         render(<FloorLeft positions={[pos(), pos({ id: 'p2', symbol: 'SPY' })]} ideas={[idea()]} />)
         openAcct()
 
-        expect(document.querySelector('.floor-rowhost')).toBeNull()
         expect(document.querySelector('.icon-btn')).toBeNull()
-        expect(document.querySelector('.close-position__backdrop')).toBeNull()
+    })
+
+    it('gives a leg a ✕ that asks before it fires', () => {
+        const onClosePosition = vi.fn()
+        render(<FloorLeft positions={[pos({ id: 'p2', symbol: 'SPY' })]} onClosePosition={onClosePosition} />)
+        openAcct()
+
+        const btn = document.querySelector('.floor-rowhost__actions .icon-btn')
+        expect(btn.getAttribute('title')).toBe('Close SPY at market')
+
+        fireEvent.click(btn)
+        // The confirm, not the broker — a click on the row's ✕ must never BE the close.
+        expect(onClosePosition).not.toHaveBeenCalled()
+        // 'Close position' is both the dialog header and its confirm — pin the button.
+        expect(document.querySelector('.close-position__btn--confirm').textContent).toBe('Close position')
+    })
+
+    // A refused close used to leave the dialog exactly as it was, with the reason only in the
+    // console — so a venue outage looked like a click that didn't register, and the user pressed
+    // it again. Whatever the backend said has to reach the person who asked.
+    it('reports a refused close in the dialog instead of swallowing it', async () => {
+        const onClosePosition = vi.fn().mockRejectedValue({
+            response: { data: { error: 'paper: no price for ZTS' } },
+        })
+        render(<FloorLeft positions={[pos({ symbol: 'ZTS' })]} onClosePosition={onClosePosition} />)
+        openAcct()
+
+        fireEvent.click(document.querySelector('.floor-rowhost__actions .icon-btn'))
+        fireEvent.click(document.querySelector('.close-position__btn--confirm'))
+
+        expect(await screen.findByText('paper: no price for ZTS')).toBeTruthy()
+        // Still open, still closable — a failure is not a dismissal.
+        expect(document.querySelector('.close-position__btn--confirm')).toBeTruthy()
+    })
+
+    it('gives a book one ✕ for every leg under it, and names how many', () => {
+        const positions = [pos(), pos({ id: 'p2', symbol: 'SPY' })]
+        const ideas = [idea(), idea({
+            id: 'i2', brokerOrders: [{ positionId: 'p2', broker: 'ctrader', accountId: 'a1' }],
+        })]
+        render(<FloorLeft positions={positions} ideas={ideas} onClosePositions={vi.fn()} />)
+        openAcct()
+
+        // The book row is collapsed — its ✕ is reachable without opening it, which is the point:
+        // closing the book is an act on the book, not on the legs you'd have to expand to see.
+        const bookBtn = document.querySelector('.floor-book .floor-rowhost__actions .icon-btn')
+        expect(bookBtn.getAttribute('title')).toBe('Close all 2 positions in Core at market')
+        expect(document.querySelector('.floor-pos')).toBeNull()
+    })
+
+    // The two handlers are independent: a surface may pass one and not the other, and the row that
+    // has no handler must not sprout a dead button.
+    it('gives a leg no ✕ when only the group handler is supplied', () => {
+        render(<FloorLeft positions={[pos()]} ideas={[idea()]} onClosePositions={vi.fn()} />)
+        openAcct()
+        fireEvent.click(screen.getByText('Core'))
+
+        expect(document.querySelector('.floor-pos')).toBeTruthy()
+        expect(document.querySelector('.floor-book .floor-rowhost__actions .icon-btn')).toBeTruthy()
+        expect(document.querySelectorAll('.icon-btn')).toHaveLength(1)
     })
 })

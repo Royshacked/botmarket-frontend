@@ -697,7 +697,13 @@ $header-h: var(--header-h);
     // The pointer is over the ACTIONS, not the row button, whenever you're actually clicking one —
     // so the row's own :hover would drop out from under you mid-reach. Hover the host instead.
     // `--static` keeps its no-hover rule: a row that doesn't open shouldn't light up.
-    &:hover .floor-row:not(.floor-row--static) { background: var(--bg-hover); }
+    //
+    // The left column's book rows are listed too: they carry the close ✕, and they were never
+    // `.floor-row` — that class is the right column's desks. Same rule, three more selectors,
+    // rather than a second host for the same reach.
+    &:hover .floor-row:not(.floor-row--static),
+    &:hover .floor-pos,
+    &:hover .floor-book__row { background: var(--bg-hover); }
 
     &__actions {
         position: absolute;
@@ -712,10 +718,15 @@ $header-h: var(--header-h);
         background: linear-gradient(to right, transparent, var(--bg-hover) 16px);
     }
 
-    // :focus-within as well as :hover — the buttons live inside the row you'd have to hover to
+    // Keyboard focus as well as :hover — the buttons live inside the row you'd have to hover to
     // reveal them, so hover alone would put them permanently out of the keyboard's reach.
+    //
+    // :focus-VISIBLE, not :focus-within. A mouse click on the row (to open a thesis) focuses the row
+    // button, and plain :focus-within would then keep the overlay pinned there long after the pointer
+    // left — stuck until the desk unmounted. :focus-visible only matches the keyboard's focus ring,
+    // so the mouse path is governed by :hover alone, exactly as it reads.
     &:hover &__actions,
-    &:focus-within &__actions { display: flex; }
+    &:has(:focus-visible) &__actions { display: flex; }
 
     // Row scale is asked for at the call site (`size="sm"`), not overridden here — the shared
     // button owns its own sizes, so the Floor can't drift from the cards by a pixel.

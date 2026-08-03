@@ -2099,15 +2099,18 @@ export function MainPage() {
                         so the trial can't regress the live layout by rearranging it. */}
                     {floorMode && (
                         <div className="workspace__left">
-                            {/* No close handlers on purpose: the Floor is where you WATCH the book.
-                                Closing lives in the Positions tab and the position pop-outs, so there
-                                is one place to go to act on a position — clicking a Floor row opens
-                                it, and the ✕ is there. */}
+                            {/* The book's own close handlers — the SAME two the Positions tab uses,
+                                so a close fired from the Floor is the close fired from anywhere.
+                                They were deliberately withheld once, on the grounds that closing
+                                lived in the Positions tab; the Floor replaced that tab, which left
+                                the ✕ reachable only through a pop-out window. */}
                             <FloorLeft
                                 positions={positions}
                                 ideas={ideas}
                                 positionsLoading={positionsLoading}
                                 onOpenPosition={handleOpenPositionFromFloor}
+                                onClosePosition={closePosition}
+                                onClosePositions={closePositions}
                                 earnings={earnings}
                                 fed={fed}
                                 ipo={ipo}

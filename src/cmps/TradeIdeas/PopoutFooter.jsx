@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
-import { posKey } from './PositionsTable.jsx'
 import { PositionsCards } from './TradeIdeaCards.jsx'
 import { DeleteButton } from '../EntityCard/EntityCard.jsx'
-import { ClosePositionDialog } from './ClosePositionDialog.jsx'
+import { usePositionClose } from './usePositionClose.jsx'
 import { EditOrdersDialog } from './EditOrdersDialog.jsx'
 import './PopoutFooter.scss'
 
@@ -24,23 +23,10 @@ export function PopoutFooter({ positions = [], closePosition, onPositionsChanged
     // list's isDeleteLocked / the backend's 409 reason:'in_position'). `positions` is already
     // scoped to this entity, so a non-empty list means this idea/call is live.
     const inPosition = positions.length > 0
-    const [pendingClose,  setPendingClose]  = useState(null)
-    const [closingId,     setClosingId]     = useState(null)
     const [editOrdersPos, setEditOrdersPos] = useState(null)
-
-    async function confirmClose() {
-        const position = pendingClose
-        if (!position) return
-        setClosingId(posKey(position))
-        try {
-            await closePosition(position.broker, position.id, position.accountId)
-            setPendingClose(null)
-        } catch (err) {
-            console.error('[positions] close failed', err)
-        } finally {
-            setClosingId(null)
-        }
-    }
+    // The close flow is the Positions tab's and the Floor's, not a third copy — this window used to
+    // carry its own, which is how it kept swallowing the failure long after the others reported it.
+    const { requestClose, closingId, closeDialog } = usePositionClose({ onClosePosition: closePosition })
 
     return (
         <div className="popout-footer idea-dialog__positions">
@@ -60,7 +46,7 @@ export function PopoutFooter({ positions = [], closePosition, onPositionsChanged
                 <PositionsCards
                     positions={positions}
                     closingId={interactive ? closingId : undefined}
-                    onClose={interactive ? setPendingClose : undefined}
+                    onClose={requestClose}
                     onEditOrders={interactive ? setEditOrdersPos : undefined}
                 />
             ) : (
@@ -69,12 +55,7 @@ export function PopoutFooter({ positions = [], closePosition, onPositionsChanged
 
             {interactive && (
                 <>
-                    <ClosePositionDialog
-                        position={pendingClose}
-                        closing={!!pendingClose && closingId === posKey(pendingClose)}
-                        onConfirm={confirmClose}
-                        onCancel={() => setPendingClose(null)}
-                    />
+                    {closeDialog}
                     {editOrdersPos && (
                         <EditOrdersDialog
                             position={editOrdersPos}

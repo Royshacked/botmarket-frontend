@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { TradeIdeaRow } from './TradeIdeaRow.jsx'
-import { ClosePositionDialog } from './ClosePositionDialog.jsx'
 import { EditOrdersDialog } from './EditOrdersDialog.jsx'
 import { ActivatePortfolioDialog } from './ActivatePortfolioDialog.jsx'
-import { PositionsTable, posKey } from './PositionsTable.jsx'
+import { PositionsTable } from './PositionsTable.jsx'
+import { usePositionClose } from './usePositionClose.jsx'
 import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel, isDeleteLocked, isManualIdea, openIdeaPopup, openCallPopup, openSetupPopup, formatPnl, ideaPnl, portfolioPnl, positionOpenTarget } from './tradeIdea.utils.js'
 import { eventBus, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, REVIEW_RESOLVED } from '../../services/event-bus.service'
 import { portfolioService } from '../../services/portfolio/portfolio.service.remote.js'
@@ -343,13 +343,10 @@ CardList.propTypes = {
 export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, buildingCall, loading = false, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, onClosePositions, calls = [], onActCall, onDeleteCall, onEditCall, callBusyId = null, setups = [], setupsLoading = false, onArmSetup, onDisarmSetup, onDeleteSetup, onEditSetup, setupBusyId = null, radar }) {
     const [expandedGroups, setExpandedGroups] = useState(new Set())
     const [activeFilter,   setActiveFilter]   = useState(null)    // null = hub landing
-    const [closingId,      setClosingId]      = useState(null)
-    const [pendingClose,   setPendingClose]   = useState(null)
-    // Group (portfolio / account) close-all: the pending group, the key in flight, and
-    // the partial-failure report — a group close can succeed for some legs and not others.
-    const [pendingGroup,   setPendingGroup]   = useState(null)
-    const [closingGroupId, setClosingGroupId] = useState(null)
-    const [groupCloseError, setGroupCloseError] = useState(null)
+    // The close-at-market flow (confirm → fire → report) is shared with the Floor's book, so it
+    // lives in usePositionClose rather than here — see that hook for why.
+    const { requestClose, requestCloseGroup, closingId, closingGroupId, closeDialog } =
+        usePositionClose({ onClosePosition, onClosePositions })
     const [editOrdersPos,  setEditOrdersPos]  = useState(null)
     // Portfolios with a review due now → their edit pencil turns red and routes into
     // review mode. Refetched whenever the ideas list changes (covers activate/rebalance
@@ -406,52 +403,6 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
     function selectPositions() {
         setActiveFilter('positions')
         if (onRefreshPositions) onRefreshPositions()
-    }
-
-    async function confirmClosePosition() {
-        const position = pendingClose
-        if (!position || !onClosePosition) return
-        setClosingId(posKey(position))
-        try {
-            await onClosePosition(position.broker, position.id, position.accountId)
-            setPendingClose(null)
-        } catch (err) {
-            console.error('[positions] close failed', err)
-        } finally {
-            setClosingId(null)
-        }
-    }
-
-    // Close every position under a portfolio / account header. Partial failure is the
-    // normal case worth showing (one leg's venue closed, a manual leg with no broker
-    // close), so the dialog stays open reporting what didn't close.
-    async function confirmCloseGroup() {
-        const group = pendingGroup
-        if (!group || !onClosePositions) return
-        setClosingGroupId(group.key)
-        setGroupCloseError(null)
-        try {
-            const { failed } = await onClosePositions(group.positions)
-            if (failed.length) {
-                const names = failed.map(f => f.position.symbol ?? f.position.id).join(', ')
-                setGroupCloseError(`${failed.length} of ${group.positions.length} could not be closed: ${names}`)
-                // Narrow the pending group to what's still open, so a retry doesn't fire a
-                // second close at the legs that already went through.
-                setPendingGroup({ ...group, positions: failed.map(f => f.position) })
-            } else {
-                setPendingGroup(null)
-            }
-        } catch (err) {
-            console.error('[positions] group close failed', err)
-            setGroupCloseError(err?.message ?? 'Close failed')
-        } finally {
-            setClosingGroupId(null)
-        }
-    }
-
-    function cancelCloseGroup() {
-        setPendingGroup(null)
-        setGroupCloseError(null)
     }
 
     function toggleGroup(portfolioId) {
@@ -733,8 +684,8 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                             ideas={ideas}
                             closingId={closingId}
                             closingGroupId={closingGroupId}
-                            onClose={setPendingClose}
-                            onCloseGroup={onClosePositions ? setPendingGroup : undefined}
+                            onClose={requestClose}
+                            onCloseGroup={requestCloseGroup}
                             onEditOrders={setEditOrdersPos}
                             onOpen={handleOpenPosition}
                         />
@@ -783,23 +734,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                 </>
             )}
 
-            <ClosePositionDialog
-                position={pendingClose}
-                closing={!!pendingClose && closingId === posKey(pendingClose)}
-                onConfirm={confirmClosePosition}
-                onCancel={() => setPendingClose(null)}
-            />
-
-            {pendingGroup && (
-                <ClosePositionDialog
-                    positions={pendingGroup.positions}
-                    label={pendingGroup.label}
-                    closing={closingGroupId === pendingGroup.key}
-                    error={groupCloseError}
-                    onConfirm={confirmCloseGroup}
-                    onCancel={cancelCloseGroup}
-                />
-            )}
+            {closeDialog}
 
             {editOrdersPos && (
                 <EditOrdersDialog
