@@ -44,7 +44,9 @@ const ANGLES = [
 const PIPELINE_CONFIG = {
     trade: {
         profile: 'trading',
-        intro:   "Bring me a ticker to validate, or describe what you're after and I'll surface candidates for Kairos.",
+        // Singular on purpose: this desk's scan step is `produces: 'one'`, so Argus settles on a
+        // single name and hands it over. Promising "candidates" here described the old dead end.
+        intro:   "Bring me a ticker to validate, or describe what you're after and I'll settle on one name to trade — then hand it to Kairos.",
         hint:    'Name a ticker or tell me the setup type — I\'ll check it and hand you to Kairos.',
     },
     portfolio: {
@@ -110,7 +112,7 @@ const MessageBubble = ({ msg, onTickerSelect }) => (
     />
 )
 
-export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, onUpdateList, onResearchList, onResearchLater, sleeveRun = null, onSkipSleeve, onLoadingChange, chatRestore = null, scanSeed = null, handoff = false, onBackToKairos, onDismissHandoff, resumeRef = null }) {
+export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, onUpdateList, onResearchList, onResearchLater, sleeveRun = null, onSkipSleeve, onLoadingChange, chatRestore = null, scanSeed = null, handoff = false, autoHandoff = false, onBackToKairos, onDismissHandoff, resumeRef = null }) {
     const pipelineCfg = PIPELINE_CONFIG[pipeline] ?? PIPELINE_CONFIG.scan
     const chat = useChatStream()
     const { messages, setMessages } = chat
@@ -143,6 +145,13 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
     profileRef.current = profile
     // Kairos hand-off single pick (emitted at the end of a hand-off scan) → "Back to Kairos" button.
     const [kairosPick,     setKairosPick]     = useState(null)
+    // Auto mode: hand the settled pick straight back rather than offering it. Waits for the turn to
+    // end — a pick still being written is not yet a pick. `kairosPick` is deliberately left set: the
+    // hand-off remounts this panel, and clearing it here would flash the generate bar on the way out.
+    useEffect(() => {
+        if (!autoHandoff || chat.isLoading || !kairosPick) return
+        onBackToKairos?.(kairosPick, { viaUser: false })
+    }, [autoHandoff, chat.isLoading, kairosPick])   // eslint-disable-line react-hooks/exhaustive-deps
     // Reopen a saved list to edit it (clicked from its pencil): restore the chat,
     // enter edit mode, and prime the pending list with its current contents so the
     // agent can refine it and "Update list" persists back to the same scan.
@@ -488,8 +497,9 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                 </div>
             )}
 
-            {/* Kairos hand-off: Argus settled on a single pick → hand it back or dismiss. */}
-            {!chat.isLoading && kairosPick && (
+            {/* Kairos hand-off: Argus settled on a single pick → hand it back or dismiss. In auto the
+                conveyor takes it on its own, so there is nothing here to press. */}
+            {!chat.isLoading && kairosPick && !autoHandoff && (
                 <div className="portfolio-panel__action-bubble">
                     <button
                         className="portfolio-panel__review-btn portfolio-panel__review-btn--update"
@@ -629,6 +639,7 @@ ScannerPanel.propTypes = {
     chatRestore:     PropTypes.object,
     scanSeed:        PropTypes.object,
     handoff:         PropTypes.bool,
+    autoHandoff:     PropTypes.bool,     // conveyor in auto: hand the pick back without the offer
     onBackToKairos:  PropTypes.func,
     onDismissHandoff: PropTypes.func,
 }

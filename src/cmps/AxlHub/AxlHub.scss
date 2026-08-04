@@ -555,6 +555,31 @@
     svg { width: 13px; height: 13px; }
 }
 
+// How the pipeline advances between desks. Deliberately quiet — it sits beside the crumb and is a
+// setting, not an action; borrowing the ticket's shape so the strip stays one family. Outlined when
+// auto, because auto is a mode you are IN and has to be visible without being read.
+.chat-agentbar__mode {
+    padding: 3px 7px;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+
+    &:hover { color: var(--text-primary); background: var(--bg-raised); }
+
+    &.is-auto {
+        color: var(--accent-light);
+        border-color: currentColor;
+    }
+}
+
 .chat-agentbar__crumb {
     color: var(--text-muted);
     font-family: var(--font-mono);

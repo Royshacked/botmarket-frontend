@@ -172,7 +172,12 @@ export const DESKS = [
         entryTab: 'scanner',
         agentKey: 'kairos',
         steps: [
-            { tab: 'scanner', label: 'Scan' },
+            // `produces: 'one'` — this desk builds ONE trade, so its scan step ends in a single
+            // name for Kairos, not a watchlist. Argus reads it and answers with a pick, which is
+            // the same single-pick mode it enters when Kairos asks it for a name mid-desk. Without
+            // it, entering the desk AT Argus produced a saved list and no way forward — the step
+            // promised a hand-off ("I'll hand you to Kairos") that nothing performed.
+            { tab: 'scanner', label: 'Scan', produces: 'one' },
             { tab: 'kairos',  label: 'Build trade' },
             { tab: null,      label: 'Execute & monitor' },
         ],

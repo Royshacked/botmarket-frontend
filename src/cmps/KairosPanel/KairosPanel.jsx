@@ -16,6 +16,7 @@ import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { waitingLabel } from '../ToolStatusChip/waitingLabel.js'
 import { HermesBadge } from '../AxlHub/AgentBadges.jsx'
 import { ConvictionChip } from '../ConvictionChip/ConvictionChip.jsx'
+import { firstItem } from '../../services/pipeline/artifact.js'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import './KairosPanel.scss'
 
@@ -90,7 +91,7 @@ export function CallDraft({ call, showHead = true }) {
 // route to the call pop-out (Confirm entry / Accept edit / Delete). They're also listed in the
 // Axl Lists "Calls" tab — so the panel no longer duplicates them as an in-panel readiness strip.
 
-export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpenArgus, scanResult = null, chatRestore = null, editingCallId = null, onEditDone, availableAccounts = [], selectedAccounts = [], mainAccountId = null, resumeRef = null }) {
+export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpenArgus, inbox = null, autoHandoff = false, chatRestore = null, editingCallId = null, onEditDone, availableAccounts = [], selectedAccounts = [], mainAccountId = null, resumeRef = null }) {
     // threadPhases: Kairos runs all 5 phases in ONE reply, so thread each phase's content under its
     // own heading (other agents emit one phase per turn and don't need it).
     const chat = useChatStream({ threadPhases: true })
@@ -278,26 +279,43 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
         threadIdRef.current = newThreadId()   // fresh construction thread; abandoned draft TTL-expires
     }
 
-    // Return leg of the Argus hand-off: the user picked a candidate → we're handed the ticker (+ its
-    // scan read). Kairos still holds the bias + horizon in this (never-unmounted) conversation, so we
-    // just drop the ticker in as a new turn and let it resume into Phase 2. Keyed so it fires once.
+    // Auto mode: the conveyor moves the work on itself, so the offer below is never rendered and
+    // this hands over instead. Waits for the turn to END — mid-stream there is nothing settled to
+    // pass on, and a request still being written is not yet a request. The conveyor still decides
+    // whether the hop is allowed to happen unattended (a gated step never is), which is why this
+    // says `viaUser: false` rather than assuming.
     useEffect(() => {
-        if (!scanResult?.ticker) return
+        if (!autoHandoff || chat.isLoading || !scanRequest) return
+        if (onOpenArgus?.(scanRequest, { viaUser: false })) setScanRequest(null)
+    }, [autoHandoff, chat.isLoading, scanRequest])   // eslint-disable-line react-hooks/exhaustive-deps
+
+    // The pipeline inbox: a candidate_list has been handed to this desk — Argus's live pick mid-run,
+    // or a name off a saved list. Kairos still holds the bias + horizon in this (never-unmounted)
+    // conversation, so we drop the ticker in as a new turn and let it resume into Phase 2. Keyed on
+    // the artifact so it fires once per hand-off.
+    //
+    // Kairos briefs ITSELF (kairos.contract.js declares `deliver: 'artifact'`) because opening on a
+    // candidate is more than a sentence: the lens chip is pre-filled and the trading window has to
+    // outlive the turn. That is why the artifact arrives here whole instead of as a seed message.
+    useEffect(() => {
+        const cand  = firstItem(inbox)
+        if (!cand?.ticker) return
+        const { window = null } = inbox.context ?? {}
         // K3: pass the candidate as a STRUCTURED seed (not free text) + pre-fill the lens chip from
         // Argus's recommendation (the user can still override before/after).
-        if (scanResult.recommended_mode) pickMode(scanResult.recommended_mode)
+        if (cand.recommended_mode) pickMode(cand.recommended_mode)
         // A forward-dated list carries a window → remember it for the whole build (the seed is one-shot,
         // so the model loses it after turn 1; the code gates the call from this ref at generate).
-        buildWindowRef.current = scanResult.window ?? null
+        buildWindowRef.current = window
         seedRef.current = {
-            ticker:    scanResult.ticker,
-            direction: scanResult.direction ?? null,
-            thesis:    scanResult.thesis ?? null,
-            analysis:  scanResult.analysis ?? null,
-            window:    scanResult.window ?? null,   // narrated in the ARGUS SEED block (server sets the actual gate)
+            ticker:    cand.ticker,
+            direction: cand.direction ?? null,
+            thesis:    cand.thesis ?? null,
+            analysis:  cand.analysis ?? null,
+            window,                                 // narrated in the ARGUS SEED block (server sets the actual gate)
         }
-        _send(`Let's build the ${scanResult.ticker} call.`)
-    }, [scanResult?.key])   // eslint-disable-line react-hooks/exhaustive-deps
+        _send(`Let's build the ${cand.ticker} call.`)
+    }, [inbox?.key])   // eslint-disable-line react-hooks/exhaustive-deps
 
     // Resume an unfinished call-building draft: restore its conversation (+ last draft) and keep
     // writing to the SAME thread. Generated calls use the edit/update flow (handleEditCall) instead.
@@ -414,11 +432,11 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
                 )}
             </AgentMessages>
 
-            {!chat.isLoading && scanRequest && (
+            {!chat.isLoading && scanRequest && !autoHandoff && (
                 <div className="portfolio-panel__action-bubble">
                     <button
                         className="portfolio-panel__review-btn portfolio-panel__review-btn--update kairos-panel__generate-btn"
-                        onClick={() => { onOpenArgus?.(scanRequest); setScanRequest(null) }}
+                        onClick={() => { if (onOpenArgus?.(scanRequest)) setScanRequest(null) }}
                     >
                         {scanRequest.ticker ? `Validate ${scanRequest.ticker} in Argus` : 'Open Argus'}
                     </button>
@@ -483,7 +501,8 @@ KairosPanel.propTypes = {
     onGenerated:      PropTypes.func,
     onPendingCall:    PropTypes.func,
     onOpenArgus:      PropTypes.func,
-    scanResult:       PropTypes.object,
+    inbox:            PropTypes.object,   // a pipeline artifact (candidate_list)
+    autoHandoff:      PropTypes.bool,     // conveyor in auto: hand emissions on without the offer
     chatRestore:      PropTypes.object,
     editingCallId:    PropTypes.string,
     onEditDone:       PropTypes.func,

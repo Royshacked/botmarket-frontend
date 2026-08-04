@@ -5,6 +5,10 @@ import { AxlHub }            from '../cmps/AxlHub/AxlHub.jsx'
 import { AgentSummon, AxlBotGlyph } from '../cmps/AxlHub/AgentSummon.jsx'
 import { RETURN_MS, DESKS, AGENTS } from '../cmps/AxlHub/agentMeta.jsx'
 import { resolveStepIndex, previousStep } from '../cmps/AxlHub/pipelineNav.js'
+import { scanOrigin, savesToScansList } from '../services/pipeline/scanOrigin.js'
+import { KIND, makeArtifact, firstItem } from '../services/pipeline/artifact.js'
+import { planHop, producesOne, hasDownstream } from '../services/pipeline/hop.js'
+import { contractFor } from '../services/pipeline/contracts.js'
 import { AgentGlyph } from '../cmps/AxlHub/AgentBadges.jsx'
 import { AccountSelector }   from '../cmps/ChatPanel/AccountSelector.jsx'
 import { readStoredModel }   from '../cmps/modelOptions.js'
@@ -280,13 +284,23 @@ export function MainPage() {
     // being re-worked + a keyed restore payload seeding the panel's chat history + draft.
     const [editingCallId,    setEditingCallId]    = useState(null)
     const [kairosChatRestore, setKairosChatRestore] = useState(null)
-    // Kairos → Argus discovery hand-off. `scanHandoff` tracks an active session (and, once the user
-    // generates the origin list, its scanId — the ONLY list whose candidates get a "→ Kairos" button).
-    // `scannerSeed` pushes the bias/horizon constraints into a freshly-remounted Argus; `kairosScanResult`
-    // carries the picked ticker back into the (never-unmounted) Kairos draft.
-    const [scanHandoff,      setScanHandoff]      = useState({ active: false, request: null })
+    // ── Pipeline inboxes ──────────────────────────────────────────────────────
+    // What each desk has been HANDED, as a pipeline artifact (services/pipeline/artifact.js). One
+    // shape per desk instead of a bespoke payload per hop: the conveyor puts an artifact in an
+    // inbox and switches the tab, and the desk decides what to do with it.
+    //
+    // Argus's inbox also marks it as working on someone else's brief — a `scan_request` means
+    // single-pick mode, and either way a list it produces here is not filed in the user's Scans tab
+    // (see scanOrigin). Kairos's inbox carries the picked ticker back into its (never-unmounted)
+    // draft. `scannerSeed` is the delivery mechanism for a desk that opens on a sentence: the
+    // conveyor writes the brief the receiving contract composed.
+    const [scanInbox,        setScanInbox]        = useState(null)
     const [scannerSeed,      setScannerSeed]      = useState(null)
-    const [kairosScanResult, setKairosScanResult] = useState(null)
+    const [kairosInbox,      setKairosInbox]      = useState(null)
+    // How the conveyor advances: 'manual' waits for the user to send the artifact on (they can read
+    // and keep chatting first), 'auto' hands it straight to the next desk. A gate never
+    // auto-advances in either mode — see planHop.
+    const [pipelineMode,     setPipelineMode]     = useState('manual')
     const [analystScanResult, setAnalystScanResult] = useState(null)
     const [portfolioSeed, setPortfolioSeed] = useState(null)   // Prometheus → Atlas nudge (see handleSleeveResearched)
     // A SLEEVE RUN: Atlas routed several sectors at once, Argus screens them back to back, and the
@@ -507,12 +521,12 @@ export function MainPage() {
             setPortfolioChatRestore(null)
             setEditingCallId(null)
             setKairosChatRestore(null)
-            // Clear the discovery hand-off: consumed seed (so a fresh Argus remount can't re-fire the
-            // constraints scan), the return payload, and the origin flag (so a stale hand-off can't
-            // leave a later normal scan stuck in single-pick mode).
+            // Clear the hand-off: the consumed seed (so a fresh Argus remount can't re-fire the
+            // constraints scan) and every pipeline inbox (so a stale artifact can't leave a later
+            // normal scan stuck in single-pick mode).
             setScannerSeed(null)
-            setKairosScanResult(null)
-            setScanHandoff({ active: false, request: null })
+            setKairosInbox(null)
+            setScanInbox(null)
             setChatResetKey(k => k + 1)
         }, RETURN_MS)
     }
@@ -1850,30 +1864,84 @@ export function MainPage() {
         setActiveTab(backStep.tab)
     }
 
-    // ── Kairos ↔ Argus discovery hand-off ────────────────────────────────────
-    // Route OUT: Kairos emitted a <scan_request> (bias + horizon, optional ticker) and the user tapped
-    // "Open Argus". Remount Argus fresh (chatResetKey) — which leaves the never-keyed Kairos panel
-    // untouched so its draft survives — then seed it with the constraints. `handoff` flips Argus into
-    // single-pick mode (it emits <kairos_pick>, not a watchlist). With a ticker the seed asks Argus to
-    // VALIDATE that named name (feasibility + lens gate); without one it's open discovery.
-    function buildScanSeedMessage(req) {
-        const bits = [`direction: ${req.direction}`]
-        if (req.style)       bits.push(`horizon: ${req.style}`)
-        if (req.period_hint) bits.push(`window: ${req.period_hint}`)
-        let msg = req.ticker
-            ? `Validate ${req.ticker} for a trade — ${bits.join(', ')}.`
-            : `Find me one ticker to trade — ${bits.join(', ')}.`
-        if (req.angle_hint) msg += ` Angle: ${req.angle_hint}.`
-        return msg
+    // ── The conveyor ──────────────────────────────────────────────────────────
+    // One hand-off mechanism for every desk that has declared a contract. A desk emits an artifact;
+    // planHop decides who takes it, how they take delivery, and whether their panel starts clean;
+    // this applies the plan. Nothing here knows which two desks are talking — that is the point.
+    //
+    // The four moves each hop used to hand-roll (compose a seed, remount the right panel, clear the
+    // other hops' state, switch the tab) live here once, so a hop added later cannot get one of
+    // them subtly wrong. See docs/pipeline-service-design.md.
+    const PIPELINE_INBOX = { scanner: setScanInbox, kairos: setKairosInbox }
+    // Only inside a pipeline: off a desk there is no chain, so there is nothing to advance along
+    // and a panel must keep offering its hand-off by hand.
+    const autoHandoff = pipelineMode === 'auto' && !!activePipeline
+    const stepsOf = (key) => (key ? (DESKS.find(d => d.key === key)?.steps ?? []) : [])
+
+    // Argus in single-pick mode: it answers with ONE name for Kairos instead of a watchlist. Two
+    // ways in, and they are the same question asked from either side — Kairos handed it a
+    // scan_request, or the desk it is standing on exists to build one trade (`produces: 'one'`).
+    // Only the first existed before, which is why entering the trade desk AT Argus dead-ended in a
+    // saved list with no way forward.
+    const scannerSingle = scanInbox?.kind === KIND.SCAN_REQUEST
+        || producesOne(stepsOf(activePipeline), 'scanner')
+
+    function _applyHop(plan, artifact) {
+        // Only one desk holds an inbox at a time: an artifact still sitting somewhere upstream is a
+        // stale hand-off waiting to re-fire on the next remount. Clearing every inbox and then
+        // filling the target's is what the per-hop handlers each used to do by hand.
+        Object.values(PIPELINE_INBOX).forEach(set => set(null))
+        PIPELINE_INBOX[plan.agent]?.(artifact)
+
+        if (plan.delivery.type === 'seed') {
+            const { type: _t, message, ...opts } = plan.delivery
+            setScannerChatRestore(null)   // an edit-restore must not fight a brief
+            setScannerSeed({ key: artifact.key, message, ...opts })
+        }
+        // A remount is per-desk on purpose: the desk that SENT the artifact has to keep its
+        // conversation, or stepping back lands on a blank chat.
+        if (plan.remount && plan.agent === 'scanner') setScannerResetKey(k => k + 1)
+        if (plan.targetIndex != null) setPipelineStep(plan.targetIndex)
+        setActiveTab(plan.targetTab)
     }
-    function handleOpenArgus(scanRequest) {
-        if (!scanRequest?.direction) return
-        setScanHandoff({ active: true, request: scanRequest })
-        setKairosScanResult(null)
-        setScannerChatRestore(null)                             // no edit-restore should interfere
-        setScannerSeed({ key: Date.now(), message: buildScanSeedMessage(scanRequest) })
-        setScannerResetKey(k => k + 1)                          // remount Argus fresh (Kairos is unkeyed → survives)
-        setActiveTab('scanner')
+
+    /**
+     * A desk produced something. Routes it, or answers false when this pipeline has nowhere to put
+     * it — an unroutable artifact is the caller's to report, never silently dropped here.
+     *
+     * `viaUser` is the difference between the user pressing "send it on" and the conveyor moving by
+     * itself. A user press always travels; an automatic advance has to be allowed by the plan, which
+     * is where auto mode and the gates are decided (planHop). That is what keeps a gated step —
+     * arming, order confirmation — human even with the toggle on.
+     */
+    function emitArtifact(artifact, { fromTab = activeTab, viaUser = true } = {}) {
+        const steps = stepsOf(activePipeline)
+        const plan  = planHop({
+            steps,
+            fromIndex: steps.length ? resolveStepIndex(steps, fromTab, pipelineStep) : 0,
+            artifact,
+            mode: pipelineMode,
+        })
+        if (!plan) return false
+        if (!viaUser && !plan.auto) return false
+        _applyHop(plan, artifact)
+        return true
+    }
+
+    // Kairos emitted a <scan_request> (bias + horizon, optional ticker) — the user tapped "Open
+    // Argus", or in auto mode the panel handed it over as soon as the turn settled. The request
+    // travels as an artifact; Argus's own contract turns it into the opening turn, and its inbox
+    // holding a scan_request is what puts it in single-pick mode (one pick, not a watchlist).
+    // Answers whether the hand-off actually travelled, so the panel keeps its offer when the
+    // conveyor refuses (nowhere to route it, or a gate that auto may not cross) instead of
+    // discarding the request and leaving the user with neither the button nor the hop.
+    function handleOpenArgus(scanRequest, opts = {}) {
+        if (!scanRequest?.direction) return false
+        return emitArtifact(makeArtifact({
+            kind:  KIND.SCAN_REQUEST,
+            items: [scanRequest],
+            from:  { agent: 'kairos', label: 'Build trade' },
+        }), { fromTab: 'kairos', ...opts })
     }
 
     // Route OUT: Atlas emitted a <screen_request> (a sleeve mandate) → open Argus in the INVESTING
@@ -1928,24 +1996,17 @@ export function MainPage() {
         run.current = sr
         // index counts sleeves ENTERED, not finished: `total` minus what is still queued.
         setSleeveRun({ active: true, index: run.total - run.queue.length, total: run.total, label: sleeveLabel(sr) })
-        const bits = [sr.style, sr.cap_band ? `${sr.cap_band}-cap` : null].filter(Boolean)
-        // Industry before sector when Atlas named one: it is the binding pond, and burying it after
-        // the sector reads as a hint rather than the constraint it is.
-        const where = sr.industry
-            ? ` in ${sr.industry}${sr.sector ? ` (${sr.sector})` : ''}`
-            : (sr.sector ? ` in ${sr.sector}` : '')
-        let msg = `Screen for a ${bits.join(' ') || 'quality'} sleeve${where}.`
-        if (sr.constraints) msg += ` Constraints: ${sr.constraints}.`
-        // The mandate's selection school. This sentence IS the whole brief — Argus never sees Atlas's
-        // conversation — so the school has to be said out loud here or the screen ranks neutrally
-        // while Atlas believes it asked for its own bar.
-        if (sr.lens)        msg += ` Selection school: ${sr.lens} — echo it back as the list's lens.`
-        if (sr.industry)    msg += ` The industry is fixed — screen inside ${sr.industry}, don't widen to the sector.`
-        if (sr.note)        msg += ` (${sr.note})`
-        setScanHandoff({ active: false, request: null })
-        setKairosScanResult(null)
+        // The sleeve travels as a MANDATE artifact and Argus's own contract composes the brief —
+        // this desk states what it wants screened, not how Argus should open on it. (The run still
+        // applies the hop itself: its remount discipline is per-sleeve, not per-hop. Phase 4.)
+        const mandate = makeArtifact({
+            kind: KIND.MANDATE, items: [sr], from: { agent: 'portfolio', label: 'Mandate' },
+        })
+        const brief = contractFor('scanner').brief(mandate)
+        setScanInbox(mandate)
+        setKairosInbox(null)
         setScannerChatRestore(null)
-        setScannerSeed({ key: Date.now(), message: msg, profile: 'investing' })
+        setScannerSeed({ key: mandate.key, message: brief.message, profile: brief.profile })
         // Remount only when ENTERING the run — a fresh Argus for a fresh book. Between sectors the
         // conversation continues: remounting there wiped the transcript the user had just watched
         // build, and tore the panel down in the middle of the turn that triggered it.
@@ -1954,28 +2015,36 @@ export function MainPage() {
         setNewsTab('scans')
     }
 
-    // Route BACK: Argus emitted a <kairos_pick> and the user tapped "Back to Kairos" → hand the ticker
-    // (+ its read) to Kairos, which still holds the bias/horizon. Does NOT reset Kairos or bounce Axl.
-    function handleBackToKairos(pick) {
+    // Route BACK: Argus emitted a <kairos_pick> and the user tapped "Back to Kairos" → hand the
+    // ticker (+ its read) over as a one-item candidate list. Kairos still holds the bias and horizon
+    // in its (never-unmounted) conversation, so the horizon rides in `context` off the request that
+    // sent us here: Kairos's own answer, not Argus's guess at it.
+    function handleBackToKairos(pick, opts = {}) {
         if (!pick?.ticker) return
-        setKairosScanResult({
-            key:       Date.now(),
-            ticker:    pick.ticker,
-            direction: pick.direction === 'short' ? 'short' : 'long',
-            style:     scanHandoff.request?.style ?? null,        // Kairos's own horizon (authoritative)
-            thesis:    pick.thesis ?? null,
-            analysis:  pick.analysis ?? pick.thesis ?? null,
-            recommended_mode: pick.recommended_mode ?? null,       // Argus's lens suggestion → pre-fills the chip
-        })
-        setScanHandoff({ active: false, request: null })
+        const request = firstItem(scanInbox)                      // the scan_request Argus is holding
+        const sent = emitArtifact(makeArtifact({
+            kind:  KIND.CANDIDATE_LIST,
+            items: [{
+                ticker:    pick.ticker,
+                direction: pick.direction === 'short' ? 'short' : 'long',
+                thesis:    pick.thesis ?? null,
+                analysis:  pick.analysis ?? pick.thesis ?? null,
+                recommended_mode: pick.recommended_mode ?? null,   // Argus's lens suggestion → pre-fills the chip
+            }],
+            context: { style: request?.style ?? null },            // Kairos's own horizon (authoritative)
+            from:    { agent: 'scanner', label: 'Scan' },
+        }), { fromTab: 'scanner', ...opts })
+        if (!sent) return
+        // Retiring the SENDER, which is not part of the hop: Argus is done, and leaving it mounted
+        // means coming back later to a stale pick and its chat. The receiver's mount policy (Kairos:
+        // never) is the conveyor's business; this is ours.
         setScannerSeed(null)
-        setScannerResetKey(k => k + 1)   // remount Argus fresh (clears its pick/chat); Kairos is unkeyed → draft survives
-        setActiveTab('kairos')
+        setScannerResetKey(k => k + 1)
     }
-    // Dismiss the hand-off → back to Axl, clearing the origin state.
+    // Dismiss the hand-off → back to Axl, clearing every inbox so a stale artifact can't re-fire.
     function handleCancelKairosHandoff() {
-        setScanHandoff({ active: false, request: null })
-        setKairosScanResult(null)
+        setScanInbox(null)
+        setKairosInbox(null)
         handleBackToAxl()
     }
 
@@ -2069,16 +2138,23 @@ export function MainPage() {
         // call's scheduled window so Kairos/Hermes gate monitoring to it (no watching before it opens).
         const p = scan?.period
         const window = (p && (p.start || p.end)) ? { from: p.start ?? null, to: p.end ?? null } : null
-        setKairosScanResult({
-            key:       Date.now(),
-            ticker:    candidate.ticker,
-            direction: candidate.direction === 'short' ? 'short' : 'long',
-            style:     scan?.style ?? null,
-            thesis:    candidate.thesis ?? null,
-            analysis:  candidate.analysis ?? candidate.thesis ?? null,
-            recommended_mode: candidate.recommended_mode ?? null,
-            window,
-        })
+        // The same artifact Argus hands back mid-pipeline, from a saved list instead of a live pick —
+        // so Kairos has one inbox, not one per place a name can come from. Delivered straight rather
+        // than routed: the Lists surface stands outside every pipeline, so there is no chain to walk.
+        setKairosInbox(makeArtifact({
+            kind:  KIND.CANDIDATE_LIST,
+            items: [{
+                ticker:    candidate.ticker,
+                direction: candidate.direction === 'short' ? 'short' : 'long',
+                thesis:    candidate.thesis ?? null,
+                analysis:  candidate.analysis ?? candidate.thesis ?? null,
+                recommended_mode: candidate.recommended_mode ?? null,
+            }],
+            // A forward-dated list is period-scoped; the window gates the call's monitoring.
+            context: { style: scan?.style ?? null, window },
+            ref:     scan?.id ? { entityKind: 'scan', id: scan.id } : null,
+            from:    { agent: 'scanner', label: 'Scan' },
+        }))
         setActiveTab('kairos')
     }
 
@@ -2096,15 +2172,28 @@ export function MainPage() {
         seedMentorChat(ipoItem.symbol, buildIpoSeed(ipoItem))
     }
 
-    // Generate (save) a scan list from the scanner panel, then surface it.
+    // A finished list from the scanner panel. It is SAVED to the Scans tab only when the user asked
+    // for it themselves: a scan Argus ran on another desk's brief — an Atlas sleeve mandate, a
+    // Kairos discovery request — is mid-pipeline traffic, not a record anyone keeps. Screening three
+    // sleeves for one book used to leave three sector lists among the user's saved lists.
+    //
+    // Only the saved card stops. The names travel exactly as before: the sleeve run below reads the
+    // emitted `scan`, never the stored doc.
     async function handleGenerateList(scan, threadId = null) {
-        const saved = await createScan(scan)
-        // createScan swallows its error and answers null. Mid-run that is the difference between a
-        // sector that contributed names and one that vanished, so say it rather than move on quietly.
-        if (!saved) console.error('[scans] sector list did not save', scan?.thesis ?? scan?.sector ?? '(unnamed)')
+        const keeps = savesToScansList(scanOrigin({
+            sleeveRunActive: sleeveRunRef.current.active,
+            handoffActive:   scanInbox?.kind === KIND.SCAN_REQUEST,
+        }))
+        const saved = keeps ? await createScan(scan) : null
+        // createScan swallows its error and answers null — for a list the user means to keep, that
+        // is the difference between filed and vanished, so say it rather than move on quietly.
+        if (keeps && !saved) console.error('[scans] list did not save', scan?.thesis ?? scan?.sector ?? '(unnamed)')
         if (saved) {
             setNewsTab('scans')
-            // Link the construction draft thread to the created scan (clears its TTL).
+            // Link the construction draft thread to the created scan (clears its TTL). A
+            // mid-pipeline screening has no scan to link to, so its draft TTL-expires unpinned —
+            // the deliberate default until a run carries its threads to the artifact it produces
+            // (docs/pipeline-service-design.md §8).
             if (threadId && saved.id) {
                 threadsService.linkThread(threadId, { subjectType: 'scan', subjectId: saved.id, artifactName: scan?.thesis ?? null })
             }
@@ -2121,11 +2210,14 @@ export function MainPage() {
             return
         }
 
-        // An INVESTING list is mid-pipeline, not finished: its names still have to go to Prometheus
-        // for coverage and come back to Atlas. Returning to the hub here threw the user out one beat
-        // before the research hand-off could be offered, which is the whole reason the list exists.
-        // A trading list has no such next step — the hub is the right place for it.
-        if (scan?.profile !== 'investing') handleBackToAxl()
+        // Is this list the end of the road, or is a desk still waiting for it? A finished artifact
+        // belongs back at the hub; a mid-pipeline one must not be walked away from — that threw the
+        // user out one beat before the hand-off could be offered, which is the whole reason the list
+        // exists. Asked of the PIPELINE rather than the profile: "investing" happened to mean
+        // mid-pipeline only because Atlas was the only desk with a further step, and the trade desk
+        // (a trading list, with Kairos still waiting) proved that wrong.
+        const steps = stepsOf(activePipeline)
+        if (!hasDownstream(steps, resolveStepIndex(steps, 'scanner', pipelineStep))) handleBackToAxl()
     }
 
     // Every sector screened -> the top of EACH sleeve pools into one Prometheus queue. Built from the
@@ -2190,9 +2282,10 @@ export function MainPage() {
     async function handleUpdateList(scanId, scan) {
         const saved = await updateScan(scanId, scan)
         if (saved) setNewsTab('scans')
-        // Same rule as handleGenerateList: an investing list is mid-pipeline whether it was just
-        // built or just refined, so leaving for the hub here pre-empts the research hand-off.
-        if (scan?.profile !== 'investing') handleBackToAxl()
+        // Same rule as handleGenerateList: a list with a desk still waiting on it is mid-pipeline
+        // whether it was just built or just refined, so leaving for the hub pre-empts the hand-off.
+        const steps = stepsOf(activePipeline)
+        if (!hasDownstream(steps, resolveStepIndex(steps, 'scanner', pipelineStep))) handleBackToAxl()
     }
 
     // Resume an unfinished idea-building draft: restore the conversation + analysisState
@@ -2331,6 +2424,24 @@ export function MainPage() {
                                     </button>
                                 )}
                                 <PipelineCrumb pipeline={activePipeline} activeTab={activeTab} step={pipelineStep} />
+                                {/* How the desk hands its work on. Manual stops at each step so the
+                                    user can read it and keep chatting before sending it forward;
+                                    auto walks the chain on its own. Shown only inside a pipeline —
+                                    off a desk there is no chain to advance. Arming and order
+                                    confirmation are gated steps and stay manual in both modes. */}
+                                {activePipeline && (
+                                    <button
+                                        type="button"
+                                        className={`chat-agentbar__mode${pipelineMode === 'auto' ? ' is-auto' : ''}`}
+                                        onClick={() => setPipelineMode(m => (m === 'auto' ? 'manual' : 'auto'))}
+                                        aria-pressed={pipelineMode === 'auto'}
+                                        title={pipelineMode === 'auto'
+                                            ? 'Auto: each desk hands its work straight to the next'
+                                            : 'Manual: you send the work on when you are ready'}
+                                    >
+                                        {pipelineMode === 'auto' ? 'auto' : 'manual'}
+                                    </button>
+                                )}
 
                                 <div className="chat-agentbar__right">
                                     {/* (Trading by hand is picked in the hub, beside the desks — the pad
@@ -2370,7 +2481,8 @@ export function MainPage() {
                                 onLoadingChange={setScannerLoading}
                                 chatRestore={scannerChatRestore}
                                 scanSeed={scannerSeed}
-                                handoff={scanHandoff.active}
+                                handoff={scannerSingle}
+                                autoHandoff={autoHandoff}
                                 onBackToKairos={handleBackToKairos}
                                 onDismissHandoff={handleCancelKairosHandoff}
                             />
@@ -2402,7 +2514,8 @@ export function MainPage() {
                                 onGenerated={handleBackToAxl}
                                 onPendingCall={setKairosPendingCall}
                                 onOpenArgus={handleOpenArgus}
-                                scanResult={kairosScanResult}
+                                inbox={kairosInbox}
+                                autoHandoff={autoHandoff}
                                 resumeRef={kairosResumeRef}
                                 chatRestore={kairosChatRestore}
                                 editingCallId={editingCallId}
