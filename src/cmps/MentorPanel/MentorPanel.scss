@@ -67,9 +67,18 @@
 }
 
 .mentor-panel__missing {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
     font-size: 10px;
     color: var(--text-dim);
     text-align: center;
 
     em { font-style: normal; color: var(--accent-light); }
+}
+
+// A CONTRADICTION, not a gap — the setup is complete and still refuses, so it has to read
+// differently from "still needs a stop zone" or the user goes looking for a field to fill.
+.mentor-panel__problem {
+    color: var(--accent);
 }

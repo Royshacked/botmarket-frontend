@@ -105,6 +105,33 @@ describe('MentorPanel', () => {
         expect(screen.getByText(/trading account/)).toBeTruthy()
     })
 
+    it('names a CONTRADICTION, not just a gap — a complete-but-incoherent setup still refuses', async () => {
+        // Readiness has two refusals: something absent, and something that doesn't add up. Only the
+        // first used to reach the panel, so a setup whose validity floor sat below its own stop gave
+        // a dark button with NO stated reason. Seen on a live run.
+        render(<MentorPanel {...props()} />)
+        await runTurn({ reply: 'ok', setup: SETUP, readiness: { ready: false, missing: [], problems: ['validity floor sits below the stop'] } })
+
+        await waitFor(() => expect(screen.getByRole('button', { name: /Generate setup/ }).disabled).toBe(true))
+        expect(screen.getByText(/validity floor sits below the stop/)).toBeTruthy()
+        expect(screen.queryByText(/Still needs/)).toBeNull()
+    })
+
+    it('keeps the contradiction visible when the account is missing too', async () => {
+        // The account gap used to REBUILD the readiness object, dropping `problems` on the floor.
+        render(<MentorPanel {...props({ selectedAccounts: [] })} />)
+        await runTurn({ reply: 'ok', setup: SETUP, readiness: { ready: false, missing: [], problems: ['away pivot sits inside the validity range'] } })
+
+        await waitFor(() => expect(screen.getByText(/trading account/)).toBeTruthy())
+        expect(screen.getByText(/away pivot sits inside/)).toBeTruthy()
+    })
+
+    it('never shows a dark button with nothing to say', async () => {
+        render(<MentorPanel {...props()} />)
+        await runTurn({ reply: 'ok', setup: SETUP, readiness: { ready: false, missing: [], problems: [] } })
+        await waitFor(() => expect(screen.getByText(/ask Mentor what’s outstanding/)).toBeTruthy())
+    })
+
     it('STOPS after Generate to offer Arm — a saved setup is not yet monitored', async () => {
         const onGenerated = vi.fn()
         render(<MentorPanel {...props({ onGenerated })} />)

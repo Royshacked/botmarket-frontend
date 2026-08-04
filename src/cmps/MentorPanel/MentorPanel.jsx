@@ -272,10 +272,21 @@ export function MentorPanel({
     const hasPreview = !!pendingSetup?.asset
     // A missing account is a readiness gap like any other, so it belongs in `missing` rather than
     // being a separate silent reason the button is dark.
+    //
+    // `problems` must survive this. Readiness has TWO refusals — something ABSENT (missing) and
+    // something INCOHERENT (problems: a validity floor drawn below its own stop, say) — and the
+    // second one used to be dropped here and never rendered below. A setup that was complete but
+    // contradictory therefore showed a dark Generate button with no stated reason at all, which is
+    // exactly the dead button the copy under it exists to prevent. Seen on a live run.
     const effectiveReadiness = accounts.length === 0
-        ? { ready: false, missing: [...(readiness?.missing ?? []), 'trading account'] }
+        ? { ...readiness, ready: false, missing: [...(readiness?.missing ?? []), 'trading account'] }
         : readiness
     const ready = !!effectiveReadiness?.ready
+    // Both refusals, worded for their kind: one is a gap to fill, the other a contradiction to fix.
+    const blockers = [
+        ...(effectiveReadiness?.missing ?? []).map(m => ({ kind: 'missing', text: m })),
+        ...(effectiveReadiness?.problems ?? []).map(p => ({ kind: 'problem', text: p })),
+    ]
 
     return (
         <div className="portfolio-panel mentor-panel">
@@ -328,8 +339,20 @@ export function MentorPanel({
                     >
                         {busy ? 'Generating…' : 'Generate setup'}
                     </button>
-                    {!ready && effectiveReadiness?.missing?.length > 0 && (
-                        <span className="mentor-panel__missing">Still needs: {effectiveReadiness.missing.join(', ')}</span>
+                    {!ready && blockers.length > 0 && (
+                        <span className="mentor-panel__missing">
+                            {blockers.filter(b => b.kind === 'missing').length > 0 && (
+                                <>Still needs: {blockers.filter(b => b.kind === 'missing').map(b => b.text).join(', ')}</>
+                            )}
+                            {blockers.filter(b => b.kind === 'problem').map((b, i) => (
+                                <span className="mentor-panel__problem" key={i}>Doesn’t add up: {b.text}</span>
+                            ))}
+                        </span>
+                    )}
+                    {/* A refusal with nothing to name would be a dead button. It can only happen if
+                        the server grows a reason it doesn't report, so say that rather than nothing. */}
+                    {!ready && blockers.length === 0 && (
+                        <span className="mentor-panel__missing">Not ready yet — ask Mentor what’s outstanding.</span>
                     )}
                     {ready && <span className="mentor-panel__missing">Generates as <em>waiting</em> — arm it to start monitoring.</span>}
                 </div>
