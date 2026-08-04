@@ -4,7 +4,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { KIND, makeArtifact } from './artifact.js'
 import { findReceiver, planHop, producesOne, hasDownstream } from './hop.js'
-import { contractFor } from './contracts.js'
+import { contractFor, CONTRACTS } from './contracts.js'
 
 // The trading desk exactly as DESKS declares it: Argus, then Kairos, then a background monitor.
 const TRADE_STEPS = [
@@ -36,15 +36,21 @@ test('nothing in the pipeline takes it → null, not a guess', () => {
     assert.equal(planHop({ steps: TRADE_STEPS, fromIndex: 0, artifact: null }), null)
 })
 
-// Reaching Kairos directly, with no desk around it: the hand-off still has to happen.
-test('outside a pipeline, capability answers when only one desk qualifies', () => {
-    const found = findReceiver([], 0, KIND.SCAN_REQUEST)
+// With no chain to walk, capability can only answer when it is unambiguous.
+test('outside a pipeline, one qualifying desk is an answer', () => {
+    const found = findReceiver([], 0, KIND.SCAN_REQUEST)   // only Argus takes a scan request
     assert.equal(found.step.tab, 'scanner')
     assert.equal(found.index, null, 'there is no step to move the crumb to')
+    assert.equal(planHop({ steps: [], artifact: makeArtifact({ kind: KIND.SCAN_REQUEST, items: [{ direction: 'long' }] }) }).targetIndex, null)
+})
 
-    const plan = planHop({ steps: [], artifact: makeArtifact({ kind: KIND.CANDIDATE_LIST, items: [{ ticker: 'NVDA' }] }) })
-    assert.equal(plan.targetTab, 'kairos')
-    assert.equal(plan.targetIndex, null)
+// …and three is not. Kairos, Mentor and Prometheus all take a candidate_list, so choosing between
+// them is a ROUTING decision, and a routing decision needs a pipeline to make it. Refusing here is
+// what pushes the caller to borrow the emitting desk's own chain (MainPage.emitArtifact) instead of
+// letting the registry guess — the alternative is a name silently opening the wrong desk.
+test('outside a pipeline, several qualifying desks is not an answer', () => {
+    assert.equal(findReceiver([], 0, KIND.CANDIDATE_LIST), null)
+    assert.equal(planHop({ steps: [], artifact: makeArtifact({ kind: KIND.CANDIDATE_LIST, items: [{ ticker: 'NVDA' }] }) }), null)
 })
 
 // A pipeline that exists but takes nothing must NOT silently fall back to capability — that would
@@ -123,22 +129,56 @@ test('a trailing background monitor is not somewhere the work goes', () => {
 
 // ── the declarations themselves ────────────────────────────────────────────────
 
-test('every kind a contract emits is accepted by someone, or it is a dead end', () => {
-    // Scoped to the desks that have declared contracts; the rest still hand off by hand.
-    const declared = ['scanner', 'kairos']
+// Both ends of Atlas. It has no contract until phase 4, so the kinds it would emit (mandate) and
+// accept (coverage_set) each have one side missing and their hops still run through MainPage by
+// hand. Named rather than skipped, so the day portfolio.contract.js lands this list empties and
+// these stop being exceptions.
+const KNOWN_DEAD_ENDS = new Set([KIND.COVERAGE_SET])   // emitted, nobody takes it
+const KNOWN_UNSOURCED = new Set([KIND.MANDATE])        // accepted, nobody declares emitting it
+
+test('every kind a contract emits is accepted by someone', () => {
+    const declared = Object.keys(CONTRACTS)
     const accepted = new Set(declared.flatMap(a => contractFor(a).accepts))
     for (const agent of declared) {
         for (const kind of contractFor(agent).emits) {
+            if (KNOWN_DEAD_ENDS.has(kind)) continue
             assert.ok(accepted.has(kind), `${agent} emits ${kind} and nobody takes it`)
         }
     }
 })
 
-test('a seed contract must actually produce a brief for everything it accepts', () => {
-    const c = contractFor('scanner')
-    assert.equal(c.deliver, 'seed')
-    for (const kind of c.accepts) {
-        const brief = c.brief(makeArtifact({ kind, items: [{ direction: 'long' }] }))
-        assert.ok(brief?.message, `no brief for ${kind}`)
+// The mirror, and the one that catches a typo'd kind: an inbox nothing can ever reach is a desk
+// waiting for a delivery that will never come.
+test('every kind a contract accepts is emitted by someone', () => {
+    const declared = Object.keys(CONTRACTS)
+    const emitted  = new Set(declared.flatMap(a => contractFor(a).emits))
+    for (const agent of declared) {
+        for (const kind of contractFor(agent).accepts) {
+            if (KNOWN_UNSOURCED.has(kind)) continue
+            assert.ok(emitted.has(kind), `${agent} accepts ${kind} and nobody produces it`)
+        }
+    }
+})
+
+test('a seed desk must actually produce a brief for everything it accepts', () => {
+    // One fixture that satisfies every seed desk's reading of an item: a direction for a scan
+    // request, a style/sector for a mandate, a ticker for a name hand-off.
+    const item = { ticker: 'NVDA', direction: 'long', style: 'swing', sector: 'Technology' }
+    for (const agent of Object.keys(CONTRACTS)) {
+        const c = contractFor(agent)
+        if (c.deliver !== 'seed') continue
+        for (const kind of c.accepts) {
+            const brief = c.brief(makeArtifact({ kind, items: [item] }))
+            assert.ok(brief?.message, `${agent} has no brief for ${kind}`)
+        }
+    }
+})
+
+// A desk that takes the envelope whole must NOT also declare a brief: two ways to open on the same
+// hand-off is one of them going stale.
+test('an artifact desk does not also carry a brief', () => {
+    for (const agent of Object.keys(CONTRACTS)) {
+        const c = contractFor(agent)
+        if (c.deliver === 'artifact') assert.equal(typeof c.brief, 'undefined', `${agent} declares both`)
     }
 })

@@ -301,7 +301,7 @@ export function MainPage() {
     // and keep chatting first), 'auto' hands it straight to the next desk. A gate never
     // auto-advances in either mode — see planHop.
     const [pipelineMode,     setPipelineMode]     = useState('manual')
-    const [analystScanResult, setAnalystScanResult] = useState(null)
+    const [analystInbox,     setAnalystInbox]     = useState(null)
     const [portfolioSeed, setPortfolioSeed] = useState(null)   // Prometheus → Atlas nudge (see handleSleeveResearched)
     // A SLEEVE RUN: Atlas routed several sectors at once, Argus screens them back to back, and the
     // survivors pool until the last one lands. `queue` is what is still to screen; `survivors` is
@@ -1872,7 +1872,7 @@ export function MainPage() {
     // The four moves each hop used to hand-roll (compose a seed, remount the right panel, clear the
     // other hops' state, switch the tab) live here once, so a hop added later cannot get one of
     // them subtly wrong. See docs/pipeline-service-design.md.
-    const PIPELINE_INBOX = { scanner: setScanInbox, kairos: setKairosInbox }
+    const PIPELINE_INBOX = { scanner: setScanInbox, kairos: setKairosInbox, analyst: setAnalystInbox }
     // Only inside a pipeline: off a desk there is no chain, so there is nothing to advance along
     // and a panel must keep offering its hand-off by hand.
     const autoHandoff = pipelineMode === 'auto' && !!activePipeline
@@ -1915,7 +1915,15 @@ export function MainPage() {
      * arming, order confirmation — human even with the toggle on.
      */
     function emitArtifact(artifact, { fromTab = activeTab, viaUser = true } = {}) {
-        const steps = stepsOf(activePipeline)
+        // Outside a pipeline — a call reopened for editing, say — there is still a hand-off to make.
+        // BORROW the chain this desk belongs to rather than routing on capability alone: three desks
+        // now take a candidate_list, so "the only agent that qualifies" stopped being an answer the
+        // moment Mentor and Prometheus declared themselves. A desk's own pipeline knows which of
+        // them comes next; nothing else does.
+        const inPipeline = !!activePipeline
+        const steps = inPipeline
+            ? stepsOf(activePipeline)
+            : (DESKS.find(d => d.steps.some(s => s.tab === fromTab))?.steps ?? [])
         const plan  = planHop({
             steps,
             fromIndex: steps.length ? resolveStepIndex(steps, fromTab, pipelineStep) : 0,
@@ -1924,7 +1932,9 @@ export function MainPage() {
         })
         if (!plan) return false
         if (!viaUser && !plan.auto) return false
-        _applyHop(plan, artifact)
+        // A borrowed chain routes but does not place the user IN it: stamping a step for a pipeline
+        // they never entered would light a crumb that isn't on screen.
+        _applyHop(inPipeline ? plan : { ...plan, targetIndex: null }, artifact)
         return true
     }
 
@@ -2052,21 +2062,40 @@ export function MainPage() {
     // K3: a scan-list candidate is a Kairos SEED — same path as the Argus hand-off (point 6). Routes to
     // the Kairos chat with the candidate's ticker + read (+ Argus's recommended lens if the scan carried one).
     // Argus INVESTING candidate → the Analyst for research (a coverage thesis), not a Kairos trade.
+    // Delivered, not routed — see the note on handleResearchList.
     function handleResearchCandidate(candidate, scan) {
         if (!candidate?.ticker) return
-        setAnalystScanResult({
-            key:      Date.now(),
-            ticker:   candidate.ticker,
-            sector:   scan?.thesis ?? null,       // the sleeve/mandate label seeds the sector context
-            thesis:   candidate.thesis ?? null,
-            analysis: candidate.analysis ?? candidate.thesis ?? null,
-        })
+        setAnalystInbox(makeArtifact({
+            kind:  KIND.CANDIDATE_LIST,
+            items: [{
+                ticker:   candidate.ticker,
+                thesis:   candidate.thesis ?? null,
+                analysis: candidate.analysis ?? candidate.thesis ?? null,
+            }],
+            // Not `queued`: one name the user picked is not a run, and telling Prometheus otherwise
+            // puts it in run mode with a queue of one.
+            context: { sector: scan?.thesis ?? null },   // the sleeve/mandate label frames the read
+            ref:     scan?.id ? { entityKind: 'scan', id: scan.id } : null,
+            from:    { agent: 'scanner', label: 'Screen' },
+        }))
         setActiveTab('analyst')
     }
 
-    // Argus investing list → Prometheus, as a SLEEVE rather than a name. The top slice is queued;
-    // the rest ride along so "also do KLAC" works without walking back to the saved card. This is the
-    // hop that was missing — the list used to be a dead end unless the user clicked names one by one.
+    /**
+     * Argus investing list → Prometheus, as a SLEEVE rather than a name. The top slice is queued;
+     * the rest ride along so "also do KLAC" works without walking back to the saved card.
+     *
+     * DELIVERED, not routed, and that is a finding rather than a shortcut. A `candidate_list` leaving
+     * Argus means Kairos on the trade desk and Prometheus on the portfolio desk — the artifact cannot
+     * say which, because the difference is not in the names but in what they are FOR. Routing it
+     * would misroute an investing candidate clicked while the trade desk happens to be open, and
+     * "the desk I am standing on" is the wrong answer when the user came from a saved list.
+     *
+     * That is the same gap the design doc records as `startAt(pipeline, step, artifact)` — sending a
+     * list to research is entering the portfolio pipeline at its Research step, not advancing along
+     * whatever chain is currently open. Until that exists, the intent lives in the button the user
+     * pressed, which is here.
+     */
     function handleResearchList(scan) {
         const names = (scan?.candidates ?? []).map(c => c?.ticker).filter(Boolean)
         if (!names.length) return
@@ -2074,13 +2103,19 @@ export function MainPage() {
         // A single list is a one-sleeve run as far as the hand-off back is concerned: no unfilled
         // sleeves, but the queue still has to be recorded or a declined draft goes unmentioned.
         sleeveOutcomeRef.current = { unfilled: [], bySector: [{ sector: scan?.thesis ?? null, names: queue }], queue }
-        setAnalystScanResult({
-            key:    Date.now(),
-            queue,
-            pool:   names,
-            sector: scan?.thesis ?? null,           // the sleeve label, as context for the research
-            ticker: names[0],                        // back-compat: single-name consumers read this
-        })
+        setAnalystInbox(makeArtifact({
+            kind:  KIND.CANDIDATE_LIST,
+            // The QUEUE is the payload — what Prometheus is being asked to research. Everything else
+            // Argus surfaced rides in `pool`, which is what "also do KLAC" reads from.
+            items: queue.map(ticker => ({ ticker })),
+            context: {
+                queued: true,                        // a run: Prometheus paces itself through it
+                pool:   names,
+                sector: scan?.thesis ?? null,        // the sleeve label, as context for the research
+            },
+            ref:  scan?.id ? { entityKind: 'scan', id: scan.id } : null,
+            from: { agent: 'scanner', label: 'Screen' },
+        }))
         setActiveTab('analyst')
     }
 
@@ -2255,14 +2290,20 @@ export function MainPage() {
             setActiveTab('portfolio')
             return
         }
-        setAnalystScanResult({
-            key:      Date.now(),
-            queue,
-            pool,                    // everything screened - "also do KLAC" reads from this
-            bySector,                // which sleeve each name is being researched FOR
-            sector:   bySector.length === 1 ? bySector[0].sector : null,
-            ticker:   queue[0],      // back-compat for single-name consumers
-        })
+        // Set directly rather than routed: this is the tail of the sleeve RUN, whose fan-out and
+        // join the conveyor does not own yet (phase 4). Same artifact shape as the routed hops, so
+        // Prometheus has one inbox however the names reached it.
+        setAnalystInbox(makeArtifact({
+            kind:  KIND.CANDIDATE_LIST,
+            items: queue.map(ticker => ({ ticker })),
+            context: {
+                queued: true,
+                pool,                    // everything screened — "also do KLAC" reads from this
+                bySector,                // which sleeve each name is being researched FOR
+                sector: bySector.length === 1 ? bySector[0].sector : null,
+            },
+            from: { agent: 'scanner', label: 'Screen' },
+        }))
         setActiveTab('analyst')
     }
 
@@ -2548,7 +2589,7 @@ export function MainPage() {
 
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'analyst' ? 'flex' : 'none' }}>
                             <AnalystPanel
-                                scanResult={analystScanResult}
+                                inbox={analystInbox}
                                 editCoverage={analystEditCoverage}
                                 seed={analystSeed}
                                 coverage={coverage}

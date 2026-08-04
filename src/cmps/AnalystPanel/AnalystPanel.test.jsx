@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, waitFor, act, fireEvent } from '@testing-library/react'
+import { KIND, makeArtifact } from '../../services/pipeline/artifact.js'
 
 window.HTMLElement.prototype.scrollIntoView = vi.fn()
 
@@ -45,7 +46,13 @@ describe('AnalystPanel — Axl hand-off seed', () => {
     })
 
     it('an Argus candidate still hands over its structured seed, not just the words', async () => {
-        render(<AnalystPanel scanResult={{ key: 'k1', ticker: 'AMD', sector: 'Semis', thesis: 'AI cycle' }} />)
+        // A pipeline artifact: the names are the ITEMS, the frame is the CONTEXT. Argus's read on a
+        // name rides on the item it belongs to, so a list carries one per candidate.
+        render(<AnalystPanel inbox={makeArtifact({
+            kind:    KIND.CANDIDATE_LIST,
+            items:   [{ ticker: 'AMD', thesis: 'AI cycle' }],
+            context: { sector: 'Semis' },
+        })} />)
 
         await waitFor(() => expect(sendStream).toHaveBeenCalled())
         const [history, opts] = lastCall()
@@ -60,11 +67,14 @@ describe('AnalystPanel — Axl hand-off seed', () => {
     it('a multi-sector run tells each name which sleeve it is for', async () => {
         // The bug this guards: a three-sector run reached Prometheus carrying only the last sector,
         // because the run was accumulated in a ref that every render overwrote from state.
-        render(<AnalystPanel scanResult={{
-            key: 'k2',
-            queue: ['NVDA', 'XOM'],
-            bySector: [{ sector: 'Technology', names: ['NVDA'] }, { sector: 'Energy', names: ['XOM'] }],
-        }} />)
+        render(<AnalystPanel inbox={makeArtifact({
+            kind:    KIND.CANDIDATE_LIST,
+            items:   [{ ticker: 'NVDA' }, { ticker: 'XOM' }],
+            context: {
+                queued:   true,
+                bySector: [{ sector: 'Technology', names: ['NVDA'] }, { sector: 'Energy', names: ['XOM'] }],
+            },
+        })} />)
 
         await waitFor(() => expect(sendStream).toHaveBeenCalled())
         const [history, opts] = lastCall()

@@ -10,6 +10,7 @@ import { AgentChatInput } from '../AgentChatInput.jsx'
 import { ChatBubble } from '../ChatBubble.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { waitingLabel } from '../ToolStatusChip/waitingLabel.js'
+import { resolveArtifact } from '../../services/pipeline/artifact.js'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import './AnalystPanel.scss'
 
@@ -50,7 +51,7 @@ export function CoverageDraft({ coverage }) {
 }
 CoverageDraft.propTypes = { coverage: PropTypes.object.isRequired }
 
-export function AnalystPanel({ scanResult = null, editCoverage = null, seed = null, onLoadingChange, onInitiated, onSleeveResearched, coverage = [] }) {
+export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, onLoadingChange, onInitiated, onSleeveResearched, coverage = [] }) {
     const chat = useChatStream({ threadPhases: true })
     const { messages, isLoading } = chat
     const [pendingCoverage, setPendingCoverage] = useState(null)
@@ -150,24 +151,30 @@ export function AnalystPanel({ scanResult = null, editCoverage = null, seed = nu
     // cycle — research turn, draft, the user presses Initiate — because coverage is only ever saved on
     // an explicit confirm. What the queue removes is the walk back to the list between names.
     useEffect(() => {
-        const names = scanResult?.queue?.length ? scanResult.queue : (scanResult?.ticker ? [scanResult.ticker] : [])
+        const names = resolveArtifact(inbox).items.map(c => c?.ticker).filter(Boolean)
         if (!names.length) return
         setQueue(names.slice(1))
         setDone([])
-        setSleeveRun(!!scanResult?.queue?.length)
+        // A run is what the SENDER said it was, not what its length happens to be: a sleeve whose
+        // top slice came back with one name is still a run, and a single candidate the user clicked
+        // is not. Inferring it from `names.length > 1` would get both of those wrong.
+        setSleeveRun(inbox?.context?.queued === true)
         _sendResearch(names[0], names.slice(1))
-    }, [scanResult?.key])   // eslint-disable-line react-hooks/exhaustive-deps
+    }, [inbox?.key])   // eslint-disable-line react-hooks/exhaustive-deps
 
     // One name's research turn. The rest of the run rides along in the text so Prometheus can pace
     // itself and the user can see where they are — and `pool` carries the names NOT in the top slice,
     // so "do KLAC as well" is a thing they can just ask for.
     function _sendResearch(ticker, rest) {
+        const { bySector = [], sector = null, pool: allNames = [] } = inbox?.context ?? {}
         // Which sleeve this name is FOR. A run spans several sectors, and researching a utility with
         // the tech sleeve's frame in mind produces a thesis for the wrong book.
-        const sleeve = (scanResult?.bySector ?? []).find(s => s.names?.includes(ticker))?.sector
-            ?? scanResult?.sector ?? null
-        seedRef.current = { ticker, sector: sleeve, thesis: scanResult?.thesis ?? null, analysis: scanResult?.analysis ?? null }
-        const pool = (scanResult?.pool ?? []).filter(t => t !== ticker && !rest.includes(t))
+        const sleeve = bySector.find(s => s.names?.includes(ticker))?.sector ?? sector
+        // Argus's read on THIS name, off the item rather than the envelope: a list carries one per
+        // candidate, and a single hand-off carries one for the only candidate there is.
+        const cand = resolveArtifact(inbox).items.find(c => c?.ticker === ticker) ?? {}
+        seedRef.current = { ticker, sector: sleeve, thesis: cand.thesis ?? null, analysis: cand.analysis ?? null }
+        const pool = allNames.filter(t => t !== ticker && !rest.includes(t))
         const lines = [`Research ${ticker} for coverage${sleeve ? ` — it is a candidate for the ${sleeve} sleeve` : ''}.`]
         if (rest.length)  lines.push(`This is one of ${rest.length + 1} from the same sleeve — ${rest.join(', ')} follow after it. Do ${ticker} only for now.`)
         if (pool.length)  lines.push(`Also on the list but not queued: ${pool.join(', ')}. Only research one of those if the user asks.`)
@@ -339,7 +346,7 @@ export function AnalystPanel({ scanResult = null, editCoverage = null, seed = nu
     )
 }
 AnalystPanel.propTypes = {
-    scanResult:      PropTypes.object,
+    inbox:           PropTypes.object,   // a pipeline artifact (candidate_list)
     editCoverage:    PropTypes.object,
     seed:            PropTypes.object,
     onLoadingChange: PropTypes.func,
