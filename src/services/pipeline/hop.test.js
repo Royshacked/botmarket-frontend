@@ -3,7 +3,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { KIND, makeArtifact } from './artifact.js'
-import { findReceiver, planHop, producesOne, hasDownstream } from './hop.js'
+import { findReceiver, planHop, planEntry, producesOne, hasDownstream } from './hop.js'
 import { contractFor, CONTRACTS } from './contracts.js'
 
 // The trading desk exactly as DESKS declares it: Argus, then Kairos, then a background monitor.
@@ -125,6 +125,64 @@ test('a trailing background monitor is not somewhere the work goes', () => {
     assert.equal(hasDownstream([{ tab: 'scanner' }, { tab: 'kairos' }, { tab: null }], 1), false)
     assert.equal(hasDownstream([{ tab: 'scanner' }], 0), false)
     assert.equal(hasDownstream([], 0), false)
+})
+
+// ── entering a pipeline at a step ──────────────────────────────────────────────
+// "Send this list to research" is not a hop from wherever the user is standing — they may be on the
+// trade desk, or on the Lists surface, standing nowhere. It is ARRIVING at the portfolio desk's
+// Research step with the names already found.
+
+const PORTFOLIO_STEPS = [
+    { tab: 'portfolio', label: 'Mandate' },
+    { tab: 'scanner',   label: 'Screen' },
+    { tab: 'analyst',   label: 'Research' },
+    { tab: 'portfolio', label: 'Allocate' },
+    { tab: null,        label: 'Monitor' },
+]
+const namesFor = (kind = KIND.CANDIDATE_LIST) => makeArtifact({ kind, items: [{ ticker: 'NVDA' }] })
+
+test('entering lands on the named step, skipping the ones before it', () => {
+    const plan = planEntry({ steps: PORTFOLIO_STEPS, agent: 'analyst', artifact: namesFor() })
+    assert.equal(plan.targetTab, 'analyst')
+    assert.equal(plan.targetIndex, 2, 'the crumb lights Research, not Mandate')
+    assert.deepEqual(plan.delivery, { type: 'artifact' })
+})
+
+// The property the whole design exists to have. An index would be the one thing a reorder silently
+// breaks: move Research ahead of Screen and every caller quoting `2` enters the wrong desk.
+test('the entry point moves with the step when the pipeline is reordered', () => {
+    const reordered = [
+        { tab: 'portfolio', label: 'Mandate' },
+        { tab: 'analyst',   label: 'Research' },   // was index 2, now 1
+        { tab: 'scanner',   label: 'Screen' },
+    ]
+    assert.equal(planEntry({ steps: reordered, agent: 'analyst', artifact: namesFor() }).targetIndex, 1)
+})
+
+test('a desk that does not take this kind refuses rather than opening blind', () => {
+    // Atlas has no contract yet, so it accepts nothing — entering AT it must fail, not hand a panel
+    // something it cannot read.
+    assert.equal(planEntry({ steps: PORTFOLIO_STEPS, agent: 'portfolio', artifact: namesFor() }), null)
+    assert.equal(planEntry({ steps: PORTFOLIO_STEPS, agent: 'analyst', artifact: namesFor(KIND.MANDATE) }), null)
+})
+
+test('entering a desk that has no such step, or no step at all, refuses', () => {
+    assert.equal(planEntry({ steps: PORTFOLIO_STEPS, agent: 'mentor', artifact: namesFor() }), null)
+    assert.equal(planEntry({ steps: [], agent: 'analyst', artifact: namesFor() }), null)
+    assert.equal(planEntry({ steps: PORTFOLIO_STEPS, artifact: namesFor() }), null, 'no agent named')
+    assert.equal(planEntry({ steps: PORTFOLIO_STEPS, agent: 'analyst' }), null, 'no artifact')
+})
+
+test('a seed desk entered at gets the brief it wrote for itself', () => {
+    const plan = planEntry({
+        steps:    [{ tab: 'scanner', label: 'Screen' }],
+        agent:    'scanner',
+        artifact: makeArtifact({ kind: KIND.MANDATE, items: [{ sector: 'Utilities', lens: 'quality' }] }),
+    })
+    assert.equal(plan.delivery.type, 'seed')
+    assert.match(plan.delivery.message, /Utilities/)
+    assert.equal(plan.delivery.profile, 'investing')
+    assert.equal(plan.remount, true)
 })
 
 // ── the declarations themselves ────────────────────────────────────────────────

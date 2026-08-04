@@ -7,7 +7,7 @@ import { RETURN_MS, DESKS, AGENTS } from '../cmps/AxlHub/agentMeta.jsx'
 import { resolveStepIndex, previousStep } from '../cmps/AxlHub/pipelineNav.js'
 import { scanOrigin, savesToScansList } from '../services/pipeline/scanOrigin.js'
 import { KIND, makeArtifact, firstItem } from '../services/pipeline/artifact.js'
-import { planHop, producesOne, hasDownstream } from '../services/pipeline/hop.js'
+import { planHop, planEntry, producesOne, hasDownstream } from '../services/pipeline/hop.js'
 import { contractFor } from '../services/pipeline/contracts.js'
 import { AgentGlyph } from '../cmps/AxlHub/AgentBadges.jsx'
 import { AccountSelector }   from '../cmps/ChatPanel/AccountSelector.jsx'
@@ -1938,6 +1938,26 @@ export function MainPage() {
         return true
     }
 
+    /**
+     * ENTER a pipeline at one of its steps, artifact in hand — the move that "send this list to
+     * research" actually is. Not a hop from where the user is standing: they may be standing on the
+     * trade desk, or on the Lists surface, standing nowhere at all. What they pressed says which
+     * desk's work this is, and the artifact says what it starts with.
+     *
+     * The step is named by AGENT, so reordering that pipeline moves the entry point with it.
+     *
+     * Answers false when that desk cannot take this kind, so the caller can fall back rather than
+     * leave the user on a panel holding something it does not read.
+     */
+    function enterPipelineAt(pipelineKey, agent, artifact) {
+        const steps = stepsOf(pipelineKey)
+        const plan  = planEntry({ steps, agent, artifact, mode: pipelineMode })
+        if (!plan) return false
+        setActivePipeline(pipelineKey)   // they are IN it now — the crumb and the back button follow
+        _applyHop(plan, artifact)
+        return true
+    }
+
     // Kairos emitted a <scan_request> (bias + horizon, optional ticker) — the user tapped "Open
     // Argus", or in auto mode the panel handed it over as soon as the turn settled. The request
     // travels as an artifact; Argus's own contract turns it into the opening turn, and its inbox
@@ -2062,10 +2082,12 @@ export function MainPage() {
     // K3: a scan-list candidate is a Kairos SEED — same path as the Argus hand-off (point 6). Routes to
     // the Kairos chat with the candidate's ticker + read (+ Argus's recommended lens if the scan carried one).
     // Argus INVESTING candidate → the Analyst for research (a coverage thesis), not a Kairos trade.
-    // Delivered, not routed — see the note on handleResearchList.
+    // ONE name off a list → the RESEARCH desk, which is exactly its job: a coverage thesis on a
+    // company. Distinct from sending a whole sleeve, which is portfolio work — the user who clicked
+    // a single ticker asked about that company, not to start building a book around it.
     function handleResearchCandidate(candidate, scan) {
         if (!candidate?.ticker) return
-        setAnalystInbox(makeArtifact({
+        const artifact = makeArtifact({
             kind:  KIND.CANDIDATE_LIST,
             items: [{
                 ticker:   candidate.ticker,
@@ -2077,24 +2099,27 @@ export function MainPage() {
             context: { sector: scan?.thesis ?? null },   // the sleeve/mandate label frames the read
             ref:     scan?.id ? { entityKind: 'scan', id: scan.id } : null,
             from:    { agent: 'scanner', label: 'Screen' },
-        }))
-        setActiveTab('analyst')
+        })
+        if (!enterPipelineAt('research', 'analyst', artifact)) {
+            setAnalystInbox(artifact)          // the desk changed shape — still open it, unframed
+            setActiveTab('analyst')
+        }
     }
 
     /**
      * Argus investing list → Prometheus, as a SLEEVE rather than a name. The top slice is queued;
      * the rest ride along so "also do KLAC" works without walking back to the saved card.
      *
-     * DELIVERED, not routed, and that is a finding rather than a shortcut. A `candidate_list` leaving
+     * A `candidate_list` leaving
      * Argus means Kairos on the trade desk and Prometheus on the portfolio desk — the artifact cannot
      * say which, because the difference is not in the names but in what they are FOR. Routing it
      * would misroute an investing candidate clicked while the trade desk happens to be open, and
      * "the desk I am standing on" is the wrong answer when the user came from a saved list.
      *
-     * That is the same gap the design doc records as `startAt(pipeline, step, artifact)` — sending a
-     * list to research is entering the portfolio pipeline at its Research step, not advancing along
-     * whatever chain is currently open. Until that exists, the intent lives in the button the user
-     * pressed, which is here.
+     * So it ENTERS the portfolio pipeline at its Research step instead — the intent is in the button
+     * they pressed, and entering is what expresses it. Skipping Mandate and Screen is the point: the
+     * names already exist. Atlas is not cut out — the user can walk BACK to the mandate, and
+     * Prometheus hands the coverage forward to it at the end either way (handleSleeveResearched).
      */
     function handleResearchList(scan) {
         const names = (scan?.candidates ?? []).map(c => c?.ticker).filter(Boolean)
@@ -2103,7 +2128,7 @@ export function MainPage() {
         // A single list is a one-sleeve run as far as the hand-off back is concerned: no unfilled
         // sleeves, but the queue still has to be recorded or a declined draft goes unmentioned.
         sleeveOutcomeRef.current = { unfilled: [], bySector: [{ sector: scan?.thesis ?? null, names: queue }], queue }
-        setAnalystInbox(makeArtifact({
+        const artifact = makeArtifact({
             kind:  KIND.CANDIDATE_LIST,
             // The QUEUE is the payload — what Prometheus is being asked to research. Everything else
             // Argus surfaced rides in `pool`, which is what "also do KLAC" reads from.
@@ -2115,8 +2140,11 @@ export function MainPage() {
             },
             ref:  scan?.id ? { entityKind: 'scan', id: scan.id } : null,
             from: { agent: 'scanner', label: 'Screen' },
-        }))
-        setActiveTab('analyst')
+        })
+        if (!enterPipelineAt('portfolio', 'analyst', artifact)) {
+            setAnalystInbox(artifact)          // the desk changed shape — still open it, unframed
+            setActiveTab('analyst')
+        }
     }
 
     /**

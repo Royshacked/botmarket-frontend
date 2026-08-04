@@ -48,15 +48,38 @@ export function findReceiver(steps = [], fromIndex = 0, kind, contractFor = _con
 export function planHop({ steps = [], fromIndex = 0, artifact, mode = 'manual', contractFor = _contractFor } = {}) {
     if (!artifact?.kind) return null
     const found = findReceiver(steps, fromIndex, artifact.kind, contractFor)
-    if (!found) return null
+    return found ? _planDelivery(found.step, found.index, artifact, mode, contractFor) : null
+}
 
-    const { index, step } = found
+/**
+ * ENTER a pipeline at a step, artifact in hand, rather than advancing along one. "Send this list to
+ * research" is not a hop from wherever the user happens to be standing — it is arriving at the
+ * portfolio desk's Research step with the names already found, skipping the mandate and the screen.
+ *
+ * The step is identified by AGENT, never by index. An index would be the one thing in this design
+ * that a reorder silently breaks: move Research ahead of Screen and every caller quoting `2` now
+ * enters the wrong desk, with nothing to catch it. Naming the agent means a reorder moves the entry
+ * point with it — which is the property the whole pipeline exists to have.
+ *
+ * Refuses when that desk does not take this kind, so a wrong pairing is a caller's `false` rather
+ * than a panel handed something it cannot read.
+ *
+ * @param {{steps: Array, agent: string, artifact: object, mode?: string}} spec
+ */
+export function planEntry({ steps = [], agent, artifact, mode = 'manual', contractFor = _contractFor } = {}) {
+    if (!artifact?.kind || !agent) return null
+    const index = steps.findIndex(s =>
+        s?.tab === agent && contractFor(s.tab)?.accepts?.includes(artifact.kind))
+    return index >= 0 ? _planDelivery(steps[index], index, artifact, mode, contractFor) : null
+}
+
+/** The half both share: how this desk takes delivery, and under what conditions. */
+function _planDelivery(step, index, artifact, mode, contractFor) {
     const contract = contractFor(step.tab)
 
-    // How this desk takes delivery. 'seed' → it opens on a sentence it writes itself; 'artifact' →
-    // the panel takes the envelope and brief itself (it needs more than words: a chip to pre-fill,
-    // a window to remember). A seed contract whose brief() declines the artifact hands over nothing
-    // rather than an empty turn.
+    // 'seed' → it opens on a sentence it writes itself; 'artifact' → the panel takes the envelope
+    // and briefs itself (it needs more than words: a chip to pre-fill, a window to remember). A seed
+    // contract whose brief() declines the artifact hands over nothing rather than an empty turn.
     const brief    = contract.deliver === 'seed' ? contract.brief?.(artifact) : null
     const delivery = contract.deliver === 'seed'
         ? (brief?.message ? { type: 'seed', ...brief } : null)

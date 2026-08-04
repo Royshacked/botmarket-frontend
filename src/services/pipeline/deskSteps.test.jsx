@@ -4,7 +4,8 @@
 // with it, which is the point of the pipeline being data.
 import { describe, it, expect } from 'vitest'
 import { DESKS } from '../../cmps/AxlHub/agentMeta.jsx'
-import { producesOne, hasDownstream, findReceiver } from './hop.js'
+import { producesOne, hasDownstream, findReceiver, planEntry } from './hop.js'
+import { previousStep } from '../../cmps/AxlHub/pipelineNav.js'
 import { contractFor } from './contracts.js'
 import { KIND, makeArtifact } from './artifact.js'
 
@@ -92,6 +93,31 @@ describe('Mentor words its own opening turn', () => {
     it('nothing to open on yields no brief rather than an empty turn', () => {
         expect(brief({})).toBe(null)
         expect(contractFor('mentor').brief(makeArtifact({ kind: KIND.CANDIDATE_LIST }))).toBe(null)
+    })
+})
+
+// Against the REAL desks: the two entries the research hand-offs actually make.
+describe('entering a real pipeline mid-way', () => {
+    const names = makeArtifact({ kind: KIND.CANDIDATE_LIST, items: [{ ticker: 'NVDA' }] })
+
+    it('a sleeve enters the portfolio desk at Research, past Mandate and Screen', () => {
+        const plan = planEntry({ steps: stepsOf('portfolio'), agent: 'analyst', artifact: names })
+        expect(plan.targetTab).toBe('analyst')
+        expect(stepsOf('portfolio')[plan.targetIndex].label).toBe('Research')
+    })
+
+    it('one name enters the research desk, which is a single step', () => {
+        const plan = planEntry({ steps: stepsOf('research'), agent: 'analyst', artifact: names })
+        expect(plan.targetIndex).toBe(0)
+    })
+
+    // Walking back from Research must reach the mandate — entering mid-way skips Atlas, it does not
+    // cut it out, and the user has to be able to go and set the frame the names were found without.
+    it('the mandate is still reachable backwards from where they landed', () => {
+        const steps = stepsOf('portfolio')
+        const idx   = planEntry({ steps, agent: 'analyst', artifact: names }).targetIndex
+        expect(previousStep(steps, idx)?.tab).toBe('scanner')
+        expect(previousStep(steps, idx - 1)?.tab).toBe('portfolio')
     })
 })
 
