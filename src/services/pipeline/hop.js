@@ -23,8 +23,41 @@ import { contractFor as _contractFor, accepts, agentsAccepting } from './contrac
  *
  * @returns {{index: number, step: object}|null}
  */
+/**
+ * Can this step take that kind? Contract first — the agent has to accept it at all — then the STEP
+ * gets to narrow it.
+ *
+ * `awaits` exists because an agent can stand at two places in one pipeline: Atlas takes the mandate
+ * at the start and the coverage at the end, and "route to Atlas" is not an answer when there are two
+ * of it. A step that declares `awaits` receives only that kind.
+ *
+ * And a step that does NOT declare one, whose agent appears more than once, receives nothing. Silence
+ * is the safe reading: without a declaration the two steps are indistinguishable, and picking the
+ * first would quietly deliver a finished book to the desk that was supposed to frame it. Ambiguity
+ * is a missing declaration, not a coin to flip.
+ */
+function _takes(steps, step, kind, contractFor, duplicated) {
+    if (!step?.tab) return false                                        // a background monitor
+    if (!contractFor(step.tab)?.accepts?.includes(kind)) return false
+    if (step.awaits) return step.awaits === kind
+    return !duplicated.has(step.tab)
+}
+
+/** Agents standing at more than one step of this pipeline. */
+function _duplicatedAgents(steps) {
+    const seen = new Set()
+    const dupes = new Set()
+    for (const s of steps) {
+        if (!s?.tab) continue
+        if (seen.has(s.tab)) dupes.add(s.tab)
+        seen.add(s.tab)
+    }
+    return dupes
+}
+
 export function findReceiver(steps = [], fromIndex = 0, kind, contractFor = _contractFor) {
-    const takes = (step) => !!step?.tab && !!contractFor(step.tab)?.accepts?.includes(kind)
+    const duplicated = _duplicatedAgents(steps)
+    const takes = (step) => _takes(steps, step, kind, contractFor, duplicated)
     for (let i = fromIndex + 1; i < steps.length; i++) if (takes(steps[i])) return { index: i, step: steps[i] }
     for (let i = fromIndex - 1; i >= 0; i--)           if (takes(steps[i])) return { index: i, step: steps[i] }
 
@@ -68,8 +101,11 @@ export function planHop({ steps = [], fromIndex = 0, artifact, mode = 'manual', 
  */
 export function planEntry({ steps = [], agent, artifact, mode = 'manual', contractFor = _contractFor } = {}) {
     if (!artifact?.kind || !agent) return null
+    const duplicated = _duplicatedAgents(steps)
+    // Named agent AND the step that awaits this kind: entering "at Atlas" with a coverage set means
+    // Allocate, not the Mandate it also stands at.
     const index = steps.findIndex(s =>
-        s?.tab === agent && contractFor(s.tab)?.accepts?.includes(artifact.kind))
+        s?.tab === agent && _takes(steps, s, artifact.kind, contractFor, duplicated))
     return index >= 0 ? _planDelivery(steps[index], index, artifact, mode, contractFor) : null
 }
 

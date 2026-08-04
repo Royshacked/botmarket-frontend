@@ -10,6 +10,7 @@ import { kairosContract }  from '../../cmps/KairosPanel/kairos.contract.js'
 import { scannerContract } from '../../cmps/ScannerPanel/scanner.contract.js'
 import { mentorContract }  from '../../cmps/MentorPanel/mentor.contract.js'
 import { analystContract } from '../../cmps/AnalystPanel/analyst.contract.js'
+import { portfolioContract } from '../../cmps/PortfolioPanel/portfolio.contract.js'
 
 // Keyed by the agent key — which is also the panel's `activeTab` value and the AGENTS key, so a
 // pipeline step's `tab` names its agent without a second mapping to keep in step.
@@ -18,10 +19,11 @@ import { analystContract } from '../../cmps/AnalystPanel/analyst.contract.js'
 // Prometheus lead single-step desks and route nothing today; what their contracts buy is that
 // giving those desks a second step becomes an edit to `steps`, with no agent touched.
 export const CONTRACTS = {
-    scanner: scannerContract,
-    kairos:  kairosContract,
-    mentor:  mentorContract,
-    analyst: analystContract,
+    scanner:   scannerContract,
+    kairos:    kairosContract,
+    mentor:    mentorContract,
+    analyst:   analystContract,
+    portfolio: portfolioContract,
 }
 
 /** @returns {object|null} the agent's contract, or null if it has not declared one yet. */

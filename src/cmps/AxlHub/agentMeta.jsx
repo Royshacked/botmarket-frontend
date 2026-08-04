@@ -195,11 +195,14 @@ export const DESKS = [
         // them AGAINST, and Atlas deliberately has no screener of its own to fall back on.
         entryTab: 'portfolio',
         agentKey: 'portfolio',
+        // Atlas stands at BOTH ends, so its steps must say which arrival is which: `awaits` is what
+        // makes "hand this to Atlas" answerable when there are two of it. Mandate declares nothing
+        // and therefore receives nothing — it is where the user ENTERS, not somewhere work arrives.
         steps: [
             { tab: 'portfolio', label: 'Mandate' },
             { tab: 'scanner',   label: 'Screen' },
             { tab: 'analyst',   label: 'Research' },
-            { tab: 'portfolio', label: 'Allocate' },
+            { tab: 'portfolio', label: 'Allocate', awaits: 'coverage_set' },
             { tab: null,        label: 'Monitor' },
         ],
     },

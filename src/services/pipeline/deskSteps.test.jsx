@@ -7,7 +7,7 @@ import { DESKS } from '../../cmps/AxlHub/agentMeta.jsx'
 import { producesOne, hasDownstream, findReceiver, planEntry } from './hop.js'
 import { previousStep } from '../../cmps/AxlHub/pipelineNav.js'
 import { contractFor } from './contracts.js'
-import { KIND, makeArtifact } from './artifact.js'
+import { KIND, STATUS, makeArtifact } from './artifact.js'
 
 const stepsOf = (key) => DESKS.find(d => d.key === key).steps
 
@@ -106,6 +106,19 @@ describe('entering a real pipeline mid-way', () => {
         expect(stepsOf('portfolio')[plan.targetIndex].label).toBe('Research')
     })
 
+    // Atlas stands at Mandate AND Allocate. A finished run must land on the second — delivering it
+    // to the first hands a built book to the desk that was meant to frame it.
+    it('a coverage set enters at Allocate, not at the Mandate Atlas also stands on', () => {
+        const steps = stepsOf('portfolio')
+        const plan  = planEntry({
+            steps, agent: 'portfolio',
+            artifact: makeArtifact({ kind: KIND.COVERAGE_SET, items: [{ ticker: 'NVDA', sector: 'Technology' }] }),
+        })
+        expect(steps[plan.targetIndex].label).toBe('Allocate')
+        expect(plan.delivery.type).toBe('seed')
+        expect(plan.delivery.message).toContain('NVDA')
+    })
+
     it('one name enters the research desk, which is a single step', () => {
         const plan = planEntry({ steps: stepsOf('research'), agent: 'analyst', artifact: names })
         expect(plan.targetIndex).toBe(0)
@@ -118,6 +131,56 @@ describe('entering a real pipeline mid-way', () => {
         const idx   = planEntry({ steps, agent: 'analyst', artifact: names }).targetIndex
         expect(previousStep(steps, idx)?.tab).toBe('scanner')
         expect(previousStep(steps, idx - 1)?.tab).toBe('portfolio')
+    })
+})
+
+// The scar this guards, verbatim from the code it replaced: a sleeve that screened empty was
+// filtered out on the way back, so Atlas saw a shorter coverage list and no reason for it, and
+// built a book quietly missing a sleeve its own architecture had called for. An unfilled sleeve is
+// a DECISION — widen it, drop it, reallocate its weight — and one Atlas cannot make unasked.
+describe('Atlas is told what did NOT come back', () => {
+    const coverage = (over = {}) => makeArtifact({
+        kind:  KIND.COVERAGE_SET,
+        items: [{ ticker: 'NVDA', sector: 'Technology' }],
+        ...over,
+    })
+    const msg = (a) => contractFor('portfolio').brief(a).message
+
+    it('names each covered ticker with the sleeve it was researched for', () => {
+        expect(msg(coverage())).toContain('NVDA (Technology)')
+    })
+
+    it('an unfilled sleeve is named, not omitted', () => {
+        const m = msg(coverage({ context: { unfilled: ['Utilities'], declined: [] } }))
+        expect(m).toContain('Utilities')
+        expect(m).toMatch(/NOTHING screened/)
+    })
+
+    it('a screened-but-declined name is distinguished from one never found', () => {
+        const m = msg(coverage({ context: { unfilled: [], declined: [{ ticker: 'KLAC', sector: 'Semis' }] } }))
+        expect(m).toContain('KLAC (Semis)')
+        expect(m).toMatch(/NOT researched/)
+    })
+
+    // Without this, Atlas's most natural repair is the wrong one: quietly topping the empty bucket
+    // up from a sleeve that did produce names, which is not the book anyone designed.
+    it('a shortfall always comes with the instruction not to fill it from elsewhere', () => {
+        const m = msg(coverage({ context: { unfilled: ['Energy'], declined: [] } }))
+        expect(m).toMatch(/Do not fill those buckets/)
+    })
+
+    it('a clean run says none of that', () => {
+        const m = msg(coverage())
+        expect(m).not.toMatch(/NOTHING screened|NOT researched|Do not fill/)
+    })
+
+    it('a run that produced nobody is still an answer, not silence', () => {
+        const m = msg(makeArtifact({
+            kind: KIND.COVERAGE_SET, items: [], status: STATUS.EMPTY,
+            context: { unfilled: ['Technology', 'Energy'], declined: [] },
+        }))
+        expect(m).toContain('No coverage was initiated')
+        expect(m).toContain('Technology, Energy')
     })
 })
 

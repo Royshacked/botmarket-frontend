@@ -60,8 +60,42 @@ test('a pipeline that takes nothing is a dead end, not a fallback', () => {
 })
 
 test('forward wins when both directions could take it', () => {
-    const steps = [{ tab: 'scanner' }, { tab: 'kairos' }, { tab: 'scanner' }]
+    // Both scanner steps declare what they await, so both are legal receivers and only the
+    // direction rule decides. (Without `awaits` a duplicated agent receives nothing — see below.)
+    const steps = [
+        { tab: 'scanner', awaits: 'scan_request' },
+        { tab: 'kairos' },
+        { tab: 'scanner', awaits: 'scan_request' },
+    ]
     assert.equal(findReceiver(steps, 1, KIND.SCAN_REQUEST).index, 2)
+})
+
+// ── an agent standing at two steps ─────────────────────────────────────────────
+// Atlas takes the mandate at the start and the coverage at the end, so "route to Atlas" is not an
+// answer by itself. `awaits` is how a step says which arrival is which.
+
+test('a duplicated agent receives nothing until its steps say what they await', () => {
+    const ambiguous = [{ tab: 'scanner' }, { tab: 'kairos' }, { tab: 'scanner' }]
+    assert.equal(findReceiver(ambiguous, 1, KIND.SCAN_REQUEST), null,
+        'picking the first would be a coin flip dressed as a decision')
+})
+
+test('awaits narrows a step to one kind, and silences it for the others', () => {
+    const steps = [
+        { tab: 'scanner', awaits: 'mandate' },        // only screens for a book
+        { tab: 'kairos' },
+    ]
+    assert.equal(findReceiver(steps, 1, KIND.SCAN_REQUEST), null, 'this step is not the discovery one')
+    assert.equal(findReceiver(steps, 1, KIND.MANDATE)?.index, 0)
+})
+
+test('a step cannot await something its agent does not accept', () => {
+    const steps = [{ tab: 'kairos', awaits: 'mandate' }, { tab: 'scanner' }]
+    assert.equal(findReceiver(steps, 1, KIND.MANDATE), null, 'the contract still gates it')
+})
+
+test('a lone agent needs no awaits — ambiguity is what requires the declaration', () => {
+    assert.equal(findReceiver([{ tab: 'scanner' }, { tab: 'kairos' }], 1, KIND.SCAN_REQUEST)?.index, 0)
 })
 
 test('a seed desk is handed the brief it wrote for itself', () => {
@@ -187,19 +221,14 @@ test('a seed desk entered at gets the brief it wrote for itself', () => {
 
 // ── the declarations themselves ────────────────────────────────────────────────
 
-// Both ends of Atlas. It has no contract until phase 4, so the kinds it would emit (mandate) and
-// accept (coverage_set) each have one side missing and their hops still run through MainPage by
-// hand. Named rather than skipped, so the day portfolio.contract.js lands this list empties and
-// these stop being exceptions.
-const KNOWN_DEAD_ENDS = new Set([KIND.COVERAGE_SET])   // emitted, nobody takes it
-const KNOWN_UNSOURCED = new Set([KIND.MANDATE])        // accepted, nobody declares emitting it
-
+// These two ran with named exceptions while Atlas had no contract — mandate had no declared
+// emitter, coverage_set no declared acceptor. Declaring Atlas closed both ends, so the exceptions
+// are gone and the vocabulary is now closed: every kind that crosses has someone at each end.
 test('every kind a contract emits is accepted by someone', () => {
     const declared = Object.keys(CONTRACTS)
     const accepted = new Set(declared.flatMap(a => contractFor(a).accepts))
     for (const agent of declared) {
         for (const kind of contractFor(agent).emits) {
-            if (KNOWN_DEAD_ENDS.has(kind)) continue
             assert.ok(accepted.has(kind), `${agent} emits ${kind} and nobody takes it`)
         }
     }
@@ -212,7 +241,6 @@ test('every kind a contract accepts is emitted by someone', () => {
     const emitted  = new Set(declared.flatMap(a => contractFor(a).emits))
     for (const agent of declared) {
         for (const kind of contractFor(agent).accepts) {
-            if (KNOWN_UNSOURCED.has(kind)) continue
             assert.ok(emitted.has(kind), `${agent} accepts ${kind} and nobody produces it`)
         }
     }

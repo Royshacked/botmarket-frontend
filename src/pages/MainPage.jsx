@@ -6,7 +6,7 @@ import { AgentSummon, AxlBotGlyph } from '../cmps/AxlHub/AgentSummon.jsx'
 import { RETURN_MS, DESKS, AGENTS } from '../cmps/AxlHub/agentMeta.jsx'
 import { resolveStepIndex, previousStep } from '../cmps/AxlHub/pipelineNav.js'
 import { scanOrigin, savesToScansList } from '../services/pipeline/scanOrigin.js'
-import { KIND, makeArtifact, firstItem } from '../services/pipeline/artifact.js'
+import { KIND, STATUS, makeArtifact, firstItem } from '../services/pipeline/artifact.js'
 import { planHop, planEntry, producesOne, hasDownstream } from '../services/pipeline/hop.js'
 import { contractFor } from '../services/pipeline/contracts.js'
 import { AgentGlyph } from '../cmps/AxlHub/AgentBadges.jsx'
@@ -1872,7 +1872,11 @@ export function MainPage() {
     // The four moves each hop used to hand-roll (compose a seed, remount the right panel, clear the
     // other hops' state, switch the tab) live here once, so a hop added later cannot get one of
     // them subtly wrong. See docs/pipeline-service-design.md.
+    // Where the conveyor puts what it delivers, per desk. Two tables because there are two doors:
+    // an INBOX for a desk that takes the envelope whole, a SEED for one that opens on a sentence it
+    // wrote itself. A desk declares which in its contract (`deliver`); these say where it lands.
     const PIPELINE_INBOX = { scanner: setScanInbox, kairos: setKairosInbox, analyst: setAnalystInbox }
+    const PIPELINE_SEED  = { scanner: setScannerSeed, mentor: setMentorSeed, portfolio: setPortfolioSeed }
     // Only inside a pipeline: off a desk there is no chain, so there is nothing to advance along
     // and a panel must keep offering its hand-off by hand.
     const autoHandoff = pipelineMode === 'auto' && !!activePipeline
@@ -1895,8 +1899,10 @@ export function MainPage() {
 
         if (plan.delivery.type === 'seed') {
             const { type: _t, message, ...opts } = plan.delivery
-            setScannerChatRestore(null)   // an edit-restore must not fight a brief
-            setScannerSeed({ key: artifact.key, message, ...opts })
+            // An edit-restore must not fight a brief. Scanner-only because it is the only desk whose
+            // hand-off can collide with a list reopened from its pencil.
+            if (plan.agent === 'scanner') setScannerChatRestore(null)
+            PIPELINE_SEED[plan.agent]?.({ key: artifact.key, message, ...opts })
         }
         // A remount is per-desk on purpose: the desk that SENT the artifact has to keep its
         // conversation, or stepping back lands on a blank chat.
@@ -2162,35 +2168,32 @@ export function MainPage() {
         const covered  = names.filter(Boolean)
         const outcome  = sleeveOutcomeRef.current
         const inSleeve = (t) => outcome.bySector.find(s => s.names.includes(t))?.sector ?? null
-        // "AAPL, MSFT (Technology)" — the sleeve each researched name landed in, so Atlas can place
-        // it without inferring the mapping from the ticker.
-        const group = (list) => {
-            const by = new Map()
-            for (const t of list) {
-                const k = inSleeve(t) ?? ''      // '' = a one-off list, not a sleeve run: no label to give
-                if (!by.has(k)) by.set(k, [])
-                by.get(k).push(t)
-            }
-            return [...by].map(([sector, ts]) => `${ts.join(', ')}${sector ? ` (${sector})` : ''}`).join('; ')
-        }
+        // Each name paired with the sleeve it was researched FOR, so Atlas can place it without
+        // inferring the mapping from the ticker. The WORDS are Atlas's own business now
+        // (portfolio.contract.js) — this says what came back, not how to say it.
+        const withSleeve = (list) => list.map(ticker => ({ ticker, sector: inSleeve(ticker) }))
+        const declined   = outcome.queue.filter(t => !covered.includes(t))
 
-        const declined = outcome.queue.filter(t => !covered.includes(t))
-        const lines = [covered.length
-            ? `Coverage is in for ${group(covered)}. Build from it.`
-            : 'No coverage was initiated on this run.']
-        if (outcome.unfilled.length) {
-            lines.push(`These sleeves came back with NOTHING screened: ${outcome.unfilled.join(', ')}.`)
-        }
-        if (declined.length) {
-            lines.push(`Screened but NOT researched (no coverage initiated): ${group(declined)}.`)
-        }
-        if (outcome.unfilled.length || declined.length) {
-            lines.push('Do not fill those buckets from another sleeve\'s names — say what is unfilled and give me the choice: widen the sleeve and re-screen, drop it, or reallocate its weight across the rest.')
-        }
+        const artifact = makeArtifact({
+            kind:  KIND.COVERAGE_SET,
+            items: withSleeve(covered),
+            // A run that came back short is PARTIAL, not filled — the shortfall is the decision
+            // Atlas has to make (widen, drop, reallocate), and it cannot make it unasked.
+            status: (outcome.unfilled.length || declined.length)
+                ? (covered.length ? STATUS.PARTIAL : STATUS.EMPTY)
+                : STATUS.FILLED,
+            context: { unfilled: outcome.unfilled, declined: withSleeve(declined) },
+            note:    outcome.unfilled.length ? `unfilled sleeves: ${outcome.unfilled.join(', ')}` : null,
+            from:    { agent: 'analyst', label: 'Research' },
+        })
 
         sleeveOutcomeRef.current = { unfilled: [], bySector: [], queue: [] }
-        setPortfolioSeed({ key: Date.now(), message: lines.join(' ') })
-        setActiveTab('portfolio')
+        // Enters at ALLOCATE — the step that awaits a coverage set. Atlas also stands at Mandate,
+        // and landing a finished run there would hand a book to the desk meant to frame it.
+        if (!enterPipelineAt('portfolio', 'portfolio', artifact)) {
+            setPortfolioSeed({ key: artifact.key, message: contractFor('portfolio').brief(artifact).message })
+            setActiveTab('portfolio')
+        }
     }
 
     function handleBuildFromCandidate(candidate, scan) {
@@ -2309,13 +2312,25 @@ export function MainPage() {
 
         // A run that screened every sleeve and produced nobody is a RESULT, not a non-event. Falling
         // through to the hub looked identical to the pipeline breaking, which is how it read.
+        //
+        // It goes back as the SAME artifact a successful run does, empty: from Atlas's side the
+        // question is "what came back with a thesis", and "nothing, and here is which sleeves" is an
+        // answer to it. One inbox, one brief, one voice — rather than a second hand-written message
+        // for the unhappy path, which is exactly where wording drifts.
         if (!queue.length) {
             sleeveOutcomeRef.current = { unfilled: [], bySector: [], queue: [] }
-            setPortfolioSeed({
-                key: Date.now(),
-                message: `Argus screened every sleeve and nothing cleared the bar${unfilled.length ? ` — ${unfilled.join(', ')}` : ''}. Nothing was researched, so there is no coverage to build from. Tell me what came back short, and either widen a sleeve or change the frame.`,
+            const nothing = makeArtifact({
+                kind:    KIND.COVERAGE_SET,
+                items:   [],
+                status:  STATUS.EMPTY,
+                context: { unfilled, declined: [] },
+                note:    'every sleeve screened empty',
+                from:    { agent: 'scanner', label: 'Screen' },
             })
-            setActiveTab('portfolio')
+            if (!enterPipelineAt('portfolio', 'portfolio', nothing)) {
+                setPortfolioSeed({ key: nothing.key, message: contractFor('portfolio').brief(nothing).message })
+                setActiveTab('portfolio')
+            }
             return
         }
         // Set directly rather than routed: this is the tail of the sleeve RUN, whose fan-out and
