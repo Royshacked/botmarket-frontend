@@ -6,9 +6,12 @@
     flex-direction: column;       // content area (body) grows; input pins to the bottom
     overflow: hidden;
     background: var(--bg-wash);
-    border: 1px solid var(--border);
-    border-radius: 0 0 0 6px;     // mirror the chat-panel framing in this column — bottom-left only;
-                                  // the top-left stays square so the header meets the corner flush
+    // Mirrors the chat panels' framing in this column, which is now frameless and square: only a
+    // bottom rule, no sides. The top line is the column's (.workspace__chat), not the hub's — drawn
+    // here as well it would double against it.
+    border: none;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
 
     // Replays each time the hub re-mounts (i.e. on every "back to axl").
     animation: axl-hub-enter 0.34s ease both;
@@ -163,46 +166,69 @@
     color: var(--text-primary);
 }
 
-.axl-hub__pipeline-path {
+// ── the desk path, as one type treatment ──
+// The hub header (hovering a desk) and the chat strip (standing inside one) draw the SAME object: a
+// desk name, then its steps joined by rules. They were two copies that had drifted — different type
+// scale, different rule weight, different gaps — so walking from the hub into a pipeline changed how
+// the path looked. Held here as placeholders, extended by both, so the path is one definition.
+%pipeline-path {
     display: flex;
     align-items: center;
     gap: 4px;
-    animation: axl-hub-enter 0.18s ease both;
+    font-family: var(--font-mono);
 }
 
-.axl-hub__pipeline-desk {
+// Font size deliberately unset — the desk name takes the header's own size, which is what makes it
+// read as the heading with the steps hung off it.
+%pipeline-desk {
     font-weight: 700;
     text-transform: uppercase;
     color: var(--text-secondary);
-    margin-right: 2px;
+    // Open space between the desk name and its first step, so the name reads as the heading the path
+    // hangs off rather than as the path's own first stop.
+    margin-right: 24px;
 }
 
-.axl-hub__pipeline-step-group {
+%pipeline-step-group {
     display: flex;
     align-items: center;
     gap: 0;
 }
 
-.axl-hub__pipeline-line {
+// A hairline in --border, not a bar in --text-muted: the rule is the join between two steps, and
+// should be quieter than either of them. The right margin holds it off the step it points at.
+%pipeline-line {
     display: block;
     width: 18px;
     height: 1px;
     background: var(--border);
     flex-shrink: 0;
+    margin-right: 8px;
 }
 
-.axl-hub__pipeline-step {
+%pipeline-step {
     display: inline-flex;
     align-items: center;
     color: var(--text-muted);
 }
 
-.axl-hub__pipeline-text {
-    font-size: 8px;
+%pipeline-text {
+    font-size: 11px;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     white-space: nowrap;
 }
+
+.axl-hub__pipeline-path {
+    @extend %pipeline-path;
+    animation: axl-hub-enter 0.18s ease both;
+}
+
+.axl-hub__pipeline-desk       { @extend %pipeline-desk; }
+.axl-hub__pipeline-step-group { @extend %pipeline-step-group; }
+.axl-hub__pipeline-line       { @extend %pipeline-line; }
+.axl-hub__pipeline-step       { @extend %pipeline-step; }
+.axl-hub__pipeline-text       { @extend %pipeline-text; }
 
 // ── option cards (2×2 grid) ──
 .axl-hub__options {
@@ -477,8 +503,14 @@
     align-items: center;
     gap: 8px;
     flex-shrink: 0;
+    // Fixed height, not content-driven: entering a pipeline swaps a one-line crumb for the stepper
+    // (icons + rules + step names), and letting the tallest child set the height made the strip — and
+    // the chat below it — jump on every desk change. The number is --header-h, the same one the hub
+    // header and the Floor column headings use, so all four line up as one bar across the app.
+    height: var(--header-h);
     padding: 6px 12px;
-    border-top: 1px solid var(--border);
+    // Bottom rule only. The top line is the column's (see .workspace__chat in RootCmp.scss) — drawn
+    // here it sat INSIDE the 54px and left this header a pixel shallower than the Floor headings.
     border-bottom: 1px solid var(--border);
     background: var(--bg-wash-surface);
     animation: axl-hub-enter 0.28s ease both;
@@ -509,6 +541,13 @@
     &:hover { color: var(--text-primary); background: var(--bg-raised); }
 
     svg { width: 13px; height: 13px; }
+}
+
+// Arrow only — no label to sit beside, so the horizontal padding goes symmetric and the text gap
+// stops leaving a hole to the right of the glyph.
+.chat-agentbar__back--bare {
+    gap: 0;
+    padding: 4px 6px;
 }
 
 // One step back UP the pipeline, beside the leave-the-pipeline button. Same shape so the pair reads
@@ -597,60 +636,26 @@
 }
 
 // ── pipeline breadcrumb (when a desk pipeline is active) ──
+// The same path the hub draws on hover (see the %pipeline-* placeholders) — walking into a pipeline
+// should not restyle the thing you were just looking at. The one addition is `is-active`: the hub is
+// previewing a route, this strip is standing somewhere on it.
 .chat-agentbar__pipeline {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-family: var(--font-mono);
+    @extend %pipeline-path;
+    // Pulled back against the strip's 8px gap so the desk name sits right off the back arrow — the
+    // arrow and the desk it belongs to read as one unit, with the path hung off to their right.
+    margin-left: -8px;
 }
 
+.chat-agentbar__pipeline-group { @extend %pipeline-step-group; }
+.chat-agentbar__pipeline-line  { @extend %pipeline-line; }
+
 .chat-agentbar__pipeline-label {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-muted);
+    @extend %pipeline-desk;
     white-space: nowrap;
 }
 
-.chat-agentbar__pipeline-sep {
-    color: var(--text-muted);
-    opacity: 0.35;
-    font-size: 10px;
-}
-
-.chat-agentbar__pipeline-group {
-    display: flex;
-    align-items: center;
-    gap: 0;
-}
-
-.chat-agentbar__pipeline-line {
-    display: block;
-    width: 36px;
-    height: 2px;
-    background: var(--text-muted);
-    flex-shrink: 0;
-    opacity: 0.5;
-}
-
-.chat-agentbar__pipeline-icon {
-    display: inline-flex;
-    align-items: center;
-    color: var(--text-muted);
-    margin-right: 5px;
-    opacity: 0.6;
-
-    &.is-active {
-        color: var(--accent-light);
-        opacity: 1;
-    }
-}
-
 .chat-agentbar__pipeline-step {
-    display: inline-flex;
-    align-items: center;
-    color: var(--text-muted);
+    @extend %pipeline-step;
 
     &.is-active {
         color: var(--accent-light);
@@ -658,12 +663,7 @@
     }
 }
 
-.chat-agentbar__pipeline-text {
-    font-size: 8.5px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    white-space: nowrap;
-}
+.chat-agentbar__pipeline-text { @extend %pipeline-text; }
 
 // Axl strip: the Idea / Atlas / Argus routing nav (echoes the crumb's mono style).
 .chat-agentbar__agents {

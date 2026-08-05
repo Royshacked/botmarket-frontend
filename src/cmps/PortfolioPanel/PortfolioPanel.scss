@@ -14,8 +14,14 @@
     flex-direction: column;
     height: 100%;
     background: var(--bg-wash);
-    border: 1px solid var(--border);
-    border-radius: 6px;
+    // Frameless: the agent strip above already ends in a 1px border (two adjacent ones drew a 2px
+    // rule), and the column's own edges carry the sides — the box around the thread was drawing a
+    // second frame inside the first. Square for the same reason: rounded top corners left a notch
+    // against the flat strip. This is the SHARED shell, so it lands on Portfolio, Kairos, Mentor,
+    // Scanner and Analyst together — which is the point: switching desks must not change the frame.
+    border: none;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
     overflow: hidden;
     font-family: var(--font-sans);
     color: var(--text-primary);

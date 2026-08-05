@@ -37,6 +37,12 @@
     display: flex;
     flex-direction: column;
     position: relative;   // anchor for the "back to axl" return overlay
+    // The line under the app header belongs to the columns (the header draws none — see
+    // AppHeaderAxl.scss), and the Floor columns draw it on the COLUMN. The chat column used to draw
+    // it inside its own header instead, which ate a pixel of that header's 54px: the chat heading's
+    // bottom edge landed at 54px where a Floor heading's lands at 55, and the two rows of headings
+    // missed each other by exactly that. Drawn here, they line up.
+    border-top: 1px solid var(--border);
 }
 
 .workspace__chat .chat-panel { border-top-right-radius: 0; border-bottom-right-radius: 0; }

@@ -7,8 +7,13 @@
     flex-direction: column;
     height: 100%;
     background: var(--bg-wash);
-    border: 1px solid var(--border);
-    border-radius: 6px;
+    // Frameless, like the shared shell in PortfolioPanel.scss: the strip above already ends in a
+    // border (two adjacent ones drew a 2px rule), and the column's own edges carry the sides — a
+    // box around the thread only boxed it in twice. Square for the same reason: rounded top corners
+    // left a notch against the flat strip. (overflow stays — it keeps the thread scrolling inside.)
+    border: none;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
     overflow: hidden;
     font-family: var(--font-sans);
     color: var(--text-primary);
