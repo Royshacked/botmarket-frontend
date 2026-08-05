@@ -26,7 +26,7 @@ import { analystService, COVERAGE_CHANGED } from '../services/analyst/analyst.se
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
-import { buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace, positionOpenTarget, openCallPopup, openIdeaPopup, matchPositionsForIdea, portfoliosFromIdeas, isPortfolioReview } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { activatePortfolio, isManualIdea, buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace, positionOpenTarget, openCallPopup, openIdeaPopup, matchPositionsForIdea, portfoliosFromIdeas, isPortfolioReview } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { TradeTicket } from '../cmps/TradeTicket/TradeTicket.jsx'
 import { apiError } from '../services/http.service.js'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
@@ -1429,6 +1429,21 @@ export function MainPage() {
         setPendingDeleteIdea(null)
     }
 
+    // Go live with a whole book, from the Floor's portfolio list. The ideas table and the cards each
+    // hold their own copy of this trigger because the group row IS the control there; the Floor row
+    // has no status cell to press, so the act is handed up here where the book's legs and the
+    // status pipe both already live. The MEANING of activation (broker legs vs the manual fill
+    // card) is shared — see activatePortfolio.
+    function handleActivatePortfolio(portfolioId) {
+        const book = ideas.filter(i => i.portfolioId === portfolioId)
+        if (!book.length) return
+        activatePortfolio(book, {
+            isManual: book.some(isManualIdea),
+            onStatusChange: handleStatusChange,
+            onManualEntry: () => eventBus.emit(MANUAL_PORTFOLIO_ACTIVATE, { portfolioId }),
+        })
+    }
+
     async function handleDeletePortfolio(portfolioId) {
         const portfolioIdeas = ideas.filter(i => i.portfolioId === portfolioId)
         try {
@@ -2727,6 +2742,7 @@ export function MainPage() {
                                     onDeleteSetup={handleDeleteSetup}
                                     onEditPortfolio={handleEditPortfolio}
                                     onDeletePortfolio={handleDeletePortfolio}
+                                    onActivatePortfolio={handleActivatePortfolio}
                                     onDeleteIdea={handleDeleteIdea}
                                     onEditScan={handleEditScan}
                                     onDeleteScan={deleteScan}

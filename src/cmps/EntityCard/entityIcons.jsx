@@ -53,6 +53,16 @@ export function PositionIcon() {
     )
 }
 
+// Go-live mark. A play triangle rather than a bolt or a check: activating a book is not confirming
+// something or firing one order, it is setting the whole thing running.
+export function ActivateIcon() {
+    return (
+        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M5.5 3.5L12 8l-6.5 4.5V3.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+        </svg>
+    )
+}
+
 export function OrdersIcon() {
     return (
         <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">

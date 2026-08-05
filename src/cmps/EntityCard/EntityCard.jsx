@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types'
 import { StatusIcon } from '../StatusIcon.jsx'
-import { EditIcon, BinIcon, BuildingIcon } from './entityIcons.jsx'
+import { EditIcon, BinIcon, BuildingIcon, ActivateIcon } from './entityIcons.jsx'
 import { IconButton } from './IconButton.jsx'
 
 // ONE card shell for every entity list — ideas, calls, setups.
@@ -160,6 +160,29 @@ EditButton.propTypes = {
     onClick: PropTypes.func.isRequired, title: PropTypes.string,
     alert: PropTypes.bool, due: PropTypes.bool, locked: PropTypes.bool, disabled: PropTypes.bool,
     size: PropTypes.oneOf(['md', 'sm']), className: PropTypes.string,
+}
+
+/**
+ * Go live. The one action here that COMMITS rather than opens something, so it is deliberately
+ * plain-toned like the others (the weight belongs on the confirm step, not on a row control) and
+ * the surface that renders it decides when it is offered at all.
+ */
+export function ActivateButton({ onClick, title = 'Activate', lockedReason = null, disabled = false, size = 'md', className = '' }) {
+    return (
+        <IconButton
+            icon={<ActivateIcon />}
+            onClick={onClick}
+            title={title}
+            lockedReason={lockedReason}
+            disabled={disabled}
+            size={size}
+            className={className}
+        />
+    )
+}
+ActivateButton.propTypes = {
+    onClick: PropTypes.func.isRequired, title: PropTypes.string, lockedReason: PropTypes.string,
+    disabled: PropTypes.bool, size: PropTypes.oneOf(['md', 'sm']), className: PropTypes.string,
 }
 
 /**

@@ -5,7 +5,7 @@ import { EditOrdersDialog } from './EditOrdersDialog.jsx'
 import { ActivatePortfolioDialog } from './ActivatePortfolioDialog.jsx'
 import { PositionsTable } from './PositionsTable.jsx'
 import { usePositionClose } from './usePositionClose.jsx'
-import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel, isDeleteLocked, isManualIdea, openIdeaPopup, openCallPopup, openSetupPopup, formatPnl, ideaPnl, portfolioPnl, positionOpenTarget, isPortfolioReview } from './tradeIdea.utils.js'
+import { formatCreatedAt, activationStatus, activatePortfolio, conditionSummary, brokerSymbolLabel, isDeleteLocked, isManualIdea, openIdeaPopup, openCallPopup, openSetupPopup, formatPnl, ideaPnl, portfolioPnl, positionOpenTarget, isPortfolioReview } from './tradeIdea.utils.js'
 import { eventBus, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, REVIEW_RESOLVED } from '../../services/event-bus.service'
 import { portfolioService } from '../../services/portfolio/portfolio.service.remote.js'
 import { StatusIcon } from '../StatusIcon.jsx'
@@ -187,13 +187,12 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
 
     function activateNow() {
         setShowActivatePrompt(false)
-        // Manual: don't flip statuses — post the N-leg entry FillCard; the user reports
-        // each real fill there (the backend marks the legs awaiting_manual_fill).
-        if (isManual) { eventBus.emit(MANUAL_PORTFOLIO_ACTIVATE, { portfolioId: group.portfolioId }); return }
-        // Activate every waiting idea: 'hit' if it has no entry conditions
-        // (fire now, pending confirmation), otherwise 'looking' (monitor watches).
-        group.ideas.forEach(idea => {
-            if (idea.status === 'waiting') onStatusChange(idea.id, activationStatus(idea))
+        // What activation MEANS for a book (broker legs vs the manual fill card) lives in
+        // activatePortfolio — three surfaces offer this now.
+        activatePortfolio(group.ideas, {
+            isManual,
+            onStatusChange,
+            onManualEntry: () => eventBus.emit(MANUAL_PORTFOLIO_ACTIVATE, { portfolioId: group.portfolioId }),
         })
     }
 

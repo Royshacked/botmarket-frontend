@@ -2,7 +2,7 @@ import PropTypes from 'prop-types'
 import { useState } from 'react'
 import {
     conditionSummary, formatCreatedAt, formatCreatedAtFull, needsExitConditions,
-    activationStatus, brokerSymbolLabel, brokerChildLabel, isDeleteLocked, isManualIdea,
+    activationStatus, activatePortfolio, brokerSymbolLabel, brokerChildLabel, isDeleteLocked, isManualIdea,
     isSystemStatus, formatPnl, formatPnlPct, formatNum, formatPrice, portfolioPnl, ideaPnl,
     positionPnlPct, positionWorkspace, groupPositions, summarizePositions, isPortfolioReview,
 } from './tradeIdea.utils.js'
@@ -264,9 +264,11 @@ export function PortfolioCard({ group, expanded, onToggle, onEdit, onDelete, onD
     }
     function activateNow() {
         setShowActivatePrompt(false)
-        // Manual: post the N-leg entry FillCard instead of flipping statuses.
-        if (isManual) { eventBus.emit(MANUAL_PORTFOLIO_ACTIVATE, { portfolioId: group.portfolioId }); return }
-        group.ideas.forEach(idea => { if (idea.status === 'waiting') onStatusChange(idea.id, activationStatus(idea)) })
+        activatePortfolio(group.ideas, {
+            isManual,
+            onStatusChange,
+            onManualEntry: () => eventBus.emit(MANUAL_PORTFOLIO_ACTIVATE, { portfolioId: group.portfolioId }),
+        })
     }
     function reviewBeforeActivate() {
         // Open the portfolio in the Atlas chat in review mode; handleEditPortfolio

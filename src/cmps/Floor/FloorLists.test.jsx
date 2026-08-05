@@ -261,6 +261,70 @@ describe('FloorLists row actions', () => {
         expect(bins[0].disabled).toBe(false)
     })
 
+    // A built book sits at 'waiting' doing nothing, and this list used to offer no way to say go —
+    // pencil and bin were the whole vocabulary, so the only route to activation was the other list.
+    describe('activating a book', () => {
+        const waiting = [
+            { id: 'i1', portfolioId: 'p1', portfolioName: 'Core', asset: 'SPY', direction: 'long', status: 'waiting' },
+            { id: 'i2', portfolioId: 'p1', portfolioName: 'Core', asset: 'TLT', direction: 'long', status: 'waiting' },
+        ]
+
+        function openBook(props) {
+            render(<FloorLists ideas={waiting} {...props} />)
+            fireEvent.click(deskBtn('Portfolio floor'))
+        }
+
+        it('says on the row that the book is waiting, so it cannot sit un-activated unnoticed', () => {
+            openBook({ onActivatePortfolio: vi.fn() })
+            expect(screen.getByText('waiting')).toBeTruthy()
+        })
+
+        it('a book with every leg still waiting offers activation', () => {
+            openBook({ onActivatePortfolio: vi.fn() })
+            expect(screen.getByTitle(/Activate this portfolio/i)).toBeTruthy()
+        })
+
+        // Half-working is managed leg by leg — re-firing it as a book would re-enter the parts
+        // already working.
+        it('a book already part-working does not', () => {
+            const mixed = [waiting[0], { ...waiting[1], status: 'long' }]
+            render(<FloorLists ideas={mixed} onActivatePortfolio={vi.fn()} />)
+            fireEvent.click(deskBtn('Portfolio floor'))
+            expect(screen.queryByTitle(/Activate this portfolio/i)).toBeNull()
+            expect(screen.queryByText('waiting')).toBeNull()
+        })
+
+        // The gate, not the act: activating fires every leg at market at once, so the press opens
+        // the same pre-activation dialog the ideas table puts in front of it.
+        it('pressing it asks before firing anything', () => {
+            const onActivate = vi.fn()
+            openBook({ onActivatePortfolio: onActivate })
+            fireEvent.click(screen.getByTitle(/Activate this portfolio/i))
+
+            expect(onActivate).not.toHaveBeenCalled()
+            expect(screen.getByText(/last gate before real exposure/i)).toBeTruthy()
+
+            fireEvent.click(screen.getByText('Activate now'))
+            expect(onActivate).toHaveBeenCalledWith('p1')
+        })
+
+        it('"Review first" opens the book in review instead of firing it', () => {
+            const onActivate = vi.fn(), onEdit = vi.fn()
+            openBook({ onActivatePortfolio: onActivate, onEditPortfolio: onEdit })
+            fireEvent.click(screen.getByTitle(/Activate this portfolio/i))
+            fireEvent.click(screen.getByText('Review first'))
+
+            expect(onActivate).not.toHaveBeenCalled()
+            expect(onEdit).toHaveBeenCalledWith('p1', { reviewMode: true })
+        })
+
+        // A surface that cannot activate must not grow a button that does nothing.
+        it('no handler, no button', () => {
+            openBook({})
+            expect(screen.queryByTitle(/Activate this portfolio/i)).toBeNull()
+        })
+    })
+
     // A holding is edited by reopening the BOOK — its weight only means something against the
     // other legs — and the per-holding chat that would have edited one alone is the archived Idea
     // agent. So the pencil lives on the book row and nowhere below it.

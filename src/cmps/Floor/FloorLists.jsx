@@ -3,9 +3,10 @@ import PropTypes from 'prop-types'
 import { groupByLifecycle, isPreEntry, isLivePosition } from '../../services/entityStatus.js'
 import {
     openCallPopup, openSetupPopup, openIdeaPopup,
-    portfoliosFromIdeas, portfolioPnl, formatPnl, isDeleteLocked, isPortfolioReview,
+    portfoliosFromIdeas, portfolioPnl, formatPnl, isDeleteLocked, isPortfolioReview, isManualIdea,
 } from '../TradeIdeas/tradeIdea.utils.js'
-import { EditButton, DeleteButton } from '../EntityCard/EntityCard.jsx'
+import { EditButton, DeleteButton, ActivateButton } from '../EntityCard/EntityCard.jsx'
+import { ActivatePortfolioDialog } from '../TradeIdeas/ActivatePortfolioDialog.jsx'
 import { tradeFloorItems } from './floor.utils.js'
 import { RowHost } from './RowHost.jsx'
 import { CoverageActions } from '../Radar/CoverageActions.jsx'
@@ -170,9 +171,17 @@ const pctOf = (ratio) => (Number.isFinite(Number(ratio)) ? `${Math.round(Number(
 const STATUS_TEXT = { long: 'in position', short: 'in position' }
 const statusText = (status) => STATUS_TEXT[status] ?? status
 
-function PortfolioRows({ ideas, positions, onEditPortfolio, onDeletePortfolio, onDeleteIdea }) {
+// A book nobody has said go to yet: built, saved, and doing nothing. Every leg, not some — one leg
+// already working means the book is being managed, and re-firing it as a book is not the move.
+const isWaitingBook = (b) => b.ideas.length > 0 && b.ideas.every(i => i.status === 'waiting')
+
+function PortfolioRows({ ideas, positions, onEditPortfolio, onDeletePortfolio, onDeleteIdea, onActivatePortfolio }) {
     const books = portfoliosFromIdeas(ideas)
     const [open, setOpen] = useState(() => new Set())
+    // The book waiting on the pre-activation gate, or null. Same dialog the ideas table and the
+    // cards put in front of this — activating fires every leg at market at once, so the last thing
+    // between a built book and real exposure is the offer of a final Atlas review.
+    const [activating, setActivating] = useState(null)
     if (!books.length) return <Empty>No portfolios.</Empty>
 
     const toggle = id => setOpen(prev => {
@@ -185,7 +194,7 @@ function PortfolioRows({ ideas, positions, onEditPortfolio, onDeletePortfolio, o
     // construction in the Atlas chat, and deleting removes every leg plus the chat history. That's
     // why ONE live leg locks the bin for the entire book — the same rule the ideas table applies.
     function bookActions(b) {
-        if (!onEditPortfolio && !onDeletePortfolio) return null
+        if (!onEditPortfolio && !onDeletePortfolio && !onActivatePortfolio) return null
         const anyLocked = b.ideas.some(isDeleteLocked)
         // The same live leg that locks the bin also decides what the pencil opens: handleEditPortfolio
         // reviews a book in positions rather than re-planning it, so the title says which one it is.
@@ -193,6 +202,18 @@ function PortfolioRows({ ideas, positions, onEditPortfolio, onDeletePortfolio, o
         const willReview = isPortfolioReview(b.ideas)
         return (
             <>
+                {/* A built book sits at 'waiting' until someone says go, and this list had no way to
+                    say it — the pencil and the bin were the whole vocabulary, so a finished portfolio
+                    looked identical to a live one and the only way to activate was the other list.
+                    Offered ONLY while every leg is still waiting: a book that is half-working is
+                    managed leg by leg, not re-fired as a book. */}
+                {onActivatePortfolio && isWaitingBook(b) && (
+                    <ActivateButton
+                        onClick={() => setActivating(b)}
+                        title="Activate this portfolio — fires every holding"
+                        size="sm"
+                    />
+                )}
                 {onEditPortfolio && (
                     <EditButton
                         onClick={() => onEditPortfolio(b.portfolioId)}
@@ -232,15 +253,20 @@ function PortfolioRows({ ideas, positions, onEditPortfolio, onDeletePortfolio, o
         )
     }
 
-    return books.map(b => {
-        const isOpen = open.has(b.portfolioId)
-        const pnl    = portfolioPnl(b.ideas, positions)
+    const rows = books.map(b => {
+        const isOpen  = open.has(b.portfolioId)
+        const pnl     = portfolioPnl(b.ideas, positions)
+        const waiting = isWaitingBook(b)
         return (
             <div key={b.portfolioId} className="floor-sub">
                 <RowHost actions={bookActions(b)}>
                     <button className="floor-row" onClick={() => toggle(b.portfolioId)} aria-expanded={isOpen}>
                         <span className="floor-row__sym floor-row__sym--wide">{b.name}</span>
                         <span className="floor-row__kind">({b.ideas.length} holdings)</span>
+                        {/* Said on the row, not left to be inferred from an empty P&L: a built book
+                            and a working one read identically otherwise, which is how a portfolio
+                            sits un-activated without anyone noticing. */}
+                        {waiting && <span className="floor-row__status floor-row__status--waiting">waiting</span>}
                         <span className={`floor-row__pnl ${pnl?.pnl > 0 ? 'is-pos' : pnl?.pnl < 0 ? 'is-neg' : ''}`}>
                             {pnl ? formatPnl(pnl.pnl, pnl.currency) : '—'}
                         </span>
@@ -267,13 +293,33 @@ function PortfolioRows({ ideas, positions, onEditPortfolio, onDeletePortfolio, o
             </div>
         )
     })
+
+    return (
+        <>
+            {rows}
+            {activating && (
+                <ActivatePortfolioDialog
+                    name={activating.name}
+                    count={activating.ideas.length}
+                    manual={activating.ideas.some(isManualIdea)}
+                    // Review instead: reopening the book in Atlas is the alternative to firing it,
+                    // and handleEditPortfolio resets the legs to waiting, so the book stays pending
+                    // until the user comes back and activates.
+                    onReview={() => { const b = activating; setActivating(null); onEditPortfolio?.(b.portfolioId, { reviewMode: true }) }}
+                    onActivate={() => { const b = activating; setActivating(null); onActivatePortfolio?.(b.portfolioId) }}
+                    onClose={() => setActivating(null)}
+                />
+            )}
+        </>
+    )
 }
 PortfolioRows.propTypes = {
-    ideas:             PropTypes.array,
-    positions:         PropTypes.array,
-    onEditPortfolio:   PropTypes.func,
-    onDeletePortfolio: PropTypes.func,
-    onDeleteIdea:      PropTypes.func,
+    ideas:               PropTypes.array,
+    positions:           PropTypes.array,
+    onEditPortfolio:     PropTypes.func,
+    onDeletePortfolio:   PropTypes.func,
+    onDeleteIdea:        PropTypes.func,
+    onActivatePortfolio: PropTypes.func,
 }
 
 // ── Scans ─────────────────────────────────────────────────────────────────────
@@ -442,7 +488,7 @@ export function FloorLists({
     scans = [], coverage = [],
     onCandidateSelect,
     onEditCall, onDeleteCall, onEditSetup, onDeleteSetup,
-    onEditPortfolio, onDeletePortfolio, onDeleteIdea,
+    onEditPortfolio, onDeletePortfolio, onDeleteIdea, onActivatePortfolio,
     onEditScan, onDeleteScan,
     onEditCoverage, onRetireCoverage, onDeleteCoverage,
     initialDesk = null,
@@ -488,7 +534,7 @@ export function FloorLists({
                         <PortfolioRows
                             ideas={ideas} positions={positions}
                             onEditPortfolio={onEditPortfolio} onDeletePortfolio={onDeletePortfolio}
-                            onDeleteIdea={onDeleteIdea}
+                            onDeleteIdea={onDeleteIdea} onActivatePortfolio={onActivatePortfolio}
                         />
                     )}
                     {desk.key === 'scans'     && (
@@ -532,6 +578,7 @@ FloorLists.propTypes = {
     onDeleteSetup:     PropTypes.func,
     onEditPortfolio:   PropTypes.func,
     onDeletePortfolio: PropTypes.func,
+    onActivatePortfolio: PropTypes.func,
     onDeleteIdea:      PropTypes.func,
     onEditScan:        PropTypes.func,
     onDeleteScan:      PropTypes.func,

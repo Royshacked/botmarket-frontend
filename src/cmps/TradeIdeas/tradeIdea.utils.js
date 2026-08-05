@@ -599,6 +599,29 @@ export function activationStatus(idea) {
 }
 
 /**
+ * Activating a whole book: what "go live" MEANS for a portfolio, in one place.
+ *
+ * Two different acts wearing one word. On a broker (paper or live) each waiting leg moves to its own
+ * activation status and the app takes it from there. In MANUAL there is no broker to tell, so
+ * nothing flips — the N-leg entry card is posted and the user reports the real fills against it
+ * (the backend parks the legs at awaiting_manual_fill). Flipping statuses there would claim
+ * positions nobody opened.
+ *
+ * Already lived twice — the ideas table and the cards — and a third surface (the Floor's portfolio
+ * list) is what made the copies a rule rather than a coincidence. Legs that are not 'waiting' are
+ * left alone: activating a book is not a re-entry for the parts of it already working.
+ *
+ * @param {import('../../types.js').Idea[]} ideas   the book's legs
+ * @param {{ isManual?: boolean, onStatusChange?: Function, onManualEntry?: Function }} handlers
+ */
+export function activatePortfolio(ideas, { isManual = false, onStatusChange, onManualEntry } = {}) {
+    if (isManual) { onManualEntry?.(); return }
+    for (const idea of ideas ?? []) {
+        if (idea?.status === 'waiting') onStatusChange?.(idea.id, activationStatus(idea))
+    }
+}
+
+/**
  * True when an idea must not be deleted from the client — it holds a real broker
  * position ('long'/'short'). Deleting it would orphan that position, so the
  * bin/Delete control is disabled. A 'hit' idea has only a parked order plan (nothing
