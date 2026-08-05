@@ -125,6 +125,15 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
         } finally { setLoading(false) }
     }
 
+    // Mobile only: the two panes collapse to one, so leaving a conversation is how you get
+    // back to the list. `consumedConvRef` is deliberately left alone — the auto-open target
+    // is spent, and clearing it would yank the user straight back into the thread.
+    function handleBackToList() {
+        setActiveConv(null)
+        setMessages([])
+        setHasMore(false)
+    }
+
     async function handleLoadMore() {
         if (!activeConv || loading) return
         setLoading(true)
@@ -172,9 +181,18 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
         <>
             <div className="social-chat__backdrop" onClick={handleClose} />
 
-            <div className={`social-chat${closing ? ' social-chat--closing' : ''}`}>
+            <div className={`social-chat${closing ? ' social-chat--closing' : ''}${activeConv ? ' social-chat--conv-open' : ''}`}>
                 <div className="social-chat__topbar">
-                    <span className="social-chat__topbar-title">Messages</span>
+                    <div className="social-chat__topbar-left">
+                        {activeConv && (
+                            <button
+                                className="social-chat__topbar-back"
+                                onClick={handleBackToList}
+                                aria-label="Back to conversations"
+                            >‹</button>
+                        )}
+                        <span className="social-chat__topbar-title">Messages</span>
+                    </div>
                     <button className="social-chat__topbar-close" onClick={handleClose} aria-label="Close">✕</button>
                 </div>
 

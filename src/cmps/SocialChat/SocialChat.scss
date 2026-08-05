@@ -84,6 +84,28 @@
         border-bottom: 1px solid var(--border-mid);
     }
 
+    &__topbar-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    // Back to the conversation list — mobile only, where the list is hidden behind the open
+    // thread. On desktop both panes are on screen, so there is nothing to go back to.
+    &__topbar-back {
+        display: none;
+        background: none;
+        border: none;
+        color: var(--text-secondary, var(--text-muted));
+        font-size: 1.5rem;
+        line-height: 1;
+        cursor: pointer;
+        padding: 0 6px;
+        border-radius: 6px;
+        &:hover { background: var(--bg-hover); color: var(--text-primary); }
+    }
+
     &__topbar-title {
         font-family: var(--font-mono);
         font-size: .72rem;
@@ -725,6 +747,41 @@
         &:hover { background: var(--bg-hover); }
     }
 
+}
+
+// ── Mobile: < 768px ──────────────────────────────────────────────────────────
+// The desktop bubble is a fixed 480px pinned to the right edge — wider than a phone, so its
+// left side was cut off the screen. On mobile it becomes a near-full-screen sheet under the
+// header, and the two panes become ONE: the list, then the conversation, with the topbar back
+// arrow returning. Same markup and same glass — only what's visible changes.
+@media (max-width: 767px) {
+    .social-chat {
+        // Clears the mobile header (AppHeaderAxl sets --axl-h: 74px below this same breakpoint).
+        top: 82px;
+        left: 6px;
+        right: 6px;
+        bottom: 6px;
+        width: auto;
+        border-radius: 16px;
+
+        &__topbar { padding: 10px 12px; }
+
+        &__topbar-back  { display: inline-flex; }
+        &__topbar-close { padding: 6px 10px; font-size: 1.1rem; }   // thumb-sized target
+
+        // One pane at a time — the sidebar takes the full width until a thread is open.
+        &__list {
+            width: 100%;
+            min-width: 0;
+            border-right: none;
+        }
+
+        // A phone's bubble measure is narrower, so let messages run a little wider.
+        &__msg { max-width: 88%; }
+    }
+
+    .social-chat--conv-open .social-chat__list { display: none; }
+    .social-chat:not(.social-chat--conv-open) .social-chat__window { display: none; }
 }
 
 // The social-chat composer uses a themed inset pill (accent-tinted --bg-deep on the
