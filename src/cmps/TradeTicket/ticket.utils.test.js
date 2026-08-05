@@ -118,6 +118,33 @@ test('a price is demanded only for a resting order', () => {
     assert.equal(placementBlocker({ ...READY, orderType: 'limit', price: 150 }), null)
 })
 
+// ── Closed venue ──────────────────────────────────────────────────────────────
+// A market order into a shut venue is REFUSED, not deferred: nothing is authored, nothing parks at
+// `awaiting_market`, nothing notifies. The user is told and that is the whole interaction.
+
+test('a shut venue blocks a market order', () => {
+    assert.match(placementBlocker({ ...READY, marketClosed: true }), /cannot be placed while the market is closed/)
+})
+
+test('a shut venue leaves resting orders alone — that is what they are for', () => {
+    // A limit/stop entry is left AT the broker to wait, so an overnight ticket is the normal case,
+    // not an error. Switching the type is the user's way out of the block above.
+    assert.equal(placementBlocker({ ...READY, orderType: 'limit', price: 150, marketClosed: true }), null)
+    assert.equal(placementBlocker({ ...READY, orderType: 'stop', price: 150, marketClosed: true }), null)
+})
+
+test('an unresolved venue never blocks — the broker is the real gate', () => {
+    // useMarketStatus reports closed only once the status is KNOWN. Defaulting the flag off means a
+    // failed status fetch degrades to "let them try", never to a ticket that cannot be sent at all.
+    assert.equal(placementBlocker(READY), null)
+    assert.equal(placementBlocker({ ...READY, marketClosed: undefined }), null)
+})
+
+test('choosing a ticker still outranks the closed-venue notice', () => {
+    // The venue is unknowable without a symbol, so "Choose a ticker" has to come first.
+    assert.match(placementBlocker({ ...READY, symbol: '  ', marketClosed: true }), /ticker/)
+})
+
 test('a negative quantity is blocked, not just a missing one', () => {
     assert.match(placementBlocker({ ...READY, quantity: -5 }), /quantity/)
 })

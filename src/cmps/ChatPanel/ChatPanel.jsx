@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { ChatMarkdown } from '../ChatMarkdown.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
+import { useMarketStatus } from '../../customHooks/useMarketStatus.js'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
@@ -183,6 +184,18 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
     // (post-order edit) can't be market-entered, so it keeps "Update idea".
     const canBuyMarket = isImmediate && ideaReady && !isPostOrderEdit
 
+    // A market entry into a shut venue is not offered — same rule the ticket enforces, from the same
+    // shared status read. It is a refusal, not a deferral: nothing is authored and nothing parks for
+    // the open, because "Buy Market" means now or not at all.
+    const { marketClosed } = useMarketStatus(s.active_asset, pt.asset_class)
+    // One reason, so the button has exactly one disabled state and one thing to say. Accounts first:
+    // it is the fixable one, and the venue is not the user's fault.
+    const marketBtnBlocker = !generateReady
+        ? 'Select a broker account above to place this trade'
+        : marketClosed
+            ? 'Market orders cannot be placed while the market is closed'
+            : null
+
     const showChangedMind = isEditing && !editDirty && !isPostOrderEdit
 
     // In edit mode there is ALWAYS an enabled escape: leave without saving. It sits at the end of
@@ -309,21 +322,26 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                         </>
                     ) : canBuyMarket ? (
                         <>
-                            {generateReady ? (
+                            {marketBtnBlocker ? (
                                 <button
                                     className={`chat-panel__market-btn chat-panel__market-btn--${direction}`}
-                                    onClick={onBuyMarket}
+                                    disabled
+                                    title={marketBtnBlocker}
                                 >
                                     {direction === 'short' ? 'Sell Market' : 'Buy Market'}
                                 </button>
                             ) : (
                                 <button
                                     className={`chat-panel__market-btn chat-panel__market-btn--${direction}`}
-                                    disabled
-                                    title="Select a broker account above to place this trade"
+                                    onClick={onBuyMarket}
                                 >
                                     {direction === 'short' ? 'Sell Market' : 'Buy Market'}
                                 </button>
+                            )}
+                            {marketClosed && generateReady && (
+                                <p className="chat-panel__market-closed">
+                                    Market orders cannot be placed while the market is closed.
+                                </p>
                             )}
                             {laterBtn}
                         </>

@@ -78,10 +78,20 @@ export function quantityUnit(accounts = []) {
 /**
  * Is the ticket complete enough to send? Returns the blocking reason, or null when it's ready.
  * Order matters: report what the user should fix FIRST, top of the form down.
+ *
+ * `marketClosed` blocks the MARKET type only, and it is a refusal rather than a deferral: a market
+ * order into a shut venue is simply not offered. It sits second — as soon as a ticker is chosen the
+ * user learns the venue is shut, before filling in a quantity they can't use. The other two types
+ * are deliberately untouched: a limit/stop entry is left resting AT the broker, which is exactly
+ * what you'd want overnight, so switching type clears this on its own.
+ *
+ * @param {boolean} [marketClosed]  true only once the venue's status is KNOWN to be closed —
+ *   an unresolved status must never block (see useMarketStatus: the broker is the real gate).
  * @returns {string|null}
  */
-export function placementBlocker({ symbol, quantity, orderType, price, accountIds = [] }) {
+export function placementBlocker({ symbol, quantity, orderType, price, accountIds = [], marketClosed = false }) {
     if (!String(symbol ?? '').trim())           return 'Choose a ticker'
+    if (marketClosed && orderType === 'market') return 'Market orders cannot be placed while the market is closed'
     if (!(Number(quantity) > 0))                return 'Enter a quantity'
     if (needsPrice(orderType) && !(Number(price) > 0)) return `Enter the ${orderType} price`
     if (!accountIds.length)                     return 'Select an account'

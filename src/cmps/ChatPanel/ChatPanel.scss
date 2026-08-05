@@ -459,6 +459,17 @@
         }
     }
 
+    // The whole explanation for a disabled market button. Deliberately a quiet line and not a
+    // warning: a shut venue is the ordinary state most of the day, not something that went wrong.
+    &__market-closed {
+        flex-basis: 100%;
+        margin: 0;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.04em;
+        opacity: 0.55;
+    }
+
     // Sized by its own label, not by the row — same rule as the shared shell's review button
     // (PortfolioPanel.scss). `flex: 1` made a lone action a full-width slab.
     &__review-btn {

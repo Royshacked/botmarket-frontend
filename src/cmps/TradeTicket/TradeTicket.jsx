@@ -4,6 +4,7 @@ import { AccountSelector } from '../ChatPanel/AccountSelector.jsx'
 // No extension — matches how the rest of the app (and its vi.mock calls) name this module.
 import { marketService } from '../../services/market/market.service.remote'
 import { useAutoRefresh } from '../../customHooks/useAutoRefresh.js'
+import { useMarketStatus } from '../../customHooks/useMarketStatus.js'
 import { formatPrice, formatPnl, matchPositionsForIdea } from '../TradeIdeas/tradeIdea.utils.js'
 import {
     ORDER_TYPES, needsPrice, exitSide, quantityUnit, placementBlocker,
@@ -131,7 +132,14 @@ export function TradeTicket({
     const ticketPos = useMemo(() => matchPositionsForIdea(ticket, positions), [ticket, positions])
     const reference = referencePrice(ticket, ticketPos) ?? quote
 
-    const blocker = placementBlocker({ symbol, quantity, orderType, price, accountIds: selectedAccounts })
+    // The venue's session, from the one shared read every other order surface uses
+    // (OrderConfirmDialog, ClosePositionDialog). A market order into a shut venue is not offered at
+    // all — no entity is authored, nothing is deferred, nothing notifies; the user just gets told.
+    // Normalised the same way the quote loader does — a lowercase entry must not be a different
+    // symbol to the venue check than it is to the price feed.
+    const { marketClosed } = useMarketStatus(String(activeSymbol ?? '').trim().toUpperCase() || undefined, ticket?.asset_class)
+
+    const blocker = placementBlocker({ symbol, quantity, orderType, price, accountIds: selectedAccounts, marketClosed })
 
     // The trigger warning depends on WHICH side you're about to take, and the ticket doesn't know
     // that until you press a button — so both sides are evaluated and the one that's wrong is
