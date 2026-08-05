@@ -3,9 +3,8 @@ import PropTypes from 'prop-types'
 // The call pop-out (Confirm entry / Accept edit / Delete live there) — one opener, shared
 // with the Calls list, so the window name and size can't drift between the two entry points.
 import { openCallPopup } from '../TradeIdeas/tradeIdea.utils.js'
-import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE } from '../../services/event-bus.service'
+import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE, MARKET_BRIEF_OPEN } from '../../services/event-bus.service'
 import { manualService } from '../../services/manual/manual.service.remote'
-import { axlService } from '../../services/axl/axl.service.remote'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { AGENTS, isBotId, CONVERSATIONAL_BOT_ID } from '../AxlHub/agentMeta.jsx'
@@ -171,7 +170,7 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                                 : msg.type === 'coverage_refreshed' && msg.payload
                                 ? <CoverageRefreshedBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'market_brief_offer'
-                                ? <MarketBriefOfferBubble msg={msg} onResolve={onResolveMessage} />
+                                ? <MarketBriefOfferBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : <div className="social-chat__msg-bubble">{msg.content}</div>
                             }
                             <div className="social-chat__msg-time">{formatTime(msg.createdAt)}</div>
@@ -434,41 +433,37 @@ export function CoverageEventBubble({ msg, onClose, onResolve }) {
 // review (so Atlas re-reads the fresh coverage); otherwise it opens the coverage. `ok:false` = the
 // refresh couldn't produce updated coverage (existing thesis left in place); still lets the user resume.
 /**
- * The daily market-brief offer. Unlike every other card here, its primary does NOT route anywhere:
- * the brief is written server-side and arrives as a normal Axl message over the WS, so the button's
- * whole job is to ask for it and then get out of the way.
+ * The daily market-brief offer. Its primary routes, like every other card here: to Axl, who then
+ * writes the brief into his own thread.
  *
- * Writing a stale brief is a live model turn, so this can take a while — hence the busy state. The
- * card is only resolved once the request actually succeeds; a failure leaves it pressable, because
- * a consumed card with no brief is the one outcome the user can't recover from.
+ * It used to ask for the brief FROM here and have the server post it back as a second social-chat
+ * message — which put several hundred words of market prose in a surface built for one-liners, and
+ * left the user reading it with nobody to ask about it. Now the card's whole job is to open the
+ * conversation the brief belongs in; the waiting (writing a stale brief is a live model turn) is
+ * shown by Axl's own chip, where the user is already looking.
+ *
+ * So there is no busy state and no failure state to hold here any more: nothing is requested on
+ * this click. A brief that fails to write fails visibly in Axl's thread, which is also the one
+ * place it can be retried by just asking.
  */
-export function MarketBriefOfferBubble({ msg, onResolve, _request = axlService.requestBrief }) {
-    const [busy,  setBusy]  = useState(false)
-    const [error, setError] = useState(null)
-
-    async function handlePrimary() {
-        if (busy) return
-        setBusy(true)
-        setError(null)
-        try {
-            await _request()
-            onResolve?.(msg.id, { status: 'done', outcome: 'delivered' })
-        } catch {
-            setError("Couldn't write the brief just now — try again in a moment.")
-        } finally {
-            setBusy(false)
-        }
+export function MarketBriefOfferBubble({ msg, onClose, onResolve }) {
+    function handlePrimary() {
+        onResolve?.(msg.id, { status: 'done', outcome: 'opened' })
+        eventBus.emit(MARKET_BRIEF_OPEN, { day: msg.payload?.day ?? null })
+        onClose?.()
     }
 
     return (
         <NotificationCard
             agent={AGENTS.axl} kind="info" heading="Market brief"
-            body={error ?? msg.content}
-            primaryLabel={busy ? 'Writing…' : (msg.actions?.primary?.label ?? 'Get the brief')}
-            primaryDisabled={busy}
+            body={msg.content}
+            primaryLabel={msg.actions?.primary?.label ?? 'Get the brief'}
             onPrimary={handlePrimary}
             onResolve={onResolve} msg={msg}
-            resolvedLabels={{ delivered: '✓ Sent' }}
+            // `delivered` is what cards resolved before the brief moved into Axl said — kept so an
+            // old card in the user's history still reads as done rather than falling back to a raw
+            // outcome key.
+            resolvedLabels={{ opened: '✓ Got it', delivered: '✓ Sent' }}
         />
     )
 }

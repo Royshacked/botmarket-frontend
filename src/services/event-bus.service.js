@@ -29,6 +29,9 @@ export const ENTRY_CONFIRM_EDIT        = 'entry-confirm-edit'
 export const ENTRY_CONFIRM_DISMISS     = 'entry-confirm-dismiss'
 // Coverage-update card "Open coverage" → open the Analyst (its living coverage book).
 export const OPEN_COVERAGE             = 'open-coverage'
+// Daily market-brief card "Get the brief" → route to Axl and stream the brief into his thread,
+// rather than posting a wall of market prose back into the social chat.
+export const MARKET_BRIEF_OPEN         = 'market-brief-open'
 
 function createEventEmitter() {
     const listenersMap = {}

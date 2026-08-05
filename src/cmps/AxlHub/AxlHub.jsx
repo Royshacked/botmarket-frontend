@@ -73,7 +73,7 @@ function TicketGlyph({ size = 32 }) {
     )
 }
 
-export function AxlHub({ user, onPick, onOpenTicket }) {
+export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefStart }) {
     const name = firstName(user?.fullname)
     const chat = useChatStream()
     const { messages, isLoading } = chat
@@ -184,6 +184,53 @@ export function AxlHub({ user, onPick, onOpenTicket }) {
             chat.endStream()
         }
     }
+
+    // The daily market brief, asked for from its card in the social chat (MainPage bumps
+    // `briefRequest`). It runs through the same begin/stream/finish machinery as a typed turn, so
+    // the user's ask shows as their own bubble, the waiting chip names what is happening, and the
+    // text types itself in — the difference is only that the words come from the brief service
+    // instead of a model turn, and that no history is sent (there is nothing to answer against).
+    //
+    // The ask is written as the user's turn rather than injected as a wordless assistant message so
+    // the thread reads as a conversation: the follow-up ("what does that mean for my book?") then
+    // reaches Axl with the brief and the question that produced it already in the history.
+    async function _sendBrief() {
+        if (isLoading) return
+
+        const { signal, handlers } = chat.begin("Today's market brief, please.", {
+            onDone: (data) => {
+                const reasoning = chat.reasoningRef.current
+                chat.finishStreaming({ role: 'assistant', content: data.reply ?? '', ...(reasoning ? { reasoning } : {}) })
+            },
+        })
+
+        try {
+            await axlService.streamBrief({ signal, ...handlers })
+        } catch (err) {
+            console.error('[axl:brief]', err)
+            // Carry the underlying reason. The fixed sentence this used to show read as "the brief
+            // could not be written" for every failure — including the ones where it was never asked
+            // for (a stale server with no such route, a dropped connection), which sends you looking
+            // at the brief service for a fault that is not there.
+            const why = err?.message ? ` (${err.message})` : ''
+            chat.freezeError(`Couldn't fetch today's brief just now${why}. Ask me again in a moment.`)
+        } finally {
+            chat.endStream()
+        }
+    }
+
+    // Fires on every bump, INCLUDING one already set at mount — routing here from another tab
+    // remounts the hub, so the request has to survive the remount to arrive at all. Consuming it
+    // (onBriefStart) is what stops it firing again the next time the user walks back to Axl.
+    //
+    // `isLoading` is a dependency, not a guard to bail on: pressing the card while Axl is already
+    // mid-turn must not swallow the brief. The request is left unconsumed and this re-runs when the
+    // turn ends, so the brief follows the reply instead of vanishing.
+    useEffect(() => {
+        if (!briefRequest || isLoading) return
+        onBriefStart?.()
+        _sendBrief()
+    }, [briefRequest, isLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
     function handleClear() {
         chat.handleStop?.()

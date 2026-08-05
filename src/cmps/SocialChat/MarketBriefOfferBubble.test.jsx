@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { MarketBriefOfferBubble } from './ChatWindow.jsx'
+import { eventBus, MARKET_BRIEF_OPEN } from '../../services/event-bus.service'
 
 // The bubble's module (ChatWindow.jsx) pulls in axios-backed service modules at load time.
 // Stub them so the tree mounts without touching the network.
@@ -19,53 +20,52 @@ const msg = {
 describe('MarketBriefOfferBubble', () => {
     afterEach(cleanup)
 
-    it('asks for the brief and only then marks the card done', async () => {
+    it('routes to Axl instead of asking for the brief here — the brief belongs in his thread', () => {
         const onResolve = vi.fn()
-        const request   = vi.fn().mockResolvedValue({ ok: true })
-        render(<MarketBriefOfferBubble msg={msg} onResolve={onResolve} _request={request} />)
+        const onClose    = vi.fn()
+        const heard      = vi.fn()
+        const off        = eventBus.on(MARKET_BRIEF_OPEN, heard)
+
+        render(<MarketBriefOfferBubble msg={msg} onClose={onClose} onResolve={onResolve} />)
+        fireEvent.click(screen.getByText('Get the brief'))
+
+        expect(heard).toHaveBeenCalledTimes(1)
+        expect(heard.mock.calls[0][0]).toEqual({ day: '2026-08-03' })
+        expect(onClose).toHaveBeenCalled()
+        off()
+    })
+
+    // The card is consumed on the click, not on a delivery it no longer performs: what it promises
+    // is to take the user to the brief, and it has.
+    it('resolves as read the moment it routes', () => {
+        const onResolve = vi.fn()
+        render(<MarketBriefOfferBubble msg={msg} onResolve={onResolve} />)
 
         fireEvent.click(screen.getByText('Get the brief'))
 
-        expect(request).toHaveBeenCalledTimes(1)
-        await waitFor(() => expect(onResolve).toHaveBeenCalledWith('m1', { status: 'done', outcome: 'delivered' }))
+        expect(onResolve).toHaveBeenCalledWith('m1', { status: 'done', outcome: 'opened' })
     })
 
-    it('a failed request leaves the card pressable — a consumed offer with no brief is unrecoverable', async () => {
+    // A card resolved before the brief moved into Axl still reads as done, rather than showing a
+    // raw outcome key to a user scrolling back through the week.
+    it('an already-resolved card renders its outcome, old wording included', () => {
+        const done = { ...msg, id: 'm2', status: 'done', resolveOutcome: 'delivered' }
+        render(<MarketBriefOfferBubble msg={done} onResolve={vi.fn()} />)
+
+        // The chip renders the outcome alongside the asset in one heading, so match on content.
+        expect(screen.getByText(/✓ Sent/)).toBeTruthy()
+    })
+
+    it('dismiss resolves without routing anywhere', () => {
         const onResolve = vi.fn()
-        const request   = vi.fn().mockRejectedValue(new Error('502'))
-        render(<MarketBriefOfferBubble msg={msg} onResolve={onResolve} _request={request} />)
+        const heard     = vi.fn()
+        const off       = eventBus.on(MARKET_BRIEF_OPEN, heard)
 
-        fireEvent.click(screen.getByText('Get the brief'))
-
-        await waitFor(() => expect(screen.getByText(/try again/i)).toBeTruthy())
-        expect(onResolve).not.toHaveBeenCalled()
-        expect(screen.getByText('Get the brief').disabled).toBe(false)
-    })
-
-    it('does not fire twice while a brief is being written', async () => {
-        let release
-        const request = vi.fn(() => new Promise(res => { release = res }))
-        render(<MarketBriefOfferBubble msg={msg} onResolve={vi.fn()} _request={request} />)
-
-        fireEvent.click(screen.getByText('Get the brief'))
-        // Writing a stale brief is a live model turn — several seconds of a button that still looks
-        // pressable is exactly how a user ends up with three briefs.
-        const btn = await screen.findByText('Writing…')
-        expect(btn.disabled).toBe(true)
-        fireEvent.click(btn)
-        expect(request).toHaveBeenCalledTimes(1)
-
-        release({ ok: true })
-    })
-
-    it('dismiss resolves without ever asking for a brief', () => {
-        const onResolve = vi.fn()
-        const request   = vi.fn()
-        render(<MarketBriefOfferBubble msg={msg} onResolve={onResolve} _request={request} />)
-
+        render(<MarketBriefOfferBubble msg={msg} onResolve={onResolve} />)
         fireEvent.click(screen.getByText('Dismiss'))
 
-        expect(request).not.toHaveBeenCalled()
+        expect(heard).not.toHaveBeenCalled()
         expect(onResolve).toHaveBeenCalledWith('m1', { status: 'dismissed', outcome: 'dismissed' })
+        off()
     })
 })

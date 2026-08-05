@@ -1,10 +1,9 @@
 import { API_BASE } from '../config'
 import { postSSE, buildStreamHandlers } from '../sse.util'
-import { httpService } from '../http.service'
 
 export const axlService = {
     streamAxl,
-    requestBrief,
+    streamBrief,
 }
 
 /**
@@ -30,14 +29,20 @@ async function streamAxl(messages, opts = {}) {
 }
 
 /**
- * Ask for today's market brief. The brief is POSTED into the social chat (it arrives over the WS
- * like any other bot message) — this call only returns whether that happened, so there is nothing
- * to render from the response.
+ * Stream today's market brief into the Axl thread. Not a turn — nothing is said to Axl and no model
+ * runs on this call — but it arrives on the same SSE shape as one, so the panel drives it with the
+ * handlers useChatStream already hands out: the waiting chip, the typewriter and Stop all work
+ * without a second code path.
  *
- * The long timeout is deliberate: a stale brief is rewritten on the server, which means a live
- * model turn with web searches behind it. The default 30s would abort the request while the work
- * carried on, and the user would see a failure for a brief that then quietly appeared.
+ * No timeout to set: a stale brief is rewritten server-side (a live model turn with web searches
+ * behind it), and an SSE connection simply stays open while that happens — which is the other half
+ * of why this replaced the old POST, whose 30s default would abort a request whose work carried on.
  */
-async function requestBrief() {
-    return httpService.post('api/axl/brief', {}, { timeout: 180000 })
+async function streamBrief(opts = {}) {
+    await postSSE(
+        `${API_BASE}/api/axl/brief/stream`,
+        {},
+        buildStreamHandlers(opts),
+        { signal: opts.signal },
+    )
 }

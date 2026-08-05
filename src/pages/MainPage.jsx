@@ -3,13 +3,12 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { ChatPanel }         from '../cmps/ChatPanel/ChatPanel.jsx'
 import { AxlHub }            from '../cmps/AxlHub/AxlHub.jsx'
 import { AgentSummon, AxlBotGlyph } from '../cmps/AxlHub/AgentSummon.jsx'
-import { RETURN_MS, DESKS, AGENTS } from '../cmps/AxlHub/agentMeta.jsx'
+import { RETURN_MS, DESKS } from '../cmps/AxlHub/agentMeta.jsx'
 import { resolveStepIndex, previousStep } from '../cmps/AxlHub/pipelineNav.js'
 import { scanOrigin, savesToScansList } from '../services/pipeline/scanOrigin.js'
 import { KIND, STATUS, makeArtifact, firstItem } from '../services/pipeline/artifact.js'
 import { planHop, planEntry, producesOne, hasDownstream } from '../services/pipeline/hop.js'
 import { contractFor } from '../services/pipeline/contracts.js'
-import { AgentGlyph } from '../cmps/AxlHub/AgentBadges.jsx'
 import { AccountSelector }   from '../cmps/ChatPanel/AccountSelector.jsx'
 import { readStoredModel }   from '../cmps/modelOptions.js'
 import { readStoredReasoning } from '../cmps/reasoningOptions.js'
@@ -35,7 +34,7 @@ import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.rem
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
 import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
-import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE } from '../services/event-bus.service'
+import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE, MARKET_BRIEF_OPEN } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
 import { mentorService } from '../services/mentor/mentor.service.remote.js'
 import { isSetupAwaitingConfirm } from '../cmps/TradeIdeas/setupStatus.js'
@@ -83,15 +82,9 @@ function PipelineCrumb({ pipeline, activeTab, step = 0 }) {
     return (
         <div className="chat-agentbar__pipeline">
             <span className="chat-agentbar__pipeline-label">{desk.label}</span>
-            <span className="chat-agentbar__pipeline-sep" aria-hidden="true">·</span>
             {desk.steps.map((step, i) => (
                 <span key={step.label} className="chat-agentbar__pipeline-group">
                     {i > 0 && <span className="chat-agentbar__pipeline-line" aria-hidden="true" />}
-                    {i > 0 && step.tab && AGENTS[step.tab] && (
-                        <span className={`chat-agentbar__pipeline-icon${i === activeIdx ? ' is-active' : ''}`}>
-                            <AgentGlyph agentKey={step.tab} icon={AGENTS[step.tab].icon} size={11} />
-                        </span>
-                    )}
                     <span className={`chat-agentbar__pipeline-step${i === activeIdx ? ' is-active' : ''}`}>
                         <span className="chat-agentbar__pipeline-text">{step.label}</span>
                     </span>
@@ -266,6 +259,9 @@ export function MainPage() {
     const [editingIdeaId,     setEditingIdeaId]     = useState(null)
     const [isInvalidationReview, setIsInvalidationReview] = useState(false)
     const [activeTab, setActiveTab]             = useState('axl')
+    // Bumped by the daily market-brief card — the hub writes the brief on every change, then clears
+    // it. See the MARKET_BRIEF_OPEN listener for why it counts rather than latches.
+    const [briefRequest, setBriefRequest]       = useState(0)
     const [activePipeline, setActivePipeline]   = useState(null)   // pipeline key from Axl reception
     const [pipelineStep,   setPipelineStep]     = useState(0)      // index into that desk's steps[] — what "back" walks from
     const [newsTab, setNewsTab]                 = useState('scans')
@@ -912,6 +908,9 @@ export function MainPage() {
     ideasRef.current = ideas
     const callsRef = useRef(calls)
     callsRef.current = calls
+    // Read by the card listeners below, which are registered once and so can't close over state.
+    const activeTabRef = useRef(activeTab)
+    activeTabRef.current = activeTab
     // The coverage book, for the card handlers below — they mount once, so they can't close over the list.
     const coverageRef = useRef(coverage)
     coverageRef.current = coverage
@@ -1032,6 +1031,24 @@ export function MainPage() {
         return eventBus.on(CALL_EXPIRY_EDIT, ({ callId }) => {
             const call = callsRef.current.find(c => c.id === callId)
             if (call) handleEditCall(call)
+        })
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Market-brief card "Get the brief" → open Axl and have him write it there.
+    //
+    // Routing uses the normal leave-the-desk path (return overlay, pipeline cleared, panels reset)
+    // so arriving from a card lands exactly where arriving by the back arrow does — but ONLY from
+    // another tab: run on a user already talking to Axl it would remount the hub and wipe the
+    // conversation they are in, to deliver a brief into the wreckage.
+    //
+    // The counter is what tells the hub to write. A counter and not a flag, because two briefs a
+    // day (a second card after the first was dismissed) must both fire, and because switching to
+    // the tab you are already on changes nothing on its own. The hub clears it once it starts, so
+    // coming back to Axl later doesn't re-deliver a brief the user already read.
+    useEffect(() => {
+        return eventBus.on(MARKET_BRIEF_OPEN, () => {
+            if (activeTabRef.current !== 'axl') handleBackToAxl()
+            setBriefRequest(n => n + 1)
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -2502,18 +2519,23 @@ export function MainPage() {
                                 user={user}
                                 onPick={handleAxlPick}
                                 onOpenTicket={handleOpenTicket}
+                                briefRequest={briefRequest}
+                                onBriefStart={() => setBriefRequest(0)}
                             />
                         ) : (
                             <div className="chat-agentbar">
+                                {/* Inside a pipeline the arrow goes bare: the desk path beside it is
+                                    already carrying the words, and "axl" next to it read as a step. */}
                                 <button
-                                    className="chat-agentbar__back"
+                                    className={`chat-agentbar__back${activePipeline ? ' chat-agentbar__back--bare' : ''}`}
                                     onClick={handleBackToAxl}
                                     aria-label="Back to axl"
+                                    title="Back to axl"
                                 >
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                                         <path d="M20 12H6" /><path d="M12 5l-7 7 7 7" />
                                     </svg>
-                                    axl
+                                    {!activePipeline && 'axl'}
                                 </button>
                                 {backStep && (
                                     <button
@@ -2529,26 +2551,28 @@ export function MainPage() {
                                     </button>
                                 )}
                                 <PipelineCrumb pipeline={activePipeline} activeTab={activeTab} step={pipelineStep} />
-                                {/* How the desk hands its work on. Manual stops at each step so the
-                                    user can read it and keep chatting before sending it forward;
-                                    auto walks the chain on its own. Shown only inside a pipeline —
-                                    off a desk there is no chain to advance. Arming and order
-                                    confirmation are gated steps and stay manual in both modes. */}
-                                {activePipeline && (
-                                    <button
-                                        type="button"
-                                        className={`chat-agentbar__mode${pipelineMode === 'auto' ? ' is-auto' : ''}`}
-                                        onClick={() => setPipelineMode(m => (m === 'auto' ? 'manual' : 'auto'))}
-                                        aria-pressed={pipelineMode === 'auto'}
-                                        title={pipelineMode === 'auto'
-                                            ? 'Auto: each desk hands its work straight to the next'
-                                            : 'Manual: you send the work on when you are ready'}
-                                    >
-                                        {pipelineMode === 'auto' ? 'auto' : 'manual'}
-                                    </button>
-                                )}
 
                                 <div className="chat-agentbar__right">
+                                    {/* How the desk hands its work on. Manual stops at each step so the
+                                        user can read it and keep chatting before sending it forward;
+                                        auto walks the chain on its own. Shown only inside a pipeline —
+                                        off a desk there is no chain to advance. Arming and order
+                                        confirmation are gated steps and stay manual in both modes.
+                                        Sits with the account / history controls rather than beside the
+                                        stepper: it is a setting, and next to the path it read as a step. */}
+                                    {activePipeline && (
+                                        <button
+                                            type="button"
+                                            className={`chat-agentbar__mode${pipelineMode === 'auto' ? ' is-auto' : ''}`}
+                                            onClick={() => setPipelineMode(m => (m === 'auto' ? 'manual' : 'auto'))}
+                                            aria-pressed={pipelineMode === 'auto'}
+                                            title={pipelineMode === 'auto'
+                                                ? 'Auto: each desk hands its work straight to the next'
+                                                : 'Manual: you send the work on when you are ready'}
+                                        >
+                                            {pipelineMode === 'auto' ? 'auto' : 'manual'}
+                                        </button>
+                                    )}
                                     {/* (Trading by hand is picked in the hub, beside the desks — the pad
                                         is its own tab, so no strip toggle is needed here. The account
                                         selector below stays off it: the pad carries its own.) */}
