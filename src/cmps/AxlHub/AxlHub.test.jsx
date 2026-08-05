@@ -15,8 +15,8 @@ const { AxlHub, MessageBubble } = await import('./AxlHub.jsx')
 
 // Reply with a desk hand-off, the way the server sends one: the tag is already parsed off, so the
 // client sees `route` (which desk) + `routeSymbol` (the name it should open on).
-function replyWith({ reply = 'Taking you to Prometheus.', route = null, routeSymbol = null, objective = null, edit = null } = {}) {
-    streamAxl.mockImplementation(async (_messages, opts) => { opts.onDone?.({ reply, route, routeSymbol, objective, edit }) })
+function replyWith({ reply = 'Taking you to Prometheus.', route = null, routeSymbol = null, opening = null, edit = null } = {}) {
+    streamAxl.mockImplementation(async (_messages, opts) => { opts.onDone?.({ reply, route, routeSymbol, opening, edit }) })
 }
 
 async function ask(text) {
@@ -166,47 +166,43 @@ describe('AxlHub — the edit hand-off', () => {
     })
 })
 
-describe('AxlHub — the goal Axl took down', () => {
-    // The objective is what survives the hop to a desk. Showing it back is the only way the user
-    // can tell we understood, so an intake turn must put it on screen even though it does not route.
-    const objective = {
-        id: 'obj_1',
-        target: { pct: 5 },
-        horizon: { days: 7, until: '2026-08-06' },
-        risk: { maxDrawdownPct: 2 },
-    }
+describe('AxlHub — the opening turn that travels with them', () => {
+    // THE hand-off. Axl works out which desk, and the sentence the user said goes with them so the
+    // desk opens on the job. It replaced an `objectives` record (2026-08-05) that carried the goal as
+    // structured fields, showed it back in a chip, and outlived the job it described.
+    it('carries the opening to the desk alongside the route', async () => {
+        const onPick = vi.fn()
+        render(<AxlHub user={{}} onPick={onPick} />)
+        replyWith({ reply: 'Taking you to Atlas.', route: 'portfolio', opening: 'I want 5% profit.' })
 
-    it('shows the captured goal after an intake turn', async () => {
-        render(<AxlHub user={{}} onPick={vi.fn()} />)
-        replyWith({ reply: 'Noted. One position or several?', objective })
+        await ask('several positions')
 
-        await ask('I want to make 5% in the next week')
-
-        expect(screen.getByText(/\+5% by Aug 6/)).toBeTruthy()
-        expect(screen.getByText('risk 2%')).toBeTruthy()
+        expect(onPick).toHaveBeenCalledWith('portfolio', {
+            pipeline: 'portfolio', symbol: null, opening: 'I want 5% profit.',
+        })
     })
 
-    it('keeps the goal on screen through a later turn that carries none', async () => {
-        // Only intake turns carry the objective. If a plain answer blanked it, the goal would
-        // flicker away mid-conversation while it is still very much open.
-        render(<AxlHub user={{}} onPick={vi.fn()} />)
-        replyWith({ reply: 'Noted.', objective })
-        await ask('I want to make 5% in the next week')
+    it('a route with no opening hands over nothing extra — the desk asks as it always did', async () => {
+        const onPick = vi.fn()
+        render(<AxlHub user={{}} onPick={onPick} />)
+        replyWith({ reply: 'Off to Kairos.', route: 'trade', routeSymbol: 'TSLA' })
 
-        replyWith({ reply: 'A stop is where you accept the idea was wrong.' })
-        await ask('what is a stop?')
+        await ask('find me a trade on tsla')
 
-        expect(screen.getByText(/\+5% by Aug 6/)).toBeTruthy()
+        // The trade desk ENTERS at Argus, hence 'scanner' rather than 'kairos'.
+        expect(onPick).toHaveBeenCalledWith('scanner', { pipeline: 'trade', symbol: 'TSLA' })
+        expect(onPick.mock.calls[0][1].opening).toBeUndefined()
     })
 
-    it('Clear wipes the goal along with the thread', async () => {
-        render(<AxlHub user={{}} onPick={vi.fn()} />)
-        replyWith({ reply: 'Noted.', objective })
-        await ask('I want to make 5% in the next week')
+    it('an opening on a turn that does not route goes nowhere', async () => {
+        // The server already refuses this pairing; the client must not invent a desk for it either.
+        const onPick = vi.fn()
+        render(<AxlHub user={{}} onPick={onPick} />)
+        replyWith({ reply: 'One position or several?', opening: 'I want 5% profit.' })
 
-        await act(async () => { fireEvent.click(screen.getByTitle(/clear/i)) })
+        await ask('i want 5% profit')
 
-        expect(screen.queryByText(/\+5% by Aug 6/)).toBe(null)
+        expect(onPick).not.toHaveBeenCalled()
     })
 })
 

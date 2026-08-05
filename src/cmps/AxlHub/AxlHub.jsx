@@ -14,7 +14,6 @@ import { ChatReasoning } from '../ChatReasoning.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { waitingLabel } from '../ToolStatusChip/waitingLabel.js'
 import { ChatChartDock } from '../ChatChartDock.jsx'
-import { ObjectiveChip } from './ObjectiveChip.jsx'
 import { ChatChart } from '../ChatChart.jsx'
 import { closeChart } from '../../services/chartSurface.service.js'
 import { readStoredModel } from '../modelOptions.js'
@@ -81,8 +80,7 @@ export function AxlHub({ user, onPick, onOpenTicket }) {
 
     const [summoning, setSummoning]       = useState(null)
     const [draft, setDraft]               = useState('')
-    const [pendingRoute, setPendingRoute] = useState(null)   // { desk, symbol } — the reply's hand-off
-    const [objective, setObjective]       = useState(null)   // the goal Axl took down at intake
+    const [pendingRoute, setPendingRoute] = useState(null)   // { desk, symbol, opening, edit } — the hand-off
     const [hoveredDesk, setHoveredDesk]   = useState(null)
     const timerRef  = useRef(null)
     const inputRef  = useRef(null)
@@ -96,7 +94,7 @@ export function AxlHub({ user, onPick, onOpenTicket }) {
     useEffect(() => {
         if (!pendingRoute || isLoading) return
         const t = setTimeout(() => {
-            _summon(pendingRoute.desk, pendingRoute.symbol, pendingRoute.edit)
+            _summon(pendingRoute.desk, pendingRoute.symbol, pendingRoute.edit, pendingRoute.opening)
             setPendingRoute(null)
         }, 900)
         return () => clearTimeout(t)
@@ -109,10 +107,13 @@ export function AxlHub({ user, onPick, onOpenTicket }) {
     // item at it". The summon animation is identical — the user is still being taken to an agent —
     // but the desk's entryTab is only a fallback from here on: the item picks its own tab (a call is
     // edited in Kairos, though the trading desk ENTERS at Argus), which the host resolves.
-    function _summon(desk, symbol = null, edit = null) {
+    // `opening` is what the user said they came for, in their own words. It is sent at the desk as
+    // THEIR first message, which is the whole hand-off: Axl works out where they belong, and the
+    // sentence goes with them so the desk starts on the job instead of asking what brought them.
+    function _summon(desk, symbol = null, edit = null, opening = null) {
         setSummoning(desk)
         timerRef.current = setTimeout(
-            () => onPick(desk.entryTab, { pipeline: desk.key, symbol, ...(edit ? { edit } : {}) }),
+            () => onPick(desk.entryTab, { pipeline: desk.key, symbol, ...(edit ? { edit } : {}), ...(opening ? { opening } : {}) }),
             SUMMON_MS,
         )
     }
@@ -153,10 +154,15 @@ export function AxlHub({ user, onPick, onOpenTicket }) {
                 // names its own desk (kind → desk is decided on the server), so it is read first:
                 // a turn that reopens the user's TSLA call is going to Kairos whatever else it said.
                 const desk = DESKS.find(d => d.key === (data.edit?.desk ?? data.route))
-                if (desk) setPendingRoute({ desk, symbol: data.routeSymbol ?? null, edit: data.edit ?? null })
-                // An intake turn carries the goal Axl captured. It arrives on any turn that saved
-                // or resolved one, so a later turn never blanks a goal that is still open.
-                if (data.objective) setObjective(data.objective)
+                if (desk) setPendingRoute({
+                    desk,
+                    symbol:  data.routeSymbol ?? null,
+                    edit:    data.edit ?? null,
+                    // What the user said they came for, in their words — sent as their first message
+                    // at the desk. Null on an edit (that reopens a conversation that already exists)
+                    // and whenever Axl had nothing to carry, in which case the desk opens by asking.
+                    opening: data.opening ?? null,
+                })
             },
         })
 
@@ -183,7 +189,6 @@ export function AxlHub({ user, onPick, onOpenTicket }) {
         chat.handleStop?.()
         chat.setMessages([])
         setDraft('')
-        setObjective(null)
         // One Clear, one clean slate — a chart left docked under an empty hub reads as a leftover.
         closeChart()
     }
@@ -359,7 +364,6 @@ export function AxlHub({ user, onPick, onOpenTicket }) {
             {/* Same dock as every agent chat: above the input, below the thread. */}
             <ChatChartDock />
 
-            <ObjectiveChip objective={objective} onClear={() => setObjective(null)} />
 
             <ChatInputRow
                 prefix="axl"

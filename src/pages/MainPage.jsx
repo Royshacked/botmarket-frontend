@@ -1752,15 +1752,21 @@ export function MainPage() {
     }
 
     // ── Axl reception → a desk ────────────────────────────────────────────────
-    // The hub summoned a desk (AxlHub's `onPick`). `opts.symbol` is the name Axl already resolved
-    // from the conversation, so the entry agent opens ON it — the point of routing is that the user
-    // doesn't say "NVDA" twice. Same keyed seed every hand-off uses (see useSeedTurn).
+    // The hub summoned a desk (AxlHub's `onPick`), and it carries the hand-off in two parts.
     //
-    // Research and Assist take one: both are single-name desks, and each words the opening turn in
-    // ITS OWN job — Prometheus is asked for coverage, Mentor is handed a trade the user already has
-    // in mind. Trading enters at Argus, whose opening turn is a screen, not a ticker, so a seed there
-    // would start the wrong work. Portfolio enters at Atlas, whose opening turn is the MANDATE — a
-    // ticker seed there would jump the frame it has to establish first (its Phase 1 gate).
+    // `opts.opening` is the whole point of routing: what the user said they came for, in their own
+    // words, sent at the desk as THEIR first message. EVERY desk takes one, because it is not a
+    // parameter anyone has to interpret — it is the sentence the user would have typed on arrival,
+    // and each entry agent already knows what to do with a sentence. (This is why the desks that
+    // used to be excluded no longer are: a bare TICKER seed at Argus or Atlas jumped the frame they
+    // have to establish first — Argus opens on a screen, Atlas on the mandate — but "I want 5%
+    // profit" IS Atlas's Phase 1 material, and "I think NVDA breaks out" is Argus's.)
+    //
+    // `opts.symbol` is the name Axl resolved from the conversation, so the entry agent opens ON it
+    // and the user doesn't say "NVDA" twice. It still words its own sentence for the two single-name
+    // desks — but only when no opening came, since the user's own words always say it better.
+    //
+    // Both go through the same keyed one-shot seed every hand-off in the app uses (useSeedTurn).
     // ── Axl hand-off → an item's own EDIT mode ────────────────────────────────
     // A route opens a desk for new work; this reopens something the user already has. Axl names the
     // kind and the handle (both come straight off `get_watched_items`, whose rows lead with
@@ -1834,9 +1840,24 @@ export function MainPage() {
         setActivePipeline(opts.pipeline ?? null)
         setPipelineStep(0)                                    // a desk always opens at its first step
         setNewsTab('scans')
+
+        const opening = typeof opts.opening === 'string' ? opts.opening.trim() : ''
+        const key = Date.now()
+        if (opening) {
+            switch (tab) {
+                case 'analyst':   return setAnalystSeed({ key, message: opening })
+                case 'mentor':    return setMentorSeed({ key, message: opening })
+                case 'portfolio': return setPortfolioSeed({ key, message: opening })
+                // Argus is the entry for BOTH the trade desk and the scan desk, and both are the
+                // trading profile — named rather than left to the panel, which may still be on the
+                // investing profile from a portfolio sleeve run.
+                case 'scanner':   return setScannerSeed({ key, message: opening, profile: 'trading' })
+                default: break
+            }
+        }
         if (!opts.symbol) return
-        if (tab === 'analyst') setAnalystSeed({ key: Date.now(), message: `Research ${opts.symbol} for coverage.` })
-        if (tab === 'mentor')  setMentorSeed({ key: Date.now(), message: `I want to work on my own ${opts.symbol} trade.` })
+        if (tab === 'analyst') setAnalystSeed({ key, message: `Research ${opts.symbol} for coverage.` })
+        if (tab === 'mentor')  setMentorSeed({ key, message: `I want to work on my own ${opts.symbol} trade.` })
     }
 
     // ── Walking the pipeline ──────────────────────────────────────────────────
