@@ -6,28 +6,17 @@
     height: 100%;
     min-height: 0;
 
-    &__intro {
-        padding: 14px 16px;
-
-        h3 {
-            margin: 0 0 6px;
-            font-size: 14px;
-            color: var(--text-primary);
-        }
-        p {
-            margin: 0;
-            font-size: 12.5px;
-            line-height: 1.55;
-            color: var(--text-secondary);
-        }
-    }
-
     // A view already in force changes what the next turn MEANS — it is a review, not a first read.
+    // Sits inside the shared <AgentIntro>, so it inherits its centring and only adds the rule that
+    // separates a standing fact from the desk's greeting.
     &__standing {
-        margin-top: 8px !important;
+        margin: 8px 0 0;
         padding-top: 8px;
+        max-width: 330px;
         border-top: 1px solid var(--border);
-        color: var(--text-muted) !important;
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--text-muted);
     }
 
     // ── the draft ─────────────────────────────────────────────────────────────

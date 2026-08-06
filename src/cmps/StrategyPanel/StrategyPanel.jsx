@@ -6,6 +6,8 @@ import { readStoredReasoning } from '../reasoningOptions.js'
 import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
 import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
+import { AGENTS } from '../AxlHub/agentMeta.jsx'
+import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { ChatBubble } from '../ChatBubble.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { waitingLabel } from '../ToolStatusChip/waitingLabel.js'
@@ -173,24 +175,24 @@ export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished
     return (
         <div className="strategy-panel">
             <AgentMessages chat={chat}>
+                {/* The brand rides the shared pieces every other desk uses — badge, "Hi, I'm …",
+                    the desk's own intro/hint from agentMeta. Only the standing-view note is
+                    specific to this desk, so it goes in as a child. */}
                 {messages.length === 0 && (
-                    <div className="strategy-panel__intro">
-                        <h3>Pythia</h3>
-                        <p>
-                            The top-down desk. One house view: what regime we are in, what would break that read,
-                            and the sector stances it implies — as active weight against the benchmark, so each one
-                            gets graded on whether the sector beat the index.
-                        </p>
+                    <AgentIntro agent={AGENTS.strategy}>
                         {currentTilt && (
                             <p className="strategy-panel__standing">
                                 A view is already in force ({currentTilt.tilts?.length ?? 0} stances). Ask for a review and
                                 Pythia reaffirms what still holds rather than starting over.
                             </p>
                         )}
-                    </div>
+                    </AgentIntro>
                 )}
                 {messages.map((msg, i) => <MessageBubble key={i} msg={msg} />)}
                 {isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus: chat.streamStatus, placeholder: 'reading the tape…' })} pulse={chat.reasoningPulse} />}
+                {(isLoading || messages.some(m => m.role === 'assistant' && m.content)) && (
+                    <AgentTurnTag agent={AGENTS.strategy} active={isLoading} />
+                )}
             </AgentMessages>
 
             {!isLoading && pendingTilt && (

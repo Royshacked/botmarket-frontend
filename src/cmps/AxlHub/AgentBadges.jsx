@@ -130,6 +130,21 @@ export function PrometheusBadge(props) {
     )
 }
 
+// Pythia — the strategy desk. The Delphic tripod: the seat the oracle spoke from, with the vapour
+// rising off it. Like Prometheus and Mentor, the badge is the 200-space twin of the desk's line
+// sigil, so the desk reads the same weight as the others wherever a glyph is drawn.
+export function PythiaBadge(props) {
+    return (
+        <Badge {...props} title="Pythia">
+            <path d="M52,86 H148 L138,112 C133,124 118,132 100,132 C82,132 67,124 62,112 Z" />
+            <line x1="76" y1="128" x2="58" y2="174" />
+            <line x1="124" y1="128" x2="142" y2="174" />
+            <line x1="100" y1="132" x2="100" y2="174" />
+            <path d="M88,72 C88,60 100,57 100,44 C100,57 112,60 112,72" />
+        </Badge>
+    )
+}
+
 // Minos — the idea-monitoring persona (crown of the judge-king over a labyrinth of conditions).
 export function MinosBadge(props) {
     return (
@@ -185,10 +200,10 @@ export function HermesBadge(props) {
     )
 }
 
-const AGENT_BADGES  = { idea: IdeaBadge, portfolio: AtlasBadge, scanner: ArgusBadge, kairos: KairosBadge, mentor: MentorBadge, analyst: PrometheusBadge }
+const AGENT_BADGES  = { idea: IdeaBadge, portfolio: AtlasBadge, scanner: ArgusBadge, kairos: KairosBadge, mentor: MentorBadge, analyst: PrometheusBadge, strategy: PythiaBadge }
 // Notification/list context: ideas show Minos, calls show Hermes, setups show Talos; the rest reuse
 // their agent figure.
-const NOTIFY_BADGES = { idea: MinosBadge, kairos: HermesBadge, mentor: TalosBadge, portfolio: AtlasBadge, scanner: ArgusBadge, analyst: PrometheusBadge }
+const NOTIFY_BADGES = { idea: MinosBadge, kairos: HermesBadge, mentor: TalosBadge, portfolio: AtlasBadge, scanner: ArgusBadge, analyst: PrometheusBadge, strategy: PythiaBadge }
 
 // Badge COMPONENT for an agent key (or null → fall back to the line glyph). Internal — consumers
 // go through <AgentGlyph> so this module exports only components (Fast Refresh stays happy).
