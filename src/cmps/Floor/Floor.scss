@@ -656,12 +656,20 @@ $header-h: var(--header-h);
         &--sell, &--strong_sell { color: var(--color-short); }
     }
 
-    &__pt {
-        font-family: var(--font-mono);
-        font-size: 10.5px;
-        color: var(--text-muted);
+    // The shared renderer (cmps/PriceTarget). The Floor keeps its own reading of the same number:
+    // right-aligned into the row's spare width, quieter than the panels', and using the SATURATED
+    // long/short pair the rest of these rows use rather than the pale on-tint one the panels take.
+    .price-target {
         flex: 1;
         text-align: right;
+        font-size: 10.5px;
+        color: var(--text-muted);
+
+        &__gap {
+            margin-left: 4px;
+            &--up   { color: var(--color-long); }
+            &--down { color: var(--color-short); }
+        }
     }
 
     &__chev {
@@ -674,11 +682,6 @@ $header-h: var(--header-h);
         &--open { transform: rotate(90deg); color: var(--accent-light); }
     }
 
-    &__gap {
-        margin-left: 4px;
-        &.is-pos { color: var(--color-long); }
-        &.is-neg { color: var(--color-short); }
-    }
 }
 
 // ── Hover actions ────────────────────────────────────────────────────────────

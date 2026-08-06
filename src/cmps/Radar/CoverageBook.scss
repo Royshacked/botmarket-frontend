@@ -63,14 +63,10 @@
         &--sell, &--strong_sell { color: var(--short-text); background: var(--short-bg); border-color: var(--short-border); }
     }
 
-    &__pt {
-        font-family: var(--font-mono);
+    // The shared renderer (cmps/PriceTarget) brings its own type and gap colours; the book only sizes
+    // it to the row.
+    &__row .price-target {
         font-size: 11.5px;
-        color: var(--text-secondary);
-    }
-    &__gap {
-        &--up   { color: var(--long-text); }
-        &--down { color: var(--short-text); }
     }
 
     &__status {

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import PropTypes from 'prop-types'
 import './CoverageBook.scss'
 import { CoverageActions } from './CoverageActions.jsx'
+import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
 
 // The Analyst's living book — a read view of the `coverage` collection: our variant thesis, our
 // price target vs the Street (the gap = the edge), the rating, and the status the monitor maintains.
@@ -23,12 +24,7 @@ function CoverageCard({ c, onEdit, onRetire, onDelete }) {
                 onKeyDown={e => { if (hasDetail && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setOpen(o => !o) } }}>
                 <span className="coverage-book__sym">{c.symbol}</span>
                 {c.rating && <span className={`coverage-book__rating coverage-book__rating--${c.rating}`}>{RATING_LABEL[c.rating] ?? c.rating}</span>}
-                {pt?.value != null && (
-                    <span className="coverage-book__pt">
-                        PT {pt.value}
-                        {gap?.pct != null && <span className={`coverage-book__gap coverage-book__gap--${gap.pct >= 0 ? 'up' : 'down'}`}> {gap.pct >= 0 ? '+' : ''}{gap.pct}%</span>}
-                    </span>
-                )}
+                <PriceTarget priceTarget={pt} gap={gap} />
                 <span className={`coverage-book__status coverage-book__status--${c.status}`}>{STATUS_LABEL[c.status] ?? c.status}</span>
                 {/* On the ROW, not in the expanded detail. Actions that only appear once you have
                     opened a thesis are actions nobody finds — and unlike the trade desks there is no

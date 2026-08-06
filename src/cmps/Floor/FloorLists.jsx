@@ -10,6 +10,7 @@ import { ActivatePortfolioDialog } from '../TradeIdeas/ActivatePortfolioDialog.j
 import { tradeFloorItems } from './floor.utils.js'
 import { RowHost } from './RowHost.jsx'
 import { CoverageActions } from '../Radar/CoverageActions.jsx'
+import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
 import './Floor.scss'
 
 // The Floor's right column: four desks, one open at a time.
@@ -441,16 +442,8 @@ function CoverageRows({ coverage, onEditCoverage, onRetireCoverage, onDeleteCove
                         )}
                         <span className="floor-row__sym">{c.symbol}</span>
                         {c.rating && <span className={`floor-row__rating floor-row__rating--${c.rating}`}>{RATING_LABEL[c.rating] ?? c.rating}</span>}
-                        {c.price_target?.value != null && (
-                            <span className="floor-row__pt">
-                                {c.price_target.value}
-                                {c.gap?.pct != null && (
-                                    <span className={`floor-row__gap ${c.gap.pct >= 0 ? 'is-pos' : 'is-neg'}`}>
-                                        {c.gap.pct >= 0 ? '+' : ''}{c.gap.pct}%
-                                    </span>
-                                )}
-                            </span>
-                        )}
+                        {/* No "PT" label — this column already reads as the target on a coverage row. */}
+                        <PriceTarget priceTarget={c.price_target} gap={c.gap} label={null} />
                         <span className={`floor-row__status floor-row__status--${c.status}`}>{c.status}</span>
                     </button>
                 </RowHost>
