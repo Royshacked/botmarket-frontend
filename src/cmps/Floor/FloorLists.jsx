@@ -418,10 +418,10 @@ function CoverageRows({ coverage, onEditCoverage, onRetireCoverage, onDeleteCove
     })
 
     return coverage.map(c => {
-        const key    = c.id ?? c.symbol
-        const kills  = asList(c.kill_criteria)
-        const cats   = asList(c.catalysts)
-        const revs   = asList(c.revisions)
+        const key   = c.id ?? c.symbol
+        const kills = asList(c.kill_criteria)
+        const cats  = asList(c.catalysts)
+        const revs  = asList(c.revisions)
         // Nothing to open → no chevron. A control that expands to an empty box is worse than none.
         const hasDetail = !!(c.thesis || kills.length || cats.length || revs.length)
         const isOpen = hasDetail && open.has(key)
@@ -429,6 +429,10 @@ function CoverageRows({ coverage, onEditCoverage, onRetireCoverage, onDeleteCove
         return (
             <div key={key} className="floor-sub">
                 <RowHost actions={<CoverageActions coverage={c} onEdit={onEditCoverage} onRetire={onRetireCoverage} onDelete={onDeleteCoverage} />}>
+                    {/* Collapsed, this is ONE line — see .floor-row in Floor.scss. The cells are
+                        multi-word ("strong buy", "thesis broken", a target with its horizon), and a
+                        flex item is free to wrap at those spaces when the column is narrow, which
+                        broke the row onto a second line the fixed row height then clipped. */}
                     <button
                         className={`floor-row${hasDetail ? '' : ' floor-row--static'}`}
                         onClick={hasDetail ? () => toggle(key) : undefined}

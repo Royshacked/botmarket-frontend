@@ -11,6 +11,7 @@ import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js
 import { useSeedTurn } from '../../customHooks/useSeedTurn.js'
 import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
+import { LaterButton } from '../LaterButton.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
@@ -412,11 +413,9 @@ export function PortfolioPanel({
 
     // In edit mode there's ALWAYS an enabled escape (leave without saving), shown at the end of
     // every turn and after a Stop — next to "Update plan" instead of only before the first edit.
-    const laterBtn = editingPortfolioId ? (
-        <button className="portfolio-panel__generate portfolio-panel__generate--cancel" onClick={handleCancelEdit}>
-            I&apos;ll do it later
-        </button>
-    ) : null
+    const laterBtn = editingPortfolioId
+        ? <LaterButton className="portfolio-panel__generate portfolio-panel__generate--cancel" onClick={handleCancelEdit} />
+        : null
 
     return (
         <div className="portfolio-panel">
@@ -531,18 +530,14 @@ export function PortfolioPanel({
                             <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" onClick={() => setDismissConfirm(true)} disabled={accepting}>
                                 Dismiss
                             </button>
-                            <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={handleCancelEdit} disabled={accepting}>
-                                I&apos;ll do it later
-                            </button>
+                            <LaterButton onClick={handleCancelEdit} disabled={accepting} />
                         </>
                     ) : isReviewMode ? (
                         <>
                             <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={handleRunReview} disabled={isLoading}>
                                 Review
                             </button>
-                            <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={handleCancelEdit}>
-                                I&apos;ll do it later
-                            </button>
+                            <LaterButton onClick={handleCancelEdit} />
                             <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" onClick={() => setDismissConfirm(true)}>
                                 Dismiss
                             </button>

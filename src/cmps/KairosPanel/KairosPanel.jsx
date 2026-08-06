@@ -10,6 +10,7 @@ import { KAIROS_MODES, DEFAULT_KAIROS_MODE, readStoredKairosMode } from '../kair
 import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
 import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
+import { LaterButton, LATER_BTN_CLASS } from '../LaterButton.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
@@ -385,11 +386,9 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
     const showChangedMind = isEditing && !editDirty
     // In edit mode there's ALWAYS an enabled escape (leave without saving), shown at the end of
     // every turn and after a Stop — next to "Update call" instead of only before the first edit.
-    const laterBtn = isEditing ? (
-        <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later kairos-panel__generate-btn" onClick={handleCancelEdit}>
-            I&apos;ll do it later
-        </button>
-    ) : null
+    const laterBtn = isEditing
+        ? <LaterButton className={`${LATER_BTN_CLASS} kairos-panel__generate-btn`} onClick={handleCancelEdit} />
+        : null
 
     // Stopped mid-reply → the input's Stop turns into a Play to resume that bubble (like other chats).
 

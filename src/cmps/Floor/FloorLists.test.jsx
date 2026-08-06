@@ -147,6 +147,21 @@ describe('FloorLists', () => {
         expect(screen.getByText('Services growth < 8%')).toBeTruthy()
     })
 
+    // Peers you compare, not sections you navigate — opening one must not close the last.
+    it('keeps several theses open at once', () => {
+        const coverage = [
+            { id: 'cv1', symbol: 'AAPL', status: 'active', thesis: 'Services mix re-rates.' },
+            { id: 'cv2', symbol: 'MSFT', status: 'active', thesis: 'Azure carries the multiple.' },
+        ]
+        render(<FloorLists coverage={coverage} />)
+        fireEvent.click(deskBtn('Coverage'))
+        fireEvent.click(screen.getByText('AAPL').closest('button'))
+        fireEvent.click(screen.getByText('MSFT').closest('button'))
+
+        expect(screen.getByText(/services mix/i)).toBeTruthy()
+        expect(screen.getByText(/azure carries/i)).toBeTruthy()
+    })
+
     // A chevron that opens an empty box is worse than no chevron.
     it('offers no expander on a coverage row with nothing to show', () => {
         const coverage = [{ id: 'cv1', symbol: 'AAPL', status: 'active' }]
@@ -155,6 +170,25 @@ describe('FloorLists', () => {
         const row = screen.getByText('AAPL').closest('button')
         expect(row.getAttribute('aria-expanded')).toBeNull()
         expect(row.querySelector('.floor-row__chev')).toBeNull()
+    })
+
+    // A COLLAPSED row is one line. jsdom lays nothing out, so this guards the rules that make it
+    // one: the cells are multi-word ("strong buy", "thesis broken", "412 / 12M"), and a flex item
+    // wraps at those spaces unless told not to — which the fixed row height then clips.
+    it('pins a collapsed row to a single line', () => {
+        const css = readFileSync(resolve(process.cwd(), 'src/cmps/Floor/Floor.scss'), 'utf8')
+        const row = css.slice(css.indexOf('.floor-row {'), css.indexOf('.floor-rowhost'))
+        // The ROW's own declarations, before the first nested cell — two cells carry a nowrap of
+        // their own, so an unscoped match here would pass with the row's rule deleted.
+        const base = row.slice(0, row.indexOf('\n    &'))
+
+        expect(base).toMatch(/white-space:\s*nowrap/)
+        // The fixed cells hold their width…
+        expect(row).toMatch(/&__rating\s*\{[^}]*flex-shrink:\s*0/)
+        expect(row).toMatch(/&__status\s*\{[^}]*flex-shrink:\s*0/)
+        // …so the one elastic cell is what gives, and it truncates rather than wrapping.
+        expect(row).toMatch(/\.price-target\s*\{[^}]*min-width:\s*0/)
+        expect(row).toMatch(/\.price-target\s*\{[^}]*text-overflow:\s*ellipsis/)
     })
 
     it('expands a scan into its candidates, and several scans can be open at once', () => {
@@ -181,6 +215,27 @@ describe('FloorLists', () => {
 
         const name = screen.getByText('Semis')
         expect(name.nextElementSibling.textContent).toBe('(2)')
+    })
+
+    // Which box scrolls is a CSS question, so jsdom can't measure it — but it is exactly the kind
+    // of thing that regresses back to "put overflow on the container" the next time something
+    // overflows. Guard the rules themselves, the way the row-actions reveal is guarded below.
+    it('scrolls the open list, never the column around it', () => {
+        // Read from disk: vitest stubs stylesheet imports, so `?raw` would hand back an empty string.
+        const css    = readFileSync(resolve(process.cwd(), 'src/cmps/Floor/Floor.scss'), 'utf8')
+        const column = css.slice(css.indexOf('.floor-lists {'), css.indexOf('.floor-desk {'))
+        const desk   = css.slice(css.indexOf('.floor-desk {'))
+
+        // A scrolling column carries the "Lists" heading and the other three desk headers away
+        // with the rows — the whole complaint this fixed.
+        expect(column).toMatch(/overflow:\s*hidden/)
+        expect(column).not.toMatch(/overflow-y:\s*auto/)
+
+        // The open desk is the only one allowed to shrink, so it absorbs every bit of overflow…
+        expect(desk).toMatch(/&--open\s*\{\s*flex:\s*0 1 auto/)
+        // …and its list is what actually scrolls. No height cap: the shrink already sized it.
+        expect(desk).toMatch(/&__body\s*\{[^}]*overflow-y:\s*auto/)
+        expect(desk).not.toMatch(/max-height:\s*60vh/)
     })
 })
 

@@ -30,29 +30,6 @@ export function toChatHistory(messages) {
 }
 
 /**
- * Did the LAST turn run the desk's full workup and finish it? → boolean.
- *
- * The desks that produce an artifact (Prometheus a coverage draft, Pythia a tilt) announce a phase
- * as they enter it, and the final phase is the one that emits the block. So reaching it and having
- * no artifact means the workup ran and the block is missing — malformed JSON, or a reply cut short
- * that took the closing tag with it. THAT is when offering "draft it now" helps.
- *
- * Answering a question is not a workup and announces no phases, which is exactly the case this
- * exists to exclude: asking Pythia to explain the view it already published used to be followed by
- * a "Draft the view" button, as though the explanation had failed to produce something.
- *
- * Scoped to the last turn on purpose. Phase rows from an earlier answered turn are still in the
- * list, and counting those would put the button back under every later question.
- */
-export function lastTurnCompletedWorkup(messages = [], finalPhase) {
-    const lastUser = messages.map(m => m.role).lastIndexOf('user')
-    if (lastUser === -1 || !finalPhase) return false
-    return messages
-        .slice(lastUser + 1)
-        .some(m => m.role === 'phase' && Number(m.phase) >= finalPhase)
-}
-
-/**
  * Shared streaming machinery for the three agent chats (idea / scanner /
  * portfolio). Owns the messages list, loading/status/phase state, the typewriter
  * drain, the abort wiring, and the delicate "keep Stop live until the drain

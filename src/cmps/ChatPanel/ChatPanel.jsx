@@ -5,6 +5,7 @@ import { useMicInput } from '../../customHooks/useMicInput.js'
 import { useMarketStatus } from '../../customHooks/useMarketStatus.js'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
+import { LaterButton } from '../LaterButton.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
@@ -201,11 +202,9 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
     // In edit mode there is ALWAYS an enabled escape: leave without saving. It sits at the end of
     // every turn (and after a Stop — the action bar shows whenever !isLoading), next to whatever
     // primary action is offered (Update / Buy Market / a disabled Update while not-yet-ready).
-    const laterBtn = isEditing ? (
-        <button className="chat-panel__generate chat-panel__generate--cancel" onClick={onClear}>
-            I&apos;ll do it later
-        </button>
-    ) : null
+    const laterBtn = isEditing
+        ? <LaterButton className="chat-panel__generate chat-panel__generate--cancel" onClick={onClear} />
+        : null
 
     // Scroll-watch token: changes whenever the action bubble content changes so the
     // chat re-pins to bottom when buttons appear (e.g. idea becomes generate-ready).
@@ -316,9 +315,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                             <button className="chat-panel__review-btn chat-panel__review-btn--dismiss" onClick={() => setDismissConfirm(true)}>
                                 Dismiss
                             </button>
-                            <button className="chat-panel__review-btn chat-panel__review-btn--later" onClick={onClear}>
-                                I&apos;ll do it later
-                            </button>
+                            <LaterButton className="chat-panel__review-btn chat-panel__review-btn--later" onClick={onClear} />
                         </>
                     ) : canBuyMarket ? (
                         <>

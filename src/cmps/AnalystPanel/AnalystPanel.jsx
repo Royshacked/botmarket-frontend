@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { analystService } from '../../services/analyst/analyst.service.remote.js'
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
-import { useChatStream, toChatHistory, lastTurnCompletedWorkup } from '../../customHooks/useChatStream.js'
+import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
 import { useSeedTurn } from '../../customHooks/useSeedTurn.js'
 import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
@@ -206,23 +206,6 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
 
     function handleClear()     { chat.reset(); setPendingCoverage(null); setInitiateErr('') }
 
-    // A COMPLETED research turn with no draft. From here the block never closing (a long reply cut
-    // short takes `</coverage>` with it) and its JSON not parsing look identical, and in both the
-    // user is left reading a full write-up with nothing to press. So the ask lives at the foot of
-    // the conversation the way Mentor's Generate does, and it says what it will do.
-    //
-    // But ONLY for a turn that ran the research. This was keyed off "any assistant reply, no draft",
-    // which put the button under every plain answer — ask what the Street has on NVDA and you were
-    // offered "Draft coverage", as though answering had failed to produce something. Reaching the
-    // final phase is what tells the two apart: a research turn announces its phases, a conversation
-    // does not. A deliberate PASS ends before the final phase too, which is right — declining a name
-    // is an answer, not a failure to write one up.
-    const canDraft = lastTurnCompletedWorkup(messages, 6)
-    const askForDraft = () => _send(
-        'Write the coverage up now — emit the coverage block with everything you settled on. ' +
-        "If you're passing on this name, say so in one line instead."
-    )
-
     // Coverage saved → move the sleeve on. Only the SAVED names count as researched: a draft the
     // user declined is not something Atlas should build on.
     function _advance(saved) {
@@ -321,17 +304,6 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
                     </button>
                     <span className="analyst-panel__ask-hint">
                         {done.join(', ')} {done.length === 1 ? 'is' : 'are'} in coverage. Atlas builds the sleeve from there.
-                    </span>
-                </div>
-            )}
-
-            {!isLoading && !pendingCoverage && canDraft && (
-                <div className="portfolio-panel__action-bubble analyst-panel__ask">
-                    <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={askForDraft}>
-                        Draft coverage
-                    </button>
-                    <span className="analyst-panel__ask-hint">
-                        No draft yet — Prometheus writes one only when it has a view.
                     </span>
                 </div>
             )}

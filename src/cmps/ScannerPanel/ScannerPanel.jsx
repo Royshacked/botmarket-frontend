@@ -9,6 +9,7 @@ import { readStoredRoutingMode } from '../routingModeOptions.js'
 import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
 import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
+import { LaterButton } from '../LaterButton.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
@@ -401,7 +402,11 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
             // A refined investing list has the same next step as a fresh one — the names still owe
             // Prometheus a look. Offering it only on first generation meant anyone who tightened
             // their list lost the hand-off for having improved it.
-            if (profileRef.current === 'investing') setResearchOffer(pendingScan)
+            //
+            // `scan`, not `pendingScan`: on the auto path the list arrives as an argument because the
+            // state set moments earlier is not yet readable here, so reading state back would offer
+            // the list as it was BEFORE the update and send the superseded names to research.
+            if (profileRef.current === 'investing') setResearchOffer(scan)
         } else {
             await onGenerateList?.({ ...scan, chat: chatLog }, threadIdRef.current)
             // An INVESTING list is not the end of the road — the names are meant to go to Prometheus
@@ -425,17 +430,17 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
     const showChangedMind = !!editingScanId && !editDirty
     // In edit mode there's ALWAYS an enabled escape (leave without saving), shown at the end of
     // every turn and after a Stop — next to "Update list" instead of only before the first edit.
-    const laterBtn = editingScanId ? (
-        <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={handleClear}>
-            I&apos;ll do it later
-        </button>
-    ) : null
+    const laterBtn = editingScanId ? <LaterButton onClick={handleClear} /> : null
     // A stopped reply with real text can be resumed in place.
     // Argus has FINISHED at least one Phase-1 turn (not merely started+stopped). Gates
     // the setup chips so they don't pop up when the user stops before Argus has asked
     // anything — but still show (with prior picks marked) once a real turn has landed.
     const hasCompletedArgusTurn = messages.some(m => m.role === 'assistant' && !m.streaming && !m.stopped && !!(m.content && m.content.trim()))
-    const showAngleStrip = !chat.isLoading && !editingScanId && chat.phase === 1 && !listReady && hasCompletedArgusTurn
+    // Every ANGLE is a trading setup (momentum, breakouts, squeezes) — the wrong question to put in
+    // front of a portfolio scan, where the thesis is a sector mandate or a horizon and Atlas usually
+    // supplied it already. So the strip belongs to the trading lens only.
+    const showAngleStrip = !chat.isLoading && !editingScanId && profile !== 'investing'
+        && chat.phase === 1 && !listReady && hasCompletedArgusTurn
 
     return (
         <div className="portfolio-panel scanner-panel">
@@ -555,16 +560,29 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                     >
                         Send top {Math.min(RESEARCH_TOP_N, researchOffer.candidates.length)} to research →
                     </button>
-                    {/* Declining research is the end of the road for this list, so it lands where a
-                        finished list always did — the hub. Clearing the offer in place would strand
-                        the user in a scanner with nothing left to do. */}
-                    <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={() => { setResearchOffer(null); onResearchLater?.() }}>
+                    {/* Declining research after a FRESH generate is the end of the road for this
+                        list, so it lands where a finished list always did — the hub. Clearing the
+                        offer in place would strand the user in a scanner with nothing left to do.
+
+                        Mid-EDIT it is the opposite: the session is still open (the list is still
+                        pending, "Update list" is still the next press), so leaving would abandon an
+                        edit the user never finished. There, declining just puts the offer away and
+                        hands the footer back to the edit bar. */}
+                    <button
+                        className="portfolio-panel__review-btn portfolio-panel__review-btn--later"
+                        onClick={() => { setResearchOffer(null); if (!editingScanId) onResearchLater?.() }}
+                    >
                         Not now
                     </button>
                 </div>
             )}
 
-            {!chat.isLoading && !kairosPick && (!!editingScanId || listReady) && (
+            {/* A pending hand-off OWNS the footer, the same way a Kairos pick does. Updating an
+                investing list leaves both live at once — the list stays pending so the edit session
+                can continue — and the two bars stack into four buttons asking two different
+                questions, two of which navigate away. The offer is the one that just appeared, so it
+                answers first; declining it brings this bar straight back. */}
+            {!chat.isLoading && !kairosPick && !researchOffer && (!!editingScanId || listReady) && (
                 <div className="portfolio-panel__action-bubble">
                     {/* "Update/Generate list" only once there's a ready list; the "I'll do it later"
                         escape is always present in edit mode. */}

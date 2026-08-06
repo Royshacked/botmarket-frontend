@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { strategyService } from '../../services/strategy/strategy.service.remote.js'
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
-import { useChatStream, toChatHistory, lastTurnCompletedWorkup } from '../../customHooks/useChatStream.js'
+import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
 import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
 import { ChatBubble } from '../ChatBubble.jsx'
@@ -152,20 +152,6 @@ export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished
 
     function handleClear() { chat.reset(); setPendingTilt(null); setPublishErr('') }
 
-    /**
-     * The ask is for a turn that DID the workup and produced nothing — a block that never closed, or
-     * JSON that failed to parse. It is not for a turn that simply answered a question.
-     *
-     * Keying it off "any reply, no draft" put a "Draft the view" button under every explanation,
-     * which reads as though answering had failed. Reaching the final phase is what separates the two:
-     * a workup announces its phases, a conversation does not.
-     */
-    const canDraft = lastTurnCompletedWorkup(messages, 5)
-    const askForDraft = () => _send(
-        'Publish the view now — emit the tilt block with the stances you settled on. '
-        + 'If you would rather hold the current view unchanged, say so in one line instead.'
-    )
-
     async function handlePublish() {
         if (!pendingTilt) return
         setPublishErr('')
@@ -218,17 +204,6 @@ export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished
                         {currentTilt
                             ? 'The current view is superseded, not deleted — it stays on the record with its stances still being graded.'
                             : 'Every stance starts its clock when you publish.'}
-                    </span>
-                </div>
-            )}
-
-            {!isLoading && !pendingTilt && canDraft && (
-                <div className="portfolio-panel__action-bubble strategy-panel__ask">
-                    <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={askForDraft}>
-                        Draft the view
-                    </button>
-                    <span className="strategy-panel__hint">
-                        No draft yet — Pythia publishes only when it has a view worth grading.
                     </span>
                 </div>
             )}

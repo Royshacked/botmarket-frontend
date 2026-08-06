@@ -10,6 +10,7 @@ import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js
 import { useSeedTurn } from '../../customHooks/useSeedTurn.js'
 import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
+import { LaterButton, LATER_BTN_CLASS } from '../LaterButton.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
@@ -381,9 +382,10 @@ export function MentorPanel({
                             {accounts.length === 0 ? 'Mark an account to update' : 'Update setup'}
                         </button>
                     )}
-                    <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later mentor-panel__btn" onClick={() => { handleClear(); onEditDone?.() }}>
-                        I&apos;ll do it later
-                    </button>
+                    <LaterButton
+                        className={`${LATER_BTN_CLASS} mentor-panel__btn`}
+                        onClick={() => { handleClear(); onEditDone?.() }}
+                    />
                 </div>
             )}
 

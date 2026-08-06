@@ -406,22 +406,15 @@ $header-h: var(--header-h);
     background: var(--bg-base);
     border-top: 1px solid var(--border);   // same edge as .floor-left — see the note there
     border-left: 1px solid var(--border);
-    overflow-y: auto;
-    // Pin the other axis. CSS forces a `visible` axis to `auto` when its partner scrolls, so this
-    // box had an unasked-for horizontal scroller — and since the ::-webkit rule below only sets
-    // `width`, that bar rendered at the default ~15px height rather than the intended 7px.
-    overflow-x: hidden;
+    // The COLUMN never scrolls — the open desk's list does (see .floor-desk__body). Scrolling here
+    // moved the whole surface: the "Lists" heading and the other three desk headers travelled with
+    // the rows, so reaching the bottom of a long book meant the desk you were reading had scrolled
+    // off the top and the remaining headers had gone with it. The list is the only thing that
+    // overflows, so the list is the only thing that should move.
+    overflow: hidden;
 
-    &::-webkit-scrollbar { width: 7px; }
-    &::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 4px; }
-
-    // The column heading sits INSIDE this scroller (unlike the left column, whose halves each own
-    // their own scroll box), so it has to be pinned or it scrolls away from the thing it names.
-    > .floor-sec {
-        position: sticky;
-        top: 0;
-        z-index: 3;
-    }
+    // The heading needs no `position: sticky` now that nothing under it scrolls away from it, and
+    // this box needs no scrollbar styling of its own.
 }
 
 .floor-desk {
@@ -429,6 +422,9 @@ $header-h: var(--header-h);
     // would shove the remaining headers to the bottom of the column, leaving a gap between the
     // list and the next desk and making the four headers jump around on every toggle. Sized to
     // content, the closed headers sit directly under whatever is open and barely move.
+    //
+    // It may still SHRINK, though — see &--open. Growing and shrinking are different questions:
+    // one is about claiming space nobody asked for, the other about fitting in what there is.
     flex: 0 0 auto;
     border-bottom: 1px solid var(--border);
     display: flex;
@@ -482,14 +478,25 @@ $header-h: var(--header-h);
         color: var(--text-dim);
     }
 
-    // Content-height, but capped: past the cap the LIST scrolls inside itself rather than growing
-    // on and pushing the other three headers below the fold — which is the same complaint as
-    // stretching, just arrived at from the other direction.
+    // Only the OPEN desk may shrink, so it is the one that absorbs every bit of overflow in the
+    // column — the three closed headers keep their full height and stay on screen no matter how
+    // long its list runs. Still `auto` basis, so a short list is content-height and nothing
+    // stretches; the shrink only engages once there is more list than column.
+    &--open { flex: 0 1 auto; }
+
+    // Where the scrolling actually happens. No `max-height` cap: the desk above has already been
+    // shrunk to exactly the space the column can spare, and a fixed cap on top of that would just
+    // strand empty column below a scrollbar. `min-height: 0` is what lets a flex child scroll at
+    // all — without it the body floors at its content height and pushes the overflow back up.
     &__body {
+        flex: 1 1 auto;
         min-height: 0;
-        max-height: 60vh;
         overflow-y: auto;
-        overflow-x: hidden;   // as .floor-lists — the desk rows truncate, they don't scroll sideways
+        // Pin the other axis. CSS forces a `visible` axis to `auto` when its partner scrolls, so
+        // this box would otherwise grow an unasked-for horizontal scroller — and since the
+        // ::-webkit rule below only sets `width`, that bar renders at the default ~15px height
+        // rather than the intended 7px. The desk rows truncate; they don't scroll sideways.
+        overflow-x: hidden;
         padding-bottom: 8px;
 
         &::-webkit-scrollbar { width: 7px; }
@@ -533,6 +540,13 @@ $header-h: var(--header-h);
     color: var(--text-primary);
     cursor: pointer;
     text-align: left;
+    // A COLLAPSED row is one line, always. Half these cells are multi-word — "strong buy",
+    // "thesis broken", a target carrying its horizon ("412 / 12M") — and a flex item is free to
+    // wrap at those spaces once the column gets narrow, since its min-content width is only the
+    // longest WORD. The row's fixed height then clipped the second line rather than growing for
+    // it, so a narrow column silently ate half of what the row said. Nothing wraps; the one
+    // elastic cell truncates instead (see .price-target below).
+    white-space: nowrap;
 
     &:hover { background: var(--bg-hover); }
     &--static { cursor: default; &:hover { background: none; } }
@@ -590,7 +604,10 @@ $header-h: var(--header-h);
         &--dim { color: var(--text-dim); }
     }
 
+    // Right-edge anchor: it keeps its full width so "thesis broken" reads whole, and the target
+    // to its left absorbs the squeeze.
     &__status {
+        flex-shrink: 0;
         font-size: 10px;
         text-transform: uppercase;
         letter-spacing: .7px;
@@ -646,7 +663,10 @@ $header-h: var(--header-h);
         &--lo  { color: var(--text-muted); }
     }
 
+    // A rating is short and fixed-vocabulary — it gives up none of its width, so "strong buy"
+    // stays "strong buy" and the squeeze lands on the target instead.
     &__rating {
+        flex-shrink: 0;
         font-size: 9.5px;
         text-transform: uppercase;
         letter-spacing: .7px;
@@ -661,6 +681,12 @@ $header-h: var(--header-h);
     // long/short pair the rest of these rows use rather than the pale on-tint one the panels take.
     .price-target {
         flex: 1;
+        // The row's one elastic cell, so it is the one that gives: `min-width: 0` is what MAKES it
+        // truncate (a flex item defaults to min-width:auto → min-content, and refuses to shrink
+        // past it), and the ellipsis is a better loss than a wrapped line the row height clips.
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
         text-align: right;
         font-size: 10.5px;
         color: var(--text-muted);
@@ -739,6 +765,9 @@ $header-h: var(--header-h);
 // The one place in this design that carries prose. It sits INSIDE a row's indent rather than
 // spanning the column, so an open thesis still reads as belonging to its name — and it keeps the
 // row grid intact above and below it.
+//
+// It wraps freely — the row's one-line rule is scoped to `.floor-row`, and this is a SIBLING of the
+// row rather than a child of it, so the nowrap never reaches the prose.
 .floor-detail {
     padding: 2px $row-pad-end 12px (12px + $indent);
     border-left: 1px solid var(--border);

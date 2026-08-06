@@ -83,60 +83,6 @@ describe('AnalystPanel — Axl hand-off seed', () => {
     })
 })
 
-// A RESEARCH turn can finish with a full write-up and NO <coverage> block — the block was cut off,
-// or it didn't parse. Both look the same from the panel and leave the user reading a summary with
-// nothing to press, so the ask is offered.
-//
-// A plain ANSWER is not that, and must not be treated as it. The ask is gated on the turn reaching
-// the final phase, which a research turn announces and a conversation does not.
-describe('AnalystPanel — the coverage ask', () => {
-    // Play a turn to completion: optionally walk the phases, then some text and the done payload.
-    // `phases` is what separates a research turn from an answer.
-    async function finishTurn(done = {}, { phases = [] } = {}) {
-        await waitFor(() => expect(sendStream).toHaveBeenCalled())
-        const [, opts] = lastCall()
-        await act(async () => {
-            for (const p of phases) opts.onPhase(p)
-            opts.onToken('No edge.')
-            opts.onDone({ reply: 'No edge.', ...done })
-        })
-        return opts
-    }
-
-    it('offers to write the coverage up when RESEARCH ran and drafted nothing', async () => {
-        render(<AnalystPanel seed={{ key: 10, message: 'Research NVDA for coverage.' }} />)
-        await finishTurn({}, { phases: [1, 6] })
-
-        const btn = await screen.findByRole('button', { name: 'Draft coverage' })
-        sendStream.mockClear()
-        fireEvent.click(btn)
-
-        await waitFor(() => expect(sendStream).toHaveBeenCalled())
-        expect(lastCall()[0].at(-1).content).toMatch(/emit the coverage block/i)
-    })
-
-    it('stands down once a draft arrives — the draft has its own action', async () => {
-        render(<AnalystPanel seed={{ key: 11, message: 'Research NVDA for coverage.' }} />)
-        await finishTurn({ coverage: { symbol: 'NVDA', thesis: 'Variant view.' } })
-
-        expect(await screen.findByRole('button', { name: /Initiate coverage on NVDA/ })).toBeTruthy()
-        expect(screen.queryByRole('button', { name: 'Draft coverage' })).toBe(null)
-    })
-
-    it('stays quiet after a plain ANSWER — explaining is not a failed write-up', async () => {
-        // The regression: asking a question got a "Draft coverage" button under the reply, as though
-        // answering had failed to produce something. No phases ran, so no research was attempted.
-        render(<AnalystPanel seed={{ key: 12, message: 'What does the Street have on NVDA?' }} />)
-        await finishTurn()
-        expect(screen.queryByRole('button', { name: 'Draft coverage' })).toBe(null)
-    })
-
-    it('says nothing before the first turn has answered', () => {
-        render(<AnalystPanel />)
-        expect(screen.queryByRole('button', { name: 'Draft coverage' })).toBe(null)
-    })
-})
-
 // Where a "revise this thesis" coverage card lands. The card names a symbol; the panel has to open
 // ON that thesis in UPDATE mode — matching the doc, carrying it as `existing_coverage`, and opening
 // the turn as a revision. Anything less is the blank desk this replaced.
