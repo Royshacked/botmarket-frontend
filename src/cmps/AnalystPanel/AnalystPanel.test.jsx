@@ -83,24 +83,29 @@ describe('AnalystPanel — Axl hand-off seed', () => {
     })
 })
 
-// A research turn can finish with a full write-up and NO <coverage> block — Prometheus passed on
-// the name, or the block was cut off / didn't parse. All three look the same from the panel, and
-// all three used to leave the user reading a summary with nothing to press.
+// A RESEARCH turn can finish with a full write-up and NO <coverage> block — the block was cut off,
+// or it didn't parse. Both look the same from the panel and leave the user reading a summary with
+// nothing to press, so the ask is offered.
+//
+// A plain ANSWER is not that, and must not be treated as it. The ask is gated on the turn reaching
+// the final phase, which a research turn announces and a conversation does not.
 describe('AnalystPanel — the coverage ask', () => {
-    // Play a turn to completion: some text, then the done payload.
-    async function finishTurn(done = {}) {
+    // Play a turn to completion: optionally walk the phases, then some text and the done payload.
+    // `phases` is what separates a research turn from an answer.
+    async function finishTurn(done = {}, { phases = [] } = {}) {
         await waitFor(() => expect(sendStream).toHaveBeenCalled())
         const [, opts] = lastCall()
         await act(async () => {
+            for (const p of phases) opts.onPhase(p)
             opts.onToken('No edge.')
             opts.onDone({ reply: 'No edge.', ...done })
         })
         return opts
     }
 
-    it('offers to write the coverage up when the turn drafted nothing', async () => {
+    it('offers to write the coverage up when RESEARCH ran and drafted nothing', async () => {
         render(<AnalystPanel seed={{ key: 10, message: 'Research NVDA for coverage.' }} />)
-        await finishTurn()
+        await finishTurn({}, { phases: [1, 6] })
 
         const btn = await screen.findByRole('button', { name: 'Draft coverage' })
         sendStream.mockClear()
@@ -115,6 +120,14 @@ describe('AnalystPanel — the coverage ask', () => {
         await finishTurn({ coverage: { symbol: 'NVDA', thesis: 'Variant view.' } })
 
         expect(await screen.findByRole('button', { name: /Initiate coverage on NVDA/ })).toBeTruthy()
+        expect(screen.queryByRole('button', { name: 'Draft coverage' })).toBe(null)
+    })
+
+    it('stays quiet after a plain ANSWER — explaining is not a failed write-up', async () => {
+        // The regression: asking a question got a "Draft coverage" button under the reply, as though
+        // answering had failed to produce something. No phases ran, so no research was attempted.
+        render(<AnalystPanel seed={{ key: 12, message: 'What does the Street have on NVDA?' }} />)
+        await finishTurn()
         expect(screen.queryByRole('button', { name: 'Draft coverage' })).toBe(null)
     })
 
