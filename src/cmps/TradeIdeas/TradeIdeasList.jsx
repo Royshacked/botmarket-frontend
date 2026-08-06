@@ -525,7 +525,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
 
     const SECTION_LABELS = Object.fromEntries(SECTIONS.map(x => [x.key, x.label]).concat([['radar', 'Radar']]))
     // radar sub-tab label shown in the breadcrumb when a deep-link card was used
-    const radarTabLabel = { scans: 'Scans', earnings: 'Earnings', coverage: 'Coverage', fed: 'Fed', ipo: 'IPO' }
+    const radarTabLabel = { scans: 'Scans', earnings: 'Earnings', coverage: 'Coverage', fed: 'Fed', ipo: 'IPO', forecasts: 'Forecasts' }
     const sectionCount = section?.count ?? 0
 
     return (
@@ -601,6 +601,17 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                                 <span className="trade-ideas-list__hub-card-body">
                                     <span className="trade-ideas-list__hub-card-label">Coverage</span>
                                     {(radar.coverage?.length ?? 0) > 0 && <span className="trade-ideas-list__hub-card-count">{radar.coverage.length} tracked</span>}
+                                </span>
+                            </button>
+                            <button className="trade-ideas-list__hub-card" onClick={() => { setActiveFilter('radar'); radar.onTabChange?.('forecasts') }}>
+                                <span className="trade-ideas-list__hub-card-icon">
+                                    <AgentGlyph agentKey="strategy" icon={AGENTS.strategy.icon} size={30} />
+                                </span>
+                                <span className="trade-ideas-list__hub-card-body">
+                                    <span className="trade-ideas-list__hub-card-label">Forecasts</span>
+                                    {/* The count is the number of STANCES in force, not a list length —
+                                        there is only ever one house view. */}
+                                    {(radar.tilt?.tilts?.length ?? 0) > 0 && <span className="trade-ideas-list__hub-card-count">{radar.tilt.tilts.length} sectors</span>}
                                 </span>
                             </button>
                         </>)}

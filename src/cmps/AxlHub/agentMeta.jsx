@@ -124,6 +124,35 @@ export const AGENTS = {
             </>
         ),
     },
+    // Pythia — the top-down desk. Deliberately NOT an allocator and not a stock picker: Prometheus
+    // works bottom-up on names, Atlas allocates, and this desk exists so the allocator reads a
+    // house view it did not write itself. Key stays `strategy`; Pythia is the brand.
+    strategy: {
+        tab:   'strategy',
+        brand: 'Pythia',
+        // The palette is four hues and desks pair up (Idea/Axl cyan, Atlas/Mentor green,
+        // Argus/Prometheus violet). Pythia pairs with Kairos on amber — both read the moment, one
+        // tactically and one structurally.
+        hue:   'amber',
+        // Deliberately NOT "read the market" — that phrase belongs to Axl's market brief (what the
+        // world is doing today), and a desk card offering it would send people here for a question
+        // Axl answers in place. This desk SETS a view; it does not report the tape.
+        lead:  'Set the house view',
+        blurb: 'One house view: the regime, and the sector tilts it implies.',
+        intro: "Let's set the house view — what regime we're in, and which sectors that favours.",
+        hint:  'Ask for the top-down read. I publish one view: a named regime, what would break it, and sector stances as active weight vs the benchmark.',
+        // The Delphic tripod — the seat the oracle spoke from. A bowl on three legs, with the vapour
+        // rising: stroke-only in the 0–24 space like the other desk glyphs.
+        icon: (
+            <>
+                <path d="M6.4 10.2 H17.6 L16.4 13.2 C15.9 14.4 14.1 15.2 12 15.2 C9.9 15.2 8.1 14.4 7.6 13.2 Z" />
+                <line x1="9.2" y1="15" x2="7.6" y2="20.4" />
+                <line x1="14.8" y1="15" x2="16.4" y2="20.4" />
+                <line x1="12" y1="15.2" x2="12" y2="20.4" />
+                <path d="M10.6 8.2 C10.6 6.9 12 6.6 12 5.2 C12 6.6 13.4 6.9 13.4 8.2" />
+            </>
+        ),
+    },
 }
 
 // Axl itself — the meta-layer. Not a specialist, so it owns no desk and never appears as a hub
@@ -153,7 +182,7 @@ AGENTS.axl = {
 // the backend BOT_IDS. Each agent owns its own notifications: Idea posts invalidation
 // alerts, Atlas (portfolio) posts reviews, Argus (scanner) its scans. Only Axl is
 // conversational; the specialist threads are notify-only feeds. Axl is pinned first.
-export const BOT_IDS = ['axl', 'idea', 'portfolio', 'scanner', 'kairos', 'mentor', 'analyst']
+export const BOT_IDS = ['axl', 'idea', 'portfolio', 'scanner', 'kairos', 'mentor', 'analyst', 'strategy']
 export const isBotId = (id) => BOT_IDS.includes(id)
 // The one bot you can chat with; the rest are read-only alert feeds.
 export const CONVERSATIONAL_BOT_ID = 'axl'
@@ -241,6 +270,21 @@ export const DESKS = [
         agentKey: 'analyst',
         steps: [
             { tab: 'analyst', label: 'Research' },
+        ],
+    },
+    {
+        key:      'strategy',
+        label:    'Strategy Desk',
+        lead:     'Set the house view',
+        blurb:    'Pythia names the regime and sets the sector tilts it implies.',
+        hue:      'amber',
+        entryTab: 'strategy',
+        agentKey: 'strategy',
+        // ONE step, and it stays one until Atlas actually reads the tilt. A pipeline arrow drawn to
+        // an allocator that ignores the artifact would promise a hand-off nothing performs — the
+        // same failure the trade desk's scan step had before `produces: 'one'` existed.
+        steps: [
+            { tab: 'strategy', label: 'Set the view' },
         ],
     },
 ]

@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
+import { eventBus, OPEN_SECTOR_VIEW } from '../../services/event-bus.service'
+import { SectorView } from '../Radar/SectorView.jsx'
 import {
     positionPnlPct, formatPnl, formatPnlPct, formatNum,
 } from '../TradeIdeas/tradeIdea.utils.js'
@@ -36,10 +38,14 @@ import './Floor.scss'
 // and only the leg tier is a position. Positions that belong to no book stay directly on the
 // account: inventing a "Standalone" wrapper for them would add a row that groups nothing.
 
+// Earnings / Fed / IPO are SCHEDULES — things that happen on a date. Forecasts is a STATE: the house
+// sector view in force. It sits here anyway because this is where the user looks for "what is coming
+// and what do we think", and splitting that across two surfaces just hides one of them.
 const CAL_TABS = [
-    { key: 'earnings', label: 'Earnings' },
-    { key: 'fed',      label: 'Fed' },
-    { key: 'ipo',      label: 'IPO' },
+    { key: 'earnings',  label: 'Earnings' },
+    { key: 'fed',       label: 'Fed' },
+    { key: 'ipo',       label: 'IPO' },
+    { key: 'forecasts', label: 'Forecasts' },
 ]
 
 const pnlClass = n => (n == null ? '' : n > 0 ? 'is-pos' : n < 0 ? 'is-neg' : '')
@@ -237,7 +243,10 @@ function fmtDay(iso) {
 
 const EARN_WHEN = { bmo: 'Pre', amc: 'Post', dmh: 'Mid' }
 
-function CalendarRows({ tab, earnings, fed, ipo, onEarningSelect, onIpoSelect }) {
+function CalendarRows({ tab, earnings, fed, ipo, tilt, onEarningSelect, onIpoSelect }) {
+    // The house view is not a dated list, so it renders its own board rather than being forced
+    // through groupByDay — see SectorView.
+    if (tab === 'forecasts') return <SectorView tilt={tilt} />
     const items = tab === 'earnings' ? earnings : tab === 'fed' ? fed : ipo
     if (!items.length) return <p className="floor-empty">Nothing scheduled.</p>
 
@@ -285,7 +294,7 @@ function CalendarRows({ tab, earnings, fed, ipo, onEarningSelect, onIpoSelect })
 export function FloorLeft({
     positions = [], ideas = [], positionsLoading = false, onOpenPosition,
     onClosePosition, onClosePositions,
-    earnings = [], fed = [], ipo = [], calendarLoading = false,
+    earnings = [], fed = [], ipo = [], tilt = null, calendarLoading = false,
     onEarningSelect, onIpoSelect,
 }) {
     const groups = positionsByAccount(positions, ideas)
@@ -296,6 +305,9 @@ export function FloorLeft({
     // contents and opens nothing on the reader's behalf. Same Set-toggle the books below use.
     const { isExpanded, toggle } = useExpandedSet()
     const [calTab, setCalTab] = useState('earnings')
+    // A sector-view card opens the board. This rail owns its own tab state, so it subscribes here
+    // rather than having calTab lifted to MainPage purely to be handed straight back down.
+    useEffect(() => eventBus.on(OPEN_SECTOR_VIEW, () => setCalTab('forecasts')), [])
 
     return (
         <aside className="floor-left">
@@ -349,7 +361,7 @@ export function FloorLeft({
                         ? <p className="floor-empty">Loading…</p>
                         : <CalendarRows
                             tab={calTab}
-                            earnings={earnings} fed={fed} ipo={ipo}
+                            earnings={earnings} fed={fed} ipo={ipo} tilt={tilt}
                             onEarningSelect={onEarningSelect} onIpoSelect={onIpoSelect}
                         />}
                 </div>
@@ -370,6 +382,7 @@ FloorLeft.propTypes = {
     earnings:         PropTypes.array,
     fed:              PropTypes.array,
     ipo:              PropTypes.array,
+    tilt:             PropTypes.object,
     calendarLoading:  PropTypes.bool,
     onEarningSelect:  PropTypes.func,
     onIpoSelect:      PropTypes.func,

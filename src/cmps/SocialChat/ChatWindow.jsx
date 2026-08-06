@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 // The call pop-out (Confirm entry / Accept edit / Delete live there) — one opener, shared
 // with the Calls list, so the window name and size can't drift between the two entry points.
 import { openCallPopup } from '../TradeIdeas/tradeIdea.utils.js'
-import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE, MARKET_BRIEF_OPEN } from '../../services/event-bus.service'
+import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN } from '../../services/event-bus.service'
 import { manualService } from '../../services/manual/manual.service.remote'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
@@ -167,6 +167,8 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                                 ? <CallReentryBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'coverage_event' && msg.payload
                                 ? <CoverageEventBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
+                                : msg.type === 'tilt_event' && msg.payload
+                                ? <TiltEventBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'coverage_refreshed' && msg.payload
                                 ? <CoverageRefreshedBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'market_brief_offer'
@@ -396,6 +398,32 @@ function CallReentryBubble({ msg, onClose, onResolve }) {
         <NotificationCard
             agent={AGENTS.kairos} kind="reentry" heading={heading} asset={asset} body={why || msg.content}
             primaryLabel={msg.actions?.primary?.label ?? 'Review re-entry'} onPrimary={handlePrimary}
+            onResolve={onResolve} msg={msg}
+            resolvedLabels={{ opened: '✓ Opened' }}
+        />
+    )
+}
+
+// "Sector view changed" card for the strategy desk — Pythia republished and a sector THIS user
+// researches moved. Primary opens the calendar's Forecasts tab: the house view is a STATE, so there
+// is nothing to revise from the card the way a coverage verdict asks for a re-model.
+export function TiltEventBubble({ msg, onClose, onResolve }) {
+    const { sectors = [], balanced } = msg.payload ?? {}
+    const moved   = sectors.length === 1 ? sectors[0] : `${sectors.length} sectors`
+    // An unbalanced table is published rather than lost, so the card admits it — active weights that
+    // do not net out are not directly allocatable.
+    const heading = `Sector view · ${moved}${balanced === false ? ' — unbalanced' : ''}`
+
+    function handlePrimary() {
+        onResolve?.(msg.id, { status: 'done', outcome: 'opened' })
+        eventBus.emit(OPEN_SECTOR_VIEW, {})
+        onClose?.()
+    }
+
+    return (
+        <NotificationCard
+            agent={AGENTS.strategy} kind="tilt" heading={heading} qualifier={sectors.join(', ')} body={msg.content}
+            primaryLabel={msg.actions?.primary?.label ?? 'Open sector view'} onPrimary={handlePrimary}
             onResolve={onResolve} msg={msg}
             resolvedLabels={{ opened: '✓ Opened' }}
         />

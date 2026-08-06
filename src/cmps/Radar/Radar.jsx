@@ -2,6 +2,7 @@ import PropTypes from 'prop-types'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { ScanList } from './ScanList.jsx'
 import { CoverageBook } from './CoverageBook.jsx'
+import { SectorView } from './SectorView.jsx'
 import { RadarTicker } from './RadarTicker.jsx'
 import './Radar.scss'
 
@@ -29,6 +30,8 @@ export function Radar({
     onIpoSelect,
     coverage = [],
     coverageLoading = false,
+    tilt = null,
+    tiltLoading = false,
     onEditCoverage,
     onRetireCoverage,
     onDeleteCoverage,
@@ -72,6 +75,11 @@ export function Radar({
             ) : tab === 'ipo' ? (
                 <div className="news-feed__list">
                     <IpoList items={ipo} loading={ipoLoading} onSelect={onIpoSelect} />
+                </div>
+            ) : tab === 'forecasts' ? (
+                <div className="news-feed__list">
+                    {/* Pythia's house view — the state the Fed tab's schedule opens onto. */}
+                    <SectorView tilt={tilt} loading={tiltLoading} />
                 </div>
             ) : tab === 'coverage' ? (
                 <div className="news-feed__list">
@@ -299,6 +307,8 @@ Radar.propTypes = {
     ipoLoading:        PropTypes.bool,
     onIpoSelect:       PropTypes.func,
     coverage:          PropTypes.array,
+    tilt:              PropTypes.object,
+    tiltLoading:       PropTypes.bool,
     coverageLoading:   PropTypes.bool,
     onEditCoverage:    PropTypes.func,
     onRetireCoverage:  PropTypes.func,

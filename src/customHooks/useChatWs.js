@@ -19,6 +19,7 @@ const TYPE_LABELS = {
     call_manage:        'Manage position',
     call_reentry:       'Re-entry?',
     coverage_event:     'Coverage update',
+    tilt_event:         'Sector view changed',
     coverage_refreshed: 'Research refreshed',
 }
 

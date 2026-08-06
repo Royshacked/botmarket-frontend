@@ -29,6 +29,9 @@ export const ENTRY_CONFIRM_EDIT        = 'entry-confirm-edit'
 export const ENTRY_CONFIRM_DISMISS     = 'entry-confirm-dismiss'
 // Coverage-update card "Open coverage" → open the Analyst (its living coverage book).
 export const OPEN_COVERAGE             = 'open-coverage'
+// Sector-view card "Open sector view" → open the calendar on its Forecasts tab (the house view is
+// a STATE, so the card opens the board rather than a chat — there is nothing to revise from here).
+export const OPEN_SECTOR_VIEW          = 'open-sector-view'
 // Daily market-brief card "Get the brief" → route to Axl and stream the brief into his thread,
 // rather than posting a wall of market prose back into the social chat.
 export const MARKET_BRIEF_OPEN         = 'market-brief-open'

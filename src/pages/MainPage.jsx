@@ -18,6 +18,7 @@ import { ScannerPanel, RESEARCH_TOP_N }      from '../cmps/ScannerPanel/ScannerP
 import { KairosPanel }       from '../cmps/KairosPanel/KairosPanel.jsx'
 import { MentorPanel }       from '../cmps/MentorPanel/MentorPanel.jsx'
 import { AnalystPanel }      from '../cmps/AnalystPanel/AnalystPanel.jsx'
+import { StrategyPanel }     from '../cmps/StrategyPanel/StrategyPanel.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
 import { FloorLeft }         from '../cmps/Floor/FloorLeft.jsx'
 import { FloorLists }        from '../cmps/Floor/FloorLists.jsx'
@@ -34,7 +35,7 @@ import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.rem
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
 import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
-import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE, MARKET_BRIEF_OPEN } from '../services/event-bus.service'
+import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
 import { mentorService } from '../services/mentor/mentor.service.remote.js'
 import { isSetupAwaitingConfirm } from '../cmps/TradeIdeas/setupStatus.js'
@@ -527,7 +528,7 @@ export function MainPage() {
         }, RETURN_MS)
     }
 
-    const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading } = useCalendarEvents()
+    const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, tilt, tiltLoading } = useCalendarEvents()
     const { scans, loading: scansLoading, createScan, updateScan, deleteScan } = useScans()
     const { user } = useAuth()
     const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
@@ -1072,6 +1073,14 @@ export function MainPage() {
             setActiveTab('analyst')
             setNewsTab('coverage')
         })
+    }, [])
+
+    // Sector-view card → the Radar's Forecasts tab. Unlike a coverage verdict there is nothing to
+    // revise from here: the house view is a STATE, and the card's job is to put the board in front of
+    // the reader. The Floor rail renders the same tab from its OWN calTab state, so it listens for
+    // this event itself rather than having the tab lifted up here just to be pushed back down.
+    useEffect(() => {
+        return eventBus.on(OPEN_SECTOR_VIEW, () => setNewsTab('forecasts'))
     }, [])
 
     // A Talos entry card routes here: social-chat card → Confirm → the order dialog. The setups
@@ -2522,6 +2531,7 @@ export function MainPage() {
                                 earnings={earnings}
                                 fed={fed}
                                 ipo={ipo}
+                                tilt={tilt}
                                 calendarLoading={earningsLoading || fedLoading || ipoLoading}
                                 onEarningSelect={handleBuildFromEarning}
                                 onIpoSelect={handleBuildFromIpo}
@@ -2707,6 +2717,15 @@ export function MainPage() {
                             />
                         </div>
 
+                        <div className="chat-tabs__panel" style={{ display: activeTab === 'strategy' ? 'flex' : 'none' }}>
+                            <StrategyPanel
+                                currentTilt={tilt}
+                                // Publishing supersedes the standing view, so send the user to the
+                                // board that now shows it — the same beat as a coverage initiate.
+                                onPublished={() => { setNewsTab('forecasts'); handleBackToAxl() }}
+                            />
+                        </div>
+
                         {/* Departure beat — covers the agent chat while heading home to axl. */}
                         {returningToAxl && (
                             <div className="chat-return-overlay" role="status" aria-live="polite">
@@ -2799,6 +2818,8 @@ export function MainPage() {
                                 onEditScan:        handleEditScan,
                                 coverage,
                                 coverageLoading,
+                                tilt,
+                                tiltLoading,
                                 onEditCoverage:    handleEditCoverage,
                                 onRetireCoverage:  handleRetireCoverage,
                                 onDeleteCoverage:  handleDeleteCoverage,
