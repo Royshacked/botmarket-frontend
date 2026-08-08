@@ -9,12 +9,11 @@ import { useChatScroll } from '../customHooks/useChatScroll.js'
 // have to grow a flag per panel and would be a worse abstraction than the duplication.
 //
 // What IS identical in all five is the plumbing around it: the scroll container, the two refs, the
-// scroll handler, the bottom anchor, and the useChatScroll wiring that refocuses the composer when
-// a turn finishes. That is what this owns.
+// scroll handler and the bottom anchor. That is what this owns. (Returning the cursor to the
+// composer when the turn ends is ChatInputRow's — it belongs to the composer, not the thread.)
 
-export function AgentMessages({ chat, watch = '', onFinishStreaming, className = '', children }) {
+export function AgentMessages({ chat, watch = '', className = '', children }) {
     const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(chat.messages, {
-        onFinishStreaming,
         watch: `${chat.streamStatus}|${watch}`,
     })
 
@@ -31,7 +30,6 @@ AgentMessages.propTypes = {
     // Extra state that should re-trigger the stick-to-bottom check (a preview appearing, a
     // picker opening — anything that changes the region's height without adding a message).
     watch:             PropTypes.string,
-    onFinishStreaming: PropTypes.func,
     className:         PropTypes.string,
     children:          PropTypes.node,
 }

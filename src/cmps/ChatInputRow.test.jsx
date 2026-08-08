@@ -39,6 +39,57 @@ describe('ChatInputRow landing state', () => {
     })
 })
 
+// When an agent stops talking the cursor returns to the composer, so the next turn is just typing.
+// It's pinned on the shared row: the six AgentChatInput panels, ChatPanel and Axl all pass
+// `isStreaming` already, so none of them wires anything for this.
+describe('ChatInputRow focus return', () => {
+    const textarea = container => container.querySelector('.chat-input-row__textarea')
+
+    it('takes the cursor back when the reply ends', () => {
+        const { container, rerender } = render(<ChatInputRow {...base} isStreaming />)
+        rerender(<ChatInputRow {...base} isStreaming={false} />)
+        expect(document.activeElement).toBe(textarea(container))
+    })
+
+    it('stays out of the way when nothing was streaming', () => {
+        const { container } = render(<ChatInputRow {...base} isStreaming={false} />)
+        expect(document.activeElement).not.toBe(textarea(container))
+    })
+
+    it('leaves a hidden panel alone — a background agent must not pull focus off the open chat', () => {
+        const hidden = document.createElement('div')
+        hidden.style.display = 'none'
+        document.body.appendChild(hidden)
+        const { container, rerender } = render(<ChatInputRow {...base} isStreaming />, { container: hidden })
+        rerender(<ChatInputRow {...base} isStreaming={false} />)
+        expect(document.activeElement).not.toBe(textarea(container))
+        hidden.remove()
+    })
+
+    it('holds back on a touch device, where focus would raise the keyboard over the reply', () => {
+        // jsdom has no matchMedia at all, which is why the desktop cases above read as fine-pointer.
+        window.matchMedia = q => ({ matches: q.includes('coarse') })
+        try {
+            const { container, rerender } = render(<ChatInputRow {...base} isStreaming />)
+            rerender(<ChatInputRow {...base} isStreaming={false} />)
+            expect(document.activeElement).not.toBe(textarea(container))
+        } finally {
+            delete window.matchMedia
+        }
+    })
+
+    it('leaves a field the user is already typing in', () => {
+        const other = document.createElement('input')
+        document.body.appendChild(other)
+        other.focus()
+        const { container, rerender } = render(<ChatInputRow {...base} isStreaming />)
+        rerender(<ChatInputRow {...base} isStreaming={false} />)
+        expect(document.activeElement).toBe(other)
+        expect(document.activeElement).not.toBe(textarea(container))
+        other.remove()
+    })
+})
+
 describe('AgentChatInput', () => {
     // The five panels that share this wrapper get the landing state for free: it reads the same
     // `chat.messages` they already hand it, so none of them wires an `empty` prop.

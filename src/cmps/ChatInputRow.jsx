@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 import './ChatInputRow.scss'
 
@@ -14,6 +15,12 @@ import './ChatInputRow.scss'
  * lifts off the floor and grows, because on an empty screen it IS the subject.
  * The first turn drops it back to the docked pill. Panels decide what "empty"
  * means for them (no messages / no thread) and pass it in.
+ *
+ * The cursor comes back here the moment an agent finishes talking — a reply ends,
+ * the box is live again, you type. That lives HERE, once, because every agent chat
+ * (the six panels via AgentChatInput, plus ChatPanel and Axl, who wire their own)
+ * renders this one row: no panel opts in, and no panel can drift. Desktop only: on
+ * touch, focus means the on-screen keyboard, which is the user's tap to make.
  */
 export function ChatInputRow({
     prefix,
@@ -39,6 +46,39 @@ export function ChatInputRow({
     micDisabled,
     textareaDisabled,
 }) {
+    // The row keeps its own handle on the textarea so the focus-return below never depends on a
+    // panel remembering to pass `textareaRef`; a panel that does pass one still gets it filled.
+    const innerRef = useRef(null)
+    const setTextarea = useCallback((el) => {
+        innerRef.current = el
+        if (typeof textareaRef === 'function') textareaRef(el)
+        else if (textareaRef) textareaRef.current = el
+    }, [textareaRef])
+
+    const wasStreaming = useRef(false)
+    useEffect(() => {
+        const finished = wasStreaming.current && !isStreaming
+        wasStreaming.current = !!isStreaming
+        if (!finished) return
+
+        // On a touch device, focusing the box also raises the on-screen keyboard — which would
+        // cover the reply the user just waited for. There the cursor stays where it is; tapping
+        // the composer is the gesture that opens the keyboard, and it stays the user's to make.
+        if (isTouchPrimary()) return
+
+        const el = innerRef.current
+        // A hidden composer must not pull the cursor out of the chat the user is looking at: the
+        // workspace keeps every panel MOUNTED and hides the inactive ones with `display: none`, so
+        // a background agent finishing is a live component with an off-screen textarea.
+        if (!el || el.disabled || !isVisible(el)) return
+        // Nor may a reply landing in the background steal a field the user is mid-way through.
+        const active = document.activeElement
+        if (active && active !== el && active !== document.body && active !== document.documentElement) return
+        // preventScroll: the thread is mid-autoscroll to the bottom of the new reply; focusing must
+        // put the cursor in the box, not yank the scroll position with it.
+        el.focus({ preventScroll: true })
+    }, [isStreaming])
+
     return (
         <div className={`chat-input-row${prefix ? ` chat-input-row--${prefix}` : ''}${empty ? ' chat-input-row--empty' : ''}`}>
             <button
@@ -71,7 +111,7 @@ export function ChatInputRow({
                 </button>
             )}
             <textarea
-                ref={textareaRef}
+                ref={setTextarea}
                 className="chat-input-row__textarea"
                 value={value}
                 onChange={onChange}
@@ -137,10 +177,27 @@ export function ChatInputRow({
     )
 }
 
+// A phone/tablet, where the keyboard is a panel that eats half the screen rather than hardware.
+// Read live (not once at module load) so a hybrid device that switches input mode answers for how
+// it's being held right now. Same `pointer: coarse` signal the stylesheet uses to drop hover
+// states — see the `hover-supported` mixin in _mixins.scss.
+function isTouchPrimary() {
+    return typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches
+}
+
+// Walks the ancestors rather than reading `offsetParent`, which is layout-dependent and always
+// null under jsdom — this answers the same question in the browser and in a test.
+function isVisible(el) {
+    for (let node = el; node && node.nodeType === 1; node = node.parentElement) {
+        if (getComputedStyle(node).display === 'none') return false
+    }
+    return true
+}
+
 ChatInputRow.propTypes = {
     prefix:           PropTypes.string.isRequired,
     empty:            PropTypes.bool,
-    textareaRef:      PropTypes.object,
+    textareaRef:      PropTypes.oneOfType([PropTypes.object, PropTypes.func]),
     value:            PropTypes.string.isRequired,
     onChange:         PropTypes.func.isRequired,
     onKeyDown:        PropTypes.func,

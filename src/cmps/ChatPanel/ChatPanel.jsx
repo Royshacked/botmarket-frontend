@@ -210,10 +210,9 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
     // chat re-pins to bottom when buttons appear (e.g. idea becomes generate-ready).
     const actionWatch = `${streamStatus}|${ideaReady}|${generateReady}|${isInvalidationReview}|${isEditing}|${isImmediate}|${isPostOrderEdit}`
 
-    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, {
-        onFinishStreaming: () => inputRef.current?.focus(),
-        watch: actionWatch,
-    })
+    // Returning the cursor to the composer when a turn ends is ChatInputRow's job now — one rule
+    // for every agent chat, not a callback each panel remembers to wire.
+    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, { watch: actionWatch })
 
     function handleKeyDown(ev) {
         if (ev.key === 'Enter' && !ev.shiftKey) {
