@@ -3,13 +3,14 @@ import PropTypes from 'prop-types'
 // The call pop-out (Confirm entry / Accept edit / Delete live there) — one opener, shared
 // with the Calls list, so the window name and size can't drift between the two entry points.
 import { openCallPopup } from '../TradeIdeas/tradeIdea.utils.js'
-import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN } from '../../services/event-bus.service'
+import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST } from '../../services/event-bus.service'
 import { manualService } from '../../services/manual/manual.service.remote'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { AGENTS, isBotId, CONVERSATIONAL_BOT_ID } from '../AxlHub/agentMeta.jsx'
 import { AgentGlyph } from '../AxlHub/AgentBadges.jsx'
 import { readResolution } from './cardResolution.js'
+import { formatTime } from './messageStamp.js'
 
 // Compact "from <agent>" attribution chip for notification cards: the agent's
 // sigil + brand, tinted by its hue. Makes a card read as coming from Idea / Atlas
@@ -71,11 +72,6 @@ function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = n
     )
 }
 
-function formatTime(ms) {
-    if (!ms) return ''
-    return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-}
-
 export function ChatWindow({ conversation, messages, currentUserId, loading, hasMore, onClose, onSend, onLoadMore, onResolveMessage, scrollToMsgId, onScrolledToMsg }) {
     const [draft,   setDraft]   = useState('')
     const [sending, setSending] = useState(false)
@@ -125,11 +121,12 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
         )
     }
 
-    // Specialist bot threads (Idea/Atlas/Argus) are notify-only feeds — you reply and edit
+    // Specialist bot threads (Atlas/Argus/Kairos…) are notify-only feeds — you reply and edit
     // in that agent's own chat via the card, not here. Only Axl and human DMs are chattable.
-    const otherId    = conversation.participants.find(p => p !== currentUserId) ?? ''
-    const notifyBot  = isBotId(otherId) && otherId !== CONVERSATIONAL_BOT_ID
-    const notifyName = notifyBot ? (AGENTS[otherId]?.brand ?? 'this agent') : null
+    // Notify-only shows NO composer and no explanatory line: the cards already route, and a
+    // standing footer under every feed was noise on every message the user read.
+    const otherId   = conversation.participants.find(p => p !== currentUserId) ?? ''
+    const notifyBot = isBotId(otherId) && otherId !== CONVERSATIONAL_BOT_ID
 
     return (
         <div className="social-chat__window">
@@ -157,6 +154,11 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                                 ? <ManualFillCard msg={msg} onResolve={onResolveMessage} />
                                 : msg.type === 'entry_confirm' && msg.payload
                                 ? <EntryConfirmBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
+                                : msg.type === 'queue_ready' && msg.payload
+                                ? <QueueReadyBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
+                                // RETIRED 2026-08-07 — nothing posts orders_ready any more (the
+                                // market-open sweep sends one queue_ready instead). Kept so the
+                                // batch cards already in a user's history still render.
                                 : msg.type === 'orders_ready' && msg.payload
                                 ? <OrdersReadyBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'call_expiry' && msg.payload
@@ -182,11 +184,7 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                 <div ref={bottomRef} />
             </div>
 
-            {notifyBot ? (
-                <div className="social-chat__notify-only">
-                    Notifications from {notifyName}. Open a card to continue in {notifyName}&apos;s chat.
-                </div>
-            ) : (
+            {notifyBot ? null : (
                 <ChatInputRow
                     prefix="social-chat"
                     textareaRef={textareaRef}
@@ -248,7 +246,10 @@ function EntryConfirmBubble({ msg, onClose, onResolve }) {
     const { kind, ideaId, callId, setupId, asset, note, warning, scenario } = msg.payload
     const isCall  = kind === 'call'
     const isSetup = kind === 'setup'
-    const agent   = isCall ? AGENTS.kairos : isSetup ? AGENTS.mentor : AGENTS.idea
+    // Tag = the desk that sent it. A holding's confirm is Atlas's; a lone legacy idea keeps the
+    // Idea mark (its desk is archived, but that IS who authored the plan).
+    const agent   = isCall ? AGENTS.kairos : isSetup ? AGENTS.mentor
+        : kind === 'portfolio_item' ? AGENTS.portfolio : AGENTS.idea
 
     function route() {
         if (isCall)       eventBus.emit(CALL_CONFIRM_OPEN,  { callId })
@@ -301,7 +302,9 @@ function EntryConfirmBubble({ msg, onClose, onResolve }) {
 function OrdersReadyBubble({ msg, onClose, onResolve }) {
     const { kind, count, firstId, staleHours } = msg.payload
     const isSetup = kind === 'setup'
-    const agent   = isSetup ? AGENTS.mentor : AGENTS.idea
+    // Same rule as the single-order card: the batch belongs to the desk that authored it.
+    const agent   = isSetup ? AGENTS.mentor
+        : kind === 'portfolio_item' ? AGENTS.portfolio : AGENTS.idea
 
     function handlePrimary() {
         onResolve?.(msg.id, { status: 'done', outcome: 'confirmed' })
@@ -333,6 +336,59 @@ function OrdersReadyBubble({ msg, onClose, onResolve }) {
             onDismiss={handleDismiss} onResolve={onResolve} msg={msg} reopenOnDone
             resolvedLabels={{ confirmed: '✓ Opened' }}
         />
+    )
+}
+
+/**
+ * THE market-open nudge — one card for the whole open, from Axl, pointing at the queued list.
+ *
+ * It replaces the per-desk batch above (kept only to render history). That one fanned out a card
+ * per desk per kind, so a single 09:30 produced a notification from Atlas and another from Mentor,
+ * each answering "what does this desk have for you" — a question nobody asks. At the open the
+ * question is "what is waiting on ME", and it has one answer.
+ *
+ * ROUTES, DOES NOT RESOLVE. Opening the list is not doing the work: the items are still sitting
+ * there afterwards. So the primary only routes and the card stays live — it collapses when you
+ * dismiss it, the same rule the portfolio-review card already follows.
+ */
+export function QueueReadyBubble({ msg, onClose, onResolve }) {
+    const { count = 0, staleHours } = msg.payload ?? {}
+    const { resolved } = readResolution(msg)
+
+    function handlePrimary() {
+        eventBus.emit(OPEN_QUEUED_LIST, {})
+        onClose?.()
+    }
+
+    if (resolved) {
+        return (
+            <ResolvedChip
+                agent={AGENTS.axl} outcome="✓ Dismissed"
+                asset={`${count} item${count === 1 ? '' : 's'}`} reason={msg.content}
+            />
+        )
+    }
+
+    return (
+        <div className="social-chat__msg-bubble social-chat__invalidation-alert">
+            <CardAgentTag agent={AGENTS.axl} />
+            <div className="social-chat__invalidation-alert-header">
+                Market open &middot; {count} waiting
+                {staleHours >= 12 && (
+                    <span className="social-chat__invalidation-alert-tag"> &middot; oldest {staleHours}h</span>
+                )}
+            </div>
+            <div className="social-chat__invalidation-alert-reason">{msg.content}</div>
+            <div className="social-chat__invalidation-alert-actions">
+                <button className="social-chat__invalidation-alert-btn" onClick={handlePrimary}>
+                    {msg.actions?.primary?.label ?? 'Open the list'}
+                </button>
+                <button
+                    className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
+                    onClick={() => onResolve?.(msg.id, { status: 'dismissed', outcome: 'dismissed' })}
+                >Dismiss</button>
+            </div>
+        </div>
     )
 }
 

@@ -808,3 +808,87 @@ $header-h: var(--header-h);
     .floor-row__chev,
     .floor-desk__chev { transition: none; }
 }
+
+// ── Queued desk ──────────────────────────────────────────────────────────────
+// One line per thing waiting on you: what will happen, and where it was decided. Unlike the other
+// desks these rows are not doorways — there is nothing to open, so they carry no row button and
+// their actions are always visible rather than revealed on hover (a to-do you have to hover to
+// discover is a to-do nobody does).
+.floor-queued {
+    &__dot {
+        flex: none;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent, #4caf50);
+
+        // Still waiting for its venue. Hollow rather than a second colour: it is the SAME item in
+        // an earlier state, not a different class of thing.
+        &--waiting {
+            background: transparent;
+            box-shadow: inset 0 0 0 1px var(--text-dim);
+        }
+    }
+
+    &__line {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--text-primary);
+    }
+
+    &__from {
+        flex: none;
+        font-size: 10.5px;
+        color: var(--text-dim);
+    }
+
+    &__pending {
+        flex: none;
+        font-size: 10.5px;
+        font-style: italic;
+        color: var(--text-dim);
+    }
+
+    &__btn {
+        padding: 2px 8px;
+        font-size: 11px;
+        font-weight: 600;
+        border-radius: 4px;
+        border: 1px solid var(--border);
+        background: var(--bg-surface);
+        color: var(--text-primary);
+        cursor: pointer;
+
+        &:disabled { opacity: 0.45; cursor: default; }
+        &:not(:disabled):hover { background: var(--bg-hover); }
+
+        &--cancel {
+            color: var(--text-muted);
+            &:not(:disabled):hover { color: var(--text-primary); }
+        }
+    }
+}
+
+// The queued rows themselves: a flex line, and their actions do NOT hide (see above).
+.floor-desk__body .floor-rowhost:has(.floor-queued__line) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    font-size: 11.5px;
+    border-bottom: 1px solid var(--border-subtle, var(--border));
+
+    &:last-child { border-bottom: none; }
+    &:hover { background: var(--bg-hover); }
+
+    .floor-rowhost__actions {
+        position: static;
+        display: flex;
+        height: auto;
+        padding-left: 0;
+        background: none;
+    }
+}

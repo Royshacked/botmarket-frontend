@@ -7,7 +7,7 @@ import { ChatWindow }       from './ChatWindow'
 import { readStoredModel }       from '../modelOptions'
 import { readStoredReasoning }   from '../reasoningOptions'
 import { readStoredRoutingMode } from '../routingModeOptions'
-import { isBotId, CONVERSATIONAL_BOT_ID } from '../AxlHub/agentMeta.jsx'
+import { isBotId, isRetiredBotId, CONVERSATIONAL_BOT_ID } from '../AxlHub/agentMeta.jsx'
 import './SocialChat.scss'
 
 // The one shared AI-mode the user sets in their profile is mirrored to every
@@ -49,7 +49,11 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
     // ── Load conversation list ──────────────────────────────────────────────
     const loadConversations = useCallback(async () => {
         try {
-            const convs = await chatService.getConversations()
+            // The server already hides retired feeds; this repeats it because the failure mode is
+            // silent — a retired id the client doesn't drop renders as a PERSON, and its unread
+            // count keeps feeding a badge for a thread you can't act on.
+            const convs = (await chatService.getConversations())
+                .filter(c => !c.participants.some(isRetiredBotId))
             const bots = convs.filter(c => c.participants.some(isBotId))
             const rest = convs.filter(c => !c.participants.some(isBotId))
             setConversations([...bots, ...rest])

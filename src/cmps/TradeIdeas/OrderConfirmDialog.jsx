@@ -20,7 +20,7 @@ import './OrderConfirmDialog.scss'
  */
 // Below this, the plan was built in the same session and its age says nothing. Above it, the plan
 // was priced before a close the user slept through — which is the whole point of surfacing it.
-// Matches STALE_HOURS in monitoring/marketOpen.monitor.js, which decides when the CARD says so.
+// Matches STALE_HOURS in services/tradeNotify.service.js, which decides when the CARD says so.
 const STALE_PLAN_HOURS = 12
 
 export function OrderConfirmDialog({ idea, orders, levels = [], placing, onConfirm, onDismiss, onReset }) {

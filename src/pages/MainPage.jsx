@@ -14,6 +14,10 @@ import { readStoredModel }   from '../cmps/modelOptions.js'
 import { readStoredReasoning } from '../cmps/reasoningOptions.js'
 import { readStoredRoutingMode } from '../cmps/routingModeOptions.js'
 import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
+import { reviewApplyMessage } from '../cmps/PortfolioPanel/reviewApply.js'
+import { QueuedActionDialog } from '../cmps/Floor/QueuedActionDialog.jsx'
+import { executeRoute } from '../cmps/Floor/queuedAction.contract.js'
+import { pendingActionService } from '../services/pendingAction/pendingAction.service.remote.js'
 import { ScannerPanel, RESEARCH_TOP_N }      from '../cmps/ScannerPanel/ScannerPanel.jsx'
 import { KairosPanel }       from '../cmps/KairosPanel/KairosPanel.jsx'
 import { MentorPanel }       from '../cmps/MentorPanel/MentorPanel.jsx'
@@ -35,7 +39,7 @@ import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.rem
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
 import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
-import { showErrorMsg, showSuccessMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN } from '../services/event-bus.service'
+import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
 import { mentorService } from '../services/mentor/mentor.service.remote.js'
 import { isSetupAwaitingConfirm } from '../cmps/TradeIdeas/setupStatus.js'
@@ -541,6 +545,13 @@ export function MainPage() {
     // Floor design trial (Profile → Design → "Floor (3-col)"). Only this page reads it: the trial adds
     // two side columns and swaps the right one, so nothing below the workspace needs to know.
     const floorMode = useDesign() === 'floor'
+    // The queued list: rows waiting on the user (off-hours decisions + entities the market-open
+    // sweep unparked), which desk an outside ask wants opened, and the confirm in flight.
+    const [queued,        setQueued]        = useState([])
+    const [deskRequest,   setDeskRequest]   = useState(null)
+    const [queuedConfirm, setQueuedConfirm] = useState(null)
+    const [queuedBusyId,  setQueuedBusyId]  = useState(null)
+    const [queuedError,   setQueuedError]   = useState(null)
     // Immediate-trade ticket. Whether the pad is SHOWING is just `activeTab === 'ticket'` — the hub
     // opens it the way it opens a desk, so there is one notion of "what is in the chat column".
     // Which entity it manages is state, but the entity ITSELF is read from `ideas`
@@ -1750,22 +1761,95 @@ export function MainPage() {
         }
     }
 
+    // ── The queued list ───────────────────────────────────────────────────────
+    // Work confirmed while a venue was shut, plus anything the market-open sweep has unparked.
+    // See docs/architecture/off-hours-queue.md.
+
+    const loadQueued = useCallback(async () => {
+        setQueued(await pendingActionService.list())
+    }, [])
+
+    useEffect(() => { loadQueued() }, [loadQueued])
+
+    // Axl's market-open card → open the Floor on the queued desk. A fresh object every time so a
+    // second press re-opens the desk the user closed in between.
+    // `floorMode` is a DESIGN variant, not state — this can ask for the desk but cannot switch the
+    // user into the design that renders it. Rather than route into a surface that isn't there, say
+    // where the list lives. (Only reachable on a non-Floor design; the Floor is the default.)
+    useEffect(() => {
+        const off = eventBus.on(OPEN_QUEUED_LIST, () => {
+            if (!floorMode) {
+                showUserMsg('Your queued list is on the Floor — switch the design to Floor to open it.')
+                return
+            }
+            setDeskRequest({ key: 'queued' })
+            loadQueued()
+        })
+        return off
+    }, [loadQueued, floorMode])
+
+    /**
+     * Execute a queued row. Routing is the contract's judgment, not this component's: an ENTRY has
+     * a confirm surface already (levels, size, risk) and is handed to it; a queued trim/exit/add
+     * was decided in full and only needs a yes, so it opens the queue's own confirm.
+     */
+    function handleExecuteQueued(row) {
+        const route = executeRoute(row)
+        if (route.kind === 'event') {
+            eventBus.emit(route.event, route.payload)
+            return
+        }
+        if (route.kind === 'confirm') { setQueuedConfirm(row); setQueuedError(null); return }
+        showErrorMsg('This item came from a desk that can no longer run it.')
+    }
+
+    async function handleConfirmQueued() {
+        const row = queuedConfirm
+        if (!row) return
+        setQueuedBusyId(row.id)
+        setQueuedError(null)
+        const res = await pendingActionService.execute(row.id)
+        setQueuedBusyId(null)
+        if (res?.ok === false) {
+            // Stays open with the reason: "it rounds down to zero shares" is something to act on,
+            // and a dialog that vanishes on failure leaves the user guessing what happened.
+            setQueuedError(res.error ?? 'failed')
+            await loadQueued()
+            return
+        }
+        setQueuedConfirm(null)
+        await Promise.all([loadQueued(), loadIdeas()])
+        showSuccessMsg('Done — the order is with your broker.')
+    }
+
+    async function handleCancelQueued(row) {
+        setQueuedBusyId(row.id)
+        const res = await pendingActionService.cancel(row.id)
+        setQueuedBusyId(null)
+        await loadQueued()
+        if (res?.ok === false) { showErrorMsg('Could not cancel it — try again.'); return }
+        // `noted` is whether the desk that decided it was told. It matters: an un-noted cancel
+        // means the next review can propose the same thing again, unaware it was turned down.
+        showSuccessMsg(res?.noted ? 'Cancelled — the desk has been told.' : 'Cancelled.')
+    }
+
     // Accept an Atlas review proposal from the inline review bar. Executes server-side
     // (routed by mode/position: paper/live close, manual posts a Fill card, pending books
     // apply idea edits), then refreshes ideas. Returns false on failure so the panel keeps
     // the proposal for a retry. A pending (not-yet-activated) book gets an activate nudge.
     async function handleAcceptReview(portfolioId, update, { pending } = {}) {
+        let result
         try {
-            await portfolioService.applyRebalance(portfolioId, update)
+            result = await portfolioService.applyRebalance(portfolioId, update)
         } catch (err) {
             console.error('[portfolio] accept review failed', err)
-            showErrorMsg('Could not apply the changes — try again.')
+            // A 400 here is now the honest "nothing landed" answer, not just a transport failure.
+            // Returning false keeps the proposal on screen so the user can retry it.
+            showErrorMsg('Could not apply the changes — nothing was executed. Try again.')
             return false
         }
         await loadIdeas()
-        showSuccessMsg(pending
-            ? 'Changes applied — activate the book from your portfolio list when ready.'
-            : 'Changes applied.')
+        showSuccessMsg(reviewApplyMessage(result, { pending }))
         return true
     }
 
@@ -2754,6 +2838,11 @@ export function MainPage() {
                                     positions={positions}
                                     scans={scans}
                                     coverage={coverage}
+                                    queued={queued}
+                                    onExecuteQueued={handleExecuteQueued}
+                                    onCancelQueued={handleCancelQueued}
+                                    queuedBusyId={queuedBusyId}
+                                    deskRequest={deskRequest}
                                     onCandidateSelect={handleBuildFromCandidate}
                                     onEditCall={handleEditCall}
                                     onDeleteCall={handleDeleteCall}
@@ -2909,6 +2998,18 @@ export function MainPage() {
                     applying={applyingRebalance}
                     onConfirm={confirmRebalance}
                     onCancel={() => { if (!applyingRebalance) setPendingRebalance(null) }}
+                />
+            )}
+
+            {/* A queued trim/exit/scale-in. An ENTRY never gets here — it routes to the
+                OrderConfirmDialog above, which is where an entry has always been confirmed. */}
+            {queuedConfirm && (
+                <QueuedActionDialog
+                    row={queuedConfirm}
+                    running={queuedBusyId === queuedConfirm.id}
+                    error={queuedError}
+                    onConfirm={handleConfirmQueued}
+                    onCancel={() => { if (!queuedBusyId) { setQueuedConfirm(null); setQueuedError(null) } }}
                 />
             )}
         </>

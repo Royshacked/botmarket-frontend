@@ -16,9 +16,9 @@ export const AGENTS = {
     // ⚠ ARCHIVED 2026-07-29 — the Idea agent is superseded by Kairos (`call`) and Mentor
     // (`setup`), and its backend route is unmounted. It belongs to no desk, so the hub cannot
     // summon it (see the "no AGENT_LIST" note below — desks make an agent reachable). The entry
-    // STAYS because it is still read for display: BOT_IDS keeps its notification feed, and
-    // ThreadHistory / SocialChat render this brand + glyph for threads and alerts it already
-    // posted. Removing it would blank the name on that existing history.
+    // STAYS because it is still read for display: ThreadHistory / SocialChat render this brand +
+    // glyph for threads and alerts it already posted. Removing it would blank the name on that
+    // existing history. It is NOT in BOT_IDS any more — the notification feed is retired.
     idea: {
         tab:   'idea',
         brand: 'Idea',
@@ -179,11 +179,21 @@ AGENTS.axl = {
 // list of agents — an agent becomes reachable by belonging to a desk, not by being enumerated.
 
 // The social-chat notification bots — one per agent, ids matching the AGENTS keys and
-// the backend BOT_IDS. Each agent owns its own notifications: Idea posts invalidation
-// alerts, Atlas (portfolio) posts reviews, Argus (scanner) its scans. Only Axl is
+// the backend BOT_IDS. Each agent owns its own notifications: Atlas (portfolio) posts
+// reviews, Argus (scanner) its scans, Mentor its setup confirms. Only Axl is
 // conversational; the specialist threads are notify-only feeds. Axl is pinned first.
-export const BOT_IDS = ['axl', 'idea', 'portfolio', 'scanner', 'kairos', 'mentor', 'analyst', 'strategy']
+//
+// NO `idea`: the Idea desk is archived, so its feed is retired (backend RETIRED_BOT_IDS —
+// nothing posts there and getConversations hides the old thread). The AGENTS entry above
+// stays for rendering history; being absent HERE is what removes it from the sidebar.
+export const BOT_IDS = ['axl', 'portfolio', 'scanner', 'kairos', 'mentor', 'analyst', 'strategy']
 export const isBotId = (id) => BOT_IDS.includes(id)
+
+// Retired feeds (backend RETIRED_BOT_IDS). Absence from BOT_IDS is what unpins the thread, but on
+// its own it makes things WORSE: an id nothing recognises as a bot renders as a person, so the
+// dead feed comes back as a human DM from a user called "idea". These are dropped outright.
+export const RETIRED_BOT_IDS = ['idea']
+export const isRetiredBotId = (id) => RETIRED_BOT_IDS.includes(id)
 // The one bot you can chat with; the rest are read-only alert feeds.
 export const CONVERSATIONAL_BOT_ID = 'axl'
 

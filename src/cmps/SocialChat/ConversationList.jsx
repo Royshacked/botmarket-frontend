@@ -2,7 +2,7 @@ import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { chatService } from '../../services/chat/chat.service'
 import { AxlBotGlyph } from '../AxlHub/AgentSummon'
-import { AGENTS, BOT_IDS, isBotId } from '../AxlHub/agentMeta.jsx'
+import { AGENTS, BOT_IDS, isBotId, isRetiredBotId } from '../AxlHub/agentMeta.jsx'
 import { AgentGlyph } from '../AxlHub/AgentBadges.jsx'
 
 // The agent behind a conversation, or null for a human DM. Drives the brand name
@@ -39,8 +39,10 @@ export function ConversationList({ conversations, activeId, currentUserId, onSel
         if (q.trim().length < 2) { setResults([]); return }
         setSearching(true)
         try {
+            // People search, so no bot belongs in it — least of all a retired one, which the
+            // server filters by username but which would otherwise read as a startable DM.
             const users = await chatService.searchUsers(q)
-            setResults(users)
+            setResults(users.filter(u => !isBotId(u.id) && !isRetiredBotId(u.id)))
         } catch { setResults([]) }
         finally { setSearching(false) }
     }

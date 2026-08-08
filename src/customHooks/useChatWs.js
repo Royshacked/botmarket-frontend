@@ -21,6 +21,7 @@ const TYPE_LABELS = {
     coverage_event:     'Coverage update',
     tilt_event:         'Sector view changed',
     coverage_refreshed: 'Research refreshed',
+    queue_ready:        'Market open',
 }
 
 // One-line preview for the incoming-message toast. Bot senders resolve to their

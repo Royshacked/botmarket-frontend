@@ -35,6 +35,9 @@ export const OPEN_SECTOR_VIEW          = 'open-sector-view'
 // Daily market-brief card "Get the brief" → route to Axl and stream the brief into his thread,
 // rather than posting a wall of market prose back into the social chat.
 export const MARKET_BRIEF_OPEN         = 'market-brief-open'
+// Market-open card "Open the list" → the Floor's queued desk, where work confirmed off-hours (and
+// anything the sweep just unparked) is executed one row at a time.
+export const OPEN_QUEUED_LIST          = 'open-queued-list'
 
 function createEventEmitter() {
     const listenersMap = {}

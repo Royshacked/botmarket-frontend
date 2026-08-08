@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { groupByLifecycle, isPreEntry, isLivePosition } from '../../services/entityStatus.js'
 import {
@@ -8,6 +8,7 @@ import {
 import { EditButton, DeleteButton, ActivateButton } from '../EntityCard/EntityCard.jsx'
 import { ActivatePortfolioDialog } from '../TradeIdeas/ActivatePortfolioDialog.jsx'
 import { tradeFloorItems } from './floor.utils.js'
+import { actionLine, originLine, actionVerb } from './queuedAction.contract.js'
 import { RowHost } from './RowHost.jsx'
 import { CoverageActions } from '../Radar/CoverageActions.jsx'
 import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
@@ -24,6 +25,9 @@ import './Floor.scss'
 // same for all four, so it lives once in <Desk> and each desk supplies only its rows.
 
 const DESKS = [
+    // Queued sits FIRST because it is the only desk that is a to-do list: the other four are things
+    // you own, this one is things waiting on you. A count here means someone is blocked.
+    { key: 'queued',    label: 'Queued' },
     { key: 'trade',     label: 'Trading floor' },
     { key: 'portfolio', label: 'Portfolio floor' },
     { key: 'scans',     label: 'Scans' },
@@ -66,6 +70,81 @@ Desk.propTypes = {
 
 const Empty = ({ children }) => <p className="floor-empty">{children}</p>
 Empty.propTypes = { children: PropTypes.node }
+
+// ── Queued ────────────────────────────────────────────────────────────────────
+// Work confirmed while a venue was shut (nothing executes off-hours, paper included) plus anything
+// the market-open sweep has already unparked. One row per thing waiting on you.
+//
+// The row says WHAT WILL HAPPEN and WHERE IT CAME FROM, because by the time you read it the review
+// that decided it is long closed — "Trim 30% of MU · Growth review" is the whole point of the row.
+// Both strings come from queuedAction.contract, which owns the per-verb judgment; this component
+// only lays it out.
+
+function QueuedRow({ row, onExecute, onCancel, busy }) {
+    const ready = row.ready !== false
+    return (
+        <RowHost
+            actions={
+                <>
+                    <button
+                        className="floor-queued__btn"
+                        onClick={() => onExecute(row)}
+                        disabled={!ready || busy}
+                        title={ready ? undefined : 'Its market has not opened yet'}
+                    >{actionVerb(row)}</button>
+                    {/* Cancel is offered only where dropping the row actually settles something:
+                        a discretionary decision the user may have changed their mind about. An
+                        entity awaiting confirmation is dismissed by the surface that owns it, and
+                        a monitor's exit is the consequence of a stop that is still breached — it
+                        would simply re-queue on the next tick. The server decides which is which
+                        (`cancellable`); this only renders it. */}
+                    {row.cancellable && (
+                        <button
+                            className="floor-queued__btn floor-queued__btn--cancel"
+                            onClick={() => onCancel(row)}
+                            disabled={busy}
+                            title="Cancel — the desk that decided it is told"
+                        >Cancel</button>
+                    )}
+                </>
+            }
+        >
+            <span className={`floor-queued__dot${ready ? '' : ' floor-queued__dot--waiting'}`} aria-hidden="true" />
+            <span className="floor-queued__line">{actionLine(row)}</span>
+            {originLine(row) && <span className="floor-queued__from">{originLine(row)}</span>}
+            {!ready && <span className="floor-queued__pending">waiting for the open</span>}
+        </RowHost>
+    )
+}
+QueuedRow.propTypes = {
+    row:       PropTypes.object.isRequired,
+    onExecute: PropTypes.func.isRequired,
+    onCancel:  PropTypes.func.isRequired,
+    busy:      PropTypes.bool,
+}
+
+function QueuedRows({ queued, onExecute, onCancel, busyId }) {
+    if (!queued.length) return <Empty>Nothing waiting on you.</Empty>
+    return (
+        <>
+            {queued.map(row => (
+                <QueuedRow
+                    key={`${row.source}:${row.id}`}
+                    row={row}
+                    onExecute={onExecute}
+                    onCancel={onCancel}
+                    busy={busyId === row.id}
+                />
+            ))}
+        </>
+    )
+}
+QueuedRows.propTypes = {
+    queued:    PropTypes.array.isRequired,
+    onExecute: PropTypes.func.isRequired,
+    onCancel:  PropTypes.func.isRequired,
+    busyId:    PropTypes.string,
+}
 
 // ── Trading floor ─────────────────────────────────────────────────────────────
 
@@ -482,22 +561,35 @@ CoverageRows.propTypes = { coverage: PropTypes.array, onEditCoverage: PropTypes.
 
 export function FloorLists({
     calls = [], setups = [], ideas = [], positions = [],
-    scans = [], coverage = [],
+    scans = [], coverage = [], queued = [],
     onCandidateSelect,
     onEditCall, onDeleteCall, onEditSetup, onDeleteSetup,
     onEditPortfolio, onDeletePortfolio, onDeleteIdea, onActivatePortfolio,
     onEditScan, onDeleteScan,
     onEditCoverage, onRetireCoverage, onDeleteCoverage,
-    initialDesk = null,
+    onExecuteQueued, onCancelQueued, queuedBusyId = null,
+    initialDesk = null, deskRequest = null,
 }) {
-    // One desk open at a time — clicking the open one closes it, leaving all four collapsed. That
+    // One desk open at a time — clicking the open one closes it, leaving them all collapsed. That
     // "all closed" state is legitimate: it turns the column into a table of contents — which is
     // also why it is the state a fresh load lands in. Opening a desk is a choice the reader makes,
     // not one a refresh makes for them.
     const [openKey, setOpenKey] = useState(initialDesk)
     const toggle = key => setOpenKey(cur => (cur === key ? null : key))
 
+    // An outside ASK to open a desk (Axl's market-open card → the queued list). Keyed on the
+    // request OBJECT, not its value: pressing the same card twice is two asks, and a plain
+    // `deskRequest === 'queued'` dependency would fire only the first time — leaving the second
+    // click looking broken after the user had closed the desk in between.
+    useEffect(() => {
+        if (deskRequest?.key) setOpenKey(deskRequest.key)
+    }, [deskRequest])
+
     const counts = {
+        // Only the READY ones count. A row still waiting for its venue is in the list on purpose
+        // (hiding it is how a decision gets forgotten) but it is not something you can act on, and
+        // a badge that says 3 when only 1 is pressable is a badge nobody trusts.
+        queued:    queued.filter(q => q.ready !== false).length,
         trade:     calls.length + setups.length,
         portfolio: portfoliosFromIdeas(ideas).length,
         scans:     scans.length,
@@ -520,6 +612,13 @@ export function FloorLists({
                     count={counts[desk.key]}
                     onToggle={toggle}
                 >
+                    {desk.key === 'queued'    && (
+                        <QueuedRows
+                            queued={queued}
+                            onExecute={onExecuteQueued} onCancel={onCancelQueued}
+                            busyId={queuedBusyId}
+                        />
+                    )}
                     {desk.key === 'trade'     && (
                         <TradeRows
                             calls={calls} setups={setups}
@@ -568,6 +667,11 @@ FloorLists.propTypes = {
     positions:         PropTypes.array,
     scans:             PropTypes.array,
     coverage:          PropTypes.array,
+    queued:            PropTypes.array,
+    onExecuteQueued:   PropTypes.func,
+    onCancelQueued:    PropTypes.func,
+    queuedBusyId:      PropTypes.string,
+    deskRequest:       PropTypes.object,
     onCandidateSelect: PropTypes.func,
     onEditCall:        PropTypes.func,
     onDeleteCall:      PropTypes.func,

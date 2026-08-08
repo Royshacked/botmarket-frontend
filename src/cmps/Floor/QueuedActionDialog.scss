@@ -1,0 +1,114 @@
+// ── Queued-action confirmation dialog ───────────────────────────────────────────
+// The confirm for an action decided while the market was shut. Narrower and quieter than the
+// close-position dialog: there is nothing to review here beyond one sentence, because the sizing
+// and the levels were settled when the decision was taken.
+
+.queued-action__backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 320;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--overlay);
+    backdrop-filter: blur(2px);
+}
+
+.queued-action {
+    width: 360px;
+    max-width: calc(100vw - 32px);
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    box-shadow: 0 20px 70px rgba(0, 0, 0, 0.8);
+    overflow: hidden;
+
+    &__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 11px 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-base);
+    }
+
+    &__title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--text-primary);
+    }
+
+    &__asset {
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: none;
+        color: var(--text-muted);
+    }
+
+    &__close {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        font-size: 1rem;
+        cursor: pointer;
+        padding: 0 2px;
+
+        &:hover { color: var(--text-primary); }
+    }
+
+    &__body {
+        margin: 0;
+        padding: 16px;
+        font-size: 0.85rem;
+        line-height: 1.5;
+        color: var(--text-secondary, var(--text-muted));
+    }
+
+    &__error {
+        margin: 0;
+        padding: 0 16px 14px;
+        font-size: 0.78rem;
+        line-height: 1.45;
+        color: var(--accent-light, #ef5350);
+    }
+
+    &__footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 12px 16px;
+        border-top: 1px solid var(--border);
+        background: var(--bg-base);
+    }
+
+    &__btn {
+        padding: 6px 14px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border-radius: 5px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text-primary);
+        cursor: pointer;
+
+        &:disabled { opacity: 0.5; cursor: default; }
+        &:not(:disabled):hover { background: var(--bg-hover); }
+
+        &--confirm {
+            border-color: var(--accent);
+            background: var(--accent);
+            color: var(--bg-base);
+
+            &:not(:disabled):hover { filter: brightness(1.08); background: var(--accent); }
+        }
+    }
+}
