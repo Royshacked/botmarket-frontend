@@ -9,6 +9,7 @@ import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
+import { SuggestionChips } from '../SuggestionChips.jsx'
 import { ChatMarkdown } from '../ChatMarkdown.jsx'
 import { ChatReasoning } from '../ChatReasoning.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
@@ -81,6 +82,9 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
     const [summoning, setSummoning]       = useState(null)
     const [draft, setDraft]               = useState('')
     const [pendingRoute, setPendingRoute] = useState(null)   // { desk, symbol, opening, edit } — the hand-off
+    // Follow-ups Axl offered on the LAST turn. Latest turn only: they answer "what now", and a
+    // question from four turns ago is not that. Cleared the moment anything is sent.
+    const [suggestions, setSuggestions] = useState([])
     const [hoveredDesk, setHoveredDesk]   = useState(null)
     const timerRef  = useRef(null)
     const inputRef  = useRef(null)
@@ -140,6 +144,7 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
 
     async function _send(text) {
         if (!text || isLoading) return
+        setSuggestions([])          // the offer is spent the moment anything is sent
 
         const history = toChatHistory(messages)
         const { signal, handlers } = chat.begin(text, {
@@ -153,6 +158,11 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
                 // An EDIT is the same hand-off aimed at a document instead of a blank page, and it
                 // names its own desk (kind → desk is decided on the server), so it is read first:
                 // a turn that reopens the user's TSLA call is going to Kairos whatever else it said.
+                // Empty on a routing turn — the server guarantees it, since the door Axl just
+                // opened IS the next step and chips beside it would compete with the one thing
+                // he decided.
+                setSuggestions(Array.isArray(data.suggestions) ? data.suggestions : [])
+
                 const desk = DESKS.find(d => d.key === (data.edit?.desk ?? data.route))
                 if (desk) setPendingRoute({
                     desk,
@@ -196,6 +206,10 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
     // reaches Axl with the brief and the question that produced it already in the history.
     async function _sendBrief() {
         if (isLoading) return
+        // The brief runs its own begin/stream/finish rather than going through _send, so it has to
+        // spend the offer itself — chips from the previous turn hanging under a fresh brief would
+        // answer a question nobody is looking at any more.
+        setSuggestions([])
 
         const { signal, handlers } = chat.begin("Today's market brief, please.", {
             onDone: (data) => {
@@ -236,6 +250,7 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
         chat.handleStop?.()
         chat.setMessages([])
         setDraft('')
+        setSuggestions([])          // chips belong to a thread that no longer exists
         // One Clear, one clean slate — a chart left docked under an empty hub reads as a leftover.
         closeChart()
     }
@@ -410,6 +425,10 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
 
             {/* Same dock as every agent chat: above the input, below the thread. */}
             <ChatChartDock />
+
+            {/* Directly above the input, where the eye already is when deciding what to say next.
+                A chip sends its text as the user's own message — the same path as typing it. */}
+            <SuggestionChips suggestions={suggestions} onPick={_send} disabled={isLoading} />
 
 
             <ChatInputRow
