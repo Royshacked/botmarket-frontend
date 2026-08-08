@@ -55,6 +55,12 @@ export function ChatInputRow({
         else if (textareaRef) textareaRef.current = el
     }, [textareaRef])
 
+    // "…(Enter to send, Shift+Enter for newline)" is a hardware-keyboard instruction, and in a few
+    // panels it's longer than the sentence it qualifies. On a phone there is no Shift+Enter to
+    // press, so it's a false hint that costs the field two extra wrapped lines — drop it and leave
+    // the panel's actual subject. One rule here beats eight panels each branching their own copy.
+    const shownPlaceholder = isTouchPrimary() ? placeholder?.replace(KEYBOARD_HINT, '') : placeholder
+
     const wasStreaming = useRef(false)
     useEffect(() => {
         const finished = wasStreaming.current && !isStreaming
@@ -116,7 +122,7 @@ export function ChatInputRow({
                 value={value}
                 onChange={onChange}
                 onKeyDown={onKeyDown}
-                placeholder={placeholder}
+                placeholder={shownPlaceholder}
                 rows={2}
                 disabled={textareaDisabled}
             />
@@ -176,6 +182,11 @@ export function ChatInputRow({
         </div>
     )
 }
+
+// A trailing parenthetical that names the Enter key — the only kind of tail the panels append.
+// Matched on `Enter` rather than "any trailing (…)" so a panel whose copy ends in a real
+// parenthetical keeps it on every device.
+const KEYBOARD_HINT = /\s*\([^)]*\bEnter\b[^)]*\)\s*$/i
 
 // A phone/tablet, where the keyboard is a panel that eats half the screen rather than hardware.
 // Read live (not once at module load) so a hybrid device that switches input mode answers for how

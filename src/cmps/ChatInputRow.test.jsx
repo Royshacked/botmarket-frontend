@@ -90,6 +90,35 @@ describe('ChatInputRow focus return', () => {
     })
 })
 
+// The keyboard hint a few panels append to their placeholder describes hardware that a phone
+// doesn't have — and it's long enough to wrap the field into a cramped block. Trimmed on touch,
+// in the shared row, so no panel branches its own copy.
+describe('ChatInputRow placeholder on touch', () => {
+    const IDEA = 'Describe your trade idea… (Enter to send, Shift+Enter for newline)'
+    const placeholderOf = container => container.querySelector('.chat-input-row__textarea').placeholder
+
+    afterEach(() => { delete window.matchMedia })
+    const asTouch = () => { window.matchMedia = q => ({ matches: q.includes('coarse') }) }
+
+    it('drops the keyboard hint on a phone, keeping the subject', () => {
+        asTouch()
+        const { container } = render(<ChatInputRow {...base} placeholder={IDEA} />)
+        expect(placeholderOf(container)).toBe('Describe your trade idea…')
+    })
+
+    it('keeps it where there is a keyboard', () => {
+        const { container } = render(<ChatInputRow {...base} placeholder={IDEA} />)
+        expect(placeholderOf(container)).toBe(IDEA)
+    })
+
+    it('leaves a parenthetical that is not a keyboard hint', () => {
+        asTouch()
+        const copy = 'Ask about a holding (or the whole book)'
+        const { container } = render(<ChatInputRow {...base} placeholder={copy} />)
+        expect(placeholderOf(container)).toBe(copy)
+    })
+})
+
 describe('AgentChatInput', () => {
     // The five panels that share this wrapper get the landing state for free: it reads the same
     // `chat.messages` they already hand it, so none of them wires an `empty` prop.

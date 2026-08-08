@@ -162,5 +162,30 @@
     }
 }
 
+// ── Mobile: < 768px ───────────────────────────────────────────────────────────
+// On a phone the chat column IS the screen (RootCmp collapses the workspace to it), so the 75%
+// rule — which stops the composer sprawling across a wide desk — only starves the field: three
+// 32px icon buttons and a 260px floor left the text about 170px. The placeholder then wrapped
+// past the box's two rows, which both crammed it and made the field overflow, surfacing the
+// global 8px accent scrollbar (_base.scss) as a vertical line down the pill's inside edge.
+//
+// Full-bleed here, like the social composer: the panel's own inset is the only margin needed.
+@media (max-width: 767px) {
+    .chat-input-row {
+        width: auto;
+        min-width: 0;
+        max-width: none;
+        margin: 6px 8px 10px;
+
+        &__textarea {
+            // A scrollbar inside a 16px-radius pill is noise, and mobile WebKit honours the
+            // global width rule with a permanent classic bar rather than an auto-hiding overlay.
+            // Dragging and the caret still scroll the text.
+            scrollbar-width: none;
+            &::-webkit-scrollbar { width: 0; height: 0; }
+        }
+    }
+}
+
 @keyframes cir-spin  { to { transform: rotate(360deg); } }
 @keyframes cir-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
