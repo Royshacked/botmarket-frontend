@@ -56,7 +56,6 @@ export function useChatScroll(messages, { watch } = {}) {
             }
             messagesEndRef.current?.scrollIntoView({ behavior })
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [messages, watch])
 
     return { messagesRef, messagesEndRef, handleScroll }
