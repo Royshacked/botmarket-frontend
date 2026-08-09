@@ -76,6 +76,26 @@ describe('MonitorJournal', () => {
         expect(container.querySelector('.monitor-journal__axes')).toBeNull()
     })
 
+    it('the renamed market-closed wake and its legacy spelling read identically', () => {
+        // Server-side `closed` became `market_closed` because it read as "the position closed"
+        // while it means "the market is shut". Entries written before the rename are still in live
+        // docs — if only the new key were labelled, they would render as the raw slug.
+        const { rerender } = render(
+            <MonitorJournal timeline={[{ at: AT, reason: 'market_closed', note: 'holding' }]} empty="x" />)
+        expect(screen.getByText('market closed')).toBeTruthy()
+
+        rerender(<MonitorJournal timeline={[{ at: AT, reason: 'closed', note: 'holding' }]} empty="x" />)
+        expect(screen.getByText('market closed')).toBeTruthy()
+    })
+
+    it('an exit is labelled as the position closing, not as the market closing', () => {
+        // The two are opposite events and used to share a word. A raw `exit` slug leaking into the
+        // journal is how we would find out the label map was missed.
+        render(<MonitorJournal timeline={[{ at: AT, reason: 'exit', note: 'Out of AER at 151.45' }]} empty="x" />)
+        expect(screen.getByText('closed out')).toBeTruthy()
+        expect(screen.queryByText('exit')).toBeNull()
+    })
+
     it('a caller can label the wake kinds only IT produces', () => {
         const entry = { at: AT, reason: 'in_position', note: 'trailing the stop' }
         render(<MonitorJournal timeline={[entry]} empty="x" reasonLabels={{ in_position: 'managing' }} />)

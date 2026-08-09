@@ -23,13 +23,21 @@ import './MonitorJournal.scss'
 // journal cap on their own.
 
 // The wake kinds every monitor has. A caller merges its own on top (Hermes's in-position era).
+//
+// `closed` and `market_closed` are the SAME wake. The value was renamed server-side because
+// `closed` read as "the position closed" while it means "the market is shut" — and `exit` is now
+// the position one, so the two would have sat side by side meaning opposites. Entries written
+// before the rename are still in live docs; both keys are here so they render identically until
+// they age out of the journal cap.
 const BASE_REASON_LABEL = {
     pre_active:     'not live yet',
-    closed:         'market closed',
+    market_closed:  'market closed',
+    closed:         'market closed',   // legacy — delete once no live journal predates the rename
     scheduled:      'heartbeat',
     momentum_pulse: 'pulse',
     zone_trip:      'in zone',
     expiry_review:  'expiry review',
+    exit:           'closed out',
 }
 
 // A wake that PAID for a model read — it earns the fetched line and the axes block.
