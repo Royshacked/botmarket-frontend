@@ -8,7 +8,7 @@
 
     &__lead {
         margin: 0;
-        font-size: 12px;
+        font-size: var(--chat-meta);
         color: var(--text-dim);
     }
 
@@ -45,7 +45,7 @@
     &__rec {
         margin-left: auto;
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: var(--chat-micro);
         letter-spacing: 0.08em;
         text-transform: uppercase;
         padding: 1px 5px;
@@ -59,7 +59,7 @@
     &__tag,
     &__dir {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: var(--chat-micro);
         letter-spacing: 0.06em;
         text-transform: uppercase;
         padding: 1px 5px;
@@ -71,14 +71,14 @@
     &__dir--long  { color: var(--long-text);  border-color: var(--long-border); }
     &__dir--short { color: var(--short-text); border-color: var(--short-border); }
 
-    &__pitch { font-size: 12px; line-height: 1.45; }
+    &__pitch { font-size: var(--chat-meta); line-height: 1.45; }
 
     &__levels {
         display: flex;
         flex-direction: column;
         gap: 1px;
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: var(--chat-label);
 
         em { font-style: normal; color: var(--text-dim); display: inline-block; min-width: 42px; }
     }

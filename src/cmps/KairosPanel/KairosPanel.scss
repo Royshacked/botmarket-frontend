@@ -31,7 +31,7 @@
         padding: 6px 10px 0;
     }
     &__modes-label {
-        font-size: 10px;
+        font-size: var(--chat-micro);
         text-transform: uppercase;
         letter-spacing: 0.06em;
         color: var(--text-muted);
@@ -88,7 +88,7 @@
 
     // Call preview — mirror the Idea chat's build-summary typography (flat 11px mono body, 9px
     // chips, muted labels) so both agents' previews read as one compact system, not oversized cards.
-    &__draft { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-family: var(--font-mono); }
+    &__draft { display: flex; flex-direction: column; gap: 4px; font-size: var(--chat-meta); font-family: var(--font-mono); }
     &__asset { color: var(--accent-light); font-weight: 700; letter-spacing: 0.06em; }
     // The Generate action is a single button — size it to content instead of stretching full-width
     // (the shared .portfolio-panel__review-btn is flex:1, meant for multi-button action bars).
@@ -96,10 +96,10 @@
     &__draft-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     &__card-title { display: flex; align-items: center; gap: 6px; }
     &__type,
-    &__size { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+    &__size { font-size: var(--chat-micro); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
 
     &__dir {
-        font-size: 10px;
+        font-size: var(--chat-micro);
         font-weight: 600;
         text-transform: uppercase;
         &--long  { color: var(--color-long); }
@@ -107,14 +107,14 @@
         &--both  { color: #d9a441; }
     }
 
-    &__thesis { font-size: 12px; color: var(--text-secondary); line-height: 1.35; }
+    &__thesis { font-size: var(--chat-meta); color: var(--text-secondary); line-height: 1.35; }
 
     &__chips { display: flex; flex-wrap: wrap; gap: 4px; }
     &__assess { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
     &__chip {
         padding: 1px 5px;
         border-radius: 2px;
-        font-size: 10px;
+        font-size: var(--chat-micro);
         letter-spacing: 0.04em;
         background: var(--bg-raised);
         border: 1px solid var(--border);

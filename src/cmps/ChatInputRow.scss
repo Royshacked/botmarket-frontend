@@ -178,6 +178,13 @@
         margin: 6px 8px 10px;
 
         &__textarea {
+            // 16px is not a taste call on a phone: iOS Safari ZOOMS THE PAGE when a field under
+            // 16px takes focus, and it does not zoom back out — so tapping the composer at 13px
+            // left the whole chat blown up and scrolled sideways, on every send. It is also the
+            // platform body size (Material 16sp / HIG 17pt), which is what you want in the one
+            // box the user actually types into.
+            font-size: 16px;
+
             // A scrollbar inside a 16px-radius pill is noise, and mobile WebKit honours the
             // global width rule with a permanent classic bar rather than an auto-hiding overlay.
             // Dragging and the caret still scroll the text.

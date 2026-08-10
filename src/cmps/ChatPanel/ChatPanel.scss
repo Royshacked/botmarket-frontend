@@ -57,7 +57,7 @@
 
     &__subtitle {
         font-family: var(--font-sans);
-        font-size: 11px;
+        font-size: var(--chat-label);
         font-weight: 400;
         letter-spacing: 0.02em;
         color: var(--text-muted);
@@ -79,7 +79,7 @@
 
     &__phase-chip {
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: var(--chat-label);
         font-weight: 600;
         letter-spacing: 0.08em;
         text-transform: uppercase;
@@ -100,7 +100,7 @@
 
     &__live {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: var(--chat-micro);
         font-weight: 700;
         letter-spacing: 0.12em;
         text-transform: uppercase;
@@ -131,7 +131,7 @@
         display: flex;
         flex-direction: column;
         gap: 4px;
-        font-size: 12px;
+        font-size: var(--chat-meta);
         font-family: var(--font-mono);
         max-height: 160px;
         overflow-y: auto;
@@ -193,7 +193,7 @@
 
         &-op {
             color: var(--accent);
-            font-size: 10px;
+            font-size: var(--chat-micro);
             font-weight: 700;
             letter-spacing: 0.08em;
             width: 24px;
@@ -201,7 +201,7 @@
         }
 
         &-cond-text { color: var(--text-secondary); }
-        &-tf        { color: var(--text-muted); font-size: 10px; }
+        &-tf        { color: var(--text-muted); font-size: var(--chat-micro); }
 
         &-group--accounts { margin-top: 2px; }
 
@@ -256,7 +256,7 @@
         }
 
         &-account-chip {
-            font-size: 10px;
+            font-size: var(--chat-micro);
             font-family: var(--font-mono);
             letter-spacing: 0.04em;
             padding: 1px 5px;
@@ -268,7 +268,7 @@
         }
 
         &-no-accounts {
-            font-size: 10px;
+            font-size: var(--chat-micro);
             font-family: var(--font-mono);
             color: var(--color-short);
             opacity: 0.75;
@@ -282,7 +282,7 @@
         max-width: 80%;
         text-align: center;
         font-family: var(--font-mono);
-        font-size: 12px;
+        font-size: var(--chat-meta);
         color: var(--text-muted);
         line-height: 1.7;
         margin-top: 40px;
@@ -343,7 +343,7 @@
             li         { margin-bottom: 0.2em; }
             strong     { color: var(--accent-light); font-weight: 600; }
             em         { color: var(--text-secondary); }
-            code       { font-family: var(--font-mono); font-size: 12px;
+            code       { font-family: var(--font-mono); font-size: var(--chat-meta);
                          background: var(--bg-base); padding: 1px 5px; border-radius: 2px;
                          color: var(--accent-light); }
             pre        { background: var(--bg-base); border: 1px solid var(--border); border-radius: 3px;
@@ -364,7 +364,7 @@
             border: 1px dashed var(--accent);
             color: var(--accent);
             font-family: var(--font-mono);
-            font-size: 12px;
+            font-size: var(--chat-meta);
             letter-spacing: 0.05em;
             padding: 6px 16px;
             border-radius: 2px;
@@ -419,7 +419,7 @@
         border-radius: 3px;
         color: var(--accent);
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: var(--chat-label);
         font-weight: 700;
         letter-spacing: 0.12em;
         text-transform: uppercase;
@@ -442,7 +442,7 @@
         border: none;
         border-radius: 3px;
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: var(--chat-label);
         font-weight: 700;
         letter-spacing: 0.12em;
         text-transform: uppercase;
@@ -470,7 +470,7 @@
         flex-basis: 100%;
         margin: 0;
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: var(--chat-label);
         letter-spacing: 0.04em;
         opacity: 0.55;
     }
@@ -484,7 +484,7 @@
         border: 1px solid var(--border);
         border-radius: 4px;
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: var(--chat-label);
         letter-spacing: 0.1em;
         text-transform: uppercase;
         cursor: pointer;
@@ -519,7 +519,7 @@
         gap: 6px;
 
         > span {
-            font-size: 0.75rem;
+            font-size: var(--chat-meta);   // was 0.75rem — the same 12px, now on the scale
             color: var(--text-secondary);
             line-height: 1.4;
         }
@@ -604,7 +604,7 @@
 
     &__count {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: var(--chat-micro);
         font-weight: 700;
         letter-spacing: 0.05em;
         line-height: 1;
@@ -638,7 +638,7 @@
         justify-content: space-between;
         gap: 8px;
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: var(--chat-micro);
         font-weight: 700;
         letter-spacing: 0.12em;
         text-transform: uppercase;
@@ -658,7 +658,7 @@
 
     &__empty {
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: var(--chat-label);
         color: var(--text-muted);
         padding: 10px 12px;
         font-style: italic;
@@ -688,7 +688,7 @@
 
         &-broker {
             font-family: var(--font-mono);
-            font-size: 10px;
+            font-size: var(--chat-micro);
             font-weight: 700;
             letter-spacing: 0.08em;
             text-transform: uppercase;
@@ -698,14 +698,14 @@
 
         &-login {
             font-family: var(--font-mono);
-            font-size: 11px;
+            font-size: var(--chat-label);
             color: var(--text-primary);
             flex: 1;
         }
 
         &-type {
             font-family: var(--font-mono);
-            font-size: 10px;
+            font-size: var(--chat-micro);
             font-weight: 600;
             letter-spacing: 0.06em;
             &.live  { color: var(--color-long); }
@@ -735,7 +735,7 @@
 
     &__main-hint {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: var(--chat-micro);
         color: var(--text-muted);
         padding: 5px 12px 6px;
         border-top: 1px solid var(--border);
@@ -745,7 +745,7 @@
 
     &__paper-note {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: var(--chat-micro);
         color: var(--accent-light);
         padding: 5px 12px 6px;
         border-top: 1px solid var(--border);

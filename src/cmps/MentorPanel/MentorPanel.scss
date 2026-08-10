@@ -49,7 +49,7 @@
 
     &__armed-copy {
         margin: 0 0 2px;
-        font-size: 12px;
+        font-size: var(--chat-meta);
         line-height: 1.5;
         color: var(--text-dim);
         text-align: center;
@@ -70,7 +70,7 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    font-size: 11px;
+    font-size: var(--chat-label);
     color: var(--text-dim);
     text-align: center;
 

@@ -20,7 +20,7 @@
     &__title {
         margin: 0;
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: var(--chat-label);
         font-weight: 700;
         letter-spacing: 0.1em;
         text-transform: uppercase;
@@ -29,7 +29,7 @@
 
     &__total {
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: var(--chat-label);
         color: var(--accent-light);
     }
 
@@ -55,7 +55,7 @@
 
     &__empty {
         margin: 0;
-        font-size: 12px;
+        font-size: var(--chat-meta);
         color: var(--text-dim);
         font-style: italic;
     }
@@ -76,7 +76,7 @@
 
     &__id {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: var(--chat-micro);
         color: var(--text-dim);
         min-width: 22px;
     }
@@ -90,7 +90,7 @@
         background: var(--bg-deep);
         color: inherit;
         font-family: var(--font-mono);
-        font-size: 12px;
+        font-size: var(--chat-meta);
 
         &:focus { outline: none; border-color: var(--accent); }
         &:disabled { opacity: 0.6; cursor: default; }
@@ -104,11 +104,11 @@
 
     &__qty { width: 52px; }
 
-    &__dash { color: var(--text-dim); font-size: 12px; }
+    &__dash { color: var(--text-dim); font-size: var(--chat-meta); }
 
     &__flag {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: var(--chat-micro);
         letter-spacing: 0.08em;
         text-transform: uppercase;
         color: var(--text-dim);
@@ -117,8 +117,21 @@
     &__note {
         flex-basis: 100%;
         margin: 2px 0 0;
-        font-size: 11px;
+        font-size: var(--chat-label);
         line-height: 1.4;
         color: var(--text-dim);
+    }
+}
+
+// ── The two number fields on a phone ─────────────────────────────────────────
+// 16px, off the scale on purpose: these are the only INPUTS in the editor, and iOS Safari zooms
+// the page when a field under 16px takes focus — the same trap the composer was in. Editing a
+// zone means tapping from/to/qty in turn, so it would have fired on every leg of every setup.
+// The boxes grow to match, or a price stops fitting the field it lives in.
+@media (max-width: 767px) {
+    .zone-editor {
+        &__num, &__qty { font-size: 16px; }
+        &__num { width: 82px; }
+        &__qty { width: 64px; }
     }
 }

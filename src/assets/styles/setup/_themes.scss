@@ -270,6 +270,23 @@
     // so it runs a step above UI text rather than matching it.
     --chat-text: 17px;
 
+    // ── ...and the three sizes AROUND what it says ────────────────────────────
+    // The supporting type of a chat surface: what the message is (turn tags, timestamps, the
+    // live/phase labels), what the agent is doing (tool chips), and what it hands you (ticker
+    // chips, action buttons, inline code, the empty state).
+    //
+    // These are three named ROLES, not three numbers someone liked. They exist because the
+    // desktop values — 10 / 11 / 12px, sized for a dense three-column desk — are one to three
+    // steps under every mobile platform floor (HIG 11pt absolute / Material 12sp; 16px on the
+    // one field you type into, or iOS Safari zooms the page). On a phone this column IS the
+    // app, so the scale is redefined once at the breakpoint below rather than patched per rule.
+    //
+    // Desktop is deliberately unchanged: each token's value here is exactly what the rules that
+    // now read it were already using, so this swap moves nothing until the media query fires.
+    --chat-meta:  12px;   // secondary prose — inline code, empty states, chips you read
+    --chat-label: 11px;   // control and status labels — buttons, phase chips, counts
+    --chat-micro: 10px;   // the smallest marks — turn tags, hints, the live badge
+
     // Header wave gradient stops (the calm-water line at the header's bottom edge).
     // Same green→teal→cyan→blue→violet signature as the aurora, derived from the
     // shared --aurora-hue with fixed offsets, so the wave rotates with the accent/
@@ -337,4 +354,23 @@
     // Sentiment
     --sentiment-bull: #4caf7d;
     --sentiment-bear: #e05c5c;
+}
+
+// ── The chat scale on a phone ────────────────────────────────────────────────
+// One redefinition, every desk. The reading size does not move — 17px is already the iOS body
+// size, and a phone is held CLOSER than a monitor, not further — but the supporting type comes
+// off the floor: 12px is the lowest any platform will vouch for, and 10px on a 390px screen is
+// a mark you notice rather than text you read.
+//
+// Ordering is preserved (micro < label < meta < text), so the hierarchy the desktop scale
+// encodes survives the lift instead of flattening into one size.
+//
+// Not here: the composer, which is pinned to 16px in ChatInputRow.scss for a different reason —
+// below 16px iOS Safari zooms the page on focus and does not zoom back.
+@media (max-width: 767px) {
+    :root {
+        --chat-meta:  14px;
+        --chat-label: 13px;
+        --chat-micro: 12px;
+    }
 }

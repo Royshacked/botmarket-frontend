@@ -37,13 +37,13 @@
 
     &__entry {
         font-family: var(--font-mono);
-        font-size: 12px;
+        font-size: var(--chat-meta);
         color: var(--text-dim);
     }
 
     &__badge {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: var(--chat-micro);
         letter-spacing: 0.08em;
         text-transform: uppercase;
         border-radius: 3px;
@@ -57,7 +57,7 @@
     &__rr,
     &__size {
         font-family: var(--font-mono);
-        font-size: 12px;
+        font-size: var(--chat-meta);
         color: var(--text-dim);
         cursor: help;
     }
@@ -87,7 +87,7 @@
 
     &__validity {
         margin: 0;
-        font-size: 12px;
+        font-size: var(--chat-meta);
         color: var(--text-dim);
         font-style: italic;
         cursor: help;

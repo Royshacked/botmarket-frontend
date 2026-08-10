@@ -396,3 +396,12 @@
         letter-spacing: 0.06em;
     }
 }
+
+// ── The ticket's fields on a phone ───────────────────────────────────────────
+// 16px for the same reason as the composer and the zone editor: below it, iOS Safari zooms the
+// page the moment a field takes focus, and it does not zoom back. Worst here of the three — this
+// is the pad you type a QUANTITY into, and the zoom lands mid-entry, before the confirm.
+// The fields are full-width, so the size costs no layout.
+@media (max-width: 767px) {
+    .trade-ticket__input { font-size: 16px; }
+}

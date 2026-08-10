@@ -49,7 +49,7 @@
 
     &__bench {
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: var(--chat-label);
         color: var(--text-muted);
     }
 
@@ -106,14 +106,14 @@
 
     &__stance-tag {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: var(--chat-micro);
         letter-spacing: 0.05em;
         color: var(--text-muted);
     }
 
     &__stance-bp {
         font-family: var(--font-mono);
-        font-size: 12px;
+        font-size: var(--chat-meta);
         color: var(--text-secondary);
         min-width: 52px;
         text-align: right;
@@ -143,14 +143,14 @@
 
     &__kills-label {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: var(--chat-micro);
         letter-spacing: 0.05em;
         text-transform: uppercase;
         color: var(--text-muted);
     }
 
     &__hint {
-        font-size: 12px;
+        font-size: var(--chat-meta);
         line-height: 1.45;
         color: var(--text-muted);
     }
