@@ -59,7 +59,7 @@ $header-h: var(--header-h);
 
     &__tab {
         font: inherit;
-        font-size: 10.5px;
+        font-size: 11.5px;
         color: var(--text-muted);
         background: none;
         border: 0;
@@ -74,7 +74,7 @@ $header-h: var(--header-h);
 }
 
 .floor-empty {
-    font-size: 11.5px;
+    font-size: 12.5px;
     color: var(--text-dim);
     padding: 14px 12px;
     margin: 0;
@@ -148,7 +148,7 @@ $header-h: var(--header-h);
 
     &__no {
         font-family: var(--font-mono);
-        font-size: 11.5px;
+        font-size: 12.5px;
         font-weight: 600;
         letter-spacing: .2px;
     }
@@ -158,14 +158,14 @@ $header-h: var(--header-h);
     &__count {
         margin-left: -3px;
         font-family: var(--font-mono);
-        font-size: 10.5px;
+        font-size: 11.5px;
         color: var(--text-dim);
     }
 
     &__pnl {
         margin-left: auto;
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: 12px;
         color: var(--text-muted);
         min-width: 62px;
         text-align: right;
@@ -210,7 +210,7 @@ $header-h: var(--header-h);
     &--open &__chev { transform: rotate(90deg); }
 
     &__name {
-        font-size: 11.5px;
+        font-size: 12.5px;
         font-weight: 600;
         // The one cell that can give: a book name is free text, so it truncates rather than
         // pushing the count and the P&L off the pane.
@@ -223,7 +223,7 @@ $header-h: var(--header-h);
     &__count {
         margin-left: -3px;
         font-family: var(--font-mono);
-        font-size: 10.5px;
+        font-size: 11.5px;
         color: var(--text-dim);
         flex-shrink: 0;
     }
@@ -232,7 +232,7 @@ $header-h: var(--header-h);
         margin-left: auto;
         padding-left: 8px;
         font-family: var(--font-mono);
-        font-size: 10.5px;
+        font-size: 11.5px;
         color: var(--text-muted);
         min-width: 62px;
         text-align: right;
@@ -276,7 +276,7 @@ $header-h: var(--header-h);
 
     &__sym {
         font-family: var(--font-mono);
-        font-size: 11.5px;
+        font-size: 12.5px;
         font-weight: 700;
         color: var(--text-primary);
         width: $sym-w;
@@ -285,7 +285,7 @@ $header-h: var(--header-h);
 
     &__qty {
         font-family: var(--font-mono);
-        font-size: 10.5px;
+        font-size: 11.5px;
         color: var(--text-dim);
         flex: 1;
         // Takes the free space between the fixed symbol and the right-aligned P&L, so it is the
@@ -298,7 +298,7 @@ $header-h: var(--header-h);
 
     &__pnl, &__pct {
         font-family: var(--font-mono);
-        font-size: 10.5px;
+        font-size: 11.5px;
         color: var(--text-muted);
         text-align: right;
 
@@ -322,7 +322,7 @@ $header-h: var(--header-h);
 
     &__date {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: .9px;
@@ -348,7 +348,7 @@ $header-h: var(--header-h);
 
     &__sym {
         font-family: var(--font-mono);
-        font-size: 11.5px;
+        font-size: 12.5px;
         font-weight: 700;
         color: var(--text-primary);
         width: $sym-w;
@@ -360,14 +360,14 @@ $header-h: var(--header-h);
     // untimed entries, and letting the column collapse per row gives a ragged margin.
     &__time {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         color: var(--text-dim);
         width: 40px;
         flex-shrink: 0;
     }
 
     &__label {
-        font-size: 11.5px;
+        font-size: 12.5px;
         color: var(--text-muted);
         flex: 1;
         min-width: 0;         // see .floor-row__sym--wide
@@ -378,14 +378,14 @@ $header-h: var(--header-h);
 
     &__when {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         color: var(--text-dim);
         min-width: 36px;
         text-align: right;
     }
 
     &__impact {
-        font-size: 9px;
+        font-size: 10px;
         text-transform: uppercase;
         letter-spacing: .7px;
         color: var(--text-dim);
@@ -463,7 +463,7 @@ $header-h: var(--header-h);
     // Deliberately NOT the header type: a desk label is a control you click, not a column
     // heading. Matching the headers' mono caps would make four buttons read as four sections.
     &__label {
-        font-size: 12px;
+        font-size: 12.5px;
         font-weight: 600;
         letter-spacing: .2px;
     }
@@ -474,7 +474,7 @@ $header-h: var(--header-h);
     &__count {
         margin-left: -4px;
         font-family: var(--font-mono);
-        font-size: 10.5px;
+        font-size: 11.5px;
         color: var(--text-dim);
     }
 
@@ -509,7 +509,7 @@ $header-h: var(--header-h);
     & + & { margin-top: 7px; }
 
     &__label {
-        font-size: 9.5px;
+        font-size: 10.5px;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 1px;
@@ -566,7 +566,7 @@ $header-h: var(--header-h);
 
     &__sym {
         font-family: var(--font-mono);
-        font-size: 11.5px;
+        font-size: 12.5px;
         font-weight: 700;
         width: $sym-w;
         flex-shrink: 0;
@@ -582,7 +582,7 @@ $header-h: var(--header-h);
         &--wide {
             font-family: var(--font-sans);
             font-weight: 500;
-            font-size: 12px;
+            font-size: 12.5px;
             width: auto;        // undo the base ticker width — `flex-basis: auto` resolves to it
             flex: 0 1 auto;
             min-width: 0;
@@ -593,7 +593,7 @@ $header-h: var(--header-h);
     }
 
     &__kind {
-        font-size: 10.5px;
+        font-size: 11.5px;
         color: var(--text-muted);
         flex: 1;
         min-width: 0;         // see __sym--wide — without it the ellipsis never engages
@@ -608,7 +608,7 @@ $header-h: var(--header-h);
     // to its left absorbs the squeeze.
     &__status {
         flex-shrink: 0;
-        font-size: 10px;
+        font-size: 11px;
         text-transform: uppercase;
         letter-spacing: .7px;
         color: var(--text-dim);
@@ -626,14 +626,14 @@ $header-h: var(--header-h);
     // `margin-left: auto` here is what keeps the stale flag on the right edge where it was.
     &__count {
         font-family: var(--font-mono);
-        font-size: 10.5px;
+        font-size: 11.5px;
         color: var(--text-dim);
         flex-shrink: 0;
     }
 
     &__stale {
         margin-left: auto;
-        font-size: 9px;
+        font-size: 10px;
         text-transform: uppercase;
         letter-spacing: .8px;
         color: var(--color-warning);
@@ -642,7 +642,7 @@ $header-h: var(--header-h);
 
     &__pnl {
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: 12px;
         color: var(--text-muted);
         min-width: 62px;
         text-align: right;
@@ -653,7 +653,7 @@ $header-h: var(--header-h);
 
     &__score {
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 700;
         min-width: 24px;
         text-align: right;
@@ -667,7 +667,7 @@ $header-h: var(--header-h);
     // stays "strong buy" and the squeeze lands on the target instead.
     &__rating {
         flex-shrink: 0;
-        font-size: 9.5px;
+        font-size: 10.5px;
         text-transform: uppercase;
         letter-spacing: .7px;
         color: var(--text-muted);
@@ -688,7 +688,7 @@ $header-h: var(--header-h);
         overflow: hidden;
         text-overflow: ellipsis;
         text-align: right;
-        font-size: 10.5px;
+        font-size: 11.5px;
         color: var(--text-muted);
 
         &__gap {
@@ -772,7 +772,7 @@ $header-h: var(--header-h);
     padding: 2px $row-pad-end 12px (12px + $indent);
     border-left: 1px solid var(--border);
     margin-left: 17px;
-    font-size: 11.5px;
+    font-size: 12.5px;
     line-height: 1.6;
     color: var(--text-secondary);
 
@@ -788,7 +788,7 @@ $header-h: var(--header-h);
     &__label {
         display: block;
         font-family: var(--font-mono);
-        font-size: 9.5px;
+        font-size: 10.5px;
         text-transform: uppercase;
         letter-spacing: .9px;
         color: var(--text-dim);
@@ -797,7 +797,7 @@ $header-h: var(--header-h);
 
     &__revs {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         color: var(--text-dim);
     }
 }
@@ -841,20 +841,20 @@ $header-h: var(--header-h);
 
     &__from {
         flex: none;
-        font-size: 10.5px;
+        font-size: 11.5px;
         color: var(--text-dim);
     }
 
     &__pending {
         flex: none;
-        font-size: 10.5px;
+        font-size: 11.5px;
         font-style: italic;
         color: var(--text-dim);
     }
 
     &__btn {
         padding: 2px 8px;
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 600;
         border-radius: 4px;
         border: 1px solid var(--border);
@@ -878,7 +878,7 @@ $header-h: var(--header-h);
     align-items: center;
     gap: 8px;
     padding: 7px 12px;
-    font-size: 11.5px;
+    font-size: 12.5px;
     border-bottom: 1px solid var(--border-subtle, var(--border));
 
     &:last-child { border-bottom: none; }

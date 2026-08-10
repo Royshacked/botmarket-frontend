@@ -39,7 +39,7 @@
         display: flex;
         align-items: center;
         gap: 8px;
-        font-size: 0.8rem;
+        font-size: 0.83rem;
         font-weight: 600;
         letter-spacing: 0.04em;
         text-transform: uppercase;
@@ -47,7 +47,7 @@
     }
 
     &__asset {
-        font-size: 0.78rem;
+        font-size: 0.81rem;
         font-weight: 600;
         letter-spacing: 0;
         text-transform: none;
@@ -76,7 +76,7 @@
     &__error {
         margin: 0;
         padding: 0 16px 14px;
-        font-size: 0.78rem;
+        font-size: 0.81rem;
         line-height: 1.45;
         color: var(--accent-light, #ef5350);
     }
@@ -92,7 +92,7 @@
 
     &__btn {
         padding: 6px 14px;
-        font-size: 0.8rem;
+        font-size: 0.83rem;
         font-weight: 600;
         border-radius: 5px;
         border: 1px solid var(--border);

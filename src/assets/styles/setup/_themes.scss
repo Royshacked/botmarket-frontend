@@ -1,6 +1,17 @@
 // ─── Theme definitions via CSS custom properties ───────────────────────────
 // All component SCSS uses var(--token) instead of hardcoded hex values.
 // Switching themes: document.documentElement.setAttribute('data-theme', 'forest')
+//
+// ── The text scale is a CONTRAST ladder, not a lightness one ────────────────
+// --text-muted (~194 uses) and --text-dim (~77) carry the app's supporting copy:
+// the counts in ( ), field descriptions, input placeholders, timestamps. They
+// used to be picked by eye and landed at 3.3:1 and 1.9:1 against --bg-surface —
+// under WCAG AA (4.5:1) and, at 9-11px, genuinely hard to read.
+// Every theme's tiers are now pinned to a ratio against its OWN --bg-surface:
+//   secondary ≈ 7.4:1 · muted ≈ 5.5:1 · dim ≈ 4.2:1
+// Hue is preserved and saturation capped as lightness rises, so the lower tiers
+// read as quiet text rather than turning into a second accent colour.
+// Changing a --bg-surface means re-deriving that theme's three tiers.
 
 // ── Ocean (default) ─────────────────────────────────────────────────────────
 :root,
@@ -21,9 +32,9 @@
 
     // Text scale
     --text-primary:   #d4e8ff;
-    --text-secondary: #7a9bc0;
-    --text-muted:     #2a4a7a;
-    --text-dim:       #1e3660;
+    --text-secondary: #89a6c5;
+    --text-muted:     #788dac;
+    --text-dim:       #667898;
     --text-subtle:    #a8bdd0;
     --text-leaf:      #c4d8f0;
 
@@ -73,9 +84,9 @@
     --accent-bright: #a8e8c0;
 
     --text-primary:   #d4ffe0;
-    --text-secondary: #6ab88a;
-    --text-muted:     #2a6645;
-    --text-dim:       #1a4a30;
+    --text-secondary: #6ab689;
+    --text-muted:     #5f9b7a;
+    --text-dim:       #58846c;
     --text-subtle:    #90c8a8;
     --text-leaf:      #b0dcc0;
 
@@ -122,9 +133,9 @@
     --accent-bright: #f0b8c0;
 
     --text-primary:   #ffe8ec;
-    --text-secondary: #cc8a90;
-    --text-muted:     #7a2a35;
-    --text-dim:       #4a1820;
+    --text-secondary: #c99297;
+    --text-muted:     #af7c83;
+    --text-dim:       #9a6870;
     --text-subtle:    #d0909a;
     --text-leaf:      #e0b0b8;
 
@@ -181,9 +192,9 @@
 
     // Text scale (birch → fog)
     --text-primary:   #EEF3F2;
-    --text-secondary: #8FA6B0;
-    --text-muted:     #5E747E;
-    --text-dim:       #3E5158;
+    --text-secondary: #A0B4BC;
+    --text-muted:     #859BA4;
+    --text-dim:       #688894;
     --text-subtle:    #B8C8CE;
     --text-leaf:      #C4D8D0;
 

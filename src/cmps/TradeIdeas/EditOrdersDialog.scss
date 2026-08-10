@@ -36,7 +36,7 @@
         display: flex;
         align-items: center;
         gap: 8px;
-        font-size: 0.8rem;
+        font-size: 0.83rem;
         font-weight: 600;
         letter-spacing: 0.04em;
         text-transform: uppercase;
@@ -54,7 +54,7 @@
     &__direction {
         font-weight: 600;
         text-transform: uppercase;
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         &.direction--long  { color: #4caf50; }
         &.direction--short { color: #ef5350; }
     }
@@ -62,7 +62,7 @@
     &__close {
         background: none;
         border: none;
-        color: #2a4a7a;
+        color: var(--text-muted);
         font-size: 1.3rem;
         line-height: 1;
         cursor: pointer;
@@ -74,7 +74,7 @@
 
     &__meta {
         margin: 0 0 10px;
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         color: var(--text-muted);
         font-family: var(--font-mono);
     }
@@ -82,7 +82,7 @@
     &__error {
         margin: 0 0 10px;
         padding: 7px 10px;
-        font-size: 0.74rem;
+        font-size: 0.77rem;
         border-radius: 4px;
         background: #7f1d1d;
         border: 1px solid #b91c1c;
@@ -92,11 +92,11 @@
     &__table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 0.76rem;
+        font-size: 0.79rem;
 
         th {
             text-align: left;
-            font-size: 0.6rem;
+            font-size: 0.66rem;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             color: var(--text-muted);
@@ -129,7 +129,7 @@
         width: 92px;
         padding: 4px 6px;
         font-family: var(--font-mono);
-        font-size: 0.76rem;
+        font-size: 0.79rem;
         background: var(--bg-base);
         border: 1px solid var(--accent-deep);
         border-radius: 4px;
@@ -151,7 +151,7 @@
 
     &__add-title {
         display: block;
-        font-size: 0.62rem;
+        font-size: 0.68rem;
         text-transform: uppercase;
         letter-spacing: 0.05em;
         color: var(--text-muted);
@@ -166,7 +166,7 @@
 
         select {
             padding: 5px 8px;
-            font-size: 0.74rem;
+            font-size: 0.77rem;
             background: var(--bg-base);
             border: 1px solid var(--accent-deep);
             border-radius: 4px;
@@ -176,7 +176,7 @@
 
     &__hint {
         margin: 8px 0 0;
-        font-size: 0.68rem;
+        font-size: 0.74rem;
         color: var(--text-muted);
         line-height: 1.4;
     }
@@ -192,7 +192,7 @@
 
     &__btn {
         font-family: var(--font-mono);
-        font-size: 0.7rem;
+        font-size: 0.76rem;
         font-weight: 600;
         letter-spacing: 0.03em;
         text-transform: uppercase;

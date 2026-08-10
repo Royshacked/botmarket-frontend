@@ -29,7 +29,7 @@
         border-radius: 999px;
         background: transparent;
         color: inherit;
-        font-size: 12px;
+        font-size: 12.5px;
         text-align: left;
         cursor: pointer;
 
@@ -49,7 +49,7 @@
 
     &__armed-copy {
         margin: 0 0 2px;
-        font-size: 11px;
+        font-size: 12px;
         line-height: 1.5;
         color: var(--text-dim);
         text-align: center;
@@ -70,7 +70,7 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-dim);
     text-align: center;
 

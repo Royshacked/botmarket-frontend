@@ -186,7 +186,7 @@
         }
         .msg-tag {
             font-family: 'Space Mono', monospace;
-            font-size: 0.66rem;
+            font-size: 0.72rem;
             letter-spacing: 0.04em;
             padding: 3px 7px;
             border-radius: 999px;
@@ -269,7 +269,7 @@
         align-items: center;
         gap: 7px;
         font-family: 'Space Mono', monospace;
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         letter-spacing: 0.02em;
         color: var(--axl-fog);
         padding: 6px 11px;
@@ -330,7 +330,7 @@
         right: -4px;
         background: var(--color-short);
         color: #fff;
-        font-size: .62rem;
+        font-size: 0.68rem;
         font-weight: 700;
         padding: 1px 4px;
         border-radius: 10px;
@@ -380,7 +380,7 @@
         text-align: left;
 
         .name { font-size: 0.85rem; font-weight: 500; color: var(--axl-birch); white-space: nowrap; }
-        .tier { font-size: 0.68rem; color: var(--axl-fog-dim); letter-spacing: 0.04em; }
+        .tier { font-size: 0.74rem; color: var(--axl-fog-dim); letter-spacing: 0.04em; }
     }
 
     // Just a (bigger) back arrow on the profile page.
@@ -476,7 +476,7 @@
 
 .app-header-axl__mode {
     font-family: var(--font-mono, monospace);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.1em;
     line-height: 1;
@@ -551,7 +551,7 @@
     &__status {
         display: none;   // status line hidden for now — delete this line to restore it
         margin-top: 6px;   // sits just below the dial (name now lives on the face)
-        font-size: 0.55rem;
+        font-size: 0.61rem;
         line-height: 1;
         letter-spacing: 0.02em;
         color: var(--axl-fog-dim);

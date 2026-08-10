@@ -57,9 +57,9 @@
         gap: 1px;
         font-size: 0.82rem;
 
-        span { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+        span { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
         b { font-weight: 700; }
-        em { font-style: normal; font-size: 0.62rem; color: var(--text-muted); }
+        em { font-style: normal; font-size: 0.68rem; color: var(--text-muted); }
         .pos { color: var(--color-long); }
         .neg { color: var(--color-short); }
     }
@@ -67,7 +67,7 @@
     &__label {
         display: block;
         margin-bottom: 4px;
-        font-size: 0.6rem;
+        font-size: 0.66rem;
         text-transform: uppercase;
         letter-spacing: 0.04em;
         color: var(--text-muted);
@@ -84,7 +84,7 @@
     &__target {
         padding: 1px 7px;
         border-radius: 999px;
-        font-size: 0.74rem;
+        font-size: 0.77rem;
         background: var(--glow-soft);
         color: var(--text-secondary);
 
@@ -94,7 +94,7 @@
     &__taken-row {
         padding: 1px 7px;
         border-radius: 4px;
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         background: var(--glow-soft);
         color: var(--text-secondary);
     }
@@ -109,7 +109,7 @@
         border-top: 1px dashed var(--border);
         font-size: 0.82rem;
 
-        &-reason { text-transform: uppercase; font-size: 0.62rem; letter-spacing: 0.04em; color: var(--text-muted); }
+        &-reason { text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.04em; color: var(--text-muted); }
         &-r { font-weight: 800; }
         &-bit { color: var(--text-secondary); }
         &.is-win  &-r { color: var(--color-long); }

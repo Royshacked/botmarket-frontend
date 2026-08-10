@@ -213,7 +213,7 @@
 }
 
 %pipeline-text {
-    font-size: 11px;
+    font-size: 12px;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     white-space: nowrap;
@@ -279,7 +279,7 @@
 }
 
 .axl-hub__option-lead {
-    font-size: 12px;
+    font-size: 12.5px;
     font-weight: 600;
     color: var(--text-primary);
     line-height: 1.3;
@@ -309,7 +309,7 @@
     border: 1px solid var(--border);
     border-radius: 14px;
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: 12.5px;
     font-family: var(--font-mono);
     white-space: nowrap;
     cursor: pointer;
@@ -444,7 +444,7 @@
 
 .axl-summon__sub {
     margin: 0;
-    font-size: 12px;
+    font-size: 12.5px;
     color: var(--text-secondary);
 }
 
@@ -531,7 +531,7 @@
     border-radius: 6px;
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -577,7 +577,7 @@
     border-radius: 6px;
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -604,7 +604,7 @@
     border-radius: 6px;
     color: var(--text-muted);
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -622,14 +622,14 @@
 .chat-agentbar__crumb {
     color: var(--text-muted);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 11px;
     letter-spacing: 0.1em;
 }
 
 .chat-agentbar__current {
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -682,7 +682,7 @@
     border-radius: 6px;
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -706,7 +706,7 @@
     align-items: center;
     gap: 5px;
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -827,7 +827,7 @@
     margin: 6px 0 0;
     max-width: 330px;
     font-family: var(--font-mono);
-    font-size: 10.5px;
+    font-size: 11.5px;
     line-height: 1.6;
     color: var(--text-muted);
     font-style: italic;

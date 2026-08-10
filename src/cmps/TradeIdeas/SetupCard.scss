@@ -10,7 +10,7 @@
     &__state {
         margin-left: auto;
         font-family: var(--font-mono);
-        font-size: 9px;
+        font-size: 10px;
         letter-spacing: 0.08em;
         text-transform: uppercase;
         color: var(--text-dim);
@@ -30,7 +30,7 @@
 
     &__rr {
         font-family: var(--font-mono);
-        font-size: 12px;
+        font-size: 12.5px;
         font-weight: 700;
 
         &.is-thin { color: var(--accent); }
@@ -38,14 +38,14 @@
 
     &__qty {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         color: var(--text-dim);
     }
 
     // Talos's running monologue — what it saw on its last look.
     &__memo {
         margin: 2px 0 0;
-        font-size: 10px;
+        font-size: 11px;
         line-height: 1.45;
         color: var(--text-dim);
         font-style: italic;

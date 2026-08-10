@@ -14,7 +14,7 @@
 
     &__period-chip {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         font-weight: 600;
         letter-spacing: 0.06em;
         text-transform: uppercase;
@@ -26,7 +26,7 @@
     }
 
     &__dir {
-        font-size: 11px;
+        font-size: 12px;
         line-height: 1;
         margin-right: 3px;
         &--long  { color: var(--long-text); }
@@ -43,7 +43,7 @@
 
     &__suggestion {
         font-family: var(--font-mono);
-        font-size: 12px;
+        font-size: 12.5px;
         padding: 6px 12px;
         border-radius: 14px;
         background: var(--bg-wash-surface);
@@ -63,7 +63,7 @@
     &__angles-hint {
         margin-top: 16px;
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         letter-spacing: 0.08em;
         text-transform: uppercase;
         color: var(--text-muted);
@@ -82,7 +82,7 @@
 
     &__angle {
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: 12px;
         padding: 4px 10px;
         border-radius: 12px;
         background: var(--bg-wash-surface);
@@ -108,7 +108,7 @@
     // "Scan these (N) →" send button — appears once at least one setup is selected.
     &__angles-go {
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 600;
         padding: 5px 12px;
         border-radius: 12px;
@@ -147,7 +147,7 @@
 
     &-label {
         font-family: var(--font-mono);
-        font-size: 9px;
+        font-size: 10px;
         letter-spacing: 0.08em;
         text-transform: uppercase;
         color: var(--text-muted);
@@ -155,7 +155,7 @@
     }
 }
 .scanner-panel__profile-chip {
-    font-size: 11px;
+    font-size: 12px;
     padding: 3px 11px;
     border-radius: 999px;
     border: 1px solid var(--border);
@@ -191,7 +191,7 @@
 
     &-pos {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         letter-spacing: 0.06em;
         text-transform: uppercase;
         color: var(--text-secondary);
@@ -200,7 +200,7 @@
 
     &-hint {
         flex: 1 1 220px;
-        font-size: 11px;
+        font-size: 12px;
         line-height: 1.4;
         color: var(--text-muted);
     }

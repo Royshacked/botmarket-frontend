@@ -420,7 +420,7 @@ export function PortfolioPanel({
     return (
         <div className="portfolio-panel">
             {editingPortfolioId && portfolioThesis && (portfolioThesis.strategy || portfolioThesis.targetExposures?.length) && (
-                <div className="portfolio-panel__thesis" style={{ margin: '0 16px 8px', padding: '10px 12px', border: '1px solid var(--border, #333)', borderRadius: 8, fontSize: 12, opacity: 0.92 }}>
+                <div className="portfolio-panel__thesis" style={{ margin: '0 16px 8px', padding: '10px 12px', border: '1px solid var(--border, #333)', borderRadius: 8, fontSize: 12.5, opacity: 0.92 }}>
                     <button
                         type="button"
                         onClick={() => setThesisOpen(o => !o)}

@@ -108,7 +108,7 @@
 
     &__topbar-title {
         font-family: var(--font-mono);
-        font-size: .72rem;
+        font-size: 0.75rem;
         font-weight: 600;
         letter-spacing: .14em;
         text-transform: uppercase;
@@ -153,7 +153,7 @@
 
     &__list-header {
         padding: 16px 14px 10px;
-        font-size: .7rem;
+        font-size: 0.76rem;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: .08em;
@@ -203,7 +203,7 @@
         &:hover { background: var(--bg-hover); }
     }
 
-    &__search-username { color: var(--text-muted); font-size: .76rem; }
+    &__search-username { color: var(--text-muted); font-size: 0.79rem; }
 
     &__conv-scroll {
         flex: 1;
@@ -268,7 +268,7 @@
     }
 
     &__conv-preview {
-        font-size: .75rem;
+        font-size: 0.78rem;
         color: var(--text-muted);
         white-space: nowrap;
         overflow: hidden;
@@ -284,12 +284,12 @@
         flex-shrink: 0;
     }
 
-    &__conv-time { font-size: .7rem; color: var(--text-dim, var(--text-muted)); }
+    &__conv-time { font-size: 0.76rem; color: var(--text-dim, var(--text-muted)); }
 
     &__unread-dot {
         background: var(--accent);
         color: #fff;
-        font-size: .66rem;
+        font-size: 0.72rem;
         font-weight: 700;
         padding: 1px 5px;
         border-radius: 10px;
@@ -381,7 +381,7 @@
         border: 1px solid var(--border);
         border-radius: 12px;
         color: var(--text-secondary, var(--text-muted));
-        font-size: .78rem;
+        font-size: 0.81rem;
         cursor: pointer;
         &:hover { background: var(--bg-hover); }
         &:disabled { opacity: .5; cursor: default; }
@@ -425,7 +425,7 @@
     }
 
     &__msg-time {
-        font-size: .7rem;
+        font-size: 0.76rem;
         color: var(--text-dim, var(--text-muted));
         margin-top: 2px;
         padding: 0 4px;
@@ -438,7 +438,7 @@
         gap: 5px;
         padding: 6px 10px 3px;
         font-family: var(--font-mono);
-        font-size: .6rem;
+        font-size: 0.66rem;
         font-weight: 700;
         letter-spacing: .09em;
         text-transform: uppercase;
@@ -467,7 +467,7 @@
 
     &__invalidation-alert-header {
         padding: 3px 10px 4px;
-        font-size: .7rem;
+        font-size: 0.76rem;
         font-weight: 600;
         letter-spacing: .01em;
 
@@ -485,7 +485,7 @@
 
     &__invalidation-alert-reason {
         padding: 5px 10px 7px;
-        font-size: .76rem;
+        font-size: 0.79rem;
         color: var(--text-primary);
         line-height: 1.4;
     }
@@ -494,7 +494,7 @@
     // 0.55 via --dismissed), so a handled card keeps its context without re-expanding the chat.
     &__invalidation-alert-reason--resolved {
         padding-top: 0;
-        font-size: .72rem;
+        font-size: 0.75rem;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -515,7 +515,7 @@
         border: 1px solid var(--border-strong, var(--border));
         border-radius: 6px;
         color: var(--text-primary);
-        font-size: .68rem;
+        font-size: 0.74rem;
         font-weight: 500;
         white-space: nowrap;
         cursor: pointer;
@@ -560,7 +560,7 @@
 
     &__manual-card-header {
         padding: 3px 12px 4px;
-        font-size: .74rem;
+        font-size: 0.77rem;
         font-weight: 600;
 
         .social-chat__manual-card--entry & { background: rgba(16,185,129,.12); color: #10b981; }
@@ -585,12 +585,12 @@
         display: flex;
         align-items: baseline;
         gap: 6px;
-        font-size: .74rem;
+        font-size: 0.77rem;
     }
 
     &__manual-leg-dir {
         font-family: var(--font-mono);
-        font-size: .6rem;
+        font-size: 0.66rem;
         font-weight: 700;
         letter-spacing: .06em;
         &--long  { color: #10b981; }
@@ -598,7 +598,7 @@
     }
 
     &__manual-leg-asset { font-weight: 600; color: var(--text-primary); }
-    &__manual-leg-qty   { font-size: .68rem; color: var(--text-muted); }
+    &__manual-leg-qty   { font-size: 0.74rem; color: var(--text-muted); }
 
     &__manual-leg-inputs {
         display: flex;
@@ -614,12 +614,12 @@
         border: 1px solid var(--border);
         border-radius: 6px;
         color: var(--text-primary);
-        font-size: .72rem;
+        font-size: 0.75rem;
         &:focus { outline: none; border-color: var(--accent, #10b981); }
     }
 
-    &__manual-leg-done { font-size: .72rem; color: var(--text-secondary); }
-    &__manual-leg-err  { font-size: .66rem; color: #ef5350; }
+    &__manual-leg-done { font-size: 0.75rem; color: var(--text-secondary); }
+    &__manual-leg-err  { font-size: 0.72rem; color: #ef5350; }
 
     &__manual-card-actions {
         display: flex;
@@ -633,7 +633,7 @@
         border: 1px solid var(--border-strong, var(--border));
         border-radius: 6px;
         color: var(--text-primary);
-        font-size: .7rem;
+        font-size: 0.76rem;
         font-weight: 500;
         cursor: pointer;
         white-space: nowrap;
@@ -660,7 +660,7 @@
 
     &__portfolio-review-header {
         padding: 4px 14px 4px;
-        font-size: 0.8rem;
+        font-size: 0.83rem;
         font-weight: 600;
         color: #34d399;
     }
@@ -670,14 +670,14 @@
         align-items: center;
         gap: 6px;
         padding: 0 14px 6px;
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         color: var(--text-muted);
     }
 
     &__portfolio-review-mode {
         padding: 1px 7px;
         border-radius: 999px;
-        font-size: 0.66rem;
+        font-size: 0.72rem;
         font-weight: 600;
         letter-spacing: .02em;
         text-transform: uppercase;
@@ -694,7 +694,7 @@
 
     &__portfolio-review-meta {
         padding: 0 14px 10px;
-        font-size: 0.73rem;
+        font-size: 0.76rem;
         color: var(--text-muted);
         line-height: 1.4;
     }
@@ -711,7 +711,7 @@
     &__portfolio-review-trigger {
         padding: 1px 8px;
         border-radius: 999px;
-        font-size: 0.68rem;
+        font-size: 0.74rem;
         line-height: 1.5;
         border: 1px solid currentColor;
         &--high   { color: #f59e0b; }
@@ -726,7 +726,7 @@
 
     &__portfolio-review-done {
         padding: 0 14px 10px;
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         font-weight: 600;
         color: #34d399;
     }
@@ -740,7 +740,7 @@
         border: 1px solid var(--border-strong, var(--border));
         border-radius: 8px;
         color: var(--text-primary);
-        font-size: .8rem;
+        font-size: 0.83rem;
         font-weight: 500;
         cursor: pointer;
         text-align: center;

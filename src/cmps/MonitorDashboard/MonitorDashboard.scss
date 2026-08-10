@@ -34,7 +34,7 @@
 
     &__title {
         font-family: var(--font-mono);
-        font-size: 0.75rem;
+        font-size: 0.78rem;
         font-weight: 600;
         letter-spacing: 0.14em;
         text-transform: uppercase;
@@ -53,7 +53,7 @@
         gap: 6px;
         padding: 8px 16px;
         font-family: var(--font-mono);
-        font-size: 0.7rem;
+        font-size: 0.76rem;
         background: var(--bg-wash-surface);
         border-bottom: 1px solid var(--border);
     }
@@ -93,7 +93,7 @@
 
     &__broker-name {
         font-family: var(--font-mono);
-        font-size: 0.62rem;
+        font-size: 0.68rem;
         font-weight: 700;
         letter-spacing: 0.12em;
         text-transform: uppercase;
@@ -101,7 +101,7 @@
     }
 
     &__broker-disconnect {
-        font-size: 0.6rem;
+        font-size: 0.66rem;
         color: var(--text-muted);
         background: transparent;
         border: none;
@@ -127,7 +127,7 @@
 
     &__broker-label {
         font-family: var(--font-mono);
-        font-size: 0.55rem;
+        font-size: 0.61rem;
         letter-spacing: 0.12em;
         text-transform: uppercase;
         color: var(--text-muted);
@@ -135,7 +135,7 @@
 
     &__broker-value {
         font-family: var(--font-mono);
-        font-size: 0.7rem;
+        font-size: 0.76rem;
         font-weight: 600;
         color: var(--text-primary);
         line-height: 1.2;
@@ -147,7 +147,7 @@
     &__broker-connect {
         align-self: flex-start;
         font-family: var(--font-mono);
-        font-size: 0.65rem;
+        font-size: 0.71rem;
         font-weight: 600;
         letter-spacing: 0.08em;
         color: var(--text-secondary);
@@ -176,13 +176,13 @@
         padding: 32px 16px;
         text-align: center;
         color: var(--text-muted);
-        font-size: 0.8rem;
+        font-size: 0.83rem;
         font-family: var(--font-mono);
         p { margin: 0 0 6px; }
     }
 
     &__empty-sub {
-        font-size: 0.65rem;
+        font-size: 0.71rem;
         color: var(--text-dim);
         letter-spacing: 0.03em;
     }
@@ -199,7 +199,7 @@
 
     &__news-label {
         font-family: var(--font-mono);
-        font-size: 0.65rem;
+        font-size: 0.71rem;
         font-weight: 600;
         letter-spacing: 0.12em;
         text-transform: uppercase;
@@ -254,7 +254,7 @@
     // Simulated-trade marker — sits next to the asset symbol.
     &__paper {
         font-family: var(--font-mono);
-        font-size: 0.55rem;
+        font-size: 0.61rem;
         font-weight: 700;
         letter-spacing: 0.12em;
         color: var(--color-teal);
@@ -276,7 +276,7 @@
         align-items: center;
         gap: 5px;
         font-family: var(--font-mono);
-        font-size: 0.62rem;
+        font-size: 0.68rem;
         font-weight: 600;
         letter-spacing: 0.1em;
         text-transform: uppercase;
@@ -288,10 +288,10 @@
         &--pending  { color: var(--text-muted);     background: var(--glow-soft);         }
         &--tp       { color: var(--color-teal);     background: rgba(38, 166, 154, 0.10); }
         &--stop     { color: var(--color-short);    background: rgba(239, 83, 80, 0.10);  }
-        &--closed   { color: #555;                  background: rgba(80, 80, 80, 0.08);   }
+        &--closed   { color: var(--text-muted);                  background: rgba(80, 80, 80, 0.08);   }
     }
 
-    &__phase-dot { font-size: 0.7rem; line-height: 1; }
+    &__phase-dot { font-size: 0.76rem; line-height: 1; }
 
     &__meta {
         display: flex;
@@ -303,7 +303,7 @@
 
     &__direction {
         font-family: var(--font-mono);
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.06em;
@@ -314,7 +314,7 @@
 
     &__tag {
         font-family: var(--font-mono);
-        font-size: 0.63rem;
+        font-size: 0.69rem;
         color: var(--text-secondary);
         background: var(--glow-mid);
         border: 1px solid var(--accent-deep);
@@ -340,7 +340,7 @@
     &__condition-label {
         flex-shrink: 0;
         font-family: var(--font-mono);
-        font-size: 0.6rem;
+        font-size: 0.66rem;
         font-weight: 600;
         letter-spacing: 0.08em;
         text-transform: uppercase;
@@ -349,7 +349,7 @@
     }
 
     &__condition-text {
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         color: var(--text-secondary);
         line-height: 1.4;
         word-break: break-word;

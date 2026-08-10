@@ -20,7 +20,7 @@
     &__title {
         margin: 0;
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         font-weight: 700;
         letter-spacing: 0.1em;
         text-transform: uppercase;
@@ -29,7 +29,7 @@
 
     &__total {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         color: var(--accent-light);
     }
 
@@ -55,7 +55,7 @@
 
     &__empty {
         margin: 0;
-        font-size: 11px;
+        font-size: 12px;
         color: var(--text-dim);
         font-style: italic;
     }
@@ -76,7 +76,7 @@
 
     &__id {
         font-family: var(--font-mono);
-        font-size: 9px;
+        font-size: 10px;
         color: var(--text-dim);
         min-width: 22px;
     }
@@ -90,7 +90,7 @@
         background: var(--bg-deep);
         color: inherit;
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: 12px;
 
         &:focus { outline: none; border-color: var(--accent); }
         &:disabled { opacity: 0.6; cursor: default; }
@@ -104,11 +104,11 @@
 
     &__qty { width: 52px; }
 
-    &__dash { color: var(--text-dim); font-size: 11px; }
+    &__dash { color: var(--text-dim); font-size: 12px; }
 
     &__flag {
         font-family: var(--font-mono);
-        font-size: 9px;
+        font-size: 10px;
         letter-spacing: 0.08em;
         text-transform: uppercase;
         color: var(--text-dim);
@@ -117,7 +117,7 @@
     &__note {
         flex-basis: 100%;
         margin: 2px 0 0;
-        font-size: 10px;
+        font-size: 11px;
         line-height: 1.4;
         color: var(--text-dim);
     }

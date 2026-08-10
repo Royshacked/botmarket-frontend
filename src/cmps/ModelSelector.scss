@@ -29,7 +29,7 @@
 
     &__current {
         font-family: var(--font-mono);
-        font-size: 9px;
+        font-size: 10px;
         font-weight: 700;
         letter-spacing: 0.06em;
         text-transform: uppercase;
@@ -51,7 +51,7 @@
 
     &__dropdown-title {
         font-family: var(--font-mono);
-        font-size: 9px;
+        font-size: 10px;
         font-weight: 700;
         letter-spacing: 0.12em;
         text-transform: uppercase;
@@ -80,7 +80,7 @@
 
     &__item-label {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         color: var(--text-primary);
         flex: 1;
     }
@@ -110,7 +110,7 @@
         color: var(--text-muted);
         cursor: pointer;
         font-family: var(--font-mono);
-        font-size: 9px;
+        font-size: 10px;
         font-weight: 700;
         letter-spacing: 0.06em;
         line-height: 1;

@@ -40,7 +40,7 @@
         border-radius: 3px;
         color: var(--text-muted);
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         font-weight: 600;
         letter-spacing: 0.06em;
         text-transform: uppercase;
@@ -123,7 +123,7 @@
         justify-content: center;
         gap: 0.5rem;
         font-family: var(--font-mono);
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         letter-spacing: 0.08em;
         text-transform: uppercase;
         color: var(--text-secondary);
@@ -143,7 +143,7 @@
 
     &__empty {
         color: var(--text-muted);
-        font-size: 0.8rem;
+        font-size: 0.83rem;
         padding: 16px 0;
         text-align: center;
     }
@@ -158,7 +158,7 @@
     width: 100%;
     table-layout: fixed;
     border-collapse: collapse;
-    font-size: 0.75rem;
+    font-size: 0.78rem;
     color: var(--text-primary);
 
     .col-asset   { width: 9%;  }
@@ -183,7 +183,7 @@
         padding: 6px 8px 6px 0;
         color: var(--text-muted);
         font-weight: 600;
-        font-size: 0.68rem;
+        font-size: 0.74rem;
         text-transform: uppercase;
         letter-spacing: 0.05em;
         border-bottom: 1px solid var(--accent-deep);
@@ -272,7 +272,7 @@
     &__direction {
         font-weight: 600;
         text-transform: uppercase;
-        font-size: 0.7rem;
+        font-size: 0.76rem;
         &.direction--long  { color: #4caf50; }
         &.direction--short { color: #ef5350; }
     }
@@ -289,7 +289,7 @@
         text-overflow: ellipsis;
         white-space: nowrap;
         color: var(--text-muted);
-        font-size: 0.7rem;
+        font-size: 0.76rem;
     }
 
     &__notes {
@@ -297,13 +297,13 @@
         text-overflow: ellipsis;
         white-space: nowrap;
         color: var(--text-secondary);
-        font-size: 0.8rem;
+        font-size: 0.83rem;
     }
 
     &__tf {
         color: var(--accent);
         font-family: var(--font-mono);
-        font-size: 0.68rem;
+        font-size: 0.74rem;
         letter-spacing: 0.04em;
         white-space: nowrap;
     }
@@ -360,7 +360,7 @@
         background: none;
         border: 1px solid currentColor;
         border-radius: 3px;
-        font-size: 0.65rem;
+        font-size: 0.71rem;
         font-family: var(--font-mono);
         padding: 2px 5px;
         cursor: pointer;
@@ -390,13 +390,13 @@
 
         &.status--long  { color: var(--color-long); }
         &.status--short { color: var(--color-short); }
-        &.status--closed { color: #555; }
+        &.status--closed { color: var(--text-muted); }
 
         .status-icon { width: 22px; height: 22px; }
     }
 
     &__await-market {
-        font-size: 0.78rem;
+        font-size: 0.81rem;
         line-height: 1;
         flex-shrink: 0;
         animation: status-pulse 1.8s ease-in-out infinite;
@@ -453,7 +453,7 @@ $sym-status-colors: (
     width: 100%;
     table-layout: fixed;
     border-collapse: collapse;
-    font-size: 0.75rem;
+    font-size: 0.78rem;
     color: var(--text-primary);
 
     .col-pf-name    { width: 34%; }
@@ -477,7 +477,7 @@ $sym-status-colors: (
         padding: 6px 8px 6px 0;
         color: var(--text-muted);
         font-weight: 600;
-        font-size: 0.68rem;
+        font-size: 0.74rem;
         text-transform: uppercase;
         letter-spacing: 0.05em;
         border-bottom: 1px solid var(--accent-deep);
@@ -491,7 +491,7 @@ $sym-status-colors: (
     text-align: right;
     font-family: var(--font-mono);
     font-weight: 600;
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     color: var(--text-secondary);
     &.pnl--pos { color: #4caf50; }
     &.pnl--neg { color: #ef5350; }
@@ -518,7 +518,7 @@ $sym-status-colors: (
     width: 100%;
     table-layout: fixed;
     border-collapse: collapse;
-    font-size: 0.75rem;
+    font-size: 0.78rem;
     color: var(--text-primary);
 
     .col-pos-asset   { width: 10%; }
@@ -550,7 +550,7 @@ $sym-status-colors: (
         padding: 6px 8px;
         color: var(--text-muted);
         font-weight: 600;
-        font-size: 0.68rem;
+        font-size: 0.74rem;
         text-transform: uppercase;
         letter-spacing: 0.05em;
         border-bottom: 1px solid var(--accent-deep);
@@ -581,7 +581,7 @@ $sym-status-colors: (
     &__dir {
         font-weight: 600;
         text-transform: uppercase;
-        font-size: 0.7rem;
+        font-size: 0.76rem;
         &.direction--long  { color: #4caf50; }
         &.direction--short { color: #ef5350; }
     }
@@ -589,7 +589,7 @@ $sym-status-colors: (
     &__broker,
     &__account { color: var(--text-secondary); }
 
-    &__entered { color: var(--text-muted); font-size: 0.7rem; }
+    &__entered { color: var(--text-muted); font-size: 0.76rem; }
 
     &__qty,
     &__price { text-align: right; font-family: var(--font-mono); }
@@ -604,7 +604,7 @@ $sym-status-colors: (
         &.pnl--pos { color: #4caf50; }
         &.pnl--neg { color: #ef5350; }
     }
-    &__pnl-pct { font-size: 0.7rem; }
+    &__pnl-pct { font-size: 0.76rem; }
 
     &__controls { text-align: center; display: flex; gap: 6px; justify-content: center; align-items: center; }
 
@@ -633,7 +633,7 @@ $sym-status-colors: (
         border: none;
         color: var(--accent-light);
         font-family: var(--font-mono);
-        font-size: 0.8rem;
+        font-size: 0.83rem;
         line-height: 0;
         padding: 2px 3px;
         cursor: pointer;
@@ -655,7 +655,7 @@ $sym-status-colors: (
     display: inline-block;
     padding: 1px 6px;
     border-radius: 4px;
-    font-size: 0.6rem;
+    font-size: 0.66rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -711,22 +711,22 @@ $sym-status-colors: (
     &--account > td { background: color-mix(in srgb, var(--accent) 2%, transparent); }
     &--account:hover > td { background: var(--bg-hover); }
     &--account .position-group-row__lead { padding-left: 22px; }
-    &--account .position-group-row__name { color: var(--text-secondary); font-size: 0.72rem; }
+    &--account .position-group-row__name { color: var(--text-secondary); font-size: 0.75rem; }
 
     &__lead { overflow: hidden; text-overflow: ellipsis; }
-    &__caret { color: var(--accent); font-size: 0.6rem; margin-right: 8px; }
+    &__caret { color: var(--accent); font-size: 0.66rem; margin-right: 8px; }
     &__name {
         font-weight: 600;
         color: var(--accent-light);
-        font-size: 0.75rem;
+        font-size: 0.78rem;
         font-family: var(--font-mono);
         letter-spacing: 0.04em;
     }
     // Cap the name so a long book title can't push the count / Close all out of the
     // (clipped) lead cell.
     &__name { display: inline-block; max-width: 45%; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
-    &__count  { color: var(--text-muted); font-size: 0.7rem; margin-left: 6px; }
-    &__entered { color: var(--text-muted); font-size: 0.7rem; }
+    &__count  { color: var(--text-muted); font-size: 0.76rem; margin-left: 6px; }
+    &__entered { color: var(--text-muted); font-size: 0.76rem; }
     &__mode { overflow: visible; }
     &__broker, &__account { color: var(--text-secondary); }
     &__pnl, &__pnl-pct {
@@ -736,7 +736,7 @@ $sym-status-colors: (
         &.pnl--pos { color: #4caf50; }
         &.pnl--neg { color: #ef5350; }
     }
-    &__pnl-pct { font-size: 0.7rem; }
+    &__pnl-pct { font-size: 0.76rem; }
 
     // Group-level close, inline in the lead cell after the position count. Worded and
     // outlined, not an ✕, so it can't be mistaken for the single-row close beneath it —
@@ -749,7 +749,7 @@ $sym-status-colors: (
         border-radius: 4px;
         color: var(--color-short);
         font-family: var(--font-mono);
-        font-size: 0.6rem;
+        font-size: 0.66rem;
         font-weight: 700;
         letter-spacing: 0.05em;
         text-transform: uppercase;
@@ -796,20 +796,20 @@ $sym-status-colors: (
 
     &__caret {
         color: var(--accent);
-        font-size: 0.6rem;
+        font-size: 0.66rem;
         margin-right: 6px;
     }
 
     &__name {
         font-weight: 600;
         color: var(--accent-light);
-        font-size: 0.75rem;
+        font-size: 0.78rem;
         font-family: var(--font-mono);
         letter-spacing: 0.04em;
     }
 
     &__count   { color: var(--text-secondary); }
-    &__created { color: var(--text-muted); font-size: 0.7rem; }
+    &__created { color: var(--text-muted); font-size: 0.76rem; }
 
     &__status {
         display: flex;
@@ -842,7 +842,7 @@ $sym-status-colors: (
 
     &__building-badge {
         font-family: var(--font-mono);
-        font-size: 0.7rem;
+        font-size: 0.76rem;
         font-weight: 600;
         letter-spacing: 0.04em;
         color: var(--accent-light);
@@ -870,7 +870,7 @@ $sym-status-colors: (
     padding: 1px 5px;
     border-radius: 3px;
     font-family: var(--font-mono);
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     letter-spacing: 0.03em;
     color: var(--text-secondary);
     background: color-mix(in srgb, var(--accent) 12%, transparent);
@@ -879,7 +879,7 @@ $sym-status-colors: (
 
 .idea-row__no-account {
     margin-left: 6px;
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     line-height: 1;
     color: #e24b4a;
     vertical-align: middle;
@@ -894,7 +894,7 @@ $sym-status-colors: (
 
 .idea-row__broker-count {
     margin-left: 6px;
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     color: var(--text-muted);
 }
 
@@ -903,12 +903,12 @@ $sym-status-colors: (
 
     .idea-row__caret {
         color: var(--accent);
-        font-size: 0.6rem;
+        font-size: 0.66rem;
         margin-right: 6px;
     }
     .idea-row__status-badge--group {
         font-family: var(--font-mono);
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         letter-spacing: 0.04em;
         color: var(--accent-light);
     }
@@ -972,7 +972,7 @@ $sym-status-colors: (
     }
 
     &__icon-svg { width: 22px; height: 22px; }
-    &__caret { color: var(--accent); font-size: 0.7rem; }
+    &__caret { color: var(--accent); font-size: 0.76rem; }
 
     &__body { flex: 1; min-width: 0; }
 
@@ -999,7 +999,7 @@ $sym-status-colors: (
 
     &__pill {
         font-family: var(--font-mono);
-        font-size: 0.62rem;
+        font-size: 0.68rem;
         letter-spacing: 0.06em;
         text-transform: uppercase;
         border-radius: 999px;
@@ -1017,7 +1017,7 @@ $sym-status-colors: (
         padding: 1px 6px;
         border-radius: 999px;
         font-family: var(--font-mono);
-        font-size: 0.6rem;
+        font-size: 0.66rem;
         letter-spacing: 0.03em;
         color: var(--text-secondary);
         background: color-mix(in srgb, var(--accent) 12%, transparent);
@@ -1025,12 +1025,12 @@ $sym-status-colors: (
 
     &__broker-count {
         font-family: var(--font-mono);
-        font-size: 0.62rem;
+        font-size: 0.68rem;
         color: var(--text-muted);
     }
 
     &__no-account {
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         line-height: 1;
         color: #e24b4a;
         cursor: help;
@@ -1039,7 +1039,7 @@ $sym-status-colors: (
     &__pnl {
         margin-left: auto;
         font-family: var(--font-mono);
-        font-size: 0.7rem;
+        font-size: 0.76rem;
         font-weight: 600;
         color: var(--text-secondary);
         &.pnl--pos { color: #4caf50; }
@@ -1051,7 +1051,7 @@ $sym-status-colors: (
         align-items: center;
         gap: 6px;
         margin-top: 3px;
-        font-size: 0.78rem;
+        font-size: 0.81rem;
         color: var(--text-secondary);
         min-width: 0;
     }
@@ -1069,7 +1069,7 @@ $sym-status-colors: (
     }
 
     &__await-market {
-        font-size: 0.78rem;
+        font-size: 0.81rem;
         line-height: 1;
         animation: status-pulse 1.8s ease-in-out infinite;
     }
@@ -1101,7 +1101,7 @@ $sym-status-colors: (
 
     &__status-badge--group {
         font-family: var(--font-mono);
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         letter-spacing: 0.04em;
         color: var(--accent-light);
     }
@@ -1169,7 +1169,7 @@ $card-status-colors: (
     background: color-mix(in srgb, var(--accent) 2%, transparent);
     padding: 6px 12px;
 
-    .idea-card__pf-name { font-size: 0.78rem; color: var(--text-secondary); }
+    .idea-card__pf-name { font-size: 0.81rem; color: var(--text-secondary); }
 }
 
 // ── Portfolio card (Portfolios tab) ────────────────────────────────────────────
@@ -1179,7 +1179,7 @@ $card-status-colors: (
         width: 10px;
         text-align: center;
         color: var(--accent);
-        font-size: 0.7rem;
+        font-size: 0.76rem;
     }
 
     &--building .idea-card__pf-name {
@@ -1207,7 +1207,7 @@ $card-status-colors: (
         align-items: center;
         gap: 4px;
         font-family: var(--font-mono);
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         font-weight: 600;
         border-radius: 999px;
         padding: 3px 10px;
@@ -1219,7 +1219,7 @@ $card-status-colors: (
         &--flat    { color: var(--text-muted);  background: none; }
     }
 
-    &__pnl-arrow { font-size: 0.66rem; line-height: 1; }
+    &__pnl-arrow { font-size: 0.72rem; line-height: 1; }
 
     // Collapsible portfolio / group headers read as section headers over their children —
     // slim them below the item cards: smaller badge, tighter padding + name.
@@ -1265,7 +1265,7 @@ $card-status-colors: (
     }
     &__pnl-pct {
         font-family: var(--font-mono);
-        font-size: 0.66rem;
+        font-size: 0.72rem;
         font-weight: 600;
         &.pnl--pos { color: var(--color-long); }
         &.pnl--neg { color: var(--color-short); }
@@ -1372,7 +1372,7 @@ $card-status-colors: (
     &__popout {
         background: none;
         border: none;
-        color: #2a4a7a;
+        color: var(--text-muted);
         font-size: 1rem;
         cursor: pointer;
         line-height: 1;
@@ -1383,7 +1383,7 @@ $card-status-colors: (
     &__close {
         background: none;
         border: none;
-        color: #2a4a7a;
+        color: var(--text-muted);
         font-size: 1.3rem;
         cursor: pointer;
         line-height: 1;
@@ -1443,28 +1443,28 @@ $card-status-colors: (
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.04em;
-        font-size: 0.68rem;
+        font-size: 0.74rem;
         margin-bottom: 8px;
     }
 
     &__positions-empty {
         margin: 0;
         color: var(--text-muted);
-        font-size: 0.75rem;
+        font-size: 0.78rem;
     }
 
     &__field {
         display: flex;
         flex-direction: column;
         gap: 5px;
-        font-size: 0.75rem;
+        font-size: 0.78rem;
 
         > span {
             color: var(--accent);
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.04em;
-            font-size: 0.68rem;
+            font-size: 0.74rem;
 
             em {
                 font-style: normal;
@@ -1478,15 +1478,15 @@ $card-status-colors: (
     &__ae-qty {
         display: inline-block;
         font-family: var(--font-mono);
-        font-size: 0.68rem;
+        font-size: 0.74rem;
         color: var(--accent);
         margin-bottom: 3px;
     }
 
     &__notes {
         margin: 0;
-        color: #7a9bc0;
-        font-size: 0.78rem;
+        color: var(--text-secondary);
+        font-size: 0.81rem;
     }
 
     select {
@@ -1494,7 +1494,7 @@ $card-status-colors: (
         border: 1px solid var(--accent-deep);
         border-radius: 4px;
         color: var(--text-primary);
-        font-size: 0.78rem;
+        font-size: 0.81rem;
         padding: 7px 28px 7px 10px;
         font-family: inherit;
         cursor: pointer;
@@ -1515,7 +1515,7 @@ $card-status-colors: (
         border: none;
         border-radius: 4px;
         padding: 7px 18px;
-        font-size: 0.78rem;
+        font-size: 0.81rem;
         font-weight: 600;
         cursor: pointer;
         transition: opacity 0.12s;
@@ -1557,7 +1557,7 @@ $card-status-colors: (
         align-items: center;
         gap: 7px;
         font-family: var(--font-mono);
-        font-size: 0.58rem;
+        font-size: 0.64rem;
         font-weight: 700;
         letter-spacing: 0.1em;
         text-transform: uppercase;
@@ -1604,7 +1604,7 @@ $card-status-colors: (
     // AND / OR badge shown between inline chips in a group row
     &__inline-op {
         font-family: var(--font-mono);
-        font-size: 0.58rem;
+        font-size: 0.64rem;
         font-weight: 700;
         letter-spacing: 0.08em;
         text-transform: uppercase;
@@ -1650,11 +1650,11 @@ $card-status-colors: (
 
         // A met condition is "done" — dim its text so attention stays on the
         // conditions still pending.
-        .ctree__leaf-text { color: #5a6b7d; }
+        .ctree__leaf-text { color: var(--text-muted); }
     }
 
     &__leaf-text {
-        font-size: 0.78rem;
+        font-size: 0.81rem;
         color: #c4d8f0;
         flex: 1;
         min-width: 0;
@@ -1664,7 +1664,7 @@ $card-status-colors: (
 
     &__leaf-qty {
         font-family: var(--font-mono);
-        font-size: 0.6rem;
+        font-size: 0.66rem;
         font-weight: 600;
         color: var(--accent-light);
         background: var(--glow);
@@ -1675,7 +1675,7 @@ $card-status-colors: (
 
     &__leaf-type {
         font-family: var(--font-mono);
-        font-size: 0.58rem;
+        font-size: 0.64rem;
         font-weight: 600;
         letter-spacing: 0.04em;
         text-transform: uppercase;
@@ -1694,14 +1694,14 @@ $card-status-colors: (
 
     &__leaf-tf {
         font-family: var(--font-mono);
-        font-size: 0.6rem;
+        font-size: 0.66rem;
         color: var(--accent);
         flex-shrink: 0;
         white-space: nowrap;
     }
 
     &__empty {
-        font-size: 0.74rem;
+        font-size: 0.77rem;
         color: var(--text-dim);
         margin: 0;
         padding: 2px 0;
@@ -1787,7 +1787,7 @@ $card-status-colors: (
     }
 
     &__hub-card-label {
-        font-size: 12px;
+        font-size: 12.5px;
         font-weight: 600;
         color: var(--text-primary);
         line-height: 1.3;
@@ -1795,7 +1795,7 @@ $card-status-colors: (
 
     &__hub-card-count {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         color: var(--text-muted);
         letter-spacing: 0.04em;
     }
@@ -1811,7 +1811,7 @@ $card-status-colors: (
         border-radius: 4px;
         color: var(--text-secondary);
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         font-weight: 600;
         letter-spacing: 0.08em;
         text-transform: uppercase;
@@ -1826,7 +1826,7 @@ $card-status-colors: (
     &__crumb {
         color: var(--text-muted);
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         letter-spacing: 0.08em;
         flex-shrink: 0;
     }
@@ -1834,7 +1834,7 @@ $card-status-colors: (
     &__section {
         color: var(--text-secondary);
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         font-weight: 600;
         letter-spacing: 0.08em;
         text-transform: uppercase;

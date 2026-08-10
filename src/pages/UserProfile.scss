@@ -73,7 +73,7 @@
 
     &__section-title {
         font-family: var(--font-mono);
-        font-size: 0.68rem;
+        font-size: 0.74rem;
         font-weight: 600;
         letter-spacing: 0.14em;
         text-transform: uppercase;
@@ -100,7 +100,7 @@
 
     &__label {
         font-family: var(--font-mono);
-        font-size: 0.65rem;
+        font-size: 0.71rem;
         letter-spacing: 0.1em;
         text-transform: uppercase;
         color: var(--text-secondary);
@@ -140,7 +140,7 @@
         padding: 7px 14px;
         border-radius: 4px;
         font-family: var(--font-mono);
-        font-size: 0.7rem;
+        font-size: 0.76rem;
         letter-spacing: 0.08em;
         text-transform: uppercase;
         cursor: pointer;
@@ -224,7 +224,7 @@
 
     &__broker-status {
         font-family: var(--font-mono);
-        font-size: 0.65rem;
+        font-size: 0.71rem;
         letter-spacing: 0.1em;
         text-transform: uppercase;
         color: var(--text-secondary);
@@ -241,7 +241,7 @@
         border-radius: 3px;
         color: var(--text-primary);
         font-family: var(--font-mono);
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         cursor: pointer;
         outline: none;
 
@@ -267,7 +267,7 @@
     }
 
     &__agent-name {
-        font-size: 0.8rem;
+        font-size: 0.83rem;
         font-weight: 500;
         color: var(--text-primary);
         margin-bottom: 0.1rem;
@@ -300,14 +300,14 @@
         justify-content: space-between;
         align-items: baseline;
         font-family: var(--font-mono);
-        font-size: 0.65rem;
+        font-size: 0.71rem;
         letter-spacing: 0.06em;
         color: var(--text-secondary);
         margin-top: 0.15rem;
     }
 
     &__usage-pct {
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         font-weight: 600;
         transition: color 0.3s ease;
     }
