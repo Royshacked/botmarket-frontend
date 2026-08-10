@@ -50,7 +50,11 @@ export function PortfolioPanel({
     selectedAccounts  = [],
     mainAccountId     = null,
     resumeRef         = null,
+    // ADOPT MODE: the id of the staged book this conversation is about. Its presence is the mode —
+    // the server parses each turn into that draft and gives Atlas the adopt instruction.
+    adoptDraft        = null,
 }) {
+    const adoptDraftId = adoptDraft?.draftId ?? null
     const chat = useChatStream()
     const { messages, setMessages, isLoading, streamStatus } = chat
 
@@ -187,6 +191,7 @@ export function PortfolioPanel({
 
         try {
             await portfolioService.sendStream(history, ideaAccounts, {
+                adoptDraftId,
                 mainAccountId,   // reference account Atlas sizes the others against
                 portfolioId:     editingPortfolioId,
                 portfolioIdeas:  editingPortfolioIdeas,
@@ -257,6 +262,7 @@ export function PortfolioPanel({
 
         try {
             await portfolioService.sendStream(history, ideaAccounts, {
+                adoptDraftId,
                 mainAccountId,   // reference account Atlas sizes the others against
                 portfolioId:     editingPortfolioId,
                 portfolioIdeas:  editingPortfolioIdeas,
@@ -576,6 +582,7 @@ export function PortfolioPanel({
 }
 
 PortfolioPanel.propTypes = {
+    adoptDraft:          PropTypes.object,
     onGeneratePlan:      PropTypes.func,
     onUpdatePlan:        PropTypes.func,
     onPortfolioUpdate:   PropTypes.func,

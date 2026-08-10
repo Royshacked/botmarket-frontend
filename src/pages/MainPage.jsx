@@ -41,6 +41,8 @@ import { threadsService, newThreadId } from '../services/threads/threads.service
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
 import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
+import { adoptService } from '../services/adopt/adopt.service.remote.js'
+import { AdoptBookGrid } from '../cmps/AdoptBook/AdoptBookGrid.jsx'
 import { mentorService } from '../services/mentor/mentor.service.remote.js'
 import { isSetupAwaitingConfirm } from '../cmps/TradeIdeas/setupStatus.js'
 import { isAwaitingConfirm } from '../services/entityStatus.js'
@@ -305,6 +307,10 @@ export function MainPage() {
     const [analystInbox,     setAnalystInbox]     = useState(null)
     const [mentorInbox,      setMentorInbox]      = useState(null)
     const [portfolioSeed, setPortfolioSeed] = useState(null)   // Prometheus → Atlas nudge (see handleSleeveResearched)
+    // The staged book of an adoption in progress. Its presence puts Atlas in adopt mode and mounts the
+    // confirm grid beside the chat — the conversation gathers the mandate and the reasons, the grid
+    // holds the numbers. Null the rest of the time, which is what makes the mode invisible elsewhere.
+    const [adoptDraft, setAdoptDraft] = useState(null)
     // A SLEEVE RUN: Atlas routed several sectors at once, Argus screens them back to back, and the
     // survivors pool until the last one lands. `queue` is what is still to screen; `survivors` is
     // what has cleared so far. Empty queue + empty survivors = no run in progress.
@@ -1967,6 +1973,21 @@ export function MainPage() {
         setPipelineStep(0)                                    // a desk always opens at its first step
         setNewsTab('scans')
 
+        // ADOPT MODE. The user already owns the book, so Atlas must not open on a blank construction.
+        // A draft is staged EMPTY and immediately: the desk needs a draftId to attach the conversation
+        // to, every turn parses into it, and the grid renders it. Staged here rather than on the first
+        // paste because the draftId is what makes the whole session one book — a draft minted later,
+        // per paste, would adopt two half-books.
+        if (opts.adopt) {
+            adoptService.stage({ name: 'My bank book' })
+                .then(draft => setAdoptDraft(draft))
+                .catch(() => showErrorMsg('Could not open the adoption'))
+        } else if (adoptDraft) {
+            // Leaving the desk by any other door ends the adoption session. The draft itself survives
+            // on the server (listStaged resumes it) — this only stops it bleeding into the next book.
+            setAdoptDraft(null)
+        }
+
         const opening = typeof opts.opening === 'string' ? opts.opening.trim() : ''
         const key = Date.now()
         if (opening) {
@@ -2767,7 +2788,22 @@ export function MainPage() {
                                 onAccountsChange={setSelectedAccounts}
                                 mainAccountId={mainAccountId}
                                 onMainAccountChange={setMainAccountId}
+                                adoptDraft={adoptDraft}
                             />
+                            {adoptDraft && (
+                                <AdoptBookGrid
+                                    draft={adoptDraft}
+                                    onDraftChange={setAdoptDraft}
+                                    onAdopted={({ portfolioId, legs }) => {
+                                        setAdoptDraft(null)
+                                        showSuccessMsg(`Adopted ${legs} holding${legs === 1 ? '' : 's'}`)
+                                        // Straight into the book that now exists, rather than back to a
+                                        // blank desk: the next thing to do is look at what was adopted.
+                                        loadIdeas().then(() => handleEditPortfolio(portfolioId)).catch(() => {})
+                                    }}
+                                    onCancel={() => setAdoptDraft(null)}
+                                />
+                            )}
                         </div>
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'kairos' ? 'flex' : 'none' }}>
                             <KairosPanel

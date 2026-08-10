@@ -15,8 +15,11 @@ const { AxlHub, MessageBubble } = await import('./AxlHub.jsx')
 
 // Reply with a desk hand-off, the way the server sends one: the tag is already parsed off, so the
 // client sees `route` (which desk) + `routeSymbol` (the name it should open on).
-function replyWith({ reply = 'Taking you to Prometheus.', route = null, routeSymbol = null, opening = null, edit = null } = {}) {
-    streamAxl.mockImplementation(async (_messages, opts) => { opts.onDone?.({ reply, route, routeSymbol, opening, edit }) })
+// Mirrors the `done` payload the server sends. Kept as an explicit field list rather than a spread so
+// a field the component reads but the server never sends cannot pass here — but that cuts both ways:
+// a NEW server field has to be added here too, or the test silently proves the component ignores it.
+function replyWith({ reply = 'Taking you to Prometheus.', route = null, routeSymbol = null, opening = null, edit = null, adopt = false } = {}) {
+    streamAxl.mockImplementation(async (_messages, opts) => { opts.onDone?.({ reply, route, routeSymbol, opening, edit, adopt }) })
 }
 
 async function ask(text) {
@@ -179,6 +182,39 @@ describe('AxlHub — the opening turn that travels with them', () => {
 
         expect(onPick).toHaveBeenCalledWith('portfolio', {
             pipeline: 'portfolio', symbol: null, opening: 'I want 5% profit.',
+        })
+    })
+
+    // A book that already exists somewhere else is still the portfolio desk, but Atlas must not open
+    // on a blank construction — it opens on the holdings and works backwards to the mandate. So the
+    // mode has to survive the hand-off; dropped here, the user would be walked into building a second
+    // portfolio while already owning one.
+    it('carries the adopt mode to the portfolio desk', async () => {
+        const onPick = vi.fn()
+        render(<AxlHub user={{}} onPick={onPick} />)
+        replyWith({
+            reply: 'Taking you to Atlas.', route: 'portfolio', adopt: true,
+            opening: 'I have a portfolio at my bank I want you to manage.',
+        })
+
+        await ask('i have a book at my bank')
+
+        expect(onPick).toHaveBeenCalledWith('portfolio', {
+            pipeline: 'portfolio', symbol: null, adopt: true,
+            opening: 'I have a portfolio at my bank I want you to manage.',
+        })
+    })
+
+    it('an ordinary portfolio route carries NO adopt flag', async () => {
+        // The absence has to be real: a truthy default would put every new book into adopt mode.
+        const onPick = vi.fn()
+        render(<AxlHub user={{}} onPick={onPick} />)
+        replyWith({ reply: 'Taking you to Atlas.', route: 'portfolio', opening: 'I want to build a portfolio.' })
+
+        await ask('build me a portfolio')
+
+        expect(onPick).toHaveBeenCalledWith('portfolio', {
+            pipeline: 'portfolio', symbol: null, opening: 'I want to build a portfolio.',
         })
     })
 

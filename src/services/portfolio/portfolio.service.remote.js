@@ -43,6 +43,9 @@ async function completeReview(portfolioId, reviewCadence, outcome) {
 }
 
 async function sendStream(messages, ideaAccounts = [], opts = {}) {
-    const { mainAccountId = null, portfolioId = null, portfolioIdeas = [], threadId = null, reviewMode = false, mandate = null, model, reasoningEffort, routingMode, currentPhase } = opts
-    await streamAgent(BASE, { messages, ideaAccounts, mainAccountId, portfolioId, portfolioIdeas, threadId, reviewMode, mandate, model, reasoningEffort, routingMode, currentPhase }, opts)
+    const { mainAccountId = null, portfolioId = null, portfolioIdeas = [], threadId = null, reviewMode = false, mandate = null, adoptDraftId = null, model, reasoningEffort, routingMode, currentPhase } = opts
+    // `adoptDraftId` puts the turn in ADOPT mode: the server parses the user's own text into that
+    // staged book before Atlas sees it, so a pasted holdings list becomes rows without the model ever
+    // reading a number.
+    await streamAgent(BASE, { messages, ideaAccounts, mainAccountId, portfolioId, portfolioIdeas, threadId, reviewMode, mandate, adoptDraftId, model, reasoningEffort, routingMode, currentPhase }, opts)
 }

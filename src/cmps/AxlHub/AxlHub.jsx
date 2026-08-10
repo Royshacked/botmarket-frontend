@@ -81,7 +81,7 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
 
     const [summoning, setSummoning]       = useState(null)
     const [draft, setDraft]               = useState('')
-    const [pendingRoute, setPendingRoute] = useState(null)   // { desk, symbol, opening, edit } — the hand-off
+    const [pendingRoute, setPendingRoute] = useState(null)   // { desk, symbol, opening, edit, adopt } — the hand-off
     // Follow-ups Axl offered on the LAST turn. Latest turn only: they answer "what now", and a
     // question from four turns ago is not that. Cleared the moment anything is sent.
     const [suggestions, setSuggestions] = useState([])
@@ -98,7 +98,7 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
     useEffect(() => {
         if (!pendingRoute || isLoading) return
         const t = setTimeout(() => {
-            _summon(pendingRoute.desk, pendingRoute.symbol, pendingRoute.edit, pendingRoute.opening)
+            _summon(pendingRoute.desk, pendingRoute.symbol, pendingRoute.edit, pendingRoute.opening, pendingRoute.adopt)
             setPendingRoute(null)
         }, 900)
         return () => clearTimeout(t)
@@ -114,10 +114,15 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
     // `opening` is what the user said they came for, in their own words. It is sent at the desk as
     // THEIR first message, which is the whole hand-off: Axl works out where they belong, and the
     // sentence goes with them so the desk starts on the job instead of asking what brought them.
-    function _summon(desk, symbol = null, edit = null, opening = null) {
+    // `adopt` says the portfolio desk must open on a book that ALREADY EXISTS somewhere else. It is a
+    // mode, not a destination, which is why it rides beside the desk rather than being one.
+    function _summon(desk, symbol = null, edit = null, opening = null, adopt = false) {
         setSummoning(desk)
         timerRef.current = setTimeout(
-            () => onPick(desk.entryTab, { pipeline: desk.key, symbol, ...(edit ? { edit } : {}), ...(opening ? { opening } : {}) }),
+            () => onPick(desk.entryTab, {
+                pipeline: desk.key, symbol,
+                ...(edit ? { edit } : {}), ...(opening ? { opening } : {}), ...(adopt ? { adopt: true } : {}),
+            }),
             SUMMON_MS,
         )
     }
@@ -172,6 +177,9 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
                     // at the desk. Null on an edit (that reopens a conversation that already exists)
                     // and whenever Axl had nothing to carry, in which case the desk opens by asking.
                     opening: data.opening ?? null,
+                    // The user already owns the book they want managed → Atlas opens on their existing
+                    // holdings and works backwards to the mandate, instead of on a blank construction.
+                    adopt:   data.adopt === true,
                 })
             },
         })
