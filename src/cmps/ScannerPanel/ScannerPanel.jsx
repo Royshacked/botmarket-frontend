@@ -42,13 +42,18 @@ const ANGLES = [
 
 // Per-pipeline intro shown in Argus's empty state. `profile` is the lens to lock to
 // (null = show the selector). `hint` overrides the default AgentIntro hint text.
+//
+// The trade desk's copy takes the DESTINATION as an argument rather than naming a desk: it hardcoded
+// "Kairos" through the whole Argus → Mentor pivot, so the first thing the desk told a user was where
+// their pick was NOT going. MainPage derives the name from the same findReceiver call that routes
+// the pick, so the sentence and the hop cannot disagree.
 const PIPELINE_CONFIG = {
     trade: {
         profile: 'trading',
         // Singular on purpose: this desk's scan step is `produces: 'one'`, so Argus settles on a
         // single name and hands it over. Promising "candidates" here described the old dead end.
-        intro:   "Bring me a ticker to validate, or describe what you're after and I'll settle on one name to trade — then hand it to Kairos.",
-        hint:    'Name a ticker or tell me the setup type — I\'ll check it and hand you to Kairos.',
+        intro:   (dest) => `Bring me a ticker to validate, or describe what you're after and I'll settle on one name to trade — then hand it ${dest ? `to ${dest}` : 'on'}.`,
+        hint:    (dest) => `Name a ticker or tell me the setup type — I'll check it and hand you ${dest ? `to ${dest}` : 'on'}.`,
     },
     portfolio: {
         profile: 'investing',
@@ -61,6 +66,11 @@ const PIPELINE_CONFIG = {
         hint:    null,
     },
 }
+
+// A pipeline's copy is either a fixed string or a function of the hand-off destination. Resolving
+// here keeps the two shapes out of the render, and keeps a desk that has nothing to say (null) null
+// rather than turning it into the string "null".
+const copyFor = (value, dest) => (typeof value === 'function' ? value(dest) : value)
 
 // Compose the natural-language message from the selected angle labels. One angle →
 // a plain "Scan for X"; several → the intersection thesis ("names that fit both /
@@ -113,8 +123,11 @@ const MessageBubble = ({ msg, onTickerSelect }) => (
     />
 )
 
-export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, onUpdateList, onResearchList, onResearchLater, sleeveRun = null, onSkipSleeve, onLoadingChange, chatRestore = null, scanSeed = null, handoff = false, autoHandoff = false, onBackToKairos, onDismissHandoff, resumeRef = null }) {
+export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, onUpdateList, onResearchList, onResearchLater, sleeveRun = null, onSkipSleeve, onLoadingChange, chatRestore = null, scanSeed = null, handoff = false, handoffTo = null, autoHandoff = false, onSendPick, onDismissHandoff, resumeRef = null }) {
     const pipelineCfg = PIPELINE_CONFIG[pipeline] ?? PIPELINE_CONFIG.scan
+    // The desk the pick goes on to, as the user should read it. Falls back to no name rather than a
+    // guess — every surface here degrades to "hand it on", which is vague but never wrong.
+    const destBrand = AGENTS[handoffTo]?.brand ?? null
     const chat = useChatStream()
     const { messages, setMessages } = chat
 
@@ -144,14 +157,15 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
     const [profile,        setProfile]        = useState(() => pipelineCfg.profile ?? 'trading')
     const profileRef = useRef(profile)      // live mirror so a seed-set profile reaches the same-tick _send
     profileRef.current = profile
-    // Kairos hand-off single pick (emitted at the end of a hand-off scan) → "Back to Kairos" button.
+    // The single pick emitted at the end of a hand-off scan → the hand-off button. Named for the
+    // `<kairos_pick>` wire tag it carries, which outlived the desk it was named after.
     const [kairosPick,     setKairosPick]     = useState(null)
-    // Auto mode: hand the settled pick straight back rather than offering it. Waits for the turn to
+    // Auto mode: hand the settled pick straight on rather than offering it. Waits for the turn to
     // end — a pick still being written is not yet a pick. `kairosPick` is deliberately left set: the
     // hand-off remounts this panel, and clearing it here would flash the generate bar on the way out.
     useEffect(() => {
         if (!autoHandoff || chat.isLoading || !kairosPick) return
-        onBackToKairos?.(kairosPick, { viaUser: false })
+        onSendPick?.(kairosPick, { viaUser: false })
     }, [autoHandoff, chat.isLoading, kairosPick])   // eslint-disable-line react-hooks/exhaustive-deps
     // Reopen a saved list to edit it (clicked from its pencil): restore the chat,
     // enter edit mode, and prime the pending list with its current contents so the
@@ -266,7 +280,8 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                 // When editing, tell the agent the list's current contents so it can
                 // add / remove / change names against it.
                 editList:        editingScanId ? (pendingScan || null) : null,
-                handoff,   // Kairos hand-off mode: find ONE ticker, emit <kairos_pick>
+                handoff,     // hand-off mode: find ONE ticker, emit <kairos_pick>
+                handoffTo,   // …and which desk it goes to, so Argus's prose names the right one
                 profile:         handoff ? 'trading' : profileRef.current,   // Investing profile → the Analyst
                 signal,
                 ...handlers,
@@ -478,8 +493,8 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                     ) : (
                         <AgentIntro
                             agent={AGENTS.scanner}
-                            introOverride={pipelineCfg.intro}
-                            hintOverride={pipelineCfg.hint}
+                            introOverride={copyFor(pipelineCfg.intro, destBrand)}
+                            hintOverride={copyFor(pipelineCfg.hint, destBrand)}
                         />
                     )
                 )}
@@ -502,15 +517,16 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                 </div>
             )}
 
-            {/* Kairos hand-off: Argus settled on a single pick → hand it back or dismiss. In auto the
-                conveyor takes it on its own, so there is nothing here to press. */}
+            {/* Hand-off: Argus settled on a single pick → send it on or dismiss. In auto the
+                conveyor takes it on its own, so there is nothing here to press. The label names the
+                desk that will actually receive it — see destBrand. */}
             {!chat.isLoading && kairosPick && !autoHandoff && (
                 <div className="portfolio-panel__action-bubble">
                     <button
                         className="portfolio-panel__review-btn portfolio-panel__review-btn--update"
-                        onClick={() => onBackToKairos?.(kairosPick)}
+                        onClick={() => onSendPick?.(kairosPick)}
                     >
-                        Back to Kairos · {kairosPick.ticker}{kairosPick.direction ? ` · ${kairosPick.direction}` : ''}
+                        {destBrand ? `Send to ${destBrand}` : 'Send it on'} · {kairosPick.ticker}{kairosPick.direction ? ` · ${kairosPick.direction}` : ''}
                     </button>
                     <button
                         className="portfolio-panel__review-btn portfolio-panel__review-btn--later"
@@ -657,7 +673,8 @@ ScannerPanel.propTypes = {
     chatRestore:     PropTypes.object,
     scanSeed:        PropTypes.object,
     handoff:         PropTypes.bool,
-    autoHandoff:     PropTypes.bool,     // conveyor in auto: hand the pick back without the offer
-    onBackToKairos:  PropTypes.func,
+    handoffTo:       PropTypes.string,   // the receiving desk's agent key ('mentor' | 'kairos')
+    autoHandoff:     PropTypes.bool,     // conveyor in auto: hand the pick on without the offer
+    onSendPick:      PropTypes.func,
     onDismissHandoff: PropTypes.func,
 }

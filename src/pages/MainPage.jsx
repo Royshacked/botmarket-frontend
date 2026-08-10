@@ -7,7 +7,7 @@ import { RETURN_MS, DESKS } from '../cmps/AxlHub/agentMeta.jsx'
 import { resolveStepIndex, previousStep } from '../cmps/AxlHub/pipelineNav.js'
 import { scanOrigin, savesToScansList } from '../services/pipeline/scanOrigin.js'
 import { KIND, STATUS, makeArtifact, firstItem } from '../services/pipeline/artifact.js'
-import { planHop, planEntry, producesOne, hasDownstream } from '../services/pipeline/hop.js'
+import { planHop, planEntry, producesOne, hasDownstream, findReceiver } from '../services/pipeline/hop.js'
 import { contractFor } from '../services/pipeline/contracts.js'
 import { AccountSelector }   from '../cmps/ChatPanel/AccountSelector.jsx'
 import { readStoredModel }   from '../cmps/modelOptions.js'
@@ -2031,13 +2031,29 @@ export function MainPage() {
     const autoHandoff = pipelineMode === 'auto' && !!activePipeline
     const stepsOf = (key) => (key ? (DESKS.find(d => d.key === key)?.steps ?? []) : [])
 
-    // Argus in single-pick mode: it answers with ONE name for Kairos instead of a watchlist. Two
-    // ways in, and they are the same question asked from either side — Kairos handed it a
+    // Argus in single-pick mode: it answers with ONE name for a build desk instead of a watchlist.
+    // Two ways in, and they are the same question asked from either side — a desk handed it a
     // scan_request, or the desk it is standing on exists to build one trade (`produces: 'one'`).
     // Only the first existed before, which is why entering the trade desk AT Argus dead-ended in a
     // saved list with no way forward.
     const scannerSingle = scanInbox?.kind === KIND.SCAN_REQUEST
         || producesOne(stepsOf(activePipeline), 'scanner')
+
+    // …and WHICH desk that is. Asked of findReceiver rather than assumed, because this answer is
+    // shown to the user — in Argus's empty state, in its hand-off button, and in the prompt Argus
+    // writes from — and emitArtifact routes the pick with the very same call. Derived, so the label
+    // cannot drift from the destination: for two months every one of those surfaces said "Kairos"
+    // while the trade desk had already moved its build step to Mentor.
+    //
+    // The chain it walks mirrors emitArtifact exactly, borrowed-chain fallback included: inside a
+    // pipeline its own steps, outside one the steps of the desk Argus belongs to.
+    const scannerHandoffTo = (() => {
+        const steps = activePipeline
+            ? stepsOf(activePipeline)
+            : (DESKS.find(d => d.steps.some(s => s.tab === 'scanner'))?.steps ?? [])
+        const from = steps.length ? resolveStepIndex(steps, 'scanner', pipelineStep) : 0
+        return findReceiver(steps, from, KIND.CANDIDATE_LIST)?.step?.tab ?? null
+    })()
 
     function _applyHop(plan, artifact) {
         // Only one desk holds an inbox at a time: an artifact still sitting somewhere upstream is a
@@ -2200,11 +2216,14 @@ export function MainPage() {
         setNewsTab('scans')
     }
 
-    // Route BACK: Argus emitted a <kairos_pick> and the user tapped "Back to Kairos" → hand the
-    // ticker (+ its read) over as a one-item candidate list. Kairos still holds the bias and horizon
-    // in its (never-unmounted) conversation, so the horizon rides in `context` off the request that
-    // sent us here: Kairos's own answer, not Argus's guess at it.
-    function handleBackToKairos(pick, opts = {}) {
+    // Route ON: Argus emitted a <kairos_pick> and the user tapped the hand-off button → give the
+    // ticker (+ its read) to the build desk as a one-item candidate list. Where it lands is
+    // emitArtifact's call, not ours (scannerHandoffTo shows the user the same answer up front).
+    //
+    // When a desk SENT the request it still holds the bias and horizon in its (never-unmounted)
+    // conversation, so the horizon rides in `context` off that request: the sender's own answer,
+    // not Argus's guess at it.
+    function handleSendPick(pick, opts = {}) {
         if (!pick?.ticker) return
         const request = firstItem(scanInbox)                      // the scan_request Argus is holding
         const sent = emitArtifact(makeArtifact({
@@ -2216,18 +2235,18 @@ export function MainPage() {
                 analysis:  pick.analysis ?? pick.thesis ?? null,
                 recommended_mode: pick.recommended_mode ?? null,   // Argus's lens suggestion → pre-fills the chip
             }],
-            context: { style: request?.style ?? null },            // Kairos's own horizon (authoritative)
+            context: { style: request?.style ?? null },            // the sender's own horizon (authoritative)
             from:    { agent: 'scanner', label: 'Scan' },
         }), { fromTab: 'scanner', ...opts })
         if (!sent) return
         // Retiring the SENDER, which is not part of the hop: Argus is done, and leaving it mounted
-        // means coming back later to a stale pick and its chat. The receiver's mount policy (Kairos:
-        // never) is the conveyor's business; this is ours.
+        // means coming back later to a stale pick and its chat. The receiver's mount policy is the
+        // conveyor's business; this is ours.
         setScannerSeed(null)
         setScannerResetKey(k => k + 1)
     }
     // Dismiss the hand-off → back to Axl, clearing every inbox so a stale artifact can't re-fire.
-    function handleCancelKairosHandoff() {
+    function handleCancelHandoff() {
         setScanInbox(null)
         setKairosInbox(null)
         handleBackToAxl()
@@ -2723,9 +2742,10 @@ export function MainPage() {
                                 chatRestore={scannerChatRestore}
                                 scanSeed={scannerSeed}
                                 handoff={scannerSingle}
+                                handoffTo={scannerHandoffTo}
                                 autoHandoff={autoHandoff}
-                                onBackToKairos={handleBackToKairos}
-                                onDismissHandoff={handleCancelKairosHandoff}
+                                onSendPick={handleSendPick}
+                                onDismissHandoff={handleCancelHandoff}
                             />
                         </div>
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'portfolio' ? 'flex' : 'none' }}>

@@ -11,8 +11,8 @@ export const scannerService = {
 }
 
 async function sendStream(messages, opts = {}) {
-    const { model, reasoningEffort, routingMode, currentPhase, editList = null, handoff = false, profile = 'trading' } = opts
-    await streamAgent(BASE, { messages, model, editList, handoff, profile, reasoningEffort, routingMode, currentPhase }, opts)
+    const { model, reasoningEffort, routingMode, currentPhase, editList = null, handoff = false, handoffTo = null, profile = 'trading' } = opts
+    await streamAgent(BASE, { messages, model, editList, handoff, handoffTo, profile, reasoningEffort, routingMode, currentPhase }, opts)
 }
 
 // The scans list is an owner-scoped list like any other, so it rides the shared transport.
