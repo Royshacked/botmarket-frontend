@@ -8,6 +8,7 @@ import {
 } from './tradeIdea.utils.js'
 import { ActivatePortfolioDialog } from './ActivatePortfolioDialog.jsx'
 import { eventBus, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT } from '../../services/event-bus.service'
+import { isAdoptedBook } from '../AdoptBook/adopt.utils.js'
 import { posKey, WorkspaceBadge } from './PositionsTable.jsx'
 import { useExpandedSet } from '../../customHooks/useExpandedSet.js'
 import { StatusIcon } from '../StatusIcon.jsx'
@@ -247,6 +248,7 @@ export function PortfolioCard({ group, expanded, onToggle, onEdit, onDelete, onD
     const [showActivatePrompt, setShowActivatePrompt] = useState(false)
     const allWaiting = group.ideas.length > 0 && group.ideas.every(i => i.status === 'waiting')
     const isManual   = group.ideas.length > 0 && group.ideas.every(isManualIdea)
+    const isAdopted  = isAdoptedBook(group.ideas)
     // One fact, read twice: it makes the manual toggle an EXIT rather than a re-post, and it makes
     // reopening this book a review rather than a re-plan. Shared so the two can't drift apart.
     const anyOpen    = isPortfolioReview(group.ideas)
@@ -280,6 +282,9 @@ export function PortfolioCard({ group, expanded, onToggle, onEdit, onDelete, onD
         e.stopPropagation()
         // Manual: positions live → exit card; still awaiting fills → re-post entry card.
         if (isManual) {
+            // An ADOPTED book can only ever be exited. It was already held when we met it, so there is
+            // no entry to re-post — offering one would ask the user to go buy what they already own.
+            if (isAdopted && !anyOpen) return
             eventBus.emit(anyOpen ? MANUAL_PORTFOLIO_EXIT : MANUAL_PORTFOLIO_ACTIVATE, { portfolioId: group.portfolioId })
             return
         }
