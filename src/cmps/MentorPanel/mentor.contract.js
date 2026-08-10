@@ -10,7 +10,7 @@
 // where the pipeline ends, not somewhere the work is handed on to. Same shape as Kairos, whose
 // call goes to Hermes and whose only emitted artifact is the request for a name.
 
-import { KIND, firstItem } from '../../services/pipeline/artifact.js'
+import { KIND } from '../../services/pipeline/artifact.js'
 
 export const mentorContract = {
     agent:   'mentor',
@@ -19,24 +19,12 @@ export const mentorContract = {
     // Never remounted on a hand-off: this desk holds the user's own thinking about the trade, and a
     // fresh panel would throw away the very thing it exists to work on.
     mount:   'continues',
-    deliver: 'seed',
-
-    /**
-     * A name arrived — off a scan, a list, or Axl having resolved it from the conversation.
-     *
-     * Worded as the USER's opening move, because that is what a seed is: the hand-off says it for
-     * them (see useSeedTurn). And deliberately not "my own trade" when a thesis rides along — a name
-     * that came off a screen is not one the user brought, and opening as though it were invites
-     * Mentor to pressure-test a plan nobody has made yet.
-     */
-    brief(artifact) {
-        const cand = firstItem(artifact)
-        if (!cand?.ticker) return null
-        const read = cand.thesis || cand.analysis
-        return {
-            message: read
-                ? `I want to work on a ${cand.ticker} trade — the read on it is: ${read}. Let's build the setup together.`
-                : `I want to work on my own ${cand.ticker} trade.`,
-        }
-    },
+    // `deliver: 'artifact'` for Kairos's reason, arrived at later: opening on a candidate is more
+    // than a sentence now. Argus recommends a LENS with the name, Mentor authors `trade_mode`, and a
+    // recommendation that survives only as prose in an opening line cannot be told apart from the
+    // user having asked for it. The envelope arrives whole so the lens reaches the prompt as data
+    // and the panel can say whose idea it was.
+    deliver: 'artifact',
+    // No `brief`. The opening turn is composed in MentorPanel, where the seed it must agree with
+    // is also built — two openers for one hand-off is one of them going stale.
 }

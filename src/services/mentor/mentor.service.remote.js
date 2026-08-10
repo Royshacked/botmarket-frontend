@@ -33,8 +33,10 @@ export const mentorService = {
  * The draft is echoed back into the system prompt, so an omitted field survives a thin re-emit.
  */
 async function sendStream(messages, opts = {}) {
-    const { model, reasoningEffort, routingMode, accounts = [], mainAccountId = null, chatState } = opts
-    await streamAgent(BASE, { messages, model, reasoningEffort, routingMode, accounts, mainAccountId, chatState, ...clientTimeContext() }, opts)
+    const { model, reasoningEffort, routingMode, accounts = [], mainAccountId = null, chatState, seed } = opts
+    // `seed` is the Argus hand-off, sent on the hand-off turn only. Named explicitly because this
+    // body is an allow-list, not a spread — an unlisted field is dropped without a word.
+    await streamAgent(BASE, { messages, model, reasoningEffort, routingMode, accounts, mainAccountId, chatState, seed, ...clientTimeContext() }, opts)
 }
 
 /**

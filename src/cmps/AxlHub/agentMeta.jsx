@@ -206,19 +206,23 @@ export const DESKS = [
         key:      'trade',
         label:    'Trading Desk',
         lead:     'Trade an asset',
-        blurb:    'Intraday, day, or swing — Argus validates, Kairos plans the setup, Hermes monitors.',
+        blurb:    'Intraday, day, or swing — Argus validates, Mentor builds the setup with you, Talos watches the zones.',
         hue:      'cyan',
         entryTab: 'scanner',
-        agentKey: 'kairos',
+        agentKey: 'mentor',
+        // Argus → Mentor → Talos (docs/desks/trade-pipeline.md). The build step was Kairos, which
+        // AUTHORS a call and stops; Mentor builds the setup WITH the user and hands Talos zones it
+        // can manage. Kairos and Hermes are silent, not deleted — calls already in flight run to
+        // their natural close, so both tabs stay reachable and nothing new is routed there.
         steps: [
             // `produces: 'one'` — this desk builds ONE trade, so its scan step ends in a single
-            // name for Kairos, not a watchlist. Argus reads it and answers with a pick, which is
-            // the same single-pick mode it enters when Kairos asks it for a name mid-desk. Without
+            // name for the build step, not a watchlist. Argus reads it and answers with a pick,
+            // which is the same single-pick mode it enters when asked for a name mid-desk. Without
             // it, entering the desk AT Argus produced a saved list and no way forward — the step
-            // promised a hand-off ("I'll hand you to Kairos") that nothing performed.
+            // promised a hand-off ("I'll hand you on") that nothing performed.
             { tab: 'scanner', label: 'Scan', produces: 'one' },
-            { tab: 'kairos',  label: 'Build trade' },
-            { tab: null,      label: 'Execute & monitor' },
+            { tab: 'mentor',  label: 'Build trade' },
+            { tab: null,      label: 'Arm & monitor' },
         ],
     },
     {

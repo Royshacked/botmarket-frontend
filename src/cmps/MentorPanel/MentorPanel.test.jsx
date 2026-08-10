@@ -274,3 +274,56 @@ describe('MentorPanel', () => {
         expect(generateSetup).not.toHaveBeenCalled()   // an edit must never create a second setup
     })
 })
+
+// ── The Argus hand-off ─────────────────────────────────────────────────────────
+// The trade desk now enters at a scan and builds at Mentor, so a name can arrive from Argus rather
+// than from the user. It arrives as an ARTIFACT, not as an opening sentence: Argus recommends a
+// lens, Mentor authors `trade_mode`, and a recommendation that survived only as prose would be
+// indistinguishable from the user having asked for it.
+
+const HANDOFF = (over = {}) => ({
+    key: 'h1', kind: 'candidate_list',
+    items: [{ ticker: 'nvda', direction: 'long', thesis: 'Reclaimed the 199 shelf on volume.',
+              recommended_mode: 'smc', ...over }],
+})
+
+describe('MentorPanel — the Argus hand-off', () => {
+    it('opens on the handed name and carries the recommended lens as data', async () => {
+        render(<MentorPanel {...props({ inbox: HANDOFF() })} />)
+        await waitFor(() => expect(sendStream).toHaveBeenCalled())
+
+        const [history, opts] = sendStream.mock.calls[0]
+        expect(history.at(-1).content).toContain('NVDA')
+        expect(history.at(-1).content).toContain('Reclaimed the 199 shelf')
+        // The lens rides the body, not the sentence — this is the whole reason it hops as an artifact.
+        expect(opts.seed).toMatchObject({ ticker: 'NVDA', direction: 'long', recommended_mode: 'smc' })
+    })
+
+    it('opens as a name to work on, never as the user\'s own plan', async () => {
+        // A name off a screen is not one the user brought. Opening as though it were invites Mentor
+        // to pressure-test a plan nobody has made yet.
+        render(<MentorPanel {...props({ inbox: HANDOFF({ thesis: null }) })} />)
+        await waitFor(() => expect(sendStream).toHaveBeenCalled())
+        expect(sendStream.mock.calls[0][0].at(-1).content).not.toContain('my own')
+    })
+
+    it('announces the hand-off once — the next turn is an ordinary turn', async () => {
+        render(<MentorPanel {...props({ inbox: HANDOFF() })} />)
+        await waitFor(() => expect(sendStream).toHaveBeenCalled())
+        await waitFor(() => expect(screen.getByRole('textbox').disabled).toBe(false))
+
+        await runTurn({ reply: 'ok' })
+        // Re-sending the seed would re-announce a name as newly handed over on every later turn,
+        // and the model would keep re-opening a build that is already under way.
+        expect(sendStream.mock.calls.at(-1)[1].seed).toBeFalsy()
+    })
+
+    it('a nameless or absent hand-off opens nothing', async () => {
+        // A seed without a ticker names nothing, and is worse than absent: the desk would open on
+        // a blank and ask the user what they meant.
+        render(<MentorPanel {...props({ inbox: { key: 'h2', kind: 'candidate_list', items: [{}] } })} />)
+        render(<MentorPanel {...props({ inbox: null })} />)
+        await new Promise(r => setTimeout(r, 20))
+        expect(sendStream).not.toHaveBeenCalled()
+    })
+})

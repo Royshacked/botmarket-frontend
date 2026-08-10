@@ -12,7 +12,7 @@ const portfolio = DESKS.find(d => d.key === 'portfolio').steps
 describe('pipelineNav — where the user is standing', () => {
     it('follows a single-visit pipeline straight down the chain', () => {
         expect(resolveStepIndex(trade, 'scanner', 0)).toBe(0)
-        expect(resolveStepIndex(trade, 'kairos', 0)).toBe(1)
+        expect(resolveStepIndex(trade, 'mentor', 0)).toBe(1)
     })
 
     // The portfolio desk visits Atlas twice — the mandate on the way in, the allocation on the way

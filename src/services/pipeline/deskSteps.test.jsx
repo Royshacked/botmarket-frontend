@@ -7,6 +7,7 @@ import { DESKS } from '../../cmps/AxlHub/agentMeta.jsx'
 import { producesOne, hasDownstream, findReceiver, planEntry } from './hop.js'
 import { previousStep } from '../../cmps/AxlHub/pipelineNav.js'
 import { contractFor } from './contracts.js'
+import { mentorContract } from '../../cmps/MentorPanel/mentor.contract.js'
 import { KIND, STATUS, makeArtifact } from './artifact.js'
 
 const stepsOf = (key) => DESKS.find(d => d.key === key).steps
@@ -72,27 +73,26 @@ describe('a step can be inserted with no agent edited', () => {
     })
 })
 
-// Mentor opens on a sentence it writes itself. A name off a screen is not one the user brought, and
-// the brief has to say so — opening as "my own trade" would have Mentor pressure-test a plan that
-// does not exist yet.
-describe('Mentor words its own opening turn', () => {
-    const brief = (item) => contractFor('mentor').brief(
-        makeArtifact({ kind: KIND.CANDIDATE_LIST, items: [item] }))
-
-    it('a bare ticker opens as the user\'s own trade', () => {
-        expect(brief({ ticker: 'NVDA' }).message).toBe('I want to work on my own NVDA trade.')
+// Mentor takes the envelope WHOLE. It opened on a brief-written sentence until Argus began
+// recommending a lens with the name: Mentor authors `trade_mode`, so the recommendation has to
+// reach the prompt as data rather than as prose in an opening line, where it would be
+// indistinguishable from the user having asked for it.
+//
+// The opening WORDING now lives in MentorPanel (and is tested there) — with the seed it must agree
+// with. Two openers for one hand-off is one of them going stale, which is the invariant
+// hop.test.js's "an artifact desk does not also carry a brief" enforces.
+describe('Mentor takes a handed name as an artifact', () => {
+    it('accepts a candidate list, delivered whole and unworded', () => {
+        const c = contractFor('mentor')
+        expect(c.accepts).toContain(KIND.CANDIDATE_LIST)
+        expect(c.deliver).toBe('artifact')
+        expect(c.brief).toBeUndefined()
     })
 
-    it('a ticker carrying a read says where it came from instead', () => {
-        const msg = brief({ ticker: 'NVDA', thesis: 'AI capex re-rating' }).message
-        expect(msg).toContain('NVDA')
-        expect(msg).toContain('AI capex re-rating')
-        expect(msg).not.toContain('my own')
-    })
-
-    it('nothing to open on yields no brief rather than an empty turn', () => {
-        expect(brief({})).toBe(null)
-        expect(contractFor('mentor').brief(makeArtifact({ kind: KIND.CANDIDATE_LIST }))).toBe(null)
+    // The desk holds the user's own thinking about the trade; a fresh panel would throw away the
+    // very thing it exists to work on.
+    it('continues the open conversation rather than remounting', () => {
+        expect(contractFor('mentor').mount).toBe('continues')
     })
 })
 
@@ -185,12 +185,18 @@ describe('Atlas is told what did NOT come back', () => {
 })
 
 describe('the trade desk routes both ways', () => {
-    it('Argus hands the name forward to Kairos', () => {
-        expect(findReceiver(stepsOf('trade'), 0, KIND.CANDIDATE_LIST)?.step.tab).toBe('kairos')
+    it('Argus hands the name forward to the build step, which is now Mentor', () => {
+        expect(findReceiver(stepsOf('trade'), 0, KIND.CANDIDATE_LIST)?.step.tab).toBe('mentor')
     })
 
     // "Let's look for another name" — the hop that a forward-only rule would lose.
-    it('Kairos asks the step BEFORE it for another name', () => {
+    //
+    // The ROUTE still resolves, because Argus accepts a scan_request from either side. What no
+    // longer exists is a sender: Kairos emitted `<scan_request>`, Mentor's contract emits nothing,
+    // so on this desk the backward hop is reachable but unused. Asserted rather than deleted so the
+    // gap is recorded — if the premium autonomous Mentor mode wants it back, this is the wire.
+    it('the step BEFORE the build step is still where another name would come from', () => {
         expect(findReceiver(stepsOf('trade'), 1, KIND.SCAN_REQUEST)?.step.tab).toBe('scanner')
+        expect(mentorContract.emits).not.toContain(KIND.SCAN_REQUEST)
     })
 })

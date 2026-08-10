@@ -7,6 +7,7 @@ import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
 import { readStoredRoutingMode } from '../routingModeOptions.js'
 import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
+import { firstItem } from '../../services/pipeline/artifact.js'
 import { useSeedTurn } from '../../customHooks/useSeedTurn.js'
 import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
@@ -29,7 +30,8 @@ import './MentorPanel.scss'
 //     dimensions read, rendered as chips that fill in, order-free.
 //   • No lens chip. Kairos's mode is chosen by the user before the build; Mentor's lens is
 //     per-SETUP and named by the agent, so there is nothing to pick.
-//   • No Argus hand-off. The ticker always comes from the user, so there is no scan_request.
+//   • Takes an Argus hand-off (the trade desk enters at a scan), but never ASKS for one: the
+//     ticker arrives from the user or from a pick, so Mentor emits no scan_request.
 //   • Generate and Arm are SEPARATE. A generated setup sits at `waiting`, unmonitored; arming is
 //     a deliberate second act, and the server re-runs the readiness gate when it happens.
 
@@ -43,7 +45,7 @@ const MessageBubble = ({ msg }) => <ChatBubble msg={msg} />
 
 export function MentorPanel({
     onLoadingChange, onGenerated, onPendingSetup,
-    chatRestore = null, seed = null, editingSetupId = null, onEditDone,
+    chatRestore = null, seed = null, inbox = null, editingSetupId = null, onEditDone,
     availableAccounts = [], selectedAccounts = [], mainAccountId = null, resumeRef = null,
 }) {
     const chat = useChatStream()
@@ -63,6 +65,9 @@ export function MentorPanel({
     const [editDirty,    setEditDirty]    = useState(false)
 
     const threadIdRef = useRef(newThreadId())
+    // The Argus candidate awaiting its turn. A ref, not state: it must ride the very send that the
+    // hand-off effect fires, and a setState would not be readable until the render after.
+    const seedRef     = useRef(null)
 
     const isEditing = !!editingSetupId
     const accounts  = availableAccounts.filter(a => selectedAccounts.includes(a.id))
@@ -87,6 +92,39 @@ export function MentorPanel({
     // keyed so one click is one turn, landing in whatever conversation is open.
     useSeedTurn(seed, _send)
 
+    // Argus handed a name over. The artifact arrives WHOLE rather than as a sentence (see
+    // mentor.contract's `deliver`), because the lens Argus recommends has to reach the prompt as
+    // data: Mentor authors `trade_mode`, and a recommendation surviving only as prose in the opening
+    // line is indistinguishable from the user having asked for it.
+    //
+    // Keyed on the artifact so it fires once per hand-off. The panel `continues` rather than
+    // remounting — this desk holds the user's own thinking — so the name arrives as a new turn in
+    // whatever conversation is already open.
+    useEffect(() => {
+        const cand = firstItem(inbox)
+        if (!cand?.ticker) return
+        // Uppercased HERE, once, so the sentence and the seed name the same thing. The server
+        // normalises the seed's ticker on its way into the prompt (sanitizeScanSeed) and cannot
+        // reach the prose, so leaving it to the server means a turn that says `nvda` alongside a
+        // seed that says `NVDA`.
+        const ticker = cand.ticker.toUpperCase()
+        seedRef.current = {
+            ticker,
+            direction:        cand.direction ?? null,
+            thesis:           cand.thesis ?? null,
+            analysis:         cand.analysis ?? null,
+            recommended_mode: cand.recommended_mode ?? null,
+        }
+        // The user's own opening move — the hand-off says it for them. Deliberately NOT "my own
+        // trade": a name off a screen is not one they brought, and opening as though it were invites
+        // Mentor to pressure-test a plan nobody has made yet.
+        // Trailing stop trimmed: a thesis usually ends in one and the template adds another.
+        const read = (cand.thesis || cand.analysis || '').trim().replace(/\.+$/, '')
+        _send(read
+            ? `I want to work on a ${ticker} trade — the read on it is: ${read}. Let's build the setup together.`
+            : `I want to work on a ${ticker} trade. Let's build the setup together.`)
+    }, [inbox?.key])   // eslint-disable-line react-hooks/exhaustive-deps
+
     function persistedMessages() {
         return messages
             .filter(m => !m.streaming && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
@@ -101,14 +139,20 @@ export function MentorPanel({
     // sends in the same tick (picking a candidate) would otherwise read the pre-update value from
     // this closure and send `draft: null` — the conversation and the worksheet diverging on the one
     // turn where they must agree.
-    const streamOpts = (draft = pendingSetup) => ({
-        model:           readStoredModel('mentorModel'),
-        reasoningEffort: readStoredReasoning('mentorReasoning'),
-        routingMode:     readStoredRoutingMode('mentorRoutingMode'),
-        accounts,
-        mainAccountId,
-        chatState: { active_asset: draft?.asset || '', draft, coverage },
-    })
+    const streamOpts = (draft = pendingSetup) => {
+        // One-shot: the hand-off turn carries it, every turn after has it in the history. Read and
+        // cleared together so a second send cannot re-announce a name as newly handed over.
+        const candidate = seedRef.current; seedRef.current = null
+        return {
+            model:           readStoredModel('mentorModel'),
+            reasoningEffort: readStoredReasoning('mentorReasoning'),
+            routingMode:     readStoredRoutingMode('mentorRoutingMode'),
+            accounts,
+            mainAccountId,
+            chatState: { active_asset: draft?.asset || candidate?.ticker || '', draft, coverage },
+            seed: candidate,   // structured Argus candidate — carries the recommended lens
+        }
+    }
 
     function _applyDone(data, draft) {
         if (data.coverage) setCoverage(data.coverage)
@@ -407,6 +451,7 @@ MentorPanel.propTypes = {
     onPendingSetup:    PropTypes.func,
     chatRestore:       PropTypes.object,
     seed:              PropTypes.object,
+    inbox:             PropTypes.object,
     editingSetupId:    PropTypes.string,
     onEditDone:        PropTypes.func,
     availableAccounts: PropTypes.array,

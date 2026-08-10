@@ -303,6 +303,7 @@ export function MainPage() {
     // auto-advances in either mode — see planHop.
     const [pipelineMode,     setPipelineMode]     = useState('manual')
     const [analystInbox,     setAnalystInbox]     = useState(null)
+    const [mentorInbox,      setMentorInbox]      = useState(null)
     const [portfolioSeed, setPortfolioSeed] = useState(null)   // Prometheus → Atlas nudge (see handleSleeveResearched)
     // A SLEEVE RUN: Atlas routed several sectors at once, Argus screens them back to back, and the
     // survivors pool until the last one lands. `queue` is what is still to screen; `survivors` is
@@ -2021,8 +2022,10 @@ export function MainPage() {
     // Where the conveyor puts what it delivers, per desk. Two tables because there are two doors:
     // an INBOX for a desk that takes the envelope whole, a SEED for one that opens on a sentence it
     // wrote itself. A desk declares which in its contract (`deliver`); these say where it lands.
-    const PIPELINE_INBOX = { scanner: setScanInbox, kairos: setKairosInbox, analyst: setAnalystInbox }
-    const PIPELINE_SEED  = { scanner: setScannerSeed, mentor: setMentorSeed, portfolio: setPortfolioSeed }
+    const PIPELINE_INBOX = { scanner: setScanInbox, kairos: setKairosInbox, analyst: setAnalystInbox, mentor: setMentorInbox }
+    // Mentor keeps a SEED door too — the calendar cards (earnings, IPOs) open it on a sentence they
+    // wrote, with no artifact behind them. Two doors, two different senders.
+    const PIPELINE_SEED  = { scanner: setScannerSeed, portfolio: setPortfolioSeed }
     // Only inside a pipeline: off a desk there is no chain, so there is nothing to advance along
     // and a panel must keep offering its hand-off by hand.
     const autoHandoff = pipelineMode === 'auto' && !!activePipeline
@@ -2774,6 +2777,7 @@ export function MainPage() {
                             <MentorPanel
                                 onGenerated={handleBackToAxl}
                                 seed={mentorSeed}
+                                inbox={mentorInbox}
                                 resumeRef={mentorResumeRef}
                                 editingSetupId={editingSetupId}
                                 chatRestore={mentorChatRestore}
