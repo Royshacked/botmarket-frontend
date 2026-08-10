@@ -159,10 +159,92 @@
     .workspace__chat .chat-panel,
     .workspace__chat .axl-hub { border-radius: 0; border-left: none; border-right: none; }
 
-    // The agent strip keeps the back arrow and the controls; the pipeline breadcrumb (up to five
-    // steps joined by 36px rules) is wider than the phone and would push them off the edge.
     .chat-agentbar { padding: 6px 8px; gap: 6px; }
-    .chat-agentbar__pipeline { display: none; }
+
+    // ── The pipeline path, folded for a phone ──
+    // It used to be `display: none` here: the desktop path (up to five step names joined by 18px
+    // rules) is wider than the phone and pushed the controls off the edge. But dropping it meant the
+    // one thing the user had just CHOSEN — which pipeline they're in — was the one thing the header
+    // didn't say, and on mobile this strip is the ONLY chrome above the conversation; there is no
+    // lists column and no Floor to infer it from.
+    //
+    // So the path compresses instead of disappearing, and it does it in CSS over the SAME markup —
+    // a second mobile-only crumb in MainPage would be a second reading of "which step is this?",
+    // which pipelineNav.js exists to prevent. Two lines inside the 54px strip: the desk name over
+    // its steps, with the steps reduced to dots and only the one you are STANDING on still named.
+    // A dot per step keeps what a stepper is actually for on a small screen — how many stops there
+    // are and which is yours — at a fraction of the width of five words.
+    .chat-agentbar__pipeline {
+        flex-wrap: wrap;
+        align-content: center;
+        gap: 1px 5px;
+        margin-left: -4px;
+        // It is the one elastic thing in the strip: the back arrow and the right-hand controls are
+        // fixed and must not be pushed off, so the path is what yields.
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    // Its own line, and quieter than the steps under it — on the phone the desk name is context,
+    // while the step is where you are.
+    .chat-agentbar__pipeline-label {
+        flex-basis: 100%;
+        margin-right: 0;      // the desktop 24px gap held the path off; stacked, there is nothing beside it
+        font-size: 9.5px;
+        line-height: 1.2;
+        color: var(--text-dim);
+    }
+
+    // The joining rules go with the words they joined — adjacent dots already read as a sequence.
+    .chat-agentbar__pipeline-line { display: none; }
+
+    .chat-agentbar__pipeline-step::before {
+        content: '';
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--border-mid);
+        flex-shrink: 0;
+    }
+
+    // Every step is a dot; the active one keeps its name, so the line reads "○ ● SCAN ○" — where
+    // you are, in words, with the stops either side of it.
+    //
+    // The names that give up their pixels are taken out of FLOW, not out of the document: a dot
+    // says nothing to a screen reader, and `display: none` would have left the path as four
+    // anonymous bullets. Off-flow, they cost no width and still read in order.
+    .chat-agentbar__pipeline-text {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+
+    .chat-agentbar__pipeline-step.is-active {
+        gap: 5px;
+        &::before { background: var(--accent-light); }
+
+        .chat-agentbar__pipeline-text {
+            position: static;
+            width: auto;
+            height: auto;
+            overflow: hidden;
+            clip-path: none;
+            // Bounded so a long step name can't wrap the dots onto a third line the 54px strip
+            // would clip. Nothing hits this today; it is here so a future step name can't break
+            // the strip by being wordy.
+            display: inline-block;
+            max-width: 38vw;
+            text-overflow: ellipsis;
+            vertical-align: bottom;
+            font-size: 11px;
+        }
+    }
+
+    // Fixed against the yielding path beside them.
+    .chat-agentbar__right { flex-shrink: 0; }
 
     // Tighten header on small screens
     .app-header {
