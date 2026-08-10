@@ -39,6 +39,19 @@ describe('FloorLeft', () => {
         expect(no.nextElementSibling.textContent).toBe('(2)')
     })
 
+    // A paper/manual account has no broker number, so it falls back to its id — long enough that
+    // an unshrinkable cell would shove the count out from under it. The number truncates instead
+    // (CSS, so jsdom can't see it), which is why it has to carry itself as a tooltip: that is the
+    // only place the hidden tail stays readable.
+    it('keeps the count beside a long fallback account id, and titles the id with itself', () => {
+        const long = 'paper-8f3c1d9a-44b2-4e77-9b10-2c6f5a1e3d84'
+        render(<FloorLeft positions={[pos({ broker: 'paper', accountId: long, accountNo: undefined })]} />)
+
+        const no = screen.getByText(long)
+        expect(no.getAttribute('title')).toBe(long)
+        expect(no.nextElementSibling.textContent).toBe('(1)')
+    })
+
     it('keeps the account P&L on the right edge now that the count no longer pushes it there', () => {
         render(<FloorLeft positions={[pos()]} />)
 

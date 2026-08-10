@@ -134,9 +134,12 @@ function AccountBlock({ group, open, onToggle, onOpenPosition, onClosePosition, 
                 {/* No paper/manual/live chip: usePositions already scopes the whole list to the
                     active workspace, so every row here is that mode by construction. A per-row
                     badge would be restating the workspace switch on every line. */}
-                <span className="floor-acct__no">{group.accountNo}</span>
+                {/* Titled with itself: a paper/manual account falls back to its id, which is long
+                    enough to truncate, and the tail has to stay readable somewhere. */}
+                <span className="floor-acct__no" title={group.accountNo}>{group.accountNo}</span>
                 {/* Beside the account number, in parens — the count says how big THIS account is,
-                    so it reads as part of its name rather than as a column of its own. */}
+                    so it reads as part of its name rather than as a column of its own. And it never
+                    leaves that side: the number truncates instead of pushing the count off. */}
                 <span className="floor-acct__count">({summary.count})</span>
                 <span className={`floor-acct__pnl ${pnlClass(summary.pnl)}`}>
                     {summary.pnl == null ? '—' : formatPnl(summary.pnl, summary.currency)}
