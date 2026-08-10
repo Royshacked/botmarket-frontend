@@ -63,6 +63,44 @@ describe('ScannerPanel — the thesis-phase angle strip', () => {
     })
 })
 
+// The four phase numbers are shared, the work behind two of them is not. In hand-off mode Argus
+// converges on ONE name — so a phase-4 heading reading "Ranked List" over a single ticker described
+// the list-building dead end this mode replaced, and phase 3 says "Validation" because the
+// validate-a-name branch starts there with no pool to filter.
+describe('ScannerPanel — the phase headings follow the mode', () => {
+    async function playPhase(phase, props = {}) {
+        render(<ScannerPanel scanSeed={{ key: 1, message: 'TSLA', profile: 'trading' }} {...props} />)
+        await waitFor(() => expect(sendStream).toHaveBeenCalled())
+        const [, opts] = lastCall()
+        await act(async () => {
+            opts.onPhase(phase)
+            opts.onToken('…')
+            opts.onDone({ reply: '…' })
+        })
+    }
+
+    it('a list scan still ends on a ranked list', async () => {
+        await playPhase(4)
+        expect(await screen.findByText(/Phase 4 — Ranked List/)).toBeTruthy()
+    })
+
+    it('a hand-off ends on THE PICK, not a list it never built', async () => {
+        await playPhase(4, { handoff: true })
+        expect(await screen.findByText(/Phase 4 — The Pick/)).toBeTruthy()
+        expect(screen.queryByText(/Ranked List/)).toBe(null)
+    })
+
+    it('a hand-off validating a named ticker reads Validation, not Filtering', async () => {
+        await playPhase(3, { handoff: true })
+        expect(await screen.findByText(/Phase 3 — Validation/)).toBeTruthy()
+    })
+
+    it('…and its phase 1 is the ANGLE, not the five-field scan thesis', async () => {
+        await playPhase(1, { handoff: true })
+        expect(await screen.findByText(/Phase 1 — Angle/)).toBeTruthy()
+    })
+})
+
 // Updating an investing list leaves the edit session OPEN (the list stays pending so it can be
 // refined again) while also raising the research hand-off. Both footers rendered at once: four
 // buttons asking two different questions, and two of them navigated away — one of those out of an

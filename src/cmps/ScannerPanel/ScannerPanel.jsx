@@ -24,6 +24,14 @@ export const RESEARCH_TOP_N = 4
 
 const SCAN_PHASE_LABELS = { 1: 'Thesis', 2: 'Discovery', 3: 'Filtering', 4: 'Ranked List' }
 
+// Hand-off mode walks the same four numbers to a different destination, so two of the four labels
+// describe work it never does. Argus converges on ONE name there: phase 1 asks the ANGLE only (not
+// the spine's five-field scan thesis), and phase 4 is that single pick — a heading reading "Ranked
+// List" over one ticker described the list-building dead end this mode replaced. Phase 3 is
+// "Validation" rather than "Filtering" because the validate-a-name branch has nothing to filter: the
+// user brought the ticker, and phase 3 is the whole session — it starts there and there is no pool.
+const PICK_PHASE_LABELS = { 1: 'Angle', 2: 'Discovery', 3: 'Validation', 4: 'The Pick' }
+
 // Famous scan angles (the "what") — thesis picks for Phase 1. `label` is what the
 // user sees; `phrase` is the noun phrase we compose into the message so the agent
 // slots it in as the scan's angle. Multi-select: several can be combined into one
@@ -114,10 +122,10 @@ function AngleChips({ selected, onToggle, onScan, disabled }) {
     )
 }
 
-const MessageBubble = ({ msg, onTickerSelect }) => (
+const MessageBubble = ({ msg, onTickerSelect, phaseLabels = SCAN_PHASE_LABELS }) => (
     <ChatBubble
         msg={msg}
-        phaseLabels={SCAN_PHASE_LABELS}
+        phaseLabels={phaseLabels}
         phaseTotal={4}
         onTickerSelect={onTickerSelect}
     />
@@ -498,7 +506,14 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                         />
                     )
                 )}
-                {messages.map((msg, i) => <MessageBubble key={i} msg={msg} onTickerSelect={onTickerSelect} />)}
+                {messages.map((msg, i) => (
+                    <MessageBubble
+                        key={i}
+                        msg={msg}
+                        onTickerSelect={onTickerSelect}
+                        phaseLabels={handoff ? PICK_PHASE_LABELS : SCAN_PHASE_LABELS}
+                    />
+                ))}
                 {chat.isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus: chat.streamStatus, placeholder: 'scanning…' })} pulse={chat.reasoningPulse} />}
 
                 {(chat.isLoading || messages.some(m => m.role === 'assistant' && m.content)) && (
