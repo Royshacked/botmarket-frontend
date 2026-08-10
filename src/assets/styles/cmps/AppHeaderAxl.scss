@@ -42,6 +42,10 @@
     --axl-ease: cubic-bezier(0.22, 1, 0.36, 1);
     // Sized to seat the analog dials (label lives on the face; status row hidden).
     --axl-h: 108px;
+    // The hamburger's diameter. A token because the mobile sheet is positioned FROM it — it opens
+    // level with the button, not under the bar — and two copies of 42px would drift the day the
+    // button is resized, leaving the sheet floating off its own control.
+    --axl-burger: 42px;
 
     position: sticky;
     top: 0;
@@ -225,11 +229,14 @@
     // buttons it stands in for.
     &__burger {
         display: none;
+        // Positioned for the unread dot only — deliberately NO z-index, so the sheet (z-index 3)
+        // paints over it. The sheet opens level with this button and covers it; closing is the
+        // outside tap or Escape that useEffect already binds.
         position: relative;
         align-items: center;
         justify-content: center;
-        width: 42px;
-        height: 42px;
+        width: var(--axl-burger);
+        height: var(--axl-burger);
         cursor: pointer;
         border-radius: 50%;
         color: var(--axl-birch);
@@ -422,10 +429,18 @@
 
         // The cluster becomes a sheet hanging off the hamburger: the workspace switch on its
         // own row, then messages + profile.
+        //
+        // It opens LEVEL with the hamburger, not under the bar. `top: 100% + 10px` measured from
+        // `__right`, which is the full header height — so on a 74px phone header the sheet started
+        // ~84px down, a third of the fold below the button that opened it and reading as something
+        // the page had grown rather than something that button produced. Anchoring it to the
+        // button's own top edge costs the bar's right end, which holds nothing else on mobile.
         &__cluster {
             display: none;
             position: absolute;
-            top: calc(100% + 10px);
+            // `__right` is full-height and centres the burger, so the burger's top edge sits at
+            // half the height less half the button.
+            top: calc(50% - var(--axl-burger) / 2);
             right: 0;
             z-index: 3;
             height: auto;
