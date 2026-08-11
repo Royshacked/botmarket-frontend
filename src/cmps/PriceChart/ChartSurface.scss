@@ -30,14 +30,14 @@
         transition: background 0.1s, color 0.1s, border-color 0.1s;
 
         &:hover {
-            background: rgba(255, 255, 255, 0.06);
+            background: var(--tint-soft);
             color: var(--text-primary);
         }
 
         &--active {
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--glow-mid);
             color: var(--accent-light);
-            border-color: rgba(255, 255, 255, 0.15);
+            border-color: var(--border-strong);
         }
     }
 
@@ -74,7 +74,7 @@
         svg { width: 10px; height: 10px; }
 
         &:hover {
-            background: rgba(255, 255, 255, 0.06);
+            background: var(--tint-soft);
             border-color: var(--accent-deep);
             color: var(--accent-light);
         }

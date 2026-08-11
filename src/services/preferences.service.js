@@ -16,8 +16,8 @@ import { initDesign } from './designService'
 // Explicit allowlist — only these keys sync. Keeps unrelated localStorage
 // (loggedinUser, popup-idea-*, …) out of the account preferences blob.
 const PREF_KEYS = [
-    // background spectrum + depth + aurora wash
-    'bgSpectrum', 'bgShade', 'auroraHue',
+    // dark ⇄ light appearance, background spectrum + depth + aurora wash
+    'themeAppearance', 'bgSpectrum', 'bgShade', 'auroraHue',
     // classic-header spectrum/preset theming
     'themeMode', 'theme', 'themeHue', 'themeTone', 'headerStyle',
     // accent picker

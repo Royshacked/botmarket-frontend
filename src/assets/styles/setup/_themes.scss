@@ -230,6 +230,155 @@
     --h1-glow-3: rgba(95, 185, 217, 0.35);
 }
 
+// ── Axl Light (the daylight side of the active theme) ────────────────────────
+// The same palette read from the other end: paper backgrounds, ink text. Two things
+// are NOT a mirror-image of the dark block, because a straight inversion breaks them:
+//
+//   1. The accent ROLES swap. In the dark theme --accent-light / --accent-bright are
+//      the pale end of the ramp and are used as TEXT on dark surfaces; --accent-deep is
+//      the dark end and is used as a FILL (primary buttons, scrollbar thumbs). On paper
+//      that reads backwards, so here the ramp runs the other way: -deep is the pale
+//      fill, -bright the darkest ink. Every existing rule keeps working unchanged.
+//   2. The semantic status colours (below in the shared :root) are tuned for a near-black
+//      surface — #b9f6ca, #ffcc80 and friends are invisible on white — so this block
+//      re-derives them against ITS OWN surface at the same contrast ratios.
+//
+// Every text tier is pinned to a ratio against --bg-surface exactly like the dark themes
+// (see the ladder note at the top of this file); textContrast.test.js covers this block too.
+//
+// The --bg-* tokens here are the nominal scale. At runtime the background-spectrum slider
+// (themeService.applyBgSpectrum) overwrites them inline on <html> with the same lightness
+// band, so what ships and what the test measures stay in step.
+:root[data-theme="axl-light"] {
+    // Brand font pairing app-wide (identical to the dark side — light is a palette, not a look)
+    --font-sans: 'Hanken Grotesk', system-ui, -apple-system, sans-serif;
+    --font-mono: 'Space Mono', 'IBM Plex Mono', monospace;
+
+    // Backgrounds (paper → card). Cards LIFT toward white, the way they sink toward black in dark.
+    --bg-base:    #ECF4F3;
+    --bg-deep:    #E2EEED;
+    --bg-hover:   #F2F7F7;
+    --bg-surface: #F7FAFA;
+    --bg-raised:  #FDFEFE;
+    --bg-popover: #FDFEFE;
+
+    // Accent scale (aurora teal, ramp reversed — see note 1 above)
+    --accent-deep:   #BFDFDA;   // pale fill
+    --accent:        #3E9085;   // mid — borders, hover fills
+    --accent-light:  #266861;   // accent text
+    --accent-bright: #174A47;   // the loudest accent text
+
+    // Text scale (ink → fog), pinned to the contrast ladder
+    --text-primary:   #19282E;
+    --text-secondary: #3E545E;
+    --text-muted:     #506770;
+    --text-dim:       #617983;
+    --text-subtle:    #31454D;
+    --text-leaf:      #243E3C;
+
+    // Borders & effects — ink at low alpha, not white
+    --border:        rgba(23, 74, 71, 0.18);
+    --border-mid:    rgba(23, 74, 71, 0.28);
+    --border-strong: rgba(38, 104, 97, 0.45);
+    --border-soft:   rgba(62, 144, 133, 0.25);
+    --glow:          rgba(38, 104, 97, 0.10);
+    --glow-soft:     rgba(38, 104, 97, 0.05);
+    --glow-mid:      rgba(38, 104, 97, 0.08);
+    --overlay:       rgba(18, 38, 42, 0.45);
+    --tint-soft:     rgba(15, 42, 46, 0.05);
+    --ring:          rgba(20, 45, 50, 0.45);
+    --glass-anchor:  #F3F7F7;
+
+    // User button + popover
+    --user-btn-bg:           rgba(62, 144, 133, 0.14);
+    --user-btn-border:       rgba(62, 144, 133, 0.40);
+    --user-btn-bg-hover:     rgba(62, 144, 133, 0.24);
+    --user-btn-border-hover: rgba(23, 74, 71, 0.70);
+    --user-btn-text-hover:   #0F332F;
+    --popover-border:        rgba(38, 104, 97, 0.45);
+    --popover-divider:       rgba(23, 74, 71, 0.18);
+    --popover-btn-hover-bg:  rgba(62, 144, 133, 0.14);
+
+    // H1 wordmark — one colour like the dark side, ink instead of birch. The aurora glow
+    // survives but at a fraction of its alpha: a bright halo behind DARK text on paper
+    // reads as a printing error, not a bloom.
+    --h1-grad-top:    #19312E;
+    --h1-grad-mid1:   #19312E;
+    --h1-grad-mid2:   #19312E;
+    --h1-grad-mid3:   #19312E;
+    --h1-grad-bottom: #19312E;
+    --h1-glow-1: rgba(62, 144, 133, 0.30);
+    --h1-glow-2: rgba(58, 150, 148, 0.20);
+    --h1-glow-3: rgba(60, 140, 170, 0.12);
+
+    // ── Semantics re-derived for paper ───────────────────────────────────────
+    // Header wave — the dark theme's stops sit at 58-75% lightness, which is a pastel
+    // smear on white. Same hue signature, taken down into readable territory.
+    --wave-1: hsl(calc(var(--aurora-hue) - 32), 48%, 42%);
+    --wave-2: hsl(calc(var(--aurora-hue) - 18), 44%, 40%);
+    --wave-3: hsl(var(--aurora-hue),            50%, 36%);
+    --wave-4: hsl(calc(var(--aurora-hue) + 22), 54%, 40%);
+    --wave-5: hsl(calc(var(--aurora-hue) + 69), 50%, 50%);
+
+    --color-long:    #249B4C;
+    --color-short:   #D85B57;
+    --color-hit:     #26964B;
+    --color-looking: #C1761F;
+    --color-waiting: #D85B57;
+    --color-teal:    #259287;
+    --color-warning: #AC811C;
+    --color-error:   #D44E4A;
+
+    // Market-session dials — the dark arcs already read on paper; they only need lifting
+    // off pure black so the closed arc isn't a hole in the header.
+    --mc-arc-open:   #2A8A4C;
+    --mc-arc-closed: #A64A46;
+
+    // Row highlights — the tint stays a whisper, the border and text carry the state
+    --long-bg:     rgba(36, 155, 76, 0.08);
+    --long-border: rgba(36, 155, 76, 0.35);
+    --long-text:   #22763E;
+    --long-sub:    #3A8753;
+
+    --short-bg:     rgba(216, 91, 87, 0.08);
+    --short-border: rgba(184, 58, 53, 0.35);
+    --short-text:   #B83A35;
+    --short-sub:    #BB5B58;
+
+    --hit-bg:     rgba(36, 155, 76, 0.08);
+    --hit-border: rgba(36, 155, 76, 0.35);
+    --hit-text:   #277B43;
+
+    --looking-bg:     rgba(193, 118, 31, 0.09);
+    --looking-border: rgba(193, 118, 31, 0.35);
+    --looking-text:   #A2641D;
+    --looking-sub:    #AE7029;
+
+    --waiting-bg:     rgba(216, 91, 87, 0.07);
+    --waiting-border: rgba(184, 58, 53, 0.30);
+    --waiting-text:   #BE403C;
+
+    // Condition type badges
+    --type-touch-color:      #228491;
+    --type-touch-bg:         rgba(34, 132, 145, 0.10);
+    --type-structured-color: #288948;
+    --type-structured-bg:    rgba(40, 137, 72, 0.10);
+    --type-indicator-color:  #2D7DBE;
+    --type-indicator-bg:     rgba(45, 125, 190, 0.10);
+    --type-chart-color:      #A758BB;
+    --type-chart-bg:         rgba(167, 88, 187, 0.10);
+    --type-news-color:       #A66B27;
+    --type-news-bg:          rgba(166, 107, 39, 0.10);
+    --type-time-color:       #2C857D;
+    --type-time-bg:          rgba(44, 133, 125, 0.10);
+    --type-volume-color:     #8E7619;
+    --type-volume-bg:        rgba(142, 118, 25, 0.10);
+
+    // Sentiment
+    --sentiment-bull: #2D905F;
+    --sentiment-bear: #D25854;
+}
+
 // ── Semantic status colors — same across all themes ──────────────────────────
 :root {
     // UI fonts — defaults; the axl theme overrides them with the brand pairing.
@@ -248,6 +397,20 @@
     // them; they are now aliases, not a wash.
     --bg-wash:         var(--bg-base);
     --bg-wash-surface: var(--bg-surface);
+
+    // ── Two tokens that were literals until the light theme existed ───────────
+    // --tint-soft: the barely-there fill that lifts a control off its surface (dock buttons,
+    // chart toolbar, zebra table rows). It was rgba(255,255,255,.06) in ~7 places, which is
+    // invisible on paper — it has to become INK at low alpha there, not white.
+    // --ring: the outline around a colour swatch in the theme/accent pickers, same story.
+    // Dark values below are exactly what those rules already used; the light block overrides both.
+    --tint-soft: rgba(255, 255, 255, 0.06);
+    --ring:      rgba(255, 255, 255, 0.70);
+
+    // The constant the social-chat glass is mixed against. It is deliberately NOT --bg-base
+    // (which the background slider moves per-origin — see the note in SocialChat.scss), but it
+    // does have to follow dark ⇄ light, or the chat stays a black island on a paper app.
+    --glass-anchor: #070b0d;
 
     // ── Panel header height — one number, app-wide ────────────────────────────
     // Every column header sits on this line: the agent chat headers (.chat-panel__header and the

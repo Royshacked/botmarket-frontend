@@ -79,6 +79,49 @@ const BG_DELTAS = {
 
 const DEFAULT_BG = 40 // lands on the dark-teal stop (index 4 of 11) ≈ the original axl background
 
+// ── Appearance: dark ⇄ light ─────────────────────────────────────────────────
+// One switch, two palettes. It picks which [data-theme] block the app wears — 'axl'
+// (night) or 'axl-light' (paper) — and puts every generator below into the matching
+// band, so the background and accent sliders keep working in both instead of being
+// dark-only controls that produce unreadable results on paper.
+const APPEARANCES = ['dark', 'light']
+const DEFAULT_APPEARANCE = 'dark'
+
+export function loadAppearance() {
+    const raw = localStorage.getItem('themeAppearance')
+    return APPEARANCES.includes(raw) ? raw : DEFAULT_APPEARANCE
+}
+
+export function saveAppearance(mode) {
+    localStorage.setItem('themeAppearance', APPEARANCES.includes(mode) ? mode : DEFAULT_APPEARANCE)
+}
+
+export function isLight() {
+    return loadAppearance() === 'light'
+}
+
+// The light background band. The dark stops sit at 3-4% lightness with 50-72% saturation;
+// at 94% lightness that saturation would be a highlighter, so it's capped. The DELTAS keep
+// the same *meaning* as the dark scale rather than its sign: a raised surface is the one
+// that moves AWAY from the page — toward black in dark, toward white here.
+const LIGHT_BASE_L = 94
+const LIGHT_SAT_CAP = 26
+const BG_DELTAS_LIGHT = {
+    '--bg-base':     0,
+    '--bg-deep':    -3,
+    '--bg-hover':    2,
+    '--bg-surface':  3.5,
+    '--bg-raised':   5.3,
+    '--bg-popover':  5.3,
+}
+
+// Light-mode depth knob. Asymmetric the other way round from the dark one: there's plenty
+// of room to sink a paper background toward grey, almost none to lift it past white.
+function lightShadeShift(shade) {
+    const k = (shade - 50) / 50
+    return +(k < 0 ? k * 10 : k * 5).toFixed(2)
+}
+
 // Background depth knob (0–100, 50 = the curated stop as-is). Shifts every --bg-*
 // token's lightness together: below 50 sinks toward pure black, above 50 lifts the
 // whole app lighter. Asymmetric — the stops already sit near-black, so there's only
@@ -102,21 +145,25 @@ function bgStopAt(pos) {
     return { h: lerp(a.h, b.h, f), s: lerp(a.s, b.s, f), l: lerp(a.l, b.l, f) }
 }
 
-// A brightened swatch of the position, so the slider preview dot is legible
-// (the real backgrounds are intentionally near-black).
-export function bgPreview(pos) {
+// A swatch of the position pulled toward the middle of the range, so the slider preview
+// dot is legible — the real backgrounds are intentionally near-black (dark) or near-white
+// (light), and neither reads as a 14px dot.
+export function bgPreview(pos, light = isLight()) {
     const { h, s } = bgStopAt(pos)
+    if (light) return `hsl(${h.toFixed(1)}, ${Math.min(s, 40).toFixed(1)}%, 80%)`
     return `hsl(${h.toFixed(1)}, ${s.toFixed(1)}%, 38%)`
 }
 
-// The full spectrum painted onto the slider track — one gradient stop per BG_STOP,
-// brightened to match the preview dot (real backgrounds are near-black). Derived
-// from BG_STOPS so the track can never drift from the actual sweep.
-export function bgTrackGradient() {
+// The full spectrum painted onto the slider track — one gradient stop per BG_STOP, pulled
+// to the same mid-range as the preview dot. Derived from BG_STOPS so the track can never
+// drift from the actual sweep.
+export function bgTrackGradient(light = isLight()) {
     const stops = BG_STOPS.map((s, i) => {
         const pct = ((i / (BG_STOPS.length - 1)) * 100).toFixed(1)
-        const isBlack = s.s <= 12 // the near-black terminal stop
-        const color = isBlack ? '#000' : `hsl(${s.h}, ${s.s}%, 33%)`
+        const isNeutral = s.s <= 12 // the terminal stop — near-black in dark, near-white in light
+        const color = light
+            ? (isNeutral ? '#F2F4F4' : `hsl(${s.h}, ${Math.min(s.s, 40)}%, 78%)`)
+            : (isNeutral ? '#000'    : `hsl(${s.h}, ${s.s}%, 33%)`)
         return `${color} ${pct}%`
     })
     return `linear-gradient(to right, ${stops.join(', ')})`
@@ -124,20 +171,30 @@ export function bgTrackGradient() {
 
 // Apply the background spectrum live — sets every --bg-* token inline on <html>.
 // shade shifts the whole scale's lightness (depth); 50 leaves the curated stop as-is.
-export function applyBgSpectrum(pos, shade = DEFAULT_BG_SHADE) {
+// In light mode the same hue path is walked at the top of the lightness range instead of
+// the bottom, so the slider keeps tinting the app rather than turning it dark.
+export function applyBgSpectrum(pos, shade = DEFAULT_BG_SHADE, light = isLight()) {
     const { h, s, l } = bgStopAt(pos)
-    const shift = bgShadeShift(shade)
     const root = document.documentElement
-    for (const [token, delta] of Object.entries(BG_DELTAS)) {
-        const li = Math.max(0, Math.min(100, l + delta + shift))
-        root.style.setProperty(token, `hsl(${h.toFixed(1)}, ${s.toFixed(1)}%, ${li.toFixed(1)}%)`)
+    const base   = light ? LIGHT_BASE_L : l
+    const sat    = light ? Math.min(s, LIGHT_SAT_CAP) : s
+    const shift  = light ? lightShadeShift(shade) : bgShadeShift(shade)
+    const deltas = light ? BG_DELTAS_LIGHT : BG_DELTAS
+    for (const [token, delta] of Object.entries(deltas)) {
+        const li = Math.max(0, Math.min(100, base + delta + shift))
+        root.style.setProperty(token, `hsl(${h.toFixed(1)}, ${sat.toFixed(1)}%, ${li.toFixed(1)}%)`)
     }
 }
 
-// Depth track for the shade slider — this position's hue from near-black → light,
-// so the gradient reflects the colour currently picked.
-export function bgShadeTrack(pos) {
+// Depth track for the shade slider — this position's hue across the depth it can actually
+// travel (near-black → mid in dark, grey-tint → paper in light), so the gradient reflects
+// the colour currently picked.
+export function bgShadeTrack(pos, light = isLight()) {
     const { h, s } = bgStopAt(pos)
+    if (light) {
+        const ls = Math.min(s, LIGHT_SAT_CAP).toFixed(1)
+        return `linear-gradient(to right, hsl(${h.toFixed(1)}, ${ls}%, 80%), hsl(${h.toFixed(1)}, ${ls}%, 99%))`
+    }
     return `linear-gradient(to right, hsl(${h.toFixed(1)}, ${s.toFixed(1)}%, 3%), hsl(${h.toFixed(1)}, ${Math.min(s, 45).toFixed(1)}%, 46%))`
 }
 
@@ -311,11 +368,37 @@ function accentShift(shade) {
     return +(k < 0 ? k * 22 : k * 10).toFixed(1)
 }
 
-function buildAccentVars(h, shade = DEFAULT_ACCENT_SHADE) {
+function buildAccentVars(h, shade = DEFAULT_ACCENT_SHADE, light = isLight()) {
     const d = accentShift(shade)
     // Shift a base lightness by the shade delta, clamped (floor keeps the light
     // tokens legible as accent text even at the deepest setting).
     const L = (v, floor = 3) => Math.max(floor, Math.min(97, +(v + d).toFixed(1)))
+
+    // On paper the ramp runs the other way — -deep is the pale FILL and -bright the darkest
+    // INK (see the axl-light note in _themes.scss). Generating the dark ramp here would hand
+    // every accent-coloured label a near-white colour on a near-white surface. The shade knob
+    // keeps its meaning: below 50 deepens, above 50 lifts.
+    if (light) {
+        const Ll = (v, lo, hi) => Math.max(lo, Math.min(hi, +(v + d).toFixed(1)))
+        return {
+            '--accent-deep':   `hsl(${h}, 34%, ${Ll(81, 45, 95)}%)`,
+            '--accent':        `hsl(${h}, 46%, ${Ll(40, 12, 62)}%)`,
+            '--accent-light':  `hsl(${h}, 46%, ${Ll(28, 10, 48)}%)`,
+            '--accent-bright': `hsl(${h}, 52%, ${Ll(19, 8, 40)}%)`,
+            '--glow':          `hsla(${h}, 46%, ${Ll(45, 20, 70)}%, 0.10)`,
+            '--glow-soft':     `hsla(${h}, 46%, ${Ll(45, 20, 70)}%, 0.05)`,
+            '--glow-mid':      `hsla(${h}, 46%, ${Ll(45, 20, 70)}%, 0.08)`,
+            '--border-strong': `hsla(${h}, 55%, ${Ll(38, 15, 60)}%, 0.45)`,
+            '--h1-grad-top':    `hsl(${h}, 40%, ${Ll(20, 8, 40)}%)`,
+            '--h1-grad-mid1':   `hsl(${h}, 40%, ${Ll(20, 8, 40)}%)`,
+            '--h1-grad-mid2':   `hsl(${h}, 40%, ${Ll(20, 8, 40)}%)`,
+            '--h1-grad-mid3':   `hsl(${h}, 40%, ${Ll(20, 8, 40)}%)`,
+            '--h1-grad-bottom': `hsl(${h}, 40%, ${Ll(20, 8, 40)}%)`,
+            '--h1-glow-1':      `hsla(${h}, 50%, ${Ll(48, 25, 72)}%, 0.30)`,
+            '--h1-glow-2':      `hsla(${h}, 45%, ${Ll(48, 25, 72)}%, 0.20)`,
+            '--h1-glow-3':      `hsla(${h}, 45%, ${Ll(48, 25, 72)}%, 0.12)`,
+        }
+    }
     return {
         '--accent-deep':   `hsl(${h}, 73%, ${L(19)}%)`,
         '--accent':        `hsl(${h}, 57%, ${L(39)}%)`,
@@ -342,9 +425,9 @@ export function accentPreview(hue, shade = DEFAULT_ACCENT_SHADE) {
     return `hsl(${hue}, 60%, ${lit}%)`
 }
 
-export function applyAccentHue(hue, shade = DEFAULT_ACCENT_SHADE) {
+export function applyAccentHue(hue, shade = DEFAULT_ACCENT_SHADE, light = isLight()) {
     const root = document.documentElement
-    const vars = buildAccentVars(hue, shade)
+    const vars = buildAccentVars(hue, shade, light)
     for (const [k, v] of Object.entries(vars)) root.style.setProperty(k, v)
 }
 
@@ -392,8 +475,9 @@ export function initTheme() {
     // restores normal (spectrum/preset) theming below.
     if (localStorage.getItem('headerStyle') !== 'classic') {
         clearHueTheme()
-        document.documentElement.setAttribute('data-theme', 'axl')
-        applyBgSpectrum(loadBgSpectrum(), loadBgShade())
+        const light = isLight()
+        document.documentElement.setAttribute('data-theme', light ? 'axl-light' : 'axl')
+        applyBgSpectrum(loadBgSpectrum(), loadBgShade(), light)
         return
     }
 
@@ -407,4 +491,14 @@ export function initTheme() {
     }
 }
 
-export { DEFAULT_HUE, DEFAULT_TONE, DEFAULT_AURORA_HUE, DEFAULT_ACCENT_SHADE, DEFAULT_BG_SHADE }
+// Switch the app between the night and paper palettes: persist the choice, then re-run the
+// boot appliers so the whole token set — theme block, background spectrum, accent override —
+// is regenerated in the new band. Order mirrors index.jsx: initTheme() wipes the inline accent
+// vars, so the user's accent is re-applied on top of the fresh palette.
+export function applyAppearance(mode) {
+    saveAppearance(mode)
+    initTheme()
+    initAccent()
+}
+
+export { DEFAULT_HUE, DEFAULT_TONE, DEFAULT_AURORA_HUE, DEFAULT_ACCENT_SHADE, DEFAULT_BG_SHADE, DEFAULT_APPEARANCE, APPEARANCES }

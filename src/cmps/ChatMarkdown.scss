@@ -44,5 +44,5 @@
         background: var(--glow-soft);
     }
 
-    tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.02); }
+    tbody tr:nth-child(even) { background: color-mix(in srgb, var(--tint-soft) 35%, transparent); }
 }

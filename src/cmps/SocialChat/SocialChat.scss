@@ -35,18 +35,19 @@
     // transparent below) show this translucent blur, so the bubble reads as glass.
     //
     // Theme + accent aware: the tint is --accent-deep (which tracks both the active
-    // theme AND the live accent-hue slider) blended into a CONSTANT near-black
-    // anchor, then dropped to 0.94 alpha for the glass. Anchoring to a constant —
-    // not the themeable --bg-base — is deliberate: --bg-base is set per-origin by
-    // the background slider, so keying off it made the glass read "right" on
-    // localhost but far too transparent on the deployed origin. The constant anchor
-    // keeps the fill equally solid everywhere while still picking up the theme hue.
+    // theme AND the live accent-hue slider) blended into --glass-anchor, then dropped
+    // to 0.94 alpha for the glass. Anchoring to a fixed value — not the themeable
+    // --bg-base — is deliberate: --bg-base is set per-origin by the background slider,
+    // so keying off it made the glass read "right" on localhost but far too transparent
+    // on the deployed origin. The anchor keeps the fill equally solid everywhere while
+    // still picking up the theme hue. It holds ONE value per appearance (near-black in
+    // dark, near-white in light — _themes.scss), so the chat isn't a black island on paper.
     //
     // --sc-tint is the shared solid; the list/window fills below reuse it at lower
     // alpha so the whole interior is one glass at three depths. Near-solid on
     // purpose so the blurred app backdrop can't bleed through regardless of its
     // per-origin lightness. Tune alpha to taste — higher = more solid.
-    --sc-tint:    color-mix(in srgb, var(--accent-deep) 34%, #070b0d);
+    --sc-tint:    color-mix(in srgb, var(--accent-deep) 34%, var(--glass-anchor));
     --sc-glass:   color-mix(in srgb, var(--sc-tint) 94%, transparent);
     --sc-sidebar: color-mix(in srgb, var(--sc-tint) 55%, transparent);
     --sc-window:  color-mix(in srgb, var(--sc-tint) 35%, transparent);

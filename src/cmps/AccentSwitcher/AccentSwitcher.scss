@@ -59,14 +59,14 @@
         width: 14px;
         height: 14px;
         border-radius: 50%;
-        border: 2px solid rgba(255, 255, 255, 0.7);
+        border: 2px solid var(--ring);
         flex-shrink: 0;
 
         // No override active — show a hollow/dashed dot meaning "theme default".
         &--off {
             background: transparent;
             border-style: dashed;
-            border-color: var(--border-strong, rgba(255, 255, 255, 0.4));
+            border-color: var(--border-strong);
         }
     }
 

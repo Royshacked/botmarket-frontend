@@ -19,7 +19,10 @@ const css = readFileSync(fileURLToPath(new URL('./_themes.scss', import.meta.url
 // it is the quietest tier in the app and never the only carrier of information — so its floor is
 // set at the ratio it now holds rather than at AA.
 const FLOORS = { '--text-secondary': 7.0, '--text-muted': 5.2, '--text-dim': 4.0 }
-const THEMES = ['ocean', 'forest', 'crimson', 'axl']
+// axl-light is measured by exactly the same rules — a light theme is where an eyeballed text
+// ladder collapses fastest (pale grey on white passes nothing), so it is the theme that most
+// needs the floor.
+const THEMES = ['ocean', 'forest', 'crimson', 'axl', 'axl-light']
 
 function tokensFor(theme) {
     // Each theme is one selector block; `ocean` shares its block with the leading `:root`.

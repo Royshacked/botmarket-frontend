@@ -65,7 +65,9 @@
         &--positions.active {
             background: var(--accent-deep);
             border-color: var(--accent);
-            color: #fff;
+            // Pairs with the fill: --accent-deep is the dark end of the ramp at night and the pale
+            // end on paper, so the label has to be the ramp's opposite end, not a literal white.
+            color: var(--accent-bright);
         }
     }
 

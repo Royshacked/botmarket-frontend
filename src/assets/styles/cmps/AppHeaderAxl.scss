@@ -485,8 +485,8 @@
     align-self: center;
     padding: 2px;
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+    background: color-mix(in srgb, var(--tint-soft) 65%, transparent);
+    border: 1px solid var(--border);
 }
 
 .app-header-axl__mode {
@@ -505,7 +505,7 @@
     cursor: pointer;
     transition: color 0.15s, background 0.15s;
 
-    &:hover { color: var(--text-primary); background: var(--bg-raised, rgba(255, 255, 255, 0.06)); }
+    &:hover { color: var(--text-primary); background: var(--bg-raised); }
 
     // Active segment: filled with the app accent (follows the aurora hue).
     &.is-active {

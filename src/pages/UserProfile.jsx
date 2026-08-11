@@ -6,6 +6,8 @@ import { httpService }         from '../services/http.service.js'
 import { userService }         from '../services/user/user.service.remote.js'
 import { ThemeSwitcher }       from '../cmps/ThemeSwitcher/ThemeSwitcher'
 import { AccentSwitcher }      from '../cmps/AccentSwitcher/AccentSwitcher'
+import { ModeSwitcher }        from '../cmps/ModeSwitcher/ModeSwitcher'
+import { loadAppearance }      from '../services/themeService.js'
 import { PaceSlider }          from '../cmps/PaceSlider.jsx'
 import { MODEL_OPTIONS, readStoredModel }       from '../cmps/modelOptions.js'
 import { REASONING_OPTIONS, readStoredReasoning } from '../cmps/reasoningOptions.js'
@@ -36,9 +38,17 @@ const BROKERS = [
 
 // One shared AI setting drives every CONVERSATIONAL agent; each consumer reads its own
 // per-agent localStorage keys, so a change is mirrored to every agent's keys. 'kairos' is
-// the Kairos build agent (client-read). Hermes — the Kairos monitor — is deliberately NOT
-// here: it's a background job with no routing-mode/phase concept, so it gets its own
-// dedicated model+reasoning control below (server-read via the synced account preferences).
+// the Kairos build agent (client-read).
+//
+// Hermes — the Kairos monitor — used to have its own model+reasoning card here. Kairos and
+// Hermes are dormant (trading runs Argus → Mentor → Talos), so the card named a desk that
+// isn't running and was removed.
+//
+// NOTE: the hermesModel/hermesReasoning keys it wrote are NOT dead. assess.shared.js reads them
+// for BOTH monitors — Hermes and the live Talos — as one "how hard should my monitors think"
+// knob. They still sync (preferences.service) and are still honoured; they just have no UI now,
+// so Talos runs on whatever was last saved, or on its own defaults (Sonnet / thinking off).
+// If that knob is wanted back, this card returns as "Monitors" rather than as Hermes.
 const AI_AGENT_KEYS = ['idea', 'scanner', 'portfolio', 'kairos']
 
 export function UserProfile() {
@@ -80,19 +90,10 @@ export function UserProfile() {
         queuePrefSync()
     }
 
-    // Hermes (the Kairos monitor) — its own model + reasoning, independent of the shared AI
-    // mode above. No routing mode: it's a single-shot background vision read, so the model and
-    // reasoning are always explicit. Written to the hermesModel/hermesReasoning keys the backend
-    // monitor reads server-side from the synced account preferences.
-    const [hermesPref, setHermesPref] = useState({
-        model:     readStoredModel('hermesModel'),
-        reasoning: readStoredReasoning('hermesReasoning'),
-    })
-    function handleHermesPref(field, value) {
-        localStorage.setItem(`hermes${field.charAt(0).toUpperCase() + field.slice(1)}`, value)
-        setHermesPref(prev => ({ ...prev, [field]: value }))
-        queuePrefSync()
-    }
+    // Dark ⇄ light. Held here (not just inside ModeSwitcher) because the background sliders
+    // paint their own track from the active palette at render time — re-keying them on a mode
+    // change is what makes those tracks follow the switch.
+    const [appearance, setAppearance] = useState(loadAppearance)
 
     useEffect(() => {
         if (!user) { navigate('/'); return }
@@ -235,8 +236,12 @@ export function UserProfile() {
                     <section className="user-profile__section">
                         <h2 className="user-profile__section-title">Appearance</h2>
                         <div className="user-profile__row user-profile__row--inline">
+                            <span className="user-profile__label">Mode</span>
+                            <ModeSwitcher onChange={setAppearance} />
+                        </div>
+                        <div className="user-profile__row user-profile__row--inline">
                             <span className="user-profile__label">Theme</span>
-                            <ThemeSwitcher />
+                            <ThemeSwitcher key={appearance} />
                         </div>
                         <div className="user-profile__row user-profile__row--inline">
                             <span className="user-profile__label">Accent</span>
@@ -328,38 +333,6 @@ export function UserProfile() {
                                     </div>
                                 </>
                             )}
-                        </div>
-
-                        {/* Kairos monitor (Hermes) — background readiness watcher; its own model +
-                            reasoning, always explicit (no routing mode for a single-shot job). */}
-                        <div className="user-profile__agent">
-                            <span className="user-profile__agent-name">Hermes (monitor)</span>
-                            <div className="user-profile__agent-field">
-                                <span className="user-profile__label">Model</span>
-                                <select
-                                    className="user-profile__select"
-                                    style={{ width: 'auto', minWidth: '9rem' }}
-                                    value={hermesPref.model}
-                                    onChange={e => handleHermesPref('model', e.target.value)}
-                                >
-                                    {MODEL_OPTIONS.map(m => (
-                                        <option key={m.id} value={m.id}>{m.short}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="user-profile__agent-field">
-                                <span className="user-profile__label">Reasoning</span>
-                                <select
-                                    className="user-profile__select"
-                                    style={{ width: 'auto', minWidth: '9rem' }}
-                                    value={hermesPref.reasoning}
-                                    onChange={e => handleHermesPref('reasoning', e.target.value)}
-                                >
-                                    {REASONING_OPTIONS.map(r => (
-                                        <option key={r.id} value={r.id}>{r.label}</option>
-                                    ))}
-                                </select>
-                            </div>
                         </div>
                     </section>
 

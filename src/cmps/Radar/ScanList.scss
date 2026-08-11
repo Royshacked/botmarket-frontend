@@ -61,8 +61,9 @@
         text-transform: uppercase;
         color: var(--accent-light);
 
-        // The scan's window contains today → it's live now, so call it out in white.
-        &--current { color: #fff; }
+        // The scan's window contains today → it's live now, so call it out at full strength
+        // (--text-primary, not a literal white: on the light theme that IS the loud end).
+        &--current { color: var(--text-primary); }
 
         // The window has fully elapsed → dim it to a stale, muted tone.
         &--past { color: var(--text-muted); }
