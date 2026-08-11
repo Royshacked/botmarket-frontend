@@ -32,9 +32,19 @@ afterEach(cleanup)
 // them under an investing thesis offers the wrong shortcut on the one turn that has no use for it.
 describe('ScannerPanel — the thesis-phase angle strip', () => {
     // Play a Phase-1 turn to completion: that is the state the strip is gated on. The reply has to
-    // finish TYPING, not just arrive — the strip waits for a settled assistant turn, and the Stop
-    // button vanishing is what says the drain is done (an absence assertion made mid-drain would
-    // pass for the wrong reason).
+    // finish TYPING, not just arrive — the strip needs a SETTLED assistant turn (`!streaming`), and
+    // the typewriter only drops that flag on the tick AFTER its queue empties.
+    //
+    // This used to wait for the Stop button to vanish, on the stated theory that it marks the end of
+    // the drain. It does not, and never did here: the mocked sendStream resolves BEFORE this test
+    // drives onDone, so the panel's `finally { chat.endStream() }` had already cleared isLoading
+    // (`deferRef` is set by finishStreaming, which had not run yet). The wait passed at t=0, and the
+    // assertion behind it raced a real 16ms-interval drain on findBy's 1s default — fine alone, lost
+    // whenever the full suite put the event loop under load.
+    //
+    // The honest signal is the text itself: the bubble fills a chunk at a time, so its FULL content
+    // matching is the drain reaching the end. One more tick settles the flag.
+    const TICK_MS = 16
     async function finishThesisTurn() {
         await waitFor(() => expect(sendStream).toHaveBeenCalled())
         const [, opts] = lastCall()
@@ -43,16 +53,14 @@ describe('ScannerPanel — the thesis-phase angle strip', () => {
             opts.onToken('Angle?')
             opts.onDone({ reply: 'Angle?' })
         })
-        await waitFor(
-            () => expect(screen.queryByRole('button', { name: 'Stop response' })).toBe(null),
-            { timeout: 4000 },
-        )
+        await screen.findByText('Angle?', {}, { timeout: 4000 })
+        await act(async () => { await new Promise(r => setTimeout(r, TICK_MS * 4)) })
     }
 
     it('shows under a TRADING thesis — the angles are that lens', async () => {
         render(<ScannerPanel scanSeed={{ key: 1, message: 'Find me something to trade.', profile: 'trading' }} />)
         await finishThesisTurn()
-        expect(await screen.findByRole('button', { name: 'Momentum' })).toBeTruthy()
+        expect(await screen.findByRole('button', { name: 'Momentum' }, { timeout: 4000 })).toBeTruthy()
     })
 
     it('stays away from a PORTFOLIO scan, seeded by Atlas as investing', async () => {
