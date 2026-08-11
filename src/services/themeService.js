@@ -69,12 +69,12 @@ const BG_STOPS = [
 // Lightness offset of each background token relative to --bg-base (mirrors the
 // hand-tuned spacing of the axl scale, so panels keep their subtle layering).
 const BG_DELTAS = {
-    '--bg-base':     0,
-    '--bg-deep':    -1.5,
-    '--bg-hover':    2,
-    '--bg-surface':  4,
-    '--bg-raised':   6.5,
-    '--bg-popover':  4,
+    '--bg-base':      0,
+    '--bg-deep':     -1.5,
+    '--bg-hover':     2,
+    '--bg-surface':   4,
+    '--bg-raised':    6.5,
+    '--bg-popover':   4,
 }
 
 const DEFAULT_BG = 40 // lands on the dark-teal stop (index 4 of 11) ≈ the original axl background
@@ -105,21 +105,68 @@ export function isLight() {
 // the same *meaning* as the dark scale rather than its sign: a raised surface is the one
 // that moves AWAY from the page — toward black in dark, toward white here.
 const LIGHT_BASE_L = 94
-const LIGHT_SAT_CAP = 26
+const LIGHT_SAT_CAP = 26      // the tint a near-white page can carry
+const LIGHT_SAT_CAP_DEEP = 34 // ...and what a sunk one can, where the same colour reads as paper stock
 const BG_DELTAS_LIGHT = {
-    '--bg-base':     0,
-    '--bg-deep':    -3,
-    '--bg-hover':    2,
-    '--bg-surface':  3.5,
-    '--bg-raised':   5.3,
-    '--bg-popover':  5.3,
+    '--bg-base':      0,
+    '--bg-deep':     -3,
+    '--bg-hover':     2,
+    '--bg-surface':   3.5,
+    '--bg-raised':    5.3,
+    '--bg-popover':   5.3,
+    // The opaque base the glass panels blend the accent into. It only rides the scale on paper:
+    // a sunk page would otherwise leave the social-chat glass sitting there as a white slab.
+    '--glass-anchor': 2,
 }
 
+// ...which makes it light-only, so it is cleared on the way back to dark rather than left inline
+// to override that theme's own (near-black) anchor.
+const LIGHT_ONLY_BG = ['--glass-anchor']
+
 // Light-mode depth knob. Asymmetric the other way round from the dark one: there's plenty
-// of room to sink a paper background toward grey, almost none to lift it past white.
+// of room to sink a paper background toward grey, almost none to lift it past white — the
+// deep end lands the page at 70% lightness, a dim-daylight paper rather than an off-white.
+// It stops there rather than going further because the rest of the light block (accent fills,
+// semantic row tints, ink-alpha borders) is tuned against paper and starts to wash out below it.
 function lightShadeShift(shade) {
     const k = (shade - 50) / 50
-    return +(k < 0 ? k * 10 : k * 5).toFixed(2)
+    return +(k < 0 ? k * 24 : k * 5).toFixed(2)
+}
+
+// How much colour that paper can hold at this depth. Near-white takes only a tint before the
+// hue reads as a highlighter; the further the page sinks the more saturation it carries without
+// glare — which is what makes the colour slider legible at the deep end at all.
+function lightSatCap(shade) {
+    const deep = Math.max(0, Math.min(1, (50 - shade) / 50))
+    return LIGHT_SAT_CAP + (LIGHT_SAT_CAP_DEEP - LIGHT_SAT_CAP) * deep
+}
+
+// Light-mode ink, mirroring the --text-* hexes of [data-theme="axl-light"] in _themes.scss.
+// Those tiers are pinned to a contrast ratio against a near-white --bg-surface (see the ladder
+// note there); once the depth knob sinks that surface out from under them the ratios collapse,
+// so the ink sinks with it. INK_FOLLOW is the fraction of the page's travel that holds every
+// tier at its floor across the whole range — see themeService.lightDepth.test.jsx.
+const LIGHT_INK = {
+    '--text-primary':   { h: 197, s: 30, l: 13.9 },
+    '--text-secondary': { h: 199, s: 21, l: 30.6 },
+    '--text-muted':     { h: 197, s: 17, l: 37.6 },
+    '--text-dim':       { h: 198, s: 15, l: 44.7 },
+    '--text-subtle':    { h: 197, s: 22, l: 24.7 },
+    '--text-leaf':      { h: 175, s: 27, l: 19.2 },
+}
+const INK_FOLLOW = 0.8
+
+// Sink the ink by `shift` lightness points (a negative number), or pass 0 to drop the override
+// so the stylesheet's own ladder — dark theme or nominal paper — takes back over. Always called,
+// never conditionally skipped: a stale light-mode --text-* left inline would follow the user
+// into the dark theme as near-black text on a near-black page.
+function applyInkShift(shift) {
+    const root = document.documentElement
+    for (const [token, c] of Object.entries(LIGHT_INK)) {
+        if (!shift) { root.style.removeProperty(token); continue }
+        const li = Math.max(3, +(c.l + shift * INK_FOLLOW).toFixed(1))
+        root.style.setProperty(token, `hsl(${c.h}, ${c.s}%, ${li}%)`)
+    }
 }
 
 // Background depth knob (0–100, 50 = the curated stop as-is). Shifts every --bg-*
@@ -177,13 +224,17 @@ export function applyBgSpectrum(pos, shade = DEFAULT_BG_SHADE, light = isLight()
     const { h, s, l } = bgStopAt(pos)
     const root = document.documentElement
     const base   = light ? LIGHT_BASE_L : l
-    const sat    = light ? Math.min(s, LIGHT_SAT_CAP) : s
+    const sat    = light ? Math.min(s, lightSatCap(shade)) : s
     const shift  = light ? lightShadeShift(shade) : bgShadeShift(shade)
     const deltas = light ? BG_DELTAS_LIGHT : BG_DELTAS
     for (const [token, delta] of Object.entries(deltas)) {
         const li = Math.max(0, Math.min(100, base + delta + shift))
         root.style.setProperty(token, `hsl(${h.toFixed(1)}, ${sat.toFixed(1)}%, ${li.toFixed(1)}%)`)
     }
+    if (!light) for (const token of LIGHT_ONLY_BG) root.style.removeProperty(token)
+    // Only a sunk page needs the compensation; at or above the nominal stop the stylesheet's
+    // audited ladder is already correct, so the override comes back off.
+    applyInkShift(light && shift < 0 ? shift : 0)
 }
 
 // Depth track for the shade slider — this position's hue across the depth it can actually
@@ -192,8 +243,10 @@ export function applyBgSpectrum(pos, shade = DEFAULT_BG_SHADE, light = isLight()
 export function bgShadeTrack(pos, light = isLight()) {
     const { h, s } = bgStopAt(pos)
     if (light) {
-        const ls = Math.min(s, LIGHT_SAT_CAP).toFixed(1)
-        return `linear-gradient(to right, hsl(${h.toFixed(1)}, ${ls}%, 80%), hsl(${h.toFixed(1)}, ${ls}%, 99%))`
+        const deepS = Math.min(s, LIGHT_SAT_CAP_DEEP).toFixed(1)
+        const paleS = Math.min(s, LIGHT_SAT_CAP).toFixed(1)
+        const deepL = (LIGHT_BASE_L + lightShadeShift(0)).toFixed(1)
+        return `linear-gradient(to right, hsl(${h.toFixed(1)}, ${deepS}%, ${deepL}%), hsl(${h.toFixed(1)}, ${paleS}%, 99%))`
     }
     return `linear-gradient(to right, hsl(${h.toFixed(1)}, ${s.toFixed(1)}%, 3%), hsl(${h.toFixed(1)}, ${Math.min(s, 45).toFixed(1)}%, 46%))`
 }
