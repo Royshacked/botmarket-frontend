@@ -128,12 +128,13 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
     // sentence goes with them so the desk starts on the job instead of asking what brought them.
     // `adopt` says the portfolio desk must open on a book that ALREADY EXISTS somewhere else. It is a
     // mode, not a destination, which is why it rides beside the desk rather than being one.
-    function _summon(desk, symbol = null, edit = null, opening = null, adopt = false) {
+    function _summon(desk, symbol = null, edit = null, opening = null, adopt = false, resumeThreadId = null) {
         setSummoning(desk)
         timerRef.current = setTimeout(
             () => onPick(desk.entryTab, {
                 pipeline: desk.key, symbol,
                 ...(edit ? { edit } : {}), ...(opening ? { opening } : {}), ...(adopt ? { adopt: true } : {}),
+                ...(resumeThreadId ? { resumeThreadId } : {}),
             }),
             SUMMON_MS,
         )
@@ -158,19 +159,36 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
         return `${owner?.label ?? 'Another desk'} is using ${holder.agent} — go there to finish or clear it`
     }
 
+    /**
+     * A SIGNAL that something was left here — not a tally of it.
+     *
+     * It counted drafts first, which read as noise: the number answered a question nobody asked ("how
+     * many?") while burying the one that matters ("is there something I walked out of?"). A dot answers
+     * only that. And since clicking the route now picks the conversation up, a count would not even be
+     * actionable — there is one thing to resume, whatever the number.
+     *
+     * `your turn` still shows through as brightness: something waiting on an answer is a different thing
+     * from something still in progress.
+     */
     function deskBadge(desk) {
         const { count, yourTurn } = deskWork(unfinished, desk)
         if (!count) return null
         return (
             <span
-                className={`axl-hub__desk-badge${yourTurn ? ' is-turn' : ''}`}
+                className={`axl-hub__desk-dot${yourTurn ? ' is-turn' : ''}`}
+                aria-label={yourTurn ? 'Waiting for you' : 'Unfinished conversation'}
                 title={yourTurn
-                    ? `Waiting for you — ${count} unfinished here`
-                    : `${count} unfinished here`}
-            >
-                {count}
-            </span>
+                    ? 'Waiting for you — pick up where you left off'
+                    : 'Unfinished — pick up where you left off'}
+            />
         )
+    }
+
+    /** The conversation this desk would pick up: its newest unfinished one. */
+    function resumableThread(desk) {
+        // `unfinished` arrives newest-first from the server, so the first match is the one the user was
+        // most recently in — which is what "where I left off" means to them.
+        return deskWork(unfinished, desk).threads[0] ?? null
     }
 
     function handleDeskPick(desk) {
@@ -183,6 +201,10 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
             if (owner) _summon(owner)
             return
         }
+        // Left something here → walk back INTO it. Going to a blank desk and making the user find the
+        // conversation in a drawer is a step too many when the route already knows which one it is.
+        const resume = resumableThread(desk)
+        if (resume) return _summon(desk, null, null, null, false, resume.threadId)
         _summon(desk)
     }
 

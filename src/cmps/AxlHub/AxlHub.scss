@@ -838,26 +838,24 @@
 
 }
 
-// Unfinished work left at this desk — the route badge. Same visual language as the social-chat unread
-// count, because it means the same thing to the reader: something here is waiting.
+// A SIGNAL that a conversation was left at this desk — deliberately not a count. The number answered a
+// question nobody asked ("how many drafts?") and buried the one that matters ("is there something I
+// walked out of?"). Clicking the route resumes it, so a count would not even be actionable.
 //
-// Dim = in progress. `is-turn` brightens it to the accent, because a thread awaiting an ANSWER is the
-// only one the user can act on and must not read as ambient.
-.axl-hub__desk-badge {
+// Dim = in progress. `is-turn` brightens it to the accent, because something waiting on an ANSWER is a
+// different thing from something still running, and must not read as ambient.
+.axl-hub__desk-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
     margin-left: 6px;
-    font-size: 0.7rem;
-    font-weight: 700;
-    line-height: 1;
-    padding: 2px 6px;
-    border-radius: 10px;
-    min-width: 17px;
-    text-align: center;
-    background: var(--surface-3, rgba(255, 255, 255, 0.12));
-    color: var(--color-text-dim, #94a3b8);
+    border-radius: 50%;
+    flex: 0 0 auto;
+    background: var(--color-text-dim, #94a3b8);
 
     &.is-turn {
         background: var(--accent);
-        color: #fff;
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
     }
 }
 

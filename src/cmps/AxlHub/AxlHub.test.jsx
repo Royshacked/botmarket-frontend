@@ -8,6 +8,11 @@ const streamAxl = vi.fn()
 vi.mock('../../services/axl/axl.service.remote', () => ({
     axlService: { streamAxl: (...a) => streamAxl(...a) },
 }))
+// Unfinished work per desk, which drives the route dot AND the resume-on-arrival.
+const listUnfinished = vi.fn().mockResolvedValue([])
+vi.mock('../../services/threads/threads.service.remote', () => ({
+    threadsService: { listUnfinished: (...a) => listUnfinished(...a) },
+}))
 vi.mock('../../customHooks/useMicInput.js', () => ({
     useMicInput: () => ({ isRecording: false, isTranscribing: false, toggle: vi.fn(), cancel: vi.fn() }),
 }))
@@ -32,7 +37,11 @@ async function ask(text) {
     for (let i = 0; i < 4; i++) await act(async () => { vi.advanceTimersByTime(1500) })
 }
 
-beforeEach(() => { vi.useFakeTimers({ shouldAdvanceTime: true }); streamAxl.mockReset() })
+beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    streamAxl.mockReset()
+    listUnfinished.mockReset().mockResolvedValue([])
+})
 afterEach(() => { vi.useRealTimers(); cleanup() })
 
 describe('AxlHub — the desk hand-off', () => {
@@ -216,6 +225,24 @@ describe('AxlHub — the opening turn that travels with them', () => {
         expect(onPick).toHaveBeenCalledWith('portfolio', {
             pipeline: 'portfolio', symbol: null, opening: 'I want to build a portfolio.',
         })
+    })
+
+    // Walking back into something left unfinished should PICK IT UP. Opening a blank desk and making the
+    // user find the conversation in a drawer is a step too many when the route already knows which one.
+    it('a desk with an unfinished conversation resumes it instead of opening blank', async () => {
+        listUnfinished.mockResolvedValue([
+            { threadId: 'thr_left_mid', agent: 'portfolio', pipeline: 'portfolio', yourTurn: true },
+        ])
+        const onPick = vi.fn()
+        render(<AxlHub user={{}} onPick={onPick} />)
+        await act(async () => {})   // let the unfinished list land
+
+        await act(async () => { fireEvent.click(screen.getByText('Build a portfolio')) })
+        await act(async () => { vi.advanceTimersByTime(5000) })
+
+        expect(onPick).toHaveBeenCalledWith('portfolio', expect.objectContaining({
+            resumeThreadId: 'thr_left_mid',
+        }))
     })
 
     it('a route with no opening hands over nothing extra — the desk asks as it always did', async () => {

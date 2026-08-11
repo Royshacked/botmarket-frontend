@@ -1988,6 +1988,14 @@ export function MainPage() {
             setAdoptDraft(null)
         }
 
+        // Walked back into something left unfinished → pick it up, rather than opening a blank desk and
+        // making the user find it in a drawer. Returns before the seed branch below: a resumed
+        // conversation already has its own history and must not be opened on a fresh opening turn too.
+        if (opts.resumeThreadId) {
+            _resumeThreadOn(tab, opts.resumeThreadId)
+            return
+        }
+
         const opening = typeof opts.opening === 'string' ? opts.opening.trim() : ''
         const key = Date.now()
         if (opening) {
@@ -2577,12 +2585,24 @@ export function MainPage() {
     // Resume dispatcher for the shared agent-bar hamburger — routes to the active agent.
     // Idea resumes here (MainPage owns its state); portfolio/scanner expose their own
     // resume fn via a ref since they own their conversation state.
-    function handleResumeActiveThread(threadId) {
-        if (activeTab === 'portfolio') return portfolioResumeRef.current?.(threadId)
-        if (activeTab === 'scanner')   return scannerResumeRef.current?.(threadId)
-        if (activeTab === 'kairos')    return kairosResumeRef.current?.(threadId)
-        if (activeTab === 'mentor')    return mentorResumeRef.current?.(threadId)
+    /**
+     * Resume a thread on a NAMED tab.
+     *
+     * Named rather than read from `activeTab`, because arriving at a desk and resuming its conversation
+     * happen in the same tick: the closure still holds the tab the user was on, so dispatching by state
+     * would resume on the desk they just left.
+     */
+    function _resumeThreadOn(tab, threadId) {
+        if (!threadId) return undefined
+        if (tab === 'portfolio') return portfolioResumeRef.current?.(threadId)
+        if (tab === 'scanner')   return scannerResumeRef.current?.(threadId)
+        if (tab === 'kairos')    return kairosResumeRef.current?.(threadId)
+        if (tab === 'mentor')    return mentorResumeRef.current?.(threadId)
         return handleResumeIdeaThread(threadId)
+    }
+
+    function handleResumeActiveThread(threadId) {
+        return _resumeThreadOn(activeTab, threadId)
     }
 
     // Shared by the desktop workspace chat and the mobile chat sheet so the two
