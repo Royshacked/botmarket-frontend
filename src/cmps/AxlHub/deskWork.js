@@ -38,14 +38,36 @@ export function deskWork(threads, desk) {
     }
 }
 
-// ─── NOT HERE YET: closing the other doors to a busy agent ──────────────────────
-//
-// The lock (a portfolio build parked at Argus should close the standalone "Create a list" route, and
-// say why) cannot be computed from a thread as it is stored today. A thread records its AGENT, not
-// which desk the user was standing on — so an unfinished Argus thread is indistinguishable from a
-// portfolio build parked at its screen step, and those two need opposite treatment: one is the door to
-// resume, the other is the door to close.
-//
-// It needs one new field on the thread — the pipeline it belongs to — written where the draft is
-// saved. Deliberately not stubbed here: a function that reads a field nothing writes looks like
-// working code and silently returns "nothing is blocked" forever.
+/**
+ * Which desks are CLOSED because another desk is holding an agent they need.
+ *
+ * A desk panel is a singleton, so an agent can only be in one context at a time. Leave a portfolio
+ * build parked at Argus and the standalone "Create a list" route would enter the same panel and
+ * clobber it — so that door closes while the build holds Argus, and says why.
+ *
+ * Reads the thread's `pipeline` (the desk it belongs to), which is exactly why that field had to
+ * exist: `agent` alone cannot tell an unfinished build parked at its screen step from a standalone
+ * scan, and those two want opposite treatment — one door to resume, one to close.
+ *
+ * Symmetric by construction. Whoever got there first holds it: an unfinished standalone scan closes
+ * the portfolio desk just as firmly as a build closes the scan desk. No precedence rule, because any
+ * ordering would be arbitrary and would surprise whoever lost.
+ *
+ * A thread with no pipeline (a chat opened straight at a desk, off any chain) blocks nothing: it has
+ * no run to protect, and resuming it is what opening that desk already does.
+ *
+ * @returns {Map<string, {thread:object, agent:string}>} desk key → what holds it (absent = open)
+ */
+export function blockedDesks(threads, desks) {
+    const blocked = new Map()
+    const list = Array.isArray(threads) ? threads : []
+
+    for (const desk of (desks ?? [])) {
+        const agents = deskAgents(desk)
+        // Held by a thread belonging to a DIFFERENT desk. Its own unfinished thread is the one it
+        // would resume, so that never blocks it.
+        const holder = list.find(t => t?.pipeline && t.pipeline !== desk?.key && agents.includes(t.agent))
+        if (holder) blocked.set(desk.key, { thread: holder, agent: holder.agent })
+    }
+    return blocked
+}

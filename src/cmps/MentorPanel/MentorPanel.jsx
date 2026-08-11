@@ -47,6 +47,9 @@ export function MentorPanel({
     onLoadingChange, onGenerated, onPendingSetup,
     chatRestore = null, seed = null, inbox = null, editingSetupId = null, onEditDone,
     availableAccounts = [], selectedAccounts = [], mainAccountId = null, resumeRef = null,
+    // The desk this conversation belongs to, stamped on its draft thread so an unfinished BUILD
+    // can be told from a standalone chat at the same agent (deskWork.js). Null off a pipeline.
+    pipeline          = null,
 }) {
     const chat = useChatStream()
     const { messages } = chat
@@ -176,6 +179,7 @@ export function MentorPanel({
                 .catch(err => console.error('[mentor] chat_state save', err))
         } else {
             threadsService.saveDraft({
+                        pipeline,
                 threadId: threadIdRef.current, agent: 'mentor',
                 messages: msgs, subjectType: 'setup',
                 state: setup ? { draft: setup, coverage } : null,
@@ -446,6 +450,7 @@ export function MentorPanel({
 }
 
 MentorPanel.propTypes = {
+    pipeline:            PropTypes.string,
     onLoadingChange:   PropTypes.func,
     onGenerated:       PropTypes.func,
     onPendingSetup:    PropTypes.func,

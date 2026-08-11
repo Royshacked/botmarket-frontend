@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { AgentSummon } from './AgentSummon.jsx'
 import { threadsService } from '../../services/threads/threads.service.remote'
-import { deskWork } from './deskWork.js'
+import { deskWork, blockedDesks } from './deskWork.js'
 import { AgentGlyph } from './AgentBadges.jsx'
 import { AGENTS, SUMMON_MS, DESKS, TICKET_DESK } from './agentMeta.jsx'
 import { axlService } from '../../services/axl/axl.service.remote'
@@ -88,6 +88,11 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
     const [unfinished, setUnfinished] = useState([])
     useEffect(() => { threadsService.listUnfinished().then(setUnfinished) }, [])
 
+    // Which desks are closed because another desk is holding an agent they need. A panel is a
+    // singleton, so entering the scan desk while a portfolio build is parked at Argus would clobber the
+    // run — the door closes and says so, rather than letting the user create an impossible state.
+    const blocked = blockedDesks(unfinished, DESKS)
+
     const [pendingRoute, setPendingRoute] = useState(null)   // { desk, symbol, opening, edit, adopt } — the hand-off
     // Follow-ups Axl offered on the LAST turn. Latest turn only: they answer "what now", and a
     // question from four turns ago is not that. Cleared the moment anything is sent.
@@ -142,6 +147,17 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
      * `your turn` is a different weight from a plain count and looks different: one is something to do,
      * the other is something in progress.
      */
+    /**
+     * What a closed door says. Never a bare disabled control: a greyed route with no explanation is the
+     * worst version of this feature, because the user cannot tell a bug from a rule.
+     */
+    function deskLockTitle(desk) {
+        const holder = blocked.get(desk.key)
+        if (!holder) return null
+        const owner = DESKS.find(d => d.key === holder.thread.pipeline)
+        return `${owner?.label ?? 'Another desk'} is using ${holder.agent} — go there to finish or clear it`
+    }
+
     function deskBadge(desk) {
         const { count, yourTurn } = deskWork(unfinished, desk)
         if (!count) return null
@@ -159,6 +175,14 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
 
     function handleDeskPick(desk) {
         if (summoning || isLoading) return
+        // A closed door does not silently do nothing: the user is taken to what is holding it, which is
+        // both the explanation and the way to finish or clear it.
+        const holder = blocked.get(desk.key)
+        if (holder) {
+            const owner = DESKS.find(d => d.key === holder.thread.pipeline)
+            if (owner) _summon(owner)
+            return
+        }
         _summon(desk)
     }
 
@@ -395,10 +419,10 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
                             <button
                                 key={desk.key}
                                 type="button"
-                                className={`axl-hub__desk-chip axl-hub__desk-chip--${desk.hue}`}
+                                className={`axl-hub__desk-chip axl-hub__desk-chip--${desk.hue}${blocked.has(desk.key) ? ' is-locked' : ''}`}
                                 onClick={() => handleDeskPick(desk)}
                                 disabled={isLoading}
-                                title={desk.label}
+                                title={deskLockTitle(desk) ?? desk.label}
                             >
                                 <AgentGlyph agentKey={desk.agentKey} icon={AGENTS[desk.agentKey]?.icon} size={13} />
                                 <span>{desk.lead}</span>
@@ -423,7 +447,8 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
                             <button
                                 key={desk.key}
                                 type="button"
-                                className={`axl-hub__option axl-hub__option--${desk.hue}`}
+                                className={`axl-hub__option axl-hub__option--${desk.hue}${blocked.has(desk.key) ? ' is-locked' : ''}`}
+                                title={deskLockTitle(desk) ?? undefined}
                                 style={{ animationDelay: `${0.08 + i * 0.06}s` }}
                                 onClick={() => handleDeskPick(desk)}
                                 onMouseEnter={() => setHoveredDesk(desk)}

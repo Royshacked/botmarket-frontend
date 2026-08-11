@@ -92,7 +92,7 @@ export function CallDraft({ call, showHead = true }) {
 // route to the call pop-out (Confirm entry / Accept edit / Delete). They're also listed in the
 // Axl Lists "Calls" tab — so the panel no longer duplicates them as an in-panel readiness strip.
 
-export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpenArgus, inbox = null, autoHandoff = false, chatRestore = null, editingCallId = null, onEditDone, availableAccounts = [], selectedAccounts = [], mainAccountId = null, resumeRef = null }) {
+export function KairosPanel({ pipeline = null, onLoadingChange, onGenerated, onPendingCall, onOpenArgus, inbox = null, autoHandoff = false, chatRestore = null, editingCallId = null, onEditDone, availableAccounts = [], selectedAccounts = [], mainAccountId = null, resumeRef = null }) {
     // threadPhases: Kairos runs all 5 phases in ONE reply, so thread each phase's content under its
     // own heading (other agents emit one phase per turn and don't need it).
     const chat = useChatStream({ threadPhases: true })
@@ -182,6 +182,7 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
                     // Construction only: persist the call-building conversation as a draft thread
                     // (mirrors Scanner). The backend enforces the substantive floor (phase ≥ 2) + TTL.
                     threadsService.saveDraft({
+                        pipeline,
                         threadId: threadIdRef.current, agent: 'kairos',
                         messages: [...history, { role: 'assistant', content: data.reply }],
                         phase: data.phase ?? null, subjectType: 'call',
@@ -242,6 +243,7 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
                         .catch(err => console.error('[kairos] chat_state save', err))
                 } else {
                     threadsService.saveDraft({
+                        pipeline,
                         threadId: threadIdRef.current, agent: 'kairos',
                         messages: [...history.slice(0, -1), { role: 'assistant', content }],
                         phase: data.phase ?? null, subjectType: 'call',
@@ -496,6 +498,7 @@ export function KairosPanel({ onLoadingChange, onGenerated, onPendingCall, onOpe
 }
 
 KairosPanel.propTypes = {
+    pipeline:            PropTypes.string,
     onLoadingChange:  PropTypes.func,
     onGenerated:      PropTypes.func,
     onPendingCall:    PropTypes.func,

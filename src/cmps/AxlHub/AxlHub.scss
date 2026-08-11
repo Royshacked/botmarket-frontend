@@ -860,3 +860,12 @@
         color: #fff;
     }
 }
+
+// A door closed because another desk is holding an agent it needs. Dimmed, but NOT disabled: clicking
+// it takes the user to whatever holds it, which is both the explanation and the way to finish or clear
+// it. A greyed control that does nothing is the worst version of this — the user cannot tell a rule
+// from a bug.
+.axl-hub__option.is-locked,
+.axl-hub__desk-chip.is-locked {
+    opacity: 0.45;
+}

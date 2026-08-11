@@ -270,6 +270,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                 // The backend enforces the substantive floor (scanner = past nucleus) + TTL.
                 if (!editingScanId) {
                     threadsService.saveDraft({
+                        pipeline,
                         threadId: threadIdRef.current, agent: 'scanner',
                         messages: [...history, { role: 'assistant', content: data.reply }],
                         phase: data.phase ?? null, subjectType: 'scan',
@@ -334,6 +335,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                 if (data.kairos_pick) setKairosPick(data.kairos_pick)
                 if (!editingScanId) {
                     threadsService.saveDraft({
+                        pipeline,
                         threadId: threadIdRef.current, agent: 'scanner',
                         messages: [...history.slice(0, -1), { role: 'assistant', content }],
                         phase: data.phase ?? null, subjectType: 'scan',

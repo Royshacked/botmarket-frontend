@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { deskAgents, deskWork } from './deskWork.js'
+import { deskAgents, deskWork, blockedDesks } from './deskWork.js'
 
 // The badge on a desk route. A desk claims every agent in its STEPS, not just the one it enters at —
 // which is the whole reason the badge belongs to the desk: leave a portfolio build parked at Argus and
@@ -52,4 +52,39 @@ test('a desk with nothing outstanding renders nothing', () => {
 
 test('yourTurn must be a real boolean, not merely present', () => {
     assert.equal(deskWork([{ agent: 'scanner', yourTurn: 'yes' }], SCAN).yourTurn, false)
+})
+
+// ─── The lock: a desk panel is a singleton, so one agent, one context ────────────
+
+const DESKS = [PORTFOLIO, SCAN, ASSIST]
+
+test('a build parked at Argus closes the standalone scan door', () => {
+    // Both desks need Argus; the build is holding it. Entering the scan desk would clobber the run.
+    const threads = [{ agent: 'scanner', pipeline: 'portfolio', yourTurn: true }]
+    const blocked = blockedDesks(threads, DESKS)
+    assert.equal(blocked.has('scan'), true)
+    assert.equal(blocked.get('scan').agent, 'scanner')
+    assert.equal(blocked.has('portfolio'), false, 'the desk that owns it is not blocked BY it')
+})
+
+test('symmetric — a standalone scan closes the portfolio desk', () => {
+    // Whoever got there first holds it. Any precedence rule would surprise whoever lost.
+    const blocked = blockedDesks([{ agent: 'scanner', pipeline: 'scan' }], DESKS)
+    assert.equal(blocked.has('portfolio'), true)
+    assert.equal(blocked.has('scan'), false)
+})
+
+test('a chat opened off any chain blocks nothing', () => {
+    // No run to protect, and resuming it is what opening that desk already does.
+    assert.equal(blockedDesks([{ agent: 'scanner', pipeline: null }], DESKS).size, 0)
+})
+
+test('a desk sharing no agent with the holder stays open', () => {
+    assert.equal(blockedDesks([{ agent: 'scanner', pipeline: 'portfolio' }], DESKS).has('assist'), false)
+})
+
+test('nothing unfinished blocks nothing', () => {
+    assert.equal(blockedDesks([], DESKS).size, 0)
+    assert.equal(blockedDesks(null, DESKS).size, 0)
+    assert.equal(blockedDesks([{ agent: 'scanner', pipeline: 'portfolio' }], null).size, 0)
 })

@@ -26,9 +26,11 @@ async function listUnfinished() {
     } catch { return [] }
 }
 
-async function saveDraft({ threadId, agent, messages, phase = null, subjectType = null, state = null, mandate = null }) {
+async function saveDraft({ threadId, agent, messages, phase = null, subjectType = null, state = null, mandate = null, pipeline = null }) {
     try {
-        return await httpService.post(`${BASE}/draft`, { threadId, agent, messages, phase, subjectType, state, mandate })
+        // `pipeline` is the DESK this conversation belongs to. An agent is shared between desks, so
+        // without it an unfinished build cannot be told from a standalone chat at the same agent.
+        return await httpService.post(`${BASE}/draft`, { threadId, agent, messages, phase, subjectType, state, mandate, pipeline })
     } catch (err) {
         console.error('[threads] saveDraft failed', err)
         return null

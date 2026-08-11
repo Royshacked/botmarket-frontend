@@ -2807,6 +2807,7 @@ export function MainPage() {
                         </div>
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'kairos' ? 'flex' : 'none' }}>
                             <KairosPanel
+                                pipeline={activePipeline}
                                 onLoadingChange={setKairosLoading}
                                 onGenerated={handleBackToAxl}
                                 onPendingCall={setKairosPendingCall}
@@ -2831,6 +2832,7 @@ export function MainPage() {
 
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'mentor' ? 'flex' : 'none' }}>
                             <MentorPanel
+                                pipeline={activePipeline}
                                 onGenerated={handleBackToAxl}
                                 seed={mentorSeed}
                                 inbox={mentorInbox}
