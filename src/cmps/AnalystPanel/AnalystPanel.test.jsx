@@ -14,6 +14,22 @@ vi.mock('../../services/analyst/analyst.service.remote.js', () => ({
         updateCoverage:   (...a) => updateCoverage(...a),
     },
 }))
+// The draft-thread mechanism, mirroring MentorPanel's mock: `clearThread` reproduces the real helper
+// (discard what was saved, mint a fresh id) so Clear is tested for what it DOES.
+const saveDraft      = vi.fn()
+const linkThread     = vi.fn()
+const getThread      = vi.fn()
+const discardThread  = vi.fn()
+vi.mock('../../services/threads/threads.service.remote.js', () => ({
+    threadsService: {
+        saveDraft:      (...a) => saveDraft(...a),
+        linkThread:     (...a) => linkThread(...a),
+        getThread:      (...a) => getThread(...a),
+        discardThread:  (...a) => discardThread(...a),
+    },
+    newThreadId: () => 't1',
+    clearThread: (ref) => { if (ref?.current) discardThread(ref.current); if (ref) ref.current = 't2' },
+}))
 vi.mock('../../customHooks/useMicInput.js', () => ({
     useMicInput: () => ({ isRecording: false, isTranscribing: false, toggle: vi.fn(), cancel: vi.fn() }),
 }))
@@ -22,7 +38,10 @@ const { AnalystPanel } = await import('./AnalystPanel.jsx')
 
 const lastCall = () => sendStream.mock.calls.at(-1)
 
-beforeEach(() => { sendStream.mockClear(); initiateCoverage.mockReset(); updateCoverage.mockReset() })
+beforeEach(() => {
+    sendStream.mockClear(); initiateCoverage.mockReset(); updateCoverage.mockReset()
+    saveDraft.mockClear(); linkThread.mockClear(); getThread.mockReset(); discardThread.mockClear()
+})
 afterEach(cleanup)
 
 // Axl routes "let's research NVDA" here with the ticker already resolved. Prometheus must OPEN on
@@ -142,5 +161,98 @@ describe('AnalystPanel — a refused initiation', () => {
         await draftThenInitiate()
         await waitFor(() => expect(updateCoverage).toHaveBeenCalled())
         expect(updateCoverage.mock.calls[0][0]).toBe('covOLD')
+    })
+})
+
+// The research desk had NO draft persistence at all: it never called saveDraft, and `analyst` was
+// missing from the backend's AGENTS whitelist, so the Axl hub's marker read nothing and its lock
+// closed nothing. What looked like working resume was React state surviving behind a `display:none`
+// tab — gone on the next reload. This is that gap, wired to the same shared mechanism every other
+// desk uses.
+describe('AnalystPanel — the draft thread', () => {
+    async function researchTurn(props = {}) {
+        render(<AnalystPanel seed={{ key: 30, message: 'Research ZTS for coverage.' }} {...props} />)
+        await waitFor(() => expect(sendStream).toHaveBeenCalled())
+        const [, opts] = lastCall()
+        await act(async () => { opts.onDone({ reply: 'done', phase: 4, coverage: { symbol: 'ZTS', rating: 'sell' } }) })
+        return opts
+    }
+
+    it('a completed turn is saved as an analyst draft carrying its desk and phase', async () => {
+        await researchTurn({ pipeline: 'research' })
+
+        expect(saveDraft).toHaveBeenCalledTimes(1)
+        const arg = saveDraft.mock.calls[0][0]
+        expect(arg.agent).toBe('analyst')          // must match the backend whitelist, or it is a silent 400
+        expect(arg.pipeline).toBe('research')      // the MARKER keys on this, never on the agent
+        expect(arg.threadId).toBe('t1')
+        expect(arg.phase).toBe(4)
+        expect(arg.subjectType).toBe('coverage')
+        expect(arg.messages.at(-1)).toEqual({ role: 'assistant', content: 'done' })
+    })
+
+    it('the thesis drafted on THIS turn rides along, not the one from the turn before', async () => {
+        // setPendingCoverage lands after onDone runs, so reading it off state here would persist the
+        // previous draft — the reason the coverage is threaded through explicitly.
+        await researchTurn()
+        expect(saveDraft.mock.calls[0][0].state).toEqual({ draft: { symbol: 'ZTS', rating: 'sell' } })
+    })
+
+    it('a run with no desk behind it still saves — it just marks no route', async () => {
+        await researchTurn()
+        expect(saveDraft.mock.calls[0][0].pipeline).toBe(null)
+    })
+
+    it('Clear DISCARDS the draft rather than leaving it to expire', async () => {
+        await researchTurn()
+        fireEvent.click(screen.getByTitle(/clear/i))
+        // Walking away keeps the draft; clearing is the user throwing it out, and a draft left to
+        // TTL-expire would go on marking this desk for fourteen days.
+        expect(discardThread).toHaveBeenCalledWith('t1')
+    })
+
+    it('saving the thesis LINKS the conversation to it and starts a fresh thread', async () => {
+        initiateCoverage.mockResolvedValue({ id: 'cov_ZTS_9', symbol: 'ZTS' })
+        const onInitiated = vi.fn()
+        await researchTurn({ onInitiated })
+        fireEvent.click(await screen.findByRole('button', { name: /Initiate coverage on ZTS/ }))
+
+        await waitFor(() => expect(linkThread).toHaveBeenCalled())
+        expect(linkThread).toHaveBeenCalledWith('t1', { subjectType: 'coverage', subjectId: 'cov_ZTS_9', artifactName: 'ZTS' })
+        // AWAITED before the callback that ends the desk run — finishing deletes the run's remaining
+        // DRAFTS, and a fire-and-forget link would race that delete.
+        expect(linkThread.mock.invocationCallOrder[0]).toBeLessThan(onInitiated.mock.invocationCallOrder[0])
+    })
+
+    it('resume restores the conversation and its pending thesis, and keeps the same thread', async () => {
+        getThread.mockResolvedValue({
+            threadId: 'thr_old',
+            messages: [{ role: 'user', content: 'Cover ZTS' }, { role: 'assistant', content: 'Working on it' }],
+            state: { draft: { symbol: 'ZTS', rating: 'hold', thesis: 'Half-built.' } },
+        })
+        const resumeRef = { current: null }
+        render(<AnalystPanel resumeRef={resumeRef} />)
+
+        await act(async () => { await resumeRef.current('thr_old') })
+        expect(await screen.findByText('Half-built.')).toBeTruthy()
+        expect(screen.getByText('Working on it')).toBeTruthy()
+
+        // Keeps writing to the RESUMED thread — a new id would leave the original marking the desk
+        // forever, which is the whole failure this mechanism exists to avoid.
+        const input = screen.getByPlaceholderText(/ticker to research/i)
+        fireEvent.change(input, { target: { value: 'carry on' } })
+        fireEvent.keyDown(input, { key: 'Enter' })
+        await waitFor(() => expect(sendStream).toHaveBeenCalled())
+        await act(async () => { lastCall()[1].onDone({ reply: 'more', phase: 5, coverage: { symbol: 'ZTS' } }) })
+
+        expect(saveDraft.mock.calls.at(-1)[0].threadId).toBe('thr_old')
+    })
+
+    it('a resume that finds nothing leaves the panel alone', async () => {
+        getThread.mockResolvedValue(null)
+        const resumeRef = { current: null }
+        render(<AnalystPanel resumeRef={resumeRef} />)
+        await act(async () => { await resumeRef.current('gone') })
+        expect(screen.queryByText('Half-built.')).toBeNull()
     })
 })

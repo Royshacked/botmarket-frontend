@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { strategyService } from '../../services/strategy/strategy.service.remote.js'
+import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote.js'
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
 import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
@@ -75,7 +76,7 @@ export function TiltDraft({ tilt }) {
 }
 TiltDraft.propTypes = { tilt: PropTypes.object.isRequired }
 
-export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished }) {
+export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished, pipeline = null, resumeRef = null }) {
     const chat = useChatStream({ threadPhases: true })
     const { messages, isLoading } = chat
     const [pendingTilt, setPendingTilt] = useState(null)
@@ -85,8 +86,25 @@ export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished
     // ref as well: `_send` runs before React re-renders, so reading the prop mid-send is stale.
     const currentRef = useRef(null)
     currentRef.current = currentTilt
+    const threadIdRef = useRef(newThreadId())   // the view-building conversation's draft thread
 
     useEffect(() => { onLoadingChange?.(isLoading) }, [isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
+
+    /**
+     * Persist the conversation as a DRAFT THREAD — the shared mechanism every other desk uses. This
+     * desk had none, so a view the user walked out of mid-build left no marker, closed no door, and
+     * survived only as React state behind a hidden tab (gone on reload). See AnalystPanel/_saveThread.
+     *
+     * `draft` is passed in because setPendingTilt lands after this turn's onDone runs.
+     */
+    function _saveThread(msgs, phase, draft) {
+        threadsService.saveDraft({
+            pipeline,
+            threadId: threadIdRef.current, agent: 'strategy',
+            messages: msgs, phase: phase ?? null, subjectType: 'tilt',
+            state: draft ? { draft } : null,
+        })
+    }
 
     async function _send(text) {
         if (!text || isLoading) return
@@ -98,6 +116,7 @@ export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant' })
                 if (data.tilt) setPendingTilt(data.tilt)
+                _saveThread([...history, { role: 'assistant', content: data.reply }], data.phase, data.tilt ?? pendingTilt)
             },
         })
 
@@ -131,6 +150,7 @@ export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant', content: base + data.reply })
                 if (data.tilt) setPendingTilt(data.tilt)
+                _saveThread([...history.slice(0, -1), { role: 'assistant', content: base + data.reply }], data.phase, data.tilt ?? pendingTilt)
             },
         })
         if (!cont) return
@@ -152,7 +172,21 @@ export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished
         }
     }
 
-    function handleClear() { chat.reset(); setPendingTilt(null); setPublishErr('') }
+    // Clear is not walking away — the draft goes with the conversation. See clearThread.
+    function handleClear() { chat.reset(); setPendingTilt(null); setPublishErr(''); clearThread(threadIdRef) }
+
+    // Resume an unfinished view-building draft: restore the conversation + the tilt in progress, and
+    // keep writing to the SAME thread. `current_tilt` is not restored — it rides from the live prop,
+    // so a resumed review reaffirms against the view in force NOW, not a copy frozen on the way out.
+    async function handleResumeThread(threadId) {
+        const t = await threadsService.getThread(threadId)
+        if (!t) return
+        chat.setMessages(t.messages ?? [])
+        setPendingTilt(t.state?.draft ?? null)
+        setPublishErr('')
+        threadIdRef.current = t.threadId
+    }
+    if (resumeRef) resumeRef.current = handleResumeThread
 
     async function handlePublish() {
         if (!pendingTilt) return
@@ -160,6 +194,12 @@ export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished
         try {
             const saved = await strategyService.publishTilt(pendingTilt)
             setPendingTilt(null)
+            // AWAITED before onPublished — that callback ends the desk run, and finishing deletes the
+            // run's remaining DRAFTS. See AnalystPanel/_linkThread.
+            if (saved?.id) {
+                await threadsService.linkThread(threadIdRef.current, { subjectType: 'tilt', subjectId: saved.id, artifactName: saved.regime ?? null })
+                threadIdRef.current = newThreadId()
+            }
             onPublished?.(saved)
         } catch (err) {
             // 422 = a stance contradicts its active weight. That is the one refusal worth spelling
@@ -225,4 +265,6 @@ StrategyPanel.propTypes = {
     currentTilt:     PropTypes.object,   // the view in force — drives reaffirm-vs-re-author
     onLoadingChange: PropTypes.func,
     onPublished:     PropTypes.func,
+    pipeline:        PropTypes.string,   // the DESK this run belongs to — what the marker keys on
+    resumeRef:       PropTypes.object,
 }

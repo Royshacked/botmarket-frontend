@@ -503,6 +503,8 @@ export function MainPage() {
         handleBackToAxl()   // setup updated / edit cancelled — return to the axl hub
     }
     const mentorResumeRef    = useRef(null)           // MentorPanel exposes its resume fn here
+    const analystResumeRef   = useRef(null)           // AnalystPanel exposes its resume fn here
+    const strategyResumeRef  = useRef(null)           // StrategyPanel exposes its resume fn here
     // Ids of ideas BORN from a "Buy Market" click (created solely to carry the immediate
     // order). If their placement fails outright we roll them back out of existence rather
     // than strand a phantom 'hit' idea on "Update idea". Cleared once placed or rolled back.
@@ -2638,6 +2640,8 @@ export function MainPage() {
         if (tab === 'scanner')   return scannerResumeRef.current?.(threadId)
         if (tab === 'kairos')    return kairosResumeRef.current?.(threadId)
         if (tab === 'mentor')    return mentorResumeRef.current?.(threadId)
+        if (tab === 'analyst')   return analystResumeRef.current?.(threadId)
+        if (tab === 'strategy')  return strategyResumeRef.current?.(threadId)
         return handleResumeIdeaThread(threadId)
     }
 
@@ -2912,6 +2916,8 @@ export function MainPage() {
                                 editCoverage={analystEditCoverage}
                                 seed={analystSeed}
                                 coverage={coverage}
+                                pipeline={activePipeline}
+                                resumeRef={analystResumeRef}
                                 onSleeveResearched={handleSleeveResearched}
                                 // Leaving for Axl after a save is right for a ONE-name research run.
                                 // During a SLEEVE it would throw the user out between names, and on
@@ -2926,6 +2932,8 @@ export function MainPage() {
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'strategy' ? 'flex' : 'none' }}>
                             <StrategyPanel
                                 currentTilt={tilt}
+                                pipeline={activePipeline}
+                                resumeRef={strategyResumeRef}
                                 // Publishing supersedes the standing view, so send the user to the
                                 // board that now shows it — the same beat as a coverage initiate.
                                 onPublished={() => { setNewsTab('forecasts'); handleBackToAxl() }}

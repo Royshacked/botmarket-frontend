@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { analystService } from '../../services/analyst/analyst.service.remote.js'
+import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote.js'
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
 import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
@@ -47,7 +48,7 @@ export function CoverageDraft({ coverage }) {
 }
 CoverageDraft.propTypes = { coverage: PropTypes.object.isRequired }
 
-export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, onLoadingChange, onInitiated, onSleeveResearched, coverage = [] }) {
+export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, onLoadingChange, onInitiated, onSleeveResearched, coverage = [], pipeline = null, resumeRef = null }) {
     const chat = useChatStream({ threadPhases: true })
     const { messages, isLoading } = chat
     const [pendingCoverage, setPendingCoverage] = useState(null)
@@ -63,6 +64,7 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
     const seedRef     = useRef(null)   // one-shot Argus investing seed for the next send
     const pendingRef  = useRef(null)
     pendingRef.current = pendingCoverage
+    const threadIdRef = useRef(newThreadId())   // the research conversation's draft thread
 
     // Existing coverage for the pending symbol — drives "Update vs Initiate" mode.
     // Match any status: the backend blocks initiation for retired coverage too, so we must update it.
@@ -73,6 +75,32 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
     existingRef.current = existingCoverage
 
     useEffect(() => { onLoadingChange?.(isLoading) }, [isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
+
+    /**
+     * Persist the research conversation as a DRAFT THREAD (the shared mechanism — same call Mentor,
+     * Kairos, Scanner and Portfolio make; the backend enforces the substantive floor, the TTL and the
+     * LRU cap). Without it this desk had no persistence at all: the marker read nothing, the lock
+     * closed nothing, and the resume the user saw was React state surviving behind a `display:none`
+     * tab — gone on the next reload.
+     *
+     * `pipeline` is the DESK, and it is what makes the marker land on ONE route rather than on every
+     * desk that happens to enter at Prometheus (see AxlHub/deskWork).
+     *
+     * The EDIT run saves here too, unlike Kairos/Mentor, which write their chat back onto the artifact
+     * they are editing. Coverage has no chat-state field to write to, and inventing one to mirror the
+     * shape would persist the same conversation twice. The link on save is what ties it to the thesis.
+     */
+    // `draft` is passed IN rather than read off the ref: setPendingCoverage lands after this turn's
+    // onDone runs, so the ref still holds the PREVIOUS draft right here — the same reason Kairos
+    // threads `nextCall` through instead of reading its state.
+    function _saveThread(msgs, phase, draft) {
+        threadsService.saveDraft({
+            pipeline,
+            threadId: threadIdRef.current, agent: 'analyst',
+            messages: msgs, phase: phase ?? null, subjectType: 'coverage',
+            state: draft ? { draft } : null,
+        })
+    }
 
     async function _send(text) {
         if (!text || isLoading) return
@@ -85,6 +113,7 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant' })   // keep the phase-threaded bubbles
                 if (data.coverage) setPendingCoverage(data.coverage)
+                _saveThread([...history, { role: 'assistant', content: data.reply }], data.phase, data.coverage ?? pendingRef.current)
             },
         })
 
@@ -121,6 +150,7 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant', content: base + data.reply })
                 if (data.coverage) setPendingCoverage(data.coverage)
+                _saveThread([...history.slice(0, -1), { role: 'assistant', content: base + data.reply }], data.phase, data.coverage ?? pendingRef.current)
             },
         })
         if (!cont) return
@@ -204,7 +234,42 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
         _send(`Revise our coverage on ${doc.symbol}. What has changed since the last view, and does the thesis still hold?`)
     }, [editCoverage?.key])   // eslint-disable-line react-hooks/exhaustive-deps
 
-    function handleClear()     { chat.reset(); setPendingCoverage(null); setInitiateErr('') }
+    // Clear is not walking away — the draft goes with the conversation, or the hub keeps marking this
+    // desk and holding Prometheus's other doors shut over research the user threw away. See clearThread.
+    function handleClear()     { chat.reset(); setPendingCoverage(null); setInitiateErr(''); clearThread(threadIdRef) }
+
+    // Resume an unfinished research draft: restore the conversation and its pending thesis, and keep
+    // writing to the SAME thread. `existing_coverage` is not restored here — it is derived from the
+    // draft's symbol against the live book on the next render, so a resumed edit run picks up whatever
+    // the thesis says NOW rather than a copy frozen when the user walked out.
+    async function handleResumeThread(threadId) {
+        const t = await threadsService.getThread(threadId)
+        if (!t) return
+        chat.setMessages(t.messages ?? [])
+        setPendingCoverage(t.state?.draft ?? null)
+        setInitiateErr('')
+        threadIdRef.current = t.threadId
+    }
+    // Expose resume to the shared agent-bar hamburger (MainPage).
+    if (resumeRef) resumeRef.current = handleResumeThread
+
+    /**
+     * The thesis exists → the conversation that authored it belongs WITH it, not in the draft pile.
+     * Linking clears the TTL and takes the thread off the desk marker; the next research run starts on
+     * a fresh id.
+     *
+     * AWAITED, and before `onInitiated` — that callback ends the desk run, and finishing a run deletes
+     * its remaining DRAFTS. Fire-and-forget here would race the delete and could drop the reasoning
+     * behind a thesis the user just saved, silently (a link matching nothing is not an error).
+     *
+     * Linked on an UPDATE as well as an initiation: a re-model is the conversation behind the thesis
+     * as it now stands, and leaving it a draft would keep marking a desk the user is finished with.
+     */
+    async function _linkThread(saved) {
+        if (!saved?.id) return
+        await threadsService.linkThread(threadIdRef.current, { subjectType: 'coverage', subjectId: saved.id, artifactName: saved.symbol ?? null })
+        threadIdRef.current = newThreadId()
+    }
 
     // Coverage saved → move the sleeve on. Only the SAVED names count as researched: a draft the
     // user declined is not something Atlas should build on.
@@ -232,6 +297,7 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
                 saved = await analystService.initiateCoverage(pendingCoverage)
             }
             setPendingCoverage(null)
+            await _linkThread(saved)
             onInitiated?.(saved, { sleeve: sleeveRun })
             _advance(saved)
         } catch (err) {
@@ -251,6 +317,7 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
                         revision_note: 'Coverage updated via Prometheus',
                     })
                     setPendingCoverage(null)
+                    await _linkThread(saved)
                     onInitiated?.(saved, { sleeve: sleeveRun })
                     _advance(saved)
                 } catch {
@@ -326,4 +393,6 @@ AnalystPanel.propTypes = {
     onInitiated:     PropTypes.func,
     onSleeveResearched: PropTypes.func,
     coverage:        PropTypes.array,
+    pipeline:        PropTypes.string,   // the DESK this run belongs to — what the marker keys on
+    resumeRef:       PropTypes.object,
 }
