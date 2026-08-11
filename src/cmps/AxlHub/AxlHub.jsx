@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { AgentSummon } from './AgentSummon.jsx'
+import { threadsService } from '../../services/threads/threads.service.remote'
+import { deskWork } from './deskWork.js'
 import { AgentGlyph } from './AgentBadges.jsx'
 import { AGENTS, SUMMON_MS, DESKS, TICKET_DESK } from './agentMeta.jsx'
 import { axlService } from '../../services/axl/axl.service.remote'
@@ -81,6 +83,11 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
 
     const [summoning, setSummoning]       = useState(null)
     const [draft, setDraft]               = useState('')
+    // Unfinished work per desk, for the route badges. Loaded on mount, which is every time the user
+    // returns from a desk — precisely when it can have changed. Cheap: drafts only, last message only.
+    const [unfinished, setUnfinished] = useState([])
+    useEffect(() => { threadsService.listUnfinished().then(setUnfinished) }, [])
+
     const [pendingRoute, setPendingRoute] = useState(null)   // { desk, symbol, opening, edit, adopt } — the hand-off
     // Follow-ups Axl offered on the LAST turn. Latest turn only: they answer "what now", and a
     // question from four turns ago is not that. Cleared the moment anything is sent.
@@ -124,6 +131,29 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
                 ...(edit ? { edit } : {}), ...(opening ? { opening } : {}), ...(adopt ? { adopt: true } : {}),
             }),
             SUMMON_MS,
+        )
+    }
+
+    /**
+     * What a desk route says about work left there. Rendered on both surfaces, because a user who left
+     * something unfinished has to see it wherever the routes are shown — otherwise the one that
+     * happens to be visible lies by omission.
+     *
+     * `your turn` is a different weight from a plain count and looks different: one is something to do,
+     * the other is something in progress.
+     */
+    function deskBadge(desk) {
+        const { count, yourTurn } = deskWork(unfinished, desk)
+        if (!count) return null
+        return (
+            <span
+                className={`axl-hub__desk-badge${yourTurn ? ' is-turn' : ''}`}
+                title={yourTurn
+                    ? `Waiting for you — ${count} unfinished here`
+                    : `${count} unfinished here`}
+            >
+                {count}
+            </span>
         )
     }
 
@@ -372,6 +402,7 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
                             >
                                 <AgentGlyph agentKey={desk.agentKey} icon={AGENTS[desk.agentKey]?.icon} size={13} />
                                 <span>{desk.lead}</span>
+                                {deskBadge(desk)}
                             </button>
                         ))}
                         <button
@@ -403,6 +434,7 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
                                     <AgentGlyph agentKey={desk.agentKey} icon={AGENTS[desk.agentKey]?.icon} size={32} />
                                 </span>
                                 <span className="axl-hub__option-lead">{desk.lead}</span>
+                                {deskBadge(desk)}
                             </button>
                         ))}
                         {/* Trade by hand — last card, so the desks (where the work usually starts)

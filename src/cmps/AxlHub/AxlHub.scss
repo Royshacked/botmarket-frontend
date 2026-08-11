@@ -835,5 +835,28 @@
 
 @media (prefers-reduced-motion: reduce) {
     .agent-intro { animation: none; }
+
 }
 
+// Unfinished work left at this desk — the route badge. Same visual language as the social-chat unread
+// count, because it means the same thing to the reader: something here is waiting.
+//
+// Dim = in progress. `is-turn` brightens it to the accent, because a thread awaiting an ANSWER is the
+// only one the user can act on and must not read as ambient.
+.axl-hub__desk-badge {
+    margin-left: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1;
+    padding: 2px 6px;
+    border-radius: 10px;
+    min-width: 17px;
+    text-align: center;
+    background: var(--surface-3, rgba(255, 255, 255, 0.12));
+    color: var(--color-text-dim, #94a3b8);
+
+    &.is-turn {
+        background: var(--accent);
+        color: #fff;
+    }
+}
