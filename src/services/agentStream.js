@@ -27,7 +27,14 @@ import { postSSE, buildStreamHandlers } from './sse.util.js'
 export function streamAgent(base, body, opts = {}) {
     return postSSE(
         `${API_BASE}/${base}/stream`,
-        body,
+        // `turnId` rides on every agent turn, injected HERE rather than by each of the seven callers:
+        // this is the one funnel every SSE request already passes through, and a header the server
+        // reads from `req.body.turnId` must not depend on each service remembering to add it.
+        //
+        // It exists so STOP can be told apart from WALKING AWAY. Closing the connection used to mean
+        // "abort", which killed any turn the user navigated away from; now it means only "nobody is
+        // watching", and stopping is a separate call naming this id.
+        { ...body, ...(opts.turnId ? { turnId: opts.turnId } : {}) },
         buildStreamHandlers(opts),
         { signal: opts.signal },
     )

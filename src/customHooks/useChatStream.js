@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useTextPace } from './useTextPace.js'
 import { useTypewriter } from './useTypewriter.js'
 import { makeStreamHandlers } from './useStreamStop.js'
+import { newTurnId } from '../services/turn.service.js'
 import { toolStatusLabel } from '../services/toolStatusLabels.js'
 import { reasoningPulse, pruneSamples } from './reasoningPulse.js'
 
@@ -100,7 +101,9 @@ export function useChatStream({ threadPhases = false } = {}) {
 
     const { paceCps } = useTextPace()
     const { enqueue: enqueueToken, start: startDrain, stop: stopDrain, finish: finishDrain, drainQueue } = useTypewriter(setMessages, paceCps)
-    const { handleStop, freezeError } = makeStreamHandlers({ abortRef, stopDrain, setMessages, setIsLoading })
+    // The id of the turn in flight, so Stop can name what to stop. Minted per send in begin().
+    const turnRef = useRef(null)
+    const { handleStop, freezeError } = makeStreamHandlers({ abortRef, stopDrain, setMessages, setIsLoading, turnRef })
 
     /**
      * Optimistically append the user turn + a streaming assistant placeholder,
@@ -125,12 +128,20 @@ export function useChatStream({ threadPhases = false } = {}) {
 
         const ctrl = new AbortController()
         abortRef.current = ctrl
+        // Sent with the request so the server can be told to stop THIS turn. Without it a turn still
+        // streams; it just cannot be stopped once the connection is closed.
+        turnRef.current = newTurnId()
         // Fixed baseline for this stream's phase-heading de-dup — mirrors the original
         // per-send closure capture (the model re-emits a phase tag every turn, so a
         // heading is only inserted when the phase differs from where this send started).
         const sendPhase = phaseRef.current
-        const handlers = _buildHandlers(sendPhase, extraHandlers)
-        return { signal: ctrl.signal, handlers }
+        // The turn id travels INSIDE the handlers bag on purpose. Every caller already spreads that bag
+        // into the service's opts, and streamAgent reads `opts.turnId` from there — so all seven desks
+        // gain a stoppable turn without a single call site changing. A field each service had to
+        // remember to forward would have been forgotten by one of them, and the failure is silent: the
+        // turn simply becomes unstoppable.
+        const handlers = { ..._buildHandlers(sendPhase, extraHandlers), turnId: turnRef.current }
+        return { signal: ctrl.signal, handlers, turnId: turnRef.current }
     }
 
     // ── Resume (▶) — shared across every agent chat ────────────────────────────────
@@ -191,8 +202,11 @@ export function useChatStream({ threadPhases = false } = {}) {
 
         const ctrl = new AbortController()
         abortRef.current = ctrl
-        const handlers = _buildHandlers(phaseRef.current, extraHandlers)
-        return { signal: ctrl.signal, handlers, base }
+        // Sent with the request so the server can be told to stop THIS turn. Without it a turn still
+        // streams; it just cannot be stopped once the connection is closed.
+        turnRef.current = newTurnId()
+        const handlers = { ..._buildHandlers(phaseRef.current, extraHandlers), turnId: turnRef.current }
+        return { signal: ctrl.signal, handlers, base, turnId: turnRef.current }
     }
 
     // Shared SSE handler bag for begin() and beginContinue(). `sendPhase` fixes the
@@ -356,7 +370,7 @@ export function useChatStream({ threadPhases = false } = {}) {
         isLoading, streamStatus,
         phase, setPhase,
         begin, beginContinue, finishStreaming, endStream, reset,
-        handleStop, freezeError, restoreStopped,
+        handleStop, freezeError, restoreStopped, turnRef,
         canResume, resumeBase, finalizeResumeHistory,
         reasoningRef,
         reasoningPulse: reasoningPulseValue,
