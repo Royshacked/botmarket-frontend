@@ -844,6 +844,9 @@
 //
 // Dim = in progress. `is-turn` brightens it to the accent, because something waiting on an ANSWER is a
 // different thing from something still running, and must not read as ambient.
+// It PULSES because it is the one live thing on the screen: the other doors are dimmed while this
+// desk holds the work, so the mark that says "you are still mid-something here" has to be the thing
+// the eye lands on. A still dot beside three greyed cards reads as another piece of dead chrome.
 .axl-hub__desk-dot {
     display: inline-block;
     width: 7px;
@@ -852,18 +855,40 @@
     border-radius: 50%;
     flex: 0 0 auto;
     background: var(--color-text-dim, #94a3b8);
+    animation: axlDeskDotPulse 2.4s ease-in-out infinite;
 
     &.is-turn {
         background: var(--accent);
         box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+        // Waiting on an ANSWER — a quicker beat and a halo that breathes, so it reads as asking
+        // rather than merely running.
+        animation: axlDeskDotPulseTurn 1.8s ease-in-out infinite;
     }
 }
 
-// A door closed because another desk is holding an agent it needs. Dimmed, but NOT disabled: clicking
-// it takes the user to whatever holds it, which is both the explanation and the way to finish or clear
-// it. A greyed control that does nothing is the worst version of this — the user cannot tell a rule
-// from a bug.
+@keyframes axlDeskDotPulse {
+    0%, 100% { opacity: 0.55; }
+    50%      { opacity: 1; }
+}
+
+@keyframes axlDeskDotPulseTurn {
+    0%, 100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent); }
+    50%      { box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 8%,  transparent); }
+}
+
+// A door CLOSED because another desk is holding an agent it needs. The panel behind it is a
+// singleton, so opening it would clobber a run the user has not finished — it is dimmed and it does
+// not respond. What keeps it from being the worst version of this (a greyed control the user cannot
+// tell from a bug) is the title: it names the desk holding the agent and what to do about it. Hence
+// aria-disabled rather than the `disabled` attribute — a natively disabled button shows no tooltip.
 .axl-hub__option.is-locked,
 .axl-hub__desk-chip.is-locked {
     opacity: 0.45;
+    cursor: not-allowed;
+
+    &:hover { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .axl-hub__desk-dot { animation: none; }
 }

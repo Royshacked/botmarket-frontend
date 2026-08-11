@@ -40,10 +40,12 @@
     &__btn { white-space: nowrap; }
 
     // Generated-but-not-armed. The one state where doing nothing means nothing gets watched, so it
-    // is a deliberate stop with two explicit exits rather than a toast that scrolls away.
+    // is a deliberate stop with two explicit exits rather than a toast that scrolls away. The two
+    // exits stay STACKED (this is a stop, and stacking is what makes it read as one) — but each is
+    // sized by its own label, like every other action button. Same `stretch` slip as __generate.
     &__armed {
         flex-direction: column;
-        align-items: stretch;
+        align-items: center;
         gap: 6px;
     }
 
@@ -60,9 +62,15 @@
 }
 
 // Generate + the readiness hint, at the foot of the conversation rather than in the preview.
+//
+// COLUMN because the hint belongs under the button, not beside it — but `center`, not `stretch`.
+// Stretching made this the one action button in the app sized by its ROW instead of its label: a
+// full-width slab where Generate call, Update list and every other action is a pill. That is the
+// same rule portfolio-panel__review-btn states for itself (`flex: 0 0 auto`, "sized by its own
+// label, NOT by the row") — an ancestor's align-items was quietly overriding it.
 .mentor-panel__generate {
     flex-direction: column;
-    align-items: stretch;
+    align-items: center;
     gap: 5px;
 }
 

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { mentorService } from '../../services/mentor/mentor.service.remote.js'
-import { threadsService, newThreadId } from '../../services/threads/threads.service.remote.js'
+import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote.js'
 import { ChatBubble } from '../ChatBubble.jsx'
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
@@ -253,7 +253,8 @@ export function MentorPanel({
         setCandidates(null)
         setGenerated(null)
         setEditDirty(false)
-        threadIdRef.current = newThreadId()
+        // Clear is not walking away — the draft goes with the conversation. See clearThread.
+        clearThread(threadIdRef)
     }
 
     // Picking a candidate makes it the live worksheet locally AND tells Mentor in words, so the
@@ -286,8 +287,11 @@ export function MentorPanel({
                 ? await mentorService.updateSetup(editingSetupId, pendingSetup, accounts, mainAccountId, state)
                 : await mentorService.generateSetup(pendingSetup, accounts, mainAccountId, state)
 
+            // AWAITED: arming (or leaving it waiting) ends the desk run, which deletes its remaining
+            // DRAFTS — and this thread is one of them until the link lands. The Arm click is a human
+            // beat away, so the race is unlikely rather than impossible; ordering it is free.
             if (!isEditing && saved?.id) {
-                threadsService.linkThread(threadIdRef.current, { subjectType: 'setup', subjectId: saved.id, artifactName: pendingSetup.asset ?? null })
+                await threadsService.linkThread(threadIdRef.current, { subjectType: 'setup', subjectId: saved.id, artifactName: pendingSetup.asset ?? null })
                 threadIdRef.current = newThreadId()
             }
             // Deliberately NOT returning to the hub yet: the setup exists but is not monitored, and

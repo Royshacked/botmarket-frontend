@@ -6,10 +6,17 @@
  * quietly became invisible. This is the mapping from "the user has 2 unfinished threads" to "which
  * routes should say something".
  *
- * A desk claims every agent in its STEPS, not just the one it enters at. That is the whole reason a
- * badge is needed on the desk rather than on the agent: leave a portfolio build parked at Argus and
- * the thing left unfinished is the BUILD — the user thinks in desks, and "Create a list" is not where
- * they left off even though Argus is where the conversation sits.
+ * Two different questions, deliberately answered from two different fields:
+ *
+ *   the MARKER (deskWork) reads `pipeline` — the ONE desk the user actually left. They walked out of
+ *   one door, so exactly one route says so.
+ *
+ *   the LOCK (blockedDesks) reads `agent` — every desk that NEEDS the agent now busy elsewhere. A
+ *   panel is a singleton, so a build parked at Argus closes every other door to Argus.
+ *
+ * Keying both off `agent` is what made a single parked build light up three desks: the badge was
+ * answering the lock's question. The user thinks in desks — "Produce a watchlist" is not where they
+ * left off, even though Argus is where the conversation sits.
  */
 
 /** Every agent tab a desk covers. A step with `tab: null` is a real step with no chat behind it. */
@@ -20,17 +27,49 @@ export function deskAgents(desk) {
 }
 
 /**
+ * WHICH DESK a thread was left at — the one desk its marker belongs on.
+ *
+ * `pipeline` answers it outright, and is the only answer that can be right: the user left ONE desk,
+ * and marking every desk that happens to share the agent says they left three. A build parked at
+ * Argus is unfinished work at the desk it belongs to, not at "Produce a watchlist".
+ *
+ * A thread with NO pipeline was opened off any chain (a tab clicked directly, a thread reopened from
+ * history). It still belongs somewhere, and the honest home is the desk that is only that agent — of
+ * the desks entering at it, the shortest chain. Argus enters both the trade desk and the scan desk;
+ * a standalone Argus chat is the SCAN desk, because the trade desk is a chain the user never started.
+ *
+ * @returns {string|null} desk key, or null when no desk claims it
+ */
+export function deskOfThread(thread, desks) {
+    const agent = thread?.agent
+    if (!agent) return null
+    const list = Array.isArray(desks) ? desks : []
+    if (thread.pipeline) {
+        // Named its desk. Honour it even if that desk is gone from DESKS — a marker on a desk that no
+        // longer exists renders nowhere, which beats moving the thread to a desk it never ran on.
+        return thread.pipeline
+    }
+    const homes = list.filter(d => d?.entryTab === agent)
+    if (!homes.length) return null
+    return homes.reduce((a, b) => ((b?.steps?.length ?? 0) < (a?.steps?.length ?? 0) ? b : a)).key
+}
+
+/**
  * What this desk's badge should say.
  *
  * `yourTurn` outranks a plain count in the UI, so it is reported separately rather than folded in: a
  * desk with two running threads and one awaiting an answer is "your turn", because that is the only
  * one the user can act on.
  *
+ * `desks` is needed to place a thread that named no pipeline (see deskOfThread). Omitted, only threads
+ * that named this desk count — never a wrong desk, just a quieter one.
+ *
  * @returns {{ count:number, yourTurn:boolean, threads:object[] }} count 0 → render nothing
  */
-export function deskWork(threads, desk) {
-    const agents = new Set(deskAgents(desk))
-    const mine   = (Array.isArray(threads) ? threads : []).filter(t => agents.has(t?.agent))
+export function deskWork(threads, desk, desks = null) {
+    if (!desk?.key) return { count: 0, yourTurn: false, threads: [] }
+    const mine = (Array.isArray(threads) ? threads : [])
+        .filter(t => deskOfThread(t, desks ?? [desk]) === desk.key)
     return {
         count:    mine.length,
         yourTurn: mine.some(t => t?.yourTurn === true),

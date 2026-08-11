@@ -24,9 +24,13 @@ vi.mock('../../services/mentor/mentor.service.remote.js', () => ({
     },
     SETUPS_CHANGED: 'mentor-setups-changed',
 }))
+const discardThread = vi.fn()
 vi.mock('../../services/threads/threads.service.remote.js', () => ({
-    threadsService: { saveDraft: vi.fn(), linkThread: vi.fn(), getThread: vi.fn() },
+    threadsService: { saveDraft: vi.fn(), linkThread: vi.fn(), getThread: vi.fn(), discardThread: (...a) => discardThread(...a) },
     newThreadId: () => 't1',
+    // Mirrors the real helper (discard what was saved, mint a fresh id) so the panel's Clear is
+    // tested for what it DOES, not merely that it runs. The helper itself is unit-tested at source.
+    clearThread: (ref) => { if (ref?.current) discardThread(ref.current); if (ref) ref.current = 't2' },
 }))
 vi.mock('../../customHooks/useMicInput.js', () => ({
     useMicInput: () => ({ isRecording: false, isTranscribing: false, toggle: vi.fn(), cancel: vi.fn() }),

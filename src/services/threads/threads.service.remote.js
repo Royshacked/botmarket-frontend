@@ -9,7 +9,30 @@ const BASE = 'api/threads'
 // Client-minted thread id — subject-independent, exists before the artifact does.
 export const newThreadId = () => `thr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 
-export const threadsService = { saveDraft, linkThread, listThreads, listUnfinished, getThread, discardThread, pinThread }
+export const threadsService = { saveDraft, linkThread, listThreads, listUnfinished, getThread, discardThread, discardPipelineDrafts, pinThread }
+
+/**
+ * CLEAR a construction thread: throw away whatever was saved for it, and mint a fresh id to build on.
+ *
+ * WALKING AWAY and CLEARING are different acts, and only one of them leaves work behind. Every panel
+ * treated them the same — a new id, and the old draft left to TTL-expire — so a conversation the user
+ * had explicitly thrown away vanished from the panel but lived on the server for another fourteen
+ * days: the hub went on marking that desk as unfinished, and went on holding its agent's other doors
+ * closed, over a chat that no longer existed anywhere the user could see.
+ *
+ * Four panels need this same mechanism, so it lives here once rather than four times (the shared
+ * mechanism rule). Fire-and-forget, and safe on a thread that was never persisted — a conversation
+ * below the substantive floor was never written, and the delete simply matches nothing.
+ *
+ * The new id is written to the ref AND returned, so a caller can use whichever reads better.
+ */
+export function clearThread(threadIdRef) {
+    const spent = threadIdRef?.current
+    if (spent) threadsService.discardThread(spent)
+    const next = newThreadId()
+    if (threadIdRef) threadIdRef.current = next
+    return next
+}
 
 /**
  * Unfinished work across every desk — what the route badges read. Drafts only, each saying whether it
@@ -62,6 +85,15 @@ async function getThread(threadId) {
 
 async function discardThread(threadId) {
     try { return await httpService.delete(`${BASE}/${encodeURIComponent(threadId)}`) }
+    catch { return null }
+}
+
+/**
+ * A desk RUN finished — drop the drafts that fed it. Drafts only: the conversation that authored the
+ * artifact was linked to it and is reached by editing that artifact, not by resuming the desk.
+ */
+async function discardPipelineDrafts(pipeline) {
+    try { return await httpService.delete(`${BASE}/pipeline/${encodeURIComponent(pipeline)}`) }
     catch { return null }
 }
 

@@ -110,7 +110,8 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
     useEffect(() => {
         if (!pendingRoute || isLoading) return
         const t = setTimeout(() => {
-            _summon(pendingRoute.desk, pendingRoute.symbol, pendingRoute.edit, pendingRoute.opening, pendingRoute.adopt)
+            const { desk, ...hand } = pendingRoute
+            _summon(desk, hand)
             setPendingRoute(null)
         }, 900)
         return () => clearTimeout(t)
@@ -128,13 +129,20 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
     // sentence goes with them so the desk starts on the job instead of asking what brought them.
     // `adopt` says the portfolio desk must open on a book that ALREADY EXISTS somewhere else. It is a
     // mode, not a destination, which is why it rides beside the desk rather than being one.
-    function _summon(desk, symbol = null, edit = null, opening = null, adopt = false, resumeThreadId = null) {
+    // `resume` is the unfinished thread being walked back into — the whole thread, not just its id,
+    // because WHERE it opens is part of the answer (see the tab below).
+    function _summon(desk, { symbol = null, edit = null, opening = null, adopt = false, resume = null } = {}) {
         setSummoning(desk)
+        // A resumed conversation opens where it was LEFT, not where the desk starts. `entryTab` is the
+        // front door — right for a fresh arrival, wrong for a walk-back: the trade desk enters at
+        // Argus, so resuming a Mentor thread through it dropped the user at the end of a scan they
+        // were already finished with, and handed a Mentor threadId to Argus's panel besides.
+        const tab = (resume ? AGENTS[resume.agent]?.tab : null) ?? desk.entryTab
         timerRef.current = setTimeout(
-            () => onPick(desk.entryTab, {
+            () => onPick(tab, {
                 pipeline: desk.key, symbol,
                 ...(edit ? { edit } : {}), ...(opening ? { opening } : {}), ...(adopt ? { adopt: true } : {}),
-                ...(resumeThreadId ? { resumeThreadId } : {}),
+                ...(resume ? { resumeThreadId: resume.threadId } : {}),
             }),
             SUMMON_MS,
         )
@@ -156,7 +164,11 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
         const holder = blocked.get(desk.key)
         if (!holder) return null
         const owner = DESKS.find(d => d.key === holder.thread.pipeline)
-        return `${owner?.label ?? 'Another desk'} is using ${holder.agent} — go there to finish or clear it`
+        // The agent by its BRAND, which is the only name the user has ever seen it under — the raw key
+        // ("is using mentor") names an internal id at them. This title carries the whole explanation
+        // now that the card no longer responds to a click, so it has to read like a sentence.
+        const agent = AGENTS[holder.agent]?.brand ?? holder.agent
+        return `${owner?.label ?? 'Another desk'} is using ${agent} — go there to finish or clear it`
     }
 
     /**
@@ -171,7 +183,9 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
      * from something still in progress.
      */
     function deskBadge(desk) {
-        const { count, yourTurn } = deskWork(unfinished, desk)
+        // DESKS is passed so a thread that named no pipeline still finds its home desk — see
+        // deskOfThread. Without it a chat opened straight at a tab would be marked nowhere.
+        const { count, yourTurn } = deskWork(unfinished, desk, DESKS)
         if (!count) return null
         return (
             <span
@@ -187,25 +201,21 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
     /** The conversation this desk would pick up: its newest unfinished one. */
     function resumableThread(desk) {
         // `unfinished` arrives newest-first from the server, so the first match is the one the user was
-        // most recently in — which is what "where I left off" means to them.
-        return deskWork(unfinished, desk).threads[0] ?? null
+        // most recently in — which is what "where I left off" means to them. On the trade desk that is
+        // the Mentor thread, not the Argus one they walked past to reach it.
+        return deskWork(unfinished, desk, DESKS).threads[0] ?? null
     }
 
     function handleDeskPick(desk) {
         if (summoning || isLoading) return
-        // A closed door does not silently do nothing: the user is taken to what is holding it, which is
-        // both the explanation and the way to finish or clear it.
-        const holder = blocked.get(desk.key)
-        if (holder) {
-            const owner = DESKS.find(d => d.key === holder.thread.pipeline)
-            if (owner) _summon(owner)
-            return
-        }
+        // A closed door does not open. The panel behind it is a singleton and another desk is holding
+        // the agent, so entering would clobber a run the user has not finished. The card carries the
+        // reason (deskLockTitle) — the click itself has nothing to add.
+        if (blocked.has(desk.key)) return
         // Left something here → walk back INTO it. Going to a blank desk and making the user find the
         // conversation in a drawer is a step too many when the route already knows which one it is.
         const resume = resumableThread(desk)
-        if (resume) return _summon(desk, null, null, null, false, resume.threadId)
-        _summon(desk)
+        _summon(desk, resume ? { resume } : {})
     }
 
     // The pad opens straight away — there is no agent to summon, and a wait would sit between
@@ -444,6 +454,11 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
                                 className={`axl-hub__desk-chip axl-hub__desk-chip--${desk.hue}${blocked.has(desk.key) ? ' is-locked' : ''}`}
                                 onClick={() => handleDeskPick(desk)}
                                 disabled={isLoading}
+                                // aria-disabled, not the `disabled` attribute: a natively disabled
+                                // button shows no title tooltip in any browser, and the tooltip is the
+                                // only thing that tells a rule from a bug. handleDeskPick refuses the
+                                // click, so it is unclickable either way.
+                                aria-disabled={blocked.has(desk.key) || undefined}
                                 title={deskLockTitle(desk) ?? desk.label}
                             >
                                 <AgentGlyph agentKey={desk.agentKey} icon={AGENTS[desk.agentKey]?.icon} size={13} />
@@ -476,6 +491,7 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
                                 onMouseEnter={() => setHoveredDesk(desk)}
                                 onMouseLeave={() => setHoveredDesk(null)}
                                 disabled={isLoading}
+                                aria-disabled={blocked.has(desk.key) || undefined}
                             >
                                 <span className="axl-hub__option-icon">
                                     <AgentGlyph agentKey={desk.agentKey} icon={AGENTS[desk.agentKey]?.icon} size={32} />

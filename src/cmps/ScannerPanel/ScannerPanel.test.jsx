@@ -7,9 +7,14 @@ const sendStream = vi.fn().mockResolvedValue(undefined)
 vi.mock('../../services/scanner/scanner.service.remote.js', () => ({
     scannerService: { sendStream: (...a) => sendStream(...a) },
 }))
+const discardThread = vi.fn()
+const getThread     = vi.fn().mockResolvedValue(null)
 vi.mock('../../services/threads/threads.service.remote.js', () => ({
-    threadsService: { saveDraft: vi.fn(), getThread: vi.fn().mockResolvedValue(null) },
+    threadsService: { saveDraft: vi.fn(), getThread: (...a) => getThread(...a), discardThread: (...a) => discardThread(...a) },
     newThreadId:    () => 'thr_test',
+    // Mirrors the real helper (discard what was saved, mint a fresh id) so the panel's Clear is
+    // tested for what it DOES, not merely that it runs. The helper itself is unit-tested at source.
+    clearThread:    (ref) => { if (ref?.current) discardThread(ref.current); if (ref) ref.current = 'thr_test2' },
 }))
 vi.mock('../../customHooks/useMicInput.js', () => ({
     useMicInput: () => ({ isRecording: false, isTranscribing: false, toggle: vi.fn(), cancel: vi.fn() }),
@@ -165,5 +170,36 @@ describe('ScannerPanel — the research offer does not stack on the edit bar', (
 
         expect(onResearchList).toHaveBeenCalledTimes(1)
         expect(onResearchList.mock.calls[0][0].candidates.map(c => c.ticker)).toEqual(['MSFT', 'ASML'])
+    })
+})
+
+// ─── Clear throws the draft away, it does not just look away from it ─────────────
+// Reported: resumed an Argus conversation from the hub, cleared it, went back to Axl — and the trade
+// desk was still marked, with the portfolio and watchlist doors still shut behind it. Clear emptied
+// the panel and left the draft on the server, so every surface that reads /unfinished went on
+// describing a conversation the user had just thrown away.
+describe('ScannerPanel — clearing a construction thread', () => {
+    beforeEach(() => { discardThread.mockClear(); getThread.mockReset().mockResolvedValue(null) })
+
+    it('discards the RESUMED draft, so the desk stops claiming it is unfinished', async () => {
+        getThread.mockResolvedValue({ threadId: 'thr_left_at_argus', messages: [{ role: 'user', content: 'scan tech' }] })
+        const resumeRef = { current: null }
+        render(<ScannerPanel resumeRef={resumeRef} />)
+        await act(async () => { await resumeRef.current('thr_left_at_argus') })
+
+        await act(async () => { fireEvent.click(screen.getByTitle('Clear chat')) })
+
+        // The thread the user was actually in — not the fresh id the panel started life with.
+        expect(discardThread).toHaveBeenCalledWith('thr_left_at_argus')
+    })
+
+    it('a conversation with nothing saved behind it clears without a delete', async () => {
+        // Below the substantive floor nothing was ever written; the panel still has to clear cleanly.
+        render(<ScannerPanel />)
+        await waitFor(() => expect(screen.getByTitle('Clear chat')).toBeTruthy())
+        await act(async () => { fireEvent.click(screen.getByTitle('Clear chat')) })
+
+        // Its own unused id is all there is to discard, and deleting it matches nothing server-side.
+        expect(discardThread.mock.calls.every(([id]) => id === 'thr_test')).toBe(true)
     })
 })

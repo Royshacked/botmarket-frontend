@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { portfolioService } from '../../services/portfolio/portfolio.service.remote.js'
-import { threadsService, newThreadId } from '../../services/threads/threads.service.remote.js'
+import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote.js'
 import { showErrorMsg, eventBus, REVIEW_RESOLVED } from '../../services/event-bus.service'
 import { ChatBubble } from '../ChatBubble.jsx'
 import { readStoredModel } from '../modelOptions.js'
@@ -329,7 +329,8 @@ export function PortfolioPanel({
         setMessages([])
         setPendingPlan(null)
         latestMandateRef.current = null
-        threadIdRef.current = newThreadId()   // fresh construction thread; the abandoned draft TTL-expires
+        // Clear is not walking away — the draft goes with the conversation. See clearThread.
+        clearThread(threadIdRef)
     }
 
     // Resume an unfinished construction draft: restore its conversation + mandate and

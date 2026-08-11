@@ -269,6 +269,84 @@ describe('AxlHub — the opening turn that travels with them', () => {
     })
 })
 
+// ─── Walking back out of a desk, and back into it ────────────────────────────────
+// The reported case, end to end: enter the trade desk, pass Argus, get as far as Mentor, then click
+// back to Axl. What the hub owes the user at that moment is one mark on the desk they left, closed
+// doors to the agents that desk is holding, and — when they go back — the conversation they were
+// actually in.
+describe('AxlHub — the desk they left', () => {
+    // Newest first, exactly as /unfinished returns them: Mentor is where they stopped.
+    const MID_TRADE_DESK = [
+        { threadId: 'thr_mentor',  agent: 'mentor',  pipeline: 'trade', yourTurn: true,  updatedAt: 200 },
+        { threadId: 'thr_scanner', agent: 'scanner', pipeline: 'trade', yourTurn: false, updatedAt: 100 },
+    ]
+    const card = (lead) => screen.getByText(lead).closest('button')
+
+    async function landed(onPick = vi.fn()) {
+        listUnfinished.mockResolvedValue(MID_TRADE_DESK)
+        render(<AxlHub user={{}} onPick={onPick} />)
+        await act(async () => {})   // let the unfinished list arrive
+        return onPick
+    }
+
+    it('marks the ONE desk they left, not every desk sharing its agents', async () => {
+        await landed()
+        // Two threads, both the trade desk's: one mark, on the trade desk.
+        expect(document.querySelectorAll('.axl-hub__desk-dot')).toHaveLength(1)
+        expect(card('Trade an asset').querySelector('.axl-hub__desk-dot')).not.toBeNull()
+        for (const lead of ['Build a portfolio', 'Produce a watchlist', 'Work on your own trade']) {
+            expect(card(lead).querySelector('.axl-hub__desk-dot')).toBeNull()
+        }
+    })
+
+    it('closes every OTHER door to an agent the desk is holding — including Mentor’s', async () => {
+        // Mentor was the missing one: its drafts never persisted, so nothing held the assist desk and
+        // the door stood open onto a panel a live build was sitting in.
+        await landed()
+        for (const lead of ['Build a portfolio', 'Produce a watchlist', 'Work on your own trade']) {
+            expect(card(lead).className).toMatch(/is-locked/)
+            expect(card(lead).getAttribute('aria-disabled')).toBe('true')
+        }
+        expect(card('Trade an asset').className).not.toMatch(/is-locked/)
+        expect(card('Research a company').className).not.toMatch(/is-locked/)
+    })
+
+    it('a closed door does not open — the click does nothing at all', async () => {
+        const onPick = await landed()
+
+        await act(async () => { fireEvent.click(card('Work on your own trade')) })
+        await act(async () => { vi.advanceTimersByTime(5000) })
+
+        expect(onPick).not.toHaveBeenCalled()
+        // …and it says WHY, which is the only thing separating a rule from a bug.
+        // The agent by its brand, not its key: "is using mentor" names an internal id at the user.
+        expect(card('Work on your own trade').getAttribute('title')).toMatch(/Trading Desk is using Mentor/)
+    })
+
+    it('going back to the desk lands on MENTOR, where they left — not at the end of the scan', async () => {
+        const onPick = await landed()
+
+        await act(async () => { fireEvent.click(card('Trade an asset')) })
+        await act(async () => { vi.advanceTimersByTime(5000) })
+
+        // The trade desk's entryTab is 'scanner'. A walk-back must override it with the thread's own
+        // agent, or the user is dropped at the end of an Argus conversation they had finished with —
+        // and Argus's panel is handed a Mentor threadId it cannot resume.
+        expect(onPick).toHaveBeenCalledWith('mentor', {
+            pipeline: 'trade', symbol: null, resumeThreadId: 'thr_mentor',
+        })
+    })
+
+    it('a desk with nothing left at it still opens at its front door', async () => {
+        const onPick = await landed()
+
+        await act(async () => { fireEvent.click(card('Research a company')) })
+        await act(async () => { vi.advanceTimersByTime(5000) })
+
+        expect(onPick).toHaveBeenCalledWith('analyst', { pipeline: 'research', symbol: null })
+    })
+})
+
 // Thinking / working / fetching are ONE state. Axl's bubble no longer draws it at all — the mark
 // renders once below the thread (see ToolStatusChip.test.jsx). What's left here is the bubble's own
 // job: don't leave an empty bordered box where the wait used to be.

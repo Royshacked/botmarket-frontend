@@ -539,6 +539,25 @@ export function MainPage() {
         }, RETURN_MS)
     }
 
+    /**
+     * The desk FINISHED — its artifact exists — as opposed to being walked away from.
+     *
+     * Both end at the hub, which is why this is not folded into handleBackToAxl: the arrow beside the
+     * crumb means "I'll come back to this", and the drafts it leaves behind are the entire point of
+     * resume. Finishing is the opposite claim, and the conversations that fed the run are spent.
+     *
+     * Only the SCAFFOLDING goes. The thread that authored the artifact was linked to it (Mentor's
+     * setup, Atlas's book), and it is reached by editing that artifact — which is why the desk can be
+     * cleared without losing the reasoning behind what it produced. Deleting drafts cannot touch it.
+     *
+     * Fire-and-forget: the walk home takes RETURN_MS, and the hub reads /unfinished when it mounts at
+     * the end of it.
+     */
+    function finishPipeline() {
+        if (activePipeline) threadsService.discardPipelineDrafts(activePipeline)
+        handleBackToAxl()
+    }
+
     const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, tilt, tiltLoading } = useCalendarEvents()
     const { scans, loading: scansLoading, createScan, updateScan, deleteScan } = useScans()
     const { user } = useAuth()
@@ -1604,11 +1623,18 @@ export function MainPage() {
                 const portfolioName = plan?.name ?? newIdeas[0]?.portfolioName ?? null
                 const chatMessages = toChatHistory(messages)
                 // threadId links the construction draft thread to the new portfolio (clears its TTL).
-                portfolioService.saveChatState(portfolioId, chatMessages, mandate, thesis, threadId, portfolioName).catch(err =>
+                // AWAITED: finishPipeline below deletes this desk's remaining drafts, and this thread
+                // is one of them until the link lands. Losing that race would take the mandate
+                // conversation with it — the very thing "edit the book" is supposed to reopen.
+                await portfolioService.saveChatState(portfolioId, chatMessages, mandate, thesis, threadId, portfolioName).catch(err =>
                     console.error('[portfolio] chat state save failed', err)
                 )
             }
-            handleBackToAxl()   // plan generated — return to the axl hub
+            // The book exists → the run is over, not paused, so the desk's drafts go with it. An empty
+            // batch created nothing, and its conversation is then the only copy of the work: that goes
+            // home the ordinary way, still resumable.
+            if (newIdeas.length > 0) finishPipeline()
+            else handleBackToAxl()
         } catch (err) {
             console.error('[portfolio] batch create failed', err)
         }
@@ -2457,8 +2483,12 @@ export function MainPage() {
             // mid-pipeline screening has no scan to link to, so its draft TTL-expires unpinned —
             // the deliberate default until a run carries its threads to the artifact it produces
             // (docs/pipeline-service-design.md §8).
+            // AWAITED, not fired and forgotten: finishPipeline below deletes this desk's remaining
+            // DRAFTS, and until this link lands, this thread is still one of them. Losing that race
+            // would delete the conversation that built the list, and the link would then update a
+            // document that no longer exists — silently, since a no-match is not an error.
             if (threadId && saved.id) {
-                threadsService.linkThread(threadId, { subjectType: 'scan', subjectId: saved.id, artifactName: scan?.thesis ?? null })
+                await threadsService.linkThread(threadId, { subjectType: 'scan', subjectId: saved.id, artifactName: scan?.thesis ?? null })
             }
         }
 
@@ -2480,7 +2510,13 @@ export function MainPage() {
         // mid-pipeline only because Atlas was the only desk with a further step, and the trade desk
         // (a trading list, with Kairos still waiting) proved that wrong.
         const steps = stepsOf(activePipeline)
-        if (!hasDownstream(steps, resolveStepIndex(steps, 'scanner', pipelineStep))) handleBackToAxl()
+        if (!hasDownstream(steps, resolveStepIndex(steps, 'scanner', pipelineStep))) {
+            // FINISHED only if something was actually produced. createScan swallows its error and
+            // answers null, and a run that saved nothing has its conversation as the only copy of the
+            // work — ending the desk there would delete it. That is walking away, not finishing.
+            if (saved) finishPipeline()
+            else handleBackToAxl()
+        }
     }
 
     // Every sector screened -> the top of EACH sleeve pools into one Prometheus queue. Built from the
@@ -2565,8 +2601,12 @@ export function MainPage() {
         if (saved) setNewsTab('scans')
         // Same rule as handleGenerateList: a list with a desk still waiting on it is mid-pipeline
         // whether it was just built or just refined, so leaving for the hub pre-empts the hand-off.
+        // And likewise, an update that did not save is not a finished run — it goes home unspent.
         const steps = stepsOf(activePipeline)
-        if (!hasDownstream(steps, resolveStepIndex(steps, 'scanner', pipelineStep))) handleBackToAxl()
+        if (!hasDownstream(steps, resolveStepIndex(steps, 'scanner', pipelineStep))) {
+            if (saved) finishPipeline()
+            else handleBackToAxl()
+        }
     }
 
     // Resume an unfinished idea-building draft: restore the conversation + analysisState
@@ -2829,7 +2869,7 @@ export function MainPage() {
                             <KairosPanel
                                 pipeline={activePipeline}
                                 onLoadingChange={setKairosLoading}
-                                onGenerated={handleBackToAxl}
+                                onGenerated={finishPipeline}
                                 onPendingCall={setKairosPendingCall}
                                 onOpenArgus={handleOpenArgus}
                                 inbox={kairosInbox}
@@ -2853,7 +2893,7 @@ export function MainPage() {
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'mentor' ? 'flex' : 'none' }}>
                             <MentorPanel
                                 pipeline={activePipeline}
-                                onGenerated={handleBackToAxl}
+                                onGenerated={finishPipeline}
                                 seed={mentorSeed}
                                 inbox={mentorInbox}
                                 resumeRef={mentorResumeRef}

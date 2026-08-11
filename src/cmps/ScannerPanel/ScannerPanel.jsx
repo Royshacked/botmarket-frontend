@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { scannerService } from '../../services/scanner/scanner.service.remote.js'
-import { threadsService, newThreadId } from '../../services/threads/threads.service.remote.js'
+import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote.js'
 import { ChatBubble } from '../ChatBubble.jsx'
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
@@ -387,7 +387,9 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
         setEditingScanId(null)
         setEditDirty(false)
         setSelectedAngles(new Set())
-        threadIdRef.current = newThreadId()   // fresh construction thread; abandoned draft TTL-expires
+        // Clear is not walking away: the draft goes with the conversation, or the hub keeps offering
+        // to resume a scan the user just threw away — and keeps Argus's other doors closed over it.
+        clearThread(threadIdRef)
     }
 
     // Resume an unfinished scan-building draft: restore its conversation (+ last list)

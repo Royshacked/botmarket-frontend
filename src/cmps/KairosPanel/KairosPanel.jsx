@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { kairosService, CALLS_CHANGED } from '../../services/kairos/kairos.service.remote.js'
-import { threadsService, newThreadId } from '../../services/threads/threads.service.remote.js'
+import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote.js'
 import { ChatBubble } from '../ChatBubble.jsx'
 import { readStoredModel } from '../modelOptions.js'
 import { readStoredReasoning } from '../reasoningOptions.js'
@@ -279,7 +279,8 @@ export function KairosPanel({ pipeline = null, onLoadingChange, onGenerated, onP
         setPendingCall(null)
         setScanRequest(null)
         setEditDirty(false)
-        threadIdRef.current = newThreadId()   // fresh construction thread; abandoned draft TTL-expires
+        // Clear is not walking away — the draft goes with the conversation. See clearThread.
+        clearThread(threadIdRef)
     }
 
     // Auto mode: the conveyor moves the work on itself, so the offer below is never rendered and
@@ -343,8 +344,11 @@ export function KairosPanel({ pipeline = null, onLoadingChange, onGenerated, onP
             const saved = await kairosService.generateCall(payload, ideaAccounts, mainAccountId, { messages: persistedMessages(), draft: pendingCall })
             // Link the construction draft thread to the created call (clears its TTL so the
             // conversation lives with the call). saved = the persisted call doc (has .id).
+            // AWAITED: onGenerated ends the desk run, which deletes its remaining DRAFTS — and this
+            // thread is one of them until the link lands. Losing that race would delete the
+            // conversation that built the call, silently (a link that matches nothing is not an error).
             if (saved?.id) {
-                threadsService.linkThread(threadIdRef.current, { subjectType: 'call', subjectId: saved.id, artifactName: pendingCall.asset ?? null })
+                await threadsService.linkThread(threadIdRef.current, { subjectType: 'call', subjectId: saved.id, artifactName: pendingCall.asset ?? null })
             }
             threadIdRef.current = newThreadId()   // next build gets a fresh draft thread
             buildWindowRef.current = null          // window consumed
