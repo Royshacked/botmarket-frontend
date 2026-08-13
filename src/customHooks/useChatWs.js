@@ -18,6 +18,8 @@ const TYPE_LABELS = {
     call_expiry:        'Call update',
     call_manage:        'Manage position',
     call_reentry:       'Re-entry?',
+    setup_invalidation: 'Setup update',
+    setup_manage:       'Manage position',
     coverage_event:     'Coverage update',
     tilt_event:         'Sector view changed',
     coverage_refreshed: 'Research refreshed',

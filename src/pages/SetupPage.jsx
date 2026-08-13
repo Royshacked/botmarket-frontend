@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { TalosBadge } from '../cmps/AxlHub/AgentBadges.jsx'
 import { EntityPopupShell } from '../cmps/EntityCard/EntityPopupShell.jsx'
@@ -7,6 +8,8 @@ import { positionsForEntity } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { PriceChart } from '../cmps/PriceChart/PriceChart.jsx'
 import { ConvictionChip } from '../cmps/ConvictionChip/ConvictionChip'
 import { setupIcon, isSetupArmed, canArmSetup } from '../cmps/TradeIdeas/setupStatus.js'
+import { MANAGE_LABEL, canAcceptManage, manageProposalLine } from '../cmps/TradeIdeas/setupManage.js'
+import { isLivePosition } from '../services/entityStatus.js'
 import { useEntityPopup } from '../customHooks/useEntityPopup.js'
 import { usePositions } from '../customHooks/usePositions.js'
 import { mentorService } from '../services/mentor/mentor.service.remote'
@@ -107,12 +110,50 @@ function ScenarioSection({ scenario, index, armed, dead }) {
 }
 ScenarioSection.propTypes = { scenario: PropTypes.object, index: PropTypes.number, armed: PropTypes.bool, dead: PropTypes.bool }
 
+/**
+ * Talos's pending management proposal, and the two buttons that answer it. The twin of CallPage's
+ * ManagementCard — same shell, same verbs, one difference that matters:
+ *
+ * `add_leg` gets NO accept button. Talos has already built the order plan for a printing second leg
+ * and parked it awaiting confirmation, so that size is placed by confirming the ORDER (the same
+ * dialog a first entry uses). An Accept here would place it twice, so the card says where the
+ * action lives instead. The server refuses it too (`confirm_order`) — this is the half that keeps
+ * the user from being sent somewhere the app will then say no.
+ *
+ * `let_run` is a decision NOT to act, so it has nothing to accept either; it reads as a note.
+ */
+function ManagementCard({ pending, busy, onAccept, onDismiss }) {
+    const v = pending?.verdict
+    if (!v) return null
+    const acceptable = canAcceptManage(v)
+    return (
+        <div className={`kairos-panel__card kairos-panel__card--manage verdict--${v}`}>
+            <div className="kairos-panel__card-head">
+                <span className="kairos-panel__card-status">Talos suggests</span>
+                <span className={`monitor-journal__verdict verdict--${v}`}>{v}</span>
+            </div>
+            <div className="kairos-panel__card-row">{manageProposalLine(v, pending.proposal)}</div>
+            {pending.read && <div className="kairos-panel__card-note">{pending.read}</div>}
+            <div className="call-page__actions">
+                {acceptable && (
+                    <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" disabled={busy} onClick={() => onAccept(v)}>
+                        {MANAGE_LABEL[v]}
+                    </button>
+                )}
+                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" disabled={busy} onClick={onDismiss}>Dismiss</button>
+            </div>
+        </div>
+    )
+}
+ManagementCard.propTypes = { pending: PropTypes.object, busy: PropTypes.bool, onAccept: PropTypes.func.isRequired, onDismiss: PropTypes.func.isRequired }
+
 export function SetupPage() {
     // Polled because Talos writes to monitor_state (memo + timeline) while the window is open.
     const { id, entity: setup, error, refresh } = useEntityPopup(
         'setup', mentorService.getSetup, { pollMs: 20_000, notFound: 'Setup not found' },
     )
     const { positions, refresh: refreshPositions, closePosition } = usePositions()
+    const [busy, setBusy] = useState(false)
 
     if (error || !setup) return <EntityPopupShell error={error} loading={!setup} />
 
@@ -124,6 +165,14 @@ export function SetupPage() {
         const next = isSetupArmed(setup.status) ? mentorService.disarmSetup : mentorService.armSetup
         try { await next(id); await refresh() }
         catch (e) { console.error('[setup-page] arm toggle failed', e) }
+    }
+    // Accept / dismiss the management card. Refresh either way: accepting writes stop.current and
+    // clears the card, dismissing clears it — both change what this page should be showing.
+    async function act(action) {
+        setBusy(true)
+        try { await mentorService.actOnSetup(id, action); await refresh() }
+        catch (e) { console.error('[setup-page] act failed', e) }
+        finally { setBusy(false) }
     }
 
     // Positions belonging to THIS setup — matched by broker linkage, not by symbol. Talos stamps
@@ -162,6 +211,15 @@ export function SetupPage() {
                 </div>
 
                 <div className="idea-dialog__conditions setup-page__panel">
+                    {/* First in the column on purpose: a pending proposal is the only thing here
+                        that is waiting on the user. The plan below it isn't going anywhere. */}
+                    {isLivePosition(setup.status) && setup.position_state?.pending_action && (
+                        <ManagementCard
+                            pending={setup.position_state.pending_action} busy={busy}
+                            onAccept={v => act(v)} onDismiss={() => act('dismiss')}
+                        />
+                    )}
+
                     {setup.thesis && <p className="setup-page__thesis">{setup.thesis}</p>}
 
                     <ConditionRow label="Always" conditions={setup.conditions} />

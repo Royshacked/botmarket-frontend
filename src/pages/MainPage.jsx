@@ -39,7 +39,7 @@ import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.rem
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
 import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
-import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST } from '../services/event-bus.service'
+import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
 import { adoptService } from '../services/adopt/adopt.service.remote.js'
 import { AdoptBookGrid } from '../cmps/AdoptBook/AdoptBookGrid.jsx'
@@ -948,6 +948,8 @@ export function MainPage() {
     ideasRef.current = ideas
     const callsRef = useRef(calls)
     callsRef.current = calls
+    const setupsRef = useRef(setups)
+    setupsRef.current = setups
     // Read by the card listeners below, which are registered once and so can't close over state.
     const activeTabRef = useRef(activeTab)
     activeTabRef.current = activeTab
@@ -1071,6 +1073,20 @@ export function MainPage() {
         return eventBus.on(CALL_EXPIRY_EDIT, ({ callId }) => {
             const call = callsRef.current.find(c => c.id === callId)
             if (call) handleEditCall(call)
+        })
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Setup-invalidation card "Re-draw it" → reopen the setup in Mentor's chat, the same pipeline as
+    // the Setups pencil (handleEditSetup restores chat_state + the marked accounts, and "Update
+    // setup" re-arms Talos). The Kairos twin of this is CALL_EXPIRY_EDIT above.
+    //
+    // Unresolvable ids fall back to the Mentor tab rather than a dead click — same rule as
+    // SETUP_CONFIRM_OPEN. A setup deleted since the card was posted is the ordinary case.
+    useEffect(() => {
+        return eventBus.on(SETUP_INVALIDATION_EDIT, ({ setupId }) => {
+            const setup = setupsRef.current?.find(s => s.id === setupId)
+            if (setup) handleEditSetup(setup)
+            else setActiveTab('mentor')
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

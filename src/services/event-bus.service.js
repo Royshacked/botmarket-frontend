@@ -23,6 +23,11 @@ export const CALL_CONFIRM_OPEN         = 'call-confirm-open'
 // thesis (re-arms the monitor on save). A stale thesis is the invalidation axis, not a status
 // (terminal) calls — updateKairosCall re-arms to 'waiting' regardless of prior status.
 export const CALL_EXPIRY_EDIT          = 'call-expiry-edit'
+// Setup-invalidation card "Re-draw it" → reopen the setup in Mentor's chat to re-map it, the same
+// move CALL_EXPIRY_EDIT makes for a call. Separate from that one for the same reason
+// SETUP_CONFIRM_OPEN is separate from ENTRY_CONFIRM_OPEN: the entity is resolved out of the setups
+// list, which calls are not in.
+export const SETUP_INVALIDATION_EDIT   = 'setup-invalidation-edit'
 // Entry-confirm card "Edit" → reopen the idea in its chat to change it (idea → building).
 export const ENTRY_CONFIRM_EDIT        = 'entry-confirm-edit'
 // Entry-confirm card "Dismiss" → park the triggered idea back to 'waiting' (re-armable).

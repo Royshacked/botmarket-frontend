@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 // The call pop-out (Confirm entry / Accept edit / Delete live there) — one opener, shared
 // with the Calls list, so the window name and size can't drift between the two entry points.
-import { openCallPopup } from '../TradeIdeas/tradeIdea.utils.js'
-import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST } from '../../services/event-bus.service'
+import { openCallPopup, openSetupPopup } from '../TradeIdeas/tradeIdea.utils.js'
+import { manageVerb } from '../TradeIdeas/setupManage.js'
+import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST } from '../../services/event-bus.service'
 import { manualService } from '../../services/manual/manual.service.remote'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
@@ -47,7 +48,15 @@ function ResolvedChip({ agent, outcome, asset, reason, qualifier = null, reopen 
 // standard TWO-button footer — the primary "do something" + Dismiss. Collapses to the shared
 // ResolvedChip once resolved. Strictly two buttons: any finer choice lives in the surface the
 // primary opens. `primaryLabel` mirrors msg.actions.primary.label (backend), with a card fallback.
-function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = null, body, primaryLabel, onPrimary, onResolve, onDismiss, msg, resolvedLabels = {}, reopenOnDone = false, primaryDisabled = false }) {
+//
+// `actionless` renders the same card WITHOUT the footer — the frontend half of the backend's rule
+// that `actions` is what makes a message actionable (chat.service cardLifecycle: no actions → no
+// `status`, so there is no lifecycle to drive). Some monitor cards are deliberately statements
+// rather than requests — Talos's `ran_away` / `invalidated_fyi` / `let_run` all say "this happened,
+// nothing is being asked of you" — and a Dismiss on those would invent a decision the card isn't
+// making. Opt-in per card rather than derived from `msg.actions` here, so older history posted
+// before a producer set actions keeps the buttons it has always rendered.
+function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = null, body, primaryLabel, onPrimary, onResolve, onDismiss, msg, resolvedLabels = {}, reopenOnDone = false, primaryDisabled = false, actionless = false }) {
     const { resolved, status, outcome } = readResolution(msg)
     if (resolved) {
         const label  = resolvedLabels[outcome] ?? (status === 'done' ? '✓ Done' : 'Dismissed')
@@ -61,13 +70,15 @@ function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = n
             <CardAgentTag agent={agent} />
             <div className="social-chat__invalidation-alert-header">{heading}</div>
             {body && <div className="social-chat__invalidation-alert-reason">{body}</div>}
-            <div className="social-chat__invalidation-alert-actions">
-                <button className="social-chat__invalidation-alert-btn" onClick={onPrimary} disabled={primaryDisabled}>{label}</button>
-                <button
-                    className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
-                    onClick={dismiss}
-                >Dismiss</button>
-            </div>
+            {!actionless && (
+                <div className="social-chat__invalidation-alert-actions">
+                    <button className="social-chat__invalidation-alert-btn" onClick={onPrimary} disabled={primaryDisabled}>{label}</button>
+                    <button
+                        className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
+                        onClick={dismiss}
+                    >Dismiss</button>
+                </div>
+            )}
         </div>
     )
 }
@@ -165,6 +176,10 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                                 ? <CallExpiryBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'call_manage' && msg.payload
                                 ? <CallManageBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
+                                : msg.type === 'setup_invalidation' && msg.payload
+                                ? <SetupInvalidationBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
+                                : msg.type === 'setup_manage' && msg.payload
+                                ? <SetupManageBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'call_reentry' && msg.payload
                                 ? <CallReentryBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'coverage_event' && msg.payload
@@ -431,6 +446,93 @@ export function CallManageBubble({ msg, onClose, onResolve }) {
     return (
         <NotificationCard
             agent={AGENTS.kairos} kind="manage" heading={`Manage ${asset} · ${verb}`} asset={asset} qualifier={verb} body={read || msg.content}
+            primaryLabel={msg.actions?.primary?.label ?? 'Review'} onPrimary={handlePrimary}
+            onResolve={onResolve} msg={msg}
+            resolvedLabels={{ opened: '✓ Opened' }}
+        />
+    )
+}
+
+// "Your setup's plan is no longer worth what it was" — Talos's invalidation card, Mentor's twin of
+// CallExpiryBubble. FOUR events arrive on this one type and they are not the same card:
+//
+//   invalidated  the premise broke and the user asked to be given the chance to re-draw → primary
+//                reopens the setup in the Mentor chat that built it (SETUP_INVALIDATION_EDIT).
+//   stale_map    Talos's own read — the levels have drifted from where structure sits now. Same
+//                route; the ask is the same re-draw.
+//   ran_away / invalidated_fyi  statements, not requests (price left on the favourable side; or the
+//                user chose notify_only). The backend sends them with NO actions, so they render
+//                actionless — no button to press and nothing to resolve.
+//
+// `scenario` names WHICH way in died: a setup can hold rivals, and one premise breaking is not the
+// setup breaking. It rides the qualifier so the collapsed chip still says which one it was.
+const SETUP_INVALIDATION_COPY = {
+    ran_away:        { head: 'Missed',        kind: 'missed'   },
+    invalidated:     { head: 'Invalidated',   kind: 'fired'    },
+    invalidated_fyi: { head: 'Invalidated',   kind: 'fired'    },
+    stale_map:       { head: 'Levels drifted', kind: 'drifting' },
+}
+export function SetupInvalidationBubble({ msg, onClose, onResolve }) {
+    const { setupId, asset, event, scenario, remaining } = msg.payload
+    const copy      = SETUP_INVALIDATION_COPY[event] ?? { head: 'Needs a look', kind: 'fired' }
+    const actionless = !msg.actions
+    // What still stands matters as much as what died — carried on the collapsed chip too, so a
+    // scrolled-back card doesn't read as "the trade is dead" when another way in is still armed.
+    const survivors = remaining > 0 ? `${remaining} still armed` : null
+    const qualifier = scenario ?? survivors
+    // Both ride the HEADING as well, the same way EntryConfirmBubble names which premise fired: the
+    // qualifier alone only surfaces once the card has collapsed, and which way in died is the first
+    // thing to read, not the last.
+    const heading = (
+        <>{copy.head} &middot; {asset}
+            {scenario  && <span className="social-chat__invalidation-alert-tag"> &middot; {scenario}</span>}
+            {survivors && <span className="social-chat__invalidation-alert-tag"> &middot; {survivors}</span>}
+        </>
+    )
+
+    function handlePrimary() {
+        onResolve?.(msg.id, { status: 'done', outcome: 'editing' })
+        eventBus.emit(SETUP_INVALIDATION_EDIT, { setupId })
+        onClose?.()
+    }
+
+    return (
+        <NotificationCard
+            agent={AGENTS.mentor} kind={copy.kind} heading={heading} asset={asset}
+            qualifier={qualifier} body={msg.content} actionless={actionless}
+            primaryLabel={msg.actions?.primary?.label ?? 'Re-draw it'} onPrimary={handlePrimary}
+            onResolve={onResolve} msg={msg}
+            resolvedLabels={{ editing: '✓ Opened in chat' }}
+        />
+    )
+}
+
+// "Talos wants to change something about a live setup position" — Mentor's twin of CallManageBubble.
+// Primary opens the setup pop-out, where the proposal's Accept/Dismiss buttons are (and the position,
+// and Talos's journal). `let_run` is a decision NOT to act, posted without actions, so it renders as
+// a statement.
+//
+// `add_leg` is the exception, and routes somewhere else entirely: Talos has already built the order
+// plan for the printing leg and parked it awaiting confirmation, so what the user needs is the ORDER
+// dialog, not the management card. Same destination as the entry card — and the server refuses
+// add_leg as a manage action for the same reason, so a pop-out route here would only lead to a no.
+export function SetupManageBubble({ msg, onClose, onResolve }) {
+    const { setupId, asset, verdict, read } = msg.payload
+    // The verdict vocabulary is shared with the pop-out's management card (setupManage.js) — one
+    // table, so the card and the surface it opens can't disagree about what a verdict is called.
+    const verb = manageVerb(verdict)
+
+    function handlePrimary() {
+        onResolve?.(msg.id, { status: 'done', outcome: 'opened' })
+        if (verdict === 'add_leg') eventBus.emit(SETUP_CONFIRM_OPEN, { setupId })
+        else                       openSetupPopup(setupId)
+        onClose?.()
+    }
+
+    return (
+        <NotificationCard
+            agent={AGENTS.mentor} kind="manage" heading={`Manage ${asset} · ${verb}`} asset={asset}
+            qualifier={verb} body={read || msg.content} actionless={!msg.actions}
             primaryLabel={msg.actions?.primary?.label ?? 'Review'} onPrimary={handlePrimary}
             onResolve={onResolve} msg={msg}
             resolvedLabels={{ opened: '✓ Opened' }}

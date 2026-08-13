@@ -24,6 +24,7 @@ export const mentorService = {
     getSetup,
     armSetup,
     disarmSetup,
+    actOnSetup,
     deleteSetup,
 }
 
@@ -80,6 +81,16 @@ function armSetup(id) { return api.patch(id, { status: 'looking' }) }
 
 /** Disarm: back to 'waiting'. Talos stops watching; the setup is kept. */
 function disarmSetup(id) { return api.patch(id, { status: 'waiting' }) }
+
+/**
+ * Act on Talos's in-position management card: accept the pending proposal (`move_stop` |
+ * `take_partial` | `exit_now`) or `dismiss` it and keep the position running.
+ *
+ * `add_leg` is NOT an action here — Talos parks that leg as a pending ORDER, so it is taken by
+ * confirming the order like any other entry. The server answers `confirm_order` if asked, rather
+ * than placing the size a second time.
+ */
+function actOnSetup(id, action) { return api.post(`/${encodeURIComponent(id)}/action`, { action }) }
 
 /** Delete. A live position is delete-locked server-side (409-ish `in_position`). */
 function deleteSetup(id) { return api.remove(id) }
