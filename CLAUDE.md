@@ -15,8 +15,18 @@ repo (botmarket-backend) holds the domain spec — see its README.md / APP_SPEC.
   second copy, look for the existing one and extend it (props/variants/children). Nuance:
   share the shell, not the content — per-domain copy/payload stays with its caller (e.g. one
   `NotificationCard` shell, but each agent builds its own card body).
+- Opening an entity for edit/review READS it by id — `resolveEntity(kind, id)` in
+  `src/services/entityResolve.js`, which goes React → service → HTTP → router → controller →
+  service → Mongo and back. NEVER resolve one out of a list this client holds, and never fall
+  back to a stale row when the read fails: a social-chat card can arrive before its list has
+  loaded, and an empty list is indistinguishable from a failed fetch. That is exactly how a
+  portfolio review got authored against no holdings — Atlas invented the item ids and every
+  accepted change came back `not_found`. A failed read is `null`; tell the user.
 - Obey the Rules of Hooks: hooks are unconditional and top-level, same order every render. Changing
   a hook's count/order breaks Fast Refresh and remounts.
+- A `[]`-dep `eventBus.on(...)` handler closes over FIRST-RENDER state. If it needs live state,
+  read a ref (`positionsRef`, `workspaceRef`) or fetch — never call a render-scoped function that
+  reads a list, and never silence the exhaustive-deps warning without doing one of those.
 - SCSS uses BEM-ish names: `.cmp__element--modifier`; styles live in `src/assets/styles/cmps/` or
   beside the component. Prefer CSS variables (`var(--...)`) over hardcoded colors.
 - Don't fire authed API calls while logged out — gate on `user` (an early 401 triggers the
