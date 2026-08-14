@@ -4,6 +4,7 @@ import { AI_MODEL_KEY } from '../services/aiPrefKeys.js'
 // registry (services/llmModels.js); changing the list here means changing it there.
 export const MODEL_OPTIONS = [
     { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', short: 'Haiku 4.5' },
+    { id: 'claude-sonnet-5',           label: 'Claude Sonnet 5',   short: 'Sonnet 5' },
     { id: 'claude-sonnet-4-6',         label: 'Claude Sonnet 4.6', short: 'Sonnet 4.6' },
     { id: 'claude-opus-4-8',           label: 'Claude Opus 4.8',   short: 'Opus 4.8' },
     { id: 'claude-opus-5',             label: 'Claude Opus 5',     short: 'Opus 5' },
