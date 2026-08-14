@@ -4,8 +4,6 @@ import { mentorService } from '../../services/mentor/mentor.service.remote.js'
 import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote.js'
 import { ChatBubble } from '../ChatBubble.jsx'
 import { readStoredModel } from '../modelOptions.js'
-import { readStoredReasoning } from '../reasoningOptions.js'
-import { readStoredRoutingMode } from '../routingModeOptions.js'
 import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
 import { firstItem } from '../../services/pipeline/artifact.js'
 import { useSeedTurn } from '../../customHooks/useSeedTurn.js'
@@ -147,9 +145,7 @@ export function MentorPanel({
         // cleared together so a second send cannot re-announce a name as newly handed over.
         const candidate = seedRef.current; seedRef.current = null
         return {
-            model:           readStoredModel('mentorModel'),
-            reasoningEffort: readStoredReasoning('mentorReasoning'),
-            routingMode:     readStoredRoutingMode('mentorRoutingMode'),
+            model:           readStoredModel(),
             accounts,
             mainAccountId,
             chatState: { active_asset: draft?.asset || candidate?.ticker || '', draft, coverage },

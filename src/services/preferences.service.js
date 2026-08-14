@@ -12,6 +12,7 @@
 import { httpService } from './http.service'
 import { initTheme, initAccent } from './themeService'
 import { initDesign } from './designService'
+import { AI_PREF_KEYS, LEGACY_AI_PREF_KEYS, migrateAiPrefs } from './aiPrefKeys'
 
 // Explicit allowlist — only these keys sync. Keeps unrelated localStorage
 // (loggedinUser, popup-idea-*, …) out of the account preferences blob.
@@ -26,13 +27,13 @@ const PREF_KEYS = [
     'design',
     // chat text streaming speed
     'chatTextPaceCps',
-    // per-agent AI settings (model / reasoning / routing)
-    'ideaModel', 'ideaReasoning', 'ideaRoutingMode',
-    'scannerModel', 'scannerReasoning', 'scannerRoutingMode',
-    'portfolioModel', 'portfolioReasoning', 'portfolioRoutingMode',
-    'kairosModel', 'kairosReasoning', 'kairosRoutingMode',
-    // Hermes = the Kairos monitor; its model is read server-side from this synced blob.
-    'hermesModel', 'hermesReasoning', 'hermesRoutingMode',
+    // the one shared AI setting every conversational desk reads (services/aiPrefKeys.js)
+    ...AI_PREF_KEYS,
+    // The monitors' own knob, read SERVER-SIDE (assess.shared.js) for both Hermes and Talos.
+    // Deliberately not part of the desk setting: it decides how hard the background monitors
+    // think, has no profile card, and nothing in the UI writes it. `hermesRoutingMode` is gone
+    // with the rest of the routing layer — it never had a reader.
+    'hermesModel', 'hermesReasoning',
 ]
 
 function loggedinUserId() {
@@ -55,7 +56,11 @@ export function collectPreferences() {
 export function applyPreferences(prefs) {
     if (!prefs || typeof prefs !== 'object') return
     let changed = false
-    for (const key of PREF_KEYS) {
+    // The legacy per-agent AI keys are hydrated too — not because anything reads them, but so
+    // migrateAiPrefs can adopt a choice made before the one-key change when the account copy is
+    // all a fresh browser has. collectPreferences never sends them back, so the account sheds
+    // them on the next sync.
+    for (const key of [...PREF_KEYS, ...LEGACY_AI_PREF_KEYS]) {
         const val = prefs[key]
         if (val === undefined || val === null) continue
         localStorage.setItem(key, String(val))
@@ -77,6 +82,11 @@ export async function hydratePreferences(userId) {
         const prefs = await httpService.get(`api/users/${id}/preferences`)
         applyPreferences(prefs)
     } catch { /* keep local prefs */ }
+    // Outside the try on purpose: a user whose account copy failed to load may still have
+    // local per-agent keys to carry onto the single key. Idempotent — once the legacy keys are
+    // cleared a second run finds nothing, so this costs one no-op read per login thereafter.
+    const { adopted, cleared } = migrateAiPrefs(localStorage)
+    if (adopted.length || cleared.length) queuePrefSync()
 }
 
 let syncTimer = null

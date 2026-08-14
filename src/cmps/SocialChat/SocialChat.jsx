@@ -5,20 +5,14 @@ import { chatWsService } from '../../services/chat/chatWs.service'
 import { ConversationList } from './ConversationList'
 import { ChatWindow }       from './ChatWindow'
 import { readStoredModel }       from '../modelOptions'
-import { readStoredReasoning }   from '../reasoningOptions'
-import { readStoredRoutingMode } from '../routingModeOptions'
 import { isBotId, isRetiredBotId, CONVERSATIONAL_BOT_ID } from '../AxlHub/agentMeta.jsx'
 import './SocialChat.scss'
 
-// The one shared AI-mode the user sets in their profile is mirrored to every
-// agent's localStorage keys; read the 'idea' keys as the representative so Axl
-// obeys the same routing as Idea/Atlas/Argus.
+// Sending into the Axl thread generates an Axl reply, so it needs a model like any other Axl
+// turn. One stored setting serves every desk (services/aiPrefKeys.js), so this is the same value
+// AxlHub reads and the bot runs on the same model on both of its surfaces.
 function readAiPref() {
-    return {
-        routingMode:     readStoredRoutingMode('ideaRoutingMode'),
-        model:           readStoredModel('ideaModel'),
-        reasoningEffort: readStoredReasoning('ideaReasoning'),
-    }
+    return { model: readStoredModel() }
 }
 
 const PAGE = 50

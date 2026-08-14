@@ -5,8 +5,6 @@ import { threadsService, newThreadId, clearThread } from '../../services/threads
 import { showErrorMsg, eventBus, REVIEW_RESOLVED } from '../../services/event-bus.service'
 import { ChatBubble } from '../ChatBubble.jsx'
 import { readStoredModel } from '../modelOptions.js'
-import { readStoredReasoning } from '../reasoningOptions.js'
-import { readStoredRoutingMode } from '../routingModeOptions.js'
 import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
 import { useSeedTurn } from '../../customHooks/useSeedTurn.js'
 import { AgentMessages } from '../AgentMessages.jsx'
@@ -198,10 +196,7 @@ export function PortfolioPanel({
                 threadId:        editingPortfolioId ? null : threadIdRef.current,
                 reviewMode:      isReviewMode,
                 mandate:         latestMandateRef.current,
-                model:           readStoredModel('portfolioModel'),
-                reasoningEffort: readStoredReasoning('portfolioReasoning'),
-                routingMode:     readStoredRoutingMode('portfolioRoutingMode'),
-                currentPhase:    chat.phase,
+                model:           readStoredModel(),
                 signal,
                 ...handlers,
             })
@@ -269,10 +264,7 @@ export function PortfolioPanel({
                 threadId:        editingPortfolioId ? null : threadIdRef.current,
                 reviewMode:      isReviewMode,
                 mandate:         latestMandateRef.current,
-                model:           readStoredModel('portfolioModel'),
-                reasoningEffort: readStoredReasoning('portfolioReasoning'),
-                routingMode:     readStoredRoutingMode('portfolioRoutingMode'),
-                currentPhase:    chat.phase,
+                model:           readStoredModel(),
                 signal:          cont.signal,
                 ...cont.handlers,
             })

@@ -20,8 +20,6 @@ import { ChatChartDock } from '../ChatChartDock.jsx'
 import { ChatChart } from '../ChatChart.jsx'
 import { closeChart } from '../../services/chartSurface.service.js'
 import { readStoredModel } from '../modelOptions.js'
-import { readStoredReasoning } from '../reasoningOptions.js'
-import { readStoredRoutingMode } from '../routingModeOptions.js'
 import './AxlHub.scss'
 
 // ── axl ────────────────────────────────────────────────────────────────────────
@@ -274,9 +272,7 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
             await axlService.streamAxl(
                 [...history, { role: 'user', content: text }],
                 {
-                    model:           readStoredModel('axlModel'),
-                    reasoningEffort: readStoredReasoning('axlReasoning'),
-                    routingMode:     readStoredRoutingMode('axlRoutingMode'),
+                    model:           readStoredModel(),
                     signal,
                     ...handlers,
                 },

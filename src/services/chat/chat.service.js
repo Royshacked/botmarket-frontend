@@ -15,7 +15,7 @@ export const chatService = {
         return messages
     },
 
-    // `aiPref` ({ routingMode, model, reasoningEffort }) is forwarded only for the
+    // `aiPref` ({ model }) is forwarded only for the
     // Axl (bot) conversation so Axl's reply obeys the same AI-mode the user set for
     // the specialist agents. Ignored by the backend for user-to-user DMs.
     async sendMessage(convId, content, aiPref = null) {

@@ -4,8 +4,6 @@ import { scannerService } from '../../services/scanner/scanner.service.remote.js
 import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote.js'
 import { ChatBubble } from '../ChatBubble.jsx'
 import { readStoredModel } from '../modelOptions.js'
-import { readStoredReasoning } from '../reasoningOptions.js'
-import { readStoredRoutingMode } from '../routingModeOptions.js'
 import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
 import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
@@ -282,10 +280,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
 
         try {
             await scannerService.sendStream(history, {
-                model:           readStoredModel('scannerModel'),
-                reasoningEffort: readStoredReasoning('scannerReasoning'),
-                routingMode:     readStoredRoutingMode('scannerRoutingMode'),
-                currentPhase:    chat.phase,
+                model:           readStoredModel(),
                 // When editing, tell the agent the list's current contents so it can
                 // add / remove / change names against it.
                 editList:        editingScanId ? (pendingScan || null) : null,
@@ -348,10 +343,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
 
         try {
             await scannerService.sendStream(history, {
-                model:           readStoredModel('scannerModel'),
-                reasoningEffort: readStoredReasoning('scannerReasoning'),
-                routingMode:     readStoredRoutingMode('scannerRoutingMode'),
-                currentPhase:    chat.phase,
+                model:           readStoredModel(),
                 editList:        editingScanId ? (pendingScan || null) : null,
                 handoff,
                 profile:         handoff ? 'trading' : profileRef.current,

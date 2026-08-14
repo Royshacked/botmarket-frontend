@@ -11,8 +11,6 @@ import { planHop, planEntry, producesOne, hasDownstream, findReceiver } from '..
 import { contractFor } from '../services/pipeline/contracts.js'
 import { AccountSelector }   from '../cmps/ChatPanel/AccountSelector.jsx'
 import { readStoredModel }   from '../cmps/modelOptions.js'
-import { readStoredReasoning } from '../cmps/reasoningOptions.js'
-import { readStoredRoutingMode } from '../cmps/routingModeOptions.js'
 import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
 import { reviewApplyMessage } from '../cmps/PortfolioPanel/reviewApply.js'
 import { QueuedActionDialog } from '../cmps/Floor/QueuedActionDialog.jsx'
@@ -777,10 +775,7 @@ export function MainPage() {
                 currentAnalysisState,
                 { signal, ...handlers },
                 ideaAccounts,
-                readStoredModel('ideaModel'),
-                readStoredReasoning('ideaReasoning'),
-                readStoredRoutingMode('ideaRoutingMode'),
-                chat.phase,
+                readStoredModel(),
                 mainAccountId
             )
         } catch (err) {
@@ -863,10 +858,7 @@ export function MainPage() {
                 analysisState,
                 { signal: cont.signal, ...cont.handlers },
                 ideaAccounts,
-                readStoredModel('ideaModel'),
-                readStoredReasoning('ideaReasoning'),
-                readStoredRoutingMode('ideaRoutingMode'),
-                chat.phase,
+                readStoredModel(),
                 mainAccountId
             )
         } catch (err) {

@@ -3,7 +3,6 @@ import PropTypes from 'prop-types'
 import { analystService } from '../../services/analyst/analyst.service.remote.js'
 import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote.js'
 import { readStoredModel } from '../modelOptions.js'
-import { readStoredReasoning } from '../reasoningOptions.js'
 import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
 import { useSeedTurn } from '../../customHooks/useSeedTurn.js'
 import { AgentMessages } from '../AgentMessages.jsx'
@@ -119,8 +118,7 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
 
         try {
             await analystService.sendStream(history, {
-                model:           readStoredModel('analystModel'),
-                reasoningEffort: readStoredReasoning('analystReasoning'),
+                model:           readStoredModel(),
                 // Feed the draft-so-far back so the model carries settled fields forward.
                 chatState:       { active_symbol: pendingRef.current?.symbol || candidate?.ticker || '', draft: pendingRef.current, existing_coverage: existingRef.current },
                 seed: candidate, // structured Argus investing candidate (one-shot on the hand-off turn)
@@ -156,8 +154,7 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
         if (!cont) return
         try {
             await analystService.sendStream(history, {
-                model:           readStoredModel('analystModel'),
-                reasoningEffort: readStoredReasoning('analystReasoning'),
+                model:           readStoredModel(),
                 chatState:       { active_symbol: pendingRef.current?.symbol || '', draft: pendingRef.current, existing_coverage: existingRef.current },
                 signal:          cont.signal,
                 ...cont.handlers,

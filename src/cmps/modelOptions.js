@@ -1,3 +1,5 @@
+import { AI_MODEL_KEY } from '../services/aiPrefKeys.js'
+
 // Selectable chat models. `id` must match an allowed model id in the backend
 // registry (services/llmModels.js); changing the list here means changing it there.
 export const MODEL_OPTIONS = [
@@ -9,9 +11,10 @@ export const MODEL_OPTIONS = [
 
 export const DEFAULT_MODEL = 'claude-sonnet-4-6'
 
-// Persist the choice per-surface (idea vs portfolio) so a reload keeps it and the
-// two agents can be set independently for side-by-side comparison.
-export function readStoredModel(storageKey) {
-    const stored = localStorage.getItem(storageKey)
+// ONE stored choice, shared by every desk (services/aiPrefKeys.js). It was once per-surface,
+// so each panel could be set independently for side-by-side comparison — that UI is gone, and
+// the per-desk keys it left behind are what let four desks drift onto the defaults unnoticed.
+export function readStoredModel() {
+    const stored = localStorage.getItem(AI_MODEL_KEY)
     return MODEL_OPTIONS.some(m => m.id === stored) ? stored : DEFAULT_MODEL
 }

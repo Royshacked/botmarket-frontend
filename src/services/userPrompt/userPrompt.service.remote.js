@@ -28,8 +28,8 @@ export const userPromptService = {
  * @param {function} callbacks.onError    - called with an error message string
  * @param {Array}    ideaAccounts
  */
-async function sendPromptStream(userPrompt, analysisState = null, callbacks = {}, ideaAccounts = [], model, reasoningEffort, routingMode, currentPhase, mainAccountId = null) {
-    await streamAgent(BASE, { userPrompt, analysisState, ideaAccounts, mainAccountId, model, reasoningEffort, routingMode, currentPhase, ...clientTimeContext() }, callbacks)
+async function sendPromptStream(userPrompt, analysisState = null, callbacks = {}, ideaAccounts = [], model, mainAccountId = null) {
+    await streamAgent(BASE, { userPrompt, analysisState, ideaAccounts, mainAccountId, model, ...clientTimeContext() }, callbacks)
 }
 
 /**
@@ -38,6 +38,6 @@ async function sendPromptStream(userPrompt, analysisState = null, callbacks = {}
  * and the model continues that same assistant message (Anthropic prefill). The reply
  * that streams back is the continuation only — the caller prepends the partial.
  */
-async function continuePromptStream(messages, analysisState = null, callbacks = {}, ideaAccounts = [], model, reasoningEffort, routingMode, currentPhase, mainAccountId = null) {
-    await streamAgent(BASE, { messages, analysisState, ideaAccounts, mainAccountId, model, reasoningEffort, routingMode, currentPhase, ...clientTimeContext() }, callbacks)
+async function continuePromptStream(messages, analysisState = null, callbacks = {}, ideaAccounts = [], model, mainAccountId = null) {
+    await streamAgent(BASE, { messages, analysisState, ideaAccounts, mainAccountId, model, ...clientTimeContext() }, callbacks)
 }

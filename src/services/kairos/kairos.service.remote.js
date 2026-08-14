@@ -22,8 +22,8 @@ export const kairosService = {
 }
 
 async function sendStream(messages, opts = {}) {
-    const { model, reasoningEffort, routingMode, currentPhase, accounts = [], mainAccountId = null, chatState, seed } = opts
-    await streamAgent(BASE, { messages, model, reasoningEffort, routingMode, currentPhase, accounts, mainAccountId, chatState, seed }, opts)
+    const { model, accounts = [], mainAccountId = null, chatState, seed } = opts
+    await streamAgent(BASE, { messages, model, accounts, mainAccountId, chatState, seed }, opts)
 }
 
 // Persist a drafted call. `accounts` are the full marked-account objects (bank icon); the server

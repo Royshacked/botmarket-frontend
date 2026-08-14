@@ -4,8 +4,6 @@ import { kairosService, CALLS_CHANGED } from '../../services/kairos/kairos.servi
 import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote.js'
 import { ChatBubble } from '../ChatBubble.jsx'
 import { readStoredModel } from '../modelOptions.js'
-import { readStoredReasoning } from '../reasoningOptions.js'
-import { readStoredRoutingMode } from '../routingModeOptions.js'
 import { KAIROS_MODES, DEFAULT_KAIROS_MODE, readStoredKairosMode } from '../kairosModeOptions.js'
 import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
 import { AgentMessages } from '../AgentMessages.jsx'
@@ -194,10 +192,7 @@ export function KairosPanel({ pipeline = null, onLoadingChange, onGenerated, onP
 
         try {
             await kairosService.sendStream(history, {
-                model:           readStoredModel('kairosModel'),
-                reasoningEffort: readStoredReasoning('kairosReasoning'),
-                routingMode:     readStoredRoutingMode('kairosRoutingMode'),
-                currentPhase:    chat.phase,
+                model:           readStoredModel(),
                 accounts:        ideaAccounts,
                 mainAccountId,   // which marked account the call binds to (venue anchor)
                 // Feed the draft-so-far back so the model carries settled fields forward
@@ -256,10 +251,7 @@ export function KairosPanel({ pipeline = null, onLoadingChange, onGenerated, onP
 
         try {
             await kairosService.sendStream(history, {
-                model:           readStoredModel('kairosModel'),
-                reasoningEffort: readStoredReasoning('kairosReasoning'),
-                routingMode:     readStoredRoutingMode('kairosRoutingMode'),
-                currentPhase:    chat.phase,
+                model:           readStoredModel(),
                 accounts:        ideaAccounts,
                 mainAccountId,   // which marked account the call binds to (venue anchor)
                 chatState:       { active_asset: pendingCall?.asset || '', draft: pendingCall, mode },

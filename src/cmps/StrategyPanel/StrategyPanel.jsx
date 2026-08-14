@@ -3,7 +3,6 @@ import PropTypes from 'prop-types'
 import { strategyService } from '../../services/strategy/strategy.service.remote.js'
 import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote.js'
 import { readStoredModel } from '../modelOptions.js'
-import { readStoredReasoning } from '../reasoningOptions.js'
 import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
 import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
@@ -122,8 +121,7 @@ export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished
 
         try {
             await strategyService.sendStream(history, {
-                model:           readStoredModel('strategyModel'),
-                reasoningEffort: readStoredReasoning('strategyReasoning'),
+                model:           readStoredModel(),
                 // The view in force, so a stance that still holds keeps its ORIGINAL clock and entry
                 // prices instead of being silently re-based every review.
                 chatState:       { current_tilt: currentRef.current },
@@ -156,8 +154,7 @@ export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished
         if (!cont) return
         try {
             await strategyService.sendStream(history, {
-                model:           readStoredModel('strategyModel'),
-                reasoningEffort: readStoredReasoning('strategyReasoning'),
+                model:           readStoredModel(),
                 chatState:       { current_tilt: currentRef.current },
                 signal:          cont.signal,
                 ...cont.handlers,

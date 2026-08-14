@@ -10,8 +10,7 @@ import { ModeSwitcher }        from '../cmps/ModeSwitcher/ModeSwitcher'
 import { loadAppearance }      from '../services/themeService.js'
 import { PaceSlider }          from '../cmps/PaceSlider.jsx'
 import { MODEL_OPTIONS, readStoredModel }       from '../cmps/modelOptions.js'
-import { REASONING_OPTIONS, readStoredReasoning } from '../cmps/reasoningOptions.js'
-import { ROUTING_MODES, readStoredRoutingMode } from '../cmps/routingModeOptions.js'
+import { AI_MODEL_KEY } from '../services/aiPrefKeys.js'
 import { DESIGNS, loadDesign, saveDesign, applyDesign } from '../services/designService.js'
 import { queuePrefSync } from '../services/preferences.service.js'
 import { PaperTradingSection } from '../cmps/PaperTrading/PaperTradingSection.jsx'
@@ -36,9 +35,17 @@ const BROKERS = [
     { type: 'ibkr',    label: 'IBKR'    },
 ]
 
-// One shared AI setting drives every CONVERSATIONAL agent; each consumer reads its own
-// per-agent localStorage keys, so a change is mirrored to every agent's keys. 'kairos' is
-// the Kairos build agent (client-read).
+// ONE setting — the model — shared by every conversational desk, under one key
+// (services/aiPrefKeys.js). There is no desk list, so a new desk is honoured as soon as it
+// calls readStoredModel().
+//
+// The AI-Mode (manual/auto/classifier) and Reasoning selectors that used to sit beside this are
+// GONE, along with the whole routing layer behind them. Both changed a request parameter
+// mid-conversation, and both a model change and a reasoning change invalidate the prompt cache:
+// the conversation is re-read at 1x and re-written at 1.25x instead of read at 0.1x. Picking a
+// cheaper model or a lighter effort for one turn never repaid that, and the penalty grew with
+// conversation length while the saving did not. The model is now a per-user choice that holds
+// for the life of a thread.
 //
 // Hermes — the Kairos monitor — used to have its own model+reasoning card here. Kairos and
 // Hermes are dormant (trading runs Argus → Mentor → Talos), so the card named a desk that
@@ -49,7 +56,6 @@ const BROKERS = [
 // knob. They still sync (preferences.service) and are still honoured; they just have no UI now,
 // so Talos runs on whatever was last saved, or on its own defaults (Sonnet / thinking off).
 // If that knob is wanted back, this card returns as "Monitors" rather than as Hermes.
-const AI_AGENT_KEYS = ['idea', 'scanner', 'portfolio', 'kairos']
 
 export function UserProfile() {
     const { user, setUser, signout } = useAuth()
@@ -69,11 +75,7 @@ export function UserProfile() {
 
     const [tokenUsage, setTokenUsage] = useState({ month: '', totalCost: 0, budgetUsd: 20, percentUsed: 0 })
 
-    const [aiPref, setAiPref] = useState({
-        routingMode: readStoredRoutingMode('ideaRoutingMode'),
-        model:       readStoredModel('ideaModel'),
-        reasoning:   readStoredReasoning('ideaReasoning'),
-    })
+    const [model, setModel] = useState(readStoredModel())
 
     const [design, setDesign] = useState(loadDesign())
     function handleDesign(id) {
@@ -83,10 +85,12 @@ export function UserProfile() {
         queuePrefSync()
     }
 
-    function handleAiPref(field, value) {
-        const suffix = field.charAt(0).toUpperCase() + field.slice(1)
-        AI_AGENT_KEYS.forEach(agent => localStorage.setItem(`${agent}${suffix}`, value))
-        setAiPref(prev => ({ ...prev, [field]: value }))
+    // One setting, so one handler. It took a `field` name while there were three (model /
+    // reasoning / routingMode); keeping that shape with one field left would silently write the
+    // model key for any field passed.
+    function handleModel(value) {
+        localStorage.setItem(AI_MODEL_KEY, value)
+        setModel(value)
         queuePrefSync()
     }
 
@@ -291,48 +295,18 @@ export function UserProfile() {
                         </div>
                         <div className="user-profile__agent">
                             <div className="user-profile__agent-field">
-                                <span className="user-profile__label">AI Mode</span>
+                                <span className="user-profile__label">Model</span>
                                 <select
                                     className="user-profile__select"
                                     style={{ width: 'auto', minWidth: '9rem' }}
-                                    value={aiPref.routingMode}
-                                    onChange={e => handleAiPref('routingMode', e.target.value)}
+                                    value={model}
+                                    onChange={e => handleModel(e.target.value)}
                                 >
-                                    {ROUTING_MODES.map(m => (
-                                        <option key={m.id} value={m.id} title={m.title}>{m.short}</option>
+                                    {MODEL_OPTIONS.map(m => (
+                                        <option key={m.id} value={m.id}>{m.short}</option>
                                     ))}
                                 </select>
                             </div>
-                            {aiPref.routingMode === 'manual' && (
-                                <>
-                                    <div className="user-profile__agent-field">
-                                        <span className="user-profile__label">Model</span>
-                                        <select
-                                            className="user-profile__select"
-                                            style={{ width: 'auto', minWidth: '9rem' }}
-                                            value={aiPref.model}
-                                            onChange={e => handleAiPref('model', e.target.value)}
-                                        >
-                                            {MODEL_OPTIONS.map(m => (
-                                                <option key={m.id} value={m.id}>{m.short}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="user-profile__agent-field">
-                                        <span className="user-profile__label">Reasoning</span>
-                                        <select
-                                            className="user-profile__select"
-                                            style={{ width: 'auto', minWidth: '9rem' }}
-                                            value={aiPref.reasoning}
-                                            onChange={e => handleAiPref('reasoning', e.target.value)}
-                                        >
-                                            {REASONING_OPTIONS.map(r => (
-                                                <option key={r.id} value={r.id}>{r.label}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </>
-                            )}
                         </div>
                     </section>
 

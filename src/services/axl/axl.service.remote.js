@@ -16,13 +16,13 @@ export const axlService = {
  * gone, along with the second Axl surface that existed to make up for it.
  *
  * @param {Array}  messages  full [{ role, content }] history to answer against
- * @param {object} opts      { model, reasoningEffort, routingMode, signal, ...handlers }
+ * @param {object} opts      { model, signal, ...handlers }
  */
 async function streamAxl(messages, opts = {}) {
-    const { model, reasoningEffort, routingMode, signal } = opts
+    const { model, signal } = opts
     await postSSE(
         `${API_BASE}/api/axl/stream`,
-        { messages, model, reasoningEffort, routingMode },
+        { messages, model },
         buildStreamHandlers(opts),
         { signal },
     )

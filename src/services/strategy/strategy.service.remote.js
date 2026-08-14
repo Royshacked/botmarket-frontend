@@ -25,8 +25,8 @@ export const strategyService = {
 
 /** Streaming top-down chat. done → { reply, phase, tilt }. */
 async function sendStream(messages, opts = {}) {
-    const { model, reasoningEffort, chatState } = opts
-    await streamAgent(BASE, { messages, model, reasoningEffort, chatState }, opts)
+    const { model, chatState } = opts
+    await streamAgent(BASE, { messages, model, chatState }, opts)
 }
 
 /** The view in force. `null` is a legitimate answer — the desk may simply not have published yet. */
