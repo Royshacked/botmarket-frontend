@@ -29,12 +29,13 @@ import { analystService, COVERAGE_CHANGED } from '../services/analyst/analyst.se
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
-import { activatePortfolio, isManualIdea, buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace, inWorkspace, positionOpenTarget, openCallPopup, openIdeaPopup, matchPositionsForIdea, portfoliosFromIdeas, isPortfolioReview } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { activatePortfolio, isManualIdea, buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace, inWorkspace, positionOpenTarget, openCallPopup, openIdeaPopup, matchPositionsForIdea, isPortfolioReview } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { TradeTicket } from '../cmps/TradeTicket/TradeTicket.jsx'
 import { apiError } from '../services/http.service.js'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
+import { resolveEntity }     from '../services/entityResolve.js'
 import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
 import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST } from '../services/event-bus.service'
@@ -934,27 +935,20 @@ export function MainPage() {
         setActiveTab('idea')
     }
 
-    // Keep refs so the invalidation-alert handlers always see the latest ideas /
-    // positions without being recreated on every render.
-    const ideasRef = useRef(ideas)
-    ideasRef.current = ideas
-    const callsRef = useRef(calls)
-    callsRef.current = calls
-    const setupsRef = useRef(setups)
-    setupsRef.current = setups
-    // Read by the card listeners below, which are registered once and so can't close over state.
+    // The card listeners below register once, so they cannot close over state — these are what they
+    // read instead. There used to be four more, mirroring the ideas / calls / setups / coverage
+    // lists so a card could resolve its subject out of them; the cards now READ their subject by id
+    // (resolveEntity), which is both fresher and the same authorization the server already applies.
+    // What is left is state with no document behind it to fetch.
     const activeTabRef = useRef(activeTab)
     activeTabRef.current = activeTab
-    // The coverage book, for the card handlers below — they mount once, so they can't close over the list.
-    const coverageRef = useRef(coverage)
-    coverageRef.current = coverage
     const positionsRef = useRef(positions)
     positionsRef.current = positions
     const workspaceRef = useRef(workspace)   // for []-dep event handlers that must read the live workspace
     workspaceRef.current = workspace
     useEffect(() => {
-        return eventBus.on(INVALIDATION_EDIT_IDEA, ({ ideaId }) => {
-            const idea = ideasRef.current.find(i => i.id === ideaId)
+        return eventBus.on(INVALIDATION_EDIT_IDEA, async ({ ideaId }) => {
+            const idea = await resolveEntity('idea', ideaId)
             if (idea) handleEditIdea(idea, { invalidationReview: true })
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -964,7 +958,7 @@ export function MainPage() {
     // the broker-symbol alias too, e.g. NQ ↔ US100) and close it at market.
     useEffect(() => {
         return eventBus.on(INVALIDATION_CLOSE_TRADE, async ({ ideaId }) => {
-            const idea = ideasRef.current.find(i => i.id === ideaId)
+            const idea = await resolveEntity('idea', ideaId)
             if (!idea) return
             const ideaSymbols = [idea.asset, brokerSymbolLabel(idea)].filter(Boolean).map(s => String(s).toUpperCase())
             const pos = positionsRef.current.find(p => p.symbol && ideaSymbols.includes(String(p.symbol).toUpperCase()))
@@ -1000,19 +994,16 @@ export function MainPage() {
     // placed/closed, the dialog derivation simply won't resolve — harmless.
     useEffect(() => {
         return eventBus.on(ENTRY_CONFIRM_OPEN, async ({ ideaId }) => {
-            let idea = ideasRef.current.find(i => i.id === ideaId)
-            // The card can arrive AHEAD of the list. The market-open sweep flips a parked order to
-            // 'awaiting_confirm' server-side and posts its card over the websocket immediately,
-            // while this list only refreshes on its 30s poll — so a tab left open across the open
-            // holds a copy still reading 'awaiting_market', which the dialog derivation skips. The
-            // click would then do nothing at all, on precisely the flow the card exists to serve.
-            // Re-read before giving up, and only then: the common case (a fresh trigger already in
-            // the list) still costs no request.
-            if (!idea || idea.orderState === 'awaiting_market') {
-                const fresh = await loadIdeas()
-                idea = fresh?.find(i => i.id === ideaId) ?? idea
-            }
+            // Read by id, so the card can never arrive ahead of its own subject. This used to look
+            // in the list first and re-poll only when the copy it found was missing or still read
+            // 'awaiting_market' — a workaround for the same race the fetch simply doesn't have.
+            const idea = await resolveEntity('idea', ideaId)
             if (!idea) return
+            // AWAITED: the dialog is derived from the ideas list, not from the doc just read, so the
+            // list has to hold this idea's current state before the state below flips — otherwise
+            // the derivation runs against the stale copy and the dialog doesn't surface at all,
+            // which is the exact failure the old awaiting_market re-poll existed to avoid.
+            await loadIdeas()
             // Only switch workspace for a CROSS-workspace idea (that switch flips the backend paper
             // flag so the right accounts load — required to place the order). Never re-flip global
             // trading mode when the idea already belongs to the active workspace: confirming a
@@ -1027,8 +1018,8 @@ export function MainPage() {
 
     // Entry-confirm card "Edit": reopen the triggered idea in its chat to change it (→ building).
     useEffect(() => {
-        return eventBus.on(ENTRY_CONFIRM_EDIT, ({ ideaId }) => {
-            const idea = ideasRef.current.find(i => i.id === ideaId)
+        return eventBus.on(ENTRY_CONFIRM_EDIT, async ({ ideaId }) => {
+            const idea = await resolveEntity('idea', ideaId)
             if (idea) handleEditIdea(idea)
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1039,8 +1030,8 @@ export function MainPage() {
     // entered/closed) must NOT revert it. The backend also refuses closed→waiting; this just
     // avoids the doomed round-trip. See project_timestamp_ideas (Issue 2).
     useEffect(() => {
-        return eventBus.on(ENTRY_CONFIRM_DISMISS, ({ ideaId }) => {
-            const idea = ideasRef.current.find(i => i.id === ideaId)
+        return eventBus.on(ENTRY_CONFIRM_DISMISS, async ({ ideaId }) => {
+            const idea = await resolveEntity('idea', ideaId)
             if (idea?.status === 'hit') handleDismissConfirm(idea)
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1049,8 +1040,8 @@ export function MainPage() {
     // flow uses, driven by the call's Hermes-proposed entry. Switch to the call's workspace first so
     // its marked accounts are loaded (buildOrderPreview needs them to resolve broker/qty).
     useEffect(() => {
-        return eventBus.on(CALL_CONFIRM_OPEN, ({ callId }) => {
-            const call = callsRef.current.find(c => c.id === callId)
+        return eventBus.on(CALL_CONFIRM_OPEN, async ({ callId }) => {
+            const call = await resolveEntity('call', callId)
             if (!call) return
             if (ideaWorkspace(call) !== workspaceRef.current) setWorkspace(ideaWorkspace(call))
             setCallConfirmId(callId)
@@ -1062,8 +1053,8 @@ export function MainPage() {
     // — updateKairosCall re-arms to 'waiting' whether or not the thesis had gone stale
     // (terminal), so both expiry cards route here.
     useEffect(() => {
-        return eventBus.on(CALL_EXPIRY_EDIT, ({ callId }) => {
-            const call = callsRef.current.find(c => c.id === callId)
+        return eventBus.on(CALL_EXPIRY_EDIT, async ({ callId }) => {
+            const call = await resolveEntity('call', callId)
             if (call) handleEditCall(call)
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1075,8 +1066,8 @@ export function MainPage() {
     // Unresolvable ids fall back to the Mentor tab rather than a dead click — same rule as
     // SETUP_CONFIRM_OPEN. A setup deleted since the card was posted is the ordinary case.
     useEffect(() => {
-        return eventBus.on(SETUP_INVALIDATION_EDIT, ({ setupId }) => {
-            const setup = setupsRef.current?.find(s => s.id === setupId)
+        return eventBus.on(SETUP_INVALIDATION_EDIT, async ({ setupId }) => {
+            const setup = await resolveEntity('setup', setupId)
             if (setup) handleEditSetup(setup)
             else setActiveTab('mentor')
         })
@@ -1110,10 +1101,16 @@ export function MainPage() {
     //   • a REFRESHED thesis (mode 'open') → just show it. The research already ran; firing another
     //     multi-minute re-model to read the one that just landed is the opposite of the ask.
     useEffect(() => {
-        return eventBus.on(OPEN_COVERAGE, ({ coverageId, symbol, mode } = {}) => {
-            const book = coverageRef.current || []
-            const sym  = String(symbol ?? '').toUpperCase()
-            const cov  = book.find(c => c.id === coverageId) ?? book.find(c => String(c.symbol ?? '').toUpperCase() === sym)
+        return eventBus.on(OPEN_COVERAGE, async ({ coverageId, symbol, mode } = {}) => {
+            // By id through the pipe. The symbol fallback stays — a card can name the ticker rather
+            // than the doc — but it is now answered by the coverage book the SERVER holds, not by
+            // whichever copy this client last rendered.
+            const sym = String(symbol ?? '').toUpperCase()
+            let cov = await resolveEntity('coverage', coverageId)
+            if (!cov && sym) {
+                const book = await analystService.listCoverage()
+                cov = book.find(c => String(c.symbol ?? '').toUpperCase() === sym) ?? null
+            }
             if (mode === 'revise' && cov) { handleEditCoverage(cov); return }
             // No doc resolved (a book this client hasn't reloaded yet) → still open the coverage
             // surface rather than a blank chat, so the name is one click away instead of nowhere.
@@ -1135,14 +1132,14 @@ export function MainPage() {
     // is; if it can't be resolved (not yet reloaded, or already placed) fall back to Mentor rather
     // than leaving the click dead.
     useEffect(() => {
-        return eventBus.on(SETUP_CONFIRM_OPEN, ({ setupId }) => {
-            if (!setupId) { setActiveTab('mentor'); return }
+        return eventBus.on(SETUP_CONFIRM_OPEN, async ({ setupId }) => {
+            // Confirm that the setup is real and the user's before opening a dialog keyed to it —
+            // the same read every other card doorway makes now.
+            const setup = setupId ? await resolveEntity('setup', setupId) : null
+            if (!setup) { setActiveTab('mentor'); return }
             setSetupConfirmId(setupId)
-            // Same race as the idea card above: the market-open sweep flips a parked setup and
-            // posts its card at once, while this list is up to 20s behind — and the dialog
-            // derivation skips a setup still reading 'awaiting_market'. Refreshing unconditionally
-            // here (rather than on a staleness check) because the id alone is stored: the setup
-            // itself is resolved later, during render, so there is nothing to test at this point.
+            // The dialog derives from the setups list, so make sure it holds this setup's current
+            // state — the market-open sweep can flip a parked setup while the list is 20s behind.
             refreshSetups?.()
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1660,7 +1657,13 @@ export function MainPage() {
     // prompt) — that is a schedule or a request, and it is legitimate on a book with nothing live.
     // None of them can force a plain edit on a book that holds a position. See isPortfolioReview.
     async function handleEditPortfolio(portfolioId, { reviewMode: forceReview = false } = {}) {
-        const portfolioIdeas = ideas.filter(i => i.portfolioId === portfolioId)
+        // The book is READ, not filtered out of whatever this client happens to be holding. It used
+        // to be `ideas.filter(...)`, which made opening a book depend on a list having loaded — and
+        // from a social-chat card it hadn't, so Atlas was handed a portfolio with no item ids,
+        // invented them, and every accepted change came back not_found.
+        const portfolioIdeas = await resolveEntity('portfolio', portfolioId)
+        if (!portfolioIdeas) { showErrorMsg('Could not open the portfolio — try again'); return }
+        if (!portfolioIdeas.length) { showErrorMsg('This portfolio has no holdings'); return }
         const reviewMode = forceReview || isPortfolioReview(portfolioIdeas)
 
         // Seed the account selector from the portfolio's own ideas so it reflects
@@ -1886,9 +1889,14 @@ export function MainPage() {
             result = await portfolioService.applyRebalance(portfolioId, update)
         } catch (err) {
             console.error('[portfolio] accept review failed', err)
-            // A 400 here is now the honest "nothing landed" answer, not just a transport failure.
-            // Returning false keeps the proposal on screen so the user can retry it.
-            showErrorMsg('Could not apply the changes — nothing was executed. Try again.')
+            // Say WHICH refusal it was. The server answers on the shared reason vocabulary and sends
+            // the per-change failures back in `failed`, so "nothing was executed" no longer has to
+            // stand in for a book that couldn't be reached, holdings already closed, and ids that
+            // matched nothing alike. Returning false keeps the proposal on screen for a retry.
+            const failed  = err?.response?.data?.failed
+            const reasons = Array.isArray(failed) ? [...new Set(failed.map(f => f?.reason).filter(Boolean))] : []
+            const detail  = reasons.length ? ` (${reasons.join(', ')})` : ''
+            showErrorMsg(`${apiError(err, 'Could not apply the changes')}${detail} — nothing was executed.`)
             return false
         }
         await loadIdeas()
@@ -1942,57 +1950,71 @@ export function MainPage() {
     // edit reached from a sentence and an edit reached from a click are the one edit, with the same
     // conversation restored. Nothing new is built here; that is the whole point of the feature.
     //
-    // Resolved against the lists this client already holds, which is also the authorization: a ref
-    // that isn't in the user's own list opens nothing, so a hallucinated or borrowed id is inert.
+    // The ref is READ by id, through the same pipe the cards and the pencils use — the server's
+    // owner-scoped get is also the authorization, so a hallucinated or borrowed id answers 404
+    // rather than relying on being absent from a list this client happened to load.
+    //
     // Falls back to the symbol for the kinds that have one (Axl may have had no id to quote), and
-    // returns false when nothing matches so the caller can open the desk the ordinary way rather
+    // resolves false when nothing matches so the caller can open the desk the ordinary way rather
     // than leaving the hand-off dead — the same choice the OPEN_COVERAGE card makes.
-    function openForEdit({ kind, ref } = {}) {
+    async function openForEdit({ kind, ref } = {}) {
         if (!kind || !ref) return false
         const handle = String(ref).toUpperCase()
-        // `handleOf` is the item's HUMAN name — a ticker for the three that have one, the book's own
-        // name for a portfolio. Kinds with neither (a scan is a list, not a name) leave it off.
-        const open = (list, opener, { idOf = (x) => x.id, handleOf = () => null } = {}) => {
-            const rows = Array.isArray(list) ? list : []
-            // By id first — ids are unique, so this is the exact hand-off and always wins.
-            // By name only as a fallback, and only when it names exactly ONE item: on two live
-            // NVDA calls a bare ticker is a coin flip, and losing it means the user is editing a
-            // different trade than the one they meant. Ambiguity opens nothing (the desk opens
-            // normally instead) rather than guessing at a live position.
-            const byName = rows.filter(x => String(handleOf(x) ?? '').toUpperCase() === handle)
-            const doc = rows.find(x => String(idOf(x)) === ref) ?? (byName.length === 1 ? byName[0] : null)
+
+        // A NAME is not an id, so it can only be answered by a list — but it is the server's list,
+        // fetched now. Only when it names exactly ONE item: on two live NVDA calls a bare ticker is
+        // a coin flip, and losing it means the user edits a different trade than the one they meant.
+        // Ambiguity opens nothing (the desk opens normally instead) rather than guessing at a live
+        // position.
+        const byName = async (fetchList, handleOf) => {
+            const rows  = (await fetchList()) ?? []
+            const named = rows.filter(x => String(handleOf(x) ?? '').toUpperCase() === handle)
+            return named.length === 1 ? named[0] : null
+        }
+        const open = async (doc, opener) => {
             if (!doc) return false
             opener(doc)
             return true
         }
         switch (kind) {
-            case 'call':  return open(callsRef.current, handleEditCall,  { handleOf: c => c.asset })
-            case 'setup': return open(setups,           handleEditSetup, { handleOf: s => s.asset })
-            // Two differences from the others, both about arriving from a sentence rather than a
-            // click. The list is FILTERED to docs that have a symbol, because Prometheus matches on
-            // symbol and handleEditCoverage bails silently without one — "resolved" has to mean
-            // "will actually open", or we return true and leave the user at the hub with nothing.
-            // And the coverage list is brought forward: the pencil is normally pressed from it.
-            case 'coverage':
-                return open((coverageRef.current || []).filter(c => c.symbol),
-                    (cov) => { setNewsTab('coverage'); handleEditCoverage(cov) }, { handleOf: c => c.symbol })
+            case 'call':
+                return open(await resolveEntity('call', ref) ?? await byName(() => kairosService.listCalls(), c => c.asset), handleEditCall)
+            case 'setup':
+                return open(await resolveEntity('setup', ref) ?? await byName(() => mentorService.listSetups(), s => s.asset), handleEditSetup)
+            // One difference from the others, about arriving from a sentence rather than a click:
+            // Prometheus matches on symbol and handleEditCoverage bails silently without one, so a
+            // doc with no symbol is not "resolved" — returning true there leaves the user at the hub
+            // with nothing. The coverage tab is brought forward: the pencil is normally pressed from it.
+            case 'coverage': {
+                const cov = await resolveEntity('coverage', ref)
+                    ?? await byName(() => analystService.listCoverage(), c => c.symbol)
+                if (!cov?.symbol) return false
+                return open(cov, (doc) => { setNewsTab('coverage'); handleEditCoverage(doc) })
+            }
             // A scan has no name to fall back to — it is a list, not a name. Id or nothing.
-            case 'scan':  return open(scans, handleEditScan)
-            // A book is not a document of its own: it exists as the ideas that carry its id, which is
-            // why this reads the SAME derivation the lists render from rather than a second grouping.
-            // Its opener takes the id, not the row — the one kind whose editor is keyed, not handed.
+            case 'scan':
+                return open(await resolveEntity('scan', ref), handleEditScan)
+            // A book is not a document of its own: it exists as the items that carry its id. Its
+            // opener takes the id, not the row — the one kind whose editor is keyed, not handed —
+            // and handleEditPortfolio does its own read, so resolving here is only about deciding
+            // whether the ref points at anything.
             //
-            // And the one kind with two modes — but nothing to say about it here: handleEditPortfolio
-            // reads the book's own state and opens a review rather than a re-plan when a position is
-            // live. Passing the mode from here too would be a second copy of that judgment.
-            case 'portfolio':
-                return open(portfoliosFromIdeas(ideas), (book) => handleEditPortfolio(book.portfolioId),
-                    { idOf: b => b.portfolioId, handleOf: b => b.name })
+            // Two modes, and nothing to say about them here: handleEditPortfolio reads the book's
+            // own state and opens a review rather than a re-plan when a position is live. Passing
+            // the mode from here too would be a second copy of that judgment.
+            case 'portfolio': {
+                const items = await resolveEntity('portfolio', ref)
+                if (items?.length) { handleEditPortfolio(ref); return true }
+                const book = await byName(() => portfolioService.listPortfolios(), b => b.name)
+                if (!book) return false
+                handleEditPortfolio(book.portfolioId)
+                return true
+            }
             default:      return false
         }
     }
 
-    function handleAxlPick(tab, opts = {}) {
+    async function handleAxlPick(tab, opts = {}) {
         // An edit hand-off names an ITEM, not a desk, and the item picks the tab: a call edits in
         // Kairos even though the trading desk enters at Argus. So the tab argument is skipped and the
         // opener sets its own — but the pipeline is still stamped, so the crumb and the back button
@@ -2000,7 +2022,7 @@ export function MainPage() {
         if (opts.edit) {
             setActivePipeline(opts.pipeline ?? null)
             setPipelineStep(0)
-            if (openForEdit(opts.edit)) return
+            if (await openForEdit(opts.edit)) return
             // Nothing resolved (a list this client hasn't loaded, a ref that never existed) — fall
             // through and open the desk normally. Worse than the edit, far better than nothing.
         }

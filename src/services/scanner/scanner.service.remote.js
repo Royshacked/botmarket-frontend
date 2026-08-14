@@ -6,7 +6,7 @@ const BASE = 'api/scanner'
 
 export const scannerService = {
     sendStream,
-    listScans, createScan, updateScan, deleteScan,
+    listScans, getScan, createScan, updateScan, deleteScan,
     saveChatState, getChatState, deleteChatState,
 }
 
@@ -20,6 +20,11 @@ async function sendStream(messages, opts = {}) {
 const api = makeEntityApi({ base: `${BASE}/scans`, listKey: 'scans' })
 
 function listScans() { return api.list() }
+
+async function getScan(id) {
+    const data = await api.get(id)
+    return data?.scan ?? null
+}
 
 async function createScan(scan) {
     const data = await api.post('', { scan })
