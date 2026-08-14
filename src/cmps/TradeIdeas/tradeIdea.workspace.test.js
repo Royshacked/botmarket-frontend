@@ -68,3 +68,64 @@ test('paper and manual are mutually exclusive', () => {
         assert.ok(!(isPaperIdea(input) && isManualIdea(input)), what)
     }
 })
+
+// ─── SCOPING EVERY KIND, not just ideas ───────────────────────────────────────
+// THE BUG THIS SECTION EXISTS FOR: the workspace rule was written when `ideas` was the only kind,
+// so when `call` and `setup` arrived, the lists that show them did not reuse it.
+//
+//   - SETUPS were not scoped AT ALL. Mentor is the trading desk now, so the setup is the main
+//     execution entity — and every setup showed in every workspace, paper next to real money.
+//   - CALLS were scoped by an inline expression, copied into two list sites:
+//         (c.broker === 'ctrader' ? 'live' : c.broker === 'manual' ? 'manual' : 'paper')
+//     which maps every OTHER broker to paper. IBKR is a live broker. A live IBKR call therefore
+//     showed up in the PAPER workspace, and nothing but the broker field was consulted — the
+//     account-id fallback that ideas have was simply absent.
+
+import { entityWorkspace, inWorkspace } from './tradeIdea.utils.js'
+
+test('a live IBKR call is live, not paper — the inline copy got this wrong', () => {
+    assert.equal(entityWorkspace({ broker: 'ibkr' }), 'live')
+})
+
+test("a call's `mode` is its build LENS and must not be read as a workspace", () => {
+    // The live collision: on an idea or a setup `mode` is the workspace, on a call it is the lens
+    // (discretionary | smc | institutional). The lens values do not collide with the workspace
+    // names, so the call falls through to `broker` — this pins that it still does.
+    for (const lens of ['discretionary', 'smc', 'institutional']) {
+        assert.equal(entityWorkspace({ mode: lens, broker: 'paper' }), 'paper', lens)
+        assert.equal(entityWorkspace({ mode: lens, broker: 'ctrader' }), 'live', lens)
+    }
+})
+
+test('a setup carries a real stamped workspace and is scoped by it', () => {
+    // setups.service stamps `mode: resolveMode(...)` at save, so this is the primary signal.
+    assert.equal(entityWorkspace({ mode: 'manual', broker: 'manual' }), 'manual')
+    assert.equal(entityWorkspace({ mode: 'paper' }), 'paper')
+})
+
+test('inWorkspace keeps only the entities belonging to the book on screen', () => {
+    const list = [
+        { id: 'a', mode: 'paper' },
+        { id: 'b', mode: 'live' },
+        { id: 'c', broker: 'manual' },
+        { id: 'd', broker: 'ibkr' },
+        { id: 'e', accountId: 'paper-u1-xyz' },
+    ]
+    assert.deepEqual(inWorkspace(list, 'paper').map(x => x.id),  ['a', 'e'])
+    assert.deepEqual(inWorkspace(list, 'live').map(x => x.id),   ['b', 'd'])
+    assert.deepEqual(inWorkspace(list, 'manual').map(x => x.id), ['c'])
+})
+
+test('every entity lands in exactly one workspace — none hidden, none doubled', () => {
+    // The property that makes the three lists a partition of the book. A kind that fell through all
+    // three would vanish from the UI entirely, which is worse than showing in the wrong one: the
+    // user would have no surface on which to notice it.
+    const list = [{ mode: 'paper' }, { mode: 'live' }, { broker: 'manual' }, { broker: 'ibkr' }, {}]
+    const total = ['paper', 'live', 'manual'].reduce((n, w) => n + inWorkspace(list, w).length, 0)
+    assert.equal(total, list.length)
+})
+
+test('a list that has not loaded yet scopes to nothing rather than throwing', () => {
+    assert.deepEqual(inWorkspace(undefined, 'paper'), [])
+    assert.deepEqual(inWorkspace(null, 'live'), [])
+})

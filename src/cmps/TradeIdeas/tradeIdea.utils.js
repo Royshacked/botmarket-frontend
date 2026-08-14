@@ -681,6 +681,14 @@ export function isManualIdea(idea) {
  * venueResolve.test.js, which assert the SAME inputs.
  */
 export function ideaWorkspaceMode(idea) {
+    // ⚠ `mode` MEANS TWO DIFFERENT THINGS depending on the kind, which is why this reads the value
+    // rather than merely checking the field exists. On an `idea` and a `setup` it is the workspace;
+    // on a CALL it is the build LENS (discretionary | smc | institutional — see kairos.modes.js).
+    // The lens values happen not to collide with the workspace names, so a call falls straight
+    // through to `broker` below and resolves correctly. That is luck holding a contract together:
+    // name a future lens 'live' and every call on it silently changes workspace. If a lens is ever
+    // added, check it against this list first. (The backend records the same collision under
+    // project_trade_pipeline_pivot.)
     if (idea?.mode === 'paper' || idea?.mode === 'manual' || idea?.mode === 'live') return idea.mode
 
     if (idea?.broker === 'paper' || idea?.broker === 'manual') return idea.broker
@@ -707,6 +715,35 @@ export function ideaWorkspace(idea) {
     if (isPaperIdea(idea))  return 'paper'
     if (isManualIdea(idea)) return 'manual'
     return 'live'
+}
+
+/**
+ * The workspace ANY execution-tier entity belongs to — an idea, a call or a setup.
+ *
+ * Same function, kind-neutral name, and that is the whole point of it existing. The rule was written
+ * when `ideas` was the only kind, so as `call` and `setup` arrived the lists that show them grew
+ * their own inline copies instead — one of which mapped every non-cTrader, non-manual call to PAPER,
+ * so a live IBKR call would have shown up in the paper workspace. The fields it reads (`mode`,
+ * `broker`, the account ids) are the ones every kind carries, so nothing about it was ever
+ * idea-specific except the name.
+ *
+ * `ideaWorkspace` stays as-is for the existing idea call sites; scope a NEW list through this.
+ *
+ * @param {{mode?:string, broker?:string, accounts?:unknown[], mainAccountId?:unknown, accountId?:unknown}} entity
+ * @returns {'paper'|'manual'|'live'}
+ */
+export const entityWorkspace = ideaWorkspace
+
+/**
+ * Filter any list of execution-tier entities down to the workspace on screen.
+ *
+ * Kept as a helper rather than left inline at each list because "which of these belong to the book
+ * I am looking at" is one question, and each place that answered it separately answered it slightly
+ * differently. A non-array is an empty list, so a still-loading feed scopes to nothing rather than
+ * throwing.
+ */
+export function inWorkspace(entities, workspace) {
+    return Array.isArray(entities) ? entities.filter(e => entityWorkspace(e) === workspace) : []
 }
 
 // ── Idea status groups ──────────────────────────────────────────────────────

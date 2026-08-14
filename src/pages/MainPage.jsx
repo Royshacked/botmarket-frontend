@@ -31,7 +31,7 @@ import { analystService, COVERAGE_CHANGED } from '../services/analyst/analyst.se
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
-import { activatePortfolio, isManualIdea, buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace, positionOpenTarget, openCallPopup, openIdeaPopup, matchPositionsForIdea, portfoliosFromIdeas, isPortfolioReview } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { activatePortfolio, isManualIdea, buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace, inWorkspace, positionOpenTarget, openCallPopup, openIdeaPopup, matchPositionsForIdea, portfoliosFromIdeas, isPortfolioReview } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { TradeTicket } from '../cmps/TradeTicket/TradeTicket.jsx'
 import { apiError } from '../services/http.service.js'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
@@ -2978,9 +2978,9 @@ export function MainPage() {
                                 SetupCard's onEdit either, so there is no setup edit path yet. */}
                             {(
                                 <FloorLists
-                                    calls={calls.filter(c => (c.broker === 'ctrader' ? 'live' : c.broker === 'manual' ? 'manual' : 'paper') === workspace)}
-                                    setups={setups}
-                                    ideas={ideas.filter(i => ideaWorkspace(i) === workspace).filter(i => i.status !== 'closed')}
+                                    calls={inWorkspace(calls, workspace)}
+                                    setups={inWorkspace(setups, workspace)}
+                                    ideas={inWorkspace(ideas, workspace).filter(i => i.status !== 'closed')}
                                     positions={positions}
                                     scans={scans}
                                     coverage={coverage}
@@ -3009,9 +3009,7 @@ export function MainPage() {
                     ) : (
                     <div className="workspace__ideas">
                         <TradeIdeasList
-                            ideas={ideas
-                                .filter(i => ideaWorkspace(i) === workspace)   // scope to the active workspace (live/paper/manual)
-                                .filter(i => i.status !== 'closed')}
+                            ideas={inWorkspace(ideas, workspace).filter(i => i.status !== 'closed')}
                             chatTab={activeTab}
                             buildingIdea={buildingIdeaRow}
                             buildingPortfolio={buildingPortfolio}
@@ -3029,10 +3027,9 @@ export function MainPage() {
                             onRefreshPositions={refreshPositions}
                             onClosePosition={closePosition}
                             onClosePositions={closePositions}
-                            calls={calls
-                                .filter(c => (c.broker === 'ctrader' ? 'live' : c.broker === 'manual' ? 'manual' : 'paper') === workspace)}
+                            calls={inWorkspace(calls, workspace)}
                             buildingCall={buildingCallRow}
-                            setups={setups}
+                            setups={inWorkspace(setups, workspace)}
                             setupsLoading={setupsLoading}
                             onArmSetup={handleArmSetup}
                             onDisarmSetup={handleDisarmSetup}
