@@ -71,7 +71,9 @@ export function ScenarioBlock({ scenario, direction, index, armed = false, dead 
                 )}
             </header>
 
-            <ZoneEditor scenario={scenario} onChange={onChange} readOnly={readOnly} />
+            {/* direction decides which edge of a target band is the take-profit and which one only
+                wakes Talos to offer a partial — see ZoneEditor.edgeNames. */}
+            <ZoneEditor scenario={scenario} direction={direction} onChange={onChange} readOnly={readOnly} />
 
             <ConditionList
                 conditions={scenario.conditions}

@@ -122,12 +122,14 @@ ScenarioSection.propTypes = { scenario: PropTypes.object, index: PropTypes.numbe
  * action lives instead. The server refuses it too (`confirm_order`) — this is the half that keeps
  * the user from being sent somewhere the app will then say no.
  *
- * `let_run` is a decision NOT to act, so it has nothing to accept either; it reads as a note.
+ * `let_run` depends on what it carries. Bare, it is a decision NOT to act and reads as a note. With
+ * a new target it is Talos asking to move the resting limit further out, which is an amend like any
+ * other — so the proposal has to reach the gate, not just the verdict.
  */
 function ManagementCard({ pending, busy, onAccept, onDismiss }) {
     const v = pending?.verdict
     if (!v) return null
-    const acceptable = canAcceptManage(v)
+    const acceptable = canAcceptManage(v, pending.proposal)
     return (
         <div className={`kairos-panel__card kairos-panel__card--manage verdict--${v}`}>
             <div className="kairos-panel__card-head">

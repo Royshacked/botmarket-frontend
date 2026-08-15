@@ -3,10 +3,11 @@ import { MANAGE_LABEL, canAcceptManage, manageVerb, manageProposalLine } from '.
 
 // The client half of "what can a user actually do with a Talos verdict". It has to agree with
 // talos.handoff.service on the backend: SETUP_MANAGE_VERBS there is move_stop | take_partial |
-// exit_now, add_leg answers `confirm_order`, and let_run isn't an action at all.
+// exit_now | let_run, add_leg answers `confirm_order`, and a let_run with no level answers
+// `bad_proposal`.
 describe('canAcceptManage', () => {
-    it('accepts exactly the three verbs the server executes', () => {
-        expect(Object.keys(MANAGE_LABEL).sort()).toEqual(['exit_now', 'move_stop', 'take_partial'])
+    it('accepts exactly the verbs the server executes', () => {
+        expect(Object.keys(MANAGE_LABEL).sort()).toEqual(['exit_now', 'let_run', 'move_stop', 'take_partial'])
         for (const v of ['move_stop', 'take_partial', 'exit_now']) expect(canAcceptManage(v)).toBe(true)
     })
 
@@ -14,8 +15,18 @@ describe('canAcceptManage', () => {
         expect(canAcceptManage('add_leg')).toBe(false)
     })
 
-    it('offers no accept for let_run — a decision not to act has nothing to execute', () => {
+    it('offers no accept for a BARE let_run — a decision not to act has nothing to execute', () => {
         expect(canAcceptManage('let_run')).toBe(false)
+        expect(canAcceptManage('let_run', { why: 'trend intact' })).toBe(false)
+    })
+
+    it('DOES offer an accept for a let_run that moves the target — that is an amend', () => {
+        // The same word covers "I am deliberately not trimming" and "there is more in this than we
+        // planned, move the target out to X". Only the proposal tells them apart.
+        expect(canAcceptManage('let_run', { new_tp: 262 })).toBe(true)
+        expect(canAcceptManage('let_run', { tp: 262 })).toBe(true)
+        expect(canAcceptManage('let_run', { cancel_tp: true })).toBe(true)
+        expect(canAcceptManage('let_run', { new_tp: 'higher' })).toBe(false)
     })
 
     it('is safe on a missing / unknown verdict', () => {
@@ -56,6 +67,12 @@ describe('manageProposalLine', () => {
     it('has a line for let_run and exit_now even with no proposal', () => {
         expect(manageProposalLine('let_run', null)).toMatch(/rather than trimming/)
         expect(manageProposalLine('exit_now', {})).toMatch(/Flatten/)
+    })
+
+    it('names the new level when a let_run is moving the target', () => {
+        expect(manageProposalLine('let_run', { tp: 262, why: 'measured move' }))
+            .toBe('Move the target out to 262 (measured move)')
+        expect(manageProposalLine('let_run', { cancel_tp: true })).toMatch(/uncapped/)
     })
 
     it('returns null for an unknown verdict rather than inventing copy', () => {

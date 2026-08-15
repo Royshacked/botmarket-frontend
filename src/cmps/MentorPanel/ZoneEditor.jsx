@@ -25,12 +25,27 @@ import './ZoneEditor.scss'
 const GROUPS = [
     { key: 'entry_zones', label: 'Entry',  suffix: 'e', hint: 'Where you want to be filled. One per way in — a second entry is a second scenario, not a second zone.' },
     { key: 'stop_zones',  label: 'Stop',   suffix: 's', hint: 'Where this premise is wrong. The far edge rests at the broker as the failsafe.' },
-    { key: 'tp_zones',    label: 'Target', suffix: 't', hint: 'Where you bank. Several zones = staged exits.' },
+    { key: 'tp_zones',    label: 'Target', suffix: 't', hint: 'The far edge IS your take-profit, and the limit rests there. The near edge is where Talos wakes to offer you a partial on the way — the gap between them is how long you get to answer. Equal edges = an exact level, taken without asking. Several zones = staged exits.' },
 ]
 
 const num = (v) => (v === '' || v == null ? null : Number(v))
 
-export function ZoneEditor({ scenario, onChange, readOnly = false }) {
+/**
+ * What each edge of a band is CALLED. Entry and stop are ranges, so their edges are just edges. A
+ * target is not: the far edge is the take-profit itself and the near edge opens the conversation
+ * about banking early (see the group hint). Which of `lower`/`upper` is which depends on the
+ * direction, so without one we stay generic rather than guess and label the exit wrong.
+ */
+function edgeNames(key, direction) {
+    if (key !== 'tp_zones' || !direction) {
+        return { lower: 'lower edge', upper: 'upper edge', lowerPh: 'from', upperPh: 'to' }
+    }
+    return direction === 'long'
+        ? { lower: 'window edge', upper: 'target',      lowerPh: 'window', upperPh: 'target' }
+        : { lower: 'target',      upper: 'window edge', lowerPh: 'target', upperPh: 'window' }
+}
+
+export function ZoneEditor({ scenario, direction = null, onChange, readOnly = false }) {
     if (!scenario) return null
 
     const patch = (groupKey, zones) => onChange?.({ ...scenario, [groupKey]: zones })
@@ -87,22 +102,23 @@ export function ZoneEditor({ scenario, onChange, readOnly = false }) {
 
                         {zones.map(zone => {
                             const exact = Number.isFinite(zone.lower) && zone.lower === zone.upper
+                            const edge  = edgeNames(key, direction)
                             return (
                                 <div className={`zone-editor__zone${exact ? ' is-exact' : ''}`} key={zone.id}>
                                     <span className="zone-editor__id">{zone.id}</span>
 
                                     <input
                                         className="zone-editor__num" type="number" inputMode="decimal"
-                                        value={zone.lower ?? ''} placeholder="from" disabled={readOnly}
-                                        aria-label={`${label} ${zone.id} lower edge`}
+                                        value={zone.lower ?? ''} placeholder={edge.lowerPh} disabled={readOnly}
+                                        aria-label={`${label} ${zone.id} ${edge.lower}`}
                                         onChange={e => updateZone(key, zone.id, 'lower', e.target.value)}
                                         onBlur={() => commitZone(key, zone.id)}
                                     />
                                     <span className="zone-editor__dash">–</span>
                                     <input
                                         className="zone-editor__num" type="number" inputMode="decimal"
-                                        value={zone.upper ?? ''} placeholder="to" disabled={readOnly}
-                                        aria-label={`${label} ${zone.id} upper edge`}
+                                        value={zone.upper ?? ''} placeholder={edge.upperPh} disabled={readOnly}
+                                        aria-label={`${label} ${zone.id} ${edge.upper}`}
                                         onChange={e => updateZone(key, zone.id, 'upper', e.target.value)}
                                         onBlur={() => commitZone(key, zone.id)}
                                     />
@@ -148,6 +164,9 @@ ZoneEditor.propTypes = {
         stop_zones:  PropTypes.arrayOf(zoneShape),
         tp_zones:    PropTypes.arrayOf(zoneShape),
     }),
-    onChange: PropTypes.func,
-    readOnly: PropTypes.bool,
+    // Which edge of a target band is the take-profit depends on it. Optional: without it the edges
+    // stay generically named rather than risk labelling the exit the wrong way round.
+    direction: PropTypes.oneOf(['long', 'short']),
+    onChange:  PropTypes.func,
+    readOnly:  PropTypes.bool,
 }
