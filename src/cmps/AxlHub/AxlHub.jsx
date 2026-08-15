@@ -57,7 +57,7 @@ export function MessageBubble({ msg }) {
     if (pending && !msg.reasoning) return null
     return (
         <div className={`axl-hub__bubble axl-hub__bubble--assistant${pending ? ' axl-hub__bubble--pending' : ''}`}>
-            <ChatReasoning text={msg.reasoning} live={pending} />
+            <ChatReasoning reasoning={msg.reasoning} live={pending} streaming={msg.streaming} />
             {!pending && <ChatMarkdown>{msg.content ?? ''}</ChatMarkdown>}
         </div>
     )

@@ -49,7 +49,7 @@ export function ChatBubble({
         return <div className="portfolio-panel__bubble portfolio-panel__bubble--user">{msg.content}</div>
     }
 
-    const reasoning = <ChatReasoning text={msg.reasoning} live={msg.streaming && !msg.content} />
+    const reasoning = <ChatReasoning reasoning={msg.reasoning} live={msg.streaming && !msg.content} streaming={msg.streaming} />
 
     // A turn with no words yet carries no mark of its own — the waiting label renders ONCE, below
     // the thread (see waitingLabel). Reasoning still belongs to the turn, so a bubble appears only

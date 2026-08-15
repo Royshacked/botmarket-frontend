@@ -5,6 +5,7 @@ import { makeStreamHandlers } from './useStreamStop.js'
 import { newTurnId } from '../services/turn.service.js'
 import { toolStatusLabel } from '../services/toolStatusLabels.js'
 import { reasoningPulse, pruneSamples } from './reasoningPulse.js'
+import { appendReasoning } from '../services/reasoning.service.js'
 
 /**
  * The conversation reduced to role + content, minus the UI-only rows (the streaming
@@ -64,7 +65,7 @@ export function toChatHistory(messages) {
  *   reset: () => void,
  *   handleStop: () => void,
  *   freezeError: (message?: string) => void,
- *   reasoningRef: React.MutableRefObject<string>,
+ *   reasoningRef: React.MutableRefObject<null|{source:string,text:string}[]>,
  * }}
  */
 export function useChatStream({ threadPhases = false } = {}) {
@@ -73,7 +74,16 @@ export function useChatStream({ threadPhases = false } = {}) {
     const [streamStatus, setStreamStatus] = useState('')
     const [phase, setPhase]               = useState(null)
 
-    const reasoningRef = useRef('')
+    // Reasoning is a list of SEGMENTS, not one string: two models think during a turn — the desk's
+    // own, and the sidecar it consults for a bounded decision — and they must be distinguishable to
+    // read at all. Segments keep the chronology (desk thinks → consults → resumes) that a flat
+    // concatenation destroys, and a third source later is a new label rather than a new field.
+    //
+    // `null` when nothing has been thought, a NON-EMPTY array once anything has: every caller
+    // already writes `...(reasoning ? { reasoning } : {})` and `!msg.reasoning`, and an empty array
+    // is truthy — so `[]` as the empty value would have quietly given every wordless turn a blank
+    // reasoning block. @type {React.MutableRefObject<null|{source:string,text:string}[]>}
+    const reasoningRef = useRef(null)
     // Live reasoning ACTIVITY (0-1), distinct from the accumulated text: a flat "thinking…" reads the
     // same whether the model is mid chain-of-thought or stalled on a slow tool.
     const reasoningSamplesRef = useRef([])
@@ -120,7 +130,7 @@ export function useChatStream({ threadPhases = false } = {}) {
         ])
         setIsLoading(true)
         setStreamStatus('')
-        reasoningRef.current = ''
+        reasoningRef.current = null
         reasoningSamplesRef.current = []
         liveChartRef.current = null   // per-turn: only THIS turn's chart may become its history note
         deferRef.current     = false
@@ -194,7 +204,7 @@ export function useChatStream({ threadPhases = false } = {}) {
         })
         setIsLoading(true)
         setStreamStatus('')
-        reasoningRef.current = ''
+        reasoningRef.current = null
         reasoningSamplesRef.current = []
         liveChartRef.current = null   // per-turn: only THIS turn's chart may become its history note
         deferRef.current     = false
@@ -244,10 +254,12 @@ export function useChatStream({ threadPhases = false } = {}) {
                     return msgs
                 })
             },
-            onReasoning: (t) => {
-                reasoningRef.current += t
+            onReasoning: (t, source = 'desk') => {
+                reasoningRef.current = appendReasoning(reasoningRef.current, source, t)
                 // Sample into a ref, never state: deltas arrive far faster than anything should
-                // re-render. The ticker below reads this on a slow timer.
+                // re-render. The ticker below reads this on a slow timer. The sidecar's thinking is
+                // sampled too — a consult is the longest silence in a turn, and a pulse that went
+                // flat through it would read as a stall exactly when the most work is happening.
                 reasoningSamplesRef.current.push({ t: Date.now(), n: t.length })
                 const acc = reasoningRef.current
                 setMessages(prev => {

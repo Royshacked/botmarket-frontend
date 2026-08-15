@@ -384,6 +384,12 @@
     // UI fonts — defaults; the axl theme overrides them with the brand pairing.
     --font-sans: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
     --font-mono: 'IBM Plex Mono', monospace;
+    // A third voice, for text this app did not write in its own machine register — today the
+    // reasoning sidecar's thinking (ChatReasoning), which is a DIFFERENT model speaking inside our
+    // block and reads as the desk contradicting itself if it wears the desk's face. Deliberately
+    // NOT overridden per theme: the themes are palettes, and this distinction has to survive a
+    // reader who cannot use colour to tell two voices apart.
+    --font-serif: Georgia, 'Times New Roman', serif;
 
     // The aurora ANCHOR HUE. It no longer washes any background — the header now sits on plain
     // --bg-base — but it still drives the header's calm-water wave below, so the profile hue

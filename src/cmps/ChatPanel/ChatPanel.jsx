@@ -255,7 +255,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                         <div key={i} className={`chat-panel__bubble chat-panel__bubble--${msg.role}`}>
                             {msg.role === 'assistant' ? (
                                 <>
-                                    <ChatReasoning text={msg.reasoning} live={msg.streaming && !msg.content} />
+                                    <ChatReasoning reasoning={msg.reasoning} live={msg.streaming && !msg.content} streaming={msg.streaming} />
                                     <ChatMarkdown>{(msg.content ?? '').replace(/<asset>[\s\S]*?<\/asset>/g, '').trimStart()}</ChatMarkdown>
                                 </>
                             ) : (

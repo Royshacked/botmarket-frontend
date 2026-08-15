@@ -34,7 +34,11 @@ export function buildStreamHandlers(cb = {}) {
         // set of dimensions read so far — order-free, because Mentor works by invariants, not steps.
         coverage:  (d) => cb.onCoverage?.(d.coverage),
         status:    (d) => cb.onStatus?.(d.tool),
-        reasoning: (d) => cb.onReasoning?.(d.text),
+        // WHOSE thinking this is: the desk's own model, or the reasoning sidecar it consulted for
+        // one bounded decision (backend services/deepThink.service.js). One event with a label
+        // rather than two events — a second sidecar is then a new label, not new wiring in five
+        // layers. Older servers don't send `source`; defaulting to 'desk' keeps them rendering.
+        reasoning: (d) => cb.onReasoning?.(d.text, d.source || 'desk'),
         done:      (d) => cb.onDone?.(d),
         error:     (d) => cb.onError?.(d.message),
     }

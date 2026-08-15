@@ -1,10 +1,18 @@
-// Collapsible reasoning block, shared across the idea / scanner / portfolio chats.
+// Collapsible reasoning block, shared across every agent chat.
+//
+// Two thinkers share the block (see ChatReasoning.jsx): the desk's own model, and the sidecar it
+// consulted. They are told apart by VOICE, not colour alone — mono for the desk, serif for the
+// consult — so the distinction survives a colour-blind reader, a monochrome theme, and the light
+// theme's lower contrast, none of which a hue swap does.
 .chat-reasoning {
     align-self: stretch;
     margin: 0 0 8px;
     font-family: var(--font-mono);
 
     &__summary {
+        display: flex;
+        align-items: center;
+        gap: 8px;
         font-size: var(--chat-label);
         font-weight: 600;
         letter-spacing: 0.1em;
@@ -14,10 +22,23 @@
         user-select: none;
         list-style: none;
         &::-webkit-details-marker { display: none; }
-        &::before { content: '▸ '; }
+        &::before { content: '▸'; }
     }
 
-    &[open] &__summary::before { content: '▾ '; }
+    &[open] &__summary::before { content: '▾'; }
+
+    // Collapsed, this is the only sign a second model was involved — so it has to carry that on
+    // its own, without the body open.
+    &__badge {
+        font-family: var(--font-serif);
+        font-style: italic;
+        font-weight: 500;
+        font-size: var(--chat-meta);
+        letter-spacing: 0.02em;
+        text-transform: none;
+        color: var(--accent, var(--text-muted));
+        opacity: 0.9;
+    }
 
     &__body {
         margin-top: 5px;
@@ -28,8 +49,42 @@
         font-size: var(--chat-meta);
         line-height: 1.5;
         color: var(--text-muted);
-        white-space: pre-wrap;
         max-height: 240px;
         overflow-y: auto;
+    }
+
+    // Preserved on the SEGMENT, not the body: the body is a flow container now, and pre-wrap there
+    // would turn the newlines between segment divs into blank lines.
+    &__seg {
+        white-space: pre-wrap;
+    }
+
+    &__seg--consult {
+        display: block;
+        margin: 8px 0;
+        padding: 6px 0 6px 10px;
+        border-left: 2px solid var(--accent, var(--border-strong));
+        font-family: var(--font-serif);
+        font-size: calc(var(--chat-meta) + 1px);
+        font-style: italic;
+        line-height: 1.55;
+        color: var(--text-secondary, var(--text-muted));
+
+        &:first-child { margin-top: 0; }
+        &:last-child  { margin-bottom: 0; }
+    }
+
+    // A quiet attribution, so an opened block says WHO without needing the badge above.
+    &__who {
+        display: block;
+        margin-bottom: 3px;
+        font-family: var(--font-mono);
+        font-size: var(--chat-label);
+        font-style: normal;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--accent, var(--text-muted));
+        opacity: 0.75;
     }
 }
