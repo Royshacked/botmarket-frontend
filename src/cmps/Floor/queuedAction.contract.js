@@ -43,6 +43,23 @@ export function actionLine(row) {
             : `Close all of ${asset}`
         case 'trim':   return pct(a.reduceFraction) ? `Trim ${pct(a.reduceFraction)} of ${asset}` : `Trim ${asset}`
         case 'add_to': return pct(a.addFraction)    ? `Add ${pct(a.addFraction)} to ${asset}`     : `Add to ${asset}`
+
+        // A monitor's proposal the user accepted after the close. The LEVEL is the whole point of
+        // the row: by the open the card that proposed it is gone, and "move the stop on NVDA" leaves
+        // the user to guess where to — which is the one thing they already decided.
+        case 'move_stop':    return Number.isFinite(a.proposal?.new_stop)
+            ? `Move the ${asset} stop to ${a.proposal.new_stop}`
+            : `Move the ${asset} stop`
+        case 'take_partial': return Number.isFinite(a.proposal?.size_pct)
+            ? `Bank ${Number(a.proposal.size_pct.toFixed(1))}% of ${asset}`
+            : `Bank part of ${asset}`
+        case 'exit_now':     return `Get flat on ${asset}`
+        case 'let_run':      return a.proposal?.cancel_tp
+            ? `Cancel the ${asset} target`
+            : Number.isFinite(a.proposal?.new_tp)
+                ? `Move the ${asset} target to ${a.proposal.new_tp}`
+                : `Let ${asset} run`
+
         default:       return `${a.type ?? 'Action'} · ${asset}`
     }
 }
@@ -54,7 +71,10 @@ export function originLine(row) {
 
 /** Short verb for the Execute button, so the button says what it does. */
 export function actionVerb(row) {
-    return { entry: 'Enter', exit: 'Close', trim: 'Trim', add_to: 'Add' }[row?.action?.type] ?? 'Execute'
+    return {
+        entry: 'Enter', exit: 'Close', trim: 'Trim', add_to: 'Add',
+        move_stop: 'Move stop', take_partial: 'Bank', exit_now: 'Get flat', let_run: 'Move target',
+    }[row?.action?.type] ?? 'Execute'
 }
 
 /**
@@ -106,6 +126,36 @@ export function confirmCopy(row) {
                 body:  `Increase your ${asset} position by ${pct(a.addFraction) ?? 'the agreed share'} at market. Decided while the market was shut${originLine(row) ? ` — ${originLine(row)}` : ''}.`,
                 cta:   'Add now',
             }
+        // The management verbs. Each says the LEVEL back, because the proposal was accepted hours ago
+        // against a chart the user is no longer looking at — confirming "move the stop" without the
+        // number is asking them to trust their memory of it.
+        case 'move_stop':
+            return {
+                title: 'Move the stop',
+                body:  `Move your ${asset} stop to ${a.proposal?.new_stop ?? 'the level you accepted'}`
+                     + `${a.proposal?.ref ? ` (${a.proposal.ref})` : ''}. Accepted while the market was shut.`,
+                cta:   'Move it now',
+            }
+        case 'take_partial':
+            return {
+                title: 'Bank a partial',
+                body:  `Close ${a.proposal?.size_pct != null ? `${Number(a.proposal.size_pct.toFixed(1))}%` : 'the agreed share'} of your ${asset} position at market. Accepted while the market was shut.`,
+                cta:   'Bank it now',
+            }
+        case 'exit_now':
+            return {
+                title: 'Get flat',
+                body:  `Close your whole ${asset} position at market. Accepted while the market was shut${originLine(row) ? ` — ${originLine(row)}` : ''}.`,
+                cta:   'Get flat now',
+            }
+        case 'let_run':
+            return {
+                title: a.proposal?.cancel_tp ? 'Cancel the target' : 'Move the target',
+                body:  a.proposal?.cancel_tp
+                    ? `Cancel the resting take-profit on ${asset} and let it run. Accepted while the market was shut.`
+                    : `Move your ${asset} target out to ${a.proposal?.new_tp ?? 'the level you accepted'}. Accepted while the market was shut.`,
+                cta:   a.proposal?.cancel_tp ? 'Cancel it now' : 'Move it now',
+            }
         default:
             return { title: 'Execute', body: `Run this ${asset} action at market.`, cta: 'Execute' }
     }
@@ -121,4 +171,10 @@ export const EXECUTE_ERRORS = {
     no_position:    'That position is no longer open.',
     not_live:       'That holding is not in a position.',
     no_origin_handler: 'This item came from a desk that can no longer run it.',
+    // A management action replayed at the open. Hours passed, so the position it was accepted
+    // against may simply not be there any more — which is an outcome, not a fault.
+    not_found:        'That position is gone — nothing left to change.',
+    no_position_link: 'No open position at the broker to change.',
+    execution_failed: 'The broker refused it. Nothing was changed.',
+    broker_unreachable: 'Could not reach the broker. It stays queued.',
 }

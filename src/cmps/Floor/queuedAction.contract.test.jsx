@@ -145,3 +145,53 @@ describe('a monitor exit', () => {
         expect(executeRoute(stopRow()).kind).toBe('confirm')
     })
 })
+
+// A management proposal the user accepted after the close — a stop move, a partial, getting flat.
+// Every one of these says its LEVEL back, because the card that proposed it is long gone by the
+// open and the number is the part they actually decided.
+describe('an accepted management action', () => {
+    const row = (action, over = {}) => ({
+        id: 'q7', source: 'queue', ready: true, asset: 'NVDA', cancellable: true, queuedBy: 'user',
+        origin: { kind: 'setup', entityId: 'setup_1', label: 'Talos: pressing the stop' },
+        action, ...over,
+    })
+
+    it('names the level on a stop move, on the row AND in the confirm', () => {
+        const r = row({ type: 'move_stop', proposal: { new_stop: 238.6, ref: 'breakeven' } })
+        expect(actionLine(r)).toBe('Move the NVDA stop to 238.6')
+        expect(actionVerb(r)).toBe('Move stop')
+        expect(confirmCopy(r).body).toMatch(/238\.6/)
+        expect(confirmCopy(r).body).toMatch(/breakeven/)
+    })
+
+    it('says the size on a partial, rounded to something a person would say', () => {
+        const r = row({ type: 'take_partial', proposal: { size_pct: 33.33 } })
+        expect(actionLine(r)).toBe('Bank 33.3% of NVDA')
+        expect(confirmCopy(r).cta).toBe('Bank it now')
+    })
+
+    it('is blunt about getting flat', () => {
+        const r = row({ type: 'exit_now', proposal: {} })
+        expect(actionLine(r)).toBe('Get flat on NVDA')
+        expect(confirmCopy(r).title).toBe('Get flat')
+    })
+
+    it('tells a target MOVE from a target CANCEL — they are opposite intents', () => {
+        const moved = row({ type: 'let_run', proposal: { new_tp: 262 } })
+        expect(actionLine(moved)).toBe('Move the NVDA target to 262')
+
+        const gone = row({ type: 'let_run', proposal: { cancel_tp: true } })
+        expect(actionLine(gone)).toBe('Cancel the NVDA target')
+        expect(confirmCopy(gone).title).toBe('Cancel the target')
+    })
+
+    it('degrades to a readable line when the level is missing, never to "undefined"', () => {
+        const r = row({ type: 'move_stop', proposal: {} })
+        expect(actionLine(r)).toBe('Move the NVDA stop')
+        expect(confirmCopy(r).body).not.toMatch(/undefined/)
+    })
+
+    it('routes to the queue\'s own confirm — the decision is made, there is nothing to fill in', () => {
+        expect(executeRoute(row({ type: 'exit_now' })).kind).toBe('confirm')
+    })
+})
