@@ -47,6 +47,35 @@ describe('FloorLists', () => {
         }
     })
 
+    // The Queued desk's count, which is the only one where "how many" and "how many you can act on"
+    // are different numbers. Work is queued BECAUSE the venue is shut, so counting only the
+    // pressable rows left the desk silent at exactly the moment it exists for.
+    describe('the queued count', () => {
+        const q = (over = {}) => ({ id: 'q1', asset: 'NVDA', ready: true, action: { type: 'exit' }, ...over })
+
+        it('counts every row waiting on the user, not only the pressable ones', () => {
+            render(<FloorLists queued={[q(), q({ id: 'q2', ready: false }), q({ id: 'q3', ready: false })]} />)
+            expect(within(deskBtn('Queued')).getByText('(1 of 3)')).toBeTruthy()
+        })
+
+        it('shows a count off-hours, when NOTHING is ready yet', () => {
+            // The regression this guards: three decisions queued for Monday used to render no badge
+            // at all, so the desk looked as empty as one with nothing in it.
+            render(<FloorLists queued={[q({ ready: false }), q({ id: 'q2', ready: false })]} />)
+            expect(within(deskBtn('Queued')).getByText('(0 of 2)')).toBeTruthy()
+        })
+
+        it('is a plain number once everything is actionable', () => {
+            render(<FloorLists queued={[q(), q({ id: 'q2' })]} />)
+            expect(within(deskBtn('Queued')).getByText('(2)')).toBeTruthy()
+        })
+
+        it('shows nothing at all when the queue is empty', () => {
+            render(<FloorLists queued={[]} />)
+            expect(within(deskBtn('Queued')).queryByText(/\(/)).toBeNull()
+        })
+    })
+
     it('counts calls and setups together on the trading floor', () => {
         render(<FloorLists calls={[call(), call({ id: 'c2' })]} setups={[setup()]} />)
         expect(within(deskBtn('Trading floor')).getByText('(3)')).toBeTruthy()

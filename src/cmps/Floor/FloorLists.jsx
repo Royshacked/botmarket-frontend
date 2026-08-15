@@ -40,7 +40,7 @@ function openFor(item) {
     return openIdeaPopup(item.entity)
 }
 
-function Desk({ desk, open, count, onToggle, children }) {
+function Desk({ desk, open, count, countLabel = null, onToggle, children }) {
     return (
         <section className={`floor-desk${open ? ' floor-desk--open' : ''}`}>
             <button
@@ -53,19 +53,23 @@ function Desk({ desk, open, count, onToggle, children }) {
                 </svg>
                 <span className="floor-desk__label">{desk.label}</span>
                 {/* Parenthesised and next to the label, not parked on the right edge: the count is
-                    part of what the desk IS ("Scans (3)"), not a separate column to scan down. */}
-                {count > 0 && <span className="floor-desk__count">({count})</span>}
+                    part of what the desk IS ("Scans (3)"), not a separate column to scan down.
+                    `count` decides whether the desk has anything at all; `countLabel` overrides how
+                    that is WORDED, for the one desk where "how many" and "how many you can act on"
+                    are different numbers. */}
+                {count > 0 && <span className="floor-desk__count">({countLabel ?? count})</span>}
             </button>
             {open && <div className="floor-desk__body">{children}</div>}
         </section>
     )
 }
 Desk.propTypes = {
-    desk:     PropTypes.object.isRequired,
-    open:     PropTypes.bool,
-    count:    PropTypes.number,
-    onToggle: PropTypes.func.isRequired,
-    children: PropTypes.node,
+    desk:       PropTypes.object.isRequired,
+    open:       PropTypes.bool,
+    count:      PropTypes.number,
+    countLabel: PropTypes.string,
+    onToggle:   PropTypes.func.isRequired,
+    children:   PropTypes.node,
 }
 
 const Empty = ({ children }) => <p className="floor-empty">{children}</p>
@@ -585,15 +589,27 @@ export function FloorLists({
         if (deskRequest?.key) setOpenKey(deskRequest.key)
     }, [deskRequest])
 
+    // Every row waiting on the user, not only the pressable ones.
+    //
+    // THIS USED TO COUNT `ready` ROWS ALONE, and the reasoning was sound in isolation — a badge
+    // saying 3 when only 1 can be pressed is a badge nobody trusts. What it missed is WHEN this desk
+    // matters: work is queued precisely because the venue is shut, so off-hours every row is
+    // `ready:false` and the desk showed no count at all. The one moment it exists for is the one
+    // moment it went quiet, and "a count here means someone is blocked" stopped being true.
+    //
+    // Both concerns are real, so the count says both: `(3)` when everything is actionable, `(1 of 3)`
+    // when it is not. Never a bare number that overstates what a press would do, and never silence
+    // over work that is genuinely waiting.
+    const queuedReady = queued.filter(q => q.ready !== false).length
     const counts = {
-        // Only the READY ones count. A row still waiting for its venue is in the list on purpose
-        // (hiding it is how a decision gets forgotten) but it is not something you can act on, and
-        // a badge that says 3 when only 1 is pressable is a badge nobody trusts.
-        queued:    queued.filter(q => q.ready !== false).length,
+        queued:    queued.length,
         trade:     calls.length + setups.length,
         portfolio: portfoliosFromIdeas(ideas).length,
         scans:     scans.length,
         coverage:  coverage.length,
+    }
+    const countLabels = {
+        queued: queuedReady < queued.length ? `${queuedReady} of ${queued.length}` : null,
     }
 
     return (
@@ -610,6 +626,7 @@ export function FloorLists({
                     desk={desk}
                     open={openKey === desk.key}
                     count={counts[desk.key]}
+                    countLabel={countLabels[desk.key] ?? null}
                     onToggle={toggle}
                 >
                     {desk.key === 'queued'    && (
