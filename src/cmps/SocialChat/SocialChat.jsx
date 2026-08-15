@@ -59,11 +59,23 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
 
     useEffect(() => { loadConversations() }, [loadConversations])
 
+    // The WS handler below is registered once, so it can't read `conversations` from the closure.
+    const conversationsRef = useRef([])
+    useEffect(() => { conversationsRef.current = conversations }, [conversations])
+
     // ── WS events ──────────────────────────────────────────────────────────
     useEffect(() => {
         function onConnected() { loadConversations() }
 
         function onNewMessage(msg) {
+            // A message can be the FIRST in a conversation this list has never seen — a desk's
+            // thread is created by its first card. `prev.map` would match nothing: no row, no
+            // count, and since useChatWs suppresses its own increment while the panel is open,
+            // the message would go uncounted entirely. Re-read the list instead.
+            if (!conversationsRef.current.some(c => c.id === msg.conversationId)) {
+                loadConversations()
+                return
+            }
             const isActive = activeConvRef.current?.id === msg.conversationId
             setConversations(prev => {
                 const updated = prev.map(c => c.id !== msg.conversationId ? c : {

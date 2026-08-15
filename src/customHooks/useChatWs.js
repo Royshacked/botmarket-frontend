@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { chatWsService } from '../services/chat/chatWs.service'
 import { chatService } from '../services/chat/chat.service'
@@ -55,20 +55,42 @@ export function useChatWs(userId) {
         return () => chatWsService.disconnect()
     }, [userId])
 
-    // Seed the badge with the persisted unread total on app open, so the count
-    // shows without needing to open the chat first. The chat panel keeps it in
-    // sync afterwards via onUnreadChange.
-    useEffect(() => {
-        if (!userId) { setUnread(0); return }
-        let cancelled = false
+    // Re-read the persisted unread total from the server. The badge can't live on WS pushes alone:
+    // a WebSocket is a live pipe with no memory, so every message that lands while the socket is
+    // down — the 3s reconnect window, a server restart, a sleeping laptop — is never pushed again.
+    // A push-only badge therefore drifts DOWN and stays there, and only opening the chat (which
+    // does this same REST read) revealed the true count. Mongo always had it; nothing asked.
+    // Skipped while the panel is open: it owns the number then, and mirrors it via onUnreadChange.
+    const userIdRef = useRef(userId)
+    useEffect(() => { userIdRef.current = userId }, [userId])
+
+    const refreshUnread = useCallback(() => {
+        if (!userId || showChatRef.current) return   // the panel reads on the same events — don't double-fetch
         chatService.getConversations()
             .then(convs => {
-                if (cancelled || showChatRef.current) return
+                // Re-checked: the panel may have opened (or the user changed) mid-flight.
+                if (showChatRef.current || userIdRef.current !== userId) return
                 setUnread(convs.reduce((s, c) => s + (c.unread ?? 0), 0))
             })
             .catch(() => { /* ignore — live ws events still increment */ })
-        return () => { cancelled = true }
     }, [userId])
+
+    // Seed on app open, then reconcile at every moment the client may have missed a push:
+    // a (re)connected socket, the tab coming back to the foreground, the network returning.
+    useEffect(() => {
+        if (!userId) { setUnread(0); return }
+        refreshUnread()
+
+        function onVisible() { if (!document.hidden) refreshUnread() }
+        chatWsService.on('connected', refreshUnread)
+        document.addEventListener('visibilitychange', onVisible)
+        window.addEventListener('online', refreshUnread)
+        return () => {
+            chatWsService.off('connected', refreshUnread)
+            document.removeEventListener('visibilitychange', onVisible)
+            window.removeEventListener('online', refreshUnread)
+        }
+    }, [userId, refreshUnread])
 
     useEffect(() => {
         if (!userId) return
