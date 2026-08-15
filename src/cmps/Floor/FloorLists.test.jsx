@@ -74,6 +74,24 @@ describe('FloorLists', () => {
             render(<FloorLists queued={[]} />)
             expect(within(deskBtn('Queued')).queryByText(/\(/)).toBeNull()
         })
+
+        // The queued row is the ONE row in this column that must not truncate. Every other desk is a
+        // doorway — a clipped value there is one click from being read in full — but a queued row has
+        // nothing to open, so the sentence is the whole item. It was ellipsising: the only elastic
+        // cell on a nowrap line, in a narrow column, next to two buttons that never shrink.
+        // jsdom lays nothing out, so guard the rules that make it wrap.
+        it('lets a queued row wrap rather than clipping the sentence', () => {
+            const css  = readFileSync(resolve(process.cwd(), 'src/cmps/Floor/Floor.scss'), 'utf8')
+            const line = css.slice(css.indexOf('.floor-queued {'), css.indexOf('.floor-desk__body .floor-rowhost'))
+            const row  = css.slice(css.indexOf('.floor-desk__body .floor-rowhost:has(.floor-queued__line)'))
+
+            expect(row).toMatch(/flex-wrap:\s*wrap/)
+            // The sentence keeps a floor, so the tail wraps under it instead of shaving it to a ribbon.
+            expect(line).toMatch(/&__line\s*\{[^}]*min-width:\s*14ch/)
+            // …and none of the three truncation rules came back.
+            expect(line).not.toMatch(/&__line\s*\{[^}]*text-overflow/)
+            expect(line).not.toMatch(/&__line\s*\{[^}]*white-space:\s*nowrap/)
+        })
     })
 
     it('counts calls and setups together on the trading floor', () => {

@@ -869,12 +869,18 @@ $header-h: var(--header-h);
         }
     }
 
+    // THE ROW'S WHOLE POINT, so it is the one thing here that must never be clipped. It used to
+    // ellipsise: it was the only elastic item on a nowrap line (everything after it is flex:none),
+    // so in a column this narrow it absorbed the entire squeeze and "Trim 30% of MU" arrived as
+    // "Trim 30%…". Truncation is right for the OTHER desks, whose rows are doorways you open to see
+    // the detail — a queued row has nothing to open, so the sentence is all there is. It wraps now,
+    // and the row grows instead.
     &__line {
         flex: 1 1 auto;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        // A FLOOR, not zero. Zero lets flexbox shave the sentence down to a sliver and wrap it into
+        // a tall ribbon beside the buttons; below this width the tail wraps under it instead, which
+        // is the reading the row wants.
+        min-width: 14ch;
         color: var(--text-primary);
     }
 
@@ -911,11 +917,19 @@ $header-h: var(--header-h);
     }
 }
 
-// The queued rows themselves: a flex line, and their actions do NOT hide (see above).
+// The queued rows themselves: a flex line that WRAPS, and their actions do NOT hide (see above).
+//
+// Wrapping is the difference between this and every other desk. The rest are fixed-height rows you
+// open for detail, so a long value truncating is fine — the full thing is one click away. Here the
+// row IS the detail: there is nothing to open, and a to-do you cannot read is a to-do nobody does.
+// So the sentence takes the width it needs and the tail (origin, "waiting for the open", buttons)
+// drops beneath it when there isn't room, rather than squeezing the sentence out.
 .floor-desk__body .floor-rowhost:has(.floor-queued__line) {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    column-gap: 8px;
+    row-gap: 4px;
     padding: 7px 12px;
     font-size: 12.5px;
     border-bottom: 1px solid var(--border-subtle, var(--border));
@@ -926,8 +940,12 @@ $header-h: var(--header-h);
     .floor-rowhost__actions {
         position: static;
         display: flex;
+        gap: 6px;
         height: auto;
         padding-left: 0;
         background: none;
+        // Right-aligned whether they ride the sentence's line or wrap below it, so the press
+        // targets sit in one predictable place down the list instead of moving with the text.
+        margin-left: auto;
     }
 }
