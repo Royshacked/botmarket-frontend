@@ -35,87 +35,11 @@
 // pop-out started drawing the same box — the styles follow the component, not the page that
 // happened to have it first. CallPage still borrows .monitor-journal__verdict for the manage card.
 
-// ── In-position state panel (Phase 5) ──────────────────────────────────────────
-.call-position {
-    margin: 8px 0;
-    padding: 10px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg-raised);
-
-    &--in_position { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
-
-    &__grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 8px 12px;
-    }
-
-    &__cell {
-        display: flex;
-        flex-direction: column;
-        gap: 1px;
-        font-size: 0.82rem;
-
-        span { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
-        b { font-weight: 700; }
-        em { font-style: normal; font-size: 0.68rem; color: var(--text-muted); }
-        .pos { color: var(--color-long); }
-        .neg { color: var(--color-short); }
-    }
-
-    &__label {
-        display: block;
-        margin-bottom: 4px;
-        font-size: 0.66rem;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: var(--text-muted);
-    }
-
-    &__targets, &__taken {
-        margin-top: 10px;
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 6px;
-    }
-
-    &__target {
-        padding: 1px 7px;
-        border-radius: 999px;
-        font-size: 0.77rem;
-        background: var(--glow-soft);
-        color: var(--text-secondary);
-
-        &.is-hit { background: rgba(76,175,80,0.16); color: var(--color-long); }
-    }
-
-    &__taken-row {
-        padding: 1px 7px;
-        border-radius: 4px;
-        font-size: 0.75rem;
-        background: var(--glow-soft);
-        color: var(--text-secondary);
-    }
-
-    &__outcome {
-        margin-top: 10px;
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 8px;
-        padding-top: 8px;
-        border-top: 1px dashed var(--border);
-        font-size: 0.82rem;
-
-        &-reason { text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.04em; color: var(--text-muted); }
-        &-r { font-weight: 800; }
-        &-bit { color: var(--text-secondary); }
-        &.is-win  &-r { color: var(--color-long); }
-        &.is-loss &-r { color: var(--color-short); }
-    }
-}
+// The in-position panel moved to cmps/TradeIdeas/PositionPanel.scss when the setup pop-out started
+// drawing the same box — same move the journal made, for the same reason. Its classes went with it,
+// `.call-position` → `.position-panel`: a box two desks draw should not be named after one of them.
+// (Its `--in_position` modifier went in the wash. It never matched: the component is handed a
+// STATUS, which is `long`/`short`/`closed`, so the highlight had been dead since it was written.)
 
 .call-page__actions--manage { margin: 8px 0; }
 

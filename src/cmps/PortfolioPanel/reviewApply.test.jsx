@@ -22,9 +22,14 @@ describe('reviewApplyMessage', () => {
     })
 
     it('names the reopen time when the server knows it', () => {
+        // The weekday is OPTIONAL in this assertion, and that is the whole subtlety: the formatter
+        // adds one when the reopen falls on a different day, so "now + 2h" produces "12:07 AM" for
+        // most of the day and "Sun 12:07 AM" for the two hours before midnight. Demanding digits
+        // straight after the bracket made this test fail nightly between 22:00 and midnight —
+        // a gate that is red on a clock teaches people to ignore it.
         const at = new Date(); at.setHours(at.getHours() + 2)
         const msg = reviewApplyMessage({ ...queued(1), nextOpenMs: at.getTime() })
-        expect(msg).toMatch(/queued for the open \(\d{1,2}:\d{2}/)
+        expect(msg).toMatch(/queued for the open \((?:\w{3} )?\d{1,2}:\d{2}/)
     })
 
     it('a mixed result reports both buckets', () => {

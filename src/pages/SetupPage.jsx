@@ -4,6 +4,8 @@ import { TalosBadge } from '../cmps/AxlHub/AgentBadges.jsx'
 import { EntityPopupShell } from '../cmps/EntityCard/EntityPopupShell.jsx'
 import { PopoutFooter } from '../cmps/TradeIdeas/PopoutFooter.jsx'
 import { MonitorJournal } from '../cmps/TradeIdeas/MonitorJournal.jsx'
+// Shared with the call pop-out — `position_state` is one shape whatever desk wrote it.
+import { PositionPanel } from '../cmps/TradeIdeas/PositionPanel.jsx'
 import { TalosWatch } from '../cmps/TradeIdeas/TalosWatch.jsx'
 import { watchTimeframe, showsWatch } from '../cmps/TradeIdeas/talosWatch.js'
 import { positionsForEntity } from '../cmps/TradeIdeas/tradeIdea.utils.js'
@@ -11,7 +13,7 @@ import { PriceChart } from '../cmps/PriceChart/PriceChart.jsx'
 import { ConvictionChip } from '../cmps/ConvictionChip/ConvictionChip'
 import { setupIcon, isSetupArmed, canArmSetup } from '../cmps/TradeIdeas/setupStatus.js'
 import { MANAGE_LABEL, canAcceptManage, manageProposalLine } from '../cmps/TradeIdeas/setupManage.js'
-import { isLivePosition } from '../services/entityStatus.js'
+import { isLivePosition, isTerminal } from '../services/entityStatus.js'
 import { useEntityPopup } from '../customHooks/useEntityPopup.js'
 import { usePositions } from '../customHooks/usePositions.js'
 import { mentorService } from '../services/mentor/mentor.service.remote'
@@ -235,6 +237,19 @@ export function SetupPage() {
                         Pre-entry only — see showsWatch: past entry the management card above is the
                         live surface, and last_assessment would be the read that got us IN. */}
                     {showsWatch(setup.status) && <TalosWatch setup={setup} />}
+
+                    {/* The same slot, past entry: what is happening to the plan RIGHT NOW. Where a
+                        call shows this only once it has closed — its live position and Close button
+                        are in the footer, so a second box would just repeat them — a setup shows it
+                        while the trade is on, because the footer answers a different question. The
+                        footer is the broker's view (open size, P&L, close it). This is the plan's:
+                        how far the trade has come in R, where the stop has been moved to, and the
+                        TARGET LADDER — which for a setup is a ladder of windows, so it is the only
+                        place the user can see that Talos will offer a partial at 246 while their
+                        limit rests at 247.2. */}
+                    {(isLivePosition(setup.status) || isTerminal(setup.status)) && setup.position_state && (
+                        <PositionPanel ps={setup.position_state} status={setup.status} />
+                    )}
 
                     <ConditionRow label="Always" conditions={setup.conditions} />
 

@@ -9,6 +9,8 @@ import { useEntityPopup } from '../customHooks/useEntityPopup.js'
 import { isAwaitingConfirm, isLivePosition, isTerminal, isInvalidated } from '../services/entityStatus.js'
 import { PopoutFooter } from '../cmps/TradeIdeas/PopoutFooter.jsx'
 import { MonitorJournal } from '../cmps/TradeIdeas/MonitorJournal.jsx'
+// Shared with the setup pop-out — `position_state` is one shape whatever desk wrote it.
+import { PositionPanel } from '../cmps/TradeIdeas/PositionPanel.jsx'
 import { PriceChart } from '../cmps/PriceChart/PriceChart.jsx'
 import { usePositions } from '../customHooks/usePositions.js'
 import { kairosService } from '../services/kairos/kairos.service.remote.js'
@@ -34,54 +36,6 @@ function proposalLine(verdict, p) {
     if (verdict === 'exit_now')     return p.reason || 'Flatten the position now'
     return null
 }
-const fmtR = r => (r == null ? '—' : `${r > 0 ? '+' : ''}${r}R`)
-
-// ── In-position state: the live trade + its outcome (Phase 5) ────────────────────────────────────
-function PositionPanel({ ps, status }) {
-    const e = ps.entry ?? {}, s = ps.stop ?? {}, m = ps.metrics ?? {}, o = ps.outcome
-    const targets = Array.isArray(ps.targets) ? ps.targets : []
-    const taken   = Array.isArray(ps.taken) ? ps.taken : []
-    const closed  = status === 'closed'
-    return (
-        <div className={`call-position call-position--${status}`}>
-            <div className="call-position__grid">
-                <div className="call-position__cell"><span>Entry</span><b>{e.fill_price ?? e.intended ?? '—'}</b></div>
-                <div className="call-position__cell"><span>Stop</span><b>{s.current ?? '—'}</b>{s.initial != null && s.initial !== s.current && <em> (init {s.initial})</em>}</div>
-                <div className="call-position__cell"><span>Size</span><b>{e.size ?? '—'}</b></div>
-                {!closed && <div className="call-position__cell"><span>R now</span><b className={m.r_multiple_now > 0 ? 'pos' : m.r_multiple_now < 0 ? 'neg' : ''}>{fmtR(m.r_multiple_now)}</b></div>}
-                {!closed && ps.phase && <div className="call-position__cell"><span>Phase</span><b>{ps.phase}</b></div>}
-                {!closed && (m.mfe != null || m.mae != null) && <div className="call-position__cell"><span>MFE / MAE</span><b>{fmtR(m.mfe)} / {fmtR(m.mae)}</b></div>}
-            </div>
-
-            {targets.length > 0 && (
-                <div className="call-position__targets">
-                    <span className="call-position__label">Targets</span>
-                    {targets.map(t => (
-                        <span key={t.id} className={`call-position__target ${t.hit_at ? 'is-hit' : ''}`}>{t.price}{t.hit_at ? ' ✓' : ''}</span>
-                    ))}
-                </div>
-            )}
-
-            {taken.length > 0 && (
-                <div className="call-position__taken">
-                    <span className="call-position__label">Taken</span>
-                    {taken.map((t, i) => <span key={i} className="call-position__taken-row">{t.kind} {t.size ?? ''}{t.r_multiple != null ? ` · ${fmtR(t.r_multiple)}` : ''}</span>)}
-                </div>
-            )}
-
-            {closed && o && (
-                <div className={`call-position__outcome ${o.r_multiple > 0 ? 'is-win' : o.r_multiple < 0 ? 'is-loss' : ''}`}>
-                    <span className="call-position__outcome-reason">{o.reason}</span>
-                    <span className="call-position__outcome-r">{fmtR(o.r_multiple)}</span>
-                    {o.exit_price != null && <span className="call-position__outcome-bit">exit {o.exit_price}</span>}
-                    {o.pnl != null && <span className="call-position__outcome-bit">P&amp;L {o.pnl}</span>}
-                </div>
-            )}
-        </div>
-    )
-}
-PositionPanel.propTypes = { ps: PropTypes.object.isRequired, status: PropTypes.string }
-
 // The pending management proposal Hermes wants the user to accept (Phase 5, propose-everything).
 function ManagementCard({ pending, busy, onAccept, onDismiss }) {
     const v = pending?.verdict
