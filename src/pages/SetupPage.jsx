@@ -4,6 +4,8 @@ import { TalosBadge } from '../cmps/AxlHub/AgentBadges.jsx'
 import { EntityPopupShell } from '../cmps/EntityCard/EntityPopupShell.jsx'
 import { PopoutFooter } from '../cmps/TradeIdeas/PopoutFooter.jsx'
 import { MonitorJournal } from '../cmps/TradeIdeas/MonitorJournal.jsx'
+import { TalosWatch } from '../cmps/TradeIdeas/TalosWatch.jsx'
+import { watchTimeframe, showsWatch } from '../cmps/TradeIdeas/talosWatch.js'
 import { positionsForEntity } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { PriceChart } from '../cmps/PriceChart/PriceChart.jsx'
 import { ConvictionChip } from '../cmps/ConvictionChip/ConvictionChip'
@@ -207,7 +209,10 @@ export function SetupPage() {
         >
             <div className="idea-dialog__main">
                 <div className="idea-dialog__chart">
-                    <PriceChart symbol={setup.asset || 'SPY'} interval={setup.timeframe || 'day'} />
+                    {/* The rung TALOS is on, not just the one the setup was drawn on. A read that
+                        climbed to the 4hr for structure would otherwise leave the user staring at an
+                        hourly chart while the journal below talks about a four-hour close. */}
+                    <PriceChart symbol={setup.asset || 'SPY'} interval={watchTimeframe(setup)} />
                 </div>
 
                 <div className="idea-dialog__conditions setup-page__panel">
@@ -221,6 +226,13 @@ export function SetupPage() {
                     )}
 
                     {setup.thesis && <p className="setup-page__thesis">{setup.thesis}</p>}
+
+                    {/* Above the plan on purpose. The plan is what was AUTHORED and it does not
+                        change; this is what is happening to it right now, which is what the user
+                        opened the window to find out. The journal below is the whole history.
+                        Pre-entry only — see showsWatch: past entry the management card above is the
+                        live surface, and last_assessment would be the read that got us IN. */}
+                    {showsWatch(setup.status) && <TalosWatch setup={setup} />}
 
                     <ConditionRow label="Always" conditions={setup.conditions} />
 
