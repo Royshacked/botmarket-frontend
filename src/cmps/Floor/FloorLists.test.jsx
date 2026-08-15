@@ -47,27 +47,27 @@ describe('FloorLists', () => {
         }
     })
 
-    // The Queued desk's count, which is the only one where "how many" and "how many you can act on"
-    // are different numbers. Work is queued BECAUSE the venue is shut, so counting only the
-    // pressable rows left the desk silent at exactly the moment it exists for.
+    // The count is how many items are in the list, on every desk including this one. Readiness is
+    // the ROW's business — counting only the pressable rows left the desk silent off-hours, which is
+    // exactly when things are queued.
     describe('the queued count', () => {
         const q = (over = {}) => ({ id: 'q1', asset: 'NVDA', ready: true, action: { type: 'exit' }, ...over })
 
-        it('counts every row waiting on the user, not only the pressable ones', () => {
+        it('counts every row waiting on the user, ready or not', () => {
             render(<FloorLists queued={[q(), q({ id: 'q2', ready: false }), q({ id: 'q3', ready: false })]} />)
-            expect(within(deskBtn('Queued')).getByText('(1 of 3)')).toBeTruthy()
+            expect(within(deskBtn('Queued')).getByText('(3)')).toBeTruthy()
         })
 
-        it('shows a count off-hours, when NOTHING is ready yet', () => {
-            // The regression this guards: three decisions queued for Monday used to render no badge
-            // at all, so the desk looked as empty as one with nothing in it.
+        it('still shows a count off-hours, when NOTHING is ready yet', () => {
+            // The regression this guards: two decisions queued for Monday used to render no badge at
+            // all, so the desk looked as empty as one with nothing in it.
             render(<FloorLists queued={[q({ ready: false }), q({ id: 'q2', ready: false })]} />)
-            expect(within(deskBtn('Queued')).getByText('(0 of 2)')).toBeTruthy()
+            expect(within(deskBtn('Queued')).getByText('(2)')).toBeTruthy()
         })
 
-        it('is a plain number once everything is actionable', () => {
-            render(<FloorLists queued={[q(), q({ id: 'q2' })]} />)
-            expect(within(deskBtn('Queued')).getByText('(2)')).toBeTruthy()
+        it('leaves which rows are pressable to the rows themselves', () => {
+            render(<FloorLists queued={[q({ ready: false })]} initialDesk="queued" />)
+            expect(screen.getByText('waiting for the open')).toBeTruthy()
         })
 
         it('shows nothing at all when the queue is empty', () => {
