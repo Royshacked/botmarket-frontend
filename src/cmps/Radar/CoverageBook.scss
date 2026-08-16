@@ -113,6 +113,15 @@
         margin-top: 8px;
     }
     &__revs { font-size: 12px; color: var(--text-muted); }
+    // The schedule ahead. Quieter than the trail behind — it is a floor, not an event.
+    &__next {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-dim);
+        &--due { color: var(--text-secondary); }
+    }
+    // The catalyst the wait is FOR — the analyst's own words, so italic like the rest of their prose.
+    &__next-why { font-style: italic; }
     &__retire {
         margin-left: auto;
         font-size: 12px;

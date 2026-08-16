@@ -11,6 +11,7 @@ import { tradeFloorItems } from './floor.utils.js'
 import { actionLine, originLine, actionVerb } from './queuedAction.contract.js'
 import { RowHost } from './RowHost.jsx'
 import { CoverageActions } from '../Radar/CoverageActions.jsx'
+import { nextRevision, NEXT_REVISION_HINT } from '../Radar/coverage.utils.js'
 import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
 import './Floor.scss'
 
@@ -501,8 +502,10 @@ function CoverageRows({ coverage, onEditCoverage, onRetireCoverage, onDeleteCove
         const kills = asList(c.kill_criteria)
         const cats  = asList(c.catalysts)
         const revs  = asList(c.revisions)
+        const next  = nextRevision(c)
         // Nothing to open → no chevron. A control that expands to an empty box is worse than none.
-        const hasDetail = !!(c.thesis || kills.length || cats.length || revs.length)
+        // The re-model schedule counts as content: on a bare thesis it is all the drawer holds.
+        const hasDetail = !!(c.thesis || kills.length || cats.length || revs.length || next)
         const isOpen = hasDetail && open.has(key)
 
         return (
@@ -546,8 +549,18 @@ function CoverageRows({ coverage, onEditCoverage, onRetireCoverage, onDeleteCove
                                 <ul>{cats.map((k, i) => <li key={i}>{catalystText(k)}</li>)}</ul>
                             </div>
                         )}
-                        {revs.length > 0 && (
-                            <span className="floor-detail__revs">{revs.length} revision{revs.length > 1 ? 's' : ''}</span>
+                        {(revs.length > 0 || next) && (
+                            <div className="floor-detail__foot">
+                                {revs.length > 0 && (
+                                    <span className="floor-detail__revs">{revs.length} revision{revs.length > 1 ? 's' : ''}</span>
+                                )}
+                                {next && (
+                                    <span className={`floor-detail__next${next.due ? ' floor-detail__next--due' : ''}`} title={NEXT_REVISION_HINT}>
+                                        next revision {next.label}
+                                        {next.reason && <em className="floor-detail__next-why"> · {next.reason}</em>}
+                                    </span>
+                                )}
+                            </div>
                         )}
                     </div>
                 )}

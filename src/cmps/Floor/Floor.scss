@@ -834,11 +834,28 @@ $header-h: var(--header-h);
         margin-bottom: 4px;
     }
 
+    // The trail behind and the schedule ahead, on one line.
+    &__foot {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
     &__revs {
         font-family: var(--font-mono);
         font-size: 11px;
         color: var(--text-dim);
     }
+
+    &__next {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-dim);
+        &--due { color: var(--text-secondary); }
+    }
+    // The catalyst the wait is FOR — the analyst's own words, so italic like the rest of their prose.
+    &__next-why { font-style: italic; }
 }
 
 @media (prefers-reduced-motion: reduce) {

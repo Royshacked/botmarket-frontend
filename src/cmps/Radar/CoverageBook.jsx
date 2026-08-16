@@ -3,6 +3,7 @@ import PropTypes from 'prop-types'
 import './CoverageBook.scss'
 import { CoverageActions } from './CoverageActions.jsx'
 import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
+import { nextRevision, NEXT_REVISION_HINT } from './coverage.utils.js'
 
 // The Analyst's living book — a read view of the `coverage` collection: our variant thesis, our
 // price target vs the Street (the gap = the edge), the rating, and the status the monitor maintains.
@@ -16,7 +17,10 @@ function CoverageCard({ c, onEdit, onRetire, onDelete }) {
     const gap  = c.gap
     const kills = Array.isArray(c.kill_criteria) ? c.kill_criteria : []
     const cats  = Array.isArray(c.catalysts) ? c.catalysts : []
-    const hasDetail = c.thesis || kills.length > 0 || cats.length > 0 || (c.revisions?.length > 0)
+    const next  = nextRevision(c)
+    // `next` counts toward openability too: on a thesis with nothing else written, the schedule is
+    // the only thing in the drawer — but it is still something, and a chevron-less row hides it.
+    const hasDetail = c.thesis || kills.length > 0 || cats.length > 0 || (c.revisions?.length > 0) || !!next
 
     return (
         <div className="coverage-book__card">
@@ -50,6 +54,14 @@ function CoverageCard({ c, onEdit, onRetire, onDelete }) {
                     )}
                     <div className="coverage-book__foot">
                         {c.revisions?.length > 0 && <span className="coverage-book__revs">{c.revisions.length} revision{c.revisions.length > 1 ? 's' : ''}</span>}
+                        {/* The trail behind and the schedule ahead, on the same line — one reads as
+                            the continuation of the other. */}
+                        {next && (
+                            <span className={`coverage-book__next${next.due ? ' coverage-book__next--due' : ''}`} title={NEXT_REVISION_HINT}>
+                                next revision {next.label}
+                                {next.reason && <em className="coverage-book__next-why"> · {next.reason}</em>}
+                            </span>
+                        )}
                     </div>
                 </div>
             )}
