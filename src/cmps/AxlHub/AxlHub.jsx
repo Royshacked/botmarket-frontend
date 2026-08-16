@@ -173,12 +173,16 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
      * A SIGNAL that something was left here — not a tally of it.
      *
      * It counted drafts first, which read as noise: the number answered a question nobody asked ("how
-     * many?") while burying the one that matters ("is there something I walked out of?"). A dot answers
-     * only that. And since clicking the route now picks the conversation up, a count would not even be
-     * actionable — there is one thing to resume, whatever the number.
+     * many?") while burying the one that matters ("is there something I walked out of?"). And since
+     * clicking the route now picks the conversation up, a count would not even be actionable — there is
+     * one thing to resume, whatever the number.
      *
-     * `your turn` still shows through as brightness: something waiting on an answer is a different thing
-     * from something still in progress.
+     * It says it in WORDS. A pulsing dot beside a greyed-out row is a symbol the user has to decode,
+     * and next to the closed doors it reads as decoration rather than state — the one thing on the
+     * screen that is actually still going should be the one thing that says so.
+     *
+     * `your turn` stays a separate word: something waiting on an ANSWER is a different thing from
+     * something still running, and must not read as ambient.
      */
     function deskBadge(desk) {
         // DESKS is passed so a thread that named no pipeline still finds its home desk — see
@@ -187,12 +191,13 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
         if (!count) return null
         return (
             <span
-                className={`axl-hub__desk-dot${yourTurn ? ' is-turn' : ''}`}
-                aria-label={yourTurn ? 'Waiting for you' : 'Unfinished conversation'}
+                className={`axl-hub__desk-flag${yourTurn ? ' is-turn' : ''}`}
                 title={yourTurn
                     ? 'Waiting for you — pick up where you left off'
                     : 'Unfinished — pick up where you left off'}
-            />
+            >
+                {yourTurn ? 'Your turn' : 'Working'}
+            </span>
         )
     }
 

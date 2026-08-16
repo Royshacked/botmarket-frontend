@@ -292,11 +292,25 @@ describe('AxlHub — the desk they left', () => {
     it('marks the ONE desk they left, not every desk sharing its agents', async () => {
         await landed()
         // Two threads, both the trade desk's: one mark, on the trade desk.
-        expect(document.querySelectorAll('.axl-hub__desk-dot')).toHaveLength(1)
-        expect(card('Trade an asset').querySelector('.axl-hub__desk-dot')).not.toBeNull()
+        expect(document.querySelectorAll('.axl-hub__desk-flag')).toHaveLength(1)
+        // And it says so in words — the newest thread is waiting on the user, so it says which.
+        expect(card('Trade an asset').querySelector('.axl-hub__desk-flag')?.textContent).toBe('Your turn')
         for (const lead of ['Build a portfolio', 'Produce a watchlist', 'Work on your own trade']) {
-            expect(card(lead).querySelector('.axl-hub__desk-dot')).toBeNull()
+            expect(card(lead).querySelector('.axl-hub__desk-flag')).toBeNull()
         }
+    })
+
+    it('says "Working" when nothing is waiting on the user — a word, not a symbol to decode', async () => {
+        // Same desk, but neither thread has asked anything: it is still running, not asking.
+        listUnfinished.mockResolvedValue(
+            MID_TRADE_DESK.map(t => ({ ...t, yourTurn: false })),
+        )
+        render(<AxlHub user={{}} onPick={vi.fn()} />)
+        await act(async () => {})
+
+        const flag = card('Trade an asset').querySelector('.axl-hub__desk-flag')
+        expect(flag.textContent).toBe('Working')
+        expect(flag.className).not.toMatch(/is-turn/)
     })
 
     it('closes every OTHER door to an agent the desk is holding — including Mentor’s', async () => {
