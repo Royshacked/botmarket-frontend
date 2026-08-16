@@ -9,6 +9,7 @@ import { scanOrigin, savesToScansList } from '../services/pipeline/scanOrigin.js
 import { KIND, STATUS, makeArtifact, firstItem } from '../services/pipeline/artifact.js'
 import { planHop, planEntry, producesOne, hasDownstream, findReceiver } from '../services/pipeline/hop.js'
 import { contractFor } from '../services/pipeline/contracts.js'
+import { handoffDoors } from '../services/pipeline/doors.js'
 import { AccountSelector }   from '../cmps/ChatPanel/AccountSelector.jsx'
 import { readStoredModel }   from '../cmps/modelOptions.js'
 import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
@@ -339,6 +340,16 @@ export function MainPage() {
     const [editingSetupId,   setEditingSetupId]   = useState(null)
     const [mentorChatRestore, setMentorChatRestore] = useState(null)
 
+    // Every door an artifact can be delivered through, and the one way to shut them all. Declared
+    // here, beside the state it owns, because both users of it are far apart: the conveyor fills a
+    // door (_applyHop), and leaving for the hub drops whatever is still in one (handleBackToAxl).
+    // A delivered artifact that outlives its run REPLAYS on the next remount of the desk holding it
+    // — see services/pipeline/doors.js for the run it did that on.
+    const doors = handoffDoors({
+        setScanInbox, setKairosInbox, setAnalystInbox, setMentorInbox,
+        setScannerSeed, setPortfolioSeed, setMentorSeed, setAnalystSeed,
+    })
+
     // Kairos calls for the Axl Lists Calls tab. Holds all the user's calls (workspace-filtered in
     // the list); reloads on the shared 'kairos-calls-changed' event (generate / act / delete).
     // Polled because the monitor changes a call's status server-side (waiting↔watching →
@@ -534,12 +545,9 @@ export function MainPage() {
             setPortfolioChatRestore(null)
             setEditingCallId(null)
             setKairosChatRestore(null)
-            // Clear the hand-off: the consumed seed (so a fresh Argus remount can't re-fire the
-            // constraints scan) and every pipeline inbox (so a stale artifact can't leave a later
-            // normal scan stuck in single-pick mode).
-            setScannerSeed(null)
-            setKairosInbox(null)
-            setScanInbox(null)
+            // Drop every hand-off in flight — inboxes and seeds alike. A consumed one left lying
+            // here re-fires on the next remount of the desk that holds it (doors.js).
+            doors.clear()
             setChatResetKey(k => k + 1)
         }, RETURN_MS)
     }
@@ -2126,13 +2134,13 @@ export function MainPage() {
     // The four moves each hop used to hand-roll (compose a seed, remount the right panel, clear the
     // other hops' state, switch the tab) live here once, so a hop added later cannot get one of
     // them subtly wrong. See docs/pipeline-service-design.md.
-    // Where the conveyor puts what it delivers, per desk. Two tables because there are two doors:
-    // an INBOX for a desk that takes the envelope whole, a SEED for one that opens on a sentence it
-    // wrote itself. A desk declares which in its contract (`deliver`); these say where it lands.
-    const PIPELINE_INBOX = { scanner: setScanInbox, kairos: setKairosInbox, analyst: setAnalystInbox, mentor: setMentorInbox }
-    // Mentor keeps a SEED door too — the calendar cards (earnings, IPOs) open it on a sentence they
-    // wrote, with no artifact behind them. Two doors, two different senders.
-    const PIPELINE_SEED  = { scanner: setScannerSeed, portfolio: setPortfolioSeed }
+    // Where the conveyor puts what it delivers, per desk (services/pipeline/doors.js): an INBOX for
+    // a desk that takes the envelope whole, a SEED for one that opens on a sentence it wrote itself.
+    // A desk declares which in its contract (`deliver`); the doors say where it lands. Mentor and
+    // Prometheus keep seed doors that are NOT here — a calendar card, an Axl routing — reachable
+    // only from outside a chain, and closed by `doors.clear()` all the same.
+    const PIPELINE_INBOX = doors.inbox
+    const PIPELINE_SEED  = doors.pipelineSeed
     // Only inside a pipeline: off a desk there is no chain, so there is nothing to advance along
     // and a panel must keep offering its hand-off by hand.
     const autoHandoff = pipelineMode === 'auto' && !!activePipeline
@@ -2352,10 +2360,10 @@ export function MainPage() {
         setScannerSeed(null)
         setScannerResetKey(k => k + 1)
     }
-    // Dismiss the hand-off → back to Axl, clearing every inbox so a stale artifact can't re-fire.
+    // Dismiss the hand-off → back to Axl. Shut the doors NOW rather than leaving it to the walk
+    // home: the departure beat is RETURN_MS long, and the artifact is refused as of this click.
     function handleCancelHandoff() {
-        setScanInbox(null)
-        setKairosInbox(null)
+        doors.clear()
         handleBackToAxl()
     }
 

@@ -322,6 +322,33 @@ describe('MentorPanel — the Argus hand-off', () => {
         expect(sendStream.mock.calls.at(-1)[1].seed).toBeFalsy()
     })
 
+    it('REPLAYS a hand-off it is remounted with — which is why the sender must shut the door', async () => {
+        // Not a wish, a warning. The hand-off is consumed by an effect keyed on the artifact, and an
+        // effect runs on MOUNT, so a panel that comes back holding the same artifact sends it again.
+        // On a live run (2026-08-16) that opened a second AVGO conversation half an hour after the
+        // setup was already armed, off any pipeline, and badged a desk the user had never been to.
+        // The fix is upstream — MainPage's doors.clear() on the way home (services/pipeline/doors.js)
+        // — so what this pins is the reason it has to be there.
+        const { unmount } = render(<MentorPanel {...props({ inbox: HANDOFF() })} />)
+        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(1))
+
+        unmount()
+        render(<MentorPanel {...props({ inbox: HANDOFF() })} />)   // same artifact, same key
+        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(2))
+    })
+
+    it('a hand-off the sender has cleared opens nothing on a remount', async () => {
+        // The other half: once the door is shut, the panel that remounts starts on its intro.
+        const { unmount } = render(<MentorPanel {...props({ inbox: HANDOFF() })} />)
+        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(1))
+
+        unmount()
+        render(<MentorPanel {...props({ inbox: null })} />)
+        await new Promise(r => setTimeout(r, 20))
+        expect(sendStream).toHaveBeenCalledTimes(1)
+        expect(screen.getByText(/I want to buy NVDA on a pullback/)).toBeTruthy()
+    })
+
     it('a nameless or absent hand-off opens nothing', async () => {
         // A seed without a ticker names nothing, and is worse than absent: the desk would open on
         // a blank and ask the user what they meant.
