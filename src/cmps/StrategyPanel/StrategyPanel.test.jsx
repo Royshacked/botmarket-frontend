@@ -1,7 +1,28 @@
-import { describe, it, expect, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
+import { render, screen, cleanup, waitFor } from '@testing-library/react'
 
-import { TiltDraft } from './StrategyPanel.jsx'
+// The chat shell and the transport are stubbed: what is under test here is the panel's own logic —
+// the draft it renders, and the turn it runs when a "review due" card sends the user in.
+const sendStream = vi.fn(async () => {})
+vi.mock('../../services/strategy/strategy.service.remote.js', () => ({
+    strategyService: { sendStream: (...a) => sendStream(...a) },
+}))
+vi.mock('../../services/threads/threads.service.remote.js', () => ({
+    threadsService: { saveDraft: vi.fn(), getThread: vi.fn(), linkThread: vi.fn() },
+    newThreadId: () => 'thr_test',
+    clearThread: vi.fn(),
+}))
+vi.mock('../AgentMessages.jsx',  () => ({ AgentMessages:  ({ children }) => <div>{children}</div> }))
+vi.mock('../AgentChatInput.jsx', () => ({ AgentChatInput: () => <div /> }))
+
+let chatStub
+vi.mock('../../customHooks/useChatStream.js', () => ({
+    useChatStream: () => chatStub,
+    toChatHistory: (msgs) => msgs.map(m => ({ role: m.role, content: m.content })),
+}))
+
+import { TiltDraft, StrategyPanel } from './StrategyPanel.jsx'
+import { reviewPrompt } from './reviewPrompt.js'
 
 afterEach(cleanup)
 
@@ -66,5 +87,72 @@ describe('TiltDraft', () => {
         render(<TiltDraft tilt={draft({ regime: null })} />)
         expect(screen.getByText('House view')).toBeTruthy()
         expect(screen.getByText('Healthcare')).toBeTruthy()
+    })
+})
+
+// ── the review a card sends in ───────────────────────────────────────────────
+// Pythia's monitor found the standing view past its clock and asked; the confirm lands here and the
+// review runs as an ordinary turn at the desk.
+describe('reviewPrompt', () => {
+    it('carries the trigger, so the review opens on what actually came due', () => {
+        expect(reviewPrompt('stance matured: Energy')).toMatch(/stance matured: Energy/)
+    })
+
+    it('still reads as a sentence when the trigger is unknown', () => {
+        expect(reviewPrompt(null)).toMatch(/^The house view is due for review\. /)
+    })
+})
+
+describe('StrategyPanel — the review-due hand-off', () => {
+    beforeEach(() => {
+        sendStream.mockClear()
+        chatStub = {
+            messages: [], isLoading: false, streamStatus: '', reasoningPulse: null,
+            begin: () => ({ signal: null, handlers: {} }),
+            endStream: vi.fn(), finishStreaming: vi.fn(), reset: vi.fn(), setMessages: vi.fn(),
+            freezeError: vi.fn(), resumeBase: () => '', finalizeResumeHistory: (h) => h,
+            beginContinue: () => null,
+        }
+    })
+
+    it('runs the review as an ordinary turn, with the trigger in the ask', async () => {
+        const onReviewStart = vi.fn()
+        render(<StrategyPanel reviewRequest={{ n: 1, reason: 'stance matured: Energy' }} onReviewStart={onReviewStart} />)
+
+        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(1))
+        const [history] = sendStream.mock.calls[0]
+        expect(history.at(-1)).toEqual({ role: 'user', content: reviewPrompt('stance matured: Energy') })
+        expect(onReviewStart).toHaveBeenCalled()
+    })
+
+    // The view in force is what makes it a REVIEW rather than a fresh build: a stance that still
+    // holds keeps its own clock and baseline instead of being silently re-based.
+    it('sends the standing view along, so reaffirming is possible', async () => {
+        const currentTilt = { id: 'tilt_SPX_1', tilts: [row()] }
+        render(<StrategyPanel currentTilt={currentTilt} reviewRequest={{ n: 1, reason: 'x' }} />)
+
+        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(1))
+        expect(sendStream.mock.calls[0][1].chatState).toEqual({ current_tilt: currentTilt })
+    })
+
+    it('no request, or one already consumed, runs nothing', async () => {
+        render(<StrategyPanel reviewRequest={{ n: 0, reason: 'x' }} />)
+        render(<StrategyPanel />)
+        await Promise.resolve()
+        expect(sendStream).not.toHaveBeenCalled()
+    })
+
+    // Arriving mid-turn must not swallow the review: the request is left unconsumed and re-runs when
+    // the turn ends, rather than being dropped on the floor.
+    it('waits for a turn in flight instead of dropping the review', async () => {
+        chatStub.isLoading = true
+        const onReviewStart = vi.fn()
+        const { rerender } = render(<StrategyPanel reviewRequest={{ n: 1, reason: 'x' }} onReviewStart={onReviewStart} />)
+        expect(sendStream).not.toHaveBeenCalled()
+        expect(onReviewStart).not.toHaveBeenCalled()
+
+        chatStub = { ...chatStub, isLoading: false }
+        rerender(<StrategyPanel reviewRequest={{ n: 1, reason: 'x' }} onReviewStart={onReviewStart} />)
+        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(1))
     })
 })

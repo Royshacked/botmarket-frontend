@@ -11,6 +11,7 @@ import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { ChatBubble } from '../ChatBubble.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { waitingLabel } from '../ToolStatusChip/waitingLabel.js'
+import { reviewPrompt } from './reviewPrompt.js'
 import './StrategyPanel.scss'
 
 // Pythia's desk. One turn produces a top-down read; a published turn also emits a `<tilt>` DRAFT —
@@ -75,7 +76,7 @@ export function TiltDraft({ tilt }) {
 }
 TiltDraft.propTypes = { tilt: PropTypes.object.isRequired }
 
-export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished, pipeline = null, resumeRef = null }) {
+export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished, pipeline = null, resumeRef = null, reviewRequest = null, onReviewStart }) {
     const chat = useChatStream({ threadPhases: true })
     const { messages, isLoading } = chat
     const [pendingTilt, setPendingTilt] = useState(null)
@@ -135,6 +136,19 @@ export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished
             chat.endStream()
         }
     }
+
+    // The review asked for from Pythia's card in the social chat (MainPage bumps `reviewRequest`).
+    // It goes through _send, so it is indistinguishable from the user typing the ask: same history,
+    // same draft thread, same `current_tilt` riding along — which is what makes the answer a REVIEW
+    // (reaffirm what holds, keep its clock and baseline) rather than a fresh view.
+    //
+    // `isLoading` is a dependency, not a guard to bail on: pressing the card mid-turn must not
+    // swallow the review. The request is left unconsumed and this re-runs when the turn ends.
+    useEffect(() => {
+        if (!reviewRequest?.n || isLoading) return
+        onReviewStart?.()
+        _send(reviewPrompt(reviewRequest.reason))
+    }, [reviewRequest?.n, isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
 
     // Resume a stopped reply (▶) — continue the same bubble.
     async function _continue() {
@@ -264,4 +278,6 @@ StrategyPanel.propTypes = {
     onPublished:     PropTypes.func,
     pipeline:        PropTypes.string,   // the DESK this run belongs to — what the marker keys on
     resumeRef:       PropTypes.object,
+    reviewRequest:   PropTypes.shape({ n: PropTypes.number, reason: PropTypes.string }),  // from the review-due card
+    onReviewStart:   PropTypes.func,     // consume it, so walking back here does not re-run the review
 }

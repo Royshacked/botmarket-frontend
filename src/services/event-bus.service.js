@@ -37,6 +37,10 @@ export const OPEN_COVERAGE             = 'open-coverage'
 // Sector-view card "Open sector view" → open the calendar on its Forecasts tab (the house view is
 // a STATE, so the card opens the board rather than a chat — there is nothing to revise from here).
 export const OPEN_SECTOR_VIEW          = 'open-sector-view'
+// "House view due for review" card "Run the review" → open Pythia's desk and run the review turn
+// there. Distinct from OPEN_SECTOR_VIEW above precisely because this one is NOT a read: the board
+// shows what we believe, and the ask here is to re-examine it.
+export const TILT_REVIEW_OPEN          = 'tilt-review-open'
 // Daily market-brief card "Get the brief" → route to Axl and stream the brief into his thread,
 // rather than posting a wall of market prose back into the social chat.
 export const MARKET_BRIEF_OPEN         = 'market-brief-open'

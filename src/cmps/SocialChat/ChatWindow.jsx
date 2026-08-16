@@ -4,7 +4,7 @@ import PropTypes from 'prop-types'
 // with the Calls list, so the window name and size can't drift between the two entry points.
 import { openCallPopup, openSetupPopup } from '../TradeIdeas/tradeIdea.utils.js'
 import { manageVerb } from '../TradeIdeas/setupManage.js'
-import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST } from '../../services/event-bus.service'
+import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, TILT_REVIEW_OPEN, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST } from '../../services/event-bus.service'
 import { manualService } from '../../services/manual/manual.service.remote'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
@@ -186,6 +186,8 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                                 ? <CoverageEventBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'tilt_event' && msg.payload
                                 ? <TiltEventBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
+                                : msg.type === 'tilt_review' && msg.payload
+                                ? <TiltReviewBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'coverage_refreshed' && msg.payload
                                 ? <CoverageRefreshedBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'market_brief_offer'
@@ -584,6 +586,43 @@ export function TiltEventBubble({ msg, onClose, onResolve }) {
             primaryLabel={msg.actions?.primary?.label ?? 'Open sector view'} onPrimary={handlePrimary}
             onResolve={onResolve} msg={msg}
             resolvedLabels={{ opened: '✓ Opened' }}
+        />
+    )
+}
+
+/**
+ * "House view due for review" — Pythia's monitor found the standing view past its clock (a stance
+ * came due, a macro catalyst landed, or the monthly floor expired) and is ASKING for a re-author.
+ *
+ * The sibling above (TiltEventBubble) opens the board, because a published view is a state and there
+ * is nothing to revise from a card. This one is the opposite case and routes the opposite way: the
+ * ask is to re-examine, so it opens Pythia's desk and the review turn runs there — where the user
+ * can push back on it — rather than superseding the house view from a click in a chat window.
+ *
+ * Nothing is requested here, so there is no busy or failure state to hold: a review that fails,
+ * fails visibly in Pythia's thread, which is also the one place it can be retried by just asking.
+ */
+export function TiltReviewBubble({ msg, onClose, onResolve }) {
+    const { reason, stances, matured = [] } = msg.payload ?? {}
+    // Lead with what the desk owes a verdict on. A matured stance is a CLOSED call — the review has
+    // to grade it, not merely restate it — so it earns the heading over the generic "due".
+    const heading = matured.length
+        ? `Sector view · ${matured.length === 1 ? matured[0] : `${matured.length} stances`} due`
+        : 'Sector view · review due'
+
+    function handlePrimary() {
+        onResolve?.(msg.id, { status: 'done', outcome: 'opened' })
+        eventBus.emit(TILT_REVIEW_OPEN, { reason: reason ?? null })
+        onClose?.()
+    }
+
+    return (
+        <NotificationCard
+            agent={AGENTS.strategy} kind="tilt" heading={heading}
+            qualifier={stances ? `${stances} standing` : null} body={msg.content}
+            primaryLabel={msg.actions?.primary?.label ?? 'Run the review'} onPrimary={handlePrimary}
+            onResolve={onResolve} msg={msg}
+            resolvedLabels={{ opened: '✓ Reviewing' }}
         />
     )
 }

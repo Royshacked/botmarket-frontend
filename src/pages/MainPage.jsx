@@ -38,7 +38,7 @@ import { portfolioService }  from '../services/portfolio/portfolio.service.remot
 import { resolveEntity }     from '../services/entityResolve.js'
 import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
-import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST } from '../services/event-bus.service'
+import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, TILT_REVIEW_OPEN, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
 import { adoptService } from '../services/adopt/adopt.service.remote.js'
 import { AdoptBookGrid } from '../cmps/AdoptBook/AdoptBookGrid.jsx'
@@ -268,6 +268,10 @@ export function MainPage() {
     // Bumped by the daily market-brief card — the hub writes the brief on every change, then clears
     // it. See the MARKET_BRIEF_OPEN listener for why it counts rather than latches.
     const [briefRequest, setBriefRequest]       = useState(0)
+    // Bumped by Pythia's "review due" card — the strategy desk runs the review on every change, then
+    // clears it. `{ n, reason }` rather than a bare counter because the trigger's own sentence rides
+    // into the turn: a review that knows a stance matured reads that stance first.
+    const [reviewRequest, setReviewRequest]     = useState({ n: 0, reason: null })
     const [activePipeline, setActivePipeline]   = useState(null)   // pipeline key from Axl reception
     const [pipelineStep,   setPipelineStep]     = useState(0)      // index into that desk's steps[] — what "back" walks from
     const [newsTab, setNewsTab]                 = useState('scans')
@@ -1125,6 +1129,22 @@ export function MainPage() {
     // this event itself rather than having the tab lifted up here just to be pushed back down.
     useEffect(() => {
         return eventBus.on(OPEN_SECTOR_VIEW, () => setNewsTab('forecasts'))
+    }, [])
+
+    // Pythia's "review due" card → open the strategy desk and run the review there.
+    //
+    // Plain setActiveTab, not the leave-the-desk path Axl's brief uses: the desk panels are mounted
+    // behind a display toggle rather than remounted per tab, so switching to Pythia keeps whatever
+    // conversation is already in his thread instead of wiping it to deliver a review.
+    //
+    // A counter and not a flag, for the same reason the brief is one: a second card (after the first
+    // was dismissed, or a month later) must fire again, and arriving at a tab you are already on
+    // changes nothing on its own. The panel clears it once it starts.
+    useEffect(() => {
+        return eventBus.on(TILT_REVIEW_OPEN, ({ reason = null } = {}) => {
+            setActiveTab('strategy')
+            setReviewRequest(r => ({ n: r.n + 1, reason }))
+        })
     }, [])
 
     // A Talos entry card routes here: social-chat card → Confirm → the order dialog. The setups
@@ -2964,6 +2984,8 @@ export function MainPage() {
                                 currentTilt={tilt}
                                 pipeline={activePipeline}
                                 resumeRef={strategyResumeRef}
+                                reviewRequest={reviewRequest}
+                                onReviewStart={() => setReviewRequest(r => ({ n: 0, reason: r.reason }))}
                                 // Publishing supersedes the standing view, so send the user to the
                                 // board that now shows it — the same beat as a coverage initiate.
                                 onPublished={() => { setNewsTab('forecasts'); handleBackToAxl() }}
