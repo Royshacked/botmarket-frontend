@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { readResolution } from './cardResolution.js'
-import { CoverageEventBubble, CoverageRefreshedBubble } from './ChatWindow.jsx'
-import { eventBus, OPEN_COVERAGE, PORTFOLIO_REVIEW } from '../../services/event-bus.service.js'
+import { CoverageEventBubble, CoverageRefreshedBubble, QueueReadyBubble } from './ChatWindow.jsx'
+import { eventBus, OPEN_COVERAGE, PORTFOLIO_REVIEW, OPEN_QUEUED_LIST } from '../../services/event-bus.service.js'
 
 vi.mock('../../services/manual/manual.service.remote', () => ({ manualService: {} }))
 
@@ -159,5 +159,42 @@ describe('CoverageRefreshedBubble', () => {
         render(<CoverageRefreshedBubble msg={{ ...fromReview, payload: { ...fromReview.payload, ok: false } }} onClose={vi.fn()} onResolve={vi.fn()} />)
         expect(screen.getByText(/refresh failed/)).toBeTruthy()
         expect(screen.getByText('Resume review')).toBeTruthy()
+    })
+})
+
+// The market-open nudge is the ONE card the shell closes on open, and the only one that can be:
+// it points at a batch, so it carries no entity for a write to resolve it through.
+describe('QueueReadyBubble', () => {
+    beforeEach(() => vi.spyOn(eventBus, 'emit'))
+    afterEach(() => { vi.restoreAllMocks(); cleanup() })
+
+    const msg = {
+        id: 'm3', type: 'queue_ready',
+        content: 'The market is open — 2 items — MU, AAPL are waiting on you.',
+        payload: { count: 2, assets: ['MU', 'AAPL'], staleHours: null },
+        actions: { primary: { label: 'Open the list', resolvesOn: 'open' }, dismiss: true },
+    }
+
+    it('opening the list RESOLVES the card — the ask was "go look", and you looked', () => {
+        const onResolve = vi.fn(), onClose = vi.fn()
+        render(<QueueReadyBubble msg={msg} onClose={onClose} onResolve={onResolve} />)
+
+        fireEvent.click(screen.getByText('Open the list'))
+
+        expect(eventBus.emit).toHaveBeenCalledWith(OPEN_QUEUED_LIST, {})
+        expect(onResolve).toHaveBeenCalledWith('m3', { status: 'done', outcome: 'opened' })
+        expect(onClose).toHaveBeenCalled()
+    })
+
+    it('collapses to a chip naming the batch, and the chip still opens the list', () => {
+        render(<QueueReadyBubble msg={{ ...msg, status: 'done', resolveOutcome: 'opened' }}
+            onClose={vi.fn()} onResolve={vi.fn()} />)
+
+        expect(screen.getByText(/Opened.*2 items/)).toBeTruthy()
+        expect(screen.queryByText('Dismiss')).toBeNull()
+
+        // The list is the standing answer to "what is waiting on me" — the chip keeps pointing at it.
+        fireEvent.click(screen.getByText(/Opened/))
+        expect(eventBus.emit).toHaveBeenCalledWith(OPEN_QUEUED_LIST, {})
     })
 })

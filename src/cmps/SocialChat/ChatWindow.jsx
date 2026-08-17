@@ -389,48 +389,43 @@ function OrdersReadyBubble({ msg, onClose, onResolve }) {
  * each answering "what does this desk have for you" — a question nobody asks. At the open the
  * question is "what is waiting on ME", and it has one answer.
  *
- * ROUTES, DOES NOT RESOLVE. Opening the list is not doing the work: the items are still sitting
- * there afterwards. So the primary only routes and the card stays live — it collapses when you
- * dismiss it, the same rule the portfolio-review card already follows.
+ * A POINTER, and therefore the one card completed by being opened. It carries no entity, so no
+ * write can ever resolve it the way a work card is resolved; and what it says — "2 items" — is a
+ * snapshot that the list itself supersedes the moment you are looking at it. Once you have seen the
+ * list, the card has done its whole job. The backend stamps that as `resolvesOn: 'open'`; the shell
+ * below reads it, which is why this renders through NotificationCard rather than its own markup —
+ * the lifecycle is never a bubble's decision (see the shell's comment).
+ *
+ * The collapsed chip stays clickable (`reopenOnDone`): the list is the standing answer to "what is
+ * waiting on me", so the card that points at it should keep pointing after it closes.
  */
 export function QueueReadyBubble({ msg, onClose, onResolve }) {
     const { count = 0, staleHours } = msg.payload ?? {}
-    const { resolved } = readResolution(msg)
 
     function handlePrimary() {
         eventBus.emit(OPEN_QUEUED_LIST, {})
         onClose?.()
     }
 
-    if (resolved) {
-        return (
-            <ResolvedChip
-                agent={AGENTS.axl} outcome="✓ Dismissed"
-                asset={`${count} item${count === 1 ? '' : 's'}`} reason={msg.content}
-            />
-        )
-    }
+    const heading = (
+        <>Market open &middot; {count} waiting
+            {staleHours >= 12 && (
+                <span className="social-chat__invalidation-alert-tag"> &middot; oldest {staleHours}h</span>
+            )}
+        </>
+    )
 
     return (
-        <div className="social-chat__msg-bubble social-chat__invalidation-alert">
-            <CardAgentTag agent={AGENTS.axl} />
-            <div className="social-chat__invalidation-alert-header">
-                Market open &middot; {count} waiting
-                {staleHours >= 12 && (
-                    <span className="social-chat__invalidation-alert-tag"> &middot; oldest {staleHours}h</span>
-                )}
-            </div>
-            <div className="social-chat__invalidation-alert-reason">{msg.content}</div>
-            <div className="social-chat__invalidation-alert-actions">
-                <button className="social-chat__invalidation-alert-btn" onClick={handlePrimary}>
-                    {msg.actions?.primary?.label ?? 'Open the list'}
-                </button>
-                <button
-                    className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
-                    onClick={() => onResolve?.(msg.id, { status: 'dismissed', outcome: 'dismissed' })}
-                >Dismiss</button>
-            </div>
-        </div>
+        <NotificationCard
+            // `confirm` has no colour rule of its own — the neutral shell this card has always had.
+            // The default 'fired' would paint an amber alert band on a card that is not an alarm.
+            agent={AGENTS.axl} kind="confirm" heading={heading} body={msg.content}
+            // No single asset to name — the chip names the batch, as the orders-ready chip does.
+            asset={`${count} item${count === 1 ? '' : 's'}`}
+            primaryLabel={msg.actions?.primary?.label ?? 'Open the list'} onPrimary={handlePrimary}
+            onResolve={onResolve} msg={msg} reopenOnDone
+            resolvedLabels={{ opened: '✓ Opened', dismissed: '✓ Dismissed' }}
+        />
     )
 }
 
