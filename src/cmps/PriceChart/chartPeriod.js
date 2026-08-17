@@ -28,8 +28,8 @@ const PERIOD_MS = { minute: 60_000, hour: 3_600_000, day: 86_400_000, week: 604_
  *
  * A bar whose period has ENDED is a closed candle, and painting the current price onto it does not
  * make the chart live — it falsifies a settled bar. That is not hypothetical: FMP's EOD feed
- * publishes a day only after the close, so all session the daily series ended on the previous day
- * and Friday's candle rendered with Monday's price. The backend now builds today's bar
+ * publishes the running day late, so EARLY IN A SESSION the daily series still ended on the
+ * previous day and Friday's candle rendered with Monday's price. The backend now builds today's bar
  * (candleFetch.buildFormingBar), so the patch lands correctly by construction; this stays as the
  * guard, because "the last bar is the current one" is an assumption about a FEED, and the next feed
  * to break it should cost a missed tick rather than a rewritten candle.
