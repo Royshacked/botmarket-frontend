@@ -120,9 +120,43 @@ describe('AnalystPanel — revise mode', () => {
         expect(await screen.findByText('Franchise under attack.')).toBeTruthy()
     })
 
-    it('a name that is not in the loaded book starts no turn at all', async () => {
+    // THE REGRESSION. A coverage card carries a doc the caller already resolved from the server, and
+    // the panel must open on THAT — never on whether this client's polled book happens to hold the
+    // name yet. The empty list is the real-world failing condition: the card arrived before the 60s
+    // poll, the old code missed the lookup, bailed silently, and left a clean desk behind a tab that
+    // had already switched. An empty book here must change nothing.
+    it('opens the revise turn from the passed doc even when the loaded book is EMPTY', async () => {
+        render(<AnalystPanel coverage={[]} editCoverage={{ doc, symbol: 'ZTS', key: 'cov_ZTS_1-2' }} />)
+
+        await waitFor(() => expect(sendStream).toHaveBeenCalled())
+        const [history, opts] = lastCall()
+        expect(history.at(-1).content).toMatch(/^Revise our coverage on ZTS/)
+        expect(opts.chatState.existing_coverage).toMatchObject({ id: 'cov_ZTS_1' })
+    })
+
+    it('prefers the passed doc over a stale list row of the same name', async () => {
+        // Same symbol, older thesis in the list. The resolved doc is the fresher read, so it wins —
+        // the point of resolving by id rather than trusting whatever this client last rendered.
+        const stale = { ...doc, thesis: 'Stale thesis from a cold list.' }
+        render(<AnalystPanel coverage={[stale]} editCoverage={{ doc, symbol: 'ZTS', key: 'cov_ZTS_1-3' }} />)
+
+        await waitFor(() => expect(sendStream).toHaveBeenCalled())
+        expect(await screen.findByText('Franchise under attack.')).toBeTruthy()
+        expect(screen.queryByText('Stale thesis from a cold list.')).toBeNull()
+    })
+
+    it('a bare symbol still resolves off the loaded book, case-insensitively', async () => {
+        render(<AnalystPanel coverage={[doc]} editCoverage={{ symbol: 'zts', key: 'k8' }} />)
+        await waitFor(() => expect(sendStream).toHaveBeenCalled())
+        expect(lastCall()[0].at(-1).content).toMatch(/^Revise our coverage on ZTS/)
+    })
+
+    it('a name with no doc and no book row SAYS SO instead of failing silently', async () => {
+        // The old silent `return` is what made the card read as a dead button. Reaching this branch
+        // now means the thesis genuinely could not be read, and that has to be visible.
         render(<AnalystPanel coverage={[doc]} editCoverage={{ symbol: 'NVDA', key: 'k9' }} />)
         expect(sendStream).not.toHaveBeenCalled()
+        expect(await screen.findByText(/Couldn't open the coverage on NVDA/)).toBeTruthy()
     })
 })
 

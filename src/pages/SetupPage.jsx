@@ -13,10 +13,12 @@ import { PriceChart } from '../cmps/PriceChart/PriceChart.jsx'
 import { ConvictionChip } from '../cmps/ConvictionChip/ConvictionChip'
 import { setupIcon, isSetupArmed, canArmSetup } from '../cmps/TradeIdeas/setupStatus.js'
 import { MANAGE_LABEL, canAcceptManage, manageProposalLine } from '../cmps/TradeIdeas/setupManage.js'
-import { isLivePosition, isTerminal } from '../services/entityStatus.js'
+import { isLivePosition, isTerminal, isInvalidated } from '../services/entityStatus.js'
 import { useEntityPopup } from '../customHooks/useEntityPopup.js'
 import { usePositions } from '../customHooks/usePositions.js'
 import { mentorService } from '../services/mentor/mentor.service.remote'
+import { askOpener, hasOpener } from '../services/popupBridge.js'
+import { SETUP_INVALIDATION_EDIT } from '../services/event-bus.service'
 import './IdeaPage.scss'      // the shared pop-out shell (header + chart 70 / column 30)
 import './SetupPage.scss'     // setup-only bits (zones, watch list, timeline)
 
@@ -153,6 +155,47 @@ function ManagementCard({ pending, busy, onAccept, onDismiss }) {
 }
 ManagementCard.propTypes = { pending: PropTypes.object, busy: PropTypes.bool, onAccept: PropTypes.func.isRequired, onDismiss: PropTypes.func.isRequired }
 
+/**
+ * TALOS SAYS THIS PLAN NEEDS RE-DRAWING — the pre-entry twin of the management card above, and the
+ * setup's answer to CallPage's "Accept edit".
+ *
+ * It is NOT that button, deliberately. A call's `edit_proposal` has a defined shape that
+ * `applyEditPatch` can apply on the server, so a call can accept a re-map in one click. A setup's
+ * proposal carries free-form `changes` against a plan of rival scenarios, each with its own zones,
+ * stop, size and death line — there is nothing that could safely apply it, and a one-click "accept"
+ * that silently rewrote a premise would be worse than no button. So the setup's answer is to take
+ * the proposal to the desk that owns re-drawing: same destination as the social-chat card, reached
+ * through the one bridge back to the app window.
+ *
+ * The proposal's WHY is shown here in full even though the ask leaves — it is Talos's reasoning
+ * about this plan, and the pop-out is where the plan is read.
+ */
+function StaleMapCard({ setup, onRedraw }) {
+    const why = setup.invalidation_reason ?? setup.monitor_state?.last_assessment?.edit_proposal?.why ?? null
+    return (
+        <div className="kairos-panel__card kairos-panel__card--expiring">
+            <div className="kairos-panel__card-head">
+                <span className="kairos-panel__card-status">Talos says this needs re-drawing</span>
+            </div>
+            {why && <div className="kairos-panel__card-note">{why}</div>}
+            <div className="call-page__actions">
+                {onRedraw
+                    ? (
+                        <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={onRedraw}>
+                            Re-draw it in Mentor
+                        </button>
+                    )
+                    : (
+                        // Opened from a pasted URL: there is no app window to open Mentor in, and a
+                        // button that can only fail is worse than a sentence saying where to go.
+                        <span className="setup-page__memo">Open this setup from the app to re-draw it.</span>
+                    )}
+            </div>
+        </div>
+    )
+}
+StaleMapCard.propTypes = { setup: PropTypes.object.isRequired, onRedraw: PropTypes.func }
+
 export function SetupPage() {
     // Polled because Talos writes to monitor_state (memo + timeline) while the window is open.
     const { id, entity: setup, error, refresh } = useEntityPopup(
@@ -188,6 +231,19 @@ export function SetupPage() {
     const setupPositions = positionsForEntity(setup, positions)
 
     const canToggle = canArmSetup(setup.status) || isSetupArmed(setup.status)
+
+    // The stale-map ask is PRE-ENTRY only, on the same `showsWatch` boundary the watch panel uses:
+    // past entry the position is the live surface and the management card above is what speaks, and
+    // a "re-draw the plan" button beside an open trade would be offering to rewrite the thing the
+    // broker is already holding. `isInvalidated` is the FIRED latch (the same read CallPage makes) —
+    // a merely DRIFTING setup is the "ran away" case, which asks nothing of anyone.
+    const needsRedraw = showsWatch(setup.status) && isInvalidated(setup.invalidation_status)
+
+    function handleRedraw() {
+        // Ask, then close: the plan is rewritten in the app window, and leaving this one open on the
+        // superseded version is how a user ends up editing against a stale read of their own setup.
+        if (askOpener(SETUP_INVALIDATION_EDIT, { setupId: id })) window.close()
+    }
 
     return (
         <EntityPopupShell
@@ -227,6 +283,12 @@ export function SetupPage() {
                             pending={setup.position_state.pending_action} busy={busy}
                             onAccept={v => act(v)} onDismiss={() => act('dismiss')}
                         />
+                    )}
+
+                    {/* Same slot, pre-entry: the other thing that can be waiting on the user here.
+                        The two are mutually exclusive by status, so they never stack. */}
+                    {needsRedraw && (
+                        <StaleMapCard setup={setup} onRedraw={hasOpener() ? handleRedraw : null} />
                     )}
 
                     {setup.thesis && <p className="setup-page__thesis">{setup.thesis}</p>}

@@ -26,7 +26,7 @@ describe('SetupManageBubble', () => {
         cleanup()
     })
 
-    it('primary "Review" opens the setup pop-out + resolves the card done', () => {
+    it('primary "Review" opens the setup pop-out — and LEAVES IT PENDING', () => {
         const onResolve = vi.fn()
         const onClose   = vi.fn()
         render(<SetupManageBubble msg={makeMsg()} onClose={onClose} onResolve={onResolve} />)
@@ -34,7 +34,7 @@ describe('SetupManageBubble', () => {
         fireEvent.click(screen.getByText('Review'))
 
         expect(window.open).toHaveBeenCalled()          // the pop-out IS the destination here
-        expect(onResolve).toHaveBeenCalledWith('m1', { status: 'done', outcome: 'opened' })
+        expect(onResolve).toHaveBeenCalledWith('m1', { status: 'pending', outcome: 'opened' })
         expect(onClose).toHaveBeenCalled()
     })
 
@@ -54,7 +54,7 @@ describe('SetupManageBubble', () => {
 
         expect(eventBus.emit).toHaveBeenCalledWith(SETUP_CONFIRM_OPEN, { setupId: 's7' })
         expect(window.open).not.toHaveBeenCalled()
-        expect(onResolve).toHaveBeenCalledWith('m1', { status: 'done', outcome: 'opened' })
+        expect(onResolve).toHaveBeenCalledWith('m1', { status: 'pending', outcome: 'opened' })
     })
 
     it('shows the verdict as a verb in the header', () => {

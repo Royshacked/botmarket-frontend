@@ -20,6 +20,24 @@ export function tidyPrices(text) {
 }
 
 /**
+ * The first sentence of a monitor's prose, or null.
+ *
+ * Both monitors write for a JOURNAL — a `read` is a sentence, an `edit_proposal.why` is sometimes
+ * several. The re-draw doorways quote that reason back as the user's own opening turn (redrawAsk /
+ * remapAsk), and a pasted paragraph stops reading as something a person would have typed. Lives
+ * here, with tidyPrices, because it is the same kind of thing: monitor prose, made fit to show.
+ *
+ * The terminator must be followed by whitespace or the end, so a price ("closed at 241.5, past…")
+ * is never mistaken for a full stop.
+ */
+export function firstSentence(text) {
+    const s = String(text ?? '').trim()
+    if (!s) return null
+    const cut = s.search(/[.!?](\s|$)/)
+    return (cut > 0 ? s.slice(0, cut) : s).trim() || null
+}
+
+/**
  * One entry, read through BOTH field vocabularies. Talos briefly wrote `{kind, next_at, read}` where
  * Hermes writes `{reason, next_check_at, note}`, and those entries are still in live docs — so a
  * setup armed before the shared builder renders instead of showing a blank bubble. They age out of

@@ -65,14 +65,40 @@ function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = n
     }
     const label   = primaryLabel ?? msg.actions?.primary?.label ?? 'Open'
     const dismiss = onDismiss ?? (() => onResolve?.(msg.id, { status: 'dismissed', outcome: 'dismissed' }))
+
+    // WHO CLOSES THIS CARD — read off the card, decided nowhere else.
+    //
+    // Cards that ASK FOR WORK ('work', the backend default) are not closed by being opened. Opening
+    // one records that it was opened and leaves it PENDING: ignoring it, or opening it and getting
+    // distracted, must leave the ask standing. It closes on Dismiss, or when the user's write to the
+    // entity lands (chat.service resolveCardsFor, hooked into the one entity patch route).
+    //
+    // Cards that OFFER A READ ('open' — the brief, the sector board) are completed by opening.
+    //
+    // This used to be nine copies of `onResolve(done)` inside nine handlePrimary functions, each
+    // firing on navigation. Cards silently died the moment they were looked at. The shell owns it
+    // now; a bubble supplies only the side effect (navigate / emit) and never the lifecycle.
+    // Legacy history has no `resolvesOn`, so absent means 'work' — the safe reading.
+    const resolvesOnOpen = msg.actions?.primary?.resolvesOn === 'open'
+    // Touched but not finished. Past the `resolved` early-return above, so this can only be a card
+    // still pending — worth showing, or a card the user opened yesterday looks identical to one
+    // they have never seen.
+    const opened = msg.resolveOutcome === 'opened'
+    function handlePrimaryClick() {
+        onResolve?.(msg.id, resolvesOnOpen
+            ? { status: 'done',    outcome: 'opened' }
+            : { status: 'pending', outcome: 'opened' })
+        onPrimary?.()
+    }
     return (
-        <div className={`social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--${kind}`}>
+        <div className={`social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--${kind}${opened ? ' social-chat__invalidation-alert--opened' : ''}`}>
             <CardAgentTag agent={agent} />
             <div className="social-chat__invalidation-alert-header">{heading}</div>
             {body && <div className="social-chat__invalidation-alert-reason">{body}</div>}
+            {opened && <div className="social-chat__invalidation-alert-opened">Opened — still waiting on you</div>}
             {!actionless && (
                 <div className="social-chat__invalidation-alert-actions">
-                    <button className="social-chat__invalidation-alert-btn" onClick={onPrimary} disabled={primaryDisabled}>{label}</button>
+                    <button className="social-chat__invalidation-alert-btn" onClick={handlePrimaryClick} disabled={primaryDisabled}>{label}</button>
                     <button
                         className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
                         onClick={dismiss}
@@ -240,7 +266,6 @@ export function InvalidationAlertBubble({ msg, onClose, onResolve }) {
     // Primary routes to the idea's own chat, where you re-map or close it. (The old inline "Close"
     // now lives there / in the positions tab — strictly two buttons on the card.)
     function handlePrimary() {
-        onResolve?.(msg.id, { status: 'done', outcome: 'editing' })
         eventBus.emit(INVALIDATION_EDIT_IDEA, { ideaId })
         onClose?.()
     }
@@ -417,8 +442,12 @@ export function CallExpiryBubble({ msg, onClose, onResolve }) {
     const kindLabel = kind === 'expired' ? 'expired' : 'expiring'   // payload kind is 'edit'|'expired'
 
     function handlePrimary() {
-        onResolve?.(msg.id, { status: 'done', outcome: 'editing' })
-        eventBus.emit(CALL_EXPIRY_EDIT, { callId })
+        // `kind` rides along because it is the CARD's axis, not the call's status (see buildCallExpiry
+        // — a stale thesis leaves the call at 'looking' either way). The desk opens on a different
+        // question for a thesis that HAS expired than for one that is expiring, and nothing on the
+        // document can tell them apart. The reason itself is not passed: that is read off the call
+        // when the doorway resolves it, so it is the reason that stands now.
+        eventBus.emit(CALL_EXPIRY_EDIT, { callId, kind })
         onClose?.()
     }
 
@@ -440,7 +469,6 @@ export function CallManageBubble({ msg, onClose, onResolve }) {
     const verb = MANAGE_VERB_COPY[verdict] ?? verdict
 
     function handlePrimary() {
-        onResolve?.(msg.id, { status: 'done', outcome: 'opened' })
         openCallPopup(callId)
         onClose?.()
     }
@@ -493,7 +521,6 @@ export function SetupInvalidationBubble({ msg, onClose, onResolve }) {
     )
 
     function handlePrimary() {
-        onResolve?.(msg.id, { status: 'done', outcome: 'editing' })
         eventBus.emit(SETUP_INVALIDATION_EDIT, { setupId })
         onClose?.()
     }
@@ -525,7 +552,6 @@ export function SetupManageBubble({ msg, onClose, onResolve }) {
     const verb = manageVerb(verdict)
 
     function handlePrimary() {
-        onResolve?.(msg.id, { status: 'done', outcome: 'opened' })
         if (verdict === 'add_leg') eventBus.emit(SETUP_CONFIRM_OPEN, { setupId })
         else                       openSetupPopup(setupId)
         onClose?.()
@@ -549,7 +575,6 @@ function CallReentryBubble({ msg, onClose, onResolve }) {
     const heading = `Stopped out · ${asset}${Number.isFinite(exit_price) ? ` @ ${exit_price}` : ''} — re-enter?`
 
     function handlePrimary() {
-        onResolve?.(msg.id, { status: 'done', outcome: 'opened' })
         openCallPopup(callId)
         onClose?.()
     }
@@ -575,7 +600,6 @@ export function TiltEventBubble({ msg, onClose, onResolve }) {
     const heading = `Sector view · ${moved}${balanced === false ? ' — unbalanced' : ''}`
 
     function handlePrimary() {
-        onResolve?.(msg.id, { status: 'done', outcome: 'opened' })
         eventBus.emit(OPEN_SECTOR_VIEW, {})
         onClose?.()
     }
@@ -611,7 +635,6 @@ export function TiltReviewBubble({ msg, onClose, onResolve }) {
         : 'Sector view · review due'
 
     function handlePrimary() {
-        onResolve?.(msg.id, { status: 'done', outcome: 'opened' })
         eventBus.emit(TILT_REVIEW_OPEN, { reason: reason ?? null })
         onClose?.()
     }
@@ -638,7 +661,6 @@ export function CoverageEventBubble({ msg, onClose, onResolve }) {
     // A verdict card is Prometheus ASKING for a revision — so it opens the thesis in update mode, not
     // a clean desk. `mode` is the ask; MainPage resolves the doc and runs the pencil's pipeline.
     function handlePrimary() {
-        onResolve?.(msg.id, { status: 'done', outcome: 'opened' })
         eventBus.emit(OPEN_COVERAGE, { coverageId, symbol, mode: 'revise' })
         onClose?.()
     }
@@ -673,7 +695,6 @@ export function CoverageEventBubble({ msg, onClose, onResolve }) {
  */
 export function MarketBriefOfferBubble({ msg, onClose, onResolve }) {
     function handlePrimary() {
-        onResolve?.(msg.id, { status: 'done', outcome: 'opened' })
         eventBus.emit(MARKET_BRIEF_OPEN, { day: msg.payload?.day ?? null })
         onClose?.()
     }
@@ -699,10 +720,8 @@ export function CoverageRefreshedBubble({ msg, onClose, onResolve }) {
 
     function handlePrimary() {
         if (portfolioId) {
-            onResolve?.(msg.id, { status: 'done', outcome: 'resumed' })
             eventBus.emit(PORTFOLIO_REVIEW, { portfolioId, reviewMode: true })
         } else {
-            onResolve?.(msg.id, { status: 'done', outcome: 'opened' })
             // 'open', not 'revise': this thesis was just rewritten — the ask is to READ it.
             eventBus.emit(OPEN_COVERAGE, { coverageId, symbol, mode: 'open' })
         }

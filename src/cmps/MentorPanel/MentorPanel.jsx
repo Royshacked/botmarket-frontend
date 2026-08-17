@@ -76,14 +76,26 @@ export function MentorPanel({
     useEffect(() => { onPendingSetup?.(pendingSetup) }, [pendingSetup])   // eslint-disable-line react-hooks/exhaustive-deps
 
     // Edit pencil pushed a keyed restore: reopen the build conversation with its draft.
+    //
+    // `ask` is what tells the two doorways apart. The PENCIL sends none — the user chose to edit and
+    // the desk has nothing to say until they say something. A CARD sends one, because a monitor
+    // raised its hand and arriving to a silent desk is what made "Re-draw it" feel like a dead
+    // button. Both restore the same conversation; only one of them opens the turn.
+    //
+    // The restored history and draft are passed to `_send` EXPLICITLY rather than left to the state
+    // set two lines above: this is an effect, so neither has re-rendered yet (see _send's `base`).
     useEffect(() => {
         if (!chatRestore) return
-        chat.setMessages(chatRestore.messages ?? [])
-        setPendingSetup(chatRestore.setup ?? null)
-        setCoverage(chatRestore.coverage ?? [])
+        const restored = chatRestore.messages ?? []
+        const draft    = chatRestore.setup ?? null
+        const cov      = chatRestore.coverage ?? []
+        chat.setMessages(restored)
+        setPendingSetup(draft)
+        setCoverage(cov)
         setCandidates(null)
         setGenerated(null)
         setEditDirty(false)
+        if (chatRestore.ask) _send(chatRestore.ask, draft, restored, cov)
     }, [chatRestore?.key])   // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => { setEditDirty(false) }, [editingSetupId])
@@ -140,7 +152,7 @@ export function MentorPanel({
     // sends in the same tick (picking a candidate) would otherwise read the pre-update value from
     // this closure and send `draft: null` — the conversation and the worksheet diverging on the one
     // turn where they must agree.
-    const streamOpts = (draft = pendingSetup) => {
+    const streamOpts = (draft = pendingSetup, cov = coverage) => {
         // One-shot: the hand-off turn carries it, every turn after has it in the history. Read and
         // cleared together so a second send cannot re-announce a name as newly handed over.
         const candidate = seedRef.current; seedRef.current = null
@@ -148,7 +160,7 @@ export function MentorPanel({
             model:           readStoredModel(),
             accounts,
             mainAccountId,
-            chatState: { active_asset: draft?.asset || candidate?.ticker || '', draft, coverage },
+            chatState: { active_asset: draft?.asset || candidate?.ticker || '', draft, coverage: cov },
             seed: candidate,   // structured Argus candidate — carries the recommended lens
         }
     }
@@ -184,13 +196,22 @@ export function MentorPanel({
     }
 
     // `draft` overrides the state closure for callers that set it in the same tick (see streamOpts).
-    async function _send(text, draft = pendingSetup) {
+    //
+    // `base` is the same escape hatch for the CONVERSATION, and the restore below is the only caller
+    // that needs it. An effect runs before React re-renders, so a caller that has just handed
+    // `chat.setMessages` a restored history still reads the OLD `messages` here — which for a
+    // re-draw means shipping the turn with either nothing behind it or, worse, the previous
+    // setup's conversation. The display is safe either way (`begin` appends functionally); it is
+    // the history sent to the model that has to be passed through. `cov` is the third of the same
+    // set — coverage is the dimensions READ so far, so the previous setup's chips would tell Mentor
+    // it had already looked at things it has not looked at for this one.
+    async function _send(text, draft = pendingSetup, base = messages, cov = coverage) {
         if (!text || chat.isLoading) return
         setEditDirty(true)
         setCandidates(null)   // a new user turn supersedes any pending offer
         setGenerated(null)
 
-        const history = toChatHistory(messages)
+        const history = toChatHistory(base)
         history.push({ role: 'user', content: text })
 
         const { signal, handlers } = chat.begin(text, {
@@ -202,7 +223,7 @@ export function MentorPanel({
         })
 
         try {
-            await mentorService.sendStream(history, { ...streamOpts(draft), signal, ...handlers })
+            await mentorService.sendStream(history, { ...streamOpts(draft, cov), signal, ...handlers })
         } catch (err) {
             console.error('[mentor]', err)
             chat.freezeError()
@@ -342,7 +363,13 @@ export function MentorPanel({
             {(hasPreview || coverage.length > 0) && (
                 <div className="portfolio-panel__build-summary mentor-panel__build">
                     <div className="mentor-panel__build-head">
-                        <span className="portfolio-panel__build-summary-title">your setup</span>
+                        {/* WHICH setup, when there is a particular one. Editing used to be invisible:
+                            this read "your setup" in both modes, so the only difference between
+                            re-drawing AVGO and starting fresh was that Generate had disappeared — a
+                            desk that looks broken rather than a desk that is in a mode. */}
+                        <span className="portfolio-panel__build-summary-title">
+                            {isEditing ? `editing ${pendingSetup?.asset ?? 'this setup'}` : 'your setup'}
+                        </span>
                         <CoverageChips coverage={coverage} />
                     </div>
                     {hasPreview && (
@@ -429,6 +456,12 @@ export function MentorPanel({
                         <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update mentor-panel__btn" onClick={handleGenerate} disabled={!ready || busy}>
                             {accounts.length === 0 ? 'Mark an account to update' : 'Update setup'}
                         </button>
+                    )}
+                    {/* Nothing has changed yet, so there is genuinely nothing to write — but an
+                        action bubble whose only button is "I'll do it later" reads as a dead end
+                        rather than as a turn waiting to be taken. Say what makes the button appear. */}
+                    {!editDirty && (
+                        <span className="mentor-panel__missing">Tell Mentor what to change — “Update setup” appears once the plan moves.</span>
                     )}
                     <LaterButton
                         className={`${LATER_BTN_CLASS} mentor-panel__btn`}

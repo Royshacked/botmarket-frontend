@@ -122,13 +122,20 @@ export function KairosPanel({ pipeline = null, onLoadingChange, onGenerated, onP
 
     // Edit pencil (Calls tab) pushed a keyed restore: seed the chat history + draft so editing a
     // saved call reopens its build conversation (mirrors the idea edit / portfolio chatRestore).
+    //
+    // `ask` is what tells the two doorways apart, exactly as it does at Mentor. The PENCIL sends
+    // none — the user chose to edit and the desk has nothing to say until they say something. The
+    // EXPIRY CARD sends one, because Hermes is the one who raised its hand, and landing on a
+    // restored conversation with no Update button and no mention of why made "Edit call" look dead.
     useEffect(() => {
         if (!chatRestore) return
-        chat.setMessages(chatRestore.messages ?? [])
+        const restored = chatRestore.messages ?? []
+        chat.setMessages(restored)
         chat.setPhase(null)
         setPendingCall(chatRestore.call ?? null)
         setMode(chatRestore.call?.mode ?? DEFAULT_KAIROS_MODE)   // relight the chip in the call's build lens
         setEditDirty(false)
+        if (chatRestore.ask) _send(chatRestore.ask, restored)
     }, [chatRestore?.key])   // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => { setEditDirty(false) }, [editingCallId])
@@ -153,12 +160,17 @@ export function KairosPanel({ pipeline = null, onLoadingChange, onGenerated, onP
     }, [refreshPerf])
 
 
-    async function _send(text) {
+    // `base` overrides the CONVERSATION for a caller that set it in the same tick — the restore
+    // below is the only one. An effect runs before React re-renders, so a caller that has just
+    // handed `chat.setMessages` a restored history still reads the OLD `messages` here, and the
+    // re-map turn would reach Hermes with either nothing or the previous call behind it. The
+    // display is safe either way (`begin` appends functionally); the history sent is not.
+    async function _send(text, base = messages) {
         if (!text || chat.isLoading) return
         setEditDirty(true)
         setScanRequest(null)   // a new user turn supersedes any pending "Open Argus" offer
         const seed = seedRef.current; seedRef.current = null   // one-shot: only this turn carries the Argus seed
-        const history = toChatHistory(messages)
+        const history = toChatHistory(base)
         history.push({ role: 'user', content: text })
 
         const { signal, handlers } = chat.begin(text, {

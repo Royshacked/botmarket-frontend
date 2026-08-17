@@ -45,6 +45,9 @@ import { adoptService } from '../services/adopt/adopt.service.remote.js'
 import { AdoptBookGrid } from '../cmps/AdoptBook/AdoptBookGrid.jsx'
 import { mentorService } from '../services/mentor/mentor.service.remote.js'
 import { isSetupAwaitingConfirm } from '../cmps/TradeIdeas/setupStatus.js'
+import { redrawAsk } from '../cmps/MentorPanel/redrawAsk.js'
+import { remapAsk }  from '../cmps/KairosPanel/remapAsk.js'
+import { listenForPopupEvents } from '../services/popupBridge.js'
 import { isAwaitingConfirm } from '../services/entityStatus.js'
 import { useChatStream, toChatHistory } from '../customHooks/useChatStream.js'
 import { useCalendarEvents } from '../customHooks/useCalendarEvents.js'
@@ -378,12 +381,21 @@ export function MainPage() {
     }
 
     // The coverage pencil routes back into Prometheus, the same move the call and setup pencils make
-    // toward the agent that BUILT them. The panel matches the symbol against the live book and runs
-    // in update mode, so the turn revises the thesis instead of starting a fresh one.
+    // toward the agent that BUILT them. The panel opens in update mode, so the turn revises the
+    // thesis instead of starting a fresh one.
+    //
+    // THE DOCUMENT TRAVELS, not just its name. Every caller here already holds a resolved doc — the
+    // pencil passes its row, the Axl hand-off and the social-chat card both come through
+    // resolveEntity — and narrowing that to a symbol made the panel re-resolve it against a POLLED
+    // client list. That is the list lookup entityResolve exists to abolish, and it failed exactly as
+    // that doctrine predicts: a coverage card clicked before the 60s poll had the name switched the
+    // tab, missed the list, bailed silently, and left the user on a clean desk being asked to revise
+    // a thesis that was nowhere in sight. The symbol stays as a fallback key for the panel; the doc
+    // is what it should actually use.
     function handleEditCoverage(cov) {
         if (!cov?.symbol) return
         setActiveTab('analyst')
-        setAnalystEditCoverage({ symbol: cov.symbol, key: `${cov.id}-${Date.now()}` })
+        setAnalystEditCoverage({ doc: cov, symbol: cov.symbol, key: `${cov.id}-${Date.now()}` })
     }
 
     async function handleActCall(id, action) {
@@ -400,7 +412,8 @@ export function MainPage() {
     // seed the panel with the saved call's build conversation (chat_state) + its plan as the draft,
     // restore its marked accounts, and switch to the Kairos tab. The saved row is hidden while
     // editing (filtered below) — the live "building" row stands in for it.
-    function handleEditCall(call) {
+    // `ask` — see handleEditSetup. The pencil passes none; the expiry card passes Hermes's reason.
+    function handleEditCall(call, { ask = null } = {}) {
         const draft = call.chat_state?.draft ?? {
             asset:            call.asset,
             asset_class:      call.asset_class      ?? null,
@@ -416,7 +429,7 @@ export function MainPage() {
             active_from:      call.active_from      ?? null,
             valid_until:      call.valid_until      ?? null,
         }
-        setKairosChatRestore({ key: `${call.id}-${Date.now()}`, call: draft, messages: call.chat_state?.messages ?? [] })
+        setKairosChatRestore({ key: `${call.id}-${Date.now()}`, call: draft, messages: call.chat_state?.messages ?? [], ask })
         setEditingCallId(call.id)
         setSelectedAccounts(Array.isArray(call.accounts) ? call.accounts : [])
         setMainAccountId(call.main_account_id ?? null)
@@ -477,7 +490,10 @@ export function MainPage() {
     // was carried has no messages to restore, and without a worksheet the panel would open on an
     // empty chat that quietly loses the zones. Rebuilt from the doc, the user edits a real setup —
     // they just don't get the reasoning that produced it.
-    function handleEditSetup(setup) {
+    // `ask`, when given, is the turn the desk opens ON — see MentorPanel's restore effect. The
+    // pencil passes none (nothing has happened; the user is the one with something to say); the
+    // re-draw card passes Talos's reason, which is the whole difference between the two doorways.
+    function handleEditSetup(setup, { ask = null } = {}) {
         const draft = setup.chat_state?.draft ?? {
             asset:       setup.asset,
             asset_class: setup.asset_class ?? null,
@@ -502,6 +518,7 @@ export function MainPage() {
             setup:    draft,
             messages: setup.chat_state?.messages ?? [],
             coverage: setup.chat_state?.coverage ?? [],
+            ask,
         })
         setEditingSetupId(setup.id)
         // The venue is re-bound on Update from the MARKED accounts, so restore the ones this setup
@@ -545,6 +562,13 @@ export function MainPage() {
             setPortfolioChatRestore(null)
             setEditingCallId(null)
             setKairosChatRestore(null)
+            // The SETUP twin, which was missing — and its absence was not cosmetic. `handleSetupEditDone`
+            // clears these, but the agentbar's back arrow comes straight here, so leaving a setup edit
+            // that way left `editingSetupId` set with nothing to unset it. Mentor then opened in a mode
+            // the user could not see and could not leave: "Generate setup" is hidden while editing, so a
+            // fresh build offered no button at all, and every turn wrote chat_state onto the stale setup.
+            setEditingSetupId(null)
+            setMentorChatRestore(null)
             // Drop every hand-off in flight — inboxes and seeds alike. A consumed one left lying
             // here re-fires on the next remount of the desk that holds it (doors.js).
             doors.clear()
@@ -1060,27 +1084,45 @@ export function MainPage() {
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Call-expiry card "Edit call" → reopen the call in Kairos's in-app edit mode (same pipeline as
-    // the Calls-tab pencil). handleEditCall re-maps the thesis and "Update call" re-arms the monitor
-    // — updateKairosCall re-arms to 'waiting' whether or not the thesis had gone stale
-    // (terminal), so both expiry cards route here.
+    // Call-expiry card "Edit call" → reopen the call in Kairos's in-app edit mode AND open the turn.
+    //
+    // Same pipeline as the Calls-tab pencil ("Update call" re-arms the monitor — updateKairosCall
+    // re-arms to 'waiting' whether or not the thesis had gone stale, so both expiry cards route
+    // here), and the same doorway split as SETUP_INVALIDATION_EDIT below: the pencil lands silent,
+    // the card opens on the reason. `kind` comes off the card because it is the card's axis, the
+    // reason off the resolved doc because that is what stays current.
     useEffect(() => {
-        return eventBus.on(CALL_EXPIRY_EDIT, async ({ callId }) => {
+        return eventBus.on(CALL_EXPIRY_EDIT, async ({ callId, kind = null }) => {
             const call = await resolveEntity('call', callId)
-            if (call) handleEditCall(call)
+            if (call) handleEditCall(call, { ask: remapAsk(call, kind) })
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Setup-invalidation card "Re-draw it" → reopen the setup in Mentor's chat, the same pipeline as
-    // the Setups pencil (handleEditSetup restores chat_state + the marked accounts, and "Update
-    // setup" re-arms Talos). The Kairos twin of this is CALL_EXPIRY_EDIT above.
+    // An entity POP-OUT asked for something only the app window can do (re-draw it in the desk's
+    // chat). The bridge re-emits onto this same eventBus under the same event names the social-chat
+    // cards use, so the doorways below serve both without knowing which one called.
+    useEffect(() => listenForPopupEvents(), [])
+
+    // Setup-invalidation card "Re-draw it" → reopen the setup in Mentor's chat AND open the turn.
+    //
+    // It shares the pencil's pipeline (chat_state + marked accounts restored, "Update setup" re-arms
+    // Talos) but not its silence. The pencil lands on a restored conversation and waits, which is
+    // right when the user chose to edit — and wrong here, where a monitor is the one who raised its
+    // hand. It made the card's only button appear to do nothing: the desk opened with the old
+    // conversation, no Update button (nothing had changed yet) and no mention of why the user had
+    // been sent, so "Re-draw it" led to a desk with nothing to re-draw with. Prometheus and Pythia
+    // already open on a turn from their cards; this is the same move.
+    //
+    // The reason comes off the RESOLVED DOC (redrawAsk), not the card payload — the doc is what
+    // Talos keeps current, so a card opened tomorrow arrives at today's reason, and a setup already
+    // re-drawn opens clean instead of on a complaint that no longer holds.
     //
     // Unresolvable ids fall back to the Mentor tab rather than a dead click — same rule as
     // SETUP_CONFIRM_OPEN. A setup deleted since the card was posted is the ordinary case.
     useEffect(() => {
         return eventBus.on(SETUP_INVALIDATION_EDIT, async ({ setupId }) => {
             const setup = await resolveEntity('setup', setupId)
-            if (setup) handleEditSetup(setup)
+            if (setup) handleEditSetup(setup, { ask: redrawAsk(setup) })
             else setActiveTab('mentor')
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -3018,8 +3060,8 @@ export function MainPage() {
                             {/* The Floor's row actions run the SAME handlers as the ideas table —
                                 it's a second surface onto the same entities, not a second set of
                                 rules about them, so delete confirms, live-position locks and the
-                                chat restores all come along. Setups get no pencil: nothing wires
-                                SetupCard's onEdit either, so there is no setup edit path yet. */}
+                                chat restores all come along — the setup pencil included (onEditSetup
+                                below, the same handler the Lists tab's SetupCard runs). */}
                             {(
                                 <FloorLists
                                     calls={inWorkspace(calls, workspace)}

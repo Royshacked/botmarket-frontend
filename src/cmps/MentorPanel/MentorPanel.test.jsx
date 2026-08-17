@@ -263,6 +263,70 @@ describe('MentorPanel', () => {
         expect(updateSetup).not.toHaveBeenCalled()
     })
 
+    // The regression this guards is a desk that looks BROKEN rather than one that is in a mode.
+    // Editing hides "Generate setup" and shows nothing in its place until the plan moves, so with a
+    // header that read "your setup" either way, re-opening AVGO was visually identical to a fresh
+    // chat whose Generate button had gone missing.
+    it('says which setup is being edited, and what makes Update appear', () => {
+        render(<MentorPanel {...props({ editingSetupId: 's1', chatRestore: { key: 'r1', setup: SETUP, messages: [], coverage: [] } })} />)
+
+        expect(screen.getByText('editing NVDA')).toBeTruthy()
+        expect(screen.getByText(/Update setup.*appears once the plan moves/)).toBeTruthy()
+        // Editing is not building: the fresh-build button must stay gone.
+        expect(screen.queryByRole('button', { name: /Generate setup/ })).toBeNull()
+    })
+
+    it('a fresh build keeps the generic worksheet header', async () => {
+        render(<MentorPanel {...props()} />)
+        await runTurn({ reply: 'ok', setup: SETUP, readiness: { ready: true, missing: [] } })
+
+        expect(screen.getByText('your setup')).toBeTruthy()
+        expect(screen.queryByText(/editing/)).toBeNull()
+    })
+
+    // THE CARD DOORWAY. A restore carrying an `ask` opens the turn; the pencil's restore (no ask)
+    // still lands silent. The regression guarded is "Re-draw it" leading to a desk with nothing on it.
+    it('a restore carrying an ask opens the turn on arrival', async () => {
+        render(<MentorPanel {...props({
+            editingSetupId: 's1',
+            chatRestore: { key: 'r1', setup: SETUP, messages: [], coverage: [], ask: 'Talos says the map has drifted. Re-draw it.' },
+        })} />)
+
+        await waitFor(() => expect(sendStream).toHaveBeenCalled())
+        const [history] = sendStream.mock.calls[0]
+        expect(history.at(-1)).toEqual({ role: 'user', content: 'Talos says the map has drifted. Re-draw it.' })
+    })
+
+    // The turn must arrive with the setup it is about. `_send` runs inside the restore EFFECT, so
+    // the state set beside it has not re-rendered — read from the closure, both of these were empty,
+    // and the re-draw turn would reach Mentor with no plan and no conversation behind it.
+    it('the opened turn carries the restored conversation and draft, not the stale closure', async () => {
+        const prior = [
+            { role: 'user',      content: 'long AVGO on the 199 reclaim' },
+            { role: 'assistant', content: 'Here is the plan.' },
+        ]
+        render(<MentorPanel {...props({
+            editingSetupId: 's1',
+            chatRestore: { key: 'r1', setup: SETUP, messages: prior, coverage: ['markets'], ask: 'Re-draw it.' },
+        })} />)
+
+        await waitFor(() => expect(sendStream).toHaveBeenCalled())
+        const [history, opts] = sendStream.mock.calls[0]
+        expect(history.map(m => m.content)).toEqual([...prior.map(m => m.content), 'Re-draw it.'])
+        expect(opts.chatState.draft.asset).toBe('NVDA')
+        expect(opts.chatState.active_asset).toBe('NVDA')
+        // The dimensions read so far belong to THIS setup — the previous one's chips would tell
+        // Mentor it had already looked at things it hasn't.
+        expect(opts.chatState.coverage).toEqual(['markets'])
+    })
+
+    it('the pencil restore (no ask) still lands silent', async () => {
+        render(<MentorPanel {...props({ editingSetupId: 's1', chatRestore: { key: 'r1', setup: SETUP, messages: [], coverage: [] } })} />)
+        // Nothing sent, and the hint that tells the user how to start is the one thing on offer.
+        await waitFor(() => expect(screen.getByText(/appears once the plan moves/)).toBeTruthy())
+        expect(sendStream).not.toHaveBeenCalled()
+    })
+
     it('Update setup writes the plan once, then hands the edit back', async () => {
         const onEditDone = vi.fn()
         render(<MentorPanel {...props({ editingSetupId: 's1', onEditDone, chatRestore: { key: 'r1', setup: SETUP, messages: [], coverage: [] } })} />)

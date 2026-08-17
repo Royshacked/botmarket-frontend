@@ -175,10 +175,15 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
 
     // Resolve a card (done | dismissed) so the choice sticks: patch it locally now, and persist
     // server-side so it stays collapsed on reload. Does not touch the idea's invalidation latch.
+    //
+    // `pending` is the third case and it is NOT a resolution — it records that the user opened a
+    // card that still owes work. It must not stamp `resolvedAt`, exactly as the server does not:
+    // a timestamp saying when this was settled, on a card that was not settled, is a lie waiting
+    // for the first reader who trusts it over `status`.
     async function handleResolveMessage(msgId, { status = 'dismissed', outcome = null } = {}) {
         if (!activeConv) return
         setMessages(prev => prev.map(m => m.id === msgId
-            ? { ...m, status, resolvedAt: Date.now(), resolveOutcome: outcome }
+            ? { ...m, status, resolveOutcome: outcome, ...(status === 'pending' ? {} : { resolvedAt: Date.now() }) }
             : m))
         try {
             await chatService.resolveMessage(activeConv.id, msgId, { status, outcome })

@@ -13,7 +13,10 @@ const msg = {
     id:      'm1',
     type:    'market_brief_offer',
     content: "Want today's market brief?",
-    actions: { primary: { label: 'Get the brief' }, dismiss: true },
+    // `resolvesOn: 'open'` is what the backend now stamps on this card (marketBrief.notify), and it
+    // is the exception rather than the rule: almost every other card asks for WORK and survives
+    // being opened. This one offers a READ, so accepting it completes it.
+    actions: { primary: { label: 'Get the brief', resolvesOn: 'open' }, dismiss: true },
     payload: { day: '2026-08-03' },
 }
 

@@ -52,6 +52,9 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
     const { messages, isLoading } = chat
     const [pendingCoverage, setPendingCoverage] = useState(null)
     const [initiateErr, setInitiateErr] = useState('')
+    // A DOORWAY failure — a card or pencil asked for a thesis this panel could not read. Separate
+    // from initiateErr, which belongs to the draft's save button.
+    const [openErr, setOpenErr] = useState('')
     // The rest of a handed-over sleeve, and what has been covered so far in this run. `done` is what
     // gets handed back to Atlas — the names it can actually construct from.
     const [queue, setQueue] = useState([])
@@ -214,10 +217,23 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
     // matches on symbol, the stream carries `existing_coverage`, and Save becomes a `remodel`
     // revision on the same doc rather than a fresh initiation. A NEW chat each time (reset first) —
     // the prior conversation belonged to whatever was last researched here, not to this thesis.
+    // The DOC the caller resolved wins. Matching a symbol against the `coverage` prop was a lookup
+    // in a list polled once a minute, so the doorway's success depended on client cache state rather
+    // than on the entity: a card clicked before the poll caught the name found nothing, and the
+    // `!doc` bail below is silent, so the user landed on a clean desk instead of a revise turn.
+    // The list stays as a fallback for any caller that still arrives with only a name (compared
+    // case-insensitively — the book stores tickers upper-case, a card may not).
     useEffect(() => {
         if (!editCoverage?.symbol) return
-        const doc = (coverage || []).find(c => c.symbol === editCoverage.symbol)
-        if (!doc) return
+        const want = String(editCoverage.symbol).toUpperCase()
+        const doc  = editCoverage.doc
+            ?? (coverage || []).find(c => String(c.symbol ?? '').toUpperCase() === want)
+        // Reaching here now means we genuinely could not read the thesis, not that a cache was cold —
+        // so it is surfaced. Silence here is what made the original failure look like a dead button.
+        // Its OWN state, not initiateErr: that one renders beside the draft's save button and says
+        // "this thesis was refused", which is a different failure with a different remedy.
+        if (!doc) { setOpenErr(`Couldn't open the coverage on ${editCoverage.symbol} — try it from the Coverage tab.`); return }
+        setOpenErr('')
         chat.reset()
         setInitiateErr('')
         setPendingCoverage(doc)
@@ -340,6 +356,7 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
                         <p>Buy-side research — a living thesis per name: a variant view, our price target vs the Street, and monitorable kill-criteria. Name a ticker (or open one from an Argus investing list).</p>
                     </div>
                 )}
+                {openErr && <div className="analyst-panel__err">{openErr}</div>}
                 {messages.map((msg, i) => <MessageBubble key={i} msg={msg} />)}
                 {isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus: chat.streamStatus, placeholder: 'researching…' })} pulse={chat.reasoningPulse} />}
             </AgentMessages>

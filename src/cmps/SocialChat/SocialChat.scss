@@ -545,6 +545,20 @@
         &:hover { opacity: 0.8; }
     }
 
+    // OPENED BUT NOT DONE. A card that asks for work survives being opened, so it needs to look
+    // different from one never touched — otherwise "still outstanding" and "never seen" are the
+    // same pixels and the feed stops being readable. Marked, deliberately NOT faded: fading is what
+    // `--dismissed` means, and this card is still owed.
+    &__invalidation-alert--opened {
+        border-left: 2px solid rgba(255, 183, 77, 0.75);
+    }
+    &__invalidation-alert-opened {
+        margin-top: 4px;
+        font-size: 0.72rem;
+        letter-spacing: 0.02em;
+        color: rgba(255, 183, 77, 0.9);
+    }
+
     // ── Manual (broker-less) FillCard ──────────────────────────────────────────
     // The user reports their real fill/exit price inline; N legs, incremental.
     &__manual-card {

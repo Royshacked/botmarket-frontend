@@ -53,13 +53,13 @@ describe('TiltReviewBubble', () => {
         off()
     })
 
-    it('resolves the moment it routes', () => {
+    it('routes WITHOUT resolving — the review is still owed', () => {
         const onResolve = vi.fn()
         render(<TiltReviewBubble msg={msg} onResolve={onResolve} />)
 
         fireEvent.click(screen.getByText('Run the review'))
 
-        expect(onResolve).toHaveBeenCalledWith('m1', { status: 'done', outcome: 'opened' })
+        expect(onResolve).toHaveBeenCalledWith('m1', { status: 'pending', outcome: 'opened' })
     })
 
     // A matured stance is a CLOSED call the review has to grade, so it leads — "review due" alone

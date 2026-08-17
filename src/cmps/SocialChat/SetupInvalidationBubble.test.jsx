@@ -34,7 +34,7 @@ describe('SetupInvalidationBubble', () => {
         cleanup()
     })
 
-    it('primary "Re-draw it" routes into Mentor + resolves the card done', () => {
+    it('primary "Re-draw it" routes into Mentor — and LEAVES IT PENDING', () => {
         const onResolve = vi.fn()
         const onClose   = vi.fn()
         render(<SetupInvalidationBubble msg={makeMsg()} onClose={onClose} onResolve={onResolve} />)
@@ -43,7 +43,7 @@ describe('SetupInvalidationBubble', () => {
 
         expect(eventBus.emit).toHaveBeenCalledWith(SETUP_INVALIDATION_EDIT, { setupId: 'setup-1' })
         expect(window.open).not.toHaveBeenCalled()
-        expect(onResolve).toHaveBeenCalledWith('m1', { status: 'done', outcome: 'editing' })
+        expect(onResolve).toHaveBeenCalledWith('m1', { status: 'pending', outcome: 'opened' })
         expect(onClose).toHaveBeenCalled()
     })
 
