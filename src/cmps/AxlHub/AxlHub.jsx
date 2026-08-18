@@ -196,7 +196,7 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
                     ? 'Waiting for you — pick up where you left off'
                     : 'Unfinished — pick up where you left off'}
             >
-                {yourTurn ? 'Your turn' : 'Working'}
+                {yourTurn ? 'Your turn' : 'Working..'}
             </span>
         )
     }

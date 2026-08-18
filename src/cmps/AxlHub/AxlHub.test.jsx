@@ -300,7 +300,7 @@ describe('AxlHub — the desk they left', () => {
         }
     })
 
-    it('says "Working" when nothing is waiting on the user — a word, not a symbol to decode', async () => {
+    it('says "Working.." when nothing is waiting on the user — a word, not a symbol to decode', async () => {
         // Same desk, but neither thread has asked anything: it is still running, not asking.
         listUnfinished.mockResolvedValue(
             MID_TRADE_DESK.map(t => ({ ...t, yourTurn: false })),
@@ -309,7 +309,7 @@ describe('AxlHub — the desk they left', () => {
         await act(async () => {})
 
         const flag = card('Trade an asset').querySelector('.axl-hub__desk-flag')
-        expect(flag.textContent).toBe('Working')
+        expect(flag.textContent).toBe('Working..')
         expect(flag.className).not.toMatch(/is-turn/)
     })
 
