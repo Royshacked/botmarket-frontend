@@ -200,3 +200,11 @@
     from { opacity: 1; }
     to   { opacity: 0; }
 }
+
+// A row is inert while its desk is mid-turn — resuming into a running stream loads the thread and
+// then has it overwritten on the next token, which reads to the user as "resume did nothing".
+.thread-drawer__row.is-disabled {
+    opacity: .45;
+    pointer-events: none;
+    cursor: default;
+}

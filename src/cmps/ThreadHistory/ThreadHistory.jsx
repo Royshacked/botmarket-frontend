@@ -22,7 +22,19 @@ function timeAgo(ts) {
     return `${Math.floor(h / 24)}d ago`
 }
 
-export function ThreadHistory({ agent, onResume }) {
+/**
+ * `busy` — the desk is mid-turn.
+ *
+ * Resuming into a running turn LOOKS like it worked and is not: the panel sets the loaded
+ * history, and the stream that is still writing overwrites it on the next token. The user sees
+ * an empty desk, and then the thread appears seconds later when the turn's typewriter drain
+ * finally stops. That was reported as "resume is broken".
+ *
+ * Blocked rather than allowed-and-stopped on purpose: the running turn is already paid for and
+ * persists itself, so waiting a few seconds costs less than discarding an answer. It also keeps
+ * the promise sse.util.js makes — walking away never kills a turn.
+ */
+export function ThreadHistory({ agent, onResume, busy = false }) {
     const [open,    setOpen]    = useState(false)
     const [closing, setClosing] = useState(false)
     const [drafts,  setDrafts]  = useState([])
@@ -64,6 +76,7 @@ export function ThreadHistory({ agent, onResume }) {
     function onExitEnd() { if (closing) { setOpen(false); setClosing(false) } }
 
     async function handleResume(id) {
+        if (busy) return   // guarded here too: the rows below are inert, but never trust only the UI
         requestClose()
         await onResume?.(id)
     }
@@ -102,12 +115,24 @@ export function ThreadHistory({ agent, onResume }) {
                             <button type="button" className="thread-drawer__close" onClick={requestClose} aria-label="Close">✕</button>
                         </header>
                         <div className="thread-drawer__body">
+                            {busy && (
+                                <div className="thread-drawer__empty">
+                                    {meta.brand || 'This desk'} is still answering. Chats can be reopened once the turn finishes.
+                                </div>
+                            )}
                             {loading && <div className="thread-drawer__empty">Loading…</div>}
                             {!loading && drafts.length === 0 && (
                                 <div className="thread-drawer__empty">No conversations yet. Chats are saved here automatically once they take shape.</div>
                             )}
                             {!loading && drafts.map(t => (
-                                <div key={t.threadId} className="thread-drawer__row" onClick={() => handleResume(t.threadId)} role="button" tabIndex={0}>
+                                <div
+                                    key={t.threadId}
+                                    className={`thread-drawer__row${busy ? ' is-disabled' : ''}`}
+                                    onClick={busy ? undefined : () => handleResume(t.threadId)}
+                                    role="button"
+                                    tabIndex={busy ? -1 : 0}
+                                    aria-disabled={busy || undefined}
+                                >
                                     <div className="thread-drawer__row-main">
                                         <span className="thread-drawer__row-title">{t.title || 'Untitled'}</span>
                                         <span className="thread-drawer__row-meta">{timeAgo(t.updatedAt)}</span>
@@ -130,4 +155,5 @@ export function ThreadHistory({ agent, onResume }) {
 ThreadHistory.propTypes = {
     agent:    PropTypes.string.isRequired,
     onResume: PropTypes.func,
+    busy:     PropTypes.bool,
 }

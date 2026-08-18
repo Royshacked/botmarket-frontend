@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 
 import { ChatPanel }         from '../cmps/ChatPanel/ChatPanel.jsx'
 import { AxlHub }            from '../cmps/AxlHub/AxlHub.jsx'
@@ -225,6 +225,17 @@ function _moneyShort(v) {
     return `$${n.toFixed(0)}`
 }
 
+// THE DESK ROSTER. One list drives the resume refs and the busy state below; adding a desk is
+// an entry here rather than a useRef, a useState, a branch in _resumeThreadOn and a prop.
+//
+// It exists because the absence of it cost a feature. `portfolioLoading` and `scannerLoading`
+// were declared as `const [, setX]` — the VALUE discarded — so nothing could read them; the
+// other three desks never reported at all. MainPage therefore had no idea any desk was busy,
+// which let ThreadHistory offer a resume mid-turn that the running stream then silently
+// overwrote, and left the agent-bar live dot unable to pulse for the very desks those two
+// setters were added for.
+const DESK_TABS = ['scanner', 'portfolio', 'mentor', 'analyst', 'strategy']
+
 export function MainPage() {
     const chat = useChatStream()
     const { messages, setMessages, isLoading, streamStatus, reasoningPulse } = chat
@@ -250,8 +261,6 @@ export function MainPage() {
     const [buildingPortfolio, setBuildingPortfolio] = useState(null)
     // Streaming state reported up from the portfolio/scanner panels (they own their
     // own chat stream) so the agent-bar "live" dot can pulse for Atlas/Argus too.
-    const [, setPortfolioLoading] = useState(false)
-    const [, setScannerLoading]   = useState(false)
     // ── Pipeline inboxes ──────────────────────────────────────────────────────
     // What each desk has been HANDED, as a pipeline artifact (services/pipeline/artifact.js). One
     // shape per desk instead of a bespoke payload per hop: the conveyor puts an artifact in an
@@ -372,13 +381,15 @@ export function MainPage() {
     // every one of them also needed its own branch in _resumeThreadOn below. Adding a desk is now
     // a key, not a declaration plus a branch — and a desk whose key is missing degrades to the
     // idea-thread fallback instead of silently doing nothing.
-    const resumeRefs = useRef({
-        portfolio: { current: null },
-        scanner:   { current: null },
-        mentor:    { current: null },
-        analyst:   { current: null },
-        strategy:  { current: null },
-    })
+    const resumeRefs = useRef(Object.fromEntries(DESK_TABS.map(t => [t, { current: null }])))
+
+    // Which desks are mid-turn. STATE, not a ref: it drives what the UI lets you do. Memoised
+    // setters so a panel's onLoadingChange prop keeps a stable identity across renders, and the
+    // no-op guard stops a panel re-reporting the same value from re-rendering the page.
+    const [deskBusy, setDeskBusy] = useState({})
+    const deskLoadingSetters = useMemo(() => Object.fromEntries(DESK_TABS.map(tab => [tab,
+        (is) => setDeskBusy(prev => (Boolean(prev[tab]) === Boolean(is) ? prev : { ...prev, [tab]: Boolean(is) })),
+    ])), [])
     const { setups, setupsLoading, refreshSetups } = useSetups()
     const [setupBusyId, setSetupBusyId] = useState(null)
 
@@ -2696,7 +2707,7 @@ export function MainPage() {
                                             onMainChange={setMainAccountId}
                                         />
                                     )}
-                                    <ThreadHistory agent={activeTab} onResume={handleResumeActiveThread} />
+                                    <ThreadHistory agent={activeTab} onResume={handleResumeActiveThread} busy={Boolean(deskBusy[activeTab])} />
                                 </div>
                             </div>
                         )}
@@ -2718,7 +2729,7 @@ export function MainPage() {
                                 // and offers the skip when a sector comes back with no list.
                                 sleeveRun={sleeveRun}
                                 onSkipSleeve={handleSkipSleeve}
-                                onLoadingChange={setScannerLoading}
+                                onLoadingChange={deskLoadingSetters.scanner}
                                 chatRestore={scannerChatRestore}
                                 scanSeed={scannerSeed}
                                 handoff={scannerSingle}
@@ -2736,7 +2747,7 @@ export function MainPage() {
                                 onUpdatePlan={handleUpdatePlan}
                                 onPortfolioUpdate={handlePortfolioUpdate}
                                 onBuildingPlanChange={setBuildingPortfolio}
-                                onLoadingChange={setPortfolioLoading}
+                                onLoadingChange={deskLoadingSetters.portfolio}
                                 onReviewResolved={handleBackToAxl}
                                 onAcceptReview={handleAcceptReview}
                                 onSourceInArgus={handleSourceInArgus}
@@ -2773,6 +2784,7 @@ export function MainPage() {
 
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'mentor' ? 'flex' : 'none' }}>
                             <MentorPanel
+                                onLoadingChange={deskLoadingSetters.mentor}
                                 pipeline={activePipeline}
                                 onGenerated={finishPipeline}
                                 seed={mentorSeed}
@@ -2789,6 +2801,7 @@ export function MainPage() {
 
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'analyst' ? 'flex' : 'none' }}>
                             <AnalystPanel
+                                onLoadingChange={deskLoadingSetters.analyst}
                                 inbox={analystInbox}
                                 editCoverage={analystEditCoverage}
                                 seed={analystSeed}
@@ -2808,6 +2821,7 @@ export function MainPage() {
 
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'strategy' ? 'flex' : 'none' }}>
                             <StrategyPanel
+                                onLoadingChange={deskLoadingSetters.strategy}
                                 currentTilt={tilt}
                                 pipeline={activePipeline}
                                 resumeRef={resumeRefs.current.strategy}
