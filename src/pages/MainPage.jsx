@@ -13,7 +13,7 @@ import { handoffDoors } from '../services/pipeline/doors.js'
 import { AccountSelector }   from '../cmps/ChatPanel/AccountSelector.jsx'
 import { readStoredModel }   from '../cmps/modelOptions.js'
 import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
-import { reviewApplyMessage } from '../cmps/PortfolioPanel/reviewApply.js'
+import { reviewApplyMessage, queuedAnything } from '../cmps/PortfolioPanel/reviewApply.js'
 import { QueuedActionDialog } from '../cmps/Floor/QueuedActionDialog.jsx'
 import { executeRoute } from '../cmps/Floor/queuedAction.contract.js'
 import { pendingActionService } from '../services/pendingAction/pendingAction.service.remote.js'
@@ -1866,8 +1866,11 @@ export function MainPage() {
         if (!update?.portfolioId) { setPendingRebalance(null); return }
         setApplyingRebalance(true)
         try {
-            await portfolioService.applyRebalance(update.portfolioId, update)
+            const result = await portfolioService.applyRebalance(update.portfolioId, update)
             loadIdeas()
+            // Shut venue: the changes were queued, not executed. The list is fetched, never pushed
+            // to, so re-read it here or they stay invisible until the next page load.
+            if (queuedAnything(result)) loadQueued()
         } catch (err) {
             console.error('[portfolio] rebalance failed', err)
             showErrorMsg('Could not apply the rebalance — try again.')
@@ -1969,7 +1972,10 @@ export function MainPage() {
             showErrorMsg(`${apiError(err, 'Could not apply the changes')}${detail} — nothing was executed.`)
             return false
         }
-        await loadIdeas()
+        // `loadQueued` only when something was actually deferred — the message and the refresh read
+        // the SAME bucket, so the list can never be stale behind a toast that says "waiting in your
+        // queued list". (See queuedAnything.)
+        await Promise.all([loadIdeas(), ...(queuedAnything(result) ? [loadQueued()] : [])])
         showSuccessMsg(reviewApplyMessage(result, { pending }))
         return true
     }

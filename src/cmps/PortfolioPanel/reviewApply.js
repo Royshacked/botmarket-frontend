@@ -64,3 +64,21 @@ export function reviewApplyMessage(result, { pending = false } = {}) {
     if (pending && applied) return `${head} Activate the book from your portfolio list when ready.`
     return head
 }
+
+/**
+ * Did any accepted change land in the QUEUE rather than at a broker?
+ *
+ * The queued list is loaded, not pushed: it is fetched on mount, on Axl's market-open card, and
+ * after the user executes or cancels a row — never when something is added to it. So an accept off
+ * hours told the user "they're waiting in your queued list" and pointed them at a list that had
+ * been fetched before the rows existed, and stayed empty until the next page load.
+ *
+ * Reading the same bucket the message reads (`deferredItems`) keeps the toast and the refresh from
+ * disagreeing: whenever the words say queued, the list is re-read. A queue write that FAILED is not
+ * here — it reports as failed, and there is no row to go and look at.
+ *
+ * @param {object} result   the applyRebalance response
+ */
+export function queuedAnything(result) {
+    return (result?.deferredItems?.length ?? 0) > 0
+}

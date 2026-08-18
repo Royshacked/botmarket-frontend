@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { reviewApplyMessage } from './reviewApply.js'
+import { reviewApplyMessage, queuedAnything } from './reviewApply.js'
 
 // The toast after accepting a review. It used to be the flat string "Changes applied." — printed
 // over a review in which every change silently did nothing, because applyRebalance reported ok:true
@@ -61,5 +61,32 @@ describe('reviewApplyMessage', () => {
         expect(reviewApplyMessage(undefined)).toBe('Changes applied.')
         // The fallback is the pre-refactor sentence verbatim, lower-case verb and all.
         expect(reviewApplyMessage({ ok: true }, { pending: true })).toMatch(/activate the book/i)
+    })
+})
+
+// The queued list is FETCHED, not pushed: on mount, on Axl's market-open card, and after the user
+// executes or cancels a row. Accepting a review off-hours added rows to it and told nobody, so the
+// toast said "waiting in your queued list" over a list the user had to reload the page to see.
+// This predicate is what the accept path asks before re-reading it.
+describe('queuedAnything', () => {
+    it('is true when a change was deferred to the open', () => {
+        expect(queuedAnything({ applied: 0, deferredItems: [{ itemId: 'a' }], failed: [] })).toBe(true)
+        expect(queuedAnything({ applied: 2, deferredItems: [{ itemId: 'a' }], failed: [] })).toBe(true)
+    })
+
+    it('is false for a review that fully executed', () => {
+        expect(queuedAnything({ applied: 2, deferredItems: [], failed: [] })).toBe(false)
+    })
+
+    it('is false for a FAILED queue write — there is no row to go and look at', () => {
+        // A deferral whose enqueue failed reports in `failed`, not `deferredItems` (see
+        // portfolioRebalance.applyRebalance). Refreshing on it would be a fetch that changes nothing
+        // and, worse, would pair with a toast that never claimed anything was queued.
+        expect(queuedAnything({ applied: 0, deferredItems: [], failed: [{ reason: 'queue_failed' }] })).toBe(false)
+    })
+
+    it('is false for an older response shape with no buckets at all', () => {
+        expect(queuedAnything({ ok: true })).toBe(false)
+        expect(queuedAnything(undefined)).toBe(false)
     })
 })
