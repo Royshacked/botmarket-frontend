@@ -160,4 +160,73 @@ describe('FloorLeft', () => {
         expect(document.querySelector('.floor-book .floor-rowhost__actions .icon-btn')).toBeTruthy()
         expect(document.querySelectorAll('.icon-btn')).toHaveLength(1)
     })
+
+    // ── One line per HOLDING ─────────────────────────────────────────────────
+    //
+    // A scale-in on a hedging venue can't grow a position, so it opens a sibling — and the book then
+    // listed the same ticker twice, at two prices, neither of them what the user owns. The holding is
+    // the unit they think in, so it gets one line at the blended average.
+
+    // Two positions of ONE holding: 10 @ 987.24 and 3 @ 1018.41 — the MU case.
+    const twoLegHolding = () => ({
+        positions: [
+            pos({ id: 'p1', symbol: 'MU', volume: 10, entryPrice: 987.24, currentPrice: 1000, pnl: 128 }),
+            pos({ id: 'p2', symbol: 'MU', volume: 3,  entryPrice: 1018.41, currentPrice: 1000, pnl: -55 }),
+        ],
+        ideas: [idea({ brokerOrders: [
+            { positionId: 'p1', broker: 'ctrader', accountId: 'a1' },
+            { positionId: 'p2', broker: 'ctrader', accountId: 'a1' },
+        ] })],
+    })
+
+    const openBook = () => { openAcct(); fireEvent.click(screen.getByText('Core')) }
+
+    it('shows a two-position holding as ONE line, at the summed size', () => {
+        render(<FloorLeft {...twoLegHolding()} />)
+        openBook()
+
+        const rows = document.querySelectorAll('.floor-pos')
+        expect(rows).toHaveLength(1)
+        expect(rows[0].className).toContain('floor-pos--folded')
+        expect(rows[0].querySelector('.floor-pos__qty').textContent).toBe('13')
+        // The leg count rides beside the ticker, so the line says it stands for more than one.
+        expect(rows[0].querySelector('.floor-pos__legs').textContent).toBe('×2')
+    })
+
+    it('sums the holding’s money P&L across its legs', () => {
+        render(<FloorLeft {...twoLegHolding()} />)
+        openBook()
+
+        expect(document.querySelector('.floor-pos__pnl').textContent).toContain('73')   // 128 − 55
+    })
+
+    it('opens the legs on click, and each leg keeps its own size', () => {
+        render(<FloorLeft {...twoLegHolding()} />)
+        openBook()
+
+        fireEvent.click(document.querySelector('.floor-pos--folded'))
+        const qtys = [...document.querySelectorAll('.floor-pos')].map(r => r.querySelector('.floor-pos__qty').textContent)
+        expect(qtys).toEqual(['13', '10', '3'])
+    })
+
+    // The ✕ on a folded line is the holding's, not one arbitrary leg's — "close MU" has never meant
+    // half of MU. Per-leg ✕s are still there once the legs are showing.
+    it('closes the whole holding from the folded line', () => {
+        render(<FloorLeft {...twoLegHolding()} onClosePositions={vi.fn()} onClosePosition={vi.fn()} />)
+        openBook()
+
+        const btn = document.querySelector('.floor-pos--folded')
+            .closest('.floor-rowhost').querySelector('.icon-btn')
+        expect(btn.getAttribute('title')).toBe('Close all 2 MU positions at market')
+    })
+
+    // The common case must be untouched: one position, one plain row, no caret, no leg count.
+    it('leaves a single-position holding exactly as it was', () => {
+        render(<FloorLeft positions={[pos()]} ideas={[idea()]} />)
+        openBook()
+
+        const row = document.querySelector('.floor-pos')
+        expect(row.className).not.toContain('floor-pos--folded')
+        expect(row.querySelector('.floor-pos__legs')).toBeNull()
+    })
 })

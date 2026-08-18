@@ -360,6 +360,88 @@ export function positionOpenTarget(pos, ideas = [], calls = []) {
 }
 
 /**
+ * Blend several broker positions of the ONE holding into the single position it really is.
+ *
+ * A holding can sit behind more than one broker position: a book placed across two accounts, or —
+ * the case this was written for — a scale-in on a HEDGING venue (cTrader/MT5), which cannot add to a
+ * position and opens a sibling instead. Left unfolded, the user's book showed "MU 10 @ 987" and
+ * "MU 3 @ 1018" as two holdings of the same name, and neither line is the number they own.
+ *
+ * Prices are SIZE-WEIGHTED, which is the whole point: the mean of 987 and 1018 is 1002.82, while
+ * what was actually paid for 13 shares averages 994.42. Money P&L sums.
+ *
+ * `id` / `broker` / `accountId` are carried from the first leg so the row still resolves its owning
+ * entity (clicking it opens the holding) — they identify ONE leg and must never be used to close the
+ * blended row. Closing a folded holding means closing every leg; `legs` is there for that.
+ *
+ * @param {object[]} legs
+ * @returns {object} a position-shaped object with `folded: true` and `legs`
+ */
+export function blendLegs(legs = []) {
+    const first = legs[0] ?? {}
+    let volume = 0, entryValue = 0, markValue = 0, pnl = 0, anyPnl = false, openedAt = null
+    const accounts = new Set(), accountNos = new Set()
+
+    for (const p of legs) {
+        const vol   = Math.abs(Number(p.volume)) || 0
+        const entry = Number(p.entryPrice)
+        const mark  = Number(p.currentPrice)
+        volume += vol
+        if (isFinite(entry) && entry > 0) entryValue += entry * vol
+        // Fall back to the entry when a leg has no mark yet, so one unpriced leg cannot drag the
+        // blended mark below what the position is worth (it would read as a fake loss).
+        markValue += (isFinite(mark) && mark > 0 ? mark : (isFinite(entry) ? entry : 0)) * vol
+        if (p.pnl != null && !isNaN(Number(p.pnl))) { pnl += Number(p.pnl); anyPnl = true }
+        if (p.openedAt != null) openedAt = openedAt == null ? p.openedAt : Math.min(openedAt, p.openedAt)
+        if (p.accountId != null) accounts.add(String(p.accountId))
+        if (p.accountNo != null) accountNos.add(String(p.accountNo))
+    }
+
+    return {
+        ...first,
+        volume,
+        entryPrice:   volume > 0 && entryValue > 0 ? entryValue / volume : (first.entryPrice ?? null),
+        currentPrice: volume > 0 && markValue  > 0 ? markValue  / volume : (first.currentPrice ?? null),
+        pnl:          anyPnl ? pnl : null,
+        openedAt,
+        // A holding spread over several accounts has no single account to name — the caller shows
+        // the leg rows for that. Uniform is the normal case (a scale-in lands on the same account).
+        accountId: accounts.size   === 1 ? [...accounts][0]   : first.accountId ?? null,
+        accountNo: accountNos.size === 1 ? [...accountNos][0] : null,
+        folded: true,
+        legs,
+    }
+}
+
+/**
+ * One entry per HOLDING, not per broker position — the Positions tab's row list.
+ *
+ * Positions that belong to the same entity fold into one blended row (see blendLegs) with their legs
+ * kept for expansion; a holding with a single position passes straight through untouched, which is
+ * the overwhelmingly common case and must render exactly as it did before. A position no loaded
+ * entity claims (an orphan, or the read-only dialog which passes no `ideas`) is its own group, so
+ * callers that don't know their entities behave unchanged.
+ *
+ * @param {object[]} positions
+ * @param {object[]} ideas
+ * @returns {Array<{ ownerId: string|null, legs: object[], position: object }>}
+ */
+export function foldHoldingLegs(positions = [], ideas = []) {
+    const groups  = []
+    const byOwner = new Map()
+
+    for (const pos of positions) {
+        const ownerId = positionOwnerIdea(pos, ideas)?.id ?? null
+        if (!ownerId) { groups.push({ ownerId: null, legs: [pos] }); continue }
+        let g = byOwner.get(ownerId)
+        if (!g) { g = { ownerId, legs: [] }; byOwner.set(ownerId, g); groups.push(g) }
+        g.legs.push(pos)
+    }
+
+    return groups.map(g => ({ ...g, position: g.legs.length === 1 ? g.legs[0] : blendLegs(g.legs) }))
+}
+
+/**
  * Group open positions for the Positions tab by their owning idea's portfolio.
  *
  * A position links to an idea (via brokerOrders); an idea may carry a portfolioId.

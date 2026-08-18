@@ -289,6 +289,17 @@ $header-h: var(--header-h);
     // standalone position, which is the only thing that differs.
     &--sub { padding-left: $row-pad-x + $indent * 2; }
 
+    // A holding held as several broker positions: one line at the blended average that opens into
+    // its legs. Marked only by the ×N beside the ticker — it is still a position line, not a new
+    // tier, because the holding is the thing the user thinks they own.
+    &--folded .floor-pos__sym { color: var(--accent-light); }
+    &__legs {
+        margin-left: 5px;
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--text-dim);
+    }
+
     // Larger than the row glyphs elsewhere: inside an opened account this is the first thing
     // scanned down the list — which way is each of these facing — so it earns the extra weight.
     &__dir {

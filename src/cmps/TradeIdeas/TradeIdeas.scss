@@ -588,6 +588,21 @@ $sym-status-colors: (
         &.direction--short { color: #ef5350; }
     }
 
+    // A FOLDED holding — one line standing for several broker positions, at the blended average.
+    // Deliberately quiet: it is a normal position row (the holding IS the unit the user thinks in),
+    // marked only by its caret and a faint tint, not promoted to a group header like the portfolio
+    // rows above it. Its expanded legs indent under it.
+    &--folded > td { background: color-mix(in srgb, var(--accent) 3%, transparent); }
+    &--folded:hover > td { background: var(--bg-hover); }
+    &--leg > td { background: color-mix(in srgb, var(--accent) 1%, transparent); }
+    &--leg .position-row__asset {
+        padding-left: 22px;
+        font-weight: 500;
+        color: var(--text-secondary);
+    }
+
+    &__caret { color: var(--accent); font-size: 0.66rem; margin-right: 6px; }
+
     &__broker,
     &__account { color: var(--text-secondary); }
 

@@ -72,27 +72,39 @@ CloseAtMarketButton.propTypes = { onClick: PropTypes.func.isRequired, title: Pro
 //
 // The row is a <button>, so the ✕ can't live inside it — it rides in the RowHost overlay, exactly
 // like the right column's edit/delete.
-function PositionLine({ position: p, sub, onOpen, onClose, closing }) {
+function PositionLine({ position: p, sub, onOpen, onClose, closing, expanded, onToggle }) {
     const pct = positionPnlPct(p)
+    // FOLDED: this line stands for a holding held as several broker positions, at the blended
+    // average. Clicking it opens the legs rather than the entity — the caret IS the row — and its ✕
+    // takes the whole holding, since "close MU" has never meant one arbitrary leg of it.
+    const folded = !!onToggle
     return (
         <RowHost
             actions={onClose && (
                 <CloseAtMarketButton
                     onClick={() => onClose(p)}
                     closing={closing}
-                    title={`Close ${p.symbol ?? 'this position'} at market`}
+                    title={folded
+                        ? `Close all ${p.legs?.length ?? 0} ${p.symbol ?? ''} positions at market`
+                        : `Close ${p.symbol ?? 'this position'} at market`}
                 />
             )}
         >
             <button
-                className={`floor-pos${sub ? ' floor-pos--sub' : ''}`}
-                onClick={() => onOpen?.(p)}
-                title={onOpen ? 'Open this position' : undefined}
+                className={`floor-pos${sub ? ' floor-pos--sub' : ''}${folded ? ' floor-pos--folded' : ''}`}
+                onClick={() => (folded ? onToggle() : onOpen?.(p))}
+                aria-expanded={folded ? !!expanded : undefined}
+                title={folded
+                    ? (expanded ? 'Collapse this holding' : `${p.legs?.length ?? 0} positions — blended average`)
+                    : (onOpen ? 'Open this position' : undefined)}
             >
                 <span className={`floor-pos__dir floor-pos__dir--${p.direction}`} aria-hidden="true">
                     {p.direction === 'short' ? '▾' : '▴'}
                 </span>
-                <span className="floor-pos__sym">{p.symbol ?? '—'}</span>
+                <span className="floor-pos__sym">
+                    {p.symbol ?? '—'}
+                    {folded && <span className="floor-pos__legs">×{p.legs?.length ?? 0}</span>}
+                </span>
                 <span className="floor-pos__qty">{formatNum(p.volume)}</span>
                 <span className={`floor-pos__pnl ${pnlClass(Number(p.pnl))}`}>
                     {formatPnl(p.pnl, p.currency)}
@@ -109,6 +121,70 @@ PositionLine.propTypes = {
     onOpen:   PropTypes.func,
     onClose:  PropTypes.func,
     closing:  PropTypes.bool,
+    expanded: PropTypes.bool,
+    onToggle: PropTypes.func,
+}
+
+/**
+ * One HOLDING's lines: a single leg renders as the plain row it always did; several legs render as
+ * one blended row that expands into them.
+ *
+ * `group` is a foldHoldingLegs() entry. `onCloseHolding` takes the whole holding in one confirm — the
+ * same act as the book ✕ one tier up, on a smaller set — and per-leg ✕s stay on the expanded rows so
+ * a deliberate single-leg close is still possible.
+ */
+function HoldingLines({ group, sub, expanded, onToggle, onOpenPosition, onClosePosition, onCloseHolding, closingId, closingGroupId }) {
+    if (group.legs.length === 1) {
+        const p = group.position
+        return (
+            <PositionLine
+                position={p}
+                sub={sub}
+                onOpen={onOpenPosition}
+                onClose={onClosePosition}
+                closing={closingId === posKey(p)}
+            />
+        )
+    }
+    const key = `holding:${group.ownerId}`
+    return (
+        <>
+            <PositionLine
+                position={group.position}
+                sub={sub}
+                expanded={expanded}
+                onToggle={onToggle}
+                closing={closingGroupId === key}
+                onClose={onCloseHolding && (() => onCloseHolding({
+                    key,
+                    label:     group.position.symbol ?? 'holding',
+                    positions: group.legs,
+                }))}
+            />
+            {expanded && group.legs.map(p => (
+                <PositionLine
+                    key={posKey(p)}
+                    position={p}
+                    sub
+                    onOpen={onOpenPosition}
+                    onClose={onClosePosition}
+                    closing={closingId === posKey(p)}
+                />
+            ))}
+        </>
+    )
+}
+
+HoldingLines.propTypes = {
+    group:           PropTypes.object.isRequired,
+    sub:             PropTypes.bool,
+    expanded:        PropTypes.bool,
+    onToggle:        PropTypes.func.isRequired,
+    onOpenPosition:  PropTypes.func,
+    onClosePosition: PropTypes.func,
+    onCloseHolding:  PropTypes.func,
+    closingId:       PropTypes.string,
+    closingGroupId:  PropTypes.string,
 }
 
 // posKey comes from PositionsTable rather than being re-derived here: it is what the close flow
@@ -189,27 +265,38 @@ function AccountBlock({ group, open, onToggle, onOpenPosition, onClosePosition, 
                                     </button>
                                 </RowHost>
 
-                                {bookOpen && book.positions.map(p => (
-                                    <PositionLine
-                                        key={posKey(p)}
-                                        position={p}
+                                {/* One line per HOLDING, not per broker position — a holding sitting
+                                    behind two positions (a hedging venue's scale-in) is one line at
+                                    the blended average, which expands to its legs. */}
+                                {bookOpen && book.rows.map(g => (
+                                    <HoldingLines
+                                        key={g.ownerId ?? posKey(g.position)}
+                                        group={g}
                                         sub
-                                        onOpen={onOpenPosition}
-                                        onClose={onClosePosition}
-                                        closing={closingId === posKey(p)}
+                                        expanded={isExpanded(`holding:${g.ownerId}`)}
+                                        onToggle={() => toggle(`holding:${g.ownerId}`)}
+                                        onOpenPosition={onOpenPosition}
+                                        onClosePosition={onClosePosition}
+                                        onCloseHolding={onCloseBook}
+                                        closingId={closingId}
+                                        closingGroupId={closingGroupId}
                                     />
                                 ))}
                             </div>
                         )
                     })}
 
-                    {group.loose.map(p => (
-                        <PositionLine
-                            key={posKey(p)}
-                            position={p}
-                            onOpen={onOpenPosition}
-                            onClose={onClosePosition}
-                            closing={closingId === posKey(p)}
+                    {group.looseRows.map(g => (
+                        <HoldingLines
+                            key={g.ownerId ?? posKey(g.position)}
+                            group={g}
+                            expanded={isExpanded(`holding:${g.ownerId}`)}
+                            onToggle={() => toggle(`holding:${g.ownerId}`)}
+                            onOpenPosition={onOpenPosition}
+                            onClosePosition={onClosePosition}
+                            onCloseHolding={onCloseBook}
+                            closingId={closingId}
+                            closingGroupId={closingGroupId}
                         />
                     ))}
                 </div>

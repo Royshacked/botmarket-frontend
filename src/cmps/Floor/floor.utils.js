@@ -2,7 +2,7 @@
 // export components only (react-refresh keeps fast-refresh working), and so the grouping rules can
 // be tested without rendering anything — the same split tradeIdea.utils.js already uses.
 
-import { summarizePositions, positionWorkspace, positionOwnerIdea } from '../TradeIdeas/tradeIdea.utils.js'
+import { summarizePositions, positionWorkspace, positionOwnerIdea, foldHoldingLegs } from '../TradeIdeas/tradeIdea.utils.js'
 
 /**
  * Split positions into one group per account, first-seen order preserved, each with its summary —
@@ -20,9 +20,16 @@ import { summarizePositions, positionWorkspace, positionOwnerIdea } from '../Tra
  * brokerOrders join). With no `ideas` passed — or for an orphan broker position whose idea is gone —
  * every position lands in `loose` and the account renders exactly as it did before this tier existed.
  *
+ * BOTH leg lists come with a folded twin — `rows` on a book, `looseRows` on the account — one entry
+ * per HOLDING rather than per broker position (see foldHoldingLegs). A holding can stand behind
+ * several positions: a scale-in on a hedging venue opens a sibling rather than growing the original,
+ * so the book listed the same ticker twice, at two prices, neither of them what the user owns. The
+ * raw `positions` / `loose` arrays stay exactly as they were, because summaries and the book's
+ * close-all act on real legs.
+ *
  * @param {object[]} positions
  * @param {object[]} [ideas]  loaded ideas; the position→portfolio link
- * @returns {Array<{key:string,accountNo:string,broker:string|null,workspace:string,positions:object[],books:Array<{key:string,portfolioId:string,name:string,positions:object[],summary:object}>,loose:object[],summary:object}>}
+ * @returns {Array<{key:string,accountNo:string,broker:string|null,workspace:string,positions:object[],books:Array<{key:string,portfolioId:string,name:string,positions:object[],rows:object[],summary:object}>,loose:object[],looseRows:object[],summary:object}>}
  */
 export function positionsByAccount(positions = [], ideas = []) {
     const m = new Map()
@@ -59,8 +66,13 @@ export function positionsByAccount(positions = [], ideas = []) {
     }
     return [...m.values()].map(g => ({
         ...g,
-        books:   [...g.books.values()].map(b => ({ ...b, summary: summarizePositions(b.positions) })),
-        summary: summarizePositions(g.positions),
+        books: [...g.books.values()].map(b => ({
+            ...b,
+            rows:    foldHoldingLegs(b.positions, ideas),
+            summary: summarizePositions(b.positions),
+        })),
+        looseRows: foldHoldingLegs(g.loose, ideas),
+        summary:   summarizePositions(g.positions),
     }))
 }
 

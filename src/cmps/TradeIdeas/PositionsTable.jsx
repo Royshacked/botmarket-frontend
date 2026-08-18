@@ -2,7 +2,7 @@ import PropTypes from 'prop-types'
 import { Fragment } from 'react'
 import {
     formatCreatedAtFull, formatPrice, formatNum, formatPnl, formatPnlPct,
-    positionPnlPct, positionWorkspace, groupPositions, summarizePositions,
+    positionPnlPct, positionWorkspace, groupPositions, summarizePositions, foldHoldingLegs,
 } from './tradeIdea.utils.js'
 import { useExpandedSet } from '../../customHooks/useExpandedSet.js'
 
@@ -20,7 +20,11 @@ export function WorkspaceBadge({ workspace }) {
 }
 WorkspaceBadge.propTypes = { workspace: PropTypes.string.isRequired }
 
-export function PositionRow({ position, closing, onClose, onEditOrders, onOpen }) {
+// `onCloseAll` + `expanded`/`onToggle` are the FOLDED form: one row standing for a holding whose
+// legs are several broker positions (see foldHoldingLegs). Its ✕ closes every leg, because "close my
+// MU" means the holding, not whichever leg happens to be first — the per-leg ✕ lives on the expanded
+// rows. `isLeg` only indents. A plain single-position row passes none of these and is unchanged.
+export function PositionRow({ position, closing, onClose, onEditOrders, onOpen, onCloseAll, expanded, onToggle, isLeg }) {
     const pnl       = Number(position.pnl)
     const pnlClass  = isNaN(pnl) ? '' : pnl > 0 ? 'pnl--pos' : pnl < 0 ? 'pnl--neg' : ''
     const pct       = positionPnlPct(position)
@@ -28,15 +32,30 @@ export function PositionRow({ position, closing, onClose, onEditOrders, onOpen }
     const ws        = positionWorkspace(position)
     // Broker is only meaningful for a live position — paper / manual have no broker.
     const brokerLbl = ws === 'live' ? (BROKER_LABELS[position.broker] ?? position.broker ?? '—') : '—'
-    const showControls = !!(onClose || onEditOrders)
+    const folded    = !!onToggle
+    // A folded row never offers per-leg order editing (working stops/TPs hang off ONE position), and
+    // its close acts on the whole holding.
+    const closeFn      = folded ? onCloseAll : onClose
+    const editFn       = folded ? null       : onEditOrders
+    const showControls = !!(closeFn || editFn)
+    // Expanding takes precedence over opening the entity: on a folded row the caret IS the row.
+    const rowClick = folded ? onToggle : (onOpen ? () => onOpen(position) : undefined)
 
     return (
         <tr
-            className={'position-row' + (onOpen ? ' position-row--clickable' : '')}
-            onClick={onOpen ? () => onOpen(position) : undefined}
-            title={onOpen ? 'Open this position’s idea' : undefined}
+            className={'position-row'
+                + (rowClick ? ' position-row--clickable' : '')
+                + (folded ? ' position-row--folded' : '')
+                + (isLeg  ? ' position-row--leg'    : '')}
+            onClick={rowClick}
+            title={folded
+                ? (expanded ? 'Collapse this holding’s positions' : `${position.legs?.length ?? 0} positions — blended`)
+                : (onOpen ? 'Open this position’s idea' : undefined)}
         >
-            <td className="position-row__asset">{position.symbol ?? '—'}</td>
+            <td className="position-row__asset">
+                {folded && <span className="position-row__caret">{expanded ? '▾' : '▸'}</span>}
+                {position.symbol ?? '—'}
+            </td>
             <td className={`position-row__dir direction--${position.direction}`}>{position.direction ?? '—'}</td>
             <td className="position-row__qty">{formatNum(position.volume)}</td>
             <td className="position-row__price">{formatPrice(position.entryPrice)}</td>
@@ -48,11 +67,11 @@ export function PositionRow({ position, closing, onClose, onEditOrders, onOpen }
             <td className={`position-row__pnl-pct ${pctClass}`}>{formatPnlPct(pct)}</td>
             {showControls && (
                 <td className="position-row__controls">
-                    {onEditOrders && (
+                    {editFn && (
                         <button
                             className="position-row__edit"
                             disabled={closing}
-                            onClick={e => { e.stopPropagation(); onEditOrders(position) }}
+                            onClick={e => { e.stopPropagation(); editFn(position) }}
                             title="Open working orders (stop / TP) for this position"
                         >
                             <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -63,12 +82,12 @@ export function PositionRow({ position, closing, onClose, onEditOrders, onOpen }
                             </svg>
                         </button>
                     )}
-                    {onClose && (
+                    {closeFn && (
                         <button
                             className="position-row__close"
                             disabled={closing}
-                            onClick={e => { e.stopPropagation(); onClose(position) }}
-                            title="Close this position at market"
+                            onClick={e => { e.stopPropagation(); closeFn(position) }}
+                            title={folded ? 'Close this whole holding at market' : 'Close this position at market'}
                         >
                             {closing ? '…' : (
                                 <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -89,6 +108,10 @@ PositionRow.propTypes = {
     onClose:      PropTypes.func,
     onEditOrders: PropTypes.func,
     onOpen:       PropTypes.func,
+    onCloseAll:   PropTypes.func,
+    expanded:     PropTypes.bool,
+    onToggle:     PropTypes.func,
+    isLeg:        PropTypes.bool,
 }
 
 const pnlClassOf = n => n == null ? '' : n > 0 ? 'pnl--pos' : n < 0 ? 'pnl--neg' : ''
@@ -165,13 +188,36 @@ export function PositionsTable({ positions = [], ideas = [], closingId, closingG
         onEditOrders,
         onOpen,
     })
-    const rows = list => list.map(position => <PositionRow key={posKey(position)} {...rowProps(position)} />)
 
     // Close-all props for a summary row — omitted entirely when the caller can't close.
     const closeAllProps = (key, label, list) => (onCloseGroup && list.length ? {
         onCloseAll: () => onCloseGroup({ key, label, positions: list }),
         closing:    closingGroupId === key,
     } : {})
+
+    // One row per HOLDING. A holding standing behind several broker positions — a book across two
+    // accounts, or a scale-in on a hedging venue that had to open a sibling — renders as one blended
+    // row that expands to its legs, instead of repeating the same ticker as if it were two holdings.
+    // Single-position holdings (and every position when `ideas` isn't given) render exactly as before.
+    const rows = list => foldHoldingLegs(list, ideas).map(group => {
+        if (group.legs.length === 1) {
+            return <PositionRow key={posKey(group.position)} {...rowProps(group.position)} />
+        }
+        const key = `holding:${group.ownerId}`
+        return (
+            <Fragment key={key}>
+                <PositionRow
+                    position={group.position}
+                    expanded={isExpanded(key)}
+                    onToggle={() => toggle(key)}
+                    {...closeAllProps(key, group.position.symbol ?? 'holding', group.legs)}
+                />
+                {isExpanded(key) && group.legs.map(p => (
+                    <PositionRow key={posKey(p)} {...rowProps(p)} isLeg />
+                ))}
+            </Fragment>
+        )
+    })
 
     return (
         <table className="positions-table">
