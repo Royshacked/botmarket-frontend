@@ -43,6 +43,7 @@ import { adoptService } from '../services/adopt/adopt.service.remote.js'
 import { AdoptBookGrid } from '../cmps/AdoptBook/AdoptBookGrid.jsx'
 import { mentorService } from '../services/mentor/mentor.service.remote.js'
 import { isSetupAwaitingConfirm } from '../cmps/TradeIdeas/setupStatus.js'
+import { pickConfirmIdea, pickConfirmSetup } from '../cmps/TradeIdeas/confirmTarget.js'
 import { redrawAsk } from '../cmps/MentorPanel/redrawAsk.js'
 import { listenForPopupEvents } from '../services/popupBridge.js'
 import { useChatStream, toChatHistory } from '../customHooks/useChatStream.js'
@@ -557,56 +558,23 @@ export function MainPage() {
             : buildOrderPreview(idea, availableAccounts)
 
     // Idea awaiting order confirmation: a still-triggered ('hit') idea with accounts,
-    // not yet placed and not dismissed. 'awaiting_market' ideas stay deferred (no
-    // dialog). Keying off status (not just orderState) is what makes dismiss stick:
-    // once the idea is sent back to 'waiting' the dialog disappears even if a lingering
-    // orderState 'awaiting_confirm' wasn't cleared.
-    //
-    // We pick the first such idea that *also* resolves to a non-empty order list — a
-    // newer hit whose client-side preview can't resolve (e.g. its broker account isn't
-    // in the current session) must not mask an older hit that has a ready plan.
-    //
-    // Ownership: an admin's idea list includes every user's ideas (for dev/visibility),
-    // but confirming places orders through the *current* user's broker session — so we
-    // only ever offer the confirm dialog for the viewer's own ideas. Legacy ideas with
-    // no userId are treated as the viewer's own.
-    let confirmIdea  = null
-    let confirmOrders = []
-    for (const i of ideas) {
-        if (i.userId != null && i.userId !== user?._id) continue
-        if (ideaWorkspace(i) !== workspace) continue   // only confirm ideas of the active workspace (live/paper/manual)
-        if (ideaWorkspace(i) === 'manual') continue    // manual fills are confirmed via the social-chat FillCard, not this dialog
-        if (i.status !== 'hit' || i.ordersPlacedAt || dismissedConfirmIds.has(i.id)) continue
-        if (!Array.isArray(i.accounts) || i.accounts.length === 0) continue
-        if (i.orderState !== 'awaiting_confirm' && i.orderState != null) continue
-        const orders = ordersForIdea(i)
-        if (orders.length > 0) { confirmIdea = i; confirmOrders = orders; break }
-    }
-    // The plan's price levels for the confirm dialog, from the SAME extractor the chart uses. No
-    // positions passed: an idea awaiting confirmation is by definition not in one yet, so the entry
-    // comes from its conditions rather than a fill.
+    // WHICH entity the confirm dialog is showing. The selection rules — ownership, workspace,
+    // manual-is-elsewhere, dismiss-sticks, first-RESOLVABLE-not-first-match — moved to
+    // cmps/TradeIdeas/confirmTarget.js so they could be tested: this is the logic that decides
+    // whose plan gets a Place Orders button, and it was unreachable from a test in here.
+    const { idea: confirmIdea, orders: confirmOrders } = pickConfirmIdea({
+        ideas, userId: user?._id ?? null, workspace, dismissedConfirmIds, ideaWorkspace, ordersForIdea,
+    })
+    // The plan's price levels, from the SAME extractor the chart uses. No positions passed: an idea
+    // awaiting confirmation is by definition not in one yet, so the entry comes from its conditions
+    // rather than a fill.
     const confirmLevels = confirmIdea ? deriveIdeaOverlay(confirmIdea, []).levels : []
 
-    // Kairos call awaiting order confirmation: the call the user tapped "Confirm order" on, at
-    // A call awaiting confirm was shaped into an idea here so the SHARED OrderConfirmDialog could
-    // place it. Kairos was archived on 2026-08-18 and nothing reaches `hit` on a call any more, so
-    // the whole branch went with it. The dialog itself is untouched and still serves ideas and
-    // setups — it was always kind-blind, which is why this could be deleted rather than rewired.
-
-    // Talos-triggered setup awaiting order confirmation. Unlike a call (whose plan is a Hermes
-    // PROPOSAL that only becomes orders at confirm time), Talos already stamped an executable
-    // `pendingOrder.plan` when it flipped the setup to 'hit' — so this reads the real plan rather
-    // than rebuilding a preview, and confirming places it through the kind-blind order endpoint.
-    let confirmSetup = null, confirmSetupOrders = []
-    if (setupConfirmId && !confirmIdea) {
-        const su = setups.find(x => x.id === setupConfirmId)
-        // Same gate as an idea: still 'hit', still awaiting confirm, not already placed.
-        if (su && isSetupAwaitingConfirm(su.status) && !su.ordersPlacedAt &&
-            (su.orderState === 'awaiting_confirm' || su.orderState == null)) {
-            const orders = Array.isArray(su.pendingOrder?.plan) ? su.pendingOrder.plan : []
-            if (orders.length) { confirmSetup = su; confirmSetupOrders = orders }
-        }
-    }
+    // A setup reads Talos's stamped `pendingOrder.plan` rather than rebuilding a preview. An idea
+    // in flight wins — one dialog on screen, and it was there first.
+    const { setup: confirmSetup, orders: confirmSetupOrders } = pickConfirmSetup({
+        setups, setupConfirmId, blockedByIdea: Boolean(confirmIdea), isAwaitingConfirm: isSetupAwaitingConfirm,
+    })
     // A setup's plan is authored as zones, so its levels come from its own extractor.
     const confirmSetupLevels = confirmSetup ? deriveSetupOverlay(confirmSetup).levels : []
 
