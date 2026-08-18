@@ -1,5 +1,4 @@
 import { tradeIdeasService } from './tradeIdeas/tradeIdeas.service.remote'
-import { kairosService }     from './kairos/kairos.service.remote'
 import { mentorService }     from './mentor/mentor.service.remote'
 import { analystService }    from './analyst/analyst.service.remote'
 import { scannerService }    from './scanner/scanner.service.remote'
@@ -30,7 +29,6 @@ import { portfolioService }  from './portfolio/portfolio.service.remote'
 // is introduced here, they are simply named in one place so the doorways don't each pick their own.
 const GETTERS = {
     idea:      (id) => tradeIdeasService.getIdea(id),
-    call:      (id) => kairosService.getCall(id),
     setup:     (id) => mentorService.getSetup(id),
     coverage:  (id) => analystService.getCoverage(id),
     scan:      (id) => scannerService.getScan(id),
@@ -43,7 +41,7 @@ const GETTERS = {
 /**
  * Read one entity, fresh, by id.
  *
- * @param {'idea'|'call'|'setup'|'coverage'|'scan'|'portfolio'} kind
+ * @param {'idea'|'setup'|'coverage'|'scan'|'portfolio'} kind
  * @param {string} id
  * @returns {Promise<object|object[]|null>} the document (an array for `portfolio`), or null when
  *   it could not be read — missing, not the user's, or the request failed. The caller decides what

@@ -149,33 +149,17 @@ QueuedRows.propTypes = {
 
 // ── Trading floor ─────────────────────────────────────────────────────────────
 
-// The two kinds keep their own action contracts — the same ones CallCard and SetupCard use, so a
-// call and a setup behave identically whether you reach them from a card or from this line:
+// A trade row keeps the same action contract SetupCard uses, so a setup behaves identically
+// whether you reach it from a card or from this line. `kind` is still carried on the row: calls
+// were the second kind until Kairos was archived (2026-08-18), and a second trade kind is the
+// expected case here rather than a special one.
 //
-//  · the pencil returns the entity to the chat that BUILT it (Kairos / Mentor), and only while the
+//  · the pencil returns the entity to the chat that BUILT it (Mentor), and only while the
 //    trade is pre-entry — once a position is live, changes go through management cards, not a
 //    re-run of the build conversation;
 //  · the bin locks while a position is live — deleting would leave that position open at the
 //    broker with nothing left describing it, so no monitor manages its stop. The server refuses
 //    it (409 reason:'in_position') for every kind; don't render an action that can only fail.
-function callActions(call, onEdit, onDelete) {
-    if (!onEdit && !onDelete) return null
-    return (
-        <>
-            {onEdit && isPreEntry(call.status) && (
-                <EditButton onClick={() => onEdit(call)} title="Edit call in Kairos chat" size="sm" />
-            )}
-            {onDelete && (
-                <DeleteButton
-                    onClick={() => onDelete(call.id)}
-                    title="Delete call"
-                    lockedReason={isLivePosition(call.status) ? 'In a live position — close it at the broker first' : null}
-                    size="sm"
-                />
-            )}
-        </>
-    )
-}
 
 function setupActions(setup, onEdit, onDelete) {
     if (!onEdit && !onDelete) return null
@@ -196,13 +180,11 @@ function setupActions(setup, onEdit, onDelete) {
     )
 }
 
-function TradeRows({ calls, setups, onEditCall, onDeleteCall, onEditSetup, onDeleteSetup }) {
-    const items = tradeFloorItems(calls, setups)
-    if (!items.length) return <Empty>No calls or setups.</Empty>
+function TradeRows({ setups, onEditSetup, onDeleteSetup }) {
+    const items = tradeFloorItems(setups)
+    if (!items.length) return <Empty>No setups.</Empty>
 
-    const actionsFor = it => (it.kind === 'call'
-        ? callActions(it.entity, onEditCall, onDeleteCall)
-        : setupActions(it.entity, onEditSetup, onDeleteSetup))
+    const actionsFor = it => setupActions(it.entity, onEditSetup, onDeleteSetup)
 
     return groupByLifecycle(items).map(group => (
         <div key={group.key} className="floor-grp">
@@ -227,10 +209,7 @@ function TradeRows({ calls, setups, onEditCall, onDeleteCall, onEditSetup, onDel
     ))
 }
 TradeRows.propTypes = {
-    calls:         PropTypes.array,
     setups:        PropTypes.array,
-    onEditCall:    PropTypes.func,
-    onDeleteCall:  PropTypes.func,
     onEditSetup:   PropTypes.func,
     onDeleteSetup: PropTypes.func,
 }
@@ -573,10 +552,10 @@ CoverageRows.propTypes = { coverage: PropTypes.array, onEditCoverage: PropTypes.
 // ── The column ────────────────────────────────────────────────────────────────
 
 export function FloorLists({
-    calls = [], setups = [], ideas = [], positions = [],
+    setups = [], ideas = [], positions = [],
     scans = [], coverage = [], queued = [],
     onCandidateSelect,
-    onEditCall, onDeleteCall, onEditSetup, onDeleteSetup,
+    onEditSetup, onDeleteSetup,
     onEditPortfolio, onDeletePortfolio, onDeleteIdea, onActivatePortfolio,
     onEditScan, onDeleteScan,
     onEditCoverage, onRetireCoverage, onDeleteCoverage,
@@ -608,7 +587,7 @@ export function FloorLists({
     // each row already carries its own dimmed dot and "waiting for the open".
     const counts = {
         queued:    queued.length,
-        trade:     calls.length + setups.length,
+        trade:     setups.length,
         portfolio: portfoliosFromIdeas(ideas).length,
         scans:     scans.length,
         coverage:  coverage.length,
@@ -639,8 +618,7 @@ export function FloorLists({
                     )}
                     {desk.key === 'trade'     && (
                         <TradeRows
-                            calls={calls} setups={setups}
-                            onEditCall={onEditCall} onDeleteCall={onDeleteCall}
+                            setups={setups}
                             onEditSetup={onEditSetup} onDeleteSetup={onDeleteSetup}
                         />
                     )}
@@ -679,7 +657,6 @@ export function FloorLists({
 }
 
 FloorLists.propTypes = {
-    calls:             PropTypes.array,
     setups:            PropTypes.array,
     ideas:             PropTypes.array,
     positions:         PropTypes.array,
@@ -691,8 +668,6 @@ FloorLists.propTypes = {
     queuedBusyId:      PropTypes.string,
     deskRequest:       PropTypes.object,
     onCandidateSelect: PropTypes.func,
-    onEditCall:        PropTypes.func,
-    onDeleteCall:      PropTypes.func,
     onEditSetup:       PropTypes.func,
     onDeleteSetup:     PropTypes.func,
     onEditPortfolio:   PropTypes.func,

@@ -1,3 +1,5 @@
+// The build step in these fixtures was 'kairos' until that desk was archived (2026-08-18).
+// It is 'mentor' now — the hop planner is tab-agnostic, so the fixtures only need a real tab.
 // Routing an artifact along a pipeline — including the trade desk's real steps.
 // Node's built-in harness:  node --test src/services/pipeline/hop.test.js
 import test from 'node:test'
@@ -9,14 +11,14 @@ import { contractFor, CONTRACTS } from './contracts.js'
 // The trading desk exactly as DESKS declares it: Argus, then Kairos, then a background monitor.
 const TRADE_STEPS = [
     { tab: 'scanner', label: 'Scan' },
-    { tab: 'kairos',  label: 'Build trade' },
+    { tab: 'mentor',  label: 'Build trade' },
     { tab: null,      label: 'Execute & monitor' },
 ]
 
 test('a result moves forward: Argus\'s list goes on to Kairos', () => {
     const found = findReceiver(TRADE_STEPS, 0, KIND.CANDIDATE_LIST)
     assert.equal(found.index, 1)
-    assert.equal(found.step.tab, 'kairos')
+    assert.equal(found.step.tab, 'mentor')
 })
 
 // The hop that a forward-only rule would lose: Kairos has no name and asks the desk BEFORE it.
@@ -64,7 +66,7 @@ test('forward wins when both directions could take it', () => {
     // direction rule decides. (Without `awaits` a duplicated agent receives nothing — see below.)
     const steps = [
         { tab: 'scanner', awaits: 'scan_request' },
-        { tab: 'kairos' },
+        { tab: 'mentor' },
         { tab: 'scanner', awaits: 'scan_request' },
     ]
     assert.equal(findReceiver(steps, 1, KIND.SCAN_REQUEST).index, 2)
@@ -75,7 +77,7 @@ test('forward wins when both directions could take it', () => {
 // answer by itself. `awaits` is how a step says which arrival is which.
 
 test('a duplicated agent receives nothing until its steps say what they await', () => {
-    const ambiguous = [{ tab: 'scanner' }, { tab: 'kairos' }, { tab: 'scanner' }]
+    const ambiguous = [{ tab: 'scanner' }, { tab: 'mentor' }, { tab: 'scanner' }]
     assert.equal(findReceiver(ambiguous, 1, KIND.SCAN_REQUEST), null,
         'picking the first would be a coin flip dressed as a decision')
 })
@@ -83,19 +85,19 @@ test('a duplicated agent receives nothing until its steps say what they await', 
 test('awaits narrows a step to one kind, and silences it for the others', () => {
     const steps = [
         { tab: 'scanner', awaits: 'mandate' },        // only screens for a book
-        { tab: 'kairos' },
+        { tab: 'mentor' },
     ]
     assert.equal(findReceiver(steps, 1, KIND.SCAN_REQUEST), null, 'this step is not the discovery one')
     assert.equal(findReceiver(steps, 1, KIND.MANDATE)?.index, 0)
 })
 
 test('a step cannot await something its agent does not accept', () => {
-    const steps = [{ tab: 'kairos', awaits: 'mandate' }, { tab: 'scanner' }]
+    const steps = [{ tab: 'mentor', awaits: 'mandate' }, { tab: 'scanner' }]
     assert.equal(findReceiver(steps, 1, KIND.MANDATE), null, 'the contract still gates it')
 })
 
 test('a lone agent needs no awaits — ambiguity is what requires the declaration', () => {
-    assert.equal(findReceiver([{ tab: 'scanner' }, { tab: 'kairos' }], 1, KIND.SCAN_REQUEST)?.index, 0)
+    assert.equal(findReceiver([{ tab: 'scanner' }, { tab: 'mentor' }], 1, KIND.SCAN_REQUEST)?.index, 0)
 })
 
 test('a seed desk is handed the brief it wrote for itself', () => {
@@ -115,14 +117,14 @@ test('a seed desk is handed the brief it wrote for itself', () => {
 test('an artifact desk takes the envelope itself, and is never remounted', () => {
     const artifact = makeArtifact({ kind: KIND.CANDIDATE_LIST, items: [{ ticker: 'NVDA' }] })
     const plan = planHop({ steps: TRADE_STEPS, fromIndex: 0, artifact })
-    assert.equal(plan.targetTab, 'kairos')
+    assert.equal(plan.targetTab, 'mentor')
     assert.deepEqual(plan.delivery, { type: 'artifact' })
     // Kairos is holding the bias the request came from — remounting would throw it away.
     assert.equal(plan.remount, false)
 })
 
 test('a step overrides the agent default mount', () => {
-    const steps = [{ tab: 'scanner', mount: 'continues' }, { tab: 'kairos' }]
+    const steps = [{ tab: 'scanner', mount: 'continues' }, { tab: 'mentor' }]
     const plan  = planHop({ steps, fromIndex: 1, artifact: makeArtifact({ kind: KIND.SCAN_REQUEST, items: [{ direction: 'long' }] }) })
     assert.equal(plan.remount, false)
 })
@@ -137,9 +139,9 @@ test('manual never auto-applies; auto does', () => {
 
 // Arming and order confirmation stay human. A mode toggle must not become the way around them.
 test('a gate blocks auto-advance even in auto mode', () => {
-    const steps = [{ tab: 'scanner' }, { tab: 'kairos', gate: true }]
+    const steps = [{ tab: 'scanner' }, { tab: 'mentor', gate: true }]
     const plan  = planHop({ steps, fromIndex: 0, artifact: makeArtifact({ kind: KIND.CANDIDATE_LIST, items: [{ ticker: 'NVDA' }] }), mode: 'auto' })
-    assert.equal(plan.targetTab, 'kairos')   // still routed — the user is taken there
+    assert.equal(plan.targetTab, 'mentor')   // still routed — the user is taken there
     assert.equal(plan.auto, false)           // but the step is not taken for them
 })
 
@@ -150,13 +152,13 @@ test('a gate blocks auto-advance even in auto mode', () => {
 test('producesOne is a property of the STEP, not of the agent', () => {
     assert.equal(producesOne([{ tab: 'scanner', produces: 'one' }], 'scanner'), true)
     assert.equal(producesOne([{ tab: 'scanner' }], 'scanner'), false)
-    assert.equal(producesOne([{ tab: 'kairos', produces: 'one' }], 'scanner'), false)
+    assert.equal(producesOne([{ tab: 'mentor', produces: 'one' }], 'scanner'), false)
     assert.equal(producesOne([], 'scanner'), false)
 })
 
 test('a trailing background monitor is not somewhere the work goes', () => {
-    assert.equal(hasDownstream([{ tab: 'scanner' }, { tab: 'kairos' }, { tab: null }], 0), true)
-    assert.equal(hasDownstream([{ tab: 'scanner' }, { tab: 'kairos' }, { tab: null }], 1), false)
+    assert.equal(hasDownstream([{ tab: 'scanner' }, { tab: 'mentor' }, { tab: null }], 0), true)
+    assert.equal(hasDownstream([{ tab: 'scanner' }, { tab: 'mentor' }, { tab: null }], 1), false)
     assert.equal(hasDownstream([{ tab: 'scanner' }], 0), false)
     assert.equal(hasDownstream([], 0), false)
 })
@@ -237,10 +239,17 @@ test('every kind a contract emits is accepted by someone', () => {
 // The mirror, and the one that catches a typo'd kind: an inbox nothing can ever reach is a desk
 // waiting for a delivery that will never come.
 test('every kind a contract accepts is emitted by someone', () => {
+    // ORPHANED BY AN ARCHIVE, not by a typo. Kairos was the only desk that emitted SCAN_REQUEST —
+    // its "find me a ticker" discovery hand-off asked Argus for a single pick — and it was archived
+    // on 2026-08-18. Argus can still RECEIVE one and single-pick mode still works, so the capability
+    // was kept rather than deleted; it simply has no caller until Kairos returns (or Mentor grows
+    // the same gesture). Named here so the guard keeps biting for every other kind.
+    const ARCHIVED_PRODUCERS = new Set(['scan_request'])
     const declared = Object.keys(CONTRACTS)
     const emitted  = new Set(declared.flatMap(a => contractFor(a).emits))
     for (const agent of declared) {
         for (const kind of contractFor(agent).accepts) {
+            if (ARCHIVED_PRODUCERS.has(kind)) continue
             assert.ok(emitted.has(kind), `${agent} accepts ${kind} and nobody produces it`)
         }
     }

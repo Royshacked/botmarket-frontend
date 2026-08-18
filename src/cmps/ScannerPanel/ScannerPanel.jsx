@@ -165,14 +165,14 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
     profileRef.current = profile
     // The single pick emitted at the end of a hand-off scan → the hand-off button. Named for the
     // `<kairos_pick>` wire tag it carries, which outlived the desk it was named after.
-    const [kairosPick,     setKairosPick]     = useState(null)
+    const [handoffPick,     setHandoffPick]     = useState(null)
     // Auto mode: hand the settled pick straight on rather than offering it. Waits for the turn to
-    // end — a pick still being written is not yet a pick. `kairosPick` is deliberately left set: the
+    // end — a pick still being written is not yet a pick. `handoffPick` is deliberately left set: the
     // hand-off remounts this panel, and clearing it here would flash the generate bar on the way out.
     useEffect(() => {
-        if (!autoHandoff || chat.isLoading || !kairosPick) return
-        onSendPick?.(kairosPick, { viaUser: false })
-    }, [autoHandoff, chat.isLoading, kairosPick])   // eslint-disable-line react-hooks/exhaustive-deps
+        if (!autoHandoff || chat.isLoading || !handoffPick) return
+        onSendPick?.(handoffPick, { viaUser: false })
+    }, [autoHandoff, chat.isLoading, handoffPick])   // eslint-disable-line react-hooks/exhaustive-deps
     // Reopen a saved list to edit it (clicked from its pencil): restore the chat,
     // enter edit mode, and prime the pending list with its current contents so the
     // agent can refine it and "Update list" persists back to the same scan.
@@ -241,7 +241,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
     async function _send(text) {
         if (!text || chat.isLoading) return
         setEditDirty(true)
-        setKairosPick(null)   // a new turn supersedes any prior hand-off pick
+        setHandoffPick(null)   // a new turn supersedes any prior hand-off pick
         setResearchOffer(null)
         setSleeveStalled(false)   // a new turn is a fresh chance at this sleeve's list
         settledRef.current = false
@@ -263,7 +263,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                 pendingTickersRef.current = []
                 chat.finishStreaming({ role: 'assistant', content: data.reply, tickers })
                 _settleScan(data)
-                if (data.kairos_pick) setKairosPick(data.kairos_pick)   // hand-off: single pick → button
+                if (data.kairos_pick) setHandoffPick(data.kairos_pick)   // hand-off: single pick → button
                 // Construction only: persist the scan-building conversation as a draft thread.
                 // The backend enforces the substantive floor (scanner = past nucleus) + TTL.
                 if (!editingScanId) {
@@ -327,7 +327,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                 const content = base + data.reply
                 chat.finishStreaming({ role: 'assistant', content, tickers })
                 _settleScan(data)
-                if (data.kairos_pick) setKairosPick(data.kairos_pick)
+                if (data.kairos_pick) setHandoffPick(data.kairos_pick)
                 if (!editingScanId) {
                     threadsService.saveDraft({
                         pipeline,
@@ -375,7 +375,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
     function handleClear() {
         chat.reset()
         setPendingScan(null)
-        setKairosPick(null)
+        setHandoffPick(null)
         setEditingScanId(null)
         setEditDirty(false)
         setSelectedAngles(new Set())
@@ -531,13 +531,13 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
             {/* Hand-off: Argus settled on a single pick → send it on or dismiss. In auto the
                 conveyor takes it on its own, so there is nothing here to press. The label names the
                 desk that will actually receive it — see destBrand. */}
-            {!chat.isLoading && kairosPick && !autoHandoff && (
+            {!chat.isLoading && handoffPick && !autoHandoff && (
                 <div className="portfolio-panel__action-bubble">
                     <button
                         className="portfolio-panel__review-btn portfolio-panel__review-btn--update"
-                        onClick={() => onSendPick?.(kairosPick)}
+                        onClick={() => onSendPick?.(handoffPick)}
                     >
-                        {destBrand ? `Send to ${destBrand}` : 'Send it on'} · {kairosPick.ticker}{kairosPick.direction ? ` · ${kairosPick.direction}` : ''}
+                        {destBrand ? `Send to ${destBrand}` : 'Send it on'} · {handoffPick.ticker}{handoffPick.direction ? ` · ${handoffPick.direction}` : ''}
                     </button>
                     <button
                         className="portfolio-panel__review-btn portfolio-panel__review-btn--later"
@@ -609,7 +609,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                 can continue — and the two bars stack into four buttons asking two different
                 questions, two of which navigate away. The offer is the one that just appeared, so it
                 answers first; declining it brings this bar straight back. */}
-            {!chat.isLoading && !kairosPick && !researchOffer && (!!editingScanId || listReady) && (
+            {!chat.isLoading && !handoffPick && !researchOffer && (!!editingScanId || listReady) && (
                 <div className="portfolio-panel__action-bubble">
                     {/* "Update/Generate list" only once there's a ready list; the "I'll do it later"
                         escape is always present in edit mode. */}

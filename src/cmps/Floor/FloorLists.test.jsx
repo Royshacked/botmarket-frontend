@@ -10,8 +10,10 @@ import { FloorLists } from './FloorLists.jsx'
 
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
-const call  = (over = {}) => ({ id: 'c1', asset: 'NVDA', direction: 'long',  status: 'looking', ...over })
-const setup = (over = {}) => ({ id: 's1', asset: 'SPY',  direction: 'short', status: 'waiting', ...over })
+// `call` was the exemplar trade row here until Kairos was archived (2026-08-18). Every case it
+// covered is kind-blind, so `setup` carries them now.
+const setup  = (over = {}) => ({ id: 's1', asset: 'SPY',  direction: 'short', status: 'waiting', ...over })
+const setup2 = (over = {}) => setup({ id: 's2', asset: 'NVDA', ...over })
 
 const deskBtn = name => screen.getByRole('button', { name: new RegExp(name, 'i') })
 
@@ -25,14 +27,14 @@ describe('FloorLists', () => {
 
     // A refresh must not pick a desk for the reader: the column lands as a table of contents.
     it('opens no desk by default', () => {
-        render(<FloorLists calls={[call()]} coverage={[{ symbol: 'AAPL', status: 'active' }]} />)
+        render(<FloorLists setups={[setup2()]} coverage={[{ symbol: 'AAPL', status: 'active' }]} />)
         for (const label of ['Trading floor', 'Portfolio floor', 'Scans', 'Coverage']) {
             expect(deskBtn(label).getAttribute('aria-expanded')).toBe('false')
         }
     })
 
     it('opening one desk closes the one that was open', () => {
-        render(<FloorLists calls={[call()]} coverage={[{ symbol: 'AAPL', status: 'active' }]} initialDesk="trade" />)
+        render(<FloorLists setups={[setup2()]} coverage={[{ symbol: 'AAPL', status: 'active' }]} initialDesk="trade" />)
         fireEvent.click(deskBtn('Coverage'))
         expect(deskBtn('Coverage').getAttribute('aria-expanded')).toBe('true')
         expect(deskBtn('Trading floor').getAttribute('aria-expanded')).toBe('false')
@@ -40,7 +42,7 @@ describe('FloorLists', () => {
 
     // All-closed is a legitimate state: the column becomes a table of contents.
     it('clicking the open desk closes it, leaving all four collapsed', () => {
-        render(<FloorLists calls={[call()]} initialDesk="trade" />)
+        render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
         fireEvent.click(deskBtn('Trading floor'))
         for (const label of ['Trading floor', 'Portfolio floor', 'Scans', 'Coverage']) {
             expect(deskBtn(label).getAttribute('aria-expanded')).toBe('false')
@@ -94,8 +96,8 @@ describe('FloorLists', () => {
         })
     })
 
-    it('counts calls and setups together on the trading floor', () => {
-        render(<FloorLists calls={[call(), call({ id: 'c2' })]} setups={[setup()]} />)
+    it('counts every trade row on the trading floor', () => {
+        render(<FloorLists setups={[setup(), setup2(), setup({ id: 's3' })]} />)
         expect(within(deskBtn('Trading floor')).getByText('(3)')).toBeTruthy()
     })
 
@@ -104,19 +106,21 @@ describe('FloorLists', () => {
         expect(within(deskBtn('Coverage')).queryByText('0')).toBeNull()
     })
 
-    it('merges calls and setups into one list, each labelled by kind', () => {
-        render(<FloorLists calls={[call()]} setups={[setup()]} initialDesk="trade" />)
+    it('merges the trade rows into one list, each labelled by kind', () => {
+        // The per-row kind label reads as redundant with one kind and is kept deliberately: a
+        // second trade kind is the expected case here, not a special one.
+        render(<FloorLists setups={[setup2(), setup()]} initialDesk="trade" />)
         expect(screen.getByText('NVDA')).toBeTruthy()
         expect(screen.getByText('SPY')).toBeTruthy()
-        expect(screen.getByText('call')).toBeTruthy()
-        expect(screen.getByText('setup')).toBeTruthy()
+        expect(screen.getAllByText('setup').length).toBe(2)
     })
 
     // Urgency order, not ladder order — a row awaiting confirm must sit above a live position.
     it('orders lifecycle groups most-urgent first', () => {
         render(<FloorLists
-            calls={[call({ id: 'c1', asset: 'AAA', status: 'waiting' }), call({ id: 'c2', asset: 'BBB', status: 'hit' })]}
-            setups={[setup({ id: 's1', asset: 'CCC', status: 'long' })]}
+            setups={[setup({ id: 's1', asset: 'AAA', status: 'waiting' }),
+                     setup({ id: 's2', asset: 'BBB', status: 'hit' }),
+                     setup({ id: 's3', asset: 'CCC', status: 'long' })]}
             initialDesk="trade"
         />)
         const labels = [...document.querySelectorAll('.floor-grp__label')].map(n => n.textContent)
@@ -125,15 +129,15 @@ describe('FloorLists', () => {
 
     it('shows an empty state per desk instead of a blank body', () => {
         render(<FloorLists initialDesk="trade" />)
-        expect(screen.getByText(/no calls or setups/i)).toBeTruthy()
+        expect(screen.getByText(/no setups/i)).toBeTruthy()
     })
 
     it('a row click opens that entity’s pop-out', () => {
         const open = vi.spyOn(window, 'open').mockReturnValue(null)
-        render(<FloorLists calls={[call()]} initialDesk="trade" />)
+        render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
         fireEvent.click(screen.getByText('NVDA').closest('button'))
         expect(open).toHaveBeenCalledTimes(1)
-        expect(open.mock.calls[0][0]).toContain('/call/c1')
+        expect(open.mock.calls[0][0]).toContain('/setup/s2')
     })
 
     // A portfolio has no record of its own — it IS the set of ideas sharing a portfolioId — so the
@@ -293,29 +297,31 @@ describe('FloorLists', () => {
 
 describe('FloorLists row actions', () => {
     it('offers edit and delete on a trading-floor row, wired to that entity', () => {
-        const onEditCall = vi.fn(), onDeleteCall = vi.fn()
-        render(<FloorLists calls={[call()]} onEditCall={onEditCall} onDeleteCall={onDeleteCall} initialDesk="trade" />)
+        const onEditSetup = vi.fn(), onDeleteSetup = vi.fn()
+        render(<FloorLists setups={[setup()]} onEditSetup={onEditSetup} onDeleteSetup={onDeleteSetup} initialDesk="trade" />)
 
-        fireEvent.click(screen.getByTitle('Edit call in Kairos chat'))
-        fireEvent.click(screen.getByTitle('Delete call'))
-        expect(onEditCall.mock.calls[0][0].id).toBe('c1')     // the call itself — it seeds the chat
-        expect(onDeleteCall).toHaveBeenCalledWith('c1')       // the id — same contract as CallCard
+        fireEvent.click(screen.getByTitle('Edit setup in Mentor chat'))
+        fireEvent.click(screen.getByTitle('Delete setup'))
+        expect(onEditSetup.mock.calls[0][0].id).toBe('s1')    // the setup itself — it seeds the chat
+        // NB the setup contract hands the whole ENTITY to delete, where the call contract handed
+        // the bare id. Not a slip: SetupCard does the same, and the dialog it opens needs the doc.
+        expect(onDeleteSetup.mock.calls[0][0].id).toBe('s1')
     })
 
     // The row opens a pop-out; the buttons on it must not.
     it('does not open the pop-out when an action is clicked', () => {
         const open = vi.spyOn(window, 'open').mockReturnValue(null)
-        render(<FloorLists calls={[call()]} onDeleteCall={vi.fn()} initialDesk="trade" />)
+        render(<FloorLists setups={[setup()]} onDeleteSetup={vi.fn()} initialDesk="trade" />)
 
-        fireEvent.click(screen.getByTitle('Delete call'))
+        fireEvent.click(screen.getByTitle('Delete setup'))
         expect(open).not.toHaveBeenCalled()
     })
 
     // Past entry the plan can't be re-run in the chat — changes go through management cards — and
     // the bin is locked because the server refuses it (409 in_position) for every kind.
-    it('drops the pencil and locks the bin once a call is past entry', () => {
-        render(<FloorLists calls={[call({ status: 'long' })]} onEditCall={vi.fn()} onDeleteCall={vi.fn()} initialDesk="trade" />)
-        expect(screen.queryByTitle('Edit call in Kairos chat')).toBeNull()
+    it('drops the pencil and locks the bin once a trade is past entry', () => {
+        render(<FloorLists setups={[setup({ status: 'long' })]} onEditSetup={vi.fn()} onDeleteSetup={vi.fn()} initialDesk="trade" />)
+        expect(screen.queryByTitle('Edit setup in Mentor chat')).toBeNull()
         expect(screen.getByTitle(/close it at the broker first/i).disabled).toBe(true)
     })
 
@@ -332,7 +338,7 @@ describe('FloorLists row actions', () => {
     })
 
     it('renders no actions at all when no handlers are given', () => {
-        render(<FloorLists calls={[call()]} initialDesk="trade" />)
+        render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
         expect(document.querySelector('.floor-rowhost__actions')).toBeNull()
     })
 

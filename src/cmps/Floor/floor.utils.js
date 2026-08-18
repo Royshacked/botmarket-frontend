@@ -96,20 +96,21 @@ export function groupByDay(items = []) {
 /**
  * Calls and setups on one list.
  *
- * They are the same desk's work in two methods — a Kairos call and a Mentor setup both end in one
+ * A Mentor setup ends in one
  * directional order in one name — so they interleave rather than living in separate tabs. `kind` is
  * what the row shows and what routes the click to the right pop-out.
  *
  * `status` is carried straight through so the shared groupByLifecycle() can bucket both kinds
  * without knowing which is which.
  *
- * @param {object[]} calls
  * @param {object[]} setups
- * @returns {Array<{kind:'call'|'setup',entity:object,id:string,ticker:string,direction:string,status:string}>}
+ * @returns {Array<{kind:'setup',entity:object,id:string,ticker:string,direction:string,status:string}>}
  */
-export function tradeFloorItems(calls = [], setups = []) {
+// `calls` was the first argument until Kairos was archived (2026-08-18). The row shape keeps its
+// `kind` field rather than being flattened away — a second trade kind is the expected case here,
+// and the Floor already renders from it.
+export function tradeFloorItems(setups = []) {
     return [
-        ...calls.map(c  => ({ kind: 'call',  entity: c, id: c.id, ticker: c.asset ?? c.symbol, direction: c.direction, status: c.status })),
         ...setups.map(s => ({ kind: 'setup', entity: s, id: s.id, ticker: s.asset ?? s.symbol, direction: s.direction, status: s.status })),
     ]
 }

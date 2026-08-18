@@ -8,7 +8,7 @@
 // setup's "the map drifted" and "the premise broke". One builder with a kind switch would be four
 // sentences pretending to be one.
 
-import { firstSentence } from '../TradeIdeas/monitorJournal.utils.js'
+import { firstSentence } from '../../../src/cmps/TradeIdeas/monitorJournal.utils.js'
 
 /**
  * @param {?object} call the call document, freshly resolved by id

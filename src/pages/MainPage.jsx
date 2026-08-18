@@ -18,19 +18,17 @@ import { QueuedActionDialog } from '../cmps/Floor/QueuedActionDialog.jsx'
 import { executeRoute } from '../cmps/Floor/queuedAction.contract.js'
 import { pendingActionService } from '../services/pendingAction/pendingAction.service.remote.js'
 import { ScannerPanel, RESEARCH_TOP_N }      from '../cmps/ScannerPanel/ScannerPanel.jsx'
-import { KairosPanel }       from '../cmps/KairosPanel/KairosPanel.jsx'
 import { MentorPanel }       from '../cmps/MentorPanel/MentorPanel.jsx'
 import { AnalystPanel }      from '../cmps/AnalystPanel/AnalystPanel.jsx'
 import { StrategyPanel }     from '../cmps/StrategyPanel/StrategyPanel.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
 import { FloorLeft }         from '../cmps/Floor/FloorLeft.jsx'
 import { FloorLists }        from '../cmps/Floor/FloorLists.jsx'
-import { kairosService, CALLS_CHANGED } from '../services/kairos/kairos.service.remote.js'
 import { analystService, COVERAGE_CHANGED } from '../services/analyst/analyst.service.remote.js'
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
-import { activatePortfolio, isManualIdea, buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace, inWorkspace, positionOpenTarget, openCallPopup, openIdeaPopup, matchPositionsForIdea, isPortfolioReview } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { activatePortfolio, isManualIdea, buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace, inWorkspace, positionOpenTarget, openIdeaPopup, matchPositionsForIdea, isPortfolioReview } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { TradeTicket } from '../cmps/TradeTicket/TradeTicket.jsx'
 import { apiError } from '../services/http.service.js'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
@@ -39,16 +37,14 @@ import { portfolioService }  from '../services/portfolio/portfolio.service.remot
 import { resolveEntity }     from '../services/entityResolve.js'
 import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
-import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, TILT_REVIEW_OPEN, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST } from '../services/event-bus.service'
+import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, TILT_REVIEW_OPEN, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
 import { adoptService } from '../services/adopt/adopt.service.remote.js'
 import { AdoptBookGrid } from '../cmps/AdoptBook/AdoptBookGrid.jsx'
 import { mentorService } from '../services/mentor/mentor.service.remote.js'
 import { isSetupAwaitingConfirm } from '../cmps/TradeIdeas/setupStatus.js'
 import { redrawAsk } from '../cmps/MentorPanel/redrawAsk.js'
-import { remapAsk }  from '../cmps/KairosPanel/remapAsk.js'
 import { listenForPopupEvents } from '../services/popupBridge.js'
-import { isAwaitingConfirm } from '../services/entityStatus.js'
 import { useChatStream, toChatHistory } from '../customHooks/useChatStream.js'
 import { useCalendarEvents } from '../customHooks/useCalendarEvents.js'
 import { useScans }          from '../customHooks/useScans.js'
@@ -59,7 +55,7 @@ import { useTradeIdeas }     from '../customHooks/useTradeIdeas.js'
 import { useEntityList } from '../customHooks/useEntityList.js'
 import { useDesign }         from '../customHooks/useDesign.js'
 import { useSetups }         from '../customHooks/useSetups.js'
-import { deriveIdeaOverlay, deriveCallOverlay, deriveSetupOverlay } from '../cmps/TradeIdeas/chartOverlay.js'
+import { deriveIdeaOverlay, deriveSetupOverlay } from '../cmps/TradeIdeas/chartOverlay.js'
 import { useAuth }           from '../context/AuthContext.jsx'
 
 // Maps activeTab → the step name used in DESKS.steps[] for pipeline highlighting.
@@ -156,37 +152,6 @@ function deriveBuildingIdea(analysisState) {
         conviction:       pt.conviction       || null,
         invalidation:     pt.invalidation     || null,
     }
-}
-
-// Derive a live "building" call from the Kairos draft — a hammer row in the Calls tab, shown
-// once the agent has settled a ticker but not yet saved (mirrors deriveBuildingIdea). Carries
-// the same shape a saved call row reads (asset/bias/trade_type/entry_zones/…) so CallCard renders.
-function deriveBuildingCall(draft) {
-    if (!draft?.asset) return null   // nothing to show until a ticker is settled
-    return {
-        id:               '__building_call__',
-        status:           'building',
-        asset:            draft.asset,
-        asset_class:      draft.asset_class      || null,
-        bias:             draft.bias             || null,
-        trade_type:       draft.trade_type       || null,
-        thesis:           draft.thesis           || null,
-        entry_zones:      draft.entry_zones      || [],
-        reference_levels: draft.reference_levels || [],
-        patterns:         draft.patterns         || [],
-        sizing:           draft.sizing           || null,
-    }
-}
-
-// The chart interval for a Kairos call: the primary ladder rung the agent set (the coarsest /
-// structure view you'd place zones on), falling back to a horizon default. PriceChart maps
-// these spellings ("1hr"/"15min"/"day"…) to KLineCharts periods via its PERIOD_MAP.
-function deriveCallInterval(tf, tradeType) {
-    if (tf) return tf
-    if (tradeType === 'intraday') return '5min'
-    if (tradeType === 'day')      return '15min'
-    if (tradeType === 'swing')    return 'day'
-    return DEFAULT_CHART_INTERVAL
 }
 
 // (Scan candidates now seed the KAIROS chat via handleBuildFromCandidate — the idea-summary/context
@@ -286,14 +251,6 @@ export function MainPage() {
     // own chat stream) so the agent-bar "live" dot can pulse for Atlas/Argus too.
     const [, setPortfolioLoading] = useState(false)
     const [, setScannerLoading]   = useState(false)
-    const [, setKairosLoading]    = useState(false)
-    const [callBusyId,       setCallBusyId]       = useState(null)
-    // Live draft call reported up from KairosPanel → a "building" row in the Calls tab.
-    const [kairosPendingCall, setKairosPendingCall] = useState(null)
-    // Editing a saved call in the Kairos chat (parity with editingIdeaId): the call whose plan is
-    // being re-worked + a keyed restore payload seeding the panel's chat history + draft.
-    const [editingCallId,    setEditingCallId]    = useState(null)
-    const [kairosChatRestore, setKairosChatRestore] = useState(null)
     // ── Pipeline inboxes ──────────────────────────────────────────────────────
     // What each desk has been HANDED, as a pipeline artifact (services/pipeline/artifact.js). One
     // shape per desk instead of a bespoke payload per hop: the conveyor puts an artifact in an
@@ -301,12 +258,10 @@ export function MainPage() {
     //
     // Argus's inbox also marks it as working on someone else's brief — a `scan_request` means
     // single-pick mode, and either way a list it produces here is not filed in the user's Scans tab
-    // (see scanOrigin). Kairos's inbox carries the picked ticker back into its (never-unmounted)
-    // draft. `scannerSeed` is the delivery mechanism for a desk that opens on a sentence: the
-    // conveyor writes the brief the receiving contract composed.
+    // (see scanOrigin). `scannerSeed` is the delivery mechanism for a desk that opens on a
+    // sentence: the conveyor writes the brief the receiving contract composed.
     const [scanInbox,        setScanInbox]        = useState(null)
     const [scannerSeed,      setScannerSeed]      = useState(null)
-    const [kairosInbox,      setKairosInbox]      = useState(null)
     // How the conveyor advances: 'manual' waits for the user to send the artifact on (they can read
     // and keep chatting first), 'auto' hands it straight to the next desk. A gate never
     // auto-advances in either mode — see planHop.
@@ -349,17 +304,8 @@ export function MainPage() {
     // A delivered artifact that outlives its run REPLAYS on the next remount of the desk holding it
     // — see services/pipeline/doors.js for the run it did that on.
     const doors = handoffDoors({
-        setScanInbox, setKairosInbox, setAnalystInbox, setMentorInbox,
+        setScanInbox, setAnalystInbox, setMentorInbox,
         setScannerSeed, setPortfolioSeed, setMentorSeed, setAnalystSeed,
-    })
-
-    // Kairos calls for the Axl Lists Calls tab. Holds all the user's calls (workspace-filtered in
-    // the list); reloads on the shared 'kairos-calls-changed' event (generate / act / delete).
-    // Polled because the monitor changes a call's status server-side (waiting↔watching →
-    // ready/expiring) without firing CALLS_CHANGED — same reason the popup polls getCall.
-    const loadCallsFn = useCallback(() => kairosService.listCalls(), [])
-    const { items: calls } = useEntityList({
-        load: loadCallsFn, changeEvent: CALLS_CHANGED, pollMs: 20_000, log: '[calls]',
     })
 
     // The Analyst's living coverage book (Radar Coverage tab). Reloads on initiate/retire
@@ -398,53 +344,10 @@ export function MainPage() {
         setAnalystEditCoverage({ doc: cov, symbol: cov.symbol, key: `${cov.id}-${Date.now()}` })
     }
 
-    async function handleActCall(id, action) {
-        setCallBusyId(id)
-        try { await kairosService.actOnCall(id, action) }   // service broadcasts CALLS_CHANGED → the list reloads
-        catch (err) { console.error('[kairos] act', err) }
-        finally { setCallBusyId(null) }
-    }
-    async function handleDeleteCall(id) {
-        try { await kairosService.deleteCall(id) }
-        catch (err) { console.error('[kairos] delete', err) }
-    }
-    // Calls-tab edit pencil → reopen the call in the Kairos chat (parity with handleEditIdea):
-    // seed the panel with the saved call's build conversation (chat_state) + its plan as the draft,
-    // restore its marked accounts, and switch to the Kairos tab. The saved row is hidden while
-    // editing (filtered below) — the live "building" row stands in for it.
-    // `ask` — see handleEditSetup. The pencil passes none; the expiry card passes Hermes's reason.
-    function handleEditCall(call, { ask = null } = {}) {
-        const draft = call.chat_state?.draft ?? {
-            asset:            call.asset,
-            asset_class:      call.asset_class      ?? null,
-            mode:             call.mode             ?? null,   // relight the lens chip on edit
-            trade_type:       call.trade_type       ?? null,
-            bias:             call.bias             ?? null,
-            thesis:           call.thesis           ?? null,
-            timeframe_ladder: call.timeframe_ladder ?? [],
-            entry_zones:      call.entry_zones      ?? [],
-            reference_levels: call.reference_levels ?? [],
-            patterns:         call.patterns         ?? [],
-            sizing:           call.sizing           ?? null,
-            active_from:      call.active_from      ?? null,
-            valid_until:      call.valid_until      ?? null,
-        }
-        setKairosChatRestore({ key: `${call.id}-${Date.now()}`, call: draft, messages: call.chat_state?.messages ?? [], ask })
-        setEditingCallId(call.id)
-        setSelectedAccounts(Array.isArray(call.accounts) ? call.accounts : [])
-        setMainAccountId(call.main_account_id ?? null)
-        setChartSymbol(call.asset || 'SPY')
-        setChartInterval(deriveCallInterval(draft.timeframe_ladder?.[0], draft.trade_type))
-        setActiveTab('kairos')
-    }
-    function handleCallEditDone() {
-        setEditingCallId(null)
-        setKairosChatRestore(null)
-        setKairosPendingCall(null)
-        handleBackToAxl()   // call updated / edit cancelled — return to the axl hub
-    }
+    // The Calls-tab pencil (handleEditCall) and its exit (handleCallEditDone) lived here. Kairos
+    // was archived on 2026-08-18, so there is no chat to reopen a call into. handleEditSetup below
+    // is the surviving shape of the same gesture.
     const [dismissedConfirmIds, setDismissedConfirmIds] = useState(() => new Set())
-    const [callConfirmId, setCallConfirmId] = useState(null)   // Kairos call showing the OrderConfirmDialog
     const [setupConfirmId, setSetupConfirmId] = useState(null) // Mentor setup showing the OrderConfirmDialog
     const [placingOrders, setPlacingOrders] = useState(false)
     const [pendingDeleteIdea, setPendingDeleteIdea] = useState(null)
@@ -465,7 +368,6 @@ export function MainPage() {
     const ideaThreadIdRef   = useRef(newThreadId())   // idea construction draft thread
     const portfolioResumeRef = useRef(null)           // PortfolioPanel exposes its resume fn here
     const scannerResumeRef   = useRef(null)           // ScannerPanel exposes its resume fn here
-    const kairosResumeRef    = useRef(null)           // KairosPanel exposes its resume fn here
     const { setups, setupsLoading, refreshSetups } = useSetups()
     const [setupBusyId, setSetupBusyId] = useState(null)
 
@@ -560,8 +462,6 @@ export function MainPage() {
             handleCancelBuild()
             setScannerChatRestore(null)
             setPortfolioChatRestore(null)
-            setEditingCallId(null)
-            setKairosChatRestore(null)
             // The SETUP twin, which was missing — and its absence was not cosmetic. `handleSetupEditDone`
             // clears these, but the agentbar's back arrow comes straight here, so leaving a setup edit
             // that way left `editingSetupId` set with nothing to unset it. Mentor then opened in a mode
@@ -624,34 +524,21 @@ export function MainPage() {
     const [ticketError, setTicketError]   = useState(null)
     const [preEntryBusy, setPreEntryBusy] = useState(false)
 
-    // A position row in the Floor's book opens whatever OWNS it — a call-originated position routes
-    // to the Call pop-out, otherwise to its idea. Same rule TradeIdeasList uses for its Positions
-    // tab; the routing is the entity's, not the panel's, so both surfaces ask positionOpenTarget.
+    // A position row in the Floor's book opens whatever OWNS it. Call-originated positions routed
+    // to the Call pop-out until Kairos was archived (2026-08-18); an idea is the only owner left.
+    // Same rule TradeIdeasList uses for its Positions tab — the routing is the entity's, not the
+    // panel's, so both surfaces ask positionOpenTarget.
     function handleOpenPositionFromFloor(position) {
-        const target = positionOpenTarget(position, ideas, calls)
-        if (target?.kind === 'call')      openCallPopup(target.call)
-        else if (target?.kind === 'idea') openIdeaPopup(target.idea)
+        const target = positionOpenTarget(position, ideas, [])
+        if (target?.kind === 'idea') openIdeaPopup(target.idea)
     }
 
     const buildingIdea = deriveBuildingIdea(analysisState)
-    const buildingCall = deriveBuildingCall(kairosPendingCall)
     // While editing, the live draft REPLACES the saved row in place (same id → the existing Axl-list
     // row turns to 'building') instead of adding a separate row. A brand-new build keeps its
     // synthetic __building__ id so it renders as a new top row.
     const buildingIdeaRow = buildingIdea && editingIdeaId ? { ...buildingIdea, id: editingIdeaId } : buildingIdea
-    const buildingCallRow = buildingCall && editingCallId ? { ...buildingCall, id: editingCallId } : buildingCall
 
-    // While building/editing a Kairos call, keep the chart on the call's asset + primary timeframe
-    // (mirrors the Idea chat's live asset/interval sync). Gated to the Kairos tab so it doesn't
-    // hijack the chart when the user is browsing ideas; fires as the draft settles a ticker/ladder.
-    const kairosAsset = kairosPendingCall?.asset
-    const kairosTf    = kairosPendingCall?.timeframe_ladder?.[0]
-    const kairosType  = kairosPendingCall?.trade_type
-    useEffect(() => {
-        if (activeTab !== 'kairos' || !kairosAsset) return
-        setChartSymbol(kairosAsset)
-        setChartInterval(deriveCallInterval(kairosTf, kairosType))
-    }, [activeTab, kairosAsset, kairosTf, kairosType])
     // buildingPortfolio is reported up from PortfolioPanel (assets recommended /
     // pending plan) → drives the list's "building" portfolio row.
 
@@ -701,36 +588,17 @@ export function MainPage() {
     const confirmLevels = confirmIdea ? deriveIdeaOverlay(confirmIdea, []).levels : []
 
     // Kairos call awaiting order confirmation: the call the user tapped "Confirm order" on, at
-    // awaiting confirm with a Hermes proposal + marked accounts. Shaped as an idea so the SHARED
-    // OrderConfirmDialog + buildOrderPreview work unchanged; onConfirm routes to actOnCall('confirm').
-    let confirmCallAsIdea = null, confirmCallOrders = [], confirmCallLevels = []
-    if (callConfirmId && !confirmIdea) {
-        const c = calls.find(x => x.id === callConfirmId)
-        const p = c?.monitor_state?.last_assessment?.proposal
-        if (c && isAwaitingConfirm(c.status) && p && Array.isArray(c.accounts) && c.accounts.length) {
-            const asIdea = {
-                asset: c.asset, asset_class: c.asset_class, direction: c.bias,
-                accounts: c.accounts, mainAccountId: c.main_account_id,
-                quantity: Number(p.size) || Number(c.sizing?.max_size) || 0, type: 'market',
-                conviction: c.conviction, entryTriggeredAt: c.monitor_state?.last_assessment?.at ?? null,
-            }
-            const orders = buildOrderPreview(asIdea, availableAccounts)
-            if (orders.length) {
-                confirmCallAsIdea = asIdea
-                confirmCallOrders = orders
-                // Derived from the CALL, not from asIdea: the idea-shaped object exists only to
-                // satisfy buildOrderPreview and carries no proposal, so it has no levels to read.
-                confirmCallLevels = deriveCallOverlay(c).levels
-            }
-        }
-    }
+    // A call awaiting confirm was shaped into an idea here so the SHARED OrderConfirmDialog could
+    // place it. Kairos was archived on 2026-08-18 and nothing reaches `hit` on a call any more, so
+    // the whole branch went with it. The dialog itself is untouched and still serves ideas and
+    // setups — it was always kind-blind, which is why this could be deleted rather than rewired.
 
     // Talos-triggered setup awaiting order confirmation. Unlike a call (whose plan is a Hermes
     // PROPOSAL that only becomes orders at confirm time), Talos already stamped an executable
     // `pendingOrder.plan` when it flipped the setup to 'hit' — so this reads the real plan rather
     // than rebuilding a preview, and confirming places it through the kind-blind order endpoint.
     let confirmSetup = null, confirmSetupOrders = []
-    if (setupConfirmId && !confirmIdea && !confirmCallAsIdea) {
+    if (setupConfirmId && !confirmIdea) {
         const su = setups.find(x => x.id === setupConfirmId)
         // Same gate as an idea: still 'hit', still awaiting confirm, not already placed.
         if (su && isSetupAwaitingConfirm(su.status) && !su.ordersPlacedAt &&
@@ -1074,29 +942,12 @@ export function MainPage() {
 
     // Kairos call entry-confirm card ("Confirm order") → surface the SAME OrderConfirmDialog the idea
     // flow uses, driven by the call's Hermes-proposed entry. Switch to the call's workspace first so
-    // its marked accounts are loaded (buildOrderPreview needs them to resolve broker/qty).
-    useEffect(() => {
-        return eventBus.on(CALL_CONFIRM_OPEN, async ({ callId }) => {
-            const call = await resolveEntity('call', callId)
-            if (!call) return
-            if (ideaWorkspace(call) !== workspaceRef.current) setWorkspace(ideaWorkspace(call))
-            setCallConfirmId(callId)
-        })
-    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    // The CALL_CONFIRM_OPEN doorway was here — it opened the shared OrderConfirmDialog on a call
+    // awaiting confirm. Archived with Kairos on 2026-08-18; nothing reaches `hit` on a call now.
 
-    // Call-expiry card "Edit call" → reopen the call in Kairos's in-app edit mode AND open the turn.
-    //
-    // Same pipeline as the Calls-tab pencil ("Update call" re-arms the monitor — updateKairosCall
-    // re-arms to 'waiting' whether or not the thesis had gone stale, so both expiry cards route
-    // here), and the same doorway split as SETUP_INVALIDATION_EDIT below: the pencil lands silent,
-    // the card opens on the reason. `kind` comes off the card because it is the card's axis, the
-    // reason off the resolved doc because that is what stays current.
-    useEffect(() => {
-        return eventBus.on(CALL_EXPIRY_EDIT, async ({ callId, kind = null }) => {
-            const call = await resolveEntity('call', callId)
-            if (call) handleEditCall(call, { ask: remapAsk(call, kind) })
-        })
-    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    // The CALL_EXPIRY_EDIT doorway was here. Kairos was archived on 2026-08-18, so an expiry card
+    // has no desk to reopen into; historical cards still RENDER (their bubbles are pure), they
+    // just no longer offer an edit that would land nowhere. See archive/README.md.
 
     // An entity POP-OUT asked for something only the app window can do (re-draw it in the desk's
     // chat). The bridge re-emits onto this same eventBus under the same event names the social-chat
@@ -1213,22 +1064,6 @@ export function MainPage() {
             refreshSetups?.()
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Confirm the call's proposed entry → materialize + place via the Kairos handoff (actOnCall).
-    async function handleConfirmCallOrder() {
-        if (!callConfirmId) return
-        setPlacingOrders(true)
-        try {
-            await kairosService.actOnCall(callConfirmId, 'confirm')   // service broadcasts CALLS_CHANGED → the list reloads
-            setCallConfirmId(null)
-        } catch (err) {
-            console.error('[kairos] confirm call order', err)
-            showErrorMsg('Could not place the order')
-        } finally {
-            setPlacingOrders(false)
-        }
-    }
-    function handleDismissCallConfirm() { setCallConfirmId(null) }
 
     // Confirm a setup's entry. Execution is kind-blind (placeOrdersForIdea resolves the entity by
     // id, not by kind), so the setup's own plan places through the same endpoint an idea uses.
@@ -2053,8 +1888,6 @@ export function MainPage() {
             return true
         }
         switch (kind) {
-            case 'call':
-                return open(await resolveEntity('call', ref) ?? await byName(() => kairosService.listCalls(), c => c.asset), handleEditCall)
             case 'setup':
                 return open(await resolveEntity('setup', ref) ?? await byName(() => mentorService.listSetups(), s => s.asset), handleEditSetup)
             // One difference from the others, about arriving from a sentence rather than a click:
@@ -2292,22 +2125,6 @@ export function MainPage() {
         return true
     }
 
-    // Kairos emitted a <scan_request> (bias + horizon, optional ticker) — the user tapped "Open
-    // Argus", or in auto mode the panel handed it over as soon as the turn settled. The request
-    // travels as an artifact; Argus's own contract turns it into the opening turn, and its inbox
-    // holding a scan_request is what puts it in single-pick mode (one pick, not a watchlist).
-    // Answers whether the hand-off actually travelled, so the panel keeps its offer when the
-    // conveyor refuses (nowhere to route it, or a gate that auto may not cross) instead of
-    // discarding the request and leaving the user with neither the button nor the hop.
-    function handleOpenArgus(scanRequest, opts = {}) {
-        if (!scanRequest?.direction) return false
-        return emitArtifact(makeArtifact({
-            kind:  KIND.SCAN_REQUEST,
-            items: [scanRequest],
-            from:  { agent: 'kairos', label: 'Build trade' },
-        }), { fromTab: 'kairos', ...opts })
-    }
-
     // Route OUT: Atlas emitted a <screen_request> (a sleeve mandate) → open Argus in the INVESTING
     // profile, seeded with the mandate. Not a single-pick hand-off — a fundamental candidate list that
     // routes on to the Analyst.
@@ -2368,7 +2185,6 @@ export function MainPage() {
         })
         const brief = contractFor('scanner').brief(mandate)
         setScanInbox(mandate)
-        setKairosInbox(null)
         setScannerChatRestore(null)
         setScannerSeed({ key: mandate.key, message: brief.message, profile: brief.profile })
         // Remount only when ENTERING the run — a fresh Argus for a fresh book. Between sectors the
@@ -2529,16 +2345,18 @@ export function MainPage() {
 
     function handleBuildFromCandidate(candidate, scan) {
         if (!candidate?.ticker) return
-        // Investing lists produce RESEARCH candidates → route to the Analyst; trading → Kairos.
+        // Investing lists produce RESEARCH candidates → route to the Analyst; trading → Mentor.
         if (scan?.profile === 'investing' || scan?.destination === 'analyst') return handleResearchCandidate(candidate, scan)
         // A forward-dated list is period-scoped (main category = period). Carry that period as the
-        // call's scheduled window so Kairos/Hermes gate monitoring to it (no watching before it opens).
+        // setup's scheduled window so Talos gates monitoring to it (no watching before it opens).
         const p = scan?.period
         const window = (p && (p.start || p.end)) ? { from: p.start ?? null, to: p.end ?? null } : null
         // The same artifact Argus hands back mid-pipeline, from a saved list instead of a live pick —
-        // so Kairos has one inbox, not one per place a name can come from. Delivered straight rather
-        // than routed: the Lists surface stands outside every pipeline, so there is no chain to walk.
-        setKairosInbox(makeArtifact({
+        // so the trading desk has one inbox, not one per place a name can come from. Delivered
+        // straight rather than routed: the Lists surface stands outside every pipeline, so there is
+        // no chain to walk. Went to Kairos until it was archived (2026-08-18); Mentor reads the same
+        // artifact, because the live Argus → Mentor hand-off already hands it this shape.
+        setMentorInbox(makeArtifact({
             kind:  KIND.CANDIDATE_LIST,
             items: [{
                 ticker:    candidate.ticker,
@@ -2547,12 +2365,12 @@ export function MainPage() {
                 analysis:  candidate.analysis ?? candidate.thesis ?? null,
                 recommended_mode: candidate.recommended_mode ?? null,
             }],
-            // A forward-dated list is period-scoped; the window gates the call's monitoring.
+            // A forward-dated list is period-scoped; the window gates the setup's monitoring.
             context: { style: scan?.style ?? null, window },
             ref:     scan?.id ? { entityKind: 'scan', id: scan.id } : null,
             from:    { agent: 'scanner', label: 'Scan' },
         }))
-        setActiveTab('kairos')
+        setActiveTab('mentor')
     }
 
     // Earnings ticker → MENTOR: a scheduled print is a date with a ticker attached and no bias,
@@ -2744,7 +2562,6 @@ export function MainPage() {
         if (!threadId) return undefined
         if (tab === 'portfolio') return portfolioResumeRef.current?.(threadId)
         if (tab === 'scanner')   return scannerResumeRef.current?.(threadId)
-        if (tab === 'kairos')    return kairosResumeRef.current?.(threadId)
         if (tab === 'mentor')    return mentorResumeRef.current?.(threadId)
         if (tab === 'analyst')   return analystResumeRef.current?.(threadId)
         if (tab === 'strategy')  return strategyResumeRef.current?.(threadId)
@@ -2975,24 +2792,6 @@ export function MainPage() {
                                 />
                             )}
                         </div>
-                        <div className="chat-tabs__panel" style={{ display: activeTab === 'kairos' ? 'flex' : 'none' }}>
-                            <KairosPanel
-                                pipeline={activePipeline}
-                                onLoadingChange={setKairosLoading}
-                                onGenerated={finishPipeline}
-                                onPendingCall={setKairosPendingCall}
-                                onOpenArgus={handleOpenArgus}
-                                inbox={kairosInbox}
-                                autoHandoff={autoHandoff}
-                                resumeRef={kairosResumeRef}
-                                chatRestore={kairosChatRestore}
-                                editingCallId={editingCallId}
-                                onEditDone={handleCallEditDone}
-                                availableAccounts={availableAccounts}
-                                selectedAccounts={selectedAccounts}
-                                mainAccountId={mainAccountId}
-                            />
-                        </div>
 
                         {/* Trade by hand — a panel of its own, not a mode of a desk's chat: it is
                             reached from the hub, and it belongs to no pipeline. */}
@@ -3070,7 +2869,6 @@ export function MainPage() {
                                 below, the same handler the Lists tab's SetupCard runs). */}
                             {(
                                 <FloorLists
-                                    calls={inWorkspace(calls, workspace)}
                                     setups={inWorkspace(setups, workspace)}
                                     ideas={inWorkspace(ideas, workspace).filter(i => i.status !== 'closed')}
                                     positions={positions}
@@ -3082,8 +2880,6 @@ export function MainPage() {
                                     queuedBusyId={queuedBusyId}
                                     deskRequest={deskRequest}
                                     onCandidateSelect={handleBuildFromCandidate}
-                                    onEditCall={handleEditCall}
-                                    onDeleteCall={handleDeleteCall}
                                     onEditSetup={handleEditSetup}
                                     onDeleteSetup={handleDeleteSetup}
                                     onEditPortfolio={handleEditPortfolio}
@@ -3119,8 +2915,6 @@ export function MainPage() {
                             onRefreshPositions={refreshPositions}
                             onClosePosition={closePosition}
                             onClosePositions={closePositions}
-                            calls={inWorkspace(calls, workspace)}
-                            buildingCall={buildingCallRow}
                             setups={inWorkspace(setups, workspace)}
                             setupsLoading={setupsLoading}
                             onArmSetup={handleArmSetup}
@@ -3128,10 +2922,6 @@ export function MainPage() {
                             onDeleteSetup={handleDeleteSetup}
                             onEditSetup={handleEditSetup}
                             setupBusyId={setupBusyId}
-                            onActCall={handleActCall}
-                            onDeleteCall={handleDeleteCall}
-                            onEditCall={handleEditCall}
-                            callBusyId={callBusyId}
                             radar={{
                                 tab:               newsTab,
                                 onTabChange:       setNewsTab,
@@ -3191,18 +2981,6 @@ export function MainPage() {
                     placing={placingOrders}
                     onConfirm={handleConfirmSetupOrders}
                     onDismiss={handleDismissSetupConfirm}
-                />
-            )}
-
-            {/* Same dialog, driven by a Kairos call's proposed entry (no waiting-window → no onReset). */}
-            {confirmCallAsIdea && confirmCallOrders.length > 0 && (
-                <OrderConfirmDialog
-                    idea={confirmCallAsIdea}
-                    orders={confirmCallOrders}
-                    levels={confirmCallLevels}
-                    placing={placingOrders}
-                    onConfirm={handleConfirmCallOrder}
-                    onDismiss={handleDismissCallConfirm}
                 />
             )}
 

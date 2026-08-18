@@ -48,7 +48,6 @@ test('the routing tables are keyed by AGENT — what a hop plan names', () => {
 
     assert.equal(doors.inbox.mentor, setters.setMentorInbox)
     assert.equal(doors.inbox.scanner, setters.setScanInbox)
-    assert.equal(doors.inbox.kairos, setters.setKairosInbox)
     assert.equal(doors.inbox.analyst, setters.setAnalystInbox)
     assert.equal(doors.pipelineSeed.scanner, setters.setScannerSeed)
     assert.equal(doors.pipelineSeed.portfolio, setters.setPortfolioSeed)

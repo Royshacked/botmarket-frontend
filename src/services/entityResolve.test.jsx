@@ -6,14 +6,12 @@ import { describe, test, expect, vi, beforeEach } from 'vitest'
 // arrived before its list had loaded opened nothing; a stale list opened the wrong version.
 
 const getIdea      = vi.fn()
-const getCall      = vi.fn()
 const getSetup     = vi.fn()
 const getCoverage  = vi.fn()
 const getScan      = vi.fn()
 const getItems     = vi.fn()
 
 vi.mock('./tradeIdeas/tradeIdeas.service.remote', () => ({ tradeIdeasService: { getIdea: (...a) => getIdea(...a) } }))
-vi.mock('./kairos/kairos.service.remote',         () => ({ kairosService:     { getCall: (...a) => getCall(...a) } }))
 vi.mock('./mentor/mentor.service.remote',         () => ({ mentorService:     { getSetup: (...a) => getSetup(...a) } }))
 vi.mock('./analyst/analyst.service.remote',       () => ({ analystService:    { getCoverage: (...a) => getCoverage(...a) } }))
 vi.mock('./scanner/scanner.service.remote',       () => ({ scannerService:    { getScan: (...a) => getScan(...a) } }))
@@ -26,18 +24,15 @@ beforeEach(() => vi.clearAllMocks())
 describe('resolveEntity', () => {
     test('routes each kind to that kind\'s own getter, by id', async () => {
         getIdea.mockResolvedValue({ id: 'i1' })
-        getCall.mockResolvedValue({ id: 'c1' })
         getSetup.mockResolvedValue({ id: 's1' })
         getCoverage.mockResolvedValue({ id: 'v1' })
         getScan.mockResolvedValue({ id: 'n1' })
 
         expect(await resolveEntity('idea', 'i1')).toEqual({ id: 'i1' })
-        expect(await resolveEntity('call', 'c1')).toEqual({ id: 'c1' })
         expect(await resolveEntity('setup', 's1')).toEqual({ id: 's1' })
         expect(await resolveEntity('coverage', 'v1')).toEqual({ id: 'v1' })
         expect(await resolveEntity('scan', 'n1')).toEqual({ id: 'n1' })
         expect(getIdea).toHaveBeenCalledWith('i1')
-        expect(getCall).toHaveBeenCalledWith('c1')
     })
 
     // A book is not a document — it exists as the items carrying its id — so its read answers an

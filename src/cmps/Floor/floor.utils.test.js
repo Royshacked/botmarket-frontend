@@ -161,32 +161,33 @@ test('an empty feed yields no groups', () => {
 
 // ── tradeFloorItems ───────────────────────────────────────────────────────────
 
-const call  = (over = {}) => ({ id: 'c1', asset: 'NVDA', direction: 'long',  status: 'looking', ...over })
-const setup = (over = {}) => ({ id: 's1', asset: 'SPY',  direction: 'short', status: 'waiting', ...over })
+// `calls` was the first argument until Kairos was archived (2026-08-18). The rows still carry a
+// `kind`, because a second trade kind is the expected case here rather than a special one.
+const setup = (over = {}) => ({ id: 's1', asset: 'SPY', direction: 'short', status: 'waiting', ...over })
 
-test('calls and setups arrive on one list, each tagged with its kind', () => {
-    const items = tradeFloorItems([call()], [setup()])
-    assert.deepEqual(items.map(i => i.kind), ['call', 'setup'])
+test('setups arrive on one list, each tagged with its kind', () => {
+    const items = tradeFloorItems([setup()])
+    assert.deepEqual(items.map(i => i.kind), ['setup'])
 })
 
-test('status rides through untouched so the shared bucketer can group both kinds', () => {
-    const items = tradeFloorItems([call({ status: 'hit' })], [setup({ status: 'long' })])
-    assert.deepEqual(items.map(i => i.status), ['hit', 'long'])
+test('status rides through untouched so the shared bucketer can group them', () => {
+    const items = tradeFloorItems([setup({ status: 'long' })])
+    assert.deepEqual(items.map(i => i.status), ['long'])
 })
 
 test('the entity is carried so a row click can open it without a re-fetch', () => {
-    const c = call()
-    const [item] = tradeFloorItems([c], [])
-    assert.equal(item.entity, c)
+    const su = setup()
+    const [item] = tradeFloorItems([su])
+    assert.equal(item.entity, su)
 })
 
-// Kairos writes `asset`; older/other shapes carry `symbol`. Neither should render as blank.
+// Mentor writes `asset`; older/other shapes carry `symbol`. Neither should render as blank.
 test('ticker falls back from asset to symbol', () => {
-    const [a] = tradeFloorItems([call({ asset: undefined, symbol: 'AAPL' })], [])
+    const [a] = tradeFloorItems([setup({ asset: undefined, symbol: 'AAPL' })])
     assert.equal(a.ticker, 'AAPL')
 })
 
 test('an empty desk yields an empty list', () => {
-    assert.deepEqual(tradeFloorItems([], []), [])
+    assert.deepEqual(tradeFloorItems([]), [])
     assert.deepEqual(tradeFloorItems(), [])
 })

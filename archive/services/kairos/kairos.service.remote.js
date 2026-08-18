@@ -1,5 +1,5 @@
-import { streamAgent } from '../agentStream'
-import { makeEntityApi } from '../entityApi'
+import { streamAgent } from '../../../src/services/agentStream'
+import { makeEntityApi } from '../../../src/services/entityApi'
 
 // Kairos: an SSE build stream plus CRUD for its artifact — a "call". The stream emits a DRAFT call
 // in `done` (data.call); the user clicks Generate to persist. Transport is the shared entityApi;

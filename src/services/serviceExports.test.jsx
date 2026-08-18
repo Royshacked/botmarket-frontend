@@ -18,14 +18,12 @@ import { describe, it, expect } from 'vitest'
 // see the runner split in vite.config.js.
 
 import { scannerService }    from './scanner/scanner.service.remote'
-import { kairosService }     from './kairos/kairos.service.remote'
 import { mentorService }     from './mentor/mentor.service.remote'
 import { analystService }    from './analyst/analyst.service.remote'
 import { tradeIdeasService } from './tradeIdeas/tradeIdeas.service.remote'
 
 const SERVICES = {
     scannerService:    [scannerService,    ['sendStream', 'listScans', 'createScan', 'updateScan', 'deleteScan']],
-    kairosService:     [kairosService,     ['sendStream', 'generateCall', 'updateCall', 'listCalls', 'getCall', 'getPerformance', 'actOnCall', 'deleteCall']],
     mentorService:     [mentorService,     ['sendStream', 'generateSetup', 'updateSetup', 'listSetups', 'getSetup', 'armSetup', 'disarmSetup', 'deleteSetup']],
     analystService:    [analystService,    ['sendStream', 'initiateCoverage', 'listCoverage', 'getCoverage', 'updateCoverage', 'retireCoverage']],
     tradeIdeasService: [tradeIdeasService, ['createIdea', 'createBatch', 'getIdeas', 'getIdea', 'deleteIdea', 'updateIdea', 'placeOrders', 'triggerEntry']],

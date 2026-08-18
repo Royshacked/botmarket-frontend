@@ -6,7 +6,6 @@
 // An agent with no contract yet accepts nothing, which is exactly right: its hops are still
 // hand-written, and the conveyor must not try to route to a desk that has not said what it takes.
 
-import { kairosContract }  from '../../cmps/KairosPanel/kairos.contract.js'
 import { scannerContract } from '../../cmps/ScannerPanel/scanner.contract.js'
 import { mentorContract }  from '../../cmps/MentorPanel/mentor.contract.js'
 import { analystContract } from '../../cmps/AnalystPanel/analyst.contract.js'
@@ -20,7 +19,6 @@ import { portfolioContract } from '../../cmps/PortfolioPanel/portfolio.contract.
 // giving those desks a second step becomes an edit to `steps`, with no agent touched.
 export const CONTRACTS = {
     scanner:   scannerContract,
-    kairos:    kairosContract,
     mentor:    mentorContract,
     analyst:   analystContract,
     portfolio: portfolioContract,

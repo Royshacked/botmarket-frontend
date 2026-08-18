@@ -9,7 +9,7 @@
 //
 // `deliver: 'artifact'` is that difference, declared rather than special-cased.
 
-import { KIND } from '../../services/pipeline/artifact.js'
+import { KIND } from '../../../src/services/pipeline/artifact.js'
 
 export const kairosContract = {
     agent:   'kairos',
