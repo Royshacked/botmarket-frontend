@@ -367,8 +367,18 @@ export function MainPage() {
     const returnTimerRef = useRef(null)
     const latestMessagesRef = useRef([])
     const ideaThreadIdRef   = useRef(newThreadId())   // idea construction draft thread
-    const portfolioResumeRef = useRef(null)           // PortfolioPanel exposes its resume fn here
-    const scannerResumeRef   = useRef(null)           // ScannerPanel exposes its resume fn here
+    // Each desk panel publishes its "resume this thread" fn here. ONE map rather than one ref
+    // per desk: the refs were identical in every respect except which desk they belonged to, and
+    // every one of them also needed its own branch in _resumeThreadOn below. Adding a desk is now
+    // a key, not a declaration plus a branch — and a desk whose key is missing degrades to the
+    // idea-thread fallback instead of silently doing nothing.
+    const resumeRefs = useRef({
+        portfolio: { current: null },
+        scanner:   { current: null },
+        mentor:    { current: null },
+        analyst:   { current: null },
+        strategy:  { current: null },
+    })
     const { setups, setupsLoading, refreshSetups } = useSetups()
     const [setupBusyId, setSetupBusyId] = useState(null)
 
@@ -436,9 +446,6 @@ export function MainPage() {
         setMentorChatRestore(null)
         handleBackToAxl()   // setup updated / edit cancelled — return to the axl hub
     }
-    const mentorResumeRef    = useRef(null)           // MentorPanel exposes its resume fn here
-    const analystResumeRef   = useRef(null)           // AnalystPanel exposes its resume fn here
-    const strategyResumeRef  = useRef(null)           // StrategyPanel exposes its resume fn here
     // Ids of ideas BORN from a "Buy Market" click (created solely to carry the immediate
     // order). If their placement fails outright we roll them back out of existence rather
     // than strand a phantom 'hit' idea on "Update idea". Cleared once placed or rolled back.
@@ -2528,11 +2535,8 @@ export function MainPage() {
      */
     function _resumeThreadOn(tab, threadId) {
         if (!threadId) return undefined
-        if (tab === 'portfolio') return portfolioResumeRef.current?.(threadId)
-        if (tab === 'scanner')   return scannerResumeRef.current?.(threadId)
-        if (tab === 'mentor')    return mentorResumeRef.current?.(threadId)
-        if (tab === 'analyst')   return analystResumeRef.current?.(threadId)
-        if (tab === 'strategy')  return strategyResumeRef.current?.(threadId)
+        const desk = resumeRefs.current[tab]
+        if (desk) return desk.current?.(threadId)
         return handleResumeIdeaThread(threadId)
     }
 
@@ -2702,7 +2706,7 @@ export function MainPage() {
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'scanner' ? 'flex' : 'none' }}>
                             <ScannerPanel
                                 key={`scanner-${chatResetKey}-${scannerResetKey}`}
-                                resumeRef={scannerResumeRef}
+                                resumeRef={resumeRefs.current.scanner}
                                 pipeline={activePipeline}
                                 onTickerSelect={handleScannerSymbol}
                                 onGenerateList={handleGenerateList}
@@ -2727,7 +2731,7 @@ export function MainPage() {
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'portfolio' ? 'flex' : 'none' }}>
                             <PortfolioPanel
                                 key={`portfolio-${chatResetKey}`}
-                                resumeRef={portfolioResumeRef}
+                                resumeRef={resumeRefs.current.portfolio}
                                 onGeneratePlan={handleGeneratePlan}
                                 onUpdatePlan={handleUpdatePlan}
                                 onPortfolioUpdate={handlePortfolioUpdate}
@@ -2773,7 +2777,7 @@ export function MainPage() {
                                 onGenerated={finishPipeline}
                                 seed={mentorSeed}
                                 inbox={mentorInbox}
-                                resumeRef={mentorResumeRef}
+                                resumeRef={resumeRefs.current.mentor}
                                 editingSetupId={editingSetupId}
                                 chatRestore={mentorChatRestore}
                                 onEditDone={handleSetupEditDone}
@@ -2790,7 +2794,7 @@ export function MainPage() {
                                 seed={analystSeed}
                                 coverage={coverage}
                                 pipeline={activePipeline}
-                                resumeRef={analystResumeRef}
+                                resumeRef={resumeRefs.current.analyst}
                                 onSleeveResearched={handleSleeveResearched}
                                 // Leaving for Axl after a save is right for a ONE-name research run.
                                 // During a SLEEVE it would throw the user out between names, and on
@@ -2806,7 +2810,7 @@ export function MainPage() {
                             <StrategyPanel
                                 currentTilt={tilt}
                                 pipeline={activePipeline}
-                                resumeRef={strategyResumeRef}
+                                resumeRef={resumeRefs.current.strategy}
                                 reviewRequest={reviewRequest}
                                 onReviewStart={() => setReviewRequest(r => ({ n: 0, reason: r.reason }))}
                                 // Publishing supersedes the standing view, so send the user to the
