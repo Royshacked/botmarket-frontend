@@ -268,12 +268,11 @@ export function MainPage() {
     // `clearAll` is deliberately not taken yet: clearing still goes through doors.clear(), which
     // calls these same setters. Swapping that over is a wiring change, and this step is meant to be
     // inert.
-    const { desks: deskHandoff, setters: deskSetters } = useDeskHandoff()
-    const { scanner: scannerSlots, analyst: analystSlots, mentor: mentorSlots, portfolio: portfolioSlots } = deskHandoff
-    const { seed: scannerSeed,   inbox: scannerInbox, chatRestore: scannerChatRestore }   = scannerSlots
-    const { seed: analystSeed,   inbox: analystInbox }                                    = analystSlots
-    const { seed: mentorSeed,    inbox: mentorInbox,  chatRestore: mentorChatRestore }    = mentorSlots
-    const { seed: portfolioSeed,                      chatRestore: portfolioChatRestore } = portfolioSlots
+    const { desks: deskHandoff, setters: deskSetters, deskProps } = useDeskHandoff()
+    // The slots reach their panels through `deskProps(desk)` at the JSX. Only one is read HERE:
+    // Argus's inbox decides whether this is a single-pick hand-off run, which shapes the desk's
+    // header and its hand-off button long before the panel sees it.
+    const scannerInbox = deskHandoff.scanner.inbox
     const {
         setScannerSeed, setScannerInbox, setScannerChatRestore,
         setAnalystSeed, setAnalystInbox,
@@ -2715,8 +2714,7 @@ export function MainPage() {
                                 sleeveRun={sleeveRun}
                                 onSkipSleeve={handleSkipSleeve}
                                 onLoadingChange={deskLoadingSetters.scanner}
-                                chatRestore={scannerChatRestore}
-                                scanSeed={scannerSeed}
+                                {...deskProps('scanner')}
                                 handoff={scannerSingle}
                                 handoffTo={scannerHandoffTo}
                                 autoHandoff={autoHandoff}
@@ -2736,8 +2734,7 @@ export function MainPage() {
                                 onReviewResolved={handleBackToAxl}
                                 onAcceptReview={handleAcceptReview}
                                 onSourceInArgus={handleSourceInArgus}
-                                seed={portfolioSeed}
-                                chatRestore={portfolioChatRestore}
+                                {...deskProps('portfolio')}
                                 availableAccounts={availableAccounts}
                                 selectedAccounts={selectedAccounts}
                                 onAccountsChange={setSelectedAccounts}
@@ -2772,11 +2769,9 @@ export function MainPage() {
                                 onLoadingChange={deskLoadingSetters.mentor}
                                 pipeline={activePipeline}
                                 onGenerated={finishPipeline}
-                                seed={mentorSeed}
-                                inbox={mentorInbox}
+                                {...deskProps('mentor')}
                                 resumeRef={resumeRefs.current.mentor}
                                 editingSetupId={editingSetupId}
-                                chatRestore={mentorChatRestore}
                                 onEditDone={handleSetupEditDone}
                                 availableAccounts={availableAccounts}
                                 selectedAccounts={selectedAccounts}
@@ -2787,9 +2782,8 @@ export function MainPage() {
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'analyst' ? 'flex' : 'none' }}>
                             <AnalystPanel
                                 onLoadingChange={deskLoadingSetters.analyst}
-                                inbox={analystInbox}
+                                {...deskProps('analyst')}
                                 editCoverage={analystEditCoverage}
-                                seed={analystSeed}
                                 coverage={coverage}
                                 pipeline={activePipeline}
                                 resumeRef={resumeRefs.current.analyst}

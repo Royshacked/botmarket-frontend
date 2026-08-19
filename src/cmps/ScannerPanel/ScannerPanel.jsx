@@ -129,7 +129,7 @@ const MessageBubble = ({ msg, onTickerSelect, phaseLabels = SCAN_PHASE_LABELS })
     />
 )
 
-export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, onUpdateList, onResearchList, onResearchLater, sleeveRun = null, onSkipSleeve, onLoadingChange, chatRestore = null, scanSeed = null, handoff = false, handoffTo = null, autoHandoff = false, onSendPick, onDismissHandoff, resumeRef = null }) {
+export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, onUpdateList, onResearchList, onResearchLater, sleeveRun = null, onSkipSleeve, onLoadingChange, chatRestore = null, seed = null, handoff = false, handoffTo = null, autoHandoff = false, onSendPick, onDismissHandoff, resumeRef = null }) {
     const pipelineCfg = PIPELINE_CONFIG[pipeline] ?? PIPELINE_CONFIG.scan
     // The desk the pick goes on to, as the user should read it. Falls back to no name rather than a
     // guess — every surface here degrades to "hand it on", which is vague but never wrong.
@@ -198,13 +198,13 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
     // to survive only because the panel was remounted, and the remount is what wiped the transcript.
     const seededKeyRef = useRef(null)
     useEffect(() => {
-        if (!scanSeed?.message || chat.isLoading) return
-        if (seededKeyRef.current === scanSeed.key) return
-        seededKeyRef.current = scanSeed.key
+        if (!seed?.message || chat.isLoading) return
+        if (seededKeyRef.current === seed.key) return
+        seededKeyRef.current = seed.key
         // Atlas → Argus investing hand-off carries the profile; set it (ref first so this same-tick send uses it).
-        if (scanSeed.profile === 'investing' || scanSeed.profile === 'trading') { profileRef.current = scanSeed.profile; setProfile(scanSeed.profile) }
-        _send(scanSeed.message)
-    }, [scanSeed?.key, chat.isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
+        if (seed.profile === 'investing' || seed.profile === 'trading') { profileRef.current = seed.profile; setProfile(seed.profile) }
+        _send(seed.message)
+    }, [seed?.key, chat.isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
 
 
     /**
@@ -682,7 +682,7 @@ ScannerPanel.propTypes = {
     onSkipSleeve:    PropTypes.func,
     onLoadingChange: PropTypes.func,
     chatRestore:     PropTypes.object,
-    scanSeed:        PropTypes.object,
+    seed:        PropTypes.object,
     handoff:         PropTypes.bool,
     handoffTo:       PropTypes.string,   // the receiving desk's agent key ('mentor' | 'kairos')
     autoHandoff:     PropTypes.bool,     // conveyor in auto: hand the pick on without the offer

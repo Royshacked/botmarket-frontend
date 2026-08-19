@@ -80,3 +80,21 @@ test('every door doors.js asks for is a name this generates', () => {
         assert.ok(generated.has(needed), `doors.js reads ${needed} and nothing generates it`)
     }
 })
+
+// ── deskProps: the shape a panel is handed ───────────────────────────────────
+
+test('deskProps hands over every slot, including ones that desk does not read', () => {
+    // Uniform on purpose. An undeclared prop is never destructured and no panel spreads its props
+    // onto a DOM node, so the extras cost nothing — and handing the same shape every time is what
+    // makes adding a desk free.
+    const s = handoffReducer(blankHandoffState(), { type: 'set', desk: 'scanner', slot: 'seed', value: { key: 7 } })
+    assert.deepEqual(Object.keys(s.scanner).sort(), ['chatRestore', 'inbox', 'seed'])
+    assert.deepEqual(s.scanner.seed, { key: 7 })
+})
+
+test('the slot names ARE the prop names — the thing that had to be true first', () => {
+    // ScannerPanel took its seed as `scanSeed`, so a uniform spread would have handed it a `seed`
+    // it never reads and dropped every scan hand-off in silence. If a slot is ever renamed without
+    // the panel following, this is the line that should look wrong.
+    assert.deepEqual(HANDOFF_SLOTS, ['seed', 'inbox', 'chatRestore'])
+})

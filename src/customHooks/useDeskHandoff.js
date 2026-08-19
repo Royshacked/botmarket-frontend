@@ -92,5 +92,19 @@ export function useDeskHandoff() {
 
     const clearAll = useMemo(() => () => dispatch({ type: 'clearAll' }), [])
 
-    return { desks, setters, clearAll }
+    /**
+     * A desk's three slots, ready to spread onto its panel: `{...deskProps('mentor')}`.
+     *
+     * EVERY desk gets all three, including the ones it does not read — ScannerPanel takes no
+     * `inbox`, AnalystPanel no `chatRestore`. An undeclared prop on a function component is simply
+     * never destructured; none of these panels spreads its props onto a DOM node, so there is
+     * nothing to leak. Handing over the same shape every time is what makes a new desk free.
+     *
+     * THE PROP NAMES ARE THE SLOT NAMES, and that had to be made true before this was safe:
+     * ScannerPanel took its seed as `scanSeed`, so a uniform spread would have handed it a `seed`
+     * it never reads and silently dropped every scan hand-off. It reads `seed` now, like the rest.
+     */
+    const deskProps = useMemo(() => (desk) => desks[desk] ?? blankHandoffState()[HANDOFF_DESKS[0]], [desks])
+
+    return { desks, setters, clearAll, deskProps }
 }

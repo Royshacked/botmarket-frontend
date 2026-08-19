@@ -58,19 +58,19 @@ describe('ScannerPanel — the thesis-phase angle strip', () => {
     }
 
     it('shows under a TRADING thesis — the angles are that lens', async () => {
-        render(<ScannerPanel scanSeed={{ key: 1, message: 'Find me something to trade.', profile: 'trading' }} />)
+        render(<ScannerPanel seed={{ key: 1, message: 'Find me something to trade.', profile: 'trading' }} />)
         await finishThesisTurn()
         expect(await screen.findByRole('button', { name: 'Momentum' }, { timeout: 4000 })).toBeTruthy()
     })
 
     it('stays away from a PORTFOLIO scan, seeded by Atlas as investing', async () => {
-        render(<ScannerPanel scanSeed={{ key: 2, message: 'Screen the Technology sleeve.', profile: 'investing' }} />)
+        render(<ScannerPanel seed={{ key: 2, message: 'Screen the Technology sleeve.', profile: 'investing' }} />)
         await finishThesisTurn()
         expect(screen.queryByRole('button', { name: 'Momentum' })).toBe(null)
     })
 
     it('stays away when the panel itself is the portfolio pipeline', async () => {
-        render(<ScannerPanel pipeline="portfolio" scanSeed={{ key: 3, message: 'Long-term quality names.' }} />)
+        render(<ScannerPanel pipeline="portfolio" seed={{ key: 3, message: 'Long-term quality names.' }} />)
         await finishThesisTurn()
         expect(screen.queryByRole('button', { name: 'Momentum' })).toBe(null)
     })
@@ -82,7 +82,7 @@ describe('ScannerPanel — the thesis-phase angle strip', () => {
 // validate-a-name branch starts there with no pool to filter.
 describe('ScannerPanel — the phase headings follow the mode', () => {
     async function playPhase(phase, props = {}) {
-        render(<ScannerPanel scanSeed={{ key: 1, message: 'TSLA', profile: 'trading' }} {...props} />)
+        render(<ScannerPanel seed={{ key: 1, message: 'TSLA', profile: 'trading' }} {...props} />)
         await waitFor(() => expect(sendStream).toHaveBeenCalled())
         const [, opts] = lastCall()
         await act(async () => {
@@ -134,7 +134,7 @@ describe('ScannerPanel — the research offer does not stack on the edit bar', (
             <ScannerPanel
                 pipeline="portfolio"
                 chatRestore={{ key: 1, scanId: 'scn_1', scan: savedList, messages: [] }}
-                scanSeed={{ key: 1, message: 'Drop the richest name.', profile: 'investing' }}
+                seed={{ key: 1, message: 'Drop the richest name.', profile: 'investing' }}
                 {...handlers}
             />,
         )
