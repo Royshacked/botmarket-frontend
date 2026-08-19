@@ -785,19 +785,19 @@ export function ideaWorkspaceMode(idea) {
 }
 
 /**
- * The workspace an idea belongs to: 'paper' | 'manual' | 'live' (default). The single
- * deriver the list/monitor/confirm views scope on — an idea shows when
- * ideaWorkspace(idea) === the active workspace. Paper takes precedence, then manual,
- * else live (real broker / legacy).
+ * The workspace an idea belongs to: 'paper' | 'manual' | 'live' (default). The single deriver the
+ * list/monitor/confirm views scope on — an idea shows when ideaWorkspace(idea) === the active
+ * workspace.
+ *
+ * An ALIAS of ideaWorkspaceMode, not a second derivation of it. It used to re-answer the question
+ * through the two predicates — `isPaperIdea(x) ? 'paper' : isManualIdea(x) ? 'manual' : 'live'` —
+ * which walks the same precedence three times to return what one call already returns, and left
+ * the ordering (paper before manual) written down twice in a way that could disagree with itself.
  *
  * @param {import('../../types.js').Idea} idea
  * @returns {'paper'|'manual'|'live'}
  */
-export function ideaWorkspace(idea) {
-    if (isPaperIdea(idea))  return 'paper'
-    if (isManualIdea(idea)) return 'manual'
-    return 'live'
-}
+export const ideaWorkspace = ideaWorkspaceMode
 
 /**
  * The workspace ANY execution-tier entity belongs to — an idea, a call or a setup.
@@ -810,11 +810,13 @@ export function ideaWorkspace(idea) {
  * idea-specific except the name.
  *
  * `ideaWorkspace` stays as-is for the existing idea call sites; scope a NEW list through this.
+ * Both are names for ideaWorkspaceMode — one implementation, three ways of asking for it, so a
+ * caller picks the name that reads at its call site without any of them being able to drift.
  *
  * @param {{mode?:string, broker?:string, accounts?:unknown[], mainAccountId?:unknown, accountId?:unknown}} entity
  * @returns {'paper'|'manual'|'live'}
  */
-export const entityWorkspace = ideaWorkspace
+export const entityWorkspace = ideaWorkspaceMode
 
 /**
  * Filter any list of execution-tier entities down to the workspace on screen.
