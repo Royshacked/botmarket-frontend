@@ -35,6 +35,7 @@ import { userPromptService } from '../services/userPrompt/userPrompt.service.rem
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
 import { resolveEntity, resolveForEdit } from '../services/entityResolve.js'
+import { useDeskHandoff } from '../customHooks/useDeskHandoff.js'
 import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
 import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, TILT_REVIEW_OPEN, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST } from '../services/event-bus.service'
@@ -256,8 +257,29 @@ export function MainPage() {
     const [activePipeline, setActivePipeline]   = useState(null)   // pipeline key from Axl reception
     const [pipelineStep,   setPipelineStep]     = useState(0)      // index into that desk's steps[] — what "back" walks from
     const [newsTab, setNewsTab]                 = useState('scans')
-    const [scannerChatRestore, setScannerChatRestore] = useState(null)
-    const [portfolioChatRestore, setPortfolioChatRestore] = useState(null)
+
+    // WHAT IS WAITING AT EACH DESK — a seed (an opening turn), an inbox (a delivered artifact) or a
+    // chatRestore (a conversation being reopened), per desk. Was eleven useState declarations spread
+    // through this component with 25 setter call sites between them; the slot names and the setter
+    // names now come from one table, which is what doors.js reads its routing off.
+    //
+    // The names below are unchanged on purpose: every call site, prop and door still says
+    // `mentorSeed` / `setScannerInbox`, so this move is inert by construction.
+    // `clearAll` is deliberately not taken yet: clearing still goes through doors.clear(), which
+    // calls these same setters. Swapping that over is a wiring change, and this step is meant to be
+    // inert.
+    const { desks: deskHandoff, setters: deskSetters } = useDeskHandoff()
+    const { scanner: scannerSlots, analyst: analystSlots, mentor: mentorSlots, portfolio: portfolioSlots } = deskHandoff
+    const { seed: scannerSeed,   inbox: scannerInbox, chatRestore: scannerChatRestore }   = scannerSlots
+    const { seed: analystSeed,   inbox: analystInbox }                                    = analystSlots
+    const { seed: mentorSeed,    inbox: mentorInbox,  chatRestore: mentorChatRestore }    = mentorSlots
+    const { seed: portfolioSeed,                      chatRestore: portfolioChatRestore } = portfolioSlots
+    const {
+        setScannerSeed, setScannerInbox, setScannerChatRestore,
+        setAnalystSeed, setAnalystInbox,
+        setMentorSeed,  setMentorInbox,  setMentorChatRestore,
+        setPortfolioSeed, setPortfolioChatRestore,
+    } = deskSetters
     const [buildingPortfolio, setBuildingPortfolio] = useState(null)
     // Streaming state reported up from the portfolio/scanner panels (they own their
     // own chat stream) so the agent-bar "live" dot can pulse for Atlas/Argus too.
@@ -270,15 +292,10 @@ export function MainPage() {
     // single-pick mode, and either way a list it produces here is not filed in the user's Scans tab
     // (see scanOrigin). `scannerSeed` is the delivery mechanism for a desk that opens on a
     // sentence: the conveyor writes the brief the receiving contract composed.
-    const [scannerInbox,        setScannerInbox]        = useState(null)
-    const [scannerSeed,      setScannerSeed]      = useState(null)
     // How the conveyor advances: 'manual' waits for the user to send the artifact on (they can read
     // and keep chatting first), 'auto' hands it straight to the next desk. A gate never
     // auto-advances in either mode — see planHop.
     const [pipelineMode,     setPipelineMode]     = useState('manual')
-    const [analystInbox,     setAnalystInbox]     = useState(null)
-    const [mentorInbox,      setMentorInbox]      = useState(null)
-    const [portfolioSeed, setPortfolioSeed] = useState(null)   // Prometheus → Atlas nudge (see handleSleeveResearched)
     // The staged book of an adoption in progress. Its presence puts Atlas in adopt mode and mounts the
     // confirm grid beside the chat — the conversation gathers the mandate and the reasons, the grid
     // holds the numbers. Null the rest of the time, which is what makes the mode invisible elsewhere.
@@ -302,11 +319,8 @@ export function MainPage() {
     // is the only place Atlas hears what did not come back.
     const sleeveOutcomeRef = useRef({ unfilled: [], bySector: [], queue: [] })
     const [analystEditCoverage, setAnalystEditCoverage] = useState(null)   // coverage pencil → re-open Prometheus on that name
-    const [analystSeed,      setAnalystSeed]      = useState(null)     // Axl's routed ticker → Prometheus's opening turn
-    const [mentorSeed,       setMentorSeed]       = useState(null)     // calendar row (earnings/IPO) → Mentor's opening turn
     // Editing a saved setup in the Mentor chat — the setup twin of editingCallId + its restore.
     const [editingSetupId,   setEditingSetupId]   = useState(null)
-    const [mentorChatRestore, setMentorChatRestore] = useState(null)
 
     // Every door an artifact can be delivered through, and the one way to shut them all. Declared
     // here, beside the state it owns, because both users of it are far apart: the conveyor fills a
