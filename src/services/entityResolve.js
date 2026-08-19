@@ -57,3 +57,77 @@ export async function resolveEntity(kind, id) {
         return null
     }
 }
+
+// ─── Opening by a HANDLE, not just an id ──────────────────────────────────────
+//
+// An Axl hand-off names an item the way a person does — "the NVDA setup", "my Growth book" — so the
+// ref arriving at a doorway is an id OR a name. resolveEntity answers ids; this answers either.
+//
+// It lived inside MainPage's `openForEdit`, in a 3,000-line component with no test of its own,
+// which meant the one genuinely subtle rule here — the exactly-one-match test below — was
+// unverifiable. The OPENING stays in the component (each desk's opener is a closure over its own
+// state); only the finding moved.
+
+/** Which list answers a NAME for a kind, and which field on a row is that name. */
+const BY_NAME = {
+    setup:     { list: () => mentorService.listSetups(),        handleOf: (s) => s.asset },
+    coverage:  { list: () => analystService.listCoverage(),     handleOf: (c) => c.symbol },
+    portfolio: { list: () => portfolioService.listPortfolios(), handleOf: (b) => b.name },
+    // `scan` is deliberately absent: a scan is a LIST, not a name — there is nothing to match on,
+    // so it is id or nothing.
+}
+
+/**
+ * A doc is only usable to open with when the desk that receives it can act on it.
+ *
+ * Coverage is the one that needs saying: Prometheus matches on SYMBOL and its opener bails silently
+ * without one, so a symbol-less doc is not "resolved" — reporting success there lands the user at
+ * the hub with nothing open and no reason given.
+ */
+const USABLE = {
+    coverage: (doc) => !!doc?.symbol,
+}
+
+/**
+ * Find the entity a doorway named, by id first and then by name. Returns the document, or null when
+ * nothing certain was found — and null is always the honest answer rather than a guess, because the
+ * caller's fallback (open the desk normally) is strictly better than opening the wrong trade.
+ *
+ * A NAME IS ANSWERED ONLY WHEN IT MATCHES EXACTLY ONE ROW. On two live NVDA setups a bare ticker is
+ * a coin flip, and losing it means editing a different trade than the one meant — so ambiguity
+ * resolves to nothing at all.
+ *
+ * `portfolio` normalises to `{ portfolioId }` on both paths. A book is not a document — it exists as
+ * the items carrying its id — so "found" means its items exist, and what the opener needs is the id
+ * rather than a row. Returning the same shape from both branches keeps that asymmetry out of the
+ * caller.
+ *
+ * @param {'idea'|'setup'|'coverage'|'scan'|'portfolio'} kind
+ * @param {string} ref  an id, or the name a person would use
+ * @returns {Promise<object|null>}
+ */
+export async function resolveForEdit(kind, ref) {
+    if (!kind || !ref) return null
+
+    const byId = await resolveEntity(kind, ref)
+    if (kind === 'portfolio') {
+        if (byId?.length) return { portfolioId: ref }
+    } else if (byId && (USABLE[kind]?.(byId) ?? true)) {
+        return byId
+    }
+
+    const spec = BY_NAME[kind]
+    if (!spec) return null
+
+    let rows = []
+    try { rows = (await spec.list()) ?? [] }
+    catch (err) { console.error('[entityResolve] name lookup', kind, ref, err); return null }
+
+    const handle = String(ref).toUpperCase()
+    const named  = rows.filter(r => String(spec.handleOf(r) ?? '').toUpperCase() === handle)
+    if (named.length !== 1) return null
+
+    const hit = named[0]
+    if (kind === 'portfolio') return { portfolioId: hit.portfolioId }
+    return (USABLE[kind]?.(hit) ?? true) ? hit : null
+}

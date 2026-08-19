@@ -10,14 +10,17 @@ const getSetup     = vi.fn()
 const getCoverage  = vi.fn()
 const getScan      = vi.fn()
 const getItems     = vi.fn()
+const listSetups     = vi.fn()
+const listCoverage   = vi.fn()
+const listPortfolios = vi.fn()
 
 vi.mock('./tradeIdeas/tradeIdeas.service.remote', () => ({ tradeIdeasService: { getIdea: (...a) => getIdea(...a) } }))
-vi.mock('./mentor/mentor.service.remote',         () => ({ mentorService:     { getSetup: (...a) => getSetup(...a) } }))
-vi.mock('./analyst/analyst.service.remote',       () => ({ analystService:    { getCoverage: (...a) => getCoverage(...a) } }))
+vi.mock('./mentor/mentor.service.remote',         () => ({ mentorService:     { getSetup: (...a) => getSetup(...a), listSetups: (...a) => listSetups(...a) } }))
+vi.mock('./analyst/analyst.service.remote',       () => ({ analystService:    { getCoverage: (...a) => getCoverage(...a), listCoverage: (...a) => listCoverage(...a) } }))
 vi.mock('./scanner/scanner.service.remote',       () => ({ scannerService:    { getScan: (...a) => getScan(...a) } }))
-vi.mock('./portfolio/portfolio.service.remote',   () => ({ portfolioService:  { getItems: (...a) => getItems(...a) } }))
+vi.mock('./portfolio/portfolio.service.remote',   () => ({ portfolioService:  { getItems: (...a) => getItems(...a), listPortfolios: (...a) => listPortfolios(...a) } }))
 
-const { resolveEntity } = await import('./entityResolve.js')
+const { resolveEntity, resolveForEdit } = await import('./entityResolve.js')
 
 beforeEach(() => vi.clearAllMocks())
 
@@ -67,5 +70,75 @@ describe('resolveEntity', () => {
         expect(await resolveEntity('idea', '')).toBeNull()
         expect(await resolveEntity('idea', undefined)).toBeNull()
         expect(getIdea).not.toHaveBeenCalled()
+    })
+})
+
+// ── resolveForEdit: an id, or the name a person would use ────────────────────
+//
+// An Axl hand-off names things the way people do — "the NVDA setup", "my Growth book". This lived
+// inside MainPage's openForEdit, in a 3,000-line component with no test of its own, so the one
+// genuinely subtle rule — a name is answered ONLY when it matches exactly one row — was
+// unverifiable. It is the rule that decides whether the user edits the trade they meant.
+
+describe('resolveForEdit', () => {
+    test('an id wins outright, and no list is fetched', async () => {
+        getSetup.mockResolvedValue({ id: 's1', asset: 'NVDA' })
+        expect(await resolveForEdit('setup', 's1')).toEqual({ id: 's1', asset: 'NVDA' })
+        expect(listSetups).not.toHaveBeenCalled()
+    })
+
+    test('a name resolves when exactly one row carries it', async () => {
+        getSetup.mockResolvedValue(null)
+        listSetups.mockResolvedValue([{ id: 's1', asset: 'NVDA' }, { id: 's2', asset: 'AAPL' }])
+        expect(await resolveForEdit('setup', 'nvda')).toMatchObject({ id: 's1' })
+    })
+
+    test('AMBIGUITY OPENS NOTHING — two NVDA setups is a coin flip, so it declines', async () => {
+        // The rule this whole function exists for. Guessing here means editing a different trade
+        // than the one meant, on a live position; the caller opens the desk normally instead.
+        getSetup.mockResolvedValue(null)
+        listSetups.mockResolvedValue([{ id: 's1', asset: 'NVDA' }, { id: 's2', asset: 'NVDA' }])
+        expect(await resolveForEdit('setup', 'NVDA')).toBeNull()
+    })
+
+    test('a scan is a list, not a name — id or nothing', async () => {
+        getScan.mockResolvedValue(null)
+        expect(await resolveForEdit('scan', 'my scan')).toBeNull()
+    })
+
+    test('coverage without a symbol is NOT resolved, by id or by name', async () => {
+        // Prometheus matches on symbol and its opener bails silently without one, so reporting
+        // success lands the user at the hub with nothing open and no reason given.
+        getCoverage.mockResolvedValue({ id: 'c1', symbol: null })
+        listCoverage.mockResolvedValue([{ id: 'c1', symbol: null }])
+        expect(await resolveForEdit('coverage', 'c1')).toBeNull()
+    })
+
+    test('a book normalises to { portfolioId } from either path', async () => {
+        // A book is not a document — it exists as the items carrying its id — so "found" means its
+        // items exist, and the opener wants the id rather than a row.
+        getItems.mockResolvedValue([{ id: 'i1' }])
+        expect(await resolveForEdit('portfolio', 'pf_1')).toEqual({ portfolioId: 'pf_1' })
+
+        getItems.mockResolvedValue([])
+        listPortfolios.mockResolvedValue([{ portfolioId: 'pf_9', name: 'Growth' }])
+        expect(await resolveForEdit('portfolio', 'growth')).toEqual({ portfolioId: 'pf_9' })
+    })
+
+    test('an empty book by id falls through to the name, rather than reporting found', async () => {
+        getItems.mockResolvedValue([])
+        listPortfolios.mockResolvedValue([])
+        expect(await resolveForEdit('portfolio', 'pf_1')).toBeNull()
+    })
+
+    test('a failed list lookup declines instead of throwing at the doorway', async () => {
+        getSetup.mockResolvedValue(null)
+        listSetups.mockRejectedValue(new Error('offline'))
+        expect(await resolveForEdit('setup', 'NVDA')).toBeNull()
+    })
+
+    test('no kind or no ref is nothing to open', async () => {
+        expect(await resolveForEdit(null, 'x')).toBeNull()
+        expect(await resolveForEdit('setup', '')).toBeNull()
     })
 })

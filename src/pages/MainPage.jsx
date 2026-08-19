@@ -34,7 +34,7 @@ import { apiError } from '../services/http.service.js'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
-import { resolveEntity }     from '../services/entityResolve.js'
+import { resolveEntity, resolveForEdit } from '../services/entityResolve.js'
 import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
 import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, TILT_REVIEW_OPEN, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST } from '../services/event-bus.service'
@@ -1856,58 +1856,27 @@ export function MainPage() {
     // Falls back to the symbol for the kinds that have one (Axl may have had no id to quote), and
     // resolves false when nothing matches so the caller can open the desk the ordinary way rather
     // than leaving the hand-off dead — the same choice the OPEN_COVERAGE card makes.
+    /**
+     * Open something the user already has, at the desk that owns it.
+     *
+     * FINDING it is not this component's job — resolveForEdit answers an id or a name, and answers
+     * null rather than guessing when a name is ambiguous. What stays here is the OPENING, because
+     * each desk's opener is a closure over this component's state and cannot leave it.
+     */
     async function openForEdit({ kind, ref } = {}) {
-        if (!kind || !ref) return false
-        const handle = String(ref).toUpperCase()
-
-        // A NAME is not an id, so it can only be answered by a list — but it is the server's list,
-        // fetched now. Only when it names exactly ONE item: on two live NVDA calls a bare ticker is
-        // a coin flip, and losing it means the user edits a different trade than the one they meant.
-        // Ambiguity opens nothing (the desk opens normally instead) rather than guessing at a live
-        // position.
-        const byName = async (fetchList, handleOf) => {
-            const rows  = (await fetchList()) ?? []
-            const named = rows.filter(x => String(handleOf(x) ?? '').toUpperCase() === handle)
-            return named.length === 1 ? named[0] : null
-        }
-        const open = async (doc, opener) => {
-            if (!doc) return false
-            opener(doc)
-            return true
-        }
+        const doc = await resolveForEdit(kind, ref)
+        if (!doc) return false
         switch (kind) {
-            case 'setup':
-                return open(await resolveEntity('setup', ref) ?? await byName(() => mentorService.listSetups(), s => s.asset), handleEditSetup)
-            // One difference from the others, about arriving from a sentence rather than a click:
-            // Prometheus matches on symbol and handleEditCoverage bails silently without one, so a
-            // doc with no symbol is not "resolved" — returning true there leaves the user at the hub
-            // with nothing. The coverage tab is brought forward: the pencil is normally pressed from it.
-            case 'coverage': {
-                const cov = await resolveEntity('coverage', ref)
-                    ?? await byName(() => analystService.listCoverage(), c => c.symbol)
-                if (!cov?.symbol) return false
-                return open(cov, (doc) => { setNewsTab('coverage'); handleEditCoverage(doc) })
-            }
-            // A scan has no name to fall back to — it is a list, not a name. Id or nothing.
-            case 'scan':
-                return open(await resolveEntity('scan', ref), handleEditScan)
-            // A book is not a document of its own: it exists as the items that carry its id. Its
-            // opener takes the id, not the row — the one kind whose editor is keyed, not handed —
-            // and handleEditPortfolio does its own read, so resolving here is only about deciding
-            // whether the ref points at anything.
-            //
-            // Two modes, and nothing to say about them here: handleEditPortfolio reads the book's
-            // own state and opens a review rather than a re-plan when a position is live. Passing
-            // the mode from here too would be a second copy of that judgment.
-            case 'portfolio': {
-                const items = await resolveEntity('portfolio', ref)
-                if (items?.length) { handleEditPortfolio(ref); return true }
-                const book = await byName(() => portfolioService.listPortfolios(), b => b.name)
-                if (!book) return false
-                handleEditPortfolio(book.portfolioId)
-                return true
-            }
-            default:      return false
+            case 'setup':    handleEditSetup(doc);   return true
+            case 'scan':     handleEditScan(doc);    return true
+            // The coverage tab is brought forward: the pencil is normally pressed from it, so
+            // arriving from a sentence should land on the same surface a click would have.
+            case 'coverage': setNewsTab('coverage'); handleEditCoverage(doc); return true
+            // Keyed, not handed — the one kind whose editor takes an id. handleEditPortfolio does
+            // its own read and decides review-vs-replan from the book's state; passing that from
+            // here would be a second copy of the judgment.
+            case 'portfolio': handleEditPortfolio(doc.portfolioId); return true
+            default:          return false
         }
     }
 
