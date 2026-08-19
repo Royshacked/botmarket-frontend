@@ -5,7 +5,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
     groupPositions, positionOwnerIdea, positionBelongsToIdea, positionOpenTarget, summarizePositions,
-    positionPnlPct, positionWorkspace, formatPrice, formatPnlPct,
+    positionPnlPct, positionWorkspace, formatPrice, formatPnlPct, positionAccountLabel,
 } from './tradeIdea.utils.js'
 
 // A broker order link + matching position share broker + accountId + positionId.
@@ -132,7 +132,7 @@ test('summarizePositions nulls broker/account when mixed, and P&L when nothing i
     assert.equal(unpriced.pnlPct, null)
     assert.deepEqual(summarizePositions([]), {
         count: 0, pnl: null, currency: null, pnlPct: null, enteredAt: null,
-        workspace: 'live', broker: null, accountNo: null,
+        workspace: 'live', broker: null, accountNo: null, accountLabel: null,
     })
 })
 
@@ -184,4 +184,41 @@ test('formatPnlPct signs and suffixes, em-dash for null', () => {
     assert.equal(formatPnlPct(-2.5), '-2.50%')
     assert.equal(formatPnlPct(0), '0.00%')
     assert.equal(formatPnlPct(null), '—')
+})
+
+// ── What an account is CALLED ────────────────────────────────────────────────
+// A virtual account (paper / manual) is named by the user; its id is a generated key. Every
+// positions surface showed the key, so a paper account was identified by 40 characters of uuid.
+
+test('positionAccountLabel prefers the name a virtual account was given', () => {
+    assert.equal(positionAccountLabel({ accountName: 'Momentum', accountNo: 'paper-u1-f6', accountId: 'paper-u1-f6' }), 'Momentum')
+})
+
+test('positionAccountLabel leaves a live account on its number', () => {
+    assert.equal(positionAccountLabel({ accountNo: '46115894', accountId: '46115894' }), '46115894')
+    assert.equal(positionAccountLabel({ accountName: null, accountNo: '46115894' }), '46115894')
+})
+
+test('positionAccountLabel ignores a blank name rather than showing empty space', () => {
+    assert.equal(positionAccountLabel({ accountName: '   ', accountNo: '999' }), '999')
+    assert.equal(positionAccountLabel({ accountName: '  Fast  ', accountNo: '999' }), 'Fast')
+})
+
+test('positionAccountLabel falls back to the id, then to null', () => {
+    assert.equal(positionAccountLabel({ accountId: 'A9' }), 'A9')
+    assert.equal(positionAccountLabel({}), null)
+    assert.equal(positionAccountLabel(null), null)
+})
+
+test('summarizePositions carries the label, and says nothing when the set spans accounts', () => {
+    const p = (over) => ({ pnl: 1, entryPrice: 10, volume: 1, broker: 'paper', ...over })
+    assert.equal(summarizePositions([
+        p({ accountNo: 'paper-u1-a', accountName: 'Momentum' }),
+        p({ accountNo: 'paper-u1-a', accountName: 'Momentum' }),
+    ]).accountLabel, 'Momentum')
+
+    assert.equal(summarizePositions([
+        p({ accountNo: 'paper-u1-a', accountName: 'Momentum' }),
+        p({ accountNo: 'paper-u1-b', accountName: 'RAZ TEST' }),
+    ]).accountLabel, null)
 })

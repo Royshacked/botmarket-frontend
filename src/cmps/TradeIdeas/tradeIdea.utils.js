@@ -540,13 +540,35 @@ export function groupPositions(positions = [], ideas = []) {
     return { portfolios, loose }
 }
 
+/**
+ * What to CALL the account a position sits on.
+ *
+ * A VIRTUAL account (paper / manual) is one the user named — "Momentum", "RAZ TEST" — and its id is
+ * a generated key (`paper-<userId>-<short>`), so every surface that showed `accountNo` identified a
+ * paper account by forty characters of uuid. The backend now sends the name beside it; this is the
+ * one place that decides which of the two a reader sees, so the Floor, the positions table and the
+ * idea cards cannot answer it differently.
+ *
+ * Live brokers have no equivalent — a cTrader account carries a login NUMBER and no label — so
+ * `accountName` is simply absent there and the number stands, which is what "only in paper" means
+ * in practice: nothing about live changes.
+ *
+ * @param {{accountName?:string|null, accountNo?:string|number|null, accountId?:string|null}} position
+ * @returns {string|null}
+ */
+export function positionAccountLabel(position) {
+    const name = position?.accountName
+    if (typeof name === 'string' && name.trim()) return name.trim()
+    return position?.accountNo ?? position?.accountId ?? null
+}
+
 // Split positions into per-account sub-groups, first-seen order preserved. A
 // portfolio spanning several accounts renders one collapsible sub-row per account.
 function _positionsByAccount(positions = []) {
     const m = new Map()
     for (const p of positions) {
         const key = String(p.accountId ?? '—')
-        if (!m.has(key)) m.set(key, { accountId: p.accountId ?? null, accountNo: p.accountNo ?? null, positions: [] })
+        if (!m.has(key)) m.set(key, { accountId: p.accountId ?? null, accountNo: p.accountNo ?? null, accountLabel: positionAccountLabel(p), positions: [] })
         m.get(key).positions.push(p)
     }
     return [...m.values()]
@@ -560,11 +582,11 @@ function _positionsByAccount(positions = []) {
  * shows "N accts" / hides the broker). P&L is null when nothing in the set is priced.
  *
  * @param {object[]} positions
- * @returns {{count:number,pnl:number|null,currency:string|null,pnlPct:number|null,enteredAt:number|null,workspace:'paper'|'manual'|'live',broker:string|null,accountNo:string|null}}
+ * @returns {{count:number,pnl:number|null,currency:string|null,pnlPct:number|null,enteredAt:number|null,workspace:'paper'|'manual'|'live',broker:string|null,accountNo:string|null,accountLabel:string|null}}
  */
 export function summarizePositions(positions = []) {
     let pnl = 0, cost = 0, enteredAt = null, currency = null, anyPnl = false
-    const brokers = new Set(), accounts = new Set()
+    const brokers = new Set(), accounts = new Set(), labels = new Set()
 
     for (const p of positions) {
         const raw = Number(p.pnl)
@@ -575,6 +597,8 @@ export function summarizePositions(positions = []) {
         currency = currency ?? (p.currency ?? null)
         if (p.broker) brokers.add(p.broker)
         if (p.accountNo != null) accounts.add(String(p.accountNo))
+        const label = positionAccountLabel(p)
+        if (label != null) labels.add(String(label))
     }
 
     return {
@@ -586,6 +610,10 @@ export function summarizePositions(positions = []) {
         workspace: positions.length ? positionWorkspace(positions[0]) : 'live',
         broker:    brokers.size  === 1 ? [...brokers][0]  : null,
         accountNo: accounts.size === 1 ? [...accounts][0] : null,
+        // What to SHOW for that account — the name on a virtual one, the number on a live one.
+        // Uniform-or-null on the same rule as accountNo, so a set spanning accounts still says
+        // "N accts" rather than picking one of them to speak for the rest.
+        accountLabel: labels.size === 1 ? [...labels][0] : null,
     }
 }
 

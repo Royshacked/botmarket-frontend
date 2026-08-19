@@ -3,6 +3,7 @@ import { Fragment } from 'react'
 import {
     formatCreatedAtFull, formatPrice, formatNum, formatPnl, formatPnlPct,
     positionPnlPct, positionWorkspace, groupPositions, summarizePositions, foldHoldingLegs,
+    positionAccountLabel,
 } from './tradeIdea.utils.js'
 import { useExpandedSet } from '../../customHooks/useExpandedSet.js'
 
@@ -62,7 +63,7 @@ export function PositionRow({ position, closing, onClose, onEditOrders, onOpen, 
             <td className="position-row__entered">{formatCreatedAtFull(position.openedAt) || '—'}</td>
             <td className="position-row__mode"><WorkspaceBadge workspace={ws} /></td>
             <td className="position-row__broker">{brokerLbl}</td>
-            <td className="position-row__account">{position.accountNo ?? '—'}</td>
+            <td className="position-row__account">{positionAccountLabel(position) ?? '—'}</td>
             <td className={`position-row__pnl ${pnlClass}`}>{formatPnl(position.pnl, position.currency)}</td>
             <td className={`position-row__pnl-pct ${pctClass}`}>{formatPnlPct(pct)}</td>
             {showControls && (
@@ -245,7 +246,7 @@ export function PositionsTable({ positions = [], ideas = [], closingId, closingG
                             variant="portfolio"
                             label={group.name}
                             summary={pfSummary}
-                            accountText={multiAccount ? `${group.accounts.length} accts` : (pfSummary.accountNo ?? '—')}
+                            accountText={multiAccount ? `${group.accounts.length} accts` : (pfSummary.accountLabel ?? '—')}
                             expanded={isExpanded(group.portfolioId)}
                             onToggle={() => toggle(group.portfolioId)}
                             showControls={showControls}
@@ -255,7 +256,7 @@ export function PositionsTable({ positions = [], ideas = [], closingId, closingG
                             multiAccount
                                 ? group.accounts.map(acct => {
                                     const aKey = `${group.portfolioId}:${acct.accountId ?? '—'}`
-                                    const acctNo = acct.accountNo ?? acct.accountId ?? '—'
+                                    const acctNo = acct.accountLabel ?? acct.accountId ?? '—'
                                     return (
                                         <Fragment key={aKey}>
                                             <PositionSummaryRow

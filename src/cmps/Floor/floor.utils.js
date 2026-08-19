@@ -2,7 +2,7 @@
 // export components only (react-refresh keeps fast-refresh working), and so the grouping rules can
 // be tested without rendering anything — the same split tradeIdea.utils.js already uses.
 
-import { summarizePositions, positionWorkspace, positionOwnerIdea, foldHoldingLegs } from '../TradeIdeas/tradeIdea.utils.js'
+import { summarizePositions, positionWorkspace, positionOwnerIdea, foldHoldingLegs, positionAccountLabel } from '../TradeIdeas/tradeIdea.utils.js'
 
 /**
  * Split positions into one group per account, first-seen order preserved, each with its summary —
@@ -29,7 +29,7 @@ import { summarizePositions, positionWorkspace, positionOwnerIdea, foldHoldingLe
  *
  * @param {object[]} positions
  * @param {object[]} [ideas]  loaded ideas; the position→portfolio link
- * @returns {Array<{key:string,accountNo:string,broker:string|null,workspace:string,positions:object[],books:Array<{key:string,portfolioId:string,name:string,positions:object[],rows:object[],summary:object}>,loose:object[],looseRows:object[],summary:object}>}
+ * @returns {Array<{key:string,accountLabel:string,broker:string|null,workspace:string,positions:object[],books:Array<{key:string,portfolioId:string,name:string,positions:object[],rows:object[],summary:object}>,loose:object[],looseRows:object[],summary:object}>}
  */
 export function positionsByAccount(positions = [], ideas = []) {
     const m = new Map()
@@ -38,7 +38,10 @@ export function positionsByAccount(positions = [], ideas = []) {
         if (!m.has(key)) {
             m.set(key, {
                 key,
-                accountNo: p.accountNo ?? p.accountId ?? '—',
+                // The account's NAME when it has one (paper/manual are user-named), else its
+                // number. `accountNo` on a virtual position is the generated id — a key, not
+                // something to show a reader. See positionAccountLabel.
+                accountLabel: positionAccountLabel(p) ?? '—',
                 broker:    p.broker ?? null,
                 workspace: positionWorkspace(p),
                 positions: [],

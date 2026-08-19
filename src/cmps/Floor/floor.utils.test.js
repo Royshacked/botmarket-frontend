@@ -35,7 +35,7 @@ test('first-seen account order is preserved', () => {
         pos({ id: 'p1', accountId: 'B', accountNo: 'bbb' }),
         pos({ id: 'p2', accountId: 'A', accountNo: 'aaa' }),
     ])
-    assert.deepEqual(groups.map(g => g.accountNo), ['bbb', 'aaa'])
+    assert.deepEqual(groups.map(g => g.accountLabel), ['bbb', 'aaa'])
 })
 
 test('each group carries a summary of its own positions only', () => {
@@ -54,7 +54,29 @@ test('a paper position is tagged paper, not live', () => {
 
 test('a missing accountNo falls back to the accountId rather than blank', () => {
     const [g] = positionsByAccount([pos({ accountNo: undefined, accountId: 'A9' })])
-    assert.equal(g.accountNo, 'A9')
+    assert.equal(g.accountLabel, 'A9')
+})
+
+// A paper/manual account is one the USER named, and its id is a generated key. The account row
+// used to identify "Momentum" as paper-1780034546842-f695aff1 — reported from the desk.
+test('a virtual account is called by its NAME, not by its generated id', () => {
+    const [g] = positionsByAccount([pos({
+        broker: 'paper', accountId: 'paper-u1-f695aff1', accountNo: 'paper-u1-f695aff1', accountName: 'Momentum',
+    })])
+    assert.equal(g.accountLabel, 'Momentum')
+})
+
+test('a live account keeps its number — nothing about live changes', () => {
+    const [g] = positionsByAccount([pos({ broker: 'ctrader', accountId: '46115894', accountNo: '46115894' })])
+    assert.equal(g.accountLabel, '46115894')
+})
+
+test('two named accounts stay two rows, each under its own name', () => {
+    const groups = positionsByAccount([
+        pos({ id: 'p1', broker: 'paper', accountId: 'paper-u1-a', accountNo: 'paper-u1-a', accountName: 'Momentum' }),
+        pos({ id: 'p2', broker: 'paper', accountId: 'paper-u1-b', accountNo: 'paper-u1-b', accountName: 'RAZ TEST' }),
+    ])
+    assert.deepEqual(groups.map(g => g.accountLabel), ['Momentum', 'RAZ TEST'])
 })
 
 test('no positions yields no groups', () => {

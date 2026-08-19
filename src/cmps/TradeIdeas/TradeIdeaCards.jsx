@@ -5,6 +5,7 @@ import {
     activationStatus, activatePortfolio, brokerSymbolLabel, brokerChildLabel, isDeleteLocked, isManualIdea,
     isSystemStatus, formatPnl, formatPnlPct, formatNum, formatPrice, portfolioPnl, ideaPnl,
     positionPnlPct, positionWorkspace, groupPositions, summarizePositions, isPortfolioReview,
+    positionAccountLabel,
 } from './tradeIdea.utils.js'
 import { ActivatePortfolioDialog } from './ActivatePortfolioDialog.jsx'
 import { eventBus, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT } from '../../services/event-bus.service'
@@ -436,7 +437,7 @@ export function PositionCard({ position, closing, onClose, onEditOrders, onOpen 
                     {dir && <span className={`idea-card__pill idea-card__pill--dir direction--${dir}`}>{dir}</span>}
                     <WorkspaceBadge workspace={ws} />
                     {brokerLbl && <span className="idea-card__broker-badge">{brokerLbl}</span>}
-                    {position.accountNo && <span className="idea-card__broker-count">{position.accountNo}</span>}
+                    {positionAccountLabel(position) && <span className="idea-card__broker-count">{positionAccountLabel(position)}</span>}
                 </div>
                 <div className="idea-card__summary">
                     <span className="idea-card__summary-text">{formatNum(position.volume)} @ {formatPrice(position.entryPrice)}</span>
@@ -552,7 +553,7 @@ function PositionPortfolioGroup({ group, isExpanded, toggle, closingId, onClose,
                 variant="portfolio"
                 icon={<div className="idea-card__icon idea-card__icon--portfolio" aria-hidden="true"><AtlasBadge size={34} /></div>}
                 title={group.name}
-                accountText={multiAccount ? `${group.accounts.length} accts` : (pfSummary.accountNo ?? null)}
+                accountText={multiAccount ? `${group.accounts.length} accts` : (pfSummary.accountLabel ?? null)}
                 summary={pfSummary}
                 expanded={isExpanded(group.portfolioId)}
                 onToggle={() => toggle(group.portfolioId)}
@@ -562,7 +563,7 @@ function PositionPortfolioGroup({ group, isExpanded, toggle, closingId, onClose,
                     {multiAccount
                         ? group.accounts.map(acct => {
                             const aKey   = `${group.portfolioId}:${acct.accountId ?? '—'}`
-                            const acctNo = acct.accountNo ?? acct.accountId ?? '—'
+                            const acctNo = acct.accountLabel ?? acct.accountId ?? '—'
                             return (
                                 <div className="idea-card-group idea-card-group--account" key={aKey}>
                                     <GroupSummaryHeader
