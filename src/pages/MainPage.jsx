@@ -59,6 +59,7 @@ import { useDesign }         from '../customHooks/useDesign.js'
 import { useSetups }         from '../customHooks/useSetups.js'
 import { deriveIdeaOverlay, deriveSetupOverlay } from '../cmps/TradeIdeas/chartOverlay.js'
 import { useAuth }           from '../context/AuthContext.jsx'
+import { nextResetKeys }     from './deskReset.js'
 
 // Maps activeTab → the step name used in DESKS.steps[] for pipeline highlighting.
 const TAB_TO_STEP = {
@@ -380,7 +381,15 @@ export function MainPage() {
     const [returningToAxl, setReturningToAxl] = useState(false)
     // Bumped each time we head home to axl so the Atlas/Argus panels remount fresh
     // — going back to axl and re-entering an agent always starts a new chat.
-    const [chatResetKey, setChatResetKey] = useState(0)
+    //
+    // PER DESK, because a desk MID-TURN must not be remounted. Walking away is not stopping: the
+    // server no longer reads a closed socket as an abort (api/_shared/sse.util.js), so the turn goes
+    // on running and the answer arrives at a panel that is still there to receive it. Remounting on
+    // the way home threw exactly that away — the fetch survived, the component holding its reply did
+    // not, so Argus and Atlas alone lost the answer to a turn the user had already paid for. The
+    // three desks that were never keyed here have always streamed in the background; this is those
+    // two catching up, not a new promise.
+    const [chatResetKey, setChatResetKey] = useState({ scanner: 0, portfolio: 0 })
     // Bumped to remount ARGUS ALONE. Every hand-off that seeds it (Kairos discovery, Atlas sourcing)
     // wants a clean panel — but the desk that SENT them there has to keep its conversation, or
     // stepping back lands on a blank chat. Folded into chatResetKey, routing a sleeve to Argus wiped
@@ -400,9 +409,39 @@ export function MainPage() {
     // setters so a panel's onLoadingChange prop keeps a stable identity across renders, and the
     // no-op guard stops a panel re-reporting the same value from re-rendering the page.
     const [deskBusy, setDeskBusy] = useState({})
+    // Read inside the walk-home timeout, which runs RETURN_MS after the click and would otherwise
+    // close over whatever was busy when the arrow was pressed.
+    const deskBusyRef = useRef({})
+    deskBusyRef.current = deskBusy
+    // WHICH DESK a running turn belongs to, captured when it starts — because by the time anything
+    // asks, the user is at the hub and `activePipeline` has been cleared. Same field the saved
+    // thread carries (`pipeline`), so a live turn and a left-behind draft are read the same way.
+    const livePipelines = useRef({})
+    const activePipelineRef = useRef(null)
+    activePipelineRef.current = activePipeline
     const deskLoadingSetters = useMemo(() => Object.fromEntries(DESK_TABS.map(tab => [tab,
-        (is) => setDeskBusy(prev => (Boolean(prev[tab]) === Boolean(is) ? prev : { ...prev, [tab]: Boolean(is) })),
+        (is) => setDeskBusy(prev => {
+            if (Boolean(prev[tab]) === Boolean(is)) return prev
+            if (is) livePipelines.current[tab] = activePipelineRef.current
+            return { ...prev, [tab]: Boolean(is) }
+        }),
     ])), [])
+    /**
+     * TURNS RUNNING RIGHT NOW, shaped as the hub already reads work: `{ agent, pipeline }` — the
+     * same two fields a saved draft carries, so `deskOfThread` files a live turn on exactly the desk
+     * it would file the draft it is about to become. No second mapping, and no chance of the two
+     * disagreeing about which route to mark.
+     *
+     * The hub needs this because a turn in flight has NO draft yet — persistence happens when the
+     * reply lands. Walking away mid-answer therefore left every route silent about the one desk that
+     * was actually working, which is the thing the user went to the hub to see.
+     */
+    const liveWork = useMemo(
+        () => DESK_TABS.filter(tab => deskBusy[tab])
+            .map(tab => ({ agent: tab, pipeline: livePipelines.current[tab] ?? null, live: true })),
+        [deskBusy],
+    )
+
     const { setups, setupsLoading, refreshSetups } = useSetups()
     const [setupBusyId, setSetupBusyId] = useState(null)
 
@@ -507,7 +546,9 @@ export function MainPage() {
             // Drop every hand-off in flight — inboxes and seeds alike. A consumed one left lying
             // here re-fires on the next remount of the desk that holds it (doors.js).
             doors.clear()
-            setChatResetKey(k => k + 1)
+            // Fresh slate for the desks with nothing in flight; a desk mid-answer keeps its
+            // conversation until the reply lands (deskReset.js).
+            setChatResetKey(k => nextResetKeys(k, deskBusyRef.current))
         }, RETURN_MS)
     }
 
@@ -2686,6 +2727,7 @@ export function MainPage() {
                         {activeTab === 'axl' ? (
                             <AxlHub
                                 user={user}
+                                live={liveWork}
                                 onPick={handleAxlPick}
                                 onOpenTicket={handleOpenTicket}
                                 briefRequest={briefRequest}
@@ -2763,7 +2805,7 @@ export function MainPage() {
                         </div>
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'scanner' ? 'flex' : 'none' }}>
                             <ScannerPanel
-                                key={`scanner-${chatResetKey}-${scannerResetKey}`}
+                                key={`scanner-${chatResetKey.scanner}-${scannerResetKey}`}
                                 resumeRef={resumeRefs.current.scanner}
                                 pipeline={activePipeline}
                                 onTickerSelect={handleScannerSymbol}
@@ -2787,7 +2829,7 @@ export function MainPage() {
                         </div>
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'portfolio' ? 'flex' : 'none' }}>
                             <PortfolioPanel
-                                key={`portfolio-${chatResetKey}`}
+                                key={`portfolio-${chatResetKey.portfolio}`}
                                 resumeRef={resumeRefs.current.portfolio}
                                 onGeneratePlan={handleGeneratePlan}
                                 onUpdatePlan={handleUpdatePlan}

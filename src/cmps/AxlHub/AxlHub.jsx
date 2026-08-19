@@ -74,7 +74,7 @@ function TicketGlyph({ size = 32 }) {
     )
 }
 
-export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefStart }) {
+export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefStart, live = [] }) {
     const name = firstName(user?.fullname)
     const chat = useChatStream()
     const { messages, isLoading } = chat
@@ -84,7 +84,12 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
     // Unfinished work per desk, for the route badges. Loaded on mount, which is every time the user
     // returns from a desk — precisely when it can have changed. Cheap: drafts only, last message only.
     const [unfinished, setUnfinished] = useState([])
-    useEffect(() => { threadsService.listUnfinished().then(setUnfinished) }, [])
+    // Re-read when a background turn ENDS, as well as on mount. A desk left mid-answer goes on
+    // streaming while the user stands here, and its draft is written when the reply lands — after
+    // the mount fetch has already been and gone. Without this the route went quiet at the exact
+    // moment it had something to say. Keyed on the live set, so it costs one read per turn ending.
+    const liveKey = live.map(w => `${w.agent}:${w.pipeline ?? ''}`).sort().join('|')
+    useEffect(() => { threadsService.listUnfinished().then(setUnfinished) }, [liveKey])
 
     // Which desks are closed because another desk is holding an agent they need. A panel is a
     // singleton, so entering the scan desk while a portfolio build is parked at Argus would clobber the
@@ -187,7 +192,12 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
     function deskBadge(desk) {
         // DESKS is passed so a thread that named no pipeline still finds its home desk — see
         // deskOfThread. Without it a chat opened straight at a tab would be marked nowhere.
-        const { count, yourTurn } = deskWork(unfinished, desk, DESKS)
+        //
+        // LIVE TURNS COUNT HERE and nowhere else. A turn still streaming is work left at that desk in
+        // every sense the user means — but it is not resumable (there is no thread to open yet) and
+        // it must not close another desk's door, so `resumableThread` and `blockedDesks` go on
+        // reading the saved drafts alone.
+        const { count, yourTurn } = deskWork([...live, ...unfinished], desk, DESKS)
         if (!count) return null
         return (
             <span
@@ -199,6 +209,11 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
                 {yourTurn ? 'Your turn' : 'Working..'}
             </span>
         )
+    }
+
+    /** Is a turn streaming at this desk right now? Filed by the same rule as a saved draft. */
+    function isLive(desk) {
+        return deskWork(live, desk, DESKS).count > 0
     }
 
     /** The conversation this desk would pick up: its newest unfinished one. */
@@ -217,7 +232,11 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
         if (blocked.has(desk.key)) return
         // Left something here → walk back INTO it. Going to a blank desk and making the user find the
         // conversation in a drawer is a step too many when the route already knows which one it is.
-        const resume = resumableThread(desk)
+        // …unless a turn is streaming there NOW. Resuming replaces the panel's conversation with the
+        // saved one, and the running turn is not in it yet — so walking back into a desk mid-answer
+        // would overwrite the answer with the state from before it was asked for. Open it; the live
+        // conversation is already on screen behind the tab.
+        const resume = isLive(desk) ? null : resumableThread(desk)
         _summon(desk, resume ? { resume } : {})
     }
 
@@ -557,6 +576,8 @@ AxlHub.propTypes = {
     user:         PropTypes.object,
     onPick:       PropTypes.func.isRequired,
     onOpenTicket: PropTypes.func,
+    // Turns running right now, as { agent, pipeline } — the same shape a saved draft is read in.
+    live:         PropTypes.array,
 }
 
 TicketGlyph.propTypes = {

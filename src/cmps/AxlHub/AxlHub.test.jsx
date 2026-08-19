@@ -385,3 +385,88 @@ describe('AxlHub — the working indicator', () => {
         expect(container.querySelector('.axl-hub__bubble--assistant')).toBeTruthy()
     })
 })
+
+// WALKING AWAY IS NOT STOPPING. The server keeps a turn running when the socket closes, so a desk
+// left mid-answer is still working — but it has no DRAFT yet (that is written when the reply lands),
+// so every route here used to go quiet about the one desk that was actually busy.
+describe('AxlHub — a turn still running at a desk', () => {
+    const live = (agent, pipeline = null) => [{ agent, pipeline, live: true }]
+
+    it('marks the desk a live turn belongs to', async () => {
+        render(<AxlHub user={{ fullname: 'Roy' }} onPick={vi.fn()} live={live('mentor', 'assist')} />)
+        await act(async () => {})
+
+        const assist = screen.getByText('Work on your own trade').closest('button')
+        expect(assist.textContent).toMatch(/Working/)
+    })
+
+    it('files it on the SAME desk the draft it becomes would land on', async () => {
+        // No pipeline (a desk opened straight at a tab — the calendar route into Mentor is one), so
+        // it falls back exactly as deskOfThread does: the desk that IS that agent. One rule, not two.
+        render(<AxlHub user={{ fullname: 'Roy' }} onPick={vi.fn()} live={live('mentor')} />)
+        await act(async () => {})
+
+        expect(screen.getByText('Work on your own trade').closest('button').textContent).toMatch(/Working/)
+        expect(screen.getByText('Trade an asset').closest('button').textContent).not.toMatch(/Working/)
+    })
+
+    it('a live turn is not resumable — clicking the desk opens it, it does not reopen a thread', async () => {
+        // There is no thread yet. Handing the summon a pseudo-thread would send a `threadId` of
+        // undefined to the panel, which is worse than opening blank.
+        const onPick = vi.fn()
+        render(<AxlHub user={{ fullname: 'Roy' }} onPick={onPick} live={live('mentor', 'assist')} />)
+        await act(async () => {})
+
+        fireEvent.click(screen.getByText('Work on your own trade').closest('button'))
+        for (let i = 0; i < 4; i++) await act(async () => { vi.advanceTimersByTime(1500) })
+        expect(onPick).toHaveBeenCalled()
+        expect(onPick.mock.calls[0][1].resumeThreadId).toBeUndefined()
+    })
+
+    it('re-reads the unfinished list when the turn ENDS, so the draft it wrote shows up', async () => {
+        // The mount fetch has been and gone by the time a background reply lands; without this the
+        // route stays silent at the moment it finally has something to say.
+        const { rerender } = render(<AxlHub user={{ fullname: 'Roy' }} onPick={vi.fn()} live={live('mentor', 'assist')} />)
+        await act(async () => {})
+        expect(listUnfinished).toHaveBeenCalledTimes(1)
+
+        listUnfinished.mockResolvedValue([{ threadId: 't1', agent: 'mentor', pipeline: 'assist', yourTurn: true }])
+        rerender(<AxlHub user={{ fullname: 'Roy' }} onPick={vi.fn()} live={[]} />)
+        await act(async () => {})
+
+        expect(listUnfinished).toHaveBeenCalledTimes(2)
+        expect(screen.getByText('Work on your own trade').closest('button').textContent).toMatch(/Your turn/)
+    })
+})
+
+// The two halves of "walk back in" pull opposite ways once a turn can outlive the walk: resume
+// RESTORES the saved conversation, and a turn still streaming is not in it yet.
+describe('AxlHub — walking back into a desk that is still answering', () => {
+    it('opens it without resuming, so the running answer is not overwritten', async () => {
+        listUnfinished.mockResolvedValue([{ threadId: 't1', agent: 'mentor', pipeline: 'assist', yourTurn: true }])
+        const onPick = vi.fn()
+        render(
+            <AxlHub user={{ fullname: 'Roy' }} onPick={onPick}
+                live={[{ agent: 'mentor', pipeline: 'assist', live: true }]} />,
+        )
+        await act(async () => {})
+
+        fireEvent.click(screen.getByText('Work on your own trade').closest('button'))
+        for (let i = 0; i < 4; i++) await act(async () => { vi.advanceTimersByTime(1500) })
+
+        expect(onPick).toHaveBeenCalled()
+        expect(onPick.mock.calls[0][1].resumeThreadId).toBeUndefined()
+    })
+
+    it('still resumes when nothing is running there', async () => {
+        listUnfinished.mockResolvedValue([{ threadId: 't1', agent: 'mentor', pipeline: 'assist', yourTurn: true }])
+        const onPick = vi.fn()
+        render(<AxlHub user={{ fullname: 'Roy' }} onPick={onPick} live={[]} />)
+        await act(async () => {})
+
+        fireEvent.click(screen.getByText('Work on your own trade').closest('button'))
+        for (let i = 0; i < 4; i++) await act(async () => { vi.advanceTimersByTime(1500) })
+
+        expect(onPick.mock.calls[0][1].resumeThreadId).toBe('t1')
+    })
+})
