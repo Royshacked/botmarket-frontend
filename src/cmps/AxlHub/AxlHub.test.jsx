@@ -17,6 +17,7 @@ vi.mock('../../customHooks/useMicInput.js', () => ({
     useMicInput: () => ({ isRecording: false, isTranscribing: false, toggle: vi.fn(), cancel: vi.fn() }),
 }))
 const { AxlHub, MessageBubble } = await import('./AxlHub.jsx')
+const { DESKS } = await import('./agentMeta.jsx')
 
 // Reply with a desk hand-off, the way the server sends one: the tag is already parsed off, so the
 // client sees `route` (which desk) + `routeSymbol` (the name it should open on).
@@ -468,5 +469,73 @@ describe('AxlHub — walking back into a desk that is still answering', () => {
         for (let i = 0; i < 4; i++) await act(async () => { vi.advanceTimersByTime(1500) })
 
         expect(onPick.mock.calls[0][1].resumeThreadId).toBe('t1')
+    })
+})
+
+// Explaining the app is one of Axl's jobs that nothing ever triggered: the app-guide half of the
+// prompt only fires if the user knows there is something to ask about. The landing chips ARE the ask.
+describe('AxlHub — the landing asks', () => {
+    it('offers the three app questions before the first turn', async () => {
+        render(<AxlHub user={{ fullname: 'Roy' }} onPick={vi.fn()} />)
+        await act(async () => {})
+
+        expect(screen.getByRole('button', { name: 'What can this app do?' })).toBeTruthy()
+        expect(screen.getByRole('button', { name: 'How does it work?' })).toBeTruthy()
+        expect(screen.getByRole('button', { name: 'What can you do for me?' })).toBeTruthy()
+    })
+
+    // The seven cards are what this screen is FOR. A chip that named a desk's job would take the
+    // click off the card that does it properly — so none of them may collide with a card's label.
+    it('none of them answers what a desk card already answers', async () => {
+        render(<AxlHub user={{ fullname: 'Roy' }} onPick={vi.fn()} />)
+        await act(async () => {})
+
+        const chips = [...screen.getByRole('group', { name: /Suggested follow-ups/i }).children]
+            .map(el => el.textContent)
+        expect(chips).toHaveLength(3)
+
+        for (const { lead } of DESKS) {
+            expect(screen.getByText(lead)).toBeTruthy()                  // the card is still there
+            expect(chips.some(c => c.includes(lead))).toBe(false)        // and no chip is competing for it
+        }
+    })
+
+    // Position is the whole distinction: a follow-up sits ABOVE the box, under the reply it answers.
+    // These answer nothing, so they sit UNDER it — three sentences you could put in the empty field.
+    it('sit below the composer on the landing, and above it once there is a thread', async () => {
+        replyWith({ reply: 'Here is what it does.' })
+        render(<AxlHub user={{ fullname: 'Roy' }} onPick={vi.fn()} />)
+        await act(async () => {})
+
+        const composer = screen.getByPlaceholderText(/Ask Axl anything/i).closest('.chat-input-row')
+        const chips = screen.getByRole('group', { name: /Suggested follow-ups/i })
+        // DOCUMENT_POSITION_FOLLOWING (4) — the chips come after the box.
+        expect(composer.compareDocumentPosition(chips) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+        streamAxl.mockImplementation(async (_m, opts) => {
+            opts.onDone?.({ reply: 'Plenty.', suggestions: ['Show me the market'] })
+        })
+        await ask('hi')
+
+        const after = screen.getByRole('group', { name: /Suggested follow-ups/i })
+        expect(after.textContent).toContain('Show me the market')
+        // DOCUMENT_POSITION_PRECEDING (2) — back above the box, where a follow-up belongs.
+        expect(composer.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
+    })
+
+    // Sending anything spends the offer — and Axl's own follow-ups take the row from there.
+    it('are spent by the first message and do not come back', async () => {
+        replyWith({ reply: 'Here is what it does.' })
+        render(<AxlHub user={{ fullname: 'Roy' }} onPick={vi.fn()} />)
+        await act(async () => {})
+
+        fireEvent.click(screen.getByRole('button', { name: 'What can this app do?' }))
+        for (let i = 0; i < 4; i++) await act(async () => { vi.advanceTimersByTime(1500) })
+
+        expect(screen.queryByRole('button', { name: 'What can this app do?' })).toBeNull()
+        // …and the chip's text went out as the user's own message.
+        expect(streamAxl).toHaveBeenCalled()
+        const sent = streamAxl.mock.calls[0][0]
+        expect(sent.at(-1)).toEqual({ role: 'user', content: 'What can this app do?' })
     })
 })

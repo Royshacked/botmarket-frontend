@@ -24,8 +24,13 @@
     padding: 32px 24px;
 }
 
-// Scrolling content area above the pinned input: greeting + cards (landing) or
-// the message thread (chatting). Centres the landing; top-anchors the chat.
+// Scrolling content area above the pinned input: greeting + cards (landing) or the message thread.
+//
+// `justify-content: flex-start`, NOT `center` — centring a flex column that can overflow puts its
+// first child ABOVE the scroll container's top edge, where no scrollbar can reach it. The landing
+// is seven cards and a greeting, so on a short column that meant the mark and "Hi, I'm Axl" were
+// simply cut off with no way to see them. The landing's downward push is an auto margin instead
+// (`.axl-hub__intro`), which does the same job and collapses to zero the moment room runs out.
 .axl-hub__body {
     flex: 1;
     min-height: 0;
@@ -34,7 +39,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 18px;
     padding: 18px 24px;
 }
@@ -55,6 +60,10 @@
 .axl-hub__option:nth-child(3) { animation-delay: 0.20s; }
 .axl-hub__option:nth-child(4) { animation-delay: 0.26s; }
 .axl-hub__option:nth-child(5) { animation-delay: 0.32s; }
+// Six desks and the order ticket — SEVEN cards. Without these last two the base rule's 0s delay
+// applies, so Pythia and the ticket rose in BEFORE the first card did, every single landing.
+.axl-hub__option:nth-child(6) { animation-delay: 0.38s; }
+.axl-hub__option:nth-child(7) { animation-delay: 0.44s; }
 
 @keyframes axl-hub-rise {
     from { opacity: 0; transform: translateY(12px); }
@@ -62,7 +71,12 @@
 }
 
 // ── greeting cluster ──
+// `margin-top: auto` is the landing's whole vertical story: every spare pixel is pushed ABOVE the
+// greeting, so the mark, the name and the seven cards sit low in the column, near the hand. When
+// there is no spare pixel the auto resolves to 0 and the body scrolls from the top like any other
+// list — which is why this replaced `justify-content: center` on the body rather than joining it.
 .axl-hub__intro {
+    margin-top: auto;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -237,6 +251,10 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
+    // The cards and the composer are two different offers — click one, or type in the other — and
+    // with the landing pushed down they would otherwise end up a hair apart, reading as one block
+    // of controls. This is the seam between them, and it is worth the height it costs.
+    margin-bottom: 30px;
 }
 
 .axl-hub__option {
@@ -286,6 +304,47 @@
     // The unfinished-work flag is a WORD now, so it takes real width; without this the lead
     // ("Trade an asset") refuses to wrap and pushes the flag past the card's edge.
     min-width: 0;
+}
+
+// ── the landing composer, and the asks under it ────────────────────────────────
+// The opening screen's composer and its three chips are ONE object: an empty box with three
+// sentences you could put in it. So the pair moves together, and the styling below is what keeps
+// them reading that way.
+//
+// The border states it with a LINE, not a glow. On this screen the composer is already the only lit
+// thing on an otherwise empty panel, so the shared landing drop-glow was decoration on top of an
+// answer nothing was asking; the accent border says the same "this is the subject" in one stroke,
+// and it holds its shape on focus instead of swapping a ring in for the lift.
+.chat-input-row--axl.chat-input-row--empty {
+    border-color: var(--accent);
+    box-shadow: none;
+    // The shared `--empty` rule lifts the box off the floor with a big bottom margin. That margin
+    // now falls BETWEEN the box and its chips, which would tear the pair apart — so it shrinks to a
+    // gap and the chips below carry the lift for both.
+    margin-bottom: 8px;
+
+    &:focus-within {
+        border-color: var(--accent);
+        box-shadow: none;
+    }
+}
+
+// Everything else on this screen is centred — the mark, the greeting, the card grid, the composer —
+// so the shared row's left-aligned default would leave the chips hanging off the panel's edge,
+// reading as a stray control rather than as the box's own offer.
+//
+// They keep WRAPPING (the shared default): `.axl-hub` clips its overflow, so forcing one line would
+// CUT a chip off on a narrow column, and a second row is the cheaper failure — the body above
+// already scrolls. The quiet chip styling stays untouched: it is what keeps three sentences from
+// reading as cards eight through ten, and dressing them up here would undo exactly that.
+.suggestion-chips--landing {
+    justify-content: center;
+    padding-bottom: 0;
+    // Inherited from `.chat-input-row--empty`, because the pair is lifted, not the box alone — but
+    // far smaller than the shared 15vh. That lift was up to 150px of nothing held under the box
+    // while the seven cards above it were being pushed off the top of a scrolling body; the space
+    // is worth more as the seam above the composer (`.axl-hub__options`) than as floor clearance.
+    margin-bottom: clamp(10px, 2.5vh, 26px);
 }
 
 // ── active body — top-anchor once a result is showing ──

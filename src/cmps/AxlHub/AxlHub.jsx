@@ -38,6 +38,25 @@ function firstName(fullname = '') {
     return n || ''
 }
 
+// ── the landing asks ───────────────────────────────────────────────────────────
+// Explaining the app is one of Axl's jobs, and until now nothing ever asked it to: the app-guide
+// half of the prompt only fires if the user already knows there is something to ask about, which a
+// first-time user does not. These are that ask, made out loud — the same chips Axl offers after a
+// reply, seeded before the first one.
+//
+// They must never answer the question the SEVEN CARDS answer. The cards are places to go ("Trade an
+// asset"); these are questions the cards cannot take. A chip that said "find me a trade" would steal
+// the click from the card that does it properly, and the grid is the point of this screen.
+//
+// Written in the user's voice, because a chip sends its text AS the user's next message.
+// Each has a section of the prompt behind it: `## What can this app do`/`## How the app works` and
+// `## What you can do today`.
+const LANDING_ASKS = [
+    'What can this app do?',
+    'How does it work?',
+    'What can you do for me?',
+]
+
 // Axl keeps its own bubble rather than the shared ChatBubble — its own SCSS namespace. The waiting
 // mark is not its business either way: that renders once, below the thread, like every other desk.
 export function MessageBubble({ msg }) {
@@ -542,9 +561,12 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
             {/* Same dock as every agent chat: above the input, below the thread. */}
             <ChatChartDock />
 
-            {/* Directly above the input, where the eye already is when deciding what to say next.
+            {/* Axl's follow-ups, once there is a conversation: directly above the input, where the
+                eye already is when deciding what to say next, and below the reply they answer.
                 A chip sends its text as the user's own message — the same path as typing it. */}
-            <SuggestionChips suggestions={suggestions} onPick={_send} disabled={isLoading} />
+            {hasThread && (
+                <SuggestionChips suggestions={suggestions} onPick={_send} disabled={isLoading} />
+            )}
 
 
             <ChatInputRow
@@ -568,6 +590,20 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
                 micDisabled={isLoading || isTranscribing}
                 textareaDisabled={isLoading || isRecording}
             />
+
+            {/* The landing asks go BELOW the box, not above it — the one place on this screen where
+                the chips are not answering anything. A follow-up belongs under the reply it follows;
+                these follow nothing, so above the composer they would read as a fourth thing to
+                choose between the seven cards and the box. Under it they are what the box is FOR:
+                the empty field, then three sentences you could put in it. */}
+            {!hasThread && (
+                <SuggestionChips
+                    suggestions={LANDING_ASKS}
+                    variant="landing"
+                    onPick={_send}
+                    disabled={isLoading}
+                />
+            )}
         </div>
     )
 }

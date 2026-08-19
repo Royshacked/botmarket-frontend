@@ -15,12 +15,21 @@ import './SuggestionChips.scss'
  *
  * A chip sends its own text as the user's next message — so the prompt writes them in the user's
  * voice ("Why is MU down?"), never the agent's ("Would you like me to explain…").
+ *
+ * `variant` is the same escape hatch ChatInputRow's `prefix` is: a root modifier
+ * (`suggestion-chips--<variant>`) a caller can style against, so a surface with its own needs — Axl's
+ * landing screen, where the chips sit under a centred greeting rather than under a reply — tweaks the
+ * row from its OWN stylesheet. Nothing here learns who is calling.
  */
-export function SuggestionChips({ suggestions = [], onPick, disabled = false }) {
+export function SuggestionChips({ suggestions = [], onPick, disabled = false, variant }) {
     if (!suggestions.length) return null
 
     return (
-        <div className="suggestion-chips" role="group" aria-label="Suggested follow-ups">
+        <div
+            className={`suggestion-chips${variant ? ` suggestion-chips--${variant}` : ''}`}
+            role="group"
+            aria-label="Suggested follow-ups"
+        >
             {suggestions.map((text, i) => (
                 <button
                     key={i}
@@ -38,4 +47,5 @@ SuggestionChips.propTypes = {
     suggestions: PropTypes.arrayOf(PropTypes.string),
     onPick:      PropTypes.func,
     disabled:    PropTypes.bool,
+    variant:     PropTypes.string,
 }
