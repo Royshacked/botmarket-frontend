@@ -204,12 +204,20 @@ describe('AnalystPanel — a refused initiation', () => {
 // tab — gone on the next reload. This is that gap, wired to the same shared mechanism every other
 // desk uses.
 describe('AnalystPanel — the draft thread', () => {
+    // `done` is dispatched INSIDE the stream, not after it resolves — that is the real wire order
+    // (sse.util dispatches each event in the read loop and resolves when the stream closes), and the
+    // difference is now load-bearing: the turn is "completed" precisely when onDone ran, and a
+    // harness that answered after the stream had closed would look to the panel like a walk-out.
     async function researchTurn(props = {}) {
+        sendStream.mockImplementationOnce(async (_history, opts) => {
+            opts.onDone({ reply: 'done', phase: 4, coverage: { symbol: 'ZTS', rating: 'sell' } })
+        })
         render(<AnalystPanel seed={{ key: 30, message: 'Research ZTS for coverage.' }} {...props} />)
         await waitFor(() => expect(sendStream).toHaveBeenCalled())
-        const [, opts] = lastCall()
-        await act(async () => { opts.onDone({ reply: 'done', phase: 4, coverage: { symbol: 'ZTS', rating: 'sell' } }) })
-        return opts
+        await waitFor(() => expect(saveDraft).toHaveBeenCalled())
+        // …and wait for the stream to actually close, or the panel's controls are still disabled.
+        await waitFor(() => expect(screen.getByRole('textbox').disabled).toBe(false))
+        return lastCall()[1]
     }
 
     it('a completed turn is saved as an analyst draft carrying its desk and phase', async () => {
@@ -288,5 +296,36 @@ describe('AnalystPanel — the draft thread', () => {
         render(<AnalystPanel resumeRef={resumeRef} />)
         await act(async () => { await resumeRef.current('gone') })
         expect(screen.queryByText('Half-built.')).toBeNull()
+    })
+})
+
+// The other half of the same mechanism: persistence used to hang off onDone alone, and the abort
+// path never reaches it — so the walk-out this desk's marker exists to catch was the one ending that
+// saved nothing (useChatStream's onStopped is the shared rule).
+describe('AnalystPanel — a turn the user walked out of', () => {
+    async function stoppedTurn(props = {}) {
+        const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+        sendStream.mockImplementationOnce(async () => { throw new DOMException('aborted', 'AbortError') })
+        render(<AnalystPanel seed={{ key: 31, message: 'Research ZTS for coverage.' }} {...props} />)
+        await waitFor(() => expect(sendStream).toHaveBeenCalled())
+        await waitFor(() => expect(saveDraft).toHaveBeenCalled())
+        err.mockRestore()
+    }
+
+    it('saves the user’s message and the turns before it — no assistant turn to append', async () => {
+        await stoppedTurn({ pipeline: 'research' })
+
+        const arg = saveDraft.mock.calls[0][0]
+        expect(arg.agent).toBe('analyst')
+        expect(arg.pipeline).toBe('research')
+        expect(arg.messages).toEqual([{ role: 'user', content: 'Research ZTS for coverage.' }])
+        expect(arg.messages.some(m => m.role === 'assistant')).toBe(false)
+    })
+
+    it('reports the phase IN FORCE, since this turn emitted none', async () => {
+        // Not a guess at where the stopped turn would have got to: the backend floor reads this, and
+        // claiming a phase Prometheus never reached would persist a conversation below it.
+        await stoppedTurn()
+        expect(saveDraft.mock.calls[0][0].phase).toBe(null)
     })
 })

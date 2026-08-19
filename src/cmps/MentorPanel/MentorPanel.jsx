@@ -4,7 +4,7 @@ import { mentorService } from '../../services/mentor/mentor.service.remote.js'
 import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote.js'
 import { ChatBubble } from '../ChatBubble.jsx'
 import { readStoredModel } from '../modelOptions.js'
-import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
+import { useChatStream, toChatHistory, withoutPrefill } from '../../customHooks/useChatStream.js'
 import { firstItem } from '../../services/pipeline/artifact.js'
 import { useSeedTurn } from '../../customHooks/useSeedTurn.js'
 import { AgentMessages } from '../AgentMessages.jsx'
@@ -182,8 +182,11 @@ export function MentorPanel({
         return data.setup ?? draft
     }
 
+    // `reply` null = the turn was STOPPED (useChatStream's onStopped). What is saved is then the
+    // user's message and the turns completed before it — there is no assistant turn to append, and
+    // an empty bubble would come back on resume as a reply Mentor never gave.
     function _persist(history, reply, setup) {
-        const msgs = [...history, { role: 'assistant', content: reply }]
+        const msgs = reply == null ? history : [...history, { role: 'assistant', content: reply }]
         if (editingSetupId) {
             // Conversation ONLY — never the plan. A mid-edit turn that went through updateSetup
             // would re-run the venue gate and send a watched setup back to 'waiting', so Talos
@@ -222,6 +225,8 @@ export function MentorPanel({
         await chat.run(text, {
             log: '[mentor]',
             handlers: { onCoverage: setCoverage },
+            // Stopped mid-answer: keep the conversation anyway (see _persist).
+            onStopped: () => _persist(history, null, draft),
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant', content: data.reply })
                 _persist(history, data.reply, _applyDone(data, draft))
@@ -245,7 +250,7 @@ export function MentorPanel({
             onDone: (data) => {
                 const content = base + data.reply
                 chat.finishStreaming({ role: 'assistant', content })
-                _persist(history.slice(0, -1), content, _applyDone(data, pendingSetup))
+                _persist(withoutPrefill(history), content, _applyDone(data, pendingSetup))
             },
         })
         if (!cont) return

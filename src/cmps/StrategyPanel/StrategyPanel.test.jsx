@@ -7,8 +7,9 @@ const sendStream = vi.fn(async () => {})
 vi.mock('../../services/strategy/strategy.service.remote.js', () => ({
     strategyService: { sendStream: (...a) => sendStream(...a) },
 }))
+const saveDraft = vi.fn()
 vi.mock('../../services/threads/threads.service.remote.js', () => ({
-    threadsService: { saveDraft: vi.fn(), getThread: vi.fn(), linkThread: vi.fn() },
+    threadsService: { saveDraft: (...a) => saveDraft(...a), getThread: vi.fn(), linkThread: vi.fn() },
     newThreadId: () => 'thr_test',
     clearThread: vi.fn(),
 }))
@@ -121,6 +122,7 @@ describe('reviewPrompt', () => {
 describe('StrategyPanel — the review-due hand-off', () => {
     beforeEach(() => {
         sendStream.mockClear()
+        saveDraft.mockClear()
         chatStub = {
             messages: [], isLoading: false, streamStatus: '', reasoningPulse: null,
             begin: () => ({ signal: null, handlers: {} }),
@@ -129,9 +131,14 @@ describe('StrategyPanel — the review-due hand-off', () => {
             // isLoading and re-renders), and it hands the panel's `send` the signal/handlers pair to
             // spread into its service call. The real one also owns the try/finally, which has
             // nothing to assert against a stub that cannot throw.
-            run: async (text, { send } = {}) => {
+            // …and the rule that a turn which never answered still leaves a conversation behind:
+            // `onStopped` fires when onDone did not, which is what the real one keys on.
+            run: async (text, { send, onDone, onStopped } = {}) => {
                 if (!text || chatStub.isLoading) return false
-                await send?.({ signal: null, handlers: {} })
+                let completed = false
+                const handlers = { onDone: onDone ? (d) => { completed = true; onDone(d) } : undefined }
+                await send?.({ signal: null, handlers })
+                if (!completed) onStopped?.()
                 return true
             },
             endStream: vi.fn(), finishStreaming: vi.fn(), reset: vi.fn(), setMessages: vi.fn(),
@@ -158,6 +165,21 @@ describe('StrategyPanel — the review-due hand-off', () => {
 
         await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(1))
         expect(sendStream.mock.calls[0][1].chatState).toEqual({ current_tilt: currentTilt })
+    })
+
+    // Persistence hung off onDone alone here too, so the ending that leaves the desk unfinished —
+    // the user stopping mid-answer — was the one that saved nothing.
+    it('a turn stopped mid-answer still saves the conversation', async () => {
+        render(<StrategyPanel pipeline="strategy" reviewRequest={{ n: 1, reason: 'stance matured: Energy' }} />)
+
+        await waitFor(() => expect(saveDraft).toHaveBeenCalledTimes(1))
+        const arg = saveDraft.mock.calls[0][0]
+        expect(arg.agent).toBe('strategy')
+        expect(arg.pipeline).toBe('strategy')
+        expect(arg.subjectType).toBe('tilt')
+        // The user's message and the turns before it — no assistant turn, because none arrived.
+        expect(arg.messages.at(-1)).toEqual({ role: 'user', content: reviewPrompt('stance matured: Energy') })
+        expect(arg.messages.some(m => m.role === 'assistant')).toBe(false)
     })
 
     it('no request, or one already consumed, runs nothing', async () => {

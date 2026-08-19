@@ -9,8 +9,9 @@ vi.mock('../../services/scanner/scanner.service.remote.js', () => ({
 }))
 const discardThread = vi.fn()
 const getThread     = vi.fn().mockResolvedValue(null)
+const saveDraft     = vi.fn()
 vi.mock('../../services/threads/threads.service.remote.js', () => ({
-    threadsService: { saveDraft: vi.fn(), getThread: (...a) => getThread(...a), discardThread: (...a) => discardThread(...a) },
+    threadsService: { saveDraft: (...a) => saveDraft(...a), getThread: (...a) => getThread(...a), discardThread: (...a) => discardThread(...a) },
     newThreadId:    () => 'thr_test',
     // Mirrors the real helper (discard what was saved, mint a fresh id) so the panel's Clear is
     // tested for what it DOES, not merely that it runs. The helper itself is unit-tested at source.
@@ -24,7 +25,7 @@ const { ScannerPanel } = await import('./ScannerPanel.jsx')
 
 const lastCall = () => sendStream.mock.calls.at(-1)
 
-beforeEach(() => { sendStream.mockClear() })
+beforeEach(() => { sendStream.mockClear(); saveDraft.mockClear() })
 afterEach(cleanup)
 
 // The setup chips (Momentum, Breakouts, Squeeze plays…) are TRADING angles. A portfolio scan asks a
@@ -209,5 +210,66 @@ describe('ScannerPanel — clearing a construction thread', () => {
 
         // Its own unused id is all there is to discard, and deleting it matches nothing server-side.
         expect(discardThread.mock.calls.every(([id]) => id === 'thr_test')).toBe(true)
+    })
+})
+
+// Persistence used to hang off onDone alone, so the ending that leaves a desk unfinished — the user
+// stopping mid-answer — was the one that saved nothing (useChatStream's onStopped is the shared rule
+// every desk now answers). The three savers here also went through one helper at the same time: they
+// write the SAME thread, and the copies had begun to drift.
+describe('ScannerPanel — a turn the user walked out of', () => {
+    // The real stop: sse.util swallows the AbortError and returns, so `send` RESOLVES without ever
+    // dispatching `done`. Nothing throws — which is exactly why this ending went unnoticed.
+    async function stoppedTurn(props = {}) {
+        render(<ScannerPanel seed={{ key: 7, message: 'Screen semis for a breakout', profile: 'trading' }} {...props} />)
+        await waitFor(() => expect(sendStream).toHaveBeenCalled())
+        await act(async () => { await Promise.resolve() })
+    }
+
+    it('saves the user’s message, so the desk can say something was left here', async () => {
+        await stoppedTurn({ pipeline: 'scan' })
+
+        expect(saveDraft).toHaveBeenCalledTimes(1)
+        const arg = saveDraft.mock.calls[0][0]
+        expect(arg.agent).toBe('scanner')
+        expect(arg.pipeline).toBe('scan')
+        expect(arg.threadId).toBe('thr_test')
+        expect(arg.messages).toEqual([{ role: 'user', content: 'Screen semis for a breakout' }])
+    })
+
+    it('…including the turn that arrives in the SAME COMMIT as the reopen', async () => {
+        // The restore and a seeded refine land together (Atlas reopens a sleeve's list with an
+        // instruction). Effects run in order, but the state the restore sets is not readable until
+        // the render after — so the send used to close over `editingScanId: null` and save the edit
+        // conversation as a rival draft, marking the desk unfinished over a list being edited.
+        render(
+            <ScannerPanel
+                chatRestore={{ key: 3, scanId: 'scn_1', scan: { thesis: 'AI infra', profile: 'investing', candidates: [{ ticker: 'MSFT' }] }, messages: [] }}
+                seed={{ key: 3, message: 'Drop the richest name.', profile: 'investing' }}
+            />,
+        )
+        await waitFor(() => expect(sendStream).toHaveBeenCalled())
+        await act(async () => { await Promise.resolve() })
+
+        expect(saveDraft).not.toHaveBeenCalled()
+    })
+
+    it('an EDIT run still saves nothing — that conversation belongs to the list it is editing', async () => {
+        // Reopening a saved list is what puts the panel in edit mode, so the gate is exercised
+        // through that door rather than by handing the panel a state it cannot be given.
+        render(
+            <ScannerPanel
+                chatRestore={{ key: 2, scanId: 'scn_1', scan: { thesis: 'AI infra', profile: 'investing', candidates: [{ ticker: 'MSFT' }] }, messages: [] }}
+            />,
+        )
+        await screen.findByText(/AI infra/)
+
+        const box = screen.getByRole('textbox')
+        fireEvent.change(box, { target: { value: 'Drop the richest name.' } })
+        fireEvent.keyDown(box, { key: 'Enter' })
+        await waitFor(() => expect(sendStream).toHaveBeenCalled())
+        await act(async () => { await Promise.resolve() })
+
+        expect(saveDraft).not.toHaveBeenCalled()
     })
 })

@@ -25,8 +25,9 @@ vi.mock('../../services/mentor/mentor.service.remote.js', () => ({
     SETUPS_CHANGED: 'mentor-setups-changed',
 }))
 const discardThread = vi.fn()
+const saveDraft     = vi.fn()
 vi.mock('../../services/threads/threads.service.remote.js', () => ({
-    threadsService: { saveDraft: vi.fn(), linkThread: vi.fn(), getThread: vi.fn(), discardThread: (...a) => discardThread(...a) },
+    threadsService: { saveDraft: (...a) => saveDraft(...a), linkThread: vi.fn(), getThread: vi.fn(), discardThread: (...a) => discardThread(...a) },
     newThreadId: () => 't1',
     // Mirrors the real helper (discard what was saved, mint a fresh id) so the panel's Clear is
     // tested for what it DOES, not merely that it runs. The helper itself is unit-tested at source.
@@ -461,5 +462,60 @@ describe('MentorPanel — the Argus hand-off', () => {
         render(<MentorPanel {...props({ inbox: null })} />)
         await new Promise(r => setTimeout(r, 20))
         expect(sendStream).not.toHaveBeenCalled()
+    })
+})
+
+// REPORTED 2026-08-19: a setup seeded from the earnings calendar, Stop pressed six seconds in while
+// the data tools retried 429s — and Axl showed no unfinished work at any desk. Nothing had been
+// saved: `_persist` hangs off onDone, and the abort path never reaches it (useChatStream's onStopped
+// is the shared rule this desk now answers). The conversation the user came back to was React state
+// behind a `display:none` tab, and a reload would have taken it.
+describe('MentorPanel — a turn the user walked out of', () => {
+    async function stoppedTurn(over = {}) {
+        render(<MentorPanel {...props(over)} />)
+        // The abort a Stop raises, exactly as the service surfaces it.
+        sendStream.mockImplementationOnce(async () => { throw new DOMException('aborted', 'AbortError') })
+        const box = screen.getByRole('textbox')
+        fireEvent.change(box, { target: { value: 'AAPL reports Thursday — build me a setup' } })
+        fireEvent.keyDown(box, { key: 'Enter' })
+        await waitFor(() => expect(screen.getByRole('textbox').disabled).toBe(false))
+    }
+
+    it('saves the conversation anyway, so the desk can say something was left here', async () => {
+        const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+        await stoppedTurn({ pipeline: null })
+
+        expect(saveDraft).toHaveBeenCalledTimes(1)
+        const arg = saveDraft.mock.calls[0][0]
+        expect(arg.agent).toBe('mentor')     // must match the backend whitelist, or it is a silent 400
+        expect(arg.threadId).toBe('t1')
+        expect(arg.messages).toEqual([{ role: 'user', content: 'AAPL reports Thursday — build me a setup' }])
+        err.mockRestore()
+    })
+
+    it('appends no assistant turn — there was no reply, and an empty one would resume as a lie', async () => {
+        const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+        await stoppedTurn()
+        expect(saveDraft.mock.calls[0][0].messages.some(m => m.role === 'assistant')).toBe(false)
+        err.mockRestore()
+    })
+
+    it('carries the desk, so the marker lands on ONE route', async () => {
+        const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+        await stoppedTurn({ pipeline: 'assist' })
+        expect(saveDraft.mock.calls[0][0].pipeline).toBe('assist')
+        err.mockRestore()
+    })
+
+    it('mid-EDIT it writes the chat back onto the setup instead — never a rival draft', async () => {
+        // The editing branch is the one place Mentor must NOT save a thread: the conversation
+        // belongs to the setup being edited. A stopped turn does not change which of the two it is.
+        const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+        await stoppedTurn({ editingSetupId: 's1' })
+        expect(saveDraft).not.toHaveBeenCalled()
+        expect(saveChatState).toHaveBeenCalledTimes(1)
+        expect(saveChatState.mock.calls[0][1].messages.at(-1))
+            .toEqual({ role: 'user', content: 'AAPL reports Thursday — build me a setup' })
+        err.mockRestore()
     })
 })

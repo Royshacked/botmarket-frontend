@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { analystService } from '../../services/analyst/analyst.service.remote.js'
 import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote.js'
 import { readStoredModel } from '../modelOptions.js'
-import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
+import { useChatStream, toChatHistory, withoutPrefill } from '../../customHooks/useChatStream.js'
 import { useSeedTurn } from '../../customHooks/useSeedTurn.js'
 import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
@@ -112,6 +112,11 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
 
         await chat.run(text, {
             log: '[analyst]',
+            // Stopped mid-answer: save the user's message and the turns before it, with the phase in
+            // force (chat.phase, not data.phase — there is no `data`). The backend floor still
+            // applies, so a stop before Prometheus reached phase 2 persists nothing, exactly as a
+            // completed turn below the floor does.
+            onStopped: () => _saveThread(history, chat.phase, pendingRef.current),
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant' })   // keep the phase-threaded bubbles
                 if (data.coverage) setPendingCoverage(data.coverage)
@@ -143,7 +148,7 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant', content: base + data.reply })
                 if (data.coverage) setPendingCoverage(data.coverage)
-                _saveThread([...history.slice(0, -1), { role: 'assistant', content: base + data.reply }], data.phase, data.coverage ?? pendingRef.current)
+                _saveThread([...withoutPrefill(history), { role: 'assistant', content: base + data.reply }], data.phase, data.coverage ?? pendingRef.current)
             },
         })
         if (!cont) return

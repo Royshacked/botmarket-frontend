@@ -32,6 +32,24 @@ export function toChatHistory(messages) {
 }
 
 /**
+ * The conversation a RESUMED turn is saved against: the history it was sent with, minus the
+ * assistant prefill — because the completed reply replaces that prefill rather than following it.
+ *
+ * The four desks that offer ▶ each wrote `history.slice(0, -1)` for this, and that is only right on
+ * one of the two resume paths. `finalizeResumeHistory` sends a trailing assistant prefill when
+ * CONTINUING a partial, but a REGENERATE (stopped before any token) drops the `_(stopped)_`
+ * placeholder outright, so its history ends at the USER's message — and slicing it off there deleted
+ * the user's turn from the saved thread. On a first-turn regenerate that left a thread with no user
+ * message in it at all, which is also the thread's title.
+ *
+ * Asking the history what it ends with is what makes one expression right on both paths.
+ */
+export function withoutPrefill(history) {
+    const list = Array.isArray(history) ? history : []
+    return list.at(-1)?.role === 'assistant' ? list.slice(0, -1) : list
+}
+
+/**
  * Shared streaming machinery for the three agent chats (idea / scanner /
  * portfolio). Owns the messages list, loading/status/phase state, the typewriter
  * drain, the abort wiring, and the delicate "keep Stop live until the drain
@@ -402,17 +420,29 @@ export function useChatStream({ threadPhases = false } = {}) {
      *   completed, failed, or aborted. For the panel-side bookkeeping that `onDone` cannot do
      *   because the error and abort paths never reach it (Scanner's stalled-sleeve detection is the
      *   case this exists for: a run cut short strands the sleeve exactly as a run that found nothing).
+     * @param {() => void} [spec.onStopped]           THE TURN NEVER COMPLETED — stopped, aborted or
+     *   failed, i.e. `onDone` did not run. The conversation the user is looking at still exists and
+     *   is still theirs to come back to, so this is where a panel persists it. Keyed on onDone rather
+     *   than on `send` resolving: a stream that ends without a `done` event left the panel with
+     *   nothing either, and that is the same walk-out.
+     *   (Distinct from `onSettled`, which fires HOWEVER the turn ended. Both are needed: one is
+     *   bookkeeping for every ending, this one is the rule for the endings that saved nothing.)
      * @param {string} [spec.log]                     log tag for a failed turn
      * @param {string} [spec.errorMessage]            what the frozen bubble says (defaults to the
      *   generic "Error communicating with the server."). A desk the user knows by name can say so.
      * @returns {Promise<boolean>} true when the turn ran to completion
      */
-    async function run(userText, { send, onDone, handlers: extra = {}, onSettled, errorMessage, log = '[chat]' } = {}) {
+    async function run(userText, { send, onDone, handlers: extra = {}, onSettled, onStopped, errorMessage, log = '[chat]' } = {}) {
         // Re-entrancy: a second send while one is in flight would push a second user bubble and
         // orphan the first turn's abort controller. Guarded here rather than at five call sites.
         if (!userText || isLoading || typeof send !== 'function') return false
 
-        const { signal, handlers } = begin(userText, { ...extra, ...(onDone ? { onDone } : {}) })
+        // Did this turn produce an answer? The panels' persistence hangs off onDone, so the honest
+        // reading of "completed" is "onDone ran" — wrapped here, once, rather than asked for as a
+        // flag each panel would have to remember to set.
+        let completed = false
+        const finish = onDone ? (data) => { completed = true; onDone(data) } : undefined
+        const { signal, handlers } = begin(userText, { ...extra, ...(finish ? { onDone: finish } : {}) })
         try {
             await send({ signal, handlers })
             return true
@@ -427,6 +457,12 @@ export function useChatStream({ threadPhases = false } = {}) {
             return false
         } finally {
             endStream()
+            // A turn that answered nothing still leaves a conversation behind — the user's message and
+            // the turns before it — and walking out of a turn is the commonest way to leave a desk
+            // unfinished. Persisting only from onDone meant precisely those walk-outs were the ones
+            // that saved nothing: the desk badge had nothing to read, the lock had nothing to close,
+            // and the chat the user came back to was React state behind a hidden tab, gone on reload.
+            if (!completed) onStopped?.()
             onSettled?.()
         }
     }

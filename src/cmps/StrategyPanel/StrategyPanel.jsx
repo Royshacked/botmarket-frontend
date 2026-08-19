@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { strategyService } from '../../services/strategy/strategy.service.remote.js'
 import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote.js'
 import { readStoredModel } from '../modelOptions.js'
-import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
+import { useChatStream, toChatHistory, withoutPrefill } from '../../customHooks/useChatStream.js'
 import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
@@ -116,6 +116,9 @@ export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished
 
         await chat.run(text, {
             log: '[strategy]',
+            // Stopped mid-answer: the conversation is still the user's to come back to. Phase in
+            // force rather than this turn's, which never arrived (see AnalystPanel).
+            onStopped: () => _saveThread(history, chat.phase, pendingTilt),
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant' })
                 if (data.tilt) setPendingTilt(data.tilt)
@@ -157,7 +160,7 @@ export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant', content: base + data.reply })
                 if (data.tilt) setPendingTilt(data.tilt)
-                _saveThread([...history.slice(0, -1), { role: 'assistant', content: base + data.reply }], data.phase, data.tilt ?? pendingTilt)
+                _saveThread([...withoutPrefill(history), { role: 'assistant', content: base + data.reply }], data.phase, data.tilt ?? pendingTilt)
             },
         })
         if (!cont) return

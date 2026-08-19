@@ -4,7 +4,7 @@ import { scannerService } from '../../services/scanner/scanner.service.remote.js
 import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote.js'
 import { ChatBubble } from '../ChatBubble.jsx'
 import { readStoredModel } from '../modelOptions.js'
-import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
+import { useChatStream, toChatHistory, withoutPrefill } from '../../customHooks/useChatStream.js'
 import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
 import { LaterButton } from '../LaterButton.jsx'
@@ -156,6 +156,14 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
     // done" apart from "the sleeve is stuck".
     const settledRef = useRef(false)
     const [editingScanId,  setEditingScanId]  = useState(null)
+    // …and the same id as a ref, because _send has to read it in the SAME COMMIT the restore writes
+    // it. Reopening a list to refine it pushes a restore and a seeded turn together; effects run in
+    // order but state does not land until the render after, so the send closed over `null` and an
+    // edit conversation was saved as a rival draft thread — marking this desk unfinished over a list
+    // the user was editing. Written where the id changes (never during render, which is one render
+    // too late for exactly the case that matters).
+    const editingScanIdRef = useRef(null)
+    const _setEditingScan = (id) => { editingScanIdRef.current = id ?? null; setEditingScanId(id ?? null) }
     const [editDirty,      setEditDirty]      = useState(false)
     const [selectedAngles, setSelectedAngles] = useState(() => new Set())
     // Profile: locked by pipeline context (trade → trading, portfolio → investing)
@@ -179,7 +187,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
     useEffect(() => {
         if (!chatRestore) return
         setMessages(chatRestore.messages ?? [])
-        setEditingScanId(chatRestore.scanId ?? null)
+        _setEditingScan(chatRestore.scanId ?? null)
         setPendingScan(chatRestore.scan ?? null)
         setEditDirty(false)
         setSelectedAngles(new Set())
@@ -237,6 +245,27 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
         if (inRunRef.current && !settledRef.current) setSleeveStalled(true)
     }
 
+    /**
+     * Persist the list-building conversation as a DRAFT THREAD — the shared mechanism every desk
+     * uses. Construction only: an EDIT run writes back to the scan it is editing, so a draft of it
+     * would be a second copy of the same conversation.
+     *
+     * The backend enforces the substantive floor (scanner = past nucleus), the TTL and the LRU cap.
+     *
+     * One helper for the three callers (a completed turn, a continued one, a stopped one) rather
+     * than the same six-line object written out beside each: they must save the SAME thread, and the
+     * two copies had already started to drift in how they build `messages`.
+     */
+    function _saveThread(msgs, phase, scan) {
+        if (editingScanIdRef.current) return
+        threadsService.saveDraft({
+            pipeline,
+            threadId: threadIdRef.current, agent: 'scanner',
+            messages: msgs, phase: phase ?? null, subjectType: 'scan',
+            state: scan ? { scan } : null,
+        })
+    }
+
     // Kept for _continue, which starts from beginContinue and so cannot go through chat.run.
     function _endTurn() {
         chat.endStream()
@@ -261,6 +290,10 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
         await chat.run(text, {
             log: '[scanner]',
             onSettled: _stallCheck,
+            // Stopped mid-answer: keep the user's message and the turns before it. Phase in force,
+            // since this turn emitted none — below the backend's floor that saves nothing, which is
+            // the same answer a completed turn gets there.
+            onStopped: () => _saveThread(history, chat.phase, pendingScan),
             handlers: {
                 onTicker: (symbol) => {
                     if (!pendingTickersRef.current.includes(symbol)) pendingTickersRef.current.push(symbol)
@@ -272,17 +305,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                 chat.finishStreaming({ role: 'assistant', content: data.reply, tickers })
                 _settleScan(data)
                 if (data.kairos_pick) setHandoffPick(data.kairos_pick)   // hand-off: single pick → button
-                // Construction only: persist the scan-building conversation as a draft thread.
-                // The backend enforces the substantive floor (scanner = past nucleus) + TTL.
-                if (!editingScanId) {
-                    threadsService.saveDraft({
-                        pipeline,
-                        threadId: threadIdRef.current, agent: 'scanner',
-                        messages: [...history, { role: 'assistant', content: data.reply }],
-                        phase: data.phase ?? null, subjectType: 'scan',
-                        state: data.scan ? { scan: data.scan } : null,
-                    })
-                }
+                _saveThread([...history, { role: 'assistant', content: data.reply }], data.phase, data.scan)
             },
             send: ({ signal, handlers }) => scannerService.sendStream(history, {
                 model:           readStoredModel(),
@@ -328,15 +351,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                 chat.finishStreaming({ role: 'assistant', content, tickers })
                 _settleScan(data)
                 if (data.kairos_pick) setHandoffPick(data.kairos_pick)
-                if (!editingScanId) {
-                    threadsService.saveDraft({
-                        pipeline,
-                        threadId: threadIdRef.current, agent: 'scanner',
-                        messages: [...history.slice(0, -1), { role: 'assistant', content }],
-                        phase: data.phase ?? null, subjectType: 'scan',
-                        state: data.scan ? { scan: data.scan } : null,
-                    })
-                }
+                _saveThread([...withoutPrefill(history), { role: 'assistant', content }], data.phase, data.scan)
             },
         })
         if (!cont) return   // nothing continuable
@@ -376,7 +391,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
         chat.reset()
         setPendingScan(null)
         setHandoffPick(null)
-        setEditingScanId(null)
+        _setEditingScan(null)
         setEditDirty(false)
         setSelectedAngles(new Set())
         // Clear is not walking away: the draft goes with the conversation, or the hub keeps offering
@@ -391,7 +406,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
         if (!t) return
         setMessages(t.messages ?? [])
         setPendingScan(t.state?.scan ?? null)
-        setEditingScanId(null)
+        _setEditingScan(null)
         setEditDirty(false)
         threadIdRef.current = t.threadId
     }
