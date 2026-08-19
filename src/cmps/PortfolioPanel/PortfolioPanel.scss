@@ -1,11 +1,19 @@
-// NB: despite the name, this file IS the shared agent-chat shell. Nine files import it — every
-// agent panel (Kairos, Scanner, Analyst, Mentor), ChatBubble and AxlHub — for the `.portfolio-panel`
-// frame: __messages, __bubble, __action-bubble, __review-btn and the ChatInputRow prefix.
+// NB: despite the name, this file IS the shared agent-chat shell. FIVE files import it —
+// PortfolioPanel, ScannerPanel, AnalystPanel, MentorPanel and ChatBubble — for the
+// `.portfolio-panel` frame: __messages, __bubble, __action-bubble, __review-btn and the
+// ChatInputRow prefix. TWELVE components wear its class names (StrategyPanel, AgentMessages,
+// LaterButton and SetupPage among them), inheriting the styles through whichever panel loaded it.
+//
+// (Roster corrected 2026-08-19: it read "nine files … Kairos … AxlHub". Kairos was archived
+// 2026-08-18, and AxlHub only MENTIONS this file in a comment — it does not import it. A hand-kept
+// list of importers goes stale exactly the way the sse.util header did.)
 //
 // It is shared by convention rather than by name, which is why a new panel "just works" after
 // importing a competitor's stylesheet. Renaming it to _chatShell.scss is the honest fix; it is a
-// nine-file, visually-unverifiable change, so it is deliberately left for a pass where the panels
-// can be eyeballed side by side rather than smuggled into a refactor.
+// visually-unverifiable change across five imports and twelve class-name consumers, so it is
+// deliberately left for a pass where the panels can be eyeballed side by side rather than smuggled
+// into a refactor. A 2026-08-19 review flagged this as drift; it is not — it is a decision, and
+// this note is the record of it.
 
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap');
 
