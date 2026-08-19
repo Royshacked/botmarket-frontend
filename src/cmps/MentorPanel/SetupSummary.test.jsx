@@ -4,7 +4,7 @@ import { CoverageChips } from './CoverageChips.jsx'
 import { ZoneEditor } from './ZoneEditor.jsx'
 import { ScenarioBlock } from './ScenarioBlock.jsx'
 import { ConditionList } from './ConditionList.jsx'
-import { SetupSummary } from './SetupSummary.jsx'
+import { SetupSummary, setupDigest } from './SetupSummary.jsx'
 
 afterEach(cleanup)
 
@@ -299,5 +299,29 @@ describe('SetupSummary', () => {
         const withEvents = { ...SETUP, event_risk: [{ date: '2026-07-29', label: 'FOMC Rate Decision' }] }
         render(<SetupSummary setup={withEvents} />)
         expect(screen.getByText(/FOMC Rate Decision/)).toBeTruthy()
+    })
+})
+
+// The folded preview. The worksheet is a reference you glance up at, so Mentor opens it as one
+// line — which means that line has to carry what you would otherwise open it to check.
+describe('setupDigest', () => {
+    it('names the asset, the direction and how many ways in', () => {
+        expect(setupDigest(SETUP)).toBe('NVDA · LONG · 2 ways in')
+    })
+
+    // With a single premise the count says nothing you didn't know, so the space goes to the entry
+    // band instead — the number you actually look up mid-conversation. Same formatter as the block
+    // below it, so folded and open can't disagree about where the entry is.
+    it('shows the entry band instead of a count when there is one way in', () => {
+        expect(setupDigest({ ...SETUP, scenarios: [FADE] })).toBe('NVDA · LONG · entry 199–201')
+    })
+
+    // Early in the build there is a ticker and little else. The digest must degrade to whatever is
+    // known rather than inventing structure — a setup with no premise drawn yet says so by omission.
+    it('degrades to what is known, and is empty before there is an asset', () => {
+        expect(setupDigest({ asset: 'AVGO' })).toBe('AVGO')
+        expect(setupDigest({ asset: 'AVGO', direction: 'short', scenarios: [] })).toBe('AVGO · SHORT')
+        expect(setupDigest(null)).toBe('')
+        expect(setupDigest({})).toBe('')
     })
 })

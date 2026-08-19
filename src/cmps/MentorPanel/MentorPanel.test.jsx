@@ -276,6 +276,47 @@ describe('MentorPanel', () => {
         expect(screen.queryByRole('button', { name: /Generate setup/ })).toBeNull()
     })
 
+    // THE FOLD. The worksheet is a reference you glance up at, not the work — and it grows past a
+    // screen once there are two ways in, which is how a preview pinned above the chat ends up
+    // squeezing the conversation it is supposed to serve. So it arrives as one line and opens on
+    // request; the line itself carries the digest, so folded is informative rather than merely small.
+    it('opens the preview folded to one line, and expands it on a click', async () => {
+        render(<MentorPanel {...props()} />)
+        await runTurn({ reply: 'ok', setup: SETUP, readiness: { ready: true, missing: [] } })
+
+        expect(screen.getByText('NVDA · LONG')).toBeTruthy()
+        expect(screen.queryByText(SETUP.thesis)).toBeNull()
+
+        fireEvent.click(screen.getByRole('button', { name: /your setup/ }))
+
+        expect(screen.getByText(SETUP.thesis)).toBeTruthy()
+        // Open, the digest is redundant with the worksheet under it — and repeating the asset twice
+        // in ten vertical pixels reads as two setups.
+        expect(screen.queryByText('NVDA · LONG')).toBeNull()
+    })
+
+    // A preview that re-folded on every turn would be shut exactly when the setup is moving, which
+    // is the one time it is worth looking at. The choice is the user's until they clear the desk.
+    it('keeps the preview open across the turns that follow', async () => {
+        render(<MentorPanel {...props()} />)
+        await runTurn({ reply: 'ok', setup: SETUP })
+
+        fireEvent.click(screen.getByRole('button', { name: /your setup/ }))
+        await runTurn({ reply: 'tightened the stop', setup: { ...SETUP, thesis: 'Reclaim, tighter stop.' } })
+
+        expect(screen.getByText('Reclaim, tighter stop.')).toBeTruthy()
+    })
+
+    // Coverage can land before any draft does — Mentor reads the tape before it draws a level. With
+    // nothing to unfold the header must not offer a control that does nothing.
+    it('leaves the header inert while there is coverage but no draft', async () => {
+        render(<MentorPanel {...props()} />)
+        await runTurn({ reply: 'reading the tape', coverage: ['markets'] })
+
+        expect(screen.getByText('your setup')).toBeTruthy()
+        expect(screen.queryByRole('button', { name: /your setup/ })).toBeNull()
+    })
+
     it('a fresh build keeps the generic worksheet header', async () => {
         render(<MentorPanel {...props()} />)
         await runTurn({ reply: 'ok', setup: SETUP, readiness: { ready: true, missing: [] } })

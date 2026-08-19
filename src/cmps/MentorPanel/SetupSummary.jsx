@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types'
 import { ConvictionChip } from '../ConvictionChip/ConvictionChip'
-import { ScenarioBlock } from './ScenarioBlock.jsx'
+import { ScenarioBlock, fmtZone } from './ScenarioBlock.jsx'
 import { ConditionList } from './ConditionList.jsx'
 import './SetupSummary.scss'
 
@@ -26,6 +26,28 @@ const fmtDate = (iso) => {
     if (!iso) return null
     try { return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }
     catch { return iso }
+}
+
+// The worksheet folded onto one line, for the collapsed preview header. It lives here rather than
+// in the panel so the summary and its one-liner describe the setup in the same vocabulary — a way
+// in is a way in in both, and the entry band is formatted by the one shared fmtZone.
+//
+// Says the things you check at a glance and could not otherwise see while folded: WHICH asset,
+// which direction, and how many rival premises are drawn (the count is the surprising one — a
+// second way in is easy to forget you agreed to).
+export function setupDigest(setup) {
+    if (!setup?.asset) return ''
+    const parts = [setup.asset]
+    if (setup.direction) parts.push(setup.direction.toUpperCase())
+
+    const scenarios = setup.scenarios ?? []
+    if (scenarios.length === 1) {
+        const zone = fmtZone(scenarios[0].entry_zones?.[0])
+        parts.push(zone ? 'entry ' + zone : '1 way in')
+    } else if (scenarios.length > 1) {
+        parts.push(scenarios.length + ' ways in')
+    }
+    return parts.join(' · ')
 }
 
 export function SetupSummary({ setup, onChange, readOnly = false }) {

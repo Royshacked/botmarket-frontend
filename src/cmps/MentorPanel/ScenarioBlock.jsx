@@ -18,7 +18,9 @@ import './ScenarioBlock.scss'
 // own validity range broke, which does NOT mean the setup is over — a rival can still be live, and
 // showing that is the entire point of rendering every scenario instead of one set of levels.
 
-const fmtZone = (z) => {
+// Exported: the collapsed preview line names the entry band in the same words this block does
+// (SetupSummary.setupDigest). One formatter, so the two can never disagree about 238 vs 238–240.
+export const fmtZone = (z) => {
     if (!z) return null
     if (z.lower == null && z.upper == null) return null
     if (z.lower === z.upper) return `${z.lower}`

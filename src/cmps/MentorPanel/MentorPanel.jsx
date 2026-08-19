@@ -15,7 +15,7 @@ import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { waitingLabel } from '../ToolStatusChip/waitingLabel.js'
 import { CoverageChips } from './CoverageChips.jsx'
-import { SetupSummary } from './SetupSummary.jsx'
+import { SetupSummary, setupDigest } from './SetupSummary.jsx'
 import { CandidatePicker } from './CandidatePicker.jsx'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import './MentorPanel.scss'
@@ -64,6 +64,11 @@ export function MentorPanel({
     const [generated,    setGenerated]    = useState(null)
     const [busy,         setBusy]         = useState(false)
     const [editDirty,    setEditDirty]    = useState(false)
+    // The worksheet is a REFERENCE you glance up at, not the work — and it grows past a screen once
+    // there are two ways in. So it opens FOLDED to its one-line digest and expands on request; the
+    // choice sticks for the conversation, because a preview that re-collapsed on every turn would
+    // be unreadable exactly when the setup is moving.
+    const [previewOpen,  setPreviewOpen]  = useState(false)
 
     const threadIdRef = useRef(newThreadId())
     // The Argus candidate awaiting its turn. A ref, not state: it must ride the very send that the
@@ -95,6 +100,7 @@ export function MentorPanel({
         setCandidates(null)
         setGenerated(null)
         setEditDirty(false)
+        setPreviewOpen(false)
         if (chatRestore.ask) _send(chatRestore.ask, draft, restored, cov)
     }, [chatRestore?.key])   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -262,6 +268,7 @@ export function MentorPanel({
         setCandidates(null)
         setGenerated(null)
         setEditDirty(false)
+        setPreviewOpen(false)
         // Clear is not walking away — the draft goes with the conversation. See clearThread.
         clearThread(threadIdRef)
     }
@@ -353,18 +360,41 @@ export function MentorPanel({
     return (
         <div className="portfolio-panel mentor-panel">
             {(hasPreview || coverage.length > 0) && (
-                <div className="portfolio-panel__build-summary mentor-panel__build">
+                <div className={`portfolio-panel__build-summary mentor-panel__build${previewOpen ? ' is-open' : ''}`}>
                     <div className="mentor-panel__build-head">
                         {/* WHICH setup, when there is a particular one. Editing used to be invisible:
                             this read "your setup" in both modes, so the only difference between
                             re-drawing AVGO and starting fresh was that Generate had disappeared — a
-                            desk that looks broken rather than a desk that is in a mode. */}
-                        <span className="portfolio-panel__build-summary-title">
-                            {isEditing ? `editing ${pendingSetup?.asset ?? 'this setup'}` : 'your setup'}
-                        </span>
+                            desk that looks broken rather than a desk that is in a mode.
+
+                            The whole line is the fold's handle when there is something to unfold —
+                            a caret alone is a smaller target than the thing it describes. With only
+                            coverage chips and no draft yet there is nothing to open, so it stays a
+                            plain label rather than a button that does nothing. */}
+                        {hasPreview ? (
+                            <button
+                                type="button"
+                                className="mentor-panel__build-toggle"
+                                onClick={() => setPreviewOpen(open => !open)}
+                                aria-expanded={previewOpen}
+                                title={previewOpen ? 'Fold the setup away' : 'Open the full setup'}
+                            >
+                                <span className="mentor-panel__build-caret" aria-hidden="true">{previewOpen ? '▾' : '▸'}</span>
+                                <span className="portfolio-panel__build-summary-title">
+                                    {isEditing ? `editing ${pendingSetup?.asset ?? 'this setup'}` : 'your setup'}
+                                </span>
+                                {/* Folded, this line IS the preview — so it carries what you would
+                                    otherwise open it to check. */}
+                                {!previewOpen && <span className="mentor-panel__build-digest">{setupDigest(pendingSetup)}</span>}
+                            </button>
+                        ) : (
+                            <span className="portfolio-panel__build-summary-title">
+                                {isEditing ? `editing ${pendingSetup?.asset ?? 'this setup'}` : 'your setup'}
+                            </span>
+                        )}
                         <CoverageChips coverage={coverage} />
                     </div>
-                    {hasPreview && (
+                    {hasPreview && previewOpen && (
                         <SetupSummary
                             setup={pendingSetup}
                             onChange={setPendingSetup}
