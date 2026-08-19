@@ -1648,18 +1648,20 @@ export function MainPage() {
             const promises   = []
             const skippedLive = []
             for (const change of update.changes) {
-                // `_item` vocab (a holding is a portfolio_item); legacy `_idea`/`ideaId`/`idea` accepted.
-                const id   = change.itemId ?? change.ideaId
-                const spec = change.item   ?? change.idea
-                if ((change.action === 'update_item' || change.action === 'update_idea') && id && change.patch) {
+                // `_item` vocab — a holding is a portfolio_item. The `_idea` spelling was accepted
+                // here through the rename and was dropped 2026-08-19 on both sides, after a raw scan
+                // of every stored document found none: nothing produces it and nothing holds one.
+                const id   = change.itemId
+                const spec = change.item
+                if (change.action === 'update_item' && id && change.patch) {
                     promises.push(tradeIdeasService.updateIdea(id, change.patch))
-                } else if ((change.action === 'remove_item' || change.action === 'remove_idea') && id) {
+                } else if (change.action === 'remove_item' && id) {
                     // A live leg (in position / hit) can't be deleted — keep it and flag
                     // it rather than fail the whole batch. The rest of the changes apply.
                     const target = ideaById.get(id)
                     if (target && isDeleteLocked(target)) { skippedLive.push(target); continue }
                     promises.push(tradeIdeasService.deleteIdea(id))
-                } else if ((change.action === 'add_item' || change.action === 'add_idea') && spec) {
+                } else if (change.action === 'add_item' && spec) {
                     const existing = ideas.filter(i => i.portfolioId === update.portfolioId)
                     promises.push(tradeIdeasService.createIdea({
                         ...spec,
@@ -3022,18 +3024,18 @@ function RebalanceConfirmDialog({ update, ideas, applying, onConfirm, onCancel }
     const assetOf  = (id) => ideaById.get(id)?.asset ?? id ?? '—'
     const pct      = (n) => `${Math.round((Number(n) || 0) * 100)}%`
 
-    // A holding is a portfolio_item, so the vocabulary is `_item`; the legacy `_idea` verbs and the
-    // `ideaId`/`idea` fields are still accepted (an in-flight block from before the rename).
+    // A holding is a portfolio_item, so the vocabulary is `_item`. The `_idea` spelling was carried
+    // as an alias through the rename and dropped 2026-08-19 — see the note in the apply path above.
     function describe(change) {
-        const id   = change.itemId ?? change.ideaId
-        const spec = change.item   ?? change.idea
+        const id   = change.itemId
+        const spec = change.item
         switch (change.action) {
-            case 'exit_item':   case 'exit_idea':   return `Exit ${assetOf(id)}${change.reason ? ` — ${change.reason}` : ''}`
-            case 'trim_item':   case 'trim_idea':   return `Trim ${assetOf(id)} by ${pct(change.reduceFraction)}${change.targetAllocationRatio != null ? ` → target ${pct(change.targetAllocationRatio)}` : ''}`
-            case 'add_to_item': case 'add_to_idea': return `Add to ${assetOf(id)}: +${pct(change.addFraction)}${change.targetAllocationRatio != null ? ` → target ${pct(change.targetAllocationRatio)}` : ''}`
-            case 'add_item':    case 'add_idea':    return `Add ${spec?.asset ?? '?'} (${spec?.direction ?? 'long'}${spec?.allocationRatio != null ? `, target ${pct(spec.allocationRatio)}` : ''})`
-            case 'update_item': case 'update_idea': return `Update ${assetOf(id)}: ${Object.keys(change.patch ?? {}).join(', ') || 'fields'}`
-            case 'remove_item': case 'remove_idea': return `Remove ${assetOf(id)} (pending)`
+            case 'exit_item':   return `Exit ${assetOf(id)}${change.reason ? ` — ${change.reason}` : ''}`
+            case 'trim_item':   return `Trim ${assetOf(id)} by ${pct(change.reduceFraction)}${change.targetAllocationRatio != null ? ` → target ${pct(change.targetAllocationRatio)}` : ''}`
+            case 'add_to_item': return `Add to ${assetOf(id)}: +${pct(change.addFraction)}${change.targetAllocationRatio != null ? ` → target ${pct(change.targetAllocationRatio)}` : ''}`
+            case 'add_item':    return `Add ${spec?.asset ?? '?'} (${spec?.direction ?? 'long'}${spec?.allocationRatio != null ? `, target ${pct(spec.allocationRatio)}` : ''})`
+            case 'update_item': return `Update ${assetOf(id)}: ${Object.keys(change.patch ?? {}).join(', ') || 'fields'}`
+            case 'remove_item': return `Remove ${assetOf(id)} (pending)`
             default:            return change.action
         }
     }
