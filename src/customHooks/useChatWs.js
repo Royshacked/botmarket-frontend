@@ -26,14 +26,25 @@ const TYPE_LABELS = {
     queue_ready:        'Market open',
 }
 
-// One-line preview for the incoming-message toast. Bot senders resolve to their
-// brand (Idea / Atlas / Argus / axl); human DMs use `senderName` (attached to the
-// WS payload by the server) so the toast shows who it's from.
-export function chatPreview(msg) {
-    const who  = isBotId(msg?.senderId) ? (AGENTS[msg.senderId]?.brand ?? null) : (msg?.senderName ?? null)
+// The pieces the preview toast renders: WHO it's from, WHAT it says, and — for a bot
+// sender — the agent key + hue that tint its avatar. Bot senders resolve to their brand
+// (Idea / Atlas / Argus / axl); human DMs use `senderName` (attached to the WS payload by
+// the server) so the toast shows who it's from.
+export function chatPreviewParts(msg) {
+    const bot  = isBotId(msg?.senderId) ? (AGENTS[msg.senderId] ?? null) : null
+    const who  = bot ? (bot.brand ?? null) : (msg?.senderName ?? null)
     const body = (msg?.content && String(msg.content).trim())
         ? String(msg.content).replace(/\s+/g, ' ').slice(0, 80)
         : (TYPE_LABELS[msg?.type] ?? 'New message')
+    // agentKey is set only for a KNOWN bot — an unrecognised bot id falls through to the
+    // initial-letter avatar rather than rendering an empty glyph slot.
+    return { who, body, agentKey: bot ? msg.senderId : null, hue: bot?.hue ?? null }
+}
+
+// Flat one-liner form of the same preview. Still the toast's `txt` — it is what a
+// screen reader and any non-chat surface read when the rich body isn't rendered.
+export function chatPreview(msg) {
+    const { who, body } = chatPreviewParts(msg)
     return who ? `💬 ${who}: ${body}` : `💬 ${body}`
 }
 
@@ -107,6 +118,7 @@ export function useChatWs(userId) {
             const convId = msg?.conversationId ?? null
             showUserMsg({
                 txt:     chatPreview(msg),
+                preview: chatPreviewParts(msg),
                 type:    'chat',
                 onClick: () => { setPendingConvId(convId); setPendingMsgId(msg?.id ?? null); setShowChat(true) },
             })

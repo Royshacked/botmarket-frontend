@@ -1,23 +1,13 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { chatService } from '../../services/chat/chat.service'
-import { AxlBotGlyph } from '../AxlHub/AgentSummon'
+import { BotAvatarGlyph } from '../AxlHub/AgentSummon'
 import { AGENTS, BOT_IDS, isBotId, isRetiredBotId } from '../AxlHub/agentMeta.jsx'
-import { AgentGlyph } from '../AxlHub/AgentBadges.jsx'
 
 // The agent behind a conversation, or null for a human DM. Drives the brand name
 // and the tinted avatar.
 function botMetaFor(otherId) {
     return isBotId(otherId) ? AGENTS[otherId] : null
-}
-
-// Small tinted agent sigil for the conversation avatar (Axl keeps its dedicated glyph).
-function BotAvatarGlyph({ agentKey }) {
-    if (agentKey === 'axl') return <AxlBotGlyph />
-    const meta = AGENTS[agentKey]
-    if (!meta) return null
-    // Social-chat feed: each agent shows its own figure (Idea, Atlas, Argus, Kairos).
-    return <AgentGlyph agentKey={agentKey} icon={meta.icon} size={28} />
 }
 
 function timeAgo(ms) {
