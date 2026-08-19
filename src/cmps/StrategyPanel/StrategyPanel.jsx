@@ -39,10 +39,13 @@ const _bp = v => (v === null || v === undefined ? '—' : `${v >= 0 ? '+' : ''}$
  */
 export function TiltDraft({ tilt }) {
     const rows = Array.isArray(tilt.tilts) ? tilt.tilts : []
-    const net  = rows.reduce((a, r) => a + (Number(r.active_bp) || 0), 0)
-    // Mirrors BALANCE_TOLERANCE_BP on the server — the client only PREVIEWS the verdict; the
-    // publish call is what actually decides, so a drift here costs a surprise, never a bad write.
-    const balanced = Math.abs(net) <= 50
+    // The SERVER's verdict, carried on the draft — the same balanceOf() that normalizeTilt records
+    // at publish. This used to be re-derived here against a hardcoded 50, a copy of the backend's
+    // BALANCE_TOLERANCE_BP: a number that decides a verdict, living in a second repo, where nothing
+    // would ever say the two had drifted. Reading it means the preview and the publish cannot
+    // disagree about whether a table nets out.
+    const net      = Number(tilt.net_bp) || 0
+    const balanced = tilt.balanced !== false
 
     return (
         <div className="strategy-panel__draft">

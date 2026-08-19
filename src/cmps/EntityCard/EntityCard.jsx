@@ -16,8 +16,9 @@ import { IconButton } from './IconButton.jsx'
 // like a different application than the idea sitting one tab away.
 //
 // CLASS NAMES: the shell still emits `idea-card*`. That name is now the SHARED shell's name, not
-// the idea kind's — ~360 lines of TradeIdeas.scss plus MonitorDashboard.scss key off it, and
-// renaming is a cosmetic pass with real regression surface, worth doing on its own.
+// the idea kind's — ~360 lines of TradeIdeas.scss key off it, and renaming is a cosmetic pass with
+// real regression surface, worth doing on its own. (MonitorDashboard.scss used to be the other
+// claimant; that component was never mounted and was deleted 2026-08-19.)
 
 /** Clicks that must never open the card: the controls column, and the ticker (→ chart). */
 function isPassthroughClick(ev) {

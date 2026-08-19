@@ -27,10 +27,15 @@ import { reviewPrompt } from './reviewPrompt.js'
 afterEach(cleanup)
 
 const row = (over = {}) => ({ sector: 'Healthcare', stance: 'over', active_bp: 150, horizon: '6m', ...over })
+// `net_bp` / `balanced` are the SERVER's — balanceOf() rides on the draft the desk streams back,
+// the same verdict normalizeTilt records at publish. They are in the fixture because they are in the
+// payload; the panel no longer works them out, so a fixture that omitted them would be testing a
+// response shape the server does not send.
 const draft = (over = {}) => ({
     benchmark: 'SPX',
     regime: { name: 'late-cycle disinflation', thesis: 'Growth slows.', kill_criteria: ['core CPI above 3.5% twice'] },
     tilts: [row(), row({ sector: 'Energy', stance: 'under', active_bp: -150 })],
+    net_bp: 0, balanced: true,
     ...over,
 })
 
@@ -56,13 +61,23 @@ describe('TiltDraft', () => {
     })
 
     it('flags a table that does not net out', () => {
-        const { container } = render(<TiltDraft tilt={draft({ tilts: [row({ active_bp: 300 }), row({ sector: 'Energy', active_bp: 200 })] })} />)
+        const { container } = render(<TiltDraft tilt={draft({
+            tilts: [row({ active_bp: 300 }), row({ sector: 'Energy', active_bp: 200 })],
+            net_bp: 500, balanced: false,
+        })} />)
         expect(screen.getByText('net +500bp')).toBeTruthy()
         expect(container.querySelector('.strategy-panel__net--off')).toBeTruthy()
     })
 
-    it('rounding slack inside the tolerance is not flagged', () => {
-        const { container } = render(<TiltDraft tilt={draft({ tilts: [row({ active_bp: 50 })] })} />)
+    it('renders the verdict the server sent rather than second-guessing it from the rows', () => {
+        // The tolerance itself is the backend's (balanceOf / BALANCE_TOLERANCE_BP) and is tested
+        // there. What matters HERE is that the panel does not re-derive it: given rows that sum to
+        // 500 but a verdict of balanced, it must show balanced — because the publish call will.
+        // Re-deriving is what let a copy of the tolerance drift in a second repo.
+        const { container } = render(<TiltDraft tilt={draft({
+            tilts: [row({ active_bp: 300 }), row({ sector: 'Energy', active_bp: 200 })],
+            net_bp: 500, balanced: true,
+        })} />)
         expect(container.querySelector('.strategy-panel__net--off')).toBeNull()
     })
 
