@@ -737,4 +737,15 @@
         border-top: 1px solid var(--border);
         margin-top: 2px;
     }
+
+    // A marked account this workspace cannot list. Warm rather than muted: it explains a
+    // selection the menu is otherwise unable to show, so it must not read as fine print.
+    &__elsewhere {
+        font-family: var(--font-mono);
+        font-size: var(--chat-micro);
+        color: var(--color-short, var(--accent-light));
+        padding: 5px 12px 6px;
+        border-top: 1px solid var(--border);
+        margin-top: 2px;
+    }
 }

@@ -830,6 +830,41 @@ export function inWorkspace(entities, workspace) {
     return Array.isArray(entities) ? entities.filter(e => entityWorkspace(e) === workspace) : []
 }
 
+/**
+ * Which of a book's ideas may take the currently marked accounts, and which account leads them.
+ * Returns `null` when the push must not happen at all.
+ *
+ * `accounts` is the field the order and exit paths ROUTE by, so re-writing it across a whole book
+ * is not the harmless "save what's on screen" it looks like. Three rules, each one a refusal:
+ *
+ *   • NOTHING MARKED IS NOT AN INSTRUCTION. The caller resolves the marked ids through the accounts
+ *     of the workspace being stood in, so a book opened from another workspace resolves to an empty
+ *     list — and writing that empty list over live holdings is how a real position loses the broker
+ *     id its stop is placed against. Unmarking every account is not a way to unbind a book either:
+ *     an idea with no account cannot place at all, so the empty case has no legitimate reading.
+ *
+ *   • A POST-ORDER LEG IS NOT RE-POINTABLE. Its order already exists AT an account; changing the
+ *     field cannot move the position, it only breaks the route back to it. (Atlas's re-plan branch
+ *     already refuses to touch live legs — this is the same refusal on the quieter path.)
+ *
+ *   • MAIN MUST BE ONE OF THE MARKED. A main account that isn't in the list scales quantities off
+ *     a balance the book is not trading; null means "not starred", which every reader handles.
+ *
+ * @param {Array<{id:string, status?:string}>} ideas       the book's current ideas
+ * @param {string[]} accountIds                            marked accounts, already resolved to real ones
+ * @param {string|null} mainAccountId
+ * @returns {{ targets: Array<object>, accounts: string[], mainAccountId: string|null }|null}
+ */
+export function planAccountRebind(ideas, accountIds, mainAccountId = null) {
+    const accounts = Array.isArray(accountIds) ? accountIds.filter(Boolean) : []
+    if (!accounts.length) return null
+
+    const targets = (Array.isArray(ideas) ? ideas : []).filter(i => i && !isPostOrderStatus(i.status))
+    if (!targets.length) return null
+
+    return { targets, accounts, mainAccountId: accounts.includes(mainAccountId) ? mainAccountId : null }
+}
+
 // ── Idea status groups ──────────────────────────────────────────────────────
 // Single source for the status literal-sets that were duplicated across
 // TradeIdeaRow / IdeaDetail / MainPage.

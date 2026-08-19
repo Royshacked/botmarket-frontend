@@ -105,7 +105,15 @@ export function AccountSelector({ accounts = [], selectedIds = [], onChange, mai
         if (onMainChange) onMainChange(mainAccountId === id ? null : id)
     }
 
-    const count = selectedIds.length
+    // THE BADGE COUNTS WHAT THIS MENU CAN SHOW. `selectedIds` may name an account the current
+    // workspace does not list — a live broker id while the user stands in paper, an account
+    // deleted since it was marked — and counting it raw put a "1" on a menu with nothing ticked,
+    // which is what a user reported. The unlistable ids are KEPT in the selection rather than
+    // dropped (a document's binding is not ours to rewrite because the reader moved book), so
+    // they are named below instead of silently vanishing.
+    const resolvable = selectedIds.filter(id => accounts.some(a => a.id === id))
+    const elsewhere  = selectedIds.filter(id => !accounts.some(a => a.id === id))
+    const count      = resolvable.length
 
     return (
         <div className="acct-sel" ref={ref}>
@@ -169,6 +177,15 @@ export function AccountSelector({ accounts = [], selectedIds = [], onChange, mai
                                 </label>
                             )
                         })
+                    )}
+                    {/* Named, not hidden: the count above already excludes these, and a selection
+                        the user cannot see is exactly what made the badge look broken. */}
+                    {elsewhere.length > 0 && (
+                        <div className="acct-sel__elsewhere">
+                            {elsewhere.length === 1
+                                ? '1 marked account belongs to another workspace'
+                                : `${elsewhere.length} marked accounts belong to another workspace`}
+                        </div>
                     )}
                     {virtualMode && (
                         <div className="acct-sel__paper-note">

@@ -158,3 +158,74 @@ describe('AccountSelector selection mode', () => {
         expect(screen.queryByText('one per idea')).toBeNull()
     })
 })
+
+describe('AccountSelector badge vs list', () => {
+    // Reported from the desk: the bank icon in the chat header read "1", and the menu it opened
+    // had nothing ticked. The badge was `selectedIds.length` — a raw count with no lookup — while a
+    // row only ticks when the id resolves against `accounts`. A user standing in PAPER whose
+    // selection still held a cTrader id (carried over from opening a live holding, since one
+    // selection is shared by every desk) got a count for a row that could not exist.
+    const geometry = { triggerLeft: 350, triggerRight: 380, clipLeft: 0, clipRight: 400 }
+
+    it('counts only the accounts this workspace can actually show', () => {
+        stubGeometry(geometry)
+        const { container } = render(
+            <div data-clip="1">
+                {/* the paper book on screen, still holding the live holding's cTrader account */}
+                <AccountSelector accounts={paper} selectedIds={['46115894']} onChange={() => {}} />
+            </div>,
+        )
+        expect(container.querySelector('.acct-sel__count')).toBeNull()
+        fireEvent.click(screen.getByTitle('Select accounts for this idea'))
+        expect(screen.getAllByRole('checkbox').every(cb => !cb.checked)).toBe(true)
+    })
+
+    it('says so rather than dropping it — an invisible selection is what looked broken', () => {
+        stubGeometry(geometry)
+        render(
+            <div data-clip="1">
+                <AccountSelector accounts={paper} selectedIds={['46115894']} onChange={() => {}} />
+            </div>,
+        )
+        fireEvent.click(screen.getByTitle('Select accounts for this idea'))
+        expect(screen.getByText('1 marked account belongs to another workspace')).toBeTruthy()
+    })
+
+    it('counts the resolvable ones alongside an unlistable one', () => {
+        stubGeometry(geometry)
+        const { container } = render(
+            <div data-clip="1">
+                <AccountSelector accounts={paper} selectedIds={['p1', 'p2', '46115894']} onChange={() => {}} />
+            </div>,
+        )
+        expect(container.querySelector('.acct-sel__count').textContent).toBe('2')
+        fireEvent.click(screen.getByTitle('Select accounts for this idea'))
+        expect(screen.getByText('1 marked account belongs to another workspace')).toBeTruthy()
+    })
+
+    it('KEEPS the unlistable id through a toggle — a binding is not rewritten by who is looking', () => {
+        stubGeometry(geometry)
+        const onChange = vi.fn()
+        render(
+            <div data-clip="1">
+                <AccountSelector accounts={paper} selectedIds={['46115894']} onChange={onChange} />
+            </div>,
+        )
+        fireEvent.click(screen.getByTitle('Select accounts for this idea'))
+        fireEvent.click(screen.getAllByRole('checkbox')[0])
+        expect(onChange).toHaveBeenCalledWith(['46115894', 'p1'])
+    })
+
+    it('an empty account list is not a phantom either — nothing connected, nothing counted', () => {
+        stubGeometry(geometry)
+        const { container } = render(
+            <div data-clip="1">
+                <AccountSelector accounts={[]} selectedIds={['p1']} onChange={() => {}} />
+            </div>,
+        )
+        expect(container.querySelector('.acct-sel__count')).toBeNull()
+        fireEvent.click(screen.getByTitle('Select accounts for this idea'))
+        expect(screen.getByText('no accounts connected')).toBeTruthy()
+        expect(screen.getByText('1 marked account belongs to another workspace')).toBeTruthy()
+    })
+})

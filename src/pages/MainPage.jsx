@@ -28,7 +28,7 @@ import { analystService, COVERAGE_CHANGED } from '../services/analyst/analyst.se
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
-import { activatePortfolio, isManualIdea, buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace, inWorkspace, positionOpenTarget, openIdeaPopup, matchPositionsForIdea, isPortfolioReview } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { activatePortfolio, isManualIdea, buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace, inWorkspace, planAccountRebind, positionOpenTarget, openIdeaPopup, matchPositionsForIdea, isPortfolioReview } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { TradeTicket } from '../cmps/TradeTicket/TradeTicket.jsx'
 import { apiError } from '../services/http.service.js'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
@@ -460,6 +460,9 @@ export function MainPage() {
         setEditingSetupId(setup.id)
         // The venue is re-bound on Update from the MARKED accounts, so restore the ones this setup
         // was generated against — otherwise an edit could silently re-bind it to another broker.
+        // Standing in the setup's own workspace first is what makes those accounts LISTABLE; without
+        // it the selector holds ids it cannot show and the re-bind resolves to nothing.
+        alignWorkspaceTo(setup)
         setSelectedAccounts(Array.isArray(setup.accounts) ? setup.accounts : [])
         setMainAccountId(setup.mainAccountId ?? null)
         setChartSymbol(setup.asset || 'SPY')
@@ -830,6 +833,7 @@ export function MainPage() {
         if (editInterval) setChartInterval(editInterval)
         setEditingIdeaId(idea.id)
         setIsInvalidationReview(invalidationReview)
+        alignWorkspaceTo(idea)
         setSelectedAccounts(Array.isArray(idea.accounts) ? idea.accounts : [])
         setMainAccountId(idea.mainAccountId ?? null)
         // Editing an idea from a list (ideas list / mobile monitor / invalidation alert)
@@ -849,6 +853,25 @@ export function MainPage() {
     positionsRef.current = positions
     const workspaceRef = useRef(workspace)   // for []-dep event handlers that must read the live workspace
     workspaceRef.current = workspace
+
+    /**
+     * Stand the user in the DOCUMENT'S OWN workspace before opening it.
+     *
+     * The workspace is the book you are standing in, and an entity that binds to an account
+     * belongs to exactly one of them. Opening a live holding while standing in paper used to
+     * import its broker accounts INTO paper instead: the account selector was handed a cTrader
+     * id it had no row for, so its badge read "1" over a menu with nothing ticked — and, worse,
+     * every save then resolved that selection through the paper account list and got nothing,
+     * which is how "Update plan" could write `accounts: []` over a live holding's broker binding.
+     *
+     * Only switches when the document is genuinely CROSS-workspace: the switch flips the backend
+     * paper flag, so re-flipping it for a document that already belongs here would churn
+     * account-wide state (badge, positions, selectors) for nothing.
+     */
+    function alignWorkspaceTo(doc) {
+        const ws = doc && ideaWorkspace(doc)
+        if (ws && ws !== workspaceRef.current) setWorkspace(ws)
+    }
     useEffect(() => {
         return eventBus.on(INVALIDATION_EDIT_IDEA, async ({ ideaId }) => {
             const idea = await resolveEntity('idea', ideaId)
@@ -911,7 +934,7 @@ export function MainPage() {
             // flag so the right accounts load — required to place the order). Never re-flip global
             // trading mode when the idea already belongs to the active workspace: confirming a
             // same-workspace card must not churn account-wide state (badge, positions, selectors).
-            if (ideaWorkspace(idea) !== workspaceRef.current) setWorkspace(ideaWorkspace(idea))
+            alignWorkspaceTo(idea)
             setDismissedConfirmIds(prev => {
                 if (!prev.has(ideaId)) return prev
                 const next = new Set(prev); next.delete(ideaId); return next
@@ -1604,6 +1627,8 @@ export function MainPage() {
         // what's actually attached (not stale global selection) — and so saving the
         // edit doesn't wipe accounts the user never meant to change.
         const seedAccounts = [...new Set(portfolioIdeas.flatMap(i => Array.isArray(i.accounts) ? i.accounts : []))]
+        // A book's holdings all bind to the same workspace, so the first one names it for the book.
+        alignWorkspaceTo(portfolioIdeas[0])
         setSelectedAccounts(seedAccounts)
         setMainAccountId(portfolioIdeas.find(i => i.mainAccountId)?.mainAccountId ?? null)
 
@@ -1660,11 +1685,19 @@ export function MainPage() {
                 const newIdeas   = await tradeIdeasService.createBatch(plan, accountIds, mainAccountId, portfolioId)
                 setIdeas(prev => [...newIdeas, ...prev.filter(i => i.portfolioId !== portfolioId)])
             } else {
-                // No re-plan, but the account selection may have changed while editing.
-                // Push the current accounts onto every idea so a marked account actually
-                // reaches the portfolio's ideas (mirrors the single-idea attach flow).
-                await Promise.all(existing.map(i => tradeIdeasService.updateIdea(i.id, { accounts: accountIds, mainAccountId })))
-                setIdeas(prev => prev.map(i => i.portfolioId === portfolioId ? { ...i, accounts: accountIds, mainAccountId } : i))
+                // No re-plan, but the account selection may have changed while editing — so push it
+                // onto the ideas that can still take it. What may be pushed, and onto which legs, is
+                // planAccountRebind's call: this writes the field the order and exit paths route by,
+                // and it used to write `accounts: []` over a live holding's broker id whenever the
+                // book was opened from another workspace. null = nothing legitimate to push.
+                const rebind = planAccountRebind(existing, accountIds, mainAccountId)
+                if (rebind) {
+                    await Promise.all(rebind.targets.map(i =>
+                        tradeIdeasService.updateIdea(i.id, { accounts: rebind.accounts, mainAccountId: rebind.mainAccountId })))
+                    const touched = new Set(rebind.targets.map(i => i.id))
+                    setIdeas(prev => prev.map(i =>
+                        touched.has(i.id) ? { ...i, accounts: rebind.accounts, mainAccountId: rebind.mainAccountId } : i))
+                }
             }
 
             const chatMessages = toChatHistory(messages)
