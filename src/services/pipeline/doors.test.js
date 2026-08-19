@@ -12,7 +12,7 @@ import { handoffDoors } from './doors.js'
 
 const spy = () => { const f = (...a) => f.calls.push(a); f.calls = []; return f }
 const bag = () => ({
-    setScanInbox: spy(), setKairosInbox: spy(), setAnalystInbox: spy(), setMentorInbox: spy(),
+    setScannerInbox: spy(), setKairosInbox: spy(), setAnalystInbox: spy(), setMentorInbox: spy(),
     setScannerSeed: spy(), setPortfolioSeed: spy(), setMentorSeed: spy(), setAnalystSeed: spy(),
 })
 
@@ -47,7 +47,7 @@ test('the routing tables are keyed by AGENT — what a hop plan names', () => {
     const doors   = handoffDoors(setters)
 
     assert.equal(doors.inbox.mentor, setters.setMentorInbox)
-    assert.equal(doors.inbox.scanner, setters.setScanInbox)
+    assert.equal(doors.inbox.scanner, setters.setScannerInbox)
     assert.equal(doors.inbox.analyst, setters.setAnalystInbox)
     assert.equal(doors.pipelineSeed.scanner, setters.setScannerSeed)
     assert.equal(doors.pipelineSeed.portfolio, setters.setPortfolioSeed)
@@ -62,6 +62,6 @@ test('a hop can never open Mentor’s or Prometheus’s seed door', () => {
 })
 
 test('an absent setter is not a crash — clear is called on the way out of a desk', () => {
-    assert.doesNotThrow(() => handoffDoors({ setScanInbox: undefined }).clear())
+    assert.doesNotThrow(() => handoffDoors({ setScannerInbox: undefined }).clear())
     assert.doesNotThrow(() => handoffDoors().clear())
 })

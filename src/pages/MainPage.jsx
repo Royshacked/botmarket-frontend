@@ -270,7 +270,7 @@ export function MainPage() {
     // single-pick mode, and either way a list it produces here is not filed in the user's Scans tab
     // (see scanOrigin). `scannerSeed` is the delivery mechanism for a desk that opens on a
     // sentence: the conveyor writes the brief the receiving contract composed.
-    const [scanInbox,        setScanInbox]        = useState(null)
+    const [scannerInbox,        setScannerInbox]        = useState(null)
     const [scannerSeed,      setScannerSeed]      = useState(null)
     // How the conveyor advances: 'manual' waits for the user to send the artifact on (they can read
     // and keep chatting first), 'auto' hands it straight to the next desk. A gate never
@@ -314,7 +314,7 @@ export function MainPage() {
     // A delivered artifact that outlives its run REPLAYS on the next remount of the desk holding it
     // — see services/pipeline/doors.js for the run it did that on.
     const doors = handoffDoors({
-        setScanInbox, setAnalystInbox, setMentorInbox,
+        setScannerInbox, setAnalystInbox, setMentorInbox,
         setScannerSeed, setPortfolioSeed, setMentorSeed, setAnalystSeed,
     })
 
@@ -1989,7 +1989,7 @@ export function MainPage() {
     // scan_request, or the desk it is standing on exists to build one trade (`produces: 'one'`).
     // Only the first existed before, which is why entering the trade desk AT Argus dead-ended in a
     // saved list with no way forward.
-    const scannerSingle = scanInbox?.kind === KIND.SCAN_REQUEST
+    const scannerSingle = scannerInbox?.kind === KIND.SCAN_REQUEST
         || producesOne(stepsOf(activePipeline), 'scanner')
 
     // …and WHICH desk that is. Asked of findReceiver rather than assumed, because this answer is
@@ -2141,7 +2141,7 @@ export function MainPage() {
             kind: KIND.MANDATE, items: [sr], from: { agent: 'portfolio', label: 'Mandate' },
         })
         const brief = contractFor('scanner').brief(mandate)
-        setScanInbox(mandate)
+        setScannerInbox(mandate)
         setScannerChatRestore(null)
         setScannerSeed({ key: mandate.key, message: brief.message, profile: brief.profile })
         // Remount only when ENTERING the run — a fresh Argus for a fresh book. Between sectors the
@@ -2161,7 +2161,7 @@ export function MainPage() {
     // not Argus's guess at it.
     function handleSendPick(pick, opts = {}) {
         if (!pick?.ticker) return
-        const request = firstItem(scanInbox)                      // the scan_request Argus is holding
+        const request = firstItem(scannerInbox)                      // the scan_request Argus is holding
         const sent = emitArtifact(makeArtifact({
             kind:  KIND.CANDIDATE_LIST,
             items: [{
@@ -2354,7 +2354,7 @@ export function MainPage() {
     async function handleGenerateList(scan, threadId = null) {
         const keeps = savesToScansList(scanOrigin({
             sleeveRunActive: sleeveRunRef.current.active,
-            handoffActive:   scanInbox?.kind === KIND.SCAN_REQUEST,
+            handoffActive:   scannerInbox?.kind === KIND.SCAN_REQUEST,
         }))
         const saved = keeps ? await createScan(scan) : null
         // createScan swallows its error and answers null — for a list the user means to keep, that

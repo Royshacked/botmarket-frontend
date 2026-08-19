@@ -29,7 +29,7 @@
  */
 export function handoffDoors(setters = {}) {
     const inbox = {
-        scanner: setters.setScanInbox,
+        scanner: setters.setScannerInbox,
         analyst: setters.setAnalystInbox,
         mentor:  setters.setMentorInbox,
     }
