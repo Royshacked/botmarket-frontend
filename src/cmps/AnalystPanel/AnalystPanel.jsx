@@ -105,35 +105,27 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
     }
 
     async function _send(text) {
-        if (!text || isLoading) return
         setInitiateErr('')
         const candidate = seedRef.current; seedRef.current = null   // NB: the Argus payload, not the `seed` prop
         const history = toChatHistory(messages)
         history.push({ role: 'user', content: text })
 
-        const { signal, handlers } = chat.begin(text, {
+        await chat.run(text, {
+            log: '[analyst]',
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant' })   // keep the phase-threaded bubbles
                 if (data.coverage) setPendingCoverage(data.coverage)
                 _saveThread([...history, { role: 'assistant', content: data.reply }], data.phase, data.coverage ?? pendingRef.current)
             },
-        })
-
-        try {
-            await analystService.sendStream(history, {
+            send: ({ signal, handlers }) => analystService.sendStream(history, {
                 model:           readStoredModel(),
                 // Feed the draft-so-far back so the model carries settled fields forward.
                 chatState:       { active_symbol: pendingRef.current?.symbol || candidate?.ticker || '', draft: pendingRef.current, existing_coverage: existingRef.current },
                 seed: candidate, // structured Argus investing candidate (one-shot on the hand-off turn)
                 signal,
                 ...handlers,
-            })
-        } catch (err) {
-            console.error('[analyst]', err)
-            chat.freezeError()
-        } finally {
-            chat.endStream()
-        }
+            }),
+        })
     }
 
     // Resume a stopped reply (▶): continue the same bubble (or regenerate if stopped before any token).

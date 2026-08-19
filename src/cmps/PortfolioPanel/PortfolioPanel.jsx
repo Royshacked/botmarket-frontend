@@ -145,7 +145,6 @@ export function PortfolioPanel({
     useSeedTurn(seed, (text) => _send(text))
 
     async function _send(text) {
-        if (!text || isLoading) return
         setEditDirty(true)
         setScreenRequests([])    // a new turn supersedes any pending "Source in Argus" offer
 
@@ -156,9 +155,12 @@ export function PortfolioPanel({
 
         pendingTickersRef.current = []
 
-        const { signal, handlers } = chat.begin(text, {
-            onTicker: (symbol) => {
-                if (!pendingTickersRef.current.includes(symbol)) pendingTickersRef.current.push(symbol)
+        await chat.run(text, {
+            log: '[portfolio]',
+            handlers: {
+                onTicker: (symbol) => {
+                    if (!pendingTickersRef.current.includes(symbol)) pendingTickersRef.current.push(symbol)
+                },
             },
             onDone: (data) => {
                 const tickers = [...pendingTickersRef.current]
@@ -185,10 +187,7 @@ export function PortfolioPanel({
                     reviewTriggeredRef.current = false
                 }
             },
-        })
-
-        try {
-            await portfolioService.sendStream(history, ideaAccounts, {
+            send: ({ signal, handlers }) => portfolioService.sendStream(history, ideaAccounts, {
                 adoptDraftId,
                 mainAccountId,   // reference account Atlas sizes the others against
                 portfolioId:     editingPortfolioId,
@@ -199,13 +198,8 @@ export function PortfolioPanel({
                 model:           readStoredModel(),
                 signal,
                 ...handlers,
-            })
-        } catch (err) {
-            console.error('[portfolio]', err)
-            chat.freezeError()
-        } finally {
-            chat.endStream()
-        }
+            }),
+        })
     }
 
     // Resume a stopped reply in place: send the conversation ending with the partial

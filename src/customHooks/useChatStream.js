@@ -38,22 +38,26 @@ export function toChatHistory(messages) {
  * finishes" (deferLoading) dance — the parts that were copy-pasted three ways and
  * drifted. Each panel keeps its own request params and onDone tail.
  *
- * Usage:
+ * Usage — `run` owns the whole turn; the panel supplies only the request and the tail:
  *   const chat = useChatStream()
  *   async function send(text) {
- *     if (!text || chat.isLoading) return
  *     const history = toChatHistory(chat.messages)  // shared — see below
- *     const { signal, handlers } = chat.begin(text, {
+ *     history.push({ role: 'user', content: text })
+ *     await chat.run(text, {
+ *       log: '[scanner]',
  *       onDone: (data) => {                         // panel-specific completion
  *         chat.finishStreaming({ role: 'assistant', content: data.reply, ...extras })
  *         // ...side effects (setPendingPlan, analysisState, …)
  *       },
- *       // optional extra/override handlers (onTicker, onAsset, …; onChart is built in)
+ *       send: ({ signal, handlers }) => service.sendStream(history, { ...params, signal, ...handlers }),
+ *       // optional extra/override handlers via `handlers:` (onTicker, onAsset, …; onChart is built in)
  *     })
- *     try { await service.sendStream(history, { ...params, signal, ...handlers }) }
- *     catch { chat.freezeError() }
- *     finally { chat.endStream() }
  *   }
+ *
+ * `begin` remains for the flows `run` cannot express (Scanner's resume, which starts from
+ * `beginContinue`). Prefer `run`: the guard-try-catch-finally around it was written out at five
+ * panels, and the half that matters is the one nobody notices — a missing `endStream()` in the
+ * `finally` leaves Stop lit and the input dead with no error anywhere.
  *
  * @returns {{
  *   messages: object[], setMessages: Function,
@@ -377,10 +381,61 @@ export function useChatStream({ threadPhases = false } = {}) {
         setStreamStatus('')
     }
 
+    /**
+     * ONE TURN, start to finish — the shape every desk panel had written out for itself.
+     *
+     * What it owns is the boring half, which is exactly the half that rots: the re-entrancy guard,
+     * the abort wiring, and the `finally { endStream() }` that nobody notices is missing. Drop that
+     * finally and nothing throws — the request completes, the reply renders, and the panel is simply
+     * left with Stop lit and its input dead until a remount. There is no error to find.
+     *
+     * What stays with the panel is what the panel actually knows: WHICH request to make (`send`,
+     * handed the signal and handlers to spread into its own service call) and WHAT to do with the
+     * answer (`onDone`). Neither is mechanism and neither belongs here.
+     *
+     * @param {string} userText            the user's message, as typed
+     * @param {object} spec
+     * @param {(io: {signal: AbortSignal, handlers: object}) => Promise<any>} spec.send
+     * @param {(data: any) => void} [spec.onDone]     the turn's completion tail
+     * @param {object} [spec.handlers]                extra/override stream handlers
+     * @param {() => void} [spec.onSettled]           runs after endStream, HOWEVER the turn ended —
+     *   completed, failed, or aborted. For the panel-side bookkeeping that `onDone` cannot do
+     *   because the error and abort paths never reach it (Scanner's stalled-sleeve detection is the
+     *   case this exists for: a run cut short strands the sleeve exactly as a run that found nothing).
+     * @param {string} [spec.log]                     log tag for a failed turn
+     * @param {string} [spec.errorMessage]            what the frozen bubble says (defaults to the
+     *   generic "Error communicating with the server."). A desk the user knows by name can say so.
+     * @returns {Promise<boolean>} true when the turn ran to completion
+     */
+    async function run(userText, { send, onDone, handlers: extra = {}, onSettled, errorMessage, log = '[chat]' } = {}) {
+        // Re-entrancy: a second send while one is in flight would push a second user bubble and
+        // orphan the first turn's abort controller. Guarded here rather than at five call sites.
+        if (!userText || isLoading || typeof send !== 'function') return false
+
+        const { signal, handlers } = begin(userText, { ...extra, ...(onDone ? { onDone } : {}) })
+        try {
+            await send({ signal, handlers })
+            return true
+        } catch (err) {
+            // Unconditional, exactly as the five panels had it — including on the abort a Stop
+            // raises. That is safe rather than sloppy: freezeError only rewrites a message still
+            // marked `streaming`, and handleStop has already cleared that flag, so on the stop path
+            // it does nothing. (It does log, which is noise on a deliberate Stop. Left alone here —
+            // this commit moves code, it does not change what the code does.)
+            console.error(log, err)
+            freezeError(errorMessage)
+            return false
+        } finally {
+            endStream()
+            onSettled?.()
+        }
+    }
+
     return {
         messages, setMessages,
         isLoading, streamStatus,
         phase, setPhase,
+        run,
         begin, beginContinue, finishStreaming, endStream, reset,
         handleStop, freezeError, restoreStopped, turnRef,
         canResume, resumeBase, finalizeResumeHistory,

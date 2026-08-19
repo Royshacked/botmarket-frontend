@@ -237,11 +237,12 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
     }
 
     async function _send(text) {
-        if (!text || isLoading) return
         setSuggestions([])          // the offer is spent the moment anything is sent
 
         const history = toChatHistory(messages)
-        const { signal, handlers } = chat.begin(text, {
+        await chat.run(text, {
+            log: '[axl]',
+            errorMessage: 'Error communicating with Axl. Please try again.',
             onDone: (data) => {
                 const reasoning = chat.reasoningRef.current
                 chat.finishStreaming({ role: 'assistant', content: data.reply, ...(reasoning ? { reasoning } : {}) })
@@ -271,23 +272,15 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
                     adopt:   data.adopt === true,
                 })
             },
-        })
-
-        try {
-            await axlService.streamAxl(
+            send: ({ signal, handlers }) => axlService.streamAxl(
                 [...history, { role: 'user', content: text }],
                 {
                     model:           readStoredModel(),
                     signal,
                     ...handlers,
                 },
-            )
-        } catch (err) {
-            console.error('[axl]', err)
-            chat.freezeError('Error communicating with Axl. Please try again.')
-        } finally {
-            chat.endStream()
-        }
+            ),
+        })
     }
 
     // The daily market brief, asked for from its card in the social chat (MainPage bumps

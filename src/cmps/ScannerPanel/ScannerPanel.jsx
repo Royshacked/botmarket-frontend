@@ -233,13 +233,17 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
      * request, or the user pressing Stop. Checked here rather than in onDone because the abort and
      * error paths never reach onDone at all, and they strand the run just as thoroughly.
      */
-    function _endTurn() {
-        chat.endStream()
+    function _stallCheck() {
         if (inRunRef.current && !settledRef.current) setSleeveStalled(true)
     }
 
+    // Kept for _continue, which starts from beginContinue and so cannot go through chat.run.
+    function _endTurn() {
+        chat.endStream()
+        _stallCheck()
+    }
+
     async function _send(text) {
-        if (!text || chat.isLoading) return
         setEditDirty(true)
         setHandoffPick(null)   // a new turn supersedes any prior hand-off pick
         setResearchOffer(null)
@@ -254,9 +258,13 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
 
         pendingTickersRef.current = []
 
-        const { signal, handlers } = chat.begin(text, {
-            onTicker: (symbol) => {
-                if (!pendingTickersRef.current.includes(symbol)) pendingTickersRef.current.push(symbol)
+        await chat.run(text, {
+            log: '[scanner]',
+            onSettled: _stallCheck,
+            handlers: {
+                onTicker: (symbol) => {
+                    if (!pendingTickersRef.current.includes(symbol)) pendingTickersRef.current.push(symbol)
+                },
             },
             onDone: (data) => {
                 const tickers = [...pendingTickersRef.current]
@@ -276,10 +284,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                     })
                 }
             },
-        })
-
-        try {
-            await scannerService.sendStream(history, {
+            send: ({ signal, handlers }) => scannerService.sendStream(history, {
                 model:           readStoredModel(),
                 // When editing, tell the agent the list's current contents so it can
                 // add / remove / change names against it.
@@ -289,13 +294,8 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                 profile:         handoff ? 'trading' : profileRef.current,   // Investing profile → the Analyst
                 signal,
                 ...handlers,
-            })
-        } catch (err) {
-            console.error('[scanner]', err)
-            chat.freezeError()
-        } finally {
-            _endTurn()
-        }
+            }),
+        })
     }
 
     // Resume a stopped reply in place: send the conversation ending with the partial

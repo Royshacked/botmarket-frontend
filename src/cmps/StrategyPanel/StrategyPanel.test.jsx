@@ -109,6 +109,16 @@ describe('StrategyPanel — the review-due hand-off', () => {
         chatStub = {
             messages: [], isLoading: false, streamStatus: '', reasoningPulse: null,
             begin: () => ({ signal: null, handlers: {} }),
+            // The stub's `run` keeps the two behaviours these tests actually lean on: it refuses a
+            // turn while one is in flight (the "waits for a turn in flight" case below flips
+            // isLoading and re-renders), and it hands the panel's `send` the signal/handlers pair to
+            // spread into its service call. The real one also owns the try/finally, which has
+            // nothing to assert against a stub that cannot throw.
+            run: async (text, { send } = {}) => {
+                if (!text || chatStub.isLoading) return false
+                await send?.({ signal: null, handlers: {} })
+                return true
+            },
             endStream: vi.fn(), finishStreaming: vi.fn(), reset: vi.fn(), setMessages: vi.fn(),
             freezeError: vi.fn(), resumeBase: () => '', finalizeResumeHistory: (h) => h,
             beginContinue: () => null,

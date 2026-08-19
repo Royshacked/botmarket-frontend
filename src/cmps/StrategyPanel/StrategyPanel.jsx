@@ -107,34 +107,26 @@ export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished
     }
 
     async function _send(text) {
-        if (!text || isLoading) return
         setPublishErr('')
         const history = toChatHistory(messages)
         history.push({ role: 'user', content: text })
 
-        const { signal, handlers } = chat.begin(text, {
+        await chat.run(text, {
+            log: '[strategy]',
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant' })
                 if (data.tilt) setPendingTilt(data.tilt)
                 _saveThread([...history, { role: 'assistant', content: data.reply }], data.phase, data.tilt ?? pendingTilt)
             },
-        })
-
-        try {
-            await strategyService.sendStream(history, {
+            send: ({ signal, handlers }) => strategyService.sendStream(history, {
                 model:           readStoredModel(),
                 // The view in force, so a stance that still holds keeps its ORIGINAL clock and entry
                 // prices instead of being silently re-based every review.
                 chatState:       { current_tilt: currentRef.current },
                 signal,
                 ...handlers,
-            })
-        } catch (err) {
-            console.error('[strategy]', err)
-            chat.freezeError()
-        } finally {
-            chat.endStream()
-        }
+            }),
+        })
     }
 
     // The review asked for from Pythia's card in the social chat (MainPage bumps `reviewRequest`).
