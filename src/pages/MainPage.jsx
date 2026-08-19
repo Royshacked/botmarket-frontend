@@ -1089,10 +1089,17 @@ export function MainPage() {
 
     // Sector-view card → the Radar's Forecasts tab. Unlike a coverage verdict there is nothing to
     // revise from here: the house view is a STATE, and the card's job is to put the board in front of
-    // the reader. The Floor rail renders the same tab from its OWN calTab state, so it listens for
-    // this event itself rather than having the tab lifted up here just to be pushed back down.
+    // the reader.
+    //
+    // Two surfaces show that board — the Radar tab and, since the calendar moved right, the Floor's
+    // Forecasts desk — so one handler opens both. The Floor rail used to subscribe to this event
+    // itself; routing it through `deskRequest` instead keeps ONE channel for "something outside
+    // asked for a desk", which is the same one the queued list already travels on.
     useEffect(() => {
-        return eventBus.on(OPEN_SECTOR_VIEW, () => setNewsTab('forecasts'))
+        return eventBus.on(OPEN_SECTOR_VIEW, () => {
+            setNewsTab('forecasts')
+            setDeskRequest({ key: 'forecasts' })
+        })
     }, [])
 
     // Pythia's "review due" card → open the strategy desk and run the review there.
@@ -2713,13 +2720,6 @@ export function MainPage() {
                                 onOpenPosition={handleOpenPositionFromFloor}
                                 onClosePosition={closePosition}
                                 onClosePositions={closePositions}
-                                earnings={earnings}
-                                fed={fed}
-                                ipo={ipo}
-                                tilt={tilt}
-                                calendarLoading={earningsLoading || fedLoading || ipoLoading}
-                                onEarningSelect={handleBuildFromEarning}
-                                onIpoSelect={handleBuildFromIpo}
                             />
                         </div>
                     )}
@@ -2949,6 +2949,18 @@ export function MainPage() {
                                     onCancelQueued={handleCancelQueued}
                                     queuedBusyId={queuedBusyId}
                                     deskRequest={deskRequest}
+                                    earnings={earnings}
+                                    fed={fed}
+                                    ipo={ipo}
+                                    tilt={tilt}
+                                    calendarLoading={{
+                                        earnings:  earningsLoading,
+                                        fed:       fedLoading,
+                                        ipo:       ipoLoading,
+                                        forecasts: tiltLoading,
+                                    }}
+                                    onEarningSelect={handleBuildFromEarning}
+                                    onIpoSelect={handleBuildFromIpo}
                                     onCandidateSelect={handleBuildFromCandidate}
                                     onEditSetup={handleEditSetup}
                                     onDeleteSetup={handleDeleteSetup}

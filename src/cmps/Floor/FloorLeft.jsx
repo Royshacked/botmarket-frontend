@@ -1,11 +1,8 @@
-import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
-import { eventBus, OPEN_SECTOR_VIEW } from '../../services/event-bus.service'
-import { SectorView } from '../Radar/SectorView.jsx'
 import {
     positionPnlPct, formatPnl, formatPnlPct, formatNum,
 } from '../TradeIdeas/tradeIdea.utils.js'
-import { positionsByAccount, groupByDay } from './floor.utils.js'
+import { positionsByAccount } from './floor.utils.js'
 import { usePositionClose } from '../TradeIdeas/usePositionClose.jsx'
 import { posKey } from '../TradeIdeas/PositionsTable.jsx'
 import { useExpandedSet } from '../../customHooks/useExpandedSet.js'
@@ -14,11 +11,16 @@ import { CloseIcon } from '../EntityCard/entityIcons.jsx'
 import { RowHost } from './RowHost.jsx'
 import './Floor.scss'
 
-// The Floor's left column: the book on top, the calendar underneath.
+// The Floor's left column: the book. Account summaries land here next.
 //
-// Both halves are the same shape — a quiet section header over one line per row — because both
-// answer a background question ("what am I exposed to", "what is coming"). There are no cards and
-// no per-row chrome here: this column is READ first.
+// It was two halves — the book over a four-tab calendar — until the calendar moved to the right
+// column as four desks of its own (2026-08-19). Splitting the column had cost the book half its
+// height to answer a question ("what is coming") that has nothing to do with the one this column
+// exists for ("what am I exposed to"), and the calendar got a short box it had to tab through.
+// The half machinery stays: this column takes a second section again the moment accounts land.
+//
+// One line per row, a quiet section header, no cards and no per-row chrome: this column is READ
+// first.
 //
 // ONE exception, and it is the whole reason the column exists: CLOSING. A leg carries a ✕ and a
 // book carries a ✕ that closes every leg under it, both revealed on hover like every other Floor
@@ -41,13 +43,6 @@ import './Floor.scss'
 // Earnings / Fed / IPO are SCHEDULES — things that happen on a date. Forecasts is a STATE: the house
 // sector view in force. It sits here anyway because this is where the user looks for "what is coming
 // and what do we think", and splitting that across two surfaces just hides one of them.
-const CAL_TABS = [
-    { key: 'earnings',  label: 'Earnings' },
-    { key: 'fed',       label: 'Fed' },
-    { key: 'ipo',       label: 'IPO' },
-    { key: 'forecasts', label: 'Forecasts' },
-]
-
 const pnlClass = n => (n == null ? '' : n > 0 ? 'is-pos' : n < 0 ? 'is-neg' : '')
 
 // The ✕ that closes at market — one leg or a whole book. Same glyph, same danger tone and the same
@@ -317,63 +312,6 @@ AccountBlock.propTypes = {
     closingGroupId:  PropTypes.string,
 }
 
-// ── Calendar ──────────────────────────────────────────────────────────────────
-// One row per event, grouped by day. The three feeds differ in what they carry, so each renders
-// its own row — but the day grouping and the header are shared, because that part is mechanism.
-
-const MONTHS   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-const WEEKDAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
-
-function fmtDay(iso) {
-    if (!iso) return ''
-    const [y, m, d] = iso.split('-').map(Number)
-    if (!y || !m || !d) return iso
-    const wd = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]
-    return `${wd} ${MONTHS[m - 1]} ${d}`
-}
-
-const EARN_WHEN = { bmo: 'Pre', amc: 'Post', dmh: 'Mid' }
-
-function CalendarRows({ tab, earnings, fed, ipo, tilt, onEarningSelect, onIpoSelect }) {
-    // The house view is not a dated list, so it renders its own board rather than being forced
-    // through groupByDay — see SectorView.
-    if (tab === 'forecasts') return <SectorView tilt={tilt} />
-    const items = tab === 'earnings' ? earnings : tab === 'fed' ? fed : ipo
-    if (!items.length) return <p className="floor-empty">Nothing scheduled.</p>
-
-    return groupByDay(items).map(g => (
-        <div key={g.date} className="floor-cal__day">
-            <div className="floor-cal__date">{fmtDay(g.date)}</div>
-            {g.items.map((e, i) => {
-                if (tab === 'fed') {
-                    return (
-                        <div key={i} className="floor-cal__row" title={e.desc || ''}>
-                            <span className="floor-cal__time">{e.time || ''}</span>
-                            <span className="floor-cal__label">{e.event}</span>
-                            <span className={`floor-cal__impact floor-cal__impact--${e.impact}`}>{e.impact}</span>
-                        </div>
-                    )
-                }
-                const onSelect = tab === 'earnings' ? onEarningSelect : onIpoSelect
-                return (
-                    <button
-                        key={`${e.symbol || 'row'}-${i}`}
-                        className="floor-cal__row floor-cal__row--btn"
-                        onClick={() => onSelect?.(e)}
-                        title={e.symbol ? `Build a setup around ${e.symbol}` : undefined}
-                    >
-                        <span className="floor-cal__sym">{e.symbol ?? '—'}</span>
-                        <span className="floor-cal__label">{e.name ?? ''}</span>
-                        {tab === 'earnings'
-                            ? <span className="floor-cal__when">{EARN_WHEN[(e.time || '').toLowerCase()] ?? ''}</span>
-                            : <span className="floor-cal__when">{e.price ? `$${e.price}` : ''}</span>}
-                    </button>
-                )
-            })}
-        </div>
-    ))
-}
-
 /**
  * @param {object[]} positions
  * @param {object[]} [ideas]            loaded ideas — the position→portfolio link for the book tier
@@ -385,8 +323,6 @@ function CalendarRows({ tab, earnings, fed, ipo, tilt, onEarningSelect, onIpoSel
 export function FloorLeft({
     positions = [], ideas = [], positionsLoading = false, onOpenPosition,
     onClosePosition, onClosePositions,
-    earnings = [], fed = [], ipo = [], tilt = null, calendarLoading = false,
-    onEarningSelect, onIpoSelect,
 }) {
     const groups = positionsByAccount(positions, ideas)
     // The confirm-and-fire flow is the Positions tab's, verbatim — see usePositionClose.
@@ -395,10 +331,6 @@ export function FloorLeft({
     // Accounts default CLOSED, like every other list on the Floor — a refresh lands on a table of
     // contents and opens nothing on the reader's behalf. Same Set-toggle the books below use.
     const { isExpanded, toggle } = useExpandedSet()
-    const [calTab, setCalTab] = useState('earnings')
-    // A sector-view card opens the board. This rail owns its own tab state, so it subscribes here
-    // rather than having calTab lifted to MainPage purely to be handed straight back down.
-    useEffect(() => eventBus.on(OPEN_SECTOR_VIEW, () => setCalTab('forecasts')), [])
 
     return (
         <aside className="floor-left">
@@ -432,32 +364,6 @@ export function FloorLeft({
                 </div>
             </section>
 
-            {/* ── The calendar ── */}
-            <section className="floor-left__half floor-left__half--cal">
-                <header className="floor-sec">
-                    <h2 className="floor-sec__title">Calendar</h2>
-                    <nav className="floor-sec__tabs">
-                        {CAL_TABS.map(t => (
-                            <button
-                                key={t.key}
-                                className={`floor-sec__tab${calTab === t.key ? ' floor-sec__tab--on' : ''}`}
-                                onClick={() => setCalTab(t.key)}
-                            >{t.label}</button>
-                        ))}
-                    </nav>
-                </header>
-
-                <div className="floor-left__scroll">
-                    {calendarLoading
-                        ? <p className="floor-empty">Loading…</p>
-                        : <CalendarRows
-                            tab={calTab}
-                            earnings={earnings} fed={fed} ipo={ipo} tilt={tilt}
-                            onEarningSelect={onEarningSelect} onIpoSelect={onIpoSelect}
-                        />}
-                </div>
-            </section>
-
             {closeDialog}
         </aside>
     )
@@ -470,11 +376,4 @@ FloorLeft.propTypes = {
     onOpenPosition:   PropTypes.func,
     onClosePosition:  PropTypes.func,
     onClosePositions: PropTypes.func,
-    earnings:         PropTypes.array,
-    fed:              PropTypes.array,
-    ipo:              PropTypes.array,
-    tilt:             PropTypes.object,
-    calendarLoading:  PropTypes.bool,
-    onEarningSelect:  PropTypes.func,
-    onIpoSelect:      PropTypes.func,
 }

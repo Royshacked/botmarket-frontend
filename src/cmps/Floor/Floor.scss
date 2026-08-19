@@ -66,22 +66,9 @@ $header-h: var(--header-h);
         margin: 0;
     }
 
-    &__tabs { margin-left: auto; display: flex; gap: 2px; }
-
-    &__tab {
-        font: inherit;
-        font-size: 11.5px;
-        color: var(--text-muted);
-        background: none;
-        border: 0;
-        border-radius: 5px;
-        padding: 3px 7px;
-        cursor: pointer;
-        transition: color .14s, background .14s;
-
-        &:hover { color: var(--text-secondary); background: var(--bg-hover); }
-        &--on   { color: var(--text-primary); background: var(--bg-surface); }
-    }
+    // The tab strip that lived here is GONE with the calendar it belonged to (2026-08-19): its
+    // four tabs are four desks in the right column now. No Floor header carries tabs any more —
+    // a header names one list, and anything that would need a second one is its own desk.
 }
 
 .floor-empty {
@@ -92,7 +79,7 @@ $header-h: var(--header-h);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// LEFT — the book, and the calendar
+// LEFT — the book
 // ══════════════════════════════════════════════════════════════════════════════
 .floor-left {
     display: flex;
@@ -107,8 +94,11 @@ $header-h: var(--header-h);
     border-right: 1px solid var(--border);
     overflow: hidden;
 
-    // Two halves. Neither is allowed to starve the other: each takes half and scrolls its own
-    // overflow, so a 40-position book can't push the calendar off the column.
+    // Halves. Neither is allowed to starve the other: each takes an equal share and scrolls its
+    // own overflow, so one long list can't push the next section off the column. There is only ONE
+    // section today — the book, since the calendar moved to the right column's desks — and a lone
+    // child of a 50% basis simply takes the lot. The rule is kept for the account summaries landing
+    // here next, which is the whole reason the book gave the calendar back its half.
     &__half {
         flex: 1 1 50%;
         min-height: 0;
@@ -127,7 +117,17 @@ $header-h: var(--header-h);
 
         &::-webkit-scrollbar { width: 7px; }
         &::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 4px; }
+
+        // The list arrives rather than appears. Switching desk to desk remounts this box, so the
+        // same few frames also cover the swap — the only moment in the toggle that has no fold of
+        // its own to ride on.
+        animation: floor-desk-in .22s ease both;
     }
+}
+
+@keyframes floor-desk-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: none; }
 }
 
 // ── Account block ────────────────────────────────────────────────────────────
@@ -433,7 +433,7 @@ $header-h: var(--header-h);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// RIGHT — the four desks
+// RIGHT — the desks: your work, then the calendar
 // ══════════════════════════════════════════════════════════════════════════════
 .floor-lists {
     display: flex;
@@ -454,19 +454,48 @@ $header-h: var(--header-h);
     // this box needs no scrollbar styling of its own.
 }
 
-.floor-desk {
-    // Every desk is CONTENT-height, open or closed. An open desk that took the leftover space
-    // would shove the remaining headers to the bottom of the column, leaving a gap between the
-    // list and the next desk and making the four headers jump around on every toggle. Sized to
-    // content, the closed headers sit directly under whatever is open and barely move.
-    //
-    // It may still SHRINK, though — see &--open. Growing and shrinking are different questions:
-    // one is about claiming space nobody asked for, the other about fitting in what there is.
+// Names a run of desks that belong together — today just the calendar's four. Type is the row
+// GROUP label's, not a header's: this caption sorts the column, it doesn't head a section, and
+// wearing .floor-sec here would put a sixth heading among nine buttons.
+.floor-lists__grp {
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    padding: 12px 12px 5px;
     flex: 0 0 auto;
+    // Stated so it has somewhere to travel FROM, same as a closed desk's header height. One short
+    // uppercase word at 10.5px plus its padding, with room to spare.
+    max-height: 34px;
+    overflow: hidden;
+    transition: max-height .26s cubic-bezier(.4, 0, .2, 1), opacity .16s ease, padding .26s ease;
+
+    // Folds away with the desks it names — a caption for four hidden lists is chrome.
+    .floor-lists--focused & {
+        max-height: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        opacity: 0;
+    }
+}
+
+.floor-desk {
+    // A CLOSED desk is exactly its header — nothing else is rendered — and that fixed height is
+    // also what it FOLDS from when a sibling opens. Stating it as a max-height rather than leaving
+    // it to content is the whole animation: a box can only travel to zero from a number.
+    flex: 0 0 auto;
+    // +1px for the separator: everything here is border-box, so a bare $header-h would clip the
+    // hairline off the bottom of every closed desk.
+    max-height: calc(#{$header-h} + 1px);
+    overflow: hidden;
     border-bottom: 1px solid var(--border);
     display: flex;
     flex-direction: column;
     min-height: 0;
+    transition: max-height .26s cubic-bezier(.4, 0, .2, 1),
+                opacity     .16s ease,
+                border-color .2s ease;
 
     // No header fill. The --bg-wash-surface belongs to real column headings (.floor-sec, the chat
     // panel); wearing it here made four buttons impersonate four headers, and stacked them into a
@@ -495,7 +524,10 @@ $header-h: var(--header-h);
         flex-shrink: 0;
         transition: transform .16s;
     }
-    &--open &__chev { transform: rotate(90deg); color: var(--accent-light); }
+    // Pointing BACK, not down. An open desk is alone at the top of the column with its list under
+    // it, so the caret's job is no longer "this section is expanded" — it is the way out, and the
+    // one arrow on screen should say where the click goes.
+    &--open &__chev { transform: rotate(180deg); color: var(--accent-light); }
 
     // Deliberately NOT the header type: a desk label is a control you click, not a column
     // heading. Matching the headers' mono caps would make four buttons read as four sections.
@@ -518,11 +550,27 @@ $header-h: var(--header-h);
         color: var(--text-dim);
     }
 
-    // Only the OPEN desk may shrink, so it is the one that absorbs every bit of overflow in the
-    // column — the three closed headers keep their full height and stay on screen no matter how
-    // long its list runs. Still `auto` basis, so a short list is content-height and nothing
-    // stretches; the shrink only engages once there is more list than column.
-    &--open { flex: 0 1 auto; }
+    // The open desk TAKES THE COLUMN: it grows into every pixel the folded headers gave up, so a
+    // list is read at full height rather than in the gap left under three stacked buttons. It is
+    // the only child that grows and the only one that shrinks, which is also what makes it absorb
+    // all the overflow — the headers never move while you scroll it.
+    //
+    // `max-height: none` is the release valve for the fold above; it doesn't animate (there is no
+    // number to travel to), which is why the OPENING half of the motion is carried by the body's
+    // fade-in and by the siblings folding away around it.
+    &--open {
+        flex: 1 1 auto;
+        max-height: none;
+    }
+
+    // Folded — a sibling is open and has the floor. Kept mounted rather than unrendered so the
+    // column can animate back into its original order, and so the header still reports its state.
+    &--folded {
+        max-height: 0;
+        opacity: 0;
+        border-bottom-color: transparent;
+        pointer-events: none;
+    }
 
     // Where the scrolling actually happens. No `max-height` cap: the desk above has already been
     // shrunk to exactly the space the column can spare, and a fixed cap on top of that would just
@@ -874,6 +922,10 @@ $header-h: var(--header-h);
     .floor-book__chev,
     .floor-row__chev,
     .floor-desk__chev { transition: none; }
+
+    // The fold still HAPPENS — it is layout, not decoration — it just happens at once.
+    .floor-desk { transition: none; }
+    .floor-desk__body { animation: none; }
 }
 
 // ── Queued desk ──────────────────────────────────────────────────────────────

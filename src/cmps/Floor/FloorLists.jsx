@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { Fragment, useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { groupByLifecycle, isPreEntry, isLivePosition } from '../../services/entityStatus.js'
 import {
@@ -13,9 +13,16 @@ import { RowHost } from './RowHost.jsx'
 import { CoverageActions } from '../Radar/CoverageActions.jsx'
 import { nextRevision, NEXT_REVISION_HINT } from '../Radar/coverage.utils.js'
 import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
+import { CalendarRows } from './CalendarRows.jsx'
+import { SectorView } from '../Radar/SectorView.jsx'
 import './Floor.scss'
 
-// The Floor's right column: four desks, one open at a time.
+// The Floor's right column: four desks, one open at a time — and the open one TAKES THE COLUMN.
+//
+// The other headers fold away while a desk is open, so the list gets the whole height instead of
+// the leftovers under three stacked buttons. Closing it unfolds them back into their original
+// order, which is why they stay mounted and merely collapse: the column is one arrangement in two
+// states, not two different columns, and animating between them is what says so.
 //
 // Every row is ONE LINE and carries only what you'd scan for — never the whole entity. Anything
 // more is a click away in the pop-out that kind already has (entityPopup.js), which is why there
@@ -26,13 +33,28 @@ import './Floor.scss'
 // same for all four, so it lives once in <Desk> and each desk supplies only its rows.
 
 const DESKS = [
-    // Queued sits FIRST because it is the only desk that is a to-do list: the other four are things
+    // Queued sits FIRST because it is the only desk that is a to-do list: the others are things
     // you own, this one is things waiting on you. A count here means someone is blocked.
     { key: 'queued',    label: 'Queued' },
     { key: 'trade',     label: 'Trading floor' },
     { key: 'portfolio', label: 'Portfolio floor' },
     { key: 'scans',     label: 'Scans' },
     { key: 'coverage',  label: 'Coverage' },
+
+    // The calendar, which used to be the left column's bottom half behind a four-tab strip
+    // (2026-08-19). Each feed is a desk of its own now for the same reason the tabs were wrong:
+    // a tab strip makes four lists share one short box and hides three of them behind the fourth,
+    // where a desk gives whichever you opened the whole column. The left column keeps the book.
+    //
+    // They stay GROUPED under one caption because they are still one thing to the reader — what
+    // the market is about to do, as opposed to the five desks above, which are what you are doing
+    // about it. Grouping is also what keeps nine headers from reading as nine unrelated buttons.
+    { key: 'earnings',  label: 'Earnings',  group: 'Calendar' },
+    { key: 'fed',       label: 'Fed',       group: 'Calendar' },
+    { key: 'ipo',       label: 'IPO',       group: 'Calendar' },
+    // Not a dated list at all — the house view, rendered as a board. It sits with the calendar
+    // because it answers the same question, not because it shares its shape.
+    { key: 'forecasts', label: 'Forecasts', group: 'Calendar' },
 ]
 
 function openFor(item) {
@@ -41,13 +63,17 @@ function openFor(item) {
     return openIdeaPopup(item.entity)
 }
 
-function Desk({ desk, open, count, onToggle, children }) {
+function Desk({ desk, open, collapsed, count, onToggle, children }) {
     return (
-        <section className={`floor-desk${open ? ' floor-desk--open' : ''}`}>
+        <section className={`floor-desk${open ? ' floor-desk--open' : ''}${collapsed ? ' floor-desk--folded' : ''}`}>
             <button
                 className="floor-desk__head"
                 onClick={() => onToggle(desk.key)}
                 aria-expanded={open}
+                // Folded away, so out of the tab order — but NOT aria-hidden: the header still
+                // exists and still reports whether its desk is open, which is what a screen reader
+                // (and every test in this folder) reads to know the state of the column.
+                tabIndex={collapsed ? -1 : undefined}
             >
                 <svg className="floor-desk__chev" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                     <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -62,8 +88,9 @@ function Desk({ desk, open, count, onToggle, children }) {
     )
 }
 Desk.propTypes = {
-    desk:     PropTypes.object.isRequired,
-    open:     PropTypes.bool,
+    desk:      PropTypes.object.isRequired,
+    open:      PropTypes.bool,
+    collapsed: PropTypes.bool,
     count:    PropTypes.number,
     onToggle: PropTypes.func.isRequired,
     children: PropTypes.node,
@@ -560,6 +587,8 @@ export function FloorLists({
     onEditScan, onDeleteScan,
     onEditCoverage, onRetireCoverage, onDeleteCoverage,
     onExecuteQueued, onCancelQueued, queuedBusyId = null,
+    earnings = [], fed = [], ipo = [], tilt = null, calendarLoading = {},
+    onEarningSelect, onIpoSelect,
     initialDesk = null, deskRequest = null,
 }) {
     // One desk open at a time — clicking the open one closes it, leaving them all collapsed. That
@@ -591,21 +620,32 @@ export function FloorLists({
         portfolio: portfoliosFromIdeas(ideas).length,
         scans:     scans.length,
         coverage:  coverage.length,
+        earnings:  earnings.length,
+        fed:       fed.length,
+        ipo:       ipo.length,
+        // No count on Forecasts: the house view is ONE standing view, and "(1)" beside it would
+        // invite the reader to expect a list of them.
     }
 
     return (
-        <aside className="floor-lists">
+        <aside className={`floor-lists${openKey ? ' floor-lists--focused' : ''}`}>
             {/* Same .floor-sec heading the left column uses, so all three columns open on one
                 line across the app rather than three near-misses. */}
             <header className="floor-sec">
                 <h2 className="floor-sec__title">Lists</h2>
             </header>
 
-            {DESKS.map(desk => (
+            {DESKS.map((desk, i) => (
+                <Fragment key={desk.key}>
+                {/* One caption where the group STARTS — a hairline label, not a section header:
+                    it names what follows without competing with the desks it is naming. */}
+                {desk.group && desk.group !== DESKS[i - 1]?.group && (
+                    <div className="floor-lists__grp">{desk.group}</div>
+                )}
                 <Desk
-                    key={desk.key}
                     desk={desk}
                     open={openKey === desk.key}
+                    collapsed={!!openKey && openKey !== desk.key}
                     count={counts[desk.key]}
                     onToggle={toggle}
                 >
@@ -650,7 +690,26 @@ export function FloorLists({
                             onEditCoverage={onEditCoverage} onRetireCoverage={onRetireCoverage} onDeleteCoverage={onDeleteCoverage}
                         />
                     )}
+
+                    {/* Each dated feed asks the shared renderer for its own kind. Earnings and IPO
+                        rows are doorways — clicking one hands the event to Mentor to build a setup
+                        around; a Fed row has no ticker to trade, so it is text. */}
+                    {desk.key === 'earnings'  && (
+                        <CalendarRows kind="earnings" items={earnings} loading={calendarLoading.earnings} onSelect={onEarningSelect} />
+                    )}
+                    {desk.key === 'fed'       && (
+                        <CalendarRows kind="fed" items={fed} loading={calendarLoading.fed} />
+                    )}
+                    {desk.key === 'ipo'       && (
+                        <CalendarRows kind="ipo" items={ipo} loading={calendarLoading.ipo} onSelect={onIpoSelect} />
+                    )}
+                    {desk.key === 'forecasts' && (
+                        calendarLoading.forecasts && !tilt
+                            ? <p className="floor-empty">Loading…</p>
+                            : <SectorView tilt={tilt} />
+                    )}
                 </Desk>
+                </Fragment>
             ))}
         </aside>
     )
@@ -667,6 +726,15 @@ FloorLists.propTypes = {
     onCancelQueued:    PropTypes.func,
     queuedBusyId:      PropTypes.string,
     deskRequest:       PropTypes.object,
+    earnings:          PropTypes.array,
+    fed:               PropTypes.array,
+    ipo:               PropTypes.array,
+    tilt:              PropTypes.object,
+    // Keyed by desk, not one flag for all four: a slow IPO feed used to hold up the earnings list
+    // and the house view alongside it, because the old tab strip had one shared "Loading…".
+    calendarLoading:   PropTypes.object,
+    onEarningSelect:   PropTypes.func,
+    onIpoSelect:       PropTypes.func,
     onCandidateSelect: PropTypes.func,
     onEditSetup:       PropTypes.func,
     onDeleteSetup:     PropTypes.func,

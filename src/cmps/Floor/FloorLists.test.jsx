@@ -49,6 +49,50 @@ describe('FloorLists', () => {
         }
     })
 
+    // The open desk TAKES THE COLUMN — the other headers fold away so the list gets the full
+    // height. They stay MOUNTED through it (that is what lets the column animate back into its
+    // original order), so "gone" has to be asserted on the fold class, not on the DOM.
+    describe('takeover', () => {
+        const deskOf = label => deskBtn(label).closest('.floor-desk')
+
+        it('folds the other desks away while one is open', () => {
+            render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
+            expect(deskOf('Trading floor').className).not.toMatch(/floor-desk--folded/)
+            for (const label of ['Portfolio floor', 'Scans', 'Coverage']) {
+                expect(deskOf(label).className).toMatch(/floor-desk--folded/)
+            }
+        })
+
+        // Closing puts every desk back — same components, same order as a fresh load.
+        it('unfolds all of them in their original order when the desk closes', () => {
+            const { container } = render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
+            fireEvent.click(deskBtn('Trading floor'))
+            const desks = [...container.querySelectorAll('.floor-desk')]
+            expect(desks.some(d => d.className.includes('floor-desk--folded'))).toBe(false)
+            expect(desks.map(d => d.querySelector('.floor-desk__label').textContent))
+                .toEqual(['Queued', 'Trading floor', 'Portfolio floor', 'Scans', 'Coverage',
+                          'Earnings', 'Fed', 'IPO', 'Forecasts'])
+        })
+
+        // A folded header is still readable and still reports its state — it is just not somewhere
+        // you can tab into, since it is not on screen.
+        it('takes the folded headers out of the tab order without hiding them', () => {
+            render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
+            expect(deskBtn('Scans').getAttribute('tabindex')).toBe('-1')
+            expect(deskBtn('Scans').getAttribute('aria-expanded')).toBe('false')
+            expect(deskBtn('Trading floor').getAttribute('tabindex')).toBeNull()
+        })
+
+        // The list has to be able to USE the height it just took: the open desk grows, and it is
+        // the only child that does. `flex: 0 1 auto` here would leave a short list stranded at the
+        // top with the reclaimed space empty below it.
+        it('gives the open desk the leftover column height', () => {
+            const css = readFileSync(resolve(__dirname, 'Floor.scss'), 'utf8')
+            const open = css.slice(css.indexOf('&--open {'), css.indexOf('&--folded {'))
+            expect(open).toMatch(/flex:\s*1 1 auto/)
+        })
+    })
+
     // The count is how many items are in the list, on every desk including this one. Readiness is
     // the ROW's business — counting only the pressable rows left the desk silent off-hours, which is
     // exactly when things are queued.
@@ -268,6 +312,65 @@ describe('FloorLists', () => {
         expect(name.nextElementSibling.textContent).toBe('(2)')
     })
 
+    // ── The calendar, as four desks ───────────────────────────────────────────
+    // Earnings/Fed/IPO/Forecasts were the left column's bottom half, behind a tab strip. They are
+    // desks here now (2026-08-19), which means each opens to the full column instead of four lists
+    // sharing one short box — and it means the left column is the book alone.
+    describe('calendar desks', () => {
+        const earning = (over = {}) => ({ symbol: 'AAPL', name: 'Apple', date: '2026-08-20', time: 'amc', ...over })
+
+        it('lists the four calendar feeds as desks of their own', () => {
+            render(<FloorLists />)
+            for (const label of ['Earnings', 'Fed', 'IPO', 'Forecasts']) {
+                expect(deskBtn(label)).toBeTruthy()
+            }
+        })
+
+        it('captions them as one group, once, where the group starts', () => {
+            const { container } = render(<FloorLists />)
+            const caps = [...container.querySelectorAll('.floor-lists__grp')]
+            expect(caps.map(c => c.textContent)).toEqual(['Calendar'])
+        })
+
+        it('counts a feed the way every other desk counts its list', () => {
+            render(<FloorLists earnings={[earning(), earning({ symbol: 'MSFT' })]} />)
+            expect(within(deskBtn('Earnings')).getByText('(2)')).toBeTruthy()
+        })
+
+        // The house view is ONE standing view, so a count beside it would promise a list of them.
+        it('puts no count on Forecasts', () => {
+            render(<FloorLists tilt={{ sectors: [] }} />)
+            expect(within(deskBtn('Forecasts')).queryByText(/\(/)).toBeNull()
+        })
+
+        it('opens a feed to its rows, and takes over the column like any other desk', () => {
+            const { container } = render(<FloorLists earnings={[earning()]} initialDesk="earnings" />)
+            expect(screen.getByText('AAPL')).toBeTruthy()
+            expect(deskBtn('Fed').closest('.floor-desk').className).toMatch(/floor-desk--folded/)
+            expect(container.querySelector('.floor-lists').className).toMatch(/floor-lists--focused/)
+        })
+
+        // An earnings row is a doorway: it hands the event back to build a setup around it.
+        it('hands an earnings row back to the caller on click', () => {
+            const onEarningSelect = vi.fn()
+            render(<FloorLists earnings={[earning()]} initialDesk="earnings" onEarningSelect={onEarningSelect} />)
+            fireEvent.click(screen.getByText('AAPL').closest('button'))
+            expect(onEarningSelect).toHaveBeenCalledWith(expect.objectContaining({ symbol: 'AAPL' }))
+        })
+
+        // A slow IPO feed used to hold up the earnings list AND the house view, because the tab
+        // strip had one shared "Loading…" for all four. Each desk waits on its own feed now.
+        it('waits per feed, not on all four at once', () => {
+            render(<FloorLists
+                earnings={[earning()]}
+                calendarLoading={{ earnings: false, fed: true, ipo: true }}
+                initialDesk="earnings"
+            />)
+            expect(screen.getByText('AAPL')).toBeTruthy()
+            expect(screen.queryByText('Loading…')).toBeNull()
+        })
+    })
+
     // Which box scrolls is a CSS question, so jsdom can't measure it — but it is exactly the kind
     // of thing that regresses back to "put overflow on the container" the next time something
     // overflows. Guard the rules themselves, the way the row-actions reveal is guarded below.
@@ -283,7 +386,8 @@ describe('FloorLists', () => {
         expect(column).not.toMatch(/overflow-y:\s*auto/)
 
         // The open desk is the only one allowed to shrink, so it absorbs every bit of overflow…
-        expect(desk).toMatch(/&--open\s*\{\s*flex:\s*0 1 auto/)
+        // (it grows too, now that it takes the column — see the takeover cases above).
+        expect(desk).toMatch(/&--open\s*\{[^}]*flex:\s*1 1 auto/)
         // …and its list is what actually scrolls. No height cap: the shrink already sized it.
         expect(desk).toMatch(/&__body\s*\{[^}]*overflow-y:\s*auto/)
         expect(desk).not.toMatch(/max-height:\s*60vh/)
