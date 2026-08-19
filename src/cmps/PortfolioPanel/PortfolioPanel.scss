@@ -202,15 +202,8 @@
             color: var(--text-subtle);
             padding-left: 0;
 
-            p          { margin: 0 0 0.5em; &:last-child { margin-bottom: 0; } }
-            ul, ol     { margin: 0 0 0.5em; padding-left: 1.4em; }
-            li         { margin-bottom: 0.2em; }
-            strong     { color: var(--accent-light); font-weight: 600; }
-            em         { color: var(--text-secondary); }
-            code       { font-family: var(--font-mono); font-size: var(--chat-meta);
-                         background: var(--bg-base); padding: 1px 5px; border-radius: 2px;
-                         color: var(--accent-light); }
-            a          { color: var(--accent); text-decoration: underline; }
+            // Prose is styled once in ChatMarkdown.scss (see the note there). This copy
+            // was missing pre/headings/blockquote, so those now render here too.
         }
 
         &--warning {
