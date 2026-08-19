@@ -276,6 +276,16 @@
         color: var(--text-muted);
     }
 
+    // ── Protective levels, stated with the entry ────────────────────────────
+    // Two-up: they are one decision ("where am I wrong, where am I done") and reading them side
+    // by side is how you see the trade's shape. Collapses to one column on a phone below.
+    &__protect {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        align-items: start;
+    }
+
     // ── Exit legs ───────────────────────────────────────────────────────────
     &__exit {
         display: flex;
@@ -327,10 +337,68 @@
     &__exit-row {
         display: flex;
         gap: 6px;
+        align-items: center;
+    }
+
+    // The size box is the narrower half of a rung: a share of the position, not a price.
+    &__input--qty {
+        flex: 0 1 34%;
+        min-width: 0;
+    }
+
+    &__exit-drop {
+        flex-shrink: 0;
+        width: 26px;
+        padding: 0;
+        align-self: stretch;
+        background: none;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        color: var(--text-muted);
+        font-size: 14px;
+        line-height: 1;
+        cursor: pointer;
+
+        &:hover:not(:disabled) { color: var(--color-short); border-color: currentColor; }
+        &:disabled { opacity: 0.4; cursor: not-allowed; }
+    }
+
+    &__exit-foot {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    &__exit-add {
+        padding: 4px 8px;
+        background: none;
+        border: 1px dashed var(--border);
+        border-radius: 3px;
+        color: var(--text-muted);
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        cursor: pointer;
+
+        &:hover:not(:disabled) { color: var(--text-primary); border-color: var(--accent-light); }
+        &:disabled { opacity: 0.4; cursor: not-allowed; }
+    }
+
+    // The guard's arithmetic, while it is still arithmetic rather than a refusal.
+    &__exit-tally {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        font-variant-numeric: tabular-nums;
     }
 
     &__exit-apply {
         flex-shrink: 0;
+        margin-inline-start: auto;
         padding: 8px 14px;
         background: var(--bg-wash-surface);
         border: 1px solid var(--border);
@@ -404,4 +472,6 @@
 // The fields are full-width, so the size costs no layout.
 @media (max-width: 767px) {
     .trade-ticket__input { font-size: 16px; }
+    // Two price boxes side by side leave neither wide enough to read a five-figure level in.
+    .trade-ticket__protect { grid-template-columns: 1fr; }
 }

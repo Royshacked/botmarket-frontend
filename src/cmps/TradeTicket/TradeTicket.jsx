@@ -7,8 +7,9 @@ import { useAutoRefresh } from '../../customHooks/useAutoRefresh.js'
 import { useMarketStatus } from '../../customHooks/useMarketStatus.js'
 import { formatPrice, formatPnl, matchPositionsForIdea } from '../TradeIdeas/tradeIdea.utils.js'
 import {
-    ORDER_TYPES, needsPrice, exitSide, quantityUnit, placementBlocker,
-    entryTriggerWarning, exitLevelWarning, ticketPhase, referencePrice, legLevel,
+    ORDER_TYPES, needsPrice, exitSide, quantityUnit, placementBlocker, legBlocker,
+    exitLevelWarning, composeWarnings, composeReferencePrice, protectiveLevels,
+    ticketPhase, referencePrice, legLevels, levelRows, blankRow, rowsAskedTotal,
 } from './ticket.utils.js'
 import './TradeTicket.scss'
 
@@ -30,46 +31,131 @@ function Field({ label, hint, children }) {
     )
 }
 
-/** A price box with its own Apply button — used for both protective legs. */
-function ExitRow({ leg, label, direction, value, onChange, onApply, reference, disabled, resting }) {
-    const price   = Number(value)
-    const warning = exitLevelWarning({ leg, direction, price, reference })
-    const dirty   = String(value ?? '') !== (resting != null ? String(resting) : '')
+/**
+ * ONE protective leg — a ladder of price rungs, each able to name the slice it closes.
+ *
+ * The SAME editor in both phases, because it is the same statement either way: before the fill it
+ * is what will be attached, after it is what is attached. Two editors would be two places for the
+ * rules about a leg to drift, and the manage phase is where a wrong one costs real money.
+ *
+ * `onApply` is what distinguishes them: given, the leg sends itself (the manage phase, where the
+ * position already exists); absent, the Buy/Sell buttons carry it out with the entry.
+ */
+function ExitLeg({
+    leg, label, direction, rows, onChange, onApply, reference,
+    resting = [], disabled, quantity, unit,
+}) {
+    const single  = rows.length === 1
+    const blocked = legBlocker(leg, rows, quantity)
+    // One line per distinct wrong-side rung; the same sentence twice is still one thing to fix.
+    // Only once a side is KNOWN: before the fill the pad has a Buy button and a Sell button, and
+    // the same level is right for one and wrong for the other — the form-level list evaluates both
+    // and says so, where a guess here would quietly pick a side.
+    const warnings = direction ? [...new Set(rows
+        .map(r => exitLevelWarning({ leg, direction, price: Number(r.price) > 0 ? Number(r.price) : NaN, reference }))
+        .filter(Boolean))] : []
+
+    const set  = (i, field, v) => onChange(rows.map((r, j) => (j === i ? { ...r, [field]: v } : r)))
+    const add  = () => onChange([...rows, blankRow()])
+    // Never leave a leg with nowhere to type: removing the last rung clears it instead.
+    const drop = (i) => onChange(rows.length > 1 ? rows.filter((_, j) => j !== i) : [blankRow()])
+
+    // Against what is at the BROKER, not against the last render — the Apply button must go quiet
+    // once the leg matches what is actually resting, however the two came to agree.
+    const asRows = rs => JSON.stringify(rs.map(r => [String(r.price ?? ''), String(r.quantity ?? '')]))
+    const dirty  = asRows(rows) !== asRows(levelRows(resting))
+    const asked  = rowsAskedTotal(rows)
 
     return (
         <div className={`${P}__exit`}>
             <div className={`${P}__exit-head`}>
                 <span className={`${P}__exit-label`}>{label}</span>
                 {/* The user asked for this to be explicit, and it is the part of an order ticket
-                    people get wrong: a protective order is always the opposite side. */}
-                <span className={`${P}__exit-side ${P}__exit-side--${exitSide(direction)}`}>
-                    {exitSide(direction)} {leg === 'stop' ? 'stop' : 'limit'}
-                </span>
-                {resting != null && (
-                    <span className={`${P}__exit-resting`}>at broker: {formatPrice(resting)}</span>
+                    people get wrong: a protective order is always the opposite side. Shown only
+                    once there IS a side — see the warnings above. */}
+                {direction && (
+                    <span className={`${P}__exit-side ${P}__exit-side--${exitSide(direction)}`}>
+                        {exitSide(direction)} {leg === 'stop' ? 'stop' : 'limit'}
+                    </span>
+                )}
+                {resting.length > 0 && (
+                    <span className={`${P}__exit-resting`}>
+                        at broker: {resting.map(l => formatPrice(l.price)).join(' · ')}
+                    </span>
                 )}
             </div>
-            <div className={`${P}__exit-row`}>
-                <input
-                    type="number"
-                    step="any"
-                    inputMode="decimal"
-                    className={`${P}__input`}
-                    value={value}
-                    onChange={e => onChange(e.target.value)}
-                    placeholder="price"
-                    disabled={disabled}
-                />
-                <button
-                    type="button"
-                    className={`${P}__exit-apply`}
-                    onClick={onApply}
-                    disabled={disabled || !(price > 0) || !dirty}
-                >
-                    {resting != null ? 'Update' : 'Attach'}
+
+            {rows.map((row, i) => (
+                <div key={i} className={`${P}__exit-row`}>
+                    <input
+                        type="number"
+                        step="any"
+                        inputMode="decimal"
+                        className={`${P}__input`}
+                        value={row.price}
+                        onChange={e => set(i, 'price', e.target.value)}
+                        placeholder="price"
+                        aria-label={`${label} price`}
+                        disabled={disabled}
+                    />
+                    {/* Only once there is a ladder. With one rung the size IS the whole position,
+                        and a box asking about it is a question with one possible answer. */}
+                    {!single && (
+                        <input
+                            type="number"
+                            step="any"
+                            inputMode="decimal"
+                            className={`${P}__input ${P}__input--qty`}
+                            value={row.quantity}
+                            onChange={e => set(i, 'quantity', e.target.value)}
+                            placeholder="rest"
+                            aria-label={`${label} size`}
+                            disabled={disabled}
+                        />
+                    )}
+                    {!single && (
+                        <button
+                            type="button"
+                            className={`${P}__exit-drop`}
+                            onClick={() => drop(i)}
+                            disabled={disabled}
+                            aria-label={`remove this ${label} level`}
+                            title="remove this level"
+                        >
+                            &times;
+                        </button>
+                    )}
+                </div>
+            ))}
+
+            <div className={`${P}__exit-foot`}>
+                <button type="button" className={`${P}__exit-add`} onClick={add} disabled={disabled}>
+                    + level
                 </button>
+                {!single && (
+                    // What the rungs have claimed against what there is to claim — the guard's own
+                    // arithmetic, shown while it still reads as arithmetic rather than a refusal.
+                    <span className={`${P}__exit-tally`}>
+                        {asked > 0
+                            ? `${asked} of ${Number(quantity) > 0 ? quantity : '?'}${unit ? ` ${unit}` : ''}`
+                            : 'split evenly'}
+                    </span>
+                )}
+                {onApply && (
+                    <button
+                        type="button"
+                        className={`${P}__exit-apply`}
+                        onClick={onApply}
+                        disabled={disabled || !!blocked || !dirty}
+                        title={blocked ?? undefined}
+                    >
+                        {resting.length ? 'Update' : 'Attach'}
+                    </button>
+                )}
             </div>
-            {warning && <p className={`${P}__warn`}>{warning}</p>}
+
+            {warnings.map(w => <p key={w} className={`${P}__warn`}>{w}</p>)}
+            {blocked && onApply && <p className={`${P}__blocker`}>{blocked}</p>}
         </div>
     )
 }
@@ -83,8 +169,11 @@ function ExitRow({ leg, label, direction, value, onChange, onApply, reference, d
  * ticket removes is the conversation, not the plumbing.
  *
  * Two phases, driven by the entity rather than by local state: compose the entry, then manage the
- * position. Protective levels can only be attached once there is something to protect, which is
- * why they are a second step rather than fields on the first.
+ * position. The stop and the target appear in BOTH — stated up front they ride out with the entry
+ * (the server expands each into a `touch` leg, and the execution layer rests it at the broker the
+ * moment there is a position to close), and the manage phase is then where they are moved. The two
+ * share one pair of state fields on purpose: what you typed before the fill is the level you are
+ * looking at after it.
  */
 export function TradeTicket({
     accounts = [], selectedAccounts = [], onSelectAccounts, mainAccountId = null, onMainChange,
@@ -96,8 +185,9 @@ export function TradeTicket({
     const [orderType, setOrderType] = useState('market')
     const [price, setPrice]         = useState('')
     const [quote, setQuote]         = useState(null)
-    const [stopPrice, setStopPrice] = useState('')
-    const [tpPrice, setTpPrice]     = useState('')
+    // A leg is a LADDER of rungs, always at least one so there is somewhere to type.
+    const [stops, setStops]         = useState([blankRow()])
+    const [tps, setTps]             = useState([blankRow()])
 
     const phase     = ticketPhase(ticket)
     const composing = phase === 'compose'
@@ -120,16 +210,28 @@ export function TradeTicket({
 
     useAutoRefresh(loadQuote, QUOTE_POLL_MS)
 
-    // Reopening a live ticket shows the levels that are actually resting, not blanks.
-    const restingStop = useMemo(() => legLevel(ticket?.stop_conditions), [ticket])
-    const restingTp   = useMemo(() => legLevel(ticket?.tp_conditions),   [ticket])
-    useEffect(() => { if (restingStop != null) setStopPrice(String(restingStop)) }, [restingStop])
-    useEffect(() => { if (restingTp   != null) setTpPrice(String(restingTp))     }, [restingTp])
+    // Reopening a live ticket shows the whole ladder that is actually resting, not blanks — and
+    // not just its first rung, which would read as a full-size stop when it is a partial one.
+    const restingStops = useMemo(() => legLevels(ticket?.stop_conditions), [ticket])
+    const restingTps   = useMemo(() => legLevels(ticket?.tp_conditions),   [ticket])
+    // Keyed on the CONTENT, not the array: `legLevels` returns a new array every time the entity
+    // object is replaced (every poll), and depending on that identity would stamp the broker's
+    // levels back over whatever the user was mid-way through typing.
+    const restingStopsKey = JSON.stringify(restingStops)
+    const restingTpsKey   = JSON.stringify(restingTps)
+    useEffect(() => { if (restingStops.length) setStops(levelRows(restingStops)) }, [restingStopsKey])   // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => { if (restingTps.length)   setTps(levelRows(restingTps))     }, [restingTpsKey])     // eslint-disable-line react-hooks/exhaustive-deps
 
     const chosen    = accounts.filter(a => selectedAccounts.includes(a.id))
     const unit      = quantityUnit(chosen)
     const direction = ticket?.direction ?? 'long'
     const ticketPos = useMemo(() => matchPositionsForIdea(ticket, positions), [ticket, positions])
+    // What a not-yet-filled entry is already carrying, read back off the entity — the levels the
+    // compose form sent are legs on the document long before they are orders anywhere.
+    const summarise = (levels, word) => (levels.length
+        ? `${levels.length > 1 ? `${levels.length} ${word}s` : word} at ${levels.map(l => formatPrice(l.price)).join(' / ')}`
+        : null)
+    const armed = [summarise(restingStops, 'stop'), summarise(restingTps, 'target')].filter(Boolean)
     const reference = referencePrice(ticket, ticketPos) ?? quote
 
     // The venue's session, from the one shared read every other order surface uses
@@ -139,16 +241,21 @@ export function TradeTicket({
     // symbol to the venue check than it is to the price feed.
     const { marketClosed } = useMarketStatus(String(activeSymbol ?? '').trim().toUpperCase() || undefined, ticket?.asset_class)
 
-    const blocker = placementBlocker({ symbol, quantity, orderType, price, accountIds: selectedAccounts, marketClosed })
+    const blocker          = placementBlocker({ symbol, quantity, orderType, price, stops, tps, accountIds: selectedAccounts, marketClosed })
+    const composeReference = composeReferencePrice({ orderType, price, quote })
 
-    // The trigger warning depends on WHICH side you're about to take, and the ticket doesn't know
-    // that until you press a button — so both sides are evaluated and the one that's wrong is
-    // shown. For any given type and price exactly one side can be wrong (a level above the market
-    // is a valid stop-buy and a valid limit-sell, and nothing else), so this reads as one line
-    // that also tells you which button the level IS valid for.
-    const entryWarnings = ['long', 'short']
-        .map(d => entryTriggerWarning({ orderType, direction: d, price: Number(price), quote }))
-        .filter(Boolean)
+    // Every warning depends on WHICH side you're about to take, and the ticket doesn't know that
+    // until you press a button — so both sides are evaluated and whatever is wrong is shown. For
+    // any given level exactly one side can be wrong (a level above the market is a valid stop-buy,
+    // a valid limit-sell, a valid long target and a valid short stop, and nothing else), so this
+    // reads as lines that also tell you which button the level IS valid for.
+    const composeWarns = useMemo(() => {
+        const seen = new Set()
+        for (const d of ['long', 'short']) {
+            for (const w of composeWarnings({ orderType, direction: d, price, quote, stops, tps })) seen.add(w)
+        }
+        return [...seen]
+    }, [orderType, price, quote, stops, tps])
 
     function handlePlace(dir) {
         if (blocker || busy) return
@@ -158,18 +265,23 @@ export function TradeTicket({
             quantity:  Number(quantity),
             orderType,
             price:     needsPrice(orderType) ? Number(price) : null,
+            // An untouched leg arrives as null — "no stop", never a price of 0. A ticket is a
+            // CREATE, so there is no leg for the null to clear and the caller simply omits it; the
+            // value is still stated rather than dropped here, because the pad is not the thing
+            // that decides what an absent leg means.
+            ...protectiveLevels({ stops, tps }),
         })
     }
 
     function handleReset() {
         setSymbol(''); setQuantity(''); setOrderType('market'); setPrice('')
-        setStopPrice(''); setTpPrice(''); setQuote(null)
+        setStops([blankRow()]); setTps([blankRow()]); setQuote(null)
         onReset?.()
     }
 
-    // The wrong-side warning depends on which button you're about to press, so it's shown per
-    // button rather than once under the price — a stop buy and a stop sell disagree about it.
-    const sideWarn = (dir) => entryTriggerWarning({ orderType, direction: dir, price: Number(price), quote })
+    // The button's own tooltip names the first thing wrong with THAT side specifically — the list
+    // above it is the union of both sides, so it can't say which button it is talking about.
+    const sideWarn = (dir) => composeWarnings({ orderType, direction: dir, price, quote, stops, tps })[0] ?? null
 
     return (
         <div className={P}>
@@ -265,7 +377,38 @@ export function TradeTicket({
                             </Field>
                         )}
 
-                        {entryWarnings.map(w => <p key={w} className={`${P}__warn`}>{w}</p>)}
+                        {/* Optional, and stated as such: a ticket with no stop is a decision the
+                            user is allowed to make, and a required field would be a lie about
+                            that. Filled in, they go out WITH the entry rather than after it —
+                            which is the whole point, since the gap between the two is exactly
+                            when the position is naked. The direction is not known until a button
+                            is pressed, so no side badge here — the warnings name the side instead. */}
+                        <div className={`${P}__protect`}>
+                            <ExitLeg
+                                leg="stop"
+                                label="stop loss"
+                                direction={null}
+                                rows={stops}
+                                onChange={setStops}
+                                reference={composeReference}
+                                quantity={quantity}
+                                unit={unit}
+                                disabled={busy}
+                            />
+                            <ExitLeg
+                                leg="tp"
+                                label="take profit"
+                                direction={null}
+                                rows={tps}
+                                onChange={setTps}
+                                reference={composeReference}
+                                quantity={quantity}
+                                unit={unit}
+                                disabled={busy}
+                            />
+                        </div>
+
+                        {composeWarns.map(w => <p key={w} className={`${P}__warn`}>{w}</p>)}
 
                         <div className={`${P}__sides`}>
                             <button
@@ -310,8 +453,14 @@ export function TradeTicket({
 
                         {phase === 'working' && (
                             <p className={`${P}__note`}>
-                                A {ticket?.entryOrderType} entry is resting at the broker. Protective levels
-                                can be attached once it fills.
+                                A {ticket?.entryOrderType} entry is resting at the broker.{' '}
+                                {armed.length
+                                    // Held by the entity, not by the broker: there is no position to close
+                                    // yet, so the closing orders go out on the fill (the reconciler places
+                                    // them the moment the entry opens). Saying "at the broker" here would
+                                    // claim a protection that isn't standing.
+                                    ? `Its ${armed.join(' and ')} go out the moment it fills.`
+                                    : 'Protective levels can be attached once it fills.'}
                             </p>
                         )}
 
@@ -321,26 +470,30 @@ export function TradeTicket({
 
                         {phase === 'live' && (
                             <>
-                                <ExitRow
+                                <ExitLeg
                                     leg="stop"
                                     label="stop loss"
                                     direction={direction}
-                                    value={stopPrice}
-                                    onChange={setStopPrice}
-                                    onApply={() => onAttachExits?.({ stop: Number(stopPrice) })}
+                                    rows={stops}
+                                    onChange={setStops}
+                                    onApply={() => onAttachExits?.({ stop: protectiveLevels({ stops }).stop })}
                                     reference={reference}
-                                    resting={restingStop}
+                                    resting={restingStops}
+                                    quantity={ticket?.quantity}
+                                    unit={unit}
                                     disabled={busy}
                                 />
-                                <ExitRow
+                                <ExitLeg
                                     leg="tp"
                                     label="take profit"
                                     direction={direction}
-                                    value={tpPrice}
-                                    onChange={setTpPrice}
-                                    onApply={() => onAttachExits?.({ tp: Number(tpPrice) })}
+                                    rows={tps}
+                                    onChange={setTps}
+                                    onApply={() => onAttachExits?.({ tp: protectiveLevels({ tps }).tp })}
                                     reference={reference}
-                                    resting={restingTp}
+                                    resting={restingTps}
+                                    quantity={ticket?.quantity}
+                                    unit={unit}
                                     disabled={busy}
                                 />
                             </>

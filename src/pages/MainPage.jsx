@@ -1155,12 +1155,13 @@ export function MainPage() {
     // then moves the ticket on by itself.
     const ticketIdea = ideas.find(i => i.id === ticketIdeaId) ?? null
 
-    async function handleTicketPlace({ asset, direction, quantity, orderType, price }) {
+    async function handleTicketPlace({ asset, direction, quantity, orderType, price, stop, tp }) {
         if (ticketBusy) return
         setTicketBusy(true)
         setTicketError(null)
         try {
-            const resting = orderType === 'limit' || orderType === 'stop'
+            const resting   = orderType === 'limit' || orderType === 'stop'
+            const protect   = [describeLeg('stop', stop), describeLeg('target', tp)].filter(Boolean)
             const saved = await tradeIdeasService.createIdea({
                 asset,
                 direction,
@@ -1174,7 +1175,18 @@ export function MainPage() {
                 ...(resting
                     ? { entry_order_type: orderType, entry_price: price }
                     : { immediate: true }),
-                notes: `Ticket — ${direction} ${quantity} ${asset} (${orderType})`,
+                // Protective levels stated WITH the entry, as a ladder — one rung, or several
+                // that each close a slice. The server expands every rung into the `touch` leg the
+                // routing already speaks (applyPriceLevels) and rests ONE broker order per rung,
+                // so both placement paths pick them up with no extra call and no window in which
+                // the position is on and unprotected: the market path places them inline once the
+                // entry fills (placeOrdersForIdea → placeExits), and the resting path stores them
+                // on the entity and the reconciler places them the moment the working order opens
+                // a position. Only a leg the user filled in is sent — an absent one leaves the
+                // entity's leg untouched rather than clearing it.
+                ...(stop != null && { stop_price: stop }),
+                ...(tp   != null && { tp_price:   tp }),
+                notes: `Ticket — ${direction} ${quantity} ${asset} (${orderType})${protect.length ? ` · ${protect.join(' · ')}` : ''}`,
             })
             if (!saved.length) throw new Error('the idea was not created')
 
@@ -1197,7 +1209,8 @@ export function MainPage() {
             if (failed.length) showErrorMsg(`${failed.length} of ${saved.length} broker orders failed`)
 
             setTicketIdeaId(saved[0].id)
-            showSuccessMsg(resting ? `${orderType} order resting at the broker` : `${direction === 'short' ? 'Sold' : 'Bought'} ${quantity} ${asset}`)
+            const done = resting ? `${orderType} order resting at the broker` : `${direction === 'short' ? 'Sold' : 'Bought'} ${quantity} ${asset}`
+            showSuccessMsg(protect.length ? `${done} — ${protect.join(', ')}` : done)
             await Promise.all([loadIdeas(), refreshPositions(true)])
         } catch (err) {
             console.error('[ticket] place failed', err)
@@ -1207,18 +1220,35 @@ export function MainPage() {
         }
     }
 
-    // Attach / move a protective level on the live ticket position. Only the leg the user touched
-    // is sent — the server merges it over the other one, so moving a stop can't drop a target.
+    // How a leg reads in a sentence — one place, because the ticket says it in three (the order
+    // note that reaches the ledger, the placed toast and the attached toast) and three copies of
+    // "stop 185.5 / 182" is three chances for them to describe different things.
+    function describeLeg(word, levels) {
+        if (!levels?.length) return null
+        const at = levels.map(l => (l.quantity != null ? `${l.price}×${l.quantity}` : String(l.price))).join(' / ')
+        return `${levels.length > 1 ? `${word}s` : word} ${at}`
+    }
+
+    // Attach / move the protective levels on the live ticket position. Only the leg the user
+    // touched is sent — the server merges it over the other one, so moving a stop can't drop a
+    // target — and the leg travels WHOLE: arming replaces a leg's resting orders outright
+    // (armExitsInPosition cancels the old set first), so a partial leg would silently retire the
+    // rungs it left out.
     async function handleTicketAttachExits({ stop, tp }) {
         if (!ticketIdeaId || ticketBusy) return
         setTicketBusy(true)
         setTicketError(null)
         try {
+            // `undefined` is the untouched leg; `null` is the leg the user CLEARED, and it has to
+            // travel — null is how the server takes a stop off (applyPriceLevels → an empty leg →
+            // armExitsInPosition cancels what was resting). Testing `!= null` here swallowed the
+            // null and made "remove my stop" a no-op that reported success.
             await tradeIdeasService.updateIdea(ticketIdeaId, {
-                ...(stop != null && { stop_price: stop }),
-                ...(tp   != null && { tp_price:   tp }),
+                ...(stop !== undefined && { stop_price: stop }),
+                ...(tp   !== undefined && { tp_price:   tp }),
             })
-            showSuccessMsg(stop != null ? 'Stop is at the broker' : 'Target is at the broker')
+            const [word, levels] = stop !== undefined ? ['Stop', stop] : ['Target', tp]
+            showSuccessMsg(levels?.length ? `${describeLeg(word, levels)} is at the broker` : `${word} removed`)
             await loadIdeas()
         } catch (err) {
             console.error('[ticket] attach exits failed', err)
