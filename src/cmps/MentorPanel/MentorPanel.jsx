@@ -206,7 +206,6 @@ export function MentorPanel({
     // set — coverage is the dimensions READ so far, so the previous setup's chips would tell Mentor
     // it had already looked at things it has not looked at for this one.
     async function _send(text, draft = pendingSetup, base = messages, cov = coverage) {
-        if (!text || chat.isLoading) return
         setEditDirty(true)
         setCandidates(null)   // a new user turn supersedes any pending offer
         setGenerated(null)
@@ -214,22 +213,15 @@ export function MentorPanel({
         const history = toChatHistory(base)
         history.push({ role: 'user', content: text })
 
-        const { signal, handlers } = chat.begin(text, {
-            onCoverage: setCoverage,
+        await chat.run(text, {
+            log: '[mentor]',
+            handlers: { onCoverage: setCoverage },
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant', content: data.reply })
                 _persist(history, data.reply, _applyDone(data, draft))
             },
+            send: ({ signal, handlers }) => mentorService.sendStream(history, { ...streamOpts(draft, cov), signal, ...handlers }),
         })
-
-        try {
-            await mentorService.sendStream(history, { ...streamOpts(draft, cov), signal, ...handlers })
-        } catch (err) {
-            console.error('[mentor]', err)
-            chat.freezeError()
-        } finally {
-            chat.endStream()
-        }
     }
 
     // Resume a stopped reply in place (prefill continuation), mirroring the other chats.
