@@ -212,7 +212,7 @@ describe('ScenarioBlock', () => {
 
     it('falls back to a positional name so an unnamed premise is still addressable', () => {
         render(<ScenarioBlock scenario={{ ...FADE, name: '' }} direction="long" index={1} />)
-        expect(screen.getByText('Way in 2')).toBeTruthy()
+        expect(screen.getByText('Entry scenario 2')).toBeTruthy()
     })
 })
 
@@ -264,10 +264,10 @@ describe('SetupSummary', () => {
         expect(next.entry_zones).toEqual(SETUP.entry_zones, 'the projection is the server’s to re-derive')
     })
 
-    it('adds a second way in as a scenario, not as another entry zone', () => {
+    it('adds a second entry scenario, not another entry zone, not as another entry zone', () => {
         const onChange = vi.fn()
         render(<SetupSummary setup={{ ...SETUP, scenarios: [FADE] }} onChange={onChange} />)
-        fireEvent.click(screen.getByText('+ another way in'))
+        fireEvent.click(screen.getByRole('button', { name: /another scenario/ }))
 
         const next = onChange.mock.calls[0][0]
         expect(next.scenarios).toHaveLength(2)
@@ -282,17 +282,17 @@ describe('SetupSummary', () => {
         expect(screen.getByLabelText('Remove false break')).toBeTruthy()
     })
 
-    it('lists the setup-wide conditions once, above the ways in', () => {
+    it('lists the setup-wide conditions once, above the entry scenarios', () => {
         render(<SetupSummary setup={SETUP} />)
-        const always = screen.getByText('Always — whichever way in').closest('section')
+        const always = screen.getByText('Always — whichever entry').closest('section')
         expect(within(always).getByText(/SMH leading/)).toBeTruthy()
         // And each premise's own trigger stays inside that premise.
         expect(within(screen.getByLabelText('Scenario false break')).getByText(/CHoCH up on the 1hr/)).toBeTruthy()
     })
 
-    it('says so plainly when no way in has been drawn yet', () => {
+    it('says so plainly when no entry scenario has been drawn yet', () => {
         render(<SetupSummary setup={{ ...SETUP, scenarios: [] }} />)
-        expect(screen.getByText(/No way in drawn yet/)).toBeTruthy()
+        expect(screen.getByText(/No entry scenario drawn yet/)).toBeTruthy()
     })
 
     it('surfaces stamped event risk, which is checked whether or not news was declared', () => {
@@ -305,8 +305,8 @@ describe('SetupSummary', () => {
 // The folded preview. The worksheet is a reference you glance up at, so Mentor opens it as one
 // line — which means that line has to carry what you would otherwise open it to check.
 describe('setupDigest', () => {
-    it('names the asset, the direction and how many ways in', () => {
-        expect(setupDigest(SETUP)).toBe('NVDA · LONG · 2 ways in')
+    it('names the asset, the direction and how many entry scenarios', () => {
+        expect(setupDigest(SETUP)).toBe('NVDA · LONG · 2 entry scenarios')
     })
 
     // With a single premise the count says nothing you didn't know, so the space goes to the entry

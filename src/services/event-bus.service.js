@@ -48,6 +48,15 @@ export const MARKET_BRIEF_OPEN         = 'market-brief-open'
 // anything the sweep just unparked) is executed one row at a time.
 export const OPEN_QUEUED_LIST          = 'open-queued-list'
 
+// Open the EXPRESS SETUP FORM at the trade desk, on a plan drawn elsewhere.
+// Payload: { blueprint, locked?, note?, drawnAt?, from? } — a portable setup blueprint
+// (services/setup.blueprint.js on the server), never a setup ID: a shared plan is a snapshot COPY,
+// not a pointer into the sender's document, which carries their accounts, broker and position.
+//
+// Wired ahead of the card that will fire it. That is not speculation — it is the seam that makes
+// the sharing card a bubble and a send action rather than a second way of opening a form.
+export const SETUP_FORM_OPEN           = 'setup-form-open'
+
 function createEventEmitter() {
     const listenersMap = {}
     return {

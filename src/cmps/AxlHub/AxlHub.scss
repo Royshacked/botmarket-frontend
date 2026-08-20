@@ -316,17 +316,15 @@
 // answer nothing was asking; the accent border says the same "this is the subject" in one stroke,
 // and it holds its shape on focus instead of swapping a ring in for the lift.
 .chat-input-row--axl.chat-input-row--empty {
-    border-color: var(--accent);
-    box-shadow: none;
-    // The shared `--empty` rule lifts the box off the floor with a big bottom margin. That margin
-    // now falls BETWEEN the box and its chips, which would tear the pair apart — so it shrinks to a
-    // gap and the chips below carry the lift for both.
+    // The accent border and the absent glow moved into the shared `--empty` rule, where every desk
+    // now gets them — this screen was the only place they lived, and being the only place is what
+    // made Axl's composer look like a different app's.
+    //
+    // What is still Axl's ALONE is the margin. The shared rule lifts the box off the floor with a
+    // big bottom margin, and here that margin would fall BETWEEN the box and its chips and tear the
+    // pair apart. So it shrinks to a gap and the chips below carry the lift for both. No other desk
+    // puts anything under its composer.
     margin-bottom: 8px;
-
-    &:focus-within {
-        border-color: var(--accent);
-        box-shadow: none;
-    }
 }
 
 // Everything else on this screen is centred — the mark, the greeting, the card grid, the composer —

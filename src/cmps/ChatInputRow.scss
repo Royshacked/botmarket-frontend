@@ -137,22 +137,29 @@
 }
 
 // ── Landing state (`empty` prop) ───────────────────────────────────────────────
-// No thread yet → the composer is what the screen is about: it sits well above the
-// floor, roomier and softly lit, so the eye lands on it instead of on a footer pill.
-// The moment a thread exists the modifier drops and it settles back down — same
-// element, so the move is a transition, not a remount.
+// No thread yet → the composer is what the screen is about: it sits above the floor,
+// roomier, and outlined in the accent so the eye lands on it instead of on a footer
+// pill. The moment a thread exists the modifier drops and it settles back down —
+// same element, so the move is a transition, not a remount.
+//
+// AN ACCENT BORDER, NOT A DROP SHADOW. This used to be a downward glow, which reads
+// as the box floating over the panel and — on a desk whose composer sits at the
+// bottom — as a shadow hanging off the last thing on screen. Axl had already
+// overridden it away on its own landing screen for that reason; the override was the
+// better answer, so it lives here now and every desk gets the same composer instead
+// of Axl's looking like one app and the six others like another.
+//
+// It also holds its shape on focus rather than swapping a ring in for the lift.
 .chat-input-row--empty {
     margin-bottom: clamp(24px, 15vh, 150px);
     padding: 8px 8px 8px 12px;
     border-radius: 22px;
-    box-shadow: 0 12px 32px -14px color-mix(in srgb, var(--accent-light) 26%, transparent);
+    border-color: var(--accent);
+    box-shadow: none;
 
-    // Focusing the landing composer must not cost it its lift — the base
-    // `:focus-within` ring would otherwise replace the glow the moment it's clicked.
     &:focus-within {
-        box-shadow:
-            0 0 0 3px color-mix(in srgb, var(--accent-light) 12%, transparent),
-            0 12px 32px -14px color-mix(in srgb, var(--accent-light) 26%, transparent);
+        border-color: var(--accent);
+        box-shadow: none;
     }
 
     .chat-input-row__textarea {

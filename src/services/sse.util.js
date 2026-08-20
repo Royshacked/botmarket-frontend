@@ -34,6 +34,10 @@ export function buildStreamHandlers(cb = {}) {
         // set of dimensions read so far — order-free, because Mentor works by invariants, not steps.
         coverage:  (d) => cb.onCoverage?.(d.coverage),
         status:    (d) => cb.onStatus?.(d.tool),
+        // A desk opening the EXPRESS SETUP FORM on the user's screen (`open_setup_form`). A SURFACE
+        // event like `chart`, not a result: it lands mid-turn, because a form that appears only once
+        // the agent has finished talking is a form the user waited for.
+        setup_form: (d) => cb.onSetupForm?.(d),
         // WHOSE thinking this is: the desk's own model, or the reasoning sidecar it consulted for
         // one bounded decision (backend services/deepThink.service.js). One event with a label
         // rather than two events — a second sidecar is then a new label, not new wiring in five

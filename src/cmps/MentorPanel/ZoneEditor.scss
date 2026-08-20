@@ -135,3 +135,113 @@
         &__qty { width: 64px; }
     }
 }
+
+// ── The express form's row ───────────────────────────────────────────────────
+// Two small boxes and nothing else on the line. The band row above is wide because it holds two
+// edges and a dash between them; a single number in that much field reads as unfinished, as though
+// something more were expected. So the express row is sized to what it actually asks for.
+//
+// No card around it either: the bordered container earns its keep when a row is a compound thing
+// (id, two edges, size, flag, remove). Here it would be a box drawn around two boxes.
+.zone-editor__zone--price {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0;
+    border: none;
+    background: none;
+}
+
+.zone-editor__cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.zone-editor__box {
+    width: 62px;
+    height: 34px;
+    padding: 0 6px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-deep);
+    color: inherit;
+    font-family: var(--font-mono);
+    font-size: var(--chat-meta);
+    text-align: center;
+
+    &:focus { outline: none; border-color: var(--accent); }
+    &:disabled { opacity: 0.6; cursor: default; }
+
+    // Spinners are noise at this size and steal the room the number needs.
+    &::-webkit-outer-spin-button,
+    &::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+// Under the box, not inside it: a placeholder vanishes exactly when you want to check what you put
+// where, which on a row of two identical squares is the moment that matters.
+.zone-editor__cell-label {
+    font-size: var(--chat-micro);
+    color: var(--text-dim);
+    line-height: 1;
+}
+
+// The optional qualifier on an exit level, on its own line (flex-basis 100%) so it never widens the
+// row. Deliberately quiet: most stops are only a price, and a prominent box beside every one would
+// read as another thing the form is owed.
+.zone-editor__note-input {
+    flex: 0 0 100%;
+    min-width: 0;
+    margin-top: 2px;
+    padding: 3px 6px;
+    border: 1px dashed var(--border);
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    font-size: var(--chat-micro);
+
+    &::placeholder { opacity: 0.5; }
+    &:focus { outline: none; border-style: solid; border-color: var(--accent); }
+}
+
+@media (max-width: 767px) {
+    // Same rule the band row follows above: 16px stops iOS zooming the viewport on focus, and a
+    // taller box is a bigger target for a thumb.
+    .zone-editor__box {
+        width: 72px;
+        height: 40px;
+        font-size: 16px;
+    }
+}
+
+// "Add another", sitting beside the boxes it copies. Sized to the qty box's height so the row reads
+// as one line rather than as a control bolted onto the end of it.
+.zone-editor__add-inline {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 34px;
+    padding: 0;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-dim);
+    font-size: var(--chat-meta);
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover {
+        border-style: solid;
+        border-color: var(--accent);
+        color: var(--accent-light);
+        background: var(--bg-hover);
+    }
+}
+
+@media (max-width: 767px) {
+    .zone-editor__add-inline { height: 40px; width: 32px; }
+}

@@ -38,5 +38,27 @@
         }
 
         &:disabled { opacity: 0.4; cursor: default; }
+
+        // A chip that DOES something rather than says something (Mentor's express form). Marked, not
+        // dressed up: it is still one of the openings on offer and still quiet, so it takes the
+        // accent on its edge and its text and nothing else. Louder would make the other two read as
+        // the lesser choices, which is the opposite of true — most people should be talking.
+        &.is-action {
+            color: var(--accent-light);
+            border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+
+            &:hover:not(:disabled) {
+                color: var(--accent-light);
+                border-color: var(--accent);
+                background: color-mix(in srgb, var(--accent) 10%, transparent);
+            }
+        }
     }
+}
+
+// Under an agent's opening greeting rather than under a reply. Centred to sit with the greeting,
+// which is centred, and with room under it because the composer is not immediately beneath.
+.suggestion-chips--intro {
+    justify-content: center;
+    padding: 10px 0 0;
 }

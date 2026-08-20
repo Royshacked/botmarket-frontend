@@ -144,10 +144,22 @@ export function useChatStream({ threadPhases = false } = {}) {
      * `extraHandlers` to add (onTicker/onAsset) or override (onDone — which every caller
      * supplies; onChart is handled here by default and only rarely needs overriding).
      */
-    function begin(userText, extraHandlers = {}) {
+    /**
+     * `silent` runs a turn with NO user bubble — the reply appears on its own.
+     *
+     * For turns the user caused without saying anything: the express setup form hands its plan to
+     * Mentor by pressing a button, and the instruction that carries it is composed on the server
+     * precisely so it is not attributed to them (see buildExpressHandoffPrompt). Showing a line they
+     * did not write, or storing one in their thread, is a claim about what they said — and a fixed
+     * sentence sitting beside what they actually typed is a second voice that can contradict them.
+     *
+     * The wire still carries a user turn; the API needs one. This is only about what is shown and
+     * what is kept.
+     */
+    function begin(userText, extraHandlers = {}, { silent = false } = {}) {
         setMessages(prev => [
             ...prev,
-            { role: 'user', content: userText },
+            ...(silent ? [] : [{ role: 'user', content: userText }]),
             { role: 'assistant', content: '', streaming: true },
         ])
         setIsLoading(true)
@@ -432,17 +444,22 @@ export function useChatStream({ threadPhases = false } = {}) {
      *   generic "Error communicating with the server."). A desk the user knows by name can say so.
      * @returns {Promise<boolean>} true when the turn ran to completion
      */
-    async function run(userText, { send, onDone, handlers: extra = {}, onSettled, onStopped, errorMessage, log = '[chat]' } = {}) {
+    async function run(userText, { send, onDone, handlers: extra = {}, onSettled, onStopped, errorMessage, silent = false, log = '[chat]' } = {}) {
         // Re-entrancy: a second send while one is in flight would push a second user bubble and
         // orphan the first turn's abort controller. Guarded here rather than at five call sites.
-        if (!userText || isLoading || typeof send !== 'function') return false
+        //
+        // The empty-text half of that guard is about the INPUT BOX — pressing send on nothing must
+        // do nothing. A `silent` turn has no text by construction (the instruction is composed
+        // server-side and never attributed to the user), so applying it there would refuse every
+        // one of them.
+        if ((!userText && !silent) || isLoading || typeof send !== 'function') return false
 
         // Did this turn produce an answer? The panels' persistence hangs off onDone, so the honest
         // reading of "completed" is "onDone ran" — wrapped here, once, rather than asked for as a
         // flag each panel would have to remember to set.
         let completed = false
         const finish = onDone ? (data) => { completed = true; onDone(data) } : undefined
-        const { signal, handlers } = begin(userText, { ...extra, ...(finish ? { onDone: finish } : {}) })
+        const { signal, handlers } = begin(userText, { ...extra, ...(finish ? { onDone: finish } : {}) }, { silent })
         try {
             await send({ signal, handlers })
             return true

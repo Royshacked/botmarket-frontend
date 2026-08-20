@@ -12,6 +12,10 @@ const generateSetup = vi.fn().mockResolvedValue({ id: 's1', asset: 'NVDA', statu
 const updateSetup   = vi.fn().mockResolvedValue({ id: 's1', asset: 'NVDA', status: 'waiting' })
 const saveChatState = vi.fn().mockResolvedValue({})
 const sendStream    = vi.fn().mockResolvedValue(undefined)
+// The express form's two server calls. It opens on the hydrate answer, then re-asks the gate as the
+// user types — see SetupForm.
+const hydrateBlueprint = vi.fn()
+const validateDraft    = vi.fn()
 
 vi.mock('../../services/mentor/mentor.service.remote.js', () => ({
     mentorService: {
@@ -20,6 +24,8 @@ vi.mock('../../services/mentor/mentor.service.remote.js', () => ({
         updateSetup:   (...a) => updateSetup(...a),
         saveChatState: (...a) => saveChatState(...a),
         armSetup:      (...a) => armSetup(...a),
+        hydrateBlueprint: (...a) => hydrateBlueprint(...a),
+        validateDraft:    (...a) => validateDraft(...a),
         listSetups:    vi.fn().mockResolvedValue([]),
     },
     SETUPS_CHANGED: 'mentor-setups-changed',
@@ -67,7 +73,19 @@ async function runTurn(done) {
     await waitFor(() => expect(screen.getByRole('textbox').disabled).toBe(false))
 }
 
-beforeEach(() => { vi.clearAllMocks() })
+// A blank express form, as the server answers it: one empty way in and every gap named.
+const BLANK_FORM = {
+    setup: { asset: '', scenarios: [{ id: 's1', entry_zones: [], stop_zones: [], tp_zones: [], conditions: [] }] },
+    readiness: { ready: false, missing: ['asset', 'direction'], problems: [] },
+    problems: [],
+    vocabulary: { directions: ['long', 'short'], horizons: ['swing'], modes: ['discretionary'], timeframes: ['4hr'] },
+}
+
+beforeEach(() => {
+    vi.clearAllMocks()
+    hydrateBlueprint.mockResolvedValue(BLANK_FORM)
+    validateDraft.mockResolvedValue({ setup: BLANK_FORM.setup, readiness: BLANK_FORM.readiness, vocabulary: BLANK_FORM.vocabulary })
+})
 afterEach(cleanup)
 
 describe('MentorPanel', () => {
@@ -517,5 +535,186 @@ describe('MentorPanel — a turn the user walked out of', () => {
         expect(saveChatState.mock.calls[0][1].messages.at(-1))
             .toEqual({ role: 'user', content: 'AAPL reports Thursday — build me a setup' })
         err.mockRestore()
+    })
+})
+
+// ── The express door ─────────────────────────────────────────────────────────
+// Two ways in, one destination. What matters is that the fast one is actually fast — it must not
+// cost a model turn — and that the agent's one carries the pre-fill it named.
+describe('the express setup form', () => {
+    it('opens from the button without spending a turn on the agent', async () => {
+        render(<MentorPanel {...props()} />)
+        fireEvent.click(screen.getByText(/I already have the exact setup/))
+
+        await screen.findByRole('heading', { name: /setup/i })
+        expect(hydrateBlueprint).toHaveBeenCalledWith(null, ACCOUNTS)
+        // THE WHOLE POINT of the button: no stream, no reply, no ten-second wait to see a form.
+        expect(sendStream).not.toHaveBeenCalled()
+    })
+
+    it('opens mid-turn when the agent calls open_setup_form, carrying its pre-fill', async () => {
+        render(<MentorPanel {...props()} />)
+
+        sendStream.mockImplementationOnce(async (_history, opts) => {
+            opts.onSetupForm?.({ prefill: { asset: 'NVDA', direction: 'long' }, note: 'Filled in what you told me.' })
+            opts.onDone?.({ reply: 'Form is open.' })
+        })
+        const box = screen.getByRole('textbox')
+        fireEvent.change(box, { target: { value: 'I have the exact setup, just take it' } })
+        fireEvent.keyDown(box, { key: 'Enter' })
+
+        await screen.findByRole('heading', { name: /setup/i })
+        expect(hydrateBlueprint).toHaveBeenCalledWith({ asset: 'NVDA', direction: 'long' }, ACCOUNTS)
+        expect(screen.getByText('Filled in what you told me.')).toBeTruthy()
+    })
+
+    it('stands its own Generate down — two live actions over one setup is a user guessing', async () => {
+        render(<MentorPanel {...props()} />)
+        await runTurn({ reply: 'ok', setup: SETUP, readiness: { ready: true, missing: [] } })
+        expect(screen.getAllByRole('button', { name: /Generate setup/ })).toHaveLength(1)
+
+        // The panel's worksheet Generate goes away while the form owns the action; the form brings
+        // its own, so there is exactly one thing to press either way.
+        fireEvent.click(screen.getByTitle(/type them straight in/i))
+        await waitFor(() => expect(validateDraft).toHaveBeenCalled())
+        expect(screen.queryAllByRole('button', { name: /Generate setup/ })).toHaveLength(0)
+        expect(screen.getAllByRole('button', { name: /Continue to Mentor/ })).toHaveLength(1)
+    })
+
+    it('hands the form over WITHOUT putting words in the user’s mouth', async () => {
+        render(<MentorPanel {...props()} />)
+        await runTurn({ reply: 'ok', setup: SETUP, readiness: { ready: true, missing: [] } })
+
+        // The action is gated on the SAME readiness gate as everything else, so the plan has to
+        // read as finished before it can be handed over.
+        validateDraft.mockResolvedValue({ setup: SETUP, readiness: { ready: true, missing: [], problems: [] }, vocabulary: BLANK_FORM.vocabulary })
+        fireEvent.click(screen.getByTitle(/type them straight in/i))
+        await waitFor(() => expect(screen.getByRole('button', { name: /Continue to Mentor/ }).disabled).toBe(false))
+
+        const before = sendStream.mock.calls.length
+        fireEvent.click(screen.getByRole('button', { name: /Continue to Mentor/ }))
+        await waitFor(() => expect(sendStream.mock.calls.length).toBe(before + 1))
+
+        const [history, opts] = sendStream.mock.calls.at(-1)
+
+        // NOTHING FABRICATED. The client sends the conversation as it stands and a flag; the server
+        // composes the instruction and appends it there. A fixed sentence stored as the user's own
+        // words is a claim about what they said, and it can contradict what they actually typed.
+        expect(history.every(m => m.role !== 'user' || !/exact setup/i.test(m.content))).toBe(true)
+        // Carries what the form was showing — SETUP opens on 4hr, so that is what it hands over.
+        expect(opts.expressHandoff).toEqual({ timeframes: ['4hr'] })
+        // The plan rides in chatState, so Mentor re-emits it whole rather than re-deriving it.
+        expect(opts.chatState.draft.asset).toBe('NVDA')
+
+        // …and no user bubble appears on screen either.
+        expect(screen.queryByText(/exact setup/i)).toBeNull()
+        // Nothing is saved by handing over — Generate is still a separate press afterwards.
+        expect(generateSetup).not.toHaveBeenCalled()
+    })
+
+    it('opens mid-build on the LIVE draft, so sizes already on screen survive', async () => {
+        render(<MentorPanel {...props()} />)
+        await runTurn({ reply: 'ok', setup: SETUP, readiness: { ready: true, missing: [] } })
+
+        fireEvent.click(screen.getByTitle(/type them straight in/i))
+        await waitFor(() => expect(validateDraft).toHaveBeenCalled())
+        // Hydration is what strips quantity — a live draft must not go through it.
+        expect(hydrateBlueprint).not.toHaveBeenCalled()
+        expect(validateDraft.mock.calls[0][0].asset).toBe('NVDA')
+    })
+})
+
+// ── The form is a mode ───────────────────────────────────────────────────────
+// The FORM's own fields are textboxes too, so the chat box has to be named by its placeholder
+// rather than by role — otherwise "is the input gone?" reads as "are there any inputs?", which is
+// the opposite question.
+const chatBox = () => screen.queryByPlaceholderText(/A ticker, a direction and a horizon/)
+
+describe('the chat box while the express form is open', () => {
+    it('goes away — two ways to say the same thing at once is what causes the conflict', async () => {
+        render(<MentorPanel {...props()} />)
+        expect(chatBox()).toBeTruthy()
+
+        fireEvent.click(screen.getByText(/I already have the exact setup/))
+        await screen.findByRole('heading', { name: /setup/i })
+
+        // Not disabled — gone. A dead input invites you to try, then to wonder what is broken.
+        expect(chatBox()).toBeNull()
+    })
+
+    it('comes back when the form is closed — a mode with a door, not a trap', async () => {
+        render(<MentorPanel {...props()} />)
+        fireEvent.click(screen.getByText(/I already have the exact setup/))
+        await screen.findByRole('heading', { name: /setup/i })
+
+        fireEvent.click(screen.getByLabelText('Close the form'))
+        await waitFor(() => expect(chatBox()).toBeTruthy())
+    })
+})
+
+// The form is a MODE, not a section: while it is open the conversation is not on screen at all.
+describe('the express form owns the panel', () => {
+    it('hides the conversation while open, and brings it back on close', async () => {
+        render(<MentorPanel {...props()} />)
+        await runTurn({ reply: 'Here is a thought about NVDA.', setup: SETUP, readiness: { ready: true, missing: [] } })
+        expect(screen.getByText('Here is a thought about NVDA.')).toBeTruthy()
+
+        fireEvent.click(screen.getByTitle(/type them straight in/i))
+        await waitFor(() => expect(validateDraft).toHaveBeenCalled())
+
+        // Two surfaces describing one setup is what leaves the user working out which is real.
+        expect(screen.queryByText('Here is a thought about NVDA.')).toBeNull()
+        expect(chatBox()).toBeNull()
+
+        // Hidden, never cleared — opening the form is not leaving Mentor.
+        fireEvent.click(screen.getByLabelText('Close the form'))
+        await waitFor(() => expect(screen.getByText('Here is a thought about NVDA.')).toBeTruthy())
+        expect(chatBox()).toBeTruthy()
+    })
+})
+
+// ── Opening and closing ──────────────────────────────────────────────────────
+// The form covers the whole panel, so it has to be seen to arrive and to leave. The exit is the
+// half that needs code: React unmounts on the same frame unless something holds the element there.
+describe('the express form’s exit', () => {
+    const openIt = async () => {
+        render(<MentorPanel {...props()} />)
+        fireEvent.click(screen.getByText(/I already have the exact setup/))
+        return screen.findByRole('heading', { name: /setup/i })
+    }
+
+    it('stays mounted to play its exit instead of vanishing on the frame it is dismissed', async () => {
+        await openIt()
+
+        fireEvent.click(screen.getByLabelText('Close the form'))
+
+        // Still there, and marked. This is the whole mechanism: without it there is nothing to
+        // animate, because the element is already gone.
+        const form = screen.getByRole('heading', { name: /setup/i }).closest('.setup-form')
+        expect(form).toBeTruthy()
+        expect(form.className).toContain('is-leaving')
+
+        // …and then it goes.
+        await waitFor(() => expect(screen.queryByRole('heading', { name: /setup/i })).toBeNull())
+    })
+
+    it('re-opening mid-exit cancels it, rather than letting the old timer close the new form', async () => {
+        // Driven through `openForm` (the SETUP_FORM_OPEN path) because that is the only way in while
+        // an exit is playing: the chip and the worksheet link both live in the branch the form is
+        // still covering. A shared setup's card arriving as one closes is exactly this race.
+        const { rerender } = render(<MentorPanel {...props({ openForm: { key: 'a' } })} />)
+        await screen.findByRole('heading', { name: /setup/i })
+
+        fireEvent.click(screen.getByLabelText('Close the form'))
+        rerender(<MentorPanel {...props({ openForm: { key: 'b' } })} />)
+
+        await waitFor(() => {
+            const form = screen.getByRole('heading', { name: /setup/i }).closest('.setup-form')
+            expect(form.className).not.toContain('is-leaving')
+        })
+
+        // The old timer must not take this one down with it. 300ms is comfortably past FORM_EXIT_MS.
+        await new Promise(r => setTimeout(r, 300))
+        expect(screen.getByRole('heading', { name: /setup/i })).toBeTruthy()
     })
 })

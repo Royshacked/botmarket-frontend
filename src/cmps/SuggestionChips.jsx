@@ -16,6 +16,12 @@ import './SuggestionChips.scss'
  * A chip sends its own text as the user's next message — so the prompt writes them in the user's
  * voice ("Why is MU down?"), never the agent's ("Would you like me to explain…").
  *
+ * A chip may instead be `{ label, onPick }`, for the one that does not say anything: Mentor's "I
+ * already have the exact setup" opens a form rather than sending a turn. It is an OPENING MOVE the
+ * same as the others — the user choosing how to start — so it belongs in the same row and wearing
+ * the same clothes, not as a differently-shaped button underneath. `action: true` marks it for the
+ * one styling difference that is honest: it goes somewhere instead of saying something.
+ *
  * `variant` is the same escape hatch ChatInputRow's `prefix` is: a root modifier
  * (`suggestion-chips--<variant>`) a caller can style against, so a surface with its own needs — Axl's
  * landing screen, where the chips sit under a centred greeting rather than under a reply — tweaks the
@@ -30,21 +36,38 @@ export function SuggestionChips({ suggestions = [], onPick, disabled = false, va
             role="group"
             aria-label="Suggested follow-ups"
         >
-            {suggestions.map((text, i) => (
-                <button
-                    key={i}
-                    type="button"
-                    className="suggestion-chips__chip"
-                    onClick={() => onPick?.(text)}
-                    disabled={disabled}
-                >{text}</button>
-            ))}
+            {suggestions.map((s, i) => {
+                // A plain string is the ordinary case and behaves exactly as it always has.
+                const label  = typeof s === 'string' ? s : s?.label
+                const action = typeof s === 'string' ? null : s?.onPick
+                if (!label) return null
+
+                return (
+                    <button
+                        key={i}
+                        type="button"
+                        className={`suggestion-chips__chip${typeof s !== 'string' && s?.action ? ' is-action' : ''}`}
+                        title={typeof s === 'string' ? undefined : s?.title}
+                        onClick={() => (action ? action() : onPick?.(label))}
+                        disabled={disabled}
+                    >{label}</button>
+                )
+            })}
         </div>
     )
 }
 
 SuggestionChips.propTypes = {
-    suggestions: PropTypes.arrayOf(PropTypes.string),
+    suggestions: PropTypes.arrayOf(PropTypes.oneOfType([
+        PropTypes.string,
+        // A chip that does something instead of saying something.
+        PropTypes.shape({
+            label:  PropTypes.string.isRequired,
+            onPick: PropTypes.func.isRequired,
+            title:  PropTypes.string,
+            action: PropTypes.bool,
+        }),
+    ])),
     onPick:      PropTypes.func,
     disabled:    PropTypes.bool,
     variant:     PropTypes.string,

@@ -17,6 +17,8 @@ export const SETUPS_CHANGED = api.changeEvent
 
 export const mentorService = {
     sendStream,
+    hydrateBlueprint,
+    validateDraft,
     generateSetup,
     updateSetup,
     saveChatState,
@@ -34,10 +36,46 @@ export const mentorService = {
  * The draft is echoed back into the system prompt, so an omitted field survives a thin re-emit.
  */
 async function sendStream(messages, opts = {}) {
-    const { model, accounts = [], mainAccountId = null, chatState, seed } = opts
+    const { model, accounts = [], mainAccountId = null, chatState, seed, expressHandoff } = opts
     // `seed` is the Argus hand-off, sent on the hand-off turn only. Named explicitly because this
     // body is an allow-list, not a spread — an unlisted field is dropped without a word.
-    await streamAgent(BASE, { messages, model, accounts, mainAccountId, chatState, seed, ...clientTimeContext() }, opts)
+    // `expressHandoff` ({ timeframes }) turns this into the setup form's hand-off: the server composes
+    // the instruction and appends it as the final user turn, so nothing is attributed to the user.
+    await streamAgent(BASE, { messages, model, accounts, mainAccountId, chatState, seed, expressHandoff, ...clientTimeContext() }, opts)
+}
+
+/**
+ * A BLUEPRINT -> a draft the express form can render, plus what is still missing from it.
+ *
+ * One door for every way a pre-drawn plan reaches the form: `null` opens the blank worksheet ("I
+ * have the exact setup"), a payload opens someone else's plan. The server normalises it through the
+ * SAME path a Mentor emit takes and answers in the SAME shape a turn's `done` does
+ * ({ setup, readiness }), so the panel applies it with no second branch.
+ *
+ * `problems` is what was sent and did not survive the read — an unreadable price, an unknown lens.
+ * SHOW IT. Silently dropping two of four levels hands the user a different trade wearing the same
+ * name, and this is the only moment they could notice.
+ *
+ * Never writes. A blueprint carries no size by construction, so what comes back is always short of
+ * ready by at least the quantity - that is the point of the flow, not a failure of it.
+ */
+function hydrateBlueprint(blueprint = null, accounts = []) {
+    return api.post('/blueprint', { blueprint, accounts })
+}
+
+/**
+ * Ask the readiness gate about a draft, without saving it. Reads nothing, writes nothing.
+ *
+ * The express form has no turns, so nothing else would ever refresh what is still missing — the
+ * user would type their whole plan in front of a dark Generate button. Driven from a keystroke, so
+ * callers debounce it and guard against out-of-order replies.
+ *
+ * USE `readiness` AND DISCARD `setup`. The response carries the normalised copy, which re-sorts
+ * inverted bands and collapses a lone price into an exact level: correct at rest, hostile under a
+ * cursor. Generate normalises for real.
+ */
+function validateDraft(setup, accounts = []) {
+    return api.post('/validate', { setup, accounts })
 }
 
 /**

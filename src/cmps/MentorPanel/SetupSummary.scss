@@ -99,19 +99,56 @@
 
     // Deliberately quiet: a second way in is occasionally right and usually not, so the affordance
     // should be available without inviting a rival premise for its own sake.
+    // Same shape as the add-condition button (ConditionList.scss): a filled disc and a label with a
+    // line of context under it. One form for "this adds another one of those", so the two never look
+    // like two different kinds of action.
     &__add-way {
+        display: flex;
+        align-items: center;
+        gap: 8px;
         align-self: flex-start;
         border: 1px dashed var(--border);
-        border-radius: 4px;
+        border-radius: 6px;
         background: transparent;
         color: var(--text-dim);
-        font-family: var(--font-mono);
-        font-size: var(--chat-label);
-        letter-spacing: 0.06em;
-        padding: 3px 7px;
+        padding: 6px 10px;
+        text-align: left;
         cursor: pointer;
 
-        &:hover { color: var(--accent-light); border-color: var(--border-mid); background: var(--bg-hover); }
+        &:hover {
+            color: var(--accent-light);
+            border-style: solid;
+            border-color: var(--border-mid);
+            background: var(--bg-hover);
+        }
+    }
+
+    &__add-plus {
+        display: grid;
+        place-items: center;
+        flex: 0 0 auto;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: #fff;
+        font-size: var(--chat-meta);
+        font-weight: 700;
+        line-height: 1;
+    }
+
+    &__add-text {
+        display: flex;
+        flex-direction: column;
+        font-size: var(--chat-meta);
+        font-weight: 600;
+
+        em {
+            font-style: normal;
+            font-weight: 400;
+            font-size: var(--chat-micro);
+            opacity: 0.65;
+        }
     }
 
     &__window,
@@ -151,4 +188,117 @@
         color: var(--text-dim);
         text-align: center;
     }
+}
+
+// ── Authoring: the nucleus as fields (see SetupFields) ────────────────────────
+// The same five things the header shows as chips, laid out to be TYPED rather than read. Two rows
+// so ticker+direction (what the trade is) sit apart from horizon/timeframe/lens (how it is judged).
+.setup-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+
+    &__row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        flex: 1 1 6rem;
+        min-width: 0;
+
+        &--asset { flex: 1 1 8rem; }
+        &--wide  { flex: 1 1 100%; }
+    }
+
+    &__label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        opacity: 0.65;
+
+        em {
+            font-style: normal;
+            text-transform: none;
+            letter-spacing: 0;
+            opacity: 0.75;
+        }
+    }
+
+    &__input,
+    &__select,
+    &__textarea {
+        width: 100%;
+        padding: 0.3rem 0.4rem;
+        border: 1px solid var(--border-subtle, rgba(128, 128, 128, 0.3));
+        border-radius: 0.35rem;
+        background: var(--input-bg, transparent);
+        color: inherit;
+        font: inherit;
+        font-size: 0.85rem;
+
+        &:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+    }
+
+    &__input { font-weight: 600; letter-spacing: 0.02em; }
+
+    &__textarea { resize: vertical; font-weight: 400; }
+
+    // Derived, not chosen — so it reads as a consequence of the timeframe above it rather than as
+    // another field.
+    &__ladder {
+        margin: 0;
+        font-size: 0.72rem;
+        opacity: 0.6;
+    }
+}
+
+// A closed-set choice as buttons rather than a dropdown: every option visible, one click to answer,
+// and clicking the live one clears it back to unanswered.
+.setup-fields__segmented {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.setup-fields__seg {
+    padding: 0.25rem 0.55rem;
+    border: 1px solid var(--border-subtle, rgba(128, 128, 128, 0.3));
+    border-radius: 0.35rem;
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-size: 0.8rem;
+    line-height: 1.2;
+    cursor: pointer;
+    white-space: nowrap;
+
+    &:hover:not(:disabled) { background: rgba(128, 128, 128, 0.12); }
+
+    &.is-on {
+        background: var(--accent, #3a7bd5);
+        border-color: var(--accent, #3a7bd5);
+        color: #fff;
+        font-weight: 600;
+    }
+
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+// Stepped authoring: the steps carry their own spacing (Step.scss), so the field rows inside them
+// should not add a second layer of it.
+.setup-fields--stepped {
+    gap: 0;
+
+    .setup-fields__field { flex: 1 1 100%; }
+    .setup-fields__label { display: none; }
+    .setup-fields__ladder { margin-top: 0.35rem; }
 }
