@@ -153,6 +153,30 @@ describe('ChatChartDock', () => {
         }
     })
 
+    // ON A PHONE THE CHART COULD NOT BE CLOSED AT ALL. The toolbar's nine controls came to 438px as
+    // flat siblings; a docked chart is 320-408px wide on a phone and the dock clips (overflow: hidden,
+    // for the corner radius), so the strip overflowed and the LAST item was cut off entirely — Close,
+    // at every common phone width. Worse, the ✕ still on screen was the drawing group's clear-all,
+    // which does nothing on a chart nobody has drawn on, so it read as a dead button rather than a
+    // missing one.
+    //
+    // The fix is which controls are allowed to run out of room, and that is STRUCTURAL: the drawing
+    // tools live in a group that scrolls, and Hide/Close sit outside it and never shrink. jsdom has
+    // no layout engine, so what is pinned here is that structure — put Close back inside the
+    // scrolling group and the phone loses its close button again, silently and with every test green.
+    it('keeps Close out of the group that is allowed to overflow', () => {
+        render(<ChatChartDock />)
+        act(() => { openChart({ symbol: 'SPY', timeframe: 'day' }) })
+
+        const tools = document.querySelector('.chart-surface__tools')
+        expect(tools).toBeTruthy()                                  // the group exists at all
+        expect(tools.querySelector('.chart-surface__tool')).toBeTruthy()   // …and holds the drawing tools
+
+        for (const label of ['Close the chart', 'Collapse the chart']) {
+            expect(tools.contains(screen.getByLabelText(label))).toBe(false)
+        }
+    })
+
     it('a late mount picks up the already-docked chart instead of losing it', () => {
         // Switching agent tabs unmounts one dock and mounts another; the chart must survive the trip.
         act(() => { openChart({ symbol: 'SPY', timeframe: 'day' }) })

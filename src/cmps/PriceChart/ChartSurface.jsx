@@ -38,31 +38,41 @@ export function ChartSurface({ ticker, timeframe, drawings = [], onClose, onColl
     return (
         <div className="chart-surface">
             <div className="chart-surface__toolbar">
-                {DRAW_TOOLS.map(t => (
+                {/* The drawing tools are GROUPED, and the group is the only thing in this strip
+                    allowed to run out of room. Flat siblings of Close, they made the toolbar wider
+                    than a phone: 438px of buttons in a 320px dock, and since the dock clips
+                    (overflow: hidden) what got cut was the LAST item — Close, entirely, on every
+                    common phone width. The ✕ still reachable was this group's clear-drawings one,
+                    which does nothing on a chart with no drawings, so closing simply looked broken.
+                    The group scrolls instead; Close and Hide never shrink. See the stylesheet. */}
+                <div className="chart-surface__tools">
+                    {DRAW_TOOLS.map(t => (
+                        <button
+                            key={t.key}
+                            className={`chart-surface__tool${activeTool === t.key ? ' chart-surface__tool--active' : ''}`}
+                            onClick={() => handleTool(t.key)}
+                            title={t.label}
+                        >
+                            {t.label}
+                        </button>
+                    ))}
+                    <div className="chart-surface__tool-sep" />
                     <button
-                        key={t.key}
-                        className={`chart-surface__tool${activeTool === t.key ? ' chart-surface__tool--active' : ''}`}
-                        onClick={() => handleTool(t.key)}
-                        title={t.label}
+                        className="chart-surface__tool"
+                        onClick={() => chartRef.current?.undoLastDrawing()}
+                        title="Undo last drawing"
                     >
-                        {t.label}
+                        ↩
                     </button>
-                ))}
-                <div className="chart-surface__tool-sep" />
-                <button
-                    className="chart-surface__tool"
-                    onClick={() => chartRef.current?.undoLastDrawing()}
-                    title="Undo last drawing"
-                >
-                    ↩
-                </button>
-                <button
-                    className="chart-surface__tool"
-                    onClick={() => chartRef.current?.clearAllDrawings()}
-                    title="Clear all drawings"
-                >
-                    ✕
-                </button>
+                    <button
+                        className="chart-surface__tool"
+                        onClick={() => chartRef.current?.clearAllDrawings()}
+                        title="Clear all drawings"
+                        aria-label="Clear all drawings"
+                    >
+                        ✕
+                    </button>
+                </div>
 
                 {onCollapse && (
                     <button

@@ -17,7 +17,33 @@
         background: var(--bg-wash-surface);
     }
 
+    // The drawing tools, and the ONLY part of the strip that may run short of room.
+    //
+    // WHAT THIS FIXES: the tools used to be flat siblings of Hide/Close, so the toolbar's width was
+    // the sum of all nine controls — 438px measured. A docked chart on a phone is 320–408px wide and
+    // its host clips (ChatChartDock.scss, overflow: hidden to hold the corner radius), so the strip
+    // overflowed and the LAST item was cut: Close, completely, at every common phone width. The
+    // chart could not be closed at all, and the ✕ that was still reachable belonged to this group —
+    // clear-all-drawings, which does nothing on a chart nobody has drawn on.
+    //
+    // `min-width: 0` is the load-bearing half: a flex item defaults to min-width: auto and will not
+    // shrink below its content, which is exactly how the overflow reached the controls in the first
+    // place. With it, this group gives up its space and scrolls, and the pair on the right keeps its.
+    &__tools {
+        flex: 1 1 auto;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        overflow-x: auto;
+        // No scrollbar strip stealing height from a 30px toolbar; it is a thumb-drag on the surface
+        // this actually matters on.
+        scrollbar-width: none;
+        &::-webkit-scrollbar { display: none; }
+    }
+
     &__tool {
+        flex-shrink: 0;             // scroll the group, never squash its buttons into unreadable stubs
         padding: 2px 7px;
         border: 1px solid transparent;
         border-radius: 4px;
@@ -51,8 +77,10 @@
 
     // Collapse + Close sit together at the right end. `margin-left: auto` pushes whichever comes
     // FIRST away from the tools; the second one (Close, when paired) drops it so the pair stays
-    // together instead of splitting across the strip.
+    // together instead of splitting across the strip. Neither ever gives up room — a control the
+    // user cannot reach is worse than a drawing tool they have to scroll to.
     &__close {
+        flex-shrink: 0;
         margin-left: auto;
 
         &--paired { margin-left: 4px; }
