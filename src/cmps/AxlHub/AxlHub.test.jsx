@@ -8,13 +8,40 @@ const streamAxl = vi.fn()
 vi.mock('../../services/axl/axl.service.remote', () => ({
     axlService: { streamAxl: (...a) => streamAxl(...a) },
 }))
-// Unfinished work per desk, which drives the route dot AND the resume-on-arrival.
+// Unfinished work per desk, which drives the route dot AND the resume-on-arrival. It now carries
+// Axl's OWN conversation too — a draft thread like any desk's, which is what lets the hub restore the
+// chat after the tab switch that unmounts it.
 const listUnfinished = vi.fn().mockResolvedValue([])
+const saveDraft      = vi.fn().mockResolvedValue({ ok: true })
+const getThread      = vi.fn().mockResolvedValue(null)
+const discardThread  = vi.fn().mockResolvedValue({ ok: true })
+let threadSeq = 0
 vi.mock('../../services/threads/threads.service.remote', () => ({
-    threadsService: { listUnfinished: (...a) => listUnfinished(...a) },
+    threadsService: {
+        listUnfinished: (...a) => listUnfinished(...a),
+        saveDraft:      (...a) => saveDraft(...a),
+        getThread:      (...a) => getThread(...a),
+        discardThread:  (...a) => discardThread(...a),
+    },
+    // Deterministic, so a test can assert WHICH thread a save wrote to. The real one is time+random.
+    newThreadId: () => `thr_test_${++threadSeq}`,
+    // The real helper's contract, minus the module it lives in: discard the spent thread, mint the
+    // next id into the ref.
+    clearThread: (ref) => {
+        if (ref?.current) discardThread(ref.current)
+        const next = `thr_test_${++threadSeq}`
+        if (ref) ref.current = next
+        return next
+    },
 }))
+// The mic hands its transcript back through this callback. Captured rather than stubbed away,
+// because the callback IS the bug this suite pins: it used to be frozen on the first render.
+let micTranscript = null
 vi.mock('../../customHooks/useMicInput.js', () => ({
-    useMicInput: () => ({ isRecording: false, isTranscribing: false, toggle: vi.fn(), cancel: vi.fn() }),
+    useMicInput: ({ onTranscript }) => {
+        micTranscript = onTranscript
+        return { isRecording: false, isTranscribing: false, toggle: vi.fn(), cancel: vi.fn() }
+    },
 }))
 const { AxlHub, MessageBubble } = await import('./AxlHub.jsx')
 const { DESKS } = await import('./agentMeta.jsx')
@@ -42,6 +69,11 @@ beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     streamAxl.mockReset()
     listUnfinished.mockReset().mockResolvedValue([])
+    saveDraft.mockReset().mockResolvedValue({ ok: true })
+    getThread.mockReset().mockResolvedValue(null)
+    discardThread.mockReset().mockResolvedValue({ ok: true })
+    micTranscript = null
+    threadSeq = 0
 })
 afterEach(() => { vi.useRealTimers(); cleanup() })
 
@@ -537,5 +569,176 @@ describe('AxlHub — the landing asks', () => {
         expect(streamAxl).toHaveBeenCalled()
         const sent = streamAxl.mock.calls[0][0]
         expect(sent.at(-1)).toEqual({ role: 'user', content: 'What can this app do?' })
+    })
+})
+
+// AXL REMEMBERS. Three separate leaks fed one complaint — "Axl forgets what we were talking about":
+// dictation sent no history at all, and the thread itself was React state in a panel that is
+// unmounted the moment the user walks to a desk.
+describe('AxlHub — dictating into an existing conversation', () => {
+    async function dictate(text) {
+        await act(async () => { micTranscript(text) })
+        for (let i = 0; i < 4; i++) await act(async () => { vi.advanceTimersByTime(1500) })
+    }
+
+    // THE BUG: the transcript handler was a useCallback with an empty dep array, so it kept the
+    // FIRST render's `_send` — which had closed over `messages` while it was still []. Every spoken
+    // turn therefore opened a brand-new conversation in the middle of an existing one, while typed
+    // turns carried the thread perfectly. That difference is the whole of the "sometimes".
+    it('carries the thread, exactly as typing it would', async () => {
+        replyWith({ reply: 'Rates are the driver today.' })
+        render(<AxlHub user={{ fullname: 'Roy' }} onPick={vi.fn()} />)
+        await act(async () => {})
+
+        await ask('how are markets?')
+        await dictate('and what about the second one?')
+
+        const sent = streamAxl.mock.calls.at(-1)[0]
+        expect(sent).toEqual([
+            { role: 'user',      content: 'how are markets?' },
+            { role: 'assistant', content: 'Rates are the driver today.' },
+            { role: 'user',      content: 'and what about the second one?' },
+        ])
+    })
+})
+
+describe('AxlHub — the conversation survives leaving', () => {
+    it('persists the turn as an axl draft, on no desk', async () => {
+        replyWith({ reply: 'Rates are the driver today.' })
+        render(<AxlHub user={{ fullname: 'Roy' }} onPick={vi.fn()} />)
+        await act(async () => {})
+
+        await ask('how are markets?')
+
+        // ONCE per turn: the effect writes on the mounted path and the walk-out cover stands down.
+        // Two writes would double reception's traffic, and reception is the busiest desk in the app.
+        expect(saveDraft).toHaveBeenCalledTimes(1)
+        const saved = saveDraft.mock.calls.at(-1)[0]
+        expect(saved.agent).toBe('axl')
+        // `pipeline: null` is what keeps reception out of the desk UI — deskOfThread badges no route
+        // for it and blockedDesks locks no door. A desk key here would light up a route the user
+        // never visited and close the doors to an agent nobody is holding.
+        expect(saved.pipeline).toBe(null)
+        expect(saved.messages).toEqual([
+            { role: 'user',      content: 'how are markets?' },
+            { role: 'assistant', content: 'Rates are the driver today.' },
+        ])
+    })
+
+    it('says nothing to the store before Axl has answered', async () => {
+        render(<AxlHub user={{ fullname: 'Roy' }} onPick={vi.fn()} />)
+        await act(async () => {})
+
+        expect(saveDraft).not.toHaveBeenCalled()
+    })
+
+    it('restores it on arrival and keeps writing to the SAME thread', async () => {
+        listUnfinished.mockResolvedValue([{ threadId: 'thr_axl_9', agent: 'axl', pipeline: null, yourTurn: true }])
+        getThread.mockResolvedValue({
+            threadId: 'thr_axl_9',
+            messages: [
+                { role: 'user',      content: 'how are markets?' },
+                { role: 'assistant', content: 'Rates are the driver today.' },
+            ],
+        })
+        replyWith({ reply: 'Because the long end sold off.' })
+        render(<AxlHub user={{ fullname: 'Roy' }} onPick={vi.fn()} />)
+        await act(async () => {})
+
+        expect(getThread).toHaveBeenCalledWith('thr_axl_9')
+        expect(screen.getByText(/Rates are the driver today\./)).toBeTruthy()
+
+        await ask('why?')
+
+        // The follow-up answers against what was said before the user walked out…
+        expect(streamAxl.mock.calls.at(-1)[0]).toEqual([
+            { role: 'user',      content: 'how are markets?' },
+            { role: 'assistant', content: 'Rates are the driver today.' },
+            { role: 'user',      content: 'why?' },
+        ])
+        // …and the turn goes back to the thread it came from, rather than forking a second one.
+        expect(saveDraft.mock.calls.at(-1)[0].threadId).toBe('thr_axl_9')
+    })
+
+    // A chart request answers in the dock, not in words, so the turn leaves a HIDDEN assistant note
+    // saying what it showed. That note is what lets "now the 4h" resolve — so it has to be in what is
+    // persisted, and must not come back as a visible bubble.
+    it('persists the hidden chart note without rendering it', async () => {
+        streamAxl.mockImplementation(async (_m, opts) => {
+            // onLiveChart, not onChart: a chart the USER asked for docks below the thread and never
+            // becomes a bubble — which is exactly why the turn needs the hidden note to exist at all.
+            opts.onLiveChart?.({ symbol: 'SPY', timeframe: 'day' })
+            opts.onDone?.({ reply: '', route: null, routeSymbol: null, opening: null, edit: null, adopt: false })
+        })
+        render(<AxlHub user={{ fullname: 'Roy' }} onPick={vi.fn()} />)
+        await act(async () => {})
+
+        await ask('give spy')
+
+        const saved = saveDraft.mock.calls.at(-1)[0].messages
+        expect(saved.at(-1)).toMatchObject({ role: 'assistant', hidden: true })
+        expect(saved.at(-1).content).toMatch(/SPY/)
+        expect(screen.queryByText(/Showed the SPY/)).toBeNull()
+    })
+
+    // Clearing is not walking away. Left behind, the thread the user threw away would sit in the
+    // store for its full TTL and be restored on the next arrival — the one outcome Clear rules out.
+    it('discards the draft on Clear', async () => {
+        replyWith({ reply: 'Rates are the driver today.' })
+        render(<AxlHub user={{ fullname: 'Roy' }} onPick={vi.fn()} />)
+        await act(async () => {})
+        await ask('how are markets?')
+
+        const written = saveDraft.mock.calls.at(-1)[0].threadId
+        await act(async () => { fireEvent.click(document.querySelector('.chat-input-row__clear')) })
+
+        expect(discardThread).toHaveBeenCalledWith(written)
+        expect(screen.queryByText(/Rates are the driver today\./)).toBeNull()
+    })
+
+    // THE WALK-OUT, and the ending this whole feature exists for: ask something, lose patience, click
+    // a desk. That unmounts the hub, so the save EFFECT can never run — but the turn goes on
+    // streaming, and the conversation the user left is still theirs to come back to.
+    it('saves the turn even when the user leaves while Axl is still answering', async () => {
+        let finish
+        streamAxl.mockImplementation((_m, opts) => new Promise(res => {
+            finish = () => { opts.onDone?.({ reply: 'Rates are the driver today.' }); res() }
+        }))
+        const { unmount } = render(<AxlHub user={{ fullname: 'Roy' }} onPick={vi.fn()} />)
+        await act(async () => {})
+
+        const box = screen.getByPlaceholderText(/Ask Axl anything/i)
+        fireEvent.change(box, { target: { value: 'how are markets?' } })
+        await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
+        expect(saveDraft).not.toHaveBeenCalled()        // mid-turn, nothing settled yet
+
+        unmount()                                        // …and off to a desk
+        await act(async () => { finish() })
+
+        expect(saveDraft).toHaveBeenCalledTimes(1)
+        const saved = saveDraft.mock.calls.at(-1)[0]
+        expect(saved.agent).toBe('axl')
+        expect(saved.messages).toEqual([
+            { role: 'user',      content: 'how are markets?' },
+            { role: 'assistant', content: 'Rates are the driver today.' },
+        ])
+    })
+
+    // A restore that lands late must not overwrite what the user has already started saying.
+    it('never overwrites a conversation already underway', async () => {
+        let release
+        getThread.mockImplementation(() => new Promise(res => { release = res }))
+        listUnfinished.mockResolvedValue([{ threadId: 'thr_axl_9', agent: 'axl', pipeline: null }])
+        replyWith({ reply: 'Fresh answer.' })
+        render(<AxlHub user={{ fullname: 'Roy' }} onPick={vi.fn()} />)
+        await act(async () => {})
+
+        await ask('a brand new question')
+        await act(async () => {
+            release({ threadId: 'thr_axl_9', messages: [{ role: 'user', content: 'the old conversation' }] })
+        })
+
+        expect(screen.getByText('a brand new question')).toBeTruthy()
+        expect(screen.queryByText('the old conversation')).toBeNull()
     })
 })

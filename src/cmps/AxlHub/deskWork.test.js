@@ -126,3 +126,14 @@ test('nothing unfinished blocks nothing', () => {
     assert.equal(blockedDesks(null, DESKS).size, 0)
     assert.equal(blockedDesks([{ agent: 'scanner', pipeline: 'portfolio' }], null).size, 0)
 })
+
+// Axl's own conversation is a draft thread in the same store, so it now appears in the very list
+// these two functions read. It must be invisible to both: reception is not a desk, and the hub would
+// otherwise badge a route the user never visited and close the doors to an agent nobody is holding.
+// `pipeline: null` is what carries that — asserted here rather than left to the save site.
+test('the reception thread badges no desk and locks no door', () => {
+    const axl = { agent: 'axl', pipeline: null, threadId: 'thr_axl_9', yourTurn: true }
+    for (const desk of DESKS) assert.equal(deskWork([axl], desk, DESKS).count, 0, desk.key)
+    assert.equal(deskOfThread(axl, DESKS), null)
+    assert.equal(blockedDesks([axl], DESKS).size, 0)
+})

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { AgentSummon } from './AgentSummon.jsx'
-import { threadsService } from '../../services/threads/threads.service.remote'
+import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote'
 import { deskWork, blockedDesks } from './deskWork.js'
 import { AgentGlyph } from './AgentBadges.jsx'
 import { AGENTS, SUMMON_MS, DESKS, TICKET_DESK } from './agentMeta.jsx'
@@ -109,6 +109,95 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
     // moment it had something to say. Keyed on the live set, so it costs one read per turn ending.
     const liveKey = live.map(w => `${w.agent}:${w.pipeline ?? ''}`).sort().join('|')
     useEffect(() => { threadsService.listUnfinished().then(setUnfinished) }, [liveKey])
+
+    // ── the reception conversation, persisted ─────────────────────────────────
+    // Axl's thread is a DRAFT THREAD like every desk's — the same threadsService, the same store,
+    // the same TTL and LRU cap. It had none, and was the only chat surface in the app without one:
+    // this panel is rendered only while the axl tab is active (MainPage), so walking to a desk
+    // UNMOUNTS it and its messages are React state. Every desk visit and every reload started Axl
+    // from nothing while the user still had the conversation in mind — which is what "Axl forgets
+    // what we were talking about" actually was.
+    //
+    // `pipeline: null`, deliberately, and it is what keeps this out of the desk UI: deskOfThread
+    // falls back to the desks entering at this agent and none enters at `axl`, so it badges no
+    // route; blockedDesks skips any thread with no pipeline, so it locks no door. See deskWork.js.
+    const threadIdRef  = useRef(newThreadId())
+    const lastSavedRef = useRef(null)
+    const restoredRef  = useRef(false)
+    // Live mirror of the thread, so a restore that lands LATE can ask what is on screen NOW rather
+    // than what was there when it was requested — the read inside the fetch's `.then` is a closure
+    // over the render that started it, and by then the user may have typed.
+    const liveThreadRef = useRef(messages)
+    liveThreadRef.current = messages
+
+    // Written on SETTLED messages rather than from a turn's onDone, which is where the desks write.
+    // Two things live here that onDone cannot see. The hidden chart note is appended inside
+    // finishStreaming's typewriter drain, AFTER onDone has returned — and that note is the whole
+    // reason "now the 4h" resolves, so a payload built in onDone would persist a thread that forgets
+    // which chart is up. And the paths that never reach onDone at all — the market brief, a stopped
+    // turn, a frozen error — are conversations too. The MECHANISM is still the shared saveDraft;
+    // only the write trigger differs, the same split the threads controller already documents.
+    useEffect(() => {
+        if (isLoading || messages === lastSavedRef.current) return
+        // Display-only rows are not conversation: a chart bubble carries an image and no text, and a
+        // phase row is a divider. Everything else is kept AS THE OBJECT — `hidden` and `reasoning`
+        // have to survive the round trip, and MessageBubble already skips a hidden one.
+        const persistable = messages.filter(m => !m.streaming && m.role !== 'phase' && m.type !== 'chart')
+        // Nothing said back yet — the server floor passes every axl save on the understanding that
+        // the client only asks once a reply exists (thread.util.js isSubstantive).
+        if (!persistable.some(m => m.role === 'assistant')) return
+        lastSavedRef.current = messages
+        _saveThread(persistable)
+    }, [messages, isLoading])
+
+    /** The one write. Both callers below go through it, so `agent` and `pipeline` are stated once. */
+    function _saveThread(msgs) {
+        threadsService.saveDraft({ threadId: threadIdRef.current, agent: 'axl', messages: msgs, pipeline: null })
+    }
+
+    // Is this panel still on screen? An effect cannot run once it is not, and walking to a desk
+    // UNMOUNTS this whole hub — which is the commonest way to leave reception: ask something, lose
+    // patience, click a desk while it is still answering. The turn goes on streaming (nothing aborts
+    // it), so the desks' own saves still land: they are plain calls inside a promise chain, which
+    // outlives the component. The effect above is not, so the walk-out is the one ending it cannot
+    // see, and it is the ending this whole feature exists for.
+    // Set on the way IN as well as out, which is not belt-and-braces: an effect that only ever
+    // clears the flag is left permanently false by a setup→cleanup→setup cycle (StrictMode does
+    // exactly that in dev), and every turn would then take the walk-out path AND the effect — two
+    // writes for one turn, on the busiest desk in the app.
+    const mountedRef = useRef(true)
+    useEffect(() => {
+        mountedRef.current = true
+        return () => { mountedRef.current = false }
+    }, [])
+
+    // Restore on arrival, off the unfinished list this hub already fetches — the axl draft is a row
+    // in it, so this costs one read of the thread and no second listing call.
+    //
+    // Guarded three ways because that fetch re-runs on `liveKey`: once only (restoredRef), and never
+    // over a conversation already on screen or a turn in flight, so a slow restore cannot overwrite
+    // what the user is in the middle of typing.
+    useEffect(() => {
+        if (restoredRef.current || isLoading || messages.length) return
+        const mine = unfinished.find(t => t.agent === 'axl')
+        if (!mine) return
+        restoredRef.current = true
+        const openedOn = threadIdRef.current
+        threadsService.getThread(mine.threadId).then(t => {
+            if (!t?.messages?.length) return
+            // Asked AGAIN on arrival, not only before the request: a read the user out-typed must
+            // lose. Restoring over a question they have already asked would delete it from the
+            // screen and answer the old conversation instead.
+            if (liveThreadRef.current.length) return
+            // And Clear mints a fresh id — so an id that moved while this was in flight means the
+            // user threw the conversation away mid-read, and it must not walk back in.
+            if (threadIdRef.current !== openedOn) return
+            const restored = t.messages
+            lastSavedRef.current = restored      // it came FROM the store; don't post it straight back
+            chat.setMessages(restored)
+            threadIdRef.current = t.threadId     // keep writing to the SAME thread, not a fork of it
+        })
+    }, [unfinished]) // eslint-disable-line react-hooks/exhaustive-deps
 
     // Which desks are closed because another desk is holding an agent they need. A panel is a
     // singleton, so entering the scan desk while a portfolio build is parked at Argus would clobber the
@@ -278,10 +367,22 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
         setSuggestions([])          // the offer is spent the moment anything is sent
 
         const history = toChatHistory(messages)
+        // What this turn leaves behind if the user walks out of it — see `onSettled` below.
+        const turn = [...history, { role: 'user', content: text }]
+        let answered = null
         await chat.run(text, {
             log: '[axl]',
             errorMessage: 'Error communicating with Axl. Please try again.',
+            // However this turn ended, and whether or not this panel is still here to see it. On the
+            // mounted path the effect above has already saved the richer version — the hidden chart
+            // note, the reasoning — so this only writes when there is nobody left to run an effect.
+            // Without it, the question the user got impatient with is the one that vanishes.
+            onSettled: () => {
+                if (mountedRef.current) return
+                _saveThread(answered ? [...turn, { role: 'assistant', content: answered }] : turn)
+            },
             onDone: (data) => {
+                answered = data.reply
                 const reasoning = chat.reasoningRef.current
                 chat.finishStreaming({ role: 'assistant', content: data.reply, ...(reasoning ? { reasoning } : {}) })
                 // A chart request needs nothing here — the `chart` event already docked it below.
@@ -311,7 +412,7 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
                 })
             },
             send: ({ signal, handlers }) => axlService.streamAxl(
-                [...history, { role: 'user', content: text }],
+                turn,
                 {
                     model:           readStoredModel(),
                     signal,
@@ -337,10 +438,15 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
         // answer a question nobody is looking at any more.
         setSuggestions([])
 
-        const { signal, handlers } = chat.begin("Today's market brief, please.", {
+        const ask = "Today's market brief, please."
+        const turn = [...toChatHistory(messages), { role: 'user', content: ask }]
+        let answered = null
+
+        const { signal, handlers } = chat.begin(ask, {
             onDone: (data) => {
+                answered = data.reply ?? ''
                 const reasoning = chat.reasoningRef.current
-                chat.finishStreaming({ role: 'assistant', content: data.reply ?? '', ...(reasoning ? { reasoning } : {}) })
+                chat.finishStreaming({ role: 'assistant', content: answered, ...(reasoning ? { reasoning } : {}) })
             },
         })
 
@@ -356,6 +462,10 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
             chat.freezeError(`Couldn't fetch today's brief just now${why}. Ask me again in a moment.`)
         } finally {
             chat.endStream()
+            // The same walk-out cover `_send` has, for the same reason: this is the longest thing
+            // Axl ever puts in the thread, and a brief the user left to write itself is exactly the
+            // one they come back for. On the mounted path the save effect handles it.
+            if (!mountedRef.current) _saveThread(answered ? [...turn, { role: 'assistant', content: answered }] : turn)
         }
     }
 
@@ -379,13 +489,34 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
         setSuggestions([])          // chips belong to a thread that no longer exists
         // One Clear, one clean slate — a chart left docked under an empty hub reads as a leftover.
         closeChart()
+        // Clearing is not walking away: the draft goes with the conversation, or a thread the user
+        // explicitly threw away sits in the store for another fourteen days and is restored on the
+        // next arrival. clearThread discards the spent one and mints the id the next chat writes to.
+        clearThread(threadIdRef)
+        lastSavedRef.current = null
+        // A fresh thread has nothing to restore, and the unfinished list still holds the row we just
+        // deleted until its next fetch — without this, Clear would be undone on the following render.
+        restoredRef.current  = true
     }
 
     function handleKeyDown(e) {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
     }
 
-    const onTranscript = useCallback((text) => { if (text) _send(text) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    // Dictation goes straight out as a turn, through a REF rather than the closure itself.
+    //
+    // THE TRAP THIS CLOSES: `useCallback(text => _send(text), [])` froze the FIRST render's `_send`,
+    // and `_send` reads `messages` off the render it was made in — which on the first render is `[]`.
+    // Every dictated turn therefore reached Axl with an empty history: a brand-new conversation,
+    // spoken into the middle of an existing one. Typed turns were fine, which is exactly why it
+    // showed up as Axl forgetting only SOMETIMES.
+    //
+    // The empty dep array is still right, and the ref is why: useMicInput's `start` closes over
+    // `onTranscript`, so an identity that changes every render would rebuild it mid-recording. The
+    // ref keeps that stable while the SEND is read at fire time, which is when the history is true.
+    const sendRef = useRef(_send)
+    sendRef.current = _send
+    const onTranscript = useCallback((text) => { if (text) sendRef.current(text) }, [])
     const { isRecording, isTranscribing, toggle: toggleMic, cancel: cancelMic } = useMicInput({ onTranscript })
 
     // The landing (greeting + desk cards) gives way to the thread on the first message.
