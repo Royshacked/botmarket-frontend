@@ -43,6 +43,19 @@ describe('reviewApplyMessage', () => {
         expect(msg).toMatch(/1 change couldn't be applied \(too small to place\)/)
     })
 
+    // The 2026-08-20 regression: a scale-in the paper venue refused (no live price for EME) came
+    // back carrying only `legsFailed`, so this looked up `undefined` and printed a bare
+    // "1 change couldn't be applied" — indistinguishable from a change that never ran at all.
+    it('a venue rejection is named, not left bare', () => {
+        const msg = reviewApplyMessage({ applied: 3, deferredItems: [], failed: [{ reason: 'broker_rejected' }] })
+        expect(msg).toMatch(/1 change couldn't be applied \(the venue rejected it\)/)
+    })
+
+    it('a broker that cannot close positions says so', () => {
+        const msg = reviewApplyMessage({ applied: 0, deferredItems: [], failed: [{ reason: 'broker_cannot_close' }] })
+        expect(msg).toMatch(/can't close positions/)
+    })
+
     it('mixed failure reasons drop the parenthetical rather than pick one', () => {
         const msg = reviewApplyMessage({
             applied: 0, deferredItems: [{ itemId: 'a' }],

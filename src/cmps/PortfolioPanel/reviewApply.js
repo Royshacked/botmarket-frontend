@@ -16,6 +16,10 @@ const REASON_COPY = {
     not_live:       'not in a position yet',
     already_held_use_add_to_item: 'already held',
     market_closed:  'market closed',
+    // The venue took the order and refused it — a paper symbol with no live price, a live broker
+    // rejection. Distinct from "too small", which never reached a venue at all.
+    broker_rejected:      'the venue rejected it',
+    broker_cannot_close:  "this broker can't close positions",
 }
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`
