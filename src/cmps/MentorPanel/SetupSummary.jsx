@@ -19,15 +19,22 @@ import './SetupSummary.scss'
 // what the monitor will actually check. An undeclared thing is never looked at, and a declared one
 // is paid for on every wake, so the user should see the instruction sheet they are writing.
 //
-// ── Two modes ────────────────────────────────────────────────────────────────
-// `authoring` turns the header, the thesis and the conditions into fields. That is the express
-// form's body (cmps/SetupForm) — the user typing a plan they already have rather than being asked
-// for it a turn at a time. Everything below the header is the SAME ScenarioBlock / ZoneEditor /
-// ConditionList either way, deliberately: a setup typed in and a setup argued into being are one
-// artifact, and two editors for one shape is how they stop being.
+// ── Two modes, and the second one has NO CALLER TODAY ────────────────────────
+// `authoring` turns the header, the thesis and the conditions into fields — the user typing a plan
+// rather than being asked for it a turn at a time. Its consumer was the express setup form, deleted
+// 2026-08-21: a user arriving with a finished plan is now INTERVIEWED for it in the conversation
+// (see "The interview" in mentor_system_prompt.md), so nothing on screen renders this today.
 //
-// `locked` narrows authoring for a plan drawn by somebody ELSE. `['plan']` freezes the lot except
-// the sizes, which is the shared-setup case exactly: their levels, their conditions, your money.
+// It is kept for the same reason services/setup.blueprint.js is, and for the same one caller —
+// a setup SHARED by another person, which needs a surface where their plan is read and only the
+// sizes are typed. That is what `locked` is: `['plan']` freezes the lot except the quantities.
+// Their levels, their conditions, your money. WIRE IT TO SHARING OR DELETE IT; do not grow a second
+// authoring surface while this one sits here. (`Step` and `pricesOnly` are the rest of the same
+// dormant mode. ZoneEditor's price rows are NOT — they are the only way levels are edited now.)
+//
+// Everything below the header is the SAME ScenarioBlock / ZoneEditor / ConditionList in both modes,
+// deliberately: a setup typed in and a setup argued into being are one artifact, and two editors
+// for one shape is how they stop being.
 //
 // It does NOT own Generate or readiness. Those live at the BOTTOM of the chat pane with the other
 // agent actions (where Kairos puts its Generate too): the preview is a reference you glance up at,
@@ -167,7 +174,6 @@ export function SetupSummary({ setup, onChange, readOnly = false, authoring = fa
                     readOnly={readOnly}
                     authoring={edit}
                     lockPrices={edit && isLocked('plan')}
-                    pricesOnly={pricesOnly}
                     // Steps 5-7 continue the run started by the nucleus. Only the FIRST entry
                     // scenario is numbered: a second one is a repeat of the same three questions,
                     // and numbering it 8-9-10 would imply a longer sequence than there is.

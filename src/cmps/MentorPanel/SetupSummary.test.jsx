@@ -24,9 +24,9 @@ const FADE = {
 
 const BREAK = {
     id: 's2', name: 'break and go',
-    entry_zones: [{ id: 's2e1', lower: 208, upper: 209, quantity: 60 }],
-    stop_zones:  [{ id: 's2s1', lower: 204, upper: 205 }],
-    tp_zones:    [{ id: 's2t1', lower: 220, upper: 221, quantity: 60 }],
+    entry_zones: [{ id: 's2e1', lower: 208, upper: 208, quantity: 60 }],
+    stop_zones:  [{ id: 's2s1', lower: 204, upper: 204 }],
+    tp_zones:    [{ id: 's2t1', lower: 220, upper: 220, quantity: 60 }],
     conditions:  [{ id: 's2c1', text: '1hr close above 208 on expanding volume', weight: 'primary', mode: 'measured', persistence: 'live' }],
     quantity: 60, rr: 1.4,
 }
@@ -67,17 +67,30 @@ describe('CoverageChips', () => {
 })
 
 describe('ZoneEditor', () => {
-    it('renders a row per zone across all three groups', () => {
+    // ONE PRICE PER LEVEL. The editor used to hold two edges per level and sort them on commit;
+    // bands are gone (docs/desks/talos-guards.md) and every row is now the exact price that acts.
+
+    it('renders a row per level across all three groups', () => {
         render(<ZoneEditor scenario={FADE} onChange={() => {}} />)
-        expect(screen.getByLabelText('Entry s1e1 lower edge').value).toBe('199')
-        expect(screen.getByLabelText('Stop s1s1 upper edge').value).toBe('197.9')
+        expect(screen.getByLabelText('Entry price s1e1').value).toBe('199')
+        expect(screen.getByLabelText('Stop s1s1').value).toBe('196.5')
         expect(screen.getByLabelText('Target s1t2 quantity').value).toBe('55')
+    })
+
+    it('shows the LEGACY band at the edge that actually acts, not at its lower edge', () => {
+        // A document armed before this change still holds a real band. Showing `lower` would put
+        // "210" in the box for a 210–211 target when 211 is where the limit rests — a number that
+        // reads as a fact and is not one. Touching it collapses the band to that price, which is
+        // the migration.
+        const legacy = { ...FADE, tp_zones: [{ id: 's1t1', lower: 210, upper: 211, quantity: 110 }] }
+        render(<ZoneEditor scenario={legacy} onChange={() => {}} />)
+        expect(screen.getByLabelText('Target s1t1').value).toBe('211')
     })
 
     it('totals each group separately so a mis-split across legs is visible', () => {
         // Deliberately mis-split: 110 in, but only 80 planned out.
-        const misSplit = { ...FADE, tp_zones: [{ id: 's1t1', lower: 210, upper: 211, quantity: 40 },
-                                               { id: 's1t2', lower: 213, upper: 214, quantity: 40 }] }
+        const misSplit = { ...FADE, tp_zones: [{ id: 's1t1', price: 210, lower: 210, upper: 210, quantity: 40 },
+                                               { id: 's1t2', price: 213, lower: 213, upper: 213, quantity: 40 }] }
         render(<ZoneEditor scenario={misSplit} onChange={() => {}} />)
 
         const total = (label) => within(screen.getByText(label).closest('section')).getByText(/^\d+$/).textContent
@@ -85,80 +98,69 @@ describe('ZoneEditor', () => {
         expect(total('Target')).toBe('80')   // visibly short of the entry size
     })
 
-    it('edits an edge through onChange without mutating the original', () => {
+    it('edits a level through onChange without mutating the original', () => {
         const onChange = vi.fn()
         render(<ZoneEditor scenario={FADE} onChange={onChange} />)
-        fireEvent.change(screen.getByLabelText('Entry s1e1 lower edge'), { target: { value: '198' } })
+        fireEvent.change(screen.getByLabelText('Entry price s1e1'), { target: { value: '198' } })
 
-        expect(onChange).toHaveBeenCalledTimes(1)
-        // It hands back a SCENARIO, not a setup — the caller writes it into scenarios[i].
-        expect(onChange.mock.calls[0][0].id).toBe('s1')
-        expect(onChange.mock.calls[0][0].entry_zones[0].lower).toBe(198)
-        expect(FADE.entry_zones[0].lower).toBe(199)   // the prop object is untouched
+        const next = onChange.mock.calls[0][0]
+        expect(next.entry_zones[0].lower).toBe(198)
+        expect(next.entry_zones[0].upper).toBe(198, 'written to both edges — an exact level')
+        expect(FADE.entry_zones[0].lower).toBe(199, 'the original is untouched')
     })
 
-    it('SORTS inverted edges on blur rather than rejecting them', () => {
-        // The user is typing two numbers; which lands first is not worth an error state.
-        const inverted = { ...FADE, entry_zones: [{ id: 's1e1', lower: 205, upper: 201, quantity: 10 }] }
-        const onChange = vi.fn()
-        render(<ZoneEditor scenario={inverted} onChange={onChange} />)
-        fireEvent.blur(screen.getByLabelText('Entry s1e1 lower edge'))
-
-        const zone = onChange.mock.calls[0][0].entry_zones[0]
-        expect([zone.lower, zone.upper]).toEqual([201, 205])
-    })
-
-    it('leaves a correctly ordered zone alone on blur', () => {
+    it('a condition on an EXIT rides on the leg, in the shape an entry condition has', () => {
+        // It used to be free text in the zone's `note`, which reached the entry read and was dropped
+        // from the in-position one — so a condition on a stop was read while waiting to get in and
+        // never once after. Same normaliser as an entry condition now, same read.
         const onChange = vi.fn()
         render(<ZoneEditor scenario={FADE} onChange={onChange} />)
-        fireEvent.blur(screen.getByLabelText('Entry s1e1 lower edge'))
-        expect(onChange.mock.calls[0][0].entry_zones[0]).toEqual(FADE.entry_zones[0])
+        fireEvent.change(screen.getByLabelText('Stop s1s1 condition'),
+            { target: { value: 'only on a 15min close below' } })
+
+        const [cond] = onChange.mock.calls[0][0].stop_zones[0].conditions
+        expect(cond.text).toBe('only on a 15min close below')
+        expect(cond.id).toBe('s1s1c1', 'scoped to the leg, so ids stay unique document-wide')
     })
 
-    it('flags a zero-width band as an exact level, not an error', () => {
-        const exact = { ...FADE, stop_zones: [{ id: 's1s1', lower: 197, upper: 197 }] }
-        render(<ZoneEditor scenario={exact} onChange={() => {}} />)
-        expect(screen.getByText('exact')).toBeTruthy()
+    it('clearing the condition removes it rather than storing an empty sentence', () => {
+        const withCond = { ...FADE, stop_zones: [{ ...FADE.stop_zones[0], conditions: [{ id: 'x', text: 'if it closes below' }] }] }
+        const onChange = vi.fn()
+        render(<ZoneEditor scenario={withCond} onChange={onChange} />)
+        fireEvent.change(screen.getByLabelText('Stop s1s1 condition'), { target: { value: '   ' } })
+        expect(onChange.mock.calls[0][0].stop_zones[0].conditions).toEqual([])
     })
 
-    it('will not add a SECOND entry zone — that is a second scenario, not a second leg', () => {
-        // Execution fires once for the scenario's whole size, so two entries in one premise would
-        // place both legs on whichever printed. The server refuses it; the button never offers it.
+    it('the ENTRY takes no condition here — that is what the premise conditions are', () => {
         render(<ZoneEditor scenario={FADE} onChange={() => {}} />)
-        expect(screen.queryByTitle('Add a entry zone')).toBeNull()
-        expect(screen.getByTitle('Add a target zone')).toBeTruthy()
+        expect(screen.queryByLabelText('Entry price s1e1 condition')).toBeNull()
     })
 
-    it('offers the entry button while the premise has no entry yet', () => {
-        const onChange = vi.fn()
-        render(<ZoneEditor scenario={{ ...FADE, entry_zones: [] }} onChange={onChange} />)
-        fireEvent.click(screen.getByTitle('Add a entry zone'))
-        expect(onChange.mock.calls[0][0].entry_zones[0].id).toBe('s1e1')
+    it('will not add a SECOND entry level — that is a second scenario, not a second leg', () => {
+        render(<ZoneEditor scenario={FADE} onChange={() => {}} />)
+        expect(screen.queryByLabelText('Add another entry')).toBeNull()
     })
 
-    it('scopes new zone ids to the scenario, so ids stay unique across premises', () => {
-        const onChange = vi.fn()
-        render(<ZoneEditor scenario={BREAK} onChange={onChange} />)
-        fireEvent.click(screen.getByTitle('Add a target zone'))
-        expect(onChange.mock.calls[0][0].tp_zones[1].id).toBe('s2t2')
+    it('offers another TARGET once the first has a price, for staged exits', () => {
+        render(<ZoneEditor scenario={FADE} onChange={() => {}} />)
+        expect(screen.getByLabelText('Add another target')).toBeTruthy()
     })
 
-    it('removes a zone', () => {
+    it('scopes new level ids to the scenario, so ids stay unique across premises', () => {
+        // An empty group renders one ready-to-type row that becomes real on the first keystroke —
+        // asking someone to press + before they can type their stop is a click charged for nothing.
+        const bare = { ...FADE, stop_zones: [] }
         const onChange = vi.fn()
-        render(<ZoneEditor scenario={FADE} onChange={onChange} />)
-        fireEvent.click(screen.getByLabelText('Remove s1t1'))
-        expect(onChange.mock.calls[0][0].tp_zones.map(z => z.id)).toEqual(['s1t2'])
+        render(<ZoneEditor scenario={bare} onChange={onChange} />)
+        fireEvent.change(screen.getByLabelText('Stop s1s1'), { target: { value: '196' } })
+        expect(onChange.mock.calls[0][0].stop_zones[0].id).toBe('s1s1')
     })
 
     it('hides the editing affordances when read-only', () => {
-        render(<ZoneEditor scenario={FADE} readOnly />)
-        expect(screen.queryByTitle('Add a target zone')).toBeNull()
-        expect(screen.getByLabelText('Entry s1e1 lower edge').disabled).toBe(true)
-    })
-
-    it('renders nothing for a missing scenario', () => {
-        const { container } = render(<ZoneEditor scenario={null} />)
-        expect(container.firstChild).toBeNull()
+        render(<ZoneEditor scenario={FADE} onChange={() => {}} readOnly />)
+        expect(screen.getByLabelText('Entry price s1e1').disabled).toBe(true)
+        expect(screen.queryByLabelText('Add another target')).toBeNull()
+        expect(screen.queryByLabelText('Stop s1s1 condition')).toBeNull()
     })
 })
 
@@ -217,10 +219,10 @@ describe('ScenarioBlock', () => {
 })
 
 describe('SetupSummary', () => {
-    it('renders zones read-only without an editor when told to', () => {
+    it('renders levels read-only without an editor when told to', () => {
         render(<SetupSummary setup={SETUP} readOnly />)
         // Read-only is how the preview renders once the setup is generated.
-        expect(screen.getByLabelText('Entry s1e1 lower edge').disabled).toBe(true)
+        expect(screen.getByLabelText('Entry price s1e1').disabled).toBe(true)
     })
 
     it('prompts before there is anything to show', () => {
@@ -256,7 +258,7 @@ describe('SetupSummary', () => {
         // silently discarded on Generate, because normalizeSetup reads `scenarios`.
         const onChange = vi.fn()
         render(<SetupSummary setup={SETUP} onChange={onChange} />)
-        fireEvent.change(screen.getByLabelText('Entry s2e1 lower edge'), { target: { value: '207' } })
+        fireEvent.change(screen.getByLabelText('Entry price s2e1'), { target: { value: '207' } })
 
         const next = onChange.mock.calls[0][0]
         expect(next.scenarios[1].entry_zones[0].lower).toBe(207)
