@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
-import { tidyPrices, readEntry } from './monitorJournal.utils.js'
+import { tidyPrices, readEntry, guardLabel } from './monitorJournal.utils.js'
 import './MonitorJournal.scss'
 
 // ── The monitor journal ────────────────────────────────────────────────────────
@@ -33,15 +33,28 @@ const BASE_REASON_LABEL = {
     pre_active:     'not live yet',
     market_closed:  'market closed',
     closed:         'market closed',   // legacy — delete once no live journal predates the rename
+    // The guard vocabulary (docs/desks/talos-guards.md). A wake is named for the guard that caused
+    // it now, so the row says WHY rather than merely when.
+    guard_time:     'heartbeat',
+    backstop:       'check-in',
+    guard_price:    'level reached',
+    // Legacy, and kept for exactly the reason `closed` above is: entries written before 2026-08-22
+    // are still in live documents and must not render as a raw key while they age out of the cap.
     scheduled:      'heartbeat',
-    momentum_pulse: 'pulse',
     zone_trip:      'in zone',
+    momentum_pulse: 'pulse',   // never remapped server-side — no guard meant quite this
     expiry_review:  'expiry review',
     exit:           'closed out',
 }
 
+/** "08:20" — when a guard was armed, for the line that says this was deliberate. */
+const shortTime = (iso) => {
+    const t = Date.parse(iso)
+    return Number.isFinite(t) ? new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
+}
+
 // A wake that PAID for a model read — it earns the fetched line and the axes block.
-const ASSESSMENT_REASONS = new Set(['zone_trip', 'expiry_review', 'in_position', 'momentum_pulse'])
+const ASSESSMENT_REASONS = new Set(['guard_price', 'expiry_review', 'in_position', 'zone_trip', 'momentum_pulse'])
 
 // One assessment axis: the label + conclusion tag are the always-visible summary row (a toggle),
 // and the analysis read collapses below it — default collapsed to keep the journal compact.
@@ -106,6 +119,31 @@ function JournalEntry({ entry, reasonLabels = BASE_REASON_LABEL }) {
             {/* A pre-shared-builder entry carries no prose at all. Show the meta row and stop —
                 the old setup pop-out printed the stringified object here instead. */}
             {e.note && <p className="monitor-journal__note">{tidyPrices(e.note)}</p>}
+            {/* WHY THIS WAKE, AND WHAT IS WATCHED NOW (docs/desks/talos-guards.md). The armed_at
+                is the point of showing `fired` at all: it says the line was drawn deliberately,
+                hours earlier, rather than stumbled into. Everything here is absent on entries
+                written before guards, so old journals render exactly as they did. */}
+            {(e.fired || e.armed || e.skipped > 0) && (
+                <div className="monitor-journal__guards">
+                    {e.fired && (
+                        <span className="monitor-journal__fired">
+                            {guardLabel(e.fired)}
+                            {e.fired.means && <em> {e.fired.means}</em>}
+                            {e.fired.armed_at && <span className="monitor-journal__armed-at"> armed {shortTime(e.fired.armed_at)}</span>}
+                        </span>
+                    )}
+                    {e.skipped > 0 && (
+                        <span className="monitor-journal__skipped">
+                            {e.skipped} timer wake{e.skipped === 1 ? '' : 's'} passed without a look
+                        </span>
+                    )}
+                    {e.armed?.length > 0 && (
+                        <span className="monitor-journal__armed">
+                            watching {e.armed.map(guardLabel).filter(Boolean).join(' · ')}
+                        </span>
+                    )}
+                </div>
+            )}
             {isAssess && e.fetched && <div className="monitor-journal__fetched">fetched {e.fetched}</div>}
             {isAssess && <JournalAxes axes={e.axes} />}
         </div>

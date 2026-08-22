@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { MonitorJournal } from './MonitorJournal.jsx'
-import { readEntry, tidyPrices } from './monitorJournal.utils.js'
+import { readEntry, tidyPrices, guardLabel } from './monitorJournal.utils.js'
 
 // The shared monitor journal. The setup pop-out used to render `JSON.stringify(entry)` because the
 // renderer lived inside CallPage — these pin that ONE component now reads both monitors' entries,
@@ -128,5 +128,73 @@ describe('tidyPrices', () => {
         expect(tidyPrices('33.24 and 4.5% and 12')).toBe('33.24 and 4.5% and 12')
         expect(tidyPrices('')).toBe('')
         expect(tidyPrices(null)).toBe(null)
+    })
+})
+
+// ── The guard line (docs/desks/talos-guards.md) ──────────────────────────────
+
+describe('the guard row', () => {
+    it('says which line fired, that it was armed earlier, and what is watched now', () => {
+        // The audit trail. `armed_at` is the point of rendering `fired` at all — it is the
+        // difference between "a level was stumbled into" and "I drew this line and price came to it".
+        const { container } = render(<MonitorJournal timeline={[{
+            at: '2026-08-22T11:47:00.000Z', reason: 'guard_price', price: 312.4, verdict: 'wait',
+            note: 'Tagged it, but the candle is still open.',
+            fired: { price: 312, direction: 'above', means: 'entry', armed_at: '2026-08-22T08:20:00.000Z' },
+            armed: [{ after_min: null, price: 318, direction: 'above' }, { after_min: 240, price: null }],
+            skipped: 9,
+        }]} />)
+
+        // Read off the row's own text: the pieces sit in separate spans so they can be styled apart,
+        // which is exactly the case a text matcher cannot span.
+        const row = container.querySelector('.monitor-journal__guards').textContent
+        expect(row).toContain('↑312')
+        expect(row).toContain('entry')
+        expect(row).toContain('armed')                                  // …at 08:20, in the viewer's zone
+        expect(row).toContain('9 timer wakes passed without a look')
+        expect(row).toContain('watching ↑318 · in 240m')
+    })
+
+    it('renders a pre-guard entry exactly as it always did', () => {
+        // Live documents are full of these. The backend OMITS the guard fields rather than nulling
+        // them, so the row must simply not appear — not appear empty.
+        const { container } = render(<MonitorJournal timeline={[{
+            at: '2026-08-22T11:47:00.000Z', reason: 'zone_trip', price: 312, note: 'In the zone.',
+        }]} />)
+        expect(screen.getByText('In the zone.')).toBeTruthy()
+        expect(container.querySelector('.monitor-journal__guards')).toBeNull()
+    })
+
+    it('marks a touch guard differently from a directional one — it has no side to pick', () => {
+        render(<MonitorJournal timeline={[{
+            at: '2026-08-22T11:47:00.000Z', reason: 'guard_price',
+            fired: { price: 238, direction: 'any', means: 'entry' },
+        }]} />)
+        expect(screen.getByText(/@238/)).toBeTruthy()
+    })
+})
+
+describe('guardLabel', () => {
+    it('reads an ABSENT price as absent, never as a level at zero', () => {
+        // `Number(null)` is 0 and 0 is finite, so the naive read renders the unconditional backstop
+        // — which carries no price at all — as "↑0 after 240m". Caught by a rendering assertion, not
+        // by a type: the same trap the backend's num() helper exists for.
+        expect(guardLabel({ after_min: 240, price: null })).toBe('in 240m')
+        expect(guardLabel({ after_min: 240 })).toBe('in 240m')
+    })
+
+    it('shows both halves of a conjunction, or it reads as an immediate interrupt', () => {
+        expect(guardLabel({ after_min: 30, price: 305, direction: 'above' })).toBe('↑305 after 30m')
+        expect(guardLabel({ after_min: null, price: 305, direction: 'above' })).toBe('↑305')
+    })
+
+    it('marks direction, and gives a touch its own mark rather than picking a side', () => {
+        expect(guardLabel({ price: 305, direction: 'below' })).toBe('↓305')
+        expect(guardLabel({ price: 305, direction: 'any' })).toBe('@305')
+    })
+
+    it('has nothing to say about a guard with neither term', () => {
+        expect(guardLabel({})).toBeNull()
+        expect(guardLabel(null)).toBeNull()
     })
 })

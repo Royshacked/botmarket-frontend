@@ -164,3 +164,31 @@
 
     &__axis-read { margin: 0; color: var(--text-secondary); }   // full-width analysis under the title
 }
+
+// ── The guard line (docs/desks/talos-guards.md) ──────────────────────────────
+// Why this wake happened and what is watched from here on. Quieter than the note above it: the
+// prose is what the monitor SAID, and this is the machinery behind it — available at a glance,
+// never competing with the sentence.
+.monitor-journal__guards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.6rem;
+    margin-top: 0.25rem;
+    font-size: 0.7rem;
+    opacity: 0.75;
+}
+
+// The guard that fired. Marked, because it is the one fact on the row that caused everything else.
+.monitor-journal__fired {
+    font-weight: 600;
+
+    em { font-style: normal; opacity: 0.8; font-weight: 400; }
+}
+
+// When the line was drawn. The whole point of showing it: hours earlier reads as deliberate.
+.monitor-journal__armed-at { opacity: 0.6; font-weight: 400; }
+
+// Wakes deliberately NOT taken — the saving, made visible.
+.monitor-journal__skipped { opacity: 0.6; font-style: italic; }
+
+.monitor-journal__armed { opacity: 0.7; }
