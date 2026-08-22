@@ -1,7 +1,8 @@
 import PropTypes from 'prop-types'
 import './Step.scss'
 
-// One numbered step of the express form.
+// One numbered step of an AUTHORING surface. Dormant: its consumer was the express setup form,
+// deleted 2026-08-21 — see SetupSummary's note on `authoring` for what it is kept for.
 //
 // THE USER DOES NOT KNOW WHAT A SETUP DOCUMENT IS, and should not have to. The worksheet the build
 // conversation shows is a picture of an artifact — scenarios, zones, condition tiers — which is the
@@ -9,7 +10,7 @@ import './Step.scss'
 // has to fill it in. A form laid out as a data structure asks the reader to reverse-engineer the
 // structure before they can answer the first question.
 //
-// So the express form is a SEQUENCE instead: numbered, one concern per step, each saying what it
+// So an authoring surface is a SEQUENCE instead: numbered, one concern per step, each saying what it
 // wants in the words a trader would use. Nothing about the underlying document changes — the same
 // draft comes out the other end — but the order is now the order someone actually thinks in:
 // what am I trading, which way, over what span, off which chart, in where, out where.

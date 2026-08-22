@@ -39,10 +39,14 @@
 
         &:disabled { opacity: 0.4; cursor: default; }
 
-        // A chip that DOES something rather than says something (Mentor's express form). Marked, not
-        // dressed up: it is still one of the openings on offer and still quiet, so it takes the
-        // accent on its edge and its text and nothing else. Louder would make the other two read as
-        // the lesser choices, which is the opposite of true — most people should be talking.
+        // A chip that DOES something rather than says something. Marked, not dressed up: it is still
+        // one of the openings on offer and still quiet, so it takes the accent on its edge and its
+        // text and nothing else. Louder would make the plain chips read as the lesser choices, which
+        // is the opposite of true — most people should be talking.
+        //
+        // No desk passes `action: true` today; Mentor's express-form chip was the one (deleted
+        // 2026-08-21, now a sentence that opens the interview). The variant stays because the
+        // component's contract carries it — see SuggestionChips.jsx.
         &.is-action {
             color: var(--accent-light);
             border-color: color-mix(in srgb, var(--accent) 45%, var(--border));

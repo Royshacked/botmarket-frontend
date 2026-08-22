@@ -38,7 +38,7 @@ import { resolveEntity, resolveForEdit } from '../services/entityResolve.js'
 import { useDeskHandoff } from '../customHooks/useDeskHandoff.js'
 import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
-import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, TILT_REVIEW_OPEN, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, SETUP_FORM_OPEN } from '../services/event-bus.service'
+import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, TILT_REVIEW_OPEN, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
 import { adoptService } from '../services/adopt/adopt.service.remote.js'
 import { AdoptBookGrid } from '../cmps/AdoptBook/AdoptBookGrid.jsx'
@@ -321,10 +321,6 @@ export function MainPage() {
     const [analystEditCoverage, setAnalystEditCoverage] = useState(null)   // coverage pencil → re-open Prometheus on that name
     // Editing a saved setup in the Mentor chat — the setup twin of editingCallId + its restore.
     const [editingSetupId,   setEditingSetupId]   = useState(null)
-    // A keyed one-shot: the express form to open at the trade desk, from SETUP_FORM_OPEN. Keyed
-    // rather than value-watched so the same plan can be opened twice without the panel calling the
-    // second one a repeat — the same rule useSeedTurn follows.
-    const [setupFormOpen,    setSetupFormOpen]    = useState(null)
 
     // Every door an artifact can be delivered through, and the one way to shut them all. Declared
     // here, beside the state it owns, because both users of it are far apart: the conveyor fills a
@@ -1044,20 +1040,6 @@ export function MainPage() {
             else setActiveTab('mentor')
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-    // A setup drawn ELSEWHERE, opened as a form at the trade desk — today an agent's
-    // `open_setup_form`, next a plan another user shared.
-    //
-    // Keyed and passed as a prop rather than handled inside the panel, for the reason every other
-    // hand-off here is: the desk has to be SWITCHED TO first, and only this component knows which
-    // tab is showing. The panel `continues` rather than remounting (mentor.contract) — arriving with
-    // someone else's plan should not throw away the conversation the user was having.
-    useEffect(() => {
-        return eventBus.on(SETUP_FORM_OPEN, (payload = {}) => {
-            setActiveTab('mentor')
-            setSetupFormOpen({ ...payload, key: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}` })
-        })
-    }, [])
 
     // Market-brief card "Get the brief" → open Axl and have him write it there.
     //
@@ -2899,7 +2881,6 @@ export function MainPage() {
                                 availableAccounts={availableAccounts}
                                 selectedAccounts={selectedAccounts}
                                 mainAccountId={mainAccountId}
-                                openForm={setupFormOpen}
                             />
                         </div>
 

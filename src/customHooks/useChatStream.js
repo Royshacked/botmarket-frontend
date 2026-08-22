@@ -147,11 +147,15 @@ export function useChatStream({ threadPhases = false } = {}) {
     /**
      * `silent` runs a turn with NO user bubble — the reply appears on its own.
      *
-     * For turns the user caused without saying anything: the express setup form hands its plan to
-     * Mentor by pressing a button, and the instruction that carries it is composed on the server
-     * precisely so it is not attributed to them (see buildExpressHandoffPrompt). Showing a line they
-     * did not write, or storing one in their thread, is a claim about what they said — and a fixed
-     * sentence sitting beside what they actually typed is a second voice that can contradict them.
+     * For turns the user caused WITHOUT SAYING ANYTHING — a button that hands a desk something to
+     * act on, where the instruction is composed on the server precisely so it is not attributed to
+     * them. Showing a line they did not write, or storing one in their thread, is a claim about what
+     * they said — and a fixed sentence sitting beside what they actually typed is a second voice
+     * that can contradict them.
+     *
+     * NO CALLER TODAY. Its one user was Mentor's express setup form (deleted 2026-08-21, replaced by
+     * an interview that IS the user talking). Kept because the next such button will want it, and
+     * because the rule above is the expensive half to rediscover.
      *
      * The wire still carries a user turn; the API needs one. This is only about what is shown and
      * what is kept.

@@ -46,9 +46,10 @@ function validityLine(v, direction) {
 }
 
 /**
- * `authoring` turns the premise's own fields — its name and its conditions — into inputs, and is
- * how the express form differs from the build worksheet. `lockPrices` narrows that further for a
- * plan someone else drew: their levels, your size (see ZoneEditor).
+ * `authoring` turns the premise's own fields — its name and its conditions — into inputs, which is
+ * how an authoring surface differs from the build worksheet. Dormant since the express form was
+ * deleted — see SetupSummary's note on `authoring`. `lockPrices` narrows it further for a plan
+ * someone else drew: their levels, your size (see ZoneEditor).
  */
 export function ScenarioBlock({
     scenario, direction, index, armed = false, dead = false, onChange, onRemove,

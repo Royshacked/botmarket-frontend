@@ -15,16 +15,15 @@ import './ConditionList.scss'
 // premise's own), because the difference between them is which list you pass — not how a condition
 // reads.
 //
-// AND, since the express form, one component in two MODES. It was read-only by design, and that
-// reasoning still holds everywhere it applied: conditions come out of the conversation, where they
-// can be argued with, so a text box in the middle of a build would invite editing a sentence
-// without re-testing whether anyone could check it. Mentor's worksheet is still handed this list
-// read-only.
+// AND one component in two MODES. It is read-only by design, and that reasoning holds everywhere it
+// currently applies: conditions come out of the conversation, where they can be argued with, so a
+// text box in the middle of a build would invite editing a sentence without re-testing whether
+// anyone could check it. Mentor's worksheet is always handed this list read-only.
 //
-// The express form is the case that reasoning does not cover. There is no conversation to argue in
-// — the user IS the author, they arrived with the plan already written, and refusing them a text
-// box does not make their condition more checkable. It just makes them dictate it to an agent
-// first. So `onChange` turns the rows into fields. Absent, nothing changes for anyone.
+// `onChange` turns the rows into fields, for a surface where there is no conversation to argue in —
+// the user IS the author, and refusing them a text box would not make their condition more
+// checkable. That surface was the express form; it is gone (see SetupSummary's note on `authoring`)
+// and no caller passes `onChange` today. Absent, nothing changes for anyone.
 //
 // The three tags above are read in BOTH modes and written in neither: they are Mentor'''s reading of
 // a sentence, so the editor takes text alone and the tags appear here once it has done that work.

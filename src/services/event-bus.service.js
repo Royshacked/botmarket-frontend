@@ -55,7 +55,6 @@ export const OPEN_QUEUED_LIST          = 'open-queued-list'
 //
 // Wired ahead of the card that will fire it. That is not speculation — it is the seam that makes
 // the sharing card a bubble and a send action rather than a second way of opening a form.
-export const SETUP_FORM_OPEN           = 'setup-form-open'
 
 function createEventEmitter() {
     const listenersMap = {}
