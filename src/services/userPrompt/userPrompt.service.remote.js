@@ -1,21 +1,17 @@
-import { API_BASE } from '../config'
-import { postSSE, buildStreamHandlers } from '../sse.util'
+import { streamAgent, clientTimeContext } from '../agentStream'
+
+// ⚠ ARCHIVED 2026-07-29 — this endpoint is no longer mounted. The Idea agent is superseded by
+// Kairos (kairos.service.remote.js → /api/kairos, builds a `call`) and Mentor (/api/mentor,
+// builds a `setup`); its backend monitor, Minos, is archived alongside it. Both functions below
+// would now 404. Kept so MainPage's archived idea paths still resolve — see the ARCHIVED notes on
+// handleEditIdea / handleSend there. To revive: re-mount /api/idea in the backend's server.js.
+//
+// The idea agent's endpoint. Mentor speaks to /api/mentor; this one predates it.
+const BASE = 'api/idea'
 
 export const userPromptService = {
     sendPromptStream,
     continuePromptStream,
-}
-
-// The idea agent has no idea what timezone the user is in — so "enter at 16:40" is
-// ambiguous. Send the browser's current instant + IANA timezone so the agent resolves
-// clock/date times against the user's LOCAL time and stores time-condition bounds as
-// absolute UTC. See project_timestamp_ideas (Phase 2).
-function clientTimeContext() {
-    try {
-        return { clientNow: Date.now(), clientTz: Intl.DateTimeFormat().resolvedOptions().timeZone || null }
-    } catch {
-        return { clientNow: Date.now() }
-    }
 }
 
 /**
@@ -32,13 +28,8 @@ function clientTimeContext() {
  * @param {function} callbacks.onError    - called with an error message string
  * @param {Array}    ideaAccounts
  */
-async function sendPromptStream(userPrompt, analysisState = null, callbacks = {}, ideaAccounts = [], model, reasoningEffort, routingMode, currentPhase, mainAccountId = null) {
-    await postSSE(
-        `${API_BASE}/api/idea/stream`,
-        { userPrompt, analysisState, ideaAccounts, mainAccountId, model, reasoningEffort, routingMode, currentPhase, ...clientTimeContext() },
-        buildStreamHandlers(callbacks),
-        { signal: callbacks.signal },
-    )
+async function sendPromptStream(userPrompt, analysisState = null, callbacks = {}, ideaAccounts = [], model, mainAccountId = null) {
+    await streamAgent(BASE, { userPrompt, analysisState, ideaAccounts, mainAccountId, model, ...clientTimeContext() }, callbacks)
 }
 
 /**
@@ -47,11 +38,6 @@ async function sendPromptStream(userPrompt, analysisState = null, callbacks = {}
  * and the model continues that same assistant message (Anthropic prefill). The reply
  * that streams back is the continuation only — the caller prepends the partial.
  */
-async function continuePromptStream(messages, analysisState = null, callbacks = {}, ideaAccounts = [], model, reasoningEffort, routingMode, currentPhase, mainAccountId = null) {
-    await postSSE(
-        `${API_BASE}/api/idea/stream`,
-        { messages, analysisState, ideaAccounts, mainAccountId, model, reasoningEffort, routingMode, currentPhase, ...clientTimeContext() },
-        buildStreamHandlers(callbacks),
-        { signal: callbacks.signal },
-    )
+async function continuePromptStream(messages, analysisState = null, callbacks = {}, ideaAccounts = [], model, mainAccountId = null) {
+    await streamAgent(BASE, { messages, analysisState, ideaAccounts, mainAccountId, model, ...clientTimeContext() }, callbacks)
 }

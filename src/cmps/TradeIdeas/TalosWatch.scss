@@ -1,0 +1,167 @@
+// The "what Talos is doing" block in the setup pop-out. Sits between the plan and the journal:
+// the plan is what was authored, the journal is every wake ever, and this is NOW.
+//
+// Deliberately quiet. It is a status panel in a column that already carries a thesis, several
+// scenarios and a running monologue — it earns attention through structure, not colour, and the only
+// saturated things on it are the three met/not-met marks.
+.talos-watch {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    // ── The cascade ──
+    &__tiers {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    &__tier {
+        display: grid;
+        // Dot · name · detail. The name column is fixed so the three details line up as a block —
+        // the point of the list is scanning down it, not reading three separate sentences.
+        grid-template-columns: 10px 92px 1fr;
+        gap: 6px;
+        align-items: baseline;
+        font-size: 11.5px;
+        color: var(--text-dim);
+
+        &.is-active {
+            color: var(--text-secondary);
+            .talos-watch__tier-dot { background: var(--accent); }
+            .talos-watch__tier-name { color: var(--text-primary); }
+        }
+    }
+
+    &__tier-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--border);
+        transform: translateY(-1px);
+    }
+
+    &__tier-name {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.04em;
+    }
+
+    &__tier-detail { min-width: 0; }
+
+    // ── The last read ──
+    &__empty {
+        margin: 0;
+        font-size: 11.5px;
+        line-height: 1.5;
+        color: var(--text-dim);
+    }
+
+    &__read {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 8px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg-raised, transparent);
+    }
+
+    &__read-head {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: baseline;
+    }
+
+    &__read-tf,
+    &__read-when {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--text-dim);
+    }
+
+    &__read-when { margin-left: auto; }
+
+    // The derived word — NOT a verdict (the server's menu has no "almost"), so it is styled as an
+    // annotation on the verdict rather than as a second one beside it.
+    &__readiness {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding: 1px 5px;
+        border-radius: 3px;
+        border: 1px dashed var(--border);
+        color: var(--text-secondary);
+        cursor: help;
+
+        &.is-ready  { border-color: var(--long-text); color: var(--long-text); }
+        &.is-almost { border-color: var(--accent); color: var(--accent); }
+    }
+
+    &__read-line {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--text-secondary);
+    }
+
+    // ── The findings ──
+    &__findings {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    &__finding {
+        display: grid;
+        grid-template-columns: 14px 1fr;
+        gap: 6px;
+        align-items: baseline;
+        font-size: 11.5px;
+        line-height: 1.45;
+    }
+
+    &__met {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        text-align: center;
+        cursor: help;
+    }
+
+    // 'unchecked' is amber, not red: the monitor could not LOOK, which is a different problem from
+    // the thing not happening, and the colours have to say so before the tooltip is ever opened.
+    .met--yes       .talos-watch__met { color: var(--long-text); }
+    .met--no        .talos-watch__met { color: var(--short-text); }
+    .met--unchecked .talos-watch__met { color: var(--warn, #d9a441); }
+
+    &__finding-body {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        min-width: 0;
+    }
+
+    &__finding-text { color: var(--text-secondary); }
+
+    &__finding-note {
+        font-size: 11px;
+        color: var(--text-dim);
+    }
+
+    &__warning {
+        margin: 0;
+        padding-left: 8px;
+        border-left: 2px solid var(--accent);
+        font-size: 11.5px;
+        line-height: 1.5;
+        color: var(--text-secondary);
+    }
+}

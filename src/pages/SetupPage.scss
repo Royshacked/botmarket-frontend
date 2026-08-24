@@ -1,0 +1,123 @@
+// What the SETUP pop-out adds to the shared shell (IdeaPage.scss supplies header + chart/column
+// layout, exactly as CallPage.scss does for calls).
+.setup-page {
+    &__panel { display: flex; flex-direction: column; gap: 10px; }
+
+    &__thesis {
+        margin: 0;
+        font-size: 12.5px;
+        line-height: 1.5;
+        color: var(--text-secondary);
+    }
+
+    &__section-label {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+    }
+
+    // Zones, not condition trees — a setup has no leaves to render.
+    &__zone {
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+        padding-left: 8px;
+        border-left: 2px solid var(--border);
+
+        &--entry { border-left-color: var(--accent); }
+        &--stop  { border-left-color: var(--short-text); }
+        &--tp    { border-left-color: var(--long-text); }
+    }
+
+    &__zone-label {
+        min-width: 46px;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+    }
+
+    &__zone-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+
+        li { font-family: var(--font-mono); font-size: 12.5px; }
+    }
+
+    &__zone-note { color: var(--text-dim); font-family: var(--font-sans); font-size: 12px; }
+
+    &__metrics { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+    &__mode,
+    &__broker {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-dim);
+    }
+
+    // The monitor's instruction sheet — free text, so it reads as prose with the little structure
+    // that changes how it is judged tagged after it.
+    &__conditions {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+
+        ul { margin: 0; padding-left: 16px; }
+        li { font-size: 12px; line-height: 1.5; color: var(--text-secondary); }
+    }
+
+    &__cond-tag {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-style: normal;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+    }
+
+    // One way into the trade. Rivals are drawn apart so two premises never read as one plan with
+    // extra zones; a dead one is dimmed rather than hidden, because "this way is gone and the other
+    // is still armed" is the thing worth seeing.
+    &__scenario {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 6px 8px;
+        border-left: 2px solid var(--border);
+
+        &.is-armed { border-left-color: var(--accent); }
+        &.is-dead  { opacity: 0.55; }
+    }
+
+    &__memo {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.45;
+        font-style: italic;
+        color: var(--text-dim);
+    }
+
+    // The journal box, its entries and its empty line now come from the shared
+    // MonitorJournal component (cmps/TradeIdeas/MonitorJournal.scss) — the setup pop-out and the
+    // call pop-out draw the same monologue, so only the section heading stays local.
+
+
+    // Arm / disarm lives in the header: it is the one action that decides whether anything is
+    // happening at all, so it should not be buried below the fold.
+    &__arm {
+        margin-left: 10px;
+        padding: 4px 10px;
+        border: 1px solid var(--border-mid);
+        border-radius: 5px;
+        background: var(--accent-deep);
+        color: var(--accent-bright);
+        font-size: 12px;
+        cursor: pointer;
+
+        &:hover { background: var(--bg-hover); }
+    }
+}

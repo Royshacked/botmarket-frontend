@@ -30,20 +30,23 @@ describe('CallExpiryBubble', () => {
         cleanup()
     })
 
-    it('primary "Edit call" routes to Kairos in-app edit mode + resolves the card done', () => {
+    it('primary "Edit call" routes to Kairos in-app edit mode — and LEAVES IT PENDING', () => {
         const onResolve = vi.fn()
         const onClose   = vi.fn()
         render(<CallExpiryBubble msg={makeMsg()} onClose={onClose} onResolve={onResolve} />)
 
         fireEvent.click(screen.getByText('Edit call'))
 
-        expect(eventBus.emit).toHaveBeenCalledWith(CALL_EXPIRY_EDIT, { callId: 'call-123' })
+        // `kind` rides along so the desk can open on the right question — "is there still a trade"
+        // for an expired thesis, "re-map the levels" for one still running. Nothing on the call
+        // document distinguishes them (it stays 'looking' either way), so the card has to say.
+        expect(eventBus.emit).toHaveBeenCalledWith(CALL_EXPIRY_EDIT, { callId: 'call-123', kind: 'expired' })
         expect(window.open).not.toHaveBeenCalled()      // the regression under test
-        expect(onResolve).toHaveBeenCalledWith('m1', { status: 'done', outcome: 'editing' })
+        expect(onResolve).toHaveBeenCalledWith('m1', { status: 'pending', outcome: 'opened' })
         expect(onClose).toHaveBeenCalled()               // dismisses the mobile chat drawer
     })
 
-    it('routes the still-alive "expiring" (kind: edit) card the same way', () => {
+    it('routes the still-alive "expiring" (kind: edit) card the same way, carrying its own kind', () => {
         const onResolve = vi.fn()
         render(
             <CallExpiryBubble
@@ -54,7 +57,7 @@ describe('CallExpiryBubble', () => {
 
         fireEvent.click(screen.getByText('Edit call'))
 
-        expect(eventBus.emit).toHaveBeenCalledWith(CALL_EXPIRY_EDIT, { callId: 'c9' })
+        expect(eventBus.emit).toHaveBeenCalledWith(CALL_EXPIRY_EDIT, { callId: 'c9', kind: 'edit' })
         expect(window.open).not.toHaveBeenCalled()
     })
 
@@ -73,7 +76,7 @@ describe('CallExpiryBubble', () => {
         render(<CallExpiryBubble msg={makeMsg()} onResolve={onResolve} />)
 
         expect(() => fireEvent.click(screen.getByText('Edit call'))).not.toThrow()
-        expect(eventBus.emit).toHaveBeenCalledWith(CALL_EXPIRY_EDIT, { callId: 'call-123' })
+        expect(eventBus.emit).toHaveBeenCalledWith(CALL_EXPIRY_EDIT, { callId: 'call-123', kind: 'expired' })
     })
 
     it('collapses to an informative chip: keeps outcome + kind qualifier + reason, drops actions', () => {

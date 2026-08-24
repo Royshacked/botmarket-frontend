@@ -5,20 +5,14 @@ import { chatWsService } from '../../services/chat/chatWs.service'
 import { ConversationList } from './ConversationList'
 import { ChatWindow }       from './ChatWindow'
 import { readStoredModel }       from '../modelOptions'
-import { readStoredReasoning }   from '../reasoningOptions'
-import { readStoredRoutingMode } from '../routingModeOptions'
-import { isBotId, CONVERSATIONAL_BOT_ID } from '../AxlHub/agentMeta.jsx'
+import { isBotId, isRetiredBotId, CONVERSATIONAL_BOT_ID } from '../AxlHub/agentMeta.jsx'
 import './SocialChat.scss'
 
-// The one shared AI-mode the user sets in their profile is mirrored to every
-// agent's localStorage keys; read the 'idea' keys as the representative so Axl
-// obeys the same routing as Idea/Atlas/Argus.
+// Sending into the Axl thread generates an Axl reply, so it needs a model like any other Axl
+// turn. One stored setting serves every desk (services/aiPrefKeys.js), so this is the same value
+// AxlHub reads and the bot runs on the same model on both of its surfaces.
 function readAiPref() {
-    return {
-        routingMode:     readStoredRoutingMode('ideaRoutingMode'),
-        model:           readStoredModel('ideaModel'),
-        reasoningEffort: readStoredReasoning('ideaReasoning'),
-    }
+    return { model: readStoredModel() }
 }
 
 const PAGE = 50
@@ -49,7 +43,11 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
     // ── Load conversation list ──────────────────────────────────────────────
     const loadConversations = useCallback(async () => {
         try {
-            const convs = await chatService.getConversations()
+            // The server already hides retired feeds; this repeats it because the failure mode is
+            // silent — a retired id the client doesn't drop renders as a PERSON, and its unread
+            // count keeps feeding a badge for a thread you can't act on.
+            const convs = (await chatService.getConversations())
+                .filter(c => !c.participants.some(isRetiredBotId))
             const bots = convs.filter(c => c.participants.some(isBotId))
             const rest = convs.filter(c => !c.participants.some(isBotId))
             setConversations([...bots, ...rest])
@@ -61,11 +59,23 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
 
     useEffect(() => { loadConversations() }, [loadConversations])
 
+    // The WS handler below is registered once, so it can't read `conversations` from the closure.
+    const conversationsRef = useRef([])
+    useEffect(() => { conversationsRef.current = conversations }, [conversations])
+
     // ── WS events ──────────────────────────────────────────────────────────
     useEffect(() => {
         function onConnected() { loadConversations() }
 
         function onNewMessage(msg) {
+            // A message can be the FIRST in a conversation this list has never seen — a desk's
+            // thread is created by its first card. `prev.map` would match nothing: no row, no
+            // count, and since useChatWs suppresses its own increment while the panel is open,
+            // the message would go uncounted entirely. Re-read the list instead.
+            if (!conversationsRef.current.some(c => c.id === msg.conversationId)) {
+                loadConversations()
+                return
+            }
             const isActive = activeConvRef.current?.id === msg.conversationId
             setConversations(prev => {
                 const updated = prev.map(c => c.id !== msg.conversationId ? c : {
@@ -125,6 +135,15 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
         } finally { setLoading(false) }
     }
 
+    // Mobile only: the two panes collapse to one, so leaving a conversation is how you get
+    // back to the list. `consumedConvRef` is deliberately left alone — the auto-open target
+    // is spent, and clearing it would yank the user straight back into the thread.
+    function handleBackToList() {
+        setActiveConv(null)
+        setMessages([])
+        setHasMore(false)
+    }
+
     async function handleLoadMore() {
         if (!activeConv || loading) return
         setLoading(true)
@@ -156,10 +175,15 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
 
     // Resolve a card (done | dismissed) so the choice sticks: patch it locally now, and persist
     // server-side so it stays collapsed on reload. Does not touch the idea's invalidation latch.
+    //
+    // `pending` is the third case and it is NOT a resolution — it records that the user opened a
+    // card that still owes work. It must not stamp `resolvedAt`, exactly as the server does not:
+    // a timestamp saying when this was settled, on a card that was not settled, is a lie waiting
+    // for the first reader who trusts it over `status`.
     async function handleResolveMessage(msgId, { status = 'dismissed', outcome = null } = {}) {
         if (!activeConv) return
         setMessages(prev => prev.map(m => m.id === msgId
-            ? { ...m, status, resolvedAt: Date.now(), resolveOutcome: outcome }
+            ? { ...m, status, resolveOutcome: outcome, ...(status === 'pending' ? {} : { resolvedAt: Date.now() }) }
             : m))
         try {
             await chatService.resolveMessage(activeConv.id, msgId, { status, outcome })
@@ -172,9 +196,18 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
         <>
             <div className="social-chat__backdrop" onClick={handleClose} />
 
-            <div className={`social-chat${closing ? ' social-chat--closing' : ''}`}>
+            <div className={`social-chat${closing ? ' social-chat--closing' : ''}${activeConv ? ' social-chat--conv-open' : ''}`}>
                 <div className="social-chat__topbar">
-                    <span className="social-chat__topbar-title">Messages</span>
+                    <div className="social-chat__topbar-left">
+                        {activeConv && (
+                            <button
+                                className="social-chat__topbar-back"
+                                onClick={handleBackToList}
+                                aria-label="Back to conversations"
+                            >‹</button>
+                        )}
+                        <span className="social-chat__topbar-title">Messages</span>
+                    </div>
                     <button className="social-chat__topbar-close" onClick={handleClose} aria-label="Close">✕</button>
                 </div>
 

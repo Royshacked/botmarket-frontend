@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 're
 import PropTypes from 'prop-types'
 import { init, dispose, utils, registerOverlay, registerIndicator } from 'klinecharts'
 import { marketService } from '../../services/market/market.service.remote'
+import { toPeriod, isCurrentPeriod } from './chartPeriod.js'
 import './PriceChart.scss'
 
 // ── Custom klinecharts registrations (module-level: registries are global, register once) ──
@@ -88,23 +89,7 @@ const INDICATOR_PALETTE = ['#e0a63b', '#4aa3ff', '#c77dff', '#39d3c3', '#ff8fab'
 // rather than being handed a candle array. So this owns fetching directly (history + a 15s
 // realtime poll); the server cache keeps that bandwidth-flat across viewers.
 
-// interval spelling -> klinecharts Period { type, span }. Covers app words, the old TV codes
-// (M = month, D = day), and legacy daily/weekly/monthly — the same set the backend accepts.
-const PERIOD_MAP = {
-    '1min': { type: 'minute', span: 1 },  '1m': { type: 'minute', span: 1 },  '1':  { type: 'minute', span: 1 },
-    '5min': { type: 'minute', span: 5 },  '5m': { type: 'minute', span: 5 },  '5':  { type: 'minute', span: 5 },
-    '15min':{ type: 'minute', span: 15 }, '15m':{ type: 'minute', span: 15 }, '15': { type: 'minute', span: 15 },
-    '30min':{ type: 'minute', span: 30 }, '30m':{ type: 'minute', span: 30 }, '30': { type: 'minute', span: 30 },
-    '1hr':  { type: 'hour', span: 1 }, '1h': { type: 'hour', span: 1 }, '1hour': { type: 'hour', span: 1 }, '60':  { type: 'hour', span: 1 },
-    '2hr':  { type: 'hour', span: 2 }, '2h': { type: 'hour', span: 2 }, '2hour': { type: 'hour', span: 2 }, '120': { type: 'hour', span: 2 },
-    '4hr':  { type: 'hour', span: 4 }, '4h': { type: 'hour', span: 4 }, '4hour': { type: 'hour', span: 4 }, '240': { type: 'hour', span: 4 },
-    'day':  { type: 'day', span: 1 }, '1d': { type: 'day', span: 1 }, 'daily':  { type: 'day', span: 1 }, 'd': { type: 'day', span: 1 },
-    'week': { type: 'week', span: 1 }, '1w': { type: 'week', span: 1 }, 'weekly': { type: 'week', span: 1 }, 'w': { type: 'week', span: 1 },
-    'month':{ type: 'month', span: 1 }, '1mo': { type: 'month', span: 1 }, 'monthly': { type: 'month', span: 1 }, 'm': { type: 'month', span: 1 },
-}
-function toPeriod(interval) {
-    return PERIOD_MAP[String(interval ?? '').trim().toLowerCase()] ?? { type: 'day', span: 1 }
-}
+// Interval spelling, and whether a bar is still forming: ./chartPeriod.js
 
 // Price decimals for the axis/tooltip. FMP returns noisy floats (e.g. 324.08499), so a raw
 // decimal count over-states precision — equities would render ~5dp. Cap the count by price
@@ -379,6 +364,9 @@ export const PriceChart = forwardRef(function PriceChart({ symbol = 'SPY', inter
                     if (document.hidden) return
                     const base = latestBarRef.current
                     if (!base) return
+                    // Never tick a CLOSED candle (see isCurrentPeriod). Off-hours this simply stops
+                    // repainting the last bar, which is what a finished session should look like.
+                    if (!isCurrentPeriod(base, intervalRef.current)) return
                     try {
                         const q  = await marketService.getQuote(symbolRef.current)
                         const px = Number(q?.price)

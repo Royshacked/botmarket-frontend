@@ -29,12 +29,18 @@ export function useTradeIdeas() {
     // entry level is already held (monitor won't fire) — null otherwise.
     const [preEntryPrompt, setPreEntryPrompt] = useState(null)
 
+    // Returns the fetched list as well as storing it. A caller that needs to ACT on the fresh data
+    // in the same tick cannot read it back from `ideas` or a ref — both only update on the next
+    // render — so the array is handed straight back. (Used by the entry-confirm card route, which
+    // has to resolve an idea the server just changed.) Returns null on failure, never throws.
     const loadIdeas = useCallback(async () => {
         try {
             const fetched = await tradeIdeasService.getIdeas()
             setIdeas(fetched)
+            return fetched
         } catch (err) {
             console.error('[tradeIdeas] load failed', err)
+            return null
         }
     }, [])
 

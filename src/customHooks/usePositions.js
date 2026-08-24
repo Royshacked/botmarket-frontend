@@ -18,6 +18,7 @@ const POSITIONS_POLL_MS = 4000
  *   loading: boolean,
  *   refresh: () => Promise<void>,
  *   closePosition: (broker: string, positionId: string, accountId?: string) => Promise<void>,
+ *   closePositions: (targets: object[]) => Promise<{ closed: number, failed: object[] }>,
  * }}
  */
 export function usePositions() {
@@ -105,5 +106,32 @@ export function usePositions() {
         await refresh(true)
     }, [refresh])
 
-    return { positions, loading, refresh, closePosition }
+    /**
+     * Close a SET of positions (a portfolio / account group) in one action, then refresh
+     * ONCE — the same broker close the single ✕ fires, just applied to every leg.
+     *
+     * Sequential on purpose: a broker session is one connection per user, and a burst of
+     * parallel market closes is exactly what a broker rate-limits. Never throws — a leg a
+     * broker refuses (e.g. a manual position, which has no programmatic close) must not
+     * abort the rest, so each outcome comes back for the caller to report.
+     *
+     * @param {Array<{broker: string, id: string, accountId?: string, symbol?: string}>} targets
+     * @returns {Promise<{ closed: number, failed: Array<{position: object, error: string}> }>}
+     */
+    const closePositions = useCallback(async (targets = []) => {
+        const failed = []
+        let closed = 0
+        for (const position of targets) {
+            try {
+                await brokerService.closePosition(position.broker, position.id, position.accountId)
+                closed++
+            } catch (err) {
+                failed.push({ position, error: err?.message ?? 'close failed' })
+            }
+        }
+        await refresh(true)
+        return { closed, failed }
+    }, [refresh])
+
+    return { positions, loading, refresh, closePosition, closePositions }
 }

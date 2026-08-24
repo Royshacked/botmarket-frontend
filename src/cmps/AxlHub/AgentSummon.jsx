@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { AgentGlyph } from './AgentBadges.jsx'
+import { AGENTS } from './agentMeta.jsx'
 import './AxlHub.scss'
 
 // ── Agent presentational pieces ────────────────────────────────────────────────
@@ -25,6 +26,21 @@ export function AxlBotGlyph() {
             <path d="M24.6,31 L19.4,33.4" />
         </svg>
     )
+}
+
+// Small tinted agent sigil used wherever an agent appears as an AVATAR — the social-chat
+// conversation rows and the incoming-message preview toast. Axl keeps its dedicated glyph;
+// every other agent shows its own figure. Returns null for an unknown key.
+export function BotAvatarGlyph({ agentKey, size = 28 }) {
+    if (agentKey === 'axl') return <AxlBotGlyph />
+    const meta = AGENTS[agentKey]
+    if (!meta) return null
+    return <AgentGlyph agentKey={agentKey} icon={meta.icon} size={size} />
+}
+
+BotAvatarGlyph.propTypes = {
+    agentKey: PropTypes.string,
+    size:     PropTypes.number,
 }
 
 // In-chat introduction prompt: the agent's empty-state greeting, styled to echo

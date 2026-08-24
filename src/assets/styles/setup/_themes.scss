@@ -1,6 +1,17 @@
 // ─── Theme definitions via CSS custom properties ───────────────────────────
 // All component SCSS uses var(--token) instead of hardcoded hex values.
 // Switching themes: document.documentElement.setAttribute('data-theme', 'forest')
+//
+// ── The text scale is a CONTRAST ladder, not a lightness one ────────────────
+// --text-muted (~194 uses) and --text-dim (~77) carry the app's supporting copy:
+// the counts in ( ), field descriptions, input placeholders, timestamps. They
+// used to be picked by eye and landed at 3.3:1 and 1.9:1 against --bg-surface —
+// under WCAG AA (4.5:1) and, at 9-11px, genuinely hard to read.
+// Every theme's tiers are now pinned to a ratio against its OWN --bg-surface:
+//   secondary ≈ 7.4:1 · muted ≈ 5.5:1 · dim ≈ 4.2:1
+// Hue is preserved and saturation capped as lightness rises, so the lower tiers
+// read as quiet text rather than turning into a second accent colour.
+// Changing a --bg-surface means re-deriving that theme's three tiers.
 
 // ── Ocean (default) ─────────────────────────────────────────────────────────
 :root,
@@ -21,9 +32,9 @@
 
     // Text scale
     --text-primary:   #d4e8ff;
-    --text-secondary: #7a9bc0;
-    --text-muted:     #2a4a7a;
-    --text-dim:       #1e3660;
+    --text-secondary: #89a6c5;
+    --text-muted:     #788dac;
+    --text-dim:       #667898;
     --text-subtle:    #a8bdd0;
     --text-leaf:      #c4d8f0;
 
@@ -73,9 +84,9 @@
     --accent-bright: #a8e8c0;
 
     --text-primary:   #d4ffe0;
-    --text-secondary: #6ab88a;
-    --text-muted:     #2a6645;
-    --text-dim:       #1a4a30;
+    --text-secondary: #6ab689;
+    --text-muted:     #5f9b7a;
+    --text-dim:       #58846c;
     --text-subtle:    #90c8a8;
     --text-leaf:      #b0dcc0;
 
@@ -122,9 +133,9 @@
     --accent-bright: #f0b8c0;
 
     --text-primary:   #ffe8ec;
-    --text-secondary: #cc8a90;
-    --text-muted:     #7a2a35;
-    --text-dim:       #4a1820;
+    --text-secondary: #c99297;
+    --text-muted:     #af7c83;
+    --text-dim:       #9a6870;
     --text-subtle:    #d0909a;
     --text-leaf:      #e0b0b8;
 
@@ -181,9 +192,9 @@
 
     // Text scale (birch → fog)
     --text-primary:   #EEF3F2;
-    --text-secondary: #8FA6B0;
-    --text-muted:     #5E747E;
-    --text-dim:       #3E5158;
+    --text-secondary: #A0B4BC;
+    --text-muted:     #859BA4;
+    --text-dim:       #688894;
     --text-subtle:    #B8C8CE;
     --text-leaf:      #C4D8D0;
 
@@ -207,16 +218,6 @@
     --popover-divider:       rgba(33, 54, 63, 0.60);
     --popover-btn-hover-bg:  rgba(78, 144, 124, 0.18);
 
-    // Soft aurora bloom — re-enabled at a low, calm intensity (≈ half the base
-    // opacity). We override only the four hue stops (dimmer, still derived from
-    // --aurora-hue) and inherit the shared --aurora-wash geometry from the :root
-    // block below, so the bloom follows the accent/aurora hue slider. Cascades into
-    // --bg-wash / --bg-wash-surface (backdrop, header, panels).
-    --aurora-1: hsla(calc(var(--aurora-hue) - 33), 52%, 67%, 0.07);
-    --aurora-2: hsla(var(--aurora-hue),            52%, 58%, 0.055);
-    --aurora-3: hsla(calc(var(--aurora-hue) + 22), 62%, 61%, 0.055);
-    --aurora-4: hsla(calc(var(--aurora-hue) + 69), 56%, 75%, 0.07);
-
     // H1 wordmark — every gradient stop is the same colour (no colour transition);
     // the aurora glow is kept.
     --h1-grad-top:    #EEF3F2;
@@ -229,38 +230,231 @@
     --h1-glow-3: rgba(95, 185, 217, 0.35);
 }
 
+// ── Axl Light (the daylight side of the active theme) ────────────────────────
+// The same palette read from the other end: paper backgrounds, ink text. Two things
+// are NOT a mirror-image of the dark block, because a straight inversion breaks them:
+//
+//   1. The accent ROLES swap. In the dark theme --accent-light / --accent-bright are
+//      the pale end of the ramp and are used as TEXT on dark surfaces; --accent-deep is
+//      the dark end and is used as a FILL (primary buttons, scrollbar thumbs). On paper
+//      that reads backwards, so here the ramp runs the other way: -deep is the pale
+//      fill, -bright the darkest ink. Every existing rule keeps working unchanged.
+//   2. The semantic status colours (below in the shared :root) are tuned for a near-black
+//      surface — #b9f6ca, #ffcc80 and friends are invisible on white — so this block
+//      re-derives them against ITS OWN surface at the same contrast ratios.
+//
+// Every text tier is pinned to a ratio against --bg-surface exactly like the dark themes
+// (see the ladder note at the top of this file); textContrast.test.js covers this block too.
+//
+// The --bg-* tokens here are the nominal scale. At runtime the background-spectrum slider
+// (themeService.applyBgSpectrum) overwrites them inline on <html> with the same lightness
+// band, so what ships and what the test measures stay in step.
+:root[data-theme="axl-light"] {
+    // Brand font pairing app-wide (identical to the dark side — light is a palette, not a look)
+    --font-sans: 'Hanken Grotesk', system-ui, -apple-system, sans-serif;
+    --font-mono: 'Space Mono', 'IBM Plex Mono', monospace;
+
+    // Backgrounds (paper → card). Cards LIFT toward white, the way they sink toward black in dark.
+    --bg-base:    #ECF4F3;
+    --bg-deep:    #E2EEED;
+    --bg-hover:   #F2F7F7;
+    --bg-surface: #F7FAFA;
+    --bg-raised:  #FDFEFE;
+    --bg-popover: #FDFEFE;
+
+    // Accent scale (aurora teal, ramp reversed — see note 1 above)
+    --accent-deep:   #BFDFDA;   // pale fill
+    --accent:        #3E9085;   // mid — borders, hover fills
+    --accent-light:  #266861;   // accent text
+    --accent-bright: #174A47;   // the loudest accent text
+
+    // Text scale (ink → fog), pinned to the contrast ladder
+    --text-primary:   #19282E;
+    --text-secondary: #3E545E;
+    --text-muted:     #506770;
+    --text-dim:       #617983;
+    --text-subtle:    #31454D;
+    --text-leaf:      #243E3C;
+
+    // Borders & effects — ink at low alpha, not white
+    --border:        rgba(23, 74, 71, 0.18);
+    --border-mid:    rgba(23, 74, 71, 0.28);
+    --border-strong: rgba(38, 104, 97, 0.45);
+    --border-soft:   rgba(62, 144, 133, 0.25);
+    --glow:          rgba(38, 104, 97, 0.10);
+    --glow-soft:     rgba(38, 104, 97, 0.05);
+    --glow-mid:      rgba(38, 104, 97, 0.08);
+    --overlay:       rgba(18, 38, 42, 0.45);
+    --tint-soft:     rgba(15, 42, 46, 0.05);
+    --ring:          rgba(20, 45, 50, 0.45);
+    --glass-anchor:  #F3F7F7;
+
+    // User button + popover
+    --user-btn-bg:           rgba(62, 144, 133, 0.14);
+    --user-btn-border:       rgba(62, 144, 133, 0.40);
+    --user-btn-bg-hover:     rgba(62, 144, 133, 0.24);
+    --user-btn-border-hover: rgba(23, 74, 71, 0.70);
+    --user-btn-text-hover:   #0F332F;
+    --popover-border:        rgba(38, 104, 97, 0.45);
+    --popover-divider:       rgba(23, 74, 71, 0.18);
+    --popover-btn-hover-bg:  rgba(62, 144, 133, 0.14);
+
+    // H1 wordmark — one colour like the dark side, ink instead of birch. The aurora glow
+    // survives but at a fraction of its alpha: a bright halo behind DARK text on paper
+    // reads as a printing error, not a bloom.
+    --h1-grad-top:    #19312E;
+    --h1-grad-mid1:   #19312E;
+    --h1-grad-mid2:   #19312E;
+    --h1-grad-mid3:   #19312E;
+    --h1-grad-bottom: #19312E;
+    --h1-glow-1: rgba(62, 144, 133, 0.30);
+    --h1-glow-2: rgba(58, 150, 148, 0.20);
+    --h1-glow-3: rgba(60, 140, 170, 0.12);
+
+    // ── Semantics re-derived for paper ───────────────────────────────────────
+    // Header wave — the dark theme's stops sit at 58-75% lightness, which is a pastel
+    // smear on white. Same hue signature, taken down into readable territory.
+    --wave-1: hsl(calc(var(--aurora-hue) - 32), 48%, 42%);
+    --wave-2: hsl(calc(var(--aurora-hue) - 18), 44%, 40%);
+    --wave-3: hsl(var(--aurora-hue),            50%, 36%);
+    --wave-4: hsl(calc(var(--aurora-hue) + 22), 54%, 40%);
+    --wave-5: hsl(calc(var(--aurora-hue) + 69), 50%, 50%);
+
+    --color-long:    #249B4C;
+    --color-short:   #D85B57;
+    --color-hit:     #26964B;
+    --color-looking: #C1761F;
+    --color-waiting: #D85B57;
+    --color-teal:    #259287;
+    --color-warning: #AC811C;
+    --color-error:   #D44E4A;
+
+    // Market-session dials — the dark arcs already read on paper; they only need lifting
+    // off pure black so the closed arc isn't a hole in the header.
+    --mc-arc-open:   #2A8A4C;
+    --mc-arc-closed: #A64A46;
+
+    // Row highlights — the tint stays a whisper, the border and text carry the state
+    --long-bg:     rgba(36, 155, 76, 0.08);
+    --long-border: rgba(36, 155, 76, 0.35);
+    --long-text:   #22763E;
+    --long-sub:    #3A8753;
+
+    --short-bg:     rgba(216, 91, 87, 0.08);
+    --short-border: rgba(184, 58, 53, 0.35);
+    --short-text:   #B83A35;
+    --short-sub:    #BB5B58;
+
+    --hit-bg:     rgba(36, 155, 76, 0.08);
+    --hit-border: rgba(36, 155, 76, 0.35);
+    --hit-text:   #277B43;
+
+    --looking-bg:     rgba(193, 118, 31, 0.09);
+    --looking-border: rgba(193, 118, 31, 0.35);
+    --looking-text:   #A2641D;
+    --looking-sub:    #AE7029;
+
+    --waiting-bg:     rgba(216, 91, 87, 0.07);
+    --waiting-border: rgba(184, 58, 53, 0.30);
+    --waiting-text:   #BE403C;
+
+    // Condition type badges
+    --type-touch-color:      #228491;
+    --type-touch-bg:         rgba(34, 132, 145, 0.10);
+    --type-structured-color: #288948;
+    --type-structured-bg:    rgba(40, 137, 72, 0.10);
+    --type-indicator-color:  #2D7DBE;
+    --type-indicator-bg:     rgba(45, 125, 190, 0.10);
+    --type-chart-color:      #A758BB;
+    --type-chart-bg:         rgba(167, 88, 187, 0.10);
+    --type-news-color:       #A66B27;
+    --type-news-bg:          rgba(166, 107, 39, 0.10);
+    --type-time-color:       #2C857D;
+    --type-time-bg:          rgba(44, 133, 125, 0.10);
+    --type-volume-color:     #8E7619;
+    --type-volume-bg:        rgba(142, 118, 25, 0.10);
+
+    // Sentiment
+    --sentiment-bull: #2D905F;
+    --sentiment-bear: #D25854;
+}
+
 // ── Semantic status colors — same across all themes ──────────────────────────
 :root {
     // UI fonts — defaults; the axl theme overrides them with the brand pairing.
     --font-sans: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
     --font-mono: 'IBM Plex Mono', monospace;
+    // A third voice, for text this app did not write in its own machine register — today the
+    // reasoning sidecar's thinking (ChatReasoning), which is a DIFFERENT model speaking inside our
+    // block and reads as the desk contradicting itself if it wears the desk's face. Deliberately
+    // NOT overridden per theme: the themes are palettes, and this distinction has to survive a
+    // reader who cannot use colour to tell two voices apart.
+    --font-serif: Georgia, 'Times New Roman', serif;
 
-    // Aurora-washed backgrounds — the app-header hue-wash, blooming up from the
-    // bottom edge, over the night base / surface. The four hues are derived from a
-    // single anchor hue (--aurora-hue, the brand teal) plus fixed offsets, so the
-    // whole aurora rotates together when the profile hue slider changes
-    // --aurora-hue (e.g. teal → green; cyan/violet follow). The wash geometry lives
-    // once in --aurora-wash and is reused by the header (AppHeaderAxl.scss) and the
-    // app backdrop (RootCmp.scss) so the whole app stays identical + in sync.
-    --aurora-hue: 174;                                              // anchor: brand teal; the hue slider rotates this
-    --aurora-1: hsla(calc(var(--aurora-hue) - 33), 52%, 67%, 0.14); // green  (anchor − 33)
-    --aurora-2: hsla(var(--aurora-hue),            52%, 58%, 0.11); // teal   (anchor)
-    --aurora-3: hsla(calc(var(--aurora-hue) + 22), 62%, 61%, 0.11); // cyan   (anchor + 22)
-    --aurora-4: hsla(calc(var(--aurora-hue) + 69), 56%, 75%, 0.14); // violet (anchor + 69)
-    // Each bloom is anchored to the element's OWN bottom edge (y 100%) with
-    // full-height reach, so the aurora is visible on the short header AND on the
-    // tall app backdrop / panels alike — not just where the element happens to be
-    // short. Same wash everywhere; the slider rotates all four hues together.
-    --aurora-wash:
-        radial-gradient(78% 108% at 12% 100%, var(--aurora-1), transparent 72%),
-        radial-gradient(66% 100% at 42% 100%, var(--aurora-2), transparent 72%),
-        radial-gradient(70% 104% at 73% 100%, var(--aurora-3), transparent 72%),
-        radial-gradient(74% 108% at 95% 100%, var(--aurora-4), transparent 72%);
-    // Aurora wash is header-only now — panels/components use plain base/surface (the
-    // --bg-wash* tokens stay so their ~30 consumers don't each need editing). The header
-    // (AppHeaderAxl.scss) still applies --aurora-wash directly.
+    // The aurora ANCHOR HUE. It no longer washes any background — the header now sits on plain
+    // --bg-base — but it still drives the header's calm-water wave below, so the profile hue
+    // slider (themeService.setAuroraHue) keeps working and keeps that line in sync with the accent.
+    //
+    // Gone with the wash: --aurora-1..4 (the four bloom stops) and --aurora-wash (their geometry).
+    // They had exactly one consumer, the header's ::after, and nothing inherited them.
+    --aurora-hue: 174;   // anchor: brand teal; the hue slider rotates this
+
+    // Surfaces are plain base/surface. The --bg-wash* names are kept because ~30 components read
+    // them; they are now aliases, not a wash.
     --bg-wash:         var(--bg-base);
     --bg-wash-surface: var(--bg-surface);
+
+    // ── Two tokens that were literals until the light theme existed ───────────
+    // --tint-soft: the barely-there fill that lifts a control off its surface (dock buttons,
+    // chart toolbar, zebra table rows). It was rgba(255,255,255,.06) in ~7 places, which is
+    // invisible on paper — it has to become INK at low alpha there, not white.
+    // --ring: the outline around a colour swatch in the theme/accent pickers, same story.
+    // Dark values below are exactly what those rules already used; the light block overrides both.
+    --tint-soft: rgba(255, 255, 255, 0.06);
+    --ring:      rgba(255, 255, 255, 0.70);
+
+    // The constant the social-chat glass is mixed against. It is deliberately NOT --bg-base
+    // (which the background slider moves per-origin — see the note in SocialChat.scss), but it
+    // does have to follow dark ⇄ light, or the chat stays a black island on a paper app.
+    --glass-anchor: #070b0d;
+
+    // ── Panel header height — one number, app-wide ────────────────────────────
+    // Every column header sits on this line: the agent chat headers (.chat-panel__header and the
+    // shared .portfolio-panel__header behind Portfolio/Kairos/Mentor/Scanner/Analyst) and the
+    // Floor design's column headings. Headers that miss each other by a few pixels are the single
+    // most visible way a multi-column layout stops reading as one app, and three stylesheets each
+    // holding their own copy of the number is how that drift starts.
+    //
+    // 54px = the .axl-hub__option row ("Trade an asset" and siblings), which is what these were
+    // matched to: a 36px title icon clears it with room, so raising it is safe, lowering below
+    // ~38px is not.
+    --header-h: 54px;
+
+    // ── Chat body text — one number, every desk ───────────────────────────────
+    // What an agent SAYS, in all seven chats: .chat-panel__bubble (Idea), the shared
+    // .portfolio-panel__bubble (Atlas/Kairos/Argus/Mentor/Analyst) and .axl-hub__bubble.
+    // Held here for the same reason as --header-h: three stylesheets each owning a copy is
+    // how Axl ended up reading at 13px while every other desk sat at 16px.
+    // This is the app's primary reading surface — long-form analysis a user works through —
+    // so it runs a step above UI text rather than matching it.
+    --chat-text: 17px;
+
+    // ── ...and the three sizes AROUND what it says ────────────────────────────
+    // The supporting type of a chat surface: what the message is (turn tags, timestamps, the
+    // live/phase labels), what the agent is doing (tool chips), and what it hands you (ticker
+    // chips, action buttons, inline code, the empty state).
+    //
+    // These are three named ROLES, not three numbers someone liked. They exist because the
+    // desktop values — 10 / 11 / 12px, sized for a dense three-column desk — are one to three
+    // steps under every mobile platform floor (HIG 11pt absolute / Material 12sp; 16px on the
+    // one field you type into, or iOS Safari zooms the page). On a phone this column IS the
+    // app, so the scale is redefined once at the breakpoint below rather than patched per rule.
+    //
+    // Desktop is deliberately unchanged: each token's value here is exactly what the rules that
+    // now read it were already using, so this swap moves nothing until the media query fires.
+    --chat-meta:  12px;   // secondary prose — inline code, empty states, chips you read
+    --chat-label: 11px;   // control and status labels — buttons, phase chips, counts
+    --chat-micro: 10px;   // the smallest marks — turn tags, hints, the live badge
 
     // Header wave gradient stops (the calm-water line at the header's bottom edge).
     // Same green→teal→cyan→blue→violet signature as the aurora, derived from the
@@ -329,4 +523,23 @@
     // Sentiment
     --sentiment-bull: #4caf7d;
     --sentiment-bear: #e05c5c;
+}
+
+// ── The chat scale on a phone ────────────────────────────────────────────────
+// One redefinition, every desk. The reading size does not move — 17px is already the iOS body
+// size, and a phone is held CLOSER than a monitor, not further — but the supporting type comes
+// off the floor: 12px is the lowest any platform will vouch for, and 10px on a 390px screen is
+// a mark you notice rather than text you read.
+//
+// Ordering is preserved (micro < label < meta < text), so the hierarchy the desktop scale
+// encodes survives the lift instead of flattening into one size.
+//
+// Not here: the composer, which is pinned to 16px in ChatInputRow.scss for a different reason —
+// below 16px iOS Safari zooms the page on focus and does not zoom back.
+@media (max-width: 767px) {
+    :root {
+        --chat-meta:  14px;
+        --chat-label: 13px;
+        --chat-micro: 12px;
+    }
 }

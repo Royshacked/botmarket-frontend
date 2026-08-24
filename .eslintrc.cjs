@@ -7,7 +7,20 @@ module.exports = {
     'plugin:react/jsx-runtime',
     'plugin:react-hooks/recommended',
   ],
-  ignorePatterns: ['dist', '.eslintrc.cjs'],
+  // archive/ is FROZEN UI kept for revival (Kairos, 2026-08-18). Nothing imports it, so lint has
+  // nothing to protect there — and linting it would turn every future rule change into edits to
+  // code nobody is maintaining. Mirrors the backend's eslint.config.js.
+  ignorePatterns: ['dist', '.eslintrc.cjs', 'archive'],
+  overrides: [
+    {
+      // Tests run under vitest/jsdom or `node --test` — never in a browser. So the node globals
+      // they legitimately reach for (process.cwd() to read a stylesheet off disk, because vitest
+      // stubs stylesheet imports) are defined here. The browser env above is right for src/ and
+      // wrong for the test files sitting inside it.
+      files: ['**/*.test.js', '**/*.test.jsx'],
+      env: { node: true },
+    },
+  ],
   parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },
   settings: { react: { version: '18.2' } },
   plugins: ['react-refresh'],

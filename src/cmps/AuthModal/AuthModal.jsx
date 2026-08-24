@@ -29,6 +29,10 @@ function EyeOffIcon() {
 async function authPost(path, body) {
     // Guard against a hung request (e.g. backend restarting / stale keep-alive
     // socket) so the form never spins forever — abort and surface an error.
+    //
+    // DELIBERATELY raw fetch, not httpService: a failed sign-in returns 401, and
+    // httpService treats any 401 as "session died" — clearing storage and redirecting,
+    // which would wipe the form instead of showing "wrong password". See AuthContext.
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), 10000)
     let res

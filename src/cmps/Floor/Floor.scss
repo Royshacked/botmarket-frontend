@@ -1,0 +1,1031 @@
+// ── Floor design trial ────────────────────────────────────────────────────────
+//
+// Rows, not cards. The whole stylesheet holds to three rules:
+//   1. NO box per item — one shared container, hairline separators, so N items read as one column
+//      instead of N competing rectangles.
+//   2. Columns ALIGN across rows. That shared vertical axis is what makes a dense list feel
+//      designed; cards can't do it because each is its own formatting context.
+//   3. Colour is spent only on direction, lifecycle and P&L sign. Everything else is 2–3 steps of
+//      the neutral ramp.
+//
+// Every token is the app's own, so this follows the active theme and any [data-design] palette.
+
+// Shared row geometry — the alignment contract both columns obey.
+$row-h:      30px;
+$row-pad-x:  10px;
+// Trailing edge. Right-aligned numbers sat flush against the column border, which made them
+// read as clipped and left the P&L touching the divider. Bigger than the leading pad on purpose:
+// a right-aligned value needs visible air after it, a left-aligned label does not.
+$row-pad-end: 18px;
+$sym-w:      58px;
+$indent:     13px;
+
+// The parenthetical count that rides after a name — desk head, list row, book row, account row.
+// It is the same object in all four, so it is one number rather than four copies of 11.5px that
+// drift apart.
+//
+// It matches the NAME's size rather than sitting a step under it. 11.5 against a 12.5 name was
+// small enough to read as a footnote on a row you scan for exactly that figure, and the step down
+// was the thing pushing the two off a shared baseline. Equal size + the name's own face means the
+// baselines coincide by construction, and the dim ramp is left to carry the hierarchy on its own —
+// which is all that was ever needed: it is a count, not a competing value.
+$count-size: 12.5px;
+
+// Every header in this design is ONE height, and it is the SAME one the agent chat headers use —
+// see --header-h in _themes.scss, which is where the number lives. Three columns whose headers
+// line up read as one bar across the app; three that miss by a few pixels read as three panels
+// that happen to be adjacent.
+$header-h: var(--header-h);
+
+// ...and one type treatment for the SECTION HEADINGS only (Positions / Calendar / Lists), lifted
+// from .chat-panel__title so a Floor heading and a chat heading are the same object. Shared as a
+// placeholder rather than copied, since "same as the chat panel" is the actual requirement — a
+// future change there should be a one-line change here.
+%floor-header-type {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-primary);
+}
+
+// ── Section headers (both columns) ───────────────────────────────────────────
+.floor-sec {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: $header-h;
+    padding: 0 12px;
+    background: var(--bg-wash-surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+
+    &__title {
+        @extend %floor-header-type;
+        margin: 0;
+    }
+
+    // The tab strip that lived here is GONE with the calendar it belonged to (2026-08-19): its
+    // four tabs are four desks in the right column now. No Floor header carries tabs any more —
+    // a header names one list, and anything that would need a second one is its own desk.
+}
+
+.floor-empty {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    padding: 14px 12px;
+    margin: 0;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LEFT — the book
+// ══════════════════════════════════════════════════════════════════════════════
+.floor-left {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    background: var(--bg-base);
+    // border-TOP matches the line the chat panel already draws (.chat-panel / .portfolio-panel
+    // carry a full 1px border). Sitting directly under the app header, that line reads as the app
+    // header's bottom edge — so without it here, the edge stopped at the middle column.
+    border-top: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+
+    // Halves. Neither is allowed to starve the other: each takes an equal share and scrolls its
+    // own overflow, so one long list can't push the next section off the column. There is only ONE
+    // section today — the book, since the calendar moved to the right column's desks — and a lone
+    // child of a 50% basis simply takes the lot. The rule is kept for the account summaries landing
+    // here next, which is the whole reason the book gave the calendar back its half.
+    &__half {
+        flex: 1 1 50%;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+
+        & + & { border-top: 1px solid var(--border); }
+    }
+
+    &__scroll {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;   // naming only one axis lets the other compute to `auto` — see .floor-lists
+        padding: 6px 0 10px;
+
+        &::-webkit-scrollbar { width: 7px; }
+        &::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 4px; }
+
+        // The list arrives rather than appears. Switching desk to desk remounts this box, so the
+        // same few frames also cover the swap — the only moment in the toggle that has no fold of
+        // its own to ride on.
+        animation: floor-desk-in .22s ease both;
+    }
+}
+
+@keyframes floor-desk-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: none; }
+}
+
+// ── Account block ────────────────────────────────────────────────────────────
+.floor-acct {
+    &__row {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        height: $row-h;
+        padding: 0 $row-pad-end 0 $row-pad-x;
+        background: none;
+        border: 0;
+        font: inherit;
+        color: var(--text-primary);
+        cursor: pointer;
+        text-align: left;
+
+        &:hover { background: var(--bg-hover); }
+    }
+
+    &__chev {
+        width: 12px; height: 12px;
+        color: var(--text-dim);
+        flex-shrink: 0;
+        transition: transform .16s;
+    }
+    &--open &__chev { transform: rotate(90deg); }
+
+    // The one cell that gives, exactly like a book name: an "account number" is only a short
+    // number on a broker account — a paper/manual account falls back to its id, which is long
+    // and unbreakable, and an unshrinkable cell would push the count out from under the number
+    // and over the P&L. It truncates so the count stays glued to it at every width.
+    &__no {
+        font-family: var(--font-mono);
+        font-size: 12.5px;
+        font-weight: 600;
+        letter-spacing: .2px;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    // Sits against the account number — it pulls back most of the row's 7px flex gap so the
+    // parenthetical reads as part of the name. The P&L below carries the auto margin instead.
+    &__count {
+        margin-left: -3px;
+        font-family: var(--font-mono);
+        font-size: $count-size;
+        color: var(--text-dim);
+        flex-shrink: 0;
+    }
+
+    &__pnl {
+        margin-left: auto;
+        padding-left: 8px;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--text-muted);
+        min-width: 62px;
+        flex-shrink: 0;
+        text-align: right;
+
+        &.is-pos { color: var(--color-long); }
+        &.is-neg { color: var(--color-short); }
+    }
+
+    &__body { padding-bottom: 4px; }
+}
+
+// ── Portfolio row (inside an account) ────────────────────────────────────────
+//
+// The middle tier. It is deliberately NOT a second account row: same right-hand P&L column so the
+// two totals line up down the pane, but the name is set in the UI face rather than mono, because a
+// book has a written name and an account has a number — treating them alike would make the reader
+// check which one they're looking at.
+.floor-book {
+    &__row {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        height: 27px;
+        padding: 0 $row-pad-end 0 ($row-pad-x + $indent);
+        background: none;
+        border: 0;
+        font: inherit;
+        color: var(--text-primary);
+        cursor: pointer;
+        text-align: left;
+
+        &:hover { background: var(--bg-hover); }
+    }
+
+    &__chev {
+        width: 11px; height: 11px;
+        color: var(--text-dim);
+        flex-shrink: 0;
+        transition: transform .16s;
+    }
+    &--open &__chev { transform: rotate(90deg); }
+
+    &__name {
+        font-size: 12.5px;
+        font-weight: 600;
+        line-height: 1;         // shared with the count — see .floor-row__count
+        // The one cell that can give: a book name is free text, so it truncates rather than
+        // pushing the count and the P&L off the pane.
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    // A book NAME is set in the UI face, so its count is too — the same baseline rule the right
+    // column's rows follow.
+    &__count {
+        margin-left: -3px;
+        font-family: var(--font-sans);
+        font-size: $count-size;
+        line-height: 1;
+        color: var(--text-dim);
+        flex-shrink: 0;
+    }
+
+    &__pnl {
+        margin-left: auto;
+        padding-left: 8px;
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        color: var(--text-muted);
+        min-width: 62px;
+        text-align: right;
+        flex-shrink: 0;
+
+        &.is-pos { color: var(--color-long); }
+        &.is-neg { color: var(--color-short); }
+    }
+}
+
+// ── Position row ─────────────────────────────────────────────────────────────
+.floor-pos {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 26px;
+    padding: 0 $row-pad-end 0 ($row-pad-x + $indent);
+    background: none;
+    border: 0;
+    font: inherit;
+    cursor: pointer;
+    text-align: left;
+
+    &:hover { background: var(--bg-hover); }
+
+    // A leg of a book sits one step further in — the only thing distinguishing it from a
+    // standalone position, which is the only thing that differs.
+    &--sub { padding-left: $row-pad-x + $indent * 2; }
+
+    // A holding held as several broker positions: one line at the blended average that opens into
+    // its legs. Marked only by the ×N beside the ticker — it is still a position line, not a new
+    // tier, because the holding is the thing the user thinks they own.
+    &--folded .floor-pos__sym { color: var(--accent-light); }
+    &__legs {
+        margin-left: 5px;
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--text-dim);
+    }
+
+    // Larger than the row glyphs elsewhere: inside an opened account this is the first thing
+    // scanned down the list — which way is each of these facing — so it earns the extra weight.
+    &__dir {
+        font-size: 14px;
+        line-height: 1;
+        width: 11px;
+        flex-shrink: 0;
+        &--long  { color: var(--color-long); }
+        &--short { color: var(--color-short); }
+    }
+
+    &__sym {
+        font-family: var(--font-mono);
+        font-size: 12.5px;
+        font-weight: 700;
+        color: var(--text-primary);
+        width: $sym-w;
+        flex-shrink: 0;
+    }
+
+    &__qty {
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        color: var(--text-dim);
+        flex: 1;
+        // Takes the free space between the fixed symbol and the right-aligned P&L, so it is the
+        // cell that has to give — truncate rather than push the row past the pane.
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__pnl, &__pct {
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        color: var(--text-muted);
+        text-align: right;
+
+        &.is-pos { color: var(--color-long); }
+        &.is-neg { color: var(--color-short); }
+    }
+    &__pnl { min-width: 58px; }
+    &__pct { min-width: 46px; }
+}
+
+// ── Calendar ─────────────────────────────────────────────────────────────────
+.floor-cal {
+    // Days need a real break, not 8px of margin. Fed rows carry no ticker — they're a column of
+    // similar-length prose — so without a rule the eye can't find where one date ends and the next
+    // starts, and the whole tab reads as one undifferentiated block.
+    &__day + &__day {
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px solid var(--border);
+    }
+
+    &__date {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .9px;
+        color: var(--text-secondary);   // was --text-dim: the date is the anchor, not a footnote
+        padding: 0 $row-pad-end 6px $row-pad-x;
+    }
+
+    &__row {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 25px;
+        padding: 0 $row-pad-end 0 $row-pad-x;
+        background: none;
+        border: 0;
+        font: inherit;
+        text-align: left;
+        color: var(--text-secondary);
+
+        &--btn { cursor: pointer; &:hover { background: var(--bg-hover); } }
+    }
+
+    &__sym {
+        font-family: var(--font-mono);
+        font-size: 12.5px;
+        font-weight: 700;
+        color: var(--text-primary);
+        width: $sym-w;
+        flex-shrink: 0;
+    }
+
+    // Narrower than the ticker column: this holds "08:30", not a symbol. Still a FIXED width and
+    // still rendered when empty, so event names stay on one left edge — Fed feeds mix timed and
+    // untimed entries, and letting the column collapse per row gives a ragged margin.
+    &__time {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-dim);
+        width: 40px;
+        flex-shrink: 0;
+    }
+
+    &__label {
+        font-size: 12.5px;
+        color: var(--text-muted);
+        flex: 1;
+        min-width: 0;         // see .floor-row__sym--wide
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__when {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-dim);
+        min-width: 36px;
+        text-align: right;
+    }
+
+    &__impact {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: .7px;
+        color: var(--text-dim);
+
+        &--high   { color: var(--color-short); }
+        &--medium { color: var(--color-warning); }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RIGHT — the desks: your work, then the calendar
+// ══════════════════════════════════════════════════════════════════════════════
+.floor-lists {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    background: var(--bg-base);
+    border-top: 1px solid var(--border);   // same edge as .floor-left — see the note there
+    border-left: 1px solid var(--border);
+    // The COLUMN never scrolls — the open desk's list does (see .floor-desk__body). Scrolling here
+    // moved the whole surface: the "Lists" heading and the other three desk headers travelled with
+    // the rows, so reaching the bottom of a long book meant the desk you were reading had scrolled
+    // off the top and the remaining headers had gone with it. The list is the only thing that
+    // overflows, so the list is the only thing that should move.
+    overflow: hidden;
+
+    // The heading needs no `position: sticky` now that nothing under it scrolls away from it, and
+    // this box needs no scrollbar styling of its own.
+}
+
+// Names a run of desks that belong together — today just the calendar's four. Type is the row
+// GROUP label's, not a header's: this caption sorts the column, it doesn't head a section, and
+// wearing .floor-sec here would put a sixth heading among nine buttons.
+.floor-lists__grp {
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    padding: 12px 12px 5px;
+    flex: 0 0 auto;
+    // Stated so it has somewhere to travel FROM, same as a closed desk's header height. One short
+    // uppercase word at 10.5px plus its padding, with room to spare.
+    max-height: 34px;
+    overflow: hidden;
+    transition: max-height .26s cubic-bezier(.4, 0, .2, 1), opacity .16s ease, padding .26s ease;
+
+    // Folds away with the desks it names — a caption for four hidden lists is chrome.
+    .floor-lists--focused & {
+        max-height: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        opacity: 0;
+    }
+}
+
+.floor-desk {
+    // A CLOSED desk is exactly its header — nothing else is rendered — and that fixed height is
+    // also what it FOLDS from when a sibling opens. Stating it as a max-height rather than leaving
+    // it to content is the whole animation: a box can only travel to zero from a number.
+    flex: 0 0 auto;
+    // +1px for the separator: everything here is border-box, so a bare $header-h would clip the
+    // hairline off the bottom of every closed desk.
+    max-height: calc(#{$header-h} + 1px);
+    overflow: hidden;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    transition: max-height .26s cubic-bezier(.4, 0, .2, 1),
+                opacity     .16s ease,
+                border-color .2s ease;
+
+    // No header fill. The --bg-wash-surface belongs to real column headings (.floor-sec, the chat
+    // panel); wearing it here made four buttons impersonate four headers, and stacked them into a
+    // block of chrome above the one list you actually opened. Plain column background, hover only.
+    &__head {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: $header-h;
+        padding: 0 $row-pad-end 0 12px;
+        background: none;
+        border: 0;
+        font: inherit;
+        color: var(--text-primary);
+        cursor: pointer;
+        text-align: left;
+        flex-shrink: 0;
+
+        &:hover { background: var(--bg-hover); }
+    }
+
+    &__chev {
+        width: 12px; height: 12px;
+        color: var(--text-dim);
+        flex-shrink: 0;
+        transition: transform .16s;
+    }
+    // Pointing BACK, not down. An open desk is alone at the top of the column with its list under
+    // it, so the caret's job is no longer "this section is expanded" — it is the way out, and the
+    // one arrow on screen should say where the click goes.
+    &--open &__chev { transform: rotate(180deg); color: var(--accent-light); }
+
+    // Deliberately NOT the header type: a desk label is a control you click, not a column
+    // heading. Matching the headers' mono caps would make four buttons read as four sections.
+    &__label {
+        font-size: 12.5px;
+        font-weight: 600;
+        letter-spacing: .2px;
+        line-height: 1;         // shared with the count below, so the two sit on one baseline
+    }
+    &--open &__label { color: var(--accent-light); }
+
+    // Sits against the label — a parenthetical belongs tight to its noun, so it pulls back most of
+    // the head's 8px flex gap rather than taking a full column's distance from it. Same face and
+    // same line-height as the label for the same reason the list rows do it: see .floor-row__count.
+    &__count {
+        margin-left: -4px;
+        font-family: var(--font-sans);
+        font-size: $count-size;
+        line-height: 1;
+        color: var(--text-dim);
+    }
+
+    // The open desk TAKES THE COLUMN: it grows into every pixel the folded headers gave up, so a
+    // list is read at full height rather than in the gap left under three stacked buttons. It is
+    // the only child that grows and the only one that shrinks, which is also what makes it absorb
+    // all the overflow — the headers never move while you scroll it.
+    //
+    // `max-height: none` is the release valve for the fold above; it doesn't animate (there is no
+    // number to travel to), which is why the OPENING half of the motion is carried by the body's
+    // fade-in and by the siblings folding away around it.
+    &--open {
+        flex: 1 1 auto;
+        max-height: none;
+    }
+
+    // Folded — a sibling is open and has the floor. Kept mounted rather than unrendered so the
+    // column can animate back into its original order, and so the header still reports its state.
+    &--folded {
+        max-height: 0;
+        opacity: 0;
+        border-bottom-color: transparent;
+        pointer-events: none;
+    }
+
+    // Where the scrolling actually happens. No `max-height` cap: the desk above has already been
+    // shrunk to exactly the space the column can spare, and a fixed cap on top of that would just
+    // strand empty column below a scrollbar. `min-height: 0` is what lets a flex child scroll at
+    // all — without it the body floors at its content height and pushes the overflow back up.
+    &__body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        // Pin the other axis. CSS forces a `visible` axis to `auto` when its partner scrolls, so
+        // this box would otherwise grow an unasked-for horizontal scroller — and since the
+        // ::-webkit rule below only sets `width`, that bar renders at the default ~15px height
+        // rather than the intended 7px. The desk rows truncate; they don't scroll sideways.
+        overflow-x: hidden;
+        padding-bottom: 8px;
+
+        &::-webkit-scrollbar { width: 7px; }
+        &::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 4px; }
+    }
+}
+
+// ── Lifecycle group label ────────────────────────────────────────────────────
+.floor-grp {
+    & + & { margin-top: 7px; }
+
+    &__label {
+        font-size: 10.5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text-dim);
+        padding: 0 $row-pad-end 4px 12px;
+
+        // Only the two buckets that want something from you get colour. "Watching" and
+        // "Not watched" stay neutral — most rows live there, and colouring them would make
+        // the urgent ones stop reading as urgent.
+        &--ready       { color: var(--color-warning); }
+        &--in_position { color: var(--accent-light); }
+    }
+}
+
+// ── The row — one geometry for every desk ────────────────────────────────────
+.floor-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: $row-h;
+    // Same trailing pad as the left column's position rows: status, score and P&L are all
+    // right-aligned here too, and they were sitting flush against the column edge.
+    padding: 0 $row-pad-end 0 12px;
+    background: none;
+    border: 0;
+    font: inherit;
+    color: var(--text-primary);
+    cursor: pointer;
+    text-align: left;
+    // A COLLAPSED row is one line, always. Half these cells are multi-word — "strong buy",
+    // "thesis broken", a target carrying its horizon ("412 / 12M") — and a flex item is free to
+    // wrap at those spaces once the column gets narrow, since its min-content width is only the
+    // longest WORD. The row's fixed height then clipped the second line rather than growing for
+    // it, so a narrow column silently ate half of what the row said. Nothing wraps; the one
+    // elastic cell truncates instead (see .price-target below).
+    white-space: nowrap;
+
+    &:hover { background: var(--bg-hover); }
+    &--static { cursor: default; &:hover { background: none; } }
+    &--sub    { padding-left: 12px + $indent; height: 26px; }
+
+    // Matches the position rows in the left column. With the redundant long/short WORD gone from
+    // the status column, the glyph is the only thing carrying direction — so it has to be legible
+    // rather than a hint.
+    &__dir {
+        font-size: 14px;
+        line-height: 1;
+        width: 11px;
+        flex-shrink: 0;
+        &--long  { color: var(--color-long); }
+        &--short { color: var(--color-short); }
+    }
+
+    &__sym {
+        font-family: var(--font-mono);
+        font-size: 12.5px;
+        font-weight: 700;
+        width: $sym-w;
+        flex-shrink: 0;
+
+        // A thesis or a book name isn't a ticker — it takes the width it needs and truncates.
+        // `min-width: 0` is what MAKES it truncate: a flex item defaults to min-width:auto, which
+        // for nowrap text resolves to max-content, so the item refuses to shrink and the ellipsis
+        // never engages — the row just forces the pane wider.
+        //
+        // It SHRINKS but never GROWS (`flex: 0 1 auto`, not `flex: 1`). Growing would stretch the
+        // box past its text and push whatever follows — the item count — to the far edge, which is
+        // exactly what the count is not supposed to be. The slack goes to __kind instead.
+        &--wide {
+            font-family: var(--font-sans);
+            font-weight: 500;
+            font-size: 12.5px;
+            line-height: 1;     // the count pins the same one — see __count
+            width: auto;        // undo the base ticker width — `flex-basis: auto` resolves to it
+            flex: 0 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    }
+
+    &__kind {
+        font-size: 11.5px;
+        color: var(--text-muted);
+        flex: 1;
+        min-width: 0;         // see __sym--wide — without it the ellipsis never engages
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+
+        &--dim { color: var(--text-dim); }
+    }
+
+    // Right-edge anchor: it keeps its full width so "thesis broken" reads whole, and the target
+    // to its left absorbs the squeeze.
+    &__status {
+        flex-shrink: 0;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: .7px;
+        color: var(--text-dim);
+        min-width: 62px;
+        text-align: right;
+
+        &--long, &--short { color: var(--accent-light); }
+        &--hit            { color: var(--color-warning); }
+        &--looking        { color: var(--text-secondary); }
+        &--target_hit     { color: var(--color-long); }
+        &--thesis_broken  { color: var(--color-short); }
+    }
+
+    // The count now follows the name directly, so the row has nothing else claiming the free space:
+    // `margin-left: auto` here is what keeps the stale flag on the right edge where it was.
+    //
+    // It reads as part of the name, so it has to SIT on the name's line — and that is a typographic
+    // question, not a layout one. The row centres its items, which centres each item's LINE BOX;
+    // two boxes only land on a shared baseline if their type does. In the mono face at 11.5px the
+    // count's baseline fell below the sans name beside it and the parenthetical looked dropped. So
+    // it takes the name's face, and both pin `line-height: 1` — with the same family and the same
+    // box, centring the boxes centres the baselines too. (The account row in the left column needs
+    // no such change: an account NUMBER is mono, so its count already matches the noun it follows.)
+    &__count {
+        font-family: var(--font-sans);
+        font-size: $count-size;
+        line-height: 1;
+        color: var(--text-dim);
+        flex-shrink: 0;
+    }
+
+    &__stale {
+        margin-left: auto;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: .8px;
+        color: var(--color-warning);
+        opacity: .8;
+    }
+
+    &__pnl {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--text-muted);
+        min-width: 62px;
+        text-align: right;
+
+        &.is-pos { color: var(--color-long); }
+        &.is-neg { color: var(--color-short); }
+    }
+
+    &__score {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 700;
+        min-width: 24px;
+        text-align: right;
+
+        &--hi  { color: var(--accent-light); }
+        &--mid { color: var(--color-warning); }
+        &--lo  { color: var(--text-muted); }
+    }
+
+    // A rating is short and fixed-vocabulary — it gives up none of its width, so "strong buy"
+    // stays "strong buy" and the squeeze lands on the target instead.
+    &__rating {
+        flex-shrink: 0;
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: .7px;
+        color: var(--text-muted);
+
+        &--strong_buy, &--buy   { color: var(--color-long); }
+        &--sell, &--strong_sell { color: var(--color-short); }
+    }
+
+    // The shared renderer (cmps/PriceTarget). The Floor keeps its own reading of the same number:
+    // right-aligned into the row's spare width, quieter than the panels', and using the SATURATED
+    // long/short pair the rest of these rows use rather than the pale on-tint one the panels take.
+    .price-target {
+        flex: 1;
+        // The row's one elastic cell, so it is the one that gives: `min-width: 0` is what MAKES it
+        // truncate (a flex item defaults to min-width:auto → min-content, and refuses to shrink
+        // past it), and the ellipsis is a better loss than a wrapped line the row height clips.
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-align: right;
+        font-size: 11.5px;
+        color: var(--text-muted);
+
+        &__gap {
+            margin-left: 4px;
+            &--up   { color: var(--color-long); }
+            &--down { color: var(--color-short); }
+        }
+    }
+
+    &__chev {
+        width: 12px;
+        height: 12px;
+        color: var(--text-dim);
+        flex-shrink: 0;
+        transition: transform .16s;
+
+        &--open { transform: rotate(90deg); color: var(--accent-light); }
+    }
+
+}
+
+// ── Hover actions ────────────────────────────────────────────────────────────
+// Edit/delete are an OVERLAY on the row's right edge, not two more cells in it. Two reasons, and
+// the second is the load-bearing one:
+//   · the row is a <button> and a button can't contain a button;
+//   · a permanent gutter would cost every desk ~40px of a column whose entire premise is that one
+//     line holds one fact — and it would shift the right-aligned values on all four desks to buy
+//     controls that are visible on one row at a time.
+//
+// So they cover the row's rightmost value (status / P&L / count) while you hover. That's the cell
+// you finished reading before you reached for the bin.
+.floor-rowhost {
+    position: relative;
+
+    // The pointer is over the ACTIONS, not the row button, whenever you're actually clicking one —
+    // so the row's own :hover would drop out from under you mid-reach. Hover the host instead.
+    // `--static` keeps its no-hover rule: a row that doesn't open shouldn't light up.
+    //
+    // The left column's book rows are listed too: they carry the close ✕, and they were never
+    // `.floor-row` — that class is the right column's desks. Same rule, three more selectors,
+    // rather than a second host for the same reach.
+    &:hover .floor-row:not(.floor-row--static),
+    &:hover .floor-pos,
+    &:hover .floor-book__row { background: var(--bg-hover); }
+
+    &__actions {
+        position: absolute;
+        top: 0;
+        right: $row-pad-end - 8px;
+        height: 100%;
+        display: none;
+        align-items: center;
+        gap: 1px;
+        // Fades in over whatever it covers instead of butting against it with a hard edge.
+        padding-left: 16px;
+        background: linear-gradient(to right, transparent, var(--bg-hover) 16px);
+    }
+
+    // Keyboard focus as well as :hover — the buttons live inside the row you'd have to hover to
+    // reveal them, so hover alone would put them permanently out of the keyboard's reach.
+    //
+    // :focus-VISIBLE, not :focus-within. A mouse click on the row (to open a thesis) focuses the row
+    // button, and plain :focus-within would then keep the overlay pinned there long after the pointer
+    // left — stuck until the desk unmounted. :focus-visible only matches the keyboard's focus ring,
+    // so the mouse path is governed by :hover alone, exactly as it reads.
+    &:hover &__actions,
+    &:has(:focus-visible) &__actions { display: flex; }
+
+    // Row scale is asked for at the call site (`size="sm"`), not overridden here — the shared
+    // button owns its own sizes, so the Floor can't drift from the cards by a pixel.
+}
+
+// ── Expanded detail (coverage thesis) ────────────────────────────────────────
+// The one place in this design that carries prose. It sits INSIDE a row's indent rather than
+// spanning the column, so an open thesis still reads as belonging to its name — and it keeps the
+// row grid intact above and below it.
+//
+// It wraps freely — the row's one-line rule is scoped to `.floor-row`, and this is a SIBLING of the
+// row rather than a child of it, so the nowrap never reaches the prose.
+.floor-detail {
+    padding: 2px $row-pad-end 12px (12px + $indent);
+    border-left: 1px solid var(--border);
+    margin-left: 17px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+
+    &__prose { margin: 0 0 10px; }
+
+    &__block {
+        margin-bottom: 10px;
+
+        ul { margin: 0; padding-left: 14px; }
+        li { margin-bottom: 3px; }
+    }
+
+    &__label {
+        display: block;
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: .9px;
+        color: var(--text-dim);
+        margin-bottom: 4px;
+    }
+
+    // The trail behind and the schedule ahead, on one line.
+    &__foot {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    &__revs {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-dim);
+    }
+
+    &__next {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-dim);
+        &--due { color: var(--text-secondary); }
+    }
+    // The catalyst the wait is FOR — the analyst's own words, so italic like the rest of their prose.
+    &__next-why { font-style: italic; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .floor-acct__chev,
+    .floor-book__chev,
+    .floor-row__chev,
+    .floor-desk__chev { transition: none; }
+
+    // The fold still HAPPENS — it is layout, not decoration — it just happens at once.
+    .floor-desk { transition: none; }
+    .floor-desk__body { animation: none; }
+}
+
+// ── Queued desk ──────────────────────────────────────────────────────────────
+// One line per thing waiting on you: what will happen, and where it was decided. Unlike the other
+// desks these rows are not doorways — there is nothing to open, so they carry no row button and
+// their actions are always visible rather than revealed on hover (a to-do you have to hover to
+// discover is a to-do nobody does).
+.floor-queued {
+    &__dot {
+        flex: none;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent, #4caf50);
+
+        // Still waiting for its venue. Hollow rather than a second colour: it is the SAME item in
+        // an earlier state, not a different class of thing.
+        &--waiting {
+            background: transparent;
+            box-shadow: inset 0 0 0 1px var(--text-dim);
+        }
+    }
+
+    // THE ROW'S WHOLE POINT, so it is the one thing here that must never be clipped. It used to
+    // ellipsise: it was the only elastic item on a nowrap line (everything after it is flex:none),
+    // so in a column this narrow it absorbed the entire squeeze and "Trim 30% of MU" arrived as
+    // "Trim 30%…". Truncation is right for the OTHER desks, whose rows are doorways you open to see
+    // the detail — a queued row has nothing to open, so the sentence is all there is. It wraps now,
+    // and the row grows instead.
+    &__line {
+        flex: 1 1 auto;
+        // A FLOOR, not zero. Zero lets flexbox shave the sentence down to a sliver and wrap it into
+        // a tall ribbon beside the buttons; below this width the tail wraps under it instead, which
+        // is the reading the row wants.
+        min-width: 14ch;
+        color: var(--text-primary);
+    }
+
+    &__from {
+        flex: none;
+        font-size: 11.5px;
+        color: var(--text-dim);
+    }
+
+    &__pending {
+        flex: none;
+        font-size: 11.5px;
+        font-style: italic;
+        color: var(--text-dim);
+    }
+
+    &__btn {
+        padding: 2px 8px;
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: 4px;
+        border: 1px solid var(--border);
+        background: var(--bg-surface);
+        color: var(--text-primary);
+        cursor: pointer;
+
+        &:disabled { opacity: 0.45; cursor: default; }
+        &:not(:disabled):hover { background: var(--bg-hover); }
+
+        &--cancel {
+            color: var(--text-muted);
+            &:not(:disabled):hover { color: var(--text-primary); }
+        }
+    }
+}
+
+// The queued rows themselves: a flex line that WRAPS, and their actions do NOT hide (see above).
+//
+// Wrapping is the difference between this and every other desk. The rest are fixed-height rows you
+// open for detail, so a long value truncating is fine — the full thing is one click away. Here the
+// row IS the detail: there is nothing to open, and a to-do you cannot read is a to-do nobody does.
+// So the sentence takes the width it needs and the tail (origin, "waiting for the open", buttons)
+// drops beneath it when there isn't room, rather than squeezing the sentence out.
+.floor-desk__body .floor-rowhost:has(.floor-queued__line) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 8px;
+    row-gap: 4px;
+    padding: 7px 12px;
+    font-size: 12.5px;
+    border-bottom: 1px solid var(--border-subtle, var(--border));
+
+    &:last-child { border-bottom: none; }
+    &:hover { background: var(--bg-hover); }
+
+    .floor-rowhost__actions {
+        position: static;
+        display: flex;
+        gap: 6px;
+        height: auto;
+        padding-left: 0;
+        background: none;
+        // Right-aligned whether they ride the sentence's line or wrap below it, so the press
+        // targets sit in one predictable place down the list instead of moving with the text.
+        margin-left: auto;
+    }
+}

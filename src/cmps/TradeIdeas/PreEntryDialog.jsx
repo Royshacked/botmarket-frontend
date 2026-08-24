@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types'
 import { formatNum } from './tradeIdea.utils.js'
 import { useMarketStatus } from '../../customHooks/useMarketStatus.js'
+import { Modal } from '../Modal.jsx'
 import './PreEntryDialog.scss'
 
 /**
@@ -29,20 +30,33 @@ export function PreEntryDialog({ prompt, busy = false, onBuyNow, onEdit, onReset
     const logic      = (idea.entry_logic ?? 'AND').toUpperCase()
 
     return (
-        <div className="pre-entry__backdrop" onClick={busy ? undefined : onClose}>
-            <div className="pre-entry" onClick={e => e.stopPropagation()}>
-                <div className="pre-entry__header">
-                    <span className="pre-entry__title">
-                        Already at your level
-                        <span className="pre-entry__asset">{idea.asset ?? '—'}</span>
-                        {idea.direction && (
-                            <span className={`pre-entry__direction direction--${idea.direction}`}>{idea.direction}</span>
-                        )}
-                    </span>
-                    <button className="pre-entry__close" onClick={onClose} disabled={busy}>×</button>
-                </div>
-
-                <div className="pre-entry__body">
+        <Modal
+            ns="pre-entry"
+            busy={busy}
+            onClose={onClose}
+            title="Already at your level"
+            asset={idea.asset ?? '—'}
+            direction={idea.direction}
+            footer={<>
+                <button
+                    className="pre-entry__btn pre-entry__btn--reset"
+                    onClick={() => onReset(idea)}
+                    disabled={busy}
+                    title="Keep watching — fire on the next genuine cross"
+                >Reset</button>
+                <button
+                    className="pre-entry__btn pre-entry__btn--edit"
+                    onClick={() => onEdit(idea)}
+                    disabled={busy}
+                    title="Reopen in chat to change the level"
+                >Edit</button>
+                <button
+                    className="pre-entry__btn pre-entry__btn--buy"
+                    onClick={() => onBuyNow(idea)}
+                    disabled={busy}
+                >{busy ? 'Working…' : 'Buy now'}</button>
+            </>}
+        >
                     <p className="pre-entry__lead">
                         Price is <strong>already</strong> on the trigger side of your entry
                         {prompt.close != null && <> (last close <strong>{formatNum(prompt.close)}</strong>)</>}.
@@ -64,29 +78,7 @@ export function PreEntryDialog({ prompt, busy = false, onBuyNow, onEdit, onReset
                             {market.nextOpenMs ? '.' : '.'}
                         </p>
                     )}
-                </div>
-
-                <div className="pre-entry__footer">
-                    <button
-                        className="pre-entry__btn pre-entry__btn--reset"
-                        onClick={() => onReset(idea)}
-                        disabled={busy}
-                        title="Keep watching — fire on the next genuine cross"
-                    >Reset</button>
-                    <button
-                        className="pre-entry__btn pre-entry__btn--edit"
-                        onClick={() => onEdit(idea)}
-                        disabled={busy}
-                        title="Reopen in chat to change the level"
-                    >Edit</button>
-                    <button
-                        className="pre-entry__btn pre-entry__btn--buy"
-                        onClick={() => onBuyNow(idea)}
-                        disabled={busy}
-                    >{busy ? 'Working…' : 'Buy now'}</button>
-                </div>
-            </div>
-        </div>
+        </Modal>
     )
 }
 

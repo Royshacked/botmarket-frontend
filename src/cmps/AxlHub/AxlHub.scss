@@ -6,8 +6,12 @@
     flex-direction: column;       // content area (body) grows; input pins to the bottom
     overflow: hidden;
     background: var(--bg-wash);
-    border: 1px solid var(--border);
-    border-radius: 6px 0 0 6px;   // mirror the chat-panel framing in this column
+    // Mirrors the chat panels' framing in this column, which is now frameless and square: only a
+    // bottom rule, no sides. The top line is the column's (.workspace__chat), not the hub's — drawn
+    // here as well it would double against it.
+    border: none;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
 
     // Replays each time the hub re-mounts (i.e. on every "back to axl").
     animation: axl-hub-enter 0.34s ease both;
@@ -20,16 +24,22 @@
     padding: 32px 24px;
 }
 
-// Scrolling content area above the pinned input: greeting + cards (landing) or
-// the message thread (chatting). Centres the landing; top-anchors the chat.
+// Scrolling content area above the pinned input: greeting + cards (landing) or the message thread.
+//
+// `justify-content: flex-start`, NOT `center` — centring a flex column that can overflow puts its
+// first child ABOVE the scroll container's top edge, where no scrollbar can reach it. The landing
+// is seven cards and a greeting, so on a short column that meant the mark and "Hi, I'm Axl" were
+// simply cut off with no way to see them. The landing's downward push is an auto margin instead
+// (`.axl-hub__intro`), which does the same job and collapses to zero the moment room runs out.
 .axl-hub__body {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden;   // otherwise the unset axis computes to `auto` and a wide card scrolls the landing
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 18px;
     padding: 18px 24px;
 }
@@ -49,6 +59,11 @@
 .axl-hub__option:nth-child(2) { animation-delay: 0.14s; }
 .axl-hub__option:nth-child(3) { animation-delay: 0.20s; }
 .axl-hub__option:nth-child(4) { animation-delay: 0.26s; }
+.axl-hub__option:nth-child(5) { animation-delay: 0.32s; }
+// Six desks and the order ticket — SEVEN cards. Without these last two the base rule's 0s delay
+// applies, so Pythia and the ticket rose in BEFORE the first card did, every single landing.
+.axl-hub__option:nth-child(6) { animation-delay: 0.38s; }
+.axl-hub__option:nth-child(7) { animation-delay: 0.44s; }
 
 @keyframes axl-hub-rise {
     from { opacity: 0; transform: translateY(12px); }
@@ -56,7 +71,12 @@
 }
 
 // ── greeting cluster ──
+// `margin-top: auto` is the landing's whole vertical story: every spare pixel is pushed ABOVE the
+// greeting, so the mark, the name and the seven cards sit low in the column, near the hand. When
+// there is no spare pixel the auto resolves to 0 and the body scrolls from the top like any other
+// list — which is why this replaced `justify-content: center` on the body rather than joining it.
 .axl-hub__intro {
+    margin-top: auto;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -135,10 +155,19 @@
 // and the row's own margin provides the inset.
 
 // ── pipeline header ──
+// Height from the shared --header-h (see _themes.scss). This one carried no title icon, so it sat
+// noticeably shorter than the agent panel headers it sits above — the hub is what you see FIRST,
+// so it was the most visible break in the line.
 .axl-hub__header {
-    padding: 7px 20px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: var(--header-h);
+    padding: 0 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-wash-surface);
     font-family: var(--font-mono);
-    font-size: 13px;
     white-space: nowrap;
     overflow: hidden;
 }
@@ -151,44 +180,69 @@
     color: var(--text-primary);
 }
 
-.axl-hub__pipeline-path {
+// ── the desk path, as one type treatment ──
+// The hub header (hovering a desk) and the chat strip (standing inside one) draw the SAME object: a
+// desk name, then its steps joined by rules. They were two copies that had drifted — different type
+// scale, different rule weight, different gaps — so walking from the hub into a pipeline changed how
+// the path looked. Held here as placeholders, extended by both, so the path is one definition.
+%pipeline-path {
     display: flex;
     align-items: center;
-    width: 100%;
-    gap: 0;
-    animation: axl-hub-enter 0.18s ease both;
+    gap: 4px;
+    font-family: var(--font-mono);
 }
 
-.axl-hub__pipeline-desk {
-    flex-shrink: 0;
+// Font size deliberately unset — the desk name takes the header's own size, which is what makes it
+// read as the heading with the steps hung off it.
+%pipeline-desk {
     font-weight: 700;
-    font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
     color: var(--text-secondary);
+    // Open space between the desk name and its first step, so the name reads as the heading the path
+    // hangs off rather than as the path's own first stop.
+    margin-right: 24px;
 }
 
-.axl-hub__pipeline-line {
-    flex: 1;
+%pipeline-step-group {
+    display: flex;
+    align-items: center;
+    gap: 0;
+}
+
+// A hairline in --border, not a bar in --text-muted: the rule is the join between two steps, and
+// should be quieter than either of them. The right margin holds it off the step it points at.
+%pipeline-line {
+    display: block;
+    width: 18px;
     height: 1px;
     background: var(--border);
-    min-width: 12px;
+    flex-shrink: 0;
+    margin-right: 8px;
 }
 
-.axl-hub__pipeline-step {
-    flex-shrink: 0;
+%pipeline-step {
     display: inline-flex;
     align-items: center;
     color: var(--text-muted);
 }
 
-.axl-hub__pipeline-text {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
+%pipeline-text {
+    font-size: 12px;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     white-space: nowrap;
 }
+
+.axl-hub__pipeline-path {
+    @extend %pipeline-path;
+    animation: axl-hub-enter 0.18s ease both;
+}
+
+.axl-hub__pipeline-desk       { @extend %pipeline-desk; }
+.axl-hub__pipeline-step-group { @extend %pipeline-step-group; }
+.axl-hub__pipeline-line       { @extend %pipeline-line; }
+.axl-hub__pipeline-step       { @extend %pipeline-step; }
+.axl-hub__pipeline-text       { @extend %pipeline-text; }
 
 // ── option cards (2×2 grid) ──
 .axl-hub__options {
@@ -197,6 +251,10 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
+    // The cards and the composer are two different offers — click one, or type in the other — and
+    // with the landing pushed down they would otherwise end up a hair apart, reading as one block
+    // of controls. This is the seam between them, and it is worth the height it costs.
+    margin-bottom: 30px;
 }
 
 .axl-hub__option {
@@ -239,10 +297,52 @@
 }
 
 .axl-hub__option-lead {
-    font-size: 12px;
+    font-size: 12.5px;
     font-weight: 600;
     color: var(--text-primary);
     line-height: 1.3;
+    // The unfinished-work flag is a WORD now, so it takes real width; without this the lead
+    // ("Trade an asset") refuses to wrap and pushes the flag past the card's edge.
+    min-width: 0;
+}
+
+// ── the landing composer, and the asks under it ────────────────────────────────
+// The opening screen's composer and its three chips are ONE object: an empty box with three
+// sentences you could put in it. So the pair moves together, and the styling below is what keeps
+// them reading that way.
+//
+// The border states it with a LINE, not a glow. On this screen the composer is already the only lit
+// thing on an otherwise empty panel, so the shared landing drop-glow was decoration on top of an
+// answer nothing was asking; the accent border says the same "this is the subject" in one stroke,
+// and it holds its shape on focus instead of swapping a ring in for the lift.
+.chat-input-row--axl.chat-input-row--empty {
+    // The accent border and the absent glow moved into the shared `--empty` rule, where every desk
+    // now gets them — this screen was the only place they lived, and being the only place is what
+    // made Axl's composer look like a different app's.
+    //
+    // What is still Axl's ALONE is the margin. The shared rule lifts the box off the floor with a
+    // big bottom margin, and here that margin would fall BETWEEN the box and its chips and tear the
+    // pair apart. So it shrinks to a gap and the chips below carry the lift for both. No other desk
+    // puts anything under its composer.
+    margin-bottom: 8px;
+}
+
+// Everything else on this screen is centred — the mark, the greeting, the card grid, the composer —
+// so the shared row's left-aligned default would leave the chips hanging off the panel's edge,
+// reading as a stray control rather than as the box's own offer.
+//
+// They keep WRAPPING (the shared default): `.axl-hub` clips its overflow, so forcing one line would
+// CUT a chip off on a narrow column, and a second row is the cheaper failure — the body above
+// already scrolls. The quiet chip styling stays untouched: it is what keeps three sentences from
+// reading as cards eight through ten, and dressing them up here would undo exactly that.
+.suggestion-chips--landing {
+    justify-content: center;
+    padding-bottom: 0;
+    // Inherited from `.chat-input-row--empty`, because the pair is lifted, not the box alone — but
+    // far smaller than the shared 15vh. That lift was up to 150px of nothing held under the box
+    // while the seven cards above it were being pushed off the top of a scrolling body; the space
+    // is worth more as the seam above the composer (`.axl-hub__options`) than as floor clearance.
+    margin-bottom: clamp(10px, 2.5vh, 26px);
 }
 
 // ── active body — top-anchor once a result is showing ──
@@ -269,7 +369,7 @@
     border: 1px solid var(--border);
     border-radius: 14px;
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: 12.5px;
     font-family: var(--font-mono);
     white-space: nowrap;
     cursor: pointer;
@@ -287,41 +387,47 @@
 }
 
 // ── Axl routing comment (streams while intent is being resolved) ──
-.axl-hub__route-comment {
+// ── the conversation ────────────────────────────────────────────────────────────
+// Axl's thread lives inside the hub body (which is the scroll container), under the desk chips.
+.axl-hub__thread {
     width: 100%;
-    max-width: 420px;
-    padding: 11px 16px;
-    background: var(--bg-raised);
-    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.axl-hub__bubble {
+    max-width: 80%;
+    padding: 8px 12px;
     border-radius: 10px;
-    font-size: 13px;
+    font-size: var(--chat-text);
     line-height: 1.55;
-    color: var(--text-secondary);
-    text-align: center;
-    animation: axl-hub-enter 0.22s ease both;
-}
+    word-break: break-word;
 
+    &--user {
+        align-self: flex-end;
+        background: var(--accent);
+        color: #fff;
+        border-bottom-right-radius: 3px;
+    }
 
-.axl-hub__chart {
-    width: calc(100% + 48px);
-    margin-inline: -24px;
-    animation: axl-hub-enter 0.22s ease both;
-}
+    // No frame around what the desk says — matching every other agent chat
+    // (chat-panel__bubble--assistant, portfolio-panel__bubble--assistant). The USER's
+    // turn keeps its accent fill; that contrast is what separates the two voices, so a
+    // box around the reply was doing the same job twice.
+    &--assistant {
+        align-self: flex-start;
+        background: none;
+        border: none;
+        color: var(--text-primary);
+        padding-left: 0;
+    }
 
-// "or chat with axl" — subtle footer link inside the hub body.
-.axl-hub__chat-link {
-    background: none;
-    border: none;
-    padding: 0;
-    color: var(--text-muted);
-    font-size: 11px;
-    font-family: var(--font-mono);
-    cursor: pointer;
-    opacity: 0.6;
-    transition: opacity 0.15s, color 0.15s;
-
-    &:hover:not(:disabled) { color: var(--accent-light); opacity: 1; }
-    &:disabled { opacity: 0.25; cursor: not-allowed; }
+    // A wordless turn (reasoning only) also drops the padding the text needs.
+    &--pending {
+        max-width: 100%;
+        padding: 0;
+    }
 }
 
 // ── summoning state (axl calls the chosen agent before its chat opens) ──
@@ -398,7 +504,7 @@
 
 .axl-summon__sub {
     margin: 0;
-    font-size: 12px;
+    font-size: 12.5px;
     color: var(--text-secondary);
 }
 
@@ -453,8 +559,20 @@
 
 // ── agent breadcrumb bar (shown once inside an agent, replaces the tab row) ──
 .chat-agentbar {
-    padding: 6px 20px;
-    overflow: hidden;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    // Fixed height, not content-driven: entering a pipeline swaps a one-line crumb for the stepper
+    // (icons + rules + step names), and letting the tallest child set the height made the strip — and
+    // the chat below it — jump on every desk change. The number is --header-h, the same one the hub
+    // header and the Floor column headings use, so all four line up as one bar across the app.
+    height: var(--header-h);
+    padding: 6px 12px;
+    // Bottom rule only. The top line is the column's (see .workspace__chat in RootCmp.scss) — drawn
+    // here it sat INSIDE the 54px and left this header a pixel shallower than the Floor headings.
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-wash-surface);
     animation: axl-hub-enter 0.28s ease both;
     // Raise the strip above the chat panel that follows it in the DOM, so the
     // account-selector / thread-history dropdowns overlay the chat instead of being
@@ -473,7 +591,7 @@
     border-radius: 6px;
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -485,6 +603,82 @@
     svg { width: 13px; height: 13px; }
 }
 
+// Arrow only — no label to sit beside, so the horizontal padding goes symmetric and the text gap
+// stops leaving a hole to the right of the glyph.
+.chat-agentbar__back--bare {
+    gap: 0;
+    padding: 4px 6px;
+}
+
+// One step back UP the pipeline, beside the leave-the-pipeline button. Same shape so the pair reads
+// as one control group, but a chevron instead of the long arrow and the step's own name in place of
+// "axl" — a shorter move, and it says where it lands. Cased normally: these are step names
+// ("Mandate", "Screen"), not the lowercase agent handle.
+.chat-agentbar__back--step {
+    padding-left: 4px;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    opacity: 0.85;
+
+    &:hover { opacity: 1; }
+
+    svg { width: 12px; height: 12px; }
+}
+
+// Opens the immediate-trade ticket in place of the thread. Shaped like __back (same strip, same
+// weight) but outlined when active, so it reads as a mode you're IN rather than a place you went.
+.chat-agentbar__ticket {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+
+    &:hover { color: var(--text-primary); background: var(--bg-raised); }
+
+    &.is-active {
+        color: var(--accent-light);
+        border-color: currentColor;
+    }
+
+    svg { width: 13px; height: 13px; }
+}
+
+// How the pipeline advances between desks. Deliberately quiet — it sits beside the crumb and is a
+// setting, not an action; borrowing the ticket's shape so the strip stays one family. Outlined when
+// auto, because auto is a mode you are IN and has to be visible without being read.
+.chat-agentbar__mode {
+    padding: 3px 7px;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+
+    &:hover { color: var(--text-primary); background: var(--bg-raised); }
+
+    &.is-auto {
+        color: var(--accent-light);
+        border-color: currentColor;
+    }
+}
+
 .chat-agentbar__crumb {
     color: var(--text-muted);
     font-family: var(--font-mono);
@@ -493,69 +687,35 @@
 }
 
 .chat-agentbar__current {
-    color: var(--text-primary);
+    color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
 }
 
 // ── pipeline breadcrumb (when a desk pipeline is active) ──
+// The same path the hub draws on hover (see the %pipeline-* placeholders) — walking into a pipeline
+// should not restyle the thing you were just looking at. The one addition is `is-active`: the hub is
+// previewing a route, this strip is standing somewhere on it.
 .chat-agentbar__pipeline {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-family: var(--font-mono);
+    @extend %pipeline-path;
+    // Pulled back against the strip's 8px gap so the desk name sits right off the back arrow — the
+    // arrow and the desk it belongs to read as one unit, with the path hung off to their right.
+    margin-left: -8px;
 }
 
+.chat-agentbar__pipeline-group { @extend %pipeline-step-group; }
+.chat-agentbar__pipeline-line  { @extend %pipeline-line; }
+
 .chat-agentbar__pipeline-label {
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-primary);
+    @extend %pipeline-desk;
     white-space: nowrap;
 }
 
-.chat-agentbar__pipeline-sep {
-    color: var(--text-muted);
-    opacity: 0.35;
-    font-size: 11px;
-}
-
-.chat-agentbar__pipeline-group {
-    display: flex;
-    align-items: center;
-    gap: 0;
-}
-
-.chat-agentbar__pipeline-line {
-    display: block;
-    width: 36px;
-    height: 2px;
-    background: var(--text-muted);
-    flex-shrink: 0;
-    opacity: 0.5;
-}
-
-.chat-agentbar__pipeline-icon {
-    display: inline-flex;
-    align-items: center;
-    color: var(--text-muted);
-    margin-right: 5px;
-    opacity: 0.6;
-
-    &.is-active {
-        color: var(--accent-light);
-        opacity: 1;
-    }
-}
-
 .chat-agentbar__pipeline-step {
-    display: inline-flex;
-    align-items: center;
-    color: var(--text-secondary);
+    @extend %pipeline-step;
 
     &.is-active {
         color: var(--accent-light);
@@ -563,12 +723,7 @@
     }
 }
 
-.chat-agentbar__pipeline-text {
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    white-space: nowrap;
-}
+.chat-agentbar__pipeline-text { @extend %pipeline-text; }
 
 // Axl strip: the Idea / Atlas / Argus routing nav (echoes the crumb's mono style).
 .chat-agentbar__agents {
@@ -587,7 +742,7 @@
     border-radius: 6px;
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -611,7 +766,7 @@
     align-items: center;
     gap: 5px;
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -732,7 +887,7 @@
     margin: 6px 0 0;
     max-width: 330px;
     font-family: var(--font-mono);
-    font-size: 10.5px;
+    font-size: 11.5px;
     line-height: 1.6;
     color: var(--text-muted);
     font-style: italic;
@@ -740,4 +895,61 @@
 
 @media (prefers-reduced-motion: reduce) {
     .agent-intro { animation: none; }
+
+}
+
+// A SIGNAL that a conversation was left at this desk — deliberately not a count. The number answered a
+// question nobody asked ("how many drafts?") and buried the one that matters ("is there something I
+// walked out of?"). Clicking the route resumes it, so a count would not even be actionable.
+//
+// It was a dot and now it is a WORD. Beside three doors greyed shut, a small pulsing circle reads as
+// chrome — the user has to decode it to learn the one thing on the screen that is still live. The
+// word says it outright.
+//
+// Dim = still running. `is-turn` brightens it to the accent and changes the word, because something
+// waiting on an ANSWER is a different thing from something still working, and must not read as
+// ambient. It still breathes: it is the only live thing among the closed doors.
+.axl-hub__desk-flag {
+    flex: 0 0 auto;
+    margin-left: auto;   // pinned right on the cards; harmless on the content-width chips
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1.5;
+    white-space: nowrap;
+    color: var(--text-muted);
+    background: color-mix(in srgb, var(--text-muted) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--text-muted) 20%, transparent);
+    animation: axlDeskFlagPulse 2.4s ease-in-out infinite;
+
+    &.is-turn {
+        color: var(--accent-bright);
+        background: color-mix(in srgb, var(--accent) 14%, transparent);
+        border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+        // Waiting on an ANSWER — a quicker beat, so it reads as asking rather than merely running.
+        animation-duration: 1.8s;
+    }
+}
+
+@keyframes axlDeskFlagPulse {
+    0%, 100% { opacity: 0.6; }
+    50%      { opacity: 1; }
+}
+
+// A door CLOSED because another desk is holding an agent it needs. The panel behind it is a
+// singleton, so opening it would clobber a run the user has not finished — it is dimmed and it does
+// not respond. What keeps it from being the worst version of this (a greyed control the user cannot
+// tell from a bug) is the title: it names the desk holding the agent and what to do about it. Hence
+// aria-disabled rather than the `disabled` attribute — a natively disabled button shows no tooltip.
+.axl-hub__option.is-locked,
+.axl-hub__desk-chip.is-locked {
+    opacity: 0.45;
+    cursor: not-allowed;
+
+    &:hover { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .axl-hub__desk-flag { animation: none; opacity: 1; }
 }

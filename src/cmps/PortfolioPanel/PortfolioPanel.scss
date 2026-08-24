@@ -1,3 +1,20 @@
+// NB: despite the name, this file IS the shared agent-chat shell. FIVE files import it —
+// PortfolioPanel, ScannerPanel, AnalystPanel, MentorPanel and ChatBubble — for the
+// `.portfolio-panel` frame: __messages, __bubble, __action-bubble, __review-btn and the
+// ChatInputRow prefix. TWELVE components wear its class names (StrategyPanel, AgentMessages,
+// LaterButton and SetupPage among them), inheriting the styles through whichever panel loaded it.
+//
+// (Roster corrected 2026-08-19: it read "nine files … Kairos … AxlHub". Kairos was archived
+// 2026-08-18, and AxlHub only MENTIONS this file in a comment — it does not import it. A hand-kept
+// list of importers goes stale exactly the way the sse.util header did.)
+//
+// It is shared by convention rather than by name, which is why a new panel "just works" after
+// importing a competitor's stylesheet. Renaming it to _chatShell.scss is the honest fix; it is a
+// visually-unverifiable change across five imports and twelve class-name consumers, so it is
+// deliberately left for a pass where the panels can be eyeballed side by side rather than smuggled
+// into a refactor. A 2026-08-19 review flagged this as drift; it is not — it is a decision, and
+// this note is the record of it.
+
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap');
 
 .portfolio-panel {
@@ -5,11 +22,31 @@
     flex-direction: column;
     height: 100%;
     background: var(--bg-wash);
-    border: 1px solid var(--border);
-    border-radius: 6px;
+    // Frameless: the agent strip above already ends in a 1px border (two adjacent ones drew a 2px
+    // rule), and the column's own edges carry the sides — the box around the thread was drawing a
+    // second frame inside the first. Square for the same reason: rounded top corners left a notch
+    // against the flat strip. This is the SHARED shell, so it lands on Portfolio, Kairos, Mentor,
+    // Scanner and Analyst together — which is the point: switching desks must not change the frame.
+    border: none;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
     overflow: hidden;
     font-family: var(--font-sans);
     color: var(--text-primary);
+
+    // ── Header ──────────────────────────────────────────────────────────
+    // Shared by Portfolio, Kairos, Mentor, Scanner and Analyst (they all import this stylesheet),
+    // so this one rule is what keeps the header from jumping as you switch agents. Height comes
+    // from --header-h (see _themes.scss).
+    &__header {
+        display: flex;
+        align-items: center;
+        flex-shrink: 0;
+        height: var(--header-h);
+        padding: 0 20px;
+        background: var(--bg-wash-surface);
+        border-bottom: 1px solid var(--border);
+    }
 
     &__title-icon {
         display: inline-flex;
@@ -40,7 +77,7 @@
 
     &__subtitle {
         font-family: var(--font-sans);
-        font-size: 10px;
+        font-size: var(--chat-label);
         font-weight: 400;
         letter-spacing: 0.02em;
         color: var(--text-muted);
@@ -62,7 +99,7 @@
 
     &__phase-chip {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: var(--chat-label);
         font-weight: 600;
         letter-spacing: 0.08em;
         text-transform: uppercase;
@@ -83,7 +120,7 @@
 
     &__live {
         font-family: var(--font-mono);
-        font-size: 9px;
+        font-size: var(--chat-micro);
         font-weight: 700;
         letter-spacing: 0.12em;
         text-transform: uppercase;
@@ -107,10 +144,13 @@
     }
 
     // ── Messages ─────────────────────────────────────────────────────────
+    // overflow-x hidden for the same reason as ChatPanel's thread — this is the surface every
+    // agent panel (and the Axl chat) reuses, so an over-wide child here shifts all of them.
     &__messages {
         flex: 1;
         min-height: 0;
         overflow-y: auto;
+        overflow-x: hidden;
         padding: 16px 20px;
         display: flex;
         flex-direction: column;
@@ -131,7 +171,7 @@
         max-width: 80%;
         text-align: center;
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: var(--chat-meta);
         color: var(--text-muted);
         line-height: 1.7;
         margin-top: 40px;
@@ -143,7 +183,7 @@
         max-width: 78%;
         padding: 10px 14px;
         border-radius: 4px;
-        font-size: 13px;
+        font-size: var(--chat-text);
         line-height: 1.6;
         word-break: break-word;
 
@@ -153,7 +193,6 @@
             color: var(--accent-light);
             border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
             border-bottom-right-radius: 1px;
-            font-size: 16px;
         }
 
         &--assistant {
@@ -162,17 +201,9 @@
             background: none;
             color: var(--text-subtle);
             padding-left: 0;
-            font-size: 16px;
 
-            p          { margin: 0 0 0.5em; &:last-child { margin-bottom: 0; } }
-            ul, ol     { margin: 0 0 0.5em; padding-left: 1.4em; }
-            li         { margin-bottom: 0.2em; }
-            strong     { color: var(--accent-light); font-weight: 600; }
-            em         { color: var(--text-secondary); }
-            code       { font-family: var(--font-mono); font-size: 11px;
-                         background: var(--bg-base); padding: 1px 5px; border-radius: 2px;
-                         color: var(--accent-light); }
-            a          { color: var(--accent); text-decoration: underline; }
+            // Prose is styled once in ChatMarkdown.scss (see the note there). This copy
+            // was missing pre/headings/blockquote, so those now render here too.
         }
 
         &--warning {
@@ -207,7 +238,7 @@
         border-radius: 3px;
         color: var(--accent-light);
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: var(--chat-meta);
         font-weight: 600;
         letter-spacing: 0.06em;
         cursor: pointer;
@@ -217,24 +248,25 @@
             background: color-mix(in srgb, var(--accent) 18%, transparent);
             border-color: color-mix(in srgb, var(--accent) 60%, transparent);
         }
+
+        // Atlas's holdings: the same chip, but it is a label — nothing to click.
+        &--static,
+        &--static:hover {
+            cursor: default;
+            background: color-mix(in srgb, var(--accent) 8%, transparent);
+            border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+        }
     }
 
     &__ticker-chip-hint {
-        font-size: 9px;
+        font-size: var(--chat-micro);
         font-weight: 400;
         color: rgba(109, 212, 168, 0.6);
         letter-spacing: 0.03em;
     }
 
-    // ── Thinking indicator ───────────────────────────────────────────────
-    &__thinking {
-        display: inline-block;
-        font-family: var(--font-sans);
-        font-size: 16px;
-        font-weight: 700;
-        color: var(--accent);
-        animation: pp-thinking 1.6s ease-in-out infinite;
-    }
+    // The thinking indicator is the shared ToolStatusChip (ToolStatusChip.scss) — it is the
+    // same state as the tool-status line below the thread, so it is the same mark.
 
     // ── Build summary (portfolio preview) ────────────────────────────────
     &__build-summary {
@@ -246,7 +278,7 @@
         background: var(--bg-wash-surface);
         border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: var(--chat-meta);
         max-height: 140px;
         overflow-y: auto;
 
@@ -282,7 +314,7 @@
         &-count {
             margin-left: auto;
             flex-shrink: 0;
-            font-size: 10px;
+            font-size: var(--chat-label);
             color: rgba(109, 212, 168, 0.55);
         }
 
@@ -311,7 +343,7 @@
 
         &-qty {
             color: rgba(109, 212, 168, 0.6);
-            font-size: 10px;
+            font-size: var(--chat-label);
         }
     }
 
@@ -326,7 +358,7 @@
         border-radius: 3px;
         color: var(--accent);
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: var(--chat-label);
         font-weight: 700;
         letter-spacing: 0.12em;
         text-transform: uppercase;
@@ -359,14 +391,18 @@
         border-top: 1px solid var(--border);
     }
 
+    // Sized by its own label, NOT by the row. `flex: 1` split the bar between however many
+    // buttons happened to be up, so one action became a full-width slab and three became thirds —
+    // worst on a phone, where the bar is the whole screen. Kairos had already opted out locally
+    // (kairos-panel__generate-btn); this is that opt-out made the rule.
     &__review-btn {
-        flex: 1;
+        flex: 0 0 auto;
         padding: 7px 10px;
         background: color-mix(in srgb, var(--text-primary) 14%, transparent);
         border: 1px solid var(--border);
         border-radius: 4px;
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: var(--chat-label);
         letter-spacing: 0.1em;
         text-transform: uppercase;
         cursor: pointer;
@@ -401,7 +437,7 @@
         gap: 6px;
 
         > span {
-            font-size: 0.72rem;
+            font-size: var(--chat-meta);   // was 0.75rem — the same 12px, now on the scale
             color: var(--text-secondary);
             line-height: 1.4;
         }
@@ -444,11 +480,6 @@
 @keyframes pp-building {
     0%, 100% { opacity: 0.7; transform: scale(1);    box-shadow: 0 0 0 0   transparent;  }
     50%       { opacity: 1;   transform: scale(1.35); box-shadow: 0 0 5px 1px currentColor; }
-}
-
-@keyframes pp-thinking {
-    0%, 100% { opacity: 0.25; }
-    50%       { opacity: 1;   }
 }
 
 @keyframes pp-build-in {

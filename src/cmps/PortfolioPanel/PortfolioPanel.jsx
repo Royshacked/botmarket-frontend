@@ -1,21 +1,19 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { portfolioService } from '../../services/portfolio/portfolio.service.remote.js'
-import { threadsService }   from '../../services/threads/threads.service.remote.js'
+import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote.js'
 import { showErrorMsg, eventBus, REVIEW_RESOLVED } from '../../services/event-bus.service'
-import { ChatMarkdown } from '../ChatMarkdown.jsx'
+import { ChatBubble } from '../ChatBubble.jsx'
 import { readStoredModel } from '../modelOptions.js'
-import { readStoredReasoning } from '../reasoningOptions.js'
-import { readStoredRoutingMode } from '../routingModeOptions.js'
-import { useMicInput } from '../../customHooks/useMicInput.js'
-import { useChatStream } from '../../customHooks/useChatStream.js'
-import { useChatScroll } from '../../customHooks/useChatScroll.js'
-import { ChatInputRow } from '../ChatInputRow.jsx'
+import { useChatStream, toChatHistory } from '../../customHooks/useChatStream.js'
+import { useSeedTurn } from '../../customHooks/useSeedTurn.js'
+import { AgentMessages } from '../AgentMessages.jsx'
+import { AgentChatInput } from '../AgentChatInput.jsx'
+import { LaterButton } from '../LaterButton.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
-import { ChatPhaseHeading } from '../ChatPhaseHeading.jsx'
-import { ChatReasoning } from '../ChatReasoning.jsx'
+import { waitingLabel } from '../ToolStatusChip/waitingLabel.js'
 import './PortfolioPanel.scss'
 
 const PHASE_LABELS = { 1: 'Mandate', 2: 'Macro', 3: 'Architecture', 4: 'Selection', 5: 'Sizing', 6: 'Review' }
@@ -24,59 +22,18 @@ const PHASE_LABELS = { 1: 'Mandate', 2: 'Macro', 3: 'Architecture', 4: 'Selectio
 // then confirms "hold as-is" or emits a <portfolio_update> the user accepts/dismisses.
 const REVIEW_REQUEST = "Run my scheduled portfolio review now: assess performance and each holding against our thesis and mandate, then either confirm we hold as-is or propose specific changes (rebalance, trim, add, exit, or swap)."
 
-function TickerChip({ symbol, onSelect }) {
-    return (
-        <button className="portfolio-panel__ticker-chip" onClick={() => onSelect(symbol)}>
-            {symbol}
-            <span className="portfolio-panel__ticker-chip-hint">Build idea →</span>
-        </button>
-    )
-}
-
-function MessageBubble({ msg, onTickerSelect }) {
-    if (msg.role === 'phase') return <ChatPhaseHeading phase={msg.phase} label={PHASE_LABELS[msg.phase]} total={6} />
-
-    const isUser = msg.role === 'user'
-
-    if (isUser) {
-        return <div className="portfolio-panel__bubble portfolio-panel__bubble--user">{msg.content}</div>
-    }
-
-    const reasoning = <ChatReasoning text={msg.reasoning} live={msg.streaming && !msg.content} />
-
-    if (!msg.content && msg.streaming) {
-        return (
-            <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant">
-                {reasoning}
-                <span className="portfolio-panel__thinking">thinking…</span>
-            </div>
-        )
-    }
-
-    return (
-        <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant">
-            {reasoning}
-            <div className="portfolio-panel__bubble-text">
-                <ChatMarkdown>{msg.content}</ChatMarkdown>
-            </div>
-            {msg.tickers?.length > 0 && (
-                <div className="portfolio-panel__tickers">
-                    {msg.tickers.map(sym => (
-                        <TickerChip key={sym} symbol={sym} onSelect={onTickerSelect} />
-                    ))}
-                </div>
-            )}
-        </div>
-    )
-}
-
-// Client-minted id for the construction conversation's DRAFT thread (see thread.service
-// on the backend). Subject-independent: it exists before the portfolio does and is linked
-// to the portfolioId on generate. A fresh id starts each new construction chat.
-const newThreadId = () => `thr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+// Atlas's ticker chips are the holdings it just named — a label, not a doorway. They
+// used to link to the Idea desk, which is archived; there is nothing to build from here.
+const MessageBubble = ({ msg }) => (
+    <ChatBubble
+        msg={msg}
+        phaseLabels={PHASE_LABELS}
+        phaseTotal={6}
+        staticTickers
+    />
+)
 
 export function PortfolioPanel({
-    onTickerSelect,
     onGeneratePlan,
     onUpdatePlan,
     onPortfolioUpdate,
@@ -85,21 +42,25 @@ export function PortfolioPanel({
     onReviewResolved,
     onAcceptReview,
     onSourceInArgus,
+    seed              = null,
     chatRestore       = null,
     availableAccounts = [],
     selectedAccounts  = [],
     mainAccountId     = null,
     resumeRef         = null,
+    // ADOPT MODE: the id of the staged book this conversation is about. Its presence is the mode —
+    // the server parses each turn into that draft and gives Atlas the adopt instruction.
+    adoptDraft        = null,
 }) {
+    const adoptDraftId = adoptDraft?.draftId ?? null
     const chat = useChatStream()
-    const { messages, setMessages, isLoading, streamStatus, handleStop } = chat
+    const { messages, setMessages, isLoading, streamStatus } = chat
 
     // Report streaming state up so the agent-bar "live" dot can pulse for Atlas.
     useEffect(() => { onLoadingChange?.(isLoading) }, [isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
 
-    const [inputText,             setInputText]             = useState('')
     const [pendingPlan,           setPendingPlan]           = useState(null)
-    const [screenRequest,         setScreenRequest]         = useState(null)   // Atlas → Argus investing mandate hand-off
+    const [screenRequests,        setScreenRequests]        = useState([])     // Atlas → Argus: EVERY sleeve routed this turn
     const [editingPortfolioId,    setEditingPortfolioId]    = useState(null)
     const [editingPortfolioIdeas, setEditingPortfolioIdeas] = useState([])
     const [editDirty,             setEditDirty]             = useState(false)
@@ -115,7 +76,6 @@ export function PortfolioPanel({
         if (!chatRestore) return
         setMessages(chatRestore.messages ?? [])
         setPendingPlan(null)
-        setInputText('')
         setEditDirty(false)
         setDismissConfirm(false)
         setEditingPortfolioId(chatRestore.portfolioId ?? null)
@@ -171,40 +131,36 @@ export function PortfolioPanel({
     const pendingTickersRef = useRef([])
     const latestMandateRef  = useRef(null)
     const latestThesisRef   = useRef(null)
-    const textareaRef       = useRef(null)
     const threadIdRef       = useRef(newThreadId())   // construction draft thread
     const reviewTriggeredRef = useRef(false)          // the "Review" button fired this turn
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- _send is a stable closure for this purpose
-    const onTranscript = useCallback((text) => { if (text) _send(text) }, [])
-    const { isRecording, isTranscribing, toggle: toggleMic, cancel: cancelMic } = useMicInput({ onTranscript })
 
     const planHasSize  = !!pendingPlan && (Number(pendingPlan.positionSize) > 0)
     const planReady    = !!pendingPlan && pendingPlan.ideas.length > 0 && pendingPlan.ideas.every(i => Number(i.quantity) > 0)
     const canGenerate  = planReady && (!!editingPortfolioId || selectedAccounts?.length > 0)
-    const actionWatch = `${streamStatus}|${planReady}|${canGenerate}|${isReviewMode}|${!!editingPortfolioId}`
-    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, {
-        onFinishStreaming: () => textareaRef.current?.focus(),
-        watch: actionWatch,
-    })
+
+    // Prometheus hands the sleeve back once its names are in coverage (MainPage.handleSleeveResearched).
+    // Atlas reads coverage itself, so this only needs to restart the conversation — the value is that
+    // the user lands back in the SAME Atlas thread, mandate and architecture intact, instead of
+    // re-entering through Axl and losing it.
+    useSeedTurn(seed, (text) => _send(text))
 
     async function _send(text) {
-        if (!text || isLoading) return
         setEditDirty(true)
-        setScreenRequest(null)   // a new turn supersedes any pending "Source in Argus" offer
+        setScreenRequests([])    // a new turn supersedes any pending "Source in Argus" offer
 
-        const history = messages
-            .filter(m => !m.streaming && m.role !== 'phase')
-            .map(m => ({ role: m.role, content: m.content }))
+        const history = toChatHistory(messages)
         history.push({ role: 'user', content: text })
 
         const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
 
         pendingTickersRef.current = []
 
-        const { signal, handlers } = chat.begin(text, {
-            onTicker: (symbol) => {
-                if (!pendingTickersRef.current.includes(symbol)) pendingTickersRef.current.push(symbol)
+        await chat.run(text, {
+            log: '[portfolio]',
+            handlers: {
+                onTicker: (symbol) => {
+                    if (!pendingTickersRef.current.includes(symbol)) pendingTickersRef.current.push(symbol)
+                },
             },
             onDone: (data) => {
                 const tickers = [...pendingTickersRef.current]
@@ -213,7 +169,7 @@ export function PortfolioPanel({
                 if (data.thesis) { latestThesisRef.current = data.thesis; setPortfolioThesis(data.thesis) }
                 chat.finishStreaming({ role: 'assistant', content: data.reply, tickers })
                 if (data.plan?.ideas?.length) setPendingPlan(data.plan)
-                if (data.screen_request) setScreenRequest(data.screen_request)   // offer the Argus investing hand-off
+                if (data.screen_requests?.length) setScreenRequests(data.screen_requests)   // offer the Argus hand-off — all sleeves at once
                 // Pass any thesis emitted in THIS same turn so a confirmed review
                 // rebalance persists it (reason 'accepted-rebalance'). Only the
                 // same-turn proposal is attached — never the restored existing thesis.
@@ -231,29 +187,19 @@ export function PortfolioPanel({
                     reviewTriggeredRef.current = false
                 }
             },
-        })
-
-        try {
-            await portfolioService.sendStream(history, ideaAccounts, {
+            send: ({ signal, handlers }) => portfolioService.sendStream(history, ideaAccounts, {
+                adoptDraftId,
                 mainAccountId,   // reference account Atlas sizes the others against
                 portfolioId:     editingPortfolioId,
                 portfolioIdeas:  editingPortfolioIdeas,
                 threadId:        editingPortfolioId ? null : threadIdRef.current,
                 reviewMode:      isReviewMode,
                 mandate:         latestMandateRef.current,
-                model:           readStoredModel('portfolioModel'),
-                reasoningEffort: readStoredReasoning('portfolioReasoning'),
-                routingMode:     readStoredRoutingMode('portfolioRoutingMode'),
-                currentPhase:    chat.phase,
+                model:           readStoredModel(),
                 signal,
                 ...handlers,
-            })
-        } catch (err) {
-            console.error('[portfolio]', err)
-            chat.freezeError()
-        } finally {
-            chat.endStream()
-        }
+            }),
+        })
     }
 
     // Resume a stopped reply in place: send the conversation ending with the partial
@@ -266,9 +212,7 @@ export function PortfolioPanel({
         setEditDirty(true)
 
         const history = chat.finalizeResumeHistory(
-            messages
-                .filter(m => !m.streaming && m.role !== 'phase')
-                .map(m => ({ role: m.role, content: m.content })),
+            toChatHistory(messages),
             base,
         )
 
@@ -287,7 +231,7 @@ export function PortfolioPanel({
                 if (data.thesis) { latestThesisRef.current = data.thesis; setPortfolioThesis(data.thesis) }
                 chat.finishStreaming({ role: 'assistant', content: base + data.reply, tickers })
                 if (data.plan?.ideas?.length) setPendingPlan(data.plan)
-                if (data.screen_request) setScreenRequest(data.screen_request)   // offer the Argus investing hand-off
+                if (data.screen_requests?.length) setScreenRequests(data.screen_requests)   // offer the Argus hand-off — all sleeves at once
                 if (data.update?.changes?.length) {
                     // Review mode: surface an inline Accept/Dismiss on the proposal.
                     // Construction/edit: hand off to the existing apply path.
@@ -307,16 +251,14 @@ export function PortfolioPanel({
 
         try {
             await portfolioService.sendStream(history, ideaAccounts, {
+                adoptDraftId,
                 mainAccountId,   // reference account Atlas sizes the others against
                 portfolioId:     editingPortfolioId,
                 portfolioIdeas:  editingPortfolioIdeas,
                 threadId:        editingPortfolioId ? null : threadIdRef.current,
                 reviewMode:      isReviewMode,
                 mandate:         latestMandateRef.current,
-                model:           readStoredModel('portfolioModel'),
-                reasoningEffort: readStoredReasoning('portfolioReasoning'),
-                routingMode:     readStoredRoutingMode('portfolioRoutingMode'),
-                currentPhase:    chat.phase,
+                model:           readStoredModel(),
                 signal:          cont.signal,
                 ...cont.handlers,
             })
@@ -326,12 +268,6 @@ export function PortfolioPanel({
         } finally {
             chat.endStream()
         }
-    }
-
-    function handleSend() {
-        const text = inputText.trim()
-        setInputText('')
-        _send(text)
     }
 
     // "Review" button: fire Atlas's review pass. Its proposal (if any) lands in
@@ -370,7 +306,7 @@ export function PortfolioPanel({
         setEditDirty(false)
         setIsReviewMode(false)
         setDismissConfirm(false)
-        setPendingPlan(null); setMessages([]); setInputText('')
+        setPendingPlan(null); setMessages([])
         eventBus.emit(REVIEW_RESOLVED, { portfolioId })   // clear the red pencil
         onReviewResolved?.()
     }
@@ -378,9 +314,9 @@ export function PortfolioPanel({
     function handleClear() {
         setMessages([])
         setPendingPlan(null)
-        setInputText('')
         latestMandateRef.current = null
-        threadIdRef.current = newThreadId()   // fresh construction thread; the abandoned draft TTL-expires
+        // Clear is not walking away — the draft goes with the conversation. See clearThread.
+        clearThread(threadIdRef)
     }
 
     // Resume an unfinished construction draft: restore its conversation + mandate and
@@ -390,7 +326,6 @@ export function PortfolioPanel({
         if (!t) return
         setMessages(t.messages ?? [])
         setPendingPlan(null)
-        setInputText('')
         setEditingPortfolioId(null)
         setEditingPortfolioIdeas([])
         latestMandateRef.current = t.mandate ?? null
@@ -404,7 +339,6 @@ export function PortfolioPanel({
     function handleCancelEdit() {
         setMessages([])
         setPendingPlan(null)
-        setInputText('')
         setEditingPortfolioId(null)
         setEditingPortfolioIdeas([])
         setEditDirty(false)
@@ -441,7 +375,7 @@ export function PortfolioPanel({
             if (!planReady) return
             if (onGeneratePlan) onGeneratePlan(pendingPlan, messages, latestMandateRef.current, latestThesisRef.current, threadIdRef.current)
         }
-        setPendingPlan(null); setMessages([]); setInputText('')
+        setPendingPlan(null); setMessages([])
         latestMandateRef.current = null
         threadIdRef.current = newThreadId()   // next construction chat gets a fresh draft thread
         // Generating/updating a plan (like resolving a review) hands the chat back to
@@ -463,15 +397,8 @@ export function PortfolioPanel({
         setDismissConfirm(false)
         setReviewUpdate(null)
         setReviewRan(false)
-        setPendingPlan(null); setMessages([]); setInputText('')
+        setPendingPlan(null); setMessages([])
         onReviewResolved?.()
-    }
-
-    function handleKeyDown(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault()
-            handleSend()
-        }
     }
 
     const showChangedMind = !!editingPortfolioId && !editDirty && !isReviewMode
@@ -479,16 +406,14 @@ export function PortfolioPanel({
 
     // In edit mode there's ALWAYS an enabled escape (leave without saving), shown at the end of
     // every turn and after a Stop — next to "Update plan" instead of only before the first edit.
-    const laterBtn = editingPortfolioId ? (
-        <button className="portfolio-panel__generate portfolio-panel__generate--cancel" onClick={handleCancelEdit}>
-            I&apos;ll do it later
-        </button>
-    ) : null
+    const laterBtn = editingPortfolioId
+        ? <LaterButton className="portfolio-panel__generate portfolio-panel__generate--cancel" onClick={handleCancelEdit} />
+        : null
 
     return (
         <div className="portfolio-panel">
             {editingPortfolioId && portfolioThesis && (portfolioThesis.strategy || portfolioThesis.targetExposures?.length) && (
-                <div className="portfolio-panel__thesis" style={{ margin: '0 16px 8px', padding: '10px 12px', border: '1px solid var(--border, #333)', borderRadius: 8, fontSize: 12, opacity: 0.92 }}>
+                <div className="portfolio-panel__thesis" style={{ margin: '0 16px 8px', padding: '10px 12px', border: '1px solid var(--border, #333)', borderRadius: 8, fontSize: 12.5, opacity: 0.92 }}>
                     <button
                         type="button"
                         onClick={() => setThesisOpen(o => !o)}
@@ -535,12 +460,12 @@ export function PortfolioPanel({
                 </div>
             )}
 
-            <div className="portfolio-panel__messages" ref={messagesRef} onScroll={handleScroll}>
+            <AgentMessages chat={chat} watch={`${planReady}|${canGenerate}|${isReviewMode}|${!!editingPortfolioId}`}>
                 {messages.length === 0 && <AgentIntro agent={AGENTS.portfolio} />}
                 {messages.map((msg, i) => (
-                    <MessageBubble key={i} msg={msg} onTickerSelect={onTickerSelect} />
+                    <MessageBubble key={i} msg={msg} />
                 ))}
-                {isLoading && <ToolStatusChip label={streamStatus} />}
+                {isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus })} pulse={chat.reasoningPulse} />}
                 {pendingPlan && !planReady && !planHasSize && (
                     <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant portfolio-panel__bubble--warning">
                         ⚠️ I need a position size before this plan can be generated. Tell me the total capital you want to deploy and I&apos;ll size each position by its allocation — or give me a quantity per asset.
@@ -556,17 +481,18 @@ export function PortfolioPanel({
                     <AgentTurnTag agent={AGENTS.portfolio} active={isLoading} />
                 )}
 
-                <div ref={messagesEndRef} />
-            </div>
+            </AgentMessages>
 
             {/* Atlas → Argus: hand a sleeve's mandate to the investing screening desk. */}
-            {!isLoading && screenRequest && (
+            {!isLoading && screenRequests.length > 0 && (
                 <div className="portfolio-panel__action-bubble">
                     <button
                         className="portfolio-panel__review-btn portfolio-panel__review-btn--update"
-                        onClick={() => { onSourceInArgus?.(screenRequest); setScreenRequest(null) }}
+                        onClick={() => { onSourceInArgus?.(screenRequests); setScreenRequests([]) }}
                     >
-                        Source {screenRequest.sector || screenRequest.style || 'this sleeve'} in Argus
+                        {screenRequests.length === 1
+                            ? `Source ${screenRequests[0].sector || screenRequests[0].style || 'this sleeve'} in Argus`
+                            : `Screen ${screenRequests.length} sleeves in Argus →`}
                     </button>
                 </div>
             )}
@@ -597,18 +523,14 @@ export function PortfolioPanel({
                             <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" onClick={() => setDismissConfirm(true)} disabled={accepting}>
                                 Dismiss
                             </button>
-                            <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={handleCancelEdit} disabled={accepting}>
-                                I&apos;ll do it later
-                            </button>
+                            <LaterButton onClick={handleCancelEdit} disabled={accepting} />
                         </>
                     ) : isReviewMode ? (
                         <>
                             <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={handleRunReview} disabled={isLoading}>
                                 Review
                             </button>
-                            <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={handleCancelEdit}>
-                                I&apos;ll do it later
-                            </button>
+                            <LaterButton onClick={handleCancelEdit} />
                             <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" onClick={() => setDismissConfirm(true)}>
                                 Dismiss
                             </button>
@@ -633,35 +555,21 @@ export function PortfolioPanel({
                 </div>
             )}
 
-            <ChatInputRow
-                prefix="portfolio-panel"
-                textareaRef={textareaRef}
-                value={inputText}
-                onChange={e => setInputText(e.target.value)}
-                onKeyDown={handleKeyDown}
+            <AgentChatInput
+                chat={chat}
                 placeholder="Describe your portfolio goals… (Enter to send, Shift+Enter for newline)"
-                onSend={handleSend}
-                sendDisabled={!inputText.trim() || isLoading}
-                isStreaming={isLoading}
-                onStop={handleStop}
-                canResume={chat.canResume}
-                onResume={_continue}
+                onSend={_send}
                 onClear={handleClear}
-                clearDisabled={isLoading || !messages.length || !!editingPortfolioId}
-                clearTitle="Clear chat"
-                onToggleMic={toggleMic}
-                onCancelMic={cancelMic}
-                isRecording={isRecording}
-                isTranscribing={isTranscribing}
-                micDisabled={isLoading || isTranscribing}
-                textareaDisabled={isLoading || isRecording}
+                onResume={_continue}
+                busy={isLoading}
+                clearLocked={!!editingPortfolioId}
             />
         </div>
     )
 }
 
 PortfolioPanel.propTypes = {
-    onTickerSelect:      PropTypes.func.isRequired,
+    adoptDraft:          PropTypes.object,
     onGeneratePlan:      PropTypes.func,
     onUpdatePlan:        PropTypes.func,
     onPortfolioUpdate:   PropTypes.func,

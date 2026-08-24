@@ -64,12 +64,12 @@ export function PaperTradingSection({ inactive = false }) {
             <h2 className="user-profile__section-title">Paper Trading</h2>
 
             {error && (
-                <p style={{ fontSize: '0.78rem', color: 'var(--color-warning, #e6a817)', marginBottom: 8 }}>{error}</p>
+                <p style={{ fontSize: '0.81rem', color: 'var(--color-warning, #e6a817)', marginBottom: 8 }}>{error}</p>
             )}
 
             {/* Accounts */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '16px 0 8px' }}>
-                <h3 style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-secondary)', margin: 0 }}>
+                <h3 style={{ fontSize: '0.83rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-secondary)', margin: 0 }}>
                     Accounts
                 </h3>
                 {!creating && (
@@ -84,7 +84,7 @@ export function PaperTradingSection({ inactive = false }) {
             )}
 
             {accounts.length === 0 && !creating
-                ? <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>No paper accounts yet — create one to start simulating.</p>
+                ? <p style={{ fontSize: '0.83rem', color: 'var(--text-dim)' }}>No paper accounts yet — create one to start simulating.</p>
                 : accounts.map(acct => (
                     <AccountCard
                         key={acct.accountId}
@@ -170,13 +170,13 @@ function AccountCard({ acct, onPatch, onReset, onDelete }) {
             </div>
 
             {/* Collapsed P&L glance */}
-            <div style={{ display: 'flex', gap: 12, marginTop: 6, fontSize: '0.75rem', fontFamily: 'var(--font-mono)' }}>
+            <div style={{ display: 'flex', gap: 12, marginTop: 6, fontSize: '0.78rem', fontFamily: 'var(--font-mono)' }}>
                 <span style={{ color: pnlColor(acct.realizedPnl) }}>R {money(acct.realizedPnl, ccy)}</span>
                 <span style={{ color: pnlColor(acct.unrealized) }}>U {money(acct.unrealized, ccy)}</span>
                 <span style={{ color: 'var(--text-dim)' }}>{acct.openPositions ?? 0} open</span>
             </div>
 
-            {err && <p style={{ fontSize: '0.72rem', color: 'var(--color-short)', margin: '6px 0 0' }}>{err}</p>}
+            {err && <p style={{ fontSize: '0.75rem', color: 'var(--color-short)', margin: '6px 0 0' }}>{err}</p>}
 
             {open && (
                 <div style={{ marginTop: 10, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
@@ -189,7 +189,7 @@ function AccountCard({ acct, onPatch, onReset, onDelete }) {
                             value={acct.buyingPower != null ? money(acct.buyingPower, ccy) : '∞'} />
                     </div>
                     {acct.overLeveraged && (
-                        <p style={{ fontSize: '0.72rem', color: 'var(--color-short)', margin: '0 0 8px' }}>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--color-short)', margin: '0 0 8px' }}>
                             Over buying power — exposure exceeds equity × leverage (advisory; fills still simulate).
                         </p>
                     )}
@@ -209,7 +209,7 @@ function AccountCard({ acct, onPatch, onReset, onDelete }) {
                     <div className="user-profile__row user-profile__row--inline">
                         <span className="user-profile__label">
                             Max leverage
-                            <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-dim)' }}>0 = off (no cap)</span>
+                            <span style={{ display: 'block', fontSize: '0.74rem', color: 'var(--text-dim)' }}>0 = off (no cap)</span>
                         </span>
                         <input className="user-profile__input" style={{ width: '6rem' }} type="number" min="0" step="0.5"
                             defaultValue={s.maxLeverage ?? 0} disabled={busy}
@@ -228,13 +228,13 @@ function AccountCard({ acct, onPatch, onReset, onDelete }) {
                     </div>
 
                     {/* Recent trades */}
-                    <h4 style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-secondary)', margin: '14px 0 6px' }}>
+                    <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-secondary)', margin: '14px 0 6px' }}>
                         Recent trades
                     </h4>
                     {trades == null
-                        ? <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)' }}>Loading…</p>
+                        ? <p style={{ fontSize: '0.81rem', color: 'var(--text-dim)' }}>Loading…</p>
                         : trades.length === 0
-                            ? <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)' }}>No simulated trades yet.</p>
+                            ? <p style={{ fontSize: '0.81rem', color: 'var(--text-dim)' }}>No simulated trades yet.</p>
                             : <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 220, overflowY: 'auto' }}>
                                 {trades.map(t => <TradeRow key={t.tradeId} t={t} ccy={ccy} />)}
                               </div>
@@ -281,7 +281,7 @@ function NewAccountForm({ busy, onCreate, onCancel }) {
 function Stat({ label, value, color }) {
     return (
         <div style={{ background: 'var(--bg-elevated, var(--bg-surface))', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 10px' }}>
-            <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-dim)' }}>{label}</div>
+            <div style={{ fontSize: '0.71rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-dim)' }}>{label}</div>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.95rem', fontWeight: 700, color: color ?? 'var(--text-primary)' }}>{value}</div>
         </div>
     )
@@ -291,7 +291,7 @@ function TradeRow({ t, ccy }) {
     const pnl  = t.exit?.realizedPnl
     const open = t.status === 'open'
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.78rem', fontFamily: 'var(--font-mono)', padding: '4px 8px', background: 'var(--bg-elevated, var(--bg-surface))', borderRadius: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.81rem', fontFamily: 'var(--font-mono)', padding: '4px 8px', background: 'var(--bg-elevated, var(--bg-surface))', borderRadius: 4 }}>
             <span style={{ fontWeight: 700, minWidth: 56 }}>{t.symbol}</span>
             <span style={{ color: t.direction === 'long' ? 'var(--color-long)' : 'var(--color-short)' }}>
                 {t.direction === 'long' ? '↑' : '↓'}
@@ -303,7 +303,7 @@ function TradeRow({ t, ccy }) {
                 {open ? 'open' : money(pnl, ccy)}
             </span>
             {!open && t.exit?.reason && (
-                <span style={{ color: 'var(--text-dim)', fontSize: '0.68rem', textTransform: 'uppercase' }}>{t.exit.reason}</span>
+                <span style={{ color: 'var(--text-dim)', fontSize: '0.74rem', textTransform: 'uppercase' }}>{t.exit.reason}</span>
             )}
         </div>
     )

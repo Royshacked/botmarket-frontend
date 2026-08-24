@@ -1,0 +1,139 @@
+// One way into the trade, drawn as its own card so two rival premises never read as one plan with
+// extra zones. The armed one is lifted; a dead one is dimmed but NOT hidden — "this way is gone,
+// the other is still live" is exactly what the user needs to see.
+.scenario-block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-soft, transparent);
+
+    &.is-armed {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px var(--accent-dim, transparent) inset;
+    }
+
+    &.is-dead {
+        opacity: 0.55;
+
+        .scenario-block__name { text-decoration: line-through; }
+    }
+
+    &__head {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    &__name {
+        margin: 0;
+        font-size: 12.5px;
+        font-weight: 700;
+        color: var(--text);
+    }
+
+    &__entry {
+        font-family: var(--font-mono);
+        font-size: var(--chat-meta);
+        color: var(--text-dim);
+    }
+
+    &__badge {
+        font-family: var(--font-mono);
+        font-size: var(--chat-micro);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        border-radius: 3px;
+        padding: 0 4px;
+        cursor: help;
+
+        &--armed { color: var(--accent-light); border: 1px solid var(--accent); }
+        &--dead  { color: var(--text-dim);     border: 1px solid var(--border); }
+    }
+
+    &__rr,
+    &__size {
+        font-family: var(--font-mono);
+        font-size: var(--chat-meta);
+        color: var(--text-dim);
+        cursor: help;
+    }
+
+    &__rr {
+        margin-left: auto;
+        color: var(--accent-light);
+
+        &.is-thin { color: var(--warn, #d08770); }
+    }
+
+    &__remove {
+        width: 18px;
+        height: 18px;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: transparent;
+        color: var(--text-dim);
+        font-size: 13px;
+        line-height: 1;
+        cursor: pointer;
+
+        &:hover { color: var(--accent-light); border-color: var(--border-mid); background: var(--bg-hover); }
+    }
+
+    &__validity {
+        margin: 0;
+        font-size: var(--chat-meta);
+        color: var(--text-dim);
+        font-style: italic;
+        cursor: help;
+    }
+}
+
+// The premise's own name, while authoring. Sized to sit where the <h4> does so switching between
+// the worksheet and the form doesn't move the block around.
+.scenario-block__name-input {
+    flex: 1 1 8rem;
+    min-width: 0;
+    padding: 0.15rem 0.35rem;
+    border: 1px solid var(--border-subtle, rgba(128, 128, 128, 0.3));
+    border-radius: 0.3rem;
+    background: var(--input-bg, transparent);
+    color: inherit;
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+// The exit half of the authoring layout. Set apart from the entry above it because it answers a
+// different question — the entry is a premise, the exit is arithmetic.
+.scenario-block__exit {
+    margin-top: 0.5rem;
+    padding-top: 0.45rem;
+    border-top: 1px dashed var(--border-subtle, rgba(128, 128, 128, 0.25));
+
+    &-title {
+        margin: 0 0 0.3rem;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        opacity: 0.65;
+    }
+}
+
+// The non-stepped counterpart of a Step: same three questions, plain heading.
+.scenario-block__group {
+    margin-top: 0.5rem;
+
+    &-title {
+        margin: 0 0 0.3rem;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        opacity: 0.65;
+    }
+}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { API_BASE } from '../services/config.js'
+import { calendarService } from '../services/calendar/calendar.service.remote.js'
+import { strategyService, TILT_CHANGED } from '../services/strategy/strategy.service.remote.js'
 
 const REFRESH_MS = 60 * 60 * 1000  // re-fetch once per hour
 
@@ -15,60 +16,48 @@ export function useCalendarEvents() {
     const [ipo, setIpo]           = useState([])
     const [ipoLoading, setIpoLoading] = useState(false)
 
+    // Pythia's house view — the calendar's fourth tab. It is a STATE, not a schedule, but it is fed
+    // here anyway because every calendar surface (the Floor rail and the Radar) already reads this
+    // ONE hook: a second data path for a fourth tab would mean two refresh timers, two unmount
+    // guards, and one more prop to thread by hand into each surface.
+    const [tilt, setTilt]         = useState(null)
+    const [tiltLoading, setTiltLoading] = useState(false)
+
     useEffect(() => {
         let active = true
 
-        async function fetchEarnings() {
-            setEarningsLoading(true)
+        // One load shape for all three tabs: flag loading, fetch, drop the result if the
+        // hook unmounted mid-flight. The service already degrades failures to empty.
+        async function load(fetcher, setLoading, apply) {
+            setLoading(true)
             try {
-                const res  = await fetch(`${API_BASE}/api/calendar/earnings`, { credentials: 'include' })
-                const data = await res.json()
-                if (!active) return
-                setEarnings(Array.isArray(data.items) ? data.items : [])
-                setEarningsFrom(data.from || null)
-                setEarningsTo(data.to || null)
-            } catch {
-                if (active) setEarnings([])
+                const data = await fetcher()
+                if (active) apply(data)
             } finally {
-                if (active) setEarningsLoading(false)
+                if (active) setLoading(false)
             }
         }
 
-        async function fetchFed() {
-            setFedLoading(true)
-            try {
-                const res  = await fetch(`${API_BASE}/api/calendar/fed`, { credentials: 'include' })
-                const data = await res.json()
-                if (!active) return
-                setFed(Array.isArray(data.items) ? data.items : [])
-            } catch {
-                if (active) setFed([])
-            } finally {
-                if (active) setFedLoading(false)
-            }
+        function refresh() {
+            load(calendarService.getEarnings, setEarningsLoading, ({ items, from, to }) => {
+                setEarnings(items)
+                setEarningsFrom(from)
+                setEarningsTo(to)
+            })
+            load(calendarService.getFed, setFedLoading, setFed)
+            load(calendarService.getIpo, setIpoLoading, setIpo)
+            load(strategyService.getCurrentTilt, setTiltLoading, setTilt)
         }
 
-        async function fetchIpo() {
-            setIpoLoading(true)
-            try {
-                const res  = await fetch(`${API_BASE}/api/calendar/ipo`, { credentials: 'include' })
-                const data = await res.json()
-                if (!active) return
-                setIpo(Array.isArray(data.items) ? data.items : [])
-            } catch {
-                if (active) setIpo([])
-            } finally {
-                if (active) setIpoLoading(false)
-            }
-        }
+        refresh()
+        const t = setInterval(refresh, REFRESH_MS)
+        // Publishing supersedes the standing view, and the user is looking at the board a beat
+        // later — an hourly timer would show them the view they just replaced. The other three tabs
+        // need no equivalent: nothing in this app publishes an earnings date.
+        window.addEventListener(TILT_CHANGED, refresh)
 
-        fetchEarnings()
-        fetchFed()
-        fetchIpo()
-        const t = setInterval(() => { fetchEarnings(); fetchFed(); fetchIpo() }, REFRESH_MS)
-
-        return () => { active = false; clearInterval(t) }
+        return () => { active = false; clearInterval(t); window.removeEventListener(TILT_CHANGED, refresh) }
     }, [])
 
-    return { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading }
+    return { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, tilt, tiltLoading }
 }

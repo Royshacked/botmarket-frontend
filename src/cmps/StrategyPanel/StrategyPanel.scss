@@ -1,0 +1,169 @@
+// Pythia's desk. The chat shell matches the other agent panels; what is specific here is the DRAFT
+// — a proposed house view shown before it supersedes the standing one.
+.strategy-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+
+    // A view already in force changes what the next turn MEANS — it is a review, not a first read.
+    // Sits inside the shared <AgentIntro>, so it inherits its centring and only adds the rule that
+    // separates a standing fact from the desk's greeting.
+    &__standing {
+        margin: 8px 0 0;
+        padding-top: 8px;
+        max-width: 330px;
+        border-top: 1px solid var(--border);
+        font-size: 12.5px;
+        line-height: 1.5;
+        color: var(--text-muted);
+    }
+
+    // ── the draft ─────────────────────────────────────────────────────────────
+    &__draft-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 8px 12px 12px;
+    }
+
+    &__draft {
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg-base);
+    }
+
+    &__draft-head {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    &__regime {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    &__bench {
+        font-family: var(--font-mono);
+        font-size: var(--chat-label);
+        color: var(--text-muted);
+    }
+
+    // The table must redistribute a fully-invested book, so the weights cancel. Surfacing the sum
+    // BEFORE publishing is what lets the user catch an unbalanced table while it is still a draft.
+    &__net {
+        margin-left: auto;
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        color: var(--text-muted);
+
+        &--off {
+            color: var(--color-warning);
+            font-weight: 600;
+        }
+    }
+
+    &__thesis {
+        margin: 6px 0 0;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--text-primary);
+    }
+
+    &__stances {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        margin-top: 8px;
+    }
+
+    &__stance {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto auto;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 8px;
+        border-left: 3px solid var(--border);
+        border-radius: 4px;
+        background: var(--bg-elevated, transparent);
+
+        // The direction reads before any number is parsed.
+        &--over  { border-left-color: var(--color-long); }
+        &--under { border-left-color: var(--color-short); }
+    }
+
+    &__stance-sector {
+        font-size: 12.5px;
+        color: var(--text-primary);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__stance-tag {
+        font-family: var(--font-mono);
+        font-size: var(--chat-micro);
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+    }
+
+    &__stance-bp {
+        font-family: var(--font-mono);
+        font-size: var(--chat-meta);
+        color: var(--text-secondary);
+        min-width: 52px;
+        text-align: right;
+    }
+
+    &__stance-h {
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        color: var(--text-muted);
+        min-width: 26px;
+        text-align: right;
+    }
+
+    &__kills {
+        margin-top: 8px;
+
+        ul {
+            margin: 4px 0 0;
+            padding-left: 16px;
+        }
+        li {
+            font-size: 12.5px;
+            line-height: 1.45;
+            color: var(--text-secondary);
+        }
+    }
+
+    &__kills-label {
+        font-family: var(--font-mono);
+        font-size: var(--chat-micro);
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+    }
+
+    &__hint {
+        font-size: var(--chat-meta);
+        line-height: 1.45;
+        color: var(--text-muted);
+    }
+
+    // The publish refusal worth spelling out is a stance contradicting its own weight — `active_bp`
+    // is what gets allocated, so it would move a book the opposite way from what the words said.
+    &__err {
+        font-size: 12.5px;
+        line-height: 1.45;
+        color: var(--short-text);
+    }
+
+    &__ask {
+        padding: 0 12px 10px;
+    }
+}

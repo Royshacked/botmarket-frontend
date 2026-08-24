@@ -1,20 +1,21 @@
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { TradeIdeaRow } from './TradeIdeaRow.jsx'
-import { ClosePositionDialog } from './ClosePositionDialog.jsx'
 import { EditOrdersDialog } from './EditOrdersDialog.jsx'
 import { ActivatePortfolioDialog } from './ActivatePortfolioDialog.jsx'
-import { PositionsTable, posKey } from './PositionsTable.jsx'
-import { formatCreatedAt, activationStatus, conditionSummary, brokerSymbolLabel, isDeleteLocked, isManualIdea, openIdeaPopup, openCallPopup, formatPnl, ideaPnl, portfolioPnl, positionOpenTarget } from './tradeIdea.utils.js'
+import { PositionsTable } from './PositionsTable.jsx'
+import { usePositionClose } from './usePositionClose.jsx'
+import { formatCreatedAt, activationStatus, activatePortfolio, conditionSummary, brokerSymbolLabel, isDeleteLocked, isManualIdea, openIdeaPopup, openCallPopup, openSetupPopup, formatPnl, ideaPnl, portfolioPnl, positionOpenTarget, isPortfolioReview } from './tradeIdea.utils.js'
 import { eventBus, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, REVIEW_RESOLVED } from '../../services/event-bus.service'
+import { isAdoptedBook } from '../AdoptBook/adopt.utils.js'
 import { portfolioService } from '../../services/portfolio/portfolio.service.remote.js'
 import { StatusIcon } from '../StatusIcon.jsx'
-import { BrandTitle } from '../BrandTitle.jsx'
-import { MinosBadge, HermesBadge, AtlasBadge, ArgusBadge, AgentGlyph } from '../AxlHub/AgentBadges.jsx'
+import { MinosBadge, HermesBadge, TalosBadge, AtlasBadge, ArgusBadge, AgentGlyph } from '../AxlHub/AgentBadges.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
-import { IdeaCard, BrokerGroupCard, PortfolioCard, BuildingPortfolioCard, PositionsCards } from './TradeIdeaCards.jsx'
+import { SetupCard } from './SetupCard.jsx'
+import { EditButton, DeleteButton } from '../EntityCard/EntityCard.jsx'
 import { CallCard } from './CallCard.jsx'
-import { useDesign } from '../../customHooks/useDesign.js'
+import { isArmed } from '../../services/entityStatus.js'
 import { Radar } from '../Radar/Radar.jsx'
 import './TradeIdeas.scss'
 
@@ -118,12 +119,11 @@ function BrokerGroupRow({ group, expanded, onToggle, onDelete, onStatusChange, o
                 <td className="idea-row__created">{formatCreatedAt(group.savedAt) || '—'}</td>
                 <td className="idea-row__notes">{summary || '—'}</td>
                 <td className="idea-row__controls">
-                    <button
-                        className="idea-row__delete"
+                    <DeleteButton
                         onClick={handleDeleteAll}
-                        disabled={anyLocked}
-                        title={anyLocked ? 'A broker leg is live — close the position first to delete' : 'Delete all broker legs of this idea'}
-                    >×</button>
+                        title="Delete all broker legs of this idea"
+                        lockedReason={anyLocked ? 'A broker leg is live — close the position first to delete' : null}
+                    />
                     {allWaiting ? (
                         <button className="idea-row__status-toggle status--waiting" onClick={handleActivateAll} title="Activate all broker legs"><StatusIcon status="waiting" /></button>
                     ) : (
@@ -161,7 +161,10 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
     const allWaiting = group.ideas.length > 0 && group.ideas.every(i => i.status === 'waiting')
     // Manual (broker-less) portfolio → activate/exit post FillCards instead of placing orders.
     const isManual = group.ideas.length > 0 && group.ideas.every(isManualIdea)
-    const anyOpen  = group.ideas.some(i => i.status === 'long' || i.status === 'short')
+    const isAdopted = isAdoptedBook(group.ideas)
+    // One fact, read twice: it makes the manual toggle an EXIT rather than a re-post, and it makes
+    // reopening this book a review rather than a re-plan. Shared so the two can't drift apart.
+    const anyOpen  = isPortfolioReview(group.ideas)
     // Live total P&L = sum of the portfolio's open positions (null while nothing is live).
     const pnl      = portfolioPnl(group.ideas, positions)
     const pnlClass = pnl ? (pnl.pnl > 0 ? ' pnl--pos' : pnl.pnl < 0 ? ' pnl--neg' : '') : ''
@@ -186,13 +189,12 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
 
     function activateNow() {
         setShowActivatePrompt(false)
-        // Manual: don't flip statuses — post the N-leg entry FillCard; the user reports
-        // each real fill there (the backend marks the legs awaiting_manual_fill).
-        if (isManual) { eventBus.emit(MANUAL_PORTFOLIO_ACTIVATE, { portfolioId: group.portfolioId }); return }
-        // Activate every waiting idea: 'hit' if it has no entry conditions
-        // (fire now, pending confirmation), otherwise 'looking' (monitor watches).
-        group.ideas.forEach(idea => {
-            if (idea.status === 'waiting') onStatusChange(idea.id, activationStatus(idea))
+        // What activation MEANS for a book (broker legs vs the manual fill card) lives in
+        // activatePortfolio — three surfaces offer this now.
+        activatePortfolio(group.ideas, {
+            isManual,
+            onStatusChange,
+            onManualEntry: () => eventBus.emit(MANUAL_PORTFOLIO_ACTIVATE, { portfolioId: group.portfolioId }),
         })
     }
 
@@ -210,6 +212,9 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
         // Positions live → post the exit FillCard; still awaiting fills → re-post the
         // entry card (e.g. the user dismissed it and wants it back).
         if (isManual) {
+            // An ADOPTED book can only ever be exited. It was already held when we met it, so there is
+            // no entry to re-post — offering one would ask the user to go buy what they already own.
+            if (isAdopted && !anyOpen) return
             eventBus.emit(anyOpen ? MANUAL_PORTFOLIO_EXIT : MANUAL_PORTFOLIO_ACTIVATE, { portfolioId: group.portfolioId })
             return
         }
@@ -246,29 +251,21 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
                         >{isManual ? (anyOpen ? 'exit' : 'fill') : 'active'}</button>
                     )}
                     <span className="idea-row__actions">
-                        <button
-                            className={`idea-row__edit-btn${isReviewDue ? ' idea-row__edit-btn--due' : ''}`}
-                            onClick={e => { e.stopPropagation(); onEdit(group.portfolioId, isReviewDue ? { reviewMode: true } : undefined) }}
-                            title={isReviewDue ? 'Review due — open review in chat' : 'Edit portfolio in chat'}
-                        >
-                            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                <path d="M11.5 1.5L14.5 4.5L5.5 13.5H2.5V10.5L11.5 1.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
-                                <path d="M9.5 3.5L12.5 6.5" stroke="currentColor" strokeWidth="1.4"/>
-                            </svg>
-                        </button>
-                        <button
-                            className="idea-row__delete idea-row__delete--bin"
+                        {/* `due` stays tied to the SCHEDULE — a live book is not perpetually overdue.
+                            The title tells the truth about what will open: handleEditPortfolio turns
+                            this into a review by itself once a position is live. */}
+                        <EditButton
+                            onClick={() => onEdit(group.portfolioId, isReviewDue ? { reviewMode: true } : undefined)}
+                            due={isReviewDue}
+                            title={isReviewDue ? 'Review due — open review in chat'
+                                : anyOpen ? 'In position — opens a review in chat'
+                                    : 'Edit portfolio in chat'}
+                        />
+                        <DeleteButton
                             onClick={handleDeleteAll}
-                            disabled={anyLocked}
-                            title={anyLocked ? 'A position is live — close it first to delete this portfolio' : 'Delete all ideas in this portfolio'}
-                        >
-                            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                <path d="M2.5 4H13.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                                <path d="M6.5 4V2.8C6.5 2.36 6.86 2 7.3 2H8.7C9.14 2 9.5 2.36 9.5 2.8V4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                                <path d="M3.7 4L4.3 13C4.34 13.56 4.8 14 5.36 14H10.64C11.2 14 11.66 13.56 11.7 13L12.3 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-                                <path d="M6.5 6.5V11.5M9.5 6.5V11.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                            </svg>
-                        </button>
+                            title="Delete all ideas in this portfolio"
+                            lockedReason={anyLocked ? 'A position is live — close it first to delete this portfolio' : null}
+                        />
                     </span>
                 </td>
             </tr>
@@ -320,11 +317,47 @@ function PortfolioGroupRow({ group, expanded, onToggle, onEdit, onDelete, onDele
     )
 }
 
-export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, buildingCall, loading = false, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, calls = [], onActCall, onDeleteCall, onEditCall, callBusyId = null, radar }) {
+/**
+ * One tile on the Lists hub. Every section renders through this — a new entity kind adds a SECTION
+ * entry (below) and gets its tile, breadcrumb label and count for free.
+ */
+function HubTile({ label, icon, count, onClick }) {
+    return (
+        <button className="trade-ideas-list__hub-card" onClick={onClick}>
+            <span className="trade-ideas-list__hub-card-icon">{icon}</span>
+            <span className="trade-ideas-list__hub-card-body">
+                <span className="trade-ideas-list__hub-card-label">{label}</span>
+                {count && <span className="trade-ideas-list__hub-card-count">{count}</span>}
+            </span>
+        </button>
+    )
+}
+HubTile.propTypes = { label: PropTypes.string, icon: PropTypes.node, count: PropTypes.node, onClick: PropTypes.func }
+
+/**
+ * The default body for an entity section: a flat list of cards with loading and empty states.
+ *
+ * Ideas and portfolios opt out (`body` on their SECTION) because they are genuinely different —
+ * a sortable table, broker-fork groups, portfolio roll-ups. Everything else is this, so a new kind
+ * supplies `items` and a `renderCard` and writes no layout at all.
+ */
+function CardList({ items, loading, empty, renderCard, lead = null }) {
+    if (loading) return <p className="trade-ideas-list__empty">Loading…</p>
+    if (!lead && items.length === 0) return <p className="trade-ideas-list__empty">{empty}</p>
+    return <div className="ideas-cards">{lead}{items.map(renderCard)}</div>
+}
+CardList.propTypes = {
+    items: PropTypes.array, loading: PropTypes.bool, empty: PropTypes.string,
+    renderCard: PropTypes.func, lead: PropTypes.node,
+}
+
+export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, buildingCall, loading = false, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, onClosePositions, calls = [], onActCall, onDeleteCall, onEditCall, callBusyId = null, setups = [], setupsLoading = false, onArmSetup, onDisarmSetup, onDeleteSetup, onEditSetup, setupBusyId = null, radar }) {
     const [expandedGroups, setExpandedGroups] = useState(new Set())
     const [activeFilter,   setActiveFilter]   = useState(null)    // null = hub landing
-    const [closingId,      setClosingId]      = useState(null)
-    const [pendingClose,   setPendingClose]   = useState(null)
+    // The close-at-market flow (confirm → fire → report) is shared with the Floor's book, so it
+    // lives in usePositionClose rather than here — see that hook for why.
+    const { requestClose, requestCloseGroup, closingId, closingGroupId, closeDialog } =
+        usePositionClose({ onClosePosition, onClosePositions })
     const [editOrdersPos,  setEditOrdersPos]  = useState(null)
     // Portfolios with a review due now → their edit pencil turns red and routes into
     // review mode. Refetched whenever the ideas list changes (covers activate/rebalance
@@ -341,16 +374,13 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
         return () => { alive = false; off() }
     }, [ideas])
 
-    // Design trial: the 'cards' design renders the Ideas tab as stacked cards
-    // instead of the table (Portfolios / Positions tabs are unchanged).
-    const cardMode = useDesign() === 'cards'
-
     // Follow the chat tab: idea mode shows ideas, portfolio mode shows portfolios.
     // The user can still override via the filter buttons until the tab changes again.
     useEffect(() => {
         if (chatTab === 'portfolio')   setActiveFilter('portfolios')
         else if (chatTab === 'idea')   setActiveFilter('ideas')
         else if (chatTab === 'kairos') setActiveFilter('calls')
+        else if (chatTab === 'mentor') setActiveFilter('setups')
         else if (chatTab === 'axl')    setActiveFilter(null)   // return to hub when back at AxlHub
     }, [chatTab])
 
@@ -384,20 +414,6 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
     function selectPositions() {
         setActiveFilter('positions')
         if (onRefreshPositions) onRefreshPositions()
-    }
-
-    async function confirmClosePosition() {
-        const position = pendingClose
-        if (!position || !onClosePosition) return
-        setClosingId(posKey(position))
-        try {
-            await onClosePosition(position.broker, position.id, position.accountId)
-            setPendingClose(null)
-        } catch (err) {
-            console.error('[positions] close failed', err)
-        } finally {
-            setClosingId(null)
-        }
     }
 
     function toggleGroup(portfolioId) {
@@ -448,20 +464,74 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
 
     const atHub          = activeFilter === null
     const showIdeas      = activeFilter === 'ideas'
-    const showCalls      = activeFilter === 'calls'
     const showPositions  = activeFilter === 'positions'
     const showRadar      = activeFilter === 'radar'
     const hasIdeasRows   = topBuildingIdea || ideaRows.length > 0
     const hasPortfolios  = visibleGroups.length > 0
 
-    const SECTION_LABELS = { ideas: 'Ideas', calls: 'Calls', portfolios: 'Portfolios', positions: 'Positions', radar: 'Radar' }
+    // ── The section registry ──────────────────────────────────────────────────
+    //
+    // ONE entry per entity kind drives its hub tile, breadcrumb label, count and body. Adding a new
+    // agent's entity is an entry here — not a `showX` flag, a SECTION_LABELS key, a branch of the
+    // count ternary, a render branch and six more props, which is what it used to cost.
+    //
+    // `body` opts out of the default CardList for the kinds that genuinely differ (a sortable
+    // table, broker-fork groups). Everything else supplies `items` + `renderCard` and no layout.
+    const SECTIONS = [
+        {
+            key: 'ideas', label: 'Ideas', icon: <MinosBadge size={30} />,
+            count: ideaRows.length, hubCount: ideaRows.length ? `${ideaRows.length} active` : null,
+            body: 'custom',
+        },
+        {
+            key: 'calls', label: 'Calls', icon: <HermesBadge size={30} />,
+            count: effectiveCalls.length, hubCount: effectiveCalls.length ? `${effectiveCalls.length} active` : null,
+            items: effectiveCalls, empty: 'No calls yet',
+            lead: topBuildingCall
+                ? <CallCard key="__building_call__" call={topBuildingCall} onAct={() => {}} onSymbolClick={onSymbolClick} />
+                : null,
+            renderCard: (c) => (
+                <CallCard
+                    key={c.id} call={c} busy={callBusyId === c.id}
+                    onAct={onActCall} onDelete={onDeleteCall} onEdit={onEditCall} onSymbolClick={onSymbolClick}
+                />
+            ),
+        },
+        {
+            key: 'setups', label: 'Setups', icon: <TalosBadge size={30} />, hubOnlyWithRadar: true,
+            count: setups.length,
+            hubCount: setups.length
+                ? `${setups.filter(x => isArmed(x.status)).length} watched · ${setups.length} total`
+                : null,
+            items: setups, loading: setupsLoading, empty: 'No setups yet — build one with Mentor.',
+            // The pencil reopens the BUILD conversation (onEditSetup). It used to be wired to
+            // onOpenSetup, which only switched to the Mentor tab and landed on an empty chat.
+            renderCard: (su) => (
+                <SetupCard
+                    key={su.id} setup={su} busy={setupBusyId === su.id}
+                    onArm={onArmSetup} onDisarm={onDisarmSetup} onDelete={onDeleteSetup}
+                    onOpen={openSetupPopup} onEdit={onEditSetup} onSymbolClick={onSymbolClick}
+                />
+            ),
+        },
+        {
+            key: 'portfolios', label: 'Portfolios', icon: <AtlasBadge size={30} />,
+            count: visibleGroups.length, hubCount: visibleGroups.length ? `${visibleGroups.length} books` : null,
+            body: 'custom',
+        },
+        {
+            key: 'positions', label: 'Positions', onSelect: selectPositions,
+            icon: <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 5.5l6-3 6 3-6 3z"/><path d="M2 8.5l6 3 6-3"/><path d="M2 11.5l6 3 6-3"/></svg>,
+            count: positions.length, hubCount: positions.length ? `${positions.length} open` : null,
+            body: 'custom',
+        },
+    ]
+    const section = SECTIONS.find(x => x.key === activeFilter) ?? null
+
+    const SECTION_LABELS = Object.fromEntries(SECTIONS.map(x => [x.key, x.label]).concat([['radar', 'Radar']]))
     // radar sub-tab label shown in the breadcrumb when a deep-link card was used
-    const radarTabLabel = { scans: 'Scans', earnings: 'Earnings', coverage: 'Coverage', fed: 'Fed', ipo: 'IPO' }
-    const sectionCount = activeFilter === 'ideas'      ? ideaRows.length
-        : activeFilter === 'calls'      ? effectiveCalls.length
-        : activeFilter === 'portfolios' ? visibleGroups.length
-        : activeFilter === 'positions'  ? positions.length
-        : 0
+    const radarTabLabel = { scans: 'Scans', earnings: 'Earnings', coverage: 'Coverage', fed: 'Fed', ipo: 'IPO', forecasts: 'Forecasts' }
+    const sectionCount = section?.count ?? 0
 
     return (
         <section className="trade-ideas-list full">
@@ -470,7 +540,11 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                     <span className="trade-ideas-list__header-title">What do you want to see?</span>
                 ) : (
                     <>
-                        <button className="trade-ideas-list__back" onClick={() => setActiveFilter(null)} aria-label="Back to Axl Lists">
+                        <button
+                            className="trade-ideas-list__back"
+                            onClick={() => setActiveFilter(null)}
+                            aria-label="Back to Axl Lists"
+                        >
                             <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                                 <polyline points="7,2 3,6 7,10"/>
                                 <line x1="3" y1="6" x2="11" y2="6"/>
@@ -491,44 +565,14 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
             {atHub ? (
                 <div className="trade-ideas-list__hub">
                     <div className="trade-ideas-list__hub-grid">
-                        <button className="trade-ideas-list__hub-card" onClick={() => setActiveFilter('ideas')}>
-                            <span className="trade-ideas-list__hub-card-icon">
-                                <MinosBadge size={30} />
-                            </span>
-                            <span className="trade-ideas-list__hub-card-body">
-                                <span className="trade-ideas-list__hub-card-label">Ideas</span>
-                                {ideaRows.length > 0 && <span className="trade-ideas-list__hub-card-count">{ideaRows.length} active</span>}
-                            </span>
-                        </button>
-                        <button className="trade-ideas-list__hub-card" onClick={() => setActiveFilter('calls')}>
-                            <span className="trade-ideas-list__hub-card-icon">
-                                <HermesBadge size={30} />
-                            </span>
-                            <span className="trade-ideas-list__hub-card-body">
-                                <span className="trade-ideas-list__hub-card-label">Calls</span>
-                                {effectiveCalls.length > 0 && <span className="trade-ideas-list__hub-card-count">{effectiveCalls.length} active</span>}
-                            </span>
-                        </button>
-                        <button className="trade-ideas-list__hub-card" onClick={() => setActiveFilter('portfolios')}>
-                            <span className="trade-ideas-list__hub-card-icon">
-                                <AtlasBadge size={30} />
-                            </span>
-                            <span className="trade-ideas-list__hub-card-body">
-                                <span className="trade-ideas-list__hub-card-label">Portfolios</span>
-                                {visibleGroups.length > 0 && <span className="trade-ideas-list__hub-card-count">{visibleGroups.length} books</span>}
-                            </span>
-                        </button>
-                        <button className="trade-ideas-list__hub-card" onClick={selectPositions}>
-                            <span className="trade-ideas-list__hub-card-icon">
-                                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 5.5l6-3 6 3-6 3z"/><path d="M2 8.5l6 3 6-3"/><path d="M2 11.5l6 3 6-3"/></svg>
-                            </span>
-                            <span className="trade-ideas-list__hub-card-body">
-                                <span className="trade-ideas-list__hub-card-label">Positions</span>
-                                {positions.length > 0 && <span className="trade-ideas-list__hub-card-count">{positions.length} open</span>}
-                            </span>
-                        </button>
+                        {SECTIONS.filter(x => !x.hubOnlyWithRadar || radar).map(x => (
+                            <HubTile
+                                key={x.key} label={x.label} icon={x.icon} count={x.hubCount}
+                                onClick={x.onSelect ?? (() => setActiveFilter(x.key))}
+                            />
+                        ))}
                         {radar && (<>
-                            <button className="trade-ideas-list__hub-card" onClick={() => { setActiveFilter('radar'); radar.onTabChange?.('fed') }}>
+                        <button className="trade-ideas-list__hub-card" onClick={() => { setActiveFilter('radar'); radar.onTabChange?.('fed') }}>
                                 <span className="trade-ideas-list__hub-card-icon">
                                     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none"/><path d="M5.2 10.8a4 4 0 0 1 0-5.6M10.8 5.2a4 4 0 0 1 0 5.6"/><path d="M3.1 12.9A7 7 0 0 1 3.1 3.1M12.9 3.1a7 7 0 0 1 0 9.8"/></svg>
                                 </span>
@@ -564,6 +608,17 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                                     {(radar.coverage?.length ?? 0) > 0 && <span className="trade-ideas-list__hub-card-count">{radar.coverage.length} tracked</span>}
                                 </span>
                             </button>
+                            <button className="trade-ideas-list__hub-card" onClick={() => { setActiveFilter('radar'); radar.onTabChange?.('forecasts') }}>
+                                <span className="trade-ideas-list__hub-card-icon">
+                                    <AgentGlyph agentKey="strategy" icon={AGENTS.strategy.icon} size={30} />
+                                </span>
+                                <span className="trade-ideas-list__hub-card-body">
+                                    <span className="trade-ideas-list__hub-card-label">Forecasts</span>
+                                    {/* The count is the number of STANCES in force, not a list length —
+                                        there is only ever one house view. */}
+                                    {(radar.tilt?.tilts?.length ?? 0) > 0 && <span className="trade-ideas-list__hub-card-count">{radar.tilt.tilts.length} sectors</span>}
+                                </span>
+                            </button>
                         </>)}
                     </div>
                 </div>
@@ -587,40 +642,6 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                 {showIdeas ? (
                     !hasIdeasRows ? (
                         <p className="trade-ideas-list__empty">No ideas yet</p>
-                    ) : cardMode ? (
-                        <div className="ideas-cards">
-                            {topBuildingIdea && (
-                                <IdeaCard
-                                    key="__building__"
-                                    idea={topBuildingIdea}
-                                    onDelete={onCancelBuild}
-                                    onStatusChange={() => {}}
-                                    onOpen={() => {}}
-                                />
-                            )}
-                            {ideaRows.map(row => row.kind === 'group' ? (
-                                <BrokerGroupCard
-                                    key={row.item.groupId}
-                                    group={row.item}
-                                    expanded={expandedGroups.has(row.item.groupId)}
-                                    onToggle={() => toggleGroup(row.item.groupId)}
-                                    onDelete={onDelete}
-                                    onStatusChange={onStatusChange}
-                                    onOpen={handleOpen}
-                                    onSymbolClick={onSymbolClick}
-                                />
-                            ) : (
-                                <IdeaCard
-                                    key={row.item.id}
-                                    idea={row.item}
-                                    onDelete={onDelete}
-                                    onStatusChange={onStatusChange}
-                                    onOpen={handleOpen}
-                                    onSymbolClick={onSymbolClick}
-                                    onEdit={onEdit}
-                                />
-                            ))}
-                        </div>
                     ) : (
                         <table className="ideas-table">
                             <thead>
@@ -668,50 +689,25 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                             </tbody>
                         </table>
                     )
-                ) : showCalls ? (
-                    (!topBuildingCall && effectiveCalls.length === 0) ? (
-                        <p className="trade-ideas-list__empty">No calls yet</p>
-                    ) : (
-                        <div className="ideas-cards">
-                            {topBuildingCall && (
-                                <CallCard
-                                    key="__building_call__"
-                                    call={topBuildingCall}
-                                    onAct={() => {}}
-                                    onSymbolClick={onSymbolClick}
-                                />
-                            )}
-                            {effectiveCalls.map(c => (
-                                <CallCard
-                                    key={c.id}
-                                    call={c}
-                                    busy={callBusyId === c.id}
-                                    onAct={onActCall}
-                                    onDelete={onDeleteCall}
-                                    onEdit={onEditCall}
-                                    onSymbolClick={onSymbolClick}
-                                />
-                            ))}
-                        </div>
-                    )
+                ) : section?.renderCard ? (
+                    <CardList
+                        items={section.items}
+                        loading={section.loading}
+                        empty={section.empty}
+                        lead={section.lead}
+                        renderCard={section.renderCard}
+                    />
                 ) : showPositions ? (
                     positions.length === 0 ? (
                         <p className="trade-ideas-list__empty">{positionsLoading ? 'Loading positions…' : 'No open positions'}</p>
-                    ) : cardMode ? (
-                        <PositionsCards
-                            positions={positions}
-                            ideas={ideas}
-                            closingId={closingId}
-                            onClose={setPendingClose}
-                            onEditOrders={setEditOrdersPos}
-                            onOpen={handleOpenPosition}
-                        />
                     ) : (
                         <PositionsTable
                             positions={positions}
                             ideas={ideas}
                             closingId={closingId}
-                            onClose={setPendingClose}
+                            closingGroupId={closingGroupId}
+                            onClose={requestClose}
+                            onCloseGroup={requestCloseGroup}
                             onEditOrders={setEditOrdersPos}
                             onOpen={handleOpenPosition}
                         />
@@ -719,30 +715,6 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                 ) : (
                     (!hasPortfolios && !buildingPortfolio) ? (
                         <p className="trade-ideas-list__empty">No portfolios yet</p>
-                    ) : cardMode ? (
-                        <div className="ideas-cards">
-                            {topBuildingPortfolio && <BuildingPortfolioCard portfolio={topBuildingPortfolio} />}
-                            {visibleGroups.map(group => (
-                                group.portfolioId === editPortfolioId ? (
-                                    <BuildingPortfolioCard key={group.portfolioId} portfolio={buildingPortfolio} />
-                                ) : (
-                                    <PortfolioCard
-                                        key={group.portfolioId}
-                                        group={group}
-                                        expanded={expandedGroups.has(group.portfolioId)}
-                                        onToggle={() => toggleGroup(group.portfolioId)}
-                                        onEdit={onEditPortfolio}
-                                        isReviewDue={dueReviewIds.has(group.portfolioId)}
-                                        onDelete={onDelete}
-                                        onDeletePortfolio={onDeletePortfolio}
-                                        onStatusChange={onStatusChange}
-                                        onOpen={handleOpen}
-                                        onSymbolClick={onSymbolClick}
-                                        positions={positions}
-                                    />
-                                )
-                            ))}
-                        </div>
                     ) : (
                         <table className="portfolios-table">
                             <thead>
@@ -784,12 +756,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                 </>
             )}
 
-            <ClosePositionDialog
-                position={pendingClose}
-                closing={!!pendingClose && closingId === posKey(pendingClose)}
-                onConfirm={confirmClosePosition}
-                onCancel={() => setPendingClose(null)}
-            />
+            {closeDialog}
 
             {editOrdersPos && (
                 <EditOrdersDialog
@@ -818,10 +785,18 @@ TradeIdeasList.propTypes = {
     positionsLoading: PropTypes.bool,
     onRefreshPositions: PropTypes.func,
     onClosePosition:  PropTypes.func,
+    onClosePositions: PropTypes.func,
     calls:            PropTypes.array,
     onActCall:        PropTypes.func,
     onDeleteCall:     PropTypes.func,
     onEditCall:       PropTypes.func,
     callBusyId:       PropTypes.string,
+    setups:           PropTypes.array,
+    setupsLoading:    PropTypes.bool,
+    onArmSetup:       PropTypes.func,
+    onDisarmSetup:    PropTypes.func,
+    onDeleteSetup:    PropTypes.func,
+    onEditSetup:      PropTypes.func,
+    setupBusyId:      PropTypes.string,
     radar:            PropTypes.object,
 }

@@ -62,18 +62,18 @@ export function ManualTradingSection({ inactive = false }) {
     return (
         <section className={`user-profile__section${inactive ? ' user-profile__section--inactive' : ''}`} aria-disabled={inactive || undefined}>
             <h2 className="user-profile__section-title">Manual Trading</h2>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)', margin: '0 0 12px', lineHeight: 1.5 }}>
+            <p style={{ fontSize: '0.81rem', color: 'var(--text-dim)', margin: '0 0 12px', lineHeight: 1.5 }}>
                 Broker-less real-money accounts — the app monitors your ideas and asks you to enter/exit
                 at your own broker, then records the real prices you report. Switch to the Manual workspace
                 from the header, and bind one account per idea.
             </p>
 
             {error && (
-                <p style={{ fontSize: '0.78rem', color: 'var(--color-warning, #e6a817)', marginBottom: 8 }}>{error}</p>
+                <p style={{ fontSize: '0.81rem', color: 'var(--color-warning, #e6a817)', marginBottom: 8 }}>{error}</p>
             )}
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '4px 0 8px' }}>
-                <h3 style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-secondary)', margin: 0 }}>
+                <h3 style={{ fontSize: '0.83rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-secondary)', margin: 0 }}>
                     Accounts
                 </h3>
                 {!creating && (
@@ -88,7 +88,7 @@ export function ManualTradingSection({ inactive = false }) {
             )}
 
             {accounts.length === 0 && !creating
-                ? <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>No manual accounts yet — create one to start tracking real-money trades.</p>
+                ? <p style={{ fontSize: '0.83rem', color: 'var(--text-dim)' }}>No manual accounts yet — create one to start tracking real-money trades.</p>
                 : accounts.map(acct => (
                     <AccountCard
                         key={acct.accountId}
@@ -158,13 +158,13 @@ function AccountCard({ acct, onPatch, onReset, onDelete }) {
                 </button>
             </div>
 
-            <div style={{ display: 'flex', gap: 12, marginTop: 6, fontSize: '0.75rem', fontFamily: 'var(--font-mono)' }}>
+            <div style={{ display: 'flex', gap: 12, marginTop: 6, fontSize: '0.78rem', fontFamily: 'var(--font-mono)' }}>
                 <span style={{ color: pnlColor(acct.realizedPnl) }}>R {money(acct.realizedPnl, ccy)}</span>
                 <span style={{ color: pnlColor(acct.unrealized) }}>U {money(acct.unrealized, ccy)}</span>
                 <span style={{ color: 'var(--text-dim)' }}>{acct.openPositions ?? 0} open</span>
             </div>
 
-            {err && <p style={{ fontSize: '0.72rem', color: 'var(--color-short)', margin: '6px 0 0' }}>{err}</p>}
+            {err && <p style={{ fontSize: '0.75rem', color: 'var(--color-short)', margin: '6px 0 0' }}>{err}</p>}
 
             {open && (
                 <div style={{ marginTop: 10, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
@@ -224,7 +224,7 @@ function NewAccountForm({ busy, onCreate, onCancel }) {
 function Stat({ label, value, color }) {
     return (
         <div style={{ background: 'var(--bg-elevated, var(--bg-surface))', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 10px' }}>
-            <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-dim)' }}>{label}</div>
+            <div style={{ fontSize: '0.71rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-dim)' }}>{label}</div>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.95rem', fontWeight: 700, color: color ?? 'var(--text-primary)' }}>{value}</div>
         </div>
     )

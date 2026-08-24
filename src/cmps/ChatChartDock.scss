@@ -1,0 +1,177 @@
+// The docked chart: pinned between the thread and the input row, in every agent chat and at Axl's
+// reception. Not part of the scrolling message list — that is the whole point, it stays while the
+// conversation moves.
+
+// Named because the fold/unfold keyframes animate TO and FROM it — a second copy of this clamp in
+// the animations is a height that silently stops matching the one the panel settles at.
+$dock-h: clamp(320px, 55vh, 560px);
+
+.chat-chart-dock {
+    flex-shrink: 0;                 // the thread gives up space, never the chart
+    display: flex;
+    flex-direction: column;
+    height: $dock-h;
+
+    // Full width of the chat column. It used to share the input pill's 75% centred measure, which
+    // reads well for a pill you type into and badly for a chart you read prices off — a chart is
+    // the one thing here that gets better with every pixel of width, and candles squeezed into
+    // three-quarters of an already-narrow column were the cost of that symmetry.
+    //
+    // It keeps the pill's 10px side gutters (the same `calc` ChatInputRow.scss uses) rather than
+    // bleeding to the panel edge: full width means as wide as this column goes, and the two are
+    // still stacked one above the other — an edge the chart overshot by 10px would read as a
+    // misalignment, not as more chart.
+    box-sizing: border-box;
+    width: 100%;
+    max-width: calc(100% - 20px);
+    margin: 8px auto 0;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;               // clip the chart's corners to the radius
+    background: transparent;        // no slab — the panel reads through wherever the chart doesn't paint
+    transform-origin: bottom left;  // it grows out of, and folds back into, the corner the chip sits in
+    animation: chat-chart-dock-in 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+
+    // No black slab in the dock. The workspace chart pins its pane to a fixed #000 on purpose
+    // (theme-independent — see PriceChart.scss), and that stays true where it belongs, in the
+    // lists panel. Docked in a chat it is a floating object in the thread, so it drops the fill
+    // and the panel wash reads through; every theme's base is near-black, so the neutral grid and
+    // axis set in PriceChart.jsx still read correctly. The inner frames go too — the dock's own
+    // border is the frame, and three nested 1px boxes is two too many.
+    .chart-surface,
+    .price-chart {
+        background: transparent;
+    }
+    .price-chart {
+        border: none;
+        border-radius: 0;
+    }
+
+    // ── Collapsed: a chip in the chat's bottom-left corner, above the prompt ────
+    // Out of the flow. A collapsed chart is not part of the conversation any more — it is a thing
+    // you put down — so it stops taking a line of the thread and hangs off the slot instead.
+    //
+    // Absolute against that slot, NOT fixed: it belongs to the chat it was asked for in. Pinned to
+    // the viewport it would drift out over whatever else the layout puts in that corner (the
+    // Floor's calendar, in the three-column design) and sit beside the prompt rather than above it.
+    &--collapsed {
+        position: absolute;
+        left: 12px;
+        bottom: 2px;                // hangs off the slot line, clear of the composer below it
+        z-index: 90;                // over panel content (1–6), under the overlays and dialogs (200+)
+        width: auto;
+        max-width: 240px;
+        height: auto;
+        margin: 0;
+        flex-direction: row;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 6px 4px 9px;
+        border-radius: 999px;       // at this height it IS a pill
+        background: var(--bg-raised);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.38);
+        transform-origin: bottom left;
+        // Delayed by most of the fold: the chip lands as the frame finishes shrinking into it,
+        // which is what ties the two shapes together into one movement.
+        animation: chat-chart-chip-in 0.2s cubic-bezier(0.34, 1.4, 0.64, 1) 0.12s both;
+    }
+
+    // The frame the chart left behind, folding into the corner. Purely decorative — see the note
+    // in ChatChartDock.jsx for why the exit is a separate element from the thing that exited.
+    &--folding {
+        pointer-events: none;
+        animation: chat-chart-dock-out 0.22s cubic-bezier(0.55, 0, 0.55, 0.2) both;
+    }
+
+    // The line the chip hangs off: the dock's own place in the column, kept open at zero height.
+    // This is what makes "bottom-left" mean the bottom-left of the CHAT — the slot sits exactly
+    // where the chart was, under the thread and over the prompt, so no panel needs to be turned
+    // into a positioning anchor for the chip to find that corner.
+    &__slot {
+        position: relative;
+        flex-shrink: 0;
+        height: 0;
+    }
+
+    // The whole label is the restore target — a 2px chevron is a mean thing to ask someone to hit.
+    &__restore {
+        flex: 0 1 auto;             // the chip hugs its label; it is not a bar to be filled
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 2px 4px;
+        border: none;
+        border-radius: 4px;
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+        text-align: left;
+        transition: background 0.1s, color 0.1s;
+
+        svg { width: 11px; height: 11px; flex-shrink: 0; }
+
+        &:hover {
+            background: var(--tint-soft);
+            color: var(--text-primary);
+        }
+    }
+
+    &__label {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        letter-spacing: 0.07em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__btn {
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        background: transparent;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: background 0.1s, color 0.1s, border-color 0.1s;
+
+        svg { width: 10px; height: 10px; }
+
+        &:hover {
+            background: var(--tint-soft);
+            border-color: var(--accent-deep);
+            color: var(--accent-light);
+        }
+    }
+}
+
+// Expanding: the panel unrolls upward out of the corner, taking its height back from the thread as
+// it goes — the exact reverse of the fold, so collapse and restore read as one gesture and its undo.
+@keyframes chat-chart-dock-in {
+    from { height: 0; margin-top: 0; opacity: 0; transform: scale(0.94); }
+    to   { height: $dock-h; margin-top: 8px; opacity: 1; transform: none; }
+}
+
+// Collapsing: the empty frame shrinks into the bottom-left corner, giving its height back to the
+// thread on the way down rather than vanishing and letting the messages snap.
+@keyframes chat-chart-dock-out {
+    from { height: $dock-h; margin-top: 8px; opacity: 1; transform: none; }
+    to   { height: 0; margin-top: 0; opacity: 0; transform: scale(0.94); }
+}
+
+@keyframes chat-chart-chip-in {
+    from { opacity: 0; transform: scale(0.7) translate(-6px, 10px); }
+    to   { opacity: 1; transform: none; }
+}
+
+// Motion is the whole point of these three, so there is nothing to soften — they just stop.
+@media (prefers-reduced-motion: reduce) {
+    .chat-chart-dock,
+    .chat-chart-dock--collapsed { animation: none; }
+    .chat-chart-dock--folding   { display: none; }
+}

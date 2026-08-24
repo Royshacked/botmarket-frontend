@@ -9,8 +9,24 @@ repo (botmarket-backend) holds the domain spec — see its README.md / APP_SPEC.
 - Follow existing patterns: components in `src/cmps/`, routed views in `src/pages/`, logic in
   `src/customHooks/`, API calls in `src/services/<x>/<x>.service.remote.js` (never `fetch` directly
   in a component — go through `httpService`).
+- Shared mechanism → one place; no duplicated components. When two or more callers need the
+  same *mechanism* — a UI shell, a hook, a formatter, an API call — route them through ONE
+  component/hook/service instead of copy-pasting (or subtly diverging) it. Before adding a
+  second copy, look for the existing one and extend it (props/variants/children). Nuance:
+  share the shell, not the content — per-domain copy/payload stays with its caller (e.g. one
+  `NotificationCard` shell, but each agent builds its own card body).
+- Opening an entity for edit/review READS it by id — `resolveEntity(kind, id)` in
+  `src/services/entityResolve.js`, which goes React → service → HTTP → router → controller →
+  service → Mongo and back. NEVER resolve one out of a list this client holds, and never fall
+  back to a stale row when the read fails: a social-chat card can arrive before its list has
+  loaded, and an empty list is indistinguishable from a failed fetch. That is exactly how a
+  portfolio review got authored against no holdings — Atlas invented the item ids and every
+  accepted change came back `not_found`. A failed read is `null`; tell the user.
 - Obey the Rules of Hooks: hooks are unconditional and top-level, same order every render. Changing
   a hook's count/order breaks Fast Refresh and remounts.
+- A `[]`-dep `eventBus.on(...)` handler closes over FIRST-RENDER state. If it needs live state,
+  read a ref (`positionsRef`, `workspaceRef`) or fetch — never call a render-scoped function that
+  reads a list, and never silence the exhaustive-deps warning without doing one of those.
 - SCSS uses BEM-ish names: `.cmp__element--modifier`; styles live in `src/assets/styles/cmps/` or
   beside the component. Prefer CSS variables (`var(--...)`) over hardcoded colors.
 - Don't fire authed API calls while logged out — gate on `user` (an early 401 triggers the
@@ -19,8 +35,12 @@ repo (botmarket-backend) holds the domain spec — see its README.md / APP_SPEC.
   `paper-mode-changed`); dispatch on the source, listen in the consuming hook.
 - `npm run build` writes into `../botmarket-backend/public/`. If you build to typecheck and aren't
   deploying, discard those artifacts from the backend repo afterward.
-- There is no test framework here yet. If asked to "write tests," flag that a runner needs setting
-  up first (propose Vitest + React Testing Library) rather than assuming one exists.
+- Tests run on **Vitest + React Testing Library** (`npx vitest run`); suites live beside the
+  component as `<Cmp>.test.jsx`. Write them after a feature like the backend does.
+- The shared shells, before you build a new one: `EntityCard` (one card frame for every kind),
+  `IconButton` + its `EditButton` / `DeleteButton` wrappers (every edit/delete/glyph control —
+  colour, disabled treatment and stopPropagation live there, not per surface), `makeEntityApi`
+  (one REST transport per owner-scoped kind), `useChatStream` (every agent chat).
 
 # Inner QA Loop (run after every implementation)
 After producing any code, before considering the task done, check:

@@ -1,5 +1,5 @@
 // ── Shared agent metadata + transition timings ─────────────────────────────────
-// One source of truth for the three specialist agents (brand, hue, icon, copy) so
+// One source of truth for the specialist agents (brand, hue, icon, copy) so
 // the hub cards, the "summoning" beat and the in-chat introductions stay in sync.
 //
 // Data only — no component exports live here on purpose: mixing components with
@@ -13,6 +13,12 @@ export const SUMMON_MS = 2000   // "Summoning …" before the agent chat opens
 export const RETURN_MS = 2000   // "Heading back to axl" before the hub returns
 
 export const AGENTS = {
+    // ⚠ ARCHIVED 2026-07-29 — the Idea agent is superseded by Kairos (`call`) and Mentor
+    // (`setup`), and its backend route is unmounted. It belongs to no desk, so the hub cannot
+    // summon it (see the "no AGENT_LIST" note below — desks make an agent reachable). The entry
+    // STAYS because it is still read for display: ThreadHistory / SocialChat render this brand +
+    // glyph for threads and alerts it already posted. Removing it would blank the name on that
+    // existing history. It is NOT in BOT_IDS any more — the notification feed is retired.
     idea: {
         tab:   'idea',
         brand: 'Idea',
@@ -77,6 +83,30 @@ export const AGENTS = {
             </>
         ),
     },
+    mentor: {
+        tab:   'mentor',
+        brand: 'Mentor',
+        hue:   'green',   // the counsel desk — steady, not the amber urgency of Kairos
+        lead:  'Work on your own trade',
+        blurb: 'Bring a ticker and your plan. Mentor analyses it, argues with it, and sharpens it.',
+        intro: "Bring me a ticker and how you'd trade it — I'll pressure-test it and we'll build the setup together.",
+        // Mentor never screens: the ticker always comes from the user (Pipeline F). The hint says so,
+        // so nobody arrives expecting a scan — that's Argus's desk.
+        hint:  "Name a ticker, a direction and a horizon. Bring your own levels or ask me to place them — if you don't have a name yet, Argus is the one who finds them.",
+        // Athena's owl — Mentor in the Odyssey *is* Athena in disguise. The 0–24 twin of
+        // MentorBadge (which is what actually renders: `mentor` has a ringed badge like the
+        // other desks); tufts + eyes only, the perch drops out at this size.
+        icon: (
+            <>
+                <path d="M12 7.2 C14.9 7.2 16.8 9.6 16.8 13.2 C16.8 17.3 14.6 19.7 12 19.7 C9.4 19.7 7.2 17.3 7.2 13.2 C7.2 9.6 9.1 7.2 12 7.2 Z" />
+                <path d="M8.6 8.6 L7.9 5.3 L10.6 7" />
+                <path d="M15.4 8.6 L16.1 5.3 L13.4 7" />
+                <circle cx="10" cy="12" r="1.7" />
+                <circle cx="14" cy="12" r="1.7" />
+                <path d="M11.5 13.2 L12.5 13.2 L12 14.6 Z" fill="currentColor" stroke="none" />
+            </>
+        ),
+    },
     analyst: {
         tab:   'analyst',
         brand: 'Prometheus',
@@ -85,22 +115,49 @@ export const AGENTS = {
         blurb: 'A living thesis per name — our price target vs the Street, kept alive.',
         intro: "Let's build a view — where we differ from the Street, and why it holds.",
         hint:  "Name a ticker and I'll research it into a coverage thesis: our estimate + target vs consensus, with monitorable kill-criteria.",
-        // The fire of forethought — Prometheus. Spark of insight above a double flame
-        // (matches axl-bot.svg's language), stroke-only in the shared 0–24 glyph space.
+        // The fire of forethought — Prometheus. Flame + hot core, the 0–24 twin of PrometheusBadge
+        // (which is what actually renders: `analyst` has a ringed badge like the other desks).
         icon: (
             <>
-                <path d="M12 1.5 L12.4 2.4 L13.3 2.8 L12.4 3.2 L12 4.1 L11.6 3.2 L10.7 2.8 L11.6 2.4 Z"/>
-                <path d="M12 5 C13.4 8 15.8 10 15.8 14.5 C15.8 18.5 14.2 20.8 12 21.4 C9.8 20.8 8.2 18.5 8.2 14.8 C8.2 11.5 10.2 10.2 10.6 7.8 C10.8 6.4 11.2 5.7 12 5 Z"/>
-                <path d="M12 10 C13 12 13.9 13.4 13.9 15.6 C13.9 18 12.6 19.6 12 19.9 C11.2 19.5 10.3 18 10.3 15.8 C10.3 13.8 11.3 12.8 11.5 11.2 C11.6 10.6 11.7 10.3 12 10 Z"/>
+                <path d="M12 3.8 C12.7 7 14.2 8.4 15.6 10.3 C16.8 11.9 17.4 13.4 17.4 15.1 C17.4 18 15 20.2 12 20.2 C9 20.2 6.6 18 6.6 15.1 C6.6 13.4 7.2 11.9 8.4 10.3 C9.8 8.4 11.3 7 12 3.8 Z"/>
+                <path d="M12 10.8 C12.4 12.6 13.7 13.6 13.7 15.4 C13.7 17.2 13 18.2 12 18.2 C11 18.2 10.3 17.2 10.3 15.4 C10.3 13.6 11.6 12.6 12 10.8 Z"/>
+            </>
+        ),
+    },
+    // Pythia — the top-down desk. Deliberately NOT an allocator and not a stock picker: Prometheus
+    // works bottom-up on names, Atlas allocates, and this desk exists so the allocator reads a
+    // house view it did not write itself. Key stays `strategy`; Pythia is the brand.
+    strategy: {
+        tab:   'strategy',
+        brand: 'Pythia',
+        // The palette is four hues and desks pair up (Idea/Axl cyan, Atlas/Mentor green,
+        // Argus/Prometheus violet). Pythia pairs with Kairos on amber — both read the moment, one
+        // tactically and one structurally.
+        hue:   'amber',
+        // Deliberately NOT "read the market" — that phrase belongs to Axl's market brief (what the
+        // world is doing today), and a desk card offering it would send people here for a question
+        // Axl answers in place. This desk SETS a view; it does not report the tape.
+        lead:  'Set the house view',
+        blurb: 'One house view: the regime, and the sector tilts it implies.',
+        intro: "Let's set the house view — what regime we're in, and which sectors that favours.",
+        hint:  'Ask for the top-down read. I publish one view: a named regime, what would break it, and sector stances as active weight vs the benchmark.',
+        // The Delphic tripod — the seat the oracle spoke from. A bowl on three legs, with the vapour
+        // rising: stroke-only in the 0–24 space like the other desk glyphs.
+        icon: (
+            <>
+                <path d="M6.4 10.2 H17.6 L16.4 13.2 C15.9 14.4 14.1 15.2 12 15.2 C9.9 15.2 8.1 14.4 7.6 13.2 Z" />
+                <line x1="9.2" y1="15" x2="7.6" y2="20.4" />
+                <line x1="14.8" y1="15" x2="16.4" y2="20.4" />
+                <line x1="12" y1="15.2" x2="12" y2="20.4" />
+                <path d="M10.6 8.2 C10.6 6.9 12 6.6 12 5.2 C12 6.6 13.4 6.9 13.4 8.2" />
             </>
         ),
     },
 }
 
-// Axl itself — the meta-layer. Not a specialist, so it's intentionally NOT in
-// AGENT_LIST (the hub cards / routing nav stay the three specialists). Kept here so
-// the shared chat pieces (AgentTurnTag: the sigil + name under a turn) work for Axl
-// too. Icon = a compact 24-space meditating bot.
+// Axl itself — the meta-layer. Not a specialist, so it owns no desk and never appears as a hub
+// card. Kept here so the shared chat pieces (AgentTurnTag: the sigil + name under a turn) work for
+// Axl too. Icon = a compact 24-space meditating bot.
 AGENTS.axl = {
     tab:   'axl',
     brand: 'axl',
@@ -118,19 +175,30 @@ AGENTS.axl = {
     ),
 }
 
-export const AGENT_LIST = [AGENTS.idea, AGENTS.portfolio, AGENTS.scanner, AGENTS.kairos, AGENTS.analyst]
+// NB: there is deliberately no AGENT_LIST. The hub renders from DESKS (pipelines), not from a
+// list of agents — an agent becomes reachable by belonging to a desk, not by being enumerated.
 
 // The social-chat notification bots — one per agent, ids matching the AGENTS keys and
-// the backend BOT_IDS. Each agent owns its own notifications: Idea posts invalidation
-// alerts, Atlas (portfolio) posts reviews, Argus (scanner) its scans. Only Axl is
+// the backend BOT_IDS. Each agent owns its own notifications: Atlas (portfolio) posts
+// reviews, Argus (scanner) its scans, Mentor its setup confirms. Only Axl is
 // conversational; the specialist threads are notify-only feeds. Axl is pinned first.
-export const BOT_IDS = ['axl', 'idea', 'portfolio', 'scanner', 'kairos', 'analyst']
+//
+// NO `idea`: the Idea desk is archived, so its feed is retired (backend RETIRED_BOT_IDS —
+// nothing posts there and getConversations hides the old thread). The AGENTS entry above
+// stays for rendering history; being absent HERE is what removes it from the sidebar.
+export const BOT_IDS = ['axl', 'portfolio', 'scanner', 'kairos', 'mentor', 'analyst', 'strategy']
 export const isBotId = (id) => BOT_IDS.includes(id)
+
+// Retired feeds (backend RETIRED_BOT_IDS). Absence from BOT_IDS is what unpins the thread, but on
+// its own it makes things WORSE: an id nothing recognises as a bot renders as a person, so the
+// dead feed comes back as a human DM from a user called "idea". These are dropped outright.
+export const RETIRED_BOT_IDS = ['idea']
+export const isRetiredBotId = (id) => RETIRED_BOT_IDS.includes(id)
 // The one bot you can chat with; the rest are read-only alert feeds.
 export const CONVERSATIONAL_BOT_ID = 'axl'
 
 // ── Reception desks ────────────────────────────────────────────────────────────
-// Axl routes the user into one of these 4 pipelines. `entryTab` is the first agent
+// Axl routes the user into one of these pipelines. `entryTab` is the first agent
 // tab to open; `agentKey` drives the summon icon; `steps` is the ordered pipeline.
 // Each step: `tab` is the agent's activeTab key (null for background agents like Hermes/Themis).
 export const DESKS = [
@@ -138,28 +206,46 @@ export const DESKS = [
         key:      'trade',
         label:    'Trading Desk',
         lead:     'Trade an asset',
-        blurb:    'Intraday, day, or swing — Argus validates, Kairos plans the setup, Hermes monitors.',
+        blurb:    'Intraday, day, or swing — Argus validates, Mentor builds the setup with you, Talos watches the zones.',
         hue:      'cyan',
         entryTab: 'scanner',
-        agentKey: 'kairos',
+        agentKey: 'mentor',
+        // Argus → Mentor → Talos (docs/desks/trade-pipeline.md). The build step was Kairos, which
+        // AUTHORS a call and stops; Mentor builds the setup WITH the user and hands Talos zones it
+        // can manage. Kairos and Hermes are silent, not deleted — calls already in flight run to
+        // their natural close, so both tabs stay reachable and nothing new is routed there.
         steps: [
-            { tab: 'scanner', label: 'Scan' },
-            { tab: 'kairos',  label: 'Build trade' },
-            { tab: null,      label: 'Execute & monitor' },
+            // `produces: 'one'` — this desk builds ONE trade, so its scan step ends in a single
+            // name for the build step, not a watchlist. Argus reads it and answers with a pick,
+            // which is the same single-pick mode it enters when asked for a name mid-desk. Without
+            // it, entering the desk AT Argus produced a saved list and no way forward — the step
+            // promised a hand-off ("I'll hand you on") that nothing performed.
+            { tab: 'scanner', label: 'Scan', produces: 'one' },
+            { tab: 'mentor',  label: 'Build trade' },
+            { tab: null,      label: 'Arm & monitor' },
         ],
     },
     {
         key:      'portfolio',
         label:    'Portfolio Desk',
         lead:     'Build a portfolio',
-        blurb:    'Long-term or swing — Argus scans, Prometheus researches, Atlas allocates.',
+        blurb:    'Long-term or swing — Atlas sets the mandate, Argus screens under it, Prometheus researches, Atlas allocates.',
         hue:      'green',
-        entryTab: 'scanner',
+        // Enters at ATLAS, not Argus. Unlike the trade desk, the portfolio pipeline starts with a
+        // frame, not a name: Atlas locks the mandate (objective, horizon, risk, constraints) and only
+        // then sources names — by emitting a <screen_request> that hands the sleeve to Argus's
+        // investing profile. Landing on Argus first asks the user to pick names with nothing to pick
+        // them AGAINST, and Atlas deliberately has no screener of its own to fall back on.
+        entryTab: 'portfolio',
         agentKey: 'portfolio',
+        // Atlas stands at BOTH ends, so its steps must say which arrival is which: `awaits` is what
+        // makes "hand this to Atlas" answerable when there are two of it. Mandate declares nothing
+        // and therefore receives nothing — it is where the user ENTERS, not somewhere work arrives.
         steps: [
-            { tab: 'scanner',   label: 'Scan' },
+            { tab: 'portfolio', label: 'Mandate' },
+            { tab: 'scanner',   label: 'Screen' },
             { tab: 'analyst',   label: 'Research' },
-            { tab: 'portfolio', label: 'Allocate' },
+            { tab: 'portfolio', label: 'Allocate', awaits: 'coverage_set' },
             { tab: null,        label: 'Monitor' },
         ],
     },
@@ -176,6 +262,19 @@ export const DESKS = [
         ],
     },
     {
+        key:      'assist',
+        label:    'Assist Desk',
+        lead:     'Work on your own trade',
+        blurb:    'You bring the ticker and your plan — Mentor pressure-tests it, Talos watches the zones.',
+        hue:      'green',
+        entryTab: 'mentor',
+        agentKey: 'mentor',
+        steps: [
+            { tab: 'mentor', label: 'Build setup' },
+            { tab: null,     label: 'Arm & monitor' },
+        ],
+    },
+    {
         key:      'research',
         label:    'Research Desk',
         lead:     'Research a company',
@@ -187,4 +286,36 @@ export const DESKS = [
             { tab: 'analyst', label: 'Research' },
         ],
     },
+    {
+        key:      'strategy',
+        label:    'Strategy Desk',
+        lead:     'Set the house view',
+        blurb:    'Pythia names the regime and sets the sector tilts it implies.',
+        hue:      'amber',
+        entryTab: 'strategy',
+        agentKey: 'strategy',
+        // ONE step, and it stays one until Atlas actually reads the tilt. A pipeline arrow drawn to
+        // an allocator that ignores the artifact would promise a hand-off nothing performs — the
+        // same failure the trade desk's scan step had before `produces: 'one'` existed.
+        steps: [
+            { tab: 'strategy', label: 'Set the view' },
+        ],
+    },
 ]
+
+// ── The order ticket ───────────────────────────────────────────────────────────
+// Trade by hand: it sits BESIDE the desks in the hub (same card, same chip) because that
+// is where the user decides what to do — but it is deliberately NOT in DESKS. A desk is a
+// pipeline an agent leads, and Axl routes into one by key; the pad has no agent and nothing
+// to route to, so keeping it out is what stops a reply from "summoning" it.
+export const TICKET_DESK = {
+    key:   'ticket',
+    label: 'Order Ticket',
+    lead:  'Trade now',
+    blurb: 'Buy or sell by hand — you bring the level, the app monitors and manages the position.',
+    hue:   'amber',
+    steps: [
+        { tab: 'ticket', label: 'Place order' },
+        { tab: null,     label: 'Manage & monitor' },
+    ],
+}

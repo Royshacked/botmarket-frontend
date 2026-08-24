@@ -1,0 +1,40 @@
+// Segmented dark/light control. Every colour is a token, so the switch itself
+// restyles the instant it flips the palette.
+.mode-switcher {
+    display: inline-flex;
+    gap: 0;
+    border: 1px solid var(--border-mid);
+    border-radius: 4px;
+    overflow: hidden;
+    user-select: none;
+
+    &__btn {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 12px;
+        background: none;
+        border: none;
+        font-family: var(--font-mono);
+        font-size: 0.71rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+
+        & + & { border-left: 1px solid var(--border-mid); }
+
+        &:hover { color: var(--text-primary); background: var(--tint-soft); }
+
+        &--active {
+            background: var(--accent-deep);
+            color: var(--accent-bright);
+        }
+    }
+
+    &__glyph {
+        font-size: 0.85rem;
+        line-height: 1;
+    }
+}

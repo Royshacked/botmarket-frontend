@@ -1,0 +1,36 @@
+// The shared coverage action row. Borrows the existing `coverage-book__retire` sizing and the
+// short/sell tokens the book already uses for a destructive hover, so a button dropped into the
+// Floor's desk reads identically to one in the Radar book.
+
+.coverage-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+
+    &__btn {
+        font-size: 12px;
+        padding: 3px 10px;
+        border-radius: 7px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+        white-space: nowrap;
+
+        &:hover { color: var(--text-primary); border-color: var(--text-muted); }
+
+        // Destructive: neutral until hovered, so Delete never shouts from a resting row.
+        &--danger:hover { color: var(--short-text); border-color: var(--short-border); }
+    }
+
+    // The confirm takes over the row rather than opening a dialog — dismissible by doing nothing.
+    &--confirm { flex-wrap: wrap; }
+
+    &__warn {
+        font-size: 12px;
+        line-height: 1.4;
+        color: var(--short-text);
+        margin-right: auto;
+    }
+}

@@ -1,0 +1,22 @@
+// The shared price-target renderer. Owns only what the number IS: mono figures, a receding horizon,
+// and the gap coloured by direction.
+//
+// WHERE it sits and how loudly it reads stay with the host block — the same target is a right-aligned
+// column on a Floor row and an inline tag in the draft header, and the Floor's rows use the saturated
+// --color-long/short pair where the panels use the pale --long-text/--short-text one. Each host
+// adjusts from its own block (.analyst-panel__draft-head, .coverage-book__row, .floor-row) rather than
+// this file growing a variant per surface.
+.price-target {
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+
+    // Metadata about the target, not the target — recedes so the number still reads first.
+    &__horizon {
+        color: var(--text-muted);
+    }
+
+    &__gap {
+        &--up   { color: var(--long-text); }
+        &--down { color: var(--short-text); }
+    }
+}

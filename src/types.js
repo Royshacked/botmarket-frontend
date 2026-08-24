@@ -174,7 +174,12 @@
  * @property {string|null} [groupId]          links the single-broker children a multi-broker
  *                                            idea was forked into (display grouping; one card)
  * @property {ChatState} [chat_state]
- * @property {'awaiting_confirm'|'awaiting_market'|'placed'|null} [orderState]
+ * @property {'awaiting_confirm'|'awaiting_market'|'awaiting_manual_close'|'awaiting_market_close'|'placed'|null} [orderState]
+ *   `awaiting_market`       — an ENTRY plan built while the venue was shut; the market-open sweep
+ *                             promotes it to awaiting_confirm.
+ *   `awaiting_market_close` — an EXIT the monitor tripped while the venue was shut; it waits in the
+ *                             queued list instead (docs/architecture/off-hours-queue.md). Not a
+ *                             variant of the above: nothing here promotes it, the queue owns it.
  * @property {number} [ordersPlacedAt]        epoch ms once orders are placed
  * @property {{ plan?: OrderPreview[] }} [pendingOrder]  server-built order plan
  * @property {BrokerOrderLink[]} [brokerOrders]  per-account broker linkage; the execution

@@ -1,0 +1,164 @@
+// Mentor's shell. Rides PortfolioPanel.scss for the chat frame (messages, action bubbles,
+// input row) and only adds what's specific to the setup build.
+.mentor-panel {
+    // The coverage chips sit ON the summary header rather than above the chat: they describe the
+    // setup being built, not the conversation.
+    &__build-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    // The whole header line is the fold's handle. Unstyled as a button on purpose — it has to read
+    // as the label it replaced, not as a control parked above the chat.
+    &__build-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        padding: 0;
+        border: none;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+
+        &:hover .portfolio-panel__build-summary-title,
+        &:hover .mentor-panel__build-digest { color: var(--accent-light); }
+    }
+
+    &__build-caret {
+        flex-shrink: 0;
+        width: 9px;
+        font-size: 9px;
+        line-height: 1;
+        color: var(--text-dim);
+    }
+
+    // Folded, this is the entire preview — so it truncates rather than wraps. A digest that took a
+    // second line would defeat the one thing the fold is for.
+    &__build-digest {
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        font-family: var(--font-mono);
+        font-size: var(--chat-meta);
+        letter-spacing: 0.04em;
+        color: var(--text-muted);
+    }
+
+    &__suggestions {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 10px;
+    }
+
+    &__suggestion {
+        padding: 7px 12px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: transparent;
+        color: inherit;
+        font-size: 12.5px;
+        text-align: left;
+        cursor: pointer;
+
+        &:hover:not(:disabled) { border-color: var(--accent); background: var(--bg-hover); }
+        &:disabled { opacity: 0.5; cursor: default; }
+    }
+
+    &__btn { white-space: nowrap; }
+
+    // Generated-but-not-armed. The one state where doing nothing means nothing gets watched, so it
+    // is a deliberate stop with two explicit exits rather than a toast that scrolls away. The two
+    // exits stay STACKED (this is a stop, and stacking is what makes it read as one) — but each is
+    // sized by its own label, like every other action button. Same `stretch` slip as __generate.
+    &__armed {
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+    }
+
+    &__armed-copy {
+        margin: 0 0 2px;
+        font-size: var(--chat-meta);
+        line-height: 1.5;
+        color: var(--text-dim);
+        text-align: center;
+
+        strong { color: inherit; font-family: var(--font-mono); }
+        em     { font-style: normal; color: var(--accent-light); }
+    }
+}
+
+// Generate + the readiness hint, at the foot of the conversation rather than in the preview.
+//
+// COLUMN because the hint belongs under the button, not beside it — but `center`, not `stretch`.
+// Stretching made this the one action button in the app sized by its ROW instead of its label: a
+// full-width slab where Generate call, Update list and every other action is a pill. That is the
+// same rule portfolio-panel__review-btn states for itself (`flex: 0 0 auto`, "sized by its own
+// label, NOT by the row") — an ancestor's align-items was quietly overriding it.
+.mentor-panel__generate {
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.mentor-panel__missing {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: var(--chat-label);
+    color: var(--text-dim);
+    text-align: center;
+
+    em { font-style: normal; color: var(--accent-light); }
+}
+
+// A CONTRADICTION, not a gap — the setup is complete and still refuses, so it has to read
+// differently from "still needs a stop zone" or the user goes looking for a field to fill.
+.mentor-panel__problem {
+    color: var(--accent);
+}
+
+// The preview's two heights. The shared shell caps this block at 140px with a scrollbar, which is
+// the wrong shape for a worksheet: too tall to ignore while you talk, too short to read in one go
+// once a second way in is drawn. So Mentor takes both ends instead — one line folded, the whole
+// thing open.
+//
+// Specificity is deliberate (two classes): the shared cap it overrides is a single class in a
+// stylesheet whose bundle order relative to this one is decided by whichever panel Vite reaches
+// first, so matching its weight would make the override depend on the route you loaded.
+.portfolio-panel__build-summary.mentor-panel__build {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: none;
+    overflow: visible;
+
+    // FOLDED = exactly one line: the digest ellipsises and the chips stop wrapping, so a narrow
+    // panel can't quietly turn "collapsed" back into three rows.
+    &:not(.is-open) {
+        .mentor-panel__build-head { flex-wrap: nowrap; }
+        .coverage-chips           { flex-wrap: nowrap; flex-shrink: 0; }
+    }
+
+    // OPEN = read it in one go, no inner scrollbar. The cap and the shrink are a floor under the
+    // pathological case only — the panel clips its overflow, so an unbounded worksheet with four
+    // ways in would push the chat input off the bottom of a short panel (Floor mode gives this
+    // column far less than a viewport). `flex-shrink` is the half that vh can't do: it re-caps the
+    // block against the PANEL rather than the screen, and the messages list above it is already
+    // `min-height: 0`, so what gives is this block scrolling — never a clipped input row.
+    // A normal setup sits well inside both limits and never scrolls, which is the whole point.
+    &.is-open {
+        max-height: 70vh;
+        min-height: 0;
+        flex-shrink: 1;
+        overflow-y: auto;
+    }
+}
+

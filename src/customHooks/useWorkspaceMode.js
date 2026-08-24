@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { paperService } from '../services/paper/paper.service.remote.js'
+import { workspaceService } from '../services/workspace/workspace.service.remote.js'
 import { useAutoRefresh } from './useAutoRefresh.js'
 import { useWindowEvent } from './useWindowEvent.js'
 
@@ -12,8 +13,17 @@ import { useWindowEvent } from './useWindowEvent.js'
  * Source of truth per mode:
  *   - paper/live ride the backend paper `enabled` flag (paper ON ⇔ 'paper' workspace), so
  *     this stays perfectly in sync with the existing profile toggle + PAPER badge.
- *   - manual has no backend flag yet, so it's a local overlay (localStorage) — selecting
- *     it turns paper OFF (manual is broker-less, paper-off) and remembers the choice.
+ *   - manual has no broker connection to derive itself from (it is broker-LESS by definition), so
+ *     selecting it turns paper OFF and remembers the choice. localStorage stays the client's
+ *     synchronous source of truth — resolveWorkspace below is called from the account/position
+ *     hooks, which cannot await — and the choice is ALSO written to the server.
+ *
+ * WHY THE SERVER NEEDS TO KNOW. It used to be told nothing, so it derived the workspace from the
+ * paper flag alone and read a user sitting in MANUAL as sitting in LIVE. That is now wrong in a way
+ * that reaches the user: every desk is handed the current workspace each turn, and a desk that
+ * thinks manual is live will describe orders being placed that the app cannot place at all. The
+ * write is best-effort — if it fails the view still switches and the server falls back to its old
+ * paper-or-live answer, which is where it was before.
  *
  * Switching dispatches 'paper-mode-changed' (re-syncs accounts/positions/badge exactly as
  * the profile toggle does) plus 'workspace-mode-changed' (so sibling instances of this
@@ -50,7 +60,16 @@ export function useWorkspaceMode(userId) {
     // the periodic refocus refresh + the 'paper-mode-changed' listener can both call it.
     const refresh = useCallback(async () => {
         if (!userId) { setWs('live'); return }
-        const stored = readStored()
+        let stored = readStored()
+        try {
+            // Adopt the server's remembered choice when this browser has none — a second device, or
+            // cleared storage, should land the user back in the workspace they were working in
+            // rather than silently in live.
+            if (!stored) {
+                const { stored: remote } = await workspaceService.get()
+                if (remote) { stored = remote; writeStored(remote) }
+            }
+        } catch { /* no remote choice available — the local one still decides below */ }
         try {
             const st = await paperService.getState()
             if (st?.enabled)            setWs('paper')
@@ -72,7 +91,11 @@ export function useWorkspaceMode(userId) {
         if (!ORDER.includes(next)) return
         writeStored(next)
         setWs(next)
+        // Both writes are best-effort and independent: the paper flag is what live-vs-paper is
+        // derived from, the stored choice is what separates manual from live. Losing either leaves
+        // the server on its previous answer, never on a wrong one.
         try { await paperService.setMode(next === 'paper') } catch { /* view still switches */ }
+        try { await workspaceService.set(next) } catch { /* the desks fall back to paper-or-live */ }
         window.dispatchEvent(new CustomEvent('paper-mode-changed'))
         window.dispatchEvent(new CustomEvent('workspace-mode-changed'))
     }, [])

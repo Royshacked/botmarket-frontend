@@ -1,5 +1,5 @@
 // Text-speed knob for the AI Preferences settings row. Matches the muted/mono
-// tone of the neighbouring model & reasoning selectors (see ModelSelector.scss).
+// tone of the neighbouring model select in the profile's AI card.
 .pace-slider {
     display: flex;
     align-items: center;
@@ -7,7 +7,7 @@
 
     &__cap {
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 700;
         letter-spacing: 0.06em;
         text-transform: uppercase;

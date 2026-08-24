@@ -1,7 +1,19 @@
 // ─── AppHeader · "axl" style (trial) ──────────────────────────────────────────
-// A calm, aurora-themed header: animated calm-water wave bottom edge, ambient
-// breathing candlesticks, a centered AI prompt/reply stream, a status pill and a
-// profile cluster. Ported from the axl mock and adapted to TRADVICE content.
+// A calm header on the plain theme background: animated calm-water wave bottom edge,
+// a centered AI prompt/reply stream, a status pill and a profile cluster. Ported from
+// the axl mock and adapted to TRADVICE content.
+//
+// Two decorations have been stripped since the port, both for the same reason — the
+// header's job is to stay quiet — and each took its now-orphaned tokens with it:
+//   • the ambient breathing candlestick band, plus --axl-green/teal/cyan/violet;
+//   • the aurora bloom and the translucency/blur behind it, plus --aurora-wash and
+//     --aurora-1..4 (_themes.scss).
+//
+// The header therefore draws NO edge of its own: __edge (the calm-water wave) is
+// display:none, so the 1px line you see beneath it is the top border of the panels
+// below (.chat-panel / .portfolio-panel / .floor-left / .floor-lists).
+// --aurora-hue and --wave-1..5 are kept only because deleting the one display:none
+// restores the wave; nothing renders them today.
 //
 // Self-contained: all colours live in local custom properties on .app-header-axl,
 // so this style does NOT depend on — or affect — the app-wide theme tokens. That
@@ -16,8 +28,7 @@
 .app-header-axl {
     // ── palette: derived from the app-wide tokens so the header re-themes with the
     // rest of the app. Under the live `axl` theme these tokens equal the original
-    // hardcoded aurora literals (so `current` is unchanged); each design trial
-    // (data-design on <html>) overrides the same tokens, so the header follows.
+    // hardcoded aurora literals (so `current` is unchanged).
     --axl-night:   var(--bg-base);
     --axl-night-2: var(--bg-hover);
     --axl-panel:   var(--bg-surface);
@@ -28,15 +39,13 @@
     --axl-birch:   var(--text-primary);
     --axl-aurora:  var(--accent-light);
     --axl-aurora-dim: var(--accent);
-    // Decorative ambient candlestick hues (≈0.05 effective opacity) — kept as the
-    // multi-hue aurora signature; not part of the per-design recolour.
-    --axl-green:   #7FD69E;
-    --axl-teal:    #5BCBC0;
-    --axl-cyan:    #5FB9D9;
-    --axl-violet:  #9E9BE3;
     --axl-ease: cubic-bezier(0.22, 1, 0.36, 1);
     // Sized to seat the analog dials (label lives on the face; status row hidden).
     --axl-h: 108px;
+    // The hamburger's diameter. A token because the mobile sheet is positioned FROM it — it opens
+    // level with the button, not under the bar — and two copies of 42px would drift the day the
+    // button is resized, leaving the sheet floating off its own control.
+    --axl-burger: 42px;
 
     position: sticky;
     top: 0;
@@ -44,19 +53,14 @@
     flex-shrink: 0;
     height: var(--axl-h);
     font-family: 'Hanken Grotesk', system-ui, sans-serif;
-    background: var(--bg-surface);
+    // Plain theme background — the SAME surface as the app under it, so the header reads as the
+    // top of one page rather than a separate pane laid over it.
+    //
+    // What went with it: the 82%-translucency + backdrop-blur (invisible behind an opaque fill,
+    // and it cost a compositing layer on a sticky element), and the --aurora-wash bloom that used
+    // to sit on ::after. No border here — the line below the header belongs to the panels.
+    background: var(--bg-base);
     color: var(--axl-birch);
-
-    // aurora hue-wash, blooming up from the wave at the bottom edge
-    &::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        z-index: 0;
-        pointer-events: none;
-        // shared, hue-slider-driven aurora wash (see --aurora-wash in _themes.scss)
-        background: var(--aurora-wash);
-    }
 
     &__inner {
         position: relative;
@@ -103,29 +107,6 @@
         .w3 { stop-color: var(--wave-3); }
         .w4 { stop-color: var(--wave-4); }
         .w5 { stop-color: var(--wave-5); }
-    }
-
-    // ── ambient aurora candlesticks, breathing up from the waterline ──
-    &__ticks {
-        position: absolute;
-        inset: 0;
-        z-index: 0;
-        overflow: hidden;
-        pointer-events: none;
-
-        svg { display: block; width: 100%; height: 100%; opacity: 0.18; }
-        .wick   { stroke-width: 0.8; opacity: 0.28; }
-        .candle { fill-opacity: 0.3; }
-        .c-green  { fill: var(--axl-green);  stroke: var(--axl-green); }
-        .c-teal   { fill: var(--axl-teal);   stroke: var(--axl-teal); }
-        .c-cyan   { fill: var(--axl-cyan);   stroke: var(--axl-cyan); }
-        .c-violet { fill: var(--axl-violet); stroke: var(--axl-violet); }
-        .grp {
-            transform-box: fill-box;
-            transform-origin: 50% 100%;
-            animation: axl-candle-breathe var(--dur, 7s) ease-in-out infinite;
-            will-change: transform;
-        }
     }
 
     // ── brand ──
@@ -209,7 +190,7 @@
         }
         .msg-tag {
             font-family: 'Space Mono', monospace;
-            font-size: 0.66rem;
+            font-size: 0.72rem;
             letter-spacing: 0.04em;
             padding: 3px 7px;
             border-radius: 999px;
@@ -224,7 +205,12 @@
     }
 
     // ── right cluster ──
+    // `__right` is the anchor; `__cluster` holds the controls (workspace switch · messages ·
+    // profile). On desktop the cluster IS the bar's right end; on mobile the same markup drops
+    // into a sheet under `__burger` (see the mobile block at the bottom) — one set of controls,
+    // re-laid-out, never a second copy.
     &__right {
+        position: relative;
         display: flex;
         align-items: center;
         gap: 8px;
@@ -232,12 +218,65 @@
         height: 100%;
     }
 
+    &__cluster {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 100%;
+    }
+
+    // Hamburger — hidden until the mobile breakpoint. Circular, matching the chat/profile
+    // buttons it stands in for.
+    &__burger {
+        display: none;
+        // Positioned for the unread dot only — deliberately NO z-index, so the sheet (z-index 3)
+        // paints over it. The sheet opens level with this button and covers it; closing is the
+        // outside tap or Escape that useEffect already binds.
+        position: relative;
+        align-items: center;
+        justify-content: center;
+        width: var(--axl-burger);
+        height: var(--axl-burger);
+        cursor: pointer;
+        border-radius: 50%;
+        color: var(--axl-birch);
+        background: radial-gradient(circle at 50% 44%,
+            color-mix(in srgb, var(--accent-light) 20%, transparent),
+            color-mix(in srgb, var(--accent)       10%, transparent) 60%,
+            color-mix(in srgb, var(--accent-light) 13%, transparent));
+        border: 1px solid color-mix(in srgb, var(--accent-light) 42%, transparent);
+        transition: box-shadow 0.4s var(--axl-ease), border-color 0.25s var(--axl-ease), color 0.25s var(--axl-ease);
+
+        svg { width: 22px; height: 22px; }
+
+        &.is-open,
+        &:hover {
+            border-color: color-mix(in srgb, var(--accent-light) 70%, transparent);
+            color: var(--axl-aurora);
+            box-shadow: 0 0 10px rgba(116, 201, 174, 0.4);
+        }
+        &:focus-visible { outline: 2px solid var(--axl-aurora); outline-offset: 2px; }
+    }
+
+    // Messages lives inside the sheet on mobile, so its unread count has to reach the bar —
+    // a dot, not the number: the count is one tap away, the fact that there IS one isn't.
+    &__burger-dot {
+        position: absolute;
+        top: 2px;
+        right: 3px;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--color-short);
+        box-shadow: 0 0 0 2px var(--bg-base);
+    }
+
     &__status {
         display: inline-flex;
         align-items: center;
         gap: 7px;
         font-family: 'Space Mono', monospace;
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         letter-spacing: 0.02em;
         color: var(--axl-fog);
         padding: 6px 11px;
@@ -298,7 +337,7 @@
         right: -4px;
         background: var(--color-short);
         color: #fff;
-        font-size: .62rem;
+        font-size: 0.68rem;
         font-weight: 700;
         padding: 1px 4px;
         border-radius: 10px;
@@ -348,7 +387,7 @@
         text-align: left;
 
         .name { font-size: 0.85rem; font-weight: 500; color: var(--axl-birch); white-space: nowrap; }
-        .tier { font-size: 0.68rem; color: var(--axl-fog-dim); letter-spacing: 0.04em; }
+        .tier { font-size: 0.74rem; color: var(--axl-fog-dim); letter-spacing: 0.04em; }
     }
 
     // Just a (bigger) back arrow on the profile page.
@@ -374,6 +413,54 @@
         &__who { display: none; }
         &__inner { gap: 14px; }
     }
+
+    // ── Mobile: the same header, scaled, with the nav collapsed ───────────────
+    // The brand keeps its proportions at a smaller size — the chat below needs the height,
+    // and a 108px bar on a phone is a third of the fold. (Drop the --axl-h line to keep the
+    // header at full desktop size.)
+    @media (max-width: 767px) {
+        --axl-h: 74px;
+
+        &__inner { padding: 0 12px; gap: 10px; }
+        &__mark  { width: 46px; height: 46px; }
+        &__wordmark { font-size: 1.85rem; letter-spacing: 0.14em; }
+
+        &__burger { display: inline-flex; }
+
+        // The cluster becomes a sheet hanging off the hamburger: the workspace switch on its
+        // own row, then messages + profile.
+        //
+        // It opens LEVEL with the hamburger, not under the bar. `top: 100% + 10px` measured from
+        // `__right`, which is the full header height — so on a 74px phone header the sheet started
+        // ~84px down, a third of the fold below the button that opened it and reading as something
+        // the page had grown rather than something that button produced. Anchoring it to the
+        // button's own top edge costs the bar's right end, which holds nothing else on mobile.
+        &__cluster {
+            display: none;
+            position: absolute;
+            // `__right` is full-height and centres the burger, so the burger's top edge sits at
+            // half the height less half the button.
+            top: calc(50% - var(--axl-burger) / 2);
+            right: 0;
+            z-index: 3;
+            height: auto;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 10px;
+            min-width: 208px;
+            padding: 12px;
+            border-radius: 12px;
+            background: var(--axl-panel);
+            border: 1px solid var(--axl-line);
+            box-shadow: 0 14px 34px -12px rgba(0, 0, 0, 0.6);
+
+            &.is-open { display: flex; }
+
+            .app-header-axl__modes { flex: 1 0 100%; justify-content: center; }
+            .app-header-axl__mode  { flex: 1; padding: 7px 8px; }
+        }
+    }
+
     @media (max-width: 480px) {
         &__divider { display: none; }
     }
@@ -383,14 +470,8 @@
     from { transform: translateX(0); }
     to   { transform: translateX(-50%); }
 }
-@keyframes axl-candle-breathe {
-    0%, 100% { transform: scaleY(0.70); }
-    50%      { transform: scaleY(1.06); }
-}
-
 @media (prefers-reduced-motion: reduce) {
     .app-header-axl__edge svg { animation: none !important; }
-    .app-header-axl__ticks .grp { animation: none !important; }
     .app-header-axl__profile,
     .app-header-axl__stream .msg { transition: none !important; }
 }
@@ -404,13 +485,13 @@
     align-self: center;
     padding: 2px;
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+    background: color-mix(in srgb, var(--tint-soft) 65%, transparent);
+    border: 1px solid var(--border);
 }
 
 .app-header-axl__mode {
     font-family: var(--font-mono, monospace);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.1em;
     line-height: 1;
@@ -424,7 +505,7 @@
     cursor: pointer;
     transition: color 0.15s, background 0.15s;
 
-    &:hover { color: var(--text-primary); background: var(--bg-raised, rgba(255, 255, 255, 0.06)); }
+    &:hover { color: var(--text-primary); background: var(--bg-raised); }
 
     // Active segment: filled with the app accent (follows the aurora hue).
     &.is-active {
@@ -485,7 +566,7 @@
     &__status {
         display: none;   // status line hidden for now — delete this line to restore it
         margin-top: 6px;   // sits just below the dial (name now lives on the face)
-        font-size: 0.55rem;
+        font-size: 0.61rem;
         line-height: 1;
         letter-spacing: 0.02em;
         color: var(--axl-fog-dim);

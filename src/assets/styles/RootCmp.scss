@@ -18,12 +18,13 @@
 }
 
 // ── Workspace grid ───────────────────────────────────────────────────────────
-// Two equal columns: chat (left) | ideas (right)
+// Two columns: chat (left, 65%) | ideas (right, 35%). The chat is where the work happens —
+// the ideas column is a list, and reads fine narrower.
 .workspace {
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: 50% 50%;
+    grid-template-columns: 65% 35%;
     grid-template-areas: "chat ideas";
     column-gap: 0;
     padding: 0;
@@ -36,6 +37,12 @@
     display: flex;
     flex-direction: column;
     position: relative;   // anchor for the "back to axl" return overlay
+    // The line under the app header belongs to the columns (the header draws none — see
+    // AppHeaderAxl.scss), and the Floor columns draw it on the COLUMN. The chat column used to draw
+    // it inside its own header instead, which ate a pixel of that header's 54px: the chat heading's
+    // bottom edge landed at 54px where a Floor heading's lands at 55, and the two rows of headings
+    // missed each other by exactly that. Drawn here, they line up.
+    border-top: 1px solid var(--border);
 }
 
 .workspace__chat .chat-panel { border-top-right-radius: 0; border-bottom-right-radius: 0; }
@@ -50,6 +57,39 @@
     border-top-left-radius: 0;
     border-bottom-left-radius: 0;
     overflow: hidden;
+}
+
+// ── Floor design trial: three columns ────────────────────────────────────────
+// book + calendar | chat | desks. The chat column is the flexible one BY DESIGN — the two
+// side columns are fixed, so the chat's measure changes only with the viewport, never as a
+// side effect of opening or closing something. (See cmps/Floor/Floor.scss for the rows.)
+//
+// The chart still takes over the right column, exactly as it does in the current design.
+// Trial: proportional 22.5 / 55 / 22.5 instead of fixed side columns — the two side columns are
+// symmetric, so the chat sits genuinely centred rather than centred-in-the-leftovers, and now
+// every column scales with the viewport together.
+[data-design="floor"] .workspace {
+    grid-template-columns: 22.5% minmax(0, 55%) 22.5%;
+    grid-template-areas: "floor-left chat floor-right";
+}
+
+[data-design="floor"] .workspace__left  { grid-area: floor-left;  min-height: 0; min-width: 0; }
+[data-design="floor"] .workspace__right { grid-area: floor-right; min-height: 0; min-width: 0; }
+
+// The chat panel is a middle column here, so it keeps square edges on both sides.
+[data-design="floor"] .workspace__chat .chat-panel {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+// Narrow desktop: the book/calendar column is the first to go — the desks and the chat are
+// what you act in. Below the tablet breakpoint the design falls back to the standard layout.
+@media (max-width: 1439px) {
+    [data-design="floor"] .workspace {
+        grid-template-columns: minmax(0, 1fr) 400px;
+        grid-template-areas: "chat floor-right";
+    }
+    [data-design="floor"] .workspace__left { display: none; }
 }
 
 // ── Chat agent panels (axl hub routes here; breadcrumb bar lives in AxlHub.scss) ──
@@ -74,91 +114,153 @@
 }
 
 // ── Tablet: 768px – 1023px ────────────────────────────────────────────────────
+// Already 2-column on desktop; tablet inherits the same layout.
 @media (max-width: 1023px) {
     .workspace {
-        grid-template-columns: 50% 50%;
+        grid-template-columns: 65% 35%;
         grid-template-areas: "chat ideas";
     }
 }
 
 // ── Mobile: < 768px ───────────────────────────────────────────────────────────
-// Two tabs via bottom nav — Hub (full agent workspace) | Monitor (trade ideas).
+// The header, then the chat — nothing else. On a phone the app is the conversation: the desks
+// (axl hub → agent panels) are what you act in, and every list they produce has a surface of its
+// own on desktop. So the workspace collapses to its chat column; the lists column, the Floor's
+// two side columns and the monitor dashboard are all desktop/tablet surfaces here.
+//
+// (This replaced Monitor Mode + the chat FAB/sheet: the sheet opened the ARCHIVED idea chat,
+// which can no longer send — /api/idea is unmounted — so mobile had no live agent at all.)
 @media (max-width: 767px) {
-    // Collapse workspace to single chat column; ideas panel hides.
     .workspace {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
         grid-template-areas: "chat";
     }
-    .workspace.mobile-hidden { display: none; }
+
     .workspace__ideas { display: none; }
 
-    // Panels go full-bleed on mobile — no borders or radius.
-    .axl-hub,
+    // The Floor trial folds to the same single column (its own breakpoint above only drops
+    // the left column, so the right one is named again here).
+    [data-design="floor"] .workspace {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "chat";
+    }
+    [data-design="floor"] .workspace__left,
+    [data-design="floor"] .workspace__right { display: none; }
+
+    // The chat owns the height and scrolls inside itself — the page never scrolls.
+    .main-container main { overflow: hidden; }
+
+    // 100vh on a phone measures past the browser's own chrome, which would put the composer
+    // under the URL bar. dvh tracks the visible viewport instead. (Mobile only: desktop keeps
+    // 100vh, where the two are the same and dvh buys nothing.)
+    .main-container { height: 100dvh; }
+
+    // Full-bleed column — no rounded corners to round against.
     .workspace__chat .chat-panel,
-    .workspace__chat .chat-tabs__panel > * {
-        border: none;
-        border-radius: 0;
+    .workspace__chat .axl-hub { border-radius: 0; border-left: none; border-right: none; }
+
+    .chat-agentbar { padding: 6px 8px; gap: 6px; }
+
+    // ── The pipeline path, folded for a phone ──
+    // It used to be `display: none` here: the desktop path (up to five step names joined by 18px
+    // rules) is wider than the phone and pushed the controls off the edge. But dropping it meant the
+    // one thing the user had just CHOSEN — which pipeline they're in — was the one thing the header
+    // didn't say, and on mobile this strip is the ONLY chrome above the conversation; there is no
+    // lists column and no Floor to infer it from.
+    //
+    // So the path compresses instead of disappearing, and it does it in CSS over the SAME markup —
+    // a second mobile-only crumb in MainPage would be a second reading of "which step is this?",
+    // which pipelineNav.js exists to prevent. Two lines inside the 54px strip: the desk name over
+    // its steps, with the steps reduced to dots and only the one you are STANDING on still named.
+    // A dot per step keeps what a stepper is actually for on a small screen — how many stops there
+    // are and which is yours — at a fraction of the width of five words.
+    .chat-agentbar__pipeline {
+        flex-wrap: wrap;
+        align-content: center;
+        gap: 1px 5px;
+        margin-left: -4px;
+        // It is the one elastic thing in the strip: the back arrow and the right-hand controls are
+        // fixed and must not be pushed off, so the path is what yields.
+        min-width: 0;
+        overflow: hidden;
     }
 
-    // Tighten header on small screens.
+    // Its own line, and quieter than the steps under it — on the phone the desk name is context,
+    // while the step is where you are.
+    .chat-agentbar__pipeline-label {
+        flex-basis: 100%;
+        margin-right: 0;      // the desktop 24px gap held the path off; stacked, there is nothing beside it
+        font-size: 9.5px;
+        line-height: 1.2;
+        color: var(--text-dim);
+    }
+
+    // The joining rules go with the words they joined — adjacent dots already read as a sequence.
+    .chat-agentbar__pipeline-line { display: none; }
+
+    .chat-agentbar__pipeline-step::before {
+        content: '';
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--border-mid);
+        flex-shrink: 0;
+    }
+
+    // Every step is a dot; the active one keeps its name, so the line reads "○ ● SCAN ○" — where
+    // you are, in words, with the stops either side of it.
+    //
+    // The names that give up their pixels are taken out of FLOW, not out of the document: a dot
+    // says nothing to a screen reader, and `display: none` would have left the path as four
+    // anonymous bullets. Off-flow, they cost no width and still read in order.
+    .chat-agentbar__pipeline-text {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+
+    .chat-agentbar__pipeline-step.is-active {
+        gap: 5px;
+        &::before { background: var(--accent-light); }
+
+        .chat-agentbar__pipeline-text {
+            position: static;
+            width: auto;
+            height: auto;
+            overflow: hidden;
+            clip-path: none;
+            // Bounded so a long step name can't wrap the dots onto a third line the 54px strip
+            // would clip. Nothing hits this today; it is here so a future step name can't break
+            // the strip by being wordy.
+            display: inline-block;
+            max-width: 38vw;
+            text-overflow: ellipsis;
+            vertical-align: bottom;
+            font-size: 11px;
+        }
+    }
+
+    // Fixed against the yielding path beside them.
+    .chat-agentbar__right { flex-shrink: 0; }
+
+    // Tighten header on small screens
     .app-header {
         padding: 0 0.75rem;
         min-height: 3.2rem;
-        h1 { font-size: 0.75rem; letter-spacing: 0.1em; }
+
+        h1 { font-size: 0.78rem; letter-spacing: 0.1em; }
+
         &__logo { width: 2rem; height: 2rem; }
     }
 }
 
 // ── Very small screens: < 380px ───────────────────────────────────────────────
 @media (max-width: 379px) {
-    .app-header h1 { display: none; }
+    .app-header h1 { display: none; }  // logo only — saves space
 }
 
-// ── Mobile monitor tab wrapper ─────────────────────────────────────────────────
-.mobile-monitor {
-    display: none;
-
-    @media (max-width: 767px) {
-        &--active {
-            display: flex;
-            flex: 1;
-            min-height: 0;
-            flex-direction: column;
-        }
-    }
-}
-
-// ── Mobile bottom nav ─────────────────────────────────────────────────────────
-.mobile-nav {
-    display: none;
-
-    @media (max-width: 767px) {
-        display: flex;
-        flex-shrink: 0;
-        background: var(--bg-surface);
-        border-top: 1px solid var(--border);
-    }
-
-    &__tab {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 4px;
-        padding: 9px 0 10px;
-        background: transparent;
-        border: none;
-        color: var(--text-muted);
-        font-family: var(--font-mono);
-        font-size: 0.58rem;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        cursor: pointer;
-        transition: color 0.15s;
-
-        svg { width: 20px; height: 20px; }
-
-        &.is-active { color: var(--accent-light); }
-    }
-}
+// (The mobile chat FAB + full-screen sheet were removed with Monitor Mode — the chat column
+// itself is the mobile surface now, so there is nothing to open it over.)

@@ -1,38 +1,25 @@
 import { useState, useRef, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { analystService } from '../../services/analyst/analyst.service.remote.js'
+import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote.js'
 import { readStoredModel } from '../modelOptions.js'
-import { readStoredReasoning } from '../reasoningOptions.js'
-import { useChatStream } from '../../customHooks/useChatStream.js'
-import { useChatScroll } from '../../customHooks/useChatScroll.js'
-import { ChatInputRow } from '../ChatInputRow.jsx'
-import { ChatMarkdown } from '../ChatMarkdown.jsx'
-import { ChatReasoning } from '../ChatReasoning.jsx'
-import { ChatPhaseHeading } from '../ChatPhaseHeading.jsx'
+import { useChatStream, toChatHistory, withoutPrefill } from '../../customHooks/useChatStream.js'
+import { useSeedTurn } from '../../customHooks/useSeedTurn.js'
+import { AgentMessages } from '../AgentMessages.jsx'
+import { AgentChatInput } from '../AgentChatInput.jsx'
+import { ChatBubble } from '../ChatBubble.jsx'
+import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
+import { waitingLabel } from '../ToolStatusChip/waitingLabel.js'
+import { resolveArtifact } from '../../services/pipeline/artifact.js'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import './AnalystPanel.scss'
 
 const ANALYST_PHASE_LABELS = { 1: 'Profile', 2: 'The Street', 3: 'Our view', 4: 'Valuation', 5: 'The call', 6: 'Coverage' }
 
-function MessageBubble({ msg }) {
-    if (msg.role === 'phase') return <ChatPhaseHeading phase={msg.phase} label={ANALYST_PHASE_LABELS[msg.phase]} total={6} />
-    if (msg.role === 'user')  return <div className="portfolio-panel__bubble portfolio-panel__bubble--user">{msg.content}</div>
-    const reasoning = <ChatReasoning text={msg.reasoning} live={msg.streaming && !msg.content} />
-    if (!msg.content && msg.streaming) {
-        return (
-            <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant">
-                {reasoning}<span className="portfolio-panel__thinking">researching…</span>
-            </div>
-        )
-    }
-    return (
-        <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant">
-            {reasoning}
-            <div className="portfolio-panel__bubble-text"><ChatMarkdown>{msg.content}</ChatMarkdown></div>
-        </div>
-    )
-}
+const MessageBubble = ({ msg }) => (
+    <ChatBubble msg={msg} phaseLabels={ANALYST_PHASE_LABELS} phaseTotal={6} />
+)
 MessageBubble.propTypes = { msg: PropTypes.object.isRequired }
 
 // The drafted coverage preview — the variant-perception thesis, our PT vs the Street (the gap = the
@@ -46,12 +33,7 @@ export function CoverageDraft({ coverage }) {
             <div className="analyst-panel__draft-head">
                 <span className="analyst-panel__asset">{coverage.symbol}</span>
                 {coverage.rating && <span className={`analyst-panel__rating analyst-panel__rating--${coverage.rating}`}>{coverage.rating.replace('_', ' ')}</span>}
-                {pt?.value != null && (
-                    <span className="analyst-panel__pt">
-                        PT {pt.value}
-                        {gap?.pct != null && <span className={`analyst-panel__gap analyst-panel__gap--${gap.pct >= 0 ? 'up' : 'down'}`}> {gap.pct >= 0 ? '+' : ''}{gap.pct}% vs Street</span>}
-                    </span>
-                )}
+                <PriceTarget priceTarget={pt} gap={gap} gapSource />
             </div>
             {coverage.thesis && <div className="analyst-panel__thesis">{coverage.thesis}</div>}
             {kills.length > 0 && (
@@ -65,16 +47,26 @@ export function CoverageDraft({ coverage }) {
 }
 CoverageDraft.propTypes = { coverage: PropTypes.object.isRequired }
 
-export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated, coverage = [] }) {
+export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, onLoadingChange, onInitiated, onSleeveResearched, coverage = [], pipeline = null, resumeRef = null }) {
     const chat = useChatStream({ threadPhases: true })
     const { messages, isLoading } = chat
-    const [inputText, setInputText] = useState('')
     const [pendingCoverage, setPendingCoverage] = useState(null)
     const [initiateErr, setInitiateErr] = useState('')
-    const textareaRef = useRef(null)
+    // A DOORWAY failure — a card or pencil asked for a thesis this panel could not read. Separate
+    // from initiateErr, which belongs to the draft's save button.
+    const [openErr, setOpenErr] = useState('')
+    // The rest of a handed-over sleeve, and what has been covered so far in this run. `done` is what
+    // gets handed back to Atlas — the names it can actually construct from.
+    const [queue, setQueue] = useState([])
+    const [done,  setDone]  = useState([])
+    // Whether this run came from a sleeve hand-off at all. Distinct from `queue.length`: on the LAST
+    // name the queue is already empty, and keying off that sent the user home to Axl a click before
+    // the hand-back to Atlas could be offered.
+    const [sleeveRun, setSleeveRun] = useState(false)
     const seedRef     = useRef(null)   // one-shot Argus investing seed for the next send
     const pendingRef  = useRef(null)
     pendingRef.current = pendingCoverage
+    const threadIdRef = useRef(newThreadId())   // the research conversation's draft thread
 
     // Existing coverage for the pending symbol — drives "Update vs Initiate" mode.
     // Match any status: the backend blocks initiation for retired coverage too, so we must update it.
@@ -84,41 +76,61 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated, 
     const existingRef = useRef(null)
     existingRef.current = existingCoverage
 
-    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, { watch: chat.streamStatus })
-
     useEffect(() => { onLoadingChange?.(isLoading) }, [isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
 
+    /**
+     * Persist the research conversation as a DRAFT THREAD (the shared mechanism — same call Mentor,
+     * Kairos, Scanner and Portfolio make; the backend enforces the substantive floor, the TTL and the
+     * LRU cap). Without it this desk had no persistence at all: the marker read nothing, the lock
+     * closed nothing, and the resume the user saw was React state surviving behind a `display:none`
+     * tab — gone on the next reload.
+     *
+     * `pipeline` is the DESK, and it is what makes the marker land on ONE route rather than on every
+     * desk that happens to enter at Prometheus (see AxlHub/deskWork).
+     *
+     * The EDIT run saves here too, unlike Kairos/Mentor, which write their chat back onto the artifact
+     * they are editing. Coverage has no chat-state field to write to, and inventing one to mirror the
+     * shape would persist the same conversation twice. The link on save is what ties it to the thesis.
+     */
+    // `draft` is passed IN rather than read off the ref: setPendingCoverage lands after this turn's
+    // onDone runs, so the ref still holds the PREVIOUS draft right here — the same reason Kairos
+    // threads `nextCall` through instead of reading its state.
+    function _saveThread(msgs, phase, draft) {
+        threadsService.saveDraft({
+            pipeline,
+            threadId: threadIdRef.current, agent: 'analyst',
+            messages: msgs, phase: phase ?? null, subjectType: 'coverage',
+            state: draft ? { draft } : null,
+        })
+    }
+
     async function _send(text) {
-        if (!text || isLoading) return
-        setInputText('')
         setInitiateErr('')
-        const seed = seedRef.current; seedRef.current = null
-        const history = messages.filter(m => !m.streaming && m.role !== 'phase').map(m => ({ role: m.role, content: m.content }))
+        const candidate = seedRef.current; seedRef.current = null   // NB: the Argus payload, not the `seed` prop
+        const history = toChatHistory(messages)
         history.push({ role: 'user', content: text })
 
-        const { signal, handlers } = chat.begin(text, {
+        await chat.run(text, {
+            log: '[analyst]',
+            // Stopped mid-answer: save the user's message and the turns before it, with the phase in
+            // force (chat.phase, not data.phase — there is no `data`). The backend floor still
+            // applies, so a stop before Prometheus reached phase 2 persists nothing, exactly as a
+            // completed turn below the floor does.
+            onStopped: () => _saveThread(history, chat.phase, pendingRef.current),
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant' })   // keep the phase-threaded bubbles
                 if (data.coverage) setPendingCoverage(data.coverage)
+                _saveThread([...history, { role: 'assistant', content: data.reply }], data.phase, data.coverage ?? pendingRef.current)
             },
-        })
-
-        try {
-            await analystService.sendStream(history, {
-                model:           readStoredModel('analystModel'),
-                reasoningEffort: readStoredReasoning('analystReasoning'),
+            send: ({ signal, handlers }) => analystService.sendStream(history, {
+                model:           readStoredModel(),
                 // Feed the draft-so-far back so the model carries settled fields forward.
-                chatState:       { active_symbol: pendingRef.current?.symbol || seed?.ticker || '', draft: pendingRef.current, existing_coverage: existingRef.current },
-                seed,            // structured Argus investing candidate (one-shot on the hand-off turn)
+                chatState:       { active_symbol: pendingRef.current?.symbol || candidate?.ticker || '', draft: pendingRef.current, existing_coverage: existingRef.current },
+                seed: candidate, // structured Argus investing candidate (one-shot on the hand-off turn)
                 signal,
                 ...handlers,
-            })
-        } catch (err) {
-            console.error('[analyst]', err)
-            chat.freezeError()
-        } finally {
-            chat.endStream()
-        }
+            }),
+        })
     }
 
     // Resume a stopped reply (▶): continue the same bubble (or regenerate if stopped before any token).
@@ -128,7 +140,7 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated, 
         if (!last || last.role !== 'assistant' || !last.stopped) return
         const base = chat.resumeBase()
         const history = chat.finalizeResumeHistory(
-            messages.filter(m => !m.streaming && m.role !== 'phase').map(m => ({ role: m.role, content: m.content })),
+            toChatHistory(messages),
             base,
         )
         const cont = chat.beginContinue({
@@ -136,13 +148,13 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated, 
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant', content: base + data.reply })
                 if (data.coverage) setPendingCoverage(data.coverage)
+                _saveThread([...withoutPrefill(history), { role: 'assistant', content: base + data.reply }], data.phase, data.coverage ?? pendingRef.current)
             },
         })
         if (!cont) return
         try {
             await analystService.sendStream(history, {
-                model:           readStoredModel('analystModel'),
-                reasoningEffort: readStoredReasoning('analystReasoning'),
+                model:           readStoredModel(),
                 chatState:       { active_symbol: pendingRef.current?.symbol || '', draft: pendingRef.current, existing_coverage: existingRef.current },
                 signal:          cont.signal,
                 ...cont.handlers,
@@ -155,16 +167,130 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated, 
         }
     }
 
-    // Argus investing candidate handed over → seed the research (fires once per keyed result).
+    // Argus investing candidate(s) handed over → seed the research (fires once per keyed result).
+    //
+    // A sleeve arrives as a QUEUE, not one name: Argus ranks 4-8 candidates and the pipeline wants
+    // the top of that list researched before Atlas can construct anything. Each name is still its own
+    // cycle — research turn, draft, the user presses Initiate — because coverage is only ever saved on
+    // an explicit confirm. What the queue removes is the walk back to the list between names.
     useEffect(() => {
-        if (!scanResult?.ticker) return
-        seedRef.current = { ticker: scanResult.ticker, sector: scanResult.sector ?? null, thesis: scanResult.thesis ?? null, analysis: scanResult.analysis ?? null }
-        _send(`Research ${scanResult.ticker} for coverage.`)
-    }, [scanResult?.key])   // eslint-disable-line react-hooks/exhaustive-deps
+        const names = resolveArtifact(inbox).items.map(c => c?.ticker).filter(Boolean)
+        if (!names.length) return
+        setQueue(names.slice(1))
+        setDone([])
+        // A run is what the SENDER said it was, not what its length happens to be: a sleeve whose
+        // top slice came back with one name is still a run, and a single candidate the user clicked
+        // is not. Inferring it from `names.length > 1` would get both of those wrong.
+        setSleeveRun(inbox?.context?.queued === true)
+        _sendResearch(names[0], names.slice(1))
+    }, [inbox?.key])   // eslint-disable-line react-hooks/exhaustive-deps
 
-    function handleSend()      { const t = inputText.trim(); if (t) _send(t) }
-    function handleKeyDown(e)  { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }
-    function handleClear()     { chat.reset(); setPendingCoverage(null); setInitiateErr('') }
+    // One name's research turn. The rest of the run rides along in the text so Prometheus can pace
+    // itself and the user can see where they are — and `pool` carries the names NOT in the top slice,
+    // so "do KLAC as well" is a thing they can just ask for.
+    function _sendResearch(ticker, rest) {
+        const { bySector = [], sector = null, pool: allNames = [] } = inbox?.context ?? {}
+        // Which sleeve this name is FOR. A run spans several sectors, and researching a utility with
+        // the tech sleeve's frame in mind produces a thesis for the wrong book.
+        const sleeve = bySector.find(s => s.names?.includes(ticker))?.sector ?? sector
+        // Argus's read on THIS name, off the item rather than the envelope: a list carries one per
+        // candidate, and a single hand-off carries one for the only candidate there is.
+        const cand = resolveArtifact(inbox).items.find(c => c?.ticker === ticker) ?? {}
+        seedRef.current = { ticker, sector: sleeve, thesis: cand.thesis ?? null, analysis: cand.analysis ?? null }
+        const pool = allNames.filter(t => t !== ticker && !rest.includes(t))
+        const lines = [`Research ${ticker} for coverage${sleeve ? ` — it is a candidate for the ${sleeve} sleeve` : ''}.`]
+        if (rest.length)  lines.push(`This is one of ${rest.length + 1} from the same sleeve — ${rest.join(', ')} follow after it. Do ${ticker} only for now.`)
+        if (pool.length)  lines.push(`Also on the list but not queued: ${pool.join(', ')}. Only research one of those if the user asks.`)
+        _send(lines.join(' '))
+    }
+
+    // Axl routed the user here with the name already resolved (MainPage's handleAxlPick) → open on
+    // it. The bare-ticker cousin of the Argus hand-off above: no scan behind it, so no `seed` for
+    // the backend — just the turn that starts the research.
+    useSeedTurn(seed, _send)
+
+    // The coverage pencil → re-open Prometheus on a name already in the book. Setting
+    // pendingCoverage to the live doc is what puts the panel in UPDATE mode: `existingCoverage`
+    // matches on symbol, the stream carries `existing_coverage`, and Save becomes a `remodel`
+    // revision on the same doc rather than a fresh initiation. A NEW chat each time (reset first) —
+    // the prior conversation belonged to whatever was last researched here, not to this thesis.
+    // The DOC the caller resolved wins. Matching a symbol against the `coverage` prop was a lookup
+    // in a list polled once a minute, so the doorway's success depended on client cache state rather
+    // than on the entity: a card clicked before the poll caught the name found nothing, and the
+    // `!doc` bail below is silent, so the user landed on a clean desk instead of a revise turn.
+    // The list stays as a fallback for any caller that still arrives with only a name (compared
+    // case-insensitively — the book stores tickers upper-case, a card may not).
+    useEffect(() => {
+        if (!editCoverage?.symbol) return
+        const want = String(editCoverage.symbol).toUpperCase()
+        const doc  = editCoverage.doc
+            ?? (coverage || []).find(c => String(c.symbol ?? '').toUpperCase() === want)
+        // Reaching here now means we genuinely could not read the thesis, not that a cache was cold —
+        // so it is surfaced. Silence here is what made the original failure look like a dead button.
+        // Its OWN state, not initiateErr: that one renders beside the draft's save button and says
+        // "this thesis was refused", which is a different failure with a different remedy.
+        if (!doc) { setOpenErr(`Couldn't open the coverage on ${editCoverage.symbol} — try it from the Coverage tab.`); return }
+        setOpenErr('')
+        chat.reset()
+        setInitiateErr('')
+        setPendingCoverage(doc)
+        // BOTH refs, and for the same reason: `_send` runs before React re-renders, so anything derived
+        // from `pendingCoverage` during render — `existingCoverage` included — is still null right here.
+        // Without this line the revise turn shipped `existing_coverage: null`, and the agent opened on
+        // a blank slate: the prompt's "this name is already in the book, revise it" block never
+        // rendered, on the one turn whose entire purpose is revising what is in the book.
+        pendingRef.current  = doc
+        existingRef.current = doc
+        _send(`Revise our coverage on ${doc.symbol}. What has changed since the last view, and does the thesis still hold?`)
+    }, [editCoverage?.key])   // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Clear is not walking away — the draft goes with the conversation, or the hub keeps marking this
+    // desk and holding Prometheus's other doors shut over research the user threw away. See clearThread.
+    function handleClear()     { chat.reset(); setPendingCoverage(null); setInitiateErr(''); clearThread(threadIdRef) }
+
+    // Resume an unfinished research draft: restore the conversation and its pending thesis, and keep
+    // writing to the SAME thread. `existing_coverage` is not restored here — it is derived from the
+    // draft's symbol against the live book on the next render, so a resumed edit run picks up whatever
+    // the thesis says NOW rather than a copy frozen when the user walked out.
+    async function handleResumeThread(threadId) {
+        const t = await threadsService.getThread(threadId)
+        if (!t) return
+        chat.setMessages(t.messages ?? [])
+        setPendingCoverage(t.state?.draft ?? null)
+        setInitiateErr('')
+        threadIdRef.current = t.threadId
+    }
+    // Expose resume to the shared agent-bar hamburger (MainPage).
+    if (resumeRef) resumeRef.current = handleResumeThread
+
+    /**
+     * The thesis exists → the conversation that authored it belongs WITH it, not in the draft pile.
+     * Linking clears the TTL and takes the thread off the desk marker; the next research run starts on
+     * a fresh id.
+     *
+     * AWAITED, and before `onInitiated` — that callback ends the desk run, and finishing a run deletes
+     * its remaining DRAFTS. Fire-and-forget here would race the delete and could drop the reasoning
+     * behind a thesis the user just saved, silently (a link matching nothing is not an error).
+     *
+     * Linked on an UPDATE as well as an initiation: a re-model is the conversation behind the thesis
+     * as it now stands, and leaving it a draft would keep marking a desk the user is finished with.
+     */
+    async function _linkThread(saved) {
+        if (!saved?.id) return
+        await threadsService.linkThread(threadIdRef.current, { subjectType: 'coverage', subjectId: saved.id, artifactName: saved.symbol ?? null })
+        threadIdRef.current = newThreadId()
+    }
+
+    // Coverage saved → move the sleeve on. Only the SAVED names count as researched: a draft the
+    // user declined is not something Atlas should build on.
+    function _advance(saved) {
+        const covered = [...done, saved?.symbol].filter(Boolean)
+        setDone(covered)
+        const [next, ...rest] = queue
+        if (!next) return
+        setQueue(rest)
+        _sendResearch(next, rest)
+    }
 
     async function handleInitiate() {
         if (!pendingCoverage) return
@@ -181,12 +307,19 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated, 
                 saved = await analystService.initiateCoverage(pendingCoverage)
             }
             setPendingCoverage(null)
-            onInitiated?.(saved)
+            await _linkThread(saved)
+            onInitiated?.(saved, { sleeve: sleeveRun })
+            _advance(saved)
         } catch (err) {
             // 409 fallback: backend blocked initiation because coverage exists but wasn't in our
             // client-side list (stale load, retired status missed). Use the id from the error to update.
+            //
+            // The code rides on `reason`; `error` is the human sentence (sendReason sends both). This
+            // used to test `error === 'already_covered'`, which no response has ever matched — so the
+            // fallback never ran and a stale list surfaced as a flat "Could not initiate coverage."
             const errData = err?.response?.data
-            if (!existingCoverage && errData?.error === 'already_covered' && errData?.id) {
+            const reason  = errData?.reason ?? errData?.error
+            if (!existingCoverage && reason === 'already_covered' && errData?.id) {
                 try {
                     const saved = await analystService.updateCoverage(errData.id, {
                         ...pendingCoverage,
@@ -194,29 +327,36 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated, 
                         revision_note: 'Coverage updated via Prometheus',
                     })
                     setPendingCoverage(null)
-                    onInitiated?.(saved)
+                    await _linkThread(saved)
+                    onInitiated?.(saved, { sleeve: sleeveRun })
+                    _advance(saved)
                 } catch {
                     setInitiateErr('Could not update coverage.')
                 }
                 return
             }
-            setInitiateErr(`Could not ${existingCoverage ? 'update' : 'initiate'} coverage.`)
+            // A refusal the analyst can ACT on (the rating contradicts the target) explains itself —
+            // the backend's `detail` names which way it breaks. A flat "could not initiate" would send
+            // the user back to a thesis with nothing to fix.
+            setInitiateErr(errData?.detail
+                ? `${errData.error ?? 'Coverage refused'} — ${errData.detail}`
+                : `Could not ${existingCoverage ? 'update' : 'initiate'} coverage.`)
         }
     }
 
     return (
         <div className="portfolio-panel analyst-panel">
-            <div className="portfolio-panel__messages" ref={messagesRef} onScroll={handleScroll}>
+            <AgentMessages chat={chat}>
                 {messages.length === 0 && (
                     <div className="analyst-panel__intro">
                         <h3>Prometheus</h3>
                         <p>Buy-side research — a living thesis per name: a variant view, our price target vs the Street, and monitorable kill-criteria. Name a ticker (or open one from an Argus investing list).</p>
                     </div>
                 )}
+                {openErr && <div className="analyst-panel__err">{openErr}</div>}
                 {messages.map((msg, i) => <MessageBubble key={i} msg={msg} />)}
-                {isLoading && <ToolStatusChip label={chat.streamStatus} />}
-                <div ref={messagesEndRef} />
-            </div>
+                {isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus: chat.streamStatus, placeholder: 'researching…' })} pulse={chat.reasoningPulse} />}
+            </AgentMessages>
 
             {!isLoading && pendingCoverage && (
                 <div className="analyst-panel__draft-wrap">
@@ -228,29 +368,42 @@ export function AnalystPanel({ scanResult = null, onLoadingChange, onInitiated, 
                 </div>
             )}
 
-            <ChatInputRow
-                prefix="portfolio-panel"
-                textareaRef={textareaRef}
-                value={inputText}
-                onChange={e => setInputText(e.target.value)}
-                onKeyDown={handleKeyDown}
+            {/* The sleeve is researched — hand it back. Without this the pipeline dead-ends here:
+                Atlas reads coverage itself, but nothing was returning the user to it. Shown while
+                the queue is empty and at least one name got saved, so a declined draft doesn't
+                pretend to be research. */}
+            {!isLoading && !pendingCoverage && sleeveRun && !queue.length && done.length > 0 && (
+                <div className="portfolio-panel__action-bubble">
+                    <button
+                        className="portfolio-panel__review-btn portfolio-panel__review-btn--update"
+                        onClick={() => onSleeveResearched?.(done)}
+                    >
+                        Back to Atlas — {done.length} researched →
+                    </button>
+                    <span className="analyst-panel__ask-hint">
+                        {done.join(', ')} {done.length === 1 ? 'is' : 'are'} in coverage. Atlas builds the sleeve from there.
+                    </span>
+                </div>
+            )}
+
+            <AgentChatInput
+                chat={chat}
                 placeholder="A ticker to research — e.g. “Cover NVDA” (Enter to send)"
-                onSend={handleSend}
-                sendDisabled={!inputText.trim() || isLoading}
-                isStreaming={isLoading}
-                onStop={chat.handleStop}
-                canResume={chat.canResume}
-                onResume={_continue}
+                onSend={_send}
                 onClear={handleClear}
-                clearDisabled={isLoading || !messages.length}
-                clearTitle="Clear chat"
+                onResume={_continue}
             />
         </div>
     )
 }
 AnalystPanel.propTypes = {
-    scanResult:      PropTypes.object,
+    inbox:           PropTypes.object,   // a pipeline artifact (candidate_list)
+    editCoverage:    PropTypes.object,
+    seed:            PropTypes.object,
     onLoadingChange: PropTypes.func,
     onInitiated:     PropTypes.func,
+    onSleeveResearched: PropTypes.func,
     coverage:        PropTypes.array,
+    pipeline:        PropTypes.string,   // the DESK this run belongs to — what the marker keys on
+    resumeRef:       PropTypes.object,
 }

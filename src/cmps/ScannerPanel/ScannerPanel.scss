@@ -14,7 +14,7 @@
 
     &__period-chip {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: var(--chat-label);
         font-weight: 600;
         letter-spacing: 0.06em;
         text-transform: uppercase;
@@ -26,7 +26,7 @@
     }
 
     &__dir {
-        font-size: 11px;
+        font-size: var(--chat-meta);
         line-height: 1;
         margin-right: 3px;
         &--long  { color: var(--long-text); }
@@ -43,7 +43,7 @@
 
     &__suggestion {
         font-family: var(--font-mono);
-        font-size: 12px;
+        font-size: 12.5px;
         padding: 6px 12px;
         border-radius: 14px;
         background: var(--bg-wash-surface);
@@ -63,7 +63,7 @@
     &__angles-hint {
         margin-top: 16px;
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: var(--chat-label);
         letter-spacing: 0.08em;
         text-transform: uppercase;
         color: var(--text-muted);
@@ -82,7 +82,7 @@
 
     &__angle {
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: var(--chat-meta);
         padding: 4px 10px;
         border-radius: 12px;
         background: var(--bg-wash-surface);
@@ -108,7 +108,7 @@
     // "Scan these (N) →" send button — appears once at least one setup is selected.
     &__angles-go {
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: var(--chat-meta);
         font-weight: 600;
         padding: 5px 12px;
         border-radius: 12px;
@@ -147,7 +147,7 @@
 
     &-label {
         font-family: var(--font-mono);
-        font-size: 9px;
+        font-size: var(--chat-micro);
         letter-spacing: 0.08em;
         text-transform: uppercase;
         color: var(--text-muted);
@@ -155,7 +155,7 @@
     }
 }
 .scanner-panel__profile-chip {
-    font-size: 11px;
+    font-size: var(--chat-meta);
     padding: 3px 11px;
     border-radius: 999px;
     border: 1px solid var(--border);
@@ -175,3 +175,33 @@
     }
 }
 
+
+// SLEEVE RUN strip — Atlas routed several sectors at once and Argus walks them unattended, so the
+// run has to say where it is. Sits in the footer, above the action bubble: same band as the other
+// between-turn controls, and it must never scroll away with the messages.
+.scanner-panel__sleeve-run {
+    flex-shrink: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 20px;
+    background: var(--bg-wash);
+    border-top: 1px solid var(--border);
+
+    &-pos {
+        font-family: var(--font-mono);
+        font-size: var(--chat-label);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+        white-space: nowrap;
+    }
+
+    &-hint {
+        flex: 1 1 220px;
+        font-size: var(--chat-meta);
+        line-height: 1.4;
+        color: var(--text-muted);
+    }
+}

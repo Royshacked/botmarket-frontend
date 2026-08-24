@@ -1,24 +1,13 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { chatService } from '../../services/chat/chat.service'
-import { AxlBotGlyph } from '../AxlHub/AgentSummon'
-import { useDesign } from '../../customHooks/useDesign.js'
-import { AGENTS, BOT_IDS, isBotId } from '../AxlHub/agentMeta.jsx'
-import { AgentGlyph } from '../AxlHub/AgentBadges.jsx'
+import { BotAvatarGlyph } from '../AxlHub/AgentSummon'
+import { AGENTS, BOT_IDS, isBotId, isRetiredBotId } from '../AxlHub/agentMeta.jsx'
 
-// The agent behind a conversation, or null for a human DM. Drives the brand name,
-// tinted avatar and the "AGENT" chip.
+// The agent behind a conversation, or null for a human DM. Drives the brand name
+// and the tinted avatar.
 function botMetaFor(otherId) {
     return isBotId(otherId) ? AGENTS[otherId] : null
-}
-
-// Small tinted agent sigil for the conversation avatar (Axl keeps its dedicated glyph).
-function BotAvatarGlyph({ agentKey }) {
-    if (agentKey === 'axl') return <AxlBotGlyph />
-    const meta = AGENTS[agentKey]
-    if (!meta) return null
-    // Social-chat feed: each agent shows its own figure (Idea, Atlas, Argus, Kairos).
-    return <AgentGlyph agentKey={agentKey} icon={meta.icon} size={28} />
 }
 
 function timeAgo(ms) {
@@ -34,15 +23,16 @@ export function ConversationList({ conversations, activeId, currentUserId, onSel
     const [search,    setSearch]    = useState('')
     const [results,   setResults]   = useState([])
     const [searching, setSearching] = useState(false)
-    const cardMode = useDesign() === 'cards'
 
     async function handleSearch(q) {
         setSearch(q)
         if (q.trim().length < 2) { setResults([]); return }
         setSearching(true)
         try {
+            // People search, so no bot belongs in it — least of all a retired one, which the
+            // server filters by username but which would otherwise read as a startable DM.
             const users = await chatService.searchUsers(q)
-            setResults(users)
+            setResults(users.filter(u => !isBotId(u.id) && !isRetiredBotId(u.id)))
         } catch { setResults([]) }
         finally { setSearching(false) }
     }
@@ -115,9 +105,6 @@ export function ConversationList({ conversations, activeId, currentUserId, onSel
                                 <div className="social-chat__conv-meta">
                                     <div className="social-chat__conv-name">
                                         <span>{name}</span>
-                                        {isBot && cardMode && (
-                                            <span className="social-chat__agent-chip">AGENT</span>
-                                        )}
                                         {conv.unread > 0 && (
                                             <span className="social-chat__unread-dot">{conv.unread}</span>
                                         )}

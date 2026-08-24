@@ -2,12 +2,17 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { ChatMarkdown } from '../ChatMarkdown.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
+import { useMarketStatus } from '../../customHooks/useMarketStatus.js'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
+import { LaterButton } from '../LaterButton.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
+import { waitingLabel } from '../ToolStatusChip/waitingLabel.js'
 import { ConvictionChip } from '../ConvictionChip/ConvictionChip.jsx'
+import { ChatChart } from '../ChatChart.jsx'
+import { ChatChartDock } from '../ChatChartDock.jsx'
 import { ChatPhaseHeading } from '../ChatPhaseHeading.jsx'
 import { ChatReasoning } from '../ChatReasoning.jsx'
 import './ChatPanel.scss'
@@ -145,7 +150,7 @@ function isIdeaReady(analysisState) {
 
 const PHASE_LABELS = { 1: 'Nucleus', 2: 'Formation', 3: 'Structure', 4: 'Exits', 5: 'Validation' }
 
-export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, onStop, canResume = false, onResume, isLoading, streamStatus = '', isEditing = false, isInvalidationReview = false, onDismissInvalidation, onBuyMarket, isPostOrderEdit = false, availableAccounts = [], selectedAccounts = [], historySlot = null }) {
+export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerate, onClear, onStop, canResume = false, onResume, isLoading, streamStatus = '', reasoningPulse = null, isEditing = false, isInvalidationReview = false, onDismissInvalidation, onBuyMarket, isPostOrderEdit = false, availableAccounts = [], selectedAccounts = [], historySlot = null }) {
     const [input, setInput] = useState('')
     const [dismissConfirm, setDismissConfirm] = useState(false)
 
@@ -180,25 +185,34 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
     // (post-order edit) can't be market-entered, so it keeps "Update idea".
     const canBuyMarket = isImmediate && ideaReady && !isPostOrderEdit
 
+    // A market entry into a shut venue is not offered — same rule the ticket enforces, from the same
+    // shared status read. It is a refusal, not a deferral: nothing is authored and nothing parks for
+    // the open, because "Buy Market" means now or not at all.
+    const { marketClosed } = useMarketStatus(s.active_asset, pt.asset_class)
+    // One reason, so the button has exactly one disabled state and one thing to say. Accounts first:
+    // it is the fixable one, and the venue is not the user's fault.
+    const marketBtnBlocker = !generateReady
+        ? 'Select a broker account above to place this trade'
+        : marketClosed
+            ? 'Market orders cannot be placed while the market is closed'
+            : null
+
     const showChangedMind = isEditing && !editDirty && !isPostOrderEdit
 
     // In edit mode there is ALWAYS an enabled escape: leave without saving. It sits at the end of
     // every turn (and after a Stop — the action bar shows whenever !isLoading), next to whatever
     // primary action is offered (Update / Buy Market / a disabled Update while not-yet-ready).
-    const laterBtn = isEditing ? (
-        <button className="chat-panel__generate chat-panel__generate--cancel" onClick={onClear}>
-            I&apos;ll do it later
-        </button>
-    ) : null
+    const laterBtn = isEditing
+        ? <LaterButton className="chat-panel__generate chat-panel__generate--cancel" onClick={onClear} />
+        : null
 
     // Scroll-watch token: changes whenever the action bubble content changes so the
     // chat re-pins to bottom when buttons appear (e.g. idea becomes generate-ready).
     const actionWatch = `${streamStatus}|${ideaReady}|${generateReady}|${isInvalidationReview}|${isEditing}|${isImmediate}|${isPostOrderEdit}`
 
-    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, {
-        onFinishStreaming: () => inputRef.current?.focus(),
-        watch: actionWatch,
-    })
+    // Returning the cursor to the composer when a turn ends is ChatInputRow's job now — one rule
+    // for every agent chat, not a callback each panel remembers to wire.
+    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages, { watch: actionWatch })
 
     function handleKeyDown(ev) {
         if (ev.key === 'Enter' && !ev.shiftKey) {
@@ -215,6 +229,9 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
         setInput('')
     }
 
+    // (The order ticket used to stand in for this thread; it now lives on the live trade desk —
+    //  KairosPanel — since this panel is only reachable for legacy documents.)
+
     return (
         <div className="chat-panel">
             {historySlot}
@@ -226,31 +243,20 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
             <div className="chat-panel__messages" ref={messagesRef} onScroll={handleScroll}>
                 {messages.length === 0 && <AgentIntro agent={AGENTS.idea} />}
                 {messages.map((msg, i) => (
-                    msg.role === 'phase' ? (
+                    // `hidden` = a history-only note (a wordless turn that docked a chart): it keeps
+                    // the thread the model sees alternating, and has nothing for the user to read.
+                    msg.hidden ? null : msg.role === 'phase' ? (
                         <ChatPhaseHeading key={i} phase={msg.phase} label={PHASE_LABELS[msg.phase]} total={5} />
                     ) : msg.type === 'chart' ? (
-                        <div key={i} className="chat-panel__bubble chat-panel__bubble--assistant chat-panel__chart">
-                            <img
-                                className="chat-panel__chart-img"
-                                src={`data:image/png;base64,${msg.imageBase64}`}
-                                alt={`${msg.symbol ?? ''} ${msg.timeframe ?? ''} chart`}
-                                loading="lazy"
-                            />
-                            {(msg.symbol || msg.timeframe) && (
-                                <span className="chat-panel__chart-caption">
-                                    {[msg.symbol, msg.timeframe].filter(Boolean).join(' · ')}
-                                </span>
-                            )}
-                        </div>
-                    ) : (
+                        <ChatChart key={i} msg={msg} />
+                    // A turn with no words yet draws nothing — its waiting mark renders once, below
+                    // the thread. An empty bubble here would still cost the column's 10px gap.
+                    ) : msg.role === 'assistant' && msg.streaming && !msg.content && !msg.reasoning ? null : (
                         <div key={i} className={`chat-panel__bubble chat-panel__bubble--${msg.role}`}>
                             {msg.role === 'assistant' ? (
                                 <>
-                                    <ChatReasoning text={msg.reasoning} live={msg.streaming && !msg.content} />
+                                    <ChatReasoning reasoning={msg.reasoning} live={msg.streaming && !msg.content} streaming={msg.streaming} />
                                     <ChatMarkdown>{(msg.content ?? '').replace(/<asset>[\s\S]*?<\/asset>/g, '').trimStart()}</ChatMarkdown>
-                                    {msg.streaming && !msg.content && (
-                                        <span className="chat-panel__thinking">thinking…</span>
-                                    )}
                                 </>
                             ) : (
                                 msg.content
@@ -259,7 +265,7 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                     )
                 ))}
 
-                {isLoading && <ToolStatusChip label={streamStatus} />}
+                {isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus })} pulse={reasoningPulse} />}
 
                 {/* Typing dots only when loading but no streaming message yet */}
                 {isLoading && !messages.some(m => m.streaming) && (
@@ -308,27 +314,30 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                             <button className="chat-panel__review-btn chat-panel__review-btn--dismiss" onClick={() => setDismissConfirm(true)}>
                                 Dismiss
                             </button>
-                            <button className="chat-panel__review-btn chat-panel__review-btn--later" onClick={onClear}>
-                                I&apos;ll do it later
-                            </button>
+                            <LaterButton className="chat-panel__review-btn chat-panel__review-btn--later" onClick={onClear} />
                         </>
                     ) : canBuyMarket ? (
                         <>
-                            {generateReady ? (
+                            {marketBtnBlocker ? (
                                 <button
                                     className={`chat-panel__market-btn chat-panel__market-btn--${direction}`}
-                                    onClick={onBuyMarket}
+                                    disabled
+                                    title={marketBtnBlocker}
                                 >
                                     {direction === 'short' ? 'Sell Market' : 'Buy Market'}
                                 </button>
                             ) : (
                                 <button
                                     className={`chat-panel__market-btn chat-panel__market-btn--${direction}`}
-                                    disabled
-                                    title="Select a broker account above to place this trade"
+                                    onClick={onBuyMarket}
                                 >
                                     {direction === 'short' ? 'Sell Market' : 'Buy Market'}
                                 </button>
+                            )}
+                            {marketClosed && generateReady && (
+                                <p className="chat-panel__market-closed">
+                                    Market orders cannot be placed while the market is closed.
+                                </p>
                             )}
                             {laterBtn}
                         </>
@@ -352,8 +361,12 @@ export function ChatPanel({ messages = [], analysisState = {}, onSend, onGenerat
                 </div>
             )}
 
+            {/* Above the composer, outside the scrolling thread — same place every chat docks it. */}
+            <ChatChartDock />
+
             <ChatInputRow
                 prefix="chat-panel"
+                empty={messages.length === 0}
                 textareaRef={inputRef}
                 value={input}
                 onChange={e => setInput(e.target.value)}
@@ -391,6 +404,7 @@ ChatPanel.propTypes = {
     onResume:          PropTypes.func,
     isLoading:         PropTypes.bool,
     streamStatus:      PropTypes.string,
+    reasoningPulse:    PropTypes.number,
     isEditing:         PropTypes.bool,
     isInvalidationReview:    PropTypes.bool,
     onDismissInvalidation:   PropTypes.func,

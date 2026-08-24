@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote'
 import { IdeaDetail } from '../cmps/TradeIdeas/IdeaDetail.jsx'
 import { formatCreatedAtFull } from '../cmps/TradeIdeas/tradeIdea.utils.js'
-import { StatusIcon } from '../cmps/StatusIcon.jsx'
+import { EntityPopupShell } from '../cmps/EntityCard/EntityPopupShell.jsx'
+import { useEntityPopup } from '../customHooks/useEntityPopup.js'
 import { usePositions } from '../customHooks/usePositions.js'
 import './IdeaPage.scss'
 
@@ -61,86 +62,46 @@ function DevInvalidationPanel({ invalidation, status, reason, edge, armed }) {
 }
 
 export function IdeaPage() {
-    const id              = window.location.pathname.split('/').at(-1)
-    const [idea, setIdea] = useState(null)
-    const [err,  setErr]  = useState(null)
+    // Hand-off, hydration and the API fallback all live in the shared hook.
+    const { id, entity: idea, error } = useEntityPopup('idea', tradeIdeasService.getIdea, { notFound: 'Idea not found' })
     const { positions, refresh: refreshPositions, closePosition } = usePositions()
-
-    useEffect(() => {
-        // Fastest path: data injected directly onto window by the opener
-        if (window.__ideaData?.id === id) {
-            setIdea(window.__ideaData)
-            delete window.__ideaData
-            return
-        }
-        // Second path: serialised to localStorage by the opener before window.open
-        const cached = localStorage.getItem(`popup-idea-${id}`)
-        if (cached) {
-            try {
-                setIdea(JSON.parse(cached))
-                localStorage.removeItem(`popup-idea-${id}`)
-                return
-            } catch { /* bad cache — fall through to API */ }
-        }
-        // Fallback: fetch from API
-        tradeIdeasService.getIdea(id)
-            .then(setIdea)
-            .catch(() => setErr('Failed to load idea'))
-    }, [id])
 
     async function handleDelete() {
         try { await tradeIdeasService.deleteIdea(id); window.close() }
         catch (e) { console.error('[idea-page] delete failed', e) }   // e.g. delete-locked (live position)
     }
 
-    const centreStyle = { position: 'fixed', inset: 0, background: 'var(--bg-base)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }
-    if (err)   return <div style={centreStyle}>{err}</div>
-    if (!idea) return <div style={centreStyle}>Loading…</div>
-
-    const rootStyle = {
-        position: 'fixed', inset: 0,
-        display: 'flex', flexDirection: 'column',
-        background: 'var(--bg-base)',
-        color: 'var(--text-primary)',
-        overflow: 'hidden',
-    }
-
     return (
-        <div className="idea-page" style={rootStyle}>
-            <div className="idea-page__header">
-                <span className="idea-page__title">
-                    <span className="idea-page__asset">{idea.asset || '—'}</span>
-                    {idea.direction && (
-                        <span className={`idea-page__direction direction--${idea.direction}`}>
-                            {idea.direction}
-                        </span>
-                    )}
-                    {idea.quantity != null && <span className="idea-page__meta">{idea.quantity} shares</span>}
-                    {idea.type     != null && <span className="idea-page__meta">{idea.type}</span>}
-                    {idea.savedAt  != null && <span className="idea-page__meta">{formatCreatedAtFull(idea.savedAt)}</span>}
-                </span>
-                {idea.status && (
-                    <span className={`idea-page__status status--${idea.status}`}>
-                        <StatusIcon status={idea.status} />
-                    </span>
-                )}
-            </div>
-
-            <DevInvalidationPanel
-                invalidation={idea.invalidation}
-                status={idea.invalidation_status}
-                reason={idea.invalidation_reason}
-                edge={idea.invalidation_edge}
-                armed={idea.invalidation_armed}
-            />
-
-            <IdeaDetail
-                idea={idea}
-                positions={positions}
-                closePosition={closePosition}
-                onPositionsChanged={refreshPositions}
-                onDelete={handleDelete}
-            />
-        </div>
+        <EntityPopupShell
+            error={error}
+            loading={!idea}
+            asset={idea?.asset}
+            direction={idea?.direction}
+            status={idea?.status}
+            meta={idea ? [
+                idea.quantity != null ? `${idea.quantity} shares` : null,
+                idea.type ?? null,
+                idea.savedAt != null ? formatCreatedAtFull(idea.savedAt) : null,
+            ] : []}
+            above={idea && (
+                <DevInvalidationPanel
+                    invalidation={idea.invalidation}
+                    status={idea.invalidation_status}
+                    reason={idea.invalidation_reason}
+                    edge={idea.invalidation_edge}
+                    armed={idea.invalidation_armed}
+                />
+            )}
+        >
+            {idea && (
+                <IdeaDetail
+                    idea={idea}
+                    positions={positions}
+                    closePosition={closePosition}
+                    onPositionsChanged={refreshPositions}
+                    onDelete={handleDelete}
+                />
+            )}
+        </EntityPopupShell>
     )
 }

@@ -1,0 +1,68 @@
+// Follow-up chips — offered, never insisted on.
+//
+// Quiet by default and only lighting up on hover: they sit directly above the input, where the eye
+// already is, so anything louder would compete with the reply the user is still reading. An offer
+// that shouts is an instruction.
+
+.suggestion-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 12px 8px;
+
+    &__chip {
+        font: inherit;
+        font-size: 12.5px;
+        line-height: 1.3;
+        text-align: left;
+        padding: 5px 10px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: transparent;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: color .14s, background .14s, border-color .14s;
+
+        &:hover:not(:disabled) {
+            color: var(--text-primary);
+            background: var(--bg-hover);
+            border-color: var(--border-mid, var(--border));
+        }
+
+        // Keyboard reach: the chips are the only way to send these without retyping them, so the
+        // focus ring has to be real rather than inherited from a reset.
+        &:focus-visible {
+            outline: 1px solid var(--accent);
+            outline-offset: 1px;
+            color: var(--text-primary);
+        }
+
+        &:disabled { opacity: 0.4; cursor: default; }
+
+        // A chip that DOES something rather than says something. Marked, not dressed up: it is still
+        // one of the openings on offer and still quiet, so it takes the accent on its edge and its
+        // text and nothing else. Louder would make the plain chips read as the lesser choices, which
+        // is the opposite of true — most people should be talking.
+        //
+        // No desk passes `action: true` today; Mentor's express-form chip was the one (deleted
+        // 2026-08-21, now a sentence that opens the interview). The variant stays because the
+        // component's contract carries it — see SuggestionChips.jsx.
+        &.is-action {
+            color: var(--accent-light);
+            border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+
+            &:hover:not(:disabled) {
+                color: var(--accent-light);
+                border-color: var(--accent);
+                background: color-mix(in srgb, var(--accent) 10%, transparent);
+            }
+        }
+    }
+}
+
+// Under an agent's opening greeting rather than under a reply. Centred to sit with the greeting,
+// which is centred, and with room under it because the composer is not immediately beneath.
+.suggestion-chips--intro {
+    justify-content: center;
+    padding: 10px 0 0;
+}

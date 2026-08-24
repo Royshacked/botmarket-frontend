@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router'
 import { AuthContext } from '../context/AuthContext'
@@ -8,10 +8,13 @@ import { useChatWs } from '../customHooks/useChatWs'
 import { useWorkspaceMode } from '../customHooks/useWorkspaceMode'
 
 // ── AppHeader · "axl" style (trial) ───────────────────────────────────────────
-// The calm aurora header: animated calm-water wave bottom edge, ambient breathing
-// candlesticks, a centered AI prompt/reply stream, a status pill and the profile
-// cluster. Keeps TRADVICE content + the original navigate-to-profile / "Back to
-// Trading" behavior; only the look changes. Styles live in AppHeaderAxl.scss.
+// The calm aurora header: animated calm-water wave bottom edge, a centered AI
+// prompt/reply stream, a status pill and the profile cluster. Keeps TRADVICE
+// content + the original navigate-to-profile / "Back to Trading" behavior; only
+// the look changes. Styles live in AppHeaderAxl.scss.
+//
+// The ambient breathing candlestick band that used to sit on the waterline is gone:
+// it was decoration that read as data, in a header whose whole job is to stay quiet.
 //
 // Self-contained on purpose (header-first): nothing here touches the app-wide
 // theme. RootCmp swaps this in when localStorage.headerStyle !== 'classic'.
@@ -50,7 +53,6 @@ export function AppHeaderAxl() {
     const { pathname } = useLocation()
     const onProfile    = pathname === '/profile'
 
-    const ticksRef  = useRef(null)
     const streamRef = useRef(null)
     const msgRef    = useRef(null)
     const textRef   = useRef(null)
@@ -59,50 +61,25 @@ export function AppHeaderAxl() {
     const { unread, setUnread, showChat, setShowChat, pendingConvId, setPendingConvId, pendingMsgId, setPendingMsgId } = useChatWs(user?._id)
     const { workspace, setWorkspace } = useWorkspaceMode(user?._id)
 
-    // ── ambient aurora candlesticks (built once into the .ticks svg) ──
+    // ── mobile nav ──
+    // The right cluster (workspace switch · messages · profile) is ONE set of controls; on a phone
+    // it drops out of the bar and into a sheet under the hamburger. Same buttons, re-laid-out by
+    // CSS — there is no second mobile copy of them to drift.
+    const [navOpen, setNavOpen] = useState(false)
+    const rightRef = useRef(null)
+
+    // Close on an outside tap or Escape. Only bound while open, so the header costs nothing at rest.
     useEffect(() => {
-        const wrap = ticksRef.current
-        if (!wrap) return
-        const NS = 'http://www.w3.org/2000/svg'
-        const W = 1200, base = 50            // viewBox width + waterline
-        const hues = ['c-green', 'c-teal', 'c-cyan', 'c-violet']
-        const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-
-        const svg = document.createElementNS(NS, 'svg')
-        svg.setAttribute('viewBox', `0 0 ${W} 60`)
-        svg.setAttribute('preserveAspectRatio', 'none')
-
-        let i = 0
-        for (let x = 22; x <= W - 12; x += 42, i++) {
-            const h = 8 + Math.round(Math.random() * 22)
-            const top = base - h
-            const wickUp = 2 + Math.round(Math.random() * 6)
-            const wickDn = 2 + Math.round(Math.random() * 4)
-
-            const g = document.createElementNS(NS, 'g')
-            g.setAttribute('class', 'grp ' + hues[i % hues.length])
-            if (!reduce) {
-                g.style.setProperty('--dur', (6 + Math.random() * 4).toFixed(2) + 's')
-                g.style.animationDelay = (-Math.random() * 9).toFixed(2) + 's'
-            }
-
-            const wick = document.createElementNS(NS, 'line')
-            wick.setAttribute('class', 'wick')
-            wick.setAttribute('x1', x); wick.setAttribute('x2', x)
-            wick.setAttribute('y1', top - wickUp); wick.setAttribute('y2', base + wickDn)
-
-            const body = document.createElementNS(NS, 'rect')
-            body.setAttribute('class', 'candle')
-            body.setAttribute('x', x - 1.5); body.setAttribute('y', top)
-            body.setAttribute('width', 3); body.setAttribute('height', h)
-            body.setAttribute('rx', 0.8)
-
-            g.appendChild(wick); g.appendChild(body)
-            svg.appendChild(g)
+        if (!navOpen) return
+        const onDown = (e) => { if (!rightRef.current?.contains(e.target)) setNavOpen(false) }
+        const onKey  = (e) => { if (e.key === 'Escape') setNavOpen(false) }
+        document.addEventListener('pointerdown', onDown)
+        document.addEventListener('keydown', onKey)
+        return () => {
+            document.removeEventListener('pointerdown', onDown)
+            document.removeEventListener('keydown', onKey)
         }
-        wrap.appendChild(svg)
-        return () => { wrap.removeChild(svg) }
-    }, [])
+    }, [navOpen])
 
     // ── centered axl stream: messages arrive one at a time and fade ──
     useEffect(() => {
@@ -140,8 +117,6 @@ export function AppHeaderAxl() {
 
     return (
         <header className="app-header-axl full">
-            {/* ambient breathing candlesticks */}
-            <div className="app-header-axl__ticks" ref={ticksRef} aria-hidden="true" />
 
             <div className="app-header-axl__inner">
                 {/* brand — axl meditating bot */}
@@ -202,64 +177,81 @@ export function AppHeaderAxl() {
                 <MarketClocks />
 
                 {/* right cluster */}
-                <div className="app-header-axl__right">
+                <div className="app-header-axl__right" ref={rightRef}>
                     {user && (
                         <>
-                            <div className="app-header-axl__modes" role="group" aria-label="Workspace mode">
-                                {WORKSPACE_MODES.map(m => (
-                                    <button
-                                        key={m}
-                                        type="button"
-                                        className={`app-header-axl__mode ${m}${workspace === m ? ' is-active' : ''}`}
-                                        onClick={() => setWorkspace(m)}
-                                        aria-pressed={workspace === m}
-                                        title={WORKSPACE_TITLES[m]}
-                                    >
-                                        {m.toUpperCase()}
-                                    </button>
-                                ))}
-                            </div>
+                            {/* Mobile only (CSS) — the toggle for the cluster below. */}
                             <button
-                                className="app-header-axl__chat"
-                                onClick={() => setShowChat(v => !v)}
-                                title="Messages"
-                                aria-label="Messages"
+                                type="button"
+                                className={`app-header-axl__burger${navOpen ? ' is-open' : ''}`}
+                                onClick={() => setNavOpen(v => !v)}
+                                aria-expanded={navOpen}
+                                aria-label={navOpen ? 'Close menu' : 'Open menu'}
                             >
-                                <svg width="27" height="27" viewBox="0 0 24 24" fill="var(--bg-base)" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <circle cx="15" cy="8.5" r="3"/>
-                                    <path d="M10.5 21.5V18.8A5.2 5.2 0 0 1 21 18.8V21.5Z"/>
-                                    <path d="M3 21.5V18.8A5.2 5.2 0 0 1 13.5 18.8V21.5Z"/>
-                                    <circle cx="8.25" cy="10" r="3.1"/>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden="true">
+                                    <path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" />
                                 </svg>
-                                {unread > 0 && (
-                                    <span className="app-header-axl__chat-badge">
-                                        {unread > 9 ? '9+' : unread}
-                                    </span>
-                                )}
+                                {/* Messages moved into the sheet — carry its unread signal out to the bar. */}
+                                {unread > 0 && !navOpen && <span className="app-header-axl__burger-dot" />}
                             </button>
 
-                            {onProfile ? (
+                            <div className={`app-header-axl__cluster${navOpen ? ' is-open' : ''}`}>
+                                <div className="app-header-axl__modes" role="group" aria-label="Workspace mode">
+                                    {WORKSPACE_MODES.map(m => (
+                                        <button
+                                            key={m}
+                                            type="button"
+                                            className={`app-header-axl__mode ${m}${workspace === m ? ' is-active' : ''}`}
+                                            onClick={() => { setWorkspace(m); setNavOpen(false) }}
+                                            aria-pressed={workspace === m}
+                                            title={WORKSPACE_TITLES[m]}
+                                        >
+                                            {m.toUpperCase()}
+                                        </button>
+                                    ))}
+                                </div>
                                 <button
-                                    className="app-header-axl__back"
-                                    onClick={() => navigate('/')}
-                                    title="Back to Trading"
-                                    aria-label="Back to Trading"
+                                    className="app-header-axl__chat"
+                                    onClick={() => { setShowChat(v => !v); setNavOpen(false) }}
+                                    title="Messages"
+                                    aria-label="Messages"
                                 >
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                        <path d="M20 12H6" />
-                                        <path d="M12 5l-7 7 7 7" />
+                                    <svg width="27" height="27" viewBox="0 0 24 24" fill="var(--bg-base)" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <circle cx="15" cy="8.5" r="3"/>
+                                        <path d="M10.5 21.5V18.8A5.2 5.2 0 0 1 21 18.8V21.5Z"/>
+                                        <path d="M3 21.5V18.8A5.2 5.2 0 0 1 13.5 18.8V21.5Z"/>
+                                        <circle cx="8.25" cy="10" r="3.1"/>
                                     </svg>
+                                    {unread > 0 && (
+                                        <span className="app-header-axl__chat-badge">
+                                            {unread > 9 ? '9+' : unread}
+                                        </span>
+                                    )}
                                 </button>
-                            ) : (
-                                <button
-                                    className="app-header-axl__profile"
-                                    onClick={() => navigate('/profile')}
-                                    title={`${user.fullname} — view profile`}
-                                    aria-label={`${user.fullname} — view profile`}
-                                >
-                                    <span className="app-header-axl__initials">{initials(user.fullname)}</span>
-                                </button>
-                            )}
+
+                                {onProfile ? (
+                                    <button
+                                        className="app-header-axl__back"
+                                        onClick={() => { navigate('/'); setNavOpen(false) }}
+                                        title="Back to Trading"
+                                        aria-label="Back to Trading"
+                                    >
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                            <path d="M20 12H6" />
+                                            <path d="M12 5l-7 7 7 7" />
+                                        </svg>
+                                    </button>
+                                ) : (
+                                    <button
+                                        className="app-header-axl__profile"
+                                        onClick={() => { navigate('/profile'); setNavOpen(false) }}
+                                        title={`${user.fullname} — view profile`}
+                                        aria-label={`${user.fullname} — view profile`}
+                                    >
+                                        <span className="app-header-axl__initials">{initials(user.fullname)}</span>
+                                    </button>
+                                )}
+                            </div>
                         </>
                     )}
                 </div>

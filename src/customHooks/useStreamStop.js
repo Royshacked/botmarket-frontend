@@ -1,12 +1,18 @@
+import { stopTurn } from '../services/turn.service.js'
+
 /**
  * Shared streaming stop + error-recovery helpers for chat panels that own
  * their own SSE streaming loop (PortfolioPanel, ScannerPanel).
  *
  * ChatPanel is stateless (streaming runs in MainPage) and does not use this.
  */
-export function makeStreamHandlers({ abortRef, stopDrain, setMessages, setIsLoading }) {
+export function makeStreamHandlers({ abortRef, stopDrain, setMessages, setIsLoading, turnRef = null }) {
     function handleStop() {
+        // TWO things, and they are not the same thing. The local abort stops the UI at once. The server
+        // call is what actually stops the WORK — closing the connection no longer means "stop", because
+        // it could not be told apart from the user walking away, which killed turns they wanted kept.
         abortRef.current?.abort()
+        stopTurn(turnRef?.current)
         stopDrain()
         setMessages(prev => {
             const msgs = [...prev]

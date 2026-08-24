@@ -9,17 +9,15 @@ import { useRef, useEffect } from 'react'
  *
  * @param {Array}  messages
  * @param {object} [opts]
- * @param {function} [opts.onFinishStreaming]  called once when streaming ends (e.g. refocus input)
  * @param {*}        [opts.watch]  extra value to re-pin on when it changes (e.g. the
  *                                 tool-status chip, which isn't part of `messages`)
  * @returns {{ messagesRef, messagesEndRef, handleScroll }}
  */
-export function useChatScroll(messages, { onFinishStreaming, watch } = {}) {
+export function useChatScroll(messages, { watch } = {}) {
     const messagesRef          = useRef(null)
     const messagesEndRef       = useRef(null)
     const stickToBottom        = useRef(true)
     const prevCount            = useRef(0)
-    const wasStreaming         = useRef(false)
     const programmaticScroll   = useRef(false)
     const programmaticTimerRef = useRef(null)
 
@@ -37,12 +35,8 @@ export function useChatScroll(messages, { onFinishStreaming, watch } = {}) {
     }
 
     useEffect(() => {
-        const streaming    = messages.some(m => m.streaming)
         const countChanged = messages.length !== prevCount.current
-        const justFinished = wasStreaming.current && !streaming
-
-        prevCount.current    = messages.length
-        wasStreaming.current = streaming
+        prevCount.current  = messages.length
 
         // A new message (the user just sent) re-engages auto-follow.
         if (countChanged) stickToBottom.current = true
@@ -62,8 +56,6 @@ export function useChatScroll(messages, { onFinishStreaming, watch } = {}) {
             }
             messagesEndRef.current?.scrollIntoView({ behavior })
         }
-        if (justFinished) onFinishStreaming?.()
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [messages, watch])
 
     return { messagesRef, messagesEndRef, handleScroll }

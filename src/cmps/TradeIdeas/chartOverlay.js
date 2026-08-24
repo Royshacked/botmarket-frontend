@@ -1,3 +1,4 @@
+import { isLivePosition, isTerminal, isAwaitingConfirm, isInvalidated } from '../../services/entityStatus.js'
 // Derive what to draw on an idea/call's chart: trade LEVELS (entry/stop/tp/zones) + relevant
 // INDICATORS. Consumed by IdeaDetail / CallPage → PriceChart, which just draws the spec.
 //
@@ -47,7 +48,14 @@ export function textToIndicators(text) {
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
-const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null }
+// null and '' must be rejected BEFORE Number(), which coerces both to 0 — a "level" at price zero
+// is not a level, and it drew a line at the bottom of the chart for any absent stop, fill price or
+// reference level. Shared by all three derive* functions, so this is fixed in exactly one place.
+const num = (v) => {
+    if (v == null || v === '') return null
+    const n = Number(v)
+    return Number.isFinite(n) ? n : null
+}
 
 /** Volume-weighted average entry across a set of positions, or null. */
 function weightedAvgEntry(positions) {
@@ -103,6 +111,42 @@ function dedupeLevels(levels) {
         seen.add(key)
         return true
     })
+}
+
+// ── Setup ───────────────────────────────────────────────────────────────────
+/**
+ * A `setup`'s levels. Its plan is authored as ZONES (entry/stop/tp), not single prices — a zone is
+ * a region price has to reach, so each edge is a real level and both are drawn.
+ *
+ * The zone edges are already clean numbers (setup.schema normalizeZones), so unlike an idea there
+ * is no free-text parsing here and nothing is deferred.
+ *
+ * @param {object} setup
+ * @returns {{ levels: Array, indicators: Array }}
+ */
+export function deriveSetupOverlay(setup) {
+    if (!setup) return { levels: [], indicators: [] }
+    const levels = []
+    const side   = setup.direction || null
+
+    const pushZones = (zones, kind, label) => {
+        (zones || []).forEach((z, i) => {
+            const tag = (zones.length > 1 && kind === 'tp') ? `${label}${i + 1}` : label
+            if (num(z?.lower) != null) levels.push({ kind, price: num(z.lower), label: tag, side })
+            if (num(z?.upper) != null) levels.push({ kind, price: num(z.upper), label: tag, side })
+        })
+    }
+    pushZones(setup.entry_zones, 'entry', 'Entry')
+    pushZones(setup.stop_zones,  'stop',  'Stop')
+    pushZones(setup.tp_zones,    'tp',    'TP')
+
+    // The validity range — beyond it the premise is gone (setup.schema §validity).
+    const v = setup.validity || {}
+    if (num(v.lower) != null) levels.push({ kind: 'invalidation', price: num(v.lower), label: 'Invalidation' })
+    if (num(v.upper) != null) levels.push({ kind: 'invalidation', price: num(v.upper), label: 'Invalidation' })
+
+    const text = [setup.thesis || '', ...(setup.conditions || []).map(c => c?.text || '')].join(' ; ')
+    return { levels: dedupeLevels(levels), indicators: textToIndicators(text) }
 }
 
 // ── Idea ────────────────────────────────────────────────────────────────────
@@ -163,7 +207,7 @@ export function deriveCallOverlay(call) {
     const status = call.status
     const side   = ps?.entry?.direction || call.bias || null
 
-    if (ps && (status === 'in_position' || status === 'closed')) {
+    if (ps && (isLivePosition(status) || isTerminal(status))) {
         const entry = ps.entry?.fill_price ?? ps.entry?.intended
         if (num(entry) != null) levels.push({ kind: 'entry', price: num(entry), label: 'Entry', side })
         if (num(ps.stop?.current) != null) levels.push({ kind: 'stop', price: num(ps.stop.current), label: 'Stop', side })
@@ -173,7 +217,7 @@ export function deriveCallOverlay(call) {
         if (status === 'closed' && num(ps.outcome?.exit_price) != null) {
             levels.push({ kind: 'exit', price: num(ps.outcome.exit_price), label: 'Exit', side })
         }
-    } else if (p && (status === 'ready' || status === 'expiring')) {
+    } else if (p && (isAwaitingConfirm(status) || isInvalidated(call.invalidation_status))) {
         if (num(p.entry) != null) levels.push({ kind: 'entry', price: num(p.entry), label: 'Entry', side })
         if (num(p.stop)  != null) levels.push({ kind: 'stop',  price: num(p.stop),  label: 'Stop',  side })
         ;(p.take_profit || []).forEach((t, i) => {

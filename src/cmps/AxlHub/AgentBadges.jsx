@@ -93,6 +93,58 @@ export function KairosBadge(props) {
     )
 }
 
+// Mentor — the assist desk. In the Odyssey, Mentor is Athena in disguise, so the mark is her owl:
+// perched, patient, watching you trade rather than trading for you. Deliberately the only creature
+// in the set — nothing else here can be mistaken for it at a glance.
+export function MentorBadge(props) {
+    return (
+        <Badge {...props} title="Mentor">
+            <path d="M100,60 C124,60 140,80 140,110 C140,144 122,164 100,164 C78,164 60,144 60,110 C60,80 76,60 100,60 Z" />
+            <path d="M72,72 L66,44 L88,58" />
+            <path d="M128,72 L134,44 L112,58" />
+            <circle cx="83" cy="100" r="14" />
+            <circle cx="117" cy="100" r="14" />
+            <circle cx="83" cy="100" r="5" fill="currentColor" stroke="none" />
+            <circle cx="117" cy="100" r="5" fill="currentColor" stroke="none" />
+            <path d="M96,110 L104,110 L100,122 Z" fill="currentColor" stroke="none" />
+            <g strokeWidth="3.8">
+                <path d="M70,116 C70,138 76,152 84,160" />
+                <path d="M130,116 C130,138 124,152 116,160" />
+                <line x1="88" y1="163" x2="88" y2="172" />
+                <line x1="112" y1="163" x2="112" y2="172" />
+                <path d="M60,173 C82,177 118,177 140,173" />
+            </g>
+        </Badge>
+    )
+}
+
+// Prometheus — the research desk. The stolen fire of forethought: one clean flame with its hot
+// core, centred in the ring like the other agent figures (no spark, no clutter — it has to read
+// at 13px in the hub steps as well as at 54px in the summon orb).
+export function PrometheusBadge(props) {
+    return (
+        <Badge {...props} title="Prometheus">
+            <path d="M100,32 C106,58 118,70 130,86 C140,99 145,112 145,126 C145,150 125,168 100,168 C75,168 55,150 55,126 C55,112 60,99 70,86 C82,70 94,58 100,32 Z" />
+            <path d="M100,90 C103,105 114,113 114,128 C114,143 108,152 100,152 C92,152 86,143 86,128 C86,113 97,105 100,90 Z" />
+        </Badge>
+    )
+}
+
+// Pythia — the strategy desk. The Delphic tripod: the seat the oracle spoke from, with the vapour
+// rising off it. Like Prometheus and Mentor, the badge is the 200-space twin of the desk's line
+// sigil, so the desk reads the same weight as the others wherever a glyph is drawn.
+export function PythiaBadge(props) {
+    return (
+        <Badge {...props} title="Pythia">
+            <path d="M52,86 H148 L138,112 C133,124 118,132 100,132 C82,132 67,124 62,112 Z" />
+            <line x1="76" y1="128" x2="58" y2="174" />
+            <line x1="124" y1="128" x2="142" y2="174" />
+            <line x1="100" y1="132" x2="100" y2="174" />
+            <path d="M88,72 C88,60 100,57 100,44 C100,57 112,60 112,72" />
+        </Badge>
+    )
+}
+
 // Minos — the idea-monitoring persona (crown of the judge-king over a labyrinth of conditions).
 export function MinosBadge(props) {
     return (
@@ -107,6 +159,22 @@ export function MinosBadge(props) {
                 <path d="M84,152 L84,116 L116,116 L116,140 L100,140 L100,128" />
             </g>
             <circle cx="100" cy="128" r="3" fill="currentColor" stroke="none" />
+        </Badge>
+    )
+}
+
+// Talos — the setup-monitoring persona. The bronze automaton given to Minos, circling Crete on a
+// fixed rotation: a sentinel figure inside its patrol ring, with the perimeter marks it watches.
+export function TalosBadge(props) {
+    return (
+        <Badge {...props} title="Talos">
+            <circle cx="100" cy="104" r="46" strokeDasharray="10 8" />
+            <circle cx="100" cy="70" r="11" />
+            <line x1="100" y1="81" x2="100" y2="120" />
+            <line x1="79" y1="96" x2="121" y2="96" />
+            <path d="M100,120 L86,146" />
+            <path d="M100,120 L114,146" />
+            <circle cx="100" cy="70" r="3.2" fill="currentColor" stroke="none" />
         </Badge>
     )
 }
@@ -132,9 +200,10 @@ export function HermesBadge(props) {
     )
 }
 
-const AGENT_BADGES  = { idea: IdeaBadge, portfolio: AtlasBadge, scanner: ArgusBadge, kairos: KairosBadge }
-// Notification/list context: ideas show Minos, calls show Hermes; the rest reuse their agent figure.
-const NOTIFY_BADGES = { idea: MinosBadge, kairos: HermesBadge, portfolio: AtlasBadge, scanner: ArgusBadge }
+const AGENT_BADGES  = { idea: IdeaBadge, portfolio: AtlasBadge, scanner: ArgusBadge, kairos: KairosBadge, mentor: MentorBadge, analyst: PrometheusBadge, strategy: PythiaBadge }
+// Notification/list context: ideas show Minos, calls show Hermes, setups show Talos; the rest reuse
+// their agent figure.
+const NOTIFY_BADGES = { idea: MinosBadge, kairos: HermesBadge, mentor: TalosBadge, portfolio: AtlasBadge, scanner: ArgusBadge, analyst: PrometheusBadge, strategy: PythiaBadge }
 
 // Badge COMPONENT for an agent key (or null → fall back to the line glyph). Internal — consumers
 // go through <AgentGlyph> so this module exports only components (Fast Refresh stays happy).

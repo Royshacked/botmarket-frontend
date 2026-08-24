@@ -7,7 +7,7 @@
     &__empty {
         padding: 20px 16px;
         color: var(--text-muted);
-        font-size: 12.5px;
+        font-size: 13px;
         line-height: 1.5;
     }
 
@@ -50,7 +50,7 @@
 
     &__rating {
         font-family: var(--font-mono);
-        font-size: 9px;
+        font-size: 10px;
         font-weight: 700;
         letter-spacing: 0.05em;
         text-transform: uppercase;
@@ -63,20 +63,16 @@
         &--sell, &--strong_sell { color: var(--short-text); background: var(--short-bg); border-color: var(--short-border); }
     }
 
-    &__pt {
-        font-family: var(--font-mono);
-        font-size: 11.5px;
-        color: var(--text-secondary);
-    }
-    &__gap {
-        &--up   { color: var(--long-text); }
-        &--down { color: var(--short-text); }
+    // The shared renderer (cmps/PriceTarget) brings its own type and gap colours; the book only sizes
+    // it to the row.
+    &__row .price-target {
+        font-size: 12.5px;
     }
 
     &__status {
         margin-left: auto;
         font-family: var(--font-mono);
-        font-size: 9px;
+        font-size: 10px;
         letter-spacing: 0.05em;
         text-transform: uppercase;
         padding: 1px 6px;
@@ -91,7 +87,7 @@
     &__detail {
         padding: 4px 10px 10px;
         border-top: 1px solid var(--border);
-        font-size: 12px;
+        font-size: 12.5px;
         color: var(--text-secondary);
     }
     &__thesis { margin: 6px 0; line-height: 1.5; color: var(--text-primary); }
@@ -101,7 +97,7 @@
         &-label {
             display: block;
             font-family: var(--font-mono);
-            font-size: 9px;
+            font-size: 10px;
             letter-spacing: 0.05em;
             text-transform: uppercase;
             color: var(--text-muted);
@@ -116,10 +112,19 @@
         gap: 10px;
         margin-top: 8px;
     }
-    &__revs { font-size: 11px; color: var(--text-muted); }
+    &__revs { font-size: 12px; color: var(--text-muted); }
+    // The schedule ahead. Quieter than the trail behind — it is a floor, not an event.
+    &__next {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-dim);
+        &--due { color: var(--text-secondary); }
+    }
+    // The catalyst the wait is FOR — the analyst's own words, so italic like the rest of their prose.
+    &__next-why { font-style: italic; }
     &__retire {
         margin-left: auto;
-        font-size: 11px;
+        font-size: 12px;
         padding: 3px 10px;
         border-radius: 7px;
         border: 1px solid var(--border);

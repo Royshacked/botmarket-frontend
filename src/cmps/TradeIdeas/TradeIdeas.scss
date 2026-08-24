@@ -7,8 +7,18 @@
     flex-direction: column;
     min-height: 0;
 
+    // Height from --header-h (see _themes.scss). This is the LIVE design's right column, sitting
+    // directly beside the chat panel — the one pairing where a few pixels of mismatch is visible
+    // on every screen.
     &__header {
-        padding: 7px 20px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: var(--header-h);
+        padding: 0 20px;
+        background: var(--bg-wash-surface);
+        border-bottom: 1px solid var(--border);
         color: var(--accent-light);
     }
 
@@ -30,7 +40,7 @@
         border-radius: 3px;
         color: var(--text-muted);
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         font-weight: 600;
         letter-spacing: 0.06em;
         text-transform: uppercase;
@@ -55,7 +65,9 @@
         &--positions.active {
             background: var(--accent-deep);
             border-color: var(--accent);
-            color: #fff;
+            // Pairs with the fill: --accent-deep is the dark end of the ramp at night and the pale
+            // end on paper, so the label has to be the ramp's opposite end, not a literal white.
+            color: var(--accent-bright);
         }
     }
 
@@ -82,15 +94,9 @@
             border: none;
             border-top: 1px solid var(--border);
 
-            // Hide the "Axl Radar" branded header — Axl Lists already provides the outer brand.
-            // In non-cards mode the header only holds the title so remove it entirely.
-            // In cards mode the header also holds the tab strip, so hide just the title row.
+            // Hide the "Axl Radar" branded header — Axl Lists already provides the outer
+            // brand, and the header only holds the title here.
             &__header { display: none; }
-        }
-
-        [data-design="cards"] & .news-feed {
-            &__header     { display: flex; }
-            &__header-top { display: none; }
         }
     }
 
@@ -119,7 +125,7 @@
         justify-content: center;
         gap: 0.5rem;
         font-family: var(--font-mono);
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         letter-spacing: 0.08em;
         text-transform: uppercase;
         color: var(--text-secondary);
@@ -139,7 +145,7 @@
 
     &__empty {
         color: var(--text-muted);
-        font-size: 0.8rem;
+        font-size: 0.83rem;
         padding: 16px 0;
         text-align: center;
     }
@@ -154,7 +160,7 @@
     width: 100%;
     table-layout: fixed;
     border-collapse: collapse;
-    font-size: 0.75rem;
+    font-size: 0.78rem;
     color: var(--text-primary);
 
     .col-asset   { width: 9%;  }
@@ -179,7 +185,7 @@
         padding: 6px 8px 6px 0;
         color: var(--text-muted);
         font-weight: 600;
-        font-size: 0.68rem;
+        font-size: 0.74rem;
         text-transform: uppercase;
         letter-spacing: 0.05em;
         border-bottom: 1px solid var(--accent-deep);
@@ -268,7 +274,7 @@
     &__direction {
         font-weight: 600;
         text-transform: uppercase;
-        font-size: 0.7rem;
+        font-size: 0.76rem;
         &.direction--long  { color: #4caf50; }
         &.direction--short { color: #ef5350; }
     }
@@ -285,7 +291,7 @@
         text-overflow: ellipsis;
         white-space: nowrap;
         color: var(--text-muted);
-        font-size: 0.7rem;
+        font-size: 0.76rem;
     }
 
     &__notes {
@@ -293,13 +299,13 @@
         text-overflow: ellipsis;
         white-space: nowrap;
         color: var(--text-secondary);
-        font-size: 0.8rem;
+        font-size: 0.83rem;
     }
 
     &__tf {
         color: var(--accent);
         font-family: var(--font-mono);
-        font-size: 0.68rem;
+        font-size: 0.74rem;
         letter-spacing: 0.04em;
         white-space: nowrap;
     }
@@ -356,7 +362,7 @@
         background: none;
         border: 1px solid currentColor;
         border-radius: 3px;
-        font-size: 0.65rem;
+        font-size: 0.71rem;
         font-family: var(--font-mono);
         padding: 2px 5px;
         cursor: pointer;
@@ -386,79 +392,21 @@
 
         &.status--long  { color: var(--color-long); }
         &.status--short { color: var(--color-short); }
-        &.status--closed { color: #555; }
+        &.status--closed { color: var(--text-muted); }
 
         .status-icon { width: 22px; height: 22px; }
     }
 
     &__await-market {
-        font-size: 0.78rem;
+        font-size: 0.81rem;
         line-height: 1;
         flex-shrink: 0;
         animation: status-pulse 1.8s ease-in-out infinite;
     }
 
-    &__edit-btn {
-        background: none;
-        border: none;
-        outline: none;
-        appearance: none;
-        color: var(--accent-light);
-        cursor: pointer;
-        padding: 2px 3px;
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        line-height: 0;
+    // The row's edit/delete controls live in the ONE shared .icon-btn (EntityCard/IconButton).
+    // Their colour on a status-tinted row is set by the $sym-status-colors block below.
 
-        svg { width: 16px; height: 16px; }
-
-        &:hover { color: var(--accent-bright); }
-
-        // Idea generated without a stop / take profit — pulse red to remind the
-        // user to add exits (e.g. immediate ideas fired without conditions).
-        &--alert {
-            color: #ef5350;
-            animation: status-pulse 1.3s ease-in-out infinite;
-            &:hover { color: #ff6b6b; }
-        }
-
-        // Portfolio review due — the pencil turns red so the row signals a pending
-        // review; clicking it opens the Atlas chat in review mode.
-        &--due {
-            color: #ef5350;
-            &:hover { color: #ff6b6b; }
-        }
-    }
-
-    &__delete {
-        background: none;
-        border: none;
-        color: var(--accent-light);
-        cursor: pointer;
-        font-size: 1rem;
-        line-height: 1;
-        padding: 2px 4px;
-        flex-shrink: 0;
-        &:hover { color: var(--color-short); }
-
-        // Live idea (in position / hit): deleting would orphan the broker position,
-        // so the bin is locked until it's closed.
-        &:disabled {
-            opacity: 0.35;
-            cursor: not-allowed;
-            &:hover { color: var(--text-muted); }
-        }
-
-        // Trash-bin icon variant (per-idea delete)
-        &--bin {
-            display: flex;
-            align-items: center;
-            line-height: 0;
-            padding: 2px 3px;
-            svg { width: 16px; height: 16px; }
-        }
-    }
 
     &__building-bot {
         width: 22px;
@@ -492,8 +440,10 @@ $sym-status-colors: (
     .idea-row--#{$st} td:not(.idea-row__direction),
     .idea-row--#{$st} .idea-row__status-badge .status-icon,
     .idea-row--#{$st} .idea-row__status-toggle .status-icon,
-    .idea-row--#{$st} .idea-row__edit-btn,
-    .idea-row--#{$st} .idea-row__delete {
+    // The row's controls are the shared .icon-btn now; on a tinted row they take the row's colour
+    // so they still read as part of it. NOT when disabled — an unavailable control is grey
+    // everywhere in the app, and a tinted "dead" bin looked live.
+    .idea-row--#{$st} .icon-btn:not(:disabled) {
         color: #{$clr};
     }
 }
@@ -505,7 +455,7 @@ $sym-status-colors: (
     width: 100%;
     table-layout: fixed;
     border-collapse: collapse;
-    font-size: 0.75rem;
+    font-size: 0.78rem;
     color: var(--text-primary);
 
     .col-pf-name    { width: 34%; }
@@ -529,7 +479,7 @@ $sym-status-colors: (
         padding: 6px 8px 6px 0;
         color: var(--text-muted);
         font-weight: 600;
-        font-size: 0.68rem;
+        font-size: 0.74rem;
         text-transform: uppercase;
         letter-spacing: 0.05em;
         border-bottom: 1px solid var(--accent-deep);
@@ -543,7 +493,7 @@ $sym-status-colors: (
     text-align: right;
     font-family: var(--font-mono);
     font-weight: 600;
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     color: var(--text-secondary);
     &.pnl--pos { color: #4caf50; }
     &.pnl--neg { color: #ef5350; }
@@ -570,7 +520,7 @@ $sym-status-colors: (
     width: 100%;
     table-layout: fixed;
     border-collapse: collapse;
-    font-size: 0.75rem;
+    font-size: 0.78rem;
     color: var(--text-primary);
 
     .col-pos-asset   { width: 10%; }
@@ -602,7 +552,7 @@ $sym-status-colors: (
         padding: 6px 8px;
         color: var(--text-muted);
         font-weight: 600;
-        font-size: 0.68rem;
+        font-size: 0.74rem;
         text-transform: uppercase;
         letter-spacing: 0.05em;
         border-bottom: 1px solid var(--accent-deep);
@@ -633,15 +583,30 @@ $sym-status-colors: (
     &__dir {
         font-weight: 600;
         text-transform: uppercase;
-        font-size: 0.7rem;
+        font-size: 0.76rem;
         &.direction--long  { color: #4caf50; }
         &.direction--short { color: #ef5350; }
     }
 
+    // A FOLDED holding — one line standing for several broker positions, at the blended average.
+    // Deliberately quiet: it is a normal position row (the holding IS the unit the user thinks in),
+    // marked only by its caret and a faint tint, not promoted to a group header like the portfolio
+    // rows above it. Its expanded legs indent under it.
+    &--folded > td { background: color-mix(in srgb, var(--accent) 3%, transparent); }
+    &--folded:hover > td { background: var(--bg-hover); }
+    &--leg > td { background: color-mix(in srgb, var(--accent) 1%, transparent); }
+    &--leg .position-row__asset {
+        padding-left: 22px;
+        font-weight: 500;
+        color: var(--text-secondary);
+    }
+
+    &__caret { color: var(--accent); font-size: 0.66rem; margin-right: 6px; }
+
     &__broker,
     &__account { color: var(--text-secondary); }
 
-    &__entered { color: var(--text-muted); font-size: 0.7rem; }
+    &__entered { color: var(--text-muted); font-size: 0.76rem; }
 
     &__qty,
     &__price { text-align: right; font-family: var(--font-mono); }
@@ -656,7 +621,7 @@ $sym-status-colors: (
         &.pnl--pos { color: #4caf50; }
         &.pnl--neg { color: #ef5350; }
     }
-    &__pnl-pct { font-size: 0.7rem; }
+    &__pnl-pct { font-size: 0.76rem; }
 
     &__controls { text-align: center; display: flex; gap: 6px; justify-content: center; align-items: center; }
 
@@ -685,7 +650,7 @@ $sym-status-colors: (
         border: none;
         color: var(--accent-light);
         font-family: var(--font-mono);
-        font-size: 0.8rem;
+        font-size: 0.83rem;
         line-height: 0;
         padding: 2px 3px;
         cursor: pointer;
@@ -707,7 +672,7 @@ $sym-status-colors: (
     display: inline-block;
     padding: 1px 6px;
     border-radius: 4px;
-    font-size: 0.6rem;
+    font-size: 0.66rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -763,19 +728,22 @@ $sym-status-colors: (
     &--account > td { background: color-mix(in srgb, var(--accent) 2%, transparent); }
     &--account:hover > td { background: var(--bg-hover); }
     &--account .position-group-row__lead { padding-left: 22px; }
-    &--account .position-group-row__name { color: var(--text-secondary); font-size: 0.72rem; }
+    &--account .position-group-row__name { color: var(--text-secondary); font-size: 0.75rem; }
 
     &__lead { overflow: hidden; text-overflow: ellipsis; }
-    &__caret { color: var(--accent); font-size: 0.6rem; margin-right: 8px; }
+    &__caret { color: var(--accent); font-size: 0.66rem; margin-right: 8px; }
     &__name {
         font-weight: 600;
         color: var(--accent-light);
-        font-size: 0.75rem;
+        font-size: 0.78rem;
         font-family: var(--font-mono);
         letter-spacing: 0.04em;
     }
-    &__count  { color: var(--text-muted); font-size: 0.7rem; margin-left: 6px; }
-    &__entered { color: var(--text-muted); font-size: 0.7rem; }
+    // Cap the name so a long book title can't push the count / Close all out of the
+    // (clipped) lead cell.
+    &__name { display: inline-block; max-width: 45%; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+    &__count  { color: var(--text-muted); font-size: 0.76rem; margin-left: 6px; }
+    &__entered { color: var(--text-muted); font-size: 0.76rem; }
     &__mode { overflow: visible; }
     &__broker, &__account { color: var(--text-secondary); }
     &__pnl, &__pnl-pct {
@@ -785,7 +753,34 @@ $sym-status-colors: (
         &.pnl--pos { color: #4caf50; }
         &.pnl--neg { color: #ef5350; }
     }
-    &__pnl-pct { font-size: 0.7rem; }
+    &__pnl-pct { font-size: 0.76rem; }
+
+    // Group-level close, inline in the lead cell after the position count. Worded and
+    // outlined, not an ✕, so it can't be mistaken for the single-row close beneath it —
+    // and it reads as destructive (red) before it's clicked, not only on hover.
+    &__close {
+        margin-left: 10px;
+        vertical-align: middle;
+        background: color-mix(in srgb, var(--color-short) 12%, transparent);
+        border: 1px solid color-mix(in srgb, var(--color-short) 40%, transparent);
+        border-radius: 4px;
+        color: var(--color-short);
+        font-family: var(--font-mono);
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        padding: 1px 7px;
+        cursor: pointer;
+        transition: background 0.12s, border-color 0.12s;
+
+        &:hover:not(:disabled) {
+            background: color-mix(in srgb, var(--color-short) 24%, transparent);
+            border-color: var(--color-short);
+        }
+        &:disabled { opacity: 0.5; cursor: default; }
+        &:focus { outline: none; }
+    }
 }
 
 // The portfolios table's column-header row is sticky at the top; give it a fixed
@@ -818,20 +813,20 @@ $sym-status-colors: (
 
     &__caret {
         color: var(--accent);
-        font-size: 0.6rem;
+        font-size: 0.66rem;
         margin-right: 6px;
     }
 
     &__name {
         font-weight: 600;
         color: var(--accent-light);
-        font-size: 0.75rem;
+        font-size: 0.78rem;
         font-family: var(--font-mono);
         letter-spacing: 0.04em;
     }
 
     &__count   { color: var(--text-secondary); }
-    &__created { color: var(--text-muted); font-size: 0.7rem; }
+    &__created { color: var(--text-muted); font-size: 0.76rem; }
 
     &__status {
         display: flex;
@@ -864,7 +859,7 @@ $sym-status-colors: (
 
     &__building-badge {
         font-family: var(--font-mono);
-        font-size: 0.7rem;
+        font-size: 0.76rem;
         font-weight: 600;
         letter-spacing: 0.04em;
         color: var(--accent-light);
@@ -892,7 +887,7 @@ $sym-status-colors: (
     padding: 1px 5px;
     border-radius: 3px;
     font-family: var(--font-mono);
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     letter-spacing: 0.03em;
     color: var(--text-secondary);
     background: color-mix(in srgb, var(--accent) 12%, transparent);
@@ -901,7 +896,7 @@ $sym-status-colors: (
 
 .idea-row__no-account {
     margin-left: 6px;
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     line-height: 1;
     color: #e24b4a;
     vertical-align: middle;
@@ -916,7 +911,7 @@ $sym-status-colors: (
 
 .idea-row__broker-count {
     margin-left: 6px;
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     color: var(--text-muted);
 }
 
@@ -925,12 +920,12 @@ $sym-status-colors: (
 
     .idea-row__caret {
         color: var(--accent);
-        font-size: 0.6rem;
+        font-size: 0.66rem;
         margin-right: 6px;
     }
     .idea-row__status-badge--group {
         font-family: var(--font-mono);
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         letter-spacing: 0.04em;
         color: var(--accent-light);
     }
@@ -941,44 +936,11 @@ $sym-status-colors: (
     td:first-child { padding-left: 22px; }
 }
 
-// ── Ideas Cards (design trial 'cards') ─────────────────────────────────────────
-// The Ideas tab rendered as stacked cards instead of the table. Neutral surface —
-// lifecycle (waiting → live → closed) is carried by the icon tile + ticker colour +
-// pulse, not a full-card tint, so the LONG/SHORT + status pills stay legible.
-
-// Segmented pill nav (Ideas / Portfolios / Positions) — a single rounded container
-// with the active tab as an accent-tinted pill, matching the cards mockup.
-[data-design="cards"] .trade-ideas-list {
-    &__filters {
-        gap: 0;
-        padding: 3px;
-        background: var(--bg-deep);
-        border: 1px solid var(--border);
-        border-radius: 999px;
-    }
-
-    &__filter {
-        border: none;
-        border-radius: 999px;
-        background: transparent;
-        color: var(--text-muted);
-        font-size: 11px;
-        letter-spacing: 0.1em;
-        padding: 4px 12px;
-        transition: background 0.15s, color 0.15s;
-
-        &:hover { color: var(--accent-light); }
-
-        &.active,
-        &--portfolio.active,
-        &--positions.active {
-            background: color-mix(in srgb, var(--accent) 14%, transparent);
-            border-color: transparent;
-            color: var(--accent-light);
-        }
-    }
-}
-
+// ── Idea cards ────────────────────────────────────────────────────────────────
+// Card rendering of an idea (positions list, pop-out footer, CardList sections).
+// Neutral surface — lifecycle (waiting → live → closed) is carried by the icon tile
+// + ticker colour + pulse, not a full-card tint, so the LONG/SHORT + status pills
+// stay legible.
 .ideas-cards {
     display: flex;
     flex-direction: column;
@@ -1027,7 +989,7 @@ $sym-status-colors: (
     }
 
     &__icon-svg { width: 22px; height: 22px; }
-    &__caret { color: var(--accent); font-size: 0.7rem; }
+    &__caret { color: var(--accent); font-size: 0.76rem; }
 
     &__body { flex: 1; min-width: 0; }
 
@@ -1054,7 +1016,7 @@ $sym-status-colors: (
 
     &__pill {
         font-family: var(--font-mono);
-        font-size: 0.62rem;
+        font-size: 0.68rem;
         letter-spacing: 0.06em;
         text-transform: uppercase;
         border-radius: 999px;
@@ -1064,13 +1026,15 @@ $sym-status-colors: (
         &--type { color: var(--text-secondary); border: 1px solid var(--accent-deep); }
         &--dir.direction--long  { color: var(--color-long);  background: color-mix(in srgb, var(--color-long) 14%, transparent); }
         &--dir.direction--short { color: var(--color-short); background: color-mix(in srgb, var(--color-short) 14%, transparent); }
+        // The build lens a kind was authored through (a setup's trade_mode, a call's mode).
+        &--lens { color: var(--accent-light); border: 1px solid var(--border-mid); }
     }
 
     &__broker-badge {
         padding: 1px 6px;
         border-radius: 999px;
         font-family: var(--font-mono);
-        font-size: 0.6rem;
+        font-size: 0.66rem;
         letter-spacing: 0.03em;
         color: var(--text-secondary);
         background: color-mix(in srgb, var(--accent) 12%, transparent);
@@ -1078,12 +1042,12 @@ $sym-status-colors: (
 
     &__broker-count {
         font-family: var(--font-mono);
-        font-size: 0.62rem;
+        font-size: 0.68rem;
         color: var(--text-muted);
     }
 
     &__no-account {
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         line-height: 1;
         color: #e24b4a;
         cursor: help;
@@ -1092,7 +1056,7 @@ $sym-status-colors: (
     &__pnl {
         margin-left: auto;
         font-family: var(--font-mono);
-        font-size: 0.7rem;
+        font-size: 0.76rem;
         font-weight: 600;
         color: var(--text-secondary);
         &.pnl--pos { color: #4caf50; }
@@ -1104,7 +1068,7 @@ $sym-status-colors: (
         align-items: center;
         gap: 6px;
         margin-top: 3px;
-        font-size: 0.78rem;
+        font-size: 0.81rem;
         color: var(--text-secondary);
         min-width: 0;
     }
@@ -1122,7 +1086,7 @@ $sym-status-colors: (
     }
 
     &__await-market {
-        font-size: 0.78rem;
+        font-size: 0.81rem;
         line-height: 1;
         animation: status-pulse 1.8s ease-in-out infinite;
     }
@@ -1154,57 +1118,14 @@ $sym-status-colors: (
 
     &__status-badge--group {
         font-family: var(--font-mono);
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         letter-spacing: 0.04em;
         color: var(--accent-light);
     }
 
-    &__edit-btn,
-    &__delete {
-        background: none;
-        border: none;
-        outline: none;
-        color: var(--accent-light);
-        cursor: pointer;
-        padding: 2px 3px;
-        display: inline-flex;
-        align-items: center;
-        line-height: 0;
+    // Card actions are the ONE shared .icon-btn (EntityCard/IconButton) — five copies of this
+    // block had drifted into four resting colours before it existed.
 
-        svg { width: 16px; height: 16px; }
-        &:focus { outline: none; }
-    }
-
-    &__edit-btn {
-        &:hover { color: var(--accent-bright); }
-        &--alert {
-            color: #ef5350;
-            animation: status-pulse 1.3s ease-in-out infinite;
-            &:hover { color: #ff6b6b; }
-        }
-        // Portfolio review due — red pencil that opens review mode.
-        &--due {
-            color: #ef5350;
-            &:hover { color: #ff6b6b; }
-        }
-        // Not chat-editable (a call in position / confirmed / closed): the plan can't be
-        // re-edited — mid-trade changes go via management cards — so the pencil is dimmed to
-        // a dark, disabled look. It still clicks through to the pop-out (title says so).
-        &--locked {
-            color: var(--text-muted);
-            opacity: 0.5;
-            &:hover { color: var(--text-muted); }
-        }
-    }
-
-    &__delete {
-        &:hover { color: var(--color-short); }
-        &:disabled {
-            opacity: 0.35;
-            cursor: not-allowed;
-            &:hover { color: var(--text-muted); }
-        }
-    }
 
     &__building-bot {
         width: 22px;
@@ -1265,7 +1186,7 @@ $card-status-colors: (
     background: color-mix(in srgb, var(--accent) 2%, transparent);
     padding: 6px 12px;
 
-    .idea-card__pf-name { font-size: 0.78rem; color: var(--text-secondary); }
+    .idea-card__pf-name { font-size: 0.81rem; color: var(--text-secondary); }
 }
 
 // ── Portfolio card (Portfolios tab) ────────────────────────────────────────────
@@ -1275,7 +1196,7 @@ $card-status-colors: (
         width: 10px;
         text-align: center;
         color: var(--accent);
-        font-size: 0.7rem;
+        font-size: 0.76rem;
     }
 
     &--building .idea-card__pf-name {
@@ -1303,7 +1224,7 @@ $card-status-colors: (
         align-items: center;
         gap: 4px;
         font-family: var(--font-mono);
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         font-weight: 600;
         border-radius: 999px;
         padding: 3px 10px;
@@ -1315,7 +1236,7 @@ $card-status-colors: (
         &--flat    { color: var(--text-muted);  background: none; }
     }
 
-    &__pnl-arrow { font-size: 0.66rem; line-height: 1; }
+    &__pnl-arrow { font-size: 0.72rem; line-height: 1; }
 
     // Collapsible portfolio / group headers read as section headers over their children —
     // slim them below the item cards: smaller badge, tighter padding + name.
@@ -1361,7 +1282,7 @@ $card-status-colors: (
     }
     &__pnl-pct {
         font-family: var(--font-mono);
-        font-size: 0.66rem;
+        font-size: 0.72rem;
         font-weight: 600;
         &.pnl--pos { color: var(--color-long); }
         &.pnl--neg { color: var(--color-short); }
@@ -1468,7 +1389,7 @@ $card-status-colors: (
     &__popout {
         background: none;
         border: none;
-        color: #2a4a7a;
+        color: var(--text-muted);
         font-size: 1rem;
         cursor: pointer;
         line-height: 1;
@@ -1479,7 +1400,7 @@ $card-status-colors: (
     &__close {
         background: none;
         border: none;
-        color: #2a4a7a;
+        color: var(--text-muted);
         font-size: 1.3rem;
         cursor: pointer;
         line-height: 1;
@@ -1539,28 +1460,28 @@ $card-status-colors: (
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.04em;
-        font-size: 0.68rem;
+        font-size: 0.74rem;
         margin-bottom: 8px;
     }
 
     &__positions-empty {
         margin: 0;
         color: var(--text-muted);
-        font-size: 0.75rem;
+        font-size: 0.78rem;
     }
 
     &__field {
         display: flex;
         flex-direction: column;
         gap: 5px;
-        font-size: 0.75rem;
+        font-size: 0.78rem;
 
         > span {
             color: var(--accent);
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.04em;
-            font-size: 0.68rem;
+            font-size: 0.74rem;
 
             em {
                 font-style: normal;
@@ -1574,15 +1495,15 @@ $card-status-colors: (
     &__ae-qty {
         display: inline-block;
         font-family: var(--font-mono);
-        font-size: 0.68rem;
+        font-size: 0.74rem;
         color: var(--accent);
         margin-bottom: 3px;
     }
 
     &__notes {
         margin: 0;
-        color: #7a9bc0;
-        font-size: 0.78rem;
+        color: var(--text-secondary);
+        font-size: 0.81rem;
     }
 
     select {
@@ -1590,7 +1511,7 @@ $card-status-colors: (
         border: 1px solid var(--accent-deep);
         border-radius: 4px;
         color: var(--text-primary);
-        font-size: 0.78rem;
+        font-size: 0.81rem;
         padding: 7px 28px 7px 10px;
         font-family: inherit;
         cursor: pointer;
@@ -1611,7 +1532,7 @@ $card-status-colors: (
         border: none;
         border-radius: 4px;
         padding: 7px 18px;
-        font-size: 0.78rem;
+        font-size: 0.81rem;
         font-weight: 600;
         cursor: pointer;
         transition: opacity 0.12s;
@@ -1653,7 +1574,7 @@ $card-status-colors: (
         align-items: center;
         gap: 7px;
         font-family: var(--font-mono);
-        font-size: 0.58rem;
+        font-size: 0.64rem;
         font-weight: 700;
         letter-spacing: 0.1em;
         text-transform: uppercase;
@@ -1700,7 +1621,7 @@ $card-status-colors: (
     // AND / OR badge shown between inline chips in a group row
     &__inline-op {
         font-family: var(--font-mono);
-        font-size: 0.58rem;
+        font-size: 0.64rem;
         font-weight: 700;
         letter-spacing: 0.08em;
         text-transform: uppercase;
@@ -1746,11 +1667,11 @@ $card-status-colors: (
 
         // A met condition is "done" — dim its text so attention stays on the
         // conditions still pending.
-        .ctree__leaf-text { color: #5a6b7d; }
+        .ctree__leaf-text { color: var(--text-muted); }
     }
 
     &__leaf-text {
-        font-size: 0.78rem;
+        font-size: 0.81rem;
         color: #c4d8f0;
         flex: 1;
         min-width: 0;
@@ -1760,7 +1681,7 @@ $card-status-colors: (
 
     &__leaf-qty {
         font-family: var(--font-mono);
-        font-size: 0.6rem;
+        font-size: 0.66rem;
         font-weight: 600;
         color: var(--accent-light);
         background: var(--glow);
@@ -1771,7 +1692,7 @@ $card-status-colors: (
 
     &__leaf-type {
         font-family: var(--font-mono);
-        font-size: 0.58rem;
+        font-size: 0.64rem;
         font-weight: 600;
         letter-spacing: 0.04em;
         text-transform: uppercase;
@@ -1790,74 +1711,17 @@ $card-status-colors: (
 
     &__leaf-tf {
         font-family: var(--font-mono);
-        font-size: 0.6rem;
+        font-size: 0.66rem;
         color: var(--accent);
         flex-shrink: 0;
         white-space: nowrap;
     }
 
     &__empty {
-        font-size: 0.74rem;
+        font-size: 0.77rem;
         color: var(--text-dim);
         margin: 0;
         padding: 2px 0;
-    }
-}
-
-// ── Idea dialog + popped-out window (design trial 'cards') ─────────────────────
-// Aligns both the floating dialog and the pop-out window with the card language.
-// They share IdeaDetail, whose body uses `.idea-dialog__*` BEM classes, so those
-// rules reach both; the dialog shell/footer and the pop-out's own `.idea-page`
-// header are styled per surface. The pop-out loads the app fresh, so index.jsx →
-// initDesign() already applies the same `data-design` there — no extra wiring.
-[data-design="cards"] {
-    // Floating dialog shell + footer
-    .idea-dialog {
-        border: 1px solid var(--border);
-        border-radius: 16px;
-
-        &__header {
-            background: var(--bg-surface);
-            border-bottom: 1px solid var(--border);
-            border-radius: 16px 16px 0 0;
-        }
-
-        &__footer { border-top: 1px solid var(--border); }
-
-        &__btn {
-            border-radius: 999px;
-            padding: 7px 18px;
-            font-weight: 600;
-        }
-        &__btn--save,
-        &__btn--place { color: #06110c; }
-        &__btn--save  { background: var(--accent); }
-        &__btn--place { background: var(--color-long); }
-
-        select { border-radius: 8px; border-color: var(--border); }
-    }
-
-    // Popped-out window header → same surface treatment as the dialog header
-    .idea-page__header {
-        background: var(--bg-surface);
-        border-bottom: 1px solid var(--border);
-    }
-
-    // Shared IdeaDetail body — `.idea-dialog__*` BEM classes apply in both surfaces
-    .idea-dialog__chart     { border-right: 1px solid var(--border); }
-    .idea-dialog__positions { background: var(--bg-surface); border-top: 1px solid var(--border); }
-
-    // Conditions column lives in both — scope the tree + chips here (not under the
-    // dialog-only `.idea-dialog` container) so the pop-out gets them as well.
-    .idea-dialog__conditions {
-        .ctree__row {
-            border-radius: 8px;
-            border-color: var(--border);
-        }
-        .ctree__leaf--inline,
-        .ctree__leaf-type,
-        .ctree__leaf-qty,
-        .ctree__inline-op { border-radius: 999px; }
     }
 }
 
@@ -1940,7 +1804,7 @@ $card-status-colors: (
     }
 
     &__hub-card-label {
-        font-size: 12px;
+        font-size: 12.5px;
         font-weight: 600;
         color: var(--text-primary);
         line-height: 1.3;
@@ -1948,7 +1812,7 @@ $card-status-colors: (
 
     &__hub-card-count {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         color: var(--text-muted);
         letter-spacing: 0.04em;
     }
@@ -1964,7 +1828,7 @@ $card-status-colors: (
         border-radius: 4px;
         color: var(--text-secondary);
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         font-weight: 600;
         letter-spacing: 0.08em;
         text-transform: uppercase;
@@ -1979,7 +1843,7 @@ $card-status-colors: (
     &__crumb {
         color: var(--text-muted);
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         letter-spacing: 0.08em;
         flex-shrink: 0;
     }
@@ -1987,7 +1851,7 @@ $card-status-colors: (
     &__section {
         color: var(--text-secondary);
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         font-weight: 600;
         letter-spacing: 0.08em;
         text-transform: uppercase;

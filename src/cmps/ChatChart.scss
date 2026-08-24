@@ -1,0 +1,25 @@
+// The agent's still-chart row inside a chat thread. Own namespace on purpose: the same row in every
+// agent's thread, rather than four panel-specific copies that drift apart. (The live chart the user
+// asked for is not here — it docks at the bottom of the chat, see ChatChartDock.scss.)
+.chat-chart {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-self: flex-start;
+    max-width: 92%;
+
+    &__img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+    }
+
+    &__caption {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        letter-spacing: 0.05em;
+        color: var(--text-secondary);
+    }
+}

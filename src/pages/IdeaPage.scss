@@ -51,7 +51,7 @@ html, body, #root {
     }
 
     &__direction {
-        font-size: 0.8rem;
+        font-size: 0.83rem;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.05em;
@@ -63,7 +63,7 @@ html, body, #root {
     }
 
     &__meta {
-        font-size: 0.8rem;
+        font-size: 0.83rem;
         color: var(--accent);
     }
 
@@ -123,14 +123,14 @@ html, body, #root {
         display: flex;
         flex-direction: column;
         gap: 5px;
-        font-size: 0.75rem;
+        font-size: 0.78rem;
 
         > span {
             color: var(--accent);
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.04em;
-            font-size: 0.68rem;
+            font-size: 0.74rem;
 
             em {
                 font-style: normal;
@@ -144,7 +144,7 @@ html, body, #root {
     &__ae-qty {
         display: inline-block;
         font-family: var(--font-mono);
-        font-size: 0.68rem;
+        font-size: 0.74rem;
         color: var(--accent);
         margin-bottom: 3px;
     }
@@ -152,7 +152,7 @@ html, body, #root {
     &__notes {
         margin: 0;
         color: var(--text-secondary);
-        font-size: 0.78rem;
+        font-size: 0.81rem;
         line-height: 1.5;
     }
 
@@ -176,14 +176,14 @@ html, body, #root {
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.04em;
-        font-size: 0.68rem;
+        font-size: 0.74rem;
         margin-bottom: 8px;
     }
 
     &__positions-empty {
         margin: 0;
         color: var(--text-muted);
-        font-size: 0.75rem;
+        font-size: 0.78rem;
     }
 }
 
@@ -192,7 +192,7 @@ html, body, #root {
     flex-shrink: 0;
     border-bottom: 1px solid var(--accent-deep);
     background: var(--bg-raised);
-    font-size: 0.75rem;
+    font-size: 0.78rem;
 
     &-toggle {
         width: 100%;
@@ -204,7 +204,7 @@ html, body, #root {
         border: none;
         color: var(--text-muted);
         cursor: pointer;
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         font-family: var(--font-mono, monospace);
         letter-spacing: 0.04em;
         text-align: left;
@@ -215,7 +215,7 @@ html, body, #root {
     &-status {
         padding: 1px 6px;
         border-radius: 3px;
-        font-size: 0.65rem;
+        font-size: 0.71rem;
         font-weight: 600;
         text-transform: uppercase;
 
@@ -227,7 +227,7 @@ html, body, #root {
 
     &-caret {
         margin-left: auto;
-        font-size: 0.6rem;
+        font-size: 0.66rem;
         opacity: 0.5;
     }
 
@@ -250,7 +250,7 @@ html, body, #root {
     }
 
     &-label {
-        font-size: 0.65rem;
+        font-size: 0.71rem;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.06em;

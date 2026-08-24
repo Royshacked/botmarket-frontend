@@ -35,18 +35,19 @@
     // transparent below) show this translucent blur, so the bubble reads as glass.
     //
     // Theme + accent aware: the tint is --accent-deep (which tracks both the active
-    // theme AND the live accent-hue slider) blended into a CONSTANT near-black
-    // anchor, then dropped to 0.94 alpha for the glass. Anchoring to a constant —
-    // not the themeable --bg-base — is deliberate: --bg-base is set per-origin by
-    // the background slider, so keying off it made the glass read "right" on
-    // localhost but far too transparent on the deployed origin. The constant anchor
-    // keeps the fill equally solid everywhere while still picking up the theme hue.
+    // theme AND the live accent-hue slider) blended into --glass-anchor, then dropped
+    // to 0.94 alpha for the glass. Anchoring to a fixed value — not the themeable
+    // --bg-base — is deliberate: --bg-base is set per-origin by the background slider,
+    // so keying off it made the glass read "right" on localhost but far too transparent
+    // on the deployed origin. The anchor keeps the fill equally solid everywhere while
+    // still picking up the theme hue. It holds ONE value per appearance (near-black in
+    // dark, near-white in light — _themes.scss), so the chat isn't a black island on paper.
     //
     // --sc-tint is the shared solid; the list/window fills below reuse it at lower
     // alpha so the whole interior is one glass at three depths. Near-solid on
     // purpose so the blurred app backdrop can't bleed through regardless of its
     // per-origin lightness. Tune alpha to taste — higher = more solid.
-    --sc-tint:    color-mix(in srgb, var(--accent-deep) 34%, #070b0d);
+    --sc-tint:    color-mix(in srgb, var(--accent-deep) 34%, var(--glass-anchor));
     --sc-glass:   color-mix(in srgb, var(--sc-tint) 94%, transparent);
     --sc-sidebar: color-mix(in srgb, var(--sc-tint) 55%, transparent);
     --sc-window:  color-mix(in srgb, var(--sc-tint) 35%, transparent);
@@ -84,9 +85,31 @@
         border-bottom: 1px solid var(--border-mid);
     }
 
+    &__topbar-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    // Back to the conversation list — mobile only, where the list is hidden behind the open
+    // thread. On desktop both panes are on screen, so there is nothing to go back to.
+    &__topbar-back {
+        display: none;
+        background: none;
+        border: none;
+        color: var(--text-secondary, var(--text-muted));
+        font-size: 1.5rem;
+        line-height: 1;
+        cursor: pointer;
+        padding: 0 6px;
+        border-radius: 6px;
+        &:hover { background: var(--bg-hover); color: var(--text-primary); }
+    }
+
     &__topbar-title {
         font-family: var(--font-mono);
-        font-size: .72rem;
+        font-size: 0.75rem;
         font-weight: 600;
         letter-spacing: .14em;
         text-transform: uppercase;
@@ -131,7 +154,7 @@
 
     &__list-header {
         padding: 16px 14px 10px;
-        font-size: .7rem;
+        font-size: 0.76rem;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: .08em;
@@ -181,7 +204,7 @@
         &:hover { background: var(--bg-hover); }
     }
 
-    &__search-username { color: var(--text-muted); font-size: .76rem; }
+    &__search-username { color: var(--text-muted); font-size: 0.79rem; }
 
     &__conv-scroll {
         flex: 1;
@@ -246,7 +269,7 @@
     }
 
     &__conv-preview {
-        font-size: .75rem;
+        font-size: 0.78rem;
         color: var(--text-muted);
         white-space: nowrap;
         overflow: hidden;
@@ -262,12 +285,12 @@
         flex-shrink: 0;
     }
 
-    &__conv-time { font-size: .7rem; color: var(--text-dim, var(--text-muted)); }
+    &__conv-time { font-size: 0.76rem; color: var(--text-dim, var(--text-muted)); }
 
     &__unread-dot {
         background: var(--accent);
         color: #fff;
-        font-size: .66rem;
+        font-size: 0.72rem;
         font-weight: 700;
         padding: 1px 5px;
         border-radius: 10px;
@@ -359,7 +382,7 @@
         border: 1px solid var(--border);
         border-radius: 12px;
         color: var(--text-secondary, var(--text-muted));
-        font-size: .78rem;
+        font-size: 0.81rem;
         cursor: pointer;
         &:hover { background: var(--bg-hover); }
         &:disabled { opacity: .5; cursor: default; }
@@ -403,7 +426,7 @@
     }
 
     &__msg-time {
-        font-size: .7rem;
+        font-size: 0.76rem;
         color: var(--text-dim, var(--text-muted));
         margin-top: 2px;
         padding: 0 4px;
@@ -416,7 +439,7 @@
         gap: 5px;
         padding: 6px 10px 3px;
         font-family: var(--font-mono);
-        font-size: .6rem;
+        font-size: 0.66rem;
         font-weight: 700;
         letter-spacing: .09em;
         text-transform: uppercase;
@@ -445,7 +468,7 @@
 
     &__invalidation-alert-header {
         padding: 3px 10px 4px;
-        font-size: .7rem;
+        font-size: 0.76rem;
         font-weight: 600;
         letter-spacing: .01em;
 
@@ -463,7 +486,7 @@
 
     &__invalidation-alert-reason {
         padding: 5px 10px 7px;
-        font-size: .76rem;
+        font-size: 0.79rem;
         color: var(--text-primary);
         line-height: 1.4;
     }
@@ -472,7 +495,7 @@
     // 0.55 via --dismissed), so a handled card keeps its context without re-expanding the chat.
     &__invalidation-alert-reason--resolved {
         padding-top: 0;
-        font-size: .72rem;
+        font-size: 0.75rem;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -493,7 +516,7 @@
         border: 1px solid var(--border-strong, var(--border));
         border-radius: 6px;
         color: var(--text-primary);
-        font-size: .68rem;
+        font-size: 0.74rem;
         font-weight: 500;
         white-space: nowrap;
         cursor: pointer;
@@ -522,6 +545,20 @@
         &:hover { opacity: 0.8; }
     }
 
+    // OPENED BUT NOT DONE. A card that asks for work survives being opened, so it needs to look
+    // different from one never touched — otherwise "still outstanding" and "never seen" are the
+    // same pixels and the feed stops being readable. Marked, deliberately NOT faded: fading is what
+    // `--dismissed` means, and this card is still owed.
+    &__invalidation-alert--opened {
+        border-left: 2px solid rgba(255, 183, 77, 0.75);
+    }
+    &__invalidation-alert-opened {
+        margin-top: 4px;
+        font-size: 0.72rem;
+        letter-spacing: 0.02em;
+        color: rgba(255, 183, 77, 0.9);
+    }
+
     // ── Manual (broker-less) FillCard ──────────────────────────────────────────
     // The user reports their real fill/exit price inline; N legs, incremental.
     &__manual-card {
@@ -538,7 +575,7 @@
 
     &__manual-card-header {
         padding: 3px 12px 4px;
-        font-size: .74rem;
+        font-size: 0.77rem;
         font-weight: 600;
 
         .social-chat__manual-card--entry & { background: rgba(16,185,129,.12); color: #10b981; }
@@ -563,12 +600,12 @@
         display: flex;
         align-items: baseline;
         gap: 6px;
-        font-size: .74rem;
+        font-size: 0.77rem;
     }
 
     &__manual-leg-dir {
         font-family: var(--font-mono);
-        font-size: .6rem;
+        font-size: 0.66rem;
         font-weight: 700;
         letter-spacing: .06em;
         &--long  { color: #10b981; }
@@ -576,7 +613,7 @@
     }
 
     &__manual-leg-asset { font-weight: 600; color: var(--text-primary); }
-    &__manual-leg-qty   { font-size: .68rem; color: var(--text-muted); }
+    &__manual-leg-qty   { font-size: 0.74rem; color: var(--text-muted); }
 
     &__manual-leg-inputs {
         display: flex;
@@ -592,12 +629,12 @@
         border: 1px solid var(--border);
         border-radius: 6px;
         color: var(--text-primary);
-        font-size: .72rem;
+        font-size: 0.75rem;
         &:focus { outline: none; border-color: var(--accent, #10b981); }
     }
 
-    &__manual-leg-done { font-size: .72rem; color: var(--text-secondary); }
-    &__manual-leg-err  { font-size: .66rem; color: #ef5350; }
+    &__manual-leg-done { font-size: 0.75rem; color: var(--text-secondary); }
+    &__manual-leg-err  { font-size: 0.72rem; color: #ef5350; }
 
     &__manual-card-actions {
         display: flex;
@@ -611,7 +648,7 @@
         border: 1px solid var(--border-strong, var(--border));
         border-radius: 6px;
         color: var(--text-primary);
-        font-size: .7rem;
+        font-size: 0.76rem;
         font-weight: 500;
         cursor: pointer;
         white-space: nowrap;
@@ -638,7 +675,7 @@
 
     &__portfolio-review-header {
         padding: 4px 14px 4px;
-        font-size: 0.8rem;
+        font-size: 0.83rem;
         font-weight: 600;
         color: #34d399;
     }
@@ -648,14 +685,14 @@
         align-items: center;
         gap: 6px;
         padding: 0 14px 6px;
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         color: var(--text-muted);
     }
 
     &__portfolio-review-mode {
         padding: 1px 7px;
         border-radius: 999px;
-        font-size: 0.66rem;
+        font-size: 0.72rem;
         font-weight: 600;
         letter-spacing: .02em;
         text-transform: uppercase;
@@ -672,7 +709,7 @@
 
     &__portfolio-review-meta {
         padding: 0 14px 10px;
-        font-size: 0.73rem;
+        font-size: 0.76rem;
         color: var(--text-muted);
         line-height: 1.4;
     }
@@ -689,7 +726,7 @@
     &__portfolio-review-trigger {
         padding: 1px 8px;
         border-radius: 999px;
-        font-size: 0.68rem;
+        font-size: 0.74rem;
         line-height: 1.5;
         border: 1px solid currentColor;
         &--high   { color: #f59e0b; }
@@ -704,7 +741,7 @@
 
     &__portfolio-review-done {
         padding: 0 14px 10px;
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         font-weight: 600;
         color: #34d399;
     }
@@ -718,7 +755,7 @@
         border: 1px solid var(--border-strong, var(--border));
         border-radius: 8px;
         color: var(--text-primary);
-        font-size: .8rem;
+        font-size: 0.83rem;
         font-weight: 500;
         cursor: pointer;
         text-align: center;
@@ -727,144 +764,51 @@
 
 }
 
+// ── Mobile: < 768px ──────────────────────────────────────────────────────────
+// The desktop bubble is a fixed 480px pinned to the right edge — wider than a phone, so its
+// left side was cut off the screen. On mobile it becomes a near-full-screen sheet under the
+// header, and the two panes become ONE: the list, then the conversation, with the topbar back
+// arrow returning. Same markup and same glass — only what's visible changes.
+@media (max-width: 767px) {
+    .social-chat {
+        // Clears the mobile header (AppHeaderAxl sets --axl-h: 74px below this same breakpoint).
+        top: 82px;
+        left: 6px;
+        right: 6px;
+        bottom: 6px;
+        width: auto;
+        border-radius: 16px;
+
+        &__topbar { padding: 10px 12px; }
+
+        &__topbar-back  { display: inline-flex; }
+        &__topbar-close { padding: 6px 10px; font-size: 1.1rem; }   // thumb-sized target
+
+        // One pane at a time — the sidebar takes the full width until a thread is open.
+        &__list {
+            width: 100%;
+            min-width: 0;
+            border-right: none;
+        }
+
+        // A phone's bubble measure is narrower, so let messages run a little wider.
+        &__msg { max-width: 88%; }
+    }
+
+    .social-chat--conv-open .social-chat__list { display: none; }
+    .social-chat:not(.social-chat--conv-open) .social-chat__window { display: none; }
+}
+
 // The social-chat composer uses a themed inset pill (accent-tinted --bg-deep on the
 // mid border) — the agent chats keep their raised pill, this only targets the
 // `--social-chat` prefix modifier. Tracks theme + accent like the rest of the bubble.
 .chat-input-row--social-chat {
+    // Social chat is a messaging window, not an agent landing screen: it keeps the
+    // full-width composer (the shared base is the 75%, centred agent one).
+    width: auto;
+    min-width: 0;
+    max-width: none;
     margin: 8px 8px 12px;
     background: color-mix(in srgb, var(--accent-deep) 16%, var(--bg-deep));
     border-color: var(--border-mid);
-}
-
-// ── Social chat cards (design trial 'cards') ───────────────────────────────────
-// The uploaded social-chat mockup, now mapped onto the shared theme tokens so the
-// 'cards' variant tracks the active theme + accent (the mockup's fixed greens were
-// the axl palette; these tokens reproduce it in axl and follow other themes/accent).
-// Keeps the mockup's 660px / 210px-sidebar geometry and its solid (non-frosted)
-// surface — the glass base is overridden to a flat themed fill here.
-[data-design="cards"] .social-chat {
-    // Solid mockup surface → drop the frosted glass, use the theme's deep base.
-    width: 660px;
-    background: var(--bg-deep);
-    border: 1px solid var(--border-mid);
-    border-radius: 16px;
-
-    // Left column — 210px, flush to the container, subtler divider
-    &__list {
-        width: 210px;
-        min-width: 210px;
-        background: transparent;
-        border-right: 1px solid var(--border);
-    }
-
-    // Full-width top bar (Messages · ✕)
-    &__topbar        { border-bottom-color: var(--border); }
-    &__topbar-title  { color: var(--text-muted); }
-    &__topbar-close  { color: var(--text-muted); }
-
-    // Search → inset pill
-    &__search {
-        border-radius: 999px;
-        padding: 8px 14px;
-        background: color-mix(in srgb, var(--accent-deep) 16%, var(--bg-deep));
-        border: 1px solid var(--border-mid);
-        color: var(--text-primary);
-        &::placeholder { color: var(--text-dim); }
-    }
-
-    // Conversation list → spaced cards (no hard dividers)
-    &__conv-scroll { padding: 8px; }
-
-    &__conv-item {
-        border-bottom: none;
-        border-radius: 12px;
-        gap: 10px;
-        padding: 9px 10px;
-        margin-bottom: 4px;
-
-        &--active {
-            border-left: none;
-            background: var(--bg-hover);
-            box-shadow: inset 0 0 0 1px var(--border-mid);
-        }
-    }
-
-    // The axl agent row → surface card
-    &__conv-item:has(.social-chat__conv-avatar--bot) {
-        background: var(--bg-hover);
-        box-shadow: inset 0 0 0 1px var(--border-mid);
-    }
-
-    // Human avatars → accent circle
-    &__conv-avatar {
-        width: 36px;
-        height: 36px;
-        min-width: 36px;
-        background: color-mix(in srgb, var(--accent) 16%, transparent);
-        color: var(--accent-light);
-    }
-
-    // Bot token → rounded square, accent-tinted (per-agent identity hues below:
-    // Idea cyan, Atlas green, Argus violet — intentionally constant, not accent).
-    &__conv-avatar--bot {
-        background: none;
-        border: none;
-        color: var(--accent-light);
-
-        &.social-chat__conv-avatar--cyan   { color: #22d3ee; }
-        &.social-chat__conv-avatar--green  { color: #34d399; }
-        &.social-chat__conv-avatar--violet { color: #a78bfa; }
-        &.social-chat__conv-avatar--amber  { color: #f59e0b; }
-    }
-
-    // Notify-only footer for specialist bot threads (in place of the composer).
-    &__notify-only {
-        margin: 8px 8px 12px;
-        padding: 9px 12px;
-        font-size: .72rem;
-        line-height: 1.4;
-        color: var(--text-muted);
-        text-align: center;
-        background: color-mix(in srgb, var(--accent-deep) 16%, var(--bg-deep));
-        border: 1px solid var(--border-mid);
-        border-radius: 10px;
-    }
-
-    &__agent-chip {
-        font-family: var(--font-mono);
-        font-size: .53rem;
-        letter-spacing: .08em;
-        color: var(--accent-light);
-        border: 1px solid var(--border-mid);
-        border-radius: 999px;
-        padding: 1px 5px;
-        flex-shrink: 0;
-    }
-
-    &__conv-name    { color: var(--text-primary); }
-    &__conv-preview { color: var(--text-muted); }
-    &__conv-time    { color: var(--text-dim); }
-    &__unread-dot   { background: var(--accent-light); color: var(--bg-deep); }
-
-    &__window { background: transparent; }
-
-    // Bubbles
-    &__msg--theirs .social-chat__msg-bubble {
-        background: var(--bg-hover);
-        border: 1px solid var(--border-mid);
-        color: var(--text-primary);
-        border-radius: 12px 12px 12px 4px;
-    }
-    &__msg--mine .social-chat__msg-bubble {
-        background: color-mix(in srgb, var(--accent) 28%, transparent);
-        border: 1px solid color-mix(in srgb, var(--accent-bright) 30%, transparent);
-        color: var(--text-primary);
-        border-radius: 12px 12px 4px 12px;
-    }
-    &__msg-bubble {
-        padding: 9px 12px;
-        font-size: 13px;
-        line-height: 1.45;
-    }
-    &__msg-time { color: var(--text-dim); }
 }

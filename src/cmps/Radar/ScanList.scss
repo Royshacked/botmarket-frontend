@@ -9,7 +9,7 @@
         max-width: 240px;
         text-align: center;
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: 12px;
         line-height: 1.5;
         color: var(--text-muted);
         letter-spacing: 0.04em;
@@ -55,14 +55,15 @@
 
     &__group-period {
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 700;
         letter-spacing: 0.14em;
         text-transform: uppercase;
         color: var(--accent-light);
 
-        // The scan's window contains today → it's live now, so call it out in white.
-        &--current { color: #fff; }
+        // The scan's window contains today → it's live now, so call it out at full strength
+        // (--text-primary, not a literal white: on the light theme that IS the loud end).
+        &--current { color: var(--text-primary); }
 
         // The window has fully elapsed → dim it to a stale, muted tone.
         &--past { color: var(--text-muted); }
@@ -80,7 +81,7 @@
 
     &__group-range {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         letter-spacing: 0.04em;
         color: var(--text-muted);
     }
@@ -89,7 +90,7 @@
         margin-left: auto;
         padding-right: 12px;
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         color: var(--text-muted);
     }
 
@@ -142,7 +143,7 @@
     }
 
     &__thesis {
-        font-size: 12px;
+        font-size: 12.5px;
         font-weight: 400;
         color: var(--text-primary);
         flex: 1;
@@ -152,7 +153,7 @@
     // Derived-on-read staleness flag (#7): the list's period end has passed.
     &__stale {
         font-family: var(--font-mono);
-        font-size: 9px;
+        font-size: 10px;
         font-weight: 600;
         letter-spacing: 0.08em;
         text-transform: uppercase;
@@ -163,23 +164,9 @@
         border: 1px dashed var(--border);
     }
 
-    &__edit {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        background: none;
-        border: none;
-        color: var(--text-muted);
-        cursor: pointer;
-        padding: 2px;
-        flex-shrink: 0;
-        svg { width: 14px; height: 14px; display: block; }
-        &:hover { color: var(--accent-bright); }
-    }
-
     &__card-dir {
         font-family: var(--font-mono);
-        font-size: 9px;
+        font-size: 10px;
         font-weight: 600;
         letter-spacing: 0.08em;
         text-transform: uppercase;
@@ -192,24 +179,12 @@
 
     &__count {
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: 12px;
         color: var(--text-muted);
     }
 
-    &__delete {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        background: none;
-        border: none;
-        color: var(--text-muted);
-        cursor: pointer;
-        padding: 2px;
-        margin-left: -6px;   // sit tight next to the edit pencil
-        flex-shrink: 0;
-        svg { width: 15px; height: 15px; display: block; }
-        &:hover { color: var(--short-text); }
-    }
+    // The controls are the shared .icon-btn; only the tuck against the pencil is local.
+    &__delete { margin-left: -6px; }
 
     // ── Candidate row ───────────────────────────────────────────────────
     &__cands { display: flex; flex-direction: column; }
@@ -246,7 +221,7 @@
     }
 
     &__cand-thesis {
-        font-size: 11px;
+        font-size: 12px;
         color: var(--text-secondary);
         flex: 1;
         min-width: 0;
@@ -259,7 +234,7 @@
     // color-banded badge. The four component axes live in the expanded detail.
     &__score-badge {
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 700;
         line-height: 1;
         padding: 3px 6px;
@@ -299,7 +274,7 @@
     }
 
     &__analysis {
-        font-size: 11px;
+        font-size: 12px;
         line-height: 1.5;
         color: var(--text-secondary);
         margin: 4px 0 2px;
@@ -321,7 +296,7 @@
 
     &__score-label {
         font-family: var(--font-mono);
-        font-size: 9px;
+        font-size: 10px;
         text-transform: uppercase;
         letter-spacing: 0.06em;
         color: var(--text-muted);
@@ -349,7 +324,7 @@
 
     &__score-val {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         color: var(--text-secondary);
         flex-shrink: 0;
         min-width: 20px;
@@ -359,7 +334,7 @@
     &__signal {
         display: flex;
         gap: 6px;
-        font-size: 10px;
+        font-size: 11px;
         line-height: 1.4;
     }
 
@@ -382,7 +357,7 @@
     }
 
     &__source {
-        font-size: 10px;
+        font-size: 11px;
         color: var(--accent-light);
         text-decoration: none;
         overflow: hidden;

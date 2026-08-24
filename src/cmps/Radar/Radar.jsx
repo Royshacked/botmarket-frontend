@@ -2,6 +2,7 @@ import PropTypes from 'prop-types'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { ScanList } from './ScanList.jsx'
 import { CoverageBook } from './CoverageBook.jsx'
+import { SectorView } from './SectorView.jsx'
 import { RadarTicker } from './RadarTicker.jsx'
 import './Radar.scss'
 
@@ -10,7 +11,8 @@ import './Radar.scss'
 // the original `news-feed` CSS namespace.
 export function Radar({
     tab = 'scans',
-    onTabChange,
+    // NB: no onTabChange — the tab BUTTONS live in TradeIdeasList, which calls
+    // radar.onTabChange off the props object. Radar itself only renders the active tab.
     scans = [],
     scansLoading = false,
     onCandidateSelect,
@@ -28,7 +30,11 @@ export function Radar({
     onIpoSelect,
     coverage = [],
     coverageLoading = false,
+    tilt = null,
+    tiltLoading = false,
+    onEditCoverage,
     onRetireCoverage,
+    onDeleteCoverage,
 }) {
     return (
         <div className="news-feed">
@@ -70,9 +76,14 @@ export function Radar({
                 <div className="news-feed__list">
                     <IpoList items={ipo} loading={ipoLoading} onSelect={onIpoSelect} />
                 </div>
+            ) : tab === 'forecasts' ? (
+                <div className="news-feed__list">
+                    {/* Pythia's house view — the state the Fed tab's schedule opens onto. */}
+                    <SectorView tilt={tilt} loading={tiltLoading} />
+                </div>
             ) : tab === 'coverage' ? (
                 <div className="news-feed__list">
-                    <CoverageBook coverage={coverage} loading={coverageLoading} onRetire={onRetireCoverage} />
+                    <CoverageBook coverage={coverage} loading={coverageLoading} onEdit={onEditCoverage} onRetire={onRetireCoverage} onDelete={onDeleteCoverage} />
                 </div>
             ) : null}
         </div>
@@ -106,13 +117,13 @@ function EarningsList({ items, from, to, loading, onSelect }) {
                     <div key={g.date} className="earn-table__group">
                         <div className="earn-table__day">{_fmtFullDate(g.date)}</div>
                         {g.items.map((e, i) => (
-                            <div key={e.symbol || i} className="earn-table__row">
+                            <div key={`${e.symbol || 'row'}-${i}`} className="earn-table__row">
                                 <RadarTicker
                                     symbol={e.symbol}
                                     name={e.name}
                                     logo={e.logo}
                                     onSelect={() => onSelect?.(e)}
-                                    title={e.symbol ? `Build a trade idea around ${e.symbol}'s earnings` : ''}
+                                    title={e.symbol ? `Build a setup around ${e.symbol}'s earnings` : ''}
                                 />
                                 <span className={`earn-table__when earn-table__when--${_earnWhenClass(e.time)}`}>
                                     {_earnWhen(e.time)}
@@ -201,7 +212,7 @@ function IpoList({ items, loading, onSelect }) {
                                 name={e.name}
                                 logo={e.logo}
                                 onSelect={() => onSelect?.(e)}
-                                title={e.symbol ? `Build a trade idea around ${e.symbol}'s IPO` : ''}
+                                title={e.symbol ? `Build a setup around ${e.symbol}'s IPO` : ''}
                             />
                             {e.price && <span className="ipo-row__price">${e.price}</span>}
                             {e.status && (
@@ -238,10 +249,6 @@ function _compact(n) {
     return String(v)
 }
 
-function _formatTime(unixSec) {
-    if (!unixSec) return ''
-    return new Date(unixSec * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
-}
 
 function _fmtDate(iso) {
     if (!iso) return ''
@@ -300,6 +307,10 @@ Radar.propTypes = {
     ipoLoading:        PropTypes.bool,
     onIpoSelect:       PropTypes.func,
     coverage:          PropTypes.array,
+    tilt:              PropTypes.object,
+    tiltLoading:       PropTypes.bool,
     coverageLoading:   PropTypes.bool,
+    onEditCoverage:    PropTypes.func,
     onRetireCoverage:  PropTypes.func,
+    onDeleteCoverage:  PropTypes.func,
 }

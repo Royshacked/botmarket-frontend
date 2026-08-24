@@ -1,3 +1,5 @@
+import { openChart } from './chartSurface.service.js'
+
 /**
  * Build the SSE event→handler map shared by every streaming agent (idea /
  * scanner / portfolio) from a callback bag. Each stream only emits a subset of
@@ -5,8 +7,8 @@
  * so one builder safely covers all three. Centralises the event→field wiring so
  * adding a new SSE event is a one-line change here, not in three services.
  *
- * @param {object} cb  { onToken, onTicker, onAsset, onInterval, onChart,
- *                       onPhase, onStatus, onReasoning, onDone, onError }
+ * @param {object} cb  { onToken, onTicker, onAsset, onInterval, onChart, onLiveChart,
+ *                       onPhase, onCoverage, onStatus, onReasoning, onDone, onError }
  * @returns {Object<string, function>}
  */
 export function buildStreamHandlers(cb = {}) {
@@ -15,10 +17,28 @@ export function buildStreamHandlers(cb = {}) {
         ticker:    (d) => cb.onTicker?.(d.symbol),
         asset:     (d) => cb.onAsset?.(d.symbol),
         interval:  (d) => cb.onInterval?.(d.interval),
-        chart:     (d) => cb.onChart?.(d),
+        // The ONE chart event, with two destinations decided by the payload — because the two kinds
+        // of chart want different lives on screen:
+        //
+        //   `live`        the USER asked to see it → the shared chart store, which every chat renders
+        //                 as a DOCK pinned above its input (ChatChartDock). Like the old chart_open
+        //                 this DEFAULTS to acting rather than no-op'ing on a missing callback: the
+        //                 dock is a surface, not a message, so no panel wires anything for it.
+        //   `imageBase64` the AGENT rendered it and read it → an inline row in the thread, belonging
+        //                 to the turn that produced it (cb.onChart → useChatStream → ChatChart).
+        // `onLiveChart` is a NOTIFICATION, not a destination: the dock is already handled, but the
+        // chat needs to know its turn produced a chart so the thread keeps a record of it.
+        chart:     (d) => (d?.live ? (openChart(d), cb.onLiveChart?.(d)) : cb.onChart?.(d)),
         phase:     (d) => cb.onPhase?.(d.phase),
+        // Mentor's progress signal. Unlike `phase` (one number, a step) this is the CUMULATIVE
+        // set of dimensions read so far — order-free, because Mentor works by invariants, not steps.
+        coverage:  (d) => cb.onCoverage?.(d.coverage),
         status:    (d) => cb.onStatus?.(d.tool),
-        reasoning: (d) => cb.onReasoning?.(d.text),
+        // WHOSE thinking this is: the desk's own model, or the reasoning sidecar it consulted for
+        // one bounded decision (backend services/deepThink.service.js). One event with a label
+        // rather than two events — a second sidecar is then a new label, not new wiring in five
+        // layers. Older servers don't send `source`; defaulting to 'desk' keeps them rendering.
+        reasoning: (d) => cb.onReasoning?.(d.text, d.source || 'desk'),
         done:      (d) => cb.onDone?.(d),
         error:     (d) => cb.onError?.(d.message),
     }

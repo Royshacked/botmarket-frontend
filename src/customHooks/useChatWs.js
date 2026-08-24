@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { chatWsService } from '../services/chat/chatWs.service'
 import { chatService } from '../services/chat/chat.service'
@@ -18,18 +18,33 @@ const TYPE_LABELS = {
     call_expiry:        'Call update',
     call_manage:        'Manage position',
     call_reentry:       'Re-entry?',
+    setup_invalidation: 'Setup update',
+    setup_manage:       'Manage position',
     coverage_event:     'Coverage update',
+    tilt_event:         'Sector view changed',
     coverage_refreshed: 'Research refreshed',
+    queue_ready:        'Market open',
 }
 
-// One-line preview for the incoming-message toast. Bot senders resolve to their
-// brand (Idea / Atlas / Argus / axl); human DMs use `senderName` (attached to the
-// WS payload by the server) so the toast shows who it's from.
-export function chatPreview(msg) {
-    const who  = isBotId(msg?.senderId) ? (AGENTS[msg.senderId]?.brand ?? null) : (msg?.senderName ?? null)
+// The pieces the preview toast renders: WHO it's from, WHAT it says, and — for a bot
+// sender — the agent key + hue that tint its avatar. Bot senders resolve to their brand
+// (Idea / Atlas / Argus / axl); human DMs use `senderName` (attached to the WS payload by
+// the server) so the toast shows who it's from.
+export function chatPreviewParts(msg) {
+    const bot  = isBotId(msg?.senderId) ? (AGENTS[msg.senderId] ?? null) : null
+    const who  = bot ? (bot.brand ?? null) : (msg?.senderName ?? null)
     const body = (msg?.content && String(msg.content).trim())
         ? String(msg.content).replace(/\s+/g, ' ').slice(0, 80)
         : (TYPE_LABELS[msg?.type] ?? 'New message')
+    // agentKey is set only for a KNOWN bot — an unrecognised bot id falls through to the
+    // initial-letter avatar rather than rendering an empty glyph slot.
+    return { who, body, agentKey: bot ? msg.senderId : null, hue: bot?.hue ?? null }
+}
+
+// Flat one-liner form of the same preview. Still the toast's `txt` — it is what a
+// screen reader and any non-chat surface read when the rich body isn't rendered.
+export function chatPreview(msg) {
+    const { who, body } = chatPreviewParts(msg)
     return who ? `💬 ${who}: ${body}` : `💬 ${body}`
 }
 
@@ -51,20 +66,42 @@ export function useChatWs(userId) {
         return () => chatWsService.disconnect()
     }, [userId])
 
-    // Seed the badge with the persisted unread total on app open, so the count
-    // shows without needing to open the chat first. The chat panel keeps it in
-    // sync afterwards via onUnreadChange.
-    useEffect(() => {
-        if (!userId) { setUnread(0); return }
-        let cancelled = false
+    // Re-read the persisted unread total from the server. The badge can't live on WS pushes alone:
+    // a WebSocket is a live pipe with no memory, so every message that lands while the socket is
+    // down — the 3s reconnect window, a server restart, a sleeping laptop — is never pushed again.
+    // A push-only badge therefore drifts DOWN and stays there, and only opening the chat (which
+    // does this same REST read) revealed the true count. Mongo always had it; nothing asked.
+    // Skipped while the panel is open: it owns the number then, and mirrors it via onUnreadChange.
+    const userIdRef = useRef(userId)
+    useEffect(() => { userIdRef.current = userId }, [userId])
+
+    const refreshUnread = useCallback(() => {
+        if (!userId || showChatRef.current) return   // the panel reads on the same events — don't double-fetch
         chatService.getConversations()
             .then(convs => {
-                if (cancelled || showChatRef.current) return
+                // Re-checked: the panel may have opened (or the user changed) mid-flight.
+                if (showChatRef.current || userIdRef.current !== userId) return
                 setUnread(convs.reduce((s, c) => s + (c.unread ?? 0), 0))
             })
             .catch(() => { /* ignore — live ws events still increment */ })
-        return () => { cancelled = true }
     }, [userId])
+
+    // Seed on app open, then reconcile at every moment the client may have missed a push:
+    // a (re)connected socket, the tab coming back to the foreground, the network returning.
+    useEffect(() => {
+        if (!userId) { setUnread(0); return }
+        refreshUnread()
+
+        function onVisible() { if (!document.hidden) refreshUnread() }
+        chatWsService.on('connected', refreshUnread)
+        document.addEventListener('visibilitychange', onVisible)
+        window.addEventListener('online', refreshUnread)
+        return () => {
+            chatWsService.off('connected', refreshUnread)
+            document.removeEventListener('visibilitychange', onVisible)
+            window.removeEventListener('online', refreshUnread)
+        }
+    }, [userId, refreshUnread])
 
     useEffect(() => {
         if (!userId) return
@@ -81,6 +118,7 @@ export function useChatWs(userId) {
             const convId = msg?.conversationId ?? null
             showUserMsg({
                 txt:     chatPreview(msg),
+                preview: chatPreviewParts(msg),
                 type:    'chat',
                 onClick: () => { setPendingConvId(convId); setPendingMsgId(msg?.id ?? null); setShowChat(true) },
             })

@@ -3,7 +3,7 @@
         padding: 16px;
         color: var(--text-secondary);
         h3 { margin: 0 0 6px; font-size: 15px; color: var(--text-primary); }
-        p  { margin: 0; font-size: 12px; line-height: 1.5; }
+        p  { margin: 0; font-size: 12.5px; line-height: 1.5; }
     }
 
     &__draft-wrap {
@@ -11,6 +11,22 @@
         display: flex;
         flex-direction: column;
         gap: 8px;
+
+        // The card fills the column; the action under it is sized by its label. (A column flex
+        // container stretches its children on the cross axis, so the button needs to say no here
+        // even though `flex: 0 0 auto` already stops it growing along the main one.)
+        .portfolio-panel__review-btn { align-self: flex-start; }
+    }
+
+    // Shown when a research turn ended with no draft — a PASS, or a block that never landed.
+    &__ask {
+        align-items: center;
+    }
+
+    &__ask-hint {
+        font-size: var(--chat-meta);
+        color: var(--text-muted);
+        line-height: 1.4;
     }
 
     &__draft {
@@ -28,6 +44,13 @@
         align-items: center;
         gap: 8px;
         flex-wrap: wrap;
+
+        // The shared renderer (cmps/PriceTarget) brings its own type and gap colours; this block
+        // says only where it sits in the header and how large it reads.
+        .price-target {
+            margin-left: auto;
+            font-size: 12.5px;
+        }
     }
 
     &__asset {
@@ -39,7 +62,7 @@
 
     &__rating {
         font-family: var(--font-mono);
-        font-size: 9px;
+        font-size: var(--chat-micro);
         font-weight: 700;
         letter-spacing: 0.06em;
         text-transform: uppercase;
@@ -53,31 +76,19 @@
         &--sell, &--strong_sell { color: var(--short-text); background: var(--short-bg); border-color: var(--short-border); }
     }
 
-    &__pt {
-        margin-left: auto;
-        font-family: var(--font-mono);
-        font-size: 12px;
-        color: var(--text-secondary);
-    }
-
-    &__gap {
-        &--up   { color: var(--long-text); }
-        &--down { color: var(--short-text); }
-    }
-
     &__thesis {
-        font-size: 12.5px;
+        font-size: 13px;
         line-height: 1.5;
         color: var(--text-primary);
     }
 
     &__kills {
-        font-size: 11px;
+        font-size: var(--chat-meta);
         color: var(--text-secondary);
         &-label {
             display: block;
             font-family: var(--font-mono);
-            font-size: 9px;
+            font-size: var(--chat-micro);
             letter-spacing: 0.06em;
             text-transform: uppercase;
             color: var(--text-muted);
@@ -88,7 +99,7 @@
     }
 
     &__err {
-        font-size: 12px;
+        font-size: 12.5px;
         color: var(--short-text);
     }
 }

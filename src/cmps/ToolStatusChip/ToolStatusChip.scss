@@ -1,8 +1,10 @@
-// Matches the chat panels' "thinking…" indicator (ChatPanel __thinking):
-// bold accent text with a slow opacity pulse.
+// The ONE waiting mark: bold accent text with a slow opacity pulse. Every panel's
+// in-bubble "thinking…" and its below-thread tool status both render this — they are
+// the same state, so a panel-local copy would only be a way for them to drift apart.
+// No margin of its own: every thread that renders it is a flex column with its own `gap`, so a
+// margin here only stacked on top of that (and made waiting bubbles taller than settled ones).
 .tool-status-chip {
     display: inline-block;
-    margin: 4px 0 8px;
     font-family: var(--font-sans);
     font-size: 16px;
     font-weight: 700;
@@ -13,4 +15,41 @@
 @keyframes tool-status-chip-pulse {
     0%, 100% { opacity: 0.25; }
     50%      { opacity: 1; }
+}
+
+// ── live reasoning beat ───────────────────────────────────────────────────────
+// Three dots running at --pulse-ms, set per render from the measured reasoning rate. The animation
+// is the browser's: React sets a variable, not a frame. prefers-reduced-motion drops the movement
+// and holds the dots lit, so the state is still legible without anything animating.
+.tool-status-chip--reasoning {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tool-status-chip__pulse {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+
+    i {
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: currentColor;
+        opacity: 0.25;
+        animation: tool-status-pulse var(--pulse-ms, 900ms) ease-in-out infinite;
+    }
+
+    i:nth-child(2) { animation-delay: calc(var(--pulse-ms, 900ms) / 6); }
+    i:nth-child(3) { animation-delay: calc(var(--pulse-ms, 900ms) / 3); }
+}
+
+@keyframes tool-status-pulse {
+    0%, 100% { opacity: 0.2;  transform: scale(0.85); }
+    50%      { opacity: 0.95; transform: scale(1.15); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tool-status-chip__pulse i { animation: none; opacity: 0.7; }
 }
