@@ -241,6 +241,7 @@ const DESK_TABS = ['scanner', 'portfolio', 'mentor', 'analyst', 'strategy']
 export function MainPage() {
     const chat = useChatStream()
     const { messages, setMessages, isLoading, streamStatus, reasoningPulse } = chat
+    const { user, isAdmin } = useAuth()
 
     const [analysisState, setAnalysisState] = useState(null)
     const [, setChartSymbol]   = useState(DEFAULT_CHART_SYMBOL)
@@ -602,7 +603,6 @@ export function MainPage() {
 
     const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, tilt, tiltLoading } = useCalendarEvents()
     const { scans, loading: scansLoading, createScan, updateScan, deleteScan } = useScans()
-    const { user, isAdmin } = useAuth()
     const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
     const { workspace, setWorkspace } = useWorkspaceMode(user?._id)
     const { positions, loading: positionsLoading, refresh: refreshPositions, closePosition, closePositions } = usePositions()

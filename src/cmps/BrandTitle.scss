@@ -1,0 +1,5 @@
+// First letter of each word in the brand aurora accent (like the "a" in axl); the
+// rest inherits the title's near-white colour (like "xl").
+.brand-title__lead {
+    color: var(--accent-light);
+}
