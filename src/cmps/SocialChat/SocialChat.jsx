@@ -18,6 +18,17 @@ function readAiPref() {
 
 const PAGE = 50
 
+// Visibility filter — drop messages a viewer is not meant to see.
+// 'all'   → visible to everyone (default when the field is absent on older messages)
+// 'admin' → visible to admins only (Prometheus batch / Pythia pipeline)
+// 'own'   → visible to the specific user it was generated for (+ admins)
+function _canSee(msg, userId, isAdmin) {
+    if (isAdmin) return true
+    if (msg.visibility === 'admin') return false
+    if (msg.visibility === 'own' && msg.forUserId !== userId) return false
+    return true
+}
+
 export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnreadChange, onClose }) {
     const { isAdmin } = useAuth()
     const [conversations, setConversations] = useState([])
@@ -27,6 +38,10 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
     const [loading,       setLoading]       = useState(false)
     const [closing,       setClosing]       = useState(false)
     const activeConvRef = useRef(null)
+    // Stable ref so the WS handler always reads the current visibility check without
+    // being added to the effect's dependency array (same pattern as activeConvRef).
+    const canSeeRef = useRef(null)
+    canSeeRef.current = (msg) => _canSee(msg, currentUserId, isAdmin)
     // Auto-open target (from a preview-toast click). Consumed once per value so a
     // later conversations-list refresh doesn't yank the user back to it.
     const consumedConvRef = useRef(null)
@@ -71,6 +86,9 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
         function onConnected() { loadConversations() }
 
         function onNewMessage(msg) {
+            // Drop messages this viewer cannot see before they touch any state.
+            if (!canSeeRef.current(msg)) return
+
             // A message can be the FIRST in a conversation this list has never seen — a desk's
             // thread is created by its first card. `prev.map` would match nothing: no row, no
             // count, and since useChatWs suppresses its own increment while the panel is open,
@@ -124,9 +142,10 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
         setMessages([])
         setLoading(true)
         try {
-            const msgs = await chatService.getMessages(conv.id)
+            const raw  = await chatService.getMessages(conv.id)
+            const msgs = raw.filter(m => _canSee(m, currentUserId, isAdmin))
             setMessages(msgs)
-            setHasMore(msgs.length === PAGE)
+            setHasMore(raw.length === PAGE)
             await chatService.markRead(conv.id)
             setConversations(prev => {
                 const updated = prev.map(c => c.id === conv.id ? { ...c, unread: 0 } : c)
@@ -151,9 +170,10 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
         if (!activeConv || loading) return
         setLoading(true)
         try {
-            const older = await chatService.getMessages(activeConv.id, messages[0]?.createdAt)
+            const raw   = await chatService.getMessages(activeConv.id, messages[0]?.createdAt)
+            const older = raw.filter(m => _canSee(m, currentUserId, isAdmin))
             setMessages(prev => [...older, ...prev])
-            setHasMore(older.length === PAGE)
+            setHasMore(raw.length === PAGE)
         } catch { /* ignore */ } finally { setLoading(false) }
     }
 
