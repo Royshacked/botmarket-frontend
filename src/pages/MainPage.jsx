@@ -24,7 +24,7 @@ import { StrategyPanel }     from '../cmps/StrategyPanel/StrategyPanel.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
 import { FloorLeft }         from '../cmps/Floor/FloorLeft.jsx'
 import { FloorLists }        from '../cmps/Floor/FloorLists.jsx'
-import { analystService, COVERAGE_CHANGED } from '../services/analyst/analyst.service.remote.js'
+import { analystService, COVERAGE_CHANGED, RESEARCH_QUEUE_CHANGED } from '../services/analyst/analyst.service.remote.js'
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
@@ -338,6 +338,35 @@ export function MainPage() {
     const { items: coverage, loading: coverageLoading } = useEntityList({
         load: loadCoverageFn, changeEvent: COVERAGE_CHANGED, pollMs: 60_000, log: '[coverage]',
     })
+
+    // Research queue (admin workbench). Shows queued + in_research items; reloads on any action.
+    const loadResearchQueueFn = useCallback(
+        () => isAdmin ? analystService.listResearchQueue() : Promise.resolve([]),
+        [isAdmin],
+    )
+    const { items: researchQueue } = useEntityList({
+        load: loadResearchQueueFn, changeEvent: RESEARCH_QUEUE_CHANGED, log: '[researchQueue]',
+    })
+    const [researchQueueBusyId, setResearchQueueBusyId] = useState(null)
+
+    async function handleStartResearch(id) {
+        if (!id) return
+        setResearchQueueBusyId(id)
+        try { await analystService.startResearch(id) } catch (err) { console.error('[researchQueue] start', err) }
+        finally { setResearchQueueBusyId(null) }
+    }
+    async function handleMarkResearchDone(id) {
+        if (!id) return
+        setResearchQueueBusyId(id)
+        try { await analystService.markResearchDone(id) } catch (err) { console.error('[researchQueue] done', err) }
+        finally { setResearchQueueBusyId(null) }
+    }
+    async function handleRejectResearch(id) {
+        if (!id) return
+        setResearchQueueBusyId(id)
+        try { await analystService.rejectResearch(id) } catch (err) { console.error('[researchQueue] reject', err) }
+        finally { setResearchQueueBusyId(null) }
+    }
     // Retire ARCHIVES (status → retired, revision trail kept); delete REMOVES the document for good.
     // Two operations, two endpoints — the confirm for delete lives in CoverageActions, next to the
     // button, where it can name what is being lost.
@@ -2968,6 +2997,12 @@ export function MainPage() {
                                     onEditCoverage={handleEditCoverage}
                                     onRetireCoverage={handleRetireCoverage}
                                     onDeleteCoverage={handleDeleteCoverage}
+                                    isAdmin={isAdmin}
+                                    researchQueue={researchQueue}
+                                    onStartResearch={handleStartResearch}
+                                    onMarkResearchDone={handleMarkResearchDone}
+                                    onRejectResearch={handleRejectResearch}
+                                    researchQueueBusyId={researchQueueBusyId}
                                 />
                             )}
                         </div>

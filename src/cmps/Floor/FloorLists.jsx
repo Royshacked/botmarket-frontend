@@ -35,11 +35,13 @@ import './Floor.scss'
 const DESKS = [
     // Queued sits FIRST because it is the only desk that is a to-do list: the others are things
     // you own, this one is things waiting on you. A count here means someone is blocked.
-    { key: 'queued',    label: 'Queued' },
-    { key: 'trade',     label: 'Trading floor' },
-    { key: 'portfolio', label: 'Portfolio floor' },
-    { key: 'scans',     label: 'Scans' },
-    { key: 'coverage',  label: 'Coverage' },
+    { key: 'queued',         label: 'Queued' },
+    { key: 'trade',          label: 'Trading floor' },
+    { key: 'portfolio',      label: 'Portfolio floor' },
+    { key: 'scans',          label: 'Scans' },
+    { key: 'coverage',       label: 'Coverage' },
+    // Admin-only: the house research pipeline backlog (Argus hits + user coverage_request).
+    { key: 'research_queue', label: 'Research queue', group: 'Admin', adminOnly: true },
 
     // The calendar, which used to be the left column's bottom half behind a four-tab strip
     // (2026-08-19). Each feed is a desk of its own now for the same reason the tabs were wrong:
@@ -576,6 +578,88 @@ function CoverageRows({ coverage, onEditCoverage, onRetireCoverage, onDeleteCove
 }
 CoverageRows.propTypes = { coverage: PropTypes.array, onEditCoverage: PropTypes.func, onRetireCoverage: PropTypes.func, onDeleteCoverage: PropTypes.func }
 
+// ── Research queue (admin) ────────────────────────────────────────────────────
+// The house research pipeline backlog. Each row is one name waiting to be researched by Prometheus.
+// Admin workflow: Start → open Prometheus on the name manually → Mark done (or Reject for misfires).
+
+const RQ_STATUS_LABEL = { queued: 'queued', in_research: 'in progress', done: 'done', rejected: 'rejected' }
+const RQ_SOURCE_LABEL = { argus: 'Argus', manual: 'request' }
+
+function ResearchQueueRow({ item, onStart, onDone, onReject, busy }) {
+    const isQueued     = item.status === 'queued'
+    const isInResearch = item.status === 'in_research'
+    const isActive     = isQueued || isInResearch
+    return (
+        <RowHost
+            actions={isActive && (
+                <>
+                    {isQueued && (
+                        <button
+                            className="floor-queued__btn"
+                            onClick={() => onStart(item.id)}
+                            disabled={busy}
+                            title="Mark as in progress — you're opening Prometheus on this name"
+                        >Start</button>
+                    )}
+                    {isInResearch && (
+                        <button
+                            className="floor-queued__btn"
+                            onClick={() => onDone(item.id)}
+                            disabled={busy}
+                            title="Mark done — coverage has been written"
+                        >Done</button>
+                    )}
+                    <button
+                        className="floor-queued__btn floor-queued__btn--cancel"
+                        onClick={() => onReject(item.id)}
+                        disabled={busy}
+                        title="Reject — misfire or admin decision"
+                    >Reject</button>
+                </>
+            )}
+        >
+            <span className={`floor-queued__dot${isQueued ? '' : isInResearch ? ' floor-queued__dot--waiting' : ''}`} aria-hidden="true" />
+            <span className="floor-row__sym">{item.symbol}</span>
+            <span className="floor-row__kind floor-row__kind--dim">{RQ_SOURCE_LABEL[item.source] ?? item.source}</span>
+            <span className={`floor-row__status floor-row__status--${item.status}`}>{RQ_STATUS_LABEL[item.status] ?? item.status}</span>
+        </RowHost>
+    )
+}
+ResearchQueueRow.propTypes = {
+    item:     PropTypes.object.isRequired,
+    onStart:  PropTypes.func.isRequired,
+    onDone:   PropTypes.func.isRequired,
+    onReject: PropTypes.func.isRequired,
+    busy:     PropTypes.bool,
+}
+
+function ResearchQueueRows({ researchQueue, onStartResearch, onMarkResearchDone, onRejectResearch, busyId }) {
+    // Show active work by default; done/rejected are the steady state and clutter the list.
+    const active = researchQueue.filter(i => i.status === 'queued' || i.status === 'in_research')
+    if (!active.length) return <Empty>No names queued for research.</Empty>
+    return (
+        <>
+            {active.map(item => (
+                <ResearchQueueRow
+                    key={item.id}
+                    item={item}
+                    onStart={onStartResearch}
+                    onDone={onMarkResearchDone}
+                    onReject={onRejectResearch}
+                    busy={busyId === item.id}
+                />
+            ))}
+        </>
+    )
+}
+ResearchQueueRows.propTypes = {
+    researchQueue:      PropTypes.array.isRequired,
+    onStartResearch:    PropTypes.func.isRequired,
+    onMarkResearchDone: PropTypes.func.isRequired,
+    onRejectResearch:   PropTypes.func.isRequired,
+    busyId:             PropTypes.string,
+}
+
 // ── The column ────────────────────────────────────────────────────────────────
 
 export function FloorLists({
@@ -589,6 +673,8 @@ export function FloorLists({
     onExecuteQueued, onCancelQueued, queuedBusyId = null,
     earnings = [], fed = [], ipo = [], tilt = null, calendarLoading = {},
     onEarningSelect, onIpoSelect,
+    isAdmin = false,
+    researchQueue = [], onStartResearch, onMarkResearchDone, onRejectResearch, researchQueueBusyId = null,
     initialDesk = null, deskRequest = null,
 }) {
     // One desk open at a time — clicking the open one closes it, leaving them all collapsed. That
@@ -615,17 +701,21 @@ export function FloorLists({
     // the one moment it exists for. Readiness was never the header's job anyway; open the desk and
     // each row already carries its own dimmed dot and "waiting for the open".
     const counts = {
-        queued:    queued.length,
-        trade:     setups.length,
-        portfolio: portfoliosFromIdeas(ideas).length,
-        scans:     scans.length,
-        coverage:  coverage.length,
-        earnings:  earnings.length,
-        fed:       fed.length,
-        ipo:       ipo.length,
+        queued:         queued.length,
+        trade:          setups.length,
+        portfolio:      portfoliosFromIdeas(ideas).length,
+        scans:          scans.length,
+        coverage:       coverage.length,
+        earnings:       earnings.length,
+        fed:            fed.length,
+        ipo:            ipo.length,
+        // Only queued items count — in_research is work the admin already started.
+        research_queue: researchQueue.filter(i => i.status === 'queued').length,
         // No count on Forecasts: the house view is ONE standing view, and "(1)" beside it would
         // invite the reader to expect a list of them.
     }
+
+    const visibleDesks = DESKS.filter(d => !d.adminOnly || isAdmin)
 
     return (
         <aside className={`floor-lists${openKey ? ' floor-lists--focused' : ''}`}>
@@ -635,11 +725,11 @@ export function FloorLists({
                 <h2 className="floor-sec__title">Lists</h2>
             </header>
 
-            {DESKS.map((desk, i) => (
+            {visibleDesks.map((desk, i) => (
                 <Fragment key={desk.key}>
                 {/* One caption where the group STARTS — a hairline label, not a section header:
                     it names what follows without competing with the desks it is naming. */}
-                {desk.group && desk.group !== DESKS[i - 1]?.group && (
+                {desk.group && desk.group !== visibleDesks[i - 1]?.group && (
                     <div className="floor-lists__grp">{desk.group}</div>
                 )}
                 <Desk
@@ -691,6 +781,16 @@ export function FloorLists({
                         />
                     )}
 
+                    {desk.key === 'research_queue' && (
+                        <ResearchQueueRows
+                            researchQueue={researchQueue}
+                            onStartResearch={onStartResearch}
+                            onMarkResearchDone={onMarkResearchDone}
+                            onRejectResearch={onRejectResearch}
+                            busyId={researchQueueBusyId}
+                        />
+                    )}
+
                     {/* Each dated feed asks the shared renderer for its own kind. Earnings and IPO
                         rows are doorways — clicking one hands the event to Mentor to build a setup
                         around; a Fed row has no ticker to trade, so it is text. */}
@@ -732,17 +832,23 @@ FloorLists.propTypes = {
     tilt:              PropTypes.object,
     // Keyed by desk, not one flag for all four: a slow IPO feed used to hold up the earnings list
     // and the house view alongside it, because the old tab strip had one shared "Loading…".
-    calendarLoading:   PropTypes.object,
-    onEarningSelect:   PropTypes.func,
-    onIpoSelect:       PropTypes.func,
-    onCandidateSelect: PropTypes.func,
-    onEditSetup:       PropTypes.func,
-    onDeleteSetup:     PropTypes.func,
-    onEditPortfolio:   PropTypes.func,
-    onDeletePortfolio: PropTypes.func,
+    calendarLoading:     PropTypes.object,
+    onEarningSelect:     PropTypes.func,
+    onIpoSelect:         PropTypes.func,
+    onCandidateSelect:   PropTypes.func,
+    onEditSetup:         PropTypes.func,
+    onDeleteSetup:       PropTypes.func,
+    onEditPortfolio:     PropTypes.func,
+    onDeletePortfolio:   PropTypes.func,
     onActivatePortfolio: PropTypes.func,
-    onDeleteIdea:      PropTypes.func,
-    onEditScan:        PropTypes.func,
-    onDeleteScan:      PropTypes.func,
-    initialDesk:       PropTypes.string,
+    onDeleteIdea:        PropTypes.func,
+    onEditScan:          PropTypes.func,
+    onDeleteScan:        PropTypes.func,
+    isAdmin:             PropTypes.bool,
+    researchQueue:       PropTypes.array,
+    onStartResearch:     PropTypes.func,
+    onMarkResearchDone:  PropTypes.func,
+    onRejectResearch:    PropTypes.func,
+    researchQueueBusyId: PropTypes.string,
+    initialDesk:         PropTypes.string,
 }
