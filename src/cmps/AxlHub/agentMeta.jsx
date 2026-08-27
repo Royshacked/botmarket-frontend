@@ -194,6 +194,9 @@ export const isBotId = (id) => BOT_IDS.includes(id)
 // dead feed comes back as a human DM from a user called "idea". These are dropped outright.
 export const RETIRED_BOT_IDS = ['idea']
 export const isRetiredBotId = (id) => RETIRED_BOT_IDS.includes(id)
+// Admin-only feeds — hidden from traders. The feed still exists; traders just never see it.
+export const ADMIN_BOT_IDS = ['strategy']
+export const isAdminBotId = (id) => ADMIN_BOT_IDS.includes(id)
 // The one bot you can chat with; the rest are read-only alert feeds.
 export const CONVERSATIONAL_BOT_ID = 'axl'
 
@@ -287,13 +290,14 @@ export const DESKS = [
         ],
     },
     {
-        key:      'strategy',
-        label:    'Strategy Desk',
-        lead:     'Set the house view',
-        blurb:    'Pythia names the regime and sets the sector tilts it implies.',
-        hue:      'amber',
-        entryTab: 'strategy',
-        agentKey: 'strategy',
+        key:       'strategy',
+        label:     'Strategy Desk',
+        lead:      'Set the house view',
+        blurb:     'Pythia names the regime and sets the sector tilts it implies.',
+        hue:       'amber',
+        entryTab:  'strategy',
+        agentKey:  'strategy',
+        adminOnly: true,
         // ONE step, and it stays one until Atlas actually reads the tilt. A pipeline arrow drawn to
         // an allocator that ignores the artifact would promise a hand-off nothing performs — the
         // same failure the trade desk's scan step had before `produces: 'one'` existed.

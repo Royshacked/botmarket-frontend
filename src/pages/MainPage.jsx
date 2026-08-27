@@ -573,7 +573,7 @@ export function MainPage() {
 
     const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, tilt, tiltLoading } = useCalendarEvents()
     const { scans, loading: scansLoading, createScan, updateScan, deleteScan } = useScans()
-    const { user } = useAuth()
+    const { user, isAdmin } = useAuth()
     const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
     const { workspace, setWorkspace } = useWorkspaceMode(user?._id)
     const { positions, loading: positionsLoading, refresh: refreshPositions, closePosition, closePositions } = usePositions()
@@ -890,6 +890,8 @@ export function MainPage() {
     // What is left is state with no document behind it to fetch.
     const activeTabRef = useRef(activeTab)
     activeTabRef.current = activeTab
+    const isAdminRef = useRef(isAdmin)
+    isAdminRef.current = isAdmin
     const positionsRef = useRef(positions)
     positionsRef.current = positions
     const workspaceRef = useRef(workspace)   // for []-dep event handlers that must read the live workspace
@@ -1113,6 +1115,7 @@ export function MainPage() {
     // changes nothing on its own. The panel clears it once it starts.
     useEffect(() => {
         return eventBus.on(TILT_REVIEW_OPEN, ({ reason = null } = {}) => {
+            if (!isAdminRef.current) return
             setActiveTab('strategy')
             setReviewRequest(r => ({ n: r.n + 1, reason }))
         })
@@ -2207,15 +2210,6 @@ export function MainPage() {
     }
 
     // Route OUT: Atlas emitted a <screen_request> (a sleeve mandate) → open Argus in the INVESTING
-    // profile, seeded with the mandate. Not a single-pick hand-off — a fundamental candidate list that
-    // routes on to the Analyst.
-    function handleSourceInArgus(requests) {
-        const sleeves = (Array.isArray(requests) ? requests : [requests]).filter(r => r && (r.sector || r.style))
-        if (!sleeves.length) return
-        sleeveRunRef.current = { active: true, queue: sleeves.slice(1), sectors: [], total: sleeves.length, current: null }
-        _screenSleeve(sleeves[0], { fresh: true })
-    }
-
     // What to call a sleeve in the UI and in the record handed back to Atlas. The industry is the
     // binding pond when Atlas named one, so it leads.
     const sleeveLabel = (sr) => sr?.industry || sr?.sector || sr?.style || 'sleeve'
@@ -2838,7 +2832,6 @@ export function MainPage() {
                                 onLoadingChange={deskLoadingSetters.portfolio}
                                 onReviewResolved={handleBackToAxl}
                                 onAcceptReview={handleAcceptReview}
-                                onSourceInArgus={handleSourceInArgus}
                                 {...deskProps('portfolio')}
                                 availableAccounts={availableAccounts}
                                 selectedAccounts={selectedAccounts}
@@ -2903,19 +2896,21 @@ export function MainPage() {
                             />
                         </div>
 
-                        <div className="chat-tabs__panel" style={{ display: activeTab === 'strategy' ? 'flex' : 'none' }}>
-                            <StrategyPanel
-                                onLoadingChange={deskLoadingSetters.strategy}
-                                currentTilt={tilt}
-                                pipeline={activePipeline}
-                                resumeRef={resumeRefs.current.strategy}
-                                reviewRequest={reviewRequest}
-                                onReviewStart={() => setReviewRequest(r => ({ n: 0, reason: r.reason }))}
-                                // Publishing supersedes the standing view, so send the user to the
-                                // board that now shows it — the same beat as a coverage initiate.
-                                onPublished={() => { setNewsTab('forecasts'); handleBackToAxl() }}
-                            />
-                        </div>
+                        {isAdmin && (
+                            <div className="chat-tabs__panel" style={{ display: activeTab === 'strategy' ? 'flex' : 'none' }}>
+                                <StrategyPanel
+                                    onLoadingChange={deskLoadingSetters.strategy}
+                                    currentTilt={tilt}
+                                    pipeline={activePipeline}
+                                    resumeRef={resumeRefs.current.strategy}
+                                    reviewRequest={reviewRequest}
+                                    onReviewStart={() => setReviewRequest(r => ({ n: 0, reason: r.reason }))}
+                                    // Publishing supersedes the standing view, so send the user to the
+                                    // board that now shows it — the same beat as a coverage initiate.
+                                    onPublished={() => { setNewsTab('forecasts'); handleBackToAxl() }}
+                                />
+                            </div>
+                        )}
 
                         {/* Departure beat — covers the agent chat while heading home to axl. */}
                         {returningToAxl && (

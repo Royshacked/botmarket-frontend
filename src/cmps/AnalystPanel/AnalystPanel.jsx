@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import PropTypes from 'prop-types'
+import { useAuth } from '../../context/AuthContext.jsx'
 import { analystService } from '../../services/analyst/analyst.service.remote.js'
 import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote.js'
 import { readStoredModel } from '../modelOptions.js'
@@ -48,6 +49,7 @@ export function CoverageDraft({ coverage }) {
 CoverageDraft.propTypes = { coverage: PropTypes.object.isRequired }
 
 export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, onLoadingChange, onInitiated, onSleeveResearched, coverage = [], pipeline = null, resumeRef = null }) {
+    const { isAdmin } = useAuth()
     const chat = useChatStream({ threadPhases: true })
     const { messages, isLoading } = chat
     const [pendingCoverage, setPendingCoverage] = useState(null)
@@ -361,10 +363,14 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
             {!isLoading && pendingCoverage && (
                 <div className="analyst-panel__draft-wrap">
                     <CoverageDraft coverage={pendingCoverage} />
-                    {initiateErr && <div className="analyst-panel__err">{initiateErr}</div>}
-                    <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={handleInitiate}>
-                        {existingCoverage ? `Update coverage on ${pendingCoverage.symbol}` : `Initiate coverage on ${pendingCoverage.symbol}`}
-                    </button>
+                    {isAdmin && (
+                        <>
+                            {initiateErr && <div className="analyst-panel__err">{initiateErr}</div>}
+                            <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={handleInitiate}>
+                                {existingCoverage ? `Update coverage on ${pendingCoverage.symbol}` : `Initiate coverage on ${pendingCoverage.symbol}`}
+                            </button>
+                        </>
+                    )}
                 </div>
             )}
 

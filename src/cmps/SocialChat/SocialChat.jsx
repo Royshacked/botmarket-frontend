@@ -5,7 +5,8 @@ import { chatWsService } from '../../services/chat/chatWs.service'
 import { ConversationList } from './ConversationList'
 import { ChatWindow }       from './ChatWindow'
 import { readStoredModel }       from '../modelOptions'
-import { isBotId, isRetiredBotId, CONVERSATIONAL_BOT_ID } from '../AxlHub/agentMeta.jsx'
+import { isBotId, isRetiredBotId, isAdminBotId, CONVERSATIONAL_BOT_ID } from '../AxlHub/agentMeta.jsx'
+import { useAuth } from '../../context/AuthContext.jsx'
 import './SocialChat.scss'
 
 // Sending into the Axl thread generates an Axl reply, so it needs a model like any other Axl
@@ -18,6 +19,7 @@ function readAiPref() {
 const PAGE = 50
 
 export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnreadChange, onClose }) {
+    const { isAdmin } = useAuth()
     const [conversations, setConversations] = useState([])
     const [activeConv,    setActiveConv]    = useState(null)
     const [messages,      setMessages]      = useState([])
@@ -48,6 +50,7 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
             // count keeps feeding a badge for a thread you can't act on.
             const convs = (await chatService.getConversations())
                 .filter(c => !c.participants.some(isRetiredBotId))
+                .filter(c => isAdmin || !c.participants.some(isAdminBotId))
             const bots = convs.filter(c => c.participants.some(isBotId))
             const rest = convs.filter(c => !c.participants.some(isBotId))
             setConversations([...bots, ...rest])

@@ -41,7 +41,6 @@ export function PortfolioPanel({
     onLoadingChange,
     onReviewResolved,
     onAcceptReview,
-    onSourceInArgus,
     seed              = null,
     chatRestore       = null,
     availableAccounts = [],
@@ -60,7 +59,7 @@ export function PortfolioPanel({
     useEffect(() => { onLoadingChange?.(isLoading) }, [isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
 
     const [pendingPlan,           setPendingPlan]           = useState(null)
-    const [screenRequests,        setScreenRequests]        = useState([])     // Atlas → Argus: EVERY sleeve routed this turn
+    const [coverageRequest,       setCoverageRequest]       = useState(null)   // { symbol, reason } — clears on next send
     const [editingPortfolioId,    setEditingPortfolioId]    = useState(null)
     const [editingPortfolioIdeas, setEditingPortfolioIdeas] = useState([])
     const [editDirty,             setEditDirty]             = useState(false)
@@ -76,6 +75,7 @@ export function PortfolioPanel({
         if (!chatRestore) return
         setMessages(chatRestore.messages ?? [])
         setPendingPlan(null)
+        setCoverageRequest(null)
         setEditDirty(false)
         setDismissConfirm(false)
         setEditingPortfolioId(chatRestore.portfolioId ?? null)
@@ -146,7 +146,7 @@ export function PortfolioPanel({
 
     async function _send(text) {
         setEditDirty(true)
-        setScreenRequests([])    // a new turn supersedes any pending "Source in Argus" offer
+        setCoverageRequest(null)
 
         const history = toChatHistory(messages)
         history.push({ role: 'user', content: text })
@@ -169,7 +169,7 @@ export function PortfolioPanel({
                 if (data.thesis) { latestThesisRef.current = data.thesis; setPortfolioThesis(data.thesis) }
                 chat.finishStreaming({ role: 'assistant', content: data.reply, tickers })
                 if (data.plan?.ideas?.length) setPendingPlan(data.plan)
-                if (data.screen_requests?.length) setScreenRequests(data.screen_requests)   // offer the Argus hand-off — all sleeves at once
+                if (data.coverage_request?.symbol) setCoverageRequest(data.coverage_request)
                 // Pass any thesis emitted in THIS same turn so a confirmed review
                 // rebalance persists it (reason 'accepted-rebalance'). Only the
                 // same-turn proposal is attached — never the restored existing thesis.
@@ -231,7 +231,7 @@ export function PortfolioPanel({
                 if (data.thesis) { latestThesisRef.current = data.thesis; setPortfolioThesis(data.thesis) }
                 chat.finishStreaming({ role: 'assistant', content: base + data.reply, tickers })
                 if (data.plan?.ideas?.length) setPendingPlan(data.plan)
-                if (data.screen_requests?.length) setScreenRequests(data.screen_requests)   // offer the Argus hand-off — all sleeves at once
+                if (data.coverage_request?.symbol) setCoverageRequest(data.coverage_request)
                 if (data.update?.changes?.length) {
                     // Review mode: surface an inline Accept/Dismiss on the proposal.
                     // Construction/edit: hand off to the existing apply path.
@@ -483,17 +483,12 @@ export function PortfolioPanel({
 
             </AgentMessages>
 
-            {/* Atlas → Argus: hand a sleeve's mandate to the investing screening desk. */}
-            {!isLoading && screenRequests.length > 0 && (
-                <div className="portfolio-panel__action-bubble">
-                    <button
-                        className="portfolio-panel__review-btn portfolio-panel__review-btn--update"
-                        onClick={() => { onSourceInArgus?.(screenRequests); setScreenRequests([]) }}
-                    >
-                        {screenRequests.length === 1
-                            ? `Source ${screenRequests[0].sector || screenRequests[0].style || 'this sleeve'} in Argus`
-                            : `Screen ${screenRequests.length} sleeves in Argus →`}
-                    </button>
+            {coverageRequest && !isLoading && (
+                <div className="portfolio-panel__action-bubble portfolio-panel__coverage-notice">
+                    <span className="portfolio-panel__coverage-notice-icon">🔬</span>
+                    <span>
+                        <strong>{coverageRequest.symbol}</strong> queued for research — check back once coverage is ready.
+                    </span>
                 </div>
             )}
 
@@ -577,7 +572,6 @@ PortfolioPanel.propTypes = {
     onLoadingChange:     PropTypes.func,
     onReviewResolved:    PropTypes.func,
     onAcceptReview:      PropTypes.func,
-    onSourceInArgus:     PropTypes.func,
     chatRestore:         PropTypes.object,
     availableAccounts:   PropTypes.array,
     selectedAccounts:    PropTypes.arrayOf(PropTypes.string),
