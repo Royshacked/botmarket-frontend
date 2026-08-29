@@ -21,6 +21,7 @@ import { ScannerPanel, RESEARCH_TOP_N }      from '../cmps/ScannerPanel/ScannerP
 import { MentorPanel }       from '../cmps/MentorPanel/MentorPanel.jsx'
 import { AnalystPanel }      from '../cmps/AnalystPanel/AnalystPanel.jsx'
 import { StrategyPanel }     from '../cmps/StrategyPanel/StrategyPanel.jsx'
+import { AetherPanel }       from '../cmps/AetherPanel/AetherPanel.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
 import { FloorLeft }         from '../cmps/Floor/FloorLeft.jsx'
 import { FloorLists }        from '../cmps/Floor/FloorLists.jsx'
@@ -236,7 +237,7 @@ function _moneyShort(v) {
 // which let ThreadHistory offer a resume mid-turn that the running stream then silently
 // overwrote, and left the agent-bar live dot unable to pulse for the very desks those two
 // setters were added for.
-const DESK_TABS = ['scanner', 'portfolio', 'mentor', 'analyst', 'strategy']
+const DESK_TABS = ['scanner', 'portfolio', 'mentor', 'analyst', 'strategy', 'aether']
 
 export function MainPage() {
     const chat = useChatStream()
@@ -2940,6 +2941,14 @@ export function MainPage() {
                                 />
                             </div>
                         )}
+
+                        <div className="chat-tabs__panel" style={{ display: activeTab === 'aether' ? 'flex' : 'none' }}>
+                            <AetherPanel
+                                onLoadingChange={deskLoadingSetters.aether}
+                                pipeline={activePipeline}
+                                resumeRef={resumeRefs.current.aether}
+                            />
+                        </div>
 
                         {/* Departure beat — covers the agent chat while heading home to axl. */}
                         {returningToAxl && (

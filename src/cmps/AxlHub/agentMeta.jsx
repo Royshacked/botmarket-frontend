@@ -124,6 +124,30 @@ export const AGENTS = {
             </>
         ),
     },
+    // Aether — the channel-graph forecasting engine. Admin-only: the engine data does not exist yet
+    // (Python compute repo writes it); until it does, the desk reasons qualitatively and says so.
+    // Key stays `aether`; Aether is both the key and the brand.
+    aether: {
+        tab:   'aether',
+        brand: 'Aether',
+        hue:   'cyan',
+        lead:  'Channel-graph forecast',
+        blurb: 'A coupled dynamical system of macro channels — state, regime, and name exposure.',
+        intro: "Let's read the channel state — what pressures are propagating, which names sit in their path.",
+        hint:  'Ask about a channel, a regime, or a name\'s exposure. Engine data arrives as the Python compute repo comes online.',
+        // The channel lattice — a sparse graph of propagating states. Dots at nodes, lines for
+        // the coupling edges: evokes the K matrix without spelling it out.
+        icon: (
+            <>
+                <circle cx="6"  cy="12" r="1.8" />
+                <circle cx="18" cy="7"  r="1.8" />
+                <circle cx="18" cy="17" r="1.8" />
+                <line x1="7.7"  y1="11.1" x2="16.3" y2="7.9" />
+                <line x1="7.7"  y1="12.9" x2="16.3" y2="16.1" />
+                <line x1="18"   y1="8.8"  x2="18"   y2="15.2" />
+            </>
+        ),
+    },
     // Pythia — the top-down desk. Deliberately NOT an allocator and not a stock picker: Prometheus
     // works bottom-up on names, Atlas allocates, and this desk exists so the allocator reads a
     // house view it did not write itself. Key stays `strategy`; Pythia is the brand.
@@ -186,7 +210,7 @@ AGENTS.axl = {
 // NO `idea`: the Idea desk is archived, so its feed is retired (backend RETIRED_BOT_IDS —
 // nothing posts there and getConversations hides the old thread). The AGENTS entry above
 // stays for rendering history; being absent HERE is what removes it from the sidebar.
-export const BOT_IDS = ['axl', 'portfolio', 'scanner', 'kairos', 'mentor', 'analyst', 'strategy']
+export const BOT_IDS = ['axl', 'portfolio', 'scanner', 'kairos', 'mentor', 'analyst', 'strategy', 'aether']
 export const isBotId = (id) => BOT_IDS.includes(id)
 
 // Retired feeds (backend RETIRED_BOT_IDS). Absence from BOT_IDS is what unpins the thread, but on
@@ -303,6 +327,18 @@ export const DESKS = [
         // same failure the trade desk's scan step had before `produces: 'one'` existed.
         steps: [
             { tab: 'strategy', label: 'Set the view' },
+        ],
+    },
+    {
+        key:       'aether',
+        label:     'Aether Desk',
+        lead:      'Channel-graph forecast',
+        blurb:     'Aether reads the macro channel state and each name\'s exposure to it.',
+        hue:       'cyan',
+        entryTab:  'aether',
+        agentKey:  'aether',
+        steps: [
+            { tab: 'aether', label: 'Channel read' },
         ],
     },
 ]
