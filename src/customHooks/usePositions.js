@@ -27,7 +27,11 @@ export function usePositions() {
     // One slow broker (e.g. a stale cTrader session whose /positions hangs the full
     // 30s http timeout) can outlast the poll interval; skip a poll while one is still
     // in flight so those requests don't stack up and exhaust the connection pool.
-    const inFlightRef = useRef(false)
+    const inFlightRef    = useRef(false)
+    // Track which brokers were active on the last successful refresh so we only
+    // pre-clear positions when the active set changes (workspace switch), not on
+    // every routine poll — pre-clearing on every poll caused P&L to flash blank.
+    const prevBrokersRef = useRef(null)
 
     // `force` (a user action — e.g. just closed a position) bypasses the in-flight
     // guard so the UI updates promptly even while a slow poll is still running.
@@ -50,10 +54,16 @@ export function usePositions() {
                           : ws === 'manual' ? ['manual']
                           : connected.filter(b => b !== 'paper' && b !== 'manual')
 
-            // Drop positions from brokers outside the active mode. The incremental
-            // commit below only REPLACES slices for brokers it re-fetches, so after a
-            // mode switch the previous mode's positions would otherwise linger.
-            setPositions(prev => prev.filter(p => brokers.includes(p.broker)))
+            // Drop positions from brokers outside the active mode ONLY when the
+            // active broker set has changed (workspace switch). The incremental
+            // per-broker commit below handles replacing each slice on routine polls,
+            // so pre-clearing on every poll is wrong — it blanks P&L for the round-
+            // trip duration and causes visible flicker every 4 seconds.
+            const brokersKey = [...brokers].sort().join(',')
+            if (prevBrokersRef.current !== brokersKey) {
+                setPositions(prev => prev.filter(p => brokers.includes(p.broker)))
+                prevBrokersRef.current = brokersKey
+            }
 
             // Fetch each broker in parallel but commit its positions to state AS IT
             // RESOLVES — replacing only that broker's slice — so a broker whose
