@@ -83,6 +83,7 @@ export function OpportunityRow({ group, onBuild }) {
                                     {' · '}{ch.ticker_direction}
                                     {' · '}{chLag}
                                     {' · conf '}{(ch.confidence_llm ?? 0).toFixed(2)}
+                                    {ch.source_count > 1 && ` · ${ch.source_count} sources`}
                                 </span>
                                 {ch.why       && <p className="floor-detail__prose">{ch.why}</p>}
                                 {ch.when      && <p className="floor-detail__prose">{ch.when}</p>}
@@ -148,6 +149,7 @@ export function SignalRow({ group }) {
                                     {' · '}{ch.ticker_direction}
                                     {' · '}{chLag}
                                     {' · conf '}{(ch.confidence_llm ?? 0).toFixed(2)}
+                                    {ch.source_count > 1 && ` · ${ch.source_count} sources`}
                                 </span>
                                 {ch.thesis && <p className="floor-detail__prose">{ch.thesis}</p>}
                             </div>
