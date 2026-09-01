@@ -1,0 +1,119 @@
+// ── ShockFeed section body ────────────────────────────────────────────────────
+
+.shock-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    height: 100%;
+    overflow: hidden;
+}
+
+// Sub-tabs: Opportunities / Signals
+.shock-feed__tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border-subtle, #e2e8f0);
+    padding: 0 12px;
+    flex-shrink: 0;
+}
+
+.shock-feed__tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-muted, #64748b);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+
+    &:hover {
+        color: var(--text-primary, #1e293b);
+    }
+
+    &--active {
+        color: var(--accent, #3b82f6);
+        border-bottom-color: var(--accent, #3b82f6);
+    }
+}
+
+.shock-feed__tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--badge-bg, #e2e8f0);
+    color: var(--text-muted, #64748b);
+    font-size: 0.65rem;
+    font-weight: 600;
+
+    .shock-feed__tab--active & {
+        background: var(--accent-subtle, #dbeafe);
+        color: var(--accent, #3b82f6);
+    }
+}
+
+// ── Card internals ────────────────────────────────────────────────────────────
+
+.shock-feed__lightning {
+    width: 20px;
+    height: 20px;
+    color: var(--accent, #3b82f6);
+}
+
+.shock-feed__channel {
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: capitalize;
+    color: var(--text-primary, #1e293b);
+}
+
+.shock-feed__expires {
+    font-size: 0.7rem;
+    color: var(--text-muted, #64748b);
+    margin: 2px 0 0;
+}
+
+.shock-feed__opp-meta {
+    font-size: 0.7rem;
+    color: var(--text-muted, #64748b);
+    margin: 2px 0 0;
+    line-height: 1.4;
+}
+
+.shock-feed__risk {
+    color: var(--warn, #f59e0b);
+}
+
+.shock-feed__meta-sep {
+    opacity: 0.5;
+}
+
+// ── "Build trade" action button ───────────────────────────────────────────────
+
+.shock-feed__build-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--accent, #3b82f6);
+    background: var(--accent-subtle, #dbeafe);
+    border: 1px solid var(--accent-border, #bfdbfe);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s;
+
+    &:hover {
+        background: var(--accent, #3b82f6);
+        color: #fff;
+    }
+}

@@ -1,0 +1,135 @@
+// Aether's channel-state house view — z-scores per pressure channel, grouped by clock speed.
+// Follows the same visual language as SectorView.scss: border cards, CSS variable palette,
+// mono numbers, left-accent stripe per direction.
+.ch-view {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 6px;
+
+    // ── header: regime label + computed date ─────────────────────────────────
+    &__header {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg-base);
+    }
+
+    &__regime {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    &__asof {
+        margin-left: auto;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-muted);
+    }
+
+    // ── clock group ──────────────────────────────────────────────────────────
+    &__group {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    &__group-label {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        padding: 2px 4px;
+    }
+
+    // ── channel row ──────────────────────────────────────────────────────────
+    &__row {
+        display: grid;
+        // name · bar track · z-score
+        grid-template-columns: minmax(0, 1fr) 80px 42px;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border: 1px solid var(--border);
+        border-left-width: 3px;
+        border-radius: 7px;
+        background: var(--bg-base);
+
+        // Left accent by pressure direction. hi = strong, lo = mild.
+        &:has(.ch-view__z--hi-pos) { border-left-color: var(--color-long); }
+        &:has(.ch-view__z--lo-pos) { border-left-color: color-mix(in srgb, var(--color-long) 50%, var(--border)); }
+        &:has(.ch-view__z--hi-neg) { border-left-color: var(--color-short); }
+        &:has(.ch-view__z--lo-neg) { border-left-color: color-mix(in srgb, var(--color-short) 50%, var(--border)); }
+        &:has(.ch-view__z--flat),
+        &:has(.ch-view__z--none)   { border-left-color: var(--border); }
+    }
+
+    &__name {
+        font-size: 12.5px;
+        color: var(--text-primary);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    // ── mini bar track ───────────────────────────────────────────────────────
+    // 80px wide, midline at 50%. Bar grows left (negative) or right (positive) from centre.
+    &__bar-track {
+        position: relative;
+        height: 6px;
+        border-radius: 3px;
+        background: var(--bg-elevated, var(--bg-base));
+        border: 1px solid var(--border);
+        overflow: hidden;
+    }
+
+    &__midline {
+        position: absolute;
+        left: 50%;
+        top: 0;
+        bottom: 0;
+        width: 1px;
+        background: var(--border);
+    }
+
+    &__bar {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        border-radius: 2px;
+
+        &--hi-pos { background: var(--color-long); }
+        &--lo-pos { background: color-mix(in srgb, var(--color-long) 55%, transparent); }
+        &--hi-neg { background: var(--color-short); }
+        &--lo-neg { background: color-mix(in srgb, var(--color-short) 55%, transparent); }
+        &--flat   { background: var(--text-muted); opacity: 0.4; }
+        &--none   { display: none; }
+    }
+
+    // ── z-score value ─────────────────────────────────────────────────────────
+    &__z {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        text-align: right;
+
+        &--hi-pos { color: var(--long-text); font-weight: 600; }
+        &--lo-pos { color: var(--long-text); }
+        &--hi-neg { color: var(--short-text); font-weight: 600; }
+        &--lo-neg { color: var(--short-text); }
+        &--flat   { color: var(--text-secondary); }
+        &--none   { color: var(--text-dim, var(--text-muted)); }
+    }
+
+    // ── footnote ─────────────────────────────────────────────────────────────
+    &__note {
+        margin: 2px 0 0;
+        font-size: 11px;
+        color: var(--text-muted);
+        padding: 0 4px;
+    }
+}

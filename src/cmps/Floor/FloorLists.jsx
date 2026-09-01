@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect } from 'react'
+import { Fragment, useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { groupByLifecycle, isPreEntry, isLivePosition } from '../../services/entityStatus.js'
 import {
@@ -15,6 +15,8 @@ import { nextRevision, NEXT_REVISION_HINT } from '../Radar/coverage.utils.js'
 import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
 import { CalendarRows } from './CalendarRows.jsx'
 import { SectorView } from '../Radar/SectorView.jsx'
+import { ChannelStateView } from '../Radar/ChannelStateView.jsx'
+import { ShockFeed } from '../TradeIdeas/ShockFeed.jsx'
 import './Floor.scss'
 
 // The Floor's right column: four desks, one open at a time — and the open one TAKES THE COLUMN.
@@ -40,6 +42,7 @@ const DESKS = [
     { key: 'portfolio',      label: 'Portfolio floor' },
     { key: 'scans',          label: 'Scans' },
     { key: 'coverage',       label: 'Coverage' },
+    { key: 'shocks',         label: 'Shocks' },
     // Admin-only: the house research pipeline backlog (Argus hits + user coverage_request).
     { key: 'research_queue', label: 'Research queue', group: 'Admin', adminOnly: true },
 
@@ -57,6 +60,9 @@ const DESKS = [
     // Not a dated list at all — the house view, rendered as a board. It sits with the calendar
     // because it answers the same question, not because it shares its shape.
     { key: 'forecasts', label: 'Forecasts', group: 'Calendar' },
+    // Aether's channel-state view — z-score per pressure channel, grouped by clock speed.
+    // Also not a dated list; same reasoning as Forecasts above.
+    { key: 'channels',  label: 'Channels',  group: 'Calendar' },
 ]
 
 function openFor(item) {
@@ -664,14 +670,14 @@ ResearchQueueRows.propTypes = {
 
 export function FloorLists({
     setups = [], ideas = [], positions = [],
-    scans = [], coverage = [], queued = [],
+    scans = [], coverage = [], queued = [], shockFeed = null,
     onCandidateSelect,
     onEditSetup, onDeleteSetup,
     onEditPortfolio, onDeletePortfolio, onDeleteIdea, onActivatePortfolio,
     onEditScan, onDeleteScan,
     onEditCoverage, onRetireCoverage, onDeleteCoverage,
     onExecuteQueued, onCancelQueued, queuedBusyId = null,
-    earnings = [], fed = [], ipo = [], tilt = null, calendarLoading = {},
+    earnings = [], fed = [], ipo = [], tilt = null, channelState = null, calendarLoading = {},
     onEarningSelect, onIpoSelect,
     isAdmin = false,
     researchQueue = [], onStartResearch, onMarkResearchDone, onRejectResearch, researchQueueBusyId = null,
@@ -711,9 +717,27 @@ export function FloorLists({
         ipo:            ipo.length,
         // Only queued items count — in_research is work the admin already started.
         research_queue: researchQueue.filter(i => i.status === 'queued').length,
-        // No count on Forecasts: the house view is ONE standing view, and "(1)" beside it would
-        // invite the reader to expect a list of them.
+        shocks: (shockFeed?.opportunities?.length ?? 0) + (shockFeed?.signals?.length ?? 0),
+        // No count on Forecasts or Channels: both are standing engine views. "(1)" beside either
+        // would invite the reader to expect a list.
     }
+
+    // Auto-open the first desk that has data, but only on the first load and only if the user
+    // has not already made a selection. Uses a ref to fire exactly once — a state flag would
+    // cause a second render, and a dep-array without openKey would re-fire after the user closes.
+    const autoOpened = useRef(false)
+    const totalData   = setups.length + queued.length + scans.length + coverage.length + ideas.length
+                      + earnings.length + fed.length + ipo.length + (counts.shocks ?? 0)
+    useEffect(() => {
+        if (autoOpened.current || openKey !== null) return
+        const first = ['queued', 'shocks', 'trade', 'scans', 'coverage', 'portfolio', 'earnings', 'ipo', 'fed']
+            .find(k => (counts[k] ?? 0) > 0)
+        if (first) {
+            autoOpened.current = true
+            setOpenKey(first)
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [totalData])
 
     const visibleDesks = DESKS.filter(d => !d.adminOnly || isAdmin)
 
@@ -781,6 +805,15 @@ export function FloorLists({
                         />
                     )}
 
+                    {desk.key === 'shocks' && (
+                        <ShockFeed
+                            signals={shockFeed?.signals ?? []}
+                            opportunities={shockFeed?.opportunities ?? []}
+                            loading={shockFeed?.loading}
+                            onBuild={shockFeed?.onBuild}
+                        />
+                    )}
+
                     {desk.key === 'research_queue' && (
                         <ResearchQueueRows
                             researchQueue={researchQueue}
@@ -808,6 +841,12 @@ export function FloorLists({
                             ? <p className="floor-empty">Loading…</p>
                             : <SectorView tilt={tilt} />
                     )}
+                    {desk.key === 'channels' && (
+                        <ChannelStateView
+                            channelState={channelState}
+                            loading={calendarLoading.channels && !channelState}
+                        />
+                    )}
                 </Desk>
                 </Fragment>
             ))}
@@ -822,6 +861,7 @@ FloorLists.propTypes = {
     scans:             PropTypes.array,
     coverage:          PropTypes.array,
     queued:            PropTypes.array,
+    shockFeed:         PropTypes.shape({ signals: PropTypes.array, opportunities: PropTypes.array, loading: PropTypes.bool, onBuild: PropTypes.func }),
     onExecuteQueued:   PropTypes.func,
     onCancelQueued:    PropTypes.func,
     queuedBusyId:      PropTypes.string,
@@ -830,6 +870,7 @@ FloorLists.propTypes = {
     fed:               PropTypes.array,
     ipo:               PropTypes.array,
     tilt:              PropTypes.object,
+    channelState:      PropTypes.object,
     // Keyed by desk, not one flag for all four: a slow IPO feed used to hold up the earnings list
     // and the house view alongside it, because the old tab strip had one shared "Loading…".
     calendarLoading:     PropTypes.object,

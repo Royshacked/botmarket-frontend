@@ -14,6 +14,7 @@ export const aetherService = {
     getChannelState,
     getForecasts,
     getExposure,
+    getShockFeed,
 }
 
 /** Streaming Aether chat. done → { reply }. */
@@ -35,4 +36,9 @@ function getForecasts() {
 /** Name-level channel exposure — null until Phase 3. */
 function getExposure(ticker) {
     return httpService.get(`${BASE}/exposure/${encodeURIComponent(ticker)}`)
+}
+
+/** Shock feed — predicted_signals (channel-level) + opportunities (ticker-level, actionable). */
+function getShockFeed() {
+    return httpService.get(`${BASE}/shock-feed`)
 }

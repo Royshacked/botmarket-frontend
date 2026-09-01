@@ -58,6 +58,7 @@ import { useTradeIdeas }     from '../customHooks/useTradeIdeas.js'
 import { useEntityList } from '../customHooks/useEntityList.js'
 import { useDesign }         from '../customHooks/useDesign.js'
 import { useSetups }         from '../customHooks/useSetups.js'
+import { useShockFeed }      from '../customHooks/useShockFeed.js'
 import { deriveIdeaOverlay, deriveSetupOverlay } from '../cmps/TradeIdeas/chartOverlay.js'
 import { useAuth }           from '../context/AuthContext.jsx'
 import { nextResetKeys }     from './deskReset.js'
@@ -476,6 +477,8 @@ export function MainPage() {
     const { setups, setupsLoading, refreshSetups } = useSetups()
     const [setupBusyId, setSetupBusyId] = useState(null)
 
+    const { signals: shockSignals, opportunities: shockOpportunities, loading: shockLoading } = useShockFeed()
+
     // Arm / disarm / delete a setup from the Lists surface. Arming is the real gate — the server
     // re-runs the readiness check and refuses with `cannot_arm_<reason>`, so surface that rather
     // than swallowing it.
@@ -602,7 +605,7 @@ export function MainPage() {
         handleBackToAxl()
     }
 
-    const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, tilt, tiltLoading } = useCalendarEvents()
+    const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, tilt, tiltLoading, channelState, channelStateLoading } = useCalendarEvents()
     const { scans, loading: scansLoading, createScan, updateScan, deleteScan } = useScans()
     const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
     const { workspace, setWorkspace } = useWorkspaceMode(user?._id)
@@ -2478,6 +2481,25 @@ export function MainPage() {
         setActiveTab('mentor')
     }
 
+    // Shock feed opportunity → MENTOR: an Aether opportunity card carries a ticker, a direction,
+    // and the channel-level reasoning. Seed Mentor the same way an earnings row does — spoken as
+    // the user's opening turn so Mentor asks for their lean rather than re-stating what Aether said.
+    function handleBuildFromShock(opportunity) {
+        if (!opportunity?.ticker) return
+        const dir  = opportunity.ticker_direction ?? null
+        const chan  = (opportunity.channel_id ?? '').replace(/_/g, ' ')
+        const parts = [
+            `I want to build a setup around ${opportunity.ticker}`,
+            chan   ? ` — Aether flagged it via the ${chan} channel` : '',
+            dir    ? ` with a ${dir} lean` : '',
+            '.',
+            opportunity.why    ? ` ${opportunity.why}.` : '',
+            opportunity.when   ? ` Timing: ${opportunity.when}.` : '',
+            opportunity.risk_note ? ` Risk note: ${opportunity.risk_note}.` : '',
+        ]
+        seedMentorChat(opportunity.ticker, parts.join(''))
+    }
+
     // Earnings ticker → MENTOR: a scheduled print is a date with a ticker attached and no bias,
     // which is a setup (zones + a window), not an idea's condition tree. Each row carries its own
     // report date (the list spans the trading week).
@@ -2986,11 +3008,19 @@ export function MainPage() {
                                     fed={fed}
                                     ipo={ipo}
                                     tilt={tilt}
+                                    channelState={channelState}
                                     calendarLoading={{
                                         earnings:  earningsLoading,
                                         fed:       fedLoading,
                                         ipo:       ipoLoading,
                                         forecasts: tiltLoading,
+                                        channels:  channelStateLoading,
+                                    }}
+                                    shockFeed={{
+                                        signals:       shockSignals,
+                                        opportunities: shockOpportunities,
+                                        loading:       shockLoading,
+                                        onBuild:       handleBuildFromShock,
                                     }}
                                     onEarningSelect={handleBuildFromEarning}
                                     onIpoSelect={handleBuildFromIpo}
@@ -3068,6 +3098,12 @@ export function MainPage() {
                                 ipo,
                                 ipoLoading,
                                 onIpoSelect:       handleBuildFromIpo,
+                            }}
+                            shockFeed={{
+                                signals:       shockSignals,
+                                opportunities: shockOpportunities,
+                                loading:       shockLoading,
+                                onBuild:       handleBuildFromShock,
                             }}
                         />
                     </div>
