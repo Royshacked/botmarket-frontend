@@ -57,10 +57,12 @@ export function SignalRow({ signal }) {
     const dirRating = DIR_RATING[signal.direction] ?? 'hold'
     const dirLabel  = DIR_LABEL[signal.direction]  ?? signal.direction
 
+    // Signals are channel-level — no ticker. Channel name occupies the elastic `kind` column;
+    // magnitude rides in the status slot so the layout mirrors opportunity rows.
     return (
         <div className="floor-sub">
             <button className="floor-row floor-row--static">
-                <span className="floor-row__sym floor-row__sym--wide">
+                <span className="floor-row__kind">
                     {signal.channel_id?.replace(/_/g, ' ')}
                 </span>
                 {dirLabel && (
@@ -68,8 +70,7 @@ export function SignalRow({ signal }) {
                         {dirLabel}
                     </span>
                 )}
-                <span className="floor-row__kind">{signal.magnitude}</span>
-                <span className="floor-row__status">{lagStr}</span>
+                <span className="floor-row__status">{signal.magnitude} · {lagStr}</span>
             </button>
         </div>
     )

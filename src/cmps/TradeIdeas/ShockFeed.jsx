@@ -47,7 +47,7 @@ export function ShockFeed({ signals, opportunities, loading, onBuild, onSymbolCl
             {isEmpty ? (
                 <p className="trade-ideas-list__empty">{emptyMsg}</p>
             ) : (
-                <div className="shock-feed__body">
+                <div key={tab} className="shock-feed__body">
                     {showOpps
                         ? opportunities.map((opp, i) => (
                             <OpportunityRow
