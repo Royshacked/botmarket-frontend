@@ -27,7 +27,8 @@ Chev.propTypes = { open: PropTypes.bool }
 
 export function OpportunityRow({ group, onBuild }) {
     const [open, setOpen] = useState(false)
-    const hasMulti = group.channels.length > 1
+    const multi  = group.channels.length > 1
+    const primary = group.channels[0]
 
     const lagStr    = group.lag_weeks_min === group.lag_weeks_max
         ? `${group.lag_weeks_min}w`
@@ -35,7 +36,6 @@ export function OpportunityRow({ group, onBuild }) {
     const dirLabel  = group.ticker_direction
     const dirRating = TICK_RATING[group.ticker_direction] ?? 'hold'
 
-    const primary  = group.channels[0]
     const buildBtn = onBuild ? (
         <button
             className="shock-feed__build-btn"
@@ -50,11 +50,11 @@ export function OpportunityRow({ group, onBuild }) {
         <div className="floor-sub">
             <RowHost actions={buildBtn}>
                 <button
-                    className={`floor-row${hasMulti ? '' : ' floor-row--static'}`}
-                    onClick={hasMulti ? () => setOpen(o => !o) : undefined}
-                    aria-expanded={hasMulti ? open : undefined}
+                    className="floor-row"
+                    onClick={() => setOpen(o => !o)}
+                    aria-expanded={open}
                 >
-                    {hasMulti && <Chev open={open} />}
+                    <Chev open={open} />
                     <span className="floor-row__sym">{group.ticker}</span>
                     {dirLabel && (
                         <span className={`floor-row__rating floor-row__rating--${dirRating}`}>
@@ -62,7 +62,7 @@ export function OpportunityRow({ group, onBuild }) {
                         </span>
                     )}
                     <span className="floor-row__kind">
-                        {hasMulti
+                        {multi
                             ? `${group.channels.length} channels`
                             : primary.channel_id?.replace(/_/g, ' ')}
                     </span>
@@ -105,23 +105,23 @@ OpportunityRow.propTypes = {
 
 export function SignalRow({ group }) {
     const [open, setOpen] = useState(false)
-    const hasMulti = group.channels.length > 1
+    const multi   = group.channels.length > 1
+    const primary = group.channels[0]
 
     const lagStr    = group.lag_weeks_min === group.lag_weeks_max
         ? `${group.lag_weeks_min}w`
         : `${group.lag_weeks_min}-${group.lag_weeks_max}w`
     const dirLabel  = group.ticker_direction
     const dirRating = TICK_RATING[group.ticker_direction] ?? 'hold'
-    const primary   = group.channels[0]
 
     return (
         <div className="floor-sub">
             <button
-                className={`floor-row${hasMulti ? '' : ' floor-row--static'}`}
-                onClick={hasMulti ? () => setOpen(o => !o) : undefined}
-                aria-expanded={hasMulti ? open : undefined}
+                className="floor-row"
+                onClick={() => setOpen(o => !o)}
+                aria-expanded={open}
             >
-                {hasMulti && <Chev open={open} />}
+                <Chev open={open} />
                 <span className="floor-row__sym">{group.ticker}</span>
                 {dirLabel && (
                     <span className={`floor-row__rating floor-row__rating--${dirRating}`}>
@@ -129,7 +129,7 @@ export function SignalRow({ group }) {
                     </span>
                 )}
                 <span className="floor-row__kind">
-                    {hasMulti
+                    {multi
                         ? `${group.channels.length} channels`
                         : primary.channel_id?.replace(/_/g, ' ')}
                 </span>
