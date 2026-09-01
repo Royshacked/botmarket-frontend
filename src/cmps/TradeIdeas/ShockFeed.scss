@@ -67,6 +67,9 @@
     overflow-x: hidden;
 }
 
+// Risk note inside the detail drawer
+.shock-feed__risk { color: var(--color-warning, #f59e0b); }
+
 // ── "Build trade" action button (revealed on row hover via RowHost) ───────────
 
 .shock-feed__build-btn {

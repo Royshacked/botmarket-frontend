@@ -3,20 +3,51 @@ import PropTypes from 'prop-types'
 import { OpportunityRow, SignalRow } from './ShockFeedCard.jsx'
 import './ShockFeed.scss'
 
-// The Shocks section body — two sub-tabs: Opportunities (ticker-level, actionable) and
-// Signals (channel-level, provisional early-warning context).
-//
-// Opportunities are shown first and by default because they are FRED-confirmed and
-// immediately actionable. Signals are provisional (news-driven, not yet validated) and
-// exist mainly as macro context for Argus / Mentor / Atlas.
+// Group a flat list of (ticker, channel) docs into one entry per ticker.
+// The primary ticker_direction and lag come from the highest-confidence channel.
+// The detail drawer exposes all channels sorted by confidence desc.
+function groupByTicker(items) {
+    const map = new Map()
+    for (const item of items) {
+        const t = item.ticker
+        if (!map.has(t)) {
+            map.set(t, {
+                ticker:          t,
+                ticker_direction: item.ticker_direction,
+                lag_weeks_min:   item.lag_weeks_min,
+                lag_weeks_max:   item.lag_weeks_max,
+                confidence_llm:  item.confidence_llm,
+                agent:           item.agent,
+                channels:        [],
+            })
+        }
+        const g = map.get(t)
+        g.channels.push(item)
+        g.lag_weeks_min = Math.min(g.lag_weeks_min, item.lag_weeks_min)
+        g.lag_weeks_max = Math.max(g.lag_weeks_max, item.lag_weeks_max)
+        // Promote the highest-confidence channel to primary direction
+        if (item.confidence_llm > g.confidence_llm) {
+            g.confidence_llm   = item.confidence_llm
+            g.ticker_direction = item.ticker_direction
+            g.agent            = item.agent
+        }
+    }
+    for (const g of map.values()) {
+        g.channels.sort((a, b) => b.confidence_llm - a.confidence_llm)
+    }
+    return [...map.values()].sort((a, b) => b.confidence_llm - a.confidence_llm)
+}
 
-export function ShockFeed({ signals, opportunities, loading, onBuild, onSymbolClick }) {
+export function ShockFeed({ signals, opportunities, loading, onBuild }) {
     const [tab, setTab] = useState('opportunities')
     const showOpps = tab === 'opportunities'
 
     if (loading) return <p className="trade-ideas-list__empty">Loading shocks…</p>
 
-    const isEmpty = showOpps ? opportunities.length === 0 : signals.length === 0
+    const groupedOpps    = groupByTicker(opportunities)
+    const groupedSignals = groupByTicker(signals)
+
+    const isEmpty  = showOpps ? groupedOpps.length === 0 : groupedSignals.length === 0
     const emptyMsg = showOpps
         ? 'No confirmed opportunities yet — Aether needs a FRED release day to validate predictions.'
         : 'No provisional signals yet — check back after the next news ingest.'
@@ -29,8 +60,8 @@ export function ShockFeed({ signals, opportunities, loading, onBuild, onSymbolCl
                     onClick={() => setTab('opportunities')}
                 >
                     Opportunities
-                    {opportunities.length > 0 && (
-                        <span className="shock-feed__tab-count">{opportunities.length}</span>
+                    {groupedOpps.length > 0 && (
+                        <span className="shock-feed__tab-count">{groupedOpps.length}</span>
                     )}
                 </button>
                 <button
@@ -38,8 +69,8 @@ export function ShockFeed({ signals, opportunities, loading, onBuild, onSymbolCl
                     onClick={() => setTab('signals')}
                 >
                     Signals
-                    {signals.length > 0 && (
-                        <span className="shock-feed__tab-count">{signals.length}</span>
+                    {groupedSignals.length > 0 && (
+                        <span className="shock-feed__tab-count">{groupedSignals.length}</span>
                     )}
                 </button>
             </div>
@@ -49,15 +80,11 @@ export function ShockFeed({ signals, opportunities, loading, onBuild, onSymbolCl
             ) : (
                 <div key={tab} className="shock-feed__body">
                     {showOpps
-                        ? opportunities.map((opp, i) => (
-                            <OpportunityRow
-                                key={opp.card_id ?? i}
-                                opportunity={opp}
-                                onBuild={onBuild}
-                            />
+                        ? groupedOpps.map(g => (
+                            <OpportunityRow key={g.ticker} group={g} onBuild={onBuild} />
                         ))
-                        : signals.map((sig, i) => (
-                            <SignalRow key={sig.prediction_id ?? i} signal={sig} />
+                        : groupedSignals.map(g => (
+                            <SignalRow key={g.ticker} group={g} />
                         ))
                     }
                 </div>
@@ -71,6 +98,5 @@ ShockFeed.propTypes = {
     opportunities: PropTypes.array,
     loading:       PropTypes.bool,
     onBuild:       PropTypes.func,
-    onSymbolClick: PropTypes.func,
 }
 ShockFeed.defaultProps = { signals: [], opportunities: [] }
