@@ -3,53 +3,39 @@ import PropTypes from 'prop-types'
 import { OpportunityRow, SignalRow } from './ShockFeedCard.jsx'
 import './ShockFeed.scss'
 
-// Group a flat list of (ticker, channel, news_article) docs into one row per ticker.
-//
-// Two-pass deduplication:
-//   1. Collapse (ticker, channel_id) duplicates — multiple news articles can each fire
-//      a signal for the same ticker+channel pair. Keep the highest-confidence hit per pair.
-//   2. Group the deduplicated channels by ticker, taking the broadest lag range and the
-//      direction from whichever channel has the highest confidence.
+// Group a flat list of (ticker, channel) docs into one entry per ticker.
+// The primary ticker_direction and lag come from the highest-confidence channel.
+// The detail drawer exposes all channels sorted by confidence desc.
 function groupByTicker(items) {
-    // Pass 1 — deduplicate per (ticker, channel_id)
-    const chMap = new Map()
+    const map = new Map()
     for (const item of items) {
-        const key      = `${item.ticker}:${item.channel_id}`
-        const existing = chMap.get(key)
-        if (!existing || item.confidence_llm > existing.confidence_llm) {
-            chMap.set(key, item)
-        }
-    }
-
-    // Pass 2 — group by ticker
-    const tickerMap = new Map()
-    for (const item of chMap.values()) {
         const t = item.ticker
-        if (!tickerMap.has(t)) {
-            tickerMap.set(t, {
-                ticker:           t,
+        if (!map.has(t)) {
+            map.set(t, {
+                ticker:          t,
                 ticker_direction: item.ticker_direction,
-                lag_weeks_min:    item.lag_weeks_min,
-                lag_weeks_max:    item.lag_weeks_max,
-                confidence_llm:   item.confidence_llm,
-                agent:            item.agent,
-                channels:         [],
+                lag_weeks_min:   item.lag_weeks_min,
+                lag_weeks_max:   item.lag_weeks_max,
+                confidence_llm:  item.confidence_llm,
+                agent:           item.agent,
+                channels:        [],
             })
         }
-        const g = tickerMap.get(t)
+        const g = map.get(t)
         g.channels.push(item)
         g.lag_weeks_min = Math.min(g.lag_weeks_min, item.lag_weeks_min)
         g.lag_weeks_max = Math.max(g.lag_weeks_max, item.lag_weeks_max)
+        // Promote the highest-confidence channel to primary direction
         if (item.confidence_llm > g.confidence_llm) {
             g.confidence_llm   = item.confidence_llm
             g.ticker_direction = item.ticker_direction
             g.agent            = item.agent
         }
     }
-    for (const g of tickerMap.values()) {
+    for (const g of map.values()) {
         g.channels.sort((a, b) => b.confidence_llm - a.confidence_llm)
     }
-    return [...tickerMap.values()].sort((a, b) => b.confidence_llm - a.confidence_llm)
+    return [...map.values()].sort((a, b) => b.confidence_llm - a.confidence_llm)
 }
 
 export function ShockFeed({ signals, opportunities, loading, onBuild }) {
