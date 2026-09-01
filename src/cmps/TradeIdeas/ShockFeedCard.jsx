@@ -54,23 +54,23 @@ export function SignalRow({ signal }) {
     const lagStr    = signal.lag_weeks_min === signal.lag_weeks_max
         ? `${signal.lag_weeks_min}w`
         : `${signal.lag_weeks_min}-${signal.lag_weeks_max}w`
-    const dirRating = DIR_RATING[signal.direction] ?? 'hold'
-    const dirLabel  = DIR_LABEL[signal.direction]  ?? signal.direction
+    const dirRating = DIR_RATING[signal.ticker_direction] ?? 'hold'
+    const dirLabel  = DIR_LABEL[signal.ticker_direction]  ?? signal.ticker_direction
 
-    // Signals are channel-level — no ticker. Channel name occupies the elastic `kind` column;
-    // magnitude rides in the status slot so the layout mirrors opportunity rows.
+    // Same layout as OpportunityRow — ticker-level, provisional (news-driven, not FRED-confirmed).
     return (
         <div className="floor-sub">
             <button className="floor-row floor-row--static">
-                <span className="floor-row__kind">
-                    {signal.channel_id?.replace(/_/g, ' ')}
-                </span>
+                <span className="floor-row__sym">{signal.ticker}</span>
                 {dirLabel && (
                     <span className={`floor-row__rating floor-row__rating--${dirRating}`}>
                         {dirLabel}
                     </span>
                 )}
-                <span className="floor-row__status">{signal.magnitude} · {lagStr}</span>
+                <span className="floor-row__kind">
+                    {signal.channel_id?.replace(/_/g, ' ')}
+                </span>
+                <span className="floor-row__status">{lagStr}</span>
             </button>
         </div>
     )
