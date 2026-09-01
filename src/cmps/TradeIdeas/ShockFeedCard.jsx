@@ -76,6 +76,7 @@ ChannelBlock.propTypes = { ch: PropTypes.object.isRequired }
 function MixedSummary({ group }) {
     if (!group.mixed) return null
     const { near_term: near, medium_term: mid } = group
+    if (!near && !mid) return null   // all signals span the 4w boundary — no clean split
     return (
         <div className="floor-detail__block shock-feed__mixed-summary">
             {near && (
