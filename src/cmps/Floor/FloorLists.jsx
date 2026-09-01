@@ -16,7 +16,7 @@ import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
 import { CalendarRows } from './CalendarRows.jsx'
 import { SectorView } from '../Radar/SectorView.jsx'
 import { ChannelStateView } from '../Radar/ChannelStateView.jsx'
-import { ShockFeed } from '../TradeIdeas/ShockFeed.jsx'
+import { ShockFeed, groupByTicker } from '../TradeIdeas/ShockFeed.jsx'
 import './Floor.scss'
 
 // The Floor's right column: four desks, one open at a time — and the open one TAKES THE COLUMN.
@@ -717,7 +717,7 @@ export function FloorLists({
         ipo:            ipo.length,
         // Only queued items count — in_research is work the admin already started.
         research_queue: researchQueue.filter(i => i.status === 'queued').length,
-        shocks: (shockFeed?.opportunities?.length ?? 0) + (shockFeed?.signals?.length ?? 0),
+        shocks: groupByTicker(shockFeed?.opportunities ?? []).length + groupByTicker(shockFeed?.signals ?? []).length,
         // No count on Forecasts or Channels: both are standing engine views. "(1)" beside either
         // would invite the reader to expect a list.
     }

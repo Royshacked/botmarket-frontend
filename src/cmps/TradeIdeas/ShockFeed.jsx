@@ -76,7 +76,7 @@ function aggregateChannel(signals) {
 //   Pass 1 — tag each item with its economic dimension
 //   Pass 2 — aggregate all (ticker, channel_id) duplicates → one conclusion per channel
 //   Pass 3 — group by ticker; collect per-dimension summaries; detect cross-dimension conflict
-function groupByTicker(items) {
+export function groupByTicker(items) {
     // Pass 1 — assign dimension
     const withDim = items.map(item => ({
         ...item,
