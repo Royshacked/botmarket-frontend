@@ -70,6 +70,42 @@
 // Risk note inside the detail drawer
 .shock-feed__risk { color: var(--color-warning, #f59e0b); }
 
+// EVENT badge — identifies 8-K sourced signals inside the drawer
+.shock-feed__event-badge {
+    display: inline-block;
+    margin-right: 5px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    background: var(--accent-subtle, #dbeafe);
+    color: var(--accent, #3b82f6);
+    vertical-align: middle;
+}
+
+// Mixed-signal timeframe summary block at the top of the detail drawer
+.shock-feed__mixed-summary {
+    padding: 6px 10px;
+    margin-bottom: 4px;
+    background: var(--surface-raised, #f8fafc);
+    border-radius: 4px;
+    font-size: 0.72rem;
+}
+
+.shock-feed__timeframe {
+    font-weight: 600;
+
+    &--buy  { color: var(--color-buy,  #16a34a); }
+    &--sell { color: var(--color-sell, #dc2626); }
+    &--hold { color: var(--text-muted, #64748b); }
+}
+
+.shock-feed__timeframe-sep {
+    color: var(--text-muted, #64748b);
+    margin: 0 4px;
+}
+
 // ── "Build trade" action button (revealed on row hover via RowHost) ───────────
 
 .shock-feed__build-btn {

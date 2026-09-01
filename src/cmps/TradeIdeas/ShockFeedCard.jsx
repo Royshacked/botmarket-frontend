@@ -4,14 +4,27 @@ import { RowHost } from '../Floor/RowHost.jsx'
 import './ShockFeed.scss'
 
 // Compact floor-row renderers for the Shocks desk.
-// Each row is ONE ticker — multiple channels that affect the same ticker are merged
-// into a single row with an expandable detail drawer listing the per-channel breakdown.
+// Each row is ONE ticker — multiple channels/events that affect the same ticker
+// are merged into a single row with an expandable detail drawer.
+// When channels disagree across economic dimensions (e.g. energy_cost says SHORT
+// but a supply-access deal says LONG), the row shows "mixed" and the drawer splits
+// the breakdown by timeframe (near-term ≤4w vs medium-term >4w).
 
-const DIR_LABEL  = { long: 'long', short: 'short', neutral: 'neutral', up: 'long', down: 'short' }
-const DIR_RATING = { long: 'sell', short: 'sell', up: 'buy', down: 'sell' }
+const TICK_RATING = { long: 'buy', short: 'sell', mixed: 'hold' }
 
-// Correct rating class: long → buy colour, short → sell colour.
-const TICK_RATING = { long: 'buy', short: 'sell' }
+// Human-readable label per dimension key
+const DIM_LABEL = {
+    price_effect:  'price effect',
+    input_cost:    'input cost',
+    supply_access: 'supply access',
+    revenue:       'revenue',
+    financing:     'financing',
+    risk:          'risk',
+    competitive:   'competitive',
+    fx:            'FX',
+    tech:          'tech',
+    other:         'other',
+}
 
 const Chev = ({ open }) => (
     <svg
@@ -23,18 +36,72 @@ const Chev = ({ open }) => (
 )
 Chev.propTypes = { open: PropTypes.bool }
 
-// ── Opportunity row (ticker-level, FRED-confirmed) ────────────────────────────
+// ── Shared helpers ────────────────────────────────────────────────────────────
+
+function _lagStr(min, max) {
+    return min === max ? `${min}w` : `${min}-${max}w`
+}
+
+// Per-channel detail block — shared by both row types
+function ChannelBlock({ ch }) {
+    const isEvent = ch.source_type === 'event'
+    const label = isEvent
+        ? (ch.event_type ?? 'EVENT')
+        : ch.channel_id?.replace(/_/g, ' ')
+    const dimLabel = ch.dimension ? (DIM_LABEL[ch.dimension] ?? ch.dimension) : null
+
+    return (
+        <div className="floor-detail__block">
+            <span className="floor-detail__label">
+                {isEvent && <span className="shock-feed__event-badge">EVENT</span>}
+                {label}
+                {dimLabel && ` · ${dimLabel}`}
+                {' · '}{ch.ticker_direction}
+                {' · '}{_lagStr(ch.lag_weeks_min, ch.lag_weeks_max)}
+                {' · conf '}{(ch.confidence_llm ?? 0).toFixed(2)}
+                {ch.source_count > 1 && ` · ${ch.source_count} sources`}
+                {ch.dollar_amount && ` · $${ch.dollar_amount.toFixed(1)}B`}
+            </span>
+            {ch.why       && <p className="floor-detail__prose">{ch.why}</p>}
+            {ch.when      && <p className="floor-detail__prose">{ch.when}</p>}
+            {ch.evidence  && !ch.why && <p className="floor-detail__prose">{ch.evidence}</p>}
+            {ch.thesis    && <p className="floor-detail__prose">{ch.thesis}</p>}
+            {ch.risk_note && <p className="floor-detail__prose shock-feed__risk">{ch.risk_note}</p>}
+        </div>
+    )
+}
+ChannelBlock.propTypes = { ch: PropTypes.object.isRequired }
+
+// Mixed-verdict summary shown at the top of the detail drawer
+function MixedSummary({ group }) {
+    if (!group.mixed) return null
+    const { near_term: near, medium_term: mid } = group
+    return (
+        <div className="floor-detail__block shock-feed__mixed-summary">
+            {near && (
+                <span className={`shock-feed__timeframe shock-feed__timeframe--${TICK_RATING[near.direction] ?? 'hold'}`}>
+                    0–4w · {near.direction} · {DIM_LABEL[near.dim] ?? near.dim}
+                </span>
+            )}
+            {near && mid && <span className="shock-feed__timeframe-sep"> / </span>}
+            {mid && (
+                <span className={`shock-feed__timeframe shock-feed__timeframe--${TICK_RATING[mid.direction] ?? 'hold'}`}>
+                    4+w · {mid.direction} · {DIM_LABEL[mid.dim] ?? mid.dim}
+                </span>
+            )}
+        </div>
+    )
+}
+MixedSummary.propTypes = { group: PropTypes.object.isRequired }
+
+// ── Opportunity row (ticker-level, FRED-confirmed + event-sourced) ────────────
 
 export function OpportunityRow({ group, onBuild }) {
     const [open, setOpen] = useState(false)
-    const multi  = group.channels.length > 1
-    const primary = group.channels[0]
-
-    const lagStr    = group.lag_weeks_min === group.lag_weeks_max
-        ? `${group.lag_weeks_min}w`
-        : `${group.lag_weeks_min}-${group.lag_weeks_max}w`
-    const dirLabel  = group.ticker_direction
-    const dirRating = TICK_RATING[group.ticker_direction] ?? 'hold'
+    const primary  = group.channels[0]
+    const nCh      = group.channels.length
+    const dirLabel = group.mixed ? 'mixed' : group.ticker_direction
+    const rating   = TICK_RATING[dirLabel] ?? 'hold'
 
     const buildBtn = onBuild ? (
         <button
@@ -56,41 +123,24 @@ export function OpportunityRow({ group, onBuild }) {
                 >
                     <Chev open={open} />
                     <span className="floor-row__sym">{group.ticker}</span>
-                    {dirLabel && (
-                        <span className={`floor-row__rating floor-row__rating--${dirRating}`}>
-                            {dirLabel}
-                        </span>
-                    )}
-                    <span className="floor-row__kind">
-                        {multi
-                            ? `${group.channels.length} channels`
-                            : primary.channel_id?.replace(/_/g, ' ')}
+                    <span className={`floor-row__rating floor-row__rating--${rating}`}>
+                        {dirLabel}
                     </span>
-                    <span className="floor-row__status">{lagStr}</span>
+                    <span className="floor-row__kind">
+                        {nCh > 1 ? `${nCh} signals` : primary.channel_id?.replace(/_/g, ' ')}
+                    </span>
+                    <span className="floor-row__status">
+                        {_lagStr(group.lag_weeks_min, group.lag_weeks_max)}
+                    </span>
                 </button>
             </RowHost>
 
             {open && (
                 <div className="floor-detail">
-                    {group.channels.map(ch => {
-                        const chLag = ch.lag_weeks_min === ch.lag_weeks_max
-                            ? `${ch.lag_weeks_min}w`
-                            : `${ch.lag_weeks_min}-${ch.lag_weeks_max}w`
-                        return (
-                            <div key={ch.channel_id} className="floor-detail__block">
-                                <span className="floor-detail__label">
-                                    {ch.channel_id?.replace(/_/g, ' ')}
-                                    {' · '}{ch.ticker_direction}
-                                    {' · '}{chLag}
-                                    {' · conf '}{(ch.confidence_llm ?? 0).toFixed(2)}
-                                    {ch.source_count > 1 && ` · ${ch.source_count} sources`}
-                                </span>
-                                {ch.why       && <p className="floor-detail__prose">{ch.why}</p>}
-                                {ch.when      && <p className="floor-detail__prose">{ch.when}</p>}
-                                {ch.risk_note && <p className="floor-detail__prose shock-feed__risk">{ch.risk_note}</p>}
-                            </div>
-                        )
-                    })}
+                    <MixedSummary group={group} />
+                    {group.channels.map((ch, i) => (
+                        <ChannelBlock key={`${ch.channel_id}:${i}`} ch={ch} />
+                    ))}
                 </div>
             )}
         </div>
@@ -105,14 +155,10 @@ OpportunityRow.propTypes = {
 
 export function SignalRow({ group }) {
     const [open, setOpen] = useState(false)
-    const multi   = group.channels.length > 1
-    const primary = group.channels[0]
-
-    const lagStr    = group.lag_weeks_min === group.lag_weeks_max
-        ? `${group.lag_weeks_min}w`
-        : `${group.lag_weeks_min}-${group.lag_weeks_max}w`
-    const dirLabel  = group.ticker_direction
-    const dirRating = TICK_RATING[group.ticker_direction] ?? 'hold'
+    const primary  = group.channels[0]
+    const nCh      = group.channels.length
+    const dirLabel = group.mixed ? 'mixed' : group.ticker_direction
+    const rating   = TICK_RATING[dirLabel] ?? 'hold'
 
     return (
         <div className="floor-sub">
@@ -123,38 +169,23 @@ export function SignalRow({ group }) {
             >
                 <Chev open={open} />
                 <span className="floor-row__sym">{group.ticker}</span>
-                {dirLabel && (
-                    <span className={`floor-row__rating floor-row__rating--${dirRating}`}>
-                        {dirLabel}
-                    </span>
-                )}
-                <span className="floor-row__kind">
-                    {multi
-                        ? `${group.channels.length} channels`
-                        : primary.channel_id?.replace(/_/g, ' ')}
+                <span className={`floor-row__rating floor-row__rating--${rating}`}>
+                    {dirLabel}
                 </span>
-                <span className="floor-row__status">{lagStr}</span>
+                <span className="floor-row__kind">
+                    {nCh > 1 ? `${nCh} signals` : primary.channel_id?.replace(/_/g, ' ')}
+                </span>
+                <span className="floor-row__status">
+                    {_lagStr(group.lag_weeks_min, group.lag_weeks_max)}
+                </span>
             </button>
 
             {open && (
                 <div className="floor-detail">
-                    {group.channels.map(ch => {
-                        const chLag = ch.lag_weeks_min === ch.lag_weeks_max
-                            ? `${ch.lag_weeks_min}w`
-                            : `${ch.lag_weeks_min}-${ch.lag_weeks_max}w`
-                        return (
-                            <div key={ch.channel_id} className="floor-detail__block">
-                                <span className="floor-detail__label">
-                                    {ch.channel_id?.replace(/_/g, ' ')}
-                                    {' · '}{ch.ticker_direction}
-                                    {' · '}{chLag}
-                                    {' · conf '}{(ch.confidence_llm ?? 0).toFixed(2)}
-                                    {ch.source_count > 1 && ` · ${ch.source_count} sources`}
-                                </span>
-                                {ch.thesis && <p className="floor-detail__prose">{ch.thesis}</p>}
-                            </div>
-                        )
-                    })}
+                    <MixedSummary group={group} />
+                    {group.channels.map((ch, i) => (
+                        <ChannelBlock key={`${ch.channel_id}:${i}`} ch={ch} />
+                    ))}
                 </div>
             )}
         </div>
