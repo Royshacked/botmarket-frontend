@@ -3,7 +3,6 @@
 .shock-feed {
     display: flex;
     flex-direction: column;
-    gap: 0;
     height: 100%;
     overflow: hidden;
 }
@@ -60,50 +59,22 @@
     }
 }
 
-// ── Card internals ────────────────────────────────────────────────────────────
-
-.shock-feed__lightning {
-    width: 20px;
-    height: 20px;
-    color: var(--accent, #3b82f6);
+// Scrollable card list — flex sibling of __tabs so the tab bar stays pinned.
+.shock-feed__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
-.shock-feed__channel {
-    font-weight: 600;
-    font-size: 0.8rem;
-    text-transform: capitalize;
-    color: var(--text-primary, #1e293b);
-}
-
-.shock-feed__expires {
-    font-size: 0.7rem;
-    color: var(--text-muted, #64748b);
-    margin: 2px 0 0;
-}
-
-.shock-feed__opp-meta {
-    font-size: 0.7rem;
-    color: var(--text-muted, #64748b);
-    margin: 2px 0 0;
-    line-height: 1.4;
-}
-
-.shock-feed__risk {
-    color: var(--warn, #f59e0b);
-}
-
-.shock-feed__meta-sep {
-    opacity: 0.5;
-}
-
-// ── "Build trade" action button ───────────────────────────────────────────────
+// ── "Build trade" action button (revealed on row hover via RowHost) ───────────
 
 .shock-feed__build-btn {
     display: inline-flex;
     align-items: center;
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-size: 0.72rem;
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-size: 0.7rem;
     font-weight: 600;
     color: var(--accent, #3b82f6);
     background: var(--accent-subtle, #dbeafe);

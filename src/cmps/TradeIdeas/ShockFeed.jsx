@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
-import { SignalCard, OpportunityCard } from './ShockFeedCard.jsx'
+import { OpportunityRow, SignalRow } from './ShockFeedCard.jsx'
 import './ShockFeed.scss'
 
 // The Shocks section body — two sub-tabs: Opportunities (ticker-level, actionable) and
@@ -47,18 +47,17 @@ export function ShockFeed({ signals, opportunities, loading, onBuild, onSymbolCl
             {isEmpty ? (
                 <p className="trade-ideas-list__empty">{emptyMsg}</p>
             ) : (
-                <div className="ideas-cards">
+                <div className="shock-feed__body">
                     {showOpps
                         ? opportunities.map((opp, i) => (
-                            <OpportunityCard
+                            <OpportunityRow
                                 key={opp.card_id ?? i}
                                 opportunity={opp}
                                 onBuild={onBuild}
-                                onSymbolClick={onSymbolClick}
                             />
                         ))
                         : signals.map((sig, i) => (
-                            <SignalCard key={sig.prediction_id ?? i} signal={sig} />
+                            <SignalRow key={sig.prediction_id ?? i} signal={sig} />
                         ))
                     }
                 </div>

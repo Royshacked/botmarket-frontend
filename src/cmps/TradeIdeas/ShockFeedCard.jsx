@@ -1,120 +1,77 @@
 import PropTypes from 'prop-types'
-import { EntityCard, SymbolCell, Pill } from '../EntityCard/EntityCard.jsx'
-import { AtlasBadge, TalosBadge } from '../AxlHub/AgentBadges.jsx'
+import { RowHost } from '../Floor/RowHost.jsx'
 import './ShockFeed.scss'
 
-// ── Signal card (channel-level, provisional from news) ────────────────────────
+// Compact floor-row renderers for the Shocks desk — matches the Coverage row style.
+// OpportunityRow: ticker-level, FRED-confirmed.
+// SignalRow:      channel-level, provisional (news-driven, pre-validation).
 
-const DIR_LABEL = { up: '↑ rising', down: '↓ falling', neutral: '→ neutral' }
-const DIR_CLASS = { up: 'long', down: 'short' }
+const DIR_LABEL  = { up: 'long', down: 'short', neutral: 'neutral' }
+const DIR_RATING = { up: 'buy',  down: 'sell' }
 
-function LightningBadge() {
-    return (
-        <svg className="shock-feed__lightning" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M13 2L4.5 13.5H11L10 22l9.5-12H14z"/>
-        </svg>
-    )
-}
-
-export function SignalCard({ signal }) {
-    const lagStr = signal.lag_weeks_min === signal.lag_weeks_max
-        ? `${signal.lag_weeks_min}w lag`
-        : `${signal.lag_weeks_min}–${signal.lag_weeks_max}w lag`
-
-    const dirClass = DIR_CLASS[signal.direction]
-    const dirLabel = DIR_LABEL[signal.direction] ?? signal.direction
-
-    const title = (
-        <>
-            <span className="shock-feed__channel">{signal.channel_id?.replace(/_/g, ' ')}</span>
-            {dirClass && <Pill variant="dir" className={`direction--${dirClass}`}>{dirLabel}</Pill>}
-            {!dirClass && <Pill variant="type">{dirLabel}</Pill>}
-            <Pill variant="type">{signal.magnitude}</Pill>
-        </>
-    )
-
-    const summary = (
-        <>
-            <span className="idea-card__summary-text">{signal.reasoning}</span>
-            <span className="idea-card__date"> · {lagStr} · conf {(signal.confidence_llm ?? 0).toFixed(2)}</span>
-        </>
-    )
-
-    const footer = signal.expires_at
-        ? <p className="shock-feed__expires">expires {signal.expires_at}</p>
-        : null
-
-    return (
-        <EntityCard
-            status="active"
-            badge={<LightningBadge />}
-            title={title}
-            summary={summary}
-            footer={footer}
-        />
-    )
-}
-SignalCard.propTypes = { signal: PropTypes.object.isRequired }
-
-// ── Opportunity card (ticker-level, FRED-confirmed) ───────────────────────────
-
-export function OpportunityCard({ opportunity: opp, onBuild, onSymbolClick }) {
-    const lagStr = opp.lag_weeks_min === opp.lag_weeks_max
+export function OpportunityRow({ opportunity: opp, onBuild }) {
+    const lagStr    = opp.lag_weeks_min === opp.lag_weeks_max
         ? `${opp.lag_weeks_min}w`
-        : `${opp.lag_weeks_min}–${opp.lag_weeks_max}w`
+        : `${opp.lag_weeks_min}-${opp.lag_weeks_max}w`
+    const dirLabel  = DIR_LABEL[opp.ticker_direction]  ?? opp.ticker_direction
+    const dirRating = DIR_RATING[opp.ticker_direction] ?? 'hold'
 
-    const badge = opp.agent === 'atlas' ? <AtlasBadge size={34} /> : <TalosBadge size={34} />
-
-    const title = (
-        <>
-            <SymbolCell symbol={opp.ticker} onSymbolClick={onSymbolClick} />
-            {opp.ticker_direction && (
-                <Pill variant="dir" className={`direction--${opp.ticker_direction}`}>
-                    {opp.ticker_direction}
-                </Pill>
-            )}
-            <Pill variant="lens">{opp.channel_id?.replace(/_/g, ' ')}</Pill>
-        </>
-    )
-
-    const summary = (
-        <>
-            <span className="idea-card__summary-text">{opp.why}</span>
-            <span className="idea-card__date"> · lag {lagStr}</span>
-        </>
-    )
-
-    const footer = (opp.when || opp.risk_note) ? (
-        <p className="shock-feed__opp-meta">
-            {opp.when && <span>{opp.when}</span>}
-            {opp.when && opp.risk_note && <span className="shock-feed__meta-sep"> · </span>}
-            {opp.risk_note && <span className="shock-feed__risk">{opp.risk_note}</span>}
-        </p>
-    ) : null
-
-    const controls = onBuild ? (
+    const buildBtn = onBuild ? (
         <button
             className="shock-feed__build-btn"
             onClick={e => { e.stopPropagation(); onBuild(opp) }}
             title={opp.agent === 'atlas' ? 'Build portfolio with Atlas' : 'Build trade with Mentor'}
         >
-            Build trade
+            Build
         </button>
     ) : null
 
     return (
-        <EntityCard
-            status="active"
-            badge={badge}
-            title={title}
-            summary={summary}
-            footer={footer}
-            controls={controls}
-        />
+        <div className="floor-sub">
+            <RowHost actions={buildBtn}>
+                <button className="floor-row floor-row--static">
+                    <span className="floor-row__sym">{opp.ticker}</span>
+                    {dirLabel && (
+                        <span className={`floor-row__rating floor-row__rating--${dirRating}`}>
+                            {dirLabel}
+                        </span>
+                    )}
+                    <span className="floor-row__kind">
+                        {opp.channel_id?.replace(/_/g, ' ')}
+                    </span>
+                    <span className="floor-row__status">{lagStr}</span>
+                </button>
+            </RowHost>
+        </div>
     )
 }
-OpportunityCard.propTypes = {
-    opportunity:   PropTypes.object.isRequired,
-    onBuild:       PropTypes.func,
-    onSymbolClick: PropTypes.func,
+OpportunityRow.propTypes = {
+    opportunity: PropTypes.object.isRequired,
+    onBuild:     PropTypes.func,
 }
+
+export function SignalRow({ signal }) {
+    const lagStr    = signal.lag_weeks_min === signal.lag_weeks_max
+        ? `${signal.lag_weeks_min}w`
+        : `${signal.lag_weeks_min}-${signal.lag_weeks_max}w`
+    const dirRating = DIR_RATING[signal.direction] ?? 'hold'
+    const dirLabel  = DIR_LABEL[signal.direction]  ?? signal.direction
+
+    return (
+        <div className="floor-sub">
+            <button className="floor-row floor-row--static">
+                <span className="floor-row__sym floor-row__sym--wide">
+                    {signal.channel_id?.replace(/_/g, ' ')}
+                </span>
+                {dirLabel && (
+                    <span className={`floor-row__rating floor-row__rating--${dirRating}`}>
+                        {dirLabel}
+                    </span>
+                )}
+                <span className="floor-row__kind">{signal.magnitude}</span>
+                <span className="floor-row__status">{lagStr}</span>
+            </button>
+        </div>
+    )
+}
+SignalRow.propTypes = { signal: PropTypes.object.isRequired }
