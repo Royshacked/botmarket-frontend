@@ -583,7 +583,11 @@ $header-h: var(--header-h);
     // shrunk to exactly the space the column can spare, and a fixed cap on top of that would just
     // strand empty column below a scrollbar. `min-height: 0` is what lets a flex child scroll at
     // all — without it the body floors at its content height and pushes the overflow back up.
+    //
+    // flex column so inner .floor-sub items can use the same accordion pattern as the desks.
     &__body {
+        display: flex;
+        flex-direction: column;
         flex: 1 1 auto;
         min-height: 0;
         overflow-y: auto;
@@ -593,6 +597,51 @@ $header-h: var(--header-h);
         // rather than the intended 7px. The desk rows truncate; they don't scroll sideways.
         overflow-x: hidden;
         padding-bottom: 8px;
+
+        &::-webkit-scrollbar { width: 7px; }
+        &::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 4px; }
+
+        // When an inner item is open it scrolls its own body — the outer container must not
+        // compete with a second scrollbar or let its overflow-y fight the sub's overflow-y.
+        &:has(.floor-sub--open) { overflow-y: hidden; }
+    }
+}
+
+// ── Inner accordion (portfolio books, scan lists, coverage theses) ────────────
+// Same open/folded mechanic as .floor-desk but one level down, inside a desk body.
+// One item open at a time; the open one takes the remaining height, others collapse.
+.floor-sub {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    // Collapsed: exactly the trigger row. Animate from here to gone (--folded) or open.
+    max-height: $row-h;
+    overflow: hidden;
+    transition: max-height .26s cubic-bezier(.4, 0, .2, 1),
+                opacity     .16s ease;
+
+    // Takes the body — same intent as .floor-desk--open on the column.
+    // overflow: visible unblocks position:sticky on the trigger row (overflow:hidden
+    // on an ancestor silently prevents sticky from finding its scroll container).
+    &--open {
+        flex: 1 1 auto;
+        max-height: none;
+        overflow: visible;
+    }
+
+    // A sibling is open and has the floor. Kept mounted so the list animates back.
+    &--folded {
+        max-height: 0;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    // The scrollable content under the trigger row. Mirrors .floor-desk__body.
+    &__body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
 
         &::-webkit-scrollbar { width: 7px; }
         &::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 4px; }

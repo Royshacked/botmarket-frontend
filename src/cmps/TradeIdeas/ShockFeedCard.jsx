@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { RowHost } from '../Floor/RowHost.jsx'
 import './ShockFeed.scss'
@@ -62,6 +61,9 @@ function ChannelBlock({ ch }) {
                 {ch.source_count > 1 && ` · ${ch.source_count} sources`}
                 {ch.dollar_amount && ` · $${ch.dollar_amount.toFixed(1)}B`}
             </span>
+            {ch.company_context     && <p className="floor-detail__company">{ch.company_context}</p>}
+            {ch.direction_rationale && <p className="floor-detail__direction">{ch.direction_rationale}</p>}
+            {ch.lag_explanation     && <p className="floor-detail__lag">{ch.lag_explanation}</p>}
             {ch.why       && <p className="floor-detail__prose">{ch.why}</p>}
             {ch.when      && <p className="floor-detail__prose">{ch.when}</p>}
             {ch.evidence  && !ch.why && <p className="floor-detail__prose">{ch.evidence}</p>}
@@ -97,12 +99,12 @@ MixedSummary.propTypes = { group: PropTypes.object.isRequired }
 
 // ── Opportunity row (ticker-level, FRED-confirmed + event-sourced) ────────────
 
-export function OpportunityRow({ group, onBuild }) {
-    const [open, setOpen] = useState(false)
-    const primary  = group.channels[0]
-    const nCh      = group.channels.length
-    const dirLabel = group.mixed ? 'mixed' : group.ticker_direction
-    const rating   = TICK_RATING[dirLabel] ?? 'hold'
+export function OpportunityRow({ group, onBuild, open, folded, onToggle }) {
+    const primary    = group.channels[0]
+    const nCh        = group.channels.length
+    const dirLabel   = group.mixed ? 'mixed' : group.ticker_direction
+    const rating     = TICK_RATING[dirLabel] ?? 'hold'
+    const companyName = primary?.company_name ?? null
 
     const buildBtn = onBuild ? (
         <button
@@ -115,21 +117,25 @@ export function OpportunityRow({ group, onBuild }) {
     ) : null
 
     return (
-        <div className="floor-sub">
+        <div className={`floor-sub${open ? ' floor-sub--open' : folded ? ' floor-sub--folded' : ''}`}>
             <RowHost actions={buildBtn}>
                 <button
                     className="floor-row"
-                    onClick={() => setOpen(o => !o)}
+                    onClick={onToggle}
                     aria-expanded={open}
                 >
                     <Chev open={open} />
-                    <span className="floor-row__sym">{group.ticker}</span>
+                    <span className="floor-row__sym">
+                        {group.ticker}
+                        {companyName && <span className="floor-row__company-name">{companyName}</span>}
+                    </span>
                     <span className={`floor-row__rating floor-row__rating--${rating}`}>
                         {dirLabel}
                     </span>
-                    <span className="floor-row__kind">
-                        {nCh > 1 ? `${nCh} signals` : primary.channel_id?.replace(/_/g, ' ')}
+                    <span className="floor-row__kind floor-row__kind--dim">
+                        {nCh === 1 ? primary.channel_id?.replace(/_/g, ' ') : ''}
                     </span>
+                    {nCh > 1 && <span className="floor-row__count">({nCh} signals)</span>}
                     <span className="floor-row__status">
                         {_lagStr(group.lag_weeks_min, group.lag_weeks_max)}
                     </span>
@@ -137,59 +143,75 @@ export function OpportunityRow({ group, onBuild }) {
             </RowHost>
 
             {open && (
-                <div className="floor-detail">
-                    <MixedSummary group={group} />
-                    {group.channels.map((ch, i) => (
-                        <ChannelBlock key={`${ch.channel_id}:${i}`} ch={ch} />
-                    ))}
+                <div className="floor-sub__body">
+                    <div className="floor-detail">
+                        <MixedSummary group={group} />
+                        {group.channels.map((ch, i) => (
+                            <ChannelBlock key={`${ch.channel_id}:${i}`} ch={ch} />
+                        ))}
+                    </div>
                 </div>
             )}
         </div>
     )
 }
 OpportunityRow.propTypes = {
-    group:   PropTypes.object.isRequired,
-    onBuild: PropTypes.func,
+    group:    PropTypes.object.isRequired,
+    onBuild:  PropTypes.func,
+    open:     PropTypes.bool,
+    folded:   PropTypes.bool,
+    onToggle: PropTypes.func,
 }
 
 // ── Signal row (ticker-level, provisional — news-driven, not FRED-confirmed) ──
 
-export function SignalRow({ group }) {
-    const [open, setOpen] = useState(false)
-    const primary  = group.channels[0]
-    const nCh      = group.channels.length
-    const dirLabel = group.mixed ? 'mixed' : group.ticker_direction
-    const rating   = TICK_RATING[dirLabel] ?? 'hold'
+export function SignalRow({ group, open, folded, onToggle }) {
+    const primary     = group.channels[0]
+    const nCh         = group.channels.length
+    const dirLabel    = group.mixed ? 'mixed' : group.ticker_direction
+    const rating      = TICK_RATING[dirLabel] ?? 'hold'
+    const companyName = primary?.company_name ?? null
 
     return (
-        <div className="floor-sub">
+        <div className={`floor-sub${open ? ' floor-sub--open' : folded ? ' floor-sub--folded' : ''}`}>
             <button
                 className="floor-row"
-                onClick={() => setOpen(o => !o)}
+                onClick={onToggle}
                 aria-expanded={open}
             >
                 <Chev open={open} />
-                <span className="floor-row__sym">{group.ticker}</span>
+                <span className="floor-row__sym">
+                    {group.ticker}
+                    {companyName && <span className="floor-row__company-name">{companyName}</span>}
+                </span>
                 <span className={`floor-row__rating floor-row__rating--${rating}`}>
                     {dirLabel}
                 </span>
-                <span className="floor-row__kind">
-                    {nCh > 1 ? `${nCh} signals` : primary.channel_id?.replace(/_/g, ' ')}
+                <span className="floor-row__kind floor-row__kind--dim">
+                    {nCh === 1 ? primary.channel_id?.replace(/_/g, ' ') : ''}
                 </span>
+                {nCh > 1 && <span className="floor-row__count">({nCh} signals)</span>}
                 <span className="floor-row__status">
                     {_lagStr(group.lag_weeks_min, group.lag_weeks_max)}
                 </span>
             </button>
 
             {open && (
-                <div className="floor-detail">
-                    <MixedSummary group={group} />
-                    {group.channels.map((ch, i) => (
-                        <ChannelBlock key={`${ch.channel_id}:${i}`} ch={ch} />
-                    ))}
+                <div className="floor-sub__body">
+                    <div className="floor-detail">
+                        <MixedSummary group={group} />
+                        {group.channels.map((ch, i) => (
+                            <ChannelBlock key={`${ch.channel_id}:${i}`} ch={ch} />
+                        ))}
+                    </div>
                 </div>
             )}
         </div>
     )
 }
-SignalRow.propTypes = { group: PropTypes.object.isRequired }
+SignalRow.propTypes = {
+    group:    PropTypes.object.isRequired,
+    open:     PropTypes.bool,
+    folded:   PropTypes.bool,
+    onToggle: PropTypes.func,
+}

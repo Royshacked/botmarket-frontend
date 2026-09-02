@@ -170,6 +170,12 @@ export function ShockFeed({ signals, opportunities, loading, onBuild }) {
     const [tab, setTab] = useState('opportunities')
     const showOpps = tab === 'opportunities'
 
+    // One item open at a time, per tab — independent so switching tabs preserves each side's state.
+    const [openKeyOpp, setOpenKeyOpp] = useState(null)
+    const [openKeySig, setOpenKeySig] = useState(null)
+    const toggleOpp = key => setOpenKeyOpp(cur => cur === key ? null : key)
+    const toggleSig = key => setOpenKeySig(cur => cur === key ? null : key)
+
     if (loading) return <p className="trade-ideas-list__empty">Loading shocks…</p>
 
     const groupedOpps    = groupByTicker(opportunities)
@@ -189,7 +195,7 @@ export function ShockFeed({ signals, opportunities, loading, onBuild }) {
                 >
                     Opportunities
                     {groupedOpps.length > 0 && (
-                        <span className="shock-feed__tab-count">{groupedOpps.length}</span>
+                        <span className="shock-feed__tab-count">({groupedOpps.length})</span>
                     )}
                 </button>
                 <button
@@ -198,7 +204,7 @@ export function ShockFeed({ signals, opportunities, loading, onBuild }) {
                 >
                     Signals
                     {groupedSignals.length > 0 && (
-                        <span className="shock-feed__tab-count">{groupedSignals.length}</span>
+                        <span className="shock-feed__tab-count">({groupedSignals.length})</span>
                     )}
                 </button>
             </div>
@@ -209,10 +215,23 @@ export function ShockFeed({ signals, opportunities, loading, onBuild }) {
                 <div key={tab} className="shock-feed__body">
                     {showOpps
                         ? groupedOpps.map(g => (
-                            <OpportunityRow key={g.ticker} group={g} onBuild={onBuild} />
+                            <OpportunityRow
+                                key={g.ticker}
+                                group={g}
+                                onBuild={onBuild}
+                                open={openKeyOpp === g.ticker}
+                                folded={openKeyOpp !== null && openKeyOpp !== g.ticker}
+                                onToggle={() => toggleOpp(g.ticker)}
+                            />
                         ))
                         : groupedSignals.map(g => (
-                            <SignalRow key={g.ticker} group={g} />
+                            <SignalRow
+                                key={g.ticker}
+                                group={g}
+                                open={openKeySig === g.ticker}
+                                folded={openKeySig !== null && openKeySig !== g.ticker}
+                                onToggle={() => toggleSig(g.ticker)}
+                            />
                         ))
                     }
                 </div>

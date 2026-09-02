@@ -272,18 +272,14 @@ const isWaitingBook = (b) => b.ideas.length > 0 && b.ideas.every(i => i.status =
 
 function PortfolioRows({ ideas, positions, onEditPortfolio, onDeletePortfolio, onDeleteIdea, onActivatePortfolio }) {
     const books = portfoliosFromIdeas(ideas)
-    const [open, setOpen] = useState(() => new Set())
+    const [openKey, setOpenKey] = useState(null)
     // The book waiting on the pre-activation gate, or null. Same dialog the ideas table and the
     // cards put in front of this — activating fires every leg at market at once, so the last thing
     // between a built book and real exposure is the offer of a final Atlas review.
     const [activating, setActivating] = useState(null)
     if (!books.length) return <Empty>No portfolios.</Empty>
 
-    const toggle = id => setOpen(prev => {
-        const next = new Set(prev)
-        next.has(id) ? next.delete(id) : next.add(id)
-        return next
-    })
+    const toggle = id => setOpenKey(cur => cur === id ? null : id)
 
     // The book's own actions, which are NOT the sum of its holdings': editing reopens the whole
     // construction in the Atlas chat, and deleting removes every leg plus the chat history. That's
@@ -349,11 +345,12 @@ function PortfolioRows({ ideas, positions, onEditPortfolio, onDeletePortfolio, o
     }
 
     const rows = books.map(b => {
-        const isOpen  = open.has(b.portfolioId)
-        const pnl     = portfolioPnl(b.ideas, positions)
-        const waiting = isWaitingBook(b)
+        const isOpen   = openKey === b.portfolioId
+        const isFolded = openKey !== null && openKey !== b.portfolioId
+        const pnl      = portfolioPnl(b.ideas, positions)
+        const waiting  = isWaitingBook(b)
         return (
-            <div key={b.portfolioId} className="floor-sub">
+            <div key={b.portfolioId} className={`floor-sub${isOpen ? ' floor-sub--open' : isFolded ? ' floor-sub--folded' : ''}`}>
                 <RowHost actions={bookActions(b)}>
                     <button className="floor-row" onClick={() => toggle(b.portfolioId)} aria-expanded={isOpen}>
                         <span className="floor-row__sym floor-row__sym--wide">{b.name}</span>
@@ -368,23 +365,27 @@ function PortfolioRows({ ideas, positions, onEditPortfolio, onDeletePortfolio, o
                     </button>
                 </RowHost>
 
-                {isOpen && b.ideas.map(h => (
-                    <RowHost key={h.id} actions={holdingActions(h)}>
-                        <button
-                            className="floor-row floor-row--sub"
-                            onClick={() => openIdeaPopup(h)}
-                            title="Open this holding"
-                        >
-                            <span className={`floor-row__dir floor-row__dir--${h.direction}`} aria-hidden="true">
-                                {h.direction === 'short' ? '▾' : '▴'}
-                            </span>
-                            <span className="floor-row__sym">{h.asset ?? '—'}</span>
-                            {/* allocationRatio is a 0–1 ratio, not a percentage */}
-                            <span className="floor-row__kind floor-row__kind--dim">{pctOf(h.allocationRatio)}</span>
-                            <span className={`floor-row__status floor-row__status--${h.status}`}>{statusText(h.status)}</span>
-                        </button>
-                    </RowHost>
-                ))}
+                {isOpen && (
+                    <div className="floor-sub__body">
+                        {b.ideas.map(h => (
+                            <RowHost key={h.id} actions={holdingActions(h)}>
+                                <button
+                                    className="floor-row floor-row--sub"
+                                    onClick={() => openIdeaPopup(h)}
+                                    title="Open this holding"
+                                >
+                                    <span className={`floor-row__dir floor-row__dir--${h.direction}`} aria-hidden="true">
+                                        {h.direction === 'short' ? '▾' : '▴'}
+                                    </span>
+                                    <span className="floor-row__sym">{h.asset ?? '—'}</span>
+                                    {/* allocationRatio is a 0–1 ratio, not a percentage */}
+                                    <span className="floor-row__kind floor-row__kind--dim">{pctOf(h.allocationRatio)}</span>
+                                    <span className={`floor-row__status floor-row__status--${h.status}`}>{statusText(h.status)}</span>
+                                </button>
+                            </RowHost>
+                        ))}
+                    </div>
+                )}
             </div>
         )
     })
@@ -422,14 +423,10 @@ PortfolioRows.propTypes = {
 // several scans can be open at once — unlike the desks, these are peers being compared.
 
 function ScanRows({ scans, onCandidateSelect, onEditScan, onDeleteScan }) {
-    const [open, setOpen] = useState(() => new Set())
+    const [openKey, setOpenKey] = useState(null)
     if (!scans.length) return <Empty>No lists yet.</Empty>
 
-    const toggle = id => setOpen(prev => {
-        const next = new Set(prev)
-        next.has(id) ? next.delete(id) : next.add(id)
-        return next
-    })
+    const toggle = id => setOpenKey(cur => cur === id ? null : id)
 
     // Actions belong to the LIST, not to the names on it. A candidate is a line in a scan's result,
     // not a record of its own — there is nothing to open in a chat and nothing to delete. Editing
@@ -445,9 +442,10 @@ function ScanRows({ scans, onCandidateSelect, onEditScan, onDeleteScan }) {
     }
 
     return scans.map(s => {
-        const isOpen = open.has(s.id)
+        const isOpen   = openKey === s.id
+        const isFolded = openKey !== null && openKey !== s.id
         return (
-            <div key={s.id} className="floor-sub">
+            <div key={s.id} className={`floor-sub${isOpen ? ' floor-sub--open' : isFolded ? ' floor-sub--folded' : ''}`}>
                 <RowHost actions={scanActions(s)}>
                     <button className="floor-row" onClick={() => toggle(s.id)} aria-expanded={isOpen}>
                         <span className={`floor-row__dir floor-row__dir--${s.direction}`} aria-hidden="true">
@@ -460,22 +458,26 @@ function ScanRows({ scans, onCandidateSelect, onEditScan, onDeleteScan }) {
                         {s.stale && <span className="floor-row__stale">stale</span>}
                     </button>
                 </RowHost>
-                {isOpen && (s.candidates ?? []).map(c => (
-                    <button
-                        key={c.ticker}
-                        className="floor-row floor-row--sub"
-                        onClick={() => onCandidateSelect?.(c, s)}
-                        title="Build from this candidate"
-                    >
-                        <span className="floor-row__sym">{c.ticker}</span>
-                        <span className="floor-row__kind floor-row__kind--dim">{c.name ?? ''}</span>
-                        {Number.isFinite(c.score?.total) && (
-                            <span className={`floor-row__score floor-row__score--${c.score.total >= 75 ? 'hi' : c.score.total >= 55 ? 'mid' : 'lo'}`}>
-                                {c.score.total}
-                            </span>
-                        )}
-                    </button>
-                ))}
+                {isOpen && (
+                    <div className="floor-sub__body">
+                        {(s.candidates ?? []).map(c => (
+                            <button
+                                key={c.ticker}
+                                className="floor-row floor-row--sub"
+                                onClick={() => onCandidateSelect?.(c, s)}
+                                title="Build from this candidate"
+                            >
+                                <span className="floor-row__sym">{c.ticker}</span>
+                                <span className="floor-row__kind floor-row__kind--dim">{c.name ?? ''}</span>
+                                {Number.isFinite(c.score?.total) && (
+                                    <span className={`floor-row__score floor-row__score--${c.score.total >= 75 ? 'hi' : c.score.total >= 55 ? 'mid' : 'lo'}`}>
+                                        {c.score.total}
+                                    </span>
+                                )}
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
         )
     })
@@ -500,16 +502,10 @@ const catalystText = (k) => (typeof k === 'string' ? k : `${k?.date ? `${k.date}
 const killText     = (k) => (typeof k === 'string' ? k : JSON.stringify(k))
 
 function CoverageRows({ coverage, onEditCoverage, onRetireCoverage, onDeleteCoverage }) {
-    // Several names open at once, like the scans: these are peers you compare, not sections you
-    // navigate. (The desks above are the accordion; this is a list inside one.)
-    const [open, setOpen] = useState(() => new Set())
+    const [openKey, setOpenKey] = useState(null)
     if (!coverage.length) return <Empty>No coverage yet.</Empty>
 
-    const toggle = id => setOpen(prev => {
-        const next = new Set(prev)
-        next.has(id) ? next.delete(id) : next.add(id)
-        return next
-    })
+    const toggle = id => setOpenKey(cur => cur === id ? null : id)
 
     return coverage.map(c => {
         const key   = c.id ?? c.symbol
@@ -520,10 +516,11 @@ function CoverageRows({ coverage, onEditCoverage, onRetireCoverage, onDeleteCove
         // Nothing to open → no chevron. A control that expands to an empty box is worse than none.
         // The re-model schedule counts as content: on a bare thesis it is all the drawer holds.
         const hasDetail = !!(c.thesis || kills.length || cats.length || revs.length || next)
-        const isOpen = hasDetail && open.has(key)
+        const isOpen   = hasDetail && openKey === key
+        const isFolded = openKey !== null && openKey !== key
 
         return (
-            <div key={key} className="floor-sub">
+            <div key={key} className={`floor-sub${isOpen ? ' floor-sub--open' : isFolded ? ' floor-sub--folded' : ''}`}>
                 <RowHost actions={<CoverageActions coverage={c} onEdit={onEditCoverage} onRetire={onRetireCoverage} onDelete={onDeleteCoverage} />}>
                     {/* Collapsed, this is ONE line — see .floor-row in Floor.scss. The cells are
                         multi-word ("strong buy", "thesis broken", a target with its horizon), and a
@@ -549,33 +546,35 @@ function CoverageRows({ coverage, onEditCoverage, onRetireCoverage, onDeleteCove
                 </RowHost>
 
                 {isOpen && (
-                    <div className="floor-detail">
-                        {c.thesis && <p className="floor-detail__prose">{c.thesis}</p>}
-                        {kills.length > 0 && (
-                            <div className="floor-detail__block">
-                                <span className="floor-detail__label">kill-criteria</span>
-                                <ul>{kills.map((k, i) => <li key={i}>{killText(k)}</li>)}</ul>
-                            </div>
-                        )}
-                        {cats.length > 0 && (
-                            <div className="floor-detail__block">
-                                <span className="floor-detail__label">catalysts</span>
-                                <ul>{cats.map((k, i) => <li key={i}>{catalystText(k)}</li>)}</ul>
-                            </div>
-                        )}
-                        {(revs.length > 0 || next) && (
-                            <div className="floor-detail__foot">
-                                {revs.length > 0 && (
-                                    <span className="floor-detail__revs">{revs.length} revision{revs.length > 1 ? 's' : ''}</span>
-                                )}
-                                {next && (
-                                    <span className={`floor-detail__next${next.due ? ' floor-detail__next--due' : ''}`} title={NEXT_REVISION_HINT}>
-                                        next revision {next.label}
-                                        {next.reason && <em className="floor-detail__next-why"> · {next.reason}</em>}
-                                    </span>
-                                )}
-                            </div>
-                        )}
+                    <div className="floor-sub__body">
+                        <div className="floor-detail">
+                            {c.thesis && <p className="floor-detail__prose">{c.thesis}</p>}
+                            {kills.length > 0 && (
+                                <div className="floor-detail__block">
+                                    <span className="floor-detail__label">kill-criteria</span>
+                                    <ul>{kills.map((k, i) => <li key={i}>{killText(k)}</li>)}</ul>
+                                </div>
+                            )}
+                            {cats.length > 0 && (
+                                <div className="floor-detail__block">
+                                    <span className="floor-detail__label">catalysts</span>
+                                    <ul>{cats.map((k, i) => <li key={i}>{catalystText(k)}</li>)}</ul>
+                                </div>
+                            )}
+                            {(revs.length > 0 || next) && (
+                                <div className="floor-detail__foot">
+                                    {revs.length > 0 && (
+                                        <span className="floor-detail__revs">{revs.length} revision{revs.length > 1 ? 's' : ''}</span>
+                                    )}
+                                    {next && (
+                                        <span className={`floor-detail__next${next.due ? ' floor-detail__next--due' : ''}`} title={NEXT_REVISION_HINT}>
+                                            next revision {next.label}
+                                            {next.reason && <em className="floor-detail__next-why"> · {next.reason}</em>}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>
