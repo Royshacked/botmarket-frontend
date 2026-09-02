@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
+import { useAuth } from '../../context/AuthContext.jsx'
 import './CoverageActions.scss'
 
 // The action row for one coverage, shared by every surface that lists the book (the Radar
@@ -17,8 +18,11 @@ import './CoverageActions.scss'
 //             is usually the most valuable thing on the doc and there is no undo.
 
 export function CoverageActions({ coverage, onEdit, onRetire, onDelete }) {
+    const { isAdmin } = useAuth()
     const [confirming, setConfirming] = useState(false)
     const stop = (fn) => (e) => { e.stopPropagation(); fn?.() }
+
+    if (!isAdmin) return null
 
     // The confirm REPLACES the buttons rather than opening a dialog: inline, dismissible by doing
     // nothing, and it names what is lost — the revision count is the only honest way to say it.

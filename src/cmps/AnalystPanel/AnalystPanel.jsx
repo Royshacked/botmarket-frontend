@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import PropTypes from 'prop-types'
+import { useAuth } from '../../context/AuthContext.jsx'
 import { analystService } from '../../services/analyst/analyst.service.remote.js'
 import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote.js'
 import { readStoredModel } from '../modelOptions.js'
@@ -24,23 +25,35 @@ MessageBubble.propTypes = { msg: PropTypes.object.isRequired }
 
 // The drafted coverage preview — the variant-perception thesis, our PT vs the Street (the gap = the
 // edge), the rating, and the monitorable kill-criteria. Shown before "Initiate coverage".
+// Header is always visible; body toggles so the action button below is never pushed off screen.
 export function CoverageDraft({ coverage }) {
+    const [open, setOpen] = useState(true)
     const pt  = coverage.price_target
     const gap = coverage.gap
     const kills = Array.isArray(coverage.kill_criteria) ? coverage.kill_criteria : []
     return (
         <div className="analyst-panel__draft">
-            <div className="analyst-panel__draft-head">
+            <button
+                type="button"
+                className="analyst-panel__draft-head analyst-panel__draft-toggle"
+                onClick={() => setOpen(o => !o)}
+                aria-expanded={open}
+            >
                 <span className="analyst-panel__asset">{coverage.symbol}</span>
                 {coverage.rating && <span className={`analyst-panel__rating analyst-panel__rating--${coverage.rating}`}>{coverage.rating.replace('_', ' ')}</span>}
                 <PriceTarget priceTarget={pt} gap={gap} gapSource />
-            </div>
-            {coverage.thesis && <div className="analyst-panel__thesis">{coverage.thesis}</div>}
-            {kills.length > 0 && (
-                <div className="analyst-panel__kills">
-                    <span className="analyst-panel__kills-label">kill-criteria</span>
-                    <ul>{kills.map((k, i) => <li key={i}>{typeof k === 'string' ? k : JSON.stringify(k)}</li>)}</ul>
-                </div>
+                <span className="analyst-panel__draft-caret" aria-hidden="true">{open ? '▾' : '▸'}</span>
+            </button>
+            {open && (
+                <>
+                    {coverage.thesis && <div className="analyst-panel__thesis">{coverage.thesis}</div>}
+                    {kills.length > 0 && (
+                        <div className="analyst-panel__kills">
+                            <span className="analyst-panel__kills-label">kill-criteria</span>
+                            <ul>{kills.map((k, i) => <li key={i}>{typeof k === 'string' ? k : JSON.stringify(k)}</li>)}</ul>
+                        </div>
+                    )}
+                </>
             )}
         </div>
     )
@@ -48,6 +61,7 @@ export function CoverageDraft({ coverage }) {
 CoverageDraft.propTypes = { coverage: PropTypes.object.isRequired }
 
 export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, onLoadingChange, onInitiated, onSleeveResearched, coverage = [], pipeline = null, resumeRef = null }) {
+    const { isAdmin } = useAuth()
     const chat = useChatStream({ threadPhases: true })
     const { messages, isLoading } = chat
     const [pendingCoverage, setPendingCoverage] = useState(null)
@@ -125,7 +139,7 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
             send: ({ signal, handlers }) => analystService.sendStream(history, {
                 model:           readStoredModel(),
                 // Feed the draft-so-far back so the model carries settled fields forward.
-                chatState:       { active_symbol: pendingRef.current?.symbol || candidate?.ticker || '', draft: pendingRef.current, existing_coverage: existingRef.current },
+                chatState:       { active_symbol: pendingRef.current?.symbol || candidate?.ticker || '', draft: pendingRef.current, existing_coverage: existingRef.current, coverage_symbols: (coverage || []).map(c => c.symbol) },
                 seed: candidate, // structured Argus investing candidate (one-shot on the hand-off turn)
                 signal,
                 ...handlers,
@@ -359,13 +373,19 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
             </AgentMessages>
 
             {!isLoading && pendingCoverage && (
-                <div className="analyst-panel__draft-wrap">
-                    <CoverageDraft coverage={pendingCoverage} />
-                    {initiateErr && <div className="analyst-panel__err">{initiateErr}</div>}
-                    <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={handleInitiate}>
-                        {existingCoverage ? `Update coverage on ${pendingCoverage.symbol}` : `Initiate coverage on ${pendingCoverage.symbol}`}
-                    </button>
-                </div>
+                <>
+                    <div className="analyst-panel__draft-wrap">
+                        <CoverageDraft coverage={pendingCoverage} />
+                    </div>
+                    {isAdmin && (
+                        <div className="portfolio-panel__action-bubble">
+                            {initiateErr && <div className="analyst-panel__err">{initiateErr}</div>}
+                            <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={handleInitiate}>
+                                {existingCoverage ? `Update coverage on ${pendingCoverage.symbol}` : `Initiate coverage on ${pendingCoverage.symbol}`}
+                            </button>
+                        </div>
+                    )}
+                </>
             )}
 
             {/* The sleeve is researched — hand it back. Without this the pipeline dead-ends here:

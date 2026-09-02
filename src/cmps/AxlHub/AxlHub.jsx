@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
+import { useAuth } from '../../context/AuthContext.jsx'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { AgentSummon } from './AgentSummon.jsx'
 import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote'
@@ -95,6 +96,8 @@ function TicketGlyph({ size = 32 }) {
 
 export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefStart, live = [] }) {
     const name = firstName(user?.fullname)
+    const { isAdmin } = useAuth()
+    const visibleDesks = DESKS.filter(d => !d.adminOnly || isAdmin)
     const chat = useChatStream()
     const { messages, isLoading } = chat
 
@@ -608,7 +611,7 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
                 {hasThread ? (
                     /* ── inline desk chips (replace the cards once the conversation starts) ── */
                     <div className="axl-hub__desk-strip">
-                        {DESKS.map(desk => (
+                        {visibleDesks.map(desk => (
                             <button
                                 key={desk.key}
                                 type="button"
@@ -641,7 +644,7 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
                 ) : (
                     /* ── desk cards (2-col grid: 5 desks + the order ticket) ── */
                     <div className="axl-hub__options">
-                        {DESKS.map((desk, i) => (
+                        {visibleDesks.map((desk, i) => (
                             <button
                                 key={desk.key}
                                 type="button"

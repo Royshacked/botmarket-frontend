@@ -21,10 +21,11 @@ import { ScannerPanel, RESEARCH_TOP_N }      from '../cmps/ScannerPanel/ScannerP
 import { MentorPanel }       from '../cmps/MentorPanel/MentorPanel.jsx'
 import { AnalystPanel }      from '../cmps/AnalystPanel/AnalystPanel.jsx'
 import { StrategyPanel }     from '../cmps/StrategyPanel/StrategyPanel.jsx'
+import { AetherPanel }       from '../cmps/AetherPanel/AetherPanel.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
 import { FloorLeft }         from '../cmps/Floor/FloorLeft.jsx'
 import { FloorLists }        from '../cmps/Floor/FloorLists.jsx'
-import { analystService, COVERAGE_CHANGED } from '../services/analyst/analyst.service.remote.js'
+import { analystService, COVERAGE_CHANGED, RESEARCH_QUEUE_CHANGED } from '../services/analyst/analyst.service.remote.js'
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
@@ -57,6 +58,7 @@ import { useTradeIdeas }     from '../customHooks/useTradeIdeas.js'
 import { useEntityList } from '../customHooks/useEntityList.js'
 import { useDesign }         from '../customHooks/useDesign.js'
 import { useSetups }         from '../customHooks/useSetups.js'
+import { useShockFeed }      from '../customHooks/useShockFeed.js'
 import { deriveIdeaOverlay, deriveSetupOverlay } from '../cmps/TradeIdeas/chartOverlay.js'
 import { useAuth }           from '../context/AuthContext.jsx'
 import { nextResetKeys }     from './deskReset.js'
@@ -236,11 +238,12 @@ function _moneyShort(v) {
 // which let ThreadHistory offer a resume mid-turn that the running stream then silently
 // overwrote, and left the agent-bar live dot unable to pulse for the very desks those two
 // setters were added for.
-const DESK_TABS = ['scanner', 'portfolio', 'mentor', 'analyst', 'strategy']
+const DESK_TABS = ['scanner', 'portfolio', 'mentor', 'analyst', 'strategy', 'aether']
 
 export function MainPage() {
     const chat = useChatStream()
     const { messages, setMessages, isLoading, streamStatus, reasoningPulse } = chat
+    const { user, isAdmin } = useAuth()
 
     const [analysisState, setAnalysisState] = useState(null)
     const [, setChartSymbol]   = useState(DEFAULT_CHART_SYMBOL)
@@ -338,6 +341,35 @@ export function MainPage() {
     const { items: coverage, loading: coverageLoading } = useEntityList({
         load: loadCoverageFn, changeEvent: COVERAGE_CHANGED, pollMs: 60_000, log: '[coverage]',
     })
+
+    // Research queue (admin workbench). Shows queued + in_research items; reloads on any action.
+    const loadResearchQueueFn = useCallback(
+        () => isAdmin ? analystService.listResearchQueue() : Promise.resolve([]),
+        [isAdmin],
+    )
+    const { items: researchQueue } = useEntityList({
+        load: loadResearchQueueFn, changeEvent: RESEARCH_QUEUE_CHANGED, log: '[researchQueue]',
+    })
+    const [researchQueueBusyId, setResearchQueueBusyId] = useState(null)
+
+    async function handleStartResearch(id) {
+        if (!id) return
+        setResearchQueueBusyId(id)
+        try { await analystService.startResearch(id) } catch (err) { console.error('[researchQueue] start', err) }
+        finally { setResearchQueueBusyId(null) }
+    }
+    async function handleMarkResearchDone(id) {
+        if (!id) return
+        setResearchQueueBusyId(id)
+        try { await analystService.markResearchDone(id) } catch (err) { console.error('[researchQueue] done', err) }
+        finally { setResearchQueueBusyId(null) }
+    }
+    async function handleRejectResearch(id) {
+        if (!id) return
+        setResearchQueueBusyId(id)
+        try { await analystService.rejectResearch(id) } catch (err) { console.error('[researchQueue] reject', err) }
+        finally { setResearchQueueBusyId(null) }
+    }
     // Retire ARCHIVES (status → retired, revision trail kept); delete REMOVES the document for good.
     // Two operations, two endpoints — the confirm for delete lives in CoverageActions, next to the
     // button, where it can name what is being lost.
@@ -444,6 +476,8 @@ export function MainPage() {
 
     const { setups, setupsLoading, refreshSetups } = useSetups()
     const [setupBusyId, setSetupBusyId] = useState(null)
+
+    const { signals: shockSignals, opportunities: shockOpportunities, loading: shockLoading } = useShockFeed()
 
     // Arm / disarm / delete a setup from the Lists surface. Arming is the real gate — the server
     // re-runs the readiness check and refuses with `cannot_arm_<reason>`, so surface that rather
@@ -571,9 +605,8 @@ export function MainPage() {
         handleBackToAxl()
     }
 
-    const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, tilt, tiltLoading } = useCalendarEvents()
+    const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, tilt, tiltLoading, channelState, channelStateLoading } = useCalendarEvents()
     const { scans, loading: scansLoading, createScan, updateScan, deleteScan } = useScans()
-    const { user } = useAuth()
     const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
     const { workspace, setWorkspace } = useWorkspaceMode(user?._id)
     const { positions, loading: positionsLoading, refresh: refreshPositions, closePosition, closePositions } = usePositions()
@@ -890,6 +923,8 @@ export function MainPage() {
     // What is left is state with no document behind it to fetch.
     const activeTabRef = useRef(activeTab)
     activeTabRef.current = activeTab
+    const isAdminRef = useRef(isAdmin)
+    isAdminRef.current = isAdmin
     const positionsRef = useRef(positions)
     positionsRef.current = positions
     const workspaceRef = useRef(workspace)   // for []-dep event handlers that must read the live workspace
@@ -1113,6 +1148,7 @@ export function MainPage() {
     // changes nothing on its own. The panel clears it once it starts.
     useEffect(() => {
         return eventBus.on(TILT_REVIEW_OPEN, ({ reason = null } = {}) => {
+            if (!isAdminRef.current) return
             setActiveTab('strategy')
             setReviewRequest(r => ({ n: r.n + 1, reason }))
         })
@@ -2207,15 +2243,6 @@ export function MainPage() {
     }
 
     // Route OUT: Atlas emitted a <screen_request> (a sleeve mandate) → open Argus in the INVESTING
-    // profile, seeded with the mandate. Not a single-pick hand-off — a fundamental candidate list that
-    // routes on to the Analyst.
-    function handleSourceInArgus(requests) {
-        const sleeves = (Array.isArray(requests) ? requests : [requests]).filter(r => r && (r.sector || r.style))
-        if (!sleeves.length) return
-        sleeveRunRef.current = { active: true, queue: sleeves.slice(1), sectors: [], total: sleeves.length, current: null }
-        _screenSleeve(sleeves[0], { fresh: true })
-    }
-
     // What to call a sleeve in the UI and in the record handed back to Atlas. The industry is the
     // binding pond when Atlas named one, so it leads.
     const sleeveLabel = (sr) => sr?.industry || sr?.sector || sr?.style || 'sleeve'
@@ -2452,6 +2479,25 @@ export function MainPage() {
             from:    { agent: 'scanner', label: 'Scan' },
         }))
         setActiveTab('mentor')
+    }
+
+    // Shock feed opportunity → MENTOR: an Aether opportunity card carries a ticker, a direction,
+    // and the channel-level reasoning. Seed Mentor the same way an earnings row does — spoken as
+    // the user's opening turn so Mentor asks for their lean rather than re-stating what Aether said.
+    function handleBuildFromShock(opportunity) {
+        if (!opportunity?.ticker) return
+        const dir  = opportunity.ticker_direction ?? null
+        const chan  = (opportunity.channel_id ?? '').replace(/_/g, ' ')
+        const parts = [
+            `I want to build a setup around ${opportunity.ticker}`,
+            chan   ? ` — Aether flagged it via the ${chan} channel` : '',
+            dir    ? ` with a ${dir} lean` : '',
+            '.',
+            opportunity.why    ? ` ${opportunity.why}.` : '',
+            opportunity.when   ? ` Timing: ${opportunity.when}.` : '',
+            opportunity.risk_note ? ` Risk note: ${opportunity.risk_note}.` : '',
+        ]
+        seedMentorChat(opportunity.ticker, parts.join(''))
     }
 
     // Earnings ticker → MENTOR: a scheduled print is a date with a ticker attached and no bias,
@@ -2838,7 +2884,6 @@ export function MainPage() {
                                 onLoadingChange={deskLoadingSetters.portfolio}
                                 onReviewResolved={handleBackToAxl}
                                 onAcceptReview={handleAcceptReview}
-                                onSourceInArgus={handleSourceInArgus}
                                 {...deskProps('portfolio')}
                                 availableAccounts={availableAccounts}
                                 selectedAccounts={selectedAccounts}
@@ -2903,17 +2948,27 @@ export function MainPage() {
                             />
                         </div>
 
-                        <div className="chat-tabs__panel" style={{ display: activeTab === 'strategy' ? 'flex' : 'none' }}>
-                            <StrategyPanel
-                                onLoadingChange={deskLoadingSetters.strategy}
-                                currentTilt={tilt}
+                        {isAdmin && (
+                            <div className="chat-tabs__panel" style={{ display: activeTab === 'strategy' ? 'flex' : 'none' }}>
+                                <StrategyPanel
+                                    onLoadingChange={deskLoadingSetters.strategy}
+                                    currentTilt={tilt}
+                                    pipeline={activePipeline}
+                                    resumeRef={resumeRefs.current.strategy}
+                                    reviewRequest={reviewRequest}
+                                    onReviewStart={() => setReviewRequest(r => ({ n: 0, reason: r.reason }))}
+                                    // Publishing supersedes the standing view, so send the user to the
+                                    // board that now shows it — the same beat as a coverage initiate.
+                                    onPublished={() => { setNewsTab('forecasts'); handleBackToAxl() }}
+                                />
+                            </div>
+                        )}
+
+                        <div className="chat-tabs__panel" style={{ display: activeTab === 'aether' ? 'flex' : 'none' }}>
+                            <AetherPanel
+                                onLoadingChange={deskLoadingSetters.aether}
                                 pipeline={activePipeline}
-                                resumeRef={resumeRefs.current.strategy}
-                                reviewRequest={reviewRequest}
-                                onReviewStart={() => setReviewRequest(r => ({ n: 0, reason: r.reason }))}
-                                // Publishing supersedes the standing view, so send the user to the
-                                // board that now shows it — the same beat as a coverage initiate.
-                                onPublished={() => { setNewsTab('forecasts'); handleBackToAxl() }}
+                                resumeRef={resumeRefs.current.aether}
                             />
                         </div>
 
@@ -2953,11 +3008,19 @@ export function MainPage() {
                                     fed={fed}
                                     ipo={ipo}
                                     tilt={tilt}
+                                    channelState={channelState}
                                     calendarLoading={{
                                         earnings:  earningsLoading,
                                         fed:       fedLoading,
                                         ipo:       ipoLoading,
                                         forecasts: tiltLoading,
+                                        channels:  channelStateLoading,
+                                    }}
+                                    shockFeed={{
+                                        signals:       shockSignals,
+                                        opportunities: shockOpportunities,
+                                        loading:       shockLoading,
+                                        onBuild:       handleBuildFromShock,
                                     }}
                                     onEarningSelect={handleBuildFromEarning}
                                     onIpoSelect={handleBuildFromIpo}
@@ -2973,6 +3036,12 @@ export function MainPage() {
                                     onEditCoverage={handleEditCoverage}
                                     onRetireCoverage={handleRetireCoverage}
                                     onDeleteCoverage={handleDeleteCoverage}
+                                    isAdmin={isAdmin}
+                                    researchQueue={researchQueue}
+                                    onStartResearch={handleStartResearch}
+                                    onMarkResearchDone={handleMarkResearchDone}
+                                    onRejectResearch={handleRejectResearch}
+                                    researchQueueBusyId={researchQueueBusyId}
                                 />
                             )}
                         </div>
@@ -3029,6 +3098,12 @@ export function MainPage() {
                                 ipo,
                                 ipoLoading,
                                 onIpoSelect:       handleBuildFromIpo,
+                            }}
+                            shockFeed={{
+                                signals:       shockSignals,
+                                opportunities: shockOpportunities,
+                                loading:       shockLoading,
+                                onBuild:       handleBuildFromShock,
                             }}
                         />
                     </div>

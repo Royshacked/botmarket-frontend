@@ -391,6 +391,20 @@
         border-top: 1px solid var(--border);
     }
 
+    &__coverage-notice {
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--text-secondary);
+
+        &-icon { flex-shrink: 0; }
+
+        strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+    }
+
     // Sized by its own label, NOT by the row. `flex: 1` split the bar between however many
     // buttons happened to be up, so one action became a full-width slab and three became thirds —
     // worst on a phone, where the bar is the whole screen. Kairos had already opted out locally

@@ -63,22 +63,46 @@ function FindingRow({ row }) {
 }
 FindingRow.propTypes = { row: PropTypes.object.isRequired }
 
+/** "in 12 min" / "in 2 h" / "at 14:35" depending on how far ahead the next wake is. */
+function _nextCheckLabel(iso) {
+    const ms  = Date.parse(iso)
+    if (!Number.isFinite(ms)) return null
+    const now  = Date.now()
+    const diff = ms - now
+    if (diff <= 0) return 'any moment'
+    const min = Math.round(diff / 60_000)
+    if (min < 60) return `in ${min} min`
+    const hr = Math.round(min / 60)
+    if (hr < 6)  return `in ${hr} h`
+    return `at ${new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+}
+
 export function TalosWatch({ setup }) {
-    const last  = setup?.monitor_state?.last_assessment ?? null
-    const rows  = conditionRows(setup)
-    const ready = readiness(setup)
-    const when  = last?.at ? new Date(last.at).toLocaleString() : null
+    const last     = setup?.monitor_state?.last_assessment ?? null
+    const rows     = conditionRows(setup)
+    const ready    = readiness(setup)
+    const when     = last?.at ? new Date(last.at).toLocaleString() : null
+    const nextAt   = setup?.monitor_state?.next_check_at ?? null
+    const nextLabel = _nextCheckLabel(nextAt)
 
     return (
         <section className="talos-watch" aria-label="What Talos is doing">
-            <span className="setup-page__section-label">What Talos is doing</span>
+            {/* ── Section 3: what monitor is doing now ── */}
+            <span className="setup-page__section-label">What monitor is doing now</span>
             <ul className="talos-watch__tiers">
                 {tiers(setup).map(t => <TierRow key={t.key} tier={t} />)}
             </ul>
 
-            {/* Before the first read there is nothing to report, and saying so beats an empty box:
-                a setup can sit for days without ever needing a full read, and that is the system
-                working, not a failure. */}
+            {/* ── Section 4: next assessment ── */}
+            {nextLabel && (
+                <div className="talos-watch__next">
+                    <span className="talos-watch__next-label">Next check</span>
+                    <span className="talos-watch__next-val">{nextLabel}</span>
+                </div>
+            )}
+
+            {/* ── Section 5: findings and verdict ── */}
+            <span className="setup-page__section-label">Findings and verdict</span>
             {!last ? (
                 <p className="talos-watch__empty">
                     No full read yet — Talos only pays for one when price reaches a zone or leaves the map.
@@ -104,8 +128,6 @@ export function TalosWatch({ setup }) {
                         </ul>
                     )}
 
-                    {/* Only ever set on a non-enter verdict, and it is the monitor's own answer to
-                        "so what is missing" — the sentence the user came here for. */}
                     {last.warning && <p className="talos-watch__warning">{last.warning}</p>}
                 </div>
             )}

@@ -1,0 +1,49 @@
+body > #root {
+	display: grid;
+	grid-template-columns: 1fr min(1024px, 100%) 1fr;
+}
+
+body > #root > .main-container {
+	grid-column: 1 / -1;
+}
+
+.full {
+	grid-column: 1 / -1;
+}
+.main-container {
+    display: grid;
+    grid-template-columns: 1rem 1fr 1rem;
+
+    > * {
+        grid-column: 2;
+
+        &.full {
+            grid-column: 1 / -1;
+        }
+    }
+
+    // @include for-narrow-layout {
+    //     grid-template-columns: 
+    //         minmax(20px, 1fr)
+    //         minmax(auto, $mobile-breakpoint)
+    //         minmax(20px, 1fr);
+    // }
+    // @include for-normal-layout {
+    //     grid-template-columns: 
+    //         minmax(20px, 1fr)
+    //         minmax(auto, $narrow-breakpoint)
+    //         minmax(20px, 1fr);
+    // }
+    // @include for-wide-layout {
+    //     grid-template-columns: 
+    //         minmax(20px, 1fr)
+    //         minmax(auto, $normal-breakpoint)
+    //         minmax(20px, 1fr);
+    // }
+}
+
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-gap: 20px;
+}

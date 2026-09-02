@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect } from 'react'
+import { Fragment, useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { groupByLifecycle, isPreEntry, isLivePosition } from '../../services/entityStatus.js'
 import {
@@ -15,6 +15,8 @@ import { nextRevision, NEXT_REVISION_HINT } from '../Radar/coverage.utils.js'
 import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
 import { CalendarRows } from './CalendarRows.jsx'
 import { SectorView } from '../Radar/SectorView.jsx'
+import { ChannelStateView } from '../Radar/ChannelStateView.jsx'
+import { ShockFeed, groupByTicker } from '../TradeIdeas/ShockFeed.jsx'
 import './Floor.scss'
 
 // The Floor's right column: four desks, one open at a time — and the open one TAKES THE COLUMN.
@@ -35,11 +37,14 @@ import './Floor.scss'
 const DESKS = [
     // Queued sits FIRST because it is the only desk that is a to-do list: the others are things
     // you own, this one is things waiting on you. A count here means someone is blocked.
-    { key: 'queued',    label: 'Queued' },
-    { key: 'trade',     label: 'Trading floor' },
-    { key: 'portfolio', label: 'Portfolio floor' },
-    { key: 'scans',     label: 'Scans' },
-    { key: 'coverage',  label: 'Coverage' },
+    { key: 'queued',         label: 'Queued' },
+    { key: 'trade',          label: 'Trading floor' },
+    { key: 'portfolio',      label: 'Portfolio floor' },
+    { key: 'scans',          label: 'Scans' },
+    { key: 'coverage',       label: 'Coverage' },
+    { key: 'shocks',         label: 'Shocks' },
+    // Admin-only: the house research pipeline backlog (Argus hits + user coverage_request).
+    { key: 'research_queue', label: 'Research queue', group: 'Admin', adminOnly: true },
 
     // The calendar, which used to be the left column's bottom half behind a four-tab strip
     // (2026-08-19). Each feed is a desk of its own now for the same reason the tabs were wrong:
@@ -55,6 +60,9 @@ const DESKS = [
     // Not a dated list at all — the house view, rendered as a board. It sits with the calendar
     // because it answers the same question, not because it shares its shape.
     { key: 'forecasts', label: 'Forecasts', group: 'Calendar' },
+    // Aether's channel-state view — z-score per pressure channel, grouped by clock speed.
+    // Also not a dated list; same reasoning as Forecasts above.
+    { key: 'channels',  label: 'Channels',  group: 'Calendar' },
 ]
 
 function openFor(item) {
@@ -576,19 +584,103 @@ function CoverageRows({ coverage, onEditCoverage, onRetireCoverage, onDeleteCove
 }
 CoverageRows.propTypes = { coverage: PropTypes.array, onEditCoverage: PropTypes.func, onRetireCoverage: PropTypes.func, onDeleteCoverage: PropTypes.func }
 
+// ── Research queue (admin) ────────────────────────────────────────────────────
+// The house research pipeline backlog. Each row is one name waiting to be researched by Prometheus.
+// Admin workflow: Start → open Prometheus on the name manually → Mark done (or Reject for misfires).
+
+const RQ_STATUS_LABEL = { queued: 'queued', in_research: 'in progress', done: 'done', rejected: 'rejected' }
+const RQ_SOURCE_LABEL = { argus: 'Argus', manual: 'request' }
+
+function ResearchQueueRow({ item, onStart, onDone, onReject, busy }) {
+    const isQueued     = item.status === 'queued'
+    const isInResearch = item.status === 'in_research'
+    const isActive     = isQueued || isInResearch
+    return (
+        <RowHost
+            actions={isActive && (
+                <>
+                    {isQueued && (
+                        <button
+                            className="floor-queued__btn"
+                            onClick={() => onStart(item.id)}
+                            disabled={busy}
+                            title="Mark as in progress — you're opening Prometheus on this name"
+                        >Start</button>
+                    )}
+                    {isInResearch && (
+                        <button
+                            className="floor-queued__btn"
+                            onClick={() => onDone(item.id)}
+                            disabled={busy}
+                            title="Mark done — coverage has been written"
+                        >Done</button>
+                    )}
+                    <button
+                        className="floor-queued__btn floor-queued__btn--cancel"
+                        onClick={() => onReject(item.id)}
+                        disabled={busy}
+                        title="Reject — misfire or admin decision"
+                    >Reject</button>
+                </>
+            )}
+        >
+            <span className={`floor-queued__dot${isQueued ? '' : isInResearch ? ' floor-queued__dot--waiting' : ''}`} aria-hidden="true" />
+            <span className="floor-row__sym">{item.symbol}</span>
+            <span className="floor-row__kind floor-row__kind--dim">{RQ_SOURCE_LABEL[item.source] ?? item.source}</span>
+            <span className={`floor-row__status floor-row__status--${item.status}`}>{RQ_STATUS_LABEL[item.status] ?? item.status}</span>
+        </RowHost>
+    )
+}
+ResearchQueueRow.propTypes = {
+    item:     PropTypes.object.isRequired,
+    onStart:  PropTypes.func.isRequired,
+    onDone:   PropTypes.func.isRequired,
+    onReject: PropTypes.func.isRequired,
+    busy:     PropTypes.bool,
+}
+
+function ResearchQueueRows({ researchQueue, onStartResearch, onMarkResearchDone, onRejectResearch, busyId }) {
+    // Show active work by default; done/rejected are the steady state and clutter the list.
+    const active = researchQueue.filter(i => i.status === 'queued' || i.status === 'in_research')
+    if (!active.length) return <Empty>No names queued for research.</Empty>
+    return (
+        <>
+            {active.map(item => (
+                <ResearchQueueRow
+                    key={item.id}
+                    item={item}
+                    onStart={onStartResearch}
+                    onDone={onMarkResearchDone}
+                    onReject={onRejectResearch}
+                    busy={busyId === item.id}
+                />
+            ))}
+        </>
+    )
+}
+ResearchQueueRows.propTypes = {
+    researchQueue:      PropTypes.array.isRequired,
+    onStartResearch:    PropTypes.func.isRequired,
+    onMarkResearchDone: PropTypes.func.isRequired,
+    onRejectResearch:   PropTypes.func.isRequired,
+    busyId:             PropTypes.string,
+}
+
 // ── The column ────────────────────────────────────────────────────────────────
 
 export function FloorLists({
     setups = [], ideas = [], positions = [],
-    scans = [], coverage = [], queued = [],
+    scans = [], coverage = [], queued = [], shockFeed = null,
     onCandidateSelect,
     onEditSetup, onDeleteSetup,
     onEditPortfolio, onDeletePortfolio, onDeleteIdea, onActivatePortfolio,
     onEditScan, onDeleteScan,
     onEditCoverage, onRetireCoverage, onDeleteCoverage,
     onExecuteQueued, onCancelQueued, queuedBusyId = null,
-    earnings = [], fed = [], ipo = [], tilt = null, calendarLoading = {},
+    earnings = [], fed = [], ipo = [], tilt = null, channelState = null, calendarLoading = {},
     onEarningSelect, onIpoSelect,
+    isAdmin = false,
+    researchQueue = [], onStartResearch, onMarkResearchDone, onRejectResearch, researchQueueBusyId = null,
     initialDesk = null, deskRequest = null,
 }) {
     // One desk open at a time — clicking the open one closes it, leaving them all collapsed. That
@@ -615,17 +707,39 @@ export function FloorLists({
     // the one moment it exists for. Readiness was never the header's job anyway; open the desk and
     // each row already carries its own dimmed dot and "waiting for the open".
     const counts = {
-        queued:    queued.length,
-        trade:     setups.length,
-        portfolio: portfoliosFromIdeas(ideas).length,
-        scans:     scans.length,
-        coverage:  coverage.length,
-        earnings:  earnings.length,
-        fed:       fed.length,
-        ipo:       ipo.length,
-        // No count on Forecasts: the house view is ONE standing view, and "(1)" beside it would
-        // invite the reader to expect a list of them.
+        queued:         queued.length,
+        trade:          setups.length,
+        portfolio:      portfoliosFromIdeas(ideas).length,
+        scans:          scans.length,
+        coverage:       coverage.length,
+        earnings:       earnings.length,
+        fed:            fed.length,
+        ipo:            ipo.length,
+        // Only queued items count — in_research is work the admin already started.
+        research_queue: researchQueue.filter(i => i.status === 'queued').length,
+        shocks: groupByTicker(shockFeed?.opportunities ?? []).length + groupByTicker(shockFeed?.signals ?? []).length,
+        // No count on Forecasts or Channels: both are standing engine views. "(1)" beside either
+        // would invite the reader to expect a list.
     }
+
+    // Auto-open the first desk that has data, but only on the first load and only if the user
+    // has not already made a selection. Uses a ref to fire exactly once — a state flag would
+    // cause a second render, and a dep-array without openKey would re-fire after the user closes.
+    const autoOpened = useRef(false)
+    const totalData   = setups.length + queued.length + scans.length + coverage.length + ideas.length
+                      + earnings.length + fed.length + ipo.length + (counts.shocks ?? 0)
+    useEffect(() => {
+        if (autoOpened.current || openKey !== null) return
+        const first = ['queued', 'shocks', 'trade', 'scans', 'coverage', 'portfolio', 'earnings', 'ipo', 'fed']
+            .find(k => (counts[k] ?? 0) > 0)
+        if (first) {
+            autoOpened.current = true
+            setOpenKey(first)
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [totalData])
+
+    const visibleDesks = DESKS.filter(d => !d.adminOnly || isAdmin)
 
     return (
         <aside className={`floor-lists${openKey ? ' floor-lists--focused' : ''}`}>
@@ -635,11 +749,11 @@ export function FloorLists({
                 <h2 className="floor-sec__title">Lists</h2>
             </header>
 
-            {DESKS.map((desk, i) => (
+            {visibleDesks.map((desk, i) => (
                 <Fragment key={desk.key}>
                 {/* One caption where the group STARTS — a hairline label, not a section header:
                     it names what follows without competing with the desks it is naming. */}
-                {desk.group && desk.group !== DESKS[i - 1]?.group && (
+                {desk.group && desk.group !== visibleDesks[i - 1]?.group && (
                     <div className="floor-lists__grp">{desk.group}</div>
                 )}
                 <Desk
@@ -691,6 +805,25 @@ export function FloorLists({
                         />
                     )}
 
+                    {desk.key === 'shocks' && (
+                        <ShockFeed
+                            signals={shockFeed?.signals ?? []}
+                            opportunities={shockFeed?.opportunities ?? []}
+                            loading={shockFeed?.loading}
+                            onBuild={shockFeed?.onBuild}
+                        />
+                    )}
+
+                    {desk.key === 'research_queue' && (
+                        <ResearchQueueRows
+                            researchQueue={researchQueue}
+                            onStartResearch={onStartResearch}
+                            onMarkResearchDone={onMarkResearchDone}
+                            onRejectResearch={onRejectResearch}
+                            busyId={researchQueueBusyId}
+                        />
+                    )}
+
                     {/* Each dated feed asks the shared renderer for its own kind. Earnings and IPO
                         rows are doorways — clicking one hands the event to Mentor to build a setup
                         around; a Fed row has no ticker to trade, so it is text. */}
@@ -708,6 +841,12 @@ export function FloorLists({
                             ? <p className="floor-empty">Loading…</p>
                             : <SectorView tilt={tilt} />
                     )}
+                    {desk.key === 'channels' && (
+                        <ChannelStateView
+                            channelState={channelState}
+                            loading={calendarLoading.channels && !channelState}
+                        />
+                    )}
                 </Desk>
                 </Fragment>
             ))}
@@ -722,6 +861,7 @@ FloorLists.propTypes = {
     scans:             PropTypes.array,
     coverage:          PropTypes.array,
     queued:            PropTypes.array,
+    shockFeed:         PropTypes.shape({ signals: PropTypes.array, opportunities: PropTypes.array, loading: PropTypes.bool, onBuild: PropTypes.func }),
     onExecuteQueued:   PropTypes.func,
     onCancelQueued:    PropTypes.func,
     queuedBusyId:      PropTypes.string,
@@ -730,19 +870,26 @@ FloorLists.propTypes = {
     fed:               PropTypes.array,
     ipo:               PropTypes.array,
     tilt:              PropTypes.object,
+    channelState:      PropTypes.object,
     // Keyed by desk, not one flag for all four: a slow IPO feed used to hold up the earnings list
     // and the house view alongside it, because the old tab strip had one shared "Loading…".
-    calendarLoading:   PropTypes.object,
-    onEarningSelect:   PropTypes.func,
-    onIpoSelect:       PropTypes.func,
-    onCandidateSelect: PropTypes.func,
-    onEditSetup:       PropTypes.func,
-    onDeleteSetup:     PropTypes.func,
-    onEditPortfolio:   PropTypes.func,
-    onDeletePortfolio: PropTypes.func,
+    calendarLoading:     PropTypes.object,
+    onEarningSelect:     PropTypes.func,
+    onIpoSelect:         PropTypes.func,
+    onCandidateSelect:   PropTypes.func,
+    onEditSetup:         PropTypes.func,
+    onDeleteSetup:       PropTypes.func,
+    onEditPortfolio:     PropTypes.func,
+    onDeletePortfolio:   PropTypes.func,
     onActivatePortfolio: PropTypes.func,
-    onDeleteIdea:      PropTypes.func,
-    onEditScan:        PropTypes.func,
-    onDeleteScan:      PropTypes.func,
-    initialDesk:       PropTypes.string,
+    onDeleteIdea:        PropTypes.func,
+    onEditScan:          PropTypes.func,
+    onDeleteScan:        PropTypes.func,
+    isAdmin:             PropTypes.bool,
+    researchQueue:       PropTypes.array,
+    onStartResearch:     PropTypes.func,
+    onMarkResearchDone:  PropTypes.func,
+    onRejectResearch:    PropTypes.func,
+    researchQueueBusyId: PropTypes.string,
+    initialDesk:         PropTypes.string,
 }

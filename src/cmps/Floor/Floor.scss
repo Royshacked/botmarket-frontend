@@ -443,12 +443,19 @@ $header-h: var(--header-h);
     background: var(--bg-base);
     border-top: 1px solid var(--border);   // same edge as .floor-left — see the note there
     border-left: 1px solid var(--border);
-    // The COLUMN never scrolls — the open desk's list does (see .floor-desk__body). Scrolling here
-    // moved the whole surface: the "Lists" heading and the other three desk headers travelled with
-    // the rows, so reaching the bottom of a long book meant the desk you were reading had scrolled
-    // off the top and the remaining headers had gone with it. The list is the only thing that
-    // overflows, so the list is the only thing that should move.
-    overflow: hidden;
+    // When a desk is open the COLUMN must not scroll — the open desk's body does
+    // (see .floor-desk__body). If the column scrolled, the "Lists" heading and the closed desk
+    // buttons would travel with the list content and disappear off the top.
+    //
+    // When all desks are collapsed they are pure header buttons; if there are more than fit in the
+    // viewport they need to be reachable, so the column scrolls on the Y axis in that state.
+    // It is safe: when a desk IS open, every sibling collapses to max-height:0, so the column
+    // content fits inside 100% height without triggering the scrollbar at all.
+    overflow-x: hidden;
+    overflow-y: auto;
+
+    &::-webkit-scrollbar { width: 7px; }
+    &::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 4px; }
 
     // The heading needs no `position: sticky` now that nothing under it scrolls away from it, and
     // this box needs no scrollbar styling of its own.

@@ -1,0 +1,129 @@
+// ── ShockFeed section body ────────────────────────────────────────────────────
+
+.shock-feed {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+// Sub-tabs: Opportunities / Signals
+.shock-feed__tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border-subtle, #e2e8f0);
+    padding: 0 12px;
+    flex-shrink: 0;
+}
+
+.shock-feed__tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-muted, #64748b);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+
+    &:hover {
+        color: var(--text-primary, #1e293b);
+    }
+
+    &--active {
+        color: var(--accent, #3b82f6);
+        border-bottom-color: var(--accent, #3b82f6);
+    }
+}
+
+.shock-feed__tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--badge-bg, #e2e8f0);
+    color: var(--text-muted, #64748b);
+    font-size: 0.65rem;
+    font-weight: 600;
+
+    .shock-feed__tab--active & {
+        background: var(--accent-subtle, #dbeafe);
+        color: var(--accent, #3b82f6);
+    }
+}
+
+// Scrollable card list — flex sibling of __tabs so the tab bar stays pinned.
+.shock-feed__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+// Risk note inside the detail drawer
+.shock-feed__risk { color: var(--color-warning, #f59e0b); }
+
+// EVENT badge — identifies 8-K sourced signals inside the drawer
+.shock-feed__event-badge {
+    display: inline-block;
+    margin-right: 5px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    background: var(--accent-subtle, #dbeafe);
+    color: var(--accent, #3b82f6);
+    vertical-align: middle;
+}
+
+// Mixed-signal timeframe summary block at the top of the detail drawer
+.shock-feed__mixed-summary {
+    padding: 6px 10px;
+    margin-bottom: 4px;
+    background: var(--surface-raised, #f8fafc);
+    border-radius: 4px;
+    font-size: 0.72rem;
+}
+
+.shock-feed__timeframe {
+    font-weight: 600;
+
+    &--buy  { color: var(--color-buy,  #16a34a); }
+    &--sell { color: var(--color-sell, #dc2626); }
+    &--hold { color: var(--text-muted, #64748b); }
+}
+
+.shock-feed__timeframe-sep {
+    color: var(--text-muted, #64748b);
+    margin: 0 4px;
+}
+
+// ── "Build trade" action button (revealed on row hover via RowHost) ───────────
+
+.shock-feed__build-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--accent, #3b82f6);
+    background: var(--accent-subtle, #dbeafe);
+    border: 1px solid var(--accent-border, #bfdbfe);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s;
+
+    &:hover {
+        background: var(--accent, #3b82f6);
+        color: #fff;
+    }
+}

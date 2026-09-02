@@ -59,6 +59,19 @@
         color: var(--text-dim);
     }
 
+    &__timeframes {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    &__tf-ladder {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-secondary);
+        letter-spacing: 0.04em;
+    }
+
     // The monitor's instruction sheet — free text, so it reads as prose with the little structure
     // that changes how it is judged tagged after it.
     &__conditions {

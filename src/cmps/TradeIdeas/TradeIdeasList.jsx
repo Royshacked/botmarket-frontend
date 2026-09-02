@@ -16,7 +16,8 @@ import { SetupCard } from './SetupCard.jsx'
 import { EditButton, DeleteButton } from '../EntityCard/EntityCard.jsx'
 import { CallCard } from './CallCard.jsx'
 import { isArmed } from '../../services/entityStatus.js'
-import { Radar } from '../Radar/Radar.jsx'
+import { Radar }     from '../Radar/Radar.jsx'
+import { ShockFeed } from './ShockFeed.jsx'
 import './TradeIdeas.scss'
 
 function _separateIdeas(ideas) {
@@ -351,7 +352,7 @@ CardList.propTypes = {
     renderCard: PropTypes.func, lead: PropTypes.node,
 }
 
-export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, buildingCall, loading = false, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, onClosePositions, calls = [], onActCall, onDeleteCall, onEditCall, callBusyId = null, setups = [], setupsLoading = false, onArmSetup, onDisarmSetup, onDeleteSetup, onEditSetup, setupBusyId = null, radar }) {
+export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, buildingCall, loading = false, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, onClosePositions, calls = [], onActCall, onDeleteCall, onEditCall, callBusyId = null, setups = [], setupsLoading = false, onArmSetup, onDisarmSetup, onDeleteSetup, onEditSetup, setupBusyId = null, radar, shockFeed }) {
     const [expandedGroups, setExpandedGroups] = useState(new Set())
     const [activeFilter,   setActiveFilter]   = useState(null)    // null = hub landing
     // The close-at-market flow (confirm → fire → report) is shared with the Floor's book, so it
@@ -466,6 +467,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
     const showIdeas      = activeFilter === 'ideas'
     const showPositions  = activeFilter === 'positions'
     const showRadar      = activeFilter === 'radar'
+    const showShocks     = activeFilter === 'shocks'
     const hasIdeasRows   = topBuildingIdea || ideaRows.length > 0
     const hasPortfolios  = visibleGroups.length > 0
 
@@ -523,6 +525,21 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
             key: 'positions', label: 'Positions', onSelect: selectPositions,
             icon: <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 5.5l6-3 6 3-6 3z"/><path d="M2 8.5l6 3 6-3"/><path d="M2 11.5l6 3 6-3"/></svg>,
             count: positions.length, hubCount: positions.length ? `${positions.length} open` : null,
+            body: 'custom',
+        },
+        {
+            key: 'shocks', label: 'Shocks',
+            icon: <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2L4.5 13.5H11L10 22l9.5-12H14z"/></svg>,
+            count: (shockFeed?.opportunities?.length ?? 0) + (shockFeed?.signals?.length ?? 0),
+            hubCount: (() => {
+                const opps = shockFeed?.opportunities?.length ?? 0
+                const sigs = shockFeed?.signals?.length ?? 0
+                if (!opps && !sigs) return null
+                const parts = []
+                if (opps) parts.push(`${opps} actionable`)
+                if (sigs) parts.push(`${sigs} signals`)
+                return parts.join(' · ')
+            })(),
             body: 'custom',
         },
     ]
@@ -712,6 +729,14 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                             onOpen={handleOpenPosition}
                         />
                     )
+                ) : showShocks ? (
+                    <ShockFeed
+                        signals={shockFeed?.signals ?? []}
+                        opportunities={shockFeed?.opportunities ?? []}
+                        loading={shockFeed?.loading}
+                        onBuild={shockFeed?.onBuild}
+                        onSymbolClick={onSymbolClick}
+                    />
                 ) : (
                     (!hasPortfolios && !buildingPortfolio) ? (
                         <p className="trade-ideas-list__empty">No portfolios yet</p>
@@ -799,4 +824,10 @@ TradeIdeasList.propTypes = {
     onEditSetup:      PropTypes.func,
     setupBusyId:      PropTypes.string,
     radar:            PropTypes.object,
+    shockFeed:        PropTypes.shape({
+        signals:       PropTypes.array,
+        opportunities: PropTypes.array,
+        loading:       PropTypes.bool,
+        onBuild:       PropTypes.func,
+    }),
 }

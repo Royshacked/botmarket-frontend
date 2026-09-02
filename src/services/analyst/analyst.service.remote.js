@@ -7,8 +7,11 @@ import { makeEntityApi } from '../entityApi'
 
 const BASE = 'api/analyst'
 
-const api = makeEntityApi({ base: `${BASE}/coverage`, changeEvent: 'analyst-coverage-changed' })
-export const COVERAGE_CHANGED = api.changeEvent
+const api      = makeEntityApi({ base: `${BASE}/coverage`,        changeEvent: 'analyst-coverage-changed' })
+const queueApi = makeEntityApi({ base: `${BASE}/research-queue`,  changeEvent: 'analyst-research-queue-changed' })
+
+export const COVERAGE_CHANGED       = api.changeEvent
+export const RESEARCH_QUEUE_CHANGED = queueApi.changeEvent
 
 export const analystService = {
     sendStream,
@@ -18,6 +21,10 @@ export const analystService = {
     updateCoverage,
     retireCoverage,
     deleteCoverage,
+    listResearchQueue,
+    startResearch,
+    markResearchDone,
+    rejectResearch,
 }
 
 // Streaming research chat. `seed` (a structured Argus investing candidate) pre-seeds the research on
@@ -47,3 +54,13 @@ function retireCoverage(id) { return api.post(`/${encodeURIComponent(id)}/retire
 
 // PERMANENT: the document and its whole revision trail are removed. No undo — callers confirm first.
 function deleteCoverage(id) { return api.remove(id) }
+
+// ── Research queue (admin) ────────────────────────────────────────────────────
+// List: `status` can be a single string or an array. Default shows active work.
+function listResearchQueue(params = {}) { return queueApi.list(params) }
+// Move queued → in_research (claim before starting Prometheus manually).
+function startResearch(id)    { return queueApi.post(`/${encodeURIComponent(id)}/start`) }
+// Move in_research → done (call after the thesis is written and coverage is initiated).
+function markResearchDone(id) { return queueApi.post(`/${encodeURIComponent(id)}/done`) }
+// Move → rejected (misfire or admin decision).
+function rejectResearch(id)   { return queueApi.post(`/${encodeURIComponent(id)}/reject`) }
