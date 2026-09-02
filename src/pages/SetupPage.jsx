@@ -276,47 +276,39 @@ export function SetupPage() {
                 </div>
 
                 <div className="idea-dialog__conditions setup-page__panel">
-                    {/* First in the column on purpose: a pending proposal is the only thing here
-                        that is waiting on the user. The plan below it isn't going anywhere. */}
+                    {/* Actionable cards first — these are waiting on the user. */}
                     {isLivePosition(setup.status) && setup.position_state?.pending_action && (
                         <ManagementCard
                             pending={setup.position_state.pending_action} busy={busy}
                             onAccept={v => act(v)} onDismiss={() => act('dismiss')}
                         />
                     )}
-
-                    {/* Same slot, pre-entry: the other thing that can be waiting on the user here.
-                        The two are mutually exclusive by status, so they never stack. */}
                     {needsRedraw && (
                         <StaleMapCard setup={setup} onRedraw={hasOpener() ? handleRedraw : null} />
                     )}
 
+                    {/* ── 1. Trade general info ── */}
                     {setup.thesis && <p className="setup-page__thesis">{setup.thesis}</p>}
-
-                    {/* Above the plan on purpose. The plan is what was AUTHORED and it does not
-                        change; this is what is happening to it right now, which is what the user
-                        opened the window to find out. The journal below is the whole history.
-                        Pre-entry only — see showsWatch: past entry the management card above is the
-                        live surface, and last_assessment would be the read that got us IN. */}
-                    {showsWatch(setup.status) && <TalosWatch setup={setup} />}
-
-                    {/* The same slot, past entry: what is happening to the plan RIGHT NOW. Where a
-                        call shows this only once it has closed — its live position and Close button
-                        are in the footer, so a second box would just repeat them — a setup shows it
-                        while the trade is on, because the footer answers a different question. The
-                        footer is the broker's view (open size, P&L, close it). This is the plan's:
-                        how far the trade has come in R, where the stop has been moved to, and the
-                        TARGET LADDER — which for a setup is a ladder of windows, so it is the only
-                        place the user can see that Talos will offer a partial at 246 while their
-                        limit rests at 247.2. */}
-                    {(isLivePosition(setup.status) || isTerminal(setup.status)) && setup.position_state && (
-                        <PositionPanel ps={setup.position_state} status={setup.status} />
+                    <div className="setup-page__metrics">
+                        <ConvictionChip conviction={setup.conviction} />
+                        {setup.mode && <span className="setup-page__mode">{setup.mode}</span>}
+                        {setup.brokerSymbol && <span className="setup-page__broker">trades as {setup.brokerSymbol}</span>}
+                    </div>
+                    {setup.monitor_state?.memo && (
+                        <p className="setup-page__memo">{setup.monitor_state.memo}</p>
                     )}
 
+                    {/* ── 2. Requested setup + timeframes ── */}
+                    <span className="setup-page__section-label">Requested setup</span>
+                    {(setup.timeframe || setup.ladder?.length) && (
+                        <div className="setup-page__timeframes">
+                            {setup.ladder?.length > 1
+                                ? <span className="setup-page__tf-ladder">{setup.ladder.join(' → ')}</span>
+                                : <span className="setup-page__tf-ladder">{setup.timeframe}</span>
+                            }
+                        </div>
+                    )}
                     <ConditionRow label="Always" conditions={setup.conditions} />
-
-                    {/* Every way in, not just the projected one. A rival premise can be dead while
-                        another is still armed, and one set of levels would hide that entirely. */}
                     {(setup.scenarios ?? []).map((sc, i) => (
                         <ScenarioSection
                             key={sc.id ?? i}
@@ -327,16 +319,17 @@ export function SetupPage() {
                         />
                     ))}
 
-                    <div className="setup-page__metrics">
-                        <ConvictionChip conviction={setup.conviction} />
-                        {setup.mode && <span className="setup-page__mode">{setup.mode}</span>}
-                        {setup.brokerSymbol && <span className="setup-page__broker">trades as {setup.brokerSymbol}</span>}
-                    </div>
+                    {/* ── 3–5. Monitor state → next check → findings (pre-entry only) ──
+                        Past entry the management card above is the live surface; last_assessment
+                        would be the read that got us IN, not a current read. */}
+                    {showsWatch(setup.status) && <TalosWatch setup={setup} />}
 
-                    {setup.monitor_state?.memo && (
-                        <p className="setup-page__memo">{setup.monitor_state.memo}</p>
+                    {/* Past entry: position panel (R, stop, target ladder). */}
+                    {(isLivePosition(setup.status) || isTerminal(setup.status)) && setup.position_state && (
+                        <PositionPanel ps={setup.position_state} status={setup.status} />
                     )}
 
+                    {/* ── Journal ── */}
                     <span className="setup-page__section-label">Talos journal</span>
                     <MonitorJournal
                         timeline={setup.monitor_state?.timeline}

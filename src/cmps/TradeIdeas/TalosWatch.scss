@@ -52,6 +52,28 @@
 
     &__tier-detail { min-width: 0; }
 
+    // ── Next scheduled check ──
+    &__next {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        font-size: 11.5px;
+    }
+
+    &__next-label {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+    }
+
+    &__next-val {
+        color: var(--text-secondary);
+        font-family: var(--font-mono);
+        font-size: 11px;
+    }
+
     // ── The last read ──
     &__empty {
         margin: 0;
