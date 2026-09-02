@@ -12,6 +12,7 @@ const BASE = 'api/aether'
 export const aetherService = {
     sendStream,
     getChannelState,
+    getPredictedChannelState,
     getForecasts,
     getExposure,
     getShockFeed,
@@ -26,6 +27,11 @@ async function sendStream(messages, opts = {}) {
 /** Current channel state snapshot — null until the Python engine has run Phase 1. */
 function getChannelState() {
     return httpService.get(`${BASE}/state`)
+}
+
+/** News-adjusted predicted channel state between FRED releases — null until B1c has run. */
+function getPredictedChannelState() {
+    return httpService.get(`${BASE}/predicted-state`)
 }
 
 /** Latest forecasts — null until Phase 6. */

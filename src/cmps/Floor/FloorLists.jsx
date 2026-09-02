@@ -676,7 +676,7 @@ export function FloorLists({
     onEditScan, onDeleteScan,
     onEditCoverage, onRetireCoverage, onDeleteCoverage,
     onExecuteQueued, onCancelQueued, queuedBusyId = null,
-    earnings = [], fed = [], ipo = [], tilt = null, channelState = null, calendarLoading = {},
+    earnings = [], fed = [], ipo = [], tilt = null, channelState = null, predictedChannelState = null, calendarLoading = {},
     onEarningSelect, onIpoSelect,
     isAdmin = false,
     researchQueue = [], onStartResearch, onMarkResearchDone, onRejectResearch, researchQueueBusyId = null,
@@ -843,6 +843,7 @@ export function FloorLists({
                     {desk.key === 'channels' && (
                         <ChannelStateView
                             channelState={channelState}
+                            predictedChannelState={predictedChannelState}
                             loading={calendarLoading.channels && !channelState}
                         />
                     )}

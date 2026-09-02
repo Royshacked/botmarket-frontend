@@ -30,6 +30,9 @@ export function useCalendarEvents() {
     const [channelState, setChannelState]         = useState(null)
     const [channelStateLoading, setChannelStateLoading] = useState(false)
 
+    const [predictedChannelState, setPredictedChannelState]         = useState(null)
+    const [predictedChannelStateLoading, setPredictedChannelStateLoading] = useState(false)
+
     useEffect(() => {
         let active = true
 
@@ -55,6 +58,7 @@ export function useCalendarEvents() {
             load(calendarService.getIpo, setIpoLoading, setIpo)
             load(strategyService.getCurrentTilt, setTiltLoading, setTilt)
             load(aetherService.getChannelState, setChannelStateLoading, setChannelState)
+            load(aetherService.getPredictedChannelState, setPredictedChannelStateLoading, setPredictedChannelState)
         }
 
         refresh()
@@ -67,5 +71,5 @@ export function useCalendarEvents() {
         return () => { active = false; clearInterval(t); window.removeEventListener(TILT_CHANGED, refresh) }
     }, [])
 
-    return { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, tilt, tiltLoading, channelState, channelStateLoading }
+    return { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, tilt, tiltLoading, channelState, channelStateLoading, predictedChannelState, predictedChannelStateLoading }
 }

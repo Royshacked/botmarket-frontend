@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import PropTypes from 'prop-types'
 import './ChannelStateView.scss'
 
@@ -11,6 +12,10 @@ import './ChannelStateView.scss'
 // between engine runs, so fetching it each time would save nothing and add a round-trip.
 //
 // Rendered in the Floor Lists rail under the Calendar group, beside Forecasts (Pythia's house view).
+//
+// Two modes — toggle shown only when predictedChannelState is available:
+//   FRED      — published FRED z-scores from channel_state (default)
+//   Predicted — news-adjusted z-scores between FRED releases, with Δ annotation per channel
 
 const CLOCK_GROUPS = [
     {
@@ -110,15 +115,23 @@ function _date(iso) {
         : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })
 }
 
-function ChannelRow({ id, z }) {
-    const label = CHANNEL_LABEL[id] ?? id.replace(/_/g, ' ')
-    const tone  = _tone(z)
-    const width = _barWidth(z)
-    const pos   = z !== null && z !== undefined && z >= 0
+function ChannelRow({ id, z, delta = null }) {
+    const label    = CHANNEL_LABEL[id] ?? id.replace(/_/g, ' ')
+    const tone     = _tone(z)
+    const width    = _barWidth(z)
+    const pos      = z !== null && z !== undefined && z >= 0
+    const hasDelta = delta !== null && Number.isFinite(delta) && delta !== 0
 
     return (
         <div className="ch-view__row">
-            <span className="ch-view__name">{label}</span>
+            <span className="ch-view__name">
+                {label}
+                {hasDelta && (
+                    <span className="ch-view__delta">
+                        {' '}Δ{delta >= 0 ? '+' : ''}{delta.toFixed(2)}
+                    </span>
+                )}
+            </span>
             <div className="ch-view__bar-track">
                 {/* Bar grows from the centre toward the relevant side */}
                 {Number.isFinite(z) && (
@@ -137,12 +150,15 @@ function ChannelRow({ id, z }) {
         </div>
     )
 }
-ChannelRow.propTypes = { id: PropTypes.string.isRequired, z: PropTypes.number }
+ChannelRow.propTypes = { id: PropTypes.string.isRequired, z: PropTypes.number, delta: PropTypes.number }
 
-export function ChannelStateView({ channelState = null, loading = false }) {
+export function ChannelStateView({ channelState = null, predictedChannelState = null, loading = false }) {
+    const [view, setView] = useState('fred')
+    const showPredicted = view === 'predicted' && predictedChannelState !== null
+
     if (loading) return <div className="news-feed__loader"><span /><span /><span /></div>
 
-    if (!channelState) {
+    if (!channelState && !predictedChannelState) {
         return (
             <p className="news-feed__empty">
                 Channel state not yet available. The Aether engine writes here after Phase 1 runs.
@@ -150,16 +166,37 @@ export function ChannelStateView({ channelState = null, loading = false }) {
         )
     }
 
-    const channels = channelState.channels ?? {}
-    const asOf     = _date(channelState.computed_at)
+    const channels = showPredicted
+        ? (predictedChannelState.channels ?? {})
+        : (channelState?.channels ?? {})
+    const deltas = showPredicted ? (predictedChannelState.news_delta_applied ?? {}) : {}
+    const asOf   = showPredicted
+        ? (predictedChannelState.run_date ?? null)
+        : _date(channelState?.computed_at)
 
     return (
         <div className="ch-view">
             <div className="ch-view__header">
-                {channelState.regime_label && (
+                {predictedChannelState && (
+                    <div className="ch-view__toggle">
+                        <button
+                            className={`ch-view__toggle-btn${!showPredicted ? ' ch-view__toggle-btn--active' : ''}`}
+                            onClick={() => setView('fred')}
+                        >FRED</button>
+                        <button
+                            className={`ch-view__toggle-btn${showPredicted ? ' ch-view__toggle-btn--active' : ''}`}
+                            onClick={() => setView('predicted')}
+                        >Predicted</button>
+                    </div>
+                )}
+                {!showPredicted && channelState?.regime_label && (
                     <span className="ch-view__regime">{channelState.regime_label}</span>
                 )}
-                {asOf && <span className="ch-view__asof">computed {asOf}</span>}
+                {asOf && (
+                    <span className="ch-view__asof">
+                        {showPredicted ? `predicted · ${asOf}` : `computed ${asOf}`}
+                    </span>
+                )}
             </div>
 
             {CLOCK_GROUPS.map(group => {
@@ -170,20 +207,28 @@ export function ChannelStateView({ channelState = null, loading = false }) {
                     <div key={group.key} className="ch-view__group">
                         <div className="ch-view__group-label">{group.label}</div>
                         {withData.map(id => (
-                            <ChannelRow key={id} id={id} z={channels[id] ?? null} />
+                            <ChannelRow
+                                key={id}
+                                id={id}
+                                z={channels[id] ?? null}
+                                delta={showPredicted ? (deltas[id] ?? null) : null}
+                            />
                         ))}
                     </div>
                 )
             })}
 
             <p className="ch-view__note">
-                z-score vs trailing regime baseline · |z| &gt; 1 = active pressure
+                {showPredicted
+                    ? `news-adjusted z · FRED anchor: ${predictedChannelState.fred_date ?? '—'} · Δ = news delta`
+                    : 'z-score vs trailing regime baseline · |z| > 1 = active pressure'}
             </p>
         </div>
     )
 }
 
 ChannelStateView.propTypes = {
-    channelState: PropTypes.object,
-    loading:      PropTypes.bool,
+    channelState:          PropTypes.object,
+    predictedChannelState: PropTypes.object,
+    loading:               PropTypes.bool,
 }

@@ -10,12 +10,45 @@
     // ── header: regime label + computed date ─────────────────────────────────
     &__header {
         display: flex;
-        align-items: baseline;
+        align-items: center;
         gap: 8px;
-        padding: 8px 12px;
+        padding: 6px 10px;
         border: 1px solid var(--border);
         border-radius: 8px;
         background: var(--bg-base);
+    }
+
+    // ── FRED / Predicted toggle ───────────────────────────────────────────────
+    &__toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        padding: 2px;
+        background: var(--bg-elevated, var(--surface-raised, #f8fafc));
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        flex-shrink: 0;
+    }
+
+    &__toggle-btn {
+        padding: 2px 9px;
+        font-size: 11px;
+        font-weight: 500;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        color: var(--text-muted);
+        background: transparent;
+        line-height: 1.6;
+        transition: background 0.12s, color 0.12s;
+
+        &--active {
+            color: var(--text-primary);
+            background: var(--bg-base);
+            box-shadow: 0 0 0 1px var(--border);
+        }
+
+        &:not(&--active):hover { color: var(--text-secondary); }
     }
 
     &__regime {
@@ -74,6 +107,17 @@
         color: var(--text-primary);
         overflow: hidden;
         text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 0;
+    }
+
+    // News delta annotation (predicted view only) — dim mono text after the channel name.
+    // Inline so it sits on the same line; white-space: nowrap prevents wrapping.
+    &__delta {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--text-muted);
+        font-weight: 400;
         white-space: nowrap;
     }
 
