@@ -159,6 +159,106 @@
     margin: 0 4px;
 }
 
+// ── Action label badge (row-level urgency indicator) ─────────────────────────
+// Only "act now", "build soon", "accumulate" are shown — "watch" is hidden.
+.shock-feed__action-label {
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    flex-shrink: 0;
+
+    &--act-now {
+        background: color-mix(in srgb, var(--color-long, #16a34a) 14%, transparent);
+        color: var(--long-text, #15803d);
+        border: 1px solid color-mix(in srgb, var(--color-long, #16a34a) 32%, transparent);
+    }
+
+    &--build-soon {
+        background: color-mix(in srgb, var(--accent, #3b82f6) 12%, transparent);
+        color: var(--accent, #3b82f6);
+        border: 1px solid color-mix(in srgb, var(--accent, #3b82f6) 28%, transparent);
+    }
+
+    &--accumulate {
+        background: color-mix(in srgb, #f59e0b 12%, transparent);
+        color: #b45309;
+        border: 1px solid color-mix(in srgb, #f59e0b 32%, transparent);
+    }
+}
+
+// ── Date added stamp (dim, end of row) ───────────────────────────────────────
+.shock-feed__date {
+    font-size: 0.68rem;
+    color: var(--text-dim, var(--text-muted));
+    font-family: var(--font-mono);
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+// ── Plain-language summary (top of detail drawer, before technical blocks) ────
+.shock-feed__plain-summary {
+    margin: 0 0 10px;
+    padding: 8px 10px;
+    border-radius: 5px;
+    background: var(--bg-elevated, var(--surface-raised, #f8fafc));
+    border-left: 2px solid var(--accent, #3b82f6);
+    font-size: 0.78rem;
+    color: var(--text-primary);
+    line-height: 1.55;
+}
+
+// ── Channel block header (app-style, replaces raw monospace label string) ─────
+.floor-detail__header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+
+    // Override the floor-row__rating size inside the header — it's slightly
+    // smaller here since it's a detail section, not a full row.
+    .floor-row__rating {
+        font-size: 0.68rem;
+        padding: 1px 6px;
+    }
+
+    .floor-row__status {
+        font-size: 0.68rem;
+    }
+}
+
+.floor-detail__header-name {
+    font-size: 0.77rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    flex-shrink: 0;
+}
+
+.floor-detail__header-dim {
+    font-weight: 400;
+    color: var(--text-secondary);
+}
+
+.floor-detail__header-conf {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--text-muted);
+}
+
+.floor-detail__header-meta {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    background: var(--bg-elevated, #f8fafc);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0 4px;
+}
+
 // ── "Build trade" action button (revealed on row hover via RowHost) ───────────
 
 .shock-feed__build-btn {

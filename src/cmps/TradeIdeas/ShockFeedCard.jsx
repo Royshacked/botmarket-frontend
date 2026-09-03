@@ -41,6 +41,14 @@ function _lagStr(min, max) {
     return min === max ? `${min}w` : `${min}-${max}w`
 }
 
+// "Added Sep 1" from an ISO datetime string
+function _shortDate(iso) {
+    if (!iso) return null
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return null
+    return `Added ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+}
+
 // Per-channel detail block — shared by both row types
 function ChannelBlock({ ch }) {
     const isEvent = ch.source_type === 'event'
@@ -48,19 +56,31 @@ function ChannelBlock({ ch }) {
         ? (ch.event_type ?? 'EVENT')
         : ch.channel_id?.replace(/_/g, ' ')
     const dimLabel = ch.dimension ? (DIM_LABEL[ch.dimension] ?? ch.dimension) : null
+    const rating   = TICK_RATING[ch.ticker_direction] ?? 'hold'
 
     return (
         <div className="floor-detail__block">
-            <span className="floor-detail__label">
-                {isEvent && <span className="shock-feed__event-badge">EVENT</span>}
-                {label}
-                {dimLabel && ` · ${dimLabel}`}
-                {' · '}{ch.ticker_direction}
-                {' · '}{_lagStr(ch.lag_weeks_min, ch.lag_weeks_max)}
-                {' · conf '}{(ch.confidence_llm ?? 0).toFixed(2)}
-                {ch.source_count > 1 && ` · ${ch.source_count} sources`}
-                {ch.dollar_amount && ` · $${ch.dollar_amount.toFixed(1)}B`}
-            </span>
+            {/* Channel header — app-style badges instead of raw concatenated string */}
+            <div className="floor-detail__header">
+                <span className="floor-detail__header-name">
+                    {isEvent && <span className="shock-feed__event-badge">EVENT</span>}
+                    {label}
+                    {dimLabel && <span className="floor-detail__header-dim"> · {dimLabel}</span>}
+                </span>
+                <span className={`floor-row__rating floor-row__rating--${rating}`}>
+                    {ch.ticker_direction}
+                </span>
+                <span className="floor-row__status">{_lagStr(ch.lag_weeks_min, ch.lag_weeks_max)}</span>
+                <span className="floor-detail__header-conf">
+                    conf {(ch.confidence_llm ?? 0).toFixed(2)}
+                </span>
+                {ch.source_count > 1 && (
+                    <span className="floor-detail__header-meta">{ch.source_count} sources</span>
+                )}
+                {ch.dollar_amount && (
+                    <span className="floor-detail__header-meta">${ch.dollar_amount.toFixed(1)}B</span>
+                )}
+            </div>
             {ch.company_context     && <p className="floor-detail__company">{ch.company_context}</p>}
             {ch.direction_rationale && <p className="floor-detail__direction">{ch.direction_rationale}</p>}
             {ch.lag_explanation     && <p className="floor-detail__lag">{ch.lag_explanation}</p>}
@@ -105,6 +125,8 @@ export function OpportunityRow({ group, onBuild, open, folded, onToggle }) {
     const dirLabel   = group.mixed ? 'mixed' : group.ticker_direction
     const rating     = TICK_RATING[dirLabel] ?? 'hold'
     const companyName = primary?.company_name ?? null
+    const actionLabel = primary?.action_label ?? null
+    const dateLabel   = _shortDate(primary?.created_at)
 
     const buildBtn = onBuild ? (
         <button
@@ -132,6 +154,11 @@ export function OpportunityRow({ group, onBuild, open, folded, onToggle }) {
                     <span className={`floor-row__rating floor-row__rating--${rating}`}>
                         {dirLabel}
                     </span>
+                    {actionLabel && actionLabel !== 'watch' && (
+                        <span className={`shock-feed__action-label shock-feed__action-label--${actionLabel.replace(' ', '-')}`}>
+                            {actionLabel}
+                        </span>
+                    )}
                     <span className="floor-row__kind floor-row__kind--dim">
                         {nCh === 1 ? primary.channel_id?.replace(/_/g, ' ') : ''}
                     </span>
@@ -139,12 +166,16 @@ export function OpportunityRow({ group, onBuild, open, folded, onToggle }) {
                     <span className="floor-row__status">
                         {_lagStr(group.lag_weeks_min, group.lag_weeks_max)}
                     </span>
+                    {dateLabel && <span className="shock-feed__date">{dateLabel}</span>}
                 </button>
             </RowHost>
 
             {open && (
                 <div className="floor-sub__body">
                     <div className="floor-detail">
+                        {primary?.plain_summary && (
+                            <p className="shock-feed__plain-summary">{primary.plain_summary}</p>
+                        )}
                         <MixedSummary group={group} />
                         {group.channels.map((ch, i) => (
                             <ChannelBlock key={`${ch.channel_id}:${i}`} ch={ch} />
@@ -171,6 +202,8 @@ export function SignalRow({ group, open, folded, onToggle }) {
     const dirLabel    = group.mixed ? 'mixed' : group.ticker_direction
     const rating      = TICK_RATING[dirLabel] ?? 'hold'
     const companyName = primary?.company_name ?? null
+    const actionLabel = primary?.action_label ?? null
+    const dateLabel   = _shortDate(primary?.created_at)
 
     return (
         <div className={`floor-sub${open ? ' floor-sub--open' : folded ? ' floor-sub--folded' : ''}`}>
@@ -187,6 +220,11 @@ export function SignalRow({ group, open, folded, onToggle }) {
                 <span className={`floor-row__rating floor-row__rating--${rating}`}>
                     {dirLabel}
                 </span>
+                {actionLabel && actionLabel !== 'watch' && (
+                    <span className={`shock-feed__action-label shock-feed__action-label--${actionLabel.replace(' ', '-')}`}>
+                        {actionLabel}
+                    </span>
+                )}
                 <span className="floor-row__kind floor-row__kind--dim">
                     {nCh === 1 ? primary.channel_id?.replace(/_/g, ' ') : ''}
                 </span>
@@ -194,11 +232,15 @@ export function SignalRow({ group, open, folded, onToggle }) {
                 <span className="floor-row__status">
                     {_lagStr(group.lag_weeks_min, group.lag_weeks_max)}
                 </span>
+                {dateLabel && <span className="shock-feed__date">{dateLabel}</span>}
             </button>
 
             {open && (
                 <div className="floor-sub__body">
                     <div className="floor-detail">
+                        {primary?.plain_summary && (
+                            <p className="shock-feed__plain-summary">{primary.plain_summary}</p>
+                        )}
                         <MixedSummary group={group} />
                         {group.channels.map((ch, i) => (
                             <ChannelBlock key={`${ch.channel_id}:${i}`} ch={ch} />
