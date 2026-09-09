@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { calendarService } from '../services/calendar/calendar.service.remote.js'
 import { strategyService, TILT_CHANGED } from '../services/strategy/strategy.service.remote.js'
-import { aetherService } from '../services/aether/aether.service.remote.js'
 
 const REFRESH_MS = 60 * 60 * 1000  // re-fetch once per hour
 
@@ -27,11 +26,7 @@ export function useCalendarEvents() {
     // Aether's channel-state house view — the calendar's fifth tab. Same reasoning as tilt above:
     // both are standing engine views, not dated feeds, but they belong with the calendar group
     // because they answer the same question the fed/earnings feeds do, just at a different clock.
-    const [channelState, setChannelState]         = useState(null)
-    const [channelStateLoading, setChannelStateLoading] = useState(false)
 
-    const [predictedChannelState, setPredictedChannelState]         = useState(null)
-    const [predictedChannelStateLoading, setPredictedChannelStateLoading] = useState(false)
 
     useEffect(() => {
         let active = true
@@ -57,8 +52,6 @@ export function useCalendarEvents() {
             load(calendarService.getFed, setFedLoading, setFed)
             load(calendarService.getIpo, setIpoLoading, setIpo)
             load(strategyService.getCurrentTilt, setTiltLoading, setTilt)
-            load(aetherService.getChannelState, setChannelStateLoading, setChannelState)
-            load(aetherService.getPredictedChannelState, setPredictedChannelStateLoading, setPredictedChannelState)
         }
 
         refresh()
@@ -71,5 +64,5 @@ export function useCalendarEvents() {
         return () => { active = false; clearInterval(t); window.removeEventListener(TILT_CHANGED, refresh) }
     }, [])
 
-    return { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, tilt, tiltLoading, channelState, channelStateLoading, predictedChannelState, predictedChannelStateLoading }
+    return { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, tilt, tiltLoading }
 }

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { AetherCandidates } from './AetherCandidates.jsx'
-import { ADMIN, MEMBER, authModule } from '../../testUtils/authStub.js'
+import { ADMIN, MEMBER } from '../../testUtils/authStub.js'
 
 // Discovery is the one leg of the engine that spends per press — an Opus call with web
 // search for each event it selects, plus several hundred SEC requests — so it is off the

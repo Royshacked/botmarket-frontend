@@ -78,7 +78,7 @@ describe('FloorLists', () => {
             expect(desks.some(d => d.className.includes('floor-desk--folded'))).toBe(false)
             expect(desks.map(d => d.querySelector('.floor-desk__label').textContent))
                 .toEqual(['Queued', 'Trading floor', 'Portfolio floor', 'Scans', 'Coverage',
-                          'Aether', 'Earnings', 'Fed', 'IPO', 'Forecasts', 'Channels'])
+                          'Aether', 'Earnings', 'Fed', 'IPO', 'Forecasts'])
         })
 
         // A folded header is still readable and still reports its state — it is just not somewhere

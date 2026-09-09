@@ -11,10 +11,6 @@ const BASE = 'api/aether'
 
 export const aetherService = {
     sendStream,
-    getChannelState,
-    getPredictedChannelState,
-    getForecasts,
-    getExposure,
     getCandidates,
     startDiscovery,
     getDiscoveryStatus,
@@ -24,26 +20,6 @@ export const aetherService = {
 async function sendStream(messages, opts = {}) {
     const { model } = opts
     await streamAgent(BASE, { messages, model }, opts)
-}
-
-/** Current channel state snapshot — null until the Python engine has run Phase 1. */
-function getChannelState() {
-    return httpService.get(`${BASE}/state`)
-}
-
-/** News-adjusted predicted channel state between FRED releases — null until B1c has run. */
-function getPredictedChannelState() {
-    return httpService.get(`${BASE}/predicted-state`)
-}
-
-/** Latest forecasts — null until Phase 6. */
-function getForecasts() {
-    return httpService.get(`${BASE}/forecasts`)
-}
-
-/** Name-level channel exposure — null until Phase 3. */
-function getExposure(ticker) {
-    return httpService.get(`${BASE}/exposure/${encodeURIComponent(ticker)}`)
 }
 
 /**

@@ -605,7 +605,7 @@ export function MainPage() {
         handleBackToAxl()
     }
 
-    const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, tilt, tiltLoading, channelState, channelStateLoading, predictedChannelState } = useCalendarEvents()
+    const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, tilt, tiltLoading } = useCalendarEvents()
     const { scans, loading: scansLoading, createScan, updateScan, deleteScan } = useScans()
     const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
     const { workspace, setWorkspace } = useWorkspaceMode(user?._id)
@@ -2990,14 +2990,11 @@ export function MainPage() {
                                     fed={fed}
                                     ipo={ipo}
                                     tilt={tilt}
-                                    channelState={channelState}
-                                    predictedChannelState={predictedChannelState}
                                     calendarLoading={{
                                         earnings:  earningsLoading,
                                         fed:       fedLoading,
                                         ipo:       ipoLoading,
                                         forecasts: tiltLoading,
-                                        channels:  channelStateLoading,
                                     }}
                                     aetherCandidates={{ runs: aetherRuns, loading: aetherLoading }}
                                     onEarningSelect={handleBuildFromEarning}

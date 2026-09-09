@@ -15,7 +15,6 @@ import { nextRevision, NEXT_REVISION_HINT } from '../Radar/coverage.utils.js'
 import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
 import { CalendarRows } from './CalendarRows.jsx'
 import { SectorView } from '../Radar/SectorView.jsx'
-import { ChannelStateView } from '../Radar/ChannelStateView.jsx'
 
 import './Floor.scss'
 import { AetherCandidates } from '../TradeIdeas/AetherCandidates.jsx'
@@ -61,9 +60,8 @@ const DESKS = [
     // Not a dated list at all — the house view, rendered as a board. It sits with the calendar
     // because it answers the same question, not because it shares its shape.
     { key: 'forecasts', label: 'Forecasts', group: 'Calendar' },
-    // Aether's channel-state view — z-score per pressure channel, grouped by clock speed.
-    // Also not a dated list; same reasoning as Forecasts above.
-    { key: 'channels',  label: 'Channels',  group: 'Calendar' },
+    // A `channels` desk sat here — Aether's z-score per pressure channel. It went with the
+    // channel engine on 2026-09-09, along with the collection behind it.
 ]
 
 function openFor(item) {
@@ -677,7 +675,7 @@ export function FloorLists({
     onEditScan, onDeleteScan,
     onEditCoverage, onRetireCoverage, onDeleteCoverage,
     onExecuteQueued, onCancelQueued, queuedBusyId = null,
-    earnings = [], fed = [], ipo = [], tilt = null, channelState = null, predictedChannelState = null, calendarLoading = {},
+    earnings = [], fed = [], ipo = [], tilt = null, calendarLoading = {},
     onEarningSelect, onIpoSelect,
     isAdmin = false,
     researchQueue = [], onStartResearch, onMarkResearchDone, onRejectResearch, researchQueueBusyId = null,
@@ -832,13 +830,6 @@ export function FloorLists({
                             ? <p className="floor-empty">Loading…</p>
                             : <SectorView tilt={tilt} />
                     )}
-                    {desk.key === 'channels' && (
-                        <ChannelStateView
-                            channelState={channelState}
-                            predictedChannelState={predictedChannelState}
-                            loading={calendarLoading.channels && !channelState}
-                        />
-                    )}
                 </Desk>
                 </Fragment>
             ))}
@@ -862,7 +853,6 @@ FloorLists.propTypes = {
     fed:               PropTypes.array,
     ipo:               PropTypes.array,
     tilt:              PropTypes.object,
-    channelState:      PropTypes.object,
     // Keyed by desk, not one flag for all four: a slow IPO feed used to hold up the earnings list
     // and the house view alongside it, because the old tab strip had one shared "Loading…".
     calendarLoading:     PropTypes.object,
