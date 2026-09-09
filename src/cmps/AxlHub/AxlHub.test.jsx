@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 
+// Every component below calls useAuth(); without a provider it is null and the
+// destructure throws before the first assertion. See testUtils/authStub.js.
+vi.mock('../../context/AuthContext.jsx', async (orig) => {
+    const { authModule } = await import('../../testUtils/authStub.js')
+    return authModule(await orig())
+})
+
 // jsdom has no layout — useChatScroll calls scrollIntoView after every turn.
 window.HTMLElement.prototype.scrollIntoView = vi.fn()
 

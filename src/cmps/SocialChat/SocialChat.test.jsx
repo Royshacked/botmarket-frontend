@@ -28,6 +28,13 @@ vi.mock('./ChatWindow',       () => ({ ChatWindow:       () => <div data-testid=
 import { SocialChat }  from './SocialChat.jsx'
 import { chatService } from '../../services/chat/chat.service'
 
+// Every component below calls useAuth(); without a provider it is null and the
+// destructure throws before the first assertion. See testUtils/authStub.js.
+vi.mock('../../context/AuthContext.jsx', async (orig) => {
+    const { authModule } = await import('../../testUtils/authStub.js')
+    return authModule(await orig())
+})
+
 const conv = (id, unread = 0) => ({ id, unread, participants: ['u_1', 'u_2'], lastMessage: '' })
 const fire = (ev, data) => listeners[ev]?.forEach(h => h(data))
 

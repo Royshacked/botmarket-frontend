@@ -2,6 +2,13 @@ import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { CoverageActions } from './CoverageActions.jsx'
 
+// Every component below calls useAuth(); without a provider it is null and the
+// destructure throws before the first assertion. See testUtils/authStub.js.
+vi.mock('../../context/AuthContext.jsx', async (orig) => {
+    const { authModule } = await import('../../testUtils/authStub.js')
+    return authModule(await orig())
+})
+
 // Retire and Delete are DIFFERENT operations wearing similar words: retire archives the thesis and
 // keeps its revision trail, delete removes the document for good. The confirm step is the only thing
 // standing between a click and losing that history, so it is what these tests pin down.
