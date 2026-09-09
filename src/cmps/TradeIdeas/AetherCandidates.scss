@@ -15,6 +15,29 @@
     padding: 12px;
 }
 
+// Admin only, and it renders nothing at all for everyone else — so the bar collapses
+// rather than leaving a gap above the first event.
+.aether-candidates__bar {
+    display: flex;
+    justify-content: flex-end;
+
+    &:empty { display: none; }
+}
+
+.aether-candidates__run-btn {
+    font: inherit;
+    font-size: var(--chat-label);
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border-mid);
+    background: var(--bg-raised);
+    color: var(--text-secondary);
+    cursor: pointer;
+
+    &:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
+    &:disabled { cursor: default; color: var(--text-dim); }
+}
+
 .aether-candidates__empty {
     padding: 24px 12px;
     font-size: var(--chat-meta);

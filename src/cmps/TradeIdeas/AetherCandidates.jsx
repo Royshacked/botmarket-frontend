@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
+import { useAuth } from '../../context/AuthContext.jsx'
+import { aetherService } from '../../services/aether/aether.service.remote.js'
+import { apiError } from '../../services/http.service.js'
 import './AetherCandidates.scss'
 
 // Aether's event list. A run is one named event; a candidate is one company it named.
@@ -79,6 +82,64 @@ function magnitude(c) {
     return { label: '—', hint: 'no figure stated in the filing — size not measured' }
 }
 
+/**
+ * The run button. ADMIN ONLY, and hiding it is the courtesy — the server is the guard.
+ *
+ * Discovery is the one leg of the engine that is not on a schedule, because it is the one
+ * that spends per press: an Opus call with web search for each event it selects, plus
+ * several hundred SEC requests. Whether today held an event worth that is a judgement, so
+ * a person makes it.
+ *
+ * It reports STARTED, never finished. A run is minutes long and writes to Mongo when it
+ * lands; the list polls every five minutes and will pick the names up on its own.
+ */
+function RunButton() {
+    const { isAdmin } = useAuth() ?? {}
+    const [state, setState] = useState('idle')     // idle | starting | started | busy | failed
+    const [why, setWhy] = useState('')
+
+    if (!isAdmin) return null
+
+    async function run() {
+        setState('starting')
+        try {
+            await aetherService.startDiscovery()
+            setState('started')
+        } catch (err) {
+            // 409 is "one is already going" — an answer, not a failure. Calling it failed
+            // would invite exactly the second press the server just refused.
+            if (err?.response?.status === 409) return setState('busy')
+            // Everything else is worth reading: no engine on this host, no resolvable
+            // database. apiError is the one reader that finds the server's own message —
+            // err.message alone is axios's "Request failed with status code 503".
+            setWhy(apiError(err, 'could not start'))
+            setState('failed')
+        }
+    }
+
+    const LABEL = {
+        idle:     'Run discovery',
+        starting: 'Starting…',
+        started:  'Running — names land in a few minutes',
+        busy:     'Already running',
+        failed:   'Could not start — press to retry',
+    }
+
+    return (
+        <button
+            type="button"
+            className="aether-candidates__run-btn"
+            onClick={run}
+            disabled={state === 'starting' || state === 'started' || state === 'busy'}
+            title={state === 'failed'
+                ? why
+                : 'Reads the news queue, picks the events worth a run, and names the companies each reaches. Costs a model call per event plus an EDGAR pass per candidate, which is why it is not on a schedule.'}
+        >
+            {LABEL[state]}
+        </button>
+    )
+}
+
 export function AetherCandidates({ runs = [], loading, onSymbolClick }) {
     const [open, setOpen] = useState(() => new Set())
 
@@ -91,17 +152,23 @@ export function AetherCandidates({ runs = [], loading, onSymbolClick }) {
     }
 
     if (loading) return <p className="aether-candidates__empty">Loading…</p>
+    // The empty state is where the button matters most: nothing has run, and an admin is
+    // the only one who can change that.
     if (!runs.length) {
         return (
-            <p className="aether-candidates__empty">
-                No events in the window. Aether names companies when a story breaks — nothing has
-                run recently.
-            </p>
+            <div className="aether-candidates">
+                <p className="aether-candidates__empty">
+                    No events in the window. Aether names companies when a story breaks — nothing has
+                    run recently.
+                </p>
+                <div className="aether-candidates__bar"><RunButton /></div>
+            </div>
         )
     }
 
     return (
         <div className="aether-candidates">
+            <div className="aether-candidates__bar"><RunButton /></div>
             {runs.map(run => (
                 <section key={run.run_id} className="aether-candidates__run">
                     <header className="aether-candidates__event">
