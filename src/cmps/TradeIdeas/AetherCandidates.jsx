@@ -27,6 +27,17 @@ const URGENCY = {
     no_price: { label: '—',      cls: 'is-none',    hint: 'no price measured yet' },
 }
 
+// What KIND of event this is, by who acted. A label, never a filter — the engine runs on
+// the three runnable tests, and this only tells a reader what they are looking at.
+const CATEGORY_HINT = {
+    trade:        'a state restricting or taxing cross-border commerce',
+    fiscal:       'a legislature or treasury moving money — a subsidy, credit or appropriation',
+    regulatory:   'an agency deciding — a rule, approval, recall or ruling',
+    geopolitical: 'states acting on each other or on their own resources',
+    macro:        'a central bank, currency regime or sovereign event',
+    disruption:   'a physical event with no author — a strike, fire, outage or storm',
+}
+
 const VERDICT_HINT = {
     quantified: 'the filing states a figure — exposure disclosed and sized',
     mentioned:  'the filing names it without sizing it',
@@ -96,6 +107,14 @@ export function AetherCandidates({ runs = [], loading, onSymbolClick }) {
                     <header className="aether-candidates__event">
                         <div className="aether-candidates__event-line">
                             <span className="aether-candidates__subject">{run.subject || run.run_id}</span>
+                            {run.event_category && (
+                                <span
+                                    className="aether-candidates__category"
+                                    title={CATEGORY_HINT[run.event_category] ?? ''}
+                                >
+                                    {run.event_category}
+                                </span>
+                            )}
                             {run.answer_shape && (
                                 <span
                                     className={`aether-candidates__shape is-${run.answer_shape}`}

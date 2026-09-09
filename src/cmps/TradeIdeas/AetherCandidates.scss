@@ -62,6 +62,20 @@
     &.is-names_only { color: var(--text-dim); }
 }
 
+// The event KIND. Deliberately one flat treatment for all six — a per-category colour
+// would imply an ordering ("fiscal is better than macro") that does not exist, and the
+// four themes have no six-hue categorical ramp to borrow.
+.aether-candidates__category {
+    font-size: var(--chat-micro);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 6px;
+    border-radius: 3px;
+    cursor: help;
+    color: var(--text-secondary);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
 .aether-candidates__date {
     font-size: var(--chat-label);
     color: var(--text-muted);
