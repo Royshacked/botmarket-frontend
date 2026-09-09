@@ -18,13 +18,13 @@
 }
 
 // ── Workspace grid ───────────────────────────────────────────────────────────
-// Two columns: chat (left, 65%) | ideas (right, 35%). The chat is where the work happens —
+// Two columns: chat (left, 60%) | ideas (right, 40%). The chat is where the work happens —
 // the ideas column is a list, and reads fine narrower.
 .workspace {
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: 65% 35%;
+    grid-template-columns: 60% 40%;
     grid-template-areas: "chat ideas";
     column-gap: 0;
     padding: 0;
@@ -69,7 +69,7 @@
 // symmetric, so the chat sits genuinely centred rather than centred-in-the-leftovers, and now
 // every column scales with the viewport together.
 [data-design="floor"] .workspace {
-    grid-template-columns: 22.5% minmax(0, 55%) 22.5%;
+    grid-template-columns: 27.5% minmax(0, 45%) 27.5%;
     grid-template-areas: "floor-left chat floor-right";
 }
 
@@ -117,7 +117,7 @@
 // Already 2-column on desktop; tablet inherits the same layout.
 @media (max-width: 1023px) {
     .workspace {
-        grid-template-columns: 65% 35%;
+        grid-template-columns: 60% 40%;
         grid-template-areas: "chat ideas";
     }
 }

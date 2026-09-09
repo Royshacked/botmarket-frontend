@@ -247,10 +247,10 @@
 // ── option cards (2×2 grid) ──
 .axl-hub__options {
     width: 100%;
-    max-width: 420px;
+    max-width: 380px;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    gap: 8px;
     // The cards and the composer are two different offers — click one, or type in the other — and
     // with the landing pushed down they would otherwise end up a hair apart, reading as one block
     // of controls. This is the seam between them, and it is worth the height it costs.
@@ -261,9 +261,9 @@
     --hue: var(--accent-light);
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     width: 100%;
-    padding: 10px 12px;
+    padding: 8px 10px;
     text-align: left;
     background: var(--bg-raised);
     border: 1px solid var(--border);
@@ -290,14 +290,14 @@
     flex-shrink: 0;
     display: grid;
     place-items: center;
-    width: 32px;
-    height: 32px;
+    width: 24px;
+    height: 24px;
     color: var(--text-secondary);
     transition: color 0.18s;
 }
 
 .axl-hub__option-lead {
-    font-size: 12.5px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--text-primary);
     line-height: 1.3;

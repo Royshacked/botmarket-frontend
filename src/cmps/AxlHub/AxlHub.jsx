@@ -658,7 +658,7 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
                                 aria-disabled={blocked.has(desk.key) || undefined}
                             >
                                 <span className="axl-hub__option-icon">
-                                    <AgentGlyph agentKey={desk.agentKey} icon={AGENTS[desk.agentKey]?.icon} size={32} />
+                                    <AgentGlyph agentKey={desk.agentKey} icon={AGENTS[desk.agentKey]?.icon} size={22} />
                                 </span>
                                 <span className="axl-hub__option-lead">{desk.lead}</span>
                                 {deskBadge(desk)}
@@ -675,7 +675,7 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
                             onMouseLeave={() => setHoveredDesk(null)}
                             disabled={isLoading}
                         >
-                            <span className="axl-hub__option-icon"><TicketGlyph size={32} /></span>
+                            <span className="axl-hub__option-icon"><TicketGlyph size={22} /></span>
                             <span className="axl-hub__option-lead">{TICKET_DESK.lead}</span>
                         </button>
                     </div>
