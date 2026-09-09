@@ -1,7 +1,7 @@
 import { streamAgent } from '../agentStream'
 import { httpService } from '../http.service'
 
-// Aether (key `aether`): admin-only SSE stream over the channel-graph desk plus three read-only
+// Aether (key `aether`): admin-only SSE stream over the event-exposure desk plus read-only
 // broadcast endpoints. No publication step — purely conversational, no artifacts to commit.
 //
 // The read endpoints mirror the backend GET routes and are UNSCOPED: channel state, regime, and
@@ -15,7 +15,7 @@ export const aetherService = {
     getPredictedChannelState,
     getForecasts,
     getExposure,
-    getShockFeed,
+    getCandidates,
 }
 
 /** Streaming Aether chat. done → { reply }. */
@@ -44,7 +44,14 @@ function getExposure(ticker) {
     return httpService.get(`${BASE}/exposure/${encodeURIComponent(ticker)}`)
 }
 
-/** Shock feed — predicted_signals (channel-level) + opportunities (ticker-level, actionable). */
-function getShockFeed() {
-    return httpService.get(`${BASE}/shock-feed`)
+/**
+ * Event candidates, grouped by the event that produced them.
+ *
+ * Survivors only by default. Every candidate is stored server-side, including the ones
+ * a gate dropped and why, but the screen wants the shortlist.
+ */
+function getCandidates({ days = 30, includeDropped = false } = {}) {
+    const q = new URLSearchParams({ days: String(days) })
+    if (includeDropped) q.set('includeDropped', 'true')
+    return httpService.get(`${BASE}/candidates?${q}`)
 }

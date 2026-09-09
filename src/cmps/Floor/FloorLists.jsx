@@ -16,8 +16,9 @@ import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
 import { CalendarRows } from './CalendarRows.jsx'
 import { SectorView } from '../Radar/SectorView.jsx'
 import { ChannelStateView } from '../Radar/ChannelStateView.jsx'
-import { ShockFeed, groupByTicker } from '../TradeIdeas/ShockFeed.jsx'
+
 import './Floor.scss'
+import { AetherCandidates } from '../TradeIdeas/AetherCandidates.jsx'
 
 // The Floor's right column: four desks, one open at a time — and the open one TAKES THE COLUMN.
 //
@@ -42,7 +43,7 @@ const DESKS = [
     { key: 'portfolio',      label: 'Portfolio floor' },
     { key: 'scans',          label: 'Scans' },
     { key: 'coverage',       label: 'Coverage' },
-    { key: 'shocks',         label: 'Shocks' },
+    { key: 'aether',         label: 'Aether' },
     // Admin-only: the house research pipeline backlog (Argus hits + user coverage_request).
     { key: 'research_queue', label: 'Research queue', group: 'Admin', adminOnly: true },
 
@@ -669,7 +670,7 @@ ResearchQueueRows.propTypes = {
 
 export function FloorLists({
     setups = [], ideas = [], positions = [],
-    scans = [], coverage = [], queued = [], shockFeed = null,
+    scans = [], coverage = [], queued = [], aetherCandidates = null,
     onCandidateSelect,
     onEditSetup, onDeleteSetup,
     onEditPortfolio, onDeletePortfolio, onDeleteIdea, onActivatePortfolio,
@@ -716,7 +717,8 @@ export function FloorLists({
         ipo:            ipo.length,
         // Only queued items count — in_research is work the admin already started.
         research_queue: researchQueue.filter(i => i.status === 'queued').length,
-        shocks: groupByTicker(shockFeed?.opportunities ?? []).length + groupByTicker(shockFeed?.signals ?? []).length,
+        // one count per NAME across every event in the window
+        aether: (aetherCandidates?.runs ?? []).reduce((n, r) => n + (r.candidates?.length ?? 0), 0),
         // No count on Forecasts or Channels: both are standing engine views. "(1)" beside either
         // would invite the reader to expect a list.
     }
@@ -729,7 +731,7 @@ export function FloorLists({
                       + earnings.length + fed.length + ipo.length + (counts.shocks ?? 0)
     useEffect(() => {
         if (autoOpened.current || openKey !== null) return
-        const first = ['queued', 'shocks', 'trade', 'scans', 'coverage', 'portfolio', 'earnings', 'ipo', 'fed']
+        const first = ['queued', 'aether', 'trade', 'scans', 'coverage', 'portfolio', 'earnings', 'ipo', 'fed']
             .find(k => (counts[k] ?? 0) > 0)
         if (first) {
             autoOpened.current = true
@@ -804,12 +806,10 @@ export function FloorLists({
                         />
                     )}
 
-                    {desk.key === 'shocks' && (
-                        <ShockFeed
-                            signals={shockFeed?.signals ?? []}
-                            opportunities={shockFeed?.opportunities ?? []}
-                            loading={shockFeed?.loading}
-                            onBuild={shockFeed?.onBuild}
+                    {desk.key === 'aether' && (
+                        <AetherCandidates
+                            runs={aetherCandidates?.runs ?? []}
+                            loading={aetherCandidates?.loading}
                         />
                     )}
 
@@ -861,7 +861,7 @@ FloorLists.propTypes = {
     scans:             PropTypes.array,
     coverage:          PropTypes.array,
     queued:            PropTypes.array,
-    shockFeed:         PropTypes.shape({ signals: PropTypes.array, opportunities: PropTypes.array, loading: PropTypes.bool, onBuild: PropTypes.func }),
+    aetherCandidates:  PropTypes.shape({ runs: PropTypes.array, loading: PropTypes.bool }),
     onExecuteQueued:   PropTypes.func,
     onCancelQueued:    PropTypes.func,
     queuedBusyId:      PropTypes.string,

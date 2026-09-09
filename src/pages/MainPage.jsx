@@ -58,7 +58,7 @@ import { useTradeIdeas }     from '../customHooks/useTradeIdeas.js'
 import { useEntityList } from '../customHooks/useEntityList.js'
 import { useDesign }         from '../customHooks/useDesign.js'
 import { useSetups }         from '../customHooks/useSetups.js'
-import { useShockFeed }      from '../customHooks/useShockFeed.js'
+import { useAetherCandidates } from '../customHooks/useAetherCandidates.js'
 import { deriveIdeaOverlay, deriveSetupOverlay } from '../cmps/TradeIdeas/chartOverlay.js'
 import { useAuth }           from '../context/AuthContext.jsx'
 import { nextResetKeys }     from './deskReset.js'
@@ -477,7 +477,7 @@ export function MainPage() {
     const { setups, setupsLoading, refreshSetups } = useSetups()
     const [setupBusyId, setSetupBusyId] = useState(null)
 
-    const { signals: shockSignals, opportunities: shockOpportunities, loading: shockLoading } = useShockFeed()
+    const { runs: aetherRuns, loading: aetherLoading } = useAetherCandidates()
 
     // Arm / disarm / delete a setup from the Lists surface. Arming is the real gate — the server
     // re-runs the readiness check and refuses with `cannot_arm_<reason>`, so surface that rather
@@ -2481,24 +2481,6 @@ export function MainPage() {
         setActiveTab('mentor')
     }
 
-    // Shock feed opportunity → MENTOR: an Aether opportunity card carries a ticker, a direction,
-    // and the channel-level reasoning. Seed Mentor the same way an earnings row does — spoken as
-    // the user's opening turn so Mentor asks for their lean rather than re-stating what Aether said.
-    function handleBuildFromShock(opportunity) {
-        if (!opportunity?.ticker) return
-        const dir  = opportunity.ticker_direction ?? null
-        const chan  = (opportunity.channel_id ?? '').replace(/_/g, ' ')
-        const parts = [
-            `I want to build a setup around ${opportunity.ticker}`,
-            chan   ? ` — Aether flagged it via the ${chan} channel` : '',
-            dir    ? ` with a ${dir} lean` : '',
-            '.',
-            opportunity.why    ? ` ${opportunity.why}.` : '',
-            opportunity.when   ? ` Timing: ${opportunity.when}.` : '',
-            opportunity.risk_note ? ` Risk note: ${opportunity.risk_note}.` : '',
-        ]
-        seedMentorChat(opportunity.ticker, parts.join(''))
-    }
 
     // Earnings ticker → MENTOR: a scheduled print is a date with a ticker attached and no bias,
     // which is a setup (zones + a window), not an idea's condition tree. Each row carries its own
@@ -3017,12 +2999,7 @@ export function MainPage() {
                                         forecasts: tiltLoading,
                                         channels:  channelStateLoading,
                                     }}
-                                    shockFeed={{
-                                        signals:       shockSignals,
-                                        opportunities: shockOpportunities,
-                                        loading:       shockLoading,
-                                        onBuild:       handleBuildFromShock,
-                                    }}
+                                    aetherCandidates={{ runs: aetherRuns, loading: aetherLoading }}
                                     onEarningSelect={handleBuildFromEarning}
                                     onIpoSelect={handleBuildFromIpo}
                                     onCandidateSelect={handleBuildFromCandidate}
@@ -3100,12 +3077,7 @@ export function MainPage() {
                                 ipoLoading,
                                 onIpoSelect:       handleBuildFromIpo,
                             }}
-                            shockFeed={{
-                                signals:       shockSignals,
-                                opportunities: shockOpportunities,
-                                loading:       shockLoading,
-                                onBuild:       handleBuildFromShock,
-                            }}
+                            aetherCandidates={{ runs: aetherRuns, loading: aetherLoading }}
                         />
                     </div>
                     )}
