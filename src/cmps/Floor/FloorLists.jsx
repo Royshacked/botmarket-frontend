@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect, useRef } from 'react'
+import { Fragment, useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { groupByLifecycle, isPreEntry, isLivePosition } from '../../services/entityStatus.js'
 import {
@@ -723,22 +723,14 @@ export function FloorLists({
         // would invite the reader to expect a list.
     }
 
-    // Auto-open the first desk that has data, but only on the first load and only if the user
-    // has not already made a selection. Uses a ref to fire exactly once — a state flag would
-    // cause a second render, and a dep-array without openKey would re-fire after the user closes.
-    const autoOpened = useRef(false)
-    const totalData   = setups.length + queued.length + scans.length + coverage.length + ideas.length
-                      + earnings.length + fed.length + ipo.length + (counts.shocks ?? 0)
-    useEffect(() => {
-        if (autoOpened.current || openKey !== null) return
-        const first = ['queued', 'aether', 'trade', 'scans', 'coverage', 'portfolio', 'earnings', 'ipo', 'fed']
-            .find(k => (counts[k] ?? 0) > 0)
-        if (first) {
-            autoOpened.current = true
-            setOpenKey(first)
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [totalData])
+    // NOTHING AUTO-OPENS. There used to be an effect here that opened the first desk holding
+    // any data. It contradicted the rule the accordion is built on, forty lines above: a fresh
+    // load lands all-closed, because that is what makes the column a table of contents, and
+    // opening a desk is a choice the reader makes rather than one a refresh makes for them.
+    //
+    // It also picked by list order, not by importance, so on any ordinary day it opened Queued
+    // and buried the other eight behind it. Removed 2026-09-09; the fourteen tests it was
+    // failing were right.
 
     const visibleDesks = DESKS.filter(d => !d.adminOnly || isAdmin)
 

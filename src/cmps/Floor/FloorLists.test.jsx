@@ -4,6 +4,13 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { FloorLists } from './FloorLists.jsx'
 
+// FloorLists renders CoverageActions, which calls useAuth(); unprovided it is null and the
+// destructure throws the moment the Coverage desk opens. See testUtils/authStub.js.
+vi.mock('../../context/AuthContext.jsx', async (orig) => {
+    const { authModule } = await import('../../testUtils/authStub.js')
+    return authModule(await orig())
+})
+
 // The Floor's right column is an ACCORDION — one desk open at a time. That rule is the whole
 // reason the column stays readable at four desks, and it is the kind of thing that silently
 // regresses into "all open" the first time someone adds a fifth.
@@ -71,7 +78,7 @@ describe('FloorLists', () => {
             expect(desks.some(d => d.className.includes('floor-desk--folded'))).toBe(false)
             expect(desks.map(d => d.querySelector('.floor-desk__label').textContent))
                 .toEqual(['Queued', 'Trading floor', 'Portfolio floor', 'Scans', 'Coverage',
-                          'Earnings', 'Fed', 'IPO', 'Forecasts'])
+                          'Aether', 'Earnings', 'Fed', 'IPO', 'Forecasts', 'Channels'])
         })
 
         // A folded header is still readable and still reports its state — it is just not somewhere
@@ -242,8 +249,12 @@ describe('FloorLists', () => {
         expect(screen.getByText('Services growth < 8%')).toBeTruthy()
     })
 
-    // Peers you compare, not sections you navigate — opening one must not close the last.
-    it('keeps several theses open at once', () => {
+    // ONE THESIS AT A TIME. This asserted the opposite until 3bbfa59 made every expandable list
+    // the same accordion as the desk column above it — "one item open at a time, open item takes
+    // the full height" — which is a deliberate change, not drift, so the test moved rather than
+    // the component. Kept rather than deleted: single-open is the contract now, and sliding back
+    // to several-open is a regression in this direction just as much as it was in the other.
+    it('opening one thesis closes the last — the rows are an accordion too', () => {
         const coverage = [
             { id: 'cv1', symbol: 'AAPL', status: 'active', thesis: 'Services mix re-rates.' },
             { id: 'cv2', symbol: 'MSFT', status: 'active', thesis: 'Azure carries the multiple.' },
@@ -251,10 +262,11 @@ describe('FloorLists', () => {
         render(<FloorLists coverage={coverage} />)
         fireEvent.click(deskBtn('Coverage'))
         fireEvent.click(screen.getByText('AAPL').closest('button'))
-        fireEvent.click(screen.getByText('MSFT').closest('button'))
-
         expect(screen.getByText(/services mix/i)).toBeTruthy()
+
+        fireEvent.click(screen.getByText('MSFT').closest('button'))
         expect(screen.getByText(/azure carries/i)).toBeTruthy()
+        expect(screen.queryByText(/services mix/i)).toBeNull()
     })
 
     // A chevron that opens an empty box is worse than no chevron.
@@ -286,7 +298,8 @@ describe('FloorLists', () => {
         expect(row).toMatch(/\.price-target\s*\{[^}]*text-overflow:\s*ellipsis/)
     })
 
-    it('expands a scan into its candidates, and several scans can be open at once', () => {
+    // Same accordion as the coverage rows above, and same history — 3bbfa59.
+    it('expands a scan into its candidates, one scan at a time', () => {
         const scans = [
             { id: 'x', thesis: 'Semis', direction: 'long', candidates: [{ ticker: 'NVDA', score: { total: 82 } }] },
             { id: 'y', thesis: 'Banks', direction: 'long', candidates: [{ ticker: 'JPM',  score: { total: 61 } }] },
@@ -296,9 +309,11 @@ describe('FloorLists', () => {
         expect(screen.queryByText('NVDA')).toBeNull()
 
         fireEvent.click(screen.getByText('Semis').closest('button'))
-        fireEvent.click(screen.getByText('Banks').closest('button'))
         expect(screen.getByText('NVDA')).toBeTruthy()
+
+        fireEvent.click(screen.getByText('Banks').closest('button'))
         expect(screen.getByText('JPM')).toBeTruthy()
+        expect(screen.queryByText('NVDA')).toBeNull()
     })
 
     // A count is part of the name it counts, so it is parenthesised and adjacent — not a bare
@@ -374,16 +389,26 @@ describe('FloorLists', () => {
     // Which box scrolls is a CSS question, so jsdom can't measure it — but it is exactly the kind
     // of thing that regresses back to "put overflow on the container" the next time something
     // overflows. Guard the rules themselves, the way the row-actions reveal is guarded below.
-    it('scrolls the open list, never the column around it', () => {
+    it('scrolls the open desk’s list, and the column only when every desk is shut', () => {
         // Read from disk: vitest stubs stylesheet imports, so `?raw` would hand back an empty string.
         const css    = readFileSync(resolve(process.cwd(), 'src/cmps/Floor/Floor.scss'), 'utf8')
         const column = css.slice(css.indexOf('.floor-lists {'), css.indexOf('.floor-desk {'))
         const desk   = css.slice(css.indexOf('.floor-desk {'))
 
-        // A scrolling column carries the "Lists" heading and the other three desk headers away
-        // with the rows — the whole complaint this fixed.
-        expect(column).toMatch(/overflow:\s*hidden/)
-        expect(column).not.toMatch(/overflow-y:\s*auto/)
+        // Never sideways: a wide row must ellipsis, not push the column out of the viewport.
+        expect(column).toMatch(/overflow-x:\s*hidden/)
+
+        // The column's Y axis USED to be `hidden` outright, and this asserted that — a scrolling
+        // column carries the "Lists" heading and the closed desk headers away with the rows, which
+        // was the original complaint. It is `auto` now (3bbfa59) and that is deliberate: the desk
+        // list has grown to eleven, so a fully-collapsed column of pure header buttons can be
+        // taller than the viewport and would otherwise have unreachable desks at the bottom.
+        //
+        // The original complaint stays fixed by a different mechanism, which is the part worth
+        // asserting: when a desk IS open every sibling collapses to max-height:0, so the column
+        // content fits inside 100% height and the scrollbar never appears in that state.
+        expect(column).toMatch(/overflow-y:\s*auto/)
+        expect(desk).toMatch(/&--folded\s*\{[^}]*max-height:\s*0/)
 
         // The open desk is the only one allowed to shrink, so it absorbs every bit of overflow…
         // (it grows too, now that it takes the column — see the takeover cases above).
