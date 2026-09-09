@@ -146,6 +146,69 @@ describe('ZoneEditor', () => {
         expect(screen.getByLabelText('Add another target')).toBeTruthy()
     })
 
+    // The two affordances above were tested for BEING THERE and never for doing anything, and both
+    // handlers were simply missing — every click threw a ReferenceError. Staged exits could not be
+    // built at all, and a document that already held two targets could not be reduced to one.
+
+    it('adding a target appends an empty level scoped to the scenario', () => {
+        const onChange = vi.fn()
+        render(<ZoneEditor scenario={FADE} onChange={onChange} />)
+        fireEvent.click(screen.getByLabelText('Add another target'))
+
+        const tps = onChange.mock.calls[0][0].tp_zones
+        expect(tps).toHaveLength(3)
+        expect(tps[2].id).toBe('s1t3', 'scoped to the premise, so ids stay unique document-wide')
+        expect(FADE.tp_zones).toHaveLength(2, 'the original is untouched')
+    })
+
+    it('the added level carries no price and no size of its own', () => {
+        // Copying the row above would put a second target at the same price and double the size
+        // the plan says it exits — neither is a thing anyone asked for.
+        const onChange = vi.fn()
+        render(<ZoneEditor scenario={FADE} onChange={onChange} />)
+        fireEvent.click(screen.getByLabelText('Add another target'))
+
+        const added = onChange.mock.calls[0][0].tp_zones[2]
+        expect(added.lower).toBeNull()
+        expect(added.upper).toBeNull()
+        expect(added.quantity).toBeNull()
+    })
+
+    it('a new level never reuses a removed one’s id', () => {
+        // A leg condition is minted off the zone id (`<zone>c1`) and monitor_state latches on that
+        // key. Recycling s1t1 here would let the dead leg's latch answer for the new one.
+        const afterRemoval = { ...FADE, tp_zones: [{ id: 's1t2', lower: 213, upper: 213, quantity: 55 }] }
+        const onChange = vi.fn()
+        render(<ZoneEditor scenario={afterRemoval} onChange={onChange} />)
+        fireEvent.click(screen.getByLabelText('Add another target'))
+        expect(onChange.mock.calls[0][0].tp_zones[1].id).toBe('s1t3')
+    })
+
+    it('removing a target drops that one and leaves the rest', () => {
+        const onChange = vi.fn()
+        render(<ZoneEditor scenario={FADE} onChange={onChange} />)
+        fireEvent.click(screen.getByLabelText('Remove s1t1'))
+
+        const tps = onChange.mock.calls[0][0].tp_zones
+        expect(tps.map(z => z.id)).toEqual(['s1t2'])
+        expect(FADE.tp_zones).toHaveLength(2, 'the original is untouched')
+    })
+
+    it('will not remove the only level in a group', () => {
+        // A scenario with no stop is not a smaller plan, it is a broken one.
+        render(<ZoneEditor scenario={FADE} onChange={() => {}} />)
+        expect(screen.queryByLabelText('Remove s1s1')).toBeNull()
+        expect(screen.queryByLabelText('Remove s1e1')).toBeNull()
+    })
+
+    it('neither add nor remove is offered when the prices are locked', () => {
+        // A plan that arrived from somewhere else: the levels are theirs, only the size is yours.
+        render(<ZoneEditor scenario={FADE} onChange={() => {}} lockPrices />)
+        expect(screen.queryByLabelText('Add another target')).toBeNull()
+        expect(screen.queryByLabelText('Remove s1t1')).toBeNull()
+        expect(screen.getByLabelText('Target s1t1 quantity').disabled).toBe(false)
+    })
+
     it('scopes new level ids to the scenario, so ids stay unique across premises', () => {
         // An empty group renders one ready-to-type row that becomes real on the first keystroke —
         // asking someone to press + before they can type their stop is a click charged for nothing.

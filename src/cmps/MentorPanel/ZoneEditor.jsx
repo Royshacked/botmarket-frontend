@@ -101,6 +101,60 @@ export function ZoneEditor({
     }
 
     /**
+     * The id a new zone gets: `<scenario><suffix><n>` — the same stem the ready-to-type row is
+     * minted with below, and the same one normalizeZones() mints server-side, so a zone keeps its
+     * identity across the round trip instead of being renumbered on save.
+     *
+     * PAST THE HIGHEST EVER USED, not `length + 1` and not into the first gap. Two different
+     * failures:
+     *   • `length + 1` after removing the middle of three hands out an id that is still live —
+     *     two rows keyed the same, React reconciling them into one, and a write meant for the new
+     *     level landing on the old one.
+     *   • filling the gap reuses a DEAD id, and a leg condition is minted off it (`<zone>c1`) with
+     *     monitor_state latching on that key. A recycled id lets a freed latch answer for a leg
+     *     that has never once been true.
+     * The trailing `while` covers an id that does not match the stem at all, which is the only way
+     * the scan can miss one.
+     */
+    function nextZoneId(groupKey, suffix) {
+        const zones = scenario[groupKey] ?? []
+        const stem  = `${scenario.id ?? 's'}${suffix}`
+        const used  = new Set(zones.map(z => z.id))
+        let n = zones.reduce((m, z) => {
+            const k = Number(String(z.id ?? '').slice(stem.length))
+            return Number.isInteger(k) && k > m ? k : m
+        }, 0) + 1
+        while (used.has(`${stem}${n}`)) n += 1
+        return `${stem}${n}`
+    }
+
+    /**
+     * Another level of the same kind — a staged exit.
+     *
+     * Appended EMPTY, not copied from the row it sits under. A target duplicated at the same price
+     * is not a second target, and carrying the quantity over would silently double the size the
+     * plan says it exits. An unfilled row costs nothing downstream: normalizeZones() drops a zone
+     * with no price, so an add-then-changed-my-mind never reaches the document.
+     *
+     * Only exits reach here — a scenario takes the whole position at one entry, and `addAfter`
+     * gates entry_zones out. See the note on the inline "+".
+     */
+    function addZone(groupKey, suffix) {
+        patch(groupKey, [
+            ...(scenario[groupKey] ?? []),
+            { id: nextZoneId(groupKey, suffix), lower: null, upper: null, quantity: null, note: null },
+        ])
+    }
+
+    /**
+     * Drop one level, and only ever from a group holding more than one — the × is not offered on a
+     * lone row, because a scenario with no stop is not a smaller plan, it is a broken one.
+     */
+    function removeZone(groupKey, id) {
+        patch(groupKey, (scenario[groupKey] ?? []).filter(z => z.id !== id))
+    }
+
+    /**
      * A condition on this LEG — "out early if it closes below the 4hr VWAP".
      *
      * It used to be written to the zone's `note`: free text that rode along to the ENTRY assessment
