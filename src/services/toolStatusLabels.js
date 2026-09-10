@@ -25,6 +25,7 @@ const LABELS = {
     get_options_context:  'Reading options positioning…',
     get_derivatives_context: 'Checking funding & open interest…',
     get_news:             'Reading the news…',
+    get_event_candidates: 'Reading the event candidates…',
     // Not a tool call — the market-brief delivery emits it so the wait has a name while the brief
     // is being written (see api/axl/axl.controller.js streamBrief).
     market_brief:         'Writing today’s brief…',

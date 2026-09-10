@@ -4,8 +4,8 @@ import { httpService } from '../http.service'
 // Aether (key `aether`): admin-only SSE stream over the event-exposure desk plus read-only
 // broadcast endpoints. No publication step — purely conversational, no artifacts to commit.
 //
-// The read endpoints mirror the backend GET routes and are UNSCOPED: channel state, regime, and
-// name exposure are shared data (Python writes them house-wide), not per-user records.
+// The read endpoints mirror the backend GET routes and are UNSCOPED: a run is a house-layer
+// broadcast, the same pattern as the strategy desk's tilt.
 
 const BASE = 'api/aether'
 
