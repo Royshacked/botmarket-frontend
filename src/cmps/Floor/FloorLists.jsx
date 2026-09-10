@@ -717,8 +717,9 @@ export function FloorLists({
         research_queue: researchQueue.filter(i => i.status === 'queued').length,
         // one count per NAME across every event in the window
         aether: (aetherCandidates?.runs ?? []).reduce((n, r) => n + (r.candidates?.length ?? 0), 0),
-        // No count on Forecasts or Channels: both are standing engine views. "(1)" beside either
-        // would invite the reader to expect a list.
+        // No count on Forecasts: it is a standing board rather than a list, and "(1)" beside
+        // it would invite the reader to expect one. (Channels was the other, and went with
+        // the channel engine on 2026-09-10.)
     }
 
     // NOTHING AUTO-OPENS. There used to be an effect here that opened the first desk holding

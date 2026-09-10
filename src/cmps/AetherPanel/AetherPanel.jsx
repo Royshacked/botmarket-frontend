@@ -97,7 +97,7 @@ export function AetherPanel({ onLoadingChange, pipeline = null, resumeRef = null
             <AgentMessages chat={chat}>
                 {messages.length === 0 && <AgentIntro agent={AGENTS.aether} />}
                 {messages.map((msg, i) => <MessageBubble key={i} msg={msg} />)}
-                {isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus: chat.streamStatus, placeholder: 'reading the channels…' })} pulse={chat.reasoningPulse} />}
+                {isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus: chat.streamStatus, placeholder: 'reading the filings…' })} pulse={chat.reasoningPulse} />}
                 {(isLoading || messages.some(m => m.role === 'assistant' && m.content)) && (
                     <AgentTurnTag agent={AGENTS.aether} active={isLoading} />
                 )}
@@ -105,7 +105,7 @@ export function AetherPanel({ onLoadingChange, pipeline = null, resumeRef = null
 
             <AgentChatInput
                 chat={chat}
-                placeholder="Ask about the channel state, a regime, or a name's exposure (Enter to send)"
+                placeholder="Ask which names an event reaches, or why one is on the list (Enter to send)"
                 onSend={_send}
                 onClear={handleClear}
                 onResume={_continue}
