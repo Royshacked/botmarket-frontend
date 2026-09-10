@@ -101,6 +101,10 @@ const VERDICT_HINT = {
     mentioned:  'the filing names it without sizing it',
     silent:     'the company files, and never mentions it',
     no_filer:   'no SEC filer for this ticker',
+    // The absence of a reading, not a fifth reading. `silent` is a claim about the filing
+    // and is scored; this means EDGAR could not be asked — an outage, a fetch that failed —
+    // and the name is dropped rather than ranked on a question nobody answered.
+    unverified: 'EDGAR could not be asked — the filing was never read, which is not the same as silent',
 }
 
 const SWING_DAYS = 30
