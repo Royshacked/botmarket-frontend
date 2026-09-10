@@ -46,6 +46,16 @@
 }
 
 .aether-candidates__run {
+    // `flex: 0 0 auto` IS THE SCROLLING. This is a flex item in a column container, so it
+    // defaults to flex-shrink: 1 — it shrinks below its own content to fit the height it is
+    // given, and `overflow: hidden` below then clips the rest of the table away. The parent
+    // never overflows, so its `overflow-y: auto` never produces a scrollbar: a 43-name event
+    // rendered as six rows with no way to reach the other thirty-seven, and nothing on
+    // screen to say so.
+    //
+    // The overflow stays — it is what makes the radius clip the table's square corners —
+    // so the fix is to refuse to shrink and let the parent do the scrolling.
+    flex: 0 0 auto;
     border: 1px solid var(--border-mid);
     border-radius: 6px;
     overflow: hidden;

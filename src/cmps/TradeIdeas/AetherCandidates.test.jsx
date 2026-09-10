@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { AetherCandidates } from './AetherCandidates.jsx'
 import { ADMIN, MEMBER } from '../../testUtils/authStub.js'
 
@@ -119,5 +121,39 @@ describe('AetherCandidates list', () => {
         // cards and never "small", off a channel state three months stale.
         render(<AetherCandidates runs={[RUN]} />)
         expect(screen.getByTitle(/no figure stated in the filing/)).toBeTruthy()
+    })
+})
+
+describe('AetherCandidates scrolling', () => {
+    // Which box scrolls is a CSS question jsdom cannot measure, so the rule itself is
+    // guarded — the same way Floor.scss's column/desk split is.
+    //
+    // THE BUG THIS EXISTS FOR. `.aether-candidates` is a column flex container, so every
+    // `__run` section inside it defaults to flex-shrink: 1 and will shrink BELOW its own
+    // content to fit the height available. `overflow: hidden` on the section — there so the
+    // border-radius clips the table's square corners — then cuts the remainder off. The
+    // parent never overflows, so its own `overflow-y: auto` never yields a scrollbar: a
+    // 43-candidate event rendered as six rows, the other thirty-seven unreachable, and no
+    // scrollbar to hint that anything was missing.
+    const css = readFileSync(
+        resolve(process.cwd(), 'src/cmps/TradeIdeas/AetherCandidates.scss'), 'utf8',
+    )
+    const section = css.slice(css.indexOf('.aether-candidates__run {'),
+                              css.indexOf('.aether-candidates__event {'))
+    const container = css.slice(css.indexOf('.aether-candidates {'),
+                                css.indexOf('.aether-candidates__bar'))
+
+    it('the list scrolls', () => {
+        expect(container).toMatch(/overflow-y:\s*auto/)
+    })
+
+    it('an event section refuses to shrink, so the list is what overflows', () => {
+        expect(section).toMatch(/flex:\s*0 0 auto/)
+    })
+
+    it('the section still clips, because the radius depends on it', () => {
+        // Removing the overflow would "fix" the scroll by leaving square corners poking out
+        // of a rounded box — the wrong half of the trade.
+        expect(section).toMatch(/overflow:\s*hidden/)
     })
 })
