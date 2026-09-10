@@ -124,19 +124,21 @@ export const AGENTS = {
             </>
         ),
     },
-    // Aether — the channel-graph forecasting engine. Admin-only: the engine data does not exist yet
-    // (Python compute repo writes it); until it does, the desk reasons qualitatively and says so.
+    // Aether — the event-exposure desk. Admin-only. It IDENTIFIES rather than forecasts: the
+    // channel-graph engine this desk was built around was measured against held-out data,
+    // did not work, and was deleted on 2026-09-10.
     // Key stays `aether`; Aether is both the key and the brand.
     aether: {
         tab:   'aether',
         brand: 'Aether',
         hue:   'cyan',
-        lead:  'Channel-graph forecast',
-        blurb: 'A coupled dynamical system of macro channels — state, regime, and name exposure.',
-        intro: "Let's read the channel state — what pressures are propagating, which names sit in their path.",
-        hint:  'Ask about a channel, a regime, or a name\'s exposure. Engine data arrives as the Python compute repo comes online.',
-        // The channel lattice — a sparse graph of propagating states. Dots at nodes, lines for
-        // the coupling edges: evokes the K matrix without spelling it out.
+        lead:  'Who an event reaches',
+        blurb: 'A named event in — the companies it reaches out, each verified against its own SEC filings.',
+        intro: "Give me an event and I'll name the companies it reaches, with what their own filings say about it.",
+        hint:  'Ask which names an event reaches, why one is on the list, what its filing said, or whether the move has already happened.',
+        // A sparse graph — dots at nodes, lines between them. Drawn for the channel lattice
+        // it no longer depicts, and kept because it reads just as well as one event and the
+        // names it reaches, which is what the desk does now.
         icon: (
             <>
                 <circle cx="6"  cy="12" r="1.8" />
@@ -332,13 +334,18 @@ export const DESKS = [
     {
         key:       'aether',
         label:     'Aether Desk',
-        lead:      'Channel-graph forecast',
-        blurb:     'Aether reads the macro channel state and each name\'s exposure to it.',
+        lead:      'Who an event reaches',
+        blurb:     'Aether names the companies a macro, trade or policy event reaches, and quotes what each one\'s own filings say about it.',
         hue:       'cyan',
         entryTab:  'aether',
         agentKey:  'aether',
+        // ADMIN ONLY, because POST /api/aether/stream is requireAdmin. Without this the
+        // hub offered the desk to every signed-in user and the chat answered 403 — a card
+        // that exists to be refused. The candidate LIST is unaffected: it is readable by
+        // everyone and lives in the right column, not behind this card.
+        adminOnly: true,
         steps: [
-            { tab: 'aether', label: 'Channel read' },
+            { tab: 'aether', label: 'Event exposure' },
         ],
     },
 ]
