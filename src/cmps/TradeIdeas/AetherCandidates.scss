@@ -71,6 +71,34 @@
     &:hover { background: var(--bg-hover); color: var(--text-primary); }
 }
 
+// ── the open row stays put ────────────────────────────────────────────────────
+//
+// A ticker's drawer holds a block per event — mechanism, press fact, filing sentence, move,
+// rank — so it runs well past a screen, and the row naming the company you are reading
+// about scrolls away first. Pinning it keeps the answer attached to its question.
+//
+// Floor.scss already made room for this: `.floor-sub--open` sets `overflow: visible`
+// precisely so a trigger row can find its scroll container, because `overflow: hidden` on
+// any ancestor silently defeats `position: sticky` — no error, it just stops sticking. That
+// comment has been sitting there unused; this is the first list to take it up.
+//
+// SCOPED TO THIS LIST rather than added to `.floor-sub` itself. The mechanic would suit the
+// coverage and scan rows too, but their drawers are short enough that nothing scrolls away,
+// and changing four lists nobody asked about is not a styling fix.
+//
+// It goes on the HOST, not the row: the actions overlay is absolutely positioned against
+// `.floor-rowhost`, so pinning the row alone would leave its buttons behind. `sticky` is a
+// positioned ancestor just as `relative` was, so that overlay still anchors correctly.
+.aether-candidates .floor-sub--open .floor-rowhost {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    // Opaque, or the drawer reads straight through the pinned row. Matches the column's own
+    // ground (.floor-lists), not the row's hover fill, which stays on .floor-row.
+    background: var(--bg-base);
+    box-shadow: 0 1px 0 var(--border);
+}
+
 // The disclosure at the foot of the list. Quiet on purpose — it reports what is NOT on
 // screen, which is a footnote rather than an action competing with the rows above it.
 .aether-candidates__more {

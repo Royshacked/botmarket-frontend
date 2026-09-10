@@ -148,8 +148,9 @@ describe('AetherCandidates scrolling', () => {
     const floorCss = readFileSync(resolve(process.cwd(), 'src/cmps/Floor/Floor.scss'), 'utf8')
     const container = css.slice(css.indexOf('.aether-candidates {'),
                                 css.indexOf('.aether-candidates__bar'))
+    // Wide enough to reach `&--open`, which is the modifier that unblocks sticky.
     const sub = floorCss.slice(floorCss.indexOf('.floor-sub {'),
-                               floorCss.indexOf('.floor-sub {') + 400)
+                               floorCss.indexOf('.floor-sub {') + 1200)
 
     it('the list scrolls', () => {
         expect(container).toMatch(/overflow-y:\s*auto/)
@@ -168,6 +169,33 @@ describe('AetherCandidates scrolling', () => {
             const block = css.slice(css.indexOf(`.aether-candidates${rule}`))
             expect(block.slice(0, 260)).toMatch(/flex:\s*0 0 auto/)
         }
+    })
+
+    it('the open row pins to the top of the scrolling list', () => {
+        // A drawer holds a block per event and runs past a screen, so the row naming the
+        // company scrolls away first and the reader loses which name they are reading about.
+        const pinned = css.slice(css.indexOf('.aether-candidates .floor-sub--open .floor-rowhost'))
+        expect(pinned.slice(0, 300)).toMatch(/position:\s*sticky/)
+        expect(pinned.slice(0, 300)).toMatch(/top:\s*0/)
+    })
+
+    it('the pinned row is opaque, or the drawer reads through it', () => {
+        const pinned = css.slice(css.indexOf('.aether-candidates .floor-sub--open .floor-rowhost'))
+        expect(pinned.slice(0, 400)).toMatch(/background:\s*var\(--bg-base\)/)
+    })
+
+    it('sticky is pinned on the HOST, so the actions overlay travels with it', () => {
+        // .floor-rowhost__actions is absolutely positioned against the host. Sticking the
+        // row alone would leave its buttons behind at the old scroll offset.
+        expect(css).toMatch(/\.floor-sub--open \.floor-rowhost \{/)
+        expect(css).not.toMatch(/\.floor-sub--open \.floor-row \{/)
+    })
+
+    it('nothing between the pinned row and the scroller clips it', () => {
+        // `overflow: hidden` on ANY ancestor silently defeats position: sticky — no error,
+        // it just stops sticking. .floor-sub is hidden while collapsed and switches to
+        // visible when open, which is the whole reason that rule exists in Floor.scss.
+        expect(sub).toMatch(/&--open \{[^}]*overflow:\s*visible/s)
     })
 
     it('no orphaned rule is still claiming to do the scrolling', () => {
