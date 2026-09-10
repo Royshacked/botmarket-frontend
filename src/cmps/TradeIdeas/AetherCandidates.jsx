@@ -193,38 +193,67 @@ function RunButton() {
     )
 }
 
+/**
+ * Flip the list from event-first to TICKER-first.
+ *
+ * The server groups by run, which is the right shape for "what did this event reach" and
+ * the wrong one for a watchlist: a company named by two events appeared twice, in two
+ * tables, with nothing on either row to say the other existed. That is precisely the case
+ * worth surfacing — a name reached independently by a tariff AND an export ban is saying
+ * something neither event says alone, and it was the one thing the old layout could not
+ * show.
+ *
+ * Each appearance keeps its own event, because the mechanism, the filing sentence and the
+ * move are all per-event; only the ticker is shared.
+ *
+ * Ordered by the BEST rank a name achieved, not by the sum. A sum would let three weak
+ * appearances outrank one well-evidenced name, which is the opposite of the point — and
+ * once there are enough runs to see what actually recurs, the count is the thing to
+ * revisit, deliberately, rather than something to have baked in early.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- pure, and the ordering is worth testing directly
+export function byTicker(runs = []) {
+    const map = new Map()
+
+    for (const run of runs) {
+        for (const c of run.candidates ?? []) {
+            if (!map.has(c.ticker)) map.set(c.ticker, { ticker: c.ticker, appearances: [] })
+            map.get(c.ticker).appearances.push({
+                ...c,
+                run_id:         run.run_id,
+                subject:        run.subject,
+                event:          run.event,
+                event_category: run.event_category,
+                event_date:     run.event_date,
+                answer_shape:   run.answer_shape,
+            })
+        }
+    }
+
+    const rows = [...map.values()]
+    for (const row of rows) {
+        row.appearances.sort((a, b) => (b.rank ?? 0) - (a.rank ?? 0))
+        row.best = row.appearances[0]
+        row.rank = row.best?.rank ?? 0
+        // A name one event helps and another hurts is not a contradiction to hide behind a
+        // single arrow — it is two live claims about the same company, and the reader has
+        // to see that before acting on either.
+        row.conflicted = new Set(row.appearances.map(a => a.side)).size > 1
+    }
+    rows.sort((a, b) => b.rank - a.rank || a.ticker.localeCompare(b.ticker))
+    return rows
+}
+
 export function AetherCandidates({ runs = [], loading, onSymbolClick }) {
     const [open, setOpen] = useState(() => new Set())
-    const [expanded, setExpanded] = useState(() => new Set())   // runs showing their full list
+    const [showAll, setShowAll] = useState(false)
 
-    /**
-     * The shortlist, and the rest one click away.
-     *
-     * A run returns everything it named — 43 survivors on the Canada tariffs — and a
-     * 43-row list is not a shortlist, it is the same "here is everything" the reader came
-     * here to be spared. The rows are already sorted by rank server-side.
-     *
-     * TOP N AND NOT A RANK FLOOR, because the ranks do not break. They descend 6.57, 6.27,
-     * 5.99, 5.91, 5.88 — gaps of 0.03 to 0.31, no cliff anywhere to cut at. A floor would
-     * read as a threshold the evidence supports, and there isn't one. A count is honestly
-     * arbitrary and says so.
-     *
-     * Nothing is hidden that is not reachable, and the count is on the button: the whole
-     * design rule here is that a filter whose rejections leave no trace cannot be shown to
-     * be wrong.
-     */
-    function shownFor(run) {
-        const all = run.candidates ?? []
-        return expanded.has(run.run_id) ? all : all.slice(0, SHORTLIST)
-    }
-
-    function toggleExpanded(runId) {
-        setExpanded(prev => {
-            const next = new Set(prev)
-            next.has(runId) ? next.delete(runId) : next.add(runId)
-            return next
-        })
-    }
+    // THE SHORTLIST, and the rest one click away. Top N rather than a rank floor because
+    // the ranks do not break: they descend 6.57, 6.27, 5.99, 5.91, 5.88 — gaps of 0.03 to
+    // 0.31, no cliff to cut at. A floor would present a threshold the evidence did not
+    // draw; a count is arbitrary and reads as arbitrary.
+    const rows = byTicker(runs)
+    const shown = showAll ? rows : rows.slice(0, SHORTLIST)
 
     function toggle(key) {
         setOpen(prev => {
@@ -252,39 +281,28 @@ export function AetherCandidates({ runs = [], loading, onSymbolClick }) {
     return (
         <div className="aether-candidates">
             <div className="aether-candidates__bar"><RunButton /></div>
-            {runs.map(run => (
-                <section key={run.run_id} className="aether-candidates__run">
-                    <header className="aether-candidates__event">
-                        <div className="aether-candidates__event-line">
-                            <span className="aether-candidates__subject">{run.subject || run.run_id}</span>
-                            {run.event_category && (
-                                <span
-                                    className="aether-candidates__category"
-                                    title={CATEGORY_HINT[run.event_category] ?? ''}
-                                >
-                                    {run.event_category}
-                                </span>
-                            )}
-                            {run.answer_shape && (
-                                <span
-                                    className={`aether-candidates__shape is-${run.answer_shape}`}
-                                    title={run.answer_shape === 'sized'
-                                        ? 'this event lands on a line item, so filings tend to state figures'
-                                        : 'a dependency story — filings mention it without sizing it'}
-                                >
-                                    {run.answer_shape === 'sized' ? 'sized' : 'names only'}
-                                </span>
-                            )}
-                            {run.event_date && (
-                                <span className="aether-candidates__date" title="when the event took effect">
-                                    {run.event_date}
-                                </span>
-                            )}
-                        </div>
-                        <p className="aether-candidates__headline">{run.event}</p>
-                    </header>
+            {/* The events behind the list. Ticker-first buries the question the names
+                answer, so it is restated once here rather than repeated on every row. */}
+            <div className="aether-candidates__events">
+                {runs.map(run => (
+                    <span key={run.run_id} className="aether-candidates__event-chip" title={run.event}>
+                        <span className="aether-candidates__subject">{run.subject || run.run_id}</span>
+                        {run.event_category && (
+                            <span className="aether-candidates__category"
+                                  title={CATEGORY_HINT[run.event_category] ?? ''}>
+                                {run.event_category}
+                            </span>
+                        )}
+                        {run.event_date && (
+                            <span className="aether-candidates__date" title="when the event took effect">
+                                {run.event_date}
+                            </span>
+                        )}
+                    </span>
+                ))}
+            </div>
 
-                    <table className="aether-candidates__table">
+            <table className="aether-candidates__table">
                         <thead>
                             <tr>
                                 <th />
@@ -296,43 +314,69 @@ export function AetherCandidates({ runs = [], loading, onSymbolClick }) {
                             </tr>
                         </thead>
                         <tbody>
-                            {shownFor(run).map(c => {
-                                const key = `${run.run_id}:${c.ticker}`
-                                const isOpen = open.has(key)
-                                const side = SIDE[c.side] ?? SIDE.mixed
-                                const urg = urgencyOf(c)
-                                const hz = horizon(c)
-                                const mag = magnitude(c)
+                            {shown.map(row => {
+                                const isOpen = open.has(row.ticker)
+                                const b = row.best
+                                const side = row.conflicted ? SIDE.mixed : (SIDE[b.side] ?? SIDE.mixed)
+                                const urg = urgencyOf(b)
+                                const hz = horizon(b)
+                                const mag = magnitude(b)
+                                const n = row.appearances.length
 
                                 return [
                                     <tr
-                                        key={key}
+                                        key={row.ticker}
                                         className={`aether-candidates__row ${isOpen ? 'is-open' : ''}`}
-                                        onClick={() => toggle(key)}
+                                        onClick={() => toggle(row.ticker)}
                                     >
                                         <td className="aether-candidates__caret">{isOpen ? '▾' : '▸'}</td>
                                         <td>
                                             <button
                                                 type="button"
                                                 className="aether-candidates__ticker"
-                                                onClick={ev => { ev.stopPropagation(); onSymbolClick?.(c.ticker) }}
+                                                onClick={ev => { ev.stopPropagation(); onSymbolClick?.(row.ticker) }}
                                             >
-                                                {c.ticker}
+                                                {row.ticker}
                                             </button>
                                             <span className="aether-candidates__tier" title="1 = named in coverage, 2 = a step removed, 3 = further">
-                                                t{c.tier}
+                                                t{b.tier}
+                                            </span>
+                                            {/* The recurrence — two events reaching one company is
+                                                the case the event-first list could not show. */}
+                                            {n > 1 && (
+                                                <span className="aether-candidates__events-count"
+                                                      title={`named by ${n} events: ${row.appearances.map(a => a.subject).join(', ')}`}>
+                                                    {n} events
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td>
+                                            <span className={`aether-candidates__side ${side.cls}`}
+                                                  title={row.conflicted
+                                                      ? 'these events pull it in opposite directions — open the row'
+                                                      : undefined}>
+                                                {side.label}
                                             </span>
                                         </td>
-                                        <td><span className={`aether-candidates__side ${side.cls}`}>{side.label}</span></td>
                                         <td className="is-num" title={mag.hint}>{mag.label}</td>
                                         <td><span className={`aether-candidates__urgency ${urg.cls}`} title={urg.hint}>{urg.label}</span></td>
                                         <td title={hz.hint}>{hz.label}</td>
                                     </tr>,
 
                                     isOpen && (
-                                        <tr key={`${key}:detail`} className="aether-candidates__detail-row">
+                                        <tr key={`${row.ticker}:detail`} className="aether-candidates__detail-row">
                                             <td colSpan={6}>
                                                 <div className="aether-candidates__detail">
+                                                    {row.appearances.map(c => (
+                                                    <section key={c.run_id} className="aether-candidates__appearance">
+                                                    <h4 className="aether-candidates__appearance-head">
+                                                        <span className={`aether-candidates__side ${(SIDE[c.side] ?? SIDE.mixed).cls}`}>
+                                                            {(SIDE[c.side] ?? SIDE.mixed).label}
+                                                        </span>
+                                                        {' '}{c.subject}
+                                                        {c.event_date && <span className="aether-candidates__date"> · {c.event_date}</span>}
+                                                    </h4>
+                                                    <p className="aether-candidates__headline">{c.event}</p>
                                                     <dl>
                                                         <dt>Why</dt>
                                                         <dd>{c.mechanism || '—'}</dd>
@@ -393,6 +437,8 @@ export function AetherCandidates({ runs = [], loading, onSymbolClick }) {
                                                             </>
                                                         )}
                                                     </dl>
+                                                    </section>
+                                                    ))}
                                                 </div>
                                             </td>
                                         </tr>
@@ -400,24 +446,22 @@ export function AetherCandidates({ runs = [], loading, onSymbolClick }) {
                                 ]
                             })}
                         </tbody>
-                    </table>
+            </table>
 
-                    {/* The rest, and how many. Never a silent truncation: a reader who
-                        cannot tell the list was cut cannot tell whether the cut was wrong. */}
-                    {(run.candidates?.length ?? 0) > SHORTLIST && (
-                        <button
-                            type="button"
-                            className="aether-candidates__more"
-                            onClick={() => toggleExpanded(run.run_id)}
-                            title="Every name the run produced is stored, ranked and reachable — this only decides how many open on screen."
-                        >
-                            {expanded.has(run.run_id)
-                                ? `Show the top ${SHORTLIST}`
-                                : `${run.candidates.length - SHORTLIST} more, lower ranked`}
-                        </button>
-                    )}
-                </section>
-            ))}
+            {/* Never a silent truncation: a reader who cannot tell the list was cut cannot
+                tell whether the cut was wrong. */}
+            {rows.length > SHORTLIST && (
+                <button
+                    type="button"
+                    className="aether-candidates__more"
+                    onClick={() => setShowAll(v => !v)}
+                    title="Every name is stored, ranked and reachable — this only decides how many open on screen."
+                >
+                    {showAll
+                        ? `Show the top ${SHORTLIST}`
+                        : `${rows.length - SHORTLIST} more, lower ranked`}
+                </button>
+            )}
         </div>
     )
 }

@@ -45,33 +45,38 @@
     line-height: 1.5;
 }
 
-.aether-candidates__run {
-    // `flex: 0 0 auto` IS THE SCROLLING. This is a flex item in a column container, so it
-    // defaults to flex-shrink: 1 — it shrinks below its own content to fit the height it is
-    // given, and `overflow: hidden` below then clips the rest of the table away. The parent
-    // never overflows, so its `overflow-y: auto` never produces a scrollbar: a 43-name event
-    // rendered as six rows with no way to reach the other thirty-seven, and nothing on
-    // screen to say so.
-    //
-    // The overflow stays — it is what makes the radius clip the table's square corners —
-    // so the fix is to refuse to shrink and let the parent do the scrolling.
+// The events behind the list, named once above it. Ticker-first buries the question the
+// names answer, and repeating the event on every row would be worse — a name reached by
+// two events would carry both on one line.
+.aether-candidates__events {
     flex: 0 0 auto;
-    border: 1px solid var(--border-mid);
-    border-radius: 6px;
-    overflow: hidden;
-}
-
-.aether-candidates__event {
-    padding: 10px 12px;
-    background: var(--bg-raised);
-    border-bottom: 1px solid var(--border-mid);
-}
-
-.aether-candidates__event-line {
     display: flex;
-    align-items: center;
-    gap: 8px;
     flex-wrap: wrap;
+    gap: 6px;
+}
+
+.aether-candidates__event-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border: 1px solid var(--border-mid);
+    border-radius: 4px;
+    background: var(--bg-raised);
+    cursor: help;
+}
+
+// HOW MANY EVENTS REACHED THIS NAME, and it earns the accent because it is the one thing
+// the event-first layout could not show at all: a company two independent events both
+// point at is saying something neither says alone.
+.aether-candidates__events-count {
+    margin-left: 6px;
+    font-size: var(--chat-micro);
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    color: var(--accent);
+    cursor: help;
 }
 
 .aether-candidates__subject {
@@ -124,6 +129,13 @@
 }
 
 .aether-candidates__table {
+    // `flex: 0 0 auto` IS THE SCROLLING, and it moved here when the list went ticker-first.
+    // This is a flex item in a column container, so it defaults to flex-shrink: 1 and will
+    // shrink BELOW its own content to fit the height available. The parent then never
+    // overflows, so its `overflow-y: auto` never yields a scrollbar — which is exactly how
+    // a 43-name list rendered as six rows with no way to reach the other thirty-seven, and
+    // nothing on screen to say it had been cut.
+    flex: 0 0 auto;
     width: 100%;
     border-collapse: collapse;
     font-size: var(--chat-meta);
@@ -260,6 +272,26 @@
 
     a { color: var(--accent); }
     em { color: var(--text-muted); font-style: italic; }
+}
+
+// ONE BLOCK PER EVENT that named this company. Separated by a rule rather than nested in a
+// card: they are peers — two independent claims about one name — and boxing each would say
+// one contains the other.
+.aether-candidates__appearance + .aether-candidates__appearance {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border-mid);
+}
+
+.aether-candidates__appearance-head {
+    margin: 0 0 2px;
+    font-size: var(--chat-meta);
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
 }
 
 // A CONFIDENCE ladder, deliberately not the long/short palette: red on `silent` would
