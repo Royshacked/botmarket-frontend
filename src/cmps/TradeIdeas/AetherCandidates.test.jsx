@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { AetherCandidates } from './AetherCandidates.jsx'
+import { AetherCandidates, urgencyOf } from './AetherCandidates.jsx'
 import { ADMIN, MEMBER } from '../../testUtils/authStub.js'
 
 // Discovery is the one leg of the engine that spends per press — an Opus call with web
@@ -155,5 +155,69 @@ describe('AetherCandidates scrolling', () => {
         // Removing the overflow would "fix" the scroll by leaving square corners poking out
         // of a rounded box — the wrong half of the trade.
         expect(section).toMatch(/overflow:\s*hidden/)
+    })
+})
+
+describe('urgency', () => {
+    // The engine measures the move and does NOT store a verdict on it — `status` is a
+    // display function in the Python CLI. The column read c.status, found undefined on
+    // every row, and printed "—" for all 43 names while excess_pct and extension sat on
+    // the same documents, measured and correct.
+    const NOW = Date.parse('2026-09-10T00:00:00Z')
+    const c = (over = {}) => ({ excess_pct: -0.012, extension: -0.5,
+                                created_at: '2026-09-09T00:00:00+00:00', ...over })
+
+    it('a measured, quiet, recent name is fresh — not a dash', () => {
+        expect(urgencyOf(c(), NOW).label).toBe('fresh')
+    })
+
+    it('no measurement at all is the only dash', () => {
+        expect(urgencyOf(c({ excess_pct: null }), NOW).label).toBe('—')
+    })
+
+    it('two sigma against its own volatility has moved', () => {
+        expect(urgencyOf(c({ extension: -2.4 }), NOW).label).toBe('moved')
+        expect(urgencyOf(c({ extension: 2.4 }), NOW).label).toBe('moved')
+    })
+
+    it('moved beats age in both directions', () => {
+        const old = { extension: 3, created_at: '2026-06-01T00:00:00Z' }
+        expect(urgencyOf(c(old), NOW).label).toBe('moved')
+    })
+
+    it('falls back to a flat 5% only when there was no sigma to measure', () => {
+        // 4% is an ordinary day for a volatile name and a serious event for a utility,
+        // which is why extension wins wherever it exists.
+        expect(urgencyOf(c({ extension: null, excess_pct: 0.06 }), NOW).label).toBe('moved')
+        expect(urgencyOf(c({ extension: null, excess_pct: 0.02 }), NOW).label).toBe('fresh')
+        expect(urgencyOf(c({ extension: 0.5, excess_pct: 0.06 }), NOW).label).toBe('fresh')
+    })
+
+    it('a move that is only the market is not a move', () => {
+        // excess_pct, never move_pct — up 6% in a week the market rose 6% is nothing.
+        expect(urgencyOf(c({ excess_pct: 0.001, extension: 0.1 }), NOW).label).toBe('fresh')
+    })
+
+    it('ages fresh -> working -> stale', () => {
+        expect(urgencyOf(c({ created_at: '2026-09-08T00:00:00Z' }), NOW).label).toBe('fresh')
+        expect(urgencyOf(c({ created_at: '2026-09-01T00:00:00Z' }), NOW).label).toBe('working')
+        expect(urgencyOf(c({ created_at: '2026-08-01T00:00:00Z' }), NOW).label).toBe('stale')
+    })
+
+    it('a broken timestamp reads as new rather than throwing', () => {
+        expect(urgencyOf(c({ created_at: 'not-a-date' }), NOW).label).toBe('fresh')
+        expect(urgencyOf(c({ created_at: undefined }), NOW).label).toBe('fresh')
+    })
+
+    it('the thresholds still match the engine', () => {
+        // DUPLICATED FROM candidates.py — _BIG_EXTENSION 2.0, _FLAT_MOVE_FALLBACK 0.05,
+        // _STALE_DAYS 21. Computing urgency here instead of storing it means these two
+        // copies can drift in silence; this is the tripwire. If the engine's numbers move,
+        // move them here in the same commit.
+        expect(urgencyOf(c({ extension: 1.99 }), NOW).label).not.toBe('moved')
+        expect(urgencyOf(c({ extension: 2.0 }), NOW).label).toBe('moved')
+        expect(urgencyOf(c({ extension: null, excess_pct: 0.0499 }), NOW).label).not.toBe('moved')
+        expect(urgencyOf(c({ extension: null, excess_pct: 0.05 }), NOW).label).toBe('moved')
+        expect(urgencyOf(c({ created_at: '2026-08-20T00:00:00Z' }), NOW).label).toBe('stale')
     })
 })

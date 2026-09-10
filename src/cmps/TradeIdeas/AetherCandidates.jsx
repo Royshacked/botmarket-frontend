@@ -30,6 +30,52 @@ const URGENCY = {
     no_price: { label: '—',      cls: 'is-none',    hint: 'no price measured yet' },
 }
 
+// ── urgency, derived here ─────────────────────────────────────────────────────
+//
+// The engine does NOT store this. `status` is a display function in the Python CLI, so the
+// column read `c.status`, found undefined on every row, and fell through to "—" for all 43
+// names — while excess_pct and extension sat on the very same documents, measured and
+// correct. An empty column that looks like missing data, on top of data that is not missing.
+//
+// THE THRESHOLDS ARE DUPLICATED, and that is the cost of computing it here rather than
+// storing it. They mirror candidates.py — _BIG_EXTENSION, _FLAT_MOVE_FALLBACK, _STALE_DAYS
+// — and if that file changes, this drifts silently. Pinned in a test for exactly that
+// reason; the alternative was another engine field to write, migrate and keep in sync.
+const BIG_EXTENSION     = 2.0    // σ of the name's own trailing move
+const FLAT_MOVE_FALLBACK = 0.05  // used only when there was too little history for a σ
+const STALE_DAYS        = 21
+const FRESH_DAYS        = 3
+
+/**
+ * How soon this read goes cold.
+ *
+ * Judged on EXTENSION where a sigma exists, falling back to a flat percentage only when
+ * there was not enough history to measure one — 4% is an ordinary day for a volatile name
+ * and a serious event for a utility. Deliberately coarse either way.
+ *
+ * `excess_pct`, never `move_pct`: a name up 6% in a week the market rose 6% has done
+ * nothing, and calling that "moved" would retire the candidate for no reason.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- exported to be tested against
+// the engine's own thresholds; it is the duplication that makes testing it non-optional
+export function urgencyOf(c, now = Date.now()) {
+    if (c?.excess_pct == null) return URGENCY.no_price
+
+    const ext = c.extension
+    const big = ext != null
+        ? Math.abs(ext) >= BIG_EXTENSION
+        : Math.abs(c.excess_pct) >= FLAT_MOVE_FALLBACK
+    if (big) return URGENCY.moved
+
+    // A broken or missing timestamp reads as brand new rather than as an error — the age
+    // only chooses between fresh and stale, and neither is worth throwing over.
+    const ms = new Date(c.created_at ?? '').getTime()
+    const age = Number.isNaN(ms) ? 0 : Math.floor((now - ms) / 86_400_000)
+
+    if (age >= STALE_DAYS) return URGENCY.stale
+    return age <= FRESH_DAYS ? URGENCY.fresh : URGENCY.working
+}
+
 // What KIND of event this is, by who acted. A label, never a filter — the engine runs on
 // the three runnable tests, and this only tells a reader what they are looking at.
 const CATEGORY_HINT = {
@@ -217,7 +263,7 @@ export function AetherCandidates({ runs = [], loading, onSymbolClick }) {
                                 const key = `${run.run_id}:${c.ticker}`
                                 const isOpen = open.has(key)
                                 const side = SIDE[c.side] ?? SIDE.mixed
-                                const urg = URGENCY[c.status] ?? URGENCY.no_price
+                                const urg = urgencyOf(c)
                                 const hz = horizon(c)
                                 const mag = magnitude(c)
 
