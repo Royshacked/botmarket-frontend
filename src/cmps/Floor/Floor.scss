@@ -765,6 +765,19 @@ $header-h: var(--header-h);
         &--looking        { color: var(--text-secondary); }
         &--target_hit     { color: var(--color-long); }
         &--thesis_broken  { color: var(--color-short); }
+
+        // Aether's urgency ladder — how soon the read goes cold, not how big it is. It
+        // belongs here beside the others because it IS the same cell: the right-edge word
+        // every row in this column ends on.
+        //
+        // NOT the long/short palette. `moved` is a WARNING — the move has already
+        // happened — and in red it would read as bearish on a name the engine may well
+        // have called long. Contrast carries the ladder; hue would lie about it.
+        &--moved    { color: var(--text-secondary); }
+        &--fresh    { color: var(--color-long); }
+        &--working  { color: var(--accent-light); }
+        &--stale    { color: var(--text-dim); }
+        &--no_price { color: var(--text-dim); }
     }
 
     // The count now follows the name directly, so the row has nothing else claiming the free space:

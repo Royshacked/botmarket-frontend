@@ -1,25 +1,36 @@
 // ── Aether event candidates ───────────────────────────────────────────────────
-// Replaces ShockFeed. Grouped by event, because the event is the unit a reader
-// reasons about — a flat ticker list loses the question the names answer.
 //
-// TOKENS ONLY, NO HEX. Four themes (ocean / forest / crimson / paper) are driven by
-// CSS custom properties and the accent hue is user-rotatable, so a literal colour here
-// looks correct in exactly one theme and wrong in the other three.
+// ALMOST NOTHING LIVES HERE ANY MORE, and that is the point. The list used to own a table,
+// its own rows, its own expansion drawer, its own colour ladders — a sixth list in a column
+// of five that expanded differently, coloured differently and sized differently from the
+// four above it. It wears the Floor's own vocabulary now: `floor-sub` for the accordion,
+// `floor-row` for the line, `floor-detail` for the drawer, `floor-row__status--*` for the
+// urgency ladder (defined beside the other statuses in Floor.scss, because it is the same
+// cell). What is left below is only what is genuinely this list's own.
+//
+// TOKENS ONLY, NO HEX. Four themes (ocean / forest / crimson / paper) are driven by CSS
+// custom properties and the accent hue is user-rotatable, so a literal colour here looks
+// correct in exactly one theme and wrong in the other three.
 
 .aether-candidates {
     display: flex;
     flex-direction: column;
     height: 100%;
+    // The list is what scrolls. Every child below pins `flex: 0 0 auto` for the reason
+    // spelled out on .floor-sub: a flex item in a column container defaults to
+    // flex-shrink: 1 and will shrink BELOW its own content, at which point the parent never
+    // overflows and this `auto` never yields a scrollbar. That is how a 43-name list once
+    // rendered as six rows with nothing on screen to say it had been cut.
     overflow-y: auto;
-    gap: 18px;
-    padding: 12px;
+    overflow-x: hidden;
 }
 
-// Admin only, and it renders nothing at all for everyone else — so the bar collapses
-// rather than leaving a gap above the first event.
+// The admin's run button, on its own line above the list.
 .aether-candidates__bar {
+    flex: 0 0 auto;
     display: flex;
     justify-content: flex-end;
+    padding: 6px 8px;
 
     &:empty { display: none; }
 }
@@ -38,127 +49,32 @@
     &:disabled { cursor: default; color: var(--text-dim); }
 }
 
-.aether-candidates__empty {
-    padding: 24px 12px;
-    font-size: var(--chat-meta);
-    color: var(--text-muted);
-    line-height: 1.5;
-}
-
-// The events behind the list, named once above it. Ticker-first buries the question the
-// names answer, and repeating the event on every row would be worse — a name reached by
-// two events would carry both on one line.
-.aether-candidates__events {
-    flex: 0 0 auto;
+// The row's hover action, in RowHost's overlay slot. A row IS a button and a button cannot
+// contain one, which is the whole reason that overlay exists — so opening the ticker's
+// pop-out rides there rather than as a cell inside the line.
+.aether-actions {
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-}
-
-.aether-candidates__event-chip {
-    display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 8px;
+    gap: 4px;
+}
+
+.aether-actions__btn {
+    font: inherit;
+    font-size: var(--chat-label);
+    padding: 2px 8px;
+    border-radius: 3px;
     border: 1px solid var(--border-mid);
-    border-radius: 4px;
     background: var(--bg-raised);
-    cursor: help;
-}
-
-// HOW MANY EVENTS REACHED THIS NAME, and it earns the accent because it is the one thing
-// the event-first layout could not show at all: a company two independent events both
-// point at is saying something neither says alone.
-.aether-candidates__events-count {
-    margin-left: 6px;
-    font-size: var(--chat-micro);
-    padding: 1px 5px;
-    border-radius: 3px;
-    background: color-mix(in srgb, var(--accent) 14%, transparent);
-    color: var(--accent);
-    cursor: help;
-}
-
-.aether-candidates__subject {
-    font-weight: 600;
-    font-size: var(--chat-meta);
-    color: var(--text-primary);
-}
-
-// "sized" says the filings can back this with a figure; "names only" says they cannot.
-// A neutral distinction, so it must not borrow the long/short palette.
-.aether-candidates__shape {
-    font-size: var(--chat-micro);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding: 2px 6px;
-    border-radius: 3px;
-    cursor: help;
-    border: 1px solid var(--border-mid);
-
-    &.is-sized { color: var(--text-secondary); background: var(--bg-hover); }
-    &.is-names_only { color: var(--text-dim); }
-}
-
-// The event KIND. Deliberately one flat treatment for all six — a per-category colour
-// would imply an ordering ("fiscal is better than macro") that does not exist, and the
-// four themes have no six-hue categorical ramp to borrow.
-.aether-candidates__category {
-    font-size: var(--chat-micro);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding: 2px 6px;
-    border-radius: 3px;
-    cursor: help;
     color: var(--text-secondary);
-    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    cursor: pointer;
+
+    &:hover { background: var(--bg-hover); color: var(--text-primary); }
 }
 
-.aether-candidates__date {
-    font-size: var(--chat-label);
-    color: var(--text-muted);
-    font-family: var(--font-mono);
-    cursor: help;
-}
-
-.aether-candidates__headline {
-    margin: 6px 0 0;
-    font-size: var(--chat-label);
-    line-height: 1.45;
-    color: var(--text-secondary);
-}
-
-.aether-candidates__table {
-    // `flex: 0 0 auto` IS THE SCROLLING, and it moved here when the list went ticker-first.
-    // This is a flex item in a column container, so it defaults to flex-shrink: 1 and will
-    // shrink BELOW its own content to fit the height available. The parent then never
-    // overflows, so its `overflow-y: auto` never yields a scrollbar — which is exactly how
-    // a 43-name list rendered as six rows with no way to reach the other thirty-seven, and
-    // nothing on screen to say it had been cut.
-    flex: 0 0 auto;
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--chat-meta);
-
-    th {
-        text-align: left;
-        font-weight: 500;
-        font-size: var(--chat-micro);
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: var(--text-muted);
-        padding: 6px 8px;
-        border-bottom: 1px solid var(--border-mid);
-    }
-
-    td { padding: 6px 8px; vertical-align: top; }
-    .is-num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-}
-
-// The disclosure at the foot of a run. Quiet on purpose — it reports what is not on
-// screen, which is a footnote, not an action competing with the rows above it.
+// The disclosure at the foot of the list. Quiet on purpose — it reports what is NOT on
+// screen, which is a footnote rather than an action competing with the rows above it.
 .aether-candidates__more {
-    display: block;
+    flex: 0 0 auto;
     width: 100%;
     padding: 7px 8px;
     font: inherit;
@@ -166,156 +82,9 @@
     color: var(--text-muted);
     background: none;
     border: 0;
-    border-top: 1px solid var(--border-soft, var(--border-mid));
+    border-top: 1px solid var(--border);
     cursor: pointer;
     text-align: center;
 
     &:hover { background: var(--bg-hover); color: var(--text-secondary); }
-}
-
-.aether-candidates__row {
-    cursor: pointer;
-    border-bottom: 1px solid var(--border-soft, var(--border-mid));
-
-    &:hover { background: var(--bg-hover); }
-
-    // The open row stays readable while its drawer scrolls under it.
-    &.is-open {
-        background: var(--bg-hover);
-        position: sticky;
-        top: 0;
-        z-index: 1;
-    }
-}
-
-.aether-candidates__caret {
-    width: 18px;
-    color: var(--text-dim);
-}
-
-.aether-candidates__ticker {
-    background: none;
-    border: none;
-    padding: 0;
-    font: inherit;
-    font-weight: 600;
-    color: var(--accent);
-    cursor: pointer;
-
-    &:hover { text-decoration: underline; }
-}
-
-.aether-candidates__tier {
-    margin-left: 5px;
-    font-size: var(--chat-micro);
-    color: var(--text-dim);
-    cursor: help;
-}
-
-// Direction reuses the app's long/short tokens, which every theme re-derives — the
-// paper theme darkens --long-text for contrast, and this gets that for free.
-.aether-candidates__side {
-    font-weight: 600;
-    font-size: var(--chat-label);
-    letter-spacing: 0.03em;
-
-    &.is-short { color: var(--short-text, var(--color-short)); }
-    &.is-long  { color: var(--long-text, var(--color-long)); }
-    &.is-mixed { color: var(--text-muted); }
-}
-
-// Urgency is a staleness ladder, not a direction. "moved" is a WARNING — the move has
-// already happened — so it must not read as bearish; it borrows the accent, not short.
-.aether-candidates__urgency {
-    font-size: var(--chat-label);
-    padding: 1px 6px;
-    border-radius: 3px;
-    cursor: help;
-
-    &.is-moved   { background: color-mix(in srgb, var(--text-muted) 16%, transparent); color: var(--text-secondary); }
-    &.is-fresh   { background: color-mix(in srgb, var(--color-long) 14%, transparent); color: var(--long-text, var(--color-long)); }
-    &.is-working { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
-    &.is-stale   { color: var(--text-dim); }
-    &.is-none    { color: var(--text-dim); }
-}
-
-// ── expanded detail ───────────────────────────────────────────────────────────
-
-.aether-candidates__detail-row td { padding: 0; }
-
-.aether-candidates__detail {
-    padding: 10px 14px 14px 34px;
-    background: var(--bg-raised);
-    border-bottom: 1px solid var(--border-mid);
-
-    dl { margin: 0; display: grid; grid-template-columns: 112px 1fr; gap: 6px 12px; }
-
-    dt {
-        font-size: var(--chat-micro);
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: var(--text-muted);
-        padding-top: 2px;
-    }
-
-    dd { margin: 0; font-size: var(--chat-meta); line-height: 1.5; color: var(--text-primary); }
-
-    blockquote {
-        margin: 4px 0 0;
-        padding: 6px 10px;
-        border-left: 2px solid var(--border-mid);
-        background: var(--bg-surface);
-        font-size: var(--chat-label);
-        line-height: 1.5;
-        color: var(--text-secondary);
-    }
-
-    a { color: var(--accent); }
-    em { color: var(--text-muted); font-style: italic; }
-}
-
-// ONE BLOCK PER EVENT that named this company. Separated by a rule rather than nested in a
-// card: they are peers — two independent claims about one name — and boxing each would say
-// one contains the other.
-.aether-candidates__appearance + .aether-candidates__appearance {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px dashed var(--border-mid);
-}
-
-.aether-candidates__appearance-head {
-    margin: 0 0 2px;
-    font-size: var(--chat-meta);
-    font-weight: 600;
-    color: var(--text-primary);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-
-// A CONFIDENCE ladder, deliberately not the long/short palette: red on `silent` would
-// read as bearish when it means "the filing does not mention this", which is
-// information rather than a negative. Contrast, not hue, carries the ordering.
-.aether-candidates__verdict {
-    font-size: var(--chat-micro);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding: 1px 5px;
-    border-radius: 3px;
-    border: 1px solid var(--border-mid);
-
-    &.is-quantified { color: var(--text-primary); background: var(--bg-hover); }
-    &.is-mentioned  { color: var(--text-secondary); }
-    &.is-silent     { color: var(--text-muted); }
-    &.is-no_filer   { color: var(--text-dim); }
-}
-
-.aether-candidates__asof { color: var(--text-dim); font-family: var(--font-mono); }
-
-.aether-candidates__rank {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-size: var(--chat-label);
-    color: var(--text-muted);
 }

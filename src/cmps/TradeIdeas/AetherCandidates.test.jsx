@@ -105,14 +105,20 @@ describe('AetherCandidates run button', () => {
 
 describe('AetherCandidates list', () => {
 
-    it('shows the event category as a chip', () => {
+    it('names the event, its category and its date on the appearance itself', () => {
+        // The category rode a chip strip above the list until the list went ticker-first.
+        // It belongs to the appearance, not to the screen: a company reached by two events
+        // has two categories, and a strip can only show one of them per event anyway.
         render(<AetherCandidates runs={[RUN]} />)
-        expect(screen.getByText('trade')).toBeTruthy()
+        fireEvent.click(screen.getByText('NUE').closest('button'))
+        expect(screen.getByText(/Canada/)).toBeTruthy()
+        expect(screen.getByText(/trade/)).toBeTruthy()
     })
 
-    it('shows no chip for a run stored before the label existed', () => {
+    it('a run stored before the label existed simply omits it', () => {
         render(<AetherCandidates runs={[{ ...RUN, event_category: '' }]} />)
-        expect(screen.queryByText('trade')).toBeNull()
+        fireEvent.click(screen.getByText('NUE').closest('button'))
+        expect(screen.queryByText(/· trade/)).toBeNull()
         expect(screen.getByText('NUE')).toBeTruthy()
     })
 
@@ -139,23 +145,36 @@ describe('AetherCandidates scrolling', () => {
     const css = readFileSync(
         resolve(process.cwd(), 'src/cmps/TradeIdeas/AetherCandidates.scss'), 'utf8',
     )
-    const table = css.slice(css.indexOf('.aether-candidates__table {'),
-                            css.indexOf('.aether-candidates__more'))
+    const floorCss = readFileSync(resolve(process.cwd(), 'src/cmps/Floor/Floor.scss'), 'utf8')
     const container = css.slice(css.indexOf('.aether-candidates {'),
                                 css.indexOf('.aether-candidates__bar'))
+    const sub = floorCss.slice(floorCss.indexOf('.floor-sub {'),
+                               floorCss.indexOf('.floor-sub {') + 400)
 
     it('the list scrolls', () => {
         expect(container).toMatch(/overflow-y:\s*auto/)
     })
 
-    it('the table refuses to shrink, so the list is what overflows', () => {
-        expect(table).toMatch(/flex:\s*0 0 auto/)
+    it('a row refuses to shrink, so the list is what overflows', () => {
+        // The guard followed the markup twice: `__run` when the list was event-first, the
+        // table when it went ticker-first, and now .floor-sub, because the rows ARE the
+        // Floor's rows. Same failure each time if it is missing — the child shrinks, the
+        // parent never overflows, and the list is silently cut with no scrollbar.
+        expect(sub).toMatch(/flex:\s*0 0 auto/)
+    })
+
+    it('every direct child of the list holds its height', () => {
+        for (const rule of ['__bar', '__more']) {
+            const block = css.slice(css.indexOf(`.aether-candidates${rule}`))
+            expect(block.slice(0, 260)).toMatch(/flex:\s*0 0 auto/)
+        }
     })
 
     it('no orphaned rule is still claiming to do the scrolling', () => {
-        // `.aether-candidates__run` carried this fix until the layout flipped. A dead rule
-        // that looks like the guard is worse than no rule: the next reader stops looking.
+        // `__run` then `__table` each carried this fix in turn. A dead rule that looks like
+        // the guard is worse than no rule: the next reader stops looking.
         expect(css).not.toMatch(/\.aether-candidates__run \{/)
+        expect(css).not.toMatch(/\.aether-candidates__table \{/)
     })
 })
 
@@ -357,12 +376,12 @@ describe('AetherCandidates recurrence', () => {
 
     it('a company named once carries no event count', () => {
         render(<AetherCandidates runs={[r2('a', 'Canada', [c2()])]} />)
-        expect(screen.queryByText(/^\d+ events$/)).toBeNull()
+        expect(screen.queryByText(/\(\d+ events\)/)).toBeNull()
     })
 
     it('a company named twice says so on its row', () => {
         render(<AetherCandidates runs={[r2('a', 'Canada', [c2()]), r2('b', 'Congo', [c2()])]} />)
-        expect(screen.getByText('2 events')).toBeTruthy()
+        expect(screen.getByText('(2 events)')).toBeTruthy()
     })
 
     it('opening the row shows both events, each with its own why', () => {
@@ -370,15 +389,15 @@ describe('AetherCandidates recurrence', () => {
             r2('a', 'Canada', [c2({ mechanism: 'steel input cost' })]),
             r2('b', 'Congo', [c2({ mechanism: 'cobalt supply' })]),
         ]} />)
-        fireEvent.click(screen.getByText('NUE').closest('tr'))
+        fireEvent.click(screen.getByText('NUE').closest('button'))
         expect(screen.getByText('steel input cost')).toBeTruthy()
         expect(screen.getByText('cobalt supply')).toBeTruthy()
     })
 
-    it('the events behind the list are named once, above it', () => {
+    it('each event is named on its own block inside the row', () => {
         render(<AetherCandidates runs={[r2('a', 'Canada', [c2()]), r2('b', 'Congo', [c2()])]} />)
-        // Ticker-first buries the question the names answer; the strip restates it.
-        expect(screen.getByTitle('Canada thing')).toBeTruthy()
-        expect(screen.getByTitle('Congo thing')).toBeTruthy()
+        fireEvent.click(screen.getByText('NUE').closest('button'))
+        expect(screen.getByText(/Canada/)).toBeTruthy()
+        expect(screen.getByText(/Congo/)).toBeTruthy()
     })
 })

@@ -3,31 +3,41 @@ import PropTypes from 'prop-types'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { aetherService } from '../../services/aether/aether.service.remote.js'
 import { apiError } from '../../services/http.service.js'
+import { RowHost } from '../Floor/RowHost.jsx'
 import './AetherCandidates.scss'
 
-// Aether's event list. A run is one named event; a candidate is one company it named.
+// Aether's event list — ONE ROW PER COMPANY, with the events that named it inside.
 //
-// Collapsed row: ticker · direction · magnitude · urgency · horizon.
-// Expanded: the mechanism, the press fact with its source, and the filing sentence.
+// Collapsed row: direction · ticker · how many events · magnitude · urgency.
+// Expanded: one block per event — its mechanism, the press fact, the filing sentence.
+//
+// It wears the Floor's own row vocabulary rather than a table of its own: floor-sub for the
+// accordion, RowHost for the hover actions, floor-row for the line and floor-detail for the
+// drawer. Five lists share this column and a sixth that expanded differently, coloured
+// differently and sized differently would read as a different kind of thing on the same
+// screen. The judgment stays here — which cells, what they mean — and only the shell is
+// shared, the same split RowHost's own note describes.
 //
 // EVERY FIELD IS MEASURED OR ABSENT. The engine reports an unknown size as unknown
 // rather than a plausible guess, so a dash here means "not measured", never "small".
 // That distinction is the whole reason the previous shock feed was retired: it showed
 // "large"/"medium" on 170 cards, never "small", off a channel state three months stale.
 
+// `dir` is the Floor's own direction vocabulary — the same glyph and colour the trade,
+// holding and scan rows use, so a short reads identically wherever it appears.
 const SIDE = {
-    hurt:   { label: 'SHORT', cls: 'is-short' },
-    helped: { label: 'LONG',  cls: 'is-long' },
-    mixed:  { label: 'MIXED', cls: 'is-mixed' },
+    hurt:   { label: 'SHORT', dir: 'short' },
+    helped: { label: 'LONG',  dir: 'long' },
+    mixed:  { label: 'MIXED', dir: 'mixed' },
 }
 
 // Urgency is about how soon the read goes cold, not how big it is.
 const URGENCY = {
-    moved:   { label: 'moved',   cls: 'is-moved',   hint: 'the excess move has already happened' },
-    fresh:   { label: 'fresh',   cls: 'is-fresh',   hint: 'surfaced in the last few days and still quiet' },
-    working: { label: 'working', cls: 'is-working', hint: 'in flight' },
-    stale:   { label: 'stale',   cls: 'is-stale',   hint: 'old enough that the thesis needs re-checking' },
-    no_price: { label: '—',      cls: 'is-none',    hint: 'no price measured yet' },
+    moved:    { key: 'moved',    label: 'moved',   hint: 'the excess move has already happened' },
+    fresh:    { key: 'fresh',    label: 'fresh',   hint: 'surfaced in the last few days and still quiet' },
+    working:  { key: 'working',  label: 'working', hint: 'in flight' },
+    stale:    { key: 'stale',    label: 'stale',   hint: 'old enough that the thesis needs re-checking' },
+    no_price: { key: 'no_price', label: '—',       hint: 'no price measured yet' },
 }
 
 // ── urgency, derived here ─────────────────────────────────────────────────────
@@ -245,7 +255,10 @@ export function byTicker(runs = []) {
 }
 
 export function AetherCandidates({ runs = [], loading, onSymbolClick }) {
-    const [open, setOpen] = useState(() => new Set())
+    // ONE ROW OPEN AT A TIME, and folded siblings collapse to nothing. Not a preference —
+    // it is the mechanic every other list in this column uses (3bbfa59), and a list that
+    // expands differently from the four above it reads as a different kind of thing.
+    const [openKey, setOpenKey] = useState(null)
     const [showAll, setShowAll] = useState(false)
 
     // THE SHORTLIST, and the rest one click away. Top N rather than a rank floor because
@@ -255,23 +268,17 @@ export function AetherCandidates({ runs = [], loading, onSymbolClick }) {
     const rows = byTicker(runs)
     const shown = showAll ? rows : rows.slice(0, SHORTLIST)
 
-    function toggle(key) {
-        setOpen(prev => {
-            const next = new Set(prev)
-            next.has(key) ? next.delete(key) : next.add(key)
-            return next
-        })
-    }
+    const toggle = ticker => setOpenKey(cur => (cur === ticker ? null : ticker))
 
-    if (loading) return <p className="aether-candidates__empty">Loading…</p>
+    if (loading) return <p className="floor-empty">Loading…</p>
     // The empty state is where the button matters most: nothing has run, and an admin is
     // the only one who can change that.
     if (!runs.length) {
         return (
             <div className="aether-candidates">
-                <p className="aether-candidates__empty">
-                    No events in the window. Aether names companies when a story breaks — nothing has
-                    run recently.
+                <p className="floor-empty">
+                    No events in the window. Aether names companies when a story breaks, and a run
+                    is started by hand rather than on a schedule.
                 </p>
                 <div className="aether-candidates__bar"><RunButton /></div>
             </div>
@@ -281,172 +288,142 @@ export function AetherCandidates({ runs = [], loading, onSymbolClick }) {
     return (
         <div className="aether-candidates">
             <div className="aether-candidates__bar"><RunButton /></div>
-            {/* The events behind the list. Ticker-first buries the question the names
-                answer, so it is restated once here rather than repeated on every row. */}
-            <div className="aether-candidates__events">
-                {runs.map(run => (
-                    <span key={run.run_id} className="aether-candidates__event-chip" title={run.event}>
-                        <span className="aether-candidates__subject">{run.subject || run.run_id}</span>
-                        {run.event_category && (
-                            <span className="aether-candidates__category"
-                                  title={CATEGORY_HINT[run.event_category] ?? ''}>
-                                {run.event_category}
-                            </span>
-                        )}
-                        {run.event_date && (
-                            <span className="aether-candidates__date" title="when the event took effect">
-                                {run.event_date}
-                            </span>
-                        )}
-                    </span>
-                ))}
-            </div>
 
-            <table className="aether-candidates__table">
-                        <thead>
-                            <tr>
-                                <th />
-                                <th>Ticker</th>
-                                <th>Dir</th>
-                                <th className="is-num">Magnitude</th>
-                                <th>Urgency</th>
-                                <th>Horizon</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {shown.map(row => {
-                                const isOpen = open.has(row.ticker)
-                                const b = row.best
-                                const side = row.conflicted ? SIDE.mixed : (SIDE[b.side] ?? SIDE.mixed)
-                                const urg = urgencyOf(b)
-                                const hz = horizon(b)
-                                const mag = magnitude(b)
-                                const n = row.appearances.length
+            {shown.map(row => {
+                const isOpen = openKey === row.ticker
+                const isFolded = openKey !== null && openKey !== row.ticker
+                const b = row.best
+                const dir = row.conflicted ? 'mixed' : (SIDE[b.side]?.dir ?? 'mixed')
+                const urg = urgencyOf(b)
+                const mag = magnitude(b)
+                const hz = horizon(b)
+                const n = row.appearances.length
 
-                                return [
-                                    <tr
-                                        key={row.ticker}
-                                        className={`aether-candidates__row ${isOpen ? 'is-open' : ''}`}
-                                        onClick={() => toggle(row.ticker)}
+                return (
+                    <div
+                        key={row.ticker}
+                        className={`floor-sub${isOpen ? ' floor-sub--open' : isFolded ? ' floor-sub--folded' : ''}`}
+                    >
+                        <RowHost
+                            actions={onSymbolClick && (
+                                <div className="aether-actions" onClick={e => e.stopPropagation()}>
+                                    <button
+                                        className="aether-actions__btn"
+                                        onClick={() => onSymbolClick(row.ticker)}
+                                        title={`Open ${row.ticker}`}
                                     >
-                                        <td className="aether-candidates__caret">{isOpen ? '▾' : '▸'}</td>
-                                        <td>
-                                            <button
-                                                type="button"
-                                                className="aether-candidates__ticker"
-                                                onClick={ev => { ev.stopPropagation(); onSymbolClick?.(row.ticker) }}
-                                            >
-                                                {row.ticker}
-                                            </button>
-                                            <span className="aether-candidates__tier" title="1 = named in coverage, 2 = a step removed, 3 = further">
-                                                t{b.tier}
+                                        open
+                                    </button>
+                                </div>
+                            )}
+                        >
+                            {/* ONE LINE, and the same cells the coverage and scan rows use, so the
+                                five lists in this column scan as one column rather than five. */}
+                            <button
+                                className="floor-row"
+                                onClick={() => toggle(row.ticker)}
+                                aria-expanded={isOpen}
+                                title={isOpen ? 'Hide the events' : 'Show the events that named it'}
+                            >
+                                <svg className={`floor-row__chev${isOpen ? ' floor-row__chev--open' : ''}`}
+                                     viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                                    <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5"
+                                          strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                                <span className={`floor-row__dir floor-row__dir--${dir}`} aria-hidden="true">
+                                    {dir === 'short' ? '▾' : dir === 'long' ? '▴' : '±'}
+                                </span>
+                                <span className="floor-row__sym">{row.ticker}</span>
+                                {/* The recurrence, riding directly after the name like every other
+                                    count in this column — a lone number on the right edge would read
+                                    as a column of its own. It is the one thing the event-first list
+                                    could not show at all. */}
+                                {n > 1 && (
+                                    <span className="floor-row__count"
+                                          title={`named by ${n} events: ${row.appearances.map(a => a.subject).join(', ')}`}>
+                                        ({n} events)
+                                    </span>
+                                )}
+                                <span className="floor-row__kind" title={hz.hint}>{hz.label}</span>
+                                <span className="floor-row__score" title={mag.hint}>{mag.label}</span>
+                                <span className={`floor-row__status floor-row__status--${urg.key}`}
+                                      title={row.conflicted
+                                          ? 'these events pull it in opposite directions — open the row'
+                                          : urg.hint}>
+                                    {urg.label}
+                                </span>
+                            </button>
+                        </RowHost>
+
+                        {isOpen && (
+                            <div className="floor-sub__body">
+                                <div className="floor-detail">
+                                    {row.appearances.map(c => (
+                                        <div key={c.run_id} className="floor-detail__block">
+                                            {/* The event, as the block's own label — one per
+                                                appearance, because the mechanism, the filing
+                                                sentence and the move are all per-event and only
+                                                the ticker is shared. */}
+                                            <span className="floor-detail__label"
+                                                  title={CATEGORY_HINT[c.event_category] ?? ''}>
+                                                {SIDE[c.side]?.label ?? 'MIXED'} · {c.subject}
+                                                {c.event_category ? ` · ${c.event_category}` : ''}
+                                                {c.event_date ? ` · ${c.event_date}` : ''}
                                             </span>
-                                            {/* The recurrence — two events reaching one company is
-                                                the case the event-first list could not show. */}
-                                            {n > 1 && (
-                                                <span className="aether-candidates__events-count"
-                                                      title={`named by ${n} events: ${row.appearances.map(a => a.subject).join(', ')}`}>
-                                                    {n} events
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td>
-                                            <span className={`aether-candidates__side ${side.cls}`}
-                                                  title={row.conflicted
-                                                      ? 'these events pull it in opposite directions — open the row'
-                                                      : undefined}>
-                                                {side.label}
-                                            </span>
-                                        </td>
-                                        <td className="is-num" title={mag.hint}>{mag.label}</td>
-                                        <td><span className={`aether-candidates__urgency ${urg.cls}`} title={urg.hint}>{urg.label}</span></td>
-                                        <td title={hz.hint}>{hz.label}</td>
-                                    </tr>,
 
-                                    isOpen && (
-                                        <tr key={`${row.ticker}:detail`} className="aether-candidates__detail-row">
-                                            <td colSpan={6}>
-                                                <div className="aether-candidates__detail">
-                                                    {row.appearances.map(c => (
-                                                    <section key={c.run_id} className="aether-candidates__appearance">
-                                                    <h4 className="aether-candidates__appearance-head">
-                                                        <span className={`aether-candidates__side ${(SIDE[c.side] ?? SIDE.mixed).cls}`}>
-                                                            {(SIDE[c.side] ?? SIDE.mixed).label}
-                                                        </span>
-                                                        {' '}{c.subject}
-                                                        {c.event_date && <span className="aether-candidates__date"> · {c.event_date}</span>}
-                                                    </h4>
-                                                    <p className="aether-candidates__headline">{c.event}</p>
-                                                    <dl>
-                                                        <dt>Why</dt>
-                                                        <dd>{c.mechanism || '—'}</dd>
+                                            {c.mechanism && <p className="floor-detail__prose">{c.mechanism}</p>}
 
-                                                        <dt>Reported</dt>
-                                                        <dd>
-                                                            {c.press_evidence || '—'}
-                                                            {c.source_url && (
-                                                                <>
-                                                                    {' '}
-                                                                    <a href={c.source_url} target="_blank" rel="noreferrer">source</a>
-                                                                </>
-                                                            )}
-                                                        </dd>
-
-                                                        <dt title={VERDICT_HINT[c.verdict]}>Its own filing</dt>
-                                                        <dd>
-                                                            <span className={`aether-candidates__verdict is-${c.verdict}`}>
-                                                                {c.verdict}
-                                                            </span>
-                                                            {c.filing_evidence
-                                                                ? <blockquote>{c.filing_evidence}</blockquote>
-                                                                : <em> nothing in its filings mentions this — which is information, not an error</em>}
-                                                        </dd>
-
-                                                        <dt>Move since the event</dt>
-                                                        <dd>
-                                                            {c.move_pct == null ? '—' : (
-                                                                <>
-                                                                    {pct(c.move_pct)} raw,{' '}
-                                                                    <strong>{pct(c.excess_pct)} vs SPY</strong>
-                                                                    {c.extension != null && <> · {c.extension.toFixed(1)}σ</>}
-                                                                    {c.reaction && <> · {c.reaction}</>}
-                                                                    {c.price_asof && <span className="aether-candidates__asof"> as of {c.price_asof}</span>}
-                                                                </>
-                                                            )}
-                                                        </dd>
-
-                                                        <dt>Next report</dt>
-                                                        <dd>
-                                                            {c.next_earnings
-                                                                ? <>{c.next_earnings}{c.days_to_earnings != null && <> · {c.days_to_earnings}d</>}</>
-                                                                : '—'}
-                                                            {c.expires_at && <> · expires {c.expires_at}</>}
-                                                        </dd>
-
-                                                        {c.rank_parts && (
-                                                            <>
-                                                                <dt title="the rank is a sum you can take apart, not a score">Rank</dt>
-                                                                <dd className="aether-candidates__rank">
-                                                                    {c.rank?.toFixed(1)}
-                                                                    {' = '}
-                                                                    {Object.entries(c.rank_parts)
-                                                                        .filter(([, v]) => v)
-                                                                        .map(([k, v]) => `${k} ${v}`)
-                                                                        .join(' + ') || '—'}
-                                                                </dd>
-                                                            </>
+                                            <ul>
+                                                {c.press_evidence && (
+                                                    <li>
+                                                        {c.press_evidence}
+                                                        {c.source_url && (
+                                                            <> <a href={c.source_url} target="_blank" rel="noreferrer">source</a></>
                                                         )}
-                                                    </dl>
-                                                    </section>
-                                                    ))}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ),
-                                ]
-                            })}
-                        </tbody>
-            </table>
+                                                    </li>
+                                                )}
+                                                <li title={VERDICT_HINT[c.verdict]}>
+                                                    <strong>{c.verdict}</strong>
+                                                    {c.filing_evidence
+                                                        ? <> — “{c.filing_evidence}”</>
+                                                        : <em> — nothing in its filings mentions this, which is information rather than an error</em>}
+                                                </li>
+                                                {c.impact_pct_revenue != null && (
+                                                    <li>{pct(c.impact_pct_revenue, 2)} of revenue, as the filing states it</li>
+                                                )}
+                                                {c.move_pct != null && (
+                                                    <li>
+                                                        {pct(c.move_pct)} raw, <strong>{pct(c.excess_pct)} vs SPY</strong>
+                                                        {c.extension != null && <> · {c.extension.toFixed(1)}σ</>}
+                                                        {c.reaction && c.reaction !== 'unknown' && <> · {c.reaction}</>}
+                                                        {c.price_asof && <> · as of {c.price_asof}</>}
+                                                    </li>
+                                                )}
+                                            </ul>
+
+                                            <div className="floor-detail__foot">
+                                                {c.next_earnings && (
+                                                    <span>next report {c.next_earnings}
+                                                        {c.days_to_earnings != null && ` · ${c.days_to_earnings}d`}</span>
+                                                )}
+                                                {c.expires_at && <span>expires {c.expires_at}</span>}
+                                                {c.rank_parts && (
+                                                    <span title="the rank is a sum you can take apart, not a score">
+                                                        rank {c.rank?.toFixed(1)} = {Object.entries(c.rank_parts)
+                                                            .filter(([, v]) => v)
+                                                            .map(([k, v]) => `${k} ${v}`)
+                                                            .join(' + ') || '—'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )
+            })}
 
             {/* Never a silent truncation: a reader who cannot tell the list was cut cannot
                 tell whether the cut was wrong. */}
@@ -457,9 +434,7 @@ export function AetherCandidates({ runs = [], loading, onSymbolClick }) {
                     onClick={() => setShowAll(v => !v)}
                     title="Every name is stored, ranked and reachable — this only decides how many open on screen."
                 >
-                    {showAll
-                        ? `Show the top ${SHORTLIST}`
-                        : `${rows.length - SHORTLIST} more, lower ranked`}
+                    {showAll ? `Show the top ${SHORTLIST}` : `${rows.length - SHORTLIST} more, lower ranked`}
                 </button>
             )}
         </div>
