@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { aetherService } from '../../services/aether/aether.service.remote.js'
 import { apiError } from '../../services/http.service.js'
 import { RowHost } from '../Floor/RowHost.jsx'
+import { fmtShortDay } from '../Floor/floor.utils.js'
 import './AetherCandidates.scss'
 
 // Aether's event list — ONE ROW PER COMPANY, with the events that named it inside.
@@ -307,6 +308,27 @@ export function byTicker(runs = []) {
     return rows
 }
 
+/**
+ * The most recent event to reach this name.
+ *
+ * `event_date` is when the event TOOK EFFECT, which is the day the market could first
+ * react and the day the move is measured from — so it is the date worth reading on the
+ * row. It falls back to `created_at` when the coverage stated no effective date, which is
+ * the same fallback the engine's own _anchor() makes, and for the same reason: better the
+ * day it was found than nothing.
+ *
+ * MAX, not the best appearance's. On a name reached twice the question the row answers is
+ * "how current is this", and the freshest event is what makes it current — even if the
+ * older event is the better-evidenced one.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- pure, and the fallback is worth testing
+export function lastEventDate(row) {
+    const days = (row?.appearances ?? [])
+        .map(a => (a.event_date || a.created_at || '').slice(0, 10))
+        .filter(Boolean)
+    return days.length ? days.reduce((a, b) => (a > b ? a : b)) : ''
+}
+
 export function AetherCandidates({ runs = [], loading, onSymbolClick }) {
     // ONE ROW OPEN AT A TIME, and folded siblings collapse to nothing. Not a preference —
     // it is the mechanic every other list in this column uses (3bbfa59), and a list that
@@ -350,6 +372,7 @@ export function AetherCandidates({ runs = [], loading, onSymbolClick }) {
                 const urg = urgencyOf(b)
                 const mag = magnitude(b)
                 const hz = horizon(b)
+                const when = lastEventDate(row)
                 const n = row.appearances.length
 
                 return (
@@ -395,6 +418,14 @@ export function AetherCandidates({ runs = [], loading, onSymbolClick }) {
                                     <span className="floor-row__count"
                                           title={`named by ${n} events: ${row.appearances.map(a => a.subject).join(', ')}`}>
                                         ({n} events)
+                                    </span>
+                                )}
+                                {when && (
+                                    <span className="floor-row__when"
+                                          title={n > 1
+                                              ? `most recent of its ${n} events — ${when}`
+                                              : `the event took effect ${when}`}>
+                                        {fmtShortDay(when)}
                                     </span>
                                 )}
                                 <span className="floor-row__kind" title={hz.hint}>{hz.label}</span>

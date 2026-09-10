@@ -798,6 +798,16 @@ $header-h: var(--header-h);
         flex-shrink: 0;
     }
 
+    // WHEN — a calendar day, not a duration. Mono and dim, because it is a fact the eye
+    // scans past on most rows and stops on when two rows disagree.
+    &__when {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-dim);
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+
     &__stale {
         margin-left: auto;
         font-size: 10px;

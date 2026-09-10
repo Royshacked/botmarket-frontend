@@ -2,7 +2,7 @@
 // Node's built-in harness:  node --test src/cmps/Floor/
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { positionsByAccount, groupByDay, tradeFloorItems } from './floor.utils.js'
+import { positionsByAccount, groupByDay, tradeFloorItems, fmtDay, fmtShortDay } from './floor.utils.js'
 
 const pos = (over = {}) => ({
     id: 'p1', broker: 'ctrader', accountId: 'A1', accountNo: '111',
@@ -212,4 +212,36 @@ test('ticker falls back from asset to symbol', () => {
 test('an empty desk yields an empty list', () => {
     assert.deepEqual(tradeFloorItems([]), [])
     assert.deepEqual(tradeFloorItems(), [])
+})
+
+// ── dates ─────────────────────────────────────────────────────────────────────
+//
+// One formatter for the Floor, in two renderings: the calendar's heading wants the
+// weekday, a row cell wants the width. Both parse the same way, and the parse is the part
+// that can be wrong.
+
+test('fmtDay reads the calendar day, not the local one', () => {
+    // `new Date('2026-09-08')` is UTC midnight; reading it back with the LOCAL getters
+    // returns the 7th anywhere west of Greenwich. Every date here is a calendar day, not
+    // an instant, so a row would silently show a different day depending on who looked.
+    assert.equal(fmtDay('2026-09-08'), 'Tue Sep 8')
+})
+
+test('fmtShortDay drops the weekday and the year', () => {
+    assert.equal(fmtShortDay('2026-09-08'), 'Sep 8')
+})
+
+test('both take a full timestamp, not only a bare day', () => {
+    assert.equal(fmtShortDay('2026-09-08T14:22:01+00:00'), 'Sep 8')
+})
+
+test('an unparseable date comes back as it went in, not as garbage', () => {
+    assert.equal(fmtShortDay('soon'), 'soon')
+    assert.equal(fmtDay('soon'), 'soon')
+})
+
+test('nothing in, nothing out', () => {
+    assert.equal(fmtShortDay(''), '')
+    assert.equal(fmtDay(null), '')
+    assert.equal(fmtShortDay(undefined), '')
 })

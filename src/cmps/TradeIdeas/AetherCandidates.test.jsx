@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { AetherCandidates, urgencyOf, byTicker } from './AetherCandidates.jsx'
+import { AetherCandidates, urgencyOf, byTicker, lastEventDate } from './AetherCandidates.jsx'
 import { ADMIN, MEMBER } from '../../testUtils/authStub.js'
 
 // Discovery is the one leg of the engine that spends per press — an Opus call with web
@@ -512,5 +512,74 @@ describe('AetherCandidates run progress', () => {
         render(<AetherCandidates runs={[RUN]} />)
         await waitFor(() => expect(btn()).toBeNull())
         expect(getDiscoveryStatus).not.toHaveBeenCalled()
+    })
+})
+
+describe('lastEventDate', () => {
+    // `event_date` is when the event TOOK EFFECT — the day the market could first react,
+    // and the day the move is measured from. That is the date worth reading on a row.
+    const app = (over = {}) => ({ run_id: 'r', event_date: '2026-09-08', ...over })
+
+    it('takes the most recent of the events that named it', () => {
+        // Not the best appearance's date: the row is answering "how current is this", and
+        // the freshest event is what makes it current even if the older one is better evidenced.
+        expect(lastEventDate({ appearances: [
+            app({ run_id: 'a', event_date: '2026-09-08', rank: 9 }),
+            app({ run_id: 'b', event_date: '2026-10-02', rank: 1 }),
+        ] })).toBe('2026-10-02')
+    })
+
+    it('falls back to when it was found, as the engine does', () => {
+        // The same fallback _anchor() makes, for the same reason: better the day it was
+        // found than nothing at all.
+        expect(lastEventDate({ appearances: [
+            app({ event_date: '', created_at: '2026-09-09T00:00:00+00:00' }),
+        ] })).toBe('2026-09-09')
+    })
+
+    it('prefers a real event date over the discovery date', () => {
+        expect(lastEventDate({ appearances: [
+            app({ event_date: '2026-09-08', created_at: '2026-09-09T00:00:00+00:00' }),
+        ] })).toBe('2026-09-08')
+    })
+
+    it('is empty rather than wrong when neither is known', () => {
+        expect(lastEventDate({ appearances: [{ run_id: 'r' }] })).toBe('')
+        expect(lastEventDate({ appearances: [] })).toBe('')
+        expect(lastEventDate()).toBe('')
+    })
+})
+
+describe('AetherCandidates row date', () => {
+    const c2 = (over = {}) => ({ ticker: 'NUE', side: 'hurt', tier: 2, rank: 5,
+                                 verdict: 'quantified', ...over })
+    const r2 = (id, subject, date, candidates) => ({ run_id: id, subject, event: `${subject} thing`,
+                                                     event_date: date, candidates })
+
+    it('shows the event date on the row', () => {
+        render(<AetherCandidates runs={[r2('a', 'Canada', '2026-09-08', [c2()])]} />)
+        expect(screen.getByText('Sep 8')).toBeTruthy()
+    })
+
+    it('shows the most recent when a name has two events', () => {
+        render(<AetherCandidates runs={[
+            r2('a', 'Canada', '2026-09-08', [c2()]),
+            r2('b', 'Congo', '2026-10-02', [c2()]),
+        ]} />)
+        expect(screen.getByText('Oct 2')).toBeTruthy()
+        expect(screen.queryByText('Sep 8')).toBeNull()
+    })
+
+    it('says it is the most recent of several, on hover', () => {
+        render(<AetherCandidates runs={[
+            r2('a', 'Canada', '2026-09-08', [c2()]),
+            r2('b', 'Congo', '2026-10-02', [c2()]),
+        ]} />)
+        expect(screen.getByTitle(/most recent of its 2 events/)).toBeTruthy()
+    })
+
+    it('renders no date cell rather than an empty one', () => {
+        render(<AetherCandidates runs={[r2('a', 'Canada', '', [c2()])]} />)
+        expect(document.querySelector('.floor-row__when')).toBeNull()
     })
 })

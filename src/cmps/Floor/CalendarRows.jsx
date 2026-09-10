@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types'
-import { groupByDay } from './floor.utils.js'
+import { groupByDay, fmtDay } from './floor.utils.js'
 
 // The dated feeds — earnings, Fed, IPO — as Floor rows.
 //
@@ -12,16 +12,6 @@ import { groupByDay } from './floor.utils.js'
 // The house forecast is NOT here. It is a board, not a dated list — it renders SectorView, and
 // forcing it through groupByDay was only ever an artefact of sharing a tab strip with these three.
 
-const MONTHS   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-const WEEKDAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
-
-function fmtDay(iso) {
-    if (!iso) return ''
-    const [y, m, d] = iso.split('-').map(Number)
-    if (!y || !m || !d) return iso
-    const wd = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]
-    return `${wd} ${MONTHS[m - 1]} ${d}`
-}
 
 const EARN_WHEN = { bmo: 'Pre', amc: 'Post', dmh: 'Mid' }
 

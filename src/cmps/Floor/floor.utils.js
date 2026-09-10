@@ -117,3 +117,46 @@ export function tradeFloorItems(setups = []) {
         ...setups.map(s => ({ kind: 'setup', entity: s, id: s.id, ticker: s.asset ?? s.symbol, direction: s.direction, status: s.status })),
     ]
 }
+
+// ── dates, once ───────────────────────────────────────────────────────────────
+
+const MONTHS   = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+/**
+ * Parse a YYYY-MM-DD the way the Floor needs it: in UTC, and forgivingly.
+ *
+ * UTC ON PURPOSE. `new Date('2026-09-08')` is already UTC midnight, but reading the day
+ * back with the LOCAL getters returns the 7th anywhere west of Greenwich — an event date
+ * that silently slides a day depending on who is looking at it. Every date the engine and
+ * the calendar deal in is a calendar day, not an instant.
+ *
+ * Returns null for anything unparseable, so a caller can decide whether to show the raw
+ * string or nothing at all.
+ */
+function parseDay(iso) {
+    if (!iso) return null
+    const [y, m, d] = String(iso).slice(0, 10).split('-').map(Number)
+    if (!y || !m || !d) return null
+    return { y, m, d }
+}
+
+/** "Mon Sep 8" — a calendar heading, where the weekday is the thing being scanned. */
+export function fmtDay(iso) {
+    const p = parseDay(iso)
+    if (!p) return iso ? String(iso) : ''
+    const wd = WEEKDAYS[new Date(Date.UTC(p.y, p.m - 1, p.d)).getUTCDay()]
+    return `${wd} ${MONTHS[p.m - 1]} ${p.d}`
+}
+
+/**
+ * "Sep 8" — a cell in a row, where the weekday is noise and the width is not free.
+ *
+ * The year is dropped deliberately: these rows show recent events, and a date that needs
+ * its year is old enough that the row's own staleness column is the thing to read.
+ */
+export function fmtShortDay(iso) {
+    const p = parseDay(iso)
+    if (!p) return iso ? String(iso) : ''
+    return `${MONTHS[p.m - 1]} ${p.d}`
+}
