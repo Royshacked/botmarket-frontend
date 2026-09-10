@@ -56,8 +56,7 @@ const FRESH_DAYS        = 3
  * `excess_pct`, never `move_pct`: a name up 6% in a week the market rose 6% has done
  * nothing, and calling that "moved" would retire the candidate for no reason.
  */
-// eslint-disable-next-line react-refresh/only-export-components -- exported to be tested against
-// the engine's own thresholds; it is the duplication that makes testing it non-optional
+// eslint-disable-next-line react-refresh/only-export-components -- exported so the duplicated thresholds can be tested against the engine's
 export function urgencyOf(c, now = Date.now()) {
     if (c?.excess_pct == null) return URGENCY.no_price
 
