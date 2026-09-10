@@ -643,3 +643,62 @@ describe('AetherCandidates empty vs failed', () => {
         expect(screen.getByText('Loading…')).toBeTruthy()
     })
 })
+
+describe('AetherCandidates run button — capability, not identity', () => {
+    // Two admins on two hosts: one with a local engine checkout, one on the deployed app.
+    // Discovery spawns a Python process on the SERVER's filesystem, so what decides the
+    // button is whether this host has an engine — never which admin is looking.
+    //
+    // Gating on the person would be wrong in both directions: it would offer the run to
+    // whoever it named while they were using the deployed app, where nothing can be
+    // spawned, and hide it from the second admin whose local checkout works perfectly.
+
+    it('is offered where the engine exists', async () => {
+        getDiscoveryStatus.mockResolvedValue({ running: false, available: true })
+        render(<AetherCandidates runs={[RUN]} />)
+        await waitFor(() => expect(btn()).toBeTruthy())
+    })
+
+    it('is withheld where it does not, from an admin', async () => {
+        // Marce on Render, or Roy on Render — same host, same answer.
+        getDiscoveryStatus.mockResolvedValue({
+            running: false, available: false,
+            unavailableReason: 'no engine on this host — AETHER_ENGINE_PATH is not set',
+        })
+        render(<AetherCandidates runs={[RUN]} />)
+        await waitFor(() => expect(btn()).toBeNull())
+    })
+
+    it('the list itself is unaffected — only the button goes', async () => {
+        getDiscoveryStatus.mockResolvedValue({ running: false, available: false })
+        render(<AetherCandidates runs={[RUN]} />)
+        await waitFor(() => expect(btn()).toBeNull())
+        expect(screen.getByText('NUE')).toBeTruthy()
+    })
+
+    it('shows while the answer is still unknown, and hides only on a real no', async () => {
+        // UNKNOWN IS TREATED AS AVAILABLE, and the alternative is worse. Hiding until the
+        // first status read means a status endpoint that is slow or failing takes the
+        // button away from a host that can run perfectly well — a silent loss of the only
+        // way to start a run. Showing it costs a brief flash on a host that cannot, and
+        // pressing it there answers 503 with the reason, which is a bad second but a
+        // recoverable one.
+        getDiscoveryStatus.mockReturnValue(new Promise(() => {}))   // never resolves
+        render(<AetherCandidates runs={[RUN]} />)
+        expect(btn()).toBeTruthy()
+    })
+
+    it('a status endpoint that keeps failing does not remove the button', async () => {
+        getDiscoveryStatus.mockRejectedValue(new Error('network'))
+        render(<AetherCandidates runs={[RUN]} />)
+        await waitFor(() => expect(btn()).toBeTruthy())
+    })
+
+    it('an older server that does not report the field still offers it', async () => {
+        // `available` absent means the field predates this deploy, not that the engine is
+        // missing — and the server refuses with a 503 anyway, so the button is safe.
+        getDiscoveryStatus.mockResolvedValue({ running: false })
+        render(<AetherCandidates runs={[RUN]} />)
+        await waitFor(() => expect(btn()).toBeTruthy())
+    })
+})

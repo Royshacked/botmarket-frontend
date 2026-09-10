@@ -190,6 +190,9 @@ function RunButton() {
     const [state, setState] = useState('idle')     // idle | starting | running | failed
     const [progress, setProgress] = useState(null)
     const [why, setWhy] = useState('')
+    // Whether THIS SERVER can spawn the engine. Starts null — unknown until the first
+    // status read — so the button does not flash on for a host that cannot run it.
+    const [available, setAvailable] = useState(null)
 
     // Poll whenever a run might be in flight, and once on mount to catch one already going.
     useEffect(() => {
@@ -201,6 +204,8 @@ function RunButton() {
                 const s = await aetherService.getDiscoveryStatus()
                 if (!alive) return
                 setProgress(s?.progress ?? null)
+                setAvailable(s?.available !== false)
+                if (s?.available === false) setWhy(s.unavailableReason ?? '')
                 setState(cur => (s?.running ? 'running' : cur === 'running' ? 'idle' : cur))
             } catch { /* a status read failing is not worth surfacing over the button */ }
         }
@@ -211,6 +216,13 @@ function RunButton() {
     }, [isAdmin])
 
     if (!isAdmin) return null
+    // A CAPABILITY, NOT AN IDENTITY. Discovery spawns a Python process on the server's own
+    // filesystem, so what decides the button is whether THIS host has an engine — never
+    // which admin is looking. Gating on the person would be wrong twice over: it would
+    // offer the run to whoever it named while they were on the deployed app, where nothing
+    // can be spawned, and hide it from a second admin whose local checkout works. Two
+    // admins, two hosts; the host is what differs.
+    if (available === false) return null
 
     async function run() {
         setState('starting')
