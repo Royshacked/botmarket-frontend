@@ -477,7 +477,7 @@ export function MainPage() {
     const { setups, setupsLoading, refreshSetups } = useSetups()
     const [setupBusyId, setSetupBusyId] = useState(null)
 
-    const { runs: aetherRuns, loading: aetherLoading } = useAetherCandidates()
+    const { runs: aetherRuns, loading: aetherLoading, error: aetherError } = useAetherCandidates()
 
     // Arm / disarm / delete a setup from the Lists surface. Arming is the real gate — the server
     // re-runs the readiness check and refuses with `cannot_arm_<reason>`, so surface that rather
@@ -2996,7 +2996,7 @@ export function MainPage() {
                                         ipo:       ipoLoading,
                                         forecasts: tiltLoading,
                                     }}
-                                    aetherCandidates={{ runs: aetherRuns, loading: aetherLoading }}
+                                    aetherCandidates={{ runs: aetherRuns, loading: aetherLoading, error: aetherError }}
                                     onEarningSelect={handleBuildFromEarning}
                                     onIpoSelect={handleBuildFromIpo}
                                     onCandidateSelect={handleBuildFromCandidate}
@@ -3074,7 +3074,7 @@ export function MainPage() {
                                 ipoLoading,
                                 onIpoSelect:       handleBuildFromIpo,
                             }}
-                            aetherCandidates={{ runs: aetherRuns, loading: aetherLoading }}
+                            aetherCandidates={{ runs: aetherRuns, loading: aetherLoading, error: aetherError }}
                         />
                     </div>
                     )}

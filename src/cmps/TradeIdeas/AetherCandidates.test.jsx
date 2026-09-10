@@ -306,12 +306,16 @@ describe('AetherCandidates shortlist', () => {
     })
 
     it('one click gets the rest, and another puts them back', () => {
-        render(<AetherCandidates runs={[many(43)]} />)
-        fireEvent.click(screen.getByRole('button', { name: /33 more/ }))
-        expect(screen.getByText('T42')).toBeTruthy()
+        // FOURTEEN, not the 43 the live run produced. The property is "more than
+        // SHORTLIST", and this is the only test here that renders the full list TWICE —
+        // at 43 rows it took 11s and timed out under the suite's parallel load. The row
+        // count was realism, not the assertion.
+        render(<AetherCandidates runs={[many(14)]} />)
+        fireEvent.click(screen.getByRole('button', { name: /4 more/ }))
+        expect(screen.getByText('T13')).toBeTruthy()
 
         fireEvent.click(screen.getByRole('button', { name: /Show the top 10/ }))
-        expect(screen.queryByText('T42')).toBeNull()
+        expect(screen.queryByText('T13')).toBeNull()
     })
 
     it('a short run is not truncated and offers no button', () => {
@@ -581,5 +585,61 @@ describe('AetherCandidates row date', () => {
     it('renders no date cell rather than an empty one', () => {
         render(<AetherCandidates runs={[r2('a', 'Canada', '', [c2()])]} />)
         expect(document.querySelector('.floor-row__when')).toBeNull()
+    })
+})
+
+describe('AetherCandidates empty vs failed', () => {
+    // These were the same screen until 2026-09-10, when a DNS wobble at Atlas took down
+    // every read in the app — setups, ideas, coverage, scans — and this list calmly
+    // reported "No events in the window. Nothing has run recently." Twice, costing two
+    // rounds of looking in the wrong place before the log said otherwise.
+    //
+    // An empty list is a claim about the WORLD. A failed fetch is a claim about the
+    // CONNECTION. They must not render the same.
+
+    it('an empty window says nothing has run', () => {
+        render(<AetherCandidates runs={[]} />)
+        expect(screen.getByText(/No events in the window/)).toBeTruthy()
+    })
+
+    it('a failed read says the read failed, not that nothing ran', () => {
+        render(<AetherCandidates runs={[]} error="could not reach the server" />)
+        expect(screen.getByText(/Could not read the candidate list/)).toBeTruthy()
+        expect(screen.queryByText(/No events in the window/)).toBeNull()
+    })
+
+    it('the failure keeps the server’s own words', () => {
+        // "could not reach the server" and "Could not read event candidates" send the
+        // reader to completely different places.
+        render(<AetherCandidates runs={[]} error="getaddrinfo ENOTFOUND mongodb.net" />)
+        expect(screen.getByText(/ENOTFOUND/)).toBeTruthy()
+    })
+
+    it('a failed read still offers the run button', () => {
+        render(<AetherCandidates runs={[]} error="boom" />)
+        expect(btn()).toBeTruthy()
+    })
+
+    it('a poll failing does NOT blank a list already on screen', () => {
+        // Throwing away what the reader is looking at because a refresh five minutes later
+        // failed would be worse than showing it.
+        render(<AetherCandidates runs={[RUN]} error="network" />)
+        expect(screen.getByText('NUE')).toBeTruthy()
+    })
+
+    it('...but says the list has stopped refreshing', () => {
+        render(<AetherCandidates runs={[RUN]} error="network" />)
+        expect(screen.getByText(/not refreshing/)).toBeTruthy()
+    })
+
+    it('a healthy list carries no caveat', () => {
+        render(<AetherCandidates runs={[RUN]} />)
+        expect(screen.queryByText(/not refreshing/)).toBeNull()
+        expect(screen.queryByText(/Could not read/)).toBeNull()
+    })
+
+    it('loading beats both — it is neither empty nor failed yet', () => {
+        render(<AetherCandidates runs={[]} loading error="stale from a previous poll" />)
+        expect(screen.getByText('Loading…')).toBeTruthy()
     })
 })

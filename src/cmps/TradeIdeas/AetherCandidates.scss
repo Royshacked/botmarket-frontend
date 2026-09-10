@@ -116,3 +116,15 @@
 
     &:hover { background: var(--bg-hover); color: var(--text-secondary); }
 }
+
+// A poll that failed over a list already on screen. Quiet, because the list below it is
+// still true — just not current. It is a caveat on the data, not an error to act on.
+.aether-candidates__stale {
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 4px 10px;
+    font-size: var(--chat-label);
+    color: var(--color-warning);
+    background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+    cursor: help;
+}

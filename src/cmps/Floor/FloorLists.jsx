@@ -800,6 +800,7 @@ export function FloorLists({
                         <AetherCandidates
                             runs={aetherCandidates?.runs ?? []}
                             loading={aetherCandidates?.loading}
+                            error={aetherCandidates?.error}
                         />
                     )}
 
@@ -844,7 +845,7 @@ FloorLists.propTypes = {
     scans:             PropTypes.array,
     coverage:          PropTypes.array,
     queued:            PropTypes.array,
-    aetherCandidates:  PropTypes.shape({ runs: PropTypes.array, loading: PropTypes.bool }),
+    aetherCandidates:  PropTypes.shape({ runs: PropTypes.array, loading: PropTypes.bool, error: PropTypes.string }),
     onExecuteQueued:   PropTypes.func,
     onCancelQueued:    PropTypes.func,
     queuedBusyId:      PropTypes.string,

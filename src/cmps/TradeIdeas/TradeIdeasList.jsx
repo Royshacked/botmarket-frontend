@@ -730,6 +730,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                     <AetherCandidates
                         runs={aetherCandidates?.runs ?? []}
                         loading={aetherCandidates?.loading}
+                        error={aetherCandidates?.error}
                         onSymbolClick={onSymbolClick}
                     />
                 ) : (

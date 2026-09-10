@@ -329,7 +329,7 @@ export function lastEventDate(row) {
     return days.length ? days.reduce((a, b) => (a > b ? a : b)) : ''
 }
 
-export function AetherCandidates({ runs = [], loading, onSymbolClick }) {
+export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick }) {
     // ONE ROW OPEN AT A TIME, and folded siblings collapse to nothing. Not a preference —
     // it is the mechanic every other list in this column uses (3bbfa59), and a list that
     // expands differently from the four above it reads as a different kind of thing.
@@ -346,6 +346,25 @@ export function AetherCandidates({ runs = [], loading, onSymbolClick }) {
     const toggle = ticker => setOpenKey(cur => (cur === ticker ? null : ticker))
 
     if (loading) return <p className="floor-empty">Loading…</p>
+
+    // A FAILED READ IS NOT AN EMPTY ONE. These were the same screen until 2026-09-10, when
+    // a DNS wobble at Atlas took down every read in the app and this list reported a quiet
+    // day — twice, costing two rounds of looking in the wrong place. An empty list is a
+    // claim about the world; a failed fetch is a claim about the connection.
+    if (error && !runs.length) {
+        return (
+            <div className="aether-candidates">
+                <p className="floor-empty">
+                    Could not read the candidate list — <strong>{error}</strong>.
+                    <br />
+                    The names are stored on the server; this is the read failing, not an empty
+                    list. It retries on its own.
+                </p>
+                <div className="aether-candidates__bar"><RunButton /></div>
+            </div>
+        )
+    }
+
     // The empty state is where the button matters most: nothing has run, and an admin is
     // the only one who can change that.
     if (!runs.length) {
@@ -363,6 +382,16 @@ export function AetherCandidates({ runs = [], loading, onSymbolClick }) {
     return (
         <div className="aether-candidates">
             <div className="aether-candidates__bar"><RunButton /></div>
+
+            {/* A poll that failed OVER a list already on screen. The names stay — throwing
+                away what the reader is looking at because a refresh five minutes later
+                failed would be worse than showing it — but the list is now only as current
+                as the last good read, and this line is the only thing that says so. */}
+            {error && (
+                <p className="aether-candidates__stale" title={error}>
+                    not refreshing — {error}
+                </p>
+            )}
 
             {shown.map(row => {
                 const isOpen = openKey === row.ticker
@@ -528,5 +557,9 @@ export function AetherCandidates({ runs = [], loading, onSymbolClick }) {
 AetherCandidates.propTypes = {
     runs: PropTypes.array,
     loading: PropTypes.bool,
+    // The message from a failed read, '' when the last read succeeded. Not a boolean:
+    // "could not reach the server" and "Could not read event candidates" send the reader
+    // to different places.
+    error: PropTypes.string,
     onSymbolClick: PropTypes.func,
 }
