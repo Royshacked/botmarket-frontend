@@ -143,6 +143,24 @@
     .is-num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 }
 
+// The disclosure at the foot of a run. Quiet on purpose — it reports what is not on
+// screen, which is a footnote, not an action competing with the rows above it.
+.aether-candidates__more {
+    display: block;
+    width: 100%;
+    padding: 7px 8px;
+    font: inherit;
+    font-size: var(--chat-label);
+    color: var(--text-muted);
+    background: none;
+    border: 0;
+    border-top: 1px solid var(--border-soft, var(--border-mid));
+    cursor: pointer;
+    text-align: center;
+
+    &:hover { background: var(--bg-hover); color: var(--text-secondary); }
+}
+
 .aether-candidates__row {
     cursor: pointer;
     border-bottom: 1px solid var(--border-soft, var(--border-mid));

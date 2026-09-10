@@ -95,6 +95,14 @@ const VERDICT_HINT = {
 
 const SWING_DAYS = 30
 
+// How many names a run shows before the reader asks for the rest.
+//
+// Ten because that is where the largest gap in the top of the live run sits — 0.31 between
+// the tenth and eleventh — and because the alternative is worse, not because ten is right.
+// The ranks descend smoothly with no cliff, so any cut is a judgement; a count admits that,
+// where a rank floor would imply the evidence drew a line it did not draw.
+const SHORTLIST = 10
+
 function pct(v, digits = 1) {
     return v == null ? '—' : `${(v * 100).toFixed(digits)}%`
 }
@@ -187,6 +195,36 @@ function RunButton() {
 
 export function AetherCandidates({ runs = [], loading, onSymbolClick }) {
     const [open, setOpen] = useState(() => new Set())
+    const [expanded, setExpanded] = useState(() => new Set())   // runs showing their full list
+
+    /**
+     * The shortlist, and the rest one click away.
+     *
+     * A run returns everything it named — 43 survivors on the Canada tariffs — and a
+     * 43-row list is not a shortlist, it is the same "here is everything" the reader came
+     * here to be spared. The rows are already sorted by rank server-side.
+     *
+     * TOP N AND NOT A RANK FLOOR, because the ranks do not break. They descend 6.57, 6.27,
+     * 5.99, 5.91, 5.88 — gaps of 0.03 to 0.31, no cliff anywhere to cut at. A floor would
+     * read as a threshold the evidence supports, and there isn't one. A count is honestly
+     * arbitrary and says so.
+     *
+     * Nothing is hidden that is not reachable, and the count is on the button: the whole
+     * design rule here is that a filter whose rejections leave no trace cannot be shown to
+     * be wrong.
+     */
+    function shownFor(run) {
+        const all = run.candidates ?? []
+        return expanded.has(run.run_id) ? all : all.slice(0, SHORTLIST)
+    }
+
+    function toggleExpanded(runId) {
+        setExpanded(prev => {
+            const next = new Set(prev)
+            next.has(runId) ? next.delete(runId) : next.add(runId)
+            return next
+        })
+    }
 
     function toggle(key) {
         setOpen(prev => {
@@ -258,7 +296,7 @@ export function AetherCandidates({ runs = [], loading, onSymbolClick }) {
                             </tr>
                         </thead>
                         <tbody>
-                            {run.candidates.map(c => {
+                            {shownFor(run).map(c => {
                                 const key = `${run.run_id}:${c.ticker}`
                                 const isOpen = open.has(key)
                                 const side = SIDE[c.side] ?? SIDE.mixed
@@ -363,6 +401,21 @@ export function AetherCandidates({ runs = [], loading, onSymbolClick }) {
                             })}
                         </tbody>
                     </table>
+
+                    {/* The rest, and how many. Never a silent truncation: a reader who
+                        cannot tell the list was cut cannot tell whether the cut was wrong. */}
+                    {(run.candidates?.length ?? 0) > SHORTLIST && (
+                        <button
+                            type="button"
+                            className="aether-candidates__more"
+                            onClick={() => toggleExpanded(run.run_id)}
+                            title="Every name the run produced is stored, ranked and reachable — this only decides how many open on screen."
+                        >
+                            {expanded.has(run.run_id)
+                                ? `Show the top ${SHORTLIST}`
+                                : `${run.candidates.length - SHORTLIST} more, lower ranked`}
+                        </button>
+                    )}
                 </section>
             ))}
         </div>

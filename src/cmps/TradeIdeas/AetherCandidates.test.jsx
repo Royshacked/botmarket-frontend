@@ -221,3 +221,58 @@ describe('urgency', () => {
         expect(urgencyOf(c({ created_at: '2026-08-20T00:00:00Z' }), NOW).label).toBe('stale')
     })
 })
+
+describe('AetherCandidates shortlist', () => {
+    // A run returns everything it named — 43 survivors on the Canada tariffs — and 43 rows
+    // is not a shortlist, it is the "here is everything" the reader came to be spared.
+    // What must hold is that the cut is VISIBLE and reversible: nothing is dropped, the
+    // count is on the button, and one click gets the rest.
+    const many = (n) => ({
+        ...RUN,
+        candidates: Array.from({ length: n }, (_, i) => ({
+            ticker: `T${i}`, side: 'hurt', tier: 2, verdict: 'quantified', rank: 9 - i * 0.1,
+        })),
+    })
+
+    it('shows ten of forty-three', () => {
+        render(<AetherCandidates runs={[many(43)]} />)
+        expect(screen.getByText('T0')).toBeTruthy()
+        expect(screen.getByText('T9')).toBeTruthy()
+        expect(screen.queryByText('T10')).toBeNull()
+    })
+
+    it('says how many it is not showing', () => {
+        render(<AetherCandidates runs={[many(43)]} />)
+        expect(screen.getByRole('button', { name: /33 more, lower ranked/ })).toBeTruthy()
+    })
+
+    it('one click gets the rest, and another puts them back', () => {
+        render(<AetherCandidates runs={[many(43)]} />)
+        fireEvent.click(screen.getByRole('button', { name: /33 more/ }))
+        expect(screen.getByText('T42')).toBeTruthy()
+
+        fireEvent.click(screen.getByRole('button', { name: /Show the top 10/ }))
+        expect(screen.queryByText('T42')).toBeNull()
+    })
+
+    it('a short run is not truncated and offers no button', () => {
+        render(<AetherCandidates runs={[many(4)]} />)
+        expect(screen.getByText('T3')).toBeTruthy()
+        expect(screen.queryByRole('button', { name: /more, lower ranked/ })).toBeNull()
+    })
+
+    it('exactly ten offers no button either', () => {
+        // Off-by-one here would put a "0 more" button under a complete list.
+        render(<AetherCandidates runs={[many(10)]} />)
+        expect(screen.queryByRole('button', { name: /more, lower ranked/ })).toBeNull()
+    })
+
+    it('each event keeps its own expansion', () => {
+        const a = { ...many(43), run_id: 'a', subject: 'Canada' }
+        const b = { ...many(43), run_id: 'b', subject: 'Congo' }
+        render(<AetherCandidates runs={[a, b]} />)
+        fireEvent.click(screen.getAllByRole('button', { name: /33 more/ })[0])
+        // The second run is untouched — still offering its own disclosure.
+        expect(screen.getAllByRole('button', { name: /33 more/ })).toHaveLength(1)
+    })
+})
