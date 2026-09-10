@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { aetherService } from '../../services/aether/aether.service.remote.js'
@@ -160,10 +160,54 @@ function magnitude(c) {
  * It reports STARTED, never finished. A run is minutes long and writes to Mongo when it
  * lands; the list polls every five minutes and will pick the names up on its own.
  */
+// WHAT EACH STAGE IS WORTH KNOWING FOR. The stages are wildly uneven — triage takes
+// twenty seconds, the proposal took six and a half minutes on the Iran run, verification
+// takes as long as EDGAR feels like — so one word for all of it says nothing, and a run
+// that has died looks exactly like a run that is working.
+const STAGE_LABEL = {
+    starting:  'starting',
+    triage:    'reading the news queue',
+    selected:  'picking the events',
+    proposing: 'naming companies',
+    proposed:  'names proposed',
+    verifying: 'checking filings',
+    stored:    'saving',
+}
+
+const POLL_MS = 4000
+
+/**
+ * The run button. ADMIN ONLY, and hiding it is the courtesy — the server is the guard.
+ *
+ * It polls while a run is going, which is what lets it report a stage rather than just
+ * "running" — and also what lets it know about a run THIS BROWSER did not start. Before,
+ * a reload mid-run left the button reading "Run discovery" over a live engine, and the
+ * only thing stopping a second press was the server's 409.
+ */
 function RunButton() {
     const { isAdmin } = useAuth() ?? {}
-    const [state, setState] = useState('idle')     // idle | starting | started | busy | failed
+    const [state, setState] = useState('idle')     // idle | starting | running | failed
+    const [progress, setProgress] = useState(null)
     const [why, setWhy] = useState('')
+
+    // Poll whenever a run might be in flight, and once on mount to catch one already going.
+    useEffect(() => {
+        if (!isAdmin) return undefined
+        let alive = true
+
+        async function check() {
+            try {
+                const s = await aetherService.getDiscoveryStatus()
+                if (!alive) return
+                setProgress(s?.progress ?? null)
+                setState(cur => (s?.running ? 'running' : cur === 'running' ? 'idle' : cur))
+            } catch { /* a status read failing is not worth surfacing over the button */ }
+        }
+
+        check()
+        const timer = setInterval(check, POLL_MS)
+        return () => { alive = false; clearInterval(timer) }
+    }, [isAdmin])
 
     if (!isAdmin) return null
 
@@ -171,11 +215,11 @@ function RunButton() {
         setState('starting')
         try {
             await aetherService.startDiscovery()
-            setState('started')
+            setState('running')
         } catch (err) {
             // 409 is "one is already going" — an answer, not a failure. Calling it failed
             // would invite exactly the second press the server just refused.
-            if (err?.response?.status === 409) return setState('busy')
+            if (err?.response?.status === 409) return setState('running')
             // Everything else is worth reading: no engine on this host, no resolvable
             // database. apiError is the one reader that finds the server's own message —
             // err.message alone is axios's "Request failed with status code 503".
@@ -184,12 +228,17 @@ function RunButton() {
         }
     }
 
-    const LABEL = {
-        idle:     'Run discovery',
-        starting: 'Starting…',
-        started:  'Running — names land in a few minutes',
-        busy:     'Already running',
-        failed:   'Could not start — press to retry',
+    let label = 'Run discovery'
+    if (state === 'starting') label = 'Starting…'
+    else if (state === 'failed') label = 'Could not start — press to retry'
+    else if (state === 'running') {
+        const stage = STAGE_LABEL[progress?.stage] ?? 'running'
+        // "event 2 of 2" only once the engine has actually reached one — before that the
+        // count is the ceiling the run was given, not where it is.
+        const which = progress?.event > 0 && progress?.events > 1
+            ? ` · event ${progress.event} of ${progress.events}`
+            : ''
+        label = `${stage}${which}`
     }
 
     return (
@@ -197,12 +246,12 @@ function RunButton() {
             type="button"
             className="aether-candidates__run-btn"
             onClick={run}
-            disabled={state === 'starting' || state === 'started' || state === 'busy'}
-            title={state === 'failed'
-                ? why
+            disabled={state === 'starting' || state === 'running'}
+            title={state === 'failed' ? why
+                : state === 'running' ? (progress?.detail ?? 'a run is in flight')
                 : 'Reads the news queue, picks the events worth a run, and names the companies each reaches. Costs a model call per event plus an EDGAR pass per candidate, which is why it is not on a schedule.'}
         >
-            {LABEL[state]}
+            {label}
         </button>
     )
 }

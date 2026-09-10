@@ -17,11 +17,21 @@ vi.mock('../../context/AuthContext.jsx', async (orig) => {
 })
 
 const startDiscovery = vi.fn()
+const getDiscoveryStatus = vi.fn(async () => ({ running: false, progress: null, last: null }))
 vi.mock('../../services/aether/aether.service.remote.js', () => ({
-    aetherService: { startDiscovery: (...a) => startDiscovery(...a) },
+    aetherService: {
+        startDiscovery: (...a) => startDiscovery(...a),
+        getDiscoveryStatus: (...a) => getDiscoveryStatus(...a),
+    },
 }))
 
-afterEach(() => { cleanup(); startDiscovery.mockReset(); AUTH = ADMIN })
+afterEach(() => {
+    cleanup()
+    startDiscovery.mockReset()
+    getDiscoveryStatus.mockReset()
+    getDiscoveryStatus.mockResolvedValue({ running: false, progress: null, last: null })
+    AUTH = ADMIN
+})
 
 const RUN = {
     run_id: 'Canada:2026-09-08',
@@ -33,7 +43,9 @@ const RUN = {
     candidates: [{ ticker: 'NUE', side: 'hurt', tier: 2, verdict: 'quantified', status: 'fresh' }],
 }
 
-const btn = () => screen.queryByRole('button', { name: /run discovery|already running|running —|starting|could not start/i })
+// Selected by class, not by label: the label is now the STAGE and changes as the run
+// moves, which is the whole feature. A name-based query would have to list every stage.
+const btn = () => document.querySelector('.aether-candidates__run-btn')
 
 describe('AetherCandidates run button', () => {
 
@@ -64,15 +76,15 @@ describe('AetherCandidates run button', () => {
         expect(btn()).toBeTruthy()
     })
 
-    it('reports STARTED, not finished, and stops taking presses', async () => {
+    it('reports that it is RUNNING, not that it finished, and stops taking presses', async () => {
         // A run is minutes of model calls and EDGAR requests; it writes to Mongo when it
         // lands and the list polls it up on its own.
         startDiscovery.mockResolvedValue({ started: true, pid: 1 })
         render(<AetherCandidates runs={[RUN]} />)
         fireEvent.click(btn())
 
-        await waitFor(() => expect(btn().textContent).toMatch(/names land in a few minutes/i))
-        expect(btn().disabled).toBe(true)
+        await waitFor(() => expect(btn().disabled).toBe(true))
+        expect(btn().textContent).not.toMatch(/run discovery/i)
         expect(startDiscovery).toHaveBeenCalledTimes(1)
     })
 
@@ -84,9 +96,8 @@ describe('AetherCandidates run button', () => {
         render(<AetherCandidates runs={[RUN]} />)
         fireEvent.click(btn())
 
-        await waitFor(() => expect(btn().textContent).toMatch(/already running/i))
+        await waitFor(() => expect(btn().disabled).toBe(true))
         expect(btn().textContent).not.toMatch(/could not/i)
-        expect(btn().disabled).toBe(true)
     })
 
     it('a real failure says so, keeps the server’s reason, and stays pressable', async () => {
@@ -427,5 +438,79 @@ describe('AetherCandidates recurrence', () => {
         fireEvent.click(screen.getByText('NUE').closest('button'))
         expect(screen.getByText(/Canada/)).toBeTruthy()
         expect(screen.getByText(/Congo/)).toBeTruthy()
+    })
+})
+
+describe('AetherCandidates run progress', () => {
+    // "Running" for a run whose stages take twenty seconds, six and a half minutes and
+    // then as long as EDGAR feels like tells the reader nothing — and on the day the Iran
+    // run died it looked identical to a run that was working.
+    it('names the stage the engine has reached', async () => {
+        getDiscoveryStatus.mockResolvedValue({
+            running: true,
+            progress: { stage: 'verifying', detail: '20 of 41 against EDGAR', event: 1, events: 2 },
+        })
+        render(<AetherCandidates runs={[RUN]} />)
+        await waitFor(() => expect(btn().textContent).toMatch(/checking filings/i))
+    })
+
+    it('says which event of how many, once it has reached one', async () => {
+        getDiscoveryStatus.mockResolvedValue({
+            running: true,
+            progress: { stage: 'proposing', detail: 'Iran tankers', event: 2, events: 2 },
+        })
+        render(<AetherCandidates runs={[RUN]} />)
+        await waitFor(() => expect(btn().textContent).toMatch(/event 2 of 2/))
+    })
+
+    it('does not claim an event before the engine has started one', async () => {
+        // `events` is the ceiling the run was given, not where it is.
+        getDiscoveryStatus.mockResolvedValue({
+            running: true,
+            progress: { stage: 'triage', detail: 'reading 218 of 239 headlines', event: 0, events: 2 },
+        })
+        render(<AetherCandidates runs={[RUN]} />)
+        await waitFor(() => expect(btn().textContent).toMatch(/reading the news queue/i))
+        expect(btn().textContent).not.toMatch(/event/i)
+    })
+
+    it('finds a run THIS browser did not start', async () => {
+        // A reload mid-run used to leave the button reading "Run discovery" over a live
+        // engine, with only the server's 409 stopping a second press.
+        getDiscoveryStatus.mockResolvedValue({ running: true, progress: { stage: 'proposing' } })
+        render(<AetherCandidates runs={[RUN]} />)
+        await waitFor(() => expect(btn().disabled).toBe(true))
+        expect(startDiscovery).not.toHaveBeenCalled()
+    })
+
+    it('an unrecognised stage still reads as running rather than as nothing', async () => {
+        // The stages are parsed off the engine's log lines, so a changed Python string
+        // stops the updates. That has to degrade to the old chip, not to a blank button.
+        getDiscoveryStatus.mockResolvedValue({ running: true, progress: { stage: 'who-knows' } })
+        render(<AetherCandidates runs={[RUN]} />)
+        await waitFor(() => expect(btn().textContent).toMatch(/running/i))
+    })
+
+    it('returns to idle when the run ends', async () => {
+        getDiscoveryStatus.mockResolvedValue({ running: true, progress: { stage: 'verifying' } })
+        render(<AetherCandidates runs={[RUN]} />)
+        await waitFor(() => expect(btn().disabled).toBe(true))
+
+        getDiscoveryStatus.mockResolvedValue({ running: false, progress: null, last: { ok: true } })
+        await waitFor(() => expect(btn().textContent).toMatch(/run discovery/i), { timeout: 6000 })
+    })
+
+    it('a status read that fails does not break the button', async () => {
+        getDiscoveryStatus.mockRejectedValue(new Error('network'))
+        render(<AetherCandidates runs={[RUN]} />)
+        await waitFor(() => expect(btn()).toBeTruthy())
+        expect(btn().textContent).toMatch(/run discovery/i)
+    })
+
+    it('a member never polls at all', async () => {
+        AUTH = MEMBER
+        render(<AetherCandidates runs={[RUN]} />)
+        await waitFor(() => expect(btn()).toBeNull())
+        expect(getDiscoveryStatus).not.toHaveBeenCalled()
     })
 })
