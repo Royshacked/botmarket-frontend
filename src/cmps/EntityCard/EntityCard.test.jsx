@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, fireEvent, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { EntityCard, SymbolCell, StatusBadge, DeleteButton } from './EntityCard.jsx'
 
 // EntityCard is the shell every entity list renders into. The rules pinned here are the ones each
@@ -91,5 +91,105 @@ describe('shared controls', () => {
         // position_state.entry.direction rather than from the status word.
         const { container } = render(<StatusBadge status="long" iconStatus="short" label="in position" />)
         expect(container.querySelector('.status--short')).toBeTruthy()
+    })
+})
+
+describe('SymbolCell — the ticker is the chart, everywhere', () => {
+    // The same span is now used by the cards AND by every Floor row. It cannot be two
+    // copies: a Floor row IS a <button> and a button cannot contain a button, so the
+    // clickable ticker has to be this exact span-with-stopPropagation in both places.
+
+    it('calls back with the symbol', () => {
+        const onSymbolClick = vi.fn()
+        render(<SymbolCell symbol="NVDA" onSymbolClick={onSymbolClick} />)
+        fireEvent.click(screen.getByText('NVDA'))
+        expect(onSymbolClick).toHaveBeenCalledWith('NVDA')
+    })
+
+    it('does not let the click reach the row or card it sits in', () => {
+        // THE PROPERTY THE WHOLE THING RESTS ON. Every container this lives in is itself
+        // clickable — a card opens, a Floor row expands — so without stopPropagation the
+        // chart would ride along with whatever the container does.
+        const onSymbolClick = vi.fn()
+        const onContainer = vi.fn()
+        render(
+            <button onClick={onContainer}>
+                <SymbolCell symbol="NVDA" onSymbolClick={onSymbolClick} />
+            </button>,
+        )
+        fireEvent.click(screen.getByText('NVDA'))
+        expect(onSymbolClick).toHaveBeenCalledWith('NVDA')
+        expect(onContainer).not.toHaveBeenCalled()
+    })
+
+    it('wears the Floor grid class when a list asks for one', () => {
+        render(<SymbolCell symbol="NVDA" onSymbolClick={() => {}} className="floor-row__sym" />)
+        expect(screen.getByText('NVDA').className).toContain('floor-row__sym')
+    })
+
+    it('looks clickable whenever there is a ticker to chart', () => {
+        // Discoverability is the point: a ticker that opens a chart has to read differently
+        // from the text beside it, or the behaviour can only be found by accident.
+        //
+        // It used to key off whether a HANDLER had been threaded in, which made the
+        // affordance a property of the wiring rather than of the ticker. A list nobody had
+        // threaded rendered a plain-looking ticker that also did nothing, so the two
+        // failures hid each other.
+        const { rerender } = render(<SymbolCell symbol="NVDA" onSymbolClick={() => {}} />)
+        expect(screen.getByText('NVDA').className).toContain('sym--chartable')
+
+        rerender(<SymbolCell symbol="NVDA" />)
+        expect(screen.getByText('NVDA').className).toContain('sym--chartable')
+
+        rerender(<SymbolCell symbol="" />)
+        expect(screen.getByText('—').className).not.toContain('sym--chartable')
+    })
+
+    it('a row with no symbol is inert rather than a dash you can press', () => {
+        const onSymbolClick = vi.fn()
+        render(<SymbolCell symbol="" onSymbolClick={onSymbolClick} />)
+        fireEvent.click(screen.getByText('—'))
+        expect(onSymbolClick).not.toHaveBeenCalled()
+    })
+})
+
+describe('SymbolCell docks the chart itself', () => {
+    // THE BUG THIS PINS. The click was threaded up to MainPage as `onSymbolClick`, and there
+    // it landed on `const [, setChartSymbol] = useState(...)` — a setter whose state nobody
+    // reads. Every click was a no-op, which on screen is indistinguishable from a click that
+    // missed the target. Three call sites, all dead, and the tests passed throughout because
+    // they asserted the callback fired rather than that a chart appeared.
+
+    it('opens the chart through the shared store when no handler is given', async () => {
+        const { currentChart } = await import('../../services/chartSurface.service.js')
+        render(<SymbolCell symbol="NVDA" />)
+        fireEvent.click(screen.getByText('NVDA'))
+        expect(currentChart()?.ticker).toBe('NVDA')
+    })
+
+    it('is clickable with no handler at all', () => {
+        // It used to need one to look clickable, so every list that had not been threaded
+        // rendered a ticker that looked inert and was.
+        render(<SymbolCell symbol="NVDA" />)
+        expect(screen.getByText('NVDA').className).toContain('sym--chartable')
+    })
+
+    it('an explicit handler still wins, for callers that mean something else', async () => {
+        const { openChart } = await import('../../services/chartSurface.service.js')
+        openChart({ ticker: 'SPY' })
+        const onSymbolClick = vi.fn()
+        render(<SymbolCell symbol="NVDA" onSymbolClick={onSymbolClick} />)
+        fireEvent.click(screen.getByText('NVDA'))
+        expect(onSymbolClick).toHaveBeenCalledWith('NVDA')
+        const { currentChart } = await import('../../services/chartSurface.service.js')
+        expect(currentChart()?.ticker).toBe('SPY')   // untouched by the override
+    })
+
+    it('a row with no symbol docks nothing', async () => {
+        const { openChart, currentChart } = await import('../../services/chartSurface.service.js')
+        openChart({ ticker: 'SPY' })
+        render(<SymbolCell symbol="" />)
+        fireEvent.click(screen.getByText('—'))
+        expect(currentChart()?.ticker).toBe('SPY')
     })
 })

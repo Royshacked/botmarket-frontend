@@ -11,6 +11,7 @@ import './Radar.scss'
 // the original `news-feed` CSS namespace.
 export function Radar({
     tab = 'scans',
+    onSymbolClick,
     // NB: no onTabChange — the tab BUTTONS live in TradeIdeasList, which calls
     // radar.onTabChange off the props object. Radar itself only renders the active tab.
     scans = [],
@@ -83,7 +84,7 @@ export function Radar({
                 </div>
             ) : tab === 'coverage' ? (
                 <div className="news-feed__list">
-                    <CoverageBook coverage={coverage} loading={coverageLoading} onEdit={onEditCoverage} onRetire={onRetireCoverage} onDelete={onDeleteCoverage} />
+                    <CoverageBook onSymbolClick={onSymbolClick} coverage={coverage} loading={coverageLoading} onEdit={onEditCoverage} onRetire={onRetireCoverage} onDelete={onDeleteCoverage} />
                 </div>
             ) : null}
         </div>
@@ -289,6 +290,7 @@ function _money(v) {
 }
 
 Radar.propTypes = {
+    onSymbolClick:   PropTypes.func,
     tab:               PropTypes.string,
     onTabChange:       PropTypes.func,
     scans:             PropTypes.array,

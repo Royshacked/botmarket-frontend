@@ -9,6 +9,7 @@ import { useExpandedSet } from '../../customHooks/useExpandedSet.js'
 import { IconButton } from '../EntityCard/IconButton.jsx'
 import { CloseIcon } from '../EntityCard/entityIcons.jsx'
 import { RowHost } from './RowHost.jsx'
+import { SymbolCell } from '../EntityCard/EntityCard.jsx'
 import './Floor.scss'
 
 // The Floor's left column: the book. Account summaries land here next.
@@ -67,7 +68,7 @@ CloseAtMarketButton.propTypes = { onClick: PropTypes.func.isRequired, title: Pro
 //
 // The row is a <button>, so the ✕ can't live inside it — it rides in the RowHost overlay, exactly
 // like the right column's edit/delete.
-function PositionLine({ position: p, sub, onOpen, onClose, closing, expanded, onToggle }) {
+function PositionLine({ position: p, sub, onOpen, onClose, closing, expanded, onToggle, onSymbolClick }) {
     const pct = positionPnlPct(p)
     // FOLDED: this line stands for a holding held as several broker positions, at the blended
     // average. Clicking it opens the legs rather than the entity — the caret IS the row — and its ✕
@@ -96,8 +97,11 @@ function PositionLine({ position: p, sub, onOpen, onClose, closing, expanded, on
                 <span className={`floor-pos__dir floor-pos__dir--${p.direction}`} aria-hidden="true">
                     {p.direction === 'short' ? '▾' : '▴'}
                 </span>
+                {/* The ticker is the chart; the leg count beside it is not. They share one
+                    grid cell, so the click target is the inner span and the badge stays out
+                    of it — pressing ×3 should not open a chart. */}
                 <span className="floor-pos__sym">
-                    {p.symbol ?? '—'}
+                    <SymbolCell symbol={p.symbol} onSymbolClick={onSymbolClick} className="floor-pos__ticker" />
                     {folded && <span className="floor-pos__legs">×{p.legs?.length ?? 0}</span>}
                 </span>
                 <span className="floor-pos__qty">{formatNum(p.volume)}</span>
@@ -111,6 +115,7 @@ function PositionLine({ position: p, sub, onOpen, onClose, closing, expanded, on
 }
 
 PositionLine.propTypes = {
+    onSymbolClick: PropTypes.func,
     position: PropTypes.object.isRequired,
     sub:      PropTypes.bool,
     onOpen:   PropTypes.func,
@@ -128,11 +133,12 @@ PositionLine.propTypes = {
  * same act as the book ✕ one tier up, on a smaller set — and per-leg ✕s stay on the expanded rows so
  * a deliberate single-leg close is still possible.
  */
-function HoldingLines({ group, sub, expanded, onToggle, onOpenPosition, onClosePosition, onCloseHolding, closingId, closingGroupId }) {
+function HoldingLines({ group, sub, expanded, onToggle, onOpenPosition, onClosePosition, onCloseHolding, closingId, closingGroupId, onSymbolClick }) {
     if (group.legs.length === 1) {
         const p = group.position
         return (
             <PositionLine
+                onSymbolClick={onSymbolClick}
                 position={p}
                 sub={sub}
                 onOpen={onOpenPosition}
@@ -145,6 +151,7 @@ function HoldingLines({ group, sub, expanded, onToggle, onOpenPosition, onCloseP
     return (
         <>
             <PositionLine
+                onSymbolClick={onSymbolClick}
                 position={group.position}
                 sub={sub}
                 expanded={expanded}
@@ -158,6 +165,7 @@ function HoldingLines({ group, sub, expanded, onToggle, onOpenPosition, onCloseP
             />
             {expanded && group.legs.map(p => (
                 <PositionLine
+                    onSymbolClick={onSymbolClick}
                     key={posKey(p)}
                     position={p}
                     sub
@@ -171,6 +179,7 @@ function HoldingLines({ group, sub, expanded, onToggle, onOpenPosition, onCloseP
 }
 
 HoldingLines.propTypes = {
+    onSymbolClick: PropTypes.func,
     group:           PropTypes.object.isRequired,
     sub:             PropTypes.bool,
     expanded:        PropTypes.bool,
@@ -186,7 +195,7 @@ HoldingLines.propTypes = {
 // stamps as the in-flight id, and a local copy that spelled a missing accountId differently would
 // leave the spinner on a row that is closing.
 
-function AccountBlock({ group, open, onToggle, onOpenPosition, onClosePosition, onCloseBook, closingId, closingGroupId }) {
+function AccountBlock({ group, open, onToggle, onOpenPosition, onClosePosition, onCloseBook, closingId, closingGroupId, onSymbolClick }) {
     const { summary } = group
     // Books start CLOSED, like the account above them: a portfolio row exists precisely to stand in
     // for its legs, so opening it for you would undo the row.
@@ -266,6 +275,7 @@ function AccountBlock({ group, open, onToggle, onOpenPosition, onClosePosition, 
                                     the blended average, which expands to its legs. */}
                                 {bookOpen && book.rows.map(g => (
                                     <HoldingLines
+                                        onSymbolClick={onSymbolClick}
                                         key={g.ownerId ?? posKey(g.position)}
                                         group={g}
                                         sub
@@ -284,6 +294,7 @@ function AccountBlock({ group, open, onToggle, onOpenPosition, onClosePosition, 
 
                     {group.looseRows.map(g => (
                         <HoldingLines
+                            onSymbolClick={onSymbolClick}
                             key={g.ownerId ?? posKey(g.position)}
                             group={g}
                             expanded={isExpanded(`holding:${g.ownerId}`)}
@@ -302,6 +313,7 @@ function AccountBlock({ group, open, onToggle, onOpenPosition, onClosePosition, 
 }
 
 AccountBlock.propTypes = {
+    onSymbolClick:  PropTypes.func,
     group:           PropTypes.object.isRequired,
     open:            PropTypes.bool,
     onToggle:        PropTypes.func.isRequired,
@@ -322,7 +334,7 @@ AccountBlock.propTypes = {
  */
 export function FloorLeft({
     positions = [], ideas = [], positionsLoading = false, onOpenPosition,
-    onClosePosition, onClosePositions,
+    onClosePosition, onClosePositions, onSymbolClick,
 }) {
     const groups = positionsByAccount(positions, ideas)
     // The confirm-and-fire flow is the Positions tab's, verbatim — see usePositionClose.
@@ -350,6 +362,7 @@ export function FloorLeft({
                             ? <p className="floor-empty">No open positions.</p>
                             : groups.map(g => (
                                 <AccountBlock
+                                    onSymbolClick={onSymbolClick}
                                     key={g.key}
                                     group={g}
                                     open={isExpanded(g.key)}
@@ -370,6 +383,7 @@ export function FloorLeft({
 }
 
 FloorLeft.propTypes = {
+    onSymbolClick:    PropTypes.func,
     positions:        PropTypes.array,
     ideas:            PropTypes.array,
     positionsLoading: PropTypes.bool,

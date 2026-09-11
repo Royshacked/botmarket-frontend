@@ -1,4 +1,5 @@
 import PropTypes from 'prop-types'
+import { openChart } from '../../services/chartSurface.service.js'
 import { StatusIcon } from '../StatusIcon.jsx'
 import { EditIcon, BinIcon, BuildingIcon, ActivateIcon } from './entityIcons.jsx'
 import { IconButton } from './IconButton.jsx'
@@ -79,19 +80,51 @@ EntityCard.propTypes = {
 // Each was written two or three times across the cards with the same classes and the same
 // stopPropagation dance.
 
-/** The ticker. Clicking it opens the chart, never the card (see isPassthroughClick). */
-export function SymbolCell({ symbol, onSymbolClick }) {
-    const clickable = !!(symbol && onSymbolClick)
+/**
+ * The ticker. Clicking it opens the chart, never the card (see isPassthroughClick).
+ *
+ * THE CLICK TARGET IS THE TICKER TEXT AND NOTHING ELSE. `stopPropagation` is what makes
+ * that true: every row and card this sits in is itself clickable — a card opens, a Floor
+ * row expands — so without it the chart would ride along with whatever the container does.
+ *
+ * `className` exists because the Floor rows want the same mechanism under their own grid
+ * class. They cannot have their own copy: a Floor row IS a <button> and a button cannot
+ * contain a button, so the clickable ticker has to be this exact span-with-stopPropagation
+ * in both places, and two copies of it would drift the first time one is fixed.
+ *
+ * IT DOCKS THE CHART ITSELF, through the shared chart store. The store exists for exactly
+ * this — its own note names "a ticker chip, a row click" as the in-app callers — and going
+ * through it is what lets a cell buried three components deep put a chart up with no
+ * prop-drilling and no panel wiring.
+ *
+ * The alternative was tried first, which is why this paragraph is here. `onSymbolClick` was
+ * threaded from the page down into every list, and at the top it pointed at
+ * `const [, setChartSymbol] = useState(...)` — a setter whose state nobody reads. Every
+ * call was a no-op, and a no-op looks exactly like a click that missed.
+ *
+ * `onSymbolClick` survives as an OVERRIDE for the callers that already pass one and mean
+ * something other than "dock this chart".
+ */
+export function SymbolCell({ symbol, onSymbolClick, className = 'idea-card__sym' }) {
+    const clickable = !!symbol
+    const press = e => {
+        e.stopPropagation()
+        if (onSymbolClick) onSymbolClick(symbol)
+        else openChart({ ticker: symbol, source: 'list' })
+    }
     return (
         <span
-            className="idea-card__sym"
-            onClick={clickable ? (e => { e.stopPropagation(); onSymbolClick(symbol) }) : undefined}
+            className={clickable ? `${className} sym--chartable` : className}
+            onClick={clickable ? press : undefined}
             title={clickable ? `View ${symbol} chart` : undefined}
-            style={{ cursor: clickable ? 'pointer' : 'default' }}
         >{symbol || '—'}</span>
     )
 }
-SymbolCell.propTypes = { symbol: PropTypes.string, onSymbolClick: PropTypes.func }
+SymbolCell.propTypes = {
+    symbol: PropTypes.string,
+    onSymbolClick: PropTypes.func,
+    className: PropTypes.string,
+}
 
 /** A titleline pill. `variant` picks the modifier (dir / type / lens …). */
 export function Pill({ variant, className = '', children, title }) {

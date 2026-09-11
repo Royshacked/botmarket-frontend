@@ -49,28 +49,6 @@
     &:disabled { cursor: default; color: var(--text-dim); }
 }
 
-// The row's hover action, in RowHost's overlay slot. A row IS a button and a button cannot
-// contain one, which is the whole reason that overlay exists — so opening the ticker's
-// pop-out rides there rather than as a cell inside the line.
-.aether-actions {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.aether-actions__btn {
-    font: inherit;
-    font-size: var(--chat-label);
-    padding: 2px 8px;
-    border-radius: 3px;
-    border: 1px solid var(--border-mid);
-    background: var(--bg-raised);
-    color: var(--text-secondary);
-    cursor: pointer;
-
-    &:hover { background: var(--bg-hover); color: var(--text-primary); }
-}
-
 // ── the open row stays put ────────────────────────────────────────────────────
 //
 // A ticker's drawer holds a block per event — mechanism, press fact, filing sentence, move,

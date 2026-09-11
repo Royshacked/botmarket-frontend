@@ -5,7 +5,7 @@ import {
     openCallPopup, openSetupPopup, openIdeaPopup,
     portfoliosFromIdeas, portfolioPnl, formatPnl, isDeleteLocked, isPortfolioReview, isManualIdea,
 } from '../TradeIdeas/tradeIdea.utils.js'
-import { EditButton, DeleteButton, ActivateButton } from '../EntityCard/EntityCard.jsx'
+import { EditButton, DeleteButton, ActivateButton, SymbolCell } from '../EntityCard/EntityCard.jsx'
 import { ActivatePortfolioDialog } from '../TradeIdeas/ActivatePortfolioDialog.jsx'
 import { tradeFloorItems } from './floor.utils.js'
 import { actionLine, originLine, actionVerb } from './queuedAction.contract.js'
@@ -214,7 +214,7 @@ function setupActions(setup, onEdit, onDelete) {
     )
 }
 
-function TradeRows({ setups, onEditSetup, onDeleteSetup }) {
+function TradeRows({ setups, onEditSetup, onDeleteSetup, onSymbolClick }) {
     const items = tradeFloorItems(setups)
     if (!items.length) return <Empty>No setups.</Empty>
 
@@ -233,7 +233,7 @@ function TradeRows({ setups, onEditSetup, onDeleteSetup }) {
                         <span className={`floor-row__dir floor-row__dir--${it.direction}`} aria-hidden="true">
                             {it.direction === 'short' ? '▾' : '▴'}
                         </span>
-                        <span className="floor-row__sym">{it.ticker ?? '—'}</span>
+                        <SymbolCell className="floor-row__sym" symbol={it.ticker} onSymbolClick={onSymbolClick} />
                         <span className="floor-row__kind">{it.kind}</span>
                         <span className={`floor-row__status floor-row__status--${it.status}`}>{it.status}</span>
                     </button>
@@ -243,6 +243,7 @@ function TradeRows({ setups, onEditSetup, onDeleteSetup }) {
     ))
 }
 TradeRows.propTypes = {
+    onSymbolClick: PropTypes.func,
     setups:        PropTypes.array,
     onEditSetup:   PropTypes.func,
     onDeleteSetup: PropTypes.func,
@@ -269,7 +270,7 @@ const statusText = (status) => STATUS_TEXT[status] ?? status
 // already working means the book is being managed, and re-firing it as a book is not the move.
 const isWaitingBook = (b) => b.ideas.length > 0 && b.ideas.every(i => i.status === 'waiting')
 
-function PortfolioRows({ ideas, positions, onEditPortfolio, onDeletePortfolio, onDeleteIdea, onActivatePortfolio }) {
+function PortfolioRows({ ideas, positions, onEditPortfolio, onDeletePortfolio, onDeleteIdea, onActivatePortfolio, onSymbolClick }) {
     const books = portfoliosFromIdeas(ideas)
     const [openKey, setOpenKey] = useState(null)
     // The book waiting on the pre-activation gate, or null. Same dialog the ideas table and the
@@ -376,7 +377,7 @@ function PortfolioRows({ ideas, positions, onEditPortfolio, onDeletePortfolio, o
                                     <span className={`floor-row__dir floor-row__dir--${h.direction}`} aria-hidden="true">
                                         {h.direction === 'short' ? '▾' : '▴'}
                                     </span>
-                                    <span className="floor-row__sym">{h.asset ?? '—'}</span>
+                                    <SymbolCell className="floor-row__sym" symbol={h.asset} onSymbolClick={onSymbolClick} />
                                     {/* allocationRatio is a 0–1 ratio, not a percentage */}
                                     <span className="floor-row__kind floor-row__kind--dim">{pctOf(h.allocationRatio)}</span>
                                     <span className={`floor-row__status floor-row__status--${h.status}`}>{statusText(h.status)}</span>
@@ -409,6 +410,7 @@ function PortfolioRows({ ideas, positions, onEditPortfolio, onDeletePortfolio, o
     )
 }
 PortfolioRows.propTypes = {
+    onSymbolClick: PropTypes.func,
     ideas:               PropTypes.array,
     positions:           PropTypes.array,
     onEditPortfolio:     PropTypes.func,
@@ -421,7 +423,7 @@ PortfolioRows.propTypes = {
 // A scan's row is its thesis; its candidates are the sub-rows. Expanding is local to the row, so
 // several scans can be open at once — unlike the desks, these are peers being compared.
 
-function ScanRows({ scans, onCandidateSelect, onEditScan, onDeleteScan }) {
+function ScanRows({ scans, onCandidateSelect, onEditScan, onDeleteScan, onSymbolClick }) {
     const [openKey, setOpenKey] = useState(null)
     if (!scans.length) return <Empty>No lists yet.</Empty>
 
@@ -466,7 +468,7 @@ function ScanRows({ scans, onCandidateSelect, onEditScan, onDeleteScan }) {
                                 onClick={() => onCandidateSelect?.(c, s)}
                                 title="Build from this candidate"
                             >
-                                <span className="floor-row__sym">{c.ticker}</span>
+                                <SymbolCell className="floor-row__sym" symbol={c.ticker} onSymbolClick={onSymbolClick} />
                                 <span className="floor-row__kind floor-row__kind--dim">{c.name ?? ''}</span>
                                 {Number.isFinite(c.score?.total) && (
                                     <span className={`floor-row__score floor-row__score--${c.score.total >= 75 ? 'hi' : c.score.total >= 55 ? 'mid' : 'lo'}`}>
@@ -482,6 +484,7 @@ function ScanRows({ scans, onCandidateSelect, onEditScan, onDeleteScan }) {
     })
 }
 ScanRows.propTypes = {
+    onSymbolClick: PropTypes.func,
     scans:             PropTypes.array,
     onCandidateSelect: PropTypes.func,
     onEditScan:        PropTypes.func,
@@ -500,7 +503,7 @@ const asList = (v) => (Array.isArray(v) ? v : [])
 const catalystText = (k) => (typeof k === 'string' ? k : `${k?.date ? `${k.date}: ` : ''}${k?.note ?? ''}`)
 const killText     = (k) => (typeof k === 'string' ? k : JSON.stringify(k))
 
-function CoverageRows({ coverage, onEditCoverage, onRetireCoverage, onDeleteCoverage }) {
+function CoverageRows({ coverage, onEditCoverage, onRetireCoverage, onDeleteCoverage, onSymbolClick }) {
     const [openKey, setOpenKey] = useState(null)
     if (!coverage.length) return <Empty>No coverage yet.</Empty>
 
@@ -536,7 +539,7 @@ function CoverageRows({ coverage, onEditCoverage, onRetireCoverage, onDeleteCove
                                 <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                         )}
-                        <span className="floor-row__sym">{c.symbol}</span>
+                        <SymbolCell className="floor-row__sym" symbol={c.symbol} onSymbolClick={onSymbolClick} />
                         {c.rating && <span className={`floor-row__rating floor-row__rating--${c.rating}`}>{RATING_LABEL[c.rating] ?? c.rating}</span>}
                         {/* No "PT" label — this column already reads as the target on a coverage row. */}
                         <PriceTarget priceTarget={c.price_target} gap={c.gap} label={null} />
@@ -580,7 +583,7 @@ function CoverageRows({ coverage, onEditCoverage, onRetireCoverage, onDeleteCove
         )
     })
 }
-CoverageRows.propTypes = { coverage: PropTypes.array, onEditCoverage: PropTypes.func, onRetireCoverage: PropTypes.func, onDeleteCoverage: PropTypes.func }
+CoverageRows.propTypes = { onSymbolClick: PropTypes.func, coverage: PropTypes.array, onEditCoverage: PropTypes.func, onRetireCoverage: PropTypes.func, onDeleteCoverage: PropTypes.func }
 
 // ── Research queue (admin) ────────────────────────────────────────────────────
 // The house research pipeline backlog. Each row is one name waiting to be researched by Prometheus.
@@ -589,7 +592,7 @@ CoverageRows.propTypes = { coverage: PropTypes.array, onEditCoverage: PropTypes.
 const RQ_STATUS_LABEL = { queued: 'queued', in_research: 'in progress', done: 'done', rejected: 'rejected' }
 const RQ_SOURCE_LABEL = { argus: 'Argus', manual: 'request' }
 
-function ResearchQueueRow({ item, onStart, onDone, onReject, busy }) {
+function ResearchQueueRow({ item, onStart, onDone, onReject, busy, onSymbolClick }) {
     const isQueued     = item.status === 'queued'
     const isInResearch = item.status === 'in_research'
     const isActive     = isQueued || isInResearch
@@ -623,13 +626,14 @@ function ResearchQueueRow({ item, onStart, onDone, onReject, busy }) {
             )}
         >
             <span className={`floor-queued__dot${isQueued ? '' : isInResearch ? ' floor-queued__dot--waiting' : ''}`} aria-hidden="true" />
-            <span className="floor-row__sym">{item.symbol}</span>
+            <SymbolCell className="floor-row__sym" symbol={item.symbol} onSymbolClick={onSymbolClick} />
             <span className="floor-row__kind floor-row__kind--dim">{RQ_SOURCE_LABEL[item.source] ?? item.source}</span>
             <span className={`floor-row__status floor-row__status--${item.status}`}>{RQ_STATUS_LABEL[item.status] ?? item.status}</span>
         </RowHost>
     )
 }
 ResearchQueueRow.propTypes = {
+    onSymbolClick: PropTypes.func,
     item:     PropTypes.object.isRequired,
     onStart:  PropTypes.func.isRequired,
     onDone:   PropTypes.func.isRequired,
@@ -637,7 +641,7 @@ ResearchQueueRow.propTypes = {
     busy:     PropTypes.bool,
 }
 
-function ResearchQueueRows({ researchQueue, onStartResearch, onMarkResearchDone, onRejectResearch, busyId }) {
+function ResearchQueueRows({ researchQueue, onStartResearch, onMarkResearchDone, onRejectResearch, busyId, onSymbolClick }) {
     // Show active work by default; done/rejected are the steady state and clutter the list.
     const active = researchQueue.filter(i => i.status === 'queued' || i.status === 'in_research')
     if (!active.length) return <Empty>No names queued for research.</Empty>
@@ -645,6 +649,7 @@ function ResearchQueueRows({ researchQueue, onStartResearch, onMarkResearchDone,
         <>
             {active.map(item => (
                 <ResearchQueueRow
+                    onSymbolClick={onSymbolClick}
                     key={item.id}
                     item={item}
                     onStart={onStartResearch}
@@ -657,6 +662,7 @@ function ResearchQueueRows({ researchQueue, onStartResearch, onMarkResearchDone,
     )
 }
 ResearchQueueRows.propTypes = {
+    onSymbolClick: PropTypes.func,
     researchQueue:      PropTypes.array.isRequired,
     onStartResearch:    PropTypes.func.isRequired,
     onMarkResearchDone: PropTypes.func.isRequired,
@@ -669,7 +675,7 @@ ResearchQueueRows.propTypes = {
 export function FloorLists({
     setups = [], ideas = [], positions = [],
     scans = [], coverage = [], queued = [], aetherCandidates = null,
-    onCandidateSelect,
+    onCandidateSelect, onSymbolClick,
     onEditSetup, onDeleteSetup,
     onEditPortfolio, onDeletePortfolio, onDeleteIdea, onActivatePortfolio,
     onEditScan, onDeleteScan,
@@ -764,12 +770,14 @@ export function FloorLists({
                     )}
                     {desk.key === 'trade'     && (
                         <TradeRows
+                            onSymbolClick={onSymbolClick}
                             setups={setups}
                             onEditSetup={onEditSetup} onDeleteSetup={onDeleteSetup}
                         />
                     )}
                     {desk.key === 'portfolio' && (
                         <PortfolioRows
+                            onSymbolClick={onSymbolClick}
                             ideas={ideas} positions={positions}
                             onEditPortfolio={onEditPortfolio} onDeletePortfolio={onDeletePortfolio}
                             onDeleteIdea={onDeleteIdea} onActivatePortfolio={onActivatePortfolio}
@@ -777,6 +785,7 @@ export function FloorLists({
                     )}
                     {desk.key === 'scans'     && (
                         <ScanRows
+                            onSymbolClick={onSymbolClick}
                             scans={scans} onCandidateSelect={onCandidateSelect}
                             onEditScan={onEditScan} onDeleteScan={onDeleteScan}
                         />
@@ -792,6 +801,7 @@ export function FloorLists({
                         set of controls wherever you meet it. */}
                     {desk.key === 'coverage'  && (
                         <CoverageRows
+                            onSymbolClick={onSymbolClick}
                             coverage={coverage}
                             onEditCoverage={onEditCoverage} onRetireCoverage={onRetireCoverage} onDeleteCoverage={onDeleteCoverage}
                         />
@@ -807,6 +817,7 @@ export function FloorLists({
 
                     {desk.key === 'research_queue' && (
                         <ResearchQueueRows
+                            onSymbolClick={onSymbolClick}
                             researchQueue={researchQueue}
                             onStartResearch={onStartResearch}
                             onMarkResearchDone={onMarkResearchDone}
@@ -819,13 +830,13 @@ export function FloorLists({
                         rows are doorways — clicking one hands the event to Mentor to build a setup
                         around; a Fed row has no ticker to trade, so it is text. */}
                     {desk.key === 'earnings'  && (
-                        <CalendarRows kind="earnings" items={earnings} loading={calendarLoading.earnings} onSelect={onEarningSelect} />
+                        <CalendarRows kind="earnings" items={earnings} loading={calendarLoading.earnings} onSelect={onEarningSelect} onSymbolClick={onSymbolClick} />
                     )}
                     {desk.key === 'fed'       && (
-                        <CalendarRows kind="fed" items={fed} loading={calendarLoading.fed} />
+                        <CalendarRows kind="fed" items={fed} loading={calendarLoading.fed} onSymbolClick={onSymbolClick} />
                     )}
                     {desk.key === 'ipo'       && (
-                        <CalendarRows kind="ipo" items={ipo} loading={calendarLoading.ipo} onSelect={onIpoSelect} />
+                        <CalendarRows kind="ipo" items={ipo} loading={calendarLoading.ipo} onSelect={onIpoSelect} onSymbolClick={onSymbolClick} />
                     )}
                     {desk.key === 'forecasts' && (
                         calendarLoading.forecasts && !tilt
@@ -840,6 +851,7 @@ export function FloorLists({
 }
 
 FloorLists.propTypes = {
+    onSymbolClick:     PropTypes.func,
     setups:            PropTypes.array,
     ideas:             PropTypes.array,
     positions:         PropTypes.array,

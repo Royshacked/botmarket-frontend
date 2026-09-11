@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
+import { SymbolCell } from '../EntityCard/EntityCard.jsx'
 import './CoverageBook.scss'
 import { CoverageActions } from './CoverageActions.jsx'
 import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
@@ -11,7 +12,7 @@ import { nextRevision, NEXT_REVISION_HINT } from './coverage.utils.js'
 const RATING_LABEL = { strong_buy: 'strong buy', buy: 'buy', hold: 'hold', sell: 'sell', strong_sell: 'strong sell' }
 const STATUS_LABEL = { active: 'active', target_hit: 'target hit', thesis_broken: 'thesis broken', retired: 'retired', watchlist: 'watchlist' }
 
-function CoverageCard({ c, onEdit, onRetire, onDelete }) {
+function CoverageCard({ c, onEdit, onRetire, onDelete, onSymbolClick }) {
     const [open, setOpen] = useState(false)
     const pt   = c.price_target
     const gap  = c.gap
@@ -26,7 +27,7 @@ function CoverageCard({ c, onEdit, onRetire, onDelete }) {
         <div className="coverage-book__card">
             <div className="coverage-book__row" role="button" tabIndex={0} onClick={() => hasDetail && setOpen(o => !o)}
                 onKeyDown={e => { if (hasDetail && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setOpen(o => !o) } }}>
-                <span className="coverage-book__sym">{c.symbol}</span>
+                <SymbolCell className="coverage-book__sym" symbol={c.symbol} onSymbolClick={onSymbolClick} />
                 {c.rating && <span className={`coverage-book__rating coverage-book__rating--${c.rating}`}>{RATING_LABEL[c.rating] ?? c.rating}</span>}
                 <PriceTarget priceTarget={pt} gap={gap} />
                 <span className={`coverage-book__status coverage-book__status--${c.status}`}>{STATUS_LABEL[c.status] ?? c.status}</span>
@@ -68,18 +69,20 @@ function CoverageCard({ c, onEdit, onRetire, onDelete }) {
         </div>
     )
 }
-CoverageCard.propTypes = { c: PropTypes.object.isRequired, onEdit: PropTypes.func, onRetire: PropTypes.func, onDelete: PropTypes.func }
+CoverageCard.propTypes = {
+    onSymbolClick: PropTypes.func, c: PropTypes.object.isRequired, onEdit: PropTypes.func, onRetire: PropTypes.func, onDelete: PropTypes.func }
 
-export function CoverageBook({ coverage = [], loading = false, onEdit, onRetire, onDelete }) {
+export function CoverageBook({ coverage = [], loading = false, onEdit, onRetire, onDelete, onSymbolClick }) {
     if (loading) return <div className="coverage-book__loader"><span /><span /><span /></div>
     if (!coverage.length) return <p className="coverage-book__empty">No coverage yet — research a name in the Analyst to start a living thesis.</p>
     return (
         <div className="coverage-book">
-            {coverage.map(c => <CoverageCard key={c.id ?? c.symbol} c={c} onEdit={onEdit} onRetire={onRetire} onDelete={onDelete} />)}
+            {coverage.map(c => <CoverageCard onSymbolClick={onSymbolClick} key={c.id ?? c.symbol} c={c} onEdit={onEdit} onRetire={onRetire} onDelete={onDelete} />)}
         </div>
     )
 }
 CoverageBook.propTypes = {
+    onSymbolClick: PropTypes.func,
     coverage: PropTypes.array,
     loading:  PropTypes.bool,
     onEdit:   PropTypes.func,

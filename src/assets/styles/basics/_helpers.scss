@@ -38,3 +38,24 @@
 .portrait-ratio {
     @include aspect-ratio(9, 16);
 }
+// ── A ticker you can click ───────────────────────────────────────────────────
+//
+// Every list in the app shows tickers, and in all of them the ticker opens that name's
+// chart while the row or card it sits in does something else entirely. So the ticker needs
+// to LOOK different from the text beside it, or the only way to discover the behaviour is
+// to click something and be surprised — which is exactly how it was found.
+//
+// Deliberately quiet: a dotted underline that fills in on hover, not a link colour. These
+// sit inside dense rows where a blue word per line would read as a column of links and
+// pull the eye off the numbers that matter.
+.sym--chartable {
+    cursor: pointer;
+    text-decoration: underline dotted;
+    text-decoration-color: var(--border, #888);
+    text-underline-offset: 3px;
+
+    &:hover {
+        text-decoration-style: solid;
+        text-decoration-color: currentColor;
+    }
+}

@@ -2976,7 +2976,7 @@ export function MainPage() {
                                 below, the same handler the Lists tab's SetupCard runs). */}
                             {(
                                 <FloorLists
-                                    setups={inWorkspace(setups, workspace)}
+                                        setups={inWorkspace(setups, workspace)}
                                     ideas={inWorkspace(ideas, workspace).filter(i => i.status !== 'closed')}
                                     positions={positions}
                                     scans={scans}
@@ -3031,7 +3031,6 @@ export function MainPage() {
                             onDelete={handleDeleteIdea}
                             onCancelBuild={handleCancelBuild}
                             onStatusChange={handleStatusChange}
-                            onSymbolClick={setChartSymbol}
                             onEdit={handleEditIdea}
                             onEditPortfolio={handleEditPortfolio}
                             onDeletePortfolio={handleDeletePortfolio}

@@ -610,3 +610,60 @@ describe('FloorLists row actions', () => {
         expect(onDeleteScan).toHaveBeenCalledWith('x')
     })
 })
+
+describe('every ticker in the column opens its chart', () => {
+    // THE POINT IS THAT NO LIST IS MISSED. "In all lists, clicking the ticker gives the
+    // chart" is a promise about the whole column, and the way it breaks is one list being
+    // forgotten — which is exactly how it was before, where the Aether list had a chart in
+    // the workspace tab and none here.
+    //
+    // Read off the source rather than rendered: mounting all six desks with enough fixture
+    // data to reach every row is a far larger test that would still only prove the ones it
+    // happened to populate.
+
+    const SRC = readFileSync(resolve(__dirname, 'FloorLists.jsx'), 'utf8')
+
+    /** The source between a marker and the next closing character after it. */
+    const between = (open, close) => {
+        const i = SRC.indexOf(open)
+        return i < 0 ? '' : SRC.slice(i, SRC.indexOf(close, i) + 1)
+    }
+
+    it('no raw ticker span is left behind', () => {
+        // A plain <span className="floor-row__sym">{x.ticker}</span> is the shape that was
+        // there before. The two `--wide` cells are not tickers — they carry a portfolio
+        // name and a scan thesis — and must stay exactly as they are.
+        expect(SRC).not.toContain('<span className="floor-row__sym">')
+    })
+
+    it('every symbol cell is the shared one, carrying the handler', () => {
+        const cells = SRC.match(/<SymbolCell[^>]*?\/>/gs) ?? []
+        expect(cells.length).toBeGreaterThanOrEqual(5)
+        for (const cell of cells) {
+            expect(cell).toContain('onSymbolClick={onSymbolClick}')
+            expect(cell).toContain('className="floor-row__sym"')
+        }
+    })
+
+    it('the handler reaches every list that renders one', () => {
+        // A cell wired to a prop its component never received renders a dead ticker, and
+        // nothing at runtime says so.
+        for (const list of ['TradeRows', 'PortfolioRows', 'ScanRows', 'CoverageRows',
+                            'ResearchQueueRows']) {
+            // Plain string slicing rather than a built regex: expressing `function Foo({`
+            // as a pattern needs escaping that is its own source of bugs, and "the text
+            // between here and the next bracket" needs none of it.
+            expect(between(`function ${list}(`, ')'), `${list} signature`)
+                .toContain('onSymbolClick')
+            // No line ending in the marker: this file is CRLF on Windows and LF in CI, and
+            // a `\n` in the search string silently matches neither there.
+            expect(between(`<${list}`, '>'), `${list} usage`)
+                .toContain('onSymbolClick={onSymbolClick}')
+        }
+    })
+
+    it('the queued desk is deliberately left out', () => {
+        // It renders an action SENTENCE, not a ticker cell — there is nothing to click.
+        expect(between('function QueuedRow(', ')')).not.toContain('onSymbolClick')
+    })
+})

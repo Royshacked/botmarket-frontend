@@ -747,3 +747,52 @@ describe('AetherCandidates run button — capability, not identity', () => {
         await waitFor(() => expect(btn()).toBeTruthy())
     })
 })
+
+describe('AetherCandidates — the ticker charts, the row expands', () => {
+    // WHAT THIS REPLACED. The chart used to hang off a lone `open` button in RowHost's
+    // actions slot, and that overlay is positioned absolutely over the row's right edge and
+    // revealed on hover — which here sits on top of the score and status cells. Reaching for
+    // a row's urgency label charted a symbol in a different panel instead of expanding it.
+    //
+    // It also only happened in the workspace tab: FloorLists renders this same component
+    // with no onSymbolClick at all, so one list behaved two ways depending on where you
+    // were looking at it.
+
+    it('clicking the ticker asks for its chart', () => {
+        const onSymbolClick = vi.fn()
+        render(<AetherCandidates runs={[RUN]} onSymbolClick={onSymbolClick} />)
+        fireEvent.click(screen.getByText('NUE'))
+        expect(onSymbolClick).toHaveBeenCalledWith('NUE')
+    })
+
+    it('clicking the ticker does NOT open the row', () => {
+        // The two are different questions — "show me the chart" and "why is this name here"
+        // — so one press must not answer both.
+        const onSymbolClick = vi.fn()
+        render(<AetherCandidates runs={[RUN]} onSymbolClick={onSymbolClick} />)
+        fireEvent.click(screen.getByText('NUE'))
+        expect(screen.queryByText(/· trade/)).toBeNull()
+    })
+
+    it('clicking the row still opens it, and charts nothing', () => {
+        const onSymbolClick = vi.fn()
+        render(<AetherCandidates runs={[RUN]} onSymbolClick={onSymbolClick} />)
+        fireEvent.click(screen.getByText('NUE').closest('button'))
+        expect(screen.getByText(/· trade/)).toBeTruthy()
+        expect(onSymbolClick).not.toHaveBeenCalled()
+    })
+
+    it('no separate open button rides over the status cells any more', () => {
+        render(<AetherCandidates runs={[RUN]} onSymbolClick={() => {}} />)
+        expect(screen.queryByTitle(/^Open NUE$/)).toBeNull()
+        expect(document.querySelector('.aether-actions')).toBeNull()
+    })
+
+    it('the list reads the same where no chart panel exists', () => {
+        // Floor Lists passes no handler. The rows must still be there and still expand —
+        // only the chart is absent.
+        render(<AetherCandidates runs={[RUN]} />)
+        fireEvent.click(screen.getByText('NUE').closest('button'))
+        expect(screen.getByText(/· trade/)).toBeTruthy()
+    })
+})

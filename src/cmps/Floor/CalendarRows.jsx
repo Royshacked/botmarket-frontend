@@ -1,4 +1,5 @@
 import PropTypes from 'prop-types'
+import { SymbolCell } from '../EntityCard/EntityCard.jsx'
 import { groupByDay, fmtDay } from './floor.utils.js'
 
 // The dated feeds — earnings, Fed, IPO — as Floor rows.
@@ -21,7 +22,7 @@ const EARN_WHEN = { bmo: 'Pre', amc: 'Post', dmh: 'Mid' }
  * @param {Function} [onSelect]  row click — earnings and IPO hand the event back to build a setup
  *                               around it. Fed rows are not doorways: there is no ticker to trade.
  */
-export function CalendarRows({ kind, items = [], loading = false, onSelect }) {
+export function CalendarRows({ kind, items = [], loading = false, onSelect, onSymbolClick }) {
     if (loading && !items.length) return <p className="floor-empty">Loading…</p>
     if (!items.length) return <p className="floor-empty">Nothing scheduled.</p>
 
@@ -45,7 +46,7 @@ export function CalendarRows({ kind, items = [], loading = false, onSelect }) {
                         onClick={() => onSelect?.(e)}
                         title={e.symbol ? `Build a setup around ${e.symbol}` : undefined}
                     >
-                        <span className="floor-cal__sym">{e.symbol ?? '—'}</span>
+                        <SymbolCell className="floor-cal__sym" symbol={e.symbol} onSymbolClick={onSymbolClick} />
                         <span className="floor-cal__label">{e.name ?? ''}</span>
                         {kind === 'earnings'
                             ? <span className="floor-cal__when">{EARN_WHEN[(e.time || '').toLowerCase()] ?? ''}</span>
@@ -58,6 +59,7 @@ export function CalendarRows({ kind, items = [], loading = false, onSelect }) {
 }
 
 CalendarRows.propTypes = {
+    onSymbolClick: PropTypes.func,
     kind:     PropTypes.oneOf(['earnings', 'fed', 'ipo']).isRequired,
     items:    PropTypes.array,
     loading:  PropTypes.bool,

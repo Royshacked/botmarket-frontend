@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { aetherService } from '../../services/aether/aether.service.remote.js'
 import { apiError } from '../../services/http.service.js'
 import { RowHost } from '../Floor/RowHost.jsx'
+import { SymbolCell } from '../EntityCard/EntityCard.jsx'
 import { fmtShortDay } from '../Floor/floor.utils.js'
 import './AetherCandidates.scss'
 
@@ -441,19 +442,13 @@ export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick
                         key={row.ticker}
                         className={`floor-sub${isOpen ? ' floor-sub--open' : isFolded ? ' floor-sub--folded' : ''}`}
                     >
-                        <RowHost
-                            actions={onSymbolClick && (
-                                <div className="aether-actions" onClick={e => e.stopPropagation()}>
-                                    <button
-                                        className="aether-actions__btn"
-                                        onClick={() => onSymbolClick(row.ticker)}
-                                        title={`Open ${row.ticker}`}
-                                    >
-                                        open
-                                    </button>
-                                </div>
-                            )}
-                        >
+                        {/* NO ACTIONS OVERLAY. It held one button, `open`, which charted the
+                            ticker — and RowHost pins that overlay absolutely over the row's
+                            right edge on hover, which here is the score and status cells. So
+                            reaching for a row's urgency label charted a symbol in a different
+                            panel instead of expanding the row. The ticker itself is the chart
+                            now, in every list, which is both a better target and a smaller one. */}
+                        <RowHost>
                             {/* ONE LINE, and the same cells the coverage and scan rows use, so the
                                 five lists in this column scan as one column rather than five. */}
                             <button
@@ -470,7 +465,7 @@ export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick
                                 <span className={`floor-row__dir floor-row__dir--${dir}`} aria-hidden="true">
                                     {dir === 'short' ? '▾' : dir === 'long' ? '▴' : '±'}
                                 </span>
-                                <span className="floor-row__sym">{row.ticker}</span>
+                                <SymbolCell className="floor-row__sym" symbol={row.ticker} onSymbolClick={onSymbolClick} />
                                 {/* The recurrence, riding directly after the name like every other
                                     count in this column — a lone number on the right edge would read
                                     as a column of its own. It is the one thing the event-first list
