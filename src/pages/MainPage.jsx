@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 
 import { ChatPanel }         from '../cmps/ChatPanel/ChatPanel.jsx'
 import { AxlHub }            from '../cmps/AxlHub/AxlHub.jsx'
+import { openChart }         from '../services/chartSurface.service.js'
 import { AgentSummon, AxlBotGlyph } from '../cmps/AxlHub/AgentSummon.jsx'
 import { RETURN_MS, DESKS } from '../cmps/AxlHub/agentMeta.jsx'
 import { resolveStepIndex, previousStep } from '../cmps/AxlHub/pipelineNav.js'
@@ -29,7 +30,7 @@ import { analystService, COVERAGE_CHANGED, RESEARCH_QUEUE_CHANGED } from '../ser
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
-import { activatePortfolio, isManualIdea, buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, deriveIdeaInterval, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace, inWorkspace, planAccountRebind, positionOpenTarget, openIdeaPopup, matchPositionsForIdea, isPortfolioReview } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { activatePortfolio, isManualIdea, buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace, inWorkspace, planAccountRebind, positionOpenTarget, openIdeaPopup, matchPositionsForIdea, isPortfolioReview } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { TradeTicket } from '../cmps/TradeTicket/TradeTicket.jsx'
 import { apiError } from '../services/http.service.js'
 import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
@@ -106,8 +107,6 @@ function PipelineCrumb({ pipeline, activeTab, step = 0 }) {
 }
 
 // Chart defaults — restored when a build/edit session ends.
-const DEFAULT_CHART_SYMBOL   = 'SPY'
-const DEFAULT_CHART_INTERVAL = 'D'
 
 // Chart bubbles are persisted in chat_state (so they re-show on edit) but capped
 // so accumulated base64 doesn't bloat the idea doc. Keeps the most recent charts,
@@ -246,8 +245,6 @@ export function MainPage() {
     const { user, isAdmin } = useAuth()
 
     const [analysisState, setAnalysisState] = useState(null)
-    const [, setChartSymbol]   = useState(DEFAULT_CHART_SYMBOL)
-    const [, setChartInterval] = useState(DEFAULT_CHART_INTERVAL)
     const [editingIdeaId,     setEditingIdeaId]     = useState(null)
     const [isInvalidationReview, setIsInvalidationReview] = useState(false)
     const [activeTab, setActiveTab]             = useState('axl')
@@ -538,7 +535,7 @@ export function MainPage() {
         alignWorkspaceTo(setup)
         setSelectedAccounts(Array.isArray(setup.accounts) ? setup.accounts : [])
         setMainAccountId(setup.mainAccountId ?? null)
-        setChartSymbol(setup.asset || 'SPY')
+        if (setup.asset) openChart({ ticker: setup.asset, source: 'mentor' })
         setActiveTab('mentor')
     }
     function handleSetupEditDone() {
@@ -694,8 +691,6 @@ export function MainPage() {
         const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
 
         const { signal, handlers } = chat.begin(userPrompt, {
-            onInterval: (interval) => { if (interval) setChartInterval(interval) },
-            onAsset: (symbol) => { if (symbol) setChartSymbol(symbol) },
 
             // (a surfaced chart lands as its own row — useChatStream's shared onChart)
 
@@ -741,11 +736,6 @@ export function MainPage() {
                     }).catch(err => console.error('[chat_state] save failed', err))
                 }
                 setAnalysisState(data.analysisState ?? null)
-                const newAsset = data.analysisState?.structured_state?.active_asset
-                if (newAsset) setChartSymbol(newAsset)
-                // Follow the established timeframe even if the LLM omitted <interval>
-                const newInterval = deriveIdeaInterval(data.analysisState?.structured_state?.pending_trade)
-                if (newInterval) setChartInterval(newInterval)
                 if (data.ideaSaved) loadIdeas()
             },
         })
@@ -791,8 +781,6 @@ export function MainPage() {
         )
 
         const cont = chat.beginContinue({
-            onInterval: (interval) => { if (interval) setChartInterval(interval) },
-            onAsset: (symbol) => { if (symbol) setChartSymbol(symbol) },
             onError: () => chat.restoreStopped(base),
             onDone: (data) => {
                 const reasoning = chat.reasoningRef.current
@@ -824,10 +812,6 @@ export function MainPage() {
                     }).catch(err => console.error('[chat_state] save failed', err))
                 }
                 setAnalysisState(finalState)
-                const newAsset = finalState?.structured_state?.active_asset
-                if (newAsset) setChartSymbol(newAsset)
-                const newInterval = deriveIdeaInterval(finalState?.structured_state?.pending_trade)
-                if (newInterval) setChartInterval(newInterval)
                 if (data.ideaSaved) loadIdeas()
             },
         })
@@ -856,8 +840,6 @@ export function MainPage() {
         ideaThreadIdRef.current = newThreadId()   // fresh construction thread; abandoned draft TTL-expires
         setEditingIdeaId(null)
         setIsInvalidationReview(false)
-        setChartSymbol(DEFAULT_CHART_SYMBOL)
-        setChartInterval(DEFAULT_CHART_INTERVAL)
         chat.setPhase(null)
         latestMessagesRef.current = []
     }
@@ -902,9 +884,8 @@ export function MainPage() {
         setMessages(restoredMessages)
         latestMessagesRef.current = restoredMessages
         setAnalysisState(restoredState)
-        setChartSymbol(restoredState.structured_state?.active_asset || idea.asset || 'SPY')
-        const editInterval = deriveIdeaInterval(restoredState.structured_state?.pending_trade)
-        if (editInterval) setChartInterval(editInterval)
+        const editAsset = restoredState.structured_state?.active_asset || idea.asset
+        if (editAsset) openChart({ ticker: editAsset, source: 'idea' })
         setEditingIdeaId(idea.id)
         setIsInvalidationReview(invalidationReview)
         alignWorkspaceTo(idea)
@@ -1444,9 +1425,7 @@ export function MainPage() {
                 setIsInvalidationReview(false)
                 setAnalysisState(null)
                 setMessages([])
-                setChartSymbol(DEFAULT_CHART_SYMBOL)
-                setChartInterval(DEFAULT_CHART_INTERVAL)
-                latestMessagesRef.current = []
+                                latestMessagesRef.current = []
                 handleBackToAxl()   // idea saved — return to the axl hub
             } catch (err) {
                 console.error('[tradeIdeas] edit update failed', err)
@@ -1467,9 +1446,7 @@ export function MainPage() {
                 ideaThreadIdRef.current = newThreadId()   // next build gets a fresh draft thread
                 setAnalysisState(null)
                 setMessages([])
-                setChartSymbol(DEFAULT_CHART_SYMBOL)
-                setChartInterval(DEFAULT_CHART_INTERVAL)
-                latestMessagesRef.current = []
+                                latestMessagesRef.current = []
                 handleBackToAxl()   // idea generated — return to the axl hub
             } catch (err) {
                 console.error('[tradeIdeas] create failed', err)
@@ -1965,7 +1942,7 @@ export function MainPage() {
 
     // Scanner ticker chip click (inside the scanner chat): just preview on the chart.
     function handleScannerSymbol(ticker) {
-        if (ticker) setChartSymbol(ticker)
+        if (ticker) openChart({ ticker, source: 'scanner' })
     }
 
     // Shared calendar → Mentor handoff: open the setup desk with the catalyst already said, and put
@@ -1975,7 +1952,7 @@ export function MainPage() {
         if (!symbol) return
         setMentorSeed({ key: Date.now(), message })
         setActiveTab('mentor')
-        setChartSymbol(symbol)
+        openChart({ ticker: symbol, source: 'mentor' })
     }
 
     // ── Axl reception → the order ticket ──────────────────────────────────────

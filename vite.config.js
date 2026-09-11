@@ -36,5 +36,12 @@ export default defineConfig({
 	test: {
 		environment: 'jsdom',
 		include: ['src/**/*.test.jsx'],
+		// A FLAKE THAT IS NOT A BUG. The default 5s is wall clock, and 59 files run in
+		// parallel workers on one machine — so a test that takes 30ms alone can cross 5s
+		// while the others contend for the CPU. It surfaced four times in one session on a
+		// DIFFERENT test each run (FloorLists, MentorPanel, AxlHub, AetherCandidates), every
+		// one passing in isolation immediately after. That pattern is scheduling, not code,
+		// and a suite that fails at random teaches the reader to ignore red.
+		testTimeout: 20000,
 	},
 })
