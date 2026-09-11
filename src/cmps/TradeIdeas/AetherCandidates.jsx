@@ -143,11 +143,31 @@ function horizon(c) {
  * own revenue. Absent for most names, and shown as absent — filings state a size for
  * roughly a third of the ones they mention at all.
  */
+// WHAT BACKS THIS NAME, where there is no percentage to show.
+//
+// The cell used to print a bare em-dash for anything unsized, which on some events is very
+// nearly the whole list: on the Iran run three of the seven rank parts never fired, so 39 of
+// 45 survivors scored on bucket membership alone and 26 of them tied on two values. A tie
+// printed as an ordered list invites the reader to believe the ninth name beats the tenth.
+//
+// The verdict already says which kind of row this is, so a reader can see a press-only name
+// as a press-only name instead of reading a dash and supplying their own guess. A separate
+// evidence grade was built for this cell and dropped: measured over the live rows it agreed
+// with the verdict 114 times out of 114.
+const BACKING = {
+    quantified: { label: 'figure',     hint: 'EDGAR found a figure in its filings, though not one that converts to a share of revenue' },
+    mentioned:  { label: 'named',      hint: 'its filings name the subject and put no number on it' },
+    silent:     { label: 'press only', hint: 'EDGAR found nothing — this name rests on the press mechanism alone, which is information rather than an error' },
+}
+
 function magnitude(c) {
     if (c.impact_pct_revenue != null) {
         return { label: pct(c.impact_pct_revenue, 2), hint: 'disclosed impact ÷ trailing revenue' }
     }
-    return { label: '—', hint: 'no figure stated in the filing — size not measured' }
+    return BACKING[c.verdict]
+        // no_filer, skipped, unverified — none of which is a reading of a filing, so none of
+        // them gets a word that implies one.
+        ?? { label: '—', hint: 'no figure stated in the filing — size not measured' }
 }
 
 /**

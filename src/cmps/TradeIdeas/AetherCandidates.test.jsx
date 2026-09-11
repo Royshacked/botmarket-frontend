@@ -133,10 +133,55 @@ describe('AetherCandidates list', () => {
         expect(screen.getByText('NUE')).toBeTruthy()
     })
 
-    it('an unmeasured magnitude reads as absent, never as small', () => {
+    it('an unmeasured magnitude never reads as small', () => {
         // The whole reason the shock feed was retired: it showed "large"/"medium" on 170
-        // cards and never "small", off a channel state three months stale.
+        // cards and never "small", off a channel state three months stale. Nothing in this
+        // cell may imply a size the engine did not measure.
         render(<AetherCandidates runs={[RUN]} />)
+        for (const word of [/small/i, /large/i, /medium/i, /moderate/i]) {
+            expect(screen.queryByText(word)).toBeNull()
+        }
+    })
+
+    // WHAT BACKS THE NAME, where there is no percentage to show.
+    //
+    // The cell printed a bare em-dash for every unsized name, which on some events is very
+    // nearly the whole list — on the Iran run 39 of 45 survivors scored on bucket membership
+    // alone and 26 of them tied on two rank values. A dash leaves the reader to supply their
+    // own guess about why; the verdict already says.
+
+    it('a name whose filing carries a figure says so', () => {
+        render(<AetherCandidates runs={[RUN]} />)
+        expect(screen.getByText('figure')).toBeTruthy()
+    })
+
+    it('a name its filings only mention reads as named, not as a dash', () => {
+        const run = { ...RUN, candidates: [{ ...RUN.candidates[0], verdict: 'mentioned' }] }
+        render(<AetherCandidates runs={[run]} />)
+        expect(screen.getByText('named')).toBeTruthy()
+    })
+
+    it('a name EDGAR found nothing for is marked as resting on the press alone', () => {
+        // `silent` is information, not an error — a company visibly exposed in the press and
+        // silent in its filings is the interesting case. It must be legible as that.
+        const run = { ...RUN, candidates: [{ ...RUN.candidates[0], verdict: 'silent' }] }
+        render(<AetherCandidates runs={[run]} />)
+        expect(screen.getByText('press only')).toBeTruthy()
+        expect(screen.getByTitle(/rests on the press mechanism alone/)).toBeTruthy()
+    })
+
+    it('a disclosed percentage still outranks the label', () => {
+        const run = { ...RUN, candidates: [{ ...RUN.candidates[0], impact_pct_revenue: 0.021 }] }
+        render(<AetherCandidates runs={[run]} />)
+        expect(screen.getByText('2.10%')).toBeTruthy()
+        expect(screen.queryByText('figure')).toBeNull()
+    })
+
+    it('a verdict that is not a reading of a filing gets no word implying one', () => {
+        // no_filer, skipped and unverified are all real values. `unverified` especially:
+        // it means EDGAR could not be asked, which is not a finding about the filing.
+        const run = { ...RUN, candidates: [{ ...RUN.candidates[0], verdict: 'unverified' }] }
+        render(<AetherCandidates runs={[run]} />)
         expect(screen.getByTitle(/no figure stated in the filing/)).toBeTruthy()
     })
 })
