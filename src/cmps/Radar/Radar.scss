@@ -16,9 +16,9 @@
         display: flex;
         align-items: center;
         flex-shrink: 0;
-        gap: 8px;
+        gap: rem(8px);
         min-height: var(--header-h);
-        padding: 0 20px;
+        padding: 0 rem(20px);
         background: var(--bg-wash-surface);
         border-bottom: 1px solid var(--border);
         color: var(--accent-light);
@@ -28,14 +28,14 @@
     &__header-top {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: rem(8px);
     }
 
-    &__title-icon { width: 18px; height: 18px; flex-shrink: 0; }
+    &__title-icon { width: rem(18px); height: rem(18px); flex-shrink: 0; }
 
     &__title {
         font-family: var(--font-mono);
-        font-size: 13px;
+        font-size: rem(13px);
         font-weight: 700;
         letter-spacing: 0.12em;
         text-transform: uppercase;

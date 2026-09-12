@@ -41,11 +41,18 @@
     --axl-aurora-dim: var(--accent);
     --axl-ease: cubic-bezier(0.22, 1, 0.36, 1);
     // Sized to seat the analog dials (label lives on the face; status row hidden).
-    --axl-h: 108px;
+    //
+    // Every size in this stylesheet that is not a hairline is in rem (via the `rem()` helper, so
+    // the px it was designed at stays legible in the source). The root font-size is fluid on
+    // laptop viewports (basics/_base.scss), so the whole header — bar, mark, dials, buttons —
+    // shrinks together there and the pieces stop colliding, while the desktop reference size is
+    // untouched. Hairlines (1px borders, svg strokes, the 6px pip) stay px: a 0.9px border is a
+    // blurry border, not a smaller one.
+    --axl-h: #{rem(108px)};
     // The hamburger's diameter. A token because the mobile sheet is positioned FROM it — it opens
     // level with the button, not under the bar — and two copies of 42px would drift the day the
     // button is resized, leaving the sheet floating off its own control.
-    --axl-burger: 42px;
+    --axl-burger: #{rem(42px)};
 
     position: sticky;
     top: 0;
@@ -67,10 +74,10 @@
         z-index: 2;
         height: 100%;
         // full-width like the classic header: brand flush left, profile flush right
-        padding: 0 24px;
+        padding: 0 rem(24px);
         display: flex;
         align-items: center;
-        gap: 30px;
+        gap: rem(30px);
     }
 
     // ── signature: calm water as the header's bottom edge ──
@@ -116,7 +123,7 @@
         display: flex;
         flex-direction: row;
         align-items: center;
-        gap: 13px;
+        gap: rem(13px);
         text-decoration: none;
         flex: none;
         background: none;
@@ -129,8 +136,8 @@
 
     // meditating-bot brand mark (svg)
     &__mark {
-        width: 70px;
-        height: 70px;
+        width: rem(70px);
+        height: rem(70px);
         flex: none;
         filter: drop-shadow(0 0 5px rgba(116, 201, 174, 0.28));
         transition: filter 0.4s var(--axl-ease);
@@ -141,7 +148,7 @@
     }
     &__brand:hover &__mark { filter: drop-shadow(0 0 10px rgba(116, 201, 174, 0.5)); }
 
-    &__brand-text { display: flex; flex-direction: column; gap: 4px; }
+    &__brand-text { display: flex; flex-direction: column; gap: rem(4px); }
 
     &__wordmark {
         font-weight: 500;
@@ -170,7 +177,7 @@
         .msg {
             display: none;   // demo/ambient chat hidden — change back to inline-flex to restore it
             align-items: center;
-            gap: 9px;
+            gap: rem(9px);
             max-width: 100%;
             opacity: 0;
             transform: translateY(5px);
@@ -192,7 +199,7 @@
             font-family: 'Space Mono', monospace;
             font-size: 0.72rem;
             letter-spacing: 0.04em;
-            padding: 3px 7px;
+            padding: rem(3px) rem(7px);
             border-radius: 999px;
             border: 1px solid var(--axl-line);
             color: var(--axl-fog-dim);
@@ -213,7 +220,7 @@
         position: relative;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: rem(8px);
         margin-left: auto;
         height: 100%;
     }
@@ -221,7 +228,7 @@
     &__cluster {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: rem(8px);
         height: 100%;
     }
 
@@ -247,7 +254,7 @@
         border: 1px solid color-mix(in srgb, var(--accent-light) 42%, transparent);
         transition: box-shadow 0.4s var(--axl-ease), border-color 0.25s var(--axl-ease), color 0.25s var(--axl-ease);
 
-        svg { width: 22px; height: 22px; }
+        svg { width: rem(22px); height: rem(22px); }
 
         &.is-open,
         &:hover {
@@ -274,12 +281,12 @@
     &__status {
         display: inline-flex;
         align-items: center;
-        gap: 7px;
+        gap: rem(7px);
         font-family: 'Space Mono', monospace;
         font-size: 0.75rem;
         letter-spacing: 0.02em;
         color: var(--axl-fog);
-        padding: 6px 11px;
+        padding: rem(6px) rem(11px);
         border-radius: 999px;
         border: 1px solid var(--axl-line);
         background: var(--axl-panel-2);
@@ -295,7 +302,7 @@
         }
     }
 
-    &__divider { width: 1px; height: 26px; background: var(--axl-line); margin: 0 6px; }
+    &__divider { width: 1px; height: rem(26px); background: var(--axl-line); margin: 0 rem(6px); }
 
     // ── profile (preserves navigate-to-profile / back behavior) ──
     &__chat {
@@ -304,9 +311,10 @@
         align-items: center;
         justify-content: center;
         // Circular, mirroring the meditating-bot mark: a faint aura fill inside a
-        // soft gradient ring (same hues as the bot's .aura / .ring).
-        width: 42px;
-        height: 42px;
+        // soft gradient ring (same hues as the bot's .aura / .ring). Same diameter as the
+        // burger it stands beside — one token, not three copies of 42px.
+        width: var(--axl-burger);
+        height: var(--axl-burger);
         cursor: pointer;
         border-radius: 50%;
         font-size: 1rem;
@@ -339,9 +347,9 @@
         color: #fff;
         font-size: 0.68rem;
         font-weight: 700;
-        padding: 1px 4px;
+        padding: 1px rem(4px);
         border-radius: 10px;
-        min-width: 16px;
+        min-width: rem(16px);
         text-align: center;
         line-height: 1.5;
     }
@@ -352,8 +360,8 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 42px;
-        height: 42px;
+        width: var(--axl-burger);
+        height: var(--axl-burger);
         cursor: pointer;
         border-radius: 50%;
         color: var(--axl-birch);
@@ -398,11 +406,11 @@
         background: transparent;
         border: none;
         cursor: pointer;
-        padding: 4px;
+        padding: rem(4px);
         color: var(--axl-fog);
         transition: color 0.25s var(--axl-ease), transform 0.15s var(--axl-ease);
 
-        svg { width: 28px; height: 28px; }
+        svg { width: rem(28px); height: rem(28px); }
 
         &:hover { color: var(--axl-birch); transform: translateX(-2px); }
         &:focus-visible { outline: 2px solid var(--axl-aurora); outline-offset: 2px; }
@@ -411,7 +419,7 @@
     @media (max-width: 880px) {
         &__status, &__stream { display: none; }
         &__who { display: none; }
-        &__inner { gap: 14px; }
+        &__inner { gap: rem(14px); }
     }
 
     // ── Mobile: the same header, scaled, with the nav collapsed ───────────────
@@ -419,10 +427,12 @@
     // and a 108px bar on a phone is a third of the fold. (Drop the --axl-h line to keep the
     // header at full desktop size.)
     @media (max-width: 767px) {
-        --axl-h: 74px;
+        // (The fluid root in _base.scss stops at 768px, so on a phone rem(74px) IS 74px — the
+        // SocialChat sheet's `top: 82px` that clears this bar still clears it.)
+        --axl-h: #{rem(74px)};
 
-        &__inner { padding: 0 12px; gap: 10px; }
-        &__mark  { width: 46px; height: 46px; }
+        &__inner { padding: 0 rem(12px); gap: rem(10px); }
+        &__mark  { width: rem(46px); height: rem(46px); }
         &__wordmark { font-size: 1.85rem; letter-spacing: 0.14em; }
 
         &__burger { display: inline-flex; }
@@ -446,9 +456,9 @@
             height: auto;
             flex-wrap: wrap;
             justify-content: flex-end;
-            gap: 10px;
-            min-width: 208px;
-            padding: 12px;
+            gap: rem(10px);
+            min-width: rem(208px);
+            padding: rem(12px);
             border-radius: 12px;
             background: var(--axl-panel);
             border: 1px solid var(--axl-line);
@@ -457,7 +467,7 @@
             &.is-open { display: flex; }
 
             .app-header-axl__modes { flex: 1 0 100%; justify-content: center; }
-            .app-header-axl__mode  { flex: 1; padding: 7px 8px; }
+            .app-header-axl__mode  { flex: 1; padding: rem(7px) rem(8px); }
         }
     }
 
@@ -491,12 +501,12 @@
 
 .app-header-axl__mode {
     font-family: var(--font-mono, monospace);
-    font-size: 11px;
+    font-size: rem(11px);
     font-weight: 600;
     letter-spacing: 0.1em;
     line-height: 1;
     text-transform: uppercase;
-    padding: 4px 9px;
+    padding: rem(4px) rem(9px);
     border: none;
     border-radius: 6px;
     background: none;
@@ -521,13 +531,13 @@
 // AM/PM marker in place of a digital readout). The trading session rides the rim as
 // an arc. Open glows in the app accent; closed dims but keeps the arc readable.
 .market-clocks {
-    --mc-dial: 86px;   // single size knob; the media queries below just retune it
+    --mc-dial: #{rem(86px)};   // single size knob; the media queries below just retune it
     // --mc-arc-open / --mc-arc-closed are now shared :root tokens (setup/_themes.scss),
     // reused by the price-chart candle colors — kept in one place so the two stay in sync.
 
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: rem(16px);
     // Centered in the middle of the header, independent of the side content widths.
     position: absolute;
     left: 50%;
@@ -581,7 +591,10 @@
 }
 
 // Tight-width fallbacks: shrink, then shed the dials before the stream so the core
-// cluster survives.
-@media (max-width: 1320px) { .market-clocks { --mc-dial: 70px; gap: 13px; } }
-@media (max-width: 1120px) { .market-clocks { --mc-dial: 56px; gap: 11px; } }
+// cluster survives. These steps ride ON TOP of the fluid root (_base.scss): at 1320px the root is
+// already ~15px, so the 70px step lands at ~66 real pixels. The dials are absolutely centred and
+// sit outside the flex flow, so they are the one thing in the bar the flex `gap` can't protect —
+// which is why they get their own, steeper schedule.
+@media (max-width: 1320px) { .market-clocks { --mc-dial: #{rem(70px)}; gap: rem(13px); } }
+@media (max-width: 1120px) { .market-clocks { --mc-dial: #{rem(56px)}; gap: rem(11px); } }
 @media (max-width: 1040px) { .market-clocks { display: none; } }

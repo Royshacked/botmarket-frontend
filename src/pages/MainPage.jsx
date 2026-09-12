@@ -91,8 +91,12 @@ function PipelineCrumb({ pipeline, activeTab, step = 0 }) {
             <span className="chat-agentbar__current">{currentStep ?? activeTab}</span>
         </>
     )
+    // `--long` lets the strip fold a five-step path (Portfolio) to dots at a width where a three-step
+    // one still fits in words — the fold is a container query in AxlHub.scss, and CSS can count
+    // neither steps nor pixels of text, so the markup says which of the two schedules applies.
+    const long = desk.steps.length >= 4
     return (
-        <div className="chat-agentbar__pipeline">
+        <div className={`chat-agentbar__pipeline${long ? ' chat-agentbar__pipeline--long' : ''}`}>
             <span className="chat-agentbar__pipeline-label">{desk.label}</span>
             {desk.steps.map((step, i) => (
                 <span key={step.label} className="chat-agentbar__pipeline-group">

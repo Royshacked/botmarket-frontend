@@ -20,7 +20,32 @@ html {
     line-height: 1.6;
     color: $clr2;
 }
-    
+
+// ── Fluid root: laptop viewports scale down, desktop and phone don't ─────────────────────
+// Everything sized in rem (the `rem()` helper, or a bare rem) rides on the root font-size, so
+// this ONE rule is what makes the app "relational": a laptop that reads 1280–1440 CSS px wide
+// (a 1366 panel, or a 1920 panel under Windows 125–150% scaling) gets a root a few pixels under
+// 16, and every rem-sized surface shrinks with it instead of overflowing the way it did at full
+// desktop size.
+//
+//   1440px+ →  16px (unchanged: the desktop look is the reference)
+//   1366px  →  ~15.4px
+//   1280px  →  ~14.6px
+//   ≤1147px →  13.5px floor — text below that stops being readable at arm's length
+//
+// Bounded to the tablet/laptop band on purpose. Phones have their own tuned breakpoint (767px,
+// RootCmp.scss) and a 16px root there is what those rules were sized against; the clamp's floor
+// would have knocked mobile body text down to ~15px as a side effect.
+//
+// Anything still in px does NOT follow — deliberately for hairlines (1px borders, strokes, pips),
+// and as a to-do for the sizes that should. Converted so far: the app header (AppHeaderAxl.scss),
+// the shared --header-h + --chat-* type tokens (_themes.scss) and the panel headers that read
+// them (chat, hub strip, portfolio, ideas, radar, floor). The Floor's row tokens ($row-h, $sym-w)
+// are the next candidates.
+@media (min-width: 768px) and (max-width: 1439px) {
+    html { font-size: clamp(13.5px, 0.85vw + 3.75px, 16px); }
+}
+
 body {
     margin: 0;
     background: var(--bg-base);

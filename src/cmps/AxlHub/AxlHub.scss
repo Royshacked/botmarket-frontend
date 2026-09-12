@@ -162,9 +162,9 @@
     flex-shrink: 0;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: rem(8px);
     height: var(--header-h);
-    padding: 0 20px;
+    padding: 0 rem(20px);
     border-bottom: 1px solid var(--border);
     background: var(--bg-wash-surface);
     font-family: var(--font-mono);
@@ -173,7 +173,7 @@
 }
 
 .axl-hub__pipeline-idle {
-    font-size: 13px;
+    font-size: rem(13px);
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -188,7 +188,7 @@
 %pipeline-path {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: rem(4px);
     font-family: var(--font-mono);
 }
 
@@ -200,7 +200,7 @@
     color: var(--text-secondary);
     // Open space between the desk name and its first step, so the name reads as the heading the path
     // hangs off rather than as the path's own first stop.
-    margin-right: 24px;
+    margin-right: rem(24px);
 }
 
 %pipeline-step-group {
@@ -213,11 +213,11 @@
 // should be quieter than either of them. The right margin holds it off the step it points at.
 %pipeline-line {
     display: block;
-    width: 18px;
+    width: rem(18px);
     height: 1px;
     background: var(--border);
     flex-shrink: 0;
-    margin-right: 8px;
+    margin-right: rem(8px);
 }
 
 %pipeline-step {
@@ -227,7 +227,7 @@
 }
 
 %pipeline-text {
-    font-size: 12px;
+    font-size: rem(12px);
     letter-spacing: 0.06em;
     text-transform: uppercase;
     white-space: nowrap;
@@ -561,14 +561,14 @@
 .chat-agentbar {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: rem(8px);
     flex-shrink: 0;
     // Fixed height, not content-driven: entering a pipeline swaps a one-line crumb for the stepper
     // (icons + rules + step names), and letting the tallest child set the height made the strip — and
     // the chat below it — jump on every desk change. The number is --header-h, the same one the hub
     // header and the Floor column headings use, so all four line up as one bar across the app.
     height: var(--header-h);
-    padding: 6px 12px;
+    padding: rem(6px) rem(12px);
     // Bottom rule only. The top line is the column's (see .workspace__chat in RootCmp.scss) — drawn
     // here it sat INSIDE the 54px and left this header a pixel shallower than the Floor headings.
     border-bottom: 1px solid var(--border);
@@ -579,19 +579,95 @@
     // painted under it (the dropdowns are absolutely positioned children).
     position: relative;
     z-index: 20;
+    // The pipeline fold below is keyed to THIS strip's width, not the viewport's. The strip is 60%
+    // of the window in the standard layout and 45% in the Floor design, so one viewport breakpoint
+    // could not say whether a five-step path fits — a 1366px laptop gave it ~820px, and the
+    // Portfolio desk's path needs ~900 before it even reaches the controls on the right.
+    container-type: inline-size;
+    container-name: agentbar;
+}
+
+// The floor under everything: the path is the one elastic thing in the strip. The back arrow and
+// the right-hand controls are fixed and must never be pushed off the edge, so the path is what
+// yields — clipped, in the worst case, rather than the account and history buttons.
+.chat-agentbar__pipeline { min-width: 0; overflow: hidden; }
+.chat-agentbar__right    { flex-shrink: 0; }
+
+// ── The path, folded ──
+// The desk name stays; the steps reduce to dots and only the one you are STANDING on keeps its
+// name, so the line reads "PORTFOLIO DESK ○ ● SCREEN ○ ○" — how many stops there are and which is
+// yours, at a fraction of the width of five words. It happens in CSS over the same markup: a second
+// crumb for narrow strips would be a second reading of "which step is this?".
+//
+// Two schedules, because the width a path needs is the width of its words: a five-step desk
+// (`--long`, set in MainPage) folds while a three-step one still fits with room. On a phone the
+// strip is narrower than either, so this is the mobile fold too — RootCmp.scss's 767px block only
+// adds the phone-specific stacking (desk name on its own line) on top.
+@mixin agentbar-pipeline-dots {
+    .chat-agentbar__pipeline-line { display: none; }   // the joins go with the words they joined
+
+    .chat-agentbar__pipeline-step::before {
+        content: '';
+        width: rem(5px);
+        height: rem(5px);
+        border-radius: 50%;
+        background: var(--border-mid);
+        flex-shrink: 0;
+    }
+
+    // The names that give up their pixels are taken out of FLOW, not out of the document: a dot
+    // says nothing to a screen reader, and `display: none` would have left the path as four
+    // anonymous bullets. Off-flow, they cost no width and still read in order.
+    .chat-agentbar__pipeline-text {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+
+    .chat-agentbar__pipeline-step.is-active {
+        gap: rem(5px);
+        &::before { background: var(--accent-light); }
+
+        .chat-agentbar__pipeline-text {
+            position: static;
+            width: auto;
+            height: auto;
+            overflow: hidden;
+            clip-path: none;
+            // Bounded so a wordy step name can't take the strip back over the edge it just
+            // yielded. Nothing hits this today.
+            display: inline-block;
+            max-width: 40cqw;
+            text-overflow: ellipsis;
+            vertical-align: bottom;
+        }
+    }
+
+    // Dots sit closer than words did.
+    .chat-agentbar__pipeline-group + .chat-agentbar__pipeline-group { margin-left: rem(4px); }
+}
+
+@container agentbar (max-width: 740px) {
+    @include agentbar-pipeline-dots;
+}
+@container agentbar (max-width: 900px) {
+    .chat-agentbar__pipeline--long { @include agentbar-pipeline-dots; }
 }
 
 .chat-agentbar__back {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 4px 8px;
+    gap: rem(5px);
+    padding: rem(4px) rem(8px);
     background: none;
     border: none;
     border-radius: 6px;
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: rem(11px);
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -600,14 +676,14 @@
 
     &:hover { color: var(--text-primary); background: var(--bg-raised); }
 
-    svg { width: 13px; height: 13px; }
+    svg { width: rem(13px); height: rem(13px); }
 }
 
 // Arrow only — no label to sit beside, so the horizontal padding goes symmetric and the text gap
 // stops leaving a hole to the right of the glyph.
 .chat-agentbar__back--bare {
     gap: 0;
-    padding: 4px 6px;
+    padding: rem(4px) rem(6px);
 }
 
 // One step back UP the pipeline, beside the leave-the-pipeline button. Same shape so the pair reads
@@ -615,14 +691,14 @@
 // "axl" — a shorter move, and it says where it lands. Cased normally: these are step names
 // ("Mandate", "Screen"), not the lowercase agent handle.
 .chat-agentbar__back--step {
-    padding-left: 4px;
+    padding-left: rem(4px);
     letter-spacing: 0.04em;
     text-transform: none;
     opacity: 0.85;
 
     &:hover { opacity: 1; }
 
-    svg { width: 12px; height: 12px; }
+    svg { width: rem(12px); height: rem(12px); }
 }
 
 // Opens the immediate-trade ticket in place of the thread. Shaped like __back (same strip, same
@@ -630,14 +706,14 @@
 .chat-agentbar__ticket {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 4px 8px;
+    gap: rem(5px);
+    padding: rem(4px) rem(8px);
     background: none;
     border: 1px solid transparent;
     border-radius: 6px;
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: rem(11px);
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -651,20 +727,20 @@
         border-color: currentColor;
     }
 
-    svg { width: 13px; height: 13px; }
+    svg { width: rem(13px); height: rem(13px); }
 }
 
 // How the pipeline advances between desks. Deliberately quiet — it sits beside the crumb and is a
 // setting, not an action; borrowing the ticket's shape so the strip stays one family. Outlined when
 // auto, because auto is a mode you are IN and has to be visible without being read.
 .chat-agentbar__mode {
-    padding: 3px 7px;
+    padding: rem(3px) rem(7px);
     background: none;
     border: 1px solid transparent;
     border-radius: 6px;
     color: var(--text-muted);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: rem(10px);
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -682,14 +758,14 @@
 .chat-agentbar__crumb {
     color: var(--text-muted);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: rem(11px);
     letter-spacing: 0.1em;
 }
 
 .chat-agentbar__current {
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: rem(11px);
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -703,7 +779,7 @@
     @extend %pipeline-path;
     // Pulled back against the strip's 8px gap so the desk name sits right off the back arrow — the
     // arrow and the desk it belongs to read as one unit, with the path hung off to their right.
-    margin-left: -8px;
+    margin-left: rem(-8px);
 }
 
 .chat-agentbar__pipeline-group { @extend %pipeline-step-group; }
@@ -735,14 +811,14 @@
 .chat-agentbar__agent {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 9px;
+    gap: rem(6px);
+    padding: rem(4px) rem(9px);
     background: none;
     border: none;
     border-radius: 6px;
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: rem(11px);
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -758,15 +834,15 @@
     margin-left: auto;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: rem(10px);
 }
 
 .chat-agentbar__live {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: rem(5px);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: rem(10px);
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;

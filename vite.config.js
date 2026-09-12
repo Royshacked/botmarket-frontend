@@ -8,6 +8,16 @@ const BACKEND = 'http://127.0.0.1:3030'
 
 export default defineConfig({
 	plugins: [react()],
+	// The `rem()` helper (setup/_functions.scss) in EVERY stylesheet, not just the ones main.scss
+	// chains together. Component stylesheets are imported from their JSX and compile on their own,
+	// so a `rem(13px)` in ChatPanel.scss used to resolve to Sass's built-in math `rem` (modulo) and
+	// fail with "2 arguments required". Prepended here, the helper is one definition app-wide —
+	// main.scss no longer @imports it separately.
+	css: {
+		preprocessorOptions: {
+			scss: { additionalData: '@use "/src/assets/styles/setup/functions" as *;\n' },
+		},
+	},
 	server: {
 		proxy: {
 			'/api':       { target: BACKEND, changeOrigin: true },

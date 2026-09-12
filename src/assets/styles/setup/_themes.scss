@@ -428,7 +428,10 @@
     // 54px = the .axl-hub__option row ("Trade an asset" and siblings), which is what these were
     // matched to: a 36px title icon clears it with room, so raising it is safe, lowering below
     // ~38px is not.
-    --header-h: 54px;
+    //
+    // In rem so every header follows the fluid root on laptop viewports (basics/_base.scss) —
+    // and because it is ONE token, they all shrink by the same amount and stay lined up.
+    --header-h: #{rem(54px)};
 
     // ── Chat body text — one number, every desk ───────────────────────────────
     // What an agent SAYS, in all seven chats: .chat-panel__bubble (Idea), the shared
@@ -437,7 +440,7 @@
     // how Axl ended up reading at 13px while every other desk sat at 16px.
     // This is the app's primary reading surface — long-form analysis a user works through —
     // so it runs a step above UI text rather than matching it.
-    --chat-text: 17px;
+    --chat-text: #{rem(17px)};
 
     // ── ...and the three sizes AROUND what it says ────────────────────────────
     // The supporting type of a chat surface: what the message is (turn tags, timestamps, the
@@ -452,9 +455,9 @@
     //
     // Desktop is deliberately unchanged: each token's value here is exactly what the rules that
     // now read it were already using, so this swap moves nothing until the media query fires.
-    --chat-meta:  12px;   // secondary prose — inline code, empty states, chips you read
-    --chat-label: 11px;   // control and status labels — buttons, phase chips, counts
-    --chat-micro: 10px;   // the smallest marks — turn tags, hints, the live badge
+    --chat-meta:  #{rem(12px)};   // secondary prose — inline code, empty states, chips you read
+    --chat-label: #{rem(11px)};   // control and status labels — buttons, phase chips, counts
+    --chat-micro: #{rem(10px)};   // the smallest marks — turn tags, hints, the live badge
 
     // Header wave gradient stops (the calm-water line at the header's bottom edge).
     // Same green→teal→cyan→blue→violet signature as the aurora, derived from the

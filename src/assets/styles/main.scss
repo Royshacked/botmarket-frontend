@@ -1,7 +1,8 @@
 // Setup
+// (setup/functions is not listed: vite.config.js prepends `@use ".../setup/functions" as *` to
+// every stylesheet, this one included, so rem() is already in scope for the theme tokens below.)
 @import "setup/themes";
 @import "setup/variables";
-@import "setup/functions";
 @import "setup/mixins";
 @import "setup/typography";
 
