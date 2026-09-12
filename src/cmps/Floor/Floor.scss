@@ -765,6 +765,8 @@ $header-h: var(--header-h);
         &--looking        { color: var(--text-secondary); }
         &--target_hit     { color: var(--color-long); }
         &--thesis_broken  { color: var(--color-short); }
+        // Research queue: a claimed name is the one being worked — lifecycle, so it gets the hue.
+        &--in_research    { color: var(--accent-light); }
 
         // Aether's urgency ladder — how soon the read goes cold, not how big it is. It
         // belongs here beside the others because it IS the same cell: the right-edge word
@@ -1028,6 +1030,23 @@ $header-h: var(--header-h);
         }
     }
 
+    // A research-queue name the house already holds a thesis on. Argus screens a sector, not the
+    // book, so a regime that says "own Healthcare" lists JNJ whether or not JNJ is covered — and the
+    // right move on a covered name is to re-check the thesis, not to research it from scratch.
+    // Prometheus already opens such a name in UPDATE mode; this is the row saying so BEFORE you
+    // press Start. A word, not a colour: colour here is spent on direction and lifecycle only.
+    &__covered {
+        flex: none;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+        padding: 1px 5px;
+        border: 1px solid var(--border-mid);
+        border-radius: 3px;
+    }
+
     // THE ROW'S WHOLE POINT, so it is the one thing here that must never be clipped. It used to
     // ellipsise: it was the only elastic item on a nowrap line (everything after it is flex:none),
     // so in a column this narrow it absorbed the entire squeeze and "Trim 30% of MU" arrived as
@@ -1106,5 +1125,41 @@ $header-h: var(--header-h);
         // Right-aligned whether they ride the sentence's line or wrap below it, so the press
         // targets sit in one predictable place down the list instead of moving with the text.
         margin-left: auto;
+    }
+}
+
+// ── Research run strip ───────────────────────────────────────────────────────
+// One line at the head of the research queue: Start all, or where the server-side run is and Stop.
+// Reads as a row (same height, same pads) so the list keeps its rhythm, and its button is always
+// visible — a control for the whole list, not for a row you'd hover.
+.floor-run {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: $row-h;
+    padding: 0 $row-pad-end 0 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-wash-surface);
+
+    &__line { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    &__line strong { color: var(--text-primary); font-weight: 600; }
+    &__tally { color: var(--text-dim); }
+
+    // Running: the accent, and the same pulse the live badges use — something is happening on the
+    // server that this column cannot otherwise show.
+    &--running { color: var(--text-secondary); }
+    // Failed on the account (no credit, a bad key): the one state here that needs the reader to
+    // stop and act elsewhere, so it gets the warning hue the app uses for exactly that.
+    &--failed  { color: var(--color-warning); }
+    &--failed &__line strong { color: inherit; }
+    &__dot {
+        flex: none;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent-light);
+        animation: cp-building 1.4s ease-in-out infinite;
     }
 }

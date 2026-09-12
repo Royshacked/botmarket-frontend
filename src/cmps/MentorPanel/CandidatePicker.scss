@@ -5,6 +5,13 @@
     flex-direction: column;
     gap: 8px;
     padding: 10px 12px;
+    // Sits between the messages and the Generate bubble, and on a short panel is the one thing
+    // there that can be tall — a grid of cards that wraps to a column once the chat is narrow. The
+    // bubble under it is flex-shrink: 0; this is what yields, scrolling inside its cap.
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: 50%;
+    overflow-y: auto;
 
     &__lead {
         margin: 0;

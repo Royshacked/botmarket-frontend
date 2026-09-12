@@ -587,27 +587,41 @@ CoverageRows.propTypes = { onSymbolClick: PropTypes.func, coverage: PropTypes.ar
 
 // ── Research queue (admin) ────────────────────────────────────────────────────
 // The house research pipeline backlog. Each row is one name waiting to be researched by Prometheus.
-// Admin workflow: Start → open Prometheus on the name manually → Mark done (or Reject for misfires).
+//
+// Start claims the name AND opens Prometheus on it, with the mandate that surfaced it as the opening
+// turn — MainPage owns that hand-off (handleStartResearch). It used to only flip the status and
+// leave "open Prometheus on the name manually" to the admin, which read as a button that did
+// nothing: the row said "in progress" and nothing was in progress. Done closes it (MainPage also
+// does this on its own when coverage is initiated on the name); Reject is for misfires.
+//
+// The row itself is STATIC — the same shell as the other desks, but not a doorway. It was one for a
+// day: a click anywhere on the line kicked off a four-minute research stream, which is too much to
+// hang on a mis-aimed click on a list you are scanning. Starting research is a decision, so it
+// lives on the button that says so. The ticker still docks its chart, as on every desk.
 
 const RQ_STATUS_LABEL = { queued: 'queued', in_research: 'in progress', done: 'done', rejected: 'rejected' }
 const RQ_SOURCE_LABEL = { argus: 'Argus', manual: 'request' }
 
-function ResearchQueueRow({ item, onStart, onDone, onReject, busy, onSymbolClick }) {
+function ResearchQueueRow({ item, covered = false, onStart, onDone, onReject, busy, onSymbolClick }) {
     const isQueued     = item.status === 'queued'
     const isInResearch = item.status === 'in_research'
     const isActive     = isQueued || isInResearch
+    const openTitle = covered
+        ? 'Open Prometheus on this name — already covered, so it opens as an update to the standing thesis'
+        : 'Open Prometheus on this name'
     return (
         <RowHost
             actions={isActive && (
                 <>
-                    {isQueued && (
-                        <button
-                            className="floor-queued__btn"
-                            onClick={() => onStart(item.id)}
-                            disabled={busy}
-                            title="Mark as in progress — you're opening Prometheus on this name"
-                        >Start</button>
-                    )}
+                    {/* Start claims and opens; on a claimed name the same button re-opens WITHOUT a
+                        second claim (a refresh mid-stream loses the turn, not the claim), so it is
+                        labelled for what it does now. */}
+                    <button
+                        className="floor-queued__btn"
+                        onClick={() => onStart(item)}
+                        disabled={busy}
+                        title={openTitle}
+                    >{isQueued ? 'Start' : 'Open'}</button>
                     {isInResearch && (
                         <button
                             className="floor-queued__btn"
@@ -625,33 +639,111 @@ function ResearchQueueRow({ item, onStart, onDone, onReject, busy, onSymbolClick
                 </>
             )}
         >
-            <span className={`floor-queued__dot${isQueued ? '' : isInResearch ? ' floor-queued__dot--waiting' : ''}`} aria-hidden="true" />
-            <SymbolCell className="floor-row__sym" symbol={item.symbol} onSymbolClick={onSymbolClick} />
-            <span className="floor-row__kind floor-row__kind--dim">{RQ_SOURCE_LABEL[item.source] ?? item.source}</span>
-            <span className={`floor-row__status floor-row__status--${item.status}`}>{RQ_STATUS_LABEL[item.status] ?? item.status}</span>
+            {/* Same row as every other desk (.floor-row): one line, fixed height, actions on hover. */}
+            <button className="floor-row floor-row--static" type="button" tabIndex={-1}>
+                <SymbolCell className="floor-row__sym" symbol={item.symbol} onSymbolClick={onSymbolClick} />
+                <span className="floor-row__kind floor-row__kind--dim">
+                    {RQ_SOURCE_LABEL[item.source] ?? item.source}
+                    {item.context?.sector ? ` · ${item.context.sector}` : ''}
+                </span>
+                {/* The house already holds a thesis on this name — see .floor-queued__covered. */}
+                {covered && <span className="floor-queued__covered" title="Already in coverage — opens the standing thesis">covered</span>}
+                <span className={`floor-row__status floor-row__status--${item.status}`}>{RQ_STATUS_LABEL[item.status] ?? item.status}</span>
+            </button>
         </RowHost>
     )
 }
 ResearchQueueRow.propTypes = {
     onSymbolClick: PropTypes.func,
     item:     PropTypes.object.isRequired,
-    onStart:  PropTypes.func.isRequired,
+    covered:  PropTypes.bool,
+    onStart:  PropTypes.func.isRequired,   // receives the ITEM — the opener needs its symbol and context
     onDone:   PropTypes.func.isRequired,
     onReject: PropTypes.func.isRequired,
     busy:     PropTypes.bool,
 }
 
-function ResearchQueueRows({ researchQueue, onStartResearch, onMarkResearchDone, onRejectResearch, busyId, onSymbolClick }) {
+// ── The run strip: the whole queue, researched by Prometheus on the server ──
+// One line above the rows. Idle with names queued, it offers Start all; running, it says where the
+// run is and offers Stop; finished, it keeps the tally until the next run replaces it. Coverage is
+// WRITTEN as each name lands — the admin's read comes after, in the Coverage desk (the pencil opens
+// Prometheus in update mode). A covered name is skipped, a no-edge turn is a pass; both leave the
+// queue with the reason on the row.
+function ResearchRunStrip({ run, queuedCount, claimedCount, onStart, onStop, onRequeue }) {
+    const running = run?.status === 'running'
+    if (!running && !queuedCount && !claimedCount && !run) return null
+    const tally = run ? [
+        `${run.covered} covered`,
+        run.skipped ? `${run.skipped} skipped` : null,
+        run.passed  ? `${run.passed} passed`   : null,
+        run.failed  ? `${run.failed} failed`   : null,
+    ].filter(Boolean).join(' · ') : ''
+    return (
+        <div className={`floor-run${running ? ' floor-run--running' : ''}${run?.status === 'failed' ? ' floor-run--failed' : ''}`}>
+            {running ? (
+                <>
+                    <span className="floor-run__dot" aria-hidden="true" />
+                    <span className="floor-run__line">
+                        Researching {run.current ? <strong>{run.current}</strong> : '…'} — {run.position}/{run.total}
+                        {tally ? <span className="floor-run__tally"> · {tally}</span> : null}
+                    </span>
+                    <button className="floor-queued__btn floor-queued__btn--cancel" onClick={onStop} title="Stop after the name in flight — it stays in progress, re-openable by hand">Stop</button>
+                </>
+            ) : (
+                <>
+                    {/* A run that FAILED failed on the account, not a name (see isRunFatal on the
+                        server): the sentence the API gave back is the whole explanation, so it is
+                        the line — the tally rides in the title. */}
+                    <span className="floor-run__line" title={run ? `${run.position}/${run.total} decided — ${tally}${run.error ? `\n${run.error}` : ''}` : undefined}>
+                        {run?.status === 'failed'
+                            ? <>Run stopped — <strong>{run.error}</strong></>
+                            : run
+                                ? <>Run {run.status} — {tally}</>
+                                : <>{queuedCount} queued</>}
+                    </span>
+                    {/* Off the QUEUE's count, not the run's: a claim with nothing behind it — a run
+                        that died on the account, a turn lost to a refresh — outlives the server's
+                        memory of the run, and this is the button that puts it back. */}
+                    {claimedCount > 0 && onRequeue && (
+                        <button className="floor-queued__btn" onClick={onRequeue} title={`Put the ${claimedCount} name${claimedCount === 1 ? '' : 's'} in progress back in the queue for the next Start all`}>
+                            Requeue {claimedCount}
+                        </button>
+                    )}
+                    {queuedCount > 0 && (
+                        <button className="floor-queued__btn" onClick={onStart} title="Research every queued name on the server, one after another, and write coverage as each lands. Names already covered are skipped.">
+                            Start all
+                        </button>
+                    )}
+                </>
+            )}
+        </div>
+    )
+}
+ResearchRunStrip.propTypes = { run: PropTypes.object, queuedCount: PropTypes.number, claimedCount: PropTypes.number, onStart: PropTypes.func, onStop: PropTypes.func, onRequeue: PropTypes.func }
+
+function ResearchQueueRows({ researchQueue, coverage = [], onStartResearch, onMarkResearchDone, onRejectResearch, busyId, onSymbolClick, researchRun = null, onStartResearchRun, onStopResearchRun, onRequeueStalledResearch }) {
     // Show active work by default; done/rejected are the steady state and clutter the list.
     const active = researchQueue.filter(i => i.status === 'queued' || i.status === 'in_research')
-    if (!active.length) return <Empty>No names queued for research.</Empty>
+    const queuedCount  = active.filter(i => i.status === 'queued').length
+    const claimedCount = active.length - queuedCount
+    const strip = onStartResearchRun
+        ? <ResearchRunStrip run={researchRun} queuedCount={queuedCount} claimedCount={claimedCount} onStart={onStartResearchRun} onStop={onStopResearchRun} onRequeue={onRequeueStalledResearch} />
+        : null
+    if (!active.length) return <>{strip}<Empty>No names queued for research.</Empty></>
+    // Argus de-dupes against the QUEUE, not the book, so a covered name arrives here like any other.
+    // Any status counts: the backend refuses a fresh initiation on retired coverage too, so
+    // Prometheus updates in every case. Upper-cased on both sides — the queue stores tickers
+    // upper-case, a coverage doc may not.
+    const coveredSyms = new Set(coverage.map(c => String(c?.symbol ?? '').toUpperCase()))
     return (
         <>
+            {strip}
             {active.map(item => (
                 <ResearchQueueRow
                     onSymbolClick={onSymbolClick}
                     key={item.id}
                     item={item}
+                    covered={coveredSyms.has(String(item.symbol ?? '').toUpperCase())}
                     onStart={onStartResearch}
                     onDone={onMarkResearchDone}
                     onReject={onRejectResearch}
@@ -664,10 +756,15 @@ function ResearchQueueRows({ researchQueue, onStartResearch, onMarkResearchDone,
 ResearchQueueRows.propTypes = {
     onSymbolClick: PropTypes.func,
     researchQueue:      PropTypes.array.isRequired,
+    coverage:           PropTypes.array,
     onStartResearch:    PropTypes.func.isRequired,
     onMarkResearchDone: PropTypes.func.isRequired,
     onRejectResearch:   PropTypes.func.isRequired,
     busyId:             PropTypes.string,
+    researchRun:        PropTypes.object,
+    onStartResearchRun: PropTypes.func,
+    onStopResearchRun:  PropTypes.func,
+    onRequeueStalledResearch: PropTypes.func,
 }
 
 // ── The column ────────────────────────────────────────────────────────────────
@@ -685,6 +782,7 @@ export function FloorLists({
     onEarningSelect, onIpoSelect,
     isAdmin = false,
     researchQueue = [], onStartResearch, onMarkResearchDone, onRejectResearch, researchQueueBusyId = null,
+    researchRun = null, onStartResearchRun, onStopResearchRun, onRequeueStalledResearch,
     initialDesk = null, deskRequest = null,
 }) {
     // One desk open at a time — clicking the open one closes it, leaving them all collapsed. That
@@ -819,10 +917,15 @@ export function FloorLists({
                         <ResearchQueueRows
                             onSymbolClick={onSymbolClick}
                             researchQueue={researchQueue}
+                            coverage={coverage}
                             onStartResearch={onStartResearch}
                             onMarkResearchDone={onMarkResearchDone}
                             onRejectResearch={onRejectResearch}
                             busyId={researchQueueBusyId}
+                            researchRun={researchRun}
+                            onStartResearchRun={onStartResearchRun}
+                            onStopResearchRun={onStopResearchRun}
+                            onRequeueStalledResearch={onRequeueStalledResearch}
                         />
                     )}
 
@@ -887,5 +990,9 @@ FloorLists.propTypes = {
     onMarkResearchDone:  PropTypes.func,
     onRejectResearch:    PropTypes.func,
     researchQueueBusyId: PropTypes.string,
+    researchRun:         PropTypes.object,
+    onStartResearchRun:  PropTypes.func,
+    onStopResearchRun:   PropTypes.func,
+    onRequeueStalledResearch: PropTypes.func,
     initialDesk:         PropTypes.string,
 }

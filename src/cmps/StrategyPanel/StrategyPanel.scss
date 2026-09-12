@@ -20,11 +20,22 @@
     }
 
     // ── the draft ─────────────────────────────────────────────────────────────
+    // Sits between the messages and the composer. It is BOUNDED, and the card inside it scrolls:
+    // a full draft — regime, thesis, eleven stance rows, the kill list — is taller than the room a
+    // laptop leaves under the two headers, and unbounded it took that room from the messages first
+    // (they are min-height: 0) and then from itself, with the panel's overflow: hidden cutting off
+    // whatever was last. What was last was the Publish button — the one control the whole desk
+    // exists to reach. Now the card gives up height and the button never does.
     &__draft-wrap {
         display: flex;
         flex-direction: column;
         gap: 6px;
         padding: 8px 12px 12px;
+        flex: 0 1 auto;
+        min-height: 0;
+        max-height: 60%;   // the conversation keeps at least the other 40%
+
+        > :not(.strategy-panel__draft) { flex-shrink: 0; }   // the button, its hint and the refusal hold their height…
     }
 
     &__draft {
@@ -32,6 +43,9 @@
         border: 1px solid var(--border);
         border-radius: 8px;
         background: var(--bg-base);
+        flex: 0 1 auto;      // …the card is what yields,
+        min-height: 0;
+        overflow-y: auto;    // and scrolls what it gave up.
     }
 
     &__draft-head {

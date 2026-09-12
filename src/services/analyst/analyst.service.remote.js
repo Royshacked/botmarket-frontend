@@ -25,6 +25,10 @@ export const analystService = {
     startResearch,
     markResearchDone,
     rejectResearch,
+    startResearchRun,
+    getResearchRun,
+    stopResearchRun,
+    requeueStalledResearch,
 }
 
 // Streaming research chat. `seed` (a structured Argus investing candidate) pre-seeds the research on
@@ -61,6 +65,19 @@ function listResearchQueue(params = {}) { return queueApi.list(params) }
 // Move queued → in_research (claim before starting Prometheus manually).
 function startResearch(id)    { return queueApi.post(`/${encodeURIComponent(id)}/start`) }
 // Move in_research → done (call after the thesis is written and coverage is initiated).
-function markResearchDone(id) { return queueApi.post(`/${encodeURIComponent(id)}/done`) }
+// The route is `/complete` (analyst.routes.js); this posted to `/done` and 404ed on every click.
+function markResearchDone(id) { return queueApi.post(`/${encodeURIComponent(id)}/complete`) }
 // Move → rejected (misfire or admin decision).
 function rejectResearch(id)   { return queueApi.post(`/${encodeURIComponent(id)}/reject`) }
+
+// ── The headless run: every queued name researched by Prometheus on the server, coverage written
+// as each one lands (researchRun.service.js). One run at a time. Start and stop go through the
+// queue's write path so the list reloads; the run itself is read with getPath — null when no run
+// has happened since the server started, or when the read fails.
+function startResearchRun(model = null) { return queueApi.post('/run', model ? { model } : {}) }
+function getResearchRun()               { return queueApi.getPath('/run') }
+function stopResearchRun()              { return queueApi.post('/run/stop') }
+// Every claimed (in progress) name back to `queued` — a run that died on the account, a turn lost
+// to a refresh. Off the queue's own state, so it works after a server restart. Spares the name a
+// running batch is mid-turn on.
+function requeueStalledResearch()       { return queueApi.post('/requeue') }

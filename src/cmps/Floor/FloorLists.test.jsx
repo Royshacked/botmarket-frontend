@@ -667,3 +667,130 @@ describe('every ticker in the column opens its chart', () => {
         expect(between('function QueuedRow(', ')')).not.toContain('onSymbolClick')
     })
 })
+
+// Argus screens a sector, not the book: a covered name lands in the queue like any other, and the
+// row is where the admin should learn that BEFORE opening Prometheus on it.
+describe('research queue · covered names', () => {
+    const rq = (symbol, over = {}) => ({ id: `rq_${symbol}`, symbol, source: 'argus', status: 'queued', ...over })
+    const noop = () => {}
+    const renderQueue = (researchQueue, coverage) => render(
+        <FloorLists
+            isAdmin initialDesk="research_queue"
+            researchQueue={researchQueue} coverage={coverage}
+            onStartResearch={noop} onMarkResearchDone={noop} onRejectResearch={noop}
+        />,
+    )
+
+    it('badges a queued name the house already covers, and only that one', () => {
+        renderQueue([rq('JNJ'), rq('UNH')], [{ id: 'cv1', symbol: 'JNJ', status: 'active' }])
+        const jnj = screen.getByText('JNJ').closest('.floor-rowhost')
+        const unh = screen.getByText('UNH').closest('.floor-rowhost')
+        expect(within(jnj).getByText('covered')).toBeTruthy()
+        expect(within(unh).queryByText('covered')).toBeNull()
+    })
+
+    it('matches any coverage status and either ticker case — retired coverage still forces an update', () => {
+        renderQueue([rq('MRK')], [{ id: 'cv2', symbol: 'mrk', status: 'retired' }])
+        expect(screen.getByText('covered')).toBeTruthy()
+    })
+
+    it('says what Start will do on a covered name', () => {
+        renderQueue([rq('VRTX')], [{ id: 'cv3', symbol: 'VRTX', status: 'active' }])
+        expect(screen.getByRole('button', { name: 'Start' }).title).toMatch(/update/i)
+    })
+
+    // Start hands the whole item up, because the opener needs the symbol and the mandate context,
+    // not just an id to flip. The ROW does not: starting a four-minute research stream is a
+    // decision, and it must not hang on a mis-aimed click on a list you are scanning.
+    it('Start hands the item to the opener; the row itself does nothing', () => {
+        const onStart = vi.fn()
+        const item = rq('UNH', { context: { sector: 'Healthcare', active_bp: 200 } })
+        render(<FloorLists isAdmin initialDesk="research_queue" researchQueue={[item]}
+            onStartResearch={onStart} onMarkResearchDone={noop} onRejectResearch={noop} />)
+        fireEvent.click(screen.getByText('UNH').closest('.floor-row'))
+        expect(onStart).not.toHaveBeenCalled()
+        fireEvent.click(screen.getByRole('button', { name: 'Start' }))
+        expect(onStart).toHaveBeenCalledTimes(1)
+        expect(onStart.mock.calls[0][0]).toBe(item)
+    })
+
+    // The run strip: Start all when names wait and nothing is going; progress + Stop while the
+    // server works the queue; the tally afterwards.
+    describe('the run strip', () => {
+        const renderRun = (run, items, onStart = noop, onStop = noop) => render(
+            <FloorLists isAdmin initialDesk="research_queue" researchQueue={items} coverage={[]}
+                onStartResearch={noop} onMarkResearchDone={noop} onRejectResearch={noop}
+                researchRun={run} onStartResearchRun={onStart} onStopResearchRun={onStop} />,
+        )
+
+        it('offers Start all over a queue with names, and hands the click up', () => {
+            const onStart = vi.fn()
+            renderRun(null, [rq('A'), rq('B')], onStart)
+            fireEvent.click(screen.getByRole('button', { name: 'Start all' }))
+            expect(onStart).toHaveBeenCalledTimes(1)
+        })
+
+        it('offers nothing over an empty queue with no run behind it', () => {
+            renderRun(null, [])
+            expect(screen.queryByRole('button', { name: 'Start all' })).toBeNull()
+            expect(screen.getByText(/no names queued/i)).toBeTruthy()
+        })
+
+        it('shows where a running run is, and Stop instead of Start all', () => {
+            const onStop = vi.fn()
+            renderRun({ status: 'running', current: 'LLY', position: 3, total: 26, covered: 2, skipped: 1, passed: 0, failed: 0 }, [rq('LLY', { status: 'in_research' }), rq('B')], noop, onStop)
+            expect(screen.getByText('LLY', { selector: 'strong' })).toBeTruthy()
+            expect(screen.getByText(/3\/26/)).toBeTruthy()
+            expect(screen.getByText(/2 covered · 1 skipped/)).toBeTruthy()
+            expect(screen.queryByRole('button', { name: 'Start all' })).toBeNull()
+            fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
+            expect(onStop).toHaveBeenCalledTimes(1)
+        })
+
+        it('a run that failed on the account says why', () => {
+            render(<FloorLists isAdmin initialDesk="research_queue" researchQueue={[rq('AZN', { status: 'in_research' })]} coverage={[]}
+                onStartResearch={noop} onMarkResearchDone={noop} onRejectResearch={noop}
+                researchRun={{ status: 'failed', error: 'Your credit balance is too low to access the Anthropic API.', current: null, position: 6, total: 29, covered: 2, skipped: 2, passed: 1, failed: 1 }}
+                onStartResearchRun={noop} onStopResearchRun={noop} onRequeueStalledResearch={noop} />)
+            expect(screen.getByText(/credit balance is too low/)).toBeTruthy()
+            expect(screen.queryByRole('button', { name: 'Start all' })).toBeNull()   // nothing queued yet
+        })
+
+        // The count is the QUEUE's — rows in progress — so the button is there after a server
+        // restart wiped the run, which is exactly when it is needed.
+        it('offers Requeue for every name in progress, run or no run', () => {
+            const onRequeue = vi.fn()
+            render(<FloorLists isAdmin initialDesk="research_queue" coverage={[]}
+                researchQueue={[rq('AZN', { status: 'in_research' }), rq('TMO', { status: 'in_research' }), rq('B')]}
+                onStartResearch={noop} onMarkResearchDone={noop} onRejectResearch={noop}
+                researchRun={null} onStartResearchRun={noop} onStopResearchRun={noop} onRequeueStalledResearch={onRequeue} />)
+            fireEvent.click(screen.getByRole('button', { name: 'Requeue 2' }))
+            expect(onRequeue).toHaveBeenCalledTimes(1)
+            expect(screen.getByRole('button', { name: 'Start all' })).toBeTruthy()
+        })
+
+        it('keeps the tally of a finished run, and offers Start all again if names remain', () => {
+            renderRun({ status: 'done', current: null, position: 26, total: 26, covered: 22, skipped: 3, passed: 1, failed: 0 }, [rq('C')])
+            expect(screen.getByText(/run done — 22 covered · 3 skipped · 1 passed/i)).toBeTruthy()
+            expect(screen.getByRole('button', { name: 'Start all' })).toBeTruthy()
+        })
+    })
+
+    it('a claimed name offers Open (re-open without a second claim) beside Done', () => {
+        const onStart = vi.fn()
+        const item = rq('LLY', { status: 'in_research' })
+        render(<FloorLists isAdmin initialDesk="research_queue" researchQueue={[item]}
+            onStartResearch={onStart} onMarkResearchDone={noop} onRejectResearch={noop} />)
+        expect(screen.queryByRole('button', { name: 'Start' })).toBeNull()
+        fireEvent.click(screen.getByRole('button', { name: 'Open' }))
+        expect(onStart).toHaveBeenCalledWith(item)
+        expect(screen.getByRole('button', { name: 'Done' })).toBeTruthy()
+    })
+
+    it('reads as the other desks — a .floor-row with the sector Argus screened', () => {
+        renderQueue([rq('JPM', { context: { sector: 'Financial Services' } })], [])
+        const row = screen.getByText('JPM').closest('.floor-row')
+        expect(row).toBeTruthy()
+        expect(within(row).getByText(/Argus · Financial Services/)).toBeTruthy()
+    })
+})

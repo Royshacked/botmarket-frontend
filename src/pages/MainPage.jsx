@@ -343,21 +343,110 @@ export function MainPage() {
         load: loadCoverageFn, changeEvent: COVERAGE_CHANGED, pollMs: 60_000, log: '[coverage]',
     })
 
-    // Research queue (admin workbench). Shows queued + in_research items; reloads on any action.
+    // Research queue (admin workbench). Shows queued + in_research items; reloads on any action —
+    // and POLLS, because the writer that matters is not this client. Argus fills the queue from a
+    // fire-and-forget house scan the server starts when a view is published, and it lands names one
+    // at a time over ~15s (an FMP screen per sector, then an enqueue each). The change event only
+    // fires for this page's own start/done/reject, so without the poll a freshly published view
+    // sat next to an empty queue until the next full reload — which read as "Argus did nothing".
     const loadResearchQueueFn = useCallback(
         () => isAdmin ? analystService.listResearchQueue() : Promise.resolve([]),
         [isAdmin],
     )
     const { items: researchQueue } = useEntityList({
-        load: loadResearchQueueFn, changeEvent: RESEARCH_QUEUE_CHANGED, log: '[researchQueue]',
+        load: loadResearchQueueFn, changeEvent: RESEARCH_QUEUE_CHANGED, pollMs: 30_000, log: '[researchQueue]',
     })
     const [researchQueueBusyId, setResearchQueueBusyId] = useState(null)
 
-    async function handleStartResearch(id) {
+    // The headless run over the queue (researchRun.service on the server). Read on arrival and
+    // then every 10s WHILE one is going — a name takes Prometheus a few minutes, so that is the
+    // cadence at which anything changes; idle, the poll stops and the last run stays on screen.
+    // Admin-only, like the queue: a non-admin never asks.
+    const [researchRun, setResearchRun] = useState(null)
+    // The run is a SERVER-SIDE writer of coverage and of queue rows, and the lists that show those
+    // reload on a change EVENT that only this client's own writes fire. So when a poll shows the run
+    // has moved — a name decided, coverage written — the poll announces it on the same events, and
+    // the two lists reload as if the write had been made here. Otherwise UNH sat in the log as
+    // "coverage initiated" for up to a minute before the Coverage desk showed it.
+    const lastRunRef = useRef(null)
+    const refreshResearchRun = useCallback(async () => {
+        if (!isAdmin) return null
+        const run  = await analystService.getResearchRun()
+        const prev = lastRunRef.current
+        lastRunRef.current = run
+        if (run && prev && run.id === prev.id && run.position !== prev.position) {
+            window.dispatchEvent(new Event(RESEARCH_QUEUE_CHANGED))
+            if (run.covered !== prev.covered) window.dispatchEvent(new Event(COVERAGE_CHANGED))
+        }
+        setResearchRun(run)
+        return run
+    }, [isAdmin])
+    useEffect(() => {
+        if (!isAdmin) return
+        let alive = true
+        let timer = null
+        const tick = async () => {
+            const run = await refreshResearchRun()
+            if (alive && run?.status === 'running') timer = setTimeout(tick, 10_000)
+        }
+        tick()
+        return () => { alive = false; clearTimeout(timer) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isAdmin, researchRun?.status === 'running'])   // re-arm the poll when a run starts
+
+    async function handleStartResearchRun() {
+        try {
+            const run = await analystService.startResearchRun()
+            setResearchRun(run)
+        } catch (err) {
+            showErrorMsg(err?.response?.data?.error || 'Could not start the research run')
+        }
+    }
+    async function handleStopResearchRun() {
+        try { setResearchRun(await analystService.stopResearchRun()) }
+        catch (err) { showErrorMsg(err?.response?.data?.error || 'Could not stop the research run') }
+    }
+    // Every claimed name back to `queued` (the queue list reloads on the write). Off the queue's
+    // state, not the run's: the run's memory dies with the server, the rows do not.
+    async function handleRequeueStalledResearch() {
+        try {
+            const { requeued } = await analystService.requeueStalledResearch()
+            showSuccessMsg(`${requeued} name${requeued === 1 ? '' : 's'} back in the queue`)
+        } catch (err) { showErrorMsg(err?.response?.data?.error || 'Could not requeue the claimed names') }
+    }
+
+    // Claiming a name and opening Prometheus on it are ONE act. The claim used to be all this did,
+    // and "open Prometheus on the name manually" was left to the admin — a Start that changed a
+    // word in the row and nothing else. The opening turn carries the mandate Argus stored with the
+    // name (see researchQueue.enqueue): "research JNJ" and "research JNJ because the house is
+    // +200bp Healthcare on a late-cycle regime" are different instructions, and only the second is
+    // what the queue is for. A name already in research re-opens without a second claim.
+    async function handleStartResearch(item) {
+        const id = item?.id
         if (!id) return
         setResearchQueueBusyId(id)
-        try { await analystService.startResearch(id) } catch (err) { console.error('[researchQueue] start', err) }
+        try {
+            if (item.status === 'queued') await analystService.startResearch(id)
+            if (item.symbol) handleAxlPick('analyst', { symbol: item.symbol, opening: researchOpening(item), pipeline: 'research' })
+        } catch (err) { console.error('[researchQueue] start', err) }
         finally { setResearchQueueBusyId(null) }
+    }
+    function researchOpening(item) {
+        const c = item.context
+        if (!c?.sector) return `Research ${item.symbol} for coverage.`
+        const bp     = Number.isFinite(Number(c.active_bp)) ? ` +${c.active_bp}bp` : ''
+        const regime = c.regime ? ` on a “${c.regime}” regime` : ''
+        const basis  = c.basis ? ` (basis: ${String(c.basis).replace(/_/g, ' ')})` : ''
+        return `Research ${item.symbol} for coverage — the house is overweight ${c.sector}${bp}${regime}${basis}.`
+    }
+    // Coverage written on a name the queue is holding closes its row — the queue's own definition
+    // of done ("house coverage written for this symbol"), so it should not need a second click.
+    function settleResearchQueue(saved) {
+        const sym = String(saved?.symbol ?? '').toUpperCase()
+        // Claimed OR merely queued: a name can be requeued (Requeue on the strip) between the turn
+        // that researched it and the click that saves it, and the coverage closes it either way.
+        const row = sym && researchQueue.find(i => (i.status === 'in_research' || i.status === 'queued') && String(i.symbol).toUpperCase() === sym)
+        if (row) handleMarkResearchDone(row.id)
     }
     async function handleMarkResearchDone(id) {
         if (!id) return
@@ -2904,7 +2993,8 @@ export function MainPage() {
                                 // Leaving for Axl after a save is right for a ONE-name research run.
                                 // During a SLEEVE it would throw the user out between names, and on
                                 // the last one it would pre-empt the hand-back to Atlas entirely.
-                                onInitiated={(_saved, { sleeve } = {}) => {
+                                onInitiated={(saved, { sleeve } = {}) => {
+                                    settleResearchQueue(saved)   // a queued name just got its coverage
                                     setNewsTab('coverage')
                                     if (!sleeve) handleBackToAxl()
                                 }}
@@ -2998,6 +3088,10 @@ export function MainPage() {
                                     onMarkResearchDone={handleMarkResearchDone}
                                     onRejectResearch={handleRejectResearch}
                                     researchQueueBusyId={researchQueueBusyId}
+                                    researchRun={researchRun}
+                                    onStartResearchRun={handleStartResearchRun}
+                                    onStopResearchRun={handleStopResearchRun}
+                                    onRequeueStalledResearch={handleRequeueStalledResearch}
                                 />
                             )}
                         </div>
