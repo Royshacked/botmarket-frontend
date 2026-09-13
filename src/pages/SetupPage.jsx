@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { TalosBadge } from '../cmps/AxlHub/AgentBadges.jsx'
 import { EntityPopupShell } from '../cmps/EntityCard/EntityPopupShell.jsx'
@@ -9,6 +9,7 @@ import { PositionPanel } from '../cmps/TradeIdeas/PositionPanel.jsx'
 import { TalosWatch } from '../cmps/TradeIdeas/TalosWatch.jsx'
 import { watchTimeframe, showsWatch } from '../cmps/TradeIdeas/talosWatch.js'
 import { positionsForEntity } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { deriveSetupOverlay } from '../cmps/TradeIdeas/chartOverlay.js'
 import { PriceChart } from '../cmps/PriceChart/PriceChart.jsx'
 import { ConvictionChip } from '../cmps/ConvictionChip/ConvictionChip'
 import { setupIcon, isSetupArmed, canArmSetup } from '../cmps/TradeIdeas/setupStatus.js'
@@ -204,6 +205,12 @@ export function SetupPage() {
     const { positions, refresh: refreshPositions, closePosition } = usePositions()
     const [busy, setBusy] = useState(false)
 
+    // What the chart draws: every price the plan names (live scenarios pre-arm, the armed one after,
+    // the position once in it, Talos's guards) and the indicators its conditions reference — so the
+    // user sees the same EMA / VWAP / RSI the plan talks about, at the levels it talks about. Same
+    // derive as the confirm dialog — PriceChart keys on content, so the 20s poll doesn't rebuild.
+    const { levels, indicators } = useMemo(() => deriveSetupOverlay(setup), [setup])
+
     if (error || !setup) return <EntityPopupShell error={error} loading={!setup} />
 
     async function handleDelete() {
@@ -272,7 +279,7 @@ export function SetupPage() {
                     {/* The rung TALOS is on, not just the one the setup was drawn on. A read that
                         climbed to the 4hr for structure would otherwise leave the user staring at an
                         hourly chart while the journal below talks about a four-hour close. */}
-                    <PriceChart symbol={setup.asset || 'SPY'} interval={watchTimeframe(setup)} />
+                    <PriceChart symbol={setup.asset || 'SPY'} interval={watchTimeframe(setup)} levels={levels} indicators={indicators} />
                 </div>
 
                 <div className="idea-dialog__conditions setup-page__panel">

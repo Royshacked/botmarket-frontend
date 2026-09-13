@@ -10,14 +10,17 @@ import { isLivePosition, isTerminal, isAwaitingConfirm, isInvalidated } from '..
 //     are intentionally NOT parsed here (deferred) — so a pre-position idea shows only its
 //     invalidation band.
 //
-// Indicators are extracted from the item's free text (idea conditions / call patterns) by
-// textToIndicators — the frontend mirror of the backend _buildStudies (chart.evaluator.js) +
-// studiesToIndicators (studyTranslate.js). Keep the two in sync.
+// Indicators are extracted from the item's free text (idea conditions / call patterns / setup
+// conditions) by textToIndicators — the frontend mirror of the backend _buildStudies
+// (chart.evaluator.js) + studiesToIndicators (studyTranslate.js). Keep the two in sync on the
+// `family(N)` grammar; the FE additionally reads the prose forms ("20 EMA") because a setup's
+// conditions are sentences Talos judges, not expressions a parser evaluates.
 
 import { phaseTree } from './tradeIdea.utils.js'
 
 // ── Indicator extraction (mirror of backend _buildStudies + studiesToIndicators) ──
-const MAX_INDICATORS = 3
+// No cap: the backend's MAX_STUDIES bounds what a rendered PNG can carry, but a live chart pane
+// draws what the plan names — cutting a setup's fourth average was hiding a line it watches.
 
 /**
  * Free-text (conditions / pattern names) → klinecharts indicator descriptors
@@ -30,7 +33,7 @@ export function textToIndicators(text) {
     const seen = new Set()
     const add = (name, calcParams, overlay) => {
         const key = `${name}(${calcParams.join(',')})`
-        if (!seen.has(key) && out.length < MAX_INDICATORS) { out.push({ name, calcParams, overlay }); seen.add(key) }
+        if (!seen.has(key)) { out.push({ name, calcParams, overlay }); seen.add(key) }
     }
 
     // All matches are WORD-BOUNDED so incidental substrings don't trigger an indicator.
@@ -44,8 +47,20 @@ export function textToIndicators(text) {
     // EMA / SMA need an explicit period — a bare "moving average" doesn't say which to draw.
     for (const m of t.matchAll(/\bema\s*\(?\s*(\d+)/gi)) add('EMA', [Number(m[1])], true)
     for (const m of t.matchAll(/\bsma\s*\(?\s*(\d+)/gi)) add('MA',  [Number(m[1])], true)
+    // The prose forms a desk actually writes — "the 20 EMA", "200-day SMA", "50d EMA", "the 200 MA",
+    // and a shared-name list, "20/50 EMA cross". The backend's `family(N)` grammar is what the
+    // monitor EVALUATES; a setup's conditions are judged by Talos reading them, so the chart has to
+    // draw what the sentence names, not only what a parser would have accepted.
+    for (const m of t.matchAll(MA_PROSE)) {
+        const name = m[2].toLowerCase() === 'ema' ? 'EMA' : 'MA'
+        for (const p of m[1].split(/\D+/).filter(Boolean)) add(name, [Number(p)], true)
+    }
     return out
 }
+// `<periods> [unit] <family>` where periods is one number or a `/`, `,`, `&`, `and` list and the
+// unit is optional ("20-day", "50d", "20 period"). `ma`/`dma` read as a simple average — that is
+// what "the 200 MA" means on a desk. Periods are capped at three digits so a price never qualifies.
+const MA_PROSE = /\b(\d{1,3}(?:\s*(?:\/|,|&|and)\s*\d{1,3})*)\s*-?\s*(?:day|week|hour|hr|min|period|bar|d|p|h)?s?\s*-?\s*(ema|sma|dma|ma)s?\b/gi
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 // null and '' must be rejected BEFORE Number(), which coerces both to 0 — a "level" at price zero
@@ -115,11 +130,27 @@ function dedupeLevels(levels) {
 
 // ── Setup ───────────────────────────────────────────────────────────────────
 /**
- * A `setup`'s levels. Its plan is authored as ZONES (entry/stop/tp), not single prices — a zone is
- * a region price has to reach, so each edge is a real level and both are drawn.
+ * A `setup`'s levels — EVERY price the plan names, drawn where the eye can check it against
+ * structure. A level authored today is zero-width (setup.schema normalizeZone), so each zone is one
+ * price; a legacy band still contributes both edges, and `dedupeLevels` collapses the overlap.
  *
- * The zone edges are already clean numbers (setup.schema normalizeZones), so unlike an idea there
- * is no free-text parsing here and nothing is deferred.
+ * Which scenarios speak depends on where the setup is:
+ *   • pre-arm: every LIVE premise (a dead one broke its own validity range — not a relevant price
+ *     any more), each labelled with its scenario when there is more than one to tell apart;
+ *   • armed / in position / closed: only the premise that took the trade — the rivals lost the
+ *     moment it fired, so their levels would be noise around a live position;
+ *   • in position: the fill, the CURRENT stop (Talos trails it) and the target ladder from
+ *     `position_state`, the same shape a call writes — the planned entry/stop are superseded.
+ *
+ * Plus the validity range (`invalidation`), its "ran away" pivot (`approach`), and the guards Talos
+ * is standing watch at right now — the prices that will wake the monitor, drawn as references when
+ * they are not already a level above.
+ *
+ * The flat `entry_zones`/`stop_zones`/`tp_zones`/`validity` are read ONLY for a pre-scenario
+ * document — for a scenario-shaped one they are the armed premise's projection, and drawing them too
+ * would print the same lines twice (or a stale range, between the fire and the re-projection).
+ *
+ * The numbers are already clean (setup.schema), so unlike an idea nothing here is parsed from text.
  *
  * @param {object} setup
  * @returns {{ levels: Array, indicators: Array }}
@@ -128,25 +159,96 @@ export function deriveSetupOverlay(setup) {
     if (!setup) return { levels: [], indicators: [] }
     const levels = []
     const side   = setup.direction || null
+    const status = setup.status
+    const ps     = setup.position_state
+    const inTrade = Boolean(ps) && (isLivePosition(status) || isTerminal(status))
 
-    const pushZones = (zones, kind, label) => {
-        (zones || []).forEach((z, i) => {
-            const tag = (zones.length > 1 && kind === 'tp') ? `${label}${i + 1}` : label
+    const pushZones = (zones, kind, label, suffix = '') => {
+        const list = Array.isArray(zones) ? zones : []
+        list.forEach((z, i) => {
+            const tag = `${(list.length > 1 && kind === 'tp') ? `${label}${i + 1}` : label}${suffix}`
             if (num(z?.lower) != null) levels.push({ kind, price: num(z.lower), label: tag, side })
             if (num(z?.upper) != null) levels.push({ kind, price: num(z.upper), label: tag, side })
         })
     }
-    pushZones(setup.entry_zones, 'entry', 'Entry')
-    pushZones(setup.stop_zones,  'stop',  'Stop')
-    pushZones(setup.tp_zones,    'tp',    'TP')
+    const pushValidity = (v, suffix = '') => {
+        if (!v) return
+        if (num(v.lower) != null) levels.push({ kind: 'invalidation', price: num(v.lower), label: `Invalidation${suffix}` })
+        if (num(v.upper) != null) levels.push({ kind: 'invalidation', price: num(v.upper), label: `Invalidation${suffix}` })
+        // The away pivot: beyond it the setup was not wrong, it was missed.
+        if (num(v.approach) != null) levels.push({ kind: 'ref', price: num(v.approach), label: `Ran away${suffix}` })
+    }
 
-    // The validity range — beyond it the premise is gone (setup.schema §validity).
-    const v = setup.validity || {}
-    if (num(v.lower) != null) levels.push({ kind: 'invalidation', price: num(v.lower), label: 'Invalidation' })
-    if (num(v.upper) != null) levels.push({ kind: 'invalidation', price: num(v.upper), label: 'Invalidation' })
+    const all   = Array.isArray(setup.scenarios) ? setup.scenarios.filter(Boolean) : []
+    const armed = all.find(sc => sc.id === setup.armed_scenario_id) ?? null
+    const live  = armed ? [armed]
+        : all.filter(sc => setup.monitor_state?.scenarios?.[sc.id]?.invalidation_status !== 'fired')
+    // Only worth naming the premise when two of them share the chart.
+    const tagOf = sc => (live.length > 1 ? ` · ${sc.name?.trim() || `Way in ${all.indexOf(sc) + 1}`}` : '')
 
-    const text = [setup.thesis || '', ...(setup.conditions || []).map(c => c?.text || '')].join(' ; ')
-    return { levels: dedupeLevels(levels), indicators: textToIndicators(text) }
+    if (inTrade) {
+        // The position IS the entry and stop now — the planned ones are what it was going to be.
+        const entry = ps.entry?.fill_price ?? ps.entry?.intended
+        if (num(entry) != null) levels.push({ kind: 'entry', price: num(entry), label: 'Entry', side })
+        if (num(ps.stop?.current) != null) levels.push({ kind: 'stop', price: num(ps.stop.current), label: 'Stop', side })
+        const targets = Array.isArray(ps.targets) ? ps.targets : []
+        targets.forEach((t, i) => {
+            if (num(t?.price) != null) levels.push({ kind: 'tp', price: num(t.price), label: `${targets.length > 1 ? `TP${i + 1}` : 'TP'}${t.hit_at ? ' ✓' : ''}`, side })
+        })
+        if (status === 'closed' && num(ps.outcome?.exit_price) != null) {
+            levels.push({ kind: 'exit', price: num(ps.outcome.exit_price), label: 'Exit', side })
+        }
+        // A target ladder the position state has not written yet still comes from the plan.
+        if (!targets.length && armed) pushZones(armed.tp_zones, 'tp', 'TP')
+    } else if (all.length) {
+        for (const sc of live) {
+            const tag = tagOf(sc)
+            pushZones(sc.entry_zones, 'entry', 'Entry', tag)
+            pushZones(sc.stop_zones,  'stop',  'Stop',  tag)
+            pushZones(sc.tp_zones,    'tp',    'TP',    tag)
+            pushValidity(sc.validity, tag)
+        }
+    } else {
+        // Pre-scenario document: its zones and range live at the root and nowhere else.
+        pushZones(setup.entry_zones, 'entry', 'Entry')
+        pushZones(setup.stop_zones,  'stop',  'Stop')
+        pushZones(setup.tp_zones,    'tp',    'TP')
+        pushValidity(setup.validity)
+    }
+
+    const out = dedupeLevels(levels)
+
+    // Where Talos is standing watch. Most guards sit ON a level already drawn (the zones are the
+    // guards, `guardsFromZones`) — those add nothing; the rest are prices only the monitor named.
+    const drawn = new Set(out.map(l => l.price.toFixed(4)))
+    for (const g of Array.isArray(setup.monitor_state?.guards) ? setup.monitor_state.guards : []) {
+        const price = num(g?.price)
+        if (price == null || drawn.has(price.toFixed(4))) continue
+        drawn.add(price.toFixed(4))
+        out.push({ kind: 'ref', price, label: `Talos${g.means ? ` · ${g.means}` : ''}` })
+    }
+
+    return { levels: out, indicators: textToIndicators(setupIndicatorText(setup)) }
+}
+
+/**
+ * Every sentence of a setup that could name an indicator. The root `conditions[]` is only the
+ * "always" tier — most of what the monitor checks is authored INSIDE the scenarios ("reclaim the
+ * 20 EMA", "RSI still above 50") and a zone may carry its own condition ("out if it closes below the
+ * 4hr VWAP"). Reading the root alone drew the chart bare for a scenario-shaped setup.
+ */
+function setupIndicatorText(setup) {
+    const condText = conds => (Array.isArray(conds) ? conds : []).map(c => c?.text || '')
+    const zoneText = zones => (Array.isArray(zones) ? zones : []).flatMap(z => condText(z?.conditions))
+    const parts = [setup.thesis || '', ...condText(setup.conditions)]
+    for (const sc of Array.isArray(setup.scenarios) ? setup.scenarios : []) {
+        parts.push(sc?.name || '', ...condText(sc?.conditions))
+        parts.push(...zoneText(sc?.entry_zones), ...zoneText(sc?.stop_zones), ...zoneText(sc?.tp_zones))
+    }
+    // The flat zones are the armed premise's projection — same conditions, but a pre-scenario
+    // document has ONLY these.
+    parts.push(...zoneText(setup.entry_zones), ...zoneText(setup.stop_zones), ...zoneText(setup.tp_zones))
+    return parts.join(' ; ')
 }
 
 // ── Idea ────────────────────────────────────────────────────────────────────
