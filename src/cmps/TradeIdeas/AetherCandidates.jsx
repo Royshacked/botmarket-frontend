@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { aetherService } from '../../services/aether/aether.service.remote.js'
@@ -742,6 +742,23 @@ function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTra
     const [localRead, setLocalRead] = useState(null)
     const read = c.quick_read ?? localRead
     const cRead = read ? { ...c, quick_read: read } : c
+
+    // TO THE TOP WHEN OPENED, and pinned there (the scss). The drawer under a name runs past a
+    // screen — mechanism, press, filing, the read, the move, the hand-off — and the row naming the
+    // company you are reading about is the first thing to scroll away. Same mechanic as the event
+    // row above it, one level down: the body is the scroll container, the row sticks to its top.
+    //
+    // THE BODY ONLY, not scrollIntoView. That scrolls every scrollable ancestor, and the list
+    // itself is one: it carried the name to the top of the LIST and pushed the event row — the
+    // pinned one — off the top of the screen. The body is the one scroller this row lives in.
+    const hostRef = useRef(null)
+    useEffect(() => {
+        if (!isOpen) return
+        const host = hostRef.current
+        const body = host?.closest('.floor-sub__body')
+        if (!host || !body) return
+        body.scrollTop += host.getBoundingClientRect().top - body.getBoundingClientRect().top
+    }, [isOpen])
     const dir = SIDE[c.side]?.dir ?? 'mixed'
     const urg = urgencyOf(c)
     const mag = magnitude(c)
@@ -750,7 +767,7 @@ function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTra
     const trade = tradable(c)
 
     return (
-        <div className={`aether-candidates__name${isOpen ? ' aether-candidates__name--open' : ''}`}>
+        <div ref={hostRef} className={`aether-candidates__name${isOpen ? ' aether-candidates__name--open' : ''}`}>
             <RowHost>
                 <button
                     className="floor-row floor-row--sub"
@@ -1009,8 +1026,17 @@ export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick
                 </p>
             )}
 
-            <Scorecard />
-            <RecurrenceStrip rows={recur} onSymbolClick={onSymbolClick} />
+            {/* FOLDED WHILE AN EVENT IS OPEN, like the sibling events are. The Floor's mechanic is
+                that the thing you opened takes the column and everything else gets out of the way;
+                these two are context for the LIST — which names recur across events, how the desk
+                has scored — and with them in place an open event sat a hundred pixels down under
+                two rows of chips. Closing the event brings them back. */}
+            {openRun === null && (
+                <>
+                    <Scorecard />
+                    <RecurrenceStrip rows={recur} onSymbolClick={onSymbolClick} />
+                </>
+            )}
 
             {runs.map(run => {
                 const isOpen = openRun === run.run_id

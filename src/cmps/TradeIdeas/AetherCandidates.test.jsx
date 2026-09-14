@@ -1304,3 +1304,75 @@ describe('AetherCandidates — a name with a setup already built', () => {
         }
     })
 })
+
+
+describe('AetherCandidates — the open thing goes to the top and stays there', () => {
+    // The Floor's mechanic: what you opened takes the column and everything else gets out of the
+    // way. The sibling events already folded; the scorecard line and the recurrence strip above
+    // them did not, so an open event sat a hundred pixels down under two rows of chips.
+    const twice = [{ ...RUN }, { ...RUN, run_id: 'b', subject: 'Congo' }]
+
+    it('opening an event folds the scorecard line and the recurrence strip; closing it brings them back', async () => {
+        getScorecard.mockResolvedValue({ overall: { n: 0 }, pending: 3, next_expiry: '2026-09-27' })
+        render(<AetherCandidates runs={twice} />)
+        await waitFor(() => expect(screen.getByText(/3 pending/)).toBeTruthy())
+        expect(document.querySelector('.aether-candidates__recur')).toBeTruthy()
+
+        openEvent('Canada')
+        expect(document.querySelector('.aether-candidates__score')).toBeNull()
+        expect(document.querySelector('.aether-candidates__recur')).toBeNull()
+
+        openEvent('Canada')   // toggles it closed
+        expect(document.querySelector('.aether-candidates__recur')).toBeTruthy()
+        await waitFor(() => expect(screen.getByText(/3 pending/)).toBeTruthy())
+    })
+
+    it('opening a name scrolls the EVENT BODY so the row is at its top — and nothing else', () => {
+        // scrollIntoView would also scroll the list, carrying the pinned event row off the screen.
+        render(<AetherCandidates runs={[RUN]} />)
+        openEvent()
+        const body = document.querySelector('.floor-sub__body')
+        const host = document.querySelector('.aether-candidates__name')
+        body.getBoundingClientRect = () => ({ top: 100 })
+        host.getBoundingClientRect = () => ({ top: 340 })
+        body.scrollTop = 50
+        const outer = document.querySelector('.aether-candidates')
+        outer.scrollTop = 0
+        openName()
+        expect(body.scrollTop).toBe(290)
+        expect(outer.scrollTop).toBe(0)
+    })
+
+    it('a name opened with no scrollable body around it still opens', () => {
+        render(<AetherCandidates runs={[RUN]} />)
+        openEvent()
+        expect(() => openName()).not.toThrow()
+        expect(screen.getByText('quantified')).toBeTruthy()
+    })
+
+    it('the open name row pins to the top of the event body', () => {
+        const css = readFileSync(resolve(process.cwd(), 'src/cmps/TradeIdeas/AetherCandidates.scss'), 'utf8')
+        const pinned = css.slice(css.indexOf('.aether-candidates__name--open > .floor-rowhost'))
+        expect(pinned.slice(0, 300)).toMatch(/position:\s*sticky/)
+        expect(pinned.slice(0, 300)).toMatch(/top:\s*0/)
+        expect(pinned.slice(0, 400)).toMatch(/background:\s*var\(--bg-base\)/)
+    })
+
+    it('the open event shrinks to the column, so its body is the scroller both pins live in', () => {
+        // A flex item's min-height is its content unless told otherwise: the open event grew to
+        // its drawers, the body never overflowed, the LIST scrolled instead and carried the pinned
+        // name row away — measured, event row y=0, name row y=−279 after one scroll.
+        const css = readFileSync(resolve(process.cwd(), 'src/cmps/TradeIdeas/AetherCandidates.scss'), 'utf8')
+        expect(css).toMatch(/\.aether-candidates \.floor-sub--open \{ min-height: 0; \}/)
+        expect(css).toMatch(/\.aether-candidates:has\(\.floor-sub--open\) \{ overflow-y: hidden; \}/)
+    })
+
+    it('nothing between the pinned name row and its scroller clips it', () => {
+        // `overflow: hidden` on ANY ancestor silently defeats position: sticky. The body scrolls;
+        // the name wrapper between them must set no overflow of its own.
+        const css = readFileSync(resolve(process.cwd(), 'src/cmps/TradeIdeas/AetherCandidates.scss'), 'utf8')
+        const wrapper = css.slice(css.indexOf('.aether-candidates__name {'), css.indexOf('.aether-candidates__name--open'))
+            .replace(/\/\/.*$/gm, '')   // the rule, not the comment explaining it
+        expect(wrapper).not.toMatch(/overflow/)
+    })
+})

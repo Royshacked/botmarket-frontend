@@ -72,6 +72,16 @@
 // and a descendant selector would pin every one of them at top: 0 as it scrolled past —
 // fifteen rows stacking on the event row. Only the event row is the question; the names
 // are the answer and they scroll.
+// THE OPEN EVENT SHRINKS TO THE COLUMN, so its body is what scrolls. A flex item's min-height is
+// its content unless told otherwise, so the open event grew to the full height of its drawers,
+// the body (overflow-y: auto) never overflowed, and it was the LIST that scrolled instead —
+// carrying the pinned name row away with it: measured, the event row held at y=0 and the name
+// row went to −279 after one scroll. With min-height: 0 the event takes the column, the body
+// scrolls, and both pins work in the scroller they were written for. The list stops scrolling
+// while an event is open for the same reason the Floor's desk body does (.floor-desk__body:has).
+.aether-candidates .floor-sub--open { min-height: 0; }
+.aether-candidates:has(.floor-sub--open) { overflow-y: hidden; }
+
 .aether-candidates .floor-sub--open > .floor-rowhost {
     position: sticky;
     top: 0;
@@ -187,6 +197,20 @@
 // a flex child that shrinks below its content never overflows, and then nothing scrolls.
 .aether-candidates__name {
     flex: 0 0 auto;
+}
+
+// The open NAME row pins to the top of the event body while its drawer scrolls — the same
+// mechanic the event row has against the list, one level down. `.floor-sub__body` is the
+// scroll container (overflow-y: auto), and nothing between it and the host sets an overflow,
+// which is the one thing that silently defeats sticky. On the HOST, not the row, for the
+// same reason as the event row: the actions overlay anchors to the host. Above the event
+// row's z-index is not needed — they never share a scroller.
+.aether-candidates__name--open > .floor-rowhost {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--bg-base);
+    box-shadow: 0 1px 0 var(--border);
 }
 
 // The jump to another event that named the same company. A link in a list item, not a
