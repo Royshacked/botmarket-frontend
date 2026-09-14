@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { calendarService } from '../services/calendar/calendar.service.remote.js'
 import { strategyService, TILT_CHANGED } from '../services/strategy/strategy.service.remote.js'
+import { useAuth } from '../context/AuthContext.jsx'
 
 const REFRESH_MS = 60 * 60 * 1000  // re-fetch once per hour
 
@@ -22,6 +23,11 @@ export function useCalendarEvents() {
     // guards, and one more prop to thread by hand into each surface.
     const [tilt, setTilt]         = useState(null)
     const [tiltLoading, setTiltLoading] = useState(false)
+    // The tilt read is requireAdmin (2026-09-14) and every surface that renders it is admin-only,
+    // so a trader's fetch could only ever be a 403 in the log. Skipped rather than caught: the
+    // other three feeds keep their timer either way. `?? {}` — the hook is also mounted in tests
+    // with no provider, and there a missing context must read as "not an admin".
+    const { isAdmin = false } = useAuth() ?? {}
 
     // Aether's channel-state house view — the calendar's fifth tab. Same reasoning as tilt above:
     // both are standing engine views, not dated feeds, but they belong with the calendar group
@@ -51,7 +57,7 @@ export function useCalendarEvents() {
             })
             load(calendarService.getFed, setFedLoading, setFed)
             load(calendarService.getIpo, setIpoLoading, setIpo)
-            load(strategyService.getCurrentTilt, setTiltLoading, setTilt)
+            if (isAdmin) load(strategyService.getCurrentTilt, setTiltLoading, setTilt)
         }
 
         refresh()
@@ -62,7 +68,7 @@ export function useCalendarEvents() {
         window.addEventListener(TILT_CHANGED, refresh)
 
         return () => { active = false; clearInterval(t); window.removeEventListener(TILT_CHANGED, refresh) }
-    }, [])
+    }, [isAdmin])
 
     return { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, tilt, tiltLoading }
 }

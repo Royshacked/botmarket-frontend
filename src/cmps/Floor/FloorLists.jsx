@@ -59,7 +59,11 @@ const DESKS = [
     { key: 'ipo',       label: 'IPO',       group: 'Calendar' },
     // Not a dated list at all — the house view, rendered as a board. It sits with the calendar
     // because it answers the same question, not because it shares its shape.
-    { key: 'forecasts', label: 'Forecasts', group: 'Calendar' },
+    //
+    // ADMIN-ONLY (2026-09-14), with the whole strategy desk: GET /api/strategy/tilt/current is
+    // requireAdmin now, so for a trader this desk could only ever open onto "no view published" —
+    // a board that exists to be empty. Same rule as the Research queue above.
+    { key: 'forecasts', label: 'Forecasts', group: 'Calendar', adminOnly: true },
     // A `channels` desk sat here — Aether's z-score per pressure channel. It went with the
     // channel engine on 2026-09-09, along with the collection behind it.
 ]

@@ -78,7 +78,7 @@ describe('FloorLists', () => {
             expect(desks.some(d => d.className.includes('floor-desk--folded'))).toBe(false)
             expect(desks.map(d => d.querySelector('.floor-desk__label').textContent))
                 .toEqual(['Queued', 'Trading floor', 'Portfolio floor', 'Scans', 'Coverage',
-                          'Aether', 'Earnings', 'Fed', 'IPO', 'Forecasts'])
+                          'Aether', 'Earnings', 'Fed', 'IPO'])
         })
 
         // A folded header is still readable and still reports its state — it is just not somewhere
@@ -334,11 +334,22 @@ describe('FloorLists', () => {
     describe('calendar desks', () => {
         const earning = (over = {}) => ({ symbol: 'AAPL', name: 'Apple', date: '2026-08-20', time: 'amc', ...over })
 
-        it('lists the four calendar feeds as desks of their own', () => {
+        it('lists the three dated feeds as desks of their own', () => {
             render(<FloorLists />)
-            for (const label of ['Earnings', 'Fed', 'IPO', 'Forecasts']) {
+            for (const label of ['Earnings', 'Fed', 'IPO']) {
                 expect(deskBtn(label)).toBeTruthy()
             }
+        })
+
+        // The house view is Pythia's, and Pythia is admin-only (2026-09-14): the tilt read behind
+        // the board is requireAdmin, so for a trader the desk could only ever open onto an empty
+        // board. It joins the group for an admin and is simply absent for everyone else.
+        it('shows the Forecasts board to an admin only', () => {
+            const { unmount } = render(<FloorLists />)
+            expect(screen.queryByRole('button', { name: /Forecasts/ })).toBeNull()
+            unmount()
+            render(<FloorLists isAdmin />)
+            expect(deskBtn('Forecasts')).toBeTruthy()
         })
 
         it('captions them as one group, once, where the group starts', () => {
@@ -354,7 +365,7 @@ describe('FloorLists', () => {
 
         // The house view is ONE standing view, so a count beside it would promise a list of them.
         it('puts no count on Forecasts', () => {
-            render(<FloorLists tilt={{ sectors: [] }} />)
+            render(<FloorLists isAdmin tilt={{ sectors: [] }} />)
             expect(within(deskBtn('Forecasts')).queryByText(/\(/)).toBeNull()
         })
 
