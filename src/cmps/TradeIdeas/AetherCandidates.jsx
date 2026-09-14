@@ -108,6 +108,7 @@ const CATEGORY_HINT = {
     geopolitical: 'states acting on each other or on their own resources',
     macro:        'a central bank, currency regime or sovereign event',
     disruption:   'a physical event with no author — a strike, fire, outage or storm',
+    corporate:    'a company acting on its own account — an order cut, a capacity deal, a supplier switch — that reaches other companies',
 }
 
 const VERDICT_HINT = {
