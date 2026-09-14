@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { AetherCandidates, urgencyOf, byTicker, recurring, lastEventDate, tradable, buildAetherSeed } from './AetherCandidates.jsx'
+import { AetherCandidates, urgencyOf, byTicker, recurring, lastEventDate, tradable, buildAetherSeed, scorecardLine } from './AetherCandidates.jsx'
 import { ADMIN, MEMBER } from '../../testUtils/authStub.js'
 
 // Discovery is the one leg of the engine that spends per press — an Opus call with web
@@ -18,10 +18,12 @@ vi.mock('../../context/AuthContext.jsx', async (orig) => {
 
 const startDiscovery = vi.fn()
 const getDiscoveryStatus = vi.fn(async () => ({ running: false, progress: null, last: null }))
+const getScorecard = vi.fn(async () => null)
 vi.mock('../../services/aether/aether.service.remote.js', () => ({
     aetherService: {
         startDiscovery: (...a) => startDiscovery(...a),
         getDiscoveryStatus: (...a) => getDiscoveryStatus(...a),
+        getScorecard: (...a) => getScorecard(...a),
     },
 }))
 
@@ -30,6 +32,8 @@ afterEach(() => {
     startDiscovery.mockReset()
     getDiscoveryStatus.mockReset()
     getDiscoveryStatus.mockResolvedValue({ running: false, progress: null, last: null })
+    getScorecard.mockReset()
+    getScorecard.mockResolvedValue(null)
     AUTH = ADMIN
 })
 
@@ -1084,5 +1088,75 @@ describe('AetherCandidates — Trade with Mentor', () => {
         openEvent()
         openName()
         expect(screen.queryByRole('button', { name: /Trade with Mentor/ })).toBeNull()
+    })
+})
+
+
+describe('scorecardLine — what the names did, as one sentence', () => {
+    // The two empty states are different sentences: "nothing graded, first grade on
+    // <date>" is a desk not yet tested; "nothing to grade" is a desk with nothing to test;
+    // and no card at all is the nightly not having run.
+
+    it('no card is the nightly not having run', () => {
+        expect(scorecardLine(null).text).toMatch(/nightly refresh has not run/)
+    })
+
+    it('nothing graded with names pending says when the first grade comes', () => {
+        const l = scorecardLine({ overall: { n: 0 }, pending: 182, next_expiry: '2026-09-27' })
+        expect(l.text).toMatch(/nothing graded yet · 182 pending, first grade Sep 27/)
+    })
+
+    it('nothing graded and nothing pending is nothing to grade', () => {
+        expect(scorecardLine({ overall: { n: 0 }, pending: 0 }).text).toMatch(/nothing to grade/)
+    })
+
+    it('a graded card reads counts, the rate of the decided and the mean move', () => {
+        const l = scorecardLine({
+            overall: { n: 12, hit: 7, miss: 4, flat: 1, unpriced: 0, hit_rate: 0.636, avg_signed_pct: 0.014 },
+            by_verdict: { quantified: { hit: 4, miss: 1, hit_rate: 0.8 }, silent: { hit: 3, miss: 3, hit_rate: 0.5 } },
+            by_survived: { survived: { hit_rate: 0.7 }, dropped: { hit_rate: 0.4 } },
+            pending: 170,
+        })
+        expect(l.text).toBe('scorecard · 12 graded · 7 hit / 4 miss / 1 flat · 64% of decided · +1.4% avg vs SPY · 170 pending')
+        expect(l.hint).toMatch(/by filing: quantified: 4\/5 hit · silent: 3\/6 hit/)
+        expect(l.hint).toMatch(/by survival: survived: 70% · dropped: 40%/)
+    })
+
+    it('unpriced names are counted when there are any, and silent when there are none', () => {
+        const base = { n: 3, hit: 1, miss: 1, flat: 0, hit_rate: 0.5, avg_signed_pct: -0.002 }
+        expect(scorecardLine({ overall: { ...base, unpriced: 1 } }).text).toMatch(/1 unpriced/)
+        expect(scorecardLine({ overall: { ...base, unpriced: 0 } }).text).not.toMatch(/unpriced/)
+    })
+
+    it('a negative mean move keeps its sign', () => {
+        expect(scorecardLine({ overall: { n: 2, hit: 0, miss: 2, flat: 0, unpriced: 0, hit_rate: 0, avg_signed_pct: -0.031 } }).text)
+            .toMatch(/0% of decided · -3\.1% avg vs SPY/)
+    })
+
+    it('a missing rate is a dash, never a number', () => {
+        expect(scorecardLine({ overall: { n: 1, hit: 0, miss: 0, flat: 1, unpriced: 0, hit_rate: null, avg_signed_pct: null } }).text)
+            .toMatch(/— of decided · — avg vs SPY/)
+    })
+})
+
+describe('AetherCandidates scorecard line', () => {
+    it('reads the card once and shows it above the events', async () => {
+        getScorecard.mockResolvedValue({ overall: { n: 0 }, pending: 182, next_expiry: '2026-09-27' })
+        render(<AetherCandidates runs={[RUN]} />)
+        await waitFor(() => expect(screen.getByText(/182 pending/)).toBeTruthy())
+        expect(getScorecard).toHaveBeenCalledTimes(1)
+    })
+
+    it('says the nightly has not run when there is no card', async () => {
+        render(<AetherCandidates runs={[RUN]} />)
+        await waitFor(() => expect(screen.getByText(/nightly refresh has not run/)).toBeTruthy())
+    })
+
+    it('a card that will not load costs no line and no error', async () => {
+        getScorecard.mockRejectedValue(new Error('network'))
+        render(<AetherCandidates runs={[RUN]} />)
+        await waitFor(() => expect(getScorecard).toHaveBeenCalled())
+        expect(document.querySelector('.aether-candidates__score')).toBeNull()
+        expect(screen.getByText('Canada')).toBeTruthy()
     })
 })

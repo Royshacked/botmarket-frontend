@@ -492,6 +492,77 @@ function alsoNamedBy(row, exceptRunId = null) {
         .join(' · ')
 }
 
+// ── the scorecard ─────────────────────────────────────────────────────────────
+//
+// What the names did. Every candidate is a claim with an expiry, and the engine's nightly
+// refresh grades each one at its print — hit, miss, flat, or unpriced — and writes one
+// card. This is that card as one line, because the question it answers ("does this desk
+// earn its keep?") is one a reader should meet before the names, not after.
+
+/** `63%` from 0.636; `—` from null. A rate is never invented from a missing one. */
+function rate(v) {
+    return v == null ? '—' : `${Math.round(v * 100)}%`
+}
+
+/** `+1.4%` from 0.014 — signed, because the sign is the whole point of a mean move. */
+function signedPct(v) {
+    if (v == null) return '—'
+    const s = (v * 100).toFixed(1)
+    return `${v > 0 ? '+' : ''}${s}%`
+}
+
+/**
+ * One line, and the splits on hover.
+ *
+ * THE TWO EMPTY STATES ARE DIFFERENT SENTENCES. Nothing graded with names pending is
+ * "first grade on <date>" — a desk that has not been tested yet. Nothing graded and
+ * nothing pending is a desk with nothing to test. And no card at all is the nightly not
+ * having run, which is said as that rather than as either of the others.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- pure, and the copy is worth testing
+export function scorecardLine(card) {
+    if (card === null) return { text: 'no scorecard yet — the nightly refresh has not run', hint: '' }
+    const o = card?.overall ?? {}
+    if (!o.n) {
+        return card?.pending
+            ? { text: `scorecard · nothing graded yet · ${card.pending} pending, first grade ${card.next_expiry ? fmtShortDay(card.next_expiry) : 'unknown'}`,
+                hint: 'A name is graded once, at its expiry — the next report after the event, when the market is forced to look.' }
+            : { text: 'scorecard · nothing to grade', hint: '' }
+    }
+    const verdicts = Object.entries(card.by_verdict ?? {})
+        .map(([k, v]) => `${k}: ${v.hit}/${v.hit + v.miss} hit`)
+        .join(' · ')
+    const survived = Object.entries(card.by_survived ?? {})
+        .map(([k, v]) => `${k}: ${rate(v.hit_rate)}`)
+        .join(' · ')
+    return {
+        text: `scorecard · ${o.n} graded · ${o.hit} hit / ${o.miss} miss / ${o.flat} flat`
+            + `${o.unpriced ? ` / ${o.unpriced} unpriced` : ''} · ${rate(o.hit_rate)} of decided`
+            + ` · ${signedPct(o.avg_signed_pct)} avg vs SPY${card.pending ? ` · ${card.pending} pending` : ''}`,
+        hint: [verdicts && `by filing: ${verdicts}`, survived && `by survival: ${survived}`]
+            .filter(Boolean).join('\n'),
+    }
+}
+
+function Scorecard() {
+    // undefined = not read yet; null = the engine has never written one; object = the card.
+    const [card, setCard] = useState(undefined)
+    useEffect(() => {
+        let alive = true
+        aetherService.getScorecard()
+            .then(c => { if (alive) setCard(c ?? null) })
+            .catch(() => { /* a card that will not load is not worth a line over the list */ })
+        return () => { alive = false }
+    }, [])
+    if (card === undefined) return null
+    const line = scorecardLine(card)
+    return (
+        <p className="aether-candidates__score" title={line.hint || undefined}>
+            {line.text}
+        </p>
+    )
+}
+
 /**
  * The names more than one event reached, above the list.
  *
@@ -785,6 +856,7 @@ export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick
                 </p>
             )}
 
+            <Scorecard />
             <RecurrenceStrip rows={recur} onSymbolClick={onSymbolClick} />
 
             {runs.map(run => {

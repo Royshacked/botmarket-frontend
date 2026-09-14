@@ -236,3 +236,19 @@
     font-size: 10.5px;
     color: var(--text-dim);
 }
+
+// ── the scorecard line ────────────────────────────────────────────────────────
+//
+// One line above the names, quiet, the splits on hover. It reads like the stale-read
+// caveat because it is the same kind of thing: a statement about the list, not a row in it.
+.aether-candidates__score {
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 4px 18px 4px 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    cursor: help;
+    white-space: normal;
+}

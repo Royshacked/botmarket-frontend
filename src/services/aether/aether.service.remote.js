@@ -12,6 +12,7 @@ const BASE = 'api/aether'
 export const aetherService = {
     sendStream,
     getCandidates,
+    getScorecard,
     startDiscovery,
     getDiscoveryStatus,
 }
@@ -32,6 +33,19 @@ function getCandidates({ days = 30, includeDropped = false } = {}) {
     const q = new URLSearchParams({ days: String(days) })
     if (includeDropped) q.set('includeDropped', 'true')
     return httpService.get(`${BASE}/candidates?${q}`)
+}
+
+/**
+ * What the names did — graded at expiry by the engine's nightly refresh. Null when the
+ * engine has never written a card, which is "the nightly has not run yet", not "empty".
+ */
+async function getScorecard() {
+    try {
+        return await httpService.get(`${BASE}/scorecard`)
+    } catch (err) {
+        if (err?.response?.status === 404) return null
+        throw err
+    }
 }
 
 /**
