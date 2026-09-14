@@ -252,3 +252,59 @@
     cursor: help;
     white-space: normal;
 }
+
+// ── Prometheus's quick read ───────────────────────────────────────────────────
+//
+// A verdict line and a paragraph, under the evidence. The verdict is the one coloured word:
+// contradicted in the warning colour, priced in dimmed, credible in the accent — it is the
+// judgment the reader came for, and it should be findable at a glance.
+.aether-candidates__ask {
+    font: inherit;
+    font-size: var(--chat-label);
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border-mid);
+    background: var(--bg-raised);
+    color: var(--text-secondary);
+    cursor: pointer;
+
+    &:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
+    &:disabled { cursor: default; color: var(--text-dim); }
+}
+
+.aether-candidates__read {
+    margin-top: 8px;
+    padding: 6px 10px;
+    border-left: 2px solid var(--border-mid);
+    cursor: help;
+
+    p { margin: 4px 0 0; }
+    ul { margin: 4px 0 0; padding-left: 14px; }
+
+    &--credible     { border-left-color: var(--accent-light); }
+    &--priced_in    { border-left-color: var(--text-dim); }
+    &--contradicted { border-left-color: var(--color-warning); }
+}
+
+.aether-candidates__read-label {
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-right: 6px;
+}
+
+.aether-candidates__read-verdict {
+    color: var(--text-primary);
+    .aether-candidates__read--credible &     { color: var(--accent-light); }
+    .aether-candidates__read--priced_in &    { color: var(--text-muted); }
+    .aether-candidates__read--contradicted & { color: var(--color-warning); }
+}
+
+.aether-candidates__read-conf {
+    margin-left: 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-dim);
+}

@@ -19,11 +19,13 @@ vi.mock('../../context/AuthContext.jsx', async (orig) => {
 const startDiscovery = vi.fn()
 const getDiscoveryStatus = vi.fn(async () => ({ running: false, progress: null, last: null }))
 const getScorecard = vi.fn(async () => null)
+const quickRead = vi.fn()
 vi.mock('../../services/aether/aether.service.remote.js', () => ({
     aetherService: {
         startDiscovery: (...a) => startDiscovery(...a),
         getDiscoveryStatus: (...a) => getDiscoveryStatus(...a),
         getScorecard: (...a) => getScorecard(...a),
+        quickRead: (...a) => quickRead(...a),
     },
 }))
 
@@ -34,6 +36,7 @@ afterEach(() => {
     getDiscoveryStatus.mockResolvedValue({ running: false, progress: null, last: null })
     getScorecard.mockReset()
     getScorecard.mockResolvedValue(null)
+    quickRead.mockReset()
     AUTH = ADMIN
 })
 
@@ -1158,5 +1161,63 @@ describe('AetherCandidates scorecard line', () => {
         await waitFor(() => expect(getScorecard).toHaveBeenCalled())
         expect(document.querySelector('.aether-candidates__score')).toBeNull()
         expect(screen.getByText('Canada')).toBeTruthy()
+    })
+})
+
+
+describe('AetherCandidates — Prometheus quick read', () => {
+    const READ = { verdict: 'contradicted', confidence: 0.8, read: 'It hedged the exposure in the 10-Q.',
+                   evidence: [{ fact: 'Hedged 90% of 2026 volumes', source: '10-Q 2026-08-01' }] }
+    const cand = (over = {}) => ({ ticker: 'NUE', side: 'hurt', tier: 2, verdict: 'quantified',
+                                   mechanism: 'steel input cost', excess_pct: 0.003, extension: 0.2,
+                                   created_at: new Date().toISOString(), expires_at: '2099-01-01', ...over })
+
+    it('offers the button when no read exists, and shows the read once produced', async () => {
+        quickRead.mockResolvedValue(READ)
+        render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} />)
+        openEvent()
+        openName()
+        fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+        expect(quickRead).toHaveBeenCalledWith('Canada:2026-09-08', 'NUE')
+        await waitFor(() => expect(screen.getByText('contradicted')).toBeTruthy())
+        expect(screen.getByText('It hedged the exposure in the 10-Q.')).toBeTruthy()
+        expect(screen.getByText(/Hedged 90% of 2026 volumes/)).toBeTruthy()
+        expect(screen.getByText('80%')).toBeTruthy()
+        expect(screen.queryByRole('button', { name: 'Ask Prometheus' })).toBeNull()
+    })
+
+    it('a read already on the candidate shows without a button', () => {
+        render(<AetherCandidates runs={[{ ...RUN, candidates: [cand({ quick_read: { verdict: 'priced_in', read: 'Estimates moved.' } })] }]} />)
+        openEvent()
+        openName()
+        expect(screen.getByText('priced in')).toBeTruthy()
+        expect(screen.queryByRole('button', { name: 'Ask Prometheus' })).toBeNull()
+    })
+
+    it('a failed read keeps the button and says why', async () => {
+        quickRead.mockRejectedValue(new Error('budget'))
+        render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} />)
+        openEvent()
+        openName()
+        fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+        await waitFor(() => expect(screen.getByText(/budget/)).toBeTruthy())
+        expect(screen.getByRole('button', { name: 'Ask Prometheus' })).toBeTruthy()
+    })
+
+    it('the read rides in the Mentor seed', async () => {
+        quickRead.mockResolvedValue(READ)
+        const onTradeWithMentor = vi.fn()
+        render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} onTradeWithMentor={onTradeWithMentor} />)
+        openEvent()
+        openName()
+        fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+        await waitFor(() => expect(screen.getByText('contradicted')).toBeTruthy())
+        fireEvent.click(screen.getByRole('button', { name: /Trade with Mentor/ }))
+        const [, message] = onTradeWithMentor.mock.calls[0]
+        expect(message).toMatch(/Prometheus's quick read: contradicted \(80% confidence\) — It hedged the exposure in the 10-Q\./)
+    })
+
+    it('the seed carries no Prometheus line when there was no read', () => {
+        expect(buildAetherSeed(cand(), RUN)).not.toMatch(/Prometheus/)
     })
 })

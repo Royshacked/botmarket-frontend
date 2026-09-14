@@ -13,6 +13,7 @@ export const aetherService = {
     sendStream,
     getCandidates,
     getScorecard,
+    quickRead,
     startDiscovery,
     getDiscoveryStatus,
 }
@@ -46,6 +47,16 @@ async function getScorecard() {
         if (err?.response?.status === 404) return null
         throw err
     }
+}
+
+/**
+ * Prometheus's quick read on one name from one event: credible, priced in, or contradicted.
+ * A model call — Sonnet, a few cents — on the caller's budget. Resolves to the read, which is
+ * also attached to the candidate on the next list refresh. Returns the stored read when one
+ * exists, so pressing twice costs once.
+ */
+function quickRead(runId, ticker) {
+    return httpService.post(`${BASE}/quickread`, { run_id: runId, ticker })
 }
 
 /**

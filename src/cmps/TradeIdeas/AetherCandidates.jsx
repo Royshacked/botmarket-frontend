@@ -270,8 +270,99 @@ export function buildAetherSeed(c, run = {}) {
         lines.push(`Clock: it expires ${c.expires_at}${d != null ? ` (${d}d)` : ''}`
             + `${c.next_earnings ? `, at its next report` : ''} — the setup should be done by then.`)
     }
+    // Prometheus's quick read, when one was asked for. Its verdict is the one thing Mentor cannot
+    // get from Aether's fields, and a `contradicted` is exactly what should change the lean.
+    if (c.quick_read?.verdict) {
+        const q = c.quick_read
+        lines.push(`Prometheus's quick read: ${QUICKREAD_LABEL[q.verdict] ?? q.verdict}`
+            + `${q.confidence != null ? ` (${Math.round(q.confidence * 100)}% confidence)` : ''}`
+            + `${q.read ? ` — ${q.read}` : ''}`)
+    }
     lines.push(`My lean is ${side} unless you see a reason not to — take me through entry, invalidation and the window.`)
     return lines.join('\n')
+}
+
+// ── Prometheus's quick read ───────────────────────────────────────────────────
+//
+// Optional, per name, never a gate. Mentor reads filings and news while it builds anyway; this is
+// for the names the reader is unsure about — phases 1–2 of Prometheus on Sonnet, a few cents, a
+// verdict and a paragraph, stored once per name per event and shown to everyone.
+const QUICKREAD_LABEL = {
+    credible:     'credible',
+    priced_in:    'priced in',
+    contradicted: 'contradicted',
+    unclear:      'unclear',
+}
+const QUICKREAD_HINT = {
+    credible:     'the mechanism holds and the record confirms it, and neither the estimates nor the price have absorbed it yet',
+    priced_in:    'the exposure is real, but the estimates or a documented move show the market has already looked',
+    contradicted: 'something the company said or filed since the event cuts against the mechanism',
+    unclear:      'not enough to say either way — an honest answer, not a soft credible',
+}
+
+/**
+ * The read when there is one, the button when there is not. Local state holds a read produced
+ * on this screen until the next list refresh carries it on the candidate itself.
+ */
+function QuickRead({ c, runId, read, onRead }) {
+    const [busy, setBusy] = useState(false)
+    const [err, setErr] = useState('')
+
+    if (read?.verdict) {
+        return (
+            <div className={`aether-candidates__read aether-candidates__read--${read.verdict}`}
+                 title={QUICKREAD_HINT[read.verdict] ?? ''}>
+                <span className="aether-candidates__read-label">Prometheus</span>
+                <strong className="aether-candidates__read-verdict">{QUICKREAD_LABEL[read.verdict] ?? read.verdict}</strong>
+                {read.confidence != null && (
+                    <span className="aether-candidates__read-conf">{Math.round(read.confidence * 100)}%</span>
+                )}
+                {read.read && <p className="floor-detail__prose">{read.read}</p>}
+                {read.evidence?.length > 0 && (
+                    <ul>
+                        {read.evidence.map((e, i) => (
+                            <li key={i}>{e.fact}{e.source ? <> — <em>{e.source}</em></> : null}</li>
+                        ))}
+                    </ul>
+                )}
+            </div>
+        )
+    }
+
+    async function ask() {
+        setBusy(true)
+        setErr('')
+        try {
+            const r = await aetherService.quickRead(runId, c.ticker)
+            onRead(r)
+        } catch (e) {
+            setErr(apiError(e, 'could not get a read'))
+        } finally {
+            setBusy(false)
+        }
+    }
+
+    return (
+        <div className="aether-candidates__act">
+            <button
+                type="button"
+                className="aether-candidates__ask"
+                disabled={busy}
+                onClick={ask}
+                title="Prometheus checks what the company has said or filed since the event, and the estimate trend — credible, priced in, or contradicted. One Sonnet call on your budget; the read is kept and shown to everyone."
+            >
+                {busy ? 'Prometheus is reading…' : 'Ask Prometheus'}
+            </button>
+            {err && <span className="aether-candidates__act-why">{err}</span>}
+        </div>
+    )
+}
+
+QuickRead.propTypes = {
+    c: PropTypes.object.isRequired,
+    runId: PropTypes.string,
+    read: PropTypes.object,
+    onRead: PropTypes.func.isRequired,
 }
 
 /**
@@ -617,6 +708,10 @@ RecurrenceStrip.propTypes = {
  */
 function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTradeWithMentor }) {
     const runId = run.run_id
+    // A read produced on this screen, until the next list refresh carries it on `c` itself.
+    const [localRead, setLocalRead] = useState(null)
+    const read = c.quick_read ?? localRead
+    const cRead = read ? { ...c, quick_read: read } : c
     const dir = SIDE[c.side]?.dir ?? 'mixed'
     const urg = urgencyOf(c)
     const mag = magnitude(c)
@@ -729,6 +824,10 @@ function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTra
                             )}
                         </div>
 
+                        {/* Prometheus first, then the trade — the read is part of the why, and
+                            a `contradicted` should be seen before the button is pressed. */}
+                        <QuickRead c={c} runId={runId} read={read} onRead={setLocalRead} />
+
                         {/* IN THE DRAWER, not on the row. The row's right edge is the score and
                             status cells, and an overlay there is how the old `open` button
                             charted a symbol when the reader reached for a label. Here it sits
@@ -746,7 +845,7 @@ function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTra
                                     className="aether-candidates__trade"
                                     disabled={!trade.ok}
                                     title={trade.why}
-                                    onClick={() => onTradeWithMentor(c.ticker, buildAetherSeed(c, run))}
+                                    onClick={() => onTradeWithMentor(c.ticker, buildAetherSeed(cRead, run))}
                                 >
                                     Trade with Mentor →
                                 </button>
