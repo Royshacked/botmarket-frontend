@@ -221,7 +221,10 @@ export const isBotId = (id) => BOT_IDS.includes(id)
 export const RETIRED_BOT_IDS = ['idea']
 export const isRetiredBotId = (id) => RETIRED_BOT_IDS.includes(id)
 // Admin-only feeds — hidden from traders. The feed still exists; traders just never see it.
-export const ADMIN_BOT_IDS = ['strategy']
+// Pythia (the house view) and, since 2026-09-14, Prometheus: coverage is a house artifact only an
+// admin can revise, and every card in that feed asks for that revision. Backend ADMIN_BOT_IDS
+// must stay in step — the server hides the same threads.
+export const ADMIN_BOT_IDS = ['strategy', 'analyst']
 export const isAdminBotId = (id) => ADMIN_BOT_IDS.includes(id)
 // The one bot you can chat with; the rest are read-only alert feeds.
 export const CONVERSATIONAL_BOT_ID = 'axl'

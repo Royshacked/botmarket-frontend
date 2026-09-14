@@ -40,7 +40,7 @@ import { resolveEntity, resolveForEdit } from '../services/entityResolve.js'
 import { useDeskHandoff } from '../customHooks/useDeskHandoff.js'
 import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
-import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, TILT_REVIEW_OPEN, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST } from '../services/event-bus.service'
+import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, TILT_REVIEW_OPEN, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
 import { adoptService } from '../services/adopt/adopt.service.remote.js'
 import { AdoptBookGrid } from '../cmps/AdoptBook/AdoptBookGrid.jsx'
@@ -434,6 +434,13 @@ export function MainPage() {
     function researchOpening(item) {
         const c = item.context
         if (!c?.sector) return `Research ${item.symbol} for coverage.`
+        // A SLEEVE candidate (sleeveSource): the mandate that surfaced it is a user's book, not the
+        // house view. Same sentence as the backend's researchOpening — keep them saying the same thing.
+        if (c.sleeve) {
+            const school = c.school ? ` under a ${c.school} selection` : ''
+            const note   = c.note ? ` (${c.note})` : ''
+            return `Research ${item.symbol} for coverage — a candidate for the ${c.sector} sleeve of a portfolio build${school}${note}.`
+        }
         const bp     = Number.isFinite(Number(c.active_bp)) ? ` +${c.active_bp}bp` : ''
         const regime = c.regime ? ` on a “${c.regime}” regime` : ''
         const basis  = c.basis ? ` (basis: ${String(c.basis).replace(/_/g, ' ')})` : ''
@@ -1052,6 +1059,19 @@ export function MainPage() {
     useEffect(() => {
         return eventBus.on(PORTFOLIO_REVIEW, ({ portfolioId }) => {
             handleEditPortfolio(portfolioId, { reviewMode: true })
+        })
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Sleeve-sourced card → back to the build the sleeve was FOR. A book that exists reopens as its
+    // edit; a construction still in a thread reopens that thread on Atlas, the same path the thread
+    // history's resume takes. Plain setActiveTab, like Pythia's review: the desk panels are mounted
+    // behind a display toggle, so the resume lands on a live panel.
+    useEffect(() => {
+        return eventBus.on(RESUME_BUILD, ({ portfolioId = null, threadId = null } = {}) => {
+            if (portfolioId) { handleEditPortfolio(portfolioId); return }
+            setActiveTab('portfolio')
+            setActivePipeline('portfolio')
+            if (threadId) _resumeThreadOn('portfolio', threadId)
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -60,6 +60,9 @@ export function PortfolioPanel({
 
     const [pendingPlan,           setPendingPlan]           = useState(null)
     const [coverageRequest,       setCoverageRequest]       = useState(null)   // { symbol, reason } — clears on next send
+    // The sleeves Atlas sent to be SOURCED this turn ([{ sector, lens }]). The hop runs on the server
+    // (sleeveSource) and comes back as a social-chat card, so this is a status line, not a button.
+    const [sleeveRequests,        setSleeveRequests]        = useState([])
     const [editingPortfolioId,    setEditingPortfolioId]    = useState(null)
     const [editingPortfolioIdeas, setEditingPortfolioIdeas] = useState([])
     const [editDirty,             setEditDirty]             = useState(false)
@@ -76,6 +79,7 @@ export function PortfolioPanel({
         setMessages(chatRestore.messages ?? [])
         setPendingPlan(null)
         setCoverageRequest(null)
+        setSleeveRequests([])
         setEditDirty(false)
         setDismissConfirm(false)
         setEditingPortfolioId(chatRestore.portfolioId ?? null)
@@ -147,6 +151,7 @@ export function PortfolioPanel({
     async function _send(text) {
         setEditDirty(true)
         setCoverageRequest(null)
+        setSleeveRequests([])
 
         const history = toChatHistory(messages)
         history.push({ role: 'user', content: text })
@@ -170,6 +175,7 @@ export function PortfolioPanel({
                 chat.finishStreaming({ role: 'assistant', content: data.reply, tickers })
                 if (data.plan?.ideas?.length) setPendingPlan(data.plan)
                 if (data.coverage_request?.symbol) setCoverageRequest(data.coverage_request)
+                if (data.screen_requests?.length) setSleeveRequests(data.screen_requests.filter(r => r?.sector))
                 // Pass any thesis emitted in THIS same turn so a confirmed review
                 // rebalance persists it (reason 'accepted-rebalance'). Only the
                 // same-turn proposal is attached — never the restored existing thesis.
@@ -232,6 +238,7 @@ export function PortfolioPanel({
                 chat.finishStreaming({ role: 'assistant', content: base + data.reply, tickers })
                 if (data.plan?.ideas?.length) setPendingPlan(data.plan)
                 if (data.coverage_request?.symbol) setCoverageRequest(data.coverage_request)
+                if (data.screen_requests?.length) setSleeveRequests(data.screen_requests.filter(r => r?.sector))
                 if (data.update?.changes?.length) {
                     // Review mode: surface an inline Accept/Dismiss on the proposal.
                     // Construction/edit: hand off to the existing apply path.
@@ -482,6 +489,16 @@ export function PortfolioPanel({
                 )}
 
             </AgentMessages>
+
+            {sleeveRequests.length > 0 && !isLoading && (
+                <div className="portfolio-panel__action-bubble portfolio-panel__coverage-notice">
+                    <span className="portfolio-panel__coverage-notice-icon">🔬</span>
+                    <span>
+                        {sleeveRequests.map(r => <strong key={r.sector}>{r.sector}{r.lens ? ` (${r.lens})` : ''}</strong>).reduce((acc, el, i) => acc.length ? [...acc, i === sleeveRequests.length - 1 ? ' and ' : ', ', el] : [el], [])}
+                        {sleeveRequests.length === 1 ? ' sleeve' : ' sleeves'} sent to Argus and Prometheus — you&apos;ll get a card here to resume the build once the research is in.
+                    </span>
+                </div>
+            )}
 
             {coverageRequest && !isLoading && (
                 <div className="portfolio-panel__action-bubble portfolio-panel__coverage-notice">

@@ -23,6 +23,7 @@ const TYPE_LABELS = {
     coverage_event:     'Coverage update',
     tilt_event:         'Sector view changed',
     coverage_refreshed: 'Research refreshed',
+    sleeve_sourced:     'Sleeve sourced',
     queue_ready:        'Market open',
 }
 

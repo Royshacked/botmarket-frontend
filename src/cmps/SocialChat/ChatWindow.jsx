@@ -4,7 +4,7 @@ import PropTypes from 'prop-types'
 // with the Calls list, so the window name and size can't drift between the two entry points.
 import { openCallPopup, openSetupPopup } from '../TradeIdeas/tradeIdea.utils.js'
 import { manageVerb } from '../TradeIdeas/setupManage.js'
-import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, TILT_REVIEW_OPEN, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST } from '../../services/event-bus.service'
+import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, TILT_REVIEW_OPEN, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD } from '../../services/event-bus.service'
 import { manualService } from '../../services/manual/manual.service.remote'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
@@ -214,6 +214,8 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                                 ? <TiltEventBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'tilt_review' && msg.payload
                                 ? <TiltReviewBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
+                                : msg.type === 'sleeve_sourced' && msg.payload
+                                ? <SleeveSourcedBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'coverage_refreshed' && msg.payload
                                 ? <CoverageRefreshedBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'market_brief_offer'
@@ -727,6 +729,30 @@ export function CoverageRefreshedBubble({ msg, onClose, onResolve }) {
         <NotificationCard
             agent={AGENTS.analyst} kind="coverage" heading={heading} asset={symbol} body={msg.content}
             primaryLabel={msg.actions?.primary?.label ?? (portfolioId ? 'Resume review' : 'Open coverage')} onPrimary={handlePrimary}
+            onResolve={onResolve} msg={msg}
+            resolvedLabels={{ resumed: '✓ Resumed', opened: '✓ Opened' }}
+        />
+    )
+}
+
+/**
+ * Atlas: a sleeve the build asked for has been screened and researched (sleeveSource, server-side),
+ * and the pool now holds what it holds. "Resume build" goes back to the build itself — the
+ * construction thread, or the book's edit when the sleeve was for a portfolio that already exists.
+ */
+export function SleeveSourcedBubble({ msg, onClose, onResolve }) {
+    const { sector, school, threadId, portfolioId, covered = [], screened } = msg.payload
+    const heading = `Sleeve · ${sector}${school ? ` (${school})` : ''} — ${covered.length} of ${screened ?? covered.length} in coverage`
+
+    function handlePrimary() {
+        eventBus.emit(RESUME_BUILD, { threadId: threadId ?? null, portfolioId: portfolioId ?? null })
+        onClose?.()
+    }
+
+    return (
+        <NotificationCard
+            agent={AGENTS.portfolio} kind="portfolio" heading={heading} asset={sector} body={msg.content}
+            primaryLabel={msg.actions?.primary?.label ?? 'Resume build'} onPrimary={handlePrimary}
             onResolve={onResolve} msg={msg}
             resolvedLabels={{ resumed: '✓ Resumed', opened: '✓ Opened' }}
         />

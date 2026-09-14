@@ -47,6 +47,9 @@ export const MARKET_BRIEF_OPEN         = 'market-brief-open'
 // Market-open card "Open the list" → the Floor's queued desk, where work confirmed off-hours (and
 // anything the sweep just unparked) is executed one row at a time.
 export const OPEN_QUEUED_LIST          = 'open-queued-list'
+// Sleeve-sourced card "Resume build" → back to Atlas, on the build the sleeve was sourced FOR: the
+// construction thread (threadId) or, for a book that already exists, its edit/review (portfolioId).
+export const RESUME_BUILD              = 'resume-build'
 
 // Open the EXPRESS SETUP FORM at the trade desk, on a plan drawn elsewhere.
 // Payload: { blueprint, locked?, note?, drawnAt?, from? } — a portable setup blueprint
