@@ -13,6 +13,7 @@ import { httpService } from './http.service'
 import { initTheme, initAccent } from './themeService'
 import { initDesign } from './designService'
 import { AI_PREF_KEYS, LEGACY_AI_PREF_KEYS, migrateAiPrefs } from './aiPrefKeys'
+import { CANDLE_PREF_KEYS, initCandleColors } from './candleColors.service'
 
 // Explicit allowlist — only these keys sync. Keeps unrelated localStorage
 // (loggedinUser, popup-idea-*, …) out of the account preferences blob.
@@ -25,6 +26,8 @@ const PREF_KEYS = [
     'accentHue', 'accentShade',
     // design trial
     'design',
+    // price-chart candle up/down override (services/candleColors.service.js)
+    ...CANDLE_PREF_KEYS,
     // chat text streaming speed
     'chatTextPaceCps',
     // the one shared AI setting every conversational desk reads (services/aiPrefKeys.js)
@@ -71,6 +74,7 @@ export function applyPreferences(prefs) {
     initTheme()
     initDesign()
     initAccent()
+    initCandleColors()
 }
 
 // Pull the account's saved preferences and apply them. Best-effort: on any failure

@@ -3,6 +3,7 @@ import PropTypes from 'prop-types'
 import { init, dispose, utils, registerOverlay, registerIndicator } from 'klinecharts'
 import { marketService } from '../../services/market/market.service.remote'
 import { toPeriod, isCurrentPeriod } from './chartPeriod.js'
+import { CANDLE_COLORS_EVENT } from '../../services/candleColors.service.js'
 import './PriceChart.scss'
 
 // ── Custom klinecharts registrations (module-level: registries are global, register once) ──
@@ -111,7 +112,9 @@ function precisionOf(candles) {
 // The chart is theme-independent: its chrome (grid / axis / crosshair / tooltip) is a FIXED
 // neutral palette and its pane is a fixed black (SCSS), so switching the app's theme color leaves
 // the chart untouched. Only the candle direction colors and the mono font are read from tokens,
-// and those are constant across themes — so there's no need to re-resolve on theme change.
+// and those are constant across themes — so there's no need to re-resolve on theme change. The
+// one thing that CAN change under a mounted chart is the user's candle colour override
+// (services/candleColors.service.js), and that arrives as an event, not a theme switch.
 // Fade a #rrggbb token to an rgba() at the given alpha — the volume bars reuse the candle
 // session colors but sit slightly translucent behind price. Non-hex input is returned as-is.
 function fade(hex, alpha) {
@@ -151,9 +154,10 @@ function readThemeStyles() {
     const TIPBG  = '#141414'                      // crosshair label background
     // Candle up/down reuse the header session-dial colors (MarketClocks): in-session green /
     // closed-session red — one shared source (--mc-arc-open / --mc-arc-closed in _themes.scss),
-    // constant across themes.
-    const UP     = v('--mc-arc-open',    '#1c7a3e')
-    const DOWN   = v('--mc-arc-closed',  '#5e1212')
+    // constant across themes. A user override (--candle-up / --candle-down, inline on <html> from
+    // the profile's candle picker) wins over the shared token; the dials keep theirs.
+    const UP     = v('--candle-up',   v('--mc-arc-open',   '#1c7a3e'))
+    const DOWN   = v('--candle-down', v('--mc-arc-closed', '#5e1212'))
     // All chart text/numbers use the app's mono stack (--font-mono) instead of klinecharts'
     // default Helvetica Neue, so axis, crosshair, price mark and tooltips match the app.
     const FONT   = v('--font-mono',      "'IBM Plex Mono', monospace")
@@ -308,7 +312,11 @@ export const PriceChart = forwardRef(function PriceChart({ symbol = 'SPY', inter
         el.addEventListener('mouseleave', onLeave)
 
         // No theme observer: the chart's palette is fixed (black pane + neutral chrome), so it
-        // deliberately does NOT follow the app's data-theme / data-design switches.
+        // deliberately does NOT follow the app's data-theme / data-design switches. The candle
+        // colour override is the exception — it is the user's, not the theme's — so the chart
+        // re-reads its palette when the picker raises the event.
+        const onCandleColors = () => chart.setStyles(readThemeStyles())
+        window.addEventListener(CANDLE_COLORS_EVENT, onCandleColors)
 
         let pollId = null
         let quoteId = null
@@ -390,6 +398,7 @@ export const PriceChart = forwardRef(function PriceChart({ symbol = 'SPY', inter
             ro.disconnect()
             chart.unsubscribeAction('onCrosshairChange', onCrosshair)
             el.removeEventListener('mouseleave', onLeave)
+            window.removeEventListener(CANDLE_COLORS_EVENT, onCandleColors)
             dispose(el)
             chartRef.current = null
         }

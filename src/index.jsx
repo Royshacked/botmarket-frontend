@@ -7,9 +7,11 @@ import { AuthProvider } from './context/AuthContext'
 import './assets/styles/main.scss'
 import { initTheme } from './services/themeService'
 import { initDesign } from './services/designService'
+import { initCandleColors } from './services/candleColors.service'
 
 initTheme()
 initDesign()
+initCandleColors()
 
 const root = ReactDOM.createRoot(document.getElementById('root'))
 root.render(

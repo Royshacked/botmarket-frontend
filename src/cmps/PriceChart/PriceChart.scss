@@ -55,9 +55,10 @@
         // O / H / L / C / Vol labels — muted, like the rest of the app's readouts.
         i { font-style: normal; color: var(--text-muted); }
 
-        // Tint only the close value by direction; keep its label muted.
-        .is-up   { color: var(--color-long); }
-        .is-down { color: var(--color-short); }
+        // Tint only the close value by direction; keep its label muted. Follows the user's candle
+        // colour override when one is set, so the readout matches the candles it describes.
+        .is-up   { color: var(--candle-up,   var(--color-long)); }
+        .is-down { color: var(--candle-down, var(--color-short)); }
         .is-up i, .is-down i { color: var(--text-muted); }
     }
 

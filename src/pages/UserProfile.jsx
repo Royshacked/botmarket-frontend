@@ -6,6 +6,7 @@ import { httpService }         from '../services/http.service.js'
 import { userService }         from '../services/user/user.service.remote.js'
 import { ThemeSwitcher }       from '../cmps/ThemeSwitcher/ThemeSwitcher'
 import { AccentSwitcher }      from '../cmps/AccentSwitcher/AccentSwitcher'
+import { CandleColorPicker }   from '../cmps/CandleColorPicker/CandleColorPicker'
 import { ModeSwitcher }        from '../cmps/ModeSwitcher/ModeSwitcher'
 import { loadAppearance }      from '../services/themeService.js'
 import { PaceSlider }          from '../cmps/PaceSlider.jsx'
@@ -250,6 +251,10 @@ export function UserProfile() {
                         <div className="user-profile__row user-profile__row--inline">
                             <span className="user-profile__label">Accent</span>
                             <AccentSwitcher />
+                        </div>
+                        <div className="user-profile__row user-profile__row--inline">
+                            <span className="user-profile__label">Candles</span>
+                            <CandleColorPicker />
                         </div>
                         <div className="user-profile__row user-profile__row--inline">
                             <span className="user-profile__label">Design</span>
