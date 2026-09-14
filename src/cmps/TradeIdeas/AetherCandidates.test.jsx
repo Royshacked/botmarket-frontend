@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { AetherCandidates, urgencyOf, byTicker, lastEventDate } from './AetherCandidates.jsx'
+import { AetherCandidates, urgencyOf, byTicker, recurring, lastEventDate } from './AetherCandidates.jsx'
 import { ADMIN, MEMBER } from '../../testUtils/authStub.js'
 
 // Discovery is the one leg of the engine that spends per press — an Opus call with web
@@ -47,6 +47,15 @@ const RUN = {
 // moves, which is the whole feature. A name-based query would have to list every stage.
 const btn = () => document.querySelector('.aether-candidates__run-btn')
 
+// EVENT-FIRST: a name lives inside its event, so most assertions open the event first.
+// By subject, which is what the event row prints.
+const openEvent = (subject = 'Canada') =>
+    fireEvent.click(screen.getByText(subject).closest('button'))
+// ...and then the name, whose own drawer is one level further down. Scoped to the open
+// event's body: the recurrence strip above the list prints the same ticker.
+const openName = (ticker = 'NUE') =>
+    fireEvent.click(within(document.querySelector('.floor-sub__body')).getByText(ticker).closest('button'))
+
 describe('AetherCandidates run button', () => {
 
     it('is not offered to a signed-in member', () => {
@@ -60,7 +69,7 @@ describe('AetherCandidates run button', () => {
         // must cost the button and nothing else.
         AUTH = null
         expect(() => render(<AetherCandidates runs={[RUN]} />)).not.toThrow()
-        expect(screen.getByText('NUE')).toBeTruthy()
+        expect(screen.getByText('Canada')).toBeTruthy()
         expect(btn()).toBeNull()
     })
 
@@ -116,21 +125,39 @@ describe('AetherCandidates run button', () => {
 
 describe('AetherCandidates list', () => {
 
-    it('names the event, its category and its date on the appearance itself', () => {
-        // The category rode a chip strip above the list until the list went ticker-first.
-        // It belongs to the appearance, not to the screen: a company reached by two events
-        // has two categories, and a strip can only show one of them per event anyway.
+    it('the event row names the subject, its kind and its date, closed', () => {
+        // The event is the unit a reader reasons about — "this happened, and these names
+        // are exposed to it" — so it is the row, and the names are inside it.
         render(<AetherCandidates runs={[RUN]} />)
-        fireEvent.click(screen.getByText('NUE').closest('button'))
-        expect(screen.getByText(/Canada/)).toBeTruthy()
-        expect(screen.getByText(/trade/)).toBeTruthy()
+        expect(screen.getByText('Canada')).toBeTruthy()
+        expect(screen.getByText('trade')).toBeTruthy()
+        expect(screen.getByText('Sep 8')).toBeTruthy()
+        expect(screen.queryByText('NUE')).toBeNull()
     })
 
-    it('a run stored before the label existed simply omits it', () => {
-        render(<AetherCandidates runs={[{ ...RUN, event_category: '' }]} />)
-        fireEvent.click(screen.getByText('NUE').closest('button'))
-        expect(screen.queryByText(/· trade/)).toBeNull()
+    it('the names are inside the event, one click down', () => {
+        render(<AetherCandidates runs={[RUN]} />)
+        openEvent()
         expect(screen.getByText('NUE')).toBeTruthy()
+        expect(screen.getByText('Canada imposes retaliatory tariffs')).toBeTruthy()
+    })
+
+    it('a run stored before the kind existed shows no kind rather than a wrong one', () => {
+        render(<AetherCandidates runs={[{ ...RUN, event_category: '' }]} />)
+        expect(screen.queryByText('trade')).toBeNull()
+        expect(screen.getByTitle('kind not recorded')).toBeTruthy()
+    })
+
+    it('the event row says how many of its names the filings sized', () => {
+        const run = { ...RUN, evidence: { n_survived: 45, n_quantified: 8, discloses: false } }
+        render(<AetherCandidates runs={[run]} />)
+        expect(screen.getByText('8/45 sized')).toBeTruthy()
+        expect(screen.getByTitle(/does not land on a line item/)).toBeTruthy()
+    })
+
+    it('a run without the evidence summary shows a dash, never a number', () => {
+        render(<AetherCandidates runs={[RUN]} />)
+        expect(screen.getByTitle(/nothing to size/)).toBeTruthy()
     })
 
     it('an unmeasured magnitude never reads as small', () => {
@@ -138,6 +165,7 @@ describe('AetherCandidates list', () => {
         // cards and never "small", off a channel state three months stale. Nothing in this
         // cell may imply a size the engine did not measure.
         render(<AetherCandidates runs={[RUN]} />)
+        openEvent()
         for (const word of [/small/i, /large/i, /medium/i, /moderate/i]) {
             expect(screen.queryByText(word)).toBeNull()
         }
@@ -152,12 +180,14 @@ describe('AetherCandidates list', () => {
 
     it('a name whose filing carries a figure says so', () => {
         render(<AetherCandidates runs={[RUN]} />)
+        openEvent()
         expect(screen.getByText('figure')).toBeTruthy()
     })
 
     it('a name its filings only mention reads as named, not as a dash', () => {
         const run = { ...RUN, candidates: [{ ...RUN.candidates[0], verdict: 'mentioned' }] }
         render(<AetherCandidates runs={[run]} />)
+        openEvent()
         expect(screen.getByText('named')).toBeTruthy()
     })
 
@@ -166,6 +196,7 @@ describe('AetherCandidates list', () => {
         // silent in its filings is the interesting case. It must be legible as that.
         const run = { ...RUN, candidates: [{ ...RUN.candidates[0], verdict: 'silent' }] }
         render(<AetherCandidates runs={[run]} />)
+        openEvent()
         expect(screen.getByText('press only')).toBeTruthy()
         expect(screen.getByTitle(/rests on the press mechanism alone/)).toBeTruthy()
     })
@@ -173,6 +204,7 @@ describe('AetherCandidates list', () => {
     it('a disclosed percentage still outranks the label', () => {
         const run = { ...RUN, candidates: [{ ...RUN.candidates[0], impact_pct_revenue: 0.021 }] }
         render(<AetherCandidates runs={[run]} />)
+        openEvent()
         expect(screen.getByText('2.10%')).toBeTruthy()
         expect(screen.queryByText('figure')).toBeNull()
     })
@@ -182,6 +214,7 @@ describe('AetherCandidates list', () => {
         // it means EDGAR could not be asked, which is not a finding about the filing.
         const run = { ...RUN, candidates: [{ ...RUN.candidates[0], verdict: 'unverified' }] }
         render(<AetherCandidates runs={[run]} />)
+        openEvent()
         expect(screen.getByTitle(/no figure stated in the filing/)).toBeTruthy()
     })
 })
@@ -230,21 +263,28 @@ describe('AetherCandidates scrolling', () => {
     it('the open row pins to the top of the scrolling list', () => {
         // A drawer holds a block per event and runs past a screen, so the row naming the
         // company scrolls away first and the reader loses which name they are reading about.
-        const pinned = css.slice(css.indexOf('.aether-candidates .floor-sub--open .floor-rowhost'))
+        const pinned = css.slice(css.indexOf('.aether-candidates .floor-sub--open > .floor-rowhost'))
         expect(pinned.slice(0, 300)).toMatch(/position:\s*sticky/)
         expect(pinned.slice(0, 300)).toMatch(/top:\s*0/)
     })
 
     it('the pinned row is opaque, or the drawer reads through it', () => {
-        const pinned = css.slice(css.indexOf('.aether-candidates .floor-sub--open .floor-rowhost'))
+        const pinned = css.slice(css.indexOf('.aether-candidates .floor-sub--open > .floor-rowhost'))
         expect(pinned.slice(0, 400)).toMatch(/background:\s*var\(--bg-base\)/)
     })
 
     it('sticky is pinned on the HOST, so the actions overlay travels with it', () => {
         // .floor-rowhost__actions is absolutely positioned against the host. Sticking the
         // row alone would leave its buttons behind at the old scroll offset.
-        expect(css).toMatch(/\.floor-sub--open \.floor-rowhost \{/)
-        expect(css).not.toMatch(/\.floor-sub--open \.floor-row \{/)
+        expect(css).toMatch(/\.floor-sub--open > \.floor-rowhost \{/)
+        expect(css).not.toMatch(/\.floor-sub--open > \.floor-row \{/)
+    })
+
+    it('only the EVENT row pins — the names inside it scroll', () => {
+        // The names are RowHosts too, one level down. A descendant selector would pin every
+        // one of them at top: 0 as it scrolled past, fifteen rows stacking on the event row.
+        expect(css).toMatch(/\.floor-sub--open > \.floor-rowhost \{/)
+        expect(css).not.toMatch(/\.floor-sub--open \.floor-rowhost \{/)
     })
 
     it('nothing between the pinned row and the scroller clips it', () => {
@@ -340,6 +380,7 @@ describe('AetherCandidates shortlist', () => {
 
     it('shows ten of forty-three', () => {
         render(<AetherCandidates runs={[many(43)]} />)
+        openEvent()
         expect(screen.getByText('T0')).toBeTruthy()
         expect(screen.getByText('T9')).toBeTruthy()
         expect(screen.queryByText('T10')).toBeNull()
@@ -347,6 +388,7 @@ describe('AetherCandidates shortlist', () => {
 
     it('says how many it is not showing', () => {
         render(<AetherCandidates runs={[many(43)]} />)
+        openEvent()
         expect(screen.getByRole('button', { name: /33 more, lower ranked/ })).toBeTruthy()
     })
 
@@ -356,6 +398,7 @@ describe('AetherCandidates shortlist', () => {
         // at 43 rows it took 11s and timed out under the suite's parallel load. The row
         // count was realism, not the assertion.
         render(<AetherCandidates runs={[many(14)]} />)
+        openEvent()
         fireEvent.click(screen.getByRole('button', { name: /4 more/ }))
         expect(screen.getByText('T13')).toBeTruthy()
 
@@ -365,6 +408,7 @@ describe('AetherCandidates shortlist', () => {
 
     it('a short run is not truncated and offers no button', () => {
         render(<AetherCandidates runs={[many(4)]} />)
+        openEvent()
         expect(screen.getByText('T3')).toBeTruthy()
         expect(screen.queryByRole('button', { name: /more, lower ranked/ })).toBeNull()
     })
@@ -372,17 +416,19 @@ describe('AetherCandidates shortlist', () => {
     it('exactly ten offers no button either', () => {
         // Off-by-one here would put a "0 more" button under a complete list.
         render(<AetherCandidates runs={[many(10)]} />)
+        openEvent()
         expect(screen.queryByRole('button', { name: /more, lower ranked/ })).toBeNull()
     })
 
-    it('the shortlist counts TICKERS, not appearances', () => {
-        // Two events over the same 43 companies is 43 names, not 86 rows. Counting
-        // appearances would make a second event look like twice the work.
+    it('each event keeps its own shortlist, and only the open one shows it', () => {
+        // "33 more" is a statement about one run's ranks, not about the screen: two events
+        // over 43 names each are two shortlists, one per accordion.
         const a = { ...many(43), run_id: 'a', subject: 'Canada' }
         const b = { ...many(43), run_id: 'b', subject: 'Congo' }
         render(<AetherCandidates runs={[a, b]} />)
-        expect(screen.getAllByRole('button', { name: /more, lower ranked/ })).toHaveLength(1)
-        expect(screen.getByRole('button', { name: /33 more, lower ranked/ })).toBeTruthy()
+        expect(screen.queryByRole('button', { name: /more, lower ranked/ })).toBeNull()
+        openEvent('Canada')
+        expect(screen.getAllByRole('button', { name: /33 more, lower ranked/ })).toHaveLength(1)
     })
 })
 
@@ -462,31 +508,111 @@ describe('AetherCandidates recurrence', () => {
                                  verdict: 'quantified', ...over })
     const r2 = (id, subject, candidates) => ({ run_id: id, subject, event: `${subject} thing`, candidates })
 
-    it('a company named once carries no event count', () => {
+    // EVENT-FIRST CANNOT SHOW THIS ON ITS OWN — a name three events reached is one row in
+    // each of three closed accordions — so it is said three ways: a strip above the list,
+    // a ×N badge on the name's row inside each event, and the other events as jumps in the
+    // name's own drawer. That is the one thing the ticker-first layout could show, kept.
+
+    it('a company named once carries no badge, and there is no strip', () => {
         render(<AetherCandidates runs={[r2('a', 'Canada', [c2()])]} />)
-        expect(screen.queryByText(/\(\d+ events\)/)).toBeNull()
+        expect(document.querySelector('.aether-candidates__recur')).toBeNull()
+        openEvent()
+        expect(screen.queryByText(/^×\d+$/)).toBeNull()
     })
 
-    it('a company named twice says so on its row', () => {
+    it('the strip names a company two events reached, with its count', () => {
         render(<AetherCandidates runs={[r2('a', 'Canada', [c2()]), r2('b', 'Congo', [c2()])]} />)
-        expect(screen.getByText('(2 events)')).toBeTruthy()
+        const chip = document.querySelector('.aether-candidates__chip')
+        expect(chip.textContent).toContain('NUE')
+        expect(chip.textContent).toContain('×2')
+        expect(chip.title).toMatch(/Canada/)
+        expect(chip.title).toMatch(/Congo/)
     })
 
-    it('opening the row shows both events, each with its own why', () => {
+    it('the badge rides the name inside each event', () => {
+        render(<AetherCandidates runs={[r2('a', 'Canada', [c2()]), r2('b', 'Congo', [c2()])]} />)
+        openEvent('Canada')
+        expect(within(document.querySelector('.floor-sub__body')).getByText('×2')).toBeTruthy()
+        expect(screen.getByTitle(/also named by 1 other event: Congo/)).toBeTruthy()
+    })
+
+    it('the drawer lists the other event, and the jump opens it', () => {
         render(<AetherCandidates runs={[
             r2('a', 'Canada', [c2({ mechanism: 'steel input cost' })]),
             r2('b', 'Congo', [c2({ mechanism: 'cobalt supply' })]),
         ]} />)
-        fireEvent.click(screen.getByText('NUE').closest('button'))
+        openEvent('Canada')
+        openName()
         expect(screen.getByText('steel input cost')).toBeTruthy()
+        expect(screen.queryByText('cobalt supply')).toBeNull()
+
+        fireEvent.click(screen.getByRole('button', { name: 'Congo' }))
+        // Congo is the open event now; Canada's names are gone and the drawer is closed.
+        expect(screen.queryByText('steel input cost')).toBeNull()
+        openName()
         expect(screen.getByText('cobalt supply')).toBeTruthy()
     })
 
-    it('each event is named on its own block inside the row', () => {
+    it('a name two events pull opposite ways is marked, on the strip and on the row', () => {
+        // Two live claims about the same company, not a contradiction to hide.
+        render(<AetherCandidates runs={[
+            r2('a', 'Canada', [c2({ side: 'hurt' })]),
+            r2('b', 'Congo', [c2({ side: 'helped' })]),
+        ]} />)
+        expect(document.querySelector('.aether-candidates__chip--conflicted')).toBeTruthy()
+        expect(screen.getByLabelText('opposite directions')).toBeTruthy()
+        openEvent('Canada')
+        expect(screen.getByTitle(/pulling in opposite directions/)).toBeTruthy()
+    })
+
+    it('the strip shows twelve and says how many it is not showing', () => {
+        // 27 recurring names the day this was built — four rows of chips pushed the events
+        // below the fold, which inverts what the strip is for.
+        const cand = t => ({ ticker: t, side: 'hurt', rank: 1, verdict: 'silent' })
+        const names = Array.from({ length: 15 }, (_, i) => `R${i}`)
+        render(<AetherCandidates runs={[
+            r2('a', 'Canada', names.map(cand)),
+            r2('b', 'Congo', names.map(cand)),
+        ]} />)
+        expect(document.querySelectorAll('.aether-candidates__chip:not(.aether-candidates__chip--more)')).toHaveLength(12)
+        fireEvent.click(screen.getByRole('button', { name: '+3 more' }))
+        expect(document.querySelectorAll('.aether-candidates__chip:not(.aether-candidates__chip--more)')).toHaveLength(15)
+        fireEvent.click(screen.getByRole('button', { name: 'fewer' }))
+        expect(document.querySelectorAll('.aether-candidates__chip:not(.aether-candidates__chip--more)')).toHaveLength(12)
+    })
+
+    it('twelve or fewer recurring names need no toggle', () => {
         render(<AetherCandidates runs={[r2('a', 'Canada', [c2()]), r2('b', 'Congo', [c2()])]} />)
-        fireEvent.click(screen.getByText('NUE').closest('button'))
-        expect(screen.getByText(/Canada/)).toBeTruthy()
-        expect(screen.getByText(/Congo/)).toBeTruthy()
+        expect(screen.queryByRole('button', { name: /more$/ })).toBeNull()
+    })
+
+    it('agreement is not marked', () => {
+        render(<AetherCandidates runs={[r2('a', 'Canada', [c2()]), r2('b', 'Congo', [c2()])]} />)
+        expect(document.querySelector('.aether-candidates__chip--conflicted')).toBeNull()
+    })
+})
+
+describe('recurring', () => {
+    const c = (ticker, rank, side = 'hurt') => ({ ticker, side, rank, verdict: 'silent' })
+    const r = (id, candidates) => ({ run_id: id, subject: id, candidates })
+
+    it('is only the names more than one event reached', () => {
+        const rows = recurring([r('a', [c('X', 5), c('Y', 9)]), r('b', [c('X', 4)])])
+        expect(rows.map(x => x.ticker)).toEqual(['X'])
+    })
+
+    it('most-recurring first, then best rank, then ticker', () => {
+        const rows = recurring([
+            r('a', [c('X', 5), c('Y', 9), c('Z', 9)]),
+            r('b', [c('X', 4), c('Y', 1), c('Z', 1)]),
+            r('c', [c('X', 1)]),
+        ])
+        expect(rows.map(x => x.ticker)).toEqual(['X', 'Y', 'Z'])
+    })
+
+    it('survives an empty payload', () => {
+        expect(recurring([])).toEqual([])
+        expect(recurring()).toEqual([])
     })
 })
 
@@ -610,21 +736,23 @@ describe('AetherCandidates row date', () => {
         expect(screen.getByText('Sep 8')).toBeTruthy()
     })
 
-    it('shows the most recent when a name has two events', () => {
+    it('each event shows its own date', () => {
         render(<AetherCandidates runs={[
             r2('a', 'Canada', '2026-09-08', [c2()]),
             r2('b', 'Congo', '2026-10-02', [c2()]),
         ]} />)
         expect(screen.getByText('Oct 2')).toBeTruthy()
-        expect(screen.queryByText('Sep 8')).toBeNull()
+        expect(screen.getByText('Sep 8')).toBeTruthy()
     })
 
-    it('says it is the most recent of several, on hover', () => {
-        render(<AetherCandidates runs={[
-            r2('a', 'Canada', '2026-09-08', [c2()]),
-            r2('b', 'Congo', '2026-10-02', [c2()]),
-        ]} />)
-        expect(screen.getByTitle(/most recent of its 2 events/)).toBeTruthy()
+    it('says it is the day the event took effect, on hover', () => {
+        render(<AetherCandidates runs={[r2('a', 'Canada', '2026-09-08', [c2()])]} />)
+        expect(screen.getByTitle('the event took effect 2026-09-08')).toBeTruthy()
+    })
+
+    it('falls back to the day the event was found, as the engine does', () => {
+        render(<AetherCandidates runs={[{ ...r2('a', 'Canada', '', [c2()]), created_at: '2026-09-10T14:00:00Z' }]} />)
+        expect(screen.getByText('Sep 10')).toBeTruthy()
     })
 
     it('renders no date cell rather than an empty one', () => {
@@ -669,7 +797,7 @@ describe('AetherCandidates empty vs failed', () => {
         // Throwing away what the reader is looking at because a refresh five minutes later
         // failed would be worse than showing it.
         render(<AetherCandidates runs={[RUN]} error="network" />)
-        expect(screen.getByText('NUE')).toBeTruthy()
+        expect(screen.getByText('Canada')).toBeTruthy()
     })
 
     it('...but says the list has stopped refreshing', () => {
@@ -718,7 +846,7 @@ describe('AetherCandidates run button — capability, not identity', () => {
         getDiscoveryStatus.mockResolvedValue({ running: false, available: false })
         render(<AetherCandidates runs={[RUN]} />)
         await waitFor(() => expect(btn()).toBeNull())
-        expect(screen.getByText('NUE')).toBeTruthy()
+        expect(screen.getByText('Canada')).toBeTruthy()
     })
 
     it('shows while the answer is still unknown, and hides only on a real no', async () => {
@@ -761,25 +889,36 @@ describe('AetherCandidates — the ticker charts, the row expands', () => {
     it('clicking the ticker asks for its chart', () => {
         const onSymbolClick = vi.fn()
         render(<AetherCandidates runs={[RUN]} onSymbolClick={onSymbolClick} />)
+        openEvent()
         fireEvent.click(screen.getByText('NUE'))
         expect(onSymbolClick).toHaveBeenCalledWith('NUE')
     })
 
-    it('clicking the ticker does NOT open the row', () => {
+    it('clicking the ticker does NOT open the name', () => {
         // The two are different questions — "show me the chart" and "why is this name here"
         // — so one press must not answer both.
         const onSymbolClick = vi.fn()
         render(<AetherCandidates runs={[RUN]} onSymbolClick={onSymbolClick} />)
+        openEvent()
         fireEvent.click(screen.getByText('NUE'))
-        expect(screen.queryByText(/· trade/)).toBeNull()
+        expect(screen.queryByText('quantified')).toBeNull()
     })
 
-    it('clicking the row still opens it, and charts nothing', () => {
+    it('clicking the name row opens its drawer, and charts nothing', () => {
         const onSymbolClick = vi.fn()
         render(<AetherCandidates runs={[RUN]} onSymbolClick={onSymbolClick} />)
-        fireEvent.click(screen.getByText('NUE').closest('button'))
-        expect(screen.getByText(/· trade/)).toBeTruthy()
+        openEvent()
+        openName()
+        expect(screen.getByText('quantified')).toBeTruthy()
         expect(onSymbolClick).not.toHaveBeenCalled()
+    })
+
+    it('the ticker on the recurrence strip charts too', () => {
+        const onSymbolClick = vi.fn()
+        const twice = [{ ...RUN }, { ...RUN, run_id: 'b', subject: 'Congo' }]
+        render(<AetherCandidates runs={twice} onSymbolClick={onSymbolClick} />)
+        fireEvent.click(document.querySelector('.aether-candidates__chip-sym'))
+        expect(onSymbolClick).toHaveBeenCalledWith('NUE')
     })
 
     it('no separate open button rides over the status cells any more', () => {
@@ -792,7 +931,8 @@ describe('AetherCandidates — the ticker charts, the row expands', () => {
         // Floor Lists passes no handler. The rows must still be there and still expand —
         // only the chart is absent.
         render(<AetherCandidates runs={[RUN]} />)
-        fireEvent.click(screen.getByText('NUE').closest('button'))
-        expect(screen.getByText(/· trade/)).toBeTruthy()
+        openEvent()
+        openName()
+        expect(screen.getByText('quantified')).toBeTruthy()
     })
 })

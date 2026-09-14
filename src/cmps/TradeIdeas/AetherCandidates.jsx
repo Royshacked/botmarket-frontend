@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { aetherService } from '../../services/aether/aether.service.remote.js'
@@ -8,17 +8,27 @@ import { SymbolCell } from '../EntityCard/EntityCard.jsx'
 import { fmtShortDay } from '../Floor/floor.utils.js'
 import './AetherCandidates.scss'
 
-// Aether's event list — ONE ROW PER COMPANY, with the events that named it inside.
+// Aether's event list — ONE ROW PER EVENT, the names it reached inside, and a name's own
+// evidence one level further down.
 //
-// Collapsed row: direction · ticker · how many events · magnitude · urgency.
-// Expanded: one block per event — its mechanism, the press fact, the filing sentence.
+// Event row (collapsed): subject · how many names · when it took effect · kind · how many
+// of the names its filings sized. Open: the event sentence, then a sub-row per name —
+// direction · ticker · recurrence · horizon · magnitude · urgency — and a name opens to its
+// mechanism, the press fact, the filing sentence and the move.
+//
+// EVENT-FIRST, AND RECURRENCE STILL VISIBLE. The list was flipped ticker-first once, for
+// one reason: event-first showed a company named by two events twice, in two tables, with
+// nothing on either row to say the other existed — and a name reached independently by a
+// tariff AND an export ban is saying something neither event says alone. That is still the
+// case worth surfacing, so it is surfaced three ways rather than by giving up the event as
+// the unit: a strip above the list naming every recurring ticker, a ×N badge on the name's
+// row inside each event, and the other events listed in the name's own drawer as jumps.
 //
 // It wears the Floor's own row vocabulary rather than a table of its own: floor-sub for the
-// accordion, RowHost for the hover actions, floor-row for the line and floor-detail for the
-// drawer. Five lists share this column and a sixth that expanded differently, coloured
-// differently and sized differently would read as a different kind of thing on the same
-// screen. The judgment stays here — which cells, what they mean — and only the shell is
-// shared, the same split RowHost's own note describes.
+// event accordion, RowHost for the hover shell, floor-row for the line, floor-row--sub for
+// the names inside, floor-detail for the drawer. Five lists share this column and a sixth
+// that expanded differently, coloured differently and sized differently would read as a
+// different kind of thing on the same screen.
 //
 // EVERY FIELD IS MEASURED OR ABSENT. The engine reports an unknown size as unknown
 // rather than a plausible guess, so a dash here means "not measured", never "small".
@@ -118,6 +128,12 @@ const SWING_DAYS = 30
 // The ranks descend smoothly with no cliff, so any cut is a judgement; a count admits that,
 // where a rank floor would imply the evidence drew a line it did not draw.
 const SHORTLIST = 10
+
+// How many recurring names the strip shows before the reader asks for the rest. Twelve
+// is two rows of chips at the column's width; the live list had 27 the day this was
+// built — the Middle East cluster is four events on one story — and four rows of chips
+// pushed the events themselves below the fold, which inverts what the strip is for.
+const STRIP_MAX = 12
 
 function pct(v, digits = 1) {
     return v == null ? '—' : `${(v * 100).toFixed(digits)}%`
@@ -291,14 +307,12 @@ function RunButton() {
 }
 
 /**
- * Flip the list from event-first to TICKER-first.
+ * Every appearance of every ticker, one row per company.
  *
- * The server groups by run, which is the right shape for "what did this event reach" and
- * the wrong one for a watchlist: a company named by two events appeared twice, in two
- * tables, with nothing on either row to say the other existed. That is precisely the case
- * worth surfacing — a name reached independently by a tariff AND an export ban is saying
- * something neither event says alone, and it was the one thing the old layout could not
- * show.
+ * The server groups by run, which is the right shape for the list — and the wrong one for
+ * the question "which names keep coming back". A company named by two events is saying
+ * something neither event says alone, and only a ticker-keyed pass can see it. This is
+ * that pass; the list stays event-first and reads recurrence off it.
  *
  * Each appearance keeps its own event, because the mechanism, the filing sentence and the
  * move are all per-event; only the ticker is shared.
@@ -342,17 +356,33 @@ export function byTicker(runs = []) {
 }
 
 /**
+ * The names more than one event reached, most-recurring first.
+ *
+ * The strip above the list and the badge on the row both read from this. Count first,
+ * because the strip's question is "what keeps coming back"; best rank breaks the tie so
+ * the order never wobbles between renders.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- pure, and the ordering is worth testing directly
+export function recurring(runs = []) {
+    return byTicker(runs)
+        .filter(r => r.appearances.length > 1)
+        .sort((a, b) => b.appearances.length - a.appearances.length
+                     || b.rank - a.rank
+                     || a.ticker.localeCompare(b.ticker))
+}
+
+/**
  * The most recent event to reach this name.
  *
  * `event_date` is when the event TOOK EFFECT, which is the day the market could first
- * react and the day the move is measured from — so it is the date worth reading on the
- * row. It falls back to `created_at` when the coverage stated no effective date, which is
- * the same fallback the engine's own _anchor() makes, and for the same reason: better the
- * day it was found than nothing.
+ * react and the day the move is measured from — so it is the date worth reading. It falls
+ * back to `created_at` when the coverage stated no effective date, which is the same
+ * fallback the engine's own _anchor() makes, and for the same reason: better the day it
+ * was found than nothing.
  *
- * MAX, not the best appearance's. On a name reached twice the question the row answers is
- * "how current is this", and the freshest event is what makes it current — even if the
- * older event is the better-evidenced one.
+ * MAX, not the best appearance's. On a name reached twice the question is "how current is
+ * this", and the freshest event is what makes it current — even if the older event is the
+ * better-evidenced one.
  */
 // eslint-disable-next-line react-refresh/only-export-components -- pure, and the fallback is worth testing
 export function lastEventDate(row) {
@@ -362,21 +392,235 @@ export function lastEventDate(row) {
     return days.length ? days.reduce((a, b) => (a > b ? a : b)) : ''
 }
 
+/** The day an event took effect, with the engine's own fallback to the day it was found. */
+function eventDay(run) {
+    return (run?.event_date || run?.created_at || '').slice(0, 10)
+}
+
+/** One line for a name's other events — the tooltip on the chip and on the row badge. */
+function alsoNamedBy(row, exceptRunId = null) {
+    return row.appearances
+        .filter(a => a.run_id !== exceptRunId)
+        .map(a => `${a.subject || a.event} (${SIDE[a.side]?.label ?? 'MIXED'}, ${a.verdict ?? '—'})`)
+        .join(' · ')
+}
+
+/**
+ * The names more than one event reached, above the list.
+ *
+ * Event-first cannot show recurrence on its own — a name named by three events is one
+ * row in each of three closed accordions — so the strip says it once, up front. It is the
+ * one thing the ticker-first layout could show and this one could not, and the reason
+ * the flip happened at all; it stays, in the form the event-first list can carry.
+ */
+function RecurrenceStrip({ rows, onSymbolClick }) {
+    const [all, setAll] = useState(false)
+    if (!rows.length) return null
+    const shown = all ? rows : rows.slice(0, STRIP_MAX)
+    return (
+        <div className="aether-candidates__recur">
+            <span className="aether-candidates__recur-label"
+                  title="A company reached by two independent events is saying something neither event says alone.">
+                named by more than one event
+            </span>
+            {shown.map(r => (
+                <span key={r.ticker}
+                      className={`aether-candidates__chip${r.conflicted ? ' aether-candidates__chip--conflicted' : ''}`}
+                      title={`${r.ticker} — ${alsoNamedBy(r)}${r.conflicted ? ' — these events pull it in opposite directions' : ''}`}>
+                    <SymbolCell className="aether-candidates__chip-sym" symbol={r.ticker} onSymbolClick={onSymbolClick} />
+                    <span className="aether-candidates__chip-n">×{r.appearances.length}</span>
+                    {r.conflicted && <span className="aether-candidates__chip-pm" aria-label="opposite directions">±</span>}
+                </span>
+            ))}
+            {/* Never a silent cut — the count is on the button, and one click gets the rest. */}
+            {rows.length > STRIP_MAX && (
+                <button type="button" className="aether-candidates__chip aether-candidates__chip--more"
+                        onClick={() => setAll(v => !v)}
+                        title={all ? `back to the ${STRIP_MAX} most recurring` : 'every name more than one event reached'}>
+                    {all ? 'fewer' : `+${rows.length - STRIP_MAX} more`}
+                </button>
+            )}
+        </div>
+    )
+}
+
+RecurrenceStrip.propTypes = {
+    rows: PropTypes.array.isRequired,
+    onSymbolClick: PropTypes.func,
+}
+
+/**
+ * One name inside an open event: its row, and its drawer when open.
+ *
+ * `recur` is this ticker's row from byTicker() when more than one event reached it — the
+ * badge on the line and the "also named by" jumps in the drawer both come from it, and a
+ * jump opens the OTHER event, which is the one place the event-first list has to be able
+ * to cross from one event to another.
+ */
+function NameRow({ c, runId, recur, isOpen, onToggle, onJump, onSymbolClick }) {
+    const dir = SIDE[c.side]?.dir ?? 'mixed'
+    const urg = urgencyOf(c)
+    const mag = magnitude(c)
+    const hz = horizon(c)
+    const others = recur ? recur.appearances.filter(a => a.run_id !== runId) : []
+
+    return (
+        <div className={`aether-candidates__name${isOpen ? ' aether-candidates__name--open' : ''}`}>
+            <RowHost>
+                <button
+                    className="floor-row floor-row--sub"
+                    onClick={onToggle}
+                    aria-expanded={isOpen}
+                    title={isOpen ? 'Hide the evidence' : 'Show why this name is here'}
+                >
+                    <svg className={`floor-row__chev${isOpen ? ' floor-row__chev--open' : ''}`}
+                         viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                        <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5"
+                              strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <span className={`floor-row__dir floor-row__dir--${dir}`} aria-hidden="true">
+                        {dir === 'short' ? '▾' : dir === 'long' ? '▴' : '±'}
+                    </span>
+                    <SymbolCell className="floor-row__sym" symbol={c.ticker} onSymbolClick={onSymbolClick} />
+                    {/* The recurrence, riding directly after the name like every other count in
+                        this column. `×3` rather than "(3 events)" because this row sits inside
+                        an event already and the count is about the OTHER ones. */}
+                    {others.length > 0 && (
+                        <span className={`floor-row__count${recur.conflicted ? ' aether-candidates__count--conflicted' : ''}`}
+                              title={`also named by ${others.length} other event${others.length > 1 ? 's' : ''}: ${alsoNamedBy(recur, runId)}${recur.conflicted ? ' — pulling in opposite directions' : ''}`}>
+                            ×{others.length + 1}
+                        </span>
+                    )}
+                    <span className="floor-row__kind" title={hz.hint}>{hz.label}</span>
+                    <span className="floor-row__score" title={mag.hint}>{mag.label}</span>
+                    <span className={`floor-row__status floor-row__status--${urg.key}`} title={urg.hint}>
+                        {urg.label}
+                    </span>
+                </button>
+            </RowHost>
+
+            {isOpen && (
+                <div className="floor-detail">
+                    <div className="floor-detail__block">
+                        {c.mechanism && <p className="floor-detail__prose">{c.mechanism}</p>}
+
+                        <ul>
+                            {c.press_evidence && (
+                                <li>
+                                    {c.press_evidence}
+                                    {c.source_url && (
+                                        <> <a href={c.source_url} target="_blank" rel="noreferrer">source</a></>
+                                    )}
+                                </li>
+                            )}
+                            <li title={VERDICT_HINT[c.verdict]}>
+                                <strong>{c.verdict}</strong>
+                                {c.filing_evidence
+                                    ? <> — “{c.filing_evidence}”</>
+                                    : <em> — nothing in its filings mentions this, which is information rather than an error</em>}
+                            </li>
+                            {c.impact_pct_revenue != null && (
+                                <li>{pct(c.impact_pct_revenue, 2)} of revenue, as the filing states it</li>
+                            )}
+                            {c.move_pct != null && (
+                                <li>
+                                    {pct(c.move_pct)} raw, <strong>{pct(c.excess_pct)} vs SPY</strong>
+                                    {c.extension != null && <> · {c.extension.toFixed(1)}σ</>}
+                                    {c.reaction && c.reaction !== 'unknown' && <> · {c.reaction}</>}
+                                    {c.price_asof && <> · as of {c.price_asof}</>}
+                                </li>
+                            )}
+                            {/* The other events, as jumps. A name two events pull opposite ways is
+                                two live claims about one company, and the reader has to see the
+                                other one before acting on this one. */}
+                            {others.length > 0 && (
+                                <li className="aether-candidates__also">
+                                    also named by{' '}
+                                    {others.map((a, i) => (
+                                        <span key={a.run_id}>
+                                            {i > 0 && ' · '}
+                                            <button type="button"
+                                                    className="aether-candidates__jump"
+                                                    onClick={() => onJump(a.run_id)}
+                                                    title={`open ${a.subject || a.event}`}>
+                                                {a.subject || a.event}
+                                            </button>
+                                            {' '}({SIDE[a.side]?.label ?? 'MIXED'}, {a.verdict ?? '—'})
+                                        </span>
+                                    ))}
+                                    {recur.conflicted && <em> — in the opposite direction</em>}
+                                </li>
+                            )}
+                        </ul>
+
+                        <div className="floor-detail__foot">
+                            {c.next_earnings && (
+                                <span>next report {c.next_earnings}
+                                    {c.days_to_earnings != null && ` · ${c.days_to_earnings}d`}</span>
+                            )}
+                            {c.expires_at && <span>expires {c.expires_at}</span>}
+                            {c.rank_parts && (
+                                <span title="the rank is a sum you can take apart, not a score">
+                                    rank {c.rank?.toFixed(1)} = {Object.entries(c.rank_parts)
+                                        .filter(([, v]) => v)
+                                        .map(([k, v]) => `${k} ${v}`)
+                                        .join(' + ') || '—'}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    )
+}
+
+NameRow.propTypes = {
+    c: PropTypes.object.isRequired,
+    runId: PropTypes.string,
+    recur: PropTypes.object,
+    isOpen: PropTypes.bool,
+    onToggle: PropTypes.func.isRequired,
+    onJump: PropTypes.func.isRequired,
+    onSymbolClick: PropTypes.func,
+}
+
+/** What the event's filings said, for the row: "8/45 sized", with the run's own verdict on hover. */
+function evidenceCell(run) {
+    const ev = run.evidence
+    if (!ev || !ev.n_survived) return { label: '—', hint: 'no names survived, so nothing to size' }
+    return {
+        label: `${ev.n_quantified}/${ev.n_survived} sized`,
+        hint: ev.discloses
+            ? `${ev.n_quantified} of ${ev.n_survived} names put a figure on it in their filings — an event of the kind companies disclose`
+            : `${ev.n_quantified} of ${ev.n_survived} names put a figure on it — an event that does not land on a line item, so the names rest on the press mechanism`,
+    }
+}
+
 export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick }) {
-    // ONE ROW OPEN AT A TIME, and folded siblings collapse to nothing. Not a preference —
+    // ONE EVENT OPEN AT A TIME, and folded siblings collapse to nothing. Not a preference —
     // it is the mechanic every other list in this column uses (3bbfa59), and a list that
     // expands differently from the four above it reads as a different kind of thing.
-    const [openKey, setOpenKey] = useState(null)
-    const [showAll, setShowAll] = useState(false)
+    const [openRun, setOpenRun] = useState(null)
+    // One NAME open inside it, keyed by run and ticker so a jump to another event never
+    // arrives with a drawer already open on the same ticker there.
+    const [openName, setOpenName] = useState(null)
+    // Which events have shown past their shortlist. Per event, because "33 more" is a
+    // statement about one run's ranks, not about the screen.
+    const [showAll, setShowAll] = useState({})
 
-    // THE SHORTLIST, and the rest one click away. Top N rather than a rank floor because
-    // the ranks do not break: they descend 6.57, 6.27, 5.99, 5.91, 5.88 — gaps of 0.03 to
-    // 0.31, no cliff to cut at. A floor would present a threshold the evidence did not
-    // draw; a count is arbitrary and reads as arbitrary.
-    const rows = byTicker(runs)
-    const shown = showAll ? rows : rows.slice(0, SHORTLIST)
+    const recur = useMemo(() => recurring(runs), [runs])
+    const recurByTicker = useMemo(() => new Map(recur.map(r => [r.ticker, r])), [recur])
 
-    const toggle = ticker => setOpenKey(cur => (cur === ticker ? null : ticker))
+    const toggleRun = id => {
+        setOpenRun(cur => (cur === id ? null : id))
+        setOpenName(null)
+    }
+    const jumpTo = id => {
+        setOpenRun(id)
+        setOpenName(null)
+    }
+    const toggleName = key => setOpenName(cur => (cur === key ? null : key))
 
     if (loading) return <p className="floor-empty">Loading…</p>
 
@@ -426,157 +670,106 @@ export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick
                 </p>
             )}
 
-            {shown.map(row => {
-                const isOpen = openKey === row.ticker
-                const isFolded = openKey !== null && openKey !== row.ticker
-                const b = row.best
-                const dir = row.conflicted ? 'mixed' : (SIDE[b.side]?.dir ?? 'mixed')
-                const urg = urgencyOf(b)
-                const mag = magnitude(b)
-                const hz = horizon(b)
-                const when = lastEventDate(row)
-                const n = row.appearances.length
+            <RecurrenceStrip rows={recur} onSymbolClick={onSymbolClick} />
+
+            {runs.map(run => {
+                const isOpen = openRun === run.run_id
+                const isFolded = openRun !== null && !isOpen
+                const cands = run.candidates ?? []
+                // THE SHORTLIST, and the rest one click away. Top N rather than a rank floor
+                // because the ranks do not break: they descend 6.57, 6.27, 5.99, 5.91, 5.88 —
+                // gaps of 0.03 to 0.31, no cliff to cut at. A floor would present a threshold
+                // the evidence did not draw; a count is arbitrary and reads as arbitrary.
+                const shown = showAll[run.run_id] ? cands : cands.slice(0, SHORTLIST)
+                const when = eventDay(run)
+                const ev = evidenceCell(run)
+                const label = run.subject || run.event || run.run_id
 
                 return (
                     <div
-                        key={row.ticker}
+                        key={run.run_id}
                         className={`floor-sub${isOpen ? ' floor-sub--open' : isFolded ? ' floor-sub--folded' : ''}`}
                     >
-                        {/* NO ACTIONS OVERLAY. It held one button, `open`, which charted the
-                            ticker — and RowHost pins that overlay absolutely over the row's
-                            right edge on hover, which here is the score and status cells. So
-                            reaching for a row's urgency label charted a symbol in a different
-                            panel instead of expanding the row. The ticker itself is the chart
-                            now, in every list, which is both a better target and a smaller one. */}
                         <RowHost>
                             {/* ONE LINE, and the same cells the coverage and scan rows use, so the
                                 five lists in this column scan as one column rather than five. */}
                             <button
                                 className="floor-row"
-                                onClick={() => toggle(row.ticker)}
+                                onClick={() => toggleRun(run.run_id)}
                                 aria-expanded={isOpen}
-                                title={isOpen ? 'Hide the events' : 'Show the events that named it'}
+                                title={isOpen ? 'Hide the names' : (run.event || 'Show the names this event reached')}
                             >
                                 <svg className={`floor-row__chev${isOpen ? ' floor-row__chev--open' : ''}`}
                                      viewBox="0 0 16 16" fill="none" aria-hidden="true">
                                     <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5"
                                           strokeLinecap="round" strokeLinejoin="round"/>
                                 </svg>
-                                <span className={`floor-row__dir floor-row__dir--${dir}`} aria-hidden="true">
-                                    {dir === 'short' ? '▾' : dir === 'long' ? '▴' : '±'}
+                                <span className="floor-row__sym floor-row__sym--wide">{label}</span>
+                                <span className="floor-row__count"
+                                      title={`${cands.length} name${cands.length === 1 ? '' : 's'} survived the gates`}>
+                                    ({cands.length} {cands.length === 1 ? 'name' : 'names'})
                                 </span>
-                                <SymbolCell className="floor-row__sym" symbol={row.ticker} onSymbolClick={onSymbolClick} />
-                                {/* The recurrence, riding directly after the name like every other
-                                    count in this column — a lone number on the right edge would read
-                                    as a column of its own. It is the one thing the event-first list
-                                    could not show at all. */}
-                                {n > 1 && (
-                                    <span className="floor-row__count"
-                                          title={`named by ${n} events: ${row.appearances.map(a => a.subject).join(', ')}`}>
-                                        ({n} events)
-                                    </span>
-                                )}
                                 {when && (
-                                    <span className="floor-row__when"
-                                          title={n > 1
-                                              ? `most recent of its ${n} events — ${when}`
-                                              : `the event took effect ${when}`}>
+                                    <span className="floor-row__when" title={`the event took effect ${when}`}>
                                         {fmtShortDay(when)}
                                     </span>
                                 )}
-                                <span className="floor-row__kind" title={hz.hint}>{hz.label}</span>
-                                <span className="floor-row__score" title={mag.hint}>{mag.label}</span>
-                                <span className={`floor-row__status floor-row__status--${urg.key}`}
-                                      title={row.conflicted
-                                          ? 'these events pull it in opposite directions — open the row'
-                                          : urg.hint}>
-                                    {urg.label}
+                                <span className="floor-row__kind" title={CATEGORY_HINT[run.event_category] ?? 'kind not recorded'}>
+                                    {run.event_category || '—'}
                                 </span>
+                                <span className="floor-row__score" title={ev.hint}>{ev.label}</span>
                             </button>
                         </RowHost>
 
                         {isOpen && (
                             <div className="floor-sub__body">
-                                <div className="floor-detail">
-                                    {row.appearances.map(c => (
-                                        <div key={c.run_id} className="floor-detail__block">
-                                            {/* The event, as the block's own label — one per
-                                                appearance, because the mechanism, the filing
-                                                sentence and the move are all per-event and only
-                                                the ticker is shared. */}
-                                            <span className="floor-detail__label"
-                                                  title={CATEGORY_HINT[c.event_category] ?? ''}>
-                                                {SIDE[c.side]?.label ?? 'MIXED'} · {c.subject}
-                                                {c.event_category ? ` · ${c.event_category}` : ''}
-                                                {c.event_date ? ` · ${c.event_date}` : ''}
-                                            </span>
+                                {/* The event itself, once, as the model cleaned it — the names
+                                    below answer this sentence. */}
+                                {run.event && (
+                                    <p className="aether-candidates__event" title={run.answer_shape ? `answer shape: ${run.answer_shape}` : undefined}>
+                                        {run.event}
+                                    </p>
+                                )}
 
-                                            {c.mechanism && <p className="floor-detail__prose">{c.mechanism}</p>}
+                                {!cands.length && (
+                                    <p className="floor-empty">No names survived this event’s gates.</p>
+                                )}
 
-                                            <ul>
-                                                {c.press_evidence && (
-                                                    <li>
-                                                        {c.press_evidence}
-                                                        {c.source_url && (
-                                                            <> <a href={c.source_url} target="_blank" rel="noreferrer">source</a></>
-                                                        )}
-                                                    </li>
-                                                )}
-                                                <li title={VERDICT_HINT[c.verdict]}>
-                                                    <strong>{c.verdict}</strong>
-                                                    {c.filing_evidence
-                                                        ? <> — “{c.filing_evidence}”</>
-                                                        : <em> — nothing in its filings mentions this, which is information rather than an error</em>}
-                                                </li>
-                                                {c.impact_pct_revenue != null && (
-                                                    <li>{pct(c.impact_pct_revenue, 2)} of revenue, as the filing states it</li>
-                                                )}
-                                                {c.move_pct != null && (
-                                                    <li>
-                                                        {pct(c.move_pct)} raw, <strong>{pct(c.excess_pct)} vs SPY</strong>
-                                                        {c.extension != null && <> · {c.extension.toFixed(1)}σ</>}
-                                                        {c.reaction && c.reaction !== 'unknown' && <> · {c.reaction}</>}
-                                                        {c.price_asof && <> · as of {c.price_asof}</>}
-                                                    </li>
-                                                )}
-                                            </ul>
+                                {shown.map(c => {
+                                    const key = `${run.run_id}|${c.ticker}`
+                                    return (
+                                        <NameRow
+                                            key={key}
+                                            c={c}
+                                            runId={run.run_id}
+                                            recur={recurByTicker.get(c.ticker)}
+                                            isOpen={openName === key}
+                                            onToggle={() => toggleName(key)}
+                                            onJump={jumpTo}
+                                            onSymbolClick={onSymbolClick}
+                                        />
+                                    )
+                                })}
 
-                                            <div className="floor-detail__foot">
-                                                {c.next_earnings && (
-                                                    <span>next report {c.next_earnings}
-                                                        {c.days_to_earnings != null && ` · ${c.days_to_earnings}d`}</span>
-                                                )}
-                                                {c.expires_at && <span>expires {c.expires_at}</span>}
-                                                {c.rank_parts && (
-                                                    <span title="the rank is a sum you can take apart, not a score">
-                                                        rank {c.rank?.toFixed(1)} = {Object.entries(c.rank_parts)
-                                                            .filter(([, v]) => v)
-                                                            .map(([k, v]) => `${k} ${v}`)
-                                                            .join(' + ') || '—'}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                {/* Never a silent truncation: a reader who cannot tell the list was
+                                    cut cannot tell whether the cut was wrong. */}
+                                {cands.length > SHORTLIST && (
+                                    <button
+                                        type="button"
+                                        className="aether-candidates__more"
+                                        onClick={() => setShowAll(cur => ({ ...cur, [run.run_id]: !cur[run.run_id] }))}
+                                        title="Every name is stored, ranked and reachable — this only decides how many open on screen."
+                                    >
+                                        {showAll[run.run_id]
+                                            ? `Show the top ${SHORTLIST}`
+                                            : `${cands.length - SHORTLIST} more, lower ranked`}
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>
                 )
             })}
-
-            {/* Never a silent truncation: a reader who cannot tell the list was cut cannot
-                tell whether the cut was wrong. */}
-            {rows.length > SHORTLIST && (
-                <button
-                    type="button"
-                    className="aether-candidates__more"
-                    onClick={() => setShowAll(v => !v)}
-                    title="Every name is stored, ranked and reachable — this only decides how many open on screen."
-                >
-                    {showAll ? `Show the top ${SHORTLIST}` : `${rows.length - SHORTLIST} more, lower ranked`}
-                </button>
-            )}
         </div>
     )
 }

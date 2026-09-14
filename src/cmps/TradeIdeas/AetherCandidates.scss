@@ -67,7 +67,12 @@
 // It goes on the HOST, not the row: the actions overlay is absolutely positioned against
 // `.floor-rowhost`, so pinning the row alone would leave its buttons behind. `sticky` is a
 // positioned ancestor just as `relative` was, so that overlay still anchors correctly.
-.aether-candidates .floor-sub--open .floor-rowhost {
+//
+// THE DIRECT CHILD ONLY. The names inside an open event are RowHosts too, one level down,
+// and a descendant selector would pin every one of them at top: 0 as it scrolled past —
+// fifteen rows stacking on the event row. Only the event row is the question; the names
+// are the answer and they scroll.
+.aether-candidates .floor-sub--open > .floor-rowhost {
     position: sticky;
     top: 0;
     z-index: 1;
@@ -105,4 +110,97 @@
     color: var(--color-warning);
     background: color-mix(in srgb, var(--color-warning) 10%, transparent);
     cursor: help;
+}
+
+// ── recurrence, said up front ─────────────────────────────────────────────────
+//
+// Event-first cannot show that one name was reached by three events — it is one row in
+// each of three closed accordions — so the strip says it once, above the list. The chips
+// are quiet on purpose: a count and a ticker, and the events on hover.
+.aether-candidates__recur {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 6px;
+    padding: 4px 18px 6px 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.aether-candidates__recur-label {
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-right: 4px;
+    cursor: help;
+}
+
+.aether-candidates__chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 3px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    border: 1px solid var(--border-mid);
+    background: var(--bg-raised);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    cursor: help;
+
+    // Opposite directions from two events is the one chip worth a colour: two live claims
+    // about one company, and the reader must see that before acting on either.
+    &--conflicted { border-color: var(--color-warning); }
+
+    // The "+N more" toggle, dressed as a chip so the strip stays one kind of thing.
+    &--more {
+        font: inherit;
+        font-size: 11px;
+        color: var(--text-muted);
+        cursor: pointer;
+        &:hover { color: var(--text-primary); background: var(--bg-hover); }
+    }
+}
+
+.aether-candidates__chip-sym { font-weight: 600; color: var(--text-primary); }
+.aether-candidates__chip-n   { color: var(--text-muted); }
+.aether-candidates__chip-pm  { color: var(--color-warning); font-weight: 600; }
+
+// The same warning on the ×N badge inside an event, for the same reason.
+.aether-candidates__count--conflicted { color: var(--color-warning); }
+
+// ── inside an open event ──────────────────────────────────────────────────────
+
+// The event sentence, once, above its names — the question the rows answer. Sized like
+// the drawer prose it sits beside, indented to the sub-row's text.
+.aether-candidates__event {
+    margin: 0;
+    padding: 6px 18px 6px 25px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+}
+
+// A name and its drawer. Holds its height for the reason .aether-candidates spells out:
+// a flex child that shrinks below its content never overflows, and then nothing scrolls.
+.aether-candidates__name {
+    flex: 0 0 auto;
+}
+
+// The jump to another event that named the same company. A link in a list item, not a
+// button in a row: it changes which accordion is open, which is navigation, and it should
+// read like it.
+.aether-candidates__jump {
+    font: inherit;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent-light);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+
+    &:hover { color: var(--text-primary); }
 }
