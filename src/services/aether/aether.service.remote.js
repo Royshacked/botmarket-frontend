@@ -41,7 +41,7 @@ function getCandidates({ days = 30, includeDropped = false } = {}) {
  * calls and EDGAR requests. 409 means one is already in flight, which is an answer rather
  * than a failure, so the caller should say so instead of showing an error.
  */
-function startDiscovery({ maxRuns = 2, hours = 36, top = 5 } = {}) {
+function startDiscovery({ maxRuns = 2, hours = 168, top = 5 } = {}) {
     return httpService.post(`${BASE}/discover`, { maxRuns, hours, top })
 }
 
