@@ -3087,7 +3087,7 @@ export function MainPage() {
                                         ipo:       ipoLoading,
                                         forecasts: tiltLoading,
                                     }}
-                                    aetherCandidates={{ runs: aetherRuns, loading: aetherLoading, error: aetherError }}
+                                    aetherCandidates={{ runs: aetherRuns, loading: aetherLoading, error: aetherError, onTradeWithMentor: seedMentorChat }}
                                     onEarningSelect={handleBuildFromEarning}
                                     onIpoSelect={handleBuildFromIpo}
                                     onCandidateSelect={handleBuildFromCandidate}
@@ -3168,7 +3168,7 @@ export function MainPage() {
                                 ipoLoading,
                                 onIpoSelect:       handleBuildFromIpo,
                             }}
-                            aetherCandidates={{ runs: aetherRuns, loading: aetherLoading, error: aetherError }}
+                            aetherCandidates={{ runs: aetherRuns, loading: aetherLoading, error: aetherError, onTradeWithMentor: seedMentorChat }}
                         />
                     </div>
                     )}

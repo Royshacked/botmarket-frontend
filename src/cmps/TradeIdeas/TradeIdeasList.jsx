@@ -741,6 +741,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                         loading={aetherCandidates?.loading}
                         error={aetherCandidates?.error}
                         onSymbolClick={onSymbolClick}
+                        onTradeWithMentor={aetherCandidates?.onTradeWithMentor}
                     />
                 ) : (
                     (!hasPortfolios && !buildingPortfolio) ? (
@@ -829,5 +830,5 @@ TradeIdeasList.propTypes = {
     onEditSetup:      PropTypes.func,
     setupBusyId:      PropTypes.string,
     radar:            PropTypes.object,
-    aetherCandidates: PropTypes.shape({ runs: PropTypes.array, loading: PropTypes.bool }),
+    aetherCandidates: PropTypes.shape({ runs: PropTypes.array, loading: PropTypes.bool, error: PropTypes.string, onTradeWithMentor: PropTypes.func }),
 }

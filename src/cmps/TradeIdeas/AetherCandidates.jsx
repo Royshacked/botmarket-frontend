@@ -187,6 +187,93 @@ function magnitude(c) {
         ?? { label: '—', hint: 'no figure stated in the filing — size not measured' }
 }
 
+// ── the hand-off to Mentor ────────────────────────────────────────────────────
+//
+// These names are for SWING trades, and Mentor builds the setup. Aether supplies the why —
+// the event, the mechanism, what the press and the filings said, how far it has moved, when
+// the clock runs out — and Mentor does what it does: entry, invalidation, size, a window,
+// monitored. The split is the one the whole app runs on: the desk that found the name owns
+// the evidence, the desk that trades owns the trade.
+
+/**
+ * Whether this name is still a trade, and if not, why.
+ *
+ * Offered only while the clock runs and the name has not moved. A `moved` name is the case
+ * the desk exists to get in FRONT of — offering it as a fresh swing after the move would be
+ * offering the reader the part that already happened. A `stale` one is old enough that the
+ * mechanism needs re-checking before anyone sizes it, and a name past its expiry has had its
+ * print: the market was forced to look, and whatever it thought is in the price.
+ *
+ * `no_price` is allowed. It means the move has not been measured yet — usually a name found
+ * today — not that anything is wrong with it.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- pure, and the gate is worth testing
+export function tradable(c, now = Date.now()) {
+    if (!c?.side || c.side === 'mixed') {
+        return { ok: false, why: 'Aether could not say which way this one goes — nothing to build a lean on' }
+    }
+    const urg = urgencyOf(c, now)
+    if (urg.key === 'moved') return { ok: false, why: 'the excess move has already happened — this is the part Aether exists to get in front of' }
+    if (urg.key === 'stale') return { ok: false, why: 'old enough that the mechanism needs re-checking before it is sized' }
+    if (c.expires_at) {
+        const ms = new Date(`${c.expires_at}T00:00:00Z`).getTime()
+        if (!Number.isNaN(ms) && ms <= now) return { ok: false, why: `expired ${c.expires_at} — its report has printed and the market has looked` }
+    }
+    return { ok: true, why: 'open Mentor with this name and everything Aether found on it' }
+}
+
+/**
+ * What the user says to Mentor on arrival — the calendar hand-offs' shape, spoken as the
+ * USER's turn so the setup comes out of the conversation rather than from a briefing bubble.
+ *
+ * ONE DIFFERENCE FROM THE EARNINGS SEED: that one leaves direction open on purpose, because a
+ * print is a date with no bias and picking a side is the judgment that belongs to the user.
+ * Here the side IS the desk's read — `helped` or `hurt` is what Aether found — so the seed
+ * states it as Aether's claim and the user's lean, and hands Mentor the job of examining it
+ * rather than of guessing it. Mentor can still talk the user out of it; it just starts from
+ * the claim rather than from nothing.
+ *
+ * Every line traces to a stored field. Nothing is paraphrased into a stronger claim: a
+ * `silent` filing is said to be silent, an unmeasured move is said to be unmeasured.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- pure, and the copy is worth testing
+export function buildAetherSeed(c, run = {}) {
+    const side = c.side === 'hurt' ? 'short' : 'long'
+    const label = SIDE[c.side]?.label ?? 'MIXED'
+    const subject = run.subject || run.event || 'an event'
+    const kind = run.event_category ? `${run.event_category}, ` : ''
+    const when = (run.event_date || run.created_at || '').slice(0, 10)
+
+    const lines = [
+        `I want to build a swing setup on ${c.ticker}${c.company ? ` (${c.company})` : ''} off an Aether event — `
+        + `${subject} (${kind}${when || 'date unknown'})${run.event ? `: "${run.event}"` : '.'}`,
+        c.mechanism ? `Aether has it ${label}: ${c.mechanism}` : `Aether has it ${label}.`,
+    ]
+    if (c.press_evidence) {
+        lines.push(`Press: ${c.press_evidence}${c.source_url ? ` (${c.source_url})` : ''}`)
+    }
+    if (c.verdict === 'quantified' || c.verdict === 'mentioned') {
+        lines.push(`Its filings: ${c.verdict}${c.filing_evidence ? ` — "${c.filing_evidence}"` : ''}`)
+    } else if (c.verdict === 'silent') {
+        lines.push('Its filings: silent — nothing it has filed mentions this, which is information rather than an error.')
+    } else if (c.verdict) {
+        lines.push(`Its filings: ${c.verdict} — not read.`)
+    }
+    if (c.excess_pct != null) {
+        const sigma = c.extension != null ? ` (${c.extension.toFixed(1)}σ of its own trailing move)` : ''
+        lines.push(`Since the event it is ${pct(c.excess_pct)} vs SPY${sigma}${c.price_asof ? `, as of ${c.price_asof}` : ''} — still quiet.`)
+    } else {
+        lines.push('No move measured yet.')
+    }
+    if (c.expires_at) {
+        const d = daysUntil(c.expires_at)
+        lines.push(`Clock: it expires ${c.expires_at}${d != null ? ` (${d}d)` : ''}`
+            + `${c.next_earnings ? `, at its next report` : ''} — the setup should be done by then.`)
+    }
+    lines.push(`My lean is ${side} unless you see a reason not to — take me through entry, invalidation and the window.`)
+    return lines.join('\n')
+}
+
 /**
  * The run button. ADMIN ONLY, and hiding it is the courtesy — the server is the guard.
  *
@@ -457,12 +544,14 @@ RecurrenceStrip.propTypes = {
  * jump opens the OTHER event, which is the one place the event-first list has to be able
  * to cross from one event to another.
  */
-function NameRow({ c, runId, recur, isOpen, onToggle, onJump, onSymbolClick }) {
+function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTradeWithMentor }) {
+    const runId = run.run_id
     const dir = SIDE[c.side]?.dir ?? 'mixed'
     const urg = urgencyOf(c)
     const mag = magnitude(c)
     const hz = horizon(c)
     const others = recur ? recur.appearances.filter(a => a.run_id !== runId) : []
+    const trade = tradable(c)
 
     return (
         <div className={`aether-candidates__name${isOpen ? ' aether-candidates__name--open' : ''}`}>
@@ -568,6 +657,31 @@ function NameRow({ c, runId, recur, isOpen, onToggle, onJump, onSymbolClick }) {
                                 </span>
                             )}
                         </div>
+
+                        {/* IN THE DRAWER, not on the row. The row's right edge is the score and
+                            status cells, and an overlay there is how the old `open` button
+                            charted a symbol when the reader reached for a label. Here it sits
+                            under the evidence — the reader has read the why before being
+                            offered the trade. Only where a Mentor exists to hand to: the Floor
+                            renders this list too, and a test renders it with nothing behind it.
+
+                            DISABLED WITH THE REASON rather than hidden: a name that has moved
+                            or expired is still on the list, and "why can't I trade this one"
+                            is a question the button can answer. */}
+                        {onTradeWithMentor && (
+                            <div className="aether-candidates__act">
+                                <button
+                                    type="button"
+                                    className="aether-candidates__trade"
+                                    disabled={!trade.ok}
+                                    title={trade.why}
+                                    onClick={() => onTradeWithMentor(c.ticker, buildAetherSeed(c, run))}
+                                >
+                                    Trade with Mentor →
+                                </button>
+                                {!trade.ok && <span className="aether-candidates__act-why">{trade.why}</span>}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -577,12 +691,13 @@ function NameRow({ c, runId, recur, isOpen, onToggle, onJump, onSymbolClick }) {
 
 NameRow.propTypes = {
     c: PropTypes.object.isRequired,
-    runId: PropTypes.string,
+    run: PropTypes.object.isRequired,
     recur: PropTypes.object,
     isOpen: PropTypes.bool,
     onToggle: PropTypes.func.isRequired,
     onJump: PropTypes.func.isRequired,
     onSymbolClick: PropTypes.func,
+    onTradeWithMentor: PropTypes.func,
 }
 
 /** What the event's filings said, for the row: "8/45 sized", with the run's own verdict on hover. */
@@ -597,7 +712,7 @@ function evidenceCell(run) {
     }
 }
 
-export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick }) {
+export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick, onTradeWithMentor }) {
     // ONE EVENT OPEN AT A TIME, and folded siblings collapse to nothing. Not a preference —
     // it is the mechanic every other list in this column uses (3bbfa59), and a list that
     // expands differently from the four above it reads as a different kind of thing.
@@ -741,12 +856,13 @@ export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick
                                         <NameRow
                                             key={key}
                                             c={c}
-                                            runId={run.run_id}
+                                            run={run}
                                             recur={recurByTicker.get(c.ticker)}
                                             isOpen={openName === key}
                                             onToggle={() => toggleName(key)}
                                             onJump={jumpTo}
                                             onSymbolClick={onSymbolClick}
+                                            onTradeWithMentor={onTradeWithMentor}
                                         />
                                     )
                                 })}
@@ -782,4 +898,7 @@ AetherCandidates.propTypes = {
     // to different places.
     error: PropTypes.string,
     onSymbolClick: PropTypes.func,
+    // (ticker, message) → opens Mentor with the message as the user's first turn. Absent where
+    // there is no Mentor to hand to, and then no button is offered.
+    onTradeWithMentor: PropTypes.func,
 }

@@ -204,3 +204,35 @@
 
     &:hover { color: var(--text-primary); }
 }
+
+// ── the hand-off to Mentor ────────────────────────────────────────────────────
+//
+// Under the evidence, not on the row: the reader has read the why before being offered the
+// trade. Disabled carries its reason beside it, because a name that has moved or expired is
+// still on the list and "why not this one" deserves an answer, not a greyed-out button.
+.aether-candidates__act {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    margin-top: 8px;
+}
+
+.aether-candidates__trade {
+    font: inherit;
+    font-size: var(--chat-label);
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--accent-light);
+    background: none;
+    color: var(--accent-light);
+    cursor: pointer;
+
+    &:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
+    &:disabled { cursor: default; border-color: var(--border-mid); color: var(--text-dim); }
+}
+
+.aether-candidates__act-why {
+    font-size: 10.5px;
+    color: var(--text-dim);
+}

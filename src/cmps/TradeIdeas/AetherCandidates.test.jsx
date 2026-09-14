@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { AetherCandidates, urgencyOf, byTicker, recurring, lastEventDate } from './AetherCandidates.jsx'
+import { AetherCandidates, urgencyOf, byTicker, recurring, lastEventDate, tradable, buildAetherSeed } from './AetherCandidates.jsx'
 import { ADMIN, MEMBER } from '../../testUtils/authStub.js'
 
 // Discovery is the one leg of the engine that spends per press — an Opus call with web
@@ -934,5 +934,155 @@ describe('AetherCandidates — the ticker charts, the row expands', () => {
         openEvent()
         openName()
         expect(screen.getByText('quantified')).toBeTruthy()
+    })
+})
+
+
+describe('tradable — the gate on the hand-off', () => {
+    // These names are for SWING trades, and a swing is offered only while the clock runs and
+    // the name has not moved. A `moved` name is the part Aether exists to get in FRONT of.
+    const NOW = new Date('2026-09-14T12:00:00Z').getTime()
+    const quiet = (over = {}) => ({ side: 'hurt', excess_pct: 0.004, extension: 0.3,
+                                    created_at: '2026-09-13T00:00:00Z', expires_at: '2026-10-28', ...over })
+
+    it('a quiet, fresh name with a running clock is a trade', () => {
+        expect(tradable(quiet(), NOW).ok).toBe(true)
+    })
+
+    it('a name that has moved is not — that already happened', () => {
+        const t = tradable(quiet({ extension: 2.4 }), NOW)
+        expect(t.ok).toBe(false)
+        expect(t.why).toMatch(/already happened/)
+    })
+
+    it('a stale name is not, until re-checked', () => {
+        const t = tradable(quiet({ created_at: '2026-08-01T00:00:00Z' }), NOW)
+        expect(t.ok).toBe(false)
+        expect(t.why).toMatch(/re-check/)
+    })
+
+    it('an expired name is not — its print has landed', () => {
+        const t = tradable(quiet({ expires_at: '2026-09-01' }), NOW)
+        expect(t.ok).toBe(false)
+        expect(t.why).toMatch(/expired 2026-09-01/)
+    })
+
+    it('a name with no move measured yet still is — unmeasured is not wrong', () => {
+        expect(tradable(quiet({ excess_pct: null, extension: null }), NOW).ok).toBe(true)
+    })
+
+    it('a name with no expiry is not blocked by one', () => {
+        expect(tradable(quiet({ expires_at: '' }), NOW).ok).toBe(true)
+    })
+
+    it('a name with no side has nothing to build a lean on', () => {
+        expect(tradable(quiet({ side: 'mixed' }), NOW).ok).toBe(false)
+        expect(tradable({}, NOW).ok).toBe(false)
+    })
+})
+
+describe('buildAetherSeed — what the user says to Mentor', () => {
+    // Spoken as the USER's turn, like the calendar seeds — but where the earnings seed leaves
+    // direction open, here the side is the desk's read, so it is stated as Aether's claim and
+    // the user's lean for Mentor to examine. Every line traces to a stored field.
+    const run = { run_id: 'Strait of Hormuz:2026-09-13', subject: 'Strait of Hormuz',
+                  event: 'Saudi Arabia shut its East-West oil pipeline', event_category: 'disruption',
+                  event_date: '2026-09-13' }
+    const c = { ticker: 'FRO', company: 'Frontline plc', side: 'helped', verdict: 'silent',
+                mechanism: 'Replacement barrels for Asia and Europe must come by sea.',
+                press_evidence: 'Frontline operates the largest listed VLCC fleet.',
+                source_url: 'https://example.com/fro', excess_pct: 0.012, extension: 0.4,
+                price_asof: '2026-09-14', expires_at: '2026-10-28', next_earnings: '2026-10-28' }
+
+    it('opens with the ticker, the event and its kind and date', () => {
+        const seed = buildAetherSeed(c, run)
+        expect(seed).toMatch(/^I want to build a swing setup on FRO \(Frontline plc\) off an Aether event — Strait of Hormuz \(disruption, 2026-09-13\): "Saudi Arabia shut/)
+    })
+
+    it("states the side as Aether's claim and the lean as the user's", () => {
+        const seed = buildAetherSeed(c, run)
+        expect(seed).toMatch(/Aether has it LONG: Replacement barrels/)
+        expect(seed).toMatch(/My lean is long unless you see a reason not to/)
+    })
+
+    it('hurt is a short lean', () => {
+        expect(buildAetherSeed({ ...c, side: 'hurt' }, run)).toMatch(/Aether has it SHORT/)
+        expect(buildAetherSeed({ ...c, side: 'hurt' }, run)).toMatch(/My lean is short/)
+    })
+
+    it('carries the press fact with its source', () => {
+        expect(buildAetherSeed(c, run)).toMatch(/Press: Frontline operates the largest listed VLCC fleet\. \(https:\/\/example\.com\/fro\)/)
+    })
+
+    it('a silent filing is said to be silent, not omitted', () => {
+        expect(buildAetherSeed(c, run)).toMatch(/Its filings: silent — nothing it has filed mentions this/)
+    })
+
+    it('a quantified filing carries its sentence', () => {
+        const seed = buildAetherSeed({ ...c, verdict: 'quantified', filing_evidence: 'tariffs cost $19 million' }, run)
+        expect(seed).toMatch(/Its filings: quantified — "tariffs cost \$19 million"/)
+    })
+
+    it('the move is stated against SPY with its sigma and date', () => {
+        expect(buildAetherSeed(c, run)).toMatch(/Since the event it is 1\.2% vs SPY \(0\.4σ of its own trailing move\), as of 2026-09-14 — still quiet\./)
+    })
+
+    it('an unmeasured move is said to be unmeasured, never zero', () => {
+        const seed = buildAetherSeed({ ...c, excess_pct: null, extension: null }, run)
+        expect(seed).toMatch(/No move measured yet\./)
+        expect(seed).not.toMatch(/0\.0%/)
+    })
+
+    it('the clock names the expiry and that it is the next report', () => {
+        expect(buildAetherSeed(c, run)).toMatch(/Clock: it expires 2026-10-28 \(-?\d+d\), at its next report — the setup should be done by then\./)
+    })
+
+    it('survives a run with no fields', () => {
+        const seed = buildAetherSeed({ ticker: 'X', side: 'hurt' }, {})
+        expect(seed).toMatch(/off an Aether event — an event \(date unknown\)\./)
+        expect(seed).toMatch(/Aether has it SHORT\./)
+        expect(seed).not.toMatch(/undefined|null/)
+    })
+})
+
+describe('AetherCandidates — Trade with Mentor', () => {
+    const NOW_RUN = {
+        ...RUN,
+        candidates: [{ ticker: 'NUE', side: 'hurt', tier: 2, verdict: 'quantified',
+                       mechanism: 'steel input cost', excess_pct: 0.003, extension: 0.2,
+                       created_at: new Date().toISOString(), expires_at: '2099-01-01' }],
+    }
+
+    it('is offered under the evidence once the name is open', () => {
+        const onTradeWithMentor = vi.fn()
+        render(<AetherCandidates runs={[NOW_RUN]} onTradeWithMentor={onTradeWithMentor} />)
+        openEvent()
+        expect(screen.queryByRole('button', { name: /Trade with Mentor/ })).toBeNull()
+        openName()
+        fireEvent.click(screen.getByRole('button', { name: /Trade with Mentor/ }))
+        expect(onTradeWithMentor).toHaveBeenCalledTimes(1)
+        const [ticker, message] = onTradeWithMentor.mock.calls[0]
+        expect(ticker).toBe('NUE')
+        expect(message).toMatch(/swing setup on NUE/)
+        expect(message).toMatch(/Canada/)
+        expect(message).toMatch(/steel input cost/)
+    })
+
+    it('is disabled, with the reason beside it, for a name that has moved', () => {
+        const moved = { ...NOW_RUN, candidates: [{ ...NOW_RUN.candidates[0], extension: 3.1 }] }
+        render(<AetherCandidates runs={[moved]} onTradeWithMentor={vi.fn()} />)
+        openEvent()
+        openName()
+        const b = screen.getByRole('button', { name: /Trade with Mentor/ })
+        expect(b.disabled).toBe(true)
+        expect(screen.getByText(/already happened/)).toBeTruthy()
+    })
+
+    it('is not offered at all where there is no Mentor to hand to', () => {
+        // The Floor renders this list too, and a test renders it with nothing behind it.
+        render(<AetherCandidates runs={[NOW_RUN]} />)
+        openEvent()
+        openName()
+        expect(screen.queryByRole('button', { name: /Trade with Mentor/ })).toBeNull()
     })
 })
