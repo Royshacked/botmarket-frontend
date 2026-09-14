@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { AetherCandidates, urgencyOf, byTicker, recurring, lastEventDate, tradable, buildAetherSeed, scorecardLine } from './AetherCandidates.jsx'
+import { AetherCandidates, urgencyOf, byTicker, recurring, lastEventDate, tradable, buildAetherSeed, scorecardLine, existingSetupFor } from './AetherCandidates.jsx'
 import { ADMIN, MEMBER } from '../../testUtils/authStub.js'
 
 // Discovery is the one leg of the engine that spends per press — an Opus call with web
@@ -1219,5 +1219,88 @@ describe('AetherCandidates — Prometheus quick read', () => {
 
     it('the seed carries no Prometheus line when there was no read', () => {
         expect(buildAetherSeed(cand(), RUN)).not.toMatch(/Prometheus/)
+    })
+})
+
+
+describe('existingSetupFor — a live setup on the name', () => {
+    const setup = (asset, status, over = {}) => ({ id: `${asset}-${status}`, asset, status, direction: 'long', createdAt: 1_000, ...over })
+
+    it('finds the setup by ticker, case-insensitively', () => {
+        expect(existingSetupFor('nue', [setup('NUE', 'looking')]).id).toBe('NUE-looking')
+    })
+
+    it('a closed setup is history, not a block', () => {
+        expect(existingSetupFor('NUE', [setup('NUE', 'closed')])).toBeNull()
+    })
+
+    it('another name is not this name', () => {
+        expect(existingSetupFor('NUE', [setup('STLD', 'looking')])).toBeNull()
+    })
+
+    it('the newest live one wins', () => {
+        const older = setup('NUE', 'waiting', { createdAt: 1_000 })
+        const newer = setup('NUE', 'looking', { createdAt: 2_000 })
+        expect(existingSetupFor('NUE', [older, newer])).toBe(newer)
+        expect(existingSetupFor('NUE', [newer, older])).toBe(newer)
+    })
+
+    it('survives junk', () => {
+        expect(existingSetupFor('', [setup('NUE', 'looking')])).toBeNull()
+        expect(existingSetupFor('NUE', [null, {}, { asset: 'NUE' }]).asset).toBe('NUE')
+        expect(existingSetupFor('NUE')).toBeNull()
+    })
+})
+
+describe('AetherCandidates — a name with a setup already built', () => {
+    const cand = () => ({ ticker: 'NUE', side: 'hurt', tier: 2, verdict: 'quantified',
+                          excess_pct: 0.003, extension: 0.2,
+                          created_at: new Date().toISOString(), expires_at: '2099-01-01' })
+    const SETUP = { id: 's1', asset: 'NUE', status: 'looking', direction: 'short', createdAt: 1_000 }
+
+    it('the row says so, before the name is opened', () => {
+        render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} setups={[SETUP]} onTradeWithMentor={vi.fn()} />)
+        openEvent()
+        expect(screen.getByText('setup')).toBeTruthy()
+        expect(screen.getByTitle(/already have a setup on NUE: short · armed/)).toBeTruthy()
+    })
+
+    it('the hand-off is replaced by the setup, which opens from here', () => {
+        const onTradeWithMentor = vi.fn()
+        const onOpenSetup = vi.fn()
+        render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} setups={[SETUP]}
+                                 onTradeWithMentor={onTradeWithMentor} onOpenSetup={onOpenSetup} />)
+        openEvent()
+        openName()
+        expect(screen.queryByRole('button', { name: /Trade with Mentor/ })).toBeNull()
+        expect(screen.getByText(/setup already built — NUE short · armed/)).toBeTruthy()
+        fireEvent.click(screen.getByRole('button', { name: 'open' }))
+        expect(onOpenSetup).toHaveBeenCalledWith(SETUP)
+        expect(onTradeWithMentor).not.toHaveBeenCalled()
+    })
+
+    it('a closed setup does not block a new one', () => {
+        render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} setups={[{ ...SETUP, status: 'closed' }]} onTradeWithMentor={vi.fn()} />)
+        openEvent()
+        expect(screen.queryByText('setup')).toBeNull()
+        openName()
+        expect(screen.getByRole('button', { name: /Trade with Mentor/ })).toBeTruthy()
+    })
+
+    it('a setup on another name changes nothing here', () => {
+        render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} setups={[{ ...SETUP, asset: 'STLD' }]} onTradeWithMentor={vi.fn()} />)
+        openEvent()
+        expect(screen.queryByText('setup')).toBeNull()
+    })
+
+    it('the stage reads in the list\'s words', () => {
+        const stages = [['waiting', 'built, not armed'], ['hit', 'order placed'], ['long', 'in position']]
+        for (const [status, words] of stages) {
+            cleanup()
+            render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} setups={[{ ...SETUP, status }]} />)
+            openEvent()
+            openName()
+            expect(screen.getByText(new RegExp(`setup already built — NUE short · ${words}`))).toBeTruthy()
+        }
     })
 })

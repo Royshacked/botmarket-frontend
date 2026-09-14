@@ -742,6 +742,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                         error={aetherCandidates?.error}
                         onSymbolClick={onSymbolClick}
                         onTradeWithMentor={aetherCandidates?.onTradeWithMentor}
+                        setups={setups}
                     />
                 ) : (
                     (!hasPortfolios && !buildingPortfolio) ? (

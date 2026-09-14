@@ -6,6 +6,8 @@ import { apiError } from '../../services/http.service.js'
 import { RowHost } from '../Floor/RowHost.jsx'
 import { SymbolCell } from '../EntityCard/EntityCard.jsx'
 import { fmtShortDay } from '../Floor/floor.utils.js'
+import { openSetupPopup } from './tradeIdea.utils.js'
+import { isTerminal, isLivePosition, isAwaitingConfirm, isArmed, isUnarmed } from '../../services/entityStatus.js'
 import './AetherCandidates.scss'
 
 // Aether's event list — ONE ROW PER EVENT, the names it reached inside, and a name's own
@@ -220,6 +222,34 @@ export function tradable(c, now = Date.now()) {
         if (!Number.isNaN(ms) && ms <= now) return { ok: false, why: `expired ${c.expires_at} — its report has printed and the market has looked` }
     }
     return { ok: true, why: 'open Mentor with this name and everything Aether found on it' }
+}
+
+/**
+ * The setup the user already has on this name, if any — the newest one that is not closed.
+ *
+ * MATCHED ON THE TICKER, in the workspace being looked at. A setup carries no memory of the
+ * Aether event that seeded it (Mentor builds it from a conversation, and the seed is just
+ * the user's first turn), so "you already built this" is answered by the book, not by the
+ * hand-off: if there is a live setup on the name, the trade exists, whichever desk it came
+ * from. A closed one is history and does not block a second look.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- pure, and the match is worth testing
+export function existingSetupFor(ticker, setups = []) {
+    const sym = String(ticker ?? '').toUpperCase()
+    if (!sym) return null
+    const live = setups.filter(s => String(s?.asset ?? '').toUpperCase() === sym && !isTerminal(s?.status))
+    if (!live.length) return null
+    const when = s => new Date(s.updatedAt ?? s.createdAt ?? 0).getTime() || 0
+    return live.reduce((a, b) => (when(b) > when(a) ? b : a))
+}
+
+/** Where the setup is on its ladder, in the words a reader of this list expects. */
+function setupStage(status) {
+    if (isLivePosition(status))   return 'in position'
+    if (isAwaitingConfirm(status)) return 'order placed'
+    if (isArmed(status))           return 'armed'
+    if (isUnarmed(status))         return 'built, not armed'
+    return status || 'built'
 }
 
 /**
@@ -706,7 +736,7 @@ RecurrenceStrip.propTypes = {
  * jump opens the OTHER event, which is the one place the event-first list has to be able
  * to cross from one event to another.
  */
-function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTradeWithMentor }) {
+function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTradeWithMentor, setup, onOpenSetup }) {
     const runId = run.run_id
     // A read produced on this screen, until the next list refresh carries it on `c` itself.
     const [localRead, setLocalRead] = useState(null)
@@ -744,6 +774,14 @@ function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTra
                         <span className={`floor-row__count${recur.conflicted ? ' aether-candidates__count--conflicted' : ''}`}
                               title={`also named by ${others.length} other event${others.length > 1 ? 's' : ''}: ${alsoNamedBy(recur, runId)}${recur.conflicted ? ' — pulling in opposite directions' : ''}`}>
                             ×{others.length + 1}
+                        </span>
+                    )}
+                    {/* A setup already exists on this name — said on the row, so the reader can
+                        see which names are already trades without opening each one. */}
+                    {setup && (
+                        <span className="aether-candidates__built-chip"
+                              title={`you already have a setup on ${c.ticker}: ${setup.direction ?? ''} · ${setupStage(setup.status)}`}>
+                            setup
                         </span>
                     )}
                     <span className="floor-row__kind" title={hz.hint}>{hz.label}</span>
@@ -838,7 +876,21 @@ function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTra
                             DISABLED WITH THE REASON rather than hidden: a name that has moved
                             or expired is still on the list, and "why can't I trade this one"
                             is a question the button can answer. */}
-                        {onTradeWithMentor && (
+                        {/* ALREADY BUILT. A live setup on the name replaces the hand-off: the trade
+                            exists, and building a second one from the same read is the mistake
+                            this line is here to prevent. The setup opens from here instead. */}
+                        {setup ? (
+                            <div className="aether-candidates__act">
+                                <span className="aether-candidates__built">
+                                    setup already built — {c.ticker} {setup.direction ?? ''} · {setupStage(setup.status)}
+                                </span>
+                                <button type="button" className="aether-candidates__jump"
+                                        onClick={() => onOpenSetup(setup)}
+                                        title="open the setup">
+                                    open
+                                </button>
+                            </div>
+                        ) : onTradeWithMentor && (
                             <div className="aether-candidates__act">
                                 <button
                                     type="button"
@@ -868,6 +920,8 @@ NameRow.propTypes = {
     onJump: PropTypes.func.isRequired,
     onSymbolClick: PropTypes.func,
     onTradeWithMentor: PropTypes.func,
+    setup: PropTypes.object,
+    onOpenSetup: PropTypes.func.isRequired,
 }
 
 /** What the event's filings said, for the row: "8/45 sized", with the run's own verdict on hover. */
@@ -882,7 +936,7 @@ function evidenceCell(run) {
     }
 }
 
-export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick, onTradeWithMentor }) {
+export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick, onTradeWithMentor, setups = [], onOpenSetup = openSetupPopup }) {
     // ONE EVENT OPEN AT A TIME, and folded siblings collapse to nothing. Not a preference —
     // it is the mechanic every other list in this column uses (3bbfa59), and a list that
     // expands differently from the four above it reads as a different kind of thing.
@@ -1034,6 +1088,8 @@ export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick
                                             onJump={jumpTo}
                                             onSymbolClick={onSymbolClick}
                                             onTradeWithMentor={onTradeWithMentor}
+                                            setup={existingSetupFor(c.ticker, setups)}
+                                            onOpenSetup={onOpenSetup}
                                         />
                                     )
                                 })}
@@ -1072,4 +1128,7 @@ AetherCandidates.propTypes = {
     // (ticker, message) → opens Mentor with the message as the user's first turn. Absent where
     // there is no Mentor to hand to, and then no button is offered.
     onTradeWithMentor: PropTypes.func,
+    // The workspace's setups — a live one on a name replaces the hand-off with "already built".
+    setups: PropTypes.array,
+    onOpenSetup: PropTypes.func,
 }

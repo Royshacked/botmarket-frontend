@@ -916,6 +916,7 @@ export function FloorLists({
                             error={aetherCandidates?.error}
                             onSymbolClick={onSymbolClick}
                             onTradeWithMentor={aetherCandidates?.onTradeWithMentor}
+                            setups={setups}
                         />
                     )}
 
