@@ -44,9 +44,9 @@
         // text and nothing else. Louder would make the plain chips read as the lesser choices, which
         // is the opposite of true — most people should be talking.
         //
-        // No desk passes `action: true` today; Mentor's express-form chip was the one (deleted
-        // 2026-08-21, now a sentence that opens the interview). The variant stays because the
-        // component's contract carries it — see SuggestionChips.jsx.
+        // Mentor's "I have my own setup" chip is the one caller. It SENDS a sentence like its
+        // neighbours (the express form it once opened is gone, 2026-08-21), but undressed it read
+        // as a third sample trade and nobody found it — so it wears the mark again.
         &.is-action {
             color: var(--accent-light);
             border-color: color-mix(in srgb, var(--accent) 45%, var(--border));

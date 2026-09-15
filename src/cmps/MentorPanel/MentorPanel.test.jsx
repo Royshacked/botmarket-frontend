@@ -560,21 +560,26 @@ describe('MentorPanel — a turn the user walked out of', () => {
 // replaced the conversation, opened by a chip that was an ACTION rather than a sentence. They are
 // interviewed for it now, so the chip is a sentence like the other two — and the panel never leaves
 // the conversation to take the plan down.
-describe('the “I already have the setup” chip', () => {
+describe('the “I have my own setup” chip', () => {
     const chatBox = () => screen.queryByPlaceholderText(/A ticker, a direction and a horizon/)
 
     it('opens the interview as a turn, instead of a surface over the chat', async () => {
         render(<MentorPanel {...props()} />)
         expect(chatBox()).toBeTruthy()
 
-        fireEvent.click(screen.getByText(/I already have the exact setup/))
+        const chip = screen.getByText(/I have my own setup/)
+        // Marked as the doorway it is: dressed as a third sample trade it disappeared among the
+        // other two, and the user with a plan already made could not find the way in.
+        expect(chip.className).toMatch(/is-action/)
+
+        fireEvent.click(chip)
         await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(1))
 
         // The chip's own words ARE the user's turn. Nothing is composed on their behalf and nothing
         // is hidden from the thread — the whole reason the express hand-off needed a server-built
         // instruction was that it had no turn of its own to be.
         const [history] = sendStream.mock.calls[0]
-        expect(history.at(-1)).toEqual({ role: 'user', content: 'I already have the exact setup — take it down' })
+        expect(history.at(-1)).toEqual({ role: 'user', content: 'I have my own setup — take it down as I give it' })
 
         // No mode. The interview happens in the conversation that was already on screen, so the one
         // input at this desk stays exactly where it was.

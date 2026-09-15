@@ -16,11 +16,11 @@ import './SuggestionChips.scss'
  * A chip sends its own text as the user's next message — so the prompt writes them in the user's
  * voice ("Why is MU down?"), never the agent's ("Would you like me to explain…").
  *
- * A chip may instead be `{ label, onPick }`, for the one that does not say anything: Mentor's "I
- * already have the exact setup" opens a form rather than sending a turn. It is an OPENING MOVE the
- * same as the others — the user choosing how to start — so it belongs in the same row and wearing
- * the same clothes, not as a differently-shaped button underneath. `action: true` marks it for the
- * one styling difference that is honest: it goes somewhere instead of saying something.
+ * A chip may instead be `{ label, onPick }`, for one that needs to do its own thing on click:
+ * Mentor's "I have my own setup" sends its label as the turn, exactly like a string chip, but is
+ * marked `action: true` so it reads as the doorway it is rather than a third sample sentence. It is
+ * an OPENING MOVE the same as the others — the user choosing how to start — so it belongs in the
+ * same row, not as a differently-shaped button underneath; the mark is the one styling difference.
  *
  * `variant` is the same escape hatch ChatInputRow's `prefix` is: a root modifier
  * (`suggestion-chips--<variant>`) a caller can style against, so a surface with its own needs — Axl's

@@ -51,6 +51,10 @@ const SUGGESTIONS = [
     'I want to buy NVDA on a pullback',
     "I'm thinking of shorting TSLA this week",
 ]
+// The third opening move: the user who is not here to talk. A sentence like the others — it is
+// the user's own turn, verbatim — but it names what it is, because "I already have the exact
+// setup" next to two sample trades read as a third sample.
+const OWN_SETUP_CHIP = 'I have my own setup — take it down as I give it'
 
 const MessageBubble = ({ msg }) => <ChatBubble msg={msg} />
 
@@ -444,16 +448,25 @@ export function MentorPanel({
             <AgentMessages chat={chat} watch={`${hasPreview}|${!!candidates}`}>
                 {messages.length === 0 && (
                     <AgentIntro agent={AGENTS.mentor}>
-                        {/* Every chip is a SENTENCE now, including the one for the user who already
-                            has the plan — it opens the interview instead of a form, and Mentor asks
-                            only for what that opening line did not already say. */}
+                        {/* Every chip is a SENTENCE, including the one for the user who already has
+                            the plan — it opens the interview instead of a form, and Mentor asks only
+                            for what that opening line did not already say. It still SENDS its words
+                            as the turn like the other two; only its clothes differ. It is marked
+                            (`action`) because dressed as a third example it vanished: two sample
+                            trades and a doorway read as three sample trades, and the user who came
+                            with their own plan could not find the way in. */}
                         <SuggestionChips
                             variant="intro"
                             disabled={chat.isLoading}
                             onPick={_send}
                             suggestions={[
                                 ...SUGGESTIONS,
-                                'I already have the exact setup — take it down',
+                                {
+                                    label:  OWN_SETUP_CHIP,
+                                    title:  'Bring your own plan — Mentor takes it down as you give it',
+                                    action: true,
+                                    onPick: () => _send(OWN_SETUP_CHIP),
+                                },
                             ]}
                         />
                     </AgentIntro>
