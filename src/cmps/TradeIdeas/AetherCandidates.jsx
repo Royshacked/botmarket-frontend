@@ -226,6 +226,63 @@ export function tradable(c, now = Date.now()) {
 }
 
 /**
+ * The one line a reader needs before the sections: what to do with this name, and why.
+ *
+ * The drawer had grown to a screen of prose — mechanism, press, filing, move, the other
+ * events, Prometheus's paragraph — and the conclusion was whatever the reader assembled
+ * from it. This assembles it once, in a fixed order of authority, and says it first:
+ *
+ *   built     a setup already exists — nothing to decide
+ *   leave     Prometheus could not rank the events, or the net goes against this event's
+ *             side, or the record contradicts the claim
+ *   wait      already priced, already moved, stale, expired, or no direction
+ *   build     credible, or unread — Aether's claim stands and the trade is open
+ *
+ * Every word traces to a field, as the seed's do. `tone` is the colour; `head` is the
+ * verb; `why` is one clause. PURE, so the order can be tested without a DOM.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- pure, and the order is worth testing
+export function conclusionOf(c, { read = null, setup = null, now = Date.now() } = {}) {
+    const side  = SIDE[c.side]?.label ?? 'MIXED'
+    const q     = read ?? c.quick_read ?? null
+    const conf  = q?.confidence != null ? `, ${Math.round(q.confidence * 100)}%` : ''
+    const n     = (q?.considered?.length ?? 0) + 1
+
+    if (setup) {
+        return { tone: 'built', head: 'Built', why: `you already have a ${setup.direction ?? ''} setup on it · ${setupStage(setup.status)}` }
+    }
+    if (q?.net === 'unclear') {
+        return { tone: 'leave', head: 'Leave it', why: `Prometheus could not rank the ${n} events pulling on it — they offset, or the record cannot say` }
+    }
+    const netLabel = q?.net === 'hurt' ? 'SHORT' : q?.net === 'helped' ? 'LONG' : null
+    if (netLabel && netLabel !== side) {
+        return { tone: 'leave', head: 'Leave it, or ask Mentor', why: `Prometheus has it net ${netLabel} across ${n} events, against this event's ${side}` }
+    }
+    if (q?.verdict === 'contradicted') {
+        return { tone: 'leave', head: 'Leave it', why: `contradicted${conf}: ${q.read || 'the record cuts against the mechanism'}` }
+    }
+    if (q?.verdict === 'priced_in') {
+        return { tone: 'wait', head: 'Already priced', why: `${q.read || 'the market has looked'}` }
+    }
+    const trade = tradable(c, now)
+    if (!trade.ok) {
+        return { tone: 'wait', head: c.side === 'mixed' || !c.side ? 'No direction' : 'Not now', why: trade.why }
+    }
+    if (q?.verdict === 'credible') {
+        return { tone: 'build', head: `Build ${side}`, why: `credible${conf}${netLabel ? `, net ${netLabel} across ${n} events` : ''}: ${q.read || 'the record confirms the exposure'}` }
+    }
+    if (q?.verdict === 'unclear') {
+        return { tone: 'build', head: `${side}, unconfirmed`, why: `Prometheus found nothing either way${conf} — Aether's claim stands, unchecked` }
+    }
+    const filing = c.verdict === 'quantified' ? 'the filing sizes it'
+        : c.verdict === 'mentioned' ? 'the filing names it'
+        : c.verdict === 'silent' ? 'its filings are silent'
+        : 'filings not read'
+    const move = c.excess_pct != null ? `, ${pct(c.excess_pct)} vs SPY so far` : ''
+    return { tone: 'build', head: `${side} on Aether's read`, why: `${filing}${move} — ask Prometheus before building` }
+}
+
+/**
  * The setup the user already has on this name, if any — the newest one that is not closed.
  *
  * MATCHED ON THE TICKER, in the workspace being looked at. A setup carries no memory of the
@@ -791,6 +848,48 @@ RecurrenceStrip.propTypes = {
     onOpen: PropTypes.func.isRequired,
 }
 
+/** The conclusion line at the top of a name's drawer. See conclusionOf() for the order. */
+function Conclusion({ c, setup }) {
+    const k = conclusionOf(c, { setup })
+    return (
+        <p className={`aether-candidates__conclusion aether-candidates__conclusion--${k.tone}`}>
+            <strong className="aether-candidates__conclusion-head">{k.head}</strong>
+            <span className="aether-candidates__conclusion-why"> — {k.why}</span>
+        </p>
+    )
+}
+
+Conclusion.propTypes = {
+    c: PropTypes.object.isRequired,
+    setup: PropTypes.object,
+}
+
+/**
+ * A folded section of the drawer. Native <details>, like the chat's reasoning fold: the
+ * summary carries the title and a `tail` — the section's own gist — so a drawer with every
+ * section closed still reads as four lines of story.
+ */
+function Section({ title, tail = '', tailTitle, tone = '', open = false, children }) {
+    return (
+        <details className={`aether-candidates__sec${tone ? ` aether-candidates__sec--${tone}` : ''}`} open={open}>
+            <summary className="aether-candidates__sec-summary">
+                <span className="aether-candidates__sec-title">{title}</span>
+                {tail && <span className="aether-candidates__sec-tail" title={tailTitle}>{tail}</span>}
+            </summary>
+            <div className="aether-candidates__sec-body">{children}</div>
+        </details>
+    )
+}
+
+Section.propTypes = {
+    title: PropTypes.string.isRequired,
+    tail: PropTypes.string,
+    tailTitle: PropTypes.string,
+    tone: PropTypes.string,
+    open: PropTypes.bool,
+    children: PropTypes.node,
+}
+
 /**
  * One name inside an open event: its row, and its drawer when open.
  *
@@ -877,39 +976,78 @@ function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTra
             {isOpen && (
                 <div className="floor-detail">
                     <div className="floor-detail__block">
-                        {c.mechanism && <p className="floor-detail__prose">{c.mechanism}</p>}
+                        {/* THE CONCLUSION FIRST. The drawer below is a screen of evidence, and the
+                            reader was assembling the verdict from it every time. Said once, up
+                            top, in a fixed order of authority (conclusionOf); the sections under
+                            it are the working, folded, each summary line carrying its own gist so
+                            the folded drawer still reads as a story. */}
+                        <Conclusion c={cRead} setup={setup} />
 
-                        <ul>
+                        <Section title="Why Aether named it"
+                                 tail={c.tier != null ? `tier ${c.tier}${c.tier === 1 ? ' · named in coverage' : c.tier === 2 ? ' · supplier or customer' : ' · further removed'}` : ''}>
+                            {c.mechanism && <p className="floor-detail__prose">{c.mechanism}</p>}
                             {c.press_evidence && (
-                                <li>
+                                <p className="floor-detail__prose">
                                     {c.press_evidence}
                                     {c.source_url && (
                                         <> <a href={c.source_url} target="_blank" rel="noreferrer">source</a></>
                                     )}
-                                </li>
+                                </p>
                             )}
-                            <li title={VERDICT_HINT[c.verdict]}>
+                        </Section>
+
+                        <Section title="Filings"
+                                 tail={`${c.verdict ?? 'not read'}${c.impact_pct_revenue != null ? ` · ${pct(c.impact_pct_revenue, 2)} of revenue` : ''}`}
+                                 tailTitle={VERDICT_HINT[c.verdict]}>
+                            <p className="floor-detail__prose">
                                 <strong>{c.verdict}</strong>
                                 {c.filing_evidence
                                     ? <> — “{c.filing_evidence}”</>
                                     : <em> — nothing in its filings mentions this, which is information rather than an error</em>}
-                            </li>
+                            </p>
                             {c.impact_pct_revenue != null && (
-                                <li>{pct(c.impact_pct_revenue, 2)} of revenue, as the filing states it</li>
+                                <p className="floor-detail__prose">{pct(c.impact_pct_revenue, 2)} of revenue, as the filing states it</p>
                             )}
+                        </Section>
+
+                        <Section title="Move and clock"
+                                 tail={[
+                                     c.excess_pct != null ? `${pct(c.excess_pct)} vs SPY` : 'no move measured',
+                                     c.expires_at ? `expires ${c.expires_at}` : '',
+                                 ].filter(Boolean).join(' · ')}>
                             {c.move_pct != null && (
-                                <li>
+                                <p className="floor-detail__prose">
                                     {pct(c.move_pct)} raw, <strong>{pct(c.excess_pct)} vs SPY</strong>
                                     {c.extension != null && <> · {c.extension.toFixed(1)}σ</>}
                                     {c.reaction && c.reaction !== 'unknown' && <> · {c.reaction}</>}
                                     {c.price_asof && <> · as of {c.price_asof}</>}
-                                </li>
+                                </p>
                             )}
-                            {/* The other events, as jumps. A name two events pull opposite ways is
-                                two live claims about one company, and the reader has to see the
-                                other one before acting on this one. */}
-                            {others.length > 0 && (
-                                <li className="aether-candidates__also">
+                            <div className="floor-detail__foot">
+                                {c.next_earnings && (
+                                    <span>next report {c.next_earnings}
+                                        {c.days_to_earnings != null && ` · ${c.days_to_earnings}d`}</span>
+                                )}
+                                {c.expires_at && <span>expires {c.expires_at}</span>}
+                                {c.rank_parts && (
+                                    <span title="the rank is a sum you can take apart, not a score">
+                                        rank {c.rank?.toFixed(1)} = {Object.entries(c.rank_parts)
+                                            .filter(([, v]) => v)
+                                            .map(([k, v]) => `${k} ${v}`)
+                                            .join(' + ') || '—'}
+                                    </span>
+                                )}
+                            </div>
+                        </Section>
+
+                        {/* The other events, as jumps. A name two events pull opposite ways is
+                            two live claims about one company, and the reader has to see the
+                            other one before acting on this one. */}
+                        {others.length > 0 && (
+                            <Section title="Other events"
+                                     tail={`${others.length} more${recur.conflicted ? ' · opposite directions' : ''}`}
+                                     tone={recur.conflicted ? 'warn' : ''}>
+                                <p className="floor-detail__prose aether-candidates__also">
                                     also named by{' '}
                                     {others.map((a, i) => (
                                         <span key={a.run_id}>
@@ -924,30 +1062,20 @@ function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTra
                                         </span>
                                     ))}
                                     {recur.conflicted && <em> — in the opposite direction</em>}
-                                </li>
-                            )}
-                        </ul>
+                                </p>
+                            </Section>
+                        )}
 
-                        <div className="floor-detail__foot">
-                            {c.next_earnings && (
-                                <span>next report {c.next_earnings}
-                                    {c.days_to_earnings != null && ` · ${c.days_to_earnings}d`}</span>
-                            )}
-                            {c.expires_at && <span>expires {c.expires_at}</span>}
-                            {c.rank_parts && (
-                                <span title="the rank is a sum you can take apart, not a score">
-                                    rank {c.rank?.toFixed(1)} = {Object.entries(c.rank_parts)
-                                        .filter(([, v]) => v)
-                                        .map(([k, v]) => `${k} ${v}`)
-                                        .join(' + ') || '—'}
-                                </span>
-                            )}
-                        </div>
-
-                        {/* Prometheus first, then the trade — the read is part of the why, and
-                            a `contradicted` should be seen before the button is pressed. */}
-                        <QuickRead c={c} runId={runId} read={read} onRead={setLocalRead}
-                                   busy={reading} onBusy={setReading} />
+                        {/* Prometheus, open by default: it is the judgment, and the button to
+                            ask for it has to be in reach. Then the trade — a `contradicted`
+                            should be seen before the button is pressed. */}
+                        <Section title="Prometheus" open
+                                 tail={read?.verdict
+                                     ? `${QUICKREAD_LABEL[read.verdict] ?? read.verdict}${read.confidence != null ? ` ${Math.round(read.confidence * 100)}%` : ''}${read.net ? ` · ${NET_LABEL[read.net] ?? read.net}` : ''}`
+                                     : reading ? 'reading…' : 'not asked'}>
+                            <QuickRead c={c} runId={runId} read={read} onRead={setLocalRead}
+                                       busy={reading} onBusy={setReading} />
+                        </Section>
 
                         {/* IN THE DRAWER, not on the row. The row's right edge is the score and
                             status cells, and an overlay there is how the old `open` button

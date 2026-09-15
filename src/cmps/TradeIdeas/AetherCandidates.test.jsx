@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { AetherCandidates, urgencyOf, byTicker, recurring, lastEventDate, tradable, buildAetherSeed, scorecardLine, existingSetupFor } from './AetherCandidates.jsx'
+import { AetherCandidates, urgencyOf, byTicker, recurring, lastEventDate, tradable, buildAetherSeed, scorecardLine, existingSetupFor, conclusionOf } from './AetherCandidates.jsx'
 import { ADMIN, MEMBER } from '../../testUtils/authStub.js'
 
 // Discovery is the one leg of the engine that spends per press — an Opus call with web
@@ -938,7 +938,7 @@ describe('AetherCandidates — the ticker charts, the row expands', () => {
         render(<AetherCandidates runs={[RUN]} onSymbolClick={onSymbolClick} />)
         openEvent()
         openName()
-        expect(screen.getByText('quantified')).toBeTruthy()
+        expect(screen.getAllByText('quantified').length).toBeGreaterThan(0)
         expect(onSymbolClick).not.toHaveBeenCalled()
     })
 
@@ -962,7 +962,7 @@ describe('AetherCandidates — the ticker charts, the row expands', () => {
         render(<AetherCandidates runs={[RUN]} />)
         openEvent()
         openName()
-        expect(screen.getByText('quantified')).toBeTruthy()
+        expect(screen.getAllByText('quantified').length).toBeGreaterThan(0)
     })
 })
 
@@ -1104,7 +1104,8 @@ describe('AetherCandidates — Trade with Mentor', () => {
         openName()
         const b = screen.getByRole('button', { name: /Trade with Mentor/ })
         expect(b.disabled).toBe(true)
-        expect(screen.getByText(/already happened/)).toBeTruthy()
+        // Said twice on purpose: under the button, and as the conclusion up top.
+        expect(screen.getAllByText(/already happened/).length).toBe(2)
     })
 
     it('is not offered at all where there is no Mentor to hand to', () => {
@@ -1212,7 +1213,7 @@ describe('AetherCandidates — Prometheus quick read', () => {
         render(<AetherCandidates runs={[{ ...RUN, candidates: [cand({ quick_read: { verdict: 'priced_in', read: 'Estimates moved.' } })] }]} />)
         openEvent()
         openName()
-        expect(screen.getByText('priced in')).toBeTruthy()
+        expect(screen.getAllByText('priced in').length).toBeGreaterThan(0)
         expect(screen.queryByRole('button', { name: 'Ask Prometheus' })).toBeNull()
     })
 
@@ -1490,7 +1491,7 @@ describe('AetherCandidates — the open thing goes to the top and stays there', 
         render(<AetherCandidates runs={[RUN]} />)
         openEvent()
         expect(() => openName()).not.toThrow()
-        expect(screen.getByText('quantified')).toBeTruthy()
+        expect(screen.getAllByText('quantified').length).toBeGreaterThan(0)
     })
 
     it('the open name row pins to the top of the event body', () => {
@@ -1517,5 +1518,140 @@ describe('AetherCandidates — the open thing goes to the top and stays there', 
         const wrapper = css.slice(css.indexOf('.aether-candidates__name {'), css.indexOf('.aether-candidates__name--open'))
             .replace(/\/\/.*$/gm, '')   // the rule, not the comment explaining it
         expect(wrapper).not.toMatch(/overflow/)
+    })
+})
+
+
+describe('conclusionOf — the one line before the sections', () => {
+    // A fixed order of authority: built > Prometheus's net > its verdict > the trade gates >
+    // Aether's own claim. Each step is the reason the next one need not be read.
+    const c = (over = {}) => ({ ticker: 'NUE', side: 'hurt', verdict: 'quantified', excess_pct: 0.003,
+                                extension: 0.2, created_at: new Date().toISOString(), expires_at: '2099-01-01', ...over })
+    const q = (over = {}) => ({ verdict: 'credible', confidence: 0.8, read: 'It filed.', considered: [], ...over })
+
+    it('a built setup outranks everything', () => {
+        const k = conclusionOf(c({ quick_read: q({ verdict: 'contradicted' }) }), { setup: { direction: 'short', status: 'active' } })
+        expect(k.tone).toBe('built')
+        expect(k.head).toBe('Built')
+    })
+
+    it('an unclear net is leave it', () => {
+        const k = conclusionOf(c({ quick_read: q({ net: 'unclear', considered: ['x', 'y'] }) }))
+        expect(k.tone).toBe('leave')
+        expect(k.why).toMatch(/could not rank the 3 events/)
+    })
+
+    it('a net against this event\'s side is leave it, or Mentor', () => {
+        const k = conclusionOf(c({ side: 'hurt', quick_read: q({ net: 'helped', considered: ['x'] }) }))
+        expect(k.tone).toBe('leave')
+        expect(k.head).toMatch(/ask Mentor/)
+        expect(k.why).toMatch(/net LONG across 2 events, against this event's SHORT/)
+    })
+
+    it('a net that agrees does not override the verdict', () => {
+        const k = conclusionOf(c({ side: 'hurt', quick_read: q({ net: 'hurt', considered: ['x'] }) }))
+        expect(k.tone).toBe('build')
+        expect(k.why).toMatch(/credible, 80%, net SHORT across 2 events: It filed\./)
+    })
+
+    it('contradicted is leave it, with the read', () => {
+        const k = conclusionOf(c({ quick_read: q({ verdict: 'contradicted', read: 'It hedged.' }) }))
+        expect(k.tone).toBe('leave')
+        expect(k.why).toMatch(/contradicted, 80%: It hedged\./)
+    })
+
+    it('priced in is wait', () => {
+        const k = conclusionOf(c({ quick_read: q({ verdict: 'priced_in', read: 'Estimates moved.' }) }))
+        expect(k.tone).toBe('wait')
+        expect(k.head).toBe('Already priced')
+    })
+
+    it('a trade gate comes before a credible verdict — a moved name is not built on', () => {
+        const k = conclusionOf(c({ excess_pct: 0.2, extension: 3.5, quick_read: q() }))
+        expect(k.tone).toBe('wait')
+        expect(k.why).toMatch(/already happened/)
+    })
+
+    it('no direction has its own head', () => {
+        expect(conclusionOf(c({ side: 'mixed' })).head).toBe('No direction')
+    })
+
+    it('credible is build, on the side', () => {
+        const k = conclusionOf(c({ quick_read: q() }))
+        expect(k.tone).toBe('build')
+        expect(k.head).toBe('Build SHORT')
+    })
+
+    it('unclear leaves the claim standing, and says it is unchecked', () => {
+        const k = conclusionOf(c({ quick_read: q({ verdict: 'unclear' }) }))
+        expect(k.tone).toBe('build')
+        expect(k.head).toBe('SHORT, unconfirmed')
+        expect(k.why).toMatch(/unchecked/)
+    })
+
+    it('no read at all states Aether\'s claim and asks for Prometheus', () => {
+        const k = conclusionOf(c())
+        expect(k.head).toBe("SHORT on Aether's read")
+        expect(k.why).toMatch(/the filing sizes it, 0\.3% vs SPY so far — ask Prometheus before building/)
+        expect(conclusionOf(c({ verdict: 'silent' })).why).toMatch(/its filings are silent/)
+    })
+})
+
+
+describe('AetherCandidates — the drawer is a conclusion and folded sections', () => {
+    const cand = (over = {}) => ({ ticker: 'NUE', side: 'hurt', tier: 2, verdict: 'quantified',
+                                   mechanism: 'steel input cost', press_evidence: 'Nucor said so',
+                                   excess_pct: 0.003, extension: 0.2, expires_at: '2099-01-01',
+                                   created_at: new Date().toISOString(), ...over })
+
+    it('the conclusion is the first thing in the drawer', () => {
+        render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} />)
+        openEvent()
+        openName()
+        const first = document.querySelector('.floor-detail__block').firstElementChild
+        expect(first.className).toMatch(/aether-candidates__conclusion--build/)
+        expect(first.textContent).toMatch(/^SHORT on Aether's read — /)
+    })
+
+    it('the sections are folded, Prometheus open, each summary carrying its gist', () => {
+        render(<AetherCandidates runs={[{ ...RUN, candidates: [cand({ quick_read: { verdict: 'priced_in', confidence: 0.6, read: 'Moved.', net: 'hurt', considered: ['x'] } })] }]} />)
+        openEvent()
+        openName()
+        const secs = [...document.querySelectorAll('.aether-candidates__sec')]
+        const titles = secs.map(d => d.querySelector('.aether-candidates__sec-title').textContent)
+        expect(titles).toEqual(['Why Aether named it', 'Filings', 'Move and clock', 'Prometheus'])
+        const opened = secs.map(d => d.open)
+        expect(opened).toEqual([false, false, false, true])
+        const tails = secs.map(d => d.querySelector('.aether-candidates__sec-tail').textContent)
+        expect(tails[0]).toBe('tier 2 · supplier or customer')
+        expect(tails[1]).toBe('quantified')
+        expect(tails[2]).toBe('0.3% vs SPY · expires 2099-01-01')
+        expect(tails[3]).toBe('priced in 60% · net short')
+    })
+
+    it('the other-events section appears only when there are other events, and warns on a conflict', () => {
+        const r2 = (id, subject, candidates) => ({ run_id: id, subject, event: `${subject} thing`, candidates })
+        render(<AetherCandidates runs={[
+            r2('a', 'Canada', [cand({ side: 'hurt' })]),
+            r2('b', 'Congo', [cand({ side: 'helped' })]),
+        ]} />)
+        openEvent('Canada')
+        openName()
+        const sec = [...document.querySelectorAll('.aether-candidates__sec')].find(d => d.textContent.includes('Other events'))
+        expect(sec.className).toMatch(/__sec--warn/)
+        expect(sec.querySelector('.aether-candidates__sec-tail').textContent).toBe('1 more · opposite directions')
+    })
+
+    it('an unasked Prometheus says so in its tail, and reading… while it reads', () => {
+        let resolve
+        quickRead.mockReturnValue(new Promise(r => { resolve = r }))
+        render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} />)
+        openEvent()
+        openName()
+        const tail = () => [...document.querySelectorAll('.aether-candidates__sec')].at(-1).querySelector('.aether-candidates__sec-tail').textContent
+        expect(tail()).toBe('not asked')
+        fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+        expect(tail()).toBe('reading…')
+        resolve({ verdict: 'credible', confidence: 0.7, read: 'r' })
     })
 })

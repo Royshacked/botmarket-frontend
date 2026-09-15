@@ -266,6 +266,75 @@
     color: var(--text-dim);
 }
 
+// ── the drawer: conclusion first, then folded sections ────────────────────────
+//
+// The drawer was a screen of prose and the conclusion was whatever the reader assembled
+// from it. Now one line says it, coloured by what it says, and the working sits under it
+// in <details> folds whose summary lines carry their own gist.
+.aether-candidates__conclusion {
+    margin: 4px 0 10px;
+    padding: 6px 10px;
+    border-left: 3px solid var(--border-mid);
+    background: var(--bg-raised);
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+
+    &-head { color: var(--text-primary); }
+
+    &--build { border-left-color: var(--accent-light); .aether-candidates__conclusion-head { color: var(--accent-light); } }
+    &--wait  { border-left-color: var(--text-dim); }
+    &--leave { border-left-color: var(--color-warning); .aether-candidates__conclusion-head { color: var(--color-warning); } }
+    &--built { border-left-color: var(--text-muted); }
+}
+
+.aether-candidates__sec {
+    margin: 0 0 4px;
+    border-top: 1px solid var(--border-soft);
+
+    &-summary {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        padding: 5px 0;
+        cursor: pointer;
+        list-style: none;
+        &::-webkit-details-marker { display: none; }
+        &::before {
+            content: '›';
+            flex: 0 0 auto;
+            display: inline-block;
+            width: 10px;
+            color: var(--text-dim);
+            transition: transform .15s;
+        }
+        &:hover .aether-candidates__sec-title { color: var(--text-primary); }
+    }
+    &[open] > &-summary::before { transform: rotate(90deg); }
+
+    &-title {
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: .9px;
+        color: var(--text-dim);
+    }
+    &-tail {
+        font-size: 11.5px;
+        color: var(--text-secondary);
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    &--warn &-tail { color: var(--color-warning); }
+
+    &-body {
+        padding: 2px 0 8px 18px;
+        .floor-detail__prose:last-child { margin-bottom: 0; }
+    }
+}
+
 // ── the scorecard line ────────────────────────────────────────────────────────
 //
 // One line above the names, quiet, the splits on hover. It reads like the stale-read
