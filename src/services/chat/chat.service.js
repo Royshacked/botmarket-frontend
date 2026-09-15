@@ -28,15 +28,16 @@ export const chatService = {
         return httpService.post(`${BASE}/conversations/${convId}/read`)
     },
 
-    // Resolve a card's lifecycle — the one path every card takes. status 'done' (the user acted on
+    // Resolve a card's lifecycle — the ONE path every card takes. status 'done' (the user acted on
     // the primary) or 'dismissed' (acknowledged, no action); outcome records which action for the
-    // collapsed label. Supersedes dismissMessage (kept below as a thin alias for any old caller).
+    // collapsed label.
+    //
+    // A `dismissMessage` alias stood under this one "for any old caller". There was none — and the
+    // backend carried the matching chain (a POST …/dismiss route, its handler, and a service alias),
+    // so four layers existed for a call nobody made. All of it went in §5; a dismiss is expressed as
+    // `status: 'dismissed'`, which is the vocabulary the lifecycle already speaks.
     async resolveMessage(convId, msgId, { status = 'dismissed', outcome = null } = {}) {
         return httpService.post(`${BASE}/conversations/${convId}/messages/${msgId}/resolve`, { status, outcome })
-    },
-
-    async dismissMessage(convId, msgId, outcome = null) {
-        return this.resolveMessage(convId, msgId, { status: 'dismissed', outcome })
     },
 
     async searchUsers(q) {
