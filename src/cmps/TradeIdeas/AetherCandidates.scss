@@ -356,6 +356,21 @@
     color: var(--text-dim);
 }
 
+// The direction across every event naming it — a second word after the verdict, coloured
+// like a side because it is one.
+.aether-candidates__read-net {
+    margin-left: 8px;
+    padding: 0 5px;
+    border-radius: 3px;
+    border: 1px solid var(--border-mid);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-secondary);
+    &--helped  { color: var(--color-long); border-color: currentColor; }
+    &--hurt    { color: var(--color-short); border-color: currentColor; }
+    &--unclear { color: var(--text-dim); }
+}
+
 // ── already built ─────────────────────────────────────────────────────────────
 //
 // A live setup on the name: a chip on the row so the reader can see which names are already

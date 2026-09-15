@@ -1283,6 +1283,55 @@ describe('AetherCandidates — Prometheus quick read', () => {
         expect(buildAetherSeed(cand(), RUN)).not.toMatch(/Prometheus/)
     })
 
+    describe('judged against every event naming it', () => {
+        const read = over => ({ verdict: 'credible', confidence: 0.7, read: 'r', considered: ['Iran:2026-09-10'], ...over })
+
+        it('shows the net beside the verdict, with how many events it weighed', () => {
+            render(<AetherCandidates runs={[{ ...RUN, candidates: [cand({ quick_read: read({ net: 'hurt' }) })] }]} />)
+            openEvent()
+            openName()
+            const net = screen.getByText('net short')
+            expect(net.className).toMatch(/__read-net--hurt/)
+            expect(net.title).toMatch(/2 events considered/)
+        })
+
+        it('no net, no chip — one event names it', () => {
+            render(<AetherCandidates runs={[{ ...RUN, candidates: [cand({ quick_read: { verdict: 'credible', net: null } })] }]} />)
+            openEvent()
+            openName()
+            expect(document.querySelector('.aether-candidates__read-net')).toBeNull()
+        })
+
+        it('the seed carries the net and the count', () => {
+            const s = buildAetherSeed(cand({ quick_read: read({ net: 'hurt' }) }), RUN)
+            expect(s).toMatch(/Judged against 2 events naming NUE, Prometheus has it net short\./)
+        })
+
+        it('a net against this event\'s side asks which mechanism dominates, and drops the lean', () => {
+            // hurt row, but Prometheus has the name net long across its events
+            const s = buildAetherSeed(cand({ side: 'hurt', quick_read: read({ net: 'helped' }) }), RUN)
+            expect(s).toMatch(/Prometheus has the name long on the whole, against this event's short — tell me which mechanism dominates from here, or to leave it\./)
+            expect(s).not.toMatch(/My lean is/)
+        })
+
+        it('a net that agrees with the side keeps the lean', () => {
+            const s = buildAetherSeed(cand({ side: 'hurt', quick_read: read({ net: 'hurt' }) }), RUN)
+            expect(s).toMatch(/My lean is short unless you see a reason not to/)
+        })
+
+        it('an unclear net asks whether there is a setup at all', () => {
+            const s = buildAetherSeed(cand({ quick_read: read({ net: 'unclear' }) }), RUN)
+            expect(s).toMatch(/could not rank the events pulling on NUE — tell me whether there is a setup here at all, or to leave it\./)
+            expect(s).not.toMatch(/My lean is/)
+        })
+
+        it('the net outranks the per-event verdict in the close', () => {
+            // credible on this event, but net the other way: the net is the question that matters.
+            const s = buildAetherSeed(cand({ side: 'hurt', quick_read: read({ verdict: 'credible', net: 'helped' }) }), RUN)
+            expect(s).toMatch(/which mechanism dominates/)
+        })
+    })
+
     describe('the closing line follows the verdict', () => {
         // The lean is the user's, but not after Prometheus has just cut against it.
         const seed = verdict => buildAetherSeed(cand({ quick_read: { verdict, read: 'r' } }), RUN)

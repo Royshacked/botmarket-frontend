@@ -308,6 +308,13 @@ export function buildAetherSeed(c, run = {}) {
         lines.push(`Prometheus's quick read: ${QUICKREAD_LABEL[q.verdict] ?? q.verdict}`
             + `${q.confidence != null ? ` (${Math.round(q.confidence * 100)}% confidence)` : ''}`
             + `${q.read ? ` — ${q.read}` : ''}`)
+        // The net, when several events name it — the thing Mentor most needs when the events
+        // disagree, and the line the seed's lean cannot be allowed to contradict.
+        if (q.net) {
+            const n = (q.considered?.length ?? 0) + 1
+            lines.push(`Judged against ${n} events naming ${c.ticker}, Prometheus has it ${NET_LABEL[q.net] ?? q.net}`
+                + `${q.net === 'unclear' ? ' — the events offset or the record cannot rank them' : ''}.`)
+        }
     }
     // THE CLOSE FOLLOWS THE VERDICT. The lean is the user's, on Aether's read — but when
     // Prometheus has just read the name as contradicted or priced in, opening with "my lean
@@ -317,7 +324,13 @@ export function buildAetherSeed(c, run = {}) {
     // is there still a setup here, or leave it. Credible and unclear keep the lean — one
     // confirms it, the other says nothing against it.
     const q = c.quick_read?.verdict
-    if (q === 'contradicted') {
+    const net = c.quick_read?.net
+    const netSide = net === 'hurt' ? 'short' : net === 'helped' ? 'long' : null
+    if (net === 'unclear') {
+        lines.push(`Prometheus could not rank the events pulling on ${c.ticker} — tell me whether there is a setup here at all, or to leave it.`)
+    } else if (netSide && netSide !== side) {
+        lines.push(`Prometheus has the name ${netSide} on the whole, against this event's ${side} — tell me which mechanism dominates from here, or to leave it.`)
+    } else if (q === 'contradicted') {
         lines.push(`Prometheus read that as contradicted — tell me whether there is still a ${side} setup here, or to leave it.`)
     } else if (q === 'priced_in') {
         lines.push(`Prometheus reads the move as already priced — tell me whether there is still a ${side} setup worth the entry from here, or to leave it.`)
@@ -340,6 +353,15 @@ const QUICKREAD_LABEL = {
 }
 // Why the trade waits while a read is in flight — the same words on the button and under it.
 const READING_WHY = "waiting for Prometheus's read, so it rides in the seed"
+
+// The direction across every event naming the company, when more than one does. Null when
+// one does — there is no net of a single claim.
+const NET_LABEL = { helped: 'net long', hurt: 'net short', unclear: 'net unclear' }
+const NET_HINT  = {
+    helped:  'across every event naming it, the record supports the helped side',
+    hurt:    'across every event naming it, the record supports the hurt side',
+    unclear: 'the events offset, or the record cannot rank them — a name to leave alone',
+}
 
 const QUICKREAD_HINT = {
     credible:     'the mechanism holds and the record confirms it, and neither the estimates nor the price have absorbed it yet',
@@ -368,6 +390,15 @@ function QuickRead({ c, runId, read, onRead, busy, onBusy }) {
                 <strong className="aether-candidates__read-verdict">{QUICKREAD_LABEL[read.verdict] ?? read.verdict}</strong>
                 {read.confidence != null && (
                     <span className="aether-candidates__read-conf">{Math.round(read.confidence * 100)}%</span>
+                )}
+                {/* Judged against every live event naming it; this is the direction on the whole.
+                    The verdict above is on this event's claim, and the two can differ: a claim
+                    can be credible and still be outweighed. */}
+                {read.net && (
+                    <span className={`aether-candidates__read-net aether-candidates__read-net--${read.net}`}
+                          title={`${NET_HINT[read.net] ?? ''}${read.considered?.length ? ` — ${read.considered.length + 1} events considered` : ''}`}>
+                        {NET_LABEL[read.net] ?? read.net}
+                    </span>
                 )}
                 {read.read && <p className="floor-detail__prose">{read.read}</p>}
                 {read.evidence?.length > 0 && (
