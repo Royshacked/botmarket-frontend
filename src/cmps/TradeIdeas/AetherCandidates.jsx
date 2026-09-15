@@ -324,6 +324,9 @@ const QUICKREAD_LABEL = {
     contradicted: 'contradicted',
     unclear:      'unclear',
 }
+// Why the trade waits while a read is in flight — the same words on the button and under it.
+const READING_WHY = "waiting for Prometheus's read, so it rides in the seed"
+
 const QUICKREAD_HINT = {
     credible:     'the mechanism holds and the record confirms it, and neither the estimates nor the price have absorbed it yet',
     priced_in:    'the exposure is real, but the estimates or a documented move show the market has already looked',
@@ -334,9 +337,13 @@ const QUICKREAD_HINT = {
 /**
  * The read when there is one, the button when there is not. Local state holds a read produced
  * on this screen until the next list refresh carries it on the candidate itself.
+ *
+ * `busy` LIVES IN THE ROW, not here, because the trade button below has to see it: the seed is
+ * built at the moment Build is pressed, and a press while Prometheus is mid-read would hand
+ * Mentor a seed without the verdict the user just asked for. The row disables the trade for
+ * those seconds. A read that fails re-enables it — the seed simply carries no line.
  */
-function QuickRead({ c, runId, read, onRead }) {
-    const [busy, setBusy] = useState(false)
+function QuickRead({ c, runId, read, onRead, busy, onBusy }) {
     const [err, setErr] = useState('')
 
     if (read?.verdict) {
@@ -361,7 +368,7 @@ function QuickRead({ c, runId, read, onRead }) {
     }
 
     async function ask() {
-        setBusy(true)
+        onBusy(true)
         setErr('')
         try {
             const r = await aetherService.quickRead(runId, c.ticker)
@@ -369,7 +376,7 @@ function QuickRead({ c, runId, read, onRead }) {
         } catch (e) {
             setErr(apiError(e, 'could not get a read'))
         } finally {
-            setBusy(false)
+            onBusy(false)
         }
     }
 
@@ -394,6 +401,8 @@ QuickRead.propTypes = {
     runId: PropTypes.string,
     read: PropTypes.object,
     onRead: PropTypes.func.isRequired,
+    busy: PropTypes.bool,
+    onBusy: PropTypes.func.isRequired,
 }
 
 /**
@@ -741,6 +750,8 @@ function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTra
     const runId = run.run_id
     // A read produced on this screen, until the next list refresh carries it on `c` itself.
     const [localRead, setLocalRead] = useState(null)
+    // One in flight. Held here rather than in QuickRead so the trade button can wait for it.
+    const [reading, setReading] = useState(false)
     const read = c.quick_read ?? localRead
     const cRead = read ? { ...c, quick_read: read } : c
 
@@ -882,7 +893,8 @@ function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTra
 
                         {/* Prometheus first, then the trade — the read is part of the why, and
                             a `contradicted` should be seen before the button is pressed. */}
-                        <QuickRead c={c} runId={runId} read={read} onRead={setLocalRead} />
+                        <QuickRead c={c} runId={runId} read={read} onRead={setLocalRead}
+                                   busy={reading} onBusy={setReading} />
 
                         {/* IN THE DRAWER, not on the row. The row's right edge is the score and
                             status cells, and an overlay there is how the old `open` button
@@ -913,13 +925,15 @@ function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTra
                                 <button
                                     type="button"
                                     className="aether-candidates__trade"
-                                    disabled={!trade.ok}
-                                    title={trade.why}
+                                    disabled={!trade.ok || reading}
+                                    title={reading ? READING_WHY : trade.why}
                                     onClick={() => onTradeWithMentor(c.ticker, buildAetherSeed(cRead, run))}
                                 >
                                     Trade with Mentor →
                                 </button>
-                                {!trade.ok && <span className="aether-candidates__act-why">{trade.why}</span>}
+                                {!trade.ok
+                                    ? <span className="aether-candidates__act-why">{trade.why}</span>
+                                    : reading && <span className="aether-candidates__act-why">{READING_WHY}</span>}
                             </div>
                         )}
                     </div>

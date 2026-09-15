@@ -1217,6 +1217,44 @@ describe('AetherCandidates — Prometheus quick read', () => {
         expect(message).toMatch(/Prometheus's quick read: contradicted \(80% confidence\) — It hedged the exposure in the 10-Q\./)
     })
 
+    it('the trade waits while Prometheus is reading, so the seed carries the verdict', async () => {
+        // The seed is built when Build is pressed. A press mid-read would hand Mentor a seed
+        // without the verdict the user just asked for.
+        let resolve
+        quickRead.mockReturnValue(new Promise(r => { resolve = r }))
+        const onTradeWithMentor = vi.fn()
+        render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} onTradeWithMentor={onTradeWithMentor} />)
+        openEvent()
+        openName()
+        const trade = () => screen.getByRole('button', { name: /Trade with Mentor/ })
+        expect(trade().disabled).toBe(false)
+        fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+        expect(trade().disabled).toBe(true)
+        expect(screen.getByText(/waiting for Prometheus's read/)).toBeTruthy()
+        fireEvent.click(trade())
+        expect(onTradeWithMentor).not.toHaveBeenCalled()
+        resolve(READ)
+        await waitFor(() => expect(screen.getByText('contradicted')).toBeTruthy())
+        expect(trade().disabled).toBe(false)
+        expect(screen.queryByText(/waiting for Prometheus's read/)).toBeNull()
+        fireEvent.click(trade())
+        expect(onTradeWithMentor.mock.calls[0][1]).toMatch(/Prometheus's quick read: contradicted/)
+    })
+
+    it('a failed read gives the trade back', async () => {
+        quickRead.mockRejectedValue(new Error('budget'))
+        const onTradeWithMentor = vi.fn()
+        render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} onTradeWithMentor={onTradeWithMentor} />)
+        openEvent()
+        openName()
+        fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+        await waitFor(() => expect(screen.getByText(/budget/)).toBeTruthy())
+        const trade = screen.getByRole('button', { name: /Trade with Mentor/ })
+        expect(trade.disabled).toBe(false)
+        fireEvent.click(trade)
+        expect(onTradeWithMentor.mock.calls[0][1]).not.toMatch(/Prometheus/)
+    })
+
     it('the seed carries no Prometheus line when there was no read', () => {
         expect(buildAetherSeed(cand(), RUN)).not.toMatch(/Prometheus/)
     })
