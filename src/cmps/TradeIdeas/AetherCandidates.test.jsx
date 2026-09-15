@@ -1230,6 +1230,8 @@ describe('AetherCandidates — Prometheus quick read', () => {
         expect(trade().disabled).toBe(false)
         fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
         expect(trade().disabled).toBe(true)
+        // The ask button pulses while it waits, and stops the moment the read lands.
+        expect(screen.getByRole('button', { name: /Prometheus is reading/ }).className).toMatch(/__ask--busy/)
         expect(screen.getByText(/waiting for Prometheus's read/)).toBeTruthy()
         fireEvent.click(trade())
         expect(onTradeWithMentor).not.toHaveBeenCalled()

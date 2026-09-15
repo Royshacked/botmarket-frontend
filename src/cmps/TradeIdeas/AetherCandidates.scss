@@ -294,6 +294,24 @@
 
     &:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
     &:disabled { cursor: default; color: var(--text-dim); }
+
+    // Reading. The button is disabled for the seconds Prometheus takes, and a disabled
+    // button reads as "nothing is happening" — so it breathes: the border and text lift
+    // toward the accent and settle back, until the read replaces it. Motion only where
+    // the reader has not asked for none.
+    &--busy:disabled {
+        color: var(--text-secondary);
+        border-color: var(--accent-light);
+        animation: aether-ask-pulse 1.4s ease-in-out infinite;
+    }
+}
+
+@keyframes aether-ask-pulse {
+    0%, 100% { opacity: 0.55; box-shadow: 0 0 0 0 transparent; }
+    50%      { opacity: 1;    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-light) 22%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .aether-candidates__ask--busy:disabled { animation: none; opacity: 0.8; }
 }
 
 .aether-candidates__read {

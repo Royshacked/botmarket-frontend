@@ -398,7 +398,7 @@ function QuickRead({ c, runId, read, onRead, busy, onBusy }) {
         <div className="aether-candidates__act">
             <button
                 type="button"
-                className="aether-candidates__ask"
+                className={`aether-candidates__ask${busy ? ' aether-candidates__ask--busy' : ''}`}
                 disabled={busy}
                 onClick={ask}
                 title="Prometheus checks what the company has said or filed since the event, and the estimate trend — credible, priced in, or contradicted. One Sonnet call on your budget; the read is kept and shown to everyone."
