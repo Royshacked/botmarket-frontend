@@ -18,13 +18,10 @@ export const paperService = {
     resetAccountById,
     getAccountTrades,
     getAccountEquityCurve,
-    // legacy single-account (transitional — header badge + default-account view)
+    // The two surviving default-account routes: the header badge's mode toggle, and the read that
+    // resolves (and mints) the default account behind it.
     getState,
     setMode,
-    updateSettings,
-    reset,
-    getTrades,
-    getEquityCurve,
 }
 
 // ─── Per-account ──────────────────────────────────────────────────────────────
@@ -86,28 +83,12 @@ async function setMode(enabled) {
     return httpService.put(`${BASE}/mode`, { enabled })
 }
 
-/** Patch cost settings ({ spreadBps?, commissionPerTrade? }) on the default account. Returns the new state. */
-async function updateSettings(settings) {
-    return httpService.put(`${BASE}/settings`, settings)
-}
-
-/** Wipe the default account's positions/orders and restore balance (optional new startingBalance). */
-async function reset(startingBalance) {
-    return httpService.post(`${BASE}/reset`, startingBalance != null ? { startingBalance } : {})
-}
-
-/** @returns {Promise<object[]>} paper trade history (default account scope) */
-async function getTrades({ status, limit } = {}) {
-    const qs = new URLSearchParams()
-    if (status) qs.set('status', status)
-    if (limit != null) qs.set('limit', String(limit))
-    const res = await httpService.get(`${BASE}/trades${qs.toString() ? `?${qs}` : ''}`)
-    return Array.isArray(res.trades) ? res.trades : []
-}
-
-/** @returns {Promise<object[]>} equity-curve points (default account scope) */
-async function getEquityCurve({ fromMs } = {}) {
-    const qs = fromMs != null ? `?fromMs=${fromMs}` : ''
-    const res = await httpService.get(`${BASE}/equity-curve${qs}`)
-    return Array.isArray(res.points) ? res.points : []
-}
+// updateSettings / reset / getTrades / getEquityCurve stood here and called four routes that no
+// longer exist. The backend's DEFAULT-ACCOUNT paper endpoints (PUT /settings, POST /reset,
+// GET /trades, GET /equity-curve) were removed once paper grew real multi-account support, and every
+// one has an account-scoped replacement already defined above: updateAccount, resetAccountById,
+// getAccountTrades, getAccountEquityCurve.
+//
+// Nothing called them, so nothing was broken — they simply sat here as four plausible-looking methods
+// that would have 404'd the moment anyone reached for one, which is the more expensive kind of dead
+// code: it reads as an available capability. Removed with the backend's §1 review.

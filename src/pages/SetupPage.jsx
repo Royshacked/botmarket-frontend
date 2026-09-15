@@ -217,8 +217,15 @@ export function SetupPage() {
         try { await mentorService.deleteSetup(id); window.close() }
         catch (e) { console.error('[setup-page] delete failed', e) }   // e.g. in_position (409)
     }
+    // THREE acts on one button, because the rung decides what "stop" means:
+    //   waiting → arm it (a status patch; the server re-runs the readiness gate)
+    //   looking → stop watching (a status patch; nothing exists at the broker)
+    //   hit + limit → CANCEL THE RESTING ORDER, then reset (its own route: a status patch would
+    //     leave a working order live with nothing tracking it, to fill later against no entity)
     async function toggleArm() {
-        const next = isSetupArmed(setup.status) ? mentorService.disarmSetup : mentorService.armSetup
+        const next = restingEntry ? mentorService.disarmRestingEntry
+            : isSetupArmed(setup.status) ? mentorService.disarmSetup
+            : mentorService.armSetup
         try { await next(id); await refresh() }
         catch (e) { console.error('[setup-page] arm toggle failed', e) }
     }
@@ -237,7 +244,12 @@ export function SetupPage() {
     // that owned no position at all).
     const setupPositions = positionsForEntity(setup, positions)
 
-    const canToggle = canArmSetup(setup.status) || isSetupArmed(setup.status)
+    // A LIMIT entry resting at the broker. The backend has taken this since §3 (POST /:id/disarm
+    // cancels the order, then resets) and nothing called it, because `isSetupArmed` is 'looking'-only
+    // — so on the one rung where a real order is exposed, the page offered no way to pull it, and the
+    // user's only exits were expiry and a validity breach.
+    const restingEntry = setup.status === 'hit' && setup.entry_mode === 'limit'
+    const canToggle    = canArmSetup(setup.status) || isSetupArmed(setup.status) || restingEntry
 
     // The stale-map ask is PRE-ENTRY only, on the same `showsWatch` boundary the watch panel uses:
     // past entry the position is the live surface and the management card above is what speaks, and
@@ -270,7 +282,12 @@ export function SetupPage() {
             ]}
             headerExtra={canToggle && (
                 <button className="setup-page__arm" onClick={toggleArm}>
-                    {isSetupArmed(setup.status) ? 'Stop watching' : 'Arm it'}
+                    {/* The wording has to say which of the three acts this is. "Stop watching" over a
+                        resting limit order would understate it: there is a real order at the broker
+                        and this cancels it. */}
+                    {restingEntry ? 'Cancel the order'
+                        : isSetupArmed(setup.status) ? 'Stop watching'
+                        : 'Arm it'}
                 </button>
             )}
         >

@@ -24,6 +24,7 @@ export const mentorService = {
     getSetup,
     armSetup,
     disarmSetup,
+    disarmRestingEntry,
     actOnSetup,
     deleteSetup,
 }
@@ -79,8 +80,25 @@ function getSetup(id) { return api.get(id) }
  */
 function armSetup(id) { return api.patch(id, { status: 'looking' }) }
 
-/** Disarm: back to 'waiting'. Talos stops watching; the setup is kept. */
+/**
+ * Disarm a WATCHED setup: back to 'waiting'. Talos stops watching; the setup is kept. Nothing exists
+ * at the broker on this rung, so a status patch is the whole of it.
+ */
 function disarmSetup(id) { return api.patch(id, { status: 'waiting' }) }
+
+/**
+ * Disarm a setup whose LIMIT ENTRY IS RESTING AT THE BROKER (`hit` + entry_mode 'limit').
+ *
+ * A different act, and it needs its own route because a status patch cannot do it: there is a working
+ * order out there, and dropping the document to 'waiting' would leave that order live with nothing
+ * tracking it — it fills later and the reconciler finds no entity for the fill. This cancels the
+ * order first, then resets the setup.
+ *
+ * The route has existed since the backend's §3 review and had no caller, because the UI offered no
+ * button at all on this rung: a user with a resting limit entry could only wait for expiry or a
+ * validity breach. Refuses `not_a_pending_limit` for anything else.
+ */
+function disarmRestingEntry(id) { return api.post(`${id}/disarm`, {}) }
 
 /**
  * Act on Talos's in-position management card: accept the pending proposal (`move_stop` |

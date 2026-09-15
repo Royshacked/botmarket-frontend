@@ -16,6 +16,13 @@ const REASON_COPY = {
     not_live:       'not in a position yet',
     already_held_use_add_to_item: 'already held',
     market_closed:  'market closed',
+    // The two ways a REMOVE is refused, and they need different sentences. A live holding is closed
+    // rather than deleted. A `hit` one has an order working at the broker that has not filled — so
+    // there is nothing held to close yet, and nothing that may be deleted out from under that order
+    // either. Naming both "still held" would send the user to Exit, which refuses a `hit` holding in
+    // its turn and leaves them with two refusals and no next step.
+    live_use_exit_item:         'still held — exit it instead',
+    order_pending_cancel_first: 'an order is still working — cancel it first',
     // The venue took the order and refused it — a paper symbol with no live price, a live broker
     // rejection. Distinct from "too small", which never reached a venue at all.
     broker_rejected:      'the venue rejected it',
