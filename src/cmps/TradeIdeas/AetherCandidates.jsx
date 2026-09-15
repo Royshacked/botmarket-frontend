@@ -716,7 +716,7 @@ function Scorecard() {
  * one thing the ticker-first layout could show and this one could not, and the reason
  * the flip happened at all; it stays, in the form the event-first list can carry.
  */
-function RecurrenceStrip({ rows, onSymbolClick }) {
+function RecurrenceStrip({ rows, onSymbolClick, onOpen }) {
     const [all, setAll] = useState(false)
     if (!rows.length) return null
     const shown = all ? rows : rows.slice(0, STRIP_MAX)
@@ -726,14 +726,21 @@ function RecurrenceStrip({ rows, onSymbolClick }) {
                   title="A company reached by two independent events is saying something neither event says alone.">
                 named by more than one event
             </span>
+            {/* THE CHIP OPENS THE STORY. The ticker inside it is the chart, as everywhere, and
+                the chip used to be nothing else — a reader clicking a name that three events
+                reached got a price chart and a tooltip. Now the chip itself is a button to the
+                name's best-ranked event with its drawer open, where the mechanism, the press
+                fact, the filing and the jumps to the other events all are. The ticker keeps
+                the chart (SymbolCell stops the click), so the two targets do not fight. */}
             {shown.map(r => (
-                <span key={r.ticker}
-                      className={`aether-candidates__chip${r.conflicted ? ' aether-candidates__chip--conflicted' : ''}`}
-                      title={`${r.ticker} — ${alsoNamedBy(r)}${r.conflicted ? ' — these events pull it in opposite directions' : ''}`}>
+                <button key={r.ticker} type="button"
+                        className={`aether-candidates__chip${r.conflicted ? ' aether-candidates__chip--conflicted' : ''}`}
+                        onClick={() => onOpen(r.best.run_id, r.ticker)}
+                        title={`open the story — ${r.ticker} named by ${alsoNamedBy(r)}${r.conflicted ? ' — these events pull it in opposite directions' : ''}`}>
                     <SymbolCell className="aether-candidates__chip-sym" symbol={r.ticker} onSymbolClick={onSymbolClick} />
                     <span className="aether-candidates__chip-n">×{r.appearances.length}</span>
                     {r.conflicted && <span className="aether-candidates__chip-pm" aria-label="opposite directions">±</span>}
-                </span>
+                </button>
             ))}
             {/* Never a silent cut — the count is on the button, and one click gets the rest. */}
             {rows.length > STRIP_MAX && (
@@ -750,6 +757,7 @@ function RecurrenceStrip({ rows, onSymbolClick }) {
 RecurrenceStrip.propTypes = {
     rows: PropTypes.array.isRequired,
     onSymbolClick: PropTypes.func,
+    onOpen: PropTypes.func.isRequired,
 }
 
 /**
@@ -1005,6 +1013,11 @@ export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick
         setOpenRun(id)
         setOpenName(null)
     }
+    // From the strip: the event AND the name's drawer in it, in one press.
+    const openTo = (id, ticker) => {
+        setOpenRun(id)
+        setOpenName(`${id}|${ticker}`)
+    }
     const toggleName = key => setOpenName(cur => (cur === key ? null : key))
 
     if (loading) return <p className="floor-empty">Loading…</p>
@@ -1063,7 +1076,7 @@ export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick
             {openRun === null && (
                 <>
                     <Scorecard />
-                    <RecurrenceStrip rows={recur} onSymbolClick={onSymbolClick} />
+                    <RecurrenceStrip rows={recur} onSymbolClick={onSymbolClick} onOpen={openTo} />
                 </>
             )}
 

@@ -536,6 +536,28 @@ describe('AetherCandidates recurrence', () => {
         expect(chip.title).toMatch(/Congo/)
     })
 
+    it('the chip opens the story — the best event, with the name already open in it', () => {
+        // It used to open nothing but the chart: the story sat in a tooltip. Rank 9 in Congo
+        // beats rank 5 in Canada, so Congo is the event that opens.
+        render(<AetherCandidates runs={[
+            r2('a', 'Canada', [c2({ rank: 5, mechanism: 'steel input cost' })]),
+            r2('b', 'Congo', [c2({ rank: 9, mechanism: 'cobalt supply' })]),
+        ]} />)
+        expect(screen.queryByText('cobalt supply')).toBeNull()
+        fireEvent.click(document.querySelector('.aether-candidates__chip'))
+        expect(screen.getByText('cobalt supply')).toBeTruthy()
+        expect(screen.queryByText('steel input cost')).toBeNull()
+    })
+
+    it('the ticker inside the chip is still the chart, not the story', () => {
+        const onSymbolClick = vi.fn()
+        render(<AetherCandidates runs={[r2('a', 'Canada', [c2({ mechanism: 'steel input cost' })]),
+                                        r2('b', 'Congo', [c2()])]} onSymbolClick={onSymbolClick} />)
+        fireEvent.click(document.querySelector('.aether-candidates__chip-sym'))
+        expect(onSymbolClick).toHaveBeenCalledWith('NUE')
+        expect(screen.queryByText('steel input cost')).toBeNull()
+    })
+
     it('the badge rides the name inside each event', () => {
         render(<AetherCandidates runs={[r2('a', 'Canada', [c2()]), r2('b', 'Congo', [c2()])]} />)
         openEvent('Canada')

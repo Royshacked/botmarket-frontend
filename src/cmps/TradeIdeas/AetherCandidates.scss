@@ -155,10 +155,15 @@
     border-radius: 3px;
     border: 1px solid var(--border-mid);
     background: var(--bg-raised);
+    font: inherit;
     font-family: var(--font-mono);
     font-size: 11px;
     color: var(--text-secondary);
-    cursor: help;
+    cursor: pointer;
+
+    // A button to the name's story, so it hovers like one. The ticker inside is still the
+    // chart and keeps its own hover from .sym--chartable.
+    &:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
 
     // Opposite directions from two events is the one chip worth a colour: two live claims
     // about one company, and the reader must see that before acting on either.
