@@ -1258,6 +1258,38 @@ describe('AetherCandidates — Prometheus quick read', () => {
     it('the seed carries no Prometheus line when there was no read', () => {
         expect(buildAetherSeed(cand(), RUN)).not.toMatch(/Prometheus/)
     })
+
+    describe('the closing line follows the verdict', () => {
+        // The lean is the user's, but not after Prometheus has just cut against it.
+        const seed = verdict => buildAetherSeed(cand({ quick_read: { verdict, read: 'r' } }), RUN)
+
+        it('contradicted asks whether to leave it, and drops the lean', () => {
+            const s = seed('contradicted')
+            expect(s).toMatch(/Prometheus read that as contradicted — tell me whether there is still a short setup here, or to leave it\./)
+            expect(s).not.toMatch(/My lean is/)
+        })
+
+        it('priced in asks whether the entry from here is still worth it', () => {
+            const s = seed('priced_in')
+            expect(s).toMatch(/already priced — tell me whether there is still a short setup worth the entry from here, or to leave it\./)
+            expect(s).not.toMatch(/My lean is/)
+        })
+
+        it('credible and unclear keep the lean', () => {
+            expect(seed('credible')).toMatch(/My lean is short unless you see a reason not to/)
+            expect(seed('unclear')).toMatch(/My lean is short unless you see a reason not to/)
+        })
+
+        it('the side in the question is the side Aether found', () => {
+            expect(buildAetherSeed(cand({ side: 'helped', quick_read: { verdict: 'contradicted' } }), RUN))
+                .toMatch(/still a long setup here/)
+        })
+
+        it('the verdict line still precedes the question, so Mentor has the reasoning', () => {
+            const s = seed('contradicted')
+            expect(s.indexOf("Prometheus's quick read: contradicted")).toBeLessThan(s.indexOf('Prometheus read that as contradicted'))
+        })
+    })
 })
 
 

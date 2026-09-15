@@ -309,7 +309,21 @@ export function buildAetherSeed(c, run = {}) {
             + `${q.confidence != null ? ` (${Math.round(q.confidence * 100)}% confidence)` : ''}`
             + `${q.read ? ` — ${q.read}` : ''}`)
     }
-    lines.push(`My lean is ${side} unless you see a reason not to — take me through entry, invalidation and the window.`)
+    // THE CLOSE FOLLOWS THE VERDICT. The lean is the user's, on Aether's read — but when
+    // Prometheus has just read the name as contradicted or priced in, opening with "my lean
+    // is short unless you see a reason not to" puts the user on record asserting the thing
+    // the line above cut against, and asks Mentor for entry and invalidation on a trade it
+    // has been handed a reason not to build. So the close asks the honest question instead:
+    // is there still a setup here, or leave it. Credible and unclear keep the lean — one
+    // confirms it, the other says nothing against it.
+    const q = c.quick_read?.verdict
+    if (q === 'contradicted') {
+        lines.push(`Prometheus read that as contradicted — tell me whether there is still a ${side} setup here, or to leave it.`)
+    } else if (q === 'priced_in') {
+        lines.push(`Prometheus reads the move as already priced — tell me whether there is still a ${side} setup worth the entry from here, or to leave it.`)
+    } else {
+        lines.push(`My lean is ${side} unless you see a reason not to — take me through entry, invalidation and the window.`)
+    }
     return lines.join('\n')
 }
 
