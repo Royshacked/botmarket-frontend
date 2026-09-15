@@ -212,7 +212,19 @@ AGENTS.axl = {
 // NO `idea`: the Idea desk is archived, so its feed is retired (backend RETIRED_BOT_IDS —
 // nothing posts there and getConversations hides the old thread). The AGENTS entry above
 // stays for rendering history; being absent HERE is what removes it from the sidebar.
-export const BOT_IDS = ['axl', 'portfolio', 'scanner', 'kairos', 'mentor', 'analyst', 'strategy', 'aether']
+//
+// NO `aether` either, and that one sat here for a while with no other half. Aether has no notifier:
+// nothing on the server posts under that id, and `isBot('aether')` is false there — so postBotCard
+// would silently fall back to Axl, the exact misattribution the backend's own comment warns about
+// (it is how Talos's setup cards once arrived from Axl). No aether thread can exist, so removing it
+// drops nothing.
+//
+// If an Aether notifier is ever built it needs FOUR entries, not one: this list and the backend
+// BOT_IDS, plus BOTH ADMIN_BOT_IDS. Aether is admin-only everywhere else — its routes are
+// requireAdmin, axl's ADMIN_DESKS withholds it from traders, and Axl's trader prompt says the desk
+// "does not exist" for them. Listed here and absent from ADMIN_BOT_IDS, it would have put an admin
+// desk's feed in a trader's sidebar the moment anything posted to it.
+export const BOT_IDS = ['axl', 'portfolio', 'scanner', 'kairos', 'mentor', 'analyst', 'strategy']
 export const isBotId = (id) => BOT_IDS.includes(id)
 
 // Retired feeds (backend RETIRED_BOT_IDS). Absence from BOT_IDS is what unpins the thread, but on
