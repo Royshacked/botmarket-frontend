@@ -440,6 +440,34 @@
     &--unclear { color: var(--text-dim); }
 }
 
+// Prometheus's verdict on the row — the same word and colours as the read in the drawer,
+// sized like the setup chip beside it. The busy chip breathes with the ask button.
+.aether-candidates__read-chip {
+    flex: 0 0 auto;
+    padding: 0 6px;
+    border-radius: 3px;
+    border: 1px solid var(--border-mid);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .6px;
+    text-transform: uppercase;
+    line-height: 16px;
+    color: var(--text-secondary);
+    cursor: help;
+    &--credible     { color: var(--accent-light);  border-color: currentColor; }
+    &--priced_in    { color: var(--text-muted); }
+    &--contradicted { color: var(--color-warning); border-color: currentColor; }
+    &--unclear      { color: var(--text-dim); }
+    &--busy {
+        color: var(--text-secondary);
+        border-color: var(--accent-light);
+        animation: aether-ask-pulse 1.4s ease-in-out infinite;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .aether-candidates__read-chip--busy { animation: none; opacity: 0.8; }
+}
+
 // ── already built ─────────────────────────────────────────────────────────────
 //
 // A live setup on the name: a chip on the row so the reader can see which names are already

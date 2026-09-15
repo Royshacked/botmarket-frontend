@@ -1202,7 +1202,7 @@ describe('AetherCandidates — Prometheus quick read', () => {
         openName()
         fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
         expect(quickRead).toHaveBeenCalledWith('Canada:2026-09-08', 'NUE')
-        await waitFor(() => expect(screen.getByText('contradicted')).toBeTruthy())
+        await waitFor(() => expect(screen.getAllByText('contradicted').length).toBeGreaterThan(0))
         expect(screen.getByText('It hedged the exposure in the 10-Q.')).toBeTruthy()
         expect(screen.getByText(/Hedged 90% of 2026 volumes/)).toBeTruthy()
         expect(screen.getByText('80%')).toBeTruthy()
@@ -1215,6 +1215,34 @@ describe('AetherCandidates — Prometheus quick read', () => {
         openName()
         expect(screen.getAllByText('priced in').length).toBeGreaterThan(0)
         expect(screen.queryByRole('button', { name: 'Ask Prometheus' })).toBeNull()
+    })
+
+    it('the verdict sits on the collapsed row, so a run of reads can be scanned without reopening', async () => {
+        quickRead.mockResolvedValue(READ)
+        render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} />)
+        openEvent()
+        openName()
+        const row = () => within(document.querySelector('.floor-sub__body')).getByText('NUE').closest('button')
+        expect(within(row()).queryByText(/reading/)).toBeNull()
+        fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+        // In flight: the row says so, since it may be collapsed before the read lands.
+        expect(within(row()).getByText('reading…').className).toMatch(/__read-chip--busy/)
+        await waitFor(() => expect(within(row()).getByText('contradicted')).toBeTruthy())
+        // Collapse the name: the word stays on the row, coloured by verdict, the hint naming Prometheus.
+        fireEvent.click(row())
+        expect(screen.queryByText('It hedged the exposure in the 10-Q.')).toBeNull()
+        const chip = within(row()).getByText('contradicted')
+        expect(chip.className).toMatch(/__read-chip--contradicted/)
+        expect(chip.title).toMatch(/^Prometheus:/)
+    })
+
+    it('a read already on the candidate shows its word on the row before the name is opened', () => {
+        render(<AetherCandidates runs={[{ ...RUN, candidates: [cand({ quick_read: { verdict: 'priced_in', net: 'hurt', considered: ['Iran:2026-09-10'] } })] }]} />)
+        openEvent()
+        const row = within(document.querySelector('.floor-sub__body')).getByText('NUE').closest('button')
+        const chip = within(row).getByText('priced in')
+        expect(chip.className).toMatch(/__read-chip--priced_in/)
+        expect(chip.title).toMatch(/net short across every event naming it/)
     })
 
     it('a failed read keeps the button and says why', async () => {
@@ -1234,7 +1262,7 @@ describe('AetherCandidates — Prometheus quick read', () => {
         openEvent()
         openName()
         fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
-        await waitFor(() => expect(screen.getByText('contradicted')).toBeTruthy())
+        await waitFor(() => expect(screen.getAllByText('contradicted').length).toBeGreaterThan(0))
         fireEvent.click(screen.getByRole('button', { name: /Trade with Mentor/ }))
         const [, message] = onTradeWithMentor.mock.calls[0]
         expect(message).toMatch(/Prometheus's quick read: contradicted \(80% confidence\) — It hedged the exposure in the 10-Q\./)
@@ -1259,7 +1287,7 @@ describe('AetherCandidates — Prometheus quick read', () => {
         fireEvent.click(trade())
         expect(onTradeWithMentor).not.toHaveBeenCalled()
         resolve(READ)
-        await waitFor(() => expect(screen.getByText('contradicted')).toBeTruthy())
+        await waitFor(() => expect(screen.getAllByText('contradicted').length).toBeGreaterThan(0))
         expect(trade().disabled).toBe(false)
         expect(screen.queryByText(/waiting for Prometheus's read/)).toBeNull()
         fireEvent.click(trade())

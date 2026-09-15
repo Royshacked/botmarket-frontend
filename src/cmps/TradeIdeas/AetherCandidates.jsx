@@ -965,6 +965,23 @@ function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTra
                             setup
                         </span>
                     )}
+                    {/* Prometheus's verdict in a word, on the row, so a reader who asked for reads
+                        across a run can see which names came back credible, priced in or
+                        contradicted without reopening each one. Coloured like the read in the
+                        drawer; the net (when more than one event names it) rides in the hint,
+                        because the word on the row is the verdict on THIS event's claim. "reading…"
+                        while one is in flight, since the row may be collapsed before it lands. */}
+                    {reading ? (
+                        <span className="aether-candidates__read-chip aether-candidates__read-chip--busy"
+                              title="Prometheus is reading this name">
+                            reading…
+                        </span>
+                    ) : read?.verdict && (
+                        <span className={`aether-candidates__read-chip aether-candidates__read-chip--${read.verdict}`}
+                              title={`Prometheus: ${QUICKREAD_HINT[read.verdict] ?? read.verdict}${read.net ? ` — ${NET_LABEL[read.net] ?? read.net} across every event naming it` : ''}`}>
+                            {QUICKREAD_LABEL[read.verdict] ?? read.verdict}
+                        </span>
+                    )}
                     <span className="floor-row__kind" title={hz.hint}>{hz.label}</span>
                     <span className="floor-row__score" title={mag.hint}>{mag.label}</span>
                     <span className={`floor-row__status floor-row__status--${urg.key}`} title={urg.hint}>
