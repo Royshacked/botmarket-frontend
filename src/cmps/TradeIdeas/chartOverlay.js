@@ -218,8 +218,8 @@ export function deriveSetupOverlay(setup) {
 
     const out = dedupeLevels(levels)
 
-    // Where Talos is standing watch. Most guards sit ON a level already drawn (the zones are the
-    // guards, `guardsFromZones`) — those add nothing; the rest are prices only the monitor named.
+    // Where Talos is standing watch. A guard sitting ON a level already drawn adds nothing; the
+    // rest are prices only the monitor named.
     const drawn = new Set(out.map(l => l.price.toFixed(4)))
     for (const g of Array.isArray(setup.monitor_state?.guards) ? setup.monitor_state.guards : []) {
         const price = num(g?.price)

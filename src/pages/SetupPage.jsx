@@ -3,10 +3,9 @@ import PropTypes from 'prop-types'
 import { TalosBadge } from '../cmps/AxlHub/AgentBadges.jsx'
 import { EntityPopupShell } from '../cmps/EntityCard/EntityPopupShell.jsx'
 import { PopoutFooter } from '../cmps/TradeIdeas/PopoutFooter.jsx'
-import { MonitorJournal } from '../cmps/TradeIdeas/MonitorJournal.jsx'
+import { TalosJournal } from '../cmps/TradeIdeas/TalosJournal.jsx'
+import { SetupEntry, SetupExits } from '../cmps/TradeIdeas/SetupPlan.jsx'
 // Shared with the call pop-out — `position_state` is one shape whatever desk wrote it.
-import { PositionPanel } from '../cmps/TradeIdeas/PositionPanel.jsx'
-import { TalosWatch } from '../cmps/TradeIdeas/TalosWatch.jsx'
 import { watchTimeframe, showsWatch } from '../cmps/TradeIdeas/talosWatch.js'
 import { positionsForEntity } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { deriveSetupOverlay } from '../cmps/TradeIdeas/chartOverlay.js'
@@ -14,8 +13,9 @@ import { PriceChart } from '../cmps/PriceChart/PriceChart.jsx'
 import { ConvictionChip } from '../cmps/ConvictionChip/ConvictionChip'
 import { setupIcon, isSetupArmed, canArmSetup } from '../cmps/TradeIdeas/setupStatus.js'
 import { MANAGE_LABEL, canAcceptManage, manageProposalLine } from '../cmps/TradeIdeas/setupManage.js'
-import { isLivePosition, isTerminal, isInvalidated } from '../services/entityStatus.js'
+import { isLivePosition, isInvalidated } from '../services/entityStatus.js'
 import { useEntityPopup } from '../customHooks/useEntityPopup.js'
+import { useJournal } from '../customHooks/useJournal.js'
 import { usePositions } from '../customHooks/usePositions.js'
 import { mentorService } from '../services/mentor/mentor.service.remote'
 import { askOpener, hasOpener } from '../services/popupBridge.js'
@@ -27,10 +27,11 @@ import './SetupPage.scss'     // setup-only bits (zones, watch list, timeline)
 // because giving them one meant hand-writing a fourth copy of the hand-off, the hydration ladder
 // and the popup chrome. With those shared, the page is just this kind's content.
 //
-// What a setup is FOR is different from an idea or a call: it has no condition tree, only ZONES —
-// and those zones belong to SCENARIOS, rival ways into the same trade, each with its own stop,
-// targets, conditions and death line. Everything is shown verbatim rather than summarised: the
-// premises are the entity, and their conditions are why the monitor looks where it does.
+// The right column, top to bottom (docs/design/talos-per-candle.md): the cards waiting on the
+// user · THESIS · ENTRY · EXITS · TALOS JOURNAL. A setup's levels belong to SCENARIOS, rival ways
+// into the same trade, each with its own stop, targets, conditions and death line — the Entry and
+// Exits blocks (SetupPlan.jsx) are per scenario, and each leg says whether it RESTS at the broker or
+// is WATCHED by Talos. The journal is its own collection, newest first (useJournal / TalosJournal).
 //
 // The doc's flat `entry_zones`/`stop_zones`/`tp_zones` are deliberately NOT rendered here — they are
 // the execution projection of whichever premise armed, so showing them alongside the scenarios would
@@ -51,72 +52,6 @@ const STATUS_COPY = {
     closed:  'Closed',
 }
 
-const fmtZone = z => (z?.lower === z?.upper ? `${z?.lower}` : `${z?.lower} – ${z?.upper}`)
-
-function ZoneRow({ label, zones, tone }) {
-    const list = Array.isArray(zones) ? zones : []
-    if (!list.length) return null
-    return (
-        <div className={`setup-page__zone setup-page__zone--${tone}`}>
-            <span className="setup-page__zone-label">{label}</span>
-            <ul className="setup-page__zone-list">
-                {list.map((z, i) => (
-                    <li key={z.id ?? i}>
-                        <span className="setup-page__zone-range">{fmtZone(z)}</span>
-                        {z.note && <span className="setup-page__zone-note"> — {z.note}</span>}
-                    </li>
-                ))}
-            </ul>
-        </div>
-    )
-}
-ZoneRow.propTypes = { label: PropTypes.string, zones: PropTypes.array, tone: PropTypes.string }
-
-/** The monitor's instruction sheet, as prose. Free text — there is no taxonomy to render. */
-function ConditionRow({ label, conditions }) {
-    const list = Array.isArray(conditions) ? conditions : []
-    if (!list.length) return null
-    return (
-        <div className="setup-page__conditions">
-            <span className="setup-page__section-label">{label}</span>
-            <ul>{list.map((c, i) => (
-                <li key={c.id ?? i}>
-                    {c.text}
-                    {c.weight === 'primary' && <em className="setup-page__cond-tag"> primary</em>}
-                    {c.persistence === 'latching' && <em className="setup-page__cond-tag"> latching</em>}
-                </li>
-            ))}</ul>
-        </div>
-    )
-}
-ConditionRow.propTypes = { label: PropTypes.string, conditions: PropTypes.array }
-
-/**
- * ONE WAY IN. A setup can hold rival premises — a false break at one level, a break-and-go at
- * another — each owning its entry, stop, targets, conditions and its own death line. The first to
- * fulfil takes the whole trade, so the sizes shown here are never added together.
- */
-function ScenarioSection({ scenario, index, armed, dead }) {
-    if (!scenario) return null
-    const name = scenario.name?.trim() || `Way in ${index + 1}`
-    return (
-        <section className={`setup-page__scenario${armed ? ' is-armed' : ''}${dead ? ' is-dead' : ''}`} aria-label={`Scenario ${name}`}>
-            <span className="setup-page__section-label">
-                {name}
-                {armed && <em className="setup-page__cond-tag" title="Price reached this premise — this is the one that fired."> armed</em>}
-                {dead  && <em className="setup-page__cond-tag" title="This premise broke its own validity range. Any other way in is unaffected."> dead</em>}
-                {scenario.quantity != null && <em className="setup-page__cond-tag"> qty {scenario.quantity}</em>}
-                {Number.isFinite(scenario.rr) && <em className="setup-page__cond-tag"> {scenario.rr}R</em>}
-            </span>
-            <ZoneRow label="Entry"  zones={scenario.entry_zones} tone="entry" />
-            <ZoneRow label="Stop"   zones={scenario.stop_zones}  tone="stop" />
-            <ZoneRow label="Target" zones={scenario.tp_zones}    tone="tp" />
-            <ConditionRow label="Takes it when" conditions={scenario.conditions} />
-        </section>
-    )
-}
-ScenarioSection.propTypes = { scenario: PropTypes.object, index: PropTypes.number, armed: PropTypes.bool, dead: PropTypes.bool }
-
 /**
  * Talos's pending management proposal, and the two buttons that answer it. The twin of CallPage's
  * ManagementCard — same shell, same verbs, one difference that matters:
@@ -127,9 +62,6 @@ ScenarioSection.propTypes = { scenario: PropTypes.object, index: PropTypes.numbe
  * action lives instead. The server refuses it too (`confirm_order`) — this is the half that keeps
  * the user from being sent somewhere the app will then say no.
  *
- * `let_run` depends on what it carries. Bare, it is a decision NOT to act and reads as a note. With
- * a new target it is Talos asking to move the resting limit further out, which is an amend like any
- * other — so the proposal has to reach the gate, not just the verdict.
  */
 function ManagementCard({ pending, busy, onAccept, onDismiss }) {
     const v = pending?.verdict
@@ -139,7 +71,7 @@ function ManagementCard({ pending, busy, onAccept, onDismiss }) {
         <div className={`kairos-panel__card kairos-panel__card--manage verdict--${v}`}>
             <div className="kairos-panel__card-head">
                 <span className="kairos-panel__card-status">Talos suggests</span>
-                <span className={`monitor-journal__verdict verdict--${v}`}>{v}</span>
+                <span className={`talos-journal__verdict verdict--${v}`}>{v}</span>
             </div>
             <div className="kairos-panel__card-row">{manageProposalLine(v, pending.proposal)}</div>
             {pending.read && <div className="kairos-panel__card-note">{pending.read}</div>}
@@ -198,10 +130,12 @@ function StaleMapCard({ setup, onRedraw }) {
 StaleMapCard.propTypes = { setup: PropTypes.object.isRequired, onRedraw: PropTypes.func }
 
 export function SetupPage() {
-    // Polled because Talos writes to monitor_state (memo + timeline) while the window is open.
+    // Polled because Talos writes to monitor_state (memo, guards, the last read) while the window
+    // is open. The journal rides on `check_count`, which every wake bumps.
     const { id, entity: setup, error, refresh } = useEntityPopup(
         'setup', mentorService.getSetup, { pollMs: 20_000, notFound: 'Setup not found' },
     )
+    const journal = useJournal(id, setup?.monitor_state?.check_count ?? 0)
     const { positions, refresh: refreshPositions, closePosition } = usePositions()
     const [busy, setBusy] = useState(false)
 
@@ -311,54 +245,23 @@ export function SetupPage() {
                         <StaleMapCard setup={setup} onRedraw={hasOpener() ? handleRedraw : null} />
                     )}
 
-                    {/* ── 1. Trade general info ── */}
+                    {/* ── 1. Thesis ── */}
                     {setup.thesis && <p className="setup-page__thesis">{setup.thesis}</p>}
                     <div className="setup-page__metrics">
                         <ConvictionChip conviction={setup.conviction} />
                         {setup.mode && <span className="setup-page__mode">{setup.mode}</span>}
                         {setup.brokerSymbol && <span className="setup-page__broker">trades as {setup.brokerSymbol}</span>}
                     </div>
-                    {setup.monitor_state?.memo && (
-                        <p className="setup-page__memo">{setup.monitor_state.memo}</p>
-                    )}
 
-                    {/* ── 2. Requested setup + timeframes ── */}
-                    <span className="setup-page__section-label">Requested setup</span>
-                    {(setup.timeframe || setup.ladder?.length) && (
-                        <div className="setup-page__timeframes">
-                            {setup.ladder?.length > 1
-                                ? <span className="setup-page__tf-ladder">{setup.ladder.join(' → ')}</span>
-                                : <span className="setup-page__tf-ladder">{setup.timeframe}</span>
-                            }
-                        </div>
-                    )}
-                    <ConditionRow label="Always" conditions={setup.conditions} />
-                    {(setup.scenarios ?? []).map((sc, i) => (
-                        <ScenarioSection
-                            key={sc.id ?? i}
-                            scenario={sc}
-                            index={i}
-                            armed={setup.armed_scenario_id === sc.id}
-                            dead={setup.monitor_state?.scenarios?.[sc.id]?.invalidation_status === 'fired'}
-                        />
-                    ))}
+                    {/* ── 2. Entry ── */}
+                    <SetupEntry setup={setup} />
 
-                    {/* ── 3–5. Monitor state → next check → findings (pre-entry only) ──
-                        Past entry the management card above is the live surface; last_assessment
-                        would be the read that got us IN, not a current read. */}
-                    {showsWatch(setup.status) && <TalosWatch setup={setup} />}
+                    {/* ── 3. Exits — with the live numbers once in position ── */}
+                    <SetupExits setup={setup} />
 
-                    {/* Past entry: position panel (R, stop, target ladder). */}
-                    {(isLivePosition(setup.status) || isTerminal(setup.status)) && setup.position_state && (
-                        <PositionPanel ps={setup.position_state} status={setup.status} />
-                    )}
-
-                    {/* ── Journal ── */}
+                    {/* ── 4. Talos journal — where it stands now, then every read, newest first ── */}
                     <span className="setup-page__section-label">Talos journal</span>
-                    <MonitorJournal
-                        timeline={setup.monitor_state?.timeline}
-                        empty="No monitor activity yet — the journal fills in as Talos wakes to check this setup."
-                    />
+                    <TalosJournal setup={setup} rows={journal.rows} done={journal.done} loading={journal.loading} onOlder={journal.loadOlder} />
                 </div>
             </div>
 

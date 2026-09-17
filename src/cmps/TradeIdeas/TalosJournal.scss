@@ -1,0 +1,180 @@
+// ── Talos's journal ────────────────────────────────────────────────────────────
+// Newest on top, one collapsed row per read, the head saying where Talos stands now. Replaces both
+// TalosWatch (the "now" panel) and MonitorJournal (the chat-style oldest→newest box).
+.talos-journal {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    &__empty {
+        margin: 0;
+        font-size: 0.78rem;
+        line-height: 1.5;
+        color: var(--text-muted);
+    }
+
+    // ── Where Talos stands now ──
+    &__head {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 8px 10px;
+        border: 1px solid var(--border-mid);
+        border-left: 2px solid var(--accent);
+        border-radius: 6px;
+        background: var(--bg-raised);
+    }
+
+    &__memo {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.45;
+        font-style: italic;
+        color: var(--text-secondary);
+    }
+
+    &__standing { display: flex; flex-wrap: wrap; gap: 4px 8px; }
+
+    &__chip {
+        font-family: var(--font-mono);
+        font-size: 0.68rem;
+        letter-spacing: 0.03em;
+        color: var(--text-muted);
+
+        &--guards { color: var(--text-secondary); }
+    }
+
+    // ── Rows ──
+    &__row {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 6px 10px 8px;
+        border: 1px solid var(--border);
+        border-left: 2px solid var(--border-mid);
+        border-radius: 6px;
+        background: var(--bg-raised);
+
+        &--guard,
+        &--expiry_review { border-left-color: var(--accent); }
+        &--entry         { border-left-color: var(--color-long); }
+        &--exit          { border-left-color: var(--color-short); opacity: 0.85; }
+        &--invalidation  { border-left-color: var(--color-warning); }
+        &--pre_active    { opacity: 0.72; }
+    }
+
+    // The one line a collapsed row is. Reset button chrome so it reads as a plain meta row.
+    &__summary {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        width: 100%;
+        padding: 0;
+        border: none;
+        background: none;
+        font-family: var(--font-mono);
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text-muted);
+        text-align: left;
+        cursor: pointer;
+
+        &:disabled { cursor: default; }
+        &:hover:not(:disabled) .talos-journal__caret { color: var(--accent-light); }
+    }
+
+    &__time   { color: var(--text-secondary); font-weight: 600; white-space: nowrap; }
+    &__price  { color: var(--accent); }
+    &__caret  { flex-shrink: 0; font-size: 0.66rem; color: var(--accent); }
+
+    &__verdict {
+        margin-left: auto;
+        padding: 1px 6px;
+        border-radius: 3px;
+        font-weight: 700;
+        background: var(--glow-soft);
+        color: var(--text-secondary);
+
+        &.verdict--enter        { background: rgba(76,175,80,0.16);  color: var(--color-long); }
+        &.verdict--stand_aside,
+        &.verdict--let_expire,
+        &.verdict--exit_now     { background: rgba(239,83,80,0.14);  color: var(--color-short); }
+        &.verdict--edit,
+        &.verdict--move_stop,
+        &.verdict--take_partial,
+        &.verdict--add_leg      { background: rgba(240,192,64,0.15); color: var(--color-warning); }
+        &.verdict--hold,
+        &.verdict--wait         { background: var(--glow-soft);      color: var(--text-secondary); }
+    }
+
+    &__note {
+        margin: 0;
+        font-size: 0.81rem;
+        line-height: 1.45;
+        color: var(--text-primary);
+    }
+
+    // ── The opened row ──
+    &__detail {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-top: 2px;
+        padding-top: 6px;
+        border-top: 1px dashed var(--border);
+        font-size: 0.75rem;
+        line-height: 1.4;
+        color: var(--text-secondary);
+    }
+
+    &__warning { margin: 0; color: var(--color-warning); }
+
+    &__line { display: flex; gap: 8px; align-items: baseline; }
+
+    &__k {
+        flex-shrink: 0;
+        min-width: 84px;
+        font-family: var(--font-mono);
+        font-size: 0.66rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--accent);
+    }
+
+    &__tools { font-family: var(--font-mono); font-size: 0.7rem; }
+
+    &__conditions {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+
+        li { display: flex; gap: 6px; align-items: baseline; }
+        li.met--yes .talos-journal__met       { color: var(--color-long); }
+        li.met--no .talos-journal__met        { color: var(--color-short); }
+        li.met--unchecked .talos-journal__met { color: var(--color-warning); }
+    }
+
+    &__met { flex-shrink: 0; width: 12px; font-weight: 700; }
+    &__cond-body { display: flex; flex-direction: column; gap: 1px; }
+    &__cond-text { color: var(--text-primary); }
+    &__cond-note { color: var(--text-muted); font-size: 0.72rem; }
+
+    &__older {
+        align-self: center;
+        padding: 3px 10px;
+        border: 1px solid var(--border-mid);
+        border-radius: 5px;
+        background: none;
+        font-family: var(--font-mono);
+        font-size: 0.68rem;
+        color: var(--text-muted);
+        cursor: pointer;
+
+        &:hover:not(:disabled) { color: var(--text-primary); }
+        &:disabled { opacity: 0.6; cursor: default; }
+    }
+}

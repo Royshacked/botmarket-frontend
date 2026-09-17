@@ -1,5 +1,5 @@
 // ── Monitor-journal reading helpers ────────────────────────────────────────────
-// The pure half of MonitorJournal.jsx, kept beside it (like tradeIdea.utils.js beside the cards):
+// The pure half of TalosJournal.jsx, kept beside it (like tradeIdea.utils.js beside the cards):
 // a module that exports both components and plain functions breaks Fast Refresh for every importer.
 
 /**
@@ -38,32 +38,7 @@ export function firstSentence(text) {
 }
 
 /**
- * One entry, read through BOTH field vocabularies. Talos briefly wrote `{kind, next_at, read}` where
- * Hermes writes `{reason, next_check_at, note}`, and those entries are still in live docs — so a
- * setup armed before the shared builder renders instead of showing a blank bubble. They age out of
- * the journal cap on their own; this tolerance can go with them.
- */
-export function readEntry(e) {
-    return {
-        at:      e?.at ?? null,
-        reason:  e?.reason ?? e?.kind ?? 'wake',
-        price:   e?.price ?? null,
-        verdict: e?.verdict ?? null,
-        note:    e?.note ?? e?.read ?? null,
-        fetched: e?.fetched ?? null,
-        axes:    e?.axes ?? null,
-        // The guard half (docs/desks/talos-guards.md). Absent on every entry written before guards
-        // and on every wake that had nothing to say about them — the backend omits rather than nulls
-        // them, so `?? null` is what makes both eras read the same here.
-        fired:   e?.fired ?? null,
-        armed:   Array.isArray(e?.armed) ? e.armed : null,
-        skipped: Number(e?.skipped) > 0 ? Number(e.skipped) : 0,
-    }
-}
-
-/**
- * A guard as one short human line: "↑311.5" / "↓305" / "@312", plus a bare interval for the
- * unconditional heartbeat.
+ * A guard as one short human line: "↑311.5" / "↓305" / "@312".
  *
  * The arrow carries the direction because a level with no side reads as a number rather than as a
  * crossing, and that distinction is the whole of what a guard says. `any` is a TOUCH — reached from
@@ -72,16 +47,10 @@ export function readEntry(e) {
 export function guardLabel(g) {
     if (!g) return null
     // ABSENT MUST NOT BECOME ZERO. `Number(null)` is 0 and 0 is finite, so a plain `Number(g.price)`
-    // reads an unconditional backstop — which carries no price at all — as a level at 0, and the
-    // heartbeat renders as "↑0 after 240m". The backend's `num()` helper exists for this exact trap
-    // (services/setup.schema.js); this is its client-side twin.
+    // would read a guard with no price as a level at 0. The backend's `num()` helper exists for this
+    // exact trap (services/setup.schema.js); this is its client-side twin.
     const level = g.price == null || g.price === '' ? NaN : Number(g.price)
-    if (!Number.isFinite(level)) {
-        return Number(g.after_min) > 0 ? `in ${g.after_min}m` : null
-    }
+    if (!Number.isFinite(level)) return null
     const mark = g.direction === 'below' ? '↓' : g.direction === 'any' ? '@' : '↑'
-    // The time term only shows when there IS one: a conjunctive guard is "not before 30m, and only
-    // above 305", and hiding the first half would make it read as an immediate interrupt.
-    const when = Number(g.after_min) > 0 ? ` after ${g.after_min}m` : ''
-    return `${mark}${level}${when}`
+    return `${mark}${level}`
 }

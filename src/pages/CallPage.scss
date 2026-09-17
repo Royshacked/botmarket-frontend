@@ -31,15 +31,8 @@
     }
 }
 
-// The monitor-journal styles moved to cmps/TradeIdeas/MonitorJournal.scss when the setup
-// pop-out started drawing the same box — the styles follow the component, not the page that
-// happened to have it first. CallPage still borrows .monitor-journal__verdict for the manage card.
-
-// The in-position panel moved to cmps/TradeIdeas/PositionPanel.scss when the setup pop-out started
-// drawing the same box — same move the journal made, for the same reason. Its classes went with it,
-// `.call-position` → `.position-panel`: a box two desks draw should not be named after one of them.
-// (Its `--in_position` modifier went in the wash. It never matched: the component is handed a
-// STATUS, which is `long`/`short`/`closed`, so the highlight had been dead since it was written.)
+// The journal and the in-position panel a call pop-out used to draw are gone with Hermes; the
+// setup pop-out draws its own (cmps/TradeIdeas/TalosJournal.scss, SetupPlan.scss).
 
 .call-page__actions--manage { margin: 8px 0; }
 

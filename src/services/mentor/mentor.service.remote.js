@@ -22,6 +22,7 @@ export const mentorService = {
     saveChatState,
     listSetups,
     getSetup,
+    getSetupJournal,
     armSetup,
     disarmSetup,
     disarmRestingEntry,
@@ -70,8 +71,17 @@ function saveChatState(id, chatState) {
 
 function listSetups(status = null) { return api.list(status ? { status } : undefined) }
 
-/** One setup incl. monitor_state.timeline — the detail view polls this for Talos's live journal. */
+/** One setup. The journal is NOT on it any more — see getSetupJournal. */
 function getSetup(id) { return api.get(id) }
+
+/**
+ * One page of Talos's journal, newest first (`GET /api/setups/:id/journal`). `before` is the `at`
+ * of the oldest row already shown — the cursor for the next page. [] on failure.
+ */
+async function getSetupJournal(id, { before = null, limit = 50 } = {}) {
+    const q = new URLSearchParams({ limit: String(limit), ...(before ? { before } : {}) })
+    return (await api.getPath(`/${encodeURIComponent(id)}/journal?${q}`)) ?? []
+}
 
 /**
  * Arm: 'waiting' → 'looking'. This is the real gate — the server re-runs the full readiness check,
