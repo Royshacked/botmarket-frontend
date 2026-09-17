@@ -97,3 +97,19 @@ function reflowTableLine(line) {
         .join('\n')
 }
 
+
+/**
+ * Two-letter monogram for an avatar mark: first + last initial ("Roy Shacked" → "RS"), the
+ * first two letters of a single name ("Roy" → "RO"). No argument reads as "Trader" → "TR";
+ * a blank string gives "T". One helper for every avatar — the header mark and the profile
+ * hero must agree on the letters.
+ *
+ * @param {string} [name]
+ * @returns {string}
+ */
+export function initials(name = 'Trader') {
+    const parts = String(name ?? '').trim().split(/\s+/).filter(Boolean)
+    if (parts.length === 0) return 'T'
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}

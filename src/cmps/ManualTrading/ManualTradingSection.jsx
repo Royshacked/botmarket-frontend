@@ -15,7 +15,7 @@ const money = (n, ccy = 'USD') =>
 
 const pnlColor = n => (n > 0 ? 'var(--color-long)' : n < 0 ? 'var(--color-short)' : 'var(--text-secondary)')
 
-export function ManualTradingSection({ inactive = false }) {
+export function ManualTradingSection({ active = false }) {
     const [accounts, setAccounts] = useState([])
     const [busy,     setBusy]     = useState(false)
     const [error,    setError]    = useState(null)
@@ -60,8 +60,11 @@ export function ManualTradingSection({ inactive = false }) {
     }
 
     return (
-        <section className={`user-profile__section${inactive ? ' user-profile__section--inactive' : ''}`} aria-disabled={inactive || undefined}>
-            <h2 className="user-profile__section-title">Manual Trading</h2>
+        <section className="user-profile__section">
+            <h2 className="user-profile__section-title">
+                Manual Trading
+                {active && <span className="user-profile__active-badge">Active</span>}
+            </h2>
             <p style={{ fontSize: '0.81rem', color: 'var(--text-dim)', margin: '0 0 12px', lineHeight: 1.5 }}>
                 Broker-less real-money accounts — the app monitors your ideas and asks you to enter/exit
                 at your own broker, then records the real prices you report. Switch to the Manual workspace

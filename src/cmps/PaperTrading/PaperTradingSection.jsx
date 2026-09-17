@@ -8,15 +8,15 @@ import { paperService } from '../../services/paper/paper.service.remote.js'
  * card shows live equity/P&L, cost config, reset and delete, plus its recent trades on
  * expand. A "New account" form creates more. The workspace itself (paper vs live vs
  * manual) is switched from the AppHeader — this section only manages the accounts.
- * `inactive` dims + disables it when the active workspace isn't paper. Reuses
- * user-profile__* styles.
+ * `active` marks it with an "Active" badge when the paper workspace is the one selected;
+ * it is always editable either way. Reuses user-profile__* styles.
  */
 const money = (n, ccy = 'USD') =>
     n == null ? '—' : `${n < 0 ? '-' : ''}${ccy === 'USD' ? '$' : ''}${Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
 
 const pnlColor = n => (n > 0 ? 'var(--color-long)' : n < 0 ? 'var(--color-short)' : 'var(--text-secondary)')
 
-export function PaperTradingSection({ inactive = false }) {
+export function PaperTradingSection({ active = false }) {
     const [accounts, setAccounts] = useState([])
     const [busy,     setBusy]     = useState(false)
     const [error,    setError]    = useState(null)
@@ -60,8 +60,11 @@ export function PaperTradingSection({ inactive = false }) {
     }
 
     return (
-        <section className={`user-profile__section${inactive ? ' user-profile__section--inactive' : ''}`} aria-disabled={inactive || undefined}>
-            <h2 className="user-profile__section-title">Paper Trading</h2>
+        <section className="user-profile__section">
+            <h2 className="user-profile__section-title">
+                Paper Trading
+                {active && <span className="user-profile__active-badge">Active</span>}
+            </h2>
 
             {error && (
                 <p style={{ fontSize: '0.81rem', color: 'var(--color-warning, #e6a817)', marginBottom: 8 }}>{error}</p>

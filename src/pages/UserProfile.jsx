@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useNavigate }         from 'react-router'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate, useLocation } from 'react-router'
 import { useAuth }             from '../cmps/AuthModal/useAuth'
 import { brokerService }       from '../services/broker/broker.service.remote.js'
 import { httpService }         from '../services/http.service.js'
@@ -17,6 +17,8 @@ import { queuePrefSync } from '../services/preferences.service.js'
 import { PaperTradingSection } from '../cmps/PaperTrading/PaperTradingSection.jsx'
 import { ManualTradingSection } from '../cmps/ManualTrading/ManualTradingSection.jsx'
 import { useWorkspaceMode } from '../customHooks/useWorkspaceMode'
+import { initials } from '../services/util.service.js'
+import { NAV, VENUE_OF_WORKSPACE, tabFromHash } from './profileTabs.js'
 import './UserProfile.scss'
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
@@ -35,6 +37,8 @@ const BROKERS = [
     { type: 'ctrader', label: 'cTrader' },
     { type: 'ibkr',    label: 'IBKR'    },
 ]
+
+const WORKSPACE_LABEL = { live: 'Live', paper: 'Paper', manual: 'Manual' }
 
 // ONE setting — the model — shared by every conversational desk, under one key
 // (services/aiPrefKeys.js). There is no desk list, so a new desk is honoured as soon as it
@@ -59,11 +63,29 @@ const BROKERS = [
 // If that knob is wanted back, this card returns as "Monitors" rather than as Hermes.
 
 export function UserProfile() {
-    const { user, setUser, signout } = useAuth()
-    const navigate                   = useNavigate()
+    const { user, setUser, signout, isAdmin } = useAuth()
+    const navigate                            = useNavigate()
+    const location                            = useLocation()
 
-    // Active workspace (from the header switch) — the two non-active mode sections
-    // below are dimmed + disabled so it's clear which one is live.
+    // The open tab IS the URL hash — no mirrored state, so a header link to `/profile#paper`
+    // and the browser's back button both just work. Selecting pushes a history entry.
+    const tab = tabFromHash(location.hash)
+    function selectTab(id) {
+        if (id !== tab) navigate({ hash: `#${id}` })
+    }
+
+    // On a phone the nav is a horizontal pill row — a tab opened by URL can sit off its right
+    // edge, so bring the open one into view. A no-op on desktop where the whole nav is visible.
+    const navRef = useRef(null)
+    useEffect(() => {
+        navRef.current?.querySelector('.is-active')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+    }, [tab])
+
+    // Active workspace (from the header switch). It is shown — a chip in the hero and an
+    // "Active" badge on the matching venue section — never enforced: every venue stays
+    // editable whichever book the user is standing in. The non-active sections used to be
+    // dimmed + pointer-events:none, which forced a trip to the header switch just to connect
+    // a broker while looking at paper, with nothing on the page saying why.
     const { workspace } = useWorkspaceMode(user?._id)
 
     const [connections,  setConnections]  = useState({})
@@ -183,93 +205,166 @@ export function UserProfile() {
 
     if (!user) return null
 
+    const activeVenue = VENUE_OF_WORKSPACE[workspace]
+
     return (
         <div className="user-profile">
 
+            {/* ── Identity hero — who this page belongs to ── */}
+            <header className="user-profile__hero">
+                <span className="user-profile__avatar" aria-hidden="true">{initials(user.fullname)}</span>
+                <div className="user-profile__identity">
+                    <h1 className="user-profile__name">{user.fullname || user.username || 'Trader'}</h1>
+                    <div className="user-profile__meta">
+                        {user.username && <span className="user-profile__handle">@{user.username}</span>}
+                        {isAdmin && <span className="user-profile__chip user-profile__chip--admin">Admin</span>}
+                        <span className={`user-profile__chip user-profile__chip--${workspace}`}>
+                            {WORKSPACE_LABEL[workspace] ?? workspace} workspace
+                        </span>
+                    </div>
+                </div>
+                <button
+                    className="user-profile__btn user-profile__btn--signout"
+                    onClick={async () => { await signout(); navigate('/') }}
+                >
+                    Sign out
+                </button>
+            </header>
+
             <div className="user-profile__body">
 
-                {/* ── Left column ── */}
-                <div className="user-profile__col">
-
-                    <section className="user-profile__section">
-                        <h2 className="user-profile__section-title">Account</h2>
-
-                        <div className="user-profile__row">
-                            <span className="user-profile__label">Username</span>
-                            <span className="user-profile__value">{user.username || '—'}</span>
+                {/* ── Left: section nav ── */}
+                <nav ref={navRef} className="user-profile__nav" aria-label="Profile sections">
+                    {NAV.map(group => (
+                        <div key={group.label} className="user-profile__nav-group">
+                            <span className="user-profile__nav-group-label">{group.label}</span>
+                            {group.tabs.map(t => (
+                                <button
+                                    key={t.id}
+                                    className={`user-profile__nav-item${tab === t.id ? ' is-active' : ''}`}
+                                    aria-current={tab === t.id ? 'page' : undefined}
+                                    onClick={() => selectTab(t.id)}
+                                >
+                                    {t.label}
+                                    {t.id === activeVenue && <span className="user-profile__nav-dot" title="Active workspace" />}
+                                </button>
+                            ))}
                         </div>
+                    ))}
+                </nav>
 
-                        <div className="user-profile__row">
-                            <span className="user-profile__label">Full name</span>
+                {/* ── Right: the one open section ── */}
+                <main className="user-profile__main">
+
+                    {tab === 'account' && (
+                        <section className="user-profile__section">
+                            <h2 className="user-profile__section-title">Account</h2>
+
+                            <div className="user-profile__row">
+                                <span className="user-profile__label">Username</span>
+                                <span className="user-profile__value">{user.username || '—'}</span>
+                            </div>
+
+                            <div className="user-profile__row">
+                                <span className="user-profile__label">Full name</span>
+                                {editMode
+                                    ? <input
+                                        className="user-profile__input"
+                                        value={draftFullname}
+                                        onChange={e => setDraftFullname(e.target.value)}
+                                        autoFocus
+                                      />
+                                    : <span className="user-profile__value">{user.fullname || '—'}</span>
+                                }
+                            </div>
+
                             {editMode
-                                ? <input
-                                    className="user-profile__input"
-                                    value={draftFullname}
-                                    onChange={e => setDraftFullname(e.target.value)}
-                                    autoFocus
-                                  />
-                                : <span className="user-profile__value">{user.fullname || '—'}</span>
-                            }
-                        </div>
-
-                        {editMode
-                            ? <div className="user-profile__edit-actions">
-                                <button
-                                    className="user-profile__btn user-profile__btn--primary"
-                                    onClick={handleApply}
-                                    disabled={saving || !draftFullname.trim()}
-                                >
-                                    {saving ? 'Saving…' : 'Apply Changes'}
-                                </button>
-                                <button
+                                ? <div className="user-profile__edit-actions">
+                                    <button
+                                        className="user-profile__btn user-profile__btn--primary"
+                                        onClick={handleApply}
+                                        disabled={saving || !draftFullname.trim()}
+                                    >
+                                        {saving ? 'Saving…' : 'Apply Changes'}
+                                    </button>
+                                    <button
+                                        className="user-profile__btn user-profile__btn--ghost"
+                                        onClick={handleEditCancel}
+                                        disabled={saving}
+                                    >
+                                        Cancel
+                                    </button>
+                                  </div>
+                                : <button
                                     className="user-profile__btn user-profile__btn--ghost"
-                                    onClick={handleEditCancel}
-                                    disabled={saving}
+                                    onClick={handleEditStart}
+                                  >
+                                    Edit Profile
+                                  </button>
+                            }
+                        </section>
+                    )}
+
+                    {tab === 'appearance' && (
+                        <section className="user-profile__section">
+                            <h2 className="user-profile__section-title">Appearance</h2>
+                            <div className="user-profile__row user-profile__row--inline">
+                                <span className="user-profile__label">Mode</span>
+                                <ModeSwitcher onChange={setAppearance} />
+                            </div>
+                            <div className="user-profile__row user-profile__row--inline">
+                                <span className="user-profile__label">Theme</span>
+                                <ThemeSwitcher key={appearance} />
+                            </div>
+                            <div className="user-profile__row user-profile__row--inline">
+                                <span className="user-profile__label">Accent</span>
+                                <AccentSwitcher />
+                            </div>
+                            <div className="user-profile__row user-profile__row--inline">
+                                <span className="user-profile__label">Candles</span>
+                                <CandleColorPicker />
+                            </div>
+                            <div className="user-profile__row user-profile__row--inline">
+                                <span className="user-profile__label">Design</span>
+                                <select
+                                    className="user-profile__select"
+                                    style={{ width: 'auto', minWidth: '9rem' }}
+                                    value={design}
+                                    onChange={e => handleDesign(e.target.value)}
                                 >
-                                    Cancel
-                                </button>
-                              </div>
-                            : <button
-                                className="user-profile__btn user-profile__btn--ghost"
-                                onClick={handleEditStart}
-                              >
-                                Edit Profile
-                              </button>
-                        }
-                    </section>
+                                    {DESIGNS.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
+                                </select>
+                            </div>
+                        </section>
+                    )}
 
-                    <section className="user-profile__section">
-                        <h2 className="user-profile__section-title">Appearance</h2>
-                        <div className="user-profile__row user-profile__row--inline">
-                            <span className="user-profile__label">Mode</span>
-                            <ModeSwitcher onChange={setAppearance} />
-                        </div>
-                        <div className="user-profile__row user-profile__row--inline">
-                            <span className="user-profile__label">Theme</span>
-                            <ThemeSwitcher key={appearance} />
-                        </div>
-                        <div className="user-profile__row user-profile__row--inline">
-                            <span className="user-profile__label">Accent</span>
-                            <AccentSwitcher />
-                        </div>
-                        <div className="user-profile__row user-profile__row--inline">
-                            <span className="user-profile__label">Candles</span>
-                            <CandleColorPicker />
-                        </div>
-                        <div className="user-profile__row user-profile__row--inline">
-                            <span className="user-profile__label">Design</span>
-                            <select
-                                className="user-profile__select"
-                                style={{ width: 'auto', minWidth: '9rem' }}
-                                value={design}
-                                onChange={e => handleDesign(e.target.value)}
-                            >
-                                {DESIGNS.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
-                            </select>
-                        </div>
-                    </section>
+                    {tab === 'ai' && (
+                        <section className="user-profile__section">
+                            <h2 className="user-profile__section-title">AI Preferences</h2>
+                            <div className="user-profile__row user-profile__row--inline">
+                                <span className="user-profile__label">Text speed</span>
+                                <PaceSlider />
+                            </div>
+                            <div className="user-profile__agent">
+                                <div className="user-profile__agent-field">
+                                    <span className="user-profile__label">Model</span>
+                                    <select
+                                        className="user-profile__select"
+                                        style={{ width: 'auto', minWidth: '9rem' }}
+                                        value={model}
+                                        onChange={e => handleModel(e.target.value)}
+                                    >
+                                        {MODEL_OPTIONS.map(m => (
+                                            <option key={m.id} value={m.id}>{m.short}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        </section>
+                    )}
 
-                    <section className="user-profile__section">
+                    {tab === 'usage' && (
+                        <section className="user-profile__section">
                             <h2 className="user-profile__section-title">
                                 Token Budget{tokenUsage.month ? ` — ${formatMonthKey(tokenUsage.month)}` : ''}
                             </h2>
@@ -290,113 +385,79 @@ export function UserProfile() {
                                     {tokenUsage.percentUsed}%
                                 </span>
                             </div>
-                    </section>
+                        </section>
+                    )}
 
-                    <section className="user-profile__section">
-                        <h2 className="user-profile__section-title">AI Preferences</h2>
-                        <div className="user-profile__row user-profile__row--inline">
-                            <span className="user-profile__label">Text speed</span>
-                            <PaceSlider />
-                        </div>
-                        <div className="user-profile__agent">
-                            <div className="user-profile__agent-field">
-                                <span className="user-profile__label">Model</span>
-                                <select
-                                    className="user-profile__select"
-                                    style={{ width: 'auto', minWidth: '9rem' }}
-                                    value={model}
-                                    onChange={e => handleModel(e.target.value)}
-                                >
-                                    {MODEL_OPTIONS.map(m => (
-                                        <option key={m.id} value={m.id}>{m.short}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-                    </section>
+                    {tab === 'brokers' && (
+                        <section className="user-profile__section">
+                            <h2 className="user-profile__section-title">
+                                Brokers
+                                {activeVenue === 'brokers' && <span className="user-profile__active-badge">Active</span>}
+                            </h2>
 
-                    <div className="user-profile__spacer" />
+                            {BROKERS.map(({ type, label }) => {
+                                const connected = !!connections[type]
+                                const data      = accountData[type]
+                                const accounts  = data?.accounts ?? []
+                                const selected  = data?.selectedAccountId ?? ''
 
-                    <button
-                        className="user-profile__btn user-profile__btn--signout"
-                        onClick={async () => { await signout(); navigate('/') }}
-                    >
-                        Sign out
-                    </button>
-
-                </div>
-
-                {/* ── Right column ── */}
-                <div className="user-profile__col">
-
-                    <section
-                        className={`user-profile__section user-profile__section--brokers${workspace !== 'live' ? ' user-profile__section--inactive' : ''}`}
-                        aria-disabled={workspace !== 'live' || undefined}
-                    >
-                        <h2 className="user-profile__section-title">Brokers</h2>
-
-                        {BROKERS.map(({ type, label }) => {
-                            const connected = !!connections[type]
-                            const data      = accountData[type]
-                            const accounts  = data?.accounts ?? []
-                            const selected  = data?.selectedAccountId ?? ''
-
-                            return (
-                                <div key={type} className="user-profile__broker">
-                                    <div className="user-profile__broker-header">
-                                        <span className="user-profile__broker-name">{label}</span>
-                                        <span className={`user-profile__broker-status${connected ? ' connected' : ''}`}>
-                                            {connected ? 'Connected' : 'Not connected'}
-                                        </span>
-                                    </div>
-
-                                    {connected && accounts.length > 0 && (
-                                        <div className="user-profile__row">
-                                            <span className="user-profile__label">Trading account</span>
-                                            <select
-                                                className="user-profile__select"
-                                                value={selected}
-                                                disabled={savingBroker === type}
-                                                onChange={e => handleAccountChange(type, e.target.value)}
-                                            >
-                                                {accounts.map(acc => (
-                                                    <option key={acc.id} value={acc.id}>
-                                                        {acc.login ?? acc.id}
-                                                        {acc.currency ? ` — ${acc.currency}` : ''}
-                                                        {acc.balance  != null ? ` — ${acc.balance.toLocaleString()}` : ''}
-                                                        {acc.isLive   ? '' : ' (demo)'}
-                                                    </option>
-                                                ))}
-                                            </select>
+                                return (
+                                    <div key={type} className="user-profile__broker">
+                                        <div className="user-profile__broker-header">
+                                            <span className="user-profile__broker-name">{label}</span>
+                                            <span className={`user-profile__broker-status${connected ? ' connected' : ''}`}>
+                                                {connected ? 'Connected' : 'Not connected'}
+                                            </span>
                                         </div>
-                                    )}
 
-                                    <div className="user-profile__broker-actions">
-                                        {connected
-                                            ? <button
-                                                className="user-profile__btn user-profile__btn--danger"
-                                                onClick={() => handleDisconnect(type)}
-                                              >
-                                                Disconnect
-                                              </button>
-                                            : <button
-                                                className="user-profile__btn user-profile__btn--primary"
-                                                onClick={() => handleConnect(type)}
-                                              >
-                                                Connect {label}
-                                              </button>
-                                        }
+                                        {connected && accounts.length > 0 && (
+                                            <div className="user-profile__row">
+                                                <span className="user-profile__label">Trading account</span>
+                                                <select
+                                                    className="user-profile__select"
+                                                    value={selected}
+                                                    disabled={savingBroker === type}
+                                                    onChange={e => handleAccountChange(type, e.target.value)}
+                                                >
+                                                    {accounts.map(acc => (
+                                                        <option key={acc.id} value={acc.id}>
+                                                            {acc.login ?? acc.id}
+                                                            {acc.currency ? ` — ${acc.currency}` : ''}
+                                                            {acc.balance  != null ? ` — ${acc.balance.toLocaleString()}` : ''}
+                                                            {acc.isLive   ? '' : ' (demo)'}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        <div className="user-profile__broker-actions">
+                                            {connected
+                                                ? <button
+                                                    className="user-profile__btn user-profile__btn--danger"
+                                                    onClick={() => handleDisconnect(type)}
+                                                  >
+                                                    Disconnect
+                                                  </button>
+                                                : <button
+                                                    className="user-profile__btn user-profile__btn--primary"
+                                                    onClick={() => handleConnect(type)}
+                                                  >
+                                                    Connect {label}
+                                                  </button>
+                                            }
+                                        </div>
                                     </div>
-                                </div>
-                            )
-                        })}
-                    </section>
+                                )
+                            })}
+                        </section>
+                    )}
 
-                    <PaperTradingSection inactive={workspace !== 'paper'} />
+                    {tab === 'paper'  && <PaperTradingSection  active={activeVenue === 'paper'} />}
 
-                    <ManualTradingSection inactive={workspace !== 'manual'} />
+                    {tab === 'manual' && <ManualTradingSection active={activeVenue === 'manual'} />}
 
-                </div>
+                </main>
 
             </div>
         </div>

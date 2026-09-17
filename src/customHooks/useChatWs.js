@@ -132,7 +132,7 @@ export function useChatWs(userId) {
         const params = new URLSearchParams(window.location.search)
         if (params.get('broker') === 'connected') {
             window.history.replaceState({}, '', window.location.pathname)
-            navigate('/profile')
+            navigate('/profile#brokers')
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only OAuth redirect; navigate is stable
     }, [])

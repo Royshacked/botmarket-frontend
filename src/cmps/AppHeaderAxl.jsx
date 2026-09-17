@@ -6,6 +6,7 @@ import { SocialChat } from './SocialChat/SocialChat'
 import { MarketClocks } from './MarketClocks'
 import { useChatWs } from '../customHooks/useChatWs'
 import { useWorkspaceMode } from '../customHooks/useWorkspaceMode'
+import { initials } from '../services/util.service.js'
 
 // ── AppHeader · "axl" style (trial) ───────────────────────────────────────────
 // The calm aurora header: animated calm-water wave bottom edge, a centered AI
@@ -39,13 +40,6 @@ const STREAM = [
     { who: 'user', t: 'Risk if the market drops 10%?' },
     { who: 'axl',  t: 'Your hedges cap the drawdown near 6%.' },
 ]
-
-function initials(name = 'Trader') {
-    const parts = name.trim().split(/\s+/).filter(Boolean)
-    if (parts.length === 0) return 'T'
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-}
 
 export function AppHeaderAxl() {
     const { user }     = useContext(AuthContext)
