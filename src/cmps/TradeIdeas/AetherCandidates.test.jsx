@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, waitFor, within, act } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { AetherCandidates, urgencyOf, byTicker, recurring, lastEventDate, tradable, buildAetherSeed, scorecardLine, existingSetupFor, conclusionOf } from './AetherCandidates.jsx'
@@ -29,8 +29,23 @@ vi.mock('../../services/aether/aether.service.remote.js', () => ({
     },
 }))
 
+// The socket the run reports over. The button reads status once on mount and then follows
+// these frames; `fire` is the server pushing one.
+const { listeners } = vi.hoisted(() => ({ listeners: {} }))
+vi.mock('../../services/chat/chatWs.service.js', () => ({
+    chatWsService: {
+        connect:    vi.fn(),
+        disconnect: vi.fn(),
+        on:  (ev, h) => { (listeners[ev] ??= new Set()).add(h) },
+        off: (ev, h) => { listeners[ev]?.delete(h) },
+    },
+}))
+const fire = (ev, data) => listeners[ev]?.forEach(h => h(data))
+const DISCOVERY = 'aether:discovery'
+
 afterEach(() => {
     cleanup()
+    for (const k of Object.keys(listeners)) delete listeners[k]
     startDiscovery.mockReset()
     getDiscoveryStatus.mockReset()
     getDiscoveryStatus.mockResolvedValue({ running: false, progress: null, last: null })
@@ -695,13 +710,35 @@ describe('AetherCandidates run progress', () => {
         await waitFor(() => expect(btn().textContent).toMatch(/running/i))
     })
 
-    it('returns to idle when the run ends', async () => {
+    it('returns to idle the moment the server says the run ended', async () => {
+        // Over the socket — not a poll. The button used to ask every four seconds; now the
+        // server tells it, and one status read on mount is all it asks for.
         getDiscoveryStatus.mockResolvedValue({ running: true, progress: { stage: 'verifying' } })
         render(<AetherCandidates runs={[RUN]} />)
         await waitFor(() => expect(btn().disabled).toBe(true))
 
-        getDiscoveryStatus.mockResolvedValue({ running: false, progress: null, last: { ok: true } })
-        await waitFor(() => expect(btn().textContent).toMatch(/run discovery/i), { timeout: 6000 })
+        act(() => fire(DISCOVERY, { running: false, progress: null, last: { ok: true } }))
+        expect(btn().textContent).toMatch(/run discovery/i)
+        expect(getDiscoveryStatus).toHaveBeenCalledTimes(1)
+    })
+
+    it('follows the stages as they are pushed', async () => {
+        render(<AetherCandidates runs={[RUN]} />)
+        await waitFor(() => expect(btn().textContent).toMatch(/run discovery/i))
+
+        act(() => fire(DISCOVERY, { running: true, progress: { stage: 'triage', detail: 'reading 12 of 358 headlines', event: 0, events: 2 } }))
+        expect(btn().textContent).toMatch(/reading the news queue/i)
+
+        act(() => fire(DISCOVERY, { running: true, progress: { stage: 'proposing', detail: 'Iran tankers', event: 1, events: 2 } }))
+        expect(btn().textContent).toMatch(/naming companies/i)
+        expect(btn().textContent).toMatch(/event 1 of 2/)
+    })
+
+    it('a frame after unmount is dropped, not applied', async () => {
+        const { unmount } = render(<AetherCandidates runs={[RUN]} />)
+        await waitFor(() => expect(btn()).toBeTruthy())
+        unmount()
+        expect(listeners[DISCOVERY]?.size ?? 0).toBe(0)
     })
 
     it('a status read that fails does not break the button', async () => {
@@ -711,11 +748,12 @@ describe('AetherCandidates run progress', () => {
         expect(btn().textContent).toMatch(/run discovery/i)
     })
 
-    it('a member never polls at all', async () => {
+    it('a member never asks for status and never listens for it', async () => {
         AUTH = MEMBER
         render(<AetherCandidates runs={[RUN]} />)
         await waitFor(() => expect(btn()).toBeNull())
         expect(getDiscoveryStatus).not.toHaveBeenCalled()
+        expect(listeners[DISCOVERY]?.size ?? 0).toBe(0)
     })
 })
 

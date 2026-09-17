@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { aetherService } from '../../services/aether/aether.service.remote.js'
+import { chatWsService } from '../../services/chat/chatWs.service.js'
+import { DISCOVERY_EVENT } from '../../customHooks/useAetherCandidates.js'
 import { apiError } from '../../services/http.service.js'
 import { RowHost } from '../Floor/RowHost.jsx'
 import { SymbolCell } from '../EntityCard/EntityCard.jsx'
@@ -516,7 +518,7 @@ QuickRead.propTypes = {
  * a person makes it.
  *
  * It reports STARTED, never finished. A run is minutes long and writes to Mongo when it
- * lands; the list polls every five minutes and will pick the names up on its own.
+ * lands; the server pushes that moment over the socket, and the list refetches on it.
  */
 // WHAT EACH STAGE IS WORTH KNOWING FOR. The stages are wildly uneven — triage takes
 // twenty seconds, the proposal took six and a half minutes on the Iran run, verification
@@ -532,15 +534,15 @@ const STAGE_LABEL = {
     stored:    'saving',
 }
 
-const POLL_MS = 4000
-
 /**
  * The run button. ADMIN ONLY, and hiding it is the courtesy — the server is the guard.
  *
- * It polls while a run is going, which is what lets it report a stage rather than just
- * "running" — and also what lets it know about a run THIS BROWSER did not start. Before,
- * a reload mid-run left the button reading "Run discovery" over a live engine, and the
- * only thing stopping a second press was the server's 409.
+ * It follows the run over the socket, which is what lets it report a stage rather than
+ * just "running". One status read on mount is what lets it know about a run THIS BROWSER
+ * did not start — before, a reload mid-run left the button reading "Run discovery" over a
+ * live engine, and the only thing stopping a second press was the server's 409. That read
+ * is also where it learns whether this host can run at all. It used to poll every four
+ * seconds for the same facts; the frame and the answer carry the same shape.
  */
 function RunButton() {
     const { isAdmin } = useAuth() ?? {}
@@ -551,25 +553,23 @@ function RunButton() {
     // status read — so the button does not flash on for a host that cannot run it.
     const [available, setAvailable] = useState(null)
 
-    // Poll whenever a run might be in flight, and once on mount to catch one already going.
     useEffect(() => {
         if (!isAdmin) return undefined
         let alive = true
 
-        async function check() {
-            try {
-                const s = await aetherService.getDiscoveryStatus()
-                if (!alive) return
-                setProgress(s?.progress ?? null)
-                setAvailable(s?.available !== false)
-                if (s?.available === false) setWhy(s.unavailableReason ?? '')
-                setState(cur => (s?.running ? 'running' : cur === 'running' ? 'idle' : cur))
-            } catch { /* a status read failing is not worth surfacing over the button */ }
+        function apply(s) {
+            setProgress(s?.progress ?? null)
+            setAvailable(s?.available !== false)
+            if (s?.available === false) setWhy(s.unavailableReason ?? '')
+            setState(cur => (s?.running ? 'running' : cur === 'running' ? 'idle' : cur))
         }
+        function onDiscovery(s) { if (alive) apply(s) }
 
-        check()
-        const timer = setInterval(check, POLL_MS)
-        return () => { alive = false; clearInterval(timer) }
+        aetherService.getDiscoveryStatus()
+            .then(s => { if (alive) apply(s) })
+            .catch(() => { /* a status read failing is not worth surfacing over the button */ })
+        chatWsService.on(DISCOVERY_EVENT, onDiscovery)
+        return () => { alive = false; chatWsService.off(DISCOVERY_EVENT, onDiscovery) }
     }, [isAdmin])
 
     if (!isAdmin) return null
