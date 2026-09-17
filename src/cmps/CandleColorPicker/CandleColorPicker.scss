@@ -1,20 +1,55 @@
 .candle-colors {
     display: flex;
-    flex-direction: column;
-    gap: 10px;
+    align-items: stretch; // the demo column runs the full height of the flanks
+    gap: 16px;
     user-select: none; // don't drag-select the labels/reset while sliding the thumb
 
-    // One side (up / down): its hue row and its shade row, same width as the theme/accent sliders.
+    // ── Live demo: a mini chart pane painted with the two colours, plus its state line ──
+    &__demo {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+    }
+
+    // Fills the demo column's height (minus the caption); width follows from the viewBox's
+    // 3:2 so the candles scale with the pane instead of floating in it.
+    &__chart {
+        flex: 1;
+        min-height: 64px;
+        width: auto;
+        display: block;
+        background: var(--bg-deep);
+        border: 1px solid var(--border-strong);
+        border-radius: 4px;
+    }
+
+    &__default,
+    &__reset {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+    }
+
+    &__reset {
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        transition: color 0.15s;
+        &:hover { color: var(--text-primary); }
+    }
+
+    // ── Flanks: DOWN on the left of the chart, UP on the right — a title over two tracks ──
     &__side {
         display: flex;
         flex-direction: column;
-        gap: 7px;
-    }
-
-    &__row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
+        align-items: center; // "Down colors" / "Up colors" centred over its tracks
+        justify-content: center;
+        gap: 10px; // hue ↔ shade within one side
     }
 
     &__label {
@@ -22,14 +57,13 @@
         font-size: 11px;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        color: var(--text-muted);
-        flex-shrink: 0;
+        color: var(--text-secondary);
     }
 
     &__slider {
         -webkit-appearance: none;
         appearance: none;
-        width: 280px;
+        width: 200px;
         height: 6px;
         border-radius: 3px;
         cursor: pointer;
@@ -70,35 +104,18 @@
     }
 
     // Shade track is set inline (depends on the side's hue): deep → mid → light.
+}
 
-    &__preview {
-        width: 14px;
-        height: 14px;
-        border-radius: 50%;
-        border: 2px solid var(--ring);
-        flex-shrink: 0;
+// Phone: three-up does not fit in 358px — the chart goes on top, then DOWN and UP stacked,
+// each flank's tracks running the row's width.
+@media (max-width: 767px) {
+    .candle-colors {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
 
-        // No override on this side — hollow/dashed dot meaning "theme default".
-        &--off {
-            background: transparent;
-            border-style: dashed;
-            border-color: var(--border-strong);
-        }
-    }
-
-    &__reset {
-        align-self: flex-start;
-        background: none;
-        border: none;
-        padding: 0;
-        font-family: var(--font-mono);
-        font-size: 11px;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--text-muted);
-        cursor: pointer;
-        transition: color 0.15s;
-
-        &:hover { color: var(--text-primary); }
+        &__demo   { order: -1; }
+        &__chart  { flex: none; height: 72px; }
+        &__slider { width: 100%; min-width: 0; }
     }
 }

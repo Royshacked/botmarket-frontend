@@ -38,4 +38,40 @@ describe('CandleColorPicker', () => {
         expect(screen.getByLabelText('Up candle colour').value).toBe(String(slidersFromHex('#1c7a3e').hue))
         expect(screen.queryByText('reset')).toBeNull()
     })
+
+    // The demo pane paints from the same resolution the chart uses: override where set, else
+    // the theme default — so what the user sees beside the slider is what the chart will show.
+    it('paints the preview candles with the effective colours and follows a change live', () => {
+        const { container } = render(<CandleColorPicker />)
+        const bodies = side => [...container.querySelectorAll(`[data-side="${side}"]`)].map(g => g.getAttribute('fill'))
+        expect(bodies('up').every(f => f === '#1c7a3e')).toBe(true)     // jsdom: code defaults
+        expect(bodies('down').every(f => f === '#5e1212')).toBe(true)
+        expect(screen.getByText('theme default')).toBeTruthy()
+
+        const shade = Number(screen.getByLabelText('Down candle depth').value)
+        fireEvent.change(screen.getByLabelText('Down candle colour'), { target: { value: '30' } })
+        const expected = candleHexFromSliders(30, shade)
+        expect(bodies('down').every(f => f === expected)).toBe(true)
+        expect(bodies('up').every(f => f === '#1c7a3e')).toBe(true)     // the other side is untouched
+        expect(screen.queryByText('theme default')).toBeNull()
+    })
+
+    // A flank is a module-level component. Defined inside the picker it would be a new type each
+    // render, React would remount the inputs on every tick, and a mouse drag would drop.
+    it('keeps the same slider element across a change (no remount mid-drag)', () => {
+        render(<CandleColorPicker />)
+        const before = screen.getByLabelText('Up candle colour')
+        fireEvent.change(before, { target: { value: '120' } })
+        fireEvent.change(before, { target: { value: '140' } })
+        expect(screen.getByLabelText('Up candle colour')).toBe(before)
+        expect(before.value).toBe('140')
+    })
+
+    it('lays out down · chart · up, in that order', () => {
+        const { container } = render(<CandleColorPicker />)
+        const kids = [...container.querySelector('.candle-colors').children].map(el => el.className)
+        expect(kids[0]).toContain('candle-colors__side--down')
+        expect(kids[1]).toContain('candle-colors__demo')
+        expect(kids[2]).toContain('candle-colors__side--up')
+    })
 })
