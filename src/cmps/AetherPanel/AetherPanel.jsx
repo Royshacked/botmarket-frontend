@@ -6,6 +6,8 @@ import { readStoredModel } from '../modelOptions.js'
 import { useChatStream, toChatHistory, withoutPrefill } from '../../customHooks/useChatStream.js'
 import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
+import { RouteOffer } from '../RouteOffer.jsx'
+import { useRouteOffer } from '../../customHooks/useRouteOffer.js'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { ChatBubble } from '../ChatBubble.jsx'
@@ -19,8 +21,11 @@ import './AetherPanel.scss'
 const MessageBubble = ({ msg }) => <ChatBubble msg={msg} />
 MessageBubble.propTypes = { msg: PropTypes.object.isRequired }
 
-export function AetherPanel({ onLoadingChange, pipeline = null, resumeRef = null }) {
+export function AetherPanel({ onLoadingChange, onRoute, pipeline = null, resumeRef = null }) {
     const chat = useChatStream()
+    // The user asked, in the chat, to be sent to another desk with a name → the reply routed →
+    // the RouteOffer button. The shared hand-off every desk has (useRouteOffer).
+    const routeOffer = useRouteOffer()
     const { messages, isLoading } = chat
     const threadIdRef = useRef(newThreadId())
 
@@ -36,6 +41,7 @@ export function AetherPanel({ onLoadingChange, pipeline = null, resumeRef = null
     }
 
     async function _send(text) {
+        routeOffer.clear()
         const history = toChatHistory(messages)
         history.push({ role: 'user', content: text })
 
@@ -44,6 +50,7 @@ export function AetherPanel({ onLoadingChange, pipeline = null, resumeRef = null
             onStopped: () => _saveThread(history, chat.phase),
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant' })
+                routeOffer.capture(data)
                 _saveThread([...history, { role: 'assistant', content: data.reply }], data.phase)
             },
             send: ({ signal, handlers }) => aetherService.sendStream(history, {
@@ -64,6 +71,7 @@ export function AetherPanel({ onLoadingChange, pipeline = null, resumeRef = null
             onError: () => chat.restoreStopped(base),
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant', content: base + data.reply })
+                routeOffer.capture(data)
                 _saveThread([...withoutPrefill(history), { role: 'assistant', content: base + data.reply }], data.phase)
             },
         })
@@ -82,7 +90,7 @@ export function AetherPanel({ onLoadingChange, pipeline = null, resumeRef = null
         }
     }
 
-    function handleClear() { chat.reset(); clearThread(threadIdRef) }
+    function handleClear() { chat.reset(); routeOffer.clear(); clearThread(threadIdRef) }
 
     async function handleResumeThread(threadId) {
         const t = await threadsService.getThread(threadId)
@@ -103,6 +111,9 @@ export function AetherPanel({ onLoadingChange, pipeline = null, resumeRef = null
                 )}
             </AgentMessages>
 
+            {/* The user asked to be sent to another desk with a name — the shared offer. */}
+            <RouteOffer offer={routeOffer.offer} busy={chat.isLoading} onGo={(o) => { routeOffer.clear(); onRoute?.(o) }} onDismiss={routeOffer.clear} />
+
             <AgentChatInput
                 chat={chat}
                 placeholder="Ask which names an event reaches, or why one is on the list (Enter to send)"
@@ -115,6 +126,7 @@ export function AetherPanel({ onLoadingChange, pipeline = null, resumeRef = null
 }
 
 AetherPanel.propTypes = {
+    onRoute:         PropTypes.func,     // (offer) → MainPage's doorway: the user asked to be sent to another desk
     onLoadingChange: PropTypes.func,
     pipeline:        PropTypes.string,
     resumeRef:       PropTypes.object,

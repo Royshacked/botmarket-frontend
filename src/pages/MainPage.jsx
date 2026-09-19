@@ -2189,6 +2189,24 @@ export function MainPage() {
         if (tab === 'mentor')  setMentorSeed({ key, message: `I want to work on my own ${opts.symbol} trade.` })
     }
 
+    // ── A desk → another desk, by the user's ask ──────────────────────────────
+    // "Send NVDA to Prometheus", said at Argus (or Mentor, or Atlas…): the desk's reply carried the
+    // same route grammar Axl's does, the panel offered it (RouteOffer), and the user pressed Go.
+    // It lands on the SAME doorway as reception's summon — the desk opens on the opening sentence the
+    // sender wrote, which is where what it found travels. One doorway for every arrival is the point:
+    // a hop added at any desk is a prompt edit there, never a handler here. Mirrors AxlHub._summon
+    // without the animation — the user pressed a button, they are not being fetched.
+    function handleRoute(offer) {
+        const desk = DESKS.find(d => d.key === (offer?.edit?.desk ?? offer?.route))
+        if (!desk) return
+        handleAxlPick(desk.entryTab, {
+            pipeline: desk.key,
+            symbol:   offer.routeSymbol ?? null,
+            ...(offer.edit    ? { edit: offer.edit }       : {}),
+            ...(offer.opening ? { opening: offer.opening } : {}),
+        })
+    }
+
     // ── Walking the pipeline ──────────────────────────────────────────────────
     // Follow the user along the desk's chain. Derived from the tab so every hand-off — the ones
     // above, the ones below, and any added later — keeps the crumb and the back button honest
@@ -2931,6 +2949,7 @@ export function MainPage() {
                                 onUpdateList={handleUpdateList}
                                 onResearchList={handleResearchList}
                                 onResearchLater={handleBackToAxl}
+                                onRoute={handleRoute}
                                 // Mid sleeve-run Argus saves each sector itself — nobody is waiting
                                 // to press between sectors. The panel also shows where the run is
                                 // and offers the skip when a sector comes back with no list.
@@ -2947,6 +2966,7 @@ export function MainPage() {
                         </div>
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'portfolio' ? 'flex' : 'none' }}>
                             <PortfolioPanel
+                                onRoute={handleRoute}
                                 key={`portfolio-${chatResetKey.portfolio}`}
                                 resumeRef={resumeRefs.current.portfolio}
                                 onGeneratePlan={handleGeneratePlan}
@@ -2988,6 +3008,7 @@ export function MainPage() {
 
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'mentor' ? 'flex' : 'none' }}>
                             <MentorPanel
+                                onRoute={handleRoute}
                                 onLoadingChange={deskLoadingSetters.mentor}
                                 pipeline={activePipeline}
                                 onGenerated={finishPipeline}
@@ -3003,6 +3024,7 @@ export function MainPage() {
 
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'analyst' ? 'flex' : 'none' }}>
                             <AnalystPanel
+                                onRoute={handleRoute}
                                 onLoadingChange={deskLoadingSetters.analyst}
                                 {...deskProps('analyst')}
                                 editCoverage={analystEditCoverage}
@@ -3024,6 +3046,7 @@ export function MainPage() {
                         {isAdmin && (
                             <div className="chat-tabs__panel" style={{ display: activeTab === 'strategy' ? 'flex' : 'none' }}>
                                 <StrategyPanel
+                                    onRoute={handleRoute}
                                     onLoadingChange={deskLoadingSetters.strategy}
                                     currentTilt={tilt}
                                     pipeline={activePipeline}
@@ -3039,6 +3062,7 @@ export function MainPage() {
 
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'aether' ? 'flex' : 'none' }}>
                             <AetherPanel
+                                onRoute={handleRoute}
                                 onLoadingChange={deskLoadingSetters.aether}
                                 pipeline={activePipeline}
                                 resumeRef={resumeRefs.current.aether}

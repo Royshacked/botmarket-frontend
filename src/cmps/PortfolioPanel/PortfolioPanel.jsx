@@ -10,6 +10,8 @@ import { useSeedTurn } from '../../customHooks/useSeedTurn.js'
 import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
 import { LaterButton } from '../LaterButton.jsx'
+import { RouteOffer } from '../RouteOffer.jsx'
+import { useRouteOffer } from '../../customHooks/useRouteOffer.js'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
@@ -41,6 +43,7 @@ export function PortfolioPanel({
     onLoadingChange,
     onReviewResolved,
     onAcceptReview,
+    onRoute,
     seed              = null,
     chatRestore       = null,
     availableAccounts = [],
@@ -53,6 +56,9 @@ export function PortfolioPanel({
 }) {
     const adoptDraftId = adoptDraft?.draftId ?? null
     const chat = useChatStream()
+    // The user asked, in the chat, to be sent to another desk with a name → the reply routed →
+    // the RouteOffer button. The shared hand-off every desk has (useRouteOffer).
+    const routeOffer = useRouteOffer()
     const { messages, setMessages, isLoading, streamStatus } = chat
 
     // Report streaming state up so the agent-bar "live" dot can pulse for Atlas.
@@ -151,6 +157,7 @@ export function PortfolioPanel({
     async function _send(text) {
         setEditDirty(true)
         setCoverageRequest(null)
+        routeOffer.clear()
         setSleeveRequests([])
 
         const history = toChatHistory(messages)
@@ -171,6 +178,7 @@ export function PortfolioPanel({
                 const tickers = [...pendingTickersRef.current]
                 pendingTickersRef.current = []
                 if (data.mandate) latestMandateRef.current = data.mandate
+                routeOffer.capture(data)
                 if (data.thesis) { latestThesisRef.current = data.thesis; setPortfolioThesis(data.thesis) }
                 chat.finishStreaming({ role: 'assistant', content: data.reply, tickers })
                 if (data.plan?.ideas?.length) setPendingPlan(data.plan)
@@ -234,6 +242,7 @@ export function PortfolioPanel({
                 const tickers = [...pendingTickersRef.current]
                 pendingTickersRef.current = []
                 if (data.mandate) latestMandateRef.current = data.mandate
+                routeOffer.capture(data)
                 if (data.thesis) { latestThesisRef.current = data.thesis; setPortfolioThesis(data.thesis) }
                 chat.finishStreaming({ role: 'assistant', content: base + data.reply, tickers })
                 if (data.plan?.ideas?.length) setPendingPlan(data.plan)
@@ -320,6 +329,7 @@ export function PortfolioPanel({
 
     function handleClear() {
         setMessages([])
+        routeOffer.clear()
         setPendingPlan(null)
         latestMandateRef.current = null
         // Clear is not walking away — the draft goes with the conversation. See clearThread.
@@ -567,6 +577,9 @@ export function PortfolioPanel({
                 </div>
             )}
 
+            {/* The user asked to be sent to another desk with a name — the shared offer. */}
+            <RouteOffer offer={routeOffer.offer} busy={chat.isLoading} onGo={(o) => { routeOffer.clear(); onRoute?.(o) }} onDismiss={routeOffer.clear} />
+
             <AgentChatInput
                 chat={chat}
                 placeholder="Describe your portfolio goals… (Enter to send, Shift+Enter for newline)"
@@ -581,6 +594,7 @@ export function PortfolioPanel({
 }
 
 PortfolioPanel.propTypes = {
+    onRoute:         PropTypes.func,     // (offer) → MainPage's doorway: the user asked to be sent to another desk
     adoptDraft:          PropTypes.object,
     onGeneratePlan:      PropTypes.func,
     onUpdatePlan:        PropTypes.func,

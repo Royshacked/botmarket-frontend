@@ -273,3 +273,57 @@ describe('ScannerPanel — a turn the user walked out of', () => {
         expect(saveDraft).not.toHaveBeenCalled()
     })
 })
+
+// ─── "Send NVDA to Prometheus", asked in the chat ─────────────────────────────────
+// A scan's names reach Prometheus by the button under the list; a name the user asks Argus to send
+// reaches it by the shared route grammar (`route` + `opening` on the done payload) → the RouteOffer
+// button → MainPage's one doorway (onRoute). What the panel owns: offering it, and standing the
+// generate bar down while the offer is up.
+describe('ScannerPanel — sending the user to another desk by asking', () => {
+    const ROUTED = { reply: 'Sending NVDA over.', route: 'research', routeSymbol: 'NVDA', opening: 'Look at NVDA — basing under 250.', edit: null }
+
+    async function askToSend(handlers = {}, done = ROUTED) {
+        render(
+            <ScannerPanel
+                chatRestore={{ key: 1, scanId: 'scn_1', scan: { thesis: 'AI infra', candidates: [{ ticker: 'NVDA' }] }, messages: [] }}
+                seed={{ key: 1, message: 'send nvda to prometheus' }}
+                {...handlers}
+            />,
+        )
+        await waitFor(() => expect(sendStream).toHaveBeenCalled())
+        const [, opts] = lastCall()
+        await act(async () => {
+            opts.onToken(done.reply)
+            opts.onDone(done)
+        })
+    }
+
+    it('a routed reply offers the desk by BRAND and hands the whole route to the doorway', async () => {
+        const onRoute = vi.fn()
+        await askToSend({ onRoute })
+        const go = await screen.findByRole('button', { name: 'Go to Prometheus · NVDA' }, { timeout: 4000 })
+        // The offer owns the footer: no edit bar beside it asking a second question.
+        expect(screen.queryByRole('button', { name: 'Update list' })).toBe(null)
+        await act(async () => { fireEvent.click(go) })
+
+        expect(onRoute).toHaveBeenCalledTimes(1)
+        expect(onRoute.mock.calls[0][0]).toEqual({ route: 'research', routeSymbol: 'NVDA', opening: 'Look at NVDA — basing under 250.', edit: null })
+        expect(screen.queryByRole('button', { name: /Go to Prometheus/ })).toBe(null)
+    })
+
+    it('"Not now" puts it away, nobody is navigated, and the edit bar comes back', async () => {
+        const onRoute = vi.fn()
+        await askToSend({ onRoute })
+        await screen.findByRole('button', { name: 'Go to Prometheus · NVDA' }, { timeout: 4000 })
+        await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Not now' })) })
+
+        expect(screen.queryByRole('button', { name: /Go to Prometheus/ })).toBe(null)
+        expect(onRoute).not.toHaveBeenCalled()
+        expect(await screen.findByRole('button', { name: 'Update list' })).toBeTruthy()
+    })
+
+    it('a reply that routes nowhere offers nothing', async () => {
+        await askToSend({}, { reply: 'Here is the read.' })
+        expect(screen.queryByRole('button', { name: /Go to/ })).toBe(null)
+    })
+})

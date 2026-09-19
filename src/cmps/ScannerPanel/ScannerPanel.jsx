@@ -8,6 +8,8 @@ import { useChatStream, toChatHistory, withoutPrefill } from '../../customHooks/
 import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
 import { LaterButton } from '../LaterButton.jsx'
+import { RouteOffer } from '../RouteOffer.jsx'
+import { useRouteOffer } from '../../customHooks/useRouteOffer.js'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
@@ -129,7 +131,7 @@ const MessageBubble = ({ msg, onTickerSelect, phaseLabels = SCAN_PHASE_LABELS })
     />
 )
 
-export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, onUpdateList, onResearchList, onResearchLater, sleeveRun = null, onSkipSleeve, onLoadingChange, chatRestore = null, seed = null, handoff = false, handoffTo = null, autoHandoff = false, onSendPick, onDismissHandoff, resumeRef = null }) {
+export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, onUpdateList, onResearchList, onResearchLater, onRoute, sleeveRun = null, onSkipSleeve, onLoadingChange, chatRestore = null, seed = null, handoff = false, handoffTo = null, autoHandoff = false, onSendPick, onDismissHandoff, resumeRef = null }) {
     const pipelineCfg = PIPELINE_CONFIG[pipeline] ?? PIPELINE_CONFIG.scan
     // The desk the pick goes on to, as the user should read it. Falls back to no name rather than a
     // guess — every surface here degrades to "hand it on", which is vague but never wrong.
@@ -174,6 +176,9 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
     // The single pick emitted at the end of a hand-off scan → the hand-off button. Named for the
     // `<kairos_pick>` wire tag it carries, which outlived the desk it was named after.
     const [handoffPick,     setHandoffPick]     = useState(null)
+    // The user asked Argus, in the chat, to be sent to another desk with a name ("send NVDA to
+    // Prometheus") → the reply routed → the RouteOffer button. The shared hand-off every desk has.
+    const routeOffer = useRouteOffer()
     // Auto mode: hand the settled pick straight on rather than offering it. Waits for the turn to
     // end — a pick still being written is not yet a pick. `handoffPick` is deliberately left set: the
     // hand-off remounts this panel, and clearing it here would flash the generate bar on the way out.
@@ -275,6 +280,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
     async function _send(text) {
         setEditDirty(true)
         setHandoffPick(null)   // a new turn supersedes any prior hand-off pick
+        routeOffer.clear()     // …and any prior "go to that desk" — the user kept talking instead
         setResearchOffer(null)
         setSleeveStalled(false)   // a new turn is a fresh chance at this sleeve's list
         settledRef.current = false
@@ -305,6 +311,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                 chat.finishStreaming({ role: 'assistant', content: data.reply, tickers })
                 _settleScan(data)
                 if (data.kairos_pick) setHandoffPick(data.kairos_pick)   // hand-off: single pick → button
+                routeOffer.capture(data)   // "send X to Prometheus" → the Go button
                 _saveThread([...history, { role: 'assistant', content: data.reply }], data.phase, data.scan)
             },
             send: ({ signal, handlers }) => scannerService.sendStream(history, {
@@ -351,6 +358,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                 chat.finishStreaming({ role: 'assistant', content, tickers })
                 _settleScan(data)
                 if (data.kairos_pick) setHandoffPick(data.kairos_pick)
+                routeOffer.capture(data)
                 _saveThread([...withoutPrefill(history), { role: 'assistant', content }], data.phase, data.scan)
             },
         })
@@ -391,6 +399,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
         chat.reset()
         setPendingScan(null)
         setHandoffPick(null)
+        routeOffer.clear()
         _setEditingScan(null)
         setEditDirty(false)
         setSelectedAngles(new Set())
@@ -563,6 +572,9 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                 </div>
             )}
 
+            {/* The user asked Argus to send them to another desk with a name — the shared offer. */}
+            <RouteOffer offer={routeOffer.offer} busy={chat.isLoading} onGo={(o) => { routeOffer.clear(); onRoute?.(o) }} onDismiss={routeOffer.clear} />
+
             {/* Action bar — a footer below the scroll area (not inside it) so it stays
                 pinned above the input without ever covering the messages. */}
             {/* SLEEVE RUN — where we are in it. Atlas routes three or four sectors at once and Argus
@@ -623,8 +635,10 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                 investing list leaves both live at once — the list stays pending so the edit session
                 can continue — and the two bars stack into four buttons asking two different
                 questions, two of which navigate away. The offer is the one that just appeared, so it
-                answers first; declining it brings this bar straight back. */}
-            {!chat.isLoading && !handoffPick && !researchOffer && (!!editingScanId || listReady) && (
+                answers first; declining it brings this bar straight back. A route the user just
+                asked for ("send NVDA to Prometheus") is the same case: it answers first, "Not now"
+                brings this bar back. */}
+            {!chat.isLoading && !handoffPick && !researchOffer && !routeOffer.offer && (!!editingScanId || listReady) && (
                 <div className="portfolio-panel__action-bubble">
                     {/* "Update/Generate list" only once there's a ready list; the "I'll do it later"
                         escape is always present in edit mode. */}
@@ -693,6 +707,7 @@ ScannerPanel.propTypes = {
     onTickerSelect:  PropTypes.func.isRequired,
     onGenerateList:  PropTypes.func,
     onUpdateList:    PropTypes.func,
+    onRoute:         PropTypes.func,     // (offer) → MainPage's doorway: the user asked to be sent to another desk
     sleeveRun:       PropTypes.object,   // { active, index, total, label } — the Atlas→Argus run
     onSkipSleeve:    PropTypes.func,
     onLoadingChange: PropTypes.func,

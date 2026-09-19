@@ -6,6 +6,8 @@ import { readStoredModel } from '../modelOptions.js'
 import { useChatStream, toChatHistory, withoutPrefill } from '../../customHooks/useChatStream.js'
 import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
+import { RouteOffer } from '../RouteOffer.jsx'
+import { useRouteOffer } from '../../customHooks/useRouteOffer.js'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { ChatBubble } from '../ChatBubble.jsx'
@@ -79,8 +81,11 @@ export function TiltDraft({ tilt }) {
 }
 TiltDraft.propTypes = { tilt: PropTypes.object.isRequired }
 
-export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished, pipeline = null, resumeRef = null, reviewRequest = null, onReviewStart }) {
+export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished, onRoute, pipeline = null, resumeRef = null, reviewRequest = null, onReviewStart }) {
     const chat = useChatStream({ threadPhases: true })
+    // The user asked, in the chat, to be sent to another desk with a name → the reply routed →
+    // the RouteOffer button. The shared hand-off every desk has (useRouteOffer).
+    const routeOffer = useRouteOffer()
     const { messages, isLoading } = chat
     const [pendingTilt, setPendingTilt] = useState(null)
     const [publishErr, setPublishErr]   = useState('')
@@ -111,6 +116,7 @@ export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished
 
     async function _send(text) {
         setPublishErr('')
+        routeOffer.clear()
         const history = toChatHistory(messages)
         history.push({ role: 'user', content: text })
 
@@ -122,6 +128,7 @@ export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant' })
                 if (data.tilt) setPendingTilt(data.tilt)
+                routeOffer.capture(data)
                 _saveThread([...history, { role: 'assistant', content: data.reply }], data.phase, data.tilt ?? pendingTilt)
             },
             send: ({ signal, handlers }) => strategyService.sendStream(history, {
@@ -160,6 +167,7 @@ export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant', content: base + data.reply })
                 if (data.tilt) setPendingTilt(data.tilt)
+                routeOffer.capture(data)
                 _saveThread([...withoutPrefill(history), { role: 'assistant', content: base + data.reply }], data.phase, data.tilt ?? pendingTilt)
             },
         })
@@ -182,7 +190,7 @@ export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished
     }
 
     // Clear is not walking away — the draft goes with the conversation. See clearThread.
-    function handleClear() { chat.reset(); setPendingTilt(null); setPublishErr(''); clearThread(threadIdRef) }
+    function handleClear() { chat.reset(); routeOffer.clear(); setPendingTilt(null); setPublishErr(''); clearThread(threadIdRef) }
 
     // Resume an unfinished view-building draft: restore the conversation + the tilt in progress, and
     // keep writing to the SAME thread. `current_tilt` is not restored — it rides from the live prop,
@@ -259,6 +267,9 @@ export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished
                 </div>
             )}
 
+            {/* The user asked to be sent to another desk with a name — the shared offer. */}
+            <RouteOffer offer={routeOffer.offer} busy={chat.isLoading} onGo={(o) => { routeOffer.clear(); onRoute?.(o) }} onDismiss={routeOffer.clear} />
+
             <AgentChatInput
                 chat={chat}
                 placeholder="Ask for the top-down read — e.g. “What regime are we in?” (Enter to send)"
@@ -271,6 +282,7 @@ export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished
 }
 
 StrategyPanel.propTypes = {
+    onRoute:         PropTypes.func,     // (offer) → MainPage's doorway: the user asked to be sent to another desk
     currentTilt:     PropTypes.object,   // the view in force — drives reaffirm-vs-re-author
     onLoadingChange: PropTypes.func,
     onPublished:     PropTypes.func,

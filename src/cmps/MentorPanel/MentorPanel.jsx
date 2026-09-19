@@ -10,6 +10,8 @@ import { useSeedTurn } from '../../customHooks/useSeedTurn.js'
 import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
 import { LaterButton, LATER_BTN_CLASS } from '../LaterButton.jsx'
+import { RouteOffer } from '../RouteOffer.jsx'
+import { useRouteOffer } from '../../customHooks/useRouteOffer.js'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
@@ -59,7 +61,7 @@ const OWN_SETUP_CHIP = 'I have my own setup — take it down as I give it'
 const MessageBubble = ({ msg }) => <ChatBubble msg={msg} />
 
 export function MentorPanel({
-    onLoadingChange, onGenerated, onPendingSetup,
+    onLoadingChange, onGenerated, onPendingSetup, onRoute,
     chatRestore = null, seed = null, inbox = null, editingSetupId = null, onEditDone,
     availableAccounts = [], selectedAccounts = [], mainAccountId = null, resumeRef = null,
     // The desk this conversation belongs to, stamped on its draft thread so an unfinished BUILD
@@ -68,6 +70,9 @@ export function MentorPanel({
 }) {
     const chat = useChatStream()
     const { messages } = chat
+    // The user asked, in the chat, to be sent to another desk with a name → the reply routed →
+    // the RouteOffer button. The shared hand-off every desk has (useRouteOffer).
+    const routeOffer = useRouteOffer()
 
     useEffect(() => { onLoadingChange?.(chat.isLoading) }, [chat.isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -235,6 +240,7 @@ export function MentorPanel({
         setEditDirty(true)
         setCandidates(null)   // a new user turn supersedes any pending offer
         setGenerated(null)
+        routeOffer.clear()
 
         const history = toChatHistory(base)
         history.push({ role: 'user', content: text })
@@ -246,6 +252,7 @@ export function MentorPanel({
             onStopped: () => _persist(history, null, draft),
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant', content: data.reply })
+                routeOffer.capture(data)
                 _persist(history, data.reply, _applyDone(data, draft))
             },
             send: ({ signal, handlers }) => mentorService.sendStream(history, { ...streamOpts(draft, cov), signal, ...handlers }),
@@ -267,6 +274,7 @@ export function MentorPanel({
             onDone: (data) => {
                 const content = base + data.reply
                 chat.finishStreaming({ role: 'assistant', content })
+                routeOffer.capture(data)
                 _persist(withoutPrefill(history), content, _applyDone(data, pendingSetup))
             },
         })
@@ -284,6 +292,7 @@ export function MentorPanel({
 
     function handleClear() {
         chat.reset()
+        routeOffer.clear()
         setPendingSetup(null)
         setReadiness(null)
         setCoverage([])
@@ -549,6 +558,9 @@ export function MentorPanel({
                 </div>
             )}
 
+            {/* The user asked to be sent to another desk with a name — the shared offer. */}
+            <RouteOffer offer={routeOffer.offer} busy={chat.isLoading} onGo={(o) => { routeOffer.clear(); onRoute?.(o) }} onDismiss={routeOffer.clear} />
+
             {/* THE ONE INPUT AT THIS DESK, on every path. The express form used to replace it while
                 it was open, because a sentence typed under a half-filled form gives Mentor a plan
                 and a contradiction of it in the same turn. The interview has no such conflict —
@@ -567,6 +579,7 @@ export function MentorPanel({
 
 MentorPanel.propTypes = {
     pipeline:            PropTypes.string,
+    onRoute:         PropTypes.func,     // (offer) → MainPage's doorway: the user asked to be sent to another desk
     onLoadingChange:   PropTypes.func,
     onGenerated:       PropTypes.func,
     onPendingSetup:    PropTypes.func,

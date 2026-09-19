@@ -8,6 +8,8 @@ import { useChatStream, toChatHistory, withoutPrefill } from '../../customHooks/
 import { useSeedTurn } from '../../customHooks/useSeedTurn.js'
 import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
+import { RouteOffer } from '../RouteOffer.jsx'
+import { useRouteOffer } from '../../customHooks/useRouteOffer.js'
 import { ChatBubble } from '../ChatBubble.jsx'
 import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
@@ -60,9 +62,12 @@ export function CoverageDraft({ coverage }) {
 }
 CoverageDraft.propTypes = { coverage: PropTypes.object.isRequired }
 
-export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, onLoadingChange, onInitiated, onSleeveResearched, coverage = [], pipeline = null, resumeRef = null }) {
+export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, onLoadingChange, onInitiated, onSleeveResearched, onRoute, coverage = [], pipeline = null, resumeRef = null }) {
     const { isAdmin } = useAuth()
     const chat = useChatStream({ threadPhases: true })
+    // The user asked, in the chat, to be sent to another desk with a name → the reply routed →
+    // the RouteOffer button. The shared hand-off every desk has (useRouteOffer).
+    const routeOffer = useRouteOffer()
     const { messages, isLoading } = chat
     const [pendingCoverage, setPendingCoverage] = useState(null)
     const [initiateErr, setInitiateErr] = useState('')
@@ -120,6 +125,7 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
 
     async function _send(text) {
         setInitiateErr('')
+        routeOffer.clear()
         const candidate = seedRef.current; seedRef.current = null   // NB: the Argus payload, not the `seed` prop
         const history = toChatHistory(messages)
         history.push({ role: 'user', content: text })
@@ -134,6 +140,7 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant' })   // keep the phase-threaded bubbles
                 if (data.coverage) setPendingCoverage(data.coverage)
+                routeOffer.capture(data)
                 _saveThread([...history, { role: 'assistant', content: data.reply }], data.phase, data.coverage ?? pendingRef.current)
             },
             send: ({ signal, handlers }) => analystService.sendStream(history, {
@@ -162,6 +169,7 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant', content: base + data.reply })
                 if (data.coverage) setPendingCoverage(data.coverage)
+                routeOffer.capture(data)
                 _saveThread([...withoutPrefill(history), { role: 'assistant', content: base + data.reply }], data.phase, data.coverage ?? pendingRef.current)
             },
         })
@@ -260,7 +268,7 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
 
     // Clear is not walking away — the draft goes with the conversation, or the hub keeps marking this
     // desk and holding Prometheus's other doors shut over research the user threw away. See clearThread.
-    function handleClear()     { chat.reset(); setPendingCoverage(null); setInitiateErr(''); clearThread(threadIdRef) }
+    function handleClear()     { chat.reset(); routeOffer.clear(); setPendingCoverage(null); setInitiateErr(''); clearThread(threadIdRef) }
 
     // Resume an unfinished research draft: restore the conversation and its pending thesis, and keep
     // writing to the SAME thread. `existing_coverage` is not restored here — it is derived from the
@@ -406,6 +414,9 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
                 </div>
             )}
 
+            {/* The user asked to be sent to another desk with a name — the shared offer. */}
+            <RouteOffer offer={routeOffer.offer} busy={chat.isLoading} onGo={(o) => { routeOffer.clear(); onRoute?.(o) }} onDismiss={routeOffer.clear} />
+
             <AgentChatInput
                 chat={chat}
                 placeholder="A ticker to research — e.g. “Cover NVDA” (Enter to send)"
@@ -417,6 +428,7 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
     )
 }
 AnalystPanel.propTypes = {
+    onRoute:         PropTypes.func,     // (offer) → MainPage's doorway: the user asked to be sent to another desk
     inbox:           PropTypes.object,   // a pipeline artifact (candidate_list)
     editCoverage:    PropTypes.object,
     seed:            PropTypes.object,
