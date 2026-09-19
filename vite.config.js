@@ -1,13 +1,60 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
+import { VitePWA } from 'vite-plugin-pwa'
 
 // Proxy API + realtime traffic to the backend so the browser only ever talks to
 // its own origin (localhost:5173). Keeps the auth cookie same-origin and avoids the
 // Windows Chrome `localhost` keep-alive stall on direct browser→backend requests.
 const BACKEND = 'http://127.0.0.1:3030'
 
+// INSTALLABLE, NOT OFFLINE. The service worker exists so Chrome/Edge offer "Install app" on
+// desktop and Android (and so Web Push has somewhere to land later). It precaches the app SHELL —
+// the built js/css/html and the icons — and nothing else. A trading app that answers from a cache
+// is worse than one that fails: a stale price, a stale card, a "pending" that already fired. So
+// `/api`, `/ws` and `/socket.io` are on the navigate denylist and have NO runtime caching rule —
+// every request goes to the network, exactly as before the worker existed.
+//
+// `autoUpdate`: a new deploy's worker takes over on the next load without a prompt. The app has no
+// "you have unsaved work" state a forced refresh could lose — a desk's draft lives on the server.
+//
+// Exported so the config test can read the manifest and the denylist without running a build.
+export const PWA = {
+	registerType: 'autoUpdate',
+	manifest: {
+		name:             'TRADVICE',
+		short_name:       'axl',
+		description:      'AI-powered trading desks — monitor your setups, get the call, confirm the order.',
+		start_url:        '/',
+		scope:            '/',
+		display:          'standalone',
+		orientation:      'any',
+		theme_color:      '#06080b',   // --bg-base
+		background_color: '#06080b',
+		icons: [
+			{ src: '/img/pwa-192.png',          sizes: '192x192', type: 'image/png' },
+			{ src: '/img/pwa-512.png',          sizes: '512x512', type: 'image/png' },
+			{ src: '/img/pwa-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+		],
+	},
+	workbox: {
+		globPatterns: ['**/*.{js,css,html,svg,png}'],
+		navigateFallbackDenylist: [/^\/api\//, /^\/ws/, /^\/socket\.io/],
+		// The Google Fonts stylesheets + woff2 files, so an installed app does not open in the
+		// fallback font when the network is slow. Bounded, and the only runtime cache there is.
+		runtimeCaching: [
+			{
+				urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
+				handler:    'CacheFirst',
+				options:    { cacheName: 'google-fonts', expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 } },
+			},
+		],
+	},
+	// Off in dev: a worker under the Vite dev server fights HMR and the proxy above.
+	devOptions: { enabled: false },
+}
+
 export default defineConfig({
-	plugins: [react()],
+	plugins: [react(), VitePWA(PWA)],
 	// The `rem()` helper (setup/_functions.scss) in EVERY stylesheet, not just the ones main.scss
 	// chains together. Component stylesheets are imported from their JSX and compile on their own,
 	// so a `rem(13px)` in ChatPanel.scss used to resolve to Sass's built-in math `rem` (modulo) and
