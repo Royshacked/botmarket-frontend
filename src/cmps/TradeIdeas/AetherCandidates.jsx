@@ -6,6 +6,7 @@ import { chatWsService } from '../../services/chat/chatWs.service.js'
 import { DISCOVERY_EVENT } from '../../customHooks/useAetherCandidates.js'
 import { apiError } from '../../services/http.service.js'
 import { RowHost } from '../Floor/RowHost.jsx'
+import { FoldSection } from '../FoldSection.jsx'
 import { SymbolCell } from '../EntityCard/EntityCard.jsx'
 import { fmtShortDay } from '../Floor/floor.utils.js'
 import { openSetupPopup } from './tradeIdea.utils.js'
@@ -865,30 +866,14 @@ Conclusion.propTypes = {
 }
 
 /**
- * A folded section of the drawer. Native <details>, like the chat's reasoning fold: the
- * summary carries the title and a `tail` — the section's own gist — so a drawer with every
- * section closed still reads as four lines of story.
+ * A folded section of the drawer — the shared FoldSection, so a drawer with every section closed
+ * still reads as four lines of story. This keeps only the drawer's own `tone` modifier.
  */
-function Section({ title, tail = '', tailTitle, tone = '', open = false, children }) {
-    return (
-        <details className={`aether-candidates__sec${tone ? ` aether-candidates__sec--${tone}` : ''}`} open={open}>
-            <summary className="aether-candidates__sec-summary">
-                <span className="aether-candidates__sec-title">{title}</span>
-                {tail && <span className="aether-candidates__sec-tail" title={tailTitle}>{tail}</span>}
-            </summary>
-            <div className="aether-candidates__sec-body">{children}</div>
-        </details>
-    )
+function Section({ tone = '', ...rest }) {
+    return <FoldSection className={`aether-candidates__sec${tone ? ` aether-candidates__sec--${tone}` : ''}`} {...rest} />
 }
 
-Section.propTypes = {
-    title: PropTypes.string.isRequired,
-    tail: PropTypes.string,
-    tailTitle: PropTypes.string,
-    tone: PropTypes.string,
-    open: PropTypes.bool,
-    children: PropTypes.node,
-}
+Section.propTypes = { tone: PropTypes.string }
 
 /**
  * One name inside an open event: its row, and its drawer when open.

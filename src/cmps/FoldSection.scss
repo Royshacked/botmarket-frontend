@@ -1,0 +1,51 @@
+// ── The folded section ────────────────────────────────────────────────────────
+// One summary line — a caret, a mono title, the section's gist trailing — and a body indented
+// under it. Was `.aether-candidates__sec`; a caller's own modifiers still hang off its own class.
+.fold-section {
+    margin: 0;
+    border-top: 1px solid var(--border-soft);
+
+    &__summary {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        min-width: 0;
+        padding: 5px 0;
+        cursor: pointer;
+        list-style: none;
+        &::-webkit-details-marker { display: none; }
+        &::before {
+            content: '›';
+            flex: 0 0 auto;
+            display: inline-block;
+            width: 10px;
+            color: var(--text-dim);
+            transition: transform .15s;
+        }
+        &:hover .fold-section__title { color: var(--text-primary); }
+    }
+    &[open] > &__summary::before { transform: rotate(90deg); }
+
+    &__title {
+        flex: 0 0 auto;
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: .9px;
+        color: var(--text-dim);
+    }
+
+    &__tail {
+        font-size: 11.5px;
+        color: var(--text-secondary);
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__body {
+        padding: 2px 0 8px 18px;
+        .floor-detail__prose:last-child { margin-bottom: 0; }
+    }
+}

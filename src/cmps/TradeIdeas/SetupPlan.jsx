@@ -1,8 +1,9 @@
 import PropTypes from 'prop-types'
 import { isLivePosition, isTerminal } from '../../services/entityStatus.js'
+import { fmtLevel, fmtR, scenarioName } from './setupPlan.utils.js'
 import './SetupPlan.scss'
 
-// ── The plan, in the order a trader reads it: ENTRY, then EXITS ────────────────
+// ── The plan: every way into the trade, each with its own exits ─────────────────
 // docs/design/talos-per-candle.md. What a level IS depends on whether it carries a condition:
 //
 //   plain     an ORDER at the broker — a limit for a target, a stop-market for a stop — that nobody
@@ -10,14 +11,14 @@ import './SetupPlan.scss'
 //   watched   a sentence Talos judges on every candle close. "watched". A watched stop still has
 //             its stop-market resting behind it; a watched target has nothing resting at all.
 //
-// Both blocks are per SCENARIO — rival ways into the same trade, each owning its legs — and the
-// sizes are never summed across scenarios: the first to fulfil takes the whole trade. Past entry
-// the exits block also carries the live numbers (fill, R, the working stop), which used to be a
-// separate PositionPanel: same information, one place.
+// ONE block per SCENARIO — rival ways into the same trade, each owning its legs: entry, what takes
+// it, stop, targets, top to bottom. It used to be two blocks, Entry then Exits, each walking the
+// scenarios again, so a two-premise plan printed four scenario headings and the reader matched
+// stops to entries by name. Sizes are never summed across scenarios: the first to fulfil takes the
+// whole trade. Past entry only the armed premise is shown (the rivals died with the entry), with
+// the live numbers on top — fill, R, the working stop — which used to be a separate PositionPanel.
 
-const fmtLevel = z => (z?.lower === z?.upper ? `${z?.lower}` : `${z?.lower} – ${z?.upper}`)
-const fmtR     = r => (r == null ? '—' : `${r > 0 ? '+' : ''}${r}R`)
-const watched  = z => Array.isArray(z?.conditions) && z.conditions.length > 0
+const watched = z => Array.isArray(z?.conditions) && z.conditions.length > 0
 
 function ConditionList({ conditions }) {
     const list = Array.isArray(conditions) ? conditions : []
@@ -62,7 +63,6 @@ function Leg({ zone, tone, label, filled = false }) {
 }
 Leg.propTypes = { zone: PropTypes.object.isRequired, tone: PropTypes.string, label: PropTypes.string, filled: PropTypes.bool }
 
-function scenarioName(sc, i) { return sc?.name?.trim() || `Way in ${i + 1}` }
 function scenarioClass(setup, sc) {
     const armed = setup.armed_scenario_id === sc.id
     const dead  = setup.monitor_state?.scenarios?.[sc.id]?.invalidation_status === 'fired'
@@ -81,14 +81,23 @@ function ScenarioTags({ setup, sc }) {
 ScenarioTags.propTypes = { setup: PropTypes.object.isRequired, sc: PropTypes.object.isRequired }
 
 /**
- * ENTRY — the ladder, the setup-wide conditions, then per scenario its entry legs and its trigger.
+ * SCENARIOS — the ladder, the setup-wide conditions, then each way in: its entry legs, its
+ * trigger, its stop and its targets. Past entry, the live numbers first and the armed premise only.
  */
-export function SetupEntry({ setup }) {
+export function SetupScenarios({ setup }) {
     const scenarios = Array.isArray(setup.scenarios) ? setup.scenarios : []
-    const filledIds = new Set((setup.position_state?.entry?.legs ?? []).map(l => l?.zone_id).filter(Boolean))
+    const inPos     = isLivePosition(setup.status)
+    const closed    = isTerminal(setup.status)
+    const ps        = setup.position_state ?? null
+    const filledIds = new Set((ps?.entry?.legs ?? []).map(l => l?.zone_id).filter(Boolean))
+    // Past entry only the ARMED premise is real; the rivals died with the entry.
+    const shown = (inPos || closed) && setup.armed_scenario_id
+        ? scenarios.filter(sc => sc.id === setup.armed_scenario_id)
+        : scenarios
+
     return (
-        <section className="setup-plan" aria-label="Entry">
-            <span className="setup-page__section-label">Entry</span>
+        <section className="setup-plan" aria-label="Scenarios">
+            {(inPos || closed) && ps && <LiveNumbers ps={ps} closed={closed} />}
             {(setup.timeframe || setup.ladder?.length) && (
                 <span className="setup-plan__ladder">{setup.ladder?.length > 1 ? setup.ladder.join(' → ') : setup.timeframe}</span>
             )}
@@ -98,7 +107,7 @@ export function SetupEntry({ setup }) {
                     <ConditionList conditions={setup.conditions} />
                 </div>
             )}
-            {scenarios.map((sc, i) => (
+            {shown.map((sc, i) => (
                 <div key={sc.id ?? i} className={scenarioClass(setup, sc)}>
                     <span className="setup-plan__sub">
                         {scenarioName(sc, i)}<ScenarioTags setup={setup} sc={sc} />
@@ -115,38 +124,6 @@ export function SetupEntry({ setup }) {
                             <ConditionList conditions={sc.conditions} />
                         </div>
                     )}
-                </div>
-            ))}
-        </section>
-    )
-}
-SetupEntry.propTypes = { setup: PropTypes.object.isRequired }
-
-function rrTag(sc) {
-    return Number.isFinite(sc?.rr) ? <em className="setup-plan__tag"> {sc.rr}R</em> : null
-}
-
-/**
- * EXITS — per scenario its stop and targets, each tagged rests | watched. Past entry, the live
- * numbers sit on top: fill, size, the working stop, R now and the extremes, what was taken.
- */
-export function SetupExits({ setup }) {
-    const scenarios = Array.isArray(setup.scenarios) ? setup.scenarios : []
-    const inPos     = isLivePosition(setup.status)
-    const closed    = isTerminal(setup.status)
-    const ps        = setup.position_state ?? null
-    // Past entry only the ARMED premise's exits are real; the rivals died with the entry.
-    const shown = (inPos || closed) && setup.armed_scenario_id
-        ? scenarios.filter(sc => sc.id === setup.armed_scenario_id)
-        : scenarios
-
-    return (
-        <section className="setup-plan" aria-label="Exits">
-            <span className="setup-page__section-label">Exits</span>
-            {(inPos || closed) && ps && <LiveNumbers ps={ps} closed={closed} />}
-            {shown.map((sc, i) => (
-                <div key={sc.id ?? i} className={scenarioClass(setup, sc)}>
-                    {shown.length > 1 && <span className="setup-plan__sub">{scenarioName(sc, i)}<ScenarioTags setup={setup} sc={sc} /></span>}
                     <ul className="setup-plan__legs">
                         {(sc.stop_zones ?? []).map((z, k) => <Leg key={z.id ?? `s${k}`} zone={z} tone="stop" label="stop" />)}
                         {(sc.tp_zones ?? []).map((z, k) => <Leg key={z.id ?? `t${k}`} zone={z} tone="tp" label={(sc.tp_zones.length > 1) ? `target ${k + 1}` : 'target'} />)}
@@ -156,7 +133,11 @@ export function SetupExits({ setup }) {
         </section>
     )
 }
-SetupExits.propTypes = { setup: PropTypes.object.isRequired }
+SetupScenarios.propTypes = { setup: PropTypes.object.isRequired }
+
+function rrTag(sc) {
+    return Number.isFinite(sc?.rr) ? <em className="setup-plan__tag"> {sc.rr}R</em> : null
+}
 
 function LiveNumbers({ ps, closed }) {
     const e = ps.entry ?? {}, s = ps.stop ?? {}, m = ps.metrics ?? {}, o = ps.outcome

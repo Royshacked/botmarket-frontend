@@ -1684,11 +1684,11 @@ describe('AetherCandidates — the drawer is a conclusion and folded sections', 
         openEvent()
         openName()
         const secs = [...document.querySelectorAll('.aether-candidates__sec')]
-        const titles = secs.map(d => d.querySelector('.aether-candidates__sec-title').textContent)
+        const titles = secs.map(d => d.querySelector('.fold-section__title').textContent)
         expect(titles).toEqual(['Why Aether named it', 'Filings', 'Move and clock', 'Prometheus'])
         const opened = secs.map(d => d.open)
         expect(opened).toEqual([false, false, false, true])
-        const tails = secs.map(d => d.querySelector('.aether-candidates__sec-tail').textContent)
+        const tails = secs.map(d => d.querySelector('.fold-section__tail').textContent)
         expect(tails[0]).toBe('tier 2 · supplier or customer')
         expect(tails[1]).toBe('quantified')
         expect(tails[2]).toBe('0.3% vs SPY · expires 2099-01-01')
@@ -1705,7 +1705,7 @@ describe('AetherCandidates — the drawer is a conclusion and folded sections', 
         openName()
         const sec = [...document.querySelectorAll('.aether-candidates__sec')].find(d => d.textContent.includes('Other events'))
         expect(sec.className).toMatch(/__sec--warn/)
-        expect(sec.querySelector('.aether-candidates__sec-tail').textContent).toBe('1 more · opposite directions')
+        expect(sec.querySelector('.fold-section__tail').textContent).toBe('1 more · opposite directions')
     })
 
     it('an unasked Prometheus says so in its tail, and reading… while it reads', () => {
@@ -1714,7 +1714,7 @@ describe('AetherCandidates — the drawer is a conclusion and folded sections', 
         render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} />)
         openEvent()
         openName()
-        const tail = () => [...document.querySelectorAll('.aether-candidates__sec')].at(-1).querySelector('.aether-candidates__sec-tail').textContent
+        const tail = () => [...document.querySelectorAll('.aether-candidates__sec')].at(-1).querySelector('.fold-section__tail').textContent
         expect(tail()).toBe('not asked')
         fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
         expect(tail()).toBe('reading…')

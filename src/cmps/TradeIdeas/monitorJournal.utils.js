@@ -2,6 +2,8 @@
 // The pure half of TalosJournal.jsx, kept beside it (like tradeIdea.utils.js beside the cards):
 // a module that exports both components and plain functions breaks Fast Refresh for every importer.
 
+import { isTerminal, isUnarmed } from '../../services/entityStatus.js'
+
 /**
  * Round over-precise prices inside a journal string — the model sometimes emits raw floats like
  * "33.2445543465656" in its prose. Cap decimals by magnitude (equities 2dp, forex ~4dp, sub-$1 6dp)
@@ -53,4 +55,54 @@ export function guardLabel(g) {
     if (!Number.isFinite(level)) return null
     const mark = g.direction === 'below' ? '↓' : g.direction === 'any' ? '@' : '↑'
     return `${mark}${level}`
+}
+
+/**
+ * When Talos looks next, as one short phrase: "in 12 min" · "in 3 h" · "at 13:30" · "Mon 21 Sep,
+ * 13:30". Null when the stamp is missing or unreadable.
+ *
+ * The date is part of the answer past today. A daily setup read on Friday's close parks itself on
+ * Monday's, and "at 13:30" for that read is a lie by omission — the user reads it as this afternoon.
+ * `now` is injectable so the label is testable.
+ */
+export function nextReadLabel(iso, now = Date.now()) {
+    const ms = Date.parse(iso)
+    if (!Number.isFinite(ms)) return null
+    const diff = ms - now
+    if (diff <= 0) return 'any moment'
+    const min = Math.round(diff / 60_000)
+    if (min < 60) return `in ${min} min`
+    const hr = Math.round(min / 60)
+    if (hr < 6)  return `in ${hr} h`
+    const then = new Date(ms), today = new Date(now)
+    const time = then.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    if (then.toDateString() === today.toDateString()) return `at ${time}`
+    return `${then.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })}, ${time}`
+}
+
+/**
+ * The next call — what the head of the journal says above the newest row (TalosJournal.jsx), and
+ * what the folded journal's tail says on the setup pop-out. ONE of the two fields is set:
+ *
+ *   when      armed / awaiting confirm / in position: `next_check_at`, the stamp the monitor wrote
+ *             ("in 12 min", "Mon 21 Sep, 13:30"; "—" when armed but not yet stamped)
+ *   standing  why there is no next call: not armed, or in position with every exit resting
+ *             (dormant — nothing to read until an edit adds a rule)
+ *
+ * Neither on a closed setup. A stale stamp from an earlier arm is NOT shown on an unarmed one —
+ * "any moment" over a setup nobody is watching would be a lie.
+ */
+export function nextCall(setup, now = Date.now()) {
+    const ms = setup?.monitor_state ?? {}
+    const st = setup?.status
+    if (isTerminal(st)) return { when: null, standing: null }
+    if (isUnarmed(st))  return { when: null, standing: 'not armed' }
+    if (ms.dormant)     return { when: null, standing: 'dormant — every exit rests at the broker' }
+    return { when: nextReadLabel(ms.next_check_at, now) ?? '—', standing: null }
+}
+
+/** The next call as one phrase: "next read in 12 min" · "not armed" · null. */
+export function nextCallLine(setup, now = Date.now()) {
+    const { when, standing } = nextCall(setup, now)
+    return when ? `next read ${when}` : standing
 }

@@ -112,8 +112,11 @@ is written alongside. `inWorkspace(list, workspace)` scopes every list of accoun
 ## Pop-outs
 
 An entity opens in a **real browser window**, not a modal: `pages/IdeaPage.jsx`, `pages/SetupPage.jsx`
-(the setup's right column is *cards waiting on the user · thesis · entry · exits · Talos journal*,
-`cmps/TradeIdeas/SetupPlan.jsx` + `TalosJournal.jsx`). Everything a pop-out needs talks to the server
+(the setup's right column is *cards waiting on the user*, then three folded sections — *thesis ·
+scenarios · Talos journal* — each a `cmps/FoldSection.jsx` whose summary line carries the section's
+gist; `cmps/TradeIdeas/SetupPlan.jsx` is one block per scenario, `TalosJournal.jsx` is headed by the
+NEXT CALL — when Talos reads next, on which candle, the prices that would wake it sooner — over the
+rows, newest first). Everything a pop-out needs talks to the server
 or closes the window — except re-drawing a plan, which happens in Mentor's chat in the main window.
 `services/popupBridge.js` is that one channel back: the pop-out asks, the main window acts.
 

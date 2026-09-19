@@ -4,7 +4,10 @@ import { TalosBadge } from '../cmps/AxlHub/AgentBadges.jsx'
 import { EntityPopupShell } from '../cmps/EntityCard/EntityPopupShell.jsx'
 import { PopoutFooter } from '../cmps/TradeIdeas/PopoutFooter.jsx'
 import { TalosJournal } from '../cmps/TradeIdeas/TalosJournal.jsx'
-import { SetupEntry, SetupExits } from '../cmps/TradeIdeas/SetupPlan.jsx'
+import { SetupScenarios } from '../cmps/TradeIdeas/SetupPlan.jsx'
+import { planTail } from '../cmps/TradeIdeas/setupPlan.utils.js'
+import { firstSentence, nextCallLine } from '../cmps/TradeIdeas/monitorJournal.utils.js'
+import { FoldSection } from '../cmps/FoldSection.jsx'
 // Shared with the call pop-out — `position_state` is one shape whatever desk wrote it.
 import { watchTimeframe, showsWatch } from '../cmps/TradeIdeas/talosWatch.js'
 import { positionsForEntity } from '../cmps/TradeIdeas/tradeIdea.utils.js'
@@ -28,10 +31,12 @@ import './SetupPage.scss'     // setup-only bits (zones, watch list, timeline)
 // and the popup chrome. With those shared, the page is just this kind's content.
 //
 // The right column, top to bottom (docs/design/talos-per-candle.md): the cards waiting on the
-// user · THESIS · ENTRY · EXITS · TALOS JOURNAL. A setup's levels belong to SCENARIOS, rival ways
-// into the same trade, each with its own stop, targets, conditions and death line — the Entry and
-// Exits blocks (SetupPlan.jsx) are per scenario, and each leg says whether it RESTS at the broker or
-// is WATCHED by Talos. The journal is its own collection, newest first (useJournal / TalosJournal).
+// user, then three FOLDED sections — THESIS · SCENARIOS · TALOS JOURNAL — each a FoldSection whose
+// summary line carries the section's gist, so the column reads as three lines with everything
+// closed and the user opens what they came for. A setup's levels belong to SCENARIOS, rival ways
+// into the same trade, each with its own entry, trigger, stop and targets — one block per scenario
+// (SetupPlan.jsx), each leg saying whether it RESTS at the broker or is WATCHED by Talos. The
+// journal is its own collection, newest first, headed by the NEXT CALL (useJournal / TalosJournal).
 //
 // The doc's flat `entry_zones`/`stop_zones`/`tp_zones` are deliberately NOT rendered here — they are
 // the execution projection of whichever premise armed, so showing them alongside the scenarios would
@@ -53,8 +58,8 @@ const STATUS_COPY = {
 }
 
 /**
- * Talos's pending management proposal, and the two buttons that answer it. The twin of CallPage's
- * ManagementCard — same shell, same verbs, one difference that matters:
+ * Talos's pending management proposal, and the two buttons that answer it. The twin of the archived
+ * CallPage's ManagementCard — same shell, same verbs, one difference that matters:
  *
  * `add_leg` gets NO accept button. Talos has already built the order plan for a printing second leg
  * and parked it awaiting confirmation, so that size is placed by confirming the ORDER (the same
@@ -68,14 +73,14 @@ function ManagementCard({ pending, busy, onAccept, onDismiss }) {
     if (!v) return null
     const acceptable = canAcceptManage(v, pending.proposal)
     return (
-        <div className={`kairos-panel__card kairos-panel__card--manage verdict--${v}`}>
-            <div className="kairos-panel__card-head">
-                <span className="kairos-panel__card-status">Talos suggests</span>
+        <div className={`setup-page__card setup-page__card--manage verdict--${v}`}>
+            <div className="setup-page__card-head">
+                <span className="setup-page__card-status">Talos suggests</span>
                 <span className={`talos-journal__verdict verdict--${v}`}>{v}</span>
             </div>
-            <div className="kairos-panel__card-row">{manageProposalLine(v, pending.proposal)}</div>
-            {pending.read && <div className="kairos-panel__card-note">{pending.read}</div>}
-            <div className="call-page__actions">
+            <div className="setup-page__card-row">{manageProposalLine(v, pending.proposal)}</div>
+            {pending.read && <div className="setup-page__card-note">{pending.read}</div>}
+            <div className="setup-page__card-actions">
                 {acceptable && (
                     <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" disabled={busy} onClick={() => onAccept(v)}>
                         {MANAGE_LABEL[v]}
@@ -106,12 +111,12 @@ ManagementCard.propTypes = { pending: PropTypes.object, busy: PropTypes.bool, on
 function StaleMapCard({ setup, onRedraw }) {
     const why = setup.invalidation_reason ?? setup.monitor_state?.last_assessment?.edit_proposal?.why ?? null
     return (
-        <div className="kairos-panel__card kairos-panel__card--expiring">
-            <div className="kairos-panel__card-head">
-                <span className="kairos-panel__card-status">Talos says this needs re-drawing</span>
+        <div className="setup-page__card setup-page__card--redraw">
+            <div className="setup-page__card-head">
+                <span className="setup-page__card-status">Talos says this needs re-drawing</span>
             </div>
-            {why && <div className="kairos-panel__card-note">{why}</div>}
-            <div className="call-page__actions">
+            {why && <div className="setup-page__card-note">{why}</div>}
+            <div className="setup-page__card-actions">
                 {onRedraw
                     ? (
                         <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={onRedraw}>
@@ -128,6 +133,16 @@ function StaleMapCard({ setup, onRedraw }) {
     )
 }
 StaleMapCard.propTypes = { setup: PropTypes.object.isRequired, onRedraw: PropTypes.func }
+
+/**
+ * The folded journal's line: when the next call is, and how many reads there have been. The count
+ * is what is LOADED — one page — so it says "50+" until the hook has reached the end.
+ */
+function journalTail(setup, rows, done) {
+    const n = Array.isArray(rows) ? rows.length : 0
+    const count = !n ? 'no reads yet' : `${n}${done ? '' : '+'} read${n === 1 && done ? '' : 's'}`
+    return [nextCallLine(setup), count].filter(Boolean).join(' · ')
+}
 
 export function SetupPage() {
     // Polled because Talos writes to monitor_state (memo, guards, the last read) while the window
@@ -245,23 +260,25 @@ export function SetupPage() {
                         <StaleMapCard setup={setup} onRedraw={hasOpener() ? handleRedraw : null} />
                     )}
 
-                    {/* ── 1. Thesis ── */}
-                    {setup.thesis && <p className="setup-page__thesis">{setup.thesis}</p>}
-                    <div className="setup-page__metrics">
-                        <ConvictionChip conviction={setup.conviction} />
-                        {setup.mode && <span className="setup-page__mode">{setup.mode}</span>}
-                        {setup.brokerSymbol && <span className="setup-page__broker">trades as {setup.brokerSymbol}</span>}
-                    </div>
+                    {/* ── 1. Thesis — folded: its first sentence is the line, the rest is a click ── */}
+                    <FoldSection title="Thesis" tail={firstSentence(setup.thesis) ?? 'no thesis'} tailTitle={setup.thesis}>
+                        {setup.thesis && <p className="setup-page__thesis">{setup.thesis}</p>}
+                        <div className="setup-page__metrics">
+                            <ConvictionChip conviction={setup.conviction} />
+                            {setup.mode && <span className="setup-page__mode">{setup.mode}</span>}
+                            {setup.brokerSymbol && <span className="setup-page__broker">trades as {setup.brokerSymbol}</span>}
+                        </div>
+                    </FoldSection>
 
-                    {/* ── 2. Entry ── */}
-                    <SetupEntry setup={setup} />
+                    {/* ── 2. Scenarios — every way in with its exits; the live numbers once in position ── */}
+                    <FoldSection title="Scenarios" tail={planTail(setup)} open>
+                        <SetupScenarios setup={setup} />
+                    </FoldSection>
 
-                    {/* ── 3. Exits — with the live numbers once in position ── */}
-                    <SetupExits setup={setup} />
-
-                    {/* ── 4. Talos journal — where it stands now, then every read, newest first ── */}
-                    <span className="setup-page__section-label">Talos journal</span>
-                    <TalosJournal setup={setup} rows={journal.rows} done={journal.done} loading={journal.loading} onOlder={journal.loadOlder} />
+                    {/* ── 3. Talos journal — the next call, then every read, newest first ── */}
+                    <FoldSection title="Talos journal" tail={journalTail(setup, journal.rows, journal.done)} open>
+                        <TalosJournal setup={setup} rows={journal.rows} done={journal.done} loading={journal.loading} onOlder={journal.loadOlder} />
+                    </FoldSection>
                 </div>
             </div>
 

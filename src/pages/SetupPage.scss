@@ -1,24 +1,60 @@
 // What the SETUP pop-out adds to the shared shell (IdeaPage.scss supplies header + chart/column
 // layout, exactly as CallPage.scss does for calls).
 .setup-page {
-    &__panel { display: flex; flex-direction: column; gap: 10px; }
+    // The column is three FoldSections (cmps/FoldSection.scss) under the cards waiting on the user;
+    // the folds draw their own top rules, so the column itself keeps almost no gap.
+    &__panel { display: flex; flex-direction: column; gap: 4px; }
 
     &__thesis {
-        margin: 0;
-        font-size: 12.5px;
-        line-height: 1.5;
+        margin: 0 0 6px;
+        font-size: 12px;
+        line-height: 1.45;
         color: var(--text-secondary);
     }
 
-    &__section-label {
-        font-family: var(--font-mono);
-        font-size: 10px;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--text-dim);
+    &__metrics { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+    // The cards waiting on the user, above the folds: Talos's management proposal and the
+    // re-draw ask. They wore `.kairos-panel__card`, whose base style went to the archive with the
+    // Kairos surface — so for a month they rendered as bare text. The frame is theirs now.
+    &__card {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 8px 10px;
+        margin-bottom: 4px;
+        border: 1px solid var(--border-mid);
+        border-left: 2px solid var(--color-warning);
+        border-radius: 6px;
+        background: var(--bg-raised);
+
+        &--manage.verdict--exit_now { border-left-color: var(--color-short); }
+        &--manage.verdict--move_stop,
+        &--manage.verdict--take_partial { border-left-color: var(--accent); }
     }
 
-    &__metrics { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    &__card-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--color-warning);
+    }
+
+    &__card-status { flex: 1; }
+
+    &__card-row { font-size: 12.5px; color: var(--text-primary); }
+
+    &__card-note {
+        font-size: 12px;
+        line-height: 1.45;
+        color: var(--text-secondary);
+    }
+
+    &__card-actions { display: flex; gap: 8px; align-items: center; margin-top: 2px; }
 
     // The one sentence the stale-map card shows when there is no app window to re-draw in.
     &__memo {

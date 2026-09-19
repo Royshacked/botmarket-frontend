@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
-import { tidyPrices, guardLabel } from './monitorJournal.utils.js'
+import { tidyPrices, guardLabel, nextCall } from './monitorJournal.utils.js'
 import './TalosJournal.scss'
 
 // ── Talos's journal ────────────────────────────────────────────────────────────
@@ -8,9 +8,9 @@ import './TalosJournal.scss'
 // line that matters — when, why, what it decided, what it said — and opening to what it actually
 // did: the conditions it checked, the tools it pulled, the guards it armed.
 //
-// Above the rows sits WHERE TALOS STANDS NOW: its memo, the prices it is watching between reads,
-// the rung it is on and when it looks next. That used to be a separate panel (TalosWatch); it is
-// the head of the journal because that is what it is — the current line of the same monologue.
+// Above the newest row sits THE NEXT CALL: when Talos looks next, on which candle, the prices that
+// would wake it sooner, and its memo. That used to be a separate panel (TalosWatch); it is the head
+// of the journal because that is what it is — the next line of the same monologue.
 //
 // The rows come from `useJournal` (their own collection, paged), not from the setup document.
 
@@ -25,6 +25,7 @@ const REASON_LABEL = {
     invalidation:   'range broken',
     exit:           'closed out',
     pre_active:     'not live yet',
+    manage:         'you accepted',
 }
 
 const MET_MARK  = { yes: '✓', no: '✗', unchecked: '?' }
@@ -37,18 +38,6 @@ const MET_TITLE = {
 const fmtTime = (iso) => {
     const t = Date.parse(iso)
     return Number.isFinite(t) ? new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
-}
-
-function nextReadLabel(iso) {
-    const ms = Date.parse(iso)
-    if (!Number.isFinite(ms)) return null
-    const diff = ms - Date.now()
-    if (diff <= 0) return 'any moment'
-    const min = Math.round(diff / 60_000)
-    if (min < 60) return `in ${min} min`
-    const hr = Math.round(min / 60)
-    if (hr < 6)  return `in ${hr} h`
-    return `at ${new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
 }
 
 /** The condition text lives on the setup; the row carries only { id, met, note }. Join them. */
@@ -65,24 +54,32 @@ function conditionText(setup, id) {
     return all.find(c => c?.id === id)?.text ?? id
 }
 
-/** Where Talos stands now — the head of the journal. */
 function JournalHead({ setup }) {
     const ms     = setup?.monitor_state ?? {}
     const guards = Array.isArray(ms.guards) ? ms.guards : []
-    const next   = nextReadLabel(ms.next_check_at)
-    if (!ms.memo && !guards.length && !next) return null
+    const { when, standing } = nextCall(setup)
+    if (!ms.memo && !when && !standing) return null
     return (
         <div className="talos-journal__head">
+            {when && (
+                <div className="talos-journal__summary talos-journal__summary--next">
+                    <span className="talos-journal__time">next read</span>
+                    <span className="talos-journal__next">{when}</span>
+                    {ms.timeframe && <span className="talos-journal__reason">{ms.timeframe} close</span>}
+                    {guards.length > 0 && (
+                        <span className="talos-journal__chip talos-journal__chip--guards" title="Prices that wake Talos ahead of the next candle">
+                            or at {guards.map(guardLabel).filter(Boolean).join(' · ')}
+                        </span>
+                    )}
+                </div>
+            )}
+            {standing && (
+                <div className="talos-journal__summary talos-journal__summary--next">
+                    <span className="talos-journal__time">talos</span>
+                    <span className="talos-journal__next">{standing}</span>
+                </div>
+            )}
             {ms.memo && <p className="talos-journal__memo">{tidyPrices(ms.memo)}</p>}
-            <div className="talos-journal__standing">
-                {ms.timeframe && <span className="talos-journal__chip">on the {ms.timeframe}</span>}
-                {next && <span className="talos-journal__chip">next read {next}</span>}
-                {guards.length > 0 && (
-                    <span className="talos-journal__chip talos-journal__chip--guards" title="Prices that wake Talos ahead of the next candle">
-                        watching {guards.map(guardLabel).filter(Boolean).join(' · ')}
-                    </span>
-                )}
-            </div>
         </div>
     )
 }

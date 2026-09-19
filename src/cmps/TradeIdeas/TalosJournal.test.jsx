@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { TalosJournal } from './TalosJournal.jsx'
-import { tidyPrices, guardLabel } from './monitorJournal.utils.js'
+import { tidyPrices, guardLabel, nextReadLabel, nextCall, nextCallLine } from './monitorJournal.utils.js'
 
 // Talos's journal: newest on top, a collapsed line per read, the head saying where Talos stands
 // now (docs/design/talos-per-candle.md).
@@ -33,12 +33,36 @@ const newer = {
 }
 
 describe('TalosJournal', () => {
-    it('shows where Talos stands now above the rows', () => {
+    it('heads the rows with the NEXT CALL: when, on which candle, the prices that wake it sooner, the memo', () => {
         render(<TalosJournal setup={SETUP} rows={[newer, older]} done />)
+        expect(screen.getByText('next read')).toBeTruthy()
+        expect(screen.getByText('in 12 min')).toBeTruthy()
+        expect(screen.getByText('15min close')).toBeTruthy()
+        expect(screen.getByText(/or at ↑238\.6 · ↓234\.8/)).toBeTruthy()
         expect(screen.getByText(/Base building under 238\.6/)).toBeTruthy()
-        expect(screen.getByText(/on the 15min/)).toBeTruthy()
-        expect(screen.getByText(/next read in 12 min/)).toBeTruthy()
-        expect(screen.getByText(/watching ↑238\.6 · ↓234\.8/)).toBeTruthy()
+        // The head comes BEFORE the newest row.
+        const all = screen.getAllByText(/next read|this is the moment/).map(el => el.textContent)
+        expect(all[0]).toBe('next read')
+    })
+
+    it('an unarmed setup has no next call — a stale stamp is not shown as one', () => {
+        render(<TalosJournal setup={{ ...SETUP, status: 'waiting' }} rows={[older]} done />)
+        expect(screen.queryByText('next read')).toBeNull()
+        expect(screen.getByText('not armed')).toBeTruthy()
+        expect(screen.queryByText(/or at/)).toBeNull()
+    })
+
+    it('a dormant position says why nothing is scheduled', () => {
+        render(<TalosJournal setup={{ ...SETUP, status: 'long', monitor_state: { ...SETUP.monitor_state, dormant: true } }} rows={[]} done />)
+        expect(screen.getByText(/dormant — every exit rests at the broker/)).toBeTruthy()
+        expect(screen.queryByText('next read')).toBeNull()
+    })
+
+    it('an accepted management action reads as one', () => {
+        const managed = { at: '2026-09-17T14:00:00.000Z', reason: 'manage', verdict: 'move_stop', note: 'Moved my stop to 240 — locking in breakeven.' }
+        render(<TalosJournal setup={SETUP} rows={[managed]} done />)
+        expect(screen.getByText('you accepted')).toBeTruthy()
+        expect(screen.getByText('move_stop')).toBeTruthy()
     })
 
     it('renders rows in the order given — newest first — collapsed to when · why · verdict · read', () => {
@@ -87,6 +111,33 @@ describe('journal utils', () => {
     it('tidyPrices only ever shortens', () => {
         expect(tidyPrices('at 33.2445543465656 then 4.5%')).toBe('at 33.24 then 4.5%')
         expect(tidyPrices('0.123456789')).toBe('0.123457')
+    })
+
+    it('nextReadLabel: minutes, hours, a time today, and the DATE past today', () => {
+        const now = Date.parse('2026-09-18T10:00:00.000Z')   // a Friday
+        const at = (h) => new Date(now + h * 3_600_000).toISOString()
+        expect(nextReadLabel(at(-1), now)).toBe('any moment')
+        expect(nextReadLabel(at(0.2), now)).toBe('in 12 min')
+        expect(nextReadLabel(at(3), now)).toBe('in 3 h')
+        expect(nextReadLabel(at(8), now)).toMatch(/^at \d/)
+        // Friday's close parks a daily setup on Monday's: the label has to carry the day.
+        expect(nextReadLabel(at(72), now)).toMatch(/^Mon/)
+        expect(nextReadLabel(null, now)).toBe(null)
+        expect(nextReadLabel('garbage', now)).toBe(null)
+    })
+
+    it('nextCall: when for a watched setup, standing for one nobody reads, neither once closed', () => {
+        const now = Date.now()
+        const ms = { next_check_at: new Date(now + 5 * 60_000).toISOString() }
+        expect(nextCall({ status: 'looking', monitor_state: ms }, now)).toEqual({ when: 'in 5 min', standing: null })
+        expect(nextCall({ status: 'hit',     monitor_state: ms }, now)).toEqual({ when: 'in 5 min', standing: null })
+        expect(nextCall({ status: 'looking', monitor_state: {} }, now)).toEqual({ when: '—', standing: null })
+        expect(nextCall({ status: 'waiting', monitor_state: ms }, now)).toEqual({ when: null, standing: 'not armed' })
+        expect(nextCall({ status: 'long', monitor_state: { ...ms, dormant: true } }, now).standing).toMatch(/dormant/)
+        expect(nextCall({ status: 'closed', monitor_state: ms }, now)).toEqual({ when: null, standing: null })
+        expect(nextCallLine({ status: 'looking', monitor_state: ms }, now)).toBe('next read in 5 min')
+        expect(nextCallLine({ status: 'waiting' }, now)).toBe('not armed')
+        expect(nextCallLine({ status: 'closed' }, now)).toBe(null)
     })
 
     it('guardLabel: a price and a side, and nothing for a guard with no price', () => {

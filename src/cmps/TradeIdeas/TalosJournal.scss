@@ -4,7 +4,7 @@
 .talos-journal {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
 
     &__empty {
         margin: 0;
@@ -13,32 +13,37 @@
         color: var(--text-muted);
     }
 
-    // ── Where Talos stands now ──
+    // ── The next call — a row-shaped head above the newest row ──
     &__head {
         display: flex;
         flex-direction: column;
-        gap: 6px;
-        padding: 8px 10px;
+        gap: 4px;
+        padding: 5px 8px 6px;
         border: 1px solid var(--border-mid);
         border-left: 2px solid var(--accent);
         border-radius: 6px;
         background: var(--bg-raised);
     }
 
+    // The head's own summary line is not a button: same mono shape, no cursor, and it wraps
+    // because the guards chip can run long.
+    &__summary--next { flex-wrap: wrap; cursor: default; }
+
+    &__next { color: var(--accent-bright); font-weight: 600; text-transform: none; }
+
     &__memo {
         margin: 0;
-        font-size: 12px;
-        line-height: 1.45;
+        font-size: 11.5px;
+        line-height: 1.4;
         font-style: italic;
         color: var(--text-secondary);
     }
 
-    &__standing { display: flex; flex-wrap: wrap; gap: 4px 8px; }
-
     &__chip {
         font-family: var(--font-mono);
-        font-size: 0.68rem;
+        font-size: 0.66rem;
         letter-spacing: 0.03em;
+        text-transform: none;
         color: var(--text-muted);
 
         &--guards { color: var(--text-secondary); }
@@ -48,8 +53,8 @@
     &__row {
         display: flex;
         flex-direction: column;
-        gap: 4px;
-        padding: 6px 10px 8px;
+        gap: 3px;
+        padding: 4px 8px 6px;
         border: 1px solid var(--border);
         border-left: 2px solid var(--border-mid);
         border-radius: 6px;
@@ -60,6 +65,7 @@
         &--entry         { border-left-color: var(--color-long); }
         &--exit          { border-left-color: var(--color-short); opacity: 0.85; }
         &--invalidation  { border-left-color: var(--color-warning); }
+        &--manage        { border-left-color: var(--accent-light); }
         &--pre_active    { opacity: 0.72; }
     }
 
@@ -110,8 +116,8 @@
 
     &__note {
         margin: 0;
-        font-size: 0.81rem;
-        line-height: 1.45;
+        font-size: 0.78rem;
+        line-height: 1.4;
         color: var(--text-primary);
     }
 

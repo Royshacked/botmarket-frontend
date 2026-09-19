@@ -1,9 +1,10 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
-import { SetupEntry, SetupExits } from './SetupPlan.jsx'
+import { SetupScenarios } from './SetupPlan.jsx'
+import { planTail } from './setupPlan.utils.js'
 
-// The plan, the way a trader reads it: Entry then Exits, every leg saying whether it RESTS at the
-// broker or is WATCHED by Talos (docs/design/talos-per-candle.md).
+// The plan: one block per way in — entry, trigger, stop, targets — every leg saying whether it
+// RESTS at the broker or is WATCHED by Talos (docs/design/talos-per-candle.md).
 
 afterEach(cleanup)
 
@@ -24,36 +25,27 @@ const SETUP = {
     }],
 }
 
-describe('SetupEntry', () => {
-    it('shows the ladder, the always-conditions, then each way in with its trigger', () => {
-        render(<SetupEntry setup={SETUP} />)
+describe('SetupScenarios', () => {
+    it('shows the ladder, the always-conditions, then each way in: entry, trigger, stop, targets', () => {
+        render(<SetupScenarios setup={SETUP} />)
         expect(screen.getByText('4hr → 2hr → 1hr → 30min → 15min')).toBeTruthy()
         expect(screen.getByText('regime is risk-on')).toBeTruthy()
         expect(screen.getByText(/Break and go/)).toBeTruthy()
         expect(screen.getByText('238.6')).toBeTruthy()
         expect(screen.getByText('CHoCH up on the 15m')).toBeTruthy()
-        // No exits here.
-        expect(screen.queryByText('234.8')).toBeNull()
-    })
-
-    it('marks a filled leg once in position', () => {
-        const inPos = { ...SETUP, status: 'long', armed_scenario_id: 's1', position_state: { entry: { legs: [{ zone_id: 'e1' }] } } }
-        render(<SetupEntry setup={inPos} />)
-        expect(screen.getByText('filled')).toBeTruthy()
-    })
-})
-
-describe('SetupExits', () => {
-    it('tags every exit leg rests | watched, and shows a watched leg\'s condition', () => {
-        render(<SetupExits setup={SETUP} />)
         expect(screen.getByText('234.8')).toBeTruthy()
-        expect(screen.getAllByText('rests')).toHaveLength(2)      // the stop and t1
+        // The scenario heading appears ONCE — entry and exits are one block, not two walks.
+        expect(screen.getAllByText(/Break and go/)).toHaveLength(1)
+    })
+
+    it("tags every leg rests | watched, and shows a watched leg's condition", () => {
+        render(<SetupScenarios setup={SETUP} />)
+        expect(screen.getAllByText('rests')).toHaveLength(3)      // entry, stop, t1
         expect(screen.getAllByText('watched')).toHaveLength(1)    // t2
         expect(screen.getByText('bank it if momentum fades')).toBeTruthy()
-        expect(screen.queryByText('238.6')).toBeNull()            // no entries here
     })
 
-    it('in position, leads with the live numbers and shows only the armed premise', () => {
+    it('in position, leads with the live numbers, marks the filled leg and shows only the armed premise', () => {
         const inPos = {
             ...SETUP, status: 'long', armed_scenario_id: 's1',
             scenarios: [...SETUP.scenarios, { id: 's2', name: 'Rival', entry_zones: [], stop_zones: [{ id: 'x', lower: 1, upper: 1 }], tp_zones: [] }],
@@ -63,11 +55,12 @@ describe('SetupExits', () => {
                 metrics: { r_multiple_now: 1.2, mfe: 1.5, mae: -0.2 },
             },
         }
-        render(<SetupExits setup={inPos} />)
+        render(<SetupScenarios setup={inPos} />)
         expect(screen.getByText('238.7')).toBeTruthy()
         expect(screen.getByText('237')).toBeTruthy()
         expect(screen.getByText('(init 234.8)')).toBeTruthy()
         expect(screen.getByText('+1.2R')).toBeTruthy()
+        expect(screen.getByText('filled')).toBeTruthy()
         expect(screen.queryByText(/Rival/)).toBeNull()
     })
 
@@ -77,9 +70,31 @@ describe('SetupExits', () => {
             position_state: { entry: { fill_price: 238.7, size: 100 }, stop: { initial: 234.8, current: 234.8 },
                               outcome: { reason: 'target hit', r_multiple: 1.9, exit_price: 246, pnl: 730 } },
         }
-        render(<SetupExits setup={closed} />)
+        render(<SetupScenarios setup={closed} />)
         expect(screen.getByText('target hit')).toBeTruthy()
         expect(screen.getByText('+1.9R')).toBeTruthy()
         expect(screen.getByText('P&L 730')).toBeTruthy()
+    })
+})
+
+describe('planTail — the plan in one line when the section is folded', () => {
+    it('one way in: its levels and R', () => {
+        expect(planTail(SETUP)).toBe('entry 238.6 · stop 234.8 · target 246, 252 · 2.4R')
+    })
+
+    it('several ways in: the count, and which one armed', () => {
+        const two = { ...SETUP, scenarios: [...SETUP.scenarios, { id: 's2', name: 'Fade it' }] }
+        expect(planTail(two)).toBe('2 ways in')
+        expect(planTail({ ...two, armed_scenario_id: 's2' })).toBe('2 ways in · armed: Fade it')
+    })
+
+    it('in position: the live numbers; closed: the outcome', () => {
+        const ps = { entry: { fill_price: 238.7 }, stop: { current: 237 }, metrics: { r_multiple_now: 1.2 } }
+        expect(planTail({ ...SETUP, status: 'long', position_state: ps })).toBe('in @ 238.7 · stop 237 · +1.2R')
+        expect(planTail({ ...SETUP, status: 'closed', position_state: { ...ps, outcome: { reason: 'target hit', r_multiple: 1.9 } } })).toBe('target hit · +1.9R')
+    })
+
+    it('a plan with nothing drawn says so', () => {
+        expect(planTail({ status: 'waiting', scenarios: [] })).toBe('no scenarios')
     })
 })
