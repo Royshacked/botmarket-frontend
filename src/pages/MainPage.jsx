@@ -283,6 +283,7 @@ export function MainPage() {
         setAnalystSeed, setAnalystInbox,
         setMentorSeed,  setMentorInbox,  setMentorChatRestore,
         setPortfolioSeed, setPortfolioChatRestore,
+        setStrategySeed, setAetherSeed,
     } = deskSetters
     const [buildingPortfolio, setBuildingPortfolio] = useState(null)
     // Streaming state reported up from the portfolio/scanner panels (they own their
@@ -334,6 +335,9 @@ export function MainPage() {
     const doors = handoffDoors({
         setScannerInbox, setAnalystInbox, setMentorInbox,
         setScannerSeed, setPortfolioSeed, setMentorSeed, setAnalystSeed,
+        // Seeded only from a route, never by the conveyor (doors.js leaves them out of its seed
+        // table); listed so `clear` drops them with everything else on the way home.
+        setStrategySeed, setAetherSeed,
     })
 
     // The Analyst's living coverage book (Radar Coverage tab). Reloads on initiate/retire
@@ -2181,6 +2185,12 @@ export function MainPage() {
                 // trading profile — named rather than left to the panel, which may still be on the
                 // investing profile from a portfolio sleeve run.
                 case 'scanner':   return setScannerSeed({ key, message: opening, profile: 'trading' })
+                // Admin desks. The server already drops a route to either for a trader
+                // (routing.util ADMIN_DESKS), so this is the second lock on the same door: a
+                // sentence for Pythia or Aether is dropped here too, rather than seeded into a
+                // panel a trader is not shown.
+                case 'strategy':  return isAdmin ? setStrategySeed({ key, message: opening }) : undefined
+                case 'aether':    return isAdmin ? setAetherSeed({ key, message: opening }) : undefined
                 default: break
             }
         }
@@ -3046,6 +3056,7 @@ export function MainPage() {
                         {isAdmin && (
                             <div className="chat-tabs__panel" style={{ display: activeTab === 'strategy' ? 'flex' : 'none' }}>
                                 <StrategyPanel
+                                    {...deskProps('strategy')}
                                     onRoute={handleRoute}
                                     onLoadingChange={deskLoadingSetters.strategy}
                                     currentTilt={tilt}
@@ -3060,14 +3071,20 @@ export function MainPage() {
                             </div>
                         )}
 
-                        <div className="chat-tabs__panel" style={{ display: activeTab === 'aether' ? 'flex' : 'none' }}>
-                            <AetherPanel
-                                onRoute={handleRoute}
-                                onLoadingChange={deskLoadingSetters.aether}
-                                pipeline={activePipeline}
-                                resumeRef={resumeRefs.current.aether}
-                            />
-                        </div>
+                        {/* Admin-only, like Pythia's: the hub never offers the desk to a trader and the
+                            server drops a route to it, so a mounted panel would only ever be a door
+                            with nothing behind it. */}
+                        {isAdmin && (
+                            <div className="chat-tabs__panel" style={{ display: activeTab === 'aether' ? 'flex' : 'none' }}>
+                                <AetherPanel
+                                    {...deskProps('aether')}
+                                    onRoute={handleRoute}
+                                    onLoadingChange={deskLoadingSetters.aether}
+                                    pipeline={activePipeline}
+                                    resumeRef={resumeRefs.current.aether}
+                                />
+                            </div>
+                        )}
 
                         {/* Departure beat — covers the agent chat while heading home to axl. */}
                         {returningToAxl && (

@@ -22,7 +22,11 @@ import { useReducer, useMemo } from 'react'
 // dropped. They stay in MainPage until they can be moved on their own.
 
 /** The desks that can be handed something. A new one is a row here and nothing else. */
-export const HANDOFF_DESKS = ['scanner', 'analyst', 'mentor', 'portfolio']
+// Pythia and Aether are here for ONE slot — the seed a routed arrival opens on. Both are admin
+// desks; the gate on who may be routed to them is the server's (routing.util) and the summon's
+// (MainPage checks isAdmin before seeding), never this table's, which only says where a hand-off
+// can land.
+export const HANDOFF_DESKS = ['scanner', 'analyst', 'mentor', 'portfolio', 'strategy', 'aether']
 
 /** The slots each desk has. Not every desk uses every slot; an unused one simply stays null. */
 export const HANDOFF_SLOTS = ['seed', 'inbox', 'chatRestore']

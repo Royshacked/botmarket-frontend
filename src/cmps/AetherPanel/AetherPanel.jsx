@@ -8,6 +8,7 @@ import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
 import { RouteOffer } from '../RouteOffer.jsx'
 import { useRouteOffer } from '../../customHooks/useRouteOffer.js'
+import { useSeedTurn } from '../../customHooks/useSeedTurn.js'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { ChatBubble } from '../ChatBubble.jsx'
@@ -21,7 +22,7 @@ import './AetherPanel.scss'
 const MessageBubble = ({ msg }) => <ChatBubble msg={msg} />
 MessageBubble.propTypes = { msg: PropTypes.object.isRequired }
 
-export function AetherPanel({ onLoadingChange, onRoute, pipeline = null, resumeRef = null }) {
+export function AetherPanel({ seed = null, onLoadingChange, onRoute, pipeline = null, resumeRef = null }) {
     const chat = useChatStream()
     // The user asked, in the chat, to be sent to another desk with a name → the reply routed →
     // the RouteOffer button. The shared hand-off every desk has (useRouteOffer).
@@ -39,6 +40,10 @@ export function AetherPanel({ onLoadingChange, onRoute, pipeline = null, resumeR
             state: null,
         })
     }
+
+    // A routed arrival's opening sentence — Axl's `<open>` ("which names does the port strike
+    // reach?") — sent as the desk's next turn, once per key. See useSeedTurn.
+    useSeedTurn(seed, (text) => _send(text))
 
     async function _send(text) {
         routeOffer.clear()

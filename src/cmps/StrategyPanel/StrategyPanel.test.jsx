@@ -202,4 +202,20 @@ describe('StrategyPanel — the review-due hand-off', () => {
         rerender(<StrategyPanel reviewRequest={{ n: 1, reason: 'x' }} onReviewStart={onReviewStart} />)
         await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(1))
     })
+    // A routed arrival — Axl's `<open>` for an admin — is the same mechanism every artifact desk
+    // uses (useSeedTurn): the sentence is sent as the desk's next turn, once per key, into the
+    // conversation already open, because a standing view is reaffirmed in one thread.
+    it('a routed opening is sent as the next turn, once per key, without resetting the desk', async () => {
+        const { rerender } = render(<StrategyPanel seed={{ key: 1, message: 'Change the Technology stance to neutral.' }} />)
+        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(1))
+        expect(sendStream.mock.calls[0][0].at(-1)).toEqual({ role: 'user', content: 'Change the Technology stance to neutral.' })
+        expect(chatStub.reset).not.toHaveBeenCalled()
+
+        rerender(<StrategyPanel seed={{ key: 1, message: 'Change the Technology stance to neutral.' }} />)
+        await Promise.resolve()
+        expect(sendStream).toHaveBeenCalledTimes(1)
+
+        rerender(<StrategyPanel seed={{ key: 2, message: 'And Energy to under.' }} />)
+        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(2))
+    })
 })

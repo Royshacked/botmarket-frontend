@@ -8,6 +8,7 @@ import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
 import { RouteOffer } from '../RouteOffer.jsx'
 import { useRouteOffer } from '../../customHooks/useRouteOffer.js'
+import { useSeedTurn } from '../../customHooks/useSeedTurn.js'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { ChatBubble } from '../ChatBubble.jsx'
@@ -81,7 +82,7 @@ export function TiltDraft({ tilt }) {
 }
 TiltDraft.propTypes = { tilt: PropTypes.object.isRequired }
 
-export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished, onRoute, pipeline = null, resumeRef = null, reviewRequest = null, onReviewStart }) {
+export function StrategyPanel({ seed = null, currentTilt = null, onLoadingChange, onPublished, onRoute, pipeline = null, resumeRef = null, reviewRequest = null, onReviewStart }) {
     const chat = useChatStream({ threadPhases: true })
     // The user asked, in the chat, to be sent to another desk with a name → the reply routed →
     // the RouteOffer button. The shared hand-off every desk has (useRouteOffer).
@@ -113,6 +114,12 @@ export function StrategyPanel({ currentTilt = null, onLoadingChange, onPublished
             state: draft ? { draft } : null,
         })
     }
+
+    // A routed arrival's opening sentence — Axl's `<open>` ("change the Technology stance to
+    // neutral") — sent as this desk's next turn, once per key, into whatever conversation is open.
+    // A standing view is reaffirmed or re-authored in ONE conversation, so the seed continues it
+    // rather than starting clean (mount: continues, the same call every artifact desk makes).
+    useSeedTurn(seed, (text) => _send(text))
 
     async function _send(text) {
         setPublishErr('')
