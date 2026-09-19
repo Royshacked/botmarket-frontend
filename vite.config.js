@@ -21,7 +21,7 @@ const BACKEND = 'http://127.0.0.1:3030'
 export const PWA = {
 	registerType: 'autoUpdate',
 	manifest: {
-		name:             'TRADVICE',
+		name:             'axl',
 		short_name:       'axl',
 		description:      'AI-powered trading desks — monitor your setups, get the call, confirm the order.',
 		start_url:        '/',
