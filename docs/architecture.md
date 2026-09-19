@@ -53,7 +53,10 @@ Three kinds of arrival, and the rule is that each kind has ONE handler in MainPa
 
 1. **From the hub.** `AxlHub` is the one Axl surface — greets, shows the desk buttons, holds a real
    conversation, and *summons* a desk when Axl's reply carries a route (`handleAxlPick`). The
-   hand-off is the user's own ask plus Axl's `opening` sentence, seeded as the desk's first turn.
+   hand-off is the user's own ask plus Axl's `opening` sentence, seeded as the desk's first turn —
+   every desk, including Pythia and Aether, which take it only for an admin: the server drops the
+   route for a trader (`routing.util` `ADMIN_DESKS`), the summon checks the role again, and neither
+   panel is mounted for a trader at all.
 2. **From a desk, by the user's ask.** "Send NVDA to Prometheus" said at Argus: the reply carries the
    same route grammar Axl's does, the panel offers it, the press lands on the **same** doorway as the
    hub's summon (`handleRoute`). A hop added at any desk is a prompt edit there, never a handler here.

@@ -82,9 +82,10 @@ buttons ask.
 
 WHERE a delivered artifact lands: an inbox setter per desk that takes the envelope whole
 (`scanner · analyst · mentor`), a seed setter per desk that opens on a sentence (`scanner ·
-portfolio`). Mentor and Prometheus are seeded only from OUTSIDE a chain — a calendar row, an Axl
-route — so they are deliberately absent from the seed table (a hop must not be able to open them) and
-cleared anyway.
+portfolio`). Mentor, Prometheus, Pythia and Aether are seeded only from OUTSIDE a chain — a calendar
+row, an Axl route — so they are deliberately absent from the seed table (a hop must not be able to
+open them) and cleared anyway. Pythia and Aether are admin desks: the seed lands only for an admin
+(the summon checks the role), and the server has already dropped the route for anyone else.
 
 **`clear()` drops every door at once, and exists because of a live bug.** An effect keyed on an
 artifact also runs on MOUNT, so a delivered artifact left in the sender's state is not inert: the
