@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { PWA } from '../vite.config.js'
-import { NAVIGATE_DENYLIST, FONTS_PATTERN } from './pwa/rules.js'
+import { NAVIGATE_DENYLIST, FONTS_PATTERN, isPopoutPath } from './pwa/rules.js'
 
 const ROOT = resolve(import.meta.dirname, '..')
 
@@ -59,8 +59,19 @@ test('the worker is the one in src/, and it reads these rules rather than its ow
     assert.match(sw, /from '\.\/pwa\/rules\.js'/)
     assert.match(sw, /denylist: NAVIGATE_DENYLIST/)
     assert.match(sw, /registerRoute\(FONTS_PATTERN/)
-    // Presence is decided on the device: a focused window means no notification.
+    // Presence is decided on the device: a focused window means no notification — and a pop-out
+    // (no chat in it) is not a window for either the focus check or the tap.
     assert.match(sw, /w\.focused/)
+    assert.match(sw, /isPopoutPath/)
+})
+
+test('a pop-out is an idea or a setup opened bare; everything else is the app', () => {
+    assert.equal(isPopoutPath('/idea/abc'), true)
+    assert.equal(isPopoutPath('/setup/xyz'), true)
+    assert.equal(isPopoutPath('/'), false)
+    assert.equal(isPopoutPath('/profile'), false)
+    assert.equal(isPopoutPath('/ideas'), false)
+    assert.equal(isPopoutPath(undefined), false)
 })
 
 test('the worker is off under the dev server', () => {

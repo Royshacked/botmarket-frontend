@@ -5,6 +5,7 @@ import { AuthContext } from './context/AuthContext'
 import { AuthModal } from './cmps/AuthModal/AuthModal'
 import { UserMsg } from './cmps/UserMsg.jsx'
 import { AppHeaderAxl } from './cmps/AppHeaderAxl.jsx'
+import { IDEA_POPOUT, SETUP_POPOUT } from './pwa/rules.js'
 import { MainPage } from './pages/MainPage.jsx'
 import { UserProfile } from './pages/UserProfile.jsx'
 import { IdeaPage } from './pages/IdeaPage.jsx'
@@ -14,10 +15,10 @@ export function RootCmp() {
     const { user, isLoading } = useContext(AuthContext)
     const location = useLocation()
 
-    // Idea pop-out window — no chrome, full viewport
-    if (location.pathname.startsWith('/idea/')) return <IdeaPage />
-    // Mentor setup pop-out window (watched by Talos)
-    if (location.pathname.startsWith('/setup/')) return <SetupPage />
+    // Pop-out windows — no chrome, full viewport. The prefixes live in pwa/rules so the service
+    // worker knows the same windows have no chat to open a card in.
+    if (location.pathname.startsWith(IDEA_POPOUT))  return <IdeaPage />     // an idea
+    if (location.pathname.startsWith(SETUP_POPOUT)) return <SetupPage />    // a Mentor setup, watched by Talos
 
     const onProfile = location.pathname === '/profile'
 

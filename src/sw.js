@@ -5,7 +5,7 @@ import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from
 import { registerRoute, NavigationRoute } from 'workbox-routing'
 import { CacheFirst } from 'workbox-strategies'
 import { ExpirationPlugin } from 'workbox-expiration'
-import { NAVIGATE_DENYLIST, FONTS_PATTERN, FONTS_CACHE } from './pwa/rules.js'
+import { NAVIGATE_DENYLIST, FONTS_PATTERN, FONTS_CACHE, isPopoutPath } from './pwa/rules.js'
 
 // ── app shell ─────────────────────────────────────────────────────────────────
 // autoUpdate semantics: a new deploy's worker takes over on the next load, no prompt. The app has
@@ -30,12 +30,20 @@ registerRoute(FONTS_PATTERN, new CacheFirst({
 // window right now, the card just slid into social chat in front of the user and a notification
 // on top would be noise. Any other state — tab in the background, window minimised, screen off,
 // browser closed — shows it.
+//
+// "A window" means the app proper. A pop-out (an idea or a setup, full-viewport, no chat) has
+// nowhere to show a card and nowhere to open one, so it counts for neither check.
+async function appWindows() {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    return wins.filter(w => !isPopoutPath(new URL(w.url).pathname))
+}
+
 self.addEventListener('push', (event) => {
     let n = null
     try { n = event.data?.json() ?? null } catch { n = null }
     if (!n?.title) return
     event.waitUntil((async () => {
-        const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+        const wins = await appWindows()
         if (wins.some(w => w.focused)) return
         await self.registration.showNotification(n.title, {
             body:  n.body ?? '',
@@ -57,8 +65,8 @@ self.addEventListener('notificationclick', (event) => {
     const data = event.notification.data ?? {}
     const url  = new URL(data.url ?? '/', self.location.origin).href
     event.waitUntil((async () => {
-        const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
-        const win  = wins[0] ?? null
+        const wins = await appWindows()
+        const win  = wins.find(w => w.focused) ?? wins[0] ?? null
         if (win) {
             await win.focus()
             win.postMessage({ type: 'open-chat', conversationId: data.conversationId ?? null, messageId: data.messageId ?? null })

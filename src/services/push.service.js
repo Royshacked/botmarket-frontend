@@ -27,22 +27,41 @@ export async function pushStatus() {
 }
 
 /**
- * Subscribe this browser. Asks the permission (must be called from a user gesture, or the
- * browser suppresses the prompt), subscribes with the server's public key, registers with the
- * backend. Throws with a readable message on each way it can fail.
+ * Subscribe this browser. The permission is asked FIRST, straight off the click — the prompt only
+ * shows inside the click's activation, and a network round-trip before it can outlive that. Then
+ * the server's public key, the subscription, and the registration. Throws with a readable message
+ * on each way it can fail; a subscription the server never learned of is undone, so the switch
+ * never reads On for a device that gets nothing.
  */
 export async function enablePush() {
     if (!pushSupport()) throw new Error('This browser cannot receive push notifications')
-    const { enabled, publicKey } = await httpService.get('push/config')
-    if (!enabled || !publicKey) throw new Error('Push notifications are not configured on the server')
+    // No worker → `serviceWorker.ready` would wait forever (the dev server, a failed registration).
+    const reg = await navigator.serviceWorker.getRegistration()
+    if (!reg) throw new Error('No service worker on this page — push needs the installed build')
 
     const permission = await Notification.requestPermission()
     if (permission !== 'granted') throw new Error('Notifications were not allowed')
 
-    const reg = await navigator.serviceWorker.ready
-    const sub = await reg.pushManager.getSubscription()
-        ?? await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) })
-    await httpService.post('push/subscriptions', { subscription: sub.toJSON() })
+    const { enabled, publicKey } = await httpService.get('api/push/config')
+    if (!enabled || !publicKey) throw new Error('Push notifications are not configured on the server')
+    const serverKey = urlBase64ToUint8Array(publicKey)
+
+    // An existing subscription is reused only if it was minted for THIS server key. After a key
+    // rotation the old one would be sent to with the new key and refused forever (a 403 is not
+    // the dead-subscription path the server prunes), so it is replaced here.
+    let sub = await reg.pushManager.getSubscription()
+    if (sub && !sameKey(sub.options?.applicationServerKey, serverKey)) {
+        await sub.unsubscribe().catch(() => {})
+        sub = null
+    }
+    sub ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: serverKey })
+
+    try {
+        await httpService.post('api/push/subscriptions', { subscription: sub.toJSON() })
+    } catch (err) {
+        await sub.unsubscribe().catch(() => {})
+        throw err
+    }
     return sub
 }
 
@@ -54,7 +73,7 @@ export async function disablePush() {
     if (!sub) return
     const endpoint = sub.endpoint
     try { await sub.unsubscribe() } catch { /* the browser's side; the server row is what matters */ }
-    try { await httpService.delete('push/subscriptions', { endpoint }) } catch { /* a dead row is dropped on the next send anyway */ }
+    try { await httpService.delete('api/push/subscriptions', { endpoint }) } catch { /* a dead row is dropped on the next send anyway */ }
 }
 
 /** The VAPID public key as the PushManager wants it. PURE. */
@@ -62,4 +81,13 @@ export function urlBase64ToUint8Array(base64) {
     const padded = (base64 + '='.repeat((4 - base64.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/')
     const raw    = atob(padded)
     return Uint8Array.from(raw, ch => ch.charCodeAt(0))
+}
+
+/** Byte equality between a subscription's stored key (an ArrayBuffer, or null) and ours. PURE. */
+export function sameKey(stored, ours) {
+    if (!stored) return false
+    const a = new Uint8Array(stored)
+    if (a.length !== ours.length) return false
+    for (let i = 0; i < a.length; i++) if (a[i] !== ours[i]) return false
+    return true
 }

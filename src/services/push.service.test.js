@@ -3,7 +3,7 @@
 // Node's built-in harness:  node --test src/services/push.service.test.js
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { urlBase64ToUint8Array, pushSupport } from './push.service.js'
+import { urlBase64ToUint8Array, pushSupport, sameKey } from './push.service.js'
 
 test('a VAPID public key round-trips from url-safe base64 to the bytes PushManager wants', () => {
     // 'BAECAwQF' is bytes 04 01 02 03 04 05 in standard base64; url-safe variants use - and _ and drop padding.
@@ -19,4 +19,12 @@ test('support needs all three: a worker, a push manager, and notifications', () 
     assert.equal(pushSupport({ ...full, PushManager: undefined }), false)
     assert.equal(pushSupport({ ...full, Notification: undefined }), false)
     assert.equal(pushSupport({}), false)
+})
+
+test('a subscription minted for another server key is not ours', () => {
+    const ours = urlBase64ToUint8Array('BAECAwQF')
+    assert.equal(sameKey(Uint8Array.from([4, 1, 2, 3, 4, 5]).buffer, ours), true)
+    assert.equal(sameKey(Uint8Array.from([4, 1, 2, 3, 4, 6]).buffer, ours), false)
+    assert.equal(sameKey(Uint8Array.from([4, 1, 2]).buffer, ours), false)
+    assert.equal(sameKey(null, ours), false)   // an old subscription with no recorded key → replace it
 })

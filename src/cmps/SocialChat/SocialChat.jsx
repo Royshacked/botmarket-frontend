@@ -138,14 +138,18 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
     // Waits for the list to load (the target may not be there on first render),
     // then selects it once. The ref guards against re-selecting on later list
     // updates (e.g. an incoming message re-maps `conversations`).
+    // Consumed per (conversation, message), not per conversation: a second notification tapped
+    // in the SAME open thread is a new landing, and must scroll to its message too.
     useEffect(() => {
         if (!initialConvId) { consumedConvRef.current = null; return }
-        if (consumedConvRef.current === initialConvId) return
+        const landing = `${initialConvId}|${initialMsgId ?? ''}`
+        if (consumedConvRef.current === landing) return
         const conv = conversations.find(c => c.id === initialConvId)
         if (!conv) return
-        consumedConvRef.current = initialConvId
+        const sameThread = consumedConvRef.current?.startsWith(`${initialConvId}|`) && activeConvRef.current?.id === initialConvId
+        consumedConvRef.current = landing
         setScrollToMsgId(initialMsgId ?? null)   // land on the clicked notification once it loads
-        handleSelectConv(conv)
+        if (!sameThread) handleSelectConv(conv)
         // eslint-disable-next-line react-hooks/exhaustive-deps -- handleSelectConv is a stable per-render decl; re-adding it would loop
     }, [initialConvId, initialMsgId, conversations])
 

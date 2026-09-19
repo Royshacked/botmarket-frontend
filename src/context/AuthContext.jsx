@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { API_BASE } from '../services/config'
 import { hydratePreferences } from '../services/preferences.service'
+import { disablePush } from '../services/push.service.js'
 
 export const AuthContext = createContext(null)
 
@@ -40,6 +41,9 @@ export function AuthProvider({ children }) {
     }, [])
 
     async function signout() {
+        // This browser's push subscription goes with the session: it is one per origin, not per
+        // account, and the next person to sign in here must not get this user's cards.
+        try { await disablePush() } catch { /* best effort */ }
         try {
             await fetch(`${API_BASE}/api/auth/signout`, {
                 method: 'POST',

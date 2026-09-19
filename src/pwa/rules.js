@@ -11,3 +11,13 @@ export const NAVIGATE_DENYLIST = [/^\/api\//, /^\/ws/, /^\/socket\.io/]
 /** The one runtime cache: Google Fonts, so an installed app does not open in the fallback font. */
 export const FONTS_PATTERN = /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i
 export const FONTS_CACHE   = { name: 'google-fonts', maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 }
+
+/**
+ * The pop-out windows — an idea or a setup opened full-viewport, no header, no chat. RootCmp
+ * renders them bare, and the worker must not treat one as "the app": it cannot open the chat on
+ * a tap, and its being focused says nothing about whether a card was seen.
+ */
+export const IDEA_POPOUT     = '/idea/'
+export const SETUP_POPOUT    = '/setup/'
+export const POPOUT_PREFIXES = [IDEA_POPOUT, SETUP_POPOUT]
+export const isPopoutPath = (pathname) => POPOUT_PREFIXES.some(p => String(pathname ?? '').startsWith(p))
