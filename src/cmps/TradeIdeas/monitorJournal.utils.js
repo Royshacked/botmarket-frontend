@@ -85,7 +85,9 @@ export function nextReadLabel(iso, now = Date.now()) {
  * what the folded journal's tail says on the setup pop-out. ONE of the two fields is set:
  *
  *   when      armed / awaiting confirm / in position: `next_check_at`, the stamp the monitor wrote
- *             ("in 12 min", "Mon 21 Sep, 13:30"; "—" when armed but not yet stamped)
+ *             ("in 12 min", "Mon 21 Sep, 13:30"). A NULL stamp on a watched setup is "any moment":
+ *             arming and a pre-position edit clear it so the loop picks the setup up on its very
+ *             next tick (setups.service), and "—" there read as nothing scheduled right after Arm.
  *   standing  why there is no next call: not armed, or in position with every exit resting
  *             (dormant — nothing to read until an edit adds a rule)
  *
@@ -98,7 +100,7 @@ export function nextCall(setup, now = Date.now()) {
     if (isTerminal(st)) return { when: null, standing: null }
     if (isUnarmed(st))  return { when: null, standing: 'not armed' }
     if (ms.dormant)     return { when: null, standing: 'dormant — every exit rests at the broker' }
-    return { when: nextReadLabel(ms.next_check_at, now) ?? '—', standing: null }
+    return { when: nextReadLabel(ms.next_check_at, now) ?? 'any moment', standing: null }
 }
 
 /** The next call as one phrase: "next read in 12 min" · "not armed" · null. */

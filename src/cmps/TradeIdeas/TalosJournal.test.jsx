@@ -131,7 +131,8 @@ describe('journal utils', () => {
         const ms = { next_check_at: new Date(now + 5 * 60_000).toISOString() }
         expect(nextCall({ status: 'looking', monitor_state: ms }, now)).toEqual({ when: 'in 5 min', standing: null })
         expect(nextCall({ status: 'hit',     monitor_state: ms }, now)).toEqual({ when: 'in 5 min', standing: null })
-        expect(nextCall({ status: 'looking', monitor_state: {} }, now)).toEqual({ when: '—', standing: null })
+        // A null stamp on an armed setup is the monitor's "due on the next tick" — just armed, or just edited.
+        expect(nextCall({ status: 'looking', monitor_state: {} }, now)).toEqual({ when: 'any moment', standing: null })
         expect(nextCall({ status: 'waiting', monitor_state: ms }, now)).toEqual({ when: null, standing: 'not armed' })
         expect(nextCall({ status: 'long', monitor_state: { ...ms, dormant: true } }, now).standing).toMatch(/dormant/)
         expect(nextCall({ status: 'closed', monitor_state: ms }, now)).toEqual({ when: null, standing: null })
