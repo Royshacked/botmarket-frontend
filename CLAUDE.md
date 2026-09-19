@@ -1,9 +1,11 @@
 # Project Context
 Frontend for the ar2trade / TRADVICE trading assistant — React + Vite (SCSS, react-router,
-react-redux). Talks to the botmarket-backend over `/api` (SSE for the three agent chats,
-WebSocket for social chat). Users chat with the Trade / Portfolio / Scanner agents to produce
-monitored trade ideas, confirm broker orders, and run a paper (simulation) mode. The backend
-repo (botmarket-backend) holds the domain spec — see its README.md / APP_SPEC.md / CODE_MAP.md.
+react-redux). Talks to the botmarket-backend over `/api` (SSE for every agent chat, WebSocket for
+social chat). One page: Axl's hub routes the user into six desks — Mentor (the trade), Atlas
+(portfolio), Argus (scan), Prometheus (coverage), Pythia (tilt), Aether (events) — whose work lands
+as monitored entities, broker orders the user confirms, and cards in social chat; three workspaces
+(live · paper · manual). The backend repo holds the domain spec — see its README.md / APP_SPEC.md /
+CODE_MAP.md; this repo's own wiring is in `docs/` (start with `docs/README.md`).
 
 # Rules
 - Follow existing patterns: components in `src/cmps/`, routed views in `src/pages/`, logic in
@@ -79,4 +81,5 @@ After the bug hunt, check how the new feature interacts with the rest of the app
 Flag any conflicts found before moving on. Do not silently proceed.
 
 # Docs
+- This repo: `docs/README.md` → `architecture.md` (how the app is wired), `hand-offs.md` (the conveyor)
 - Backend architecture / behavioral spec: ../botmarket-backend/README.md, APP_SPEC.md, CODE_MAP.md

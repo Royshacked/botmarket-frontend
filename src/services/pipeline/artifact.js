@@ -8,13 +8,13 @@
 // `from` is kept, but it is PROVENANCE, not routing: Prometheus says "researching for the
 // Technology sleeve Atlas asked for". Nothing reads it to decide anything.
 //
-// See docs/pipeline-service-design.md §1.
+// See docs/hand-offs.md.
 
 /** The kinds that cross between desks. A new hop adds a kind here, not a handler in MainPage. */
 export const KIND = {
-    SCAN_REQUEST:   'scan_request',      // Kairos → Argus: find me one name (bias + horizon)
+    SCAN_REQUEST:   'scan_request',      // Mentor → Argus: find me one name (bias + horizon). Written for Kairos; Mentor holds the hop
     MANDATE:        'mandate',           // Atlas  → Argus: screen this sleeve
-    CANDIDATE_LIST: 'candidate_list',    // Argus  → Kairos | Prometheus: names, ranked
+    CANDIDATE_LIST: 'candidate_list',    // Argus  → Mentor | Prometheus: names, ranked
     COVERAGE_SET:   'coverage_set',      // Prometheus → Atlas: what came back with a thesis
 }
 
@@ -72,7 +72,7 @@ export function resolveArtifact(artifact) {
     return { items, ref: artifact?.ref ?? null, isEmpty: !items.length && !artifact?.ref }
 }
 
-/** The first item — what a single-name hand-off (Argus's pick → Kairos) actually means. */
+/** The first item — what a single-name hand-off (Argus's pick → Mentor) actually means. */
 export function firstItem(artifact) {
     return resolveArtifact(artifact).items[0] ?? null
 }

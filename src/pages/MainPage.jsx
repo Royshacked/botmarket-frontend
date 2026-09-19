@@ -2239,7 +2239,7 @@ export function MainPage() {
     //
     // The four moves each hop used to hand-roll (compose a seed, remount the right panel, clear the
     // other hops' state, switch the tab) live here once, so a hop added later cannot get one of
-    // them subtly wrong. See docs/pipeline-service-design.md.
+    // them subtly wrong. See docs/hand-offs.md.
     // Where the conveyor puts what it delivers, per desk (services/pipeline/doors.js): an INBOX for
     // a desk that takes the envelope whole, a SEED for one that opens on a sentence it wrote itself.
     // A desk declares which in its contract (`deliver`); the doors say where it lands. Mentor and
@@ -2625,7 +2625,7 @@ export function MainPage() {
             // Link the construction draft thread to the created scan (clears its TTL). A
             // mid-pipeline screening has no scan to link to, so its draft TTL-expires unpinned —
             // the deliberate default until a run carries its threads to the artifact it produces
-            // (docs/pipeline-service-design.md §8).
+            // (docs/hand-offs.md, "Decided and deferred").
             // AWAITED, not fired and forgotten: finishPipeline below deletes this desk's remaining
             // DRAFTS, and until this link lands, this thread is still one of them. Losing that race
             // would delete the conversation that built the list, and the link would then update a
@@ -2836,7 +2836,7 @@ export function MainPage() {
 
     return (
         <>
-            <main>
+            <main className="main-page">
                 {/* ── Desktop / tablet workspace ── */}
                 <div className="workspace">
                     {/* Floor trial (Ctrl+Shift+D): the book + calendar take a left column. The chat

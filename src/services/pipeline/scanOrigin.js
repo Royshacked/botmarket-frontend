@@ -11,7 +11,7 @@
 // Lives outside MainPage because the answer has to be the same everywhere it is asked. The pipeline
 // service reads the same predicate for a second question with the same answer: whether the artifact
 // it hands on carries a `ref` (persisted, addressable later) or only its items, inline for the
-// length of the run. See docs/pipeline-service-design.md §1.
+// length of the run. See docs/hand-offs.md.
 
 export const ORIGIN = { USER: 'user', PORTFOLIO: 'portfolio', KAIROS: 'kairos' }
 

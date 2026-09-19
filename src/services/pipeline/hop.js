@@ -3,7 +3,7 @@
 // the caller applies. Everything it needs is the pipeline's own steps plus what the agents declared
 // (contracts.js), so a reordered pipeline reorders the hops with it and no agent is edited.
 //
-// See docs/pipeline-service-design.md §3–4.
+// See docs/hand-offs.md.
 
 import { contractFor as _contractFor, accepts, agentsAccepting } from './contracts.js'
 
@@ -11,7 +11,7 @@ import { contractFor as _contractFor, accepts, agentsAccepting } from './contrac
  * The step that takes this kind of artifact. FORWARD first, then backward — because a pipeline
  * carries two different things and they travel in opposite directions:
  *
- *   - a RESULT moves on   (Argus's candidate list → Kairos, the next step)
+ *   - a RESULT moves on   (Argus's candidate list → Mentor, the next step)
  *   - a REQUEST goes back (Kairos has no name yet → Argus, the step before it)
  *
  * Preferring forward is what keeps a result from falling back into a desk that already ran, and
