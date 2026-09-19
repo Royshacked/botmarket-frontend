@@ -10,36 +10,41 @@ vi.mock('../../services/manual/manual.service.remote', () => ({ manualService: {
 // source of truth; legacy `payload.resolved` / `dismissed` are a fallback so old history collapses.
 describe('readResolution', () => {
     it('reads the unified top-level status first', () => {
-        expect(readResolution({ status: 'done', resolveOutcome: 'confirmed' })).toEqual({ resolved: true, status: 'done', outcome: 'confirmed' })
-        expect(readResolution({ status: 'dismissed', resolveOutcome: null })).toEqual({ resolved: true, status: 'dismissed', outcome: null })
+        expect(readResolution({ status: 'done', resolveOutcome: 'confirmed' })).toEqual({ resolved: true, status: 'done', outcome: 'confirmed', note: null })
+        expect(readResolution({ status: 'dismissed', resolveOutcome: null })).toEqual({ resolved: true, status: 'dismissed', outcome: null, note: null })
+    })
+
+    it('carries the resolver\u2019s note — what the work DID — alongside the outcome', () => {
+        expect(readResolution({ status: 'done', resolveOutcome: 'revised', resolveNote: 'Re-modelled — PT 85 → 92' }))
+            .toEqual({ resolved: true, status: 'done', outcome: 'revised', note: 'Re-modelled — PT 85 → 92' })
     })
 
     it('falls back to legacy payload.resolved (portfolio review)', () => {
-        expect(readResolution({ payload: { resolved: true, outcome: 'updated' } })).toEqual({ resolved: true, status: 'done', outcome: 'updated' })
-        expect(readResolution({ payload: { resolved: true, outcome: 'dismissed' } })).toEqual({ resolved: true, status: 'dismissed', outcome: 'dismissed' })
+        expect(readResolution({ payload: { resolved: true, outcome: 'updated' } })).toEqual({ resolved: true, status: 'done', outcome: 'updated', note: null })
+        expect(readResolution({ payload: { resolved: true, outcome: 'dismissed' } })).toEqual({ resolved: true, status: 'dismissed', outcome: 'dismissed', note: null })
     })
 
     it('falls back to legacy dismissed flag', () => {
-        expect(readResolution({ dismissed: true, dismissOutcome: 'editing' })).toEqual({ resolved: true, status: 'dismissed', outcome: 'editing' })
+        expect(readResolution({ dismissed: true, dismissOutcome: 'editing' })).toEqual({ resolved: true, status: 'dismissed', outcome: 'editing', note: null })
     })
 
     it('is unresolved when nothing is set (a fresh pending card)', () => {
-        expect(readResolution({ status: 'pending' })).toEqual({ resolved: false, status: null, outcome: null })
-        expect(readResolution({})).toEqual({ resolved: false, status: null, outcome: null })
+        expect(readResolution({ status: 'pending' })).toEqual({ resolved: false, status: null, outcome: null, note: null })
+        expect(readResolution({})).toEqual({ resolved: false, status: null, outcome: null, note: null })
     })
 
     it('an OPENED card is still unresolved — that is the whole rule', () => {
         // "I opened it and got distracted" must read as outstanding. If this ever returns
         // resolved:true, every actionable card silently dies on navigation again.
         expect(readResolution({ status: 'pending', resolveOutcome: 'opened' }))
-            .toEqual({ resolved: false, status: null, outcome: null })
+            .toEqual({ resolved: false, status: null, outcome: null, note: null })
     })
 
     it('superseded is terminal — a fresher card replaced this one', () => {
         // Without this the backend retires the old card and the client keeps rendering it, so the
         // one-live-ask-per-entity guarantee breaks exactly where the user can see it.
         expect(readResolution({ status: 'superseded', resolveOutcome: 'superseded' }))
-            .toEqual({ resolved: true, status: 'superseded', outcome: 'superseded' })
+            .toEqual({ resolved: true, status: 'superseded', outcome: 'superseded', note: null })
     })
 })
 
@@ -119,6 +124,24 @@ describe('CoverageEventBubble', () => {
         render(<CoverageEventBubble msg={{ ...msg, status: 'done', resolveOutcome: 'opened' }} onResolve={vi.fn()} />)
         expect(screen.getByText(/Opened/)).toBeTruthy()
         expect(screen.queryByText('Open coverage')).toBeNull()
+    })
+
+    // THE WORK LANDED. The revision the card asked for was saved on the desk, the server closed the
+    // card with the analyst's own account of what moved, and the chip has to SAY it — a "Done" that
+    // sends the reader back into the thesis to learn whether anything changed is not an answer.
+    it('resolved by the revision landing: reads "Revised" and shows what moved', () => {
+        render(<CoverageEventBubble msg={{ ...msg, status: 'done', resolveOutcome: 'revised', resolveNote: 'Re-modelled — rating sell → hold, PT 85 → 92' }} onResolve={vi.fn()} />)
+        expect(screen.getByText(/✓ Revised/)).toBeTruthy()
+        expect(screen.getByText('Re-modelled — rating sell → hold, PT 85 → 92')).toBeTruthy()
+        // The original ask stays beneath, so a scrolled-back card still says what it was.
+        expect(screen.getByText('NVDA reached our price target.')).toBeTruthy()
+        expect(screen.queryByText('Open coverage')).toBeNull()
+    })
+
+    it('a resolution without a note renders the chip as before — no empty line', () => {
+        const { container } = render(<CoverageEventBubble msg={{ ...msg, status: 'done', resolveOutcome: 'retired' }} onResolve={vi.fn()} />)
+        expect(screen.getByText(/✓ Retired/)).toBeTruthy()
+        expect(container.querySelector('.social-chat__invalidation-alert-note')).toBeNull()
     })
 })
 

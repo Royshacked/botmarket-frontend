@@ -23,7 +23,8 @@ vi.mock('../../services/chat/chat.service', () => ({
 }))
 vi.mock('../modelOptions', () => ({ readStoredModel: () => 'claude-opus-5' }))
 vi.mock('./ConversationList', () => ({ ConversationList: () => <div data-testid="list" /> }))
-vi.mock('./ChatWindow',       () => ({ ChatWindow:       () => <div data-testid="window" /> }))
+// The window renders each message's resolution so the live-flip path below is observable.
+vi.mock('./ChatWindow',       () => ({ ChatWindow:       ({ messages = [] }) => <div data-testid="window">{messages.map(m => `${m.id}:${m.status ?? '-'}:${m.resolveNote ?? '-'}`).join('|')}</div> }))
 
 import { SocialChat }  from './SocialChat.jsx'
 import { chatService } from '../../services/chat/chat.service'
@@ -45,6 +46,25 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks() })
 
 describe('SocialChat live updates', () => {
+    // A card's ask is satisfied on a DESK — the thesis is revised in Prometheus while the chat panel
+    // sits open beside it. The server resolves the card and pushes `message_resolved`; the panel has
+    // to flip that one card in place, or it reads "still waiting on you" until the panel is reopened.
+    it('a message_resolved push collapses the card in the open conversation, note and all', async () => {
+        chatService.getMessages.mockResolvedValue([
+            { id: 'm1', conversationId: 'c1', type: 'coverage_event', status: 'pending', createdAt: 1 },
+            { id: 'm2', conversationId: 'c1', type: 'text',           status: null,      createdAt: 2 },
+        ])
+        const { getByTestId } = render(<SocialChat currentUserId="u_1" initialConvId="c1" />)
+        await waitFor(() => expect(getByTestId('window').textContent).toBe('m1:pending:-|m2:-:-'))
+
+        act(() => { fire('message_resolved', { id: 'm1', conversationId: 'c1', status: 'done', resolvedAt: 3, resolveOutcome: 'revised', resolveNote: 'Re-modelled — PT 85 → 92' }) })
+        expect(getByTestId('window').textContent).toBe('m1:done:Re-modelled — PT 85 → 92|m2:-:-')
+
+        // A push for a conversation this panel is not showing changes nothing here.
+        act(() => { fire('message_resolved', { id: 'm7', conversationId: 'c_other', status: 'done', resolveOutcome: 'completed' }) })
+        expect(getByTestId('window').textContent).toBe('m1:done:Re-modelled — PT 85 → 92|m2:-:-')
+    })
+
     it('counts a message into a conversation it already knows, without re-reading the list', async () => {
         const onUnreadChange = vi.fn()
         render(<SocialChat currentUserId="u_1" onUnreadChange={onUnreadChange} />)

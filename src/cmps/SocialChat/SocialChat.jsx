@@ -111,11 +111,24 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
             if (isActive) setMessages(m => [...m, msg])
         }
 
-        chatWsService.on('connected',   onConnected)
-        chatWsService.on('new_message', onNewMessage)
+        // A card's ask was satisfied on a DESK (the thesis revised, the setup re-drawn) — the server
+        // resolved the card and says so. Patch the one message in place if this panel is showing
+        // it; a conversation not open here re-reads on select anyway. Nothing to count: the card
+        // was already read when it was opened.
+        function onMessageResolved(res) {
+            if (!res?.id || activeConvRef.current?.id !== res.conversationId) return
+            setMessages(m => m.map(x => x.id !== res.id ? x : {
+                ...x, status: res.status, resolvedAt: res.resolvedAt, resolveOutcome: res.resolveOutcome, resolveNote: res.resolveNote ?? null,
+            }))
+        }
+
+        chatWsService.on('connected',        onConnected)
+        chatWsService.on('new_message',      onNewMessage)
+        chatWsService.on('message_resolved', onMessageResolved)
         return () => {
-            chatWsService.off('connected',   onConnected)
-            chatWsService.off('new_message', onNewMessage)
+            chatWsService.off('connected',        onConnected)
+            chatWsService.off('new_message',      onNewMessage)
+            chatWsService.off('message_resolved', onMessageResolved)
         }
     }, [loadConversations, onUnreadChange])
 

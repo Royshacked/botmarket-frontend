@@ -501,6 +501,16 @@
         text-overflow: ellipsis;
     }
 
+    // What the work that closed the card DID — the line the reader actually wants from a resolved
+    // chip, so it sits above the original ask and keeps its weight where the ask is muted.
+    &__invalidation-alert-note {
+        font-size: 0.8rem;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
     &__invalidation-alert-actions {
         display: flex;
         flex-wrap: wrap;

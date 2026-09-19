@@ -26,9 +26,10 @@ function CardAgentTag({ agent }) {
 }
 
 // Shared collapsed state for a handled "notify + route" card. Keeps the agent attribution + how it
-// resolved (`outcome`) + what it was (`reason`), so a scrolled-back card still reads. `reopen`, when
-// set, makes the whole chip a button that re-triggers its original target.
-function ResolvedChip({ agent, outcome, asset, reason, qualifier = null, reopen = null }) {
+// resolved (`outcome`) + what the work DID (`note`, when the resolver said) + what it was
+// (`reason`), so a scrolled-back card still reads. `reopen`, when set, makes the whole chip a
+// button that re-triggers its original target.
+function ResolvedChip({ agent, outcome, asset, reason, qualifier = null, reopen = null, note = null }) {
     return (
         <div
             className={'social-chat__msg-bubble social-chat__invalidation-alert social-chat__invalidation-alert--dismissed' + (reopen ? ' social-chat__invalidation-alert--reopen' : '')}
@@ -37,6 +38,7 @@ function ResolvedChip({ agent, outcome, asset, reason, qualifier = null, reopen 
         >
             {agent && <CardAgentTag agent={agent} />}
             <div className="social-chat__invalidation-alert-header">{outcome} &middot; {asset}{qualifier ? <> &middot; {qualifier}</> : null}</div>
+            {note && <div className="social-chat__invalidation-alert-note">{note}</div>}
             {reason && (
                 <div className="social-chat__invalidation-alert-reason social-chat__invalidation-alert-reason--resolved">{reason}</div>
             )}
@@ -57,11 +59,11 @@ function ResolvedChip({ agent, outcome, asset, reason, qualifier = null, reopen 
 // making. Opt-in per card rather than derived from `msg.actions` here, so older history posted
 // before a producer set actions keeps the buttons it has always rendered.
 function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = null, body, primaryLabel, onPrimary, onResolve, onDismiss, msg, resolvedLabels = {}, reopenOnDone = false, primaryDisabled = false, actionless = false }) {
-    const { resolved, status, outcome } = readResolution(msg)
+    const { resolved, status, outcome, note } = readResolution(msg)
     if (resolved) {
         const label  = resolvedLabels[outcome] ?? (status === 'done' ? '✓ Done' : 'Dismissed')
         const reopen = (reopenOnDone && status === 'done') ? onPrimary : null
-        return <ResolvedChip agent={agent} outcome={label} asset={asset} qualifier={qualifier} reason={body} reopen={reopen} />
+        return <ResolvedChip agent={agent} outcome={label} asset={asset} qualifier={qualifier} reason={body} note={note} reopen={reopen} />
     }
     const label   = primaryLabel ?? msg.actions?.primary?.label ?? 'Open'
     const dismiss = onDismiss ?? (() => onResolve?.(msg.id, { status: 'dismissed', outcome: 'dismissed' }))
@@ -667,7 +669,9 @@ export function CoverageEventBubble({ msg, onClose, onResolve }) {
             agent={AGENTS.analyst} kind="coverage" heading={heading} asset={symbol} qualifier={stateCopy} body={msg.content}
             primaryLabel={msg.actions?.primary?.label ?? 'Open coverage'} onPrimary={handlePrimary}
             onResolve={onResolve} msg={msg}
-            resolvedLabels={{ opened: '✓ Opened' }}
+            // `revised` / `retired` / `deleted` are what the coverage write routes stamp when the
+            // work lands (analyst.controller → resolveCardsFor); the note beneath says what moved.
+            resolvedLabels={{ opened: '✓ Opened', revised: '✓ Revised', retired: '✓ Retired', deleted: '✓ Deleted' }}
         />
     )
 }
@@ -730,7 +734,7 @@ export function CoverageRefreshedBubble({ msg, onClose, onResolve }) {
             agent={AGENTS.analyst} kind="coverage" heading={heading} asset={symbol} body={msg.content}
             primaryLabel={msg.actions?.primary?.label ?? (portfolioId ? 'Resume review' : 'Open coverage')} onPrimary={handlePrimary}
             onResolve={onResolve} msg={msg}
-            resolvedLabels={{ resumed: '✓ Resumed', opened: '✓ Opened' }}
+            resolvedLabels={{ resumed: '✓ Resumed', opened: '✓ Opened', revised: '✓ Revised', retired: '✓ Retired', deleted: '✓ Deleted' }}
         />
     )
 }
