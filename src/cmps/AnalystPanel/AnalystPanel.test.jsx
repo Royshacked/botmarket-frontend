@@ -27,6 +27,9 @@ const saveDraft      = vi.fn()
 const linkThread     = vi.fn()
 const getThread      = vi.fn()
 const discardThread  = vi.fn()
+// Minted ids count up from 't1' per test, so a doorway that rotates the thread is assertable
+// against the id it left behind. The panel's own initial id is always the first mint.
+let threadSeq = 0
 vi.mock('../../services/threads/threads.service.remote.js', () => ({
     threadsService: {
         saveDraft:      (...a) => saveDraft(...a),
@@ -34,7 +37,7 @@ vi.mock('../../services/threads/threads.service.remote.js', () => ({
         getThread:      (...a) => getThread(...a),
         discardThread:  (...a) => discardThread(...a),
     },
-    newThreadId: () => 't1',
+    newThreadId: () => `t${++threadSeq}`,
     clearThread: (ref) => { if (ref?.current) discardThread(ref.current); if (ref) ref.current = 't2' },
 }))
 vi.mock('../../customHooks/useMicInput.js', () => ({
@@ -48,6 +51,7 @@ const lastCall = () => sendStream.mock.calls.at(-1)
 beforeEach(() => {
     sendStream.mockClear(); initiateCoverage.mockReset(); updateCoverage.mockReset()
     saveDraft.mockClear(); linkThread.mockClear(); getThread.mockReset(); discardThread.mockClear()
+    threadSeq = 0
 })
 afterEach(cleanup)
 
@@ -156,6 +160,32 @@ describe('AnalystPanel — revise mode', () => {
         render(<AnalystPanel coverage={[doc]} editCoverage={{ symbol: 'zts', key: 'k8' }} />)
         await waitFor(() => expect(sendStream).toHaveBeenCalled())
         expect(lastCall()[0].at(-1).content).toMatch(/^Revise our coverage on ZTS/)
+    })
+
+    // THE SECOND CARD. Revise ZTS, then click NVDA's card: the desk shows a fresh chat, but the turn
+    // shipped ZTS's whole conversation with "Revise NVDA" on the end — `chat.reset()` and `_send`
+    // ran in the same effect tick, and `_send` read the conversation off the closure React had not
+    // re-rendered yet. Prometheus then answered NVDA's card with ZTS's context. The doorway must
+    // send ONLY its own ask, on a thread of its own, and the previous revise must remain resumable.
+    it('a second card opens on ITS thesis alone — no history from the previous revise, a fresh thread', async () => {
+        const nvda = { id: 'cov_NVDA_1', symbol: 'NVDA', rating: 'buy', thesis: 'Compute demand compounds.', price_target: { value: 180 } }
+        const { rerender } = render(<AnalystPanel coverage={[doc, nvda]} editCoverage={{ doc, symbol: 'ZTS', key: 'k10' }} />)
+        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(1))
+        await act(async () => { lastCall()[1].onDone({ reply: 'ZTS still a sell.', phase: 4, coverage: doc }) })
+        const firstThread = saveDraft.mock.calls.at(-1)[0].threadId
+
+        rerender(<AnalystPanel coverage={[doc, nvda]} editCoverage={{ doc: nvda, symbol: 'NVDA', key: 'k11' }} />)
+        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(2))
+        const [history, opts] = lastCall()
+        expect(history).toHaveLength(1)
+        expect(history[0].content).toMatch(/^Revise our coverage on NVDA/)
+        expect(opts.chatState.active_symbol).toBe('NVDA')
+        expect(opts.chatState.existing_coverage).toMatchObject({ id: 'cov_NVDA_1' })
+        // The ZTS conversation is not deleted out from under the user — it is still a resumable draft.
+        expect(discardThread).not.toHaveBeenCalled()
+        await act(async () => { lastCall()[1].onDone({ reply: 'NVDA holds.', phase: 4, coverage: nvda }) })
+        expect(saveDraft.mock.calls.at(-1)[0].threadId).not.toBe(firstThread)
+        expect(saveDraft.mock.calls.at(-1)[0].messages).toHaveLength(2)
     })
 
     it('a name with no doc and no book row SAYS SO instead of failing silently', async () => {

@@ -123,11 +123,17 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
         })
     }
 
-    async function _send(text) {
+    // `base` overrides the CONVERSATION closure for the one caller that resets it in the same tick
+    // (the revise doorway below). An effect runs before React re-renders, so right after
+    // `chat.reset()` this function still reads the OLD `messages` — which shipped the previous
+    // name's whole conversation to the model under the new name's ask. The display was fine
+    // (`begin` appends functionally onto the emptied list); the history sent was not. The same
+    // hatch MentorPanel's `_send` has, for the same doorway.
+    async function _send(text, base = messages) {
         setInitiateErr('')
         routeOffer.clear()
         const candidate = seedRef.current; seedRef.current = null   // NB: the Argus payload, not the `seed` prop
-        const history = toChatHistory(messages)
+        const history = toChatHistory(base)
         history.push({ role: 'user', content: text })
 
         await chat.run(text, {
@@ -256,6 +262,11 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
         chat.reset()
         setInitiateErr('')
         setPendingCoverage(doc)
+        // A thread of its OWN. The id was left as it was, so the second card's conversation saved
+        // over the first's draft under the same id — one revise overwriting another in the draft
+        // pile. Minted, not `clearThread`: that discards, and the previous revise is the user's
+        // unfinished work, still theirs to resume from the hamburger.
+        threadIdRef.current = newThreadId()
         // BOTH refs, and for the same reason: `_send` runs before React re-renders, so anything derived
         // from `pendingCoverage` during render — `existingCoverage` included — is still null right here.
         // Without this line the revise turn shipped `existing_coverage: null`, and the agent opened on
@@ -263,7 +274,9 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
         // rendered, on the one turn whose entire purpose is revising what is in the book.
         pendingRef.current  = doc
         existingRef.current = doc
-        _send(`Revise our coverage on ${doc.symbol}. What has changed since the last view, and does the thesis still hold?`)
+        // `[]` is the reset conversation — see `_send`'s `base`: the state closure still holds the
+        // previous name's messages here, and they must not ride along.
+        _send(`Revise our coverage on ${doc.symbol}. What has changed since the last view, and does the thesis still hold?`, [])
     }, [editCoverage?.key])   // eslint-disable-line react-hooks/exhaustive-deps
 
     // Clear is not walking away — the draft goes with the conversation, or the hub keeps marking this
