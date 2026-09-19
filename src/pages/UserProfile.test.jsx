@@ -86,7 +86,7 @@ describe('UserProfile — nav + one open section', () => {
         expect(nav.textContent).toContain('Preferences')
         expect(nav.textContent).toContain('Trading venues')
         const items = [...nav.querySelectorAll('button')].map(b => b.textContent.trim())
-        expect(items).toEqual(['Account', 'Appearance', 'AI', 'Usage', 'Brokers', 'Paper', 'Manual'])
+        expect(items).toEqual(['Account', 'Appearance', 'AI', 'Usage', 'Alerts', 'Brokers', 'Paper', 'Manual'])
         expect(navItem('Account').getAttribute('aria-current')).toBe('page')
         expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('Account')
         expect(screen.queryByText('Connect cTrader')).toBeNull()

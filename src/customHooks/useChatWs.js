@@ -5,6 +5,7 @@ import { chatService } from '../services/chat/chat.service'
 import { playNotify } from '../services/sound.service'
 import { showUserMsg } from '../services/event-bus.service'
 import { AGENTS, isBotId } from '../cmps/AxlHub/agentMeta.jsx'
+import { readChatLanding } from './chatLanding.js'
 
 // Special-card messages carry a human-readable `content` summary (it's what the
 // conversation list shows), so we prefer that; this is only a fallback for the
@@ -128,13 +129,42 @@ export function useChatWs(userId) {
         return () => chatWsService.off('new_message', onNewMessage)
     }, [userId])
 
+    // Landing from OUTSIDE the page. Two arrivals, one landing: open the chat panel on a
+    // conversation, scrolled to a message — exactly what a preview-toast click does.
+    //   - a notification tap with the app already open: the service worker posts
+    //     { type: 'open-chat', conversationId, messageId } to this window (src/sw.js)
+    //   - a notification tap with no window: the app opens on `/?chat=…&msg=…`, read once here
+    //     and stripped from the address bar so a reload does not re-open it
+    // The broker OAuth return rides the same mount-only param read.
+    const openAtRef = useRef(null)
+    openAtRef.current = (convId, msgId) => {
+        if (!convId) return
+        setPendingConvId(convId)
+        setPendingMsgId(msgId ?? null)
+        setShowChat(true)
+    }
     useEffect(() => {
         const params = new URLSearchParams(window.location.search)
         if (params.get('broker') === 'connected') {
             window.history.replaceState({}, '', window.location.pathname)
             navigate('/profile#brokers')
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only OAuth redirect; navigate is stable
+        const landing = readChatLanding(window.location.search)
+        if (landing) {
+            window.history.replaceState({}, '', window.location.pathname + landing.search + window.location.hash)
+            openAtRef.current(landing.convId, landing.msgId)
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only landing; navigate is stable
+    }, [])
+
+    useEffect(() => {
+        const sw = navigator.serviceWorker
+        if (!sw) return
+        function onMessage(ev) {
+            if (ev.data?.type === 'open-chat') openAtRef.current(ev.data.conversationId, ev.data.messageId)
+        }
+        sw.addEventListener('message', onMessage)
+        return () => sw.removeEventListener('message', onMessage)
     }, [])
 
     return { unread, setUnread, showChat, setShowChat, pendingConvId, setPendingConvId, pendingMsgId, setPendingMsgId }

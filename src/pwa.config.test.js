@@ -7,6 +7,7 @@ import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { PWA } from '../vite.config.js'
+import { NAVIGATE_DENYLIST, FONTS_PATTERN } from './pwa/rules.js'
 
 const ROOT = resolve(import.meta.dirname, '..')
 
@@ -36,20 +37,30 @@ test('the install colours are the app background, in the manifest and in index.h
 
 test('the worker never serves the API, the socket or the event stream from a cache', () => {
     // A trading app that answers from a cache is worse than one that fails. The navigate fallback
-    // (index.html for SPA routes) must skip every data path, and no runtime rule may match them.
-    const deny = PWA.workbox.navigateFallbackDenylist
+    // (index.html for SPA routes) must skip every data path, and the one runtime rule must not
+    // reach them.
     for (const path of ['/api/trade-ideas', '/api/chat/stream', '/ws', '/ws/chat', '/socket.io/?EIO=4']) {
-        assert.ok(deny.some(re => re.test(path)), `${path} would fall back to index.html`)
+        assert.ok(NAVIGATE_DENYLIST.some(re => re.test(path)), `${path} would fall back to index.html`)
     }
     // …while real SPA routes still do.
     for (const path of ['/', '/setups/abc', '/portfolio']) {
-        assert.ok(!deny.some(re => re.test(path)), `${path} wrongly denied`)
+        assert.ok(!NAVIGATE_DENYLIST.some(re => re.test(path)), `${path} wrongly denied`)
     }
-    for (const rule of PWA.workbox.runtimeCaching) {
-        for (const url of ['https://example.com/api/x', '/api/x', '/ws', '/socket.io/']) {
-            assert.ok(!rule.urlPattern.test(url), `runtime cache "${rule.options.cacheName}" matches ${url}`)
-        }
+    for (const url of ['https://example.com/api/x', '/api/x', '/ws', '/socket.io/']) {
+        assert.ok(!FONTS_PATTERN.test(url), `fonts cache matches ${url}`)
     }
+    assert.ok(FONTS_PATTERN.test('https://fonts.gstatic.com/s/x.woff2'))
+})
+
+test('the worker is the one in src/, and it reads these rules rather than its own copy', () => {
+    assert.equal(PWA.strategies, 'injectManifest')
+    assert.equal(PWA.srcDir, 'src')
+    const sw = readFileSync(resolve(ROOT, PWA.srcDir, PWA.filename), 'utf8')
+    assert.match(sw, /from '\.\/pwa\/rules\.js'/)
+    assert.match(sw, /denylist: NAVIGATE_DENYLIST/)
+    assert.match(sw, /registerRoute\(FONTS_PATTERN/)
+    // Presence is decided on the device: a focused window means no notification.
+    assert.match(sw, /w\.focused/)
 })
 
 test('the worker is off under the dev server', () => {

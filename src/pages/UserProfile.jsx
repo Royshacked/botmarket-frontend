@@ -16,6 +16,7 @@ import { DESIGNS, loadDesign, saveDesign, applyDesign } from '../services/design
 import { queuePrefSync } from '../services/preferences.service.js'
 import { PaperTradingSection } from '../cmps/PaperTrading/PaperTradingSection.jsx'
 import { ManualTradingSection } from '../cmps/ManualTrading/ManualTradingSection.jsx'
+import { PushAlertsSection } from '../cmps/PushAlerts/PushAlertsSection.jsx'
 import { useWorkspaceMode } from '../customHooks/useWorkspaceMode'
 import { initials } from '../services/util.service.js'
 import { NAV, VENUE_OF_WORKSPACE, tabFromHash } from './profileTabs.js'
@@ -337,6 +338,8 @@ export function UserProfile() {
                             </div>
                         </section>
                     )}
+
+                    {tab === 'alerts' && <PushAlertsSection />}
 
                     {tab === 'ai' && (
                         <section className="user-profile__section">

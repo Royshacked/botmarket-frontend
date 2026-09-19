@@ -7,6 +7,7 @@ export const NAV = [
         { id: 'appearance', label: 'Appearance' },
         { id: 'ai',         label: 'AI'         },
         { id: 'usage',      label: 'Usage'      },
+        { id: 'alerts',     label: 'Alerts'     },
     ]},
     { label: 'Trading venues', tabs: [
         { id: 'brokers', label: 'Brokers' },

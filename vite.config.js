@@ -8,17 +8,19 @@ import { VitePWA } from 'vite-plugin-pwa'
 const BACKEND = 'http://127.0.0.1:3030'
 
 // INSTALLABLE, NOT OFFLINE. The service worker exists so Chrome/Edge offer "Install app" on
-// desktop and Android (and so Web Push has somewhere to land later). It precaches the app SHELL —
-// the built js/css/html and the icons — and nothing else. A trading app that answers from a cache
-// is worse than one that fails: a stale price, a stale card, a "pending" that already fired. So
-// `/api`, `/ws` and `/socket.io` are on the navigate denylist and have NO runtime caching rule —
-// every request goes to the network, exactly as before the worker existed.
+// desktop and Android, and so Web Push has somewhere to land. It is OUR worker (src/sw.js,
+// injectManifest mode — the plugin only fills in the precache list): the app SHELL is precached,
+// the data paths are never touched (rules in src/pwa/rules.js, held by src/pwa.config.test.js),
+// and push + notification-click are handled there.
 //
 // `autoUpdate`: a new deploy's worker takes over on the next load without a prompt. The app has no
 // "you have unsaved work" state a forced refresh could lose — a desk's draft lives on the server.
 //
-// Exported so the config test can read the manifest and the denylist without running a build.
+// Exported so the config test can read the manifest without running a build.
 export const PWA = {
+	strategies:   'injectManifest',
+	srcDir:       'src',
+	filename:     'sw.js',
 	registerType: 'autoUpdate',
 	manifest: {
 		name:             'axl',
@@ -36,18 +38,8 @@ export const PWA = {
 			{ src: '/img/pwa-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
 		],
 	},
-	workbox: {
+	injectManifest: {
 		globPatterns: ['**/*.{js,css,html,svg,png}'],
-		navigateFallbackDenylist: [/^\/api\//, /^\/ws/, /^\/socket\.io/],
-		// The Google Fonts stylesheets + woff2 files, so an installed app does not open in the
-		// fallback font when the network is slow. Bounded, and the only runtime cache there is.
-		runtimeCaching: [
-			{
-				urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
-				handler:    'CacheFirst',
-				options:    { cacheName: 'google-fonts', expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 } },
-			},
-		],
 	},
 	// Off in dev: a worker under the Vite dev server fights HMR and the proxy above.
 	devOptions: { enabled: false },
