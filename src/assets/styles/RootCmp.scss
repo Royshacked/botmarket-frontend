@@ -9,7 +9,10 @@
     background: var(--bg-base);
 }
 
-.main-container main {
+// MainPage's workspace <main> only. This used to be the bare <main> element, which also caught
+// the profile page's <main class="user-profile__main"> and, at element+class specificity,
+// out-ranked its own overflow rules: on a phone a tall section was clipped instead of scrolling.
+.main-container .main-page {
     flex: 1;
     min-height: 0;
     overflow: hidden;
@@ -148,7 +151,7 @@
     [data-design="floor"] .workspace__right { display: none; }
 
     // The chat owns the height and scrolls inside itself — the page never scrolls.
-    .main-container main { overflow: hidden; }
+    .main-container .main-page { overflow: hidden; }
 
     // 100vh on a phone measures past the browser's own chrome, which would put the composer
     // under the URL bar. dvh tracks the visible viewport instead. (Mobile only: desktop keeps
