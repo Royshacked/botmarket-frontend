@@ -823,7 +823,9 @@ export function FloorLists({
         ipo:            ipo.length,
         // Only queued items count — in_research is work the admin already started.
         research_queue: researchQueue.filter(i => i.status === 'queued').length,
-        // one count per NAME across every event in the window
+        // One count per candidate ROW across every event in the window — a name three events
+        // reached counts three times (its chip says ×3). The backend caps whole runs, never rows,
+        // so this is the true count and not a ceiling: it read "(200)" once when it was a row cap.
         aether: (aetherCandidates?.runs ?? []).reduce((n, r) => n + (r.candidates?.length ?? 0), 0),
         // No count on Forecasts: it is a standing board rather than a list, and "(1)" beside
         // it would invite the reader to expect one. (Channels was the other, and went with
