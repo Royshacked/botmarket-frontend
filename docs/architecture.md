@@ -131,5 +131,4 @@ needs an agent busy elsewhere — a panel is a singleton.
   constants breaks Fast Refresh for every importer; `AgentSummon.jsx` has the pieces.
 - Tests: Vitest + React Testing Library, 961 across 67 files, beside the component.
 - `archive/` mirrors the backend's: the Kairos panel, its contract, the `/call/:id` pop-out — imported
-  by nothing (`archive/README.md`). `src/services/kairos/kairos.service.remote.js` is a leftover copy
-  of the archived client, imported by nothing.
+  by nothing (`archive/README.md`).
