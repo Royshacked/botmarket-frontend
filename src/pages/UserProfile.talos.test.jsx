@@ -71,10 +71,18 @@ describe('UserProfile — the Monitors (Talos) model card', () => {
         expect(screen.getByLabelText('Talos model').value).toBe('claude-sonnet-4-6')
     })
 
-    it('is not rendered for a non-admin — the chat model select still is', () => {
+    it('is not rendered for a non-admin — the chat model select still is, without the candidate', () => {
         auth.isAdmin = false
         render(<UserProfile />)
         expect(screen.queryByLabelText('Talos model')).toBeNull()
         expect(screen.getByText('AI Preferences')).toBeTruthy()
+        const chat = screen.getByRole('combobox')
+        expect([...chat.options].map(o => o.value)).not.toContain('gpt-5.6-luna')
+    })
+
+    it('the chat model select offers the Luna candidate to an admin', () => {
+        render(<UserProfile />)
+        const chat = screen.getAllByRole('combobox').find(s => s.getAttribute('aria-label') !== 'Talos model')
+        expect([...chat.options].map(o => o.value)).toContain('gpt-5.6-luna')
     })
 })

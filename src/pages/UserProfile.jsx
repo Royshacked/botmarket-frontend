@@ -10,7 +10,7 @@ import { CandleColorPicker }   from '../cmps/CandleColorPicker/CandleColorPicker
 import { ModeSwitcher }        from '../cmps/ModeSwitcher/ModeSwitcher'
 import { loadAppearance }      from '../services/themeService.js'
 import { PaceSlider }          from '../cmps/PaceSlider.jsx'
-import { MODEL_OPTIONS, readStoredModel, TALOS_MODEL_KEY, TALOS_MODEL_OPTIONS, readStoredTalosModel } from '../cmps/modelOptions.js'
+import { chatModelOptions, readStoredModel, TALOS_MODEL_KEY, TALOS_MODEL_OPTIONS, readStoredTalosModel } from '../cmps/modelOptions.js'
 import { AI_MODEL_KEY } from '../services/aiPrefKeys.js'
 import { DESIGNS, loadDesign, saveDesign, applyDesign } from '../services/designService.js'
 import { queuePrefSync } from '../services/preferences.service.js'
@@ -365,7 +365,7 @@ export function UserProfile() {
                                         value={model}
                                         onChange={e => handleModel(e.target.value)}
                                     >
-                                        {MODEL_OPTIONS.map(m => (
+                                        {chatModelOptions(isAdmin).map(m => (
                                             <option key={m.id} value={m.id}>{m.short}</option>
                                         ))}
                                     </select>
