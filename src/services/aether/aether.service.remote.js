@@ -51,12 +51,13 @@ async function getScorecard() {
 
 /**
  * Prometheus's quick read on one name from one event: credible, priced in, or contradicted.
- * A model call — Sonnet, a few cents — on the caller's budget. Resolves to the read, which is
- * also attached to the candidate on the next list refresh. Returns the stored read when one
- * exists, so pressing twice costs once.
+ * A model call — a few cents — on the caller's budget, on the model the caller's AI menu names
+ * (the server gates a candidate to an admin and falls back to Sonnet 5). Resolves to the read,
+ * which is also attached to the candidate on the next list refresh. Returns the stored read
+ * when one exists, so pressing twice costs once.
  */
-function quickRead(runId, ticker) {
-    return httpService.post(`${BASE}/quickread`, { run_id: runId, ticker })
+function quickRead(runId, ticker, { model } = {}) {
+    return httpService.post(`${BASE}/quickread`, { run_id: runId, ticker, ...(model ? { model } : {}) })
 }
 
 /**

@@ -1324,12 +1324,27 @@ describe('AetherCandidates — Prometheus quick read', () => {
         openEvent()
         openName()
         fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
-        expect(quickRead).toHaveBeenCalledWith('Canada:2026-09-08', 'NUE')
+        // The presser's menu model rides along; nothing stored → the client default.
+        expect(quickRead).toHaveBeenCalledWith('Canada:2026-09-08', 'NUE', { model: expect.any(String) })
         await waitFor(() => expect(screen.getAllByText('contradicted').length).toBeGreaterThan(0))
         expect(screen.getByText('It hedged the exposure in the 10-Q.')).toBeTruthy()
         expect(screen.getByText(/Hedged 90% of 2026 volumes/)).toBeTruthy()
         expect(screen.getByText('80%')).toBeTruthy()
         expect(screen.queryByRole('button', { name: 'Ask Prometheus' })).toBeNull()
+    })
+
+    it('the read is asked for on the AI-menu model, so a candidate can be compared on the same name', async () => {
+        localStorage.setItem('aiModel', 'gpt-5.6-luna')
+        try {
+            quickRead.mockResolvedValue(READ)
+            render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} />)
+            openEvent()
+            openName()
+            fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+            expect(quickRead).toHaveBeenCalledWith('Canada:2026-09-08', 'NUE', { model: 'gpt-5.6-luna' })
+        } finally {
+            localStorage.removeItem('aiModel')
+        }
     })
 
     it('a read already on the candidate shows without a button', () => {

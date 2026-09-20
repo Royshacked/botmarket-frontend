@@ -9,6 +9,7 @@ import { RowHost } from '../Floor/RowHost.jsx'
 import { FoldSection } from '../FoldSection.jsx'
 import { SymbolCell } from '../EntityCard/EntityCard.jsx'
 import { fmtShortDay } from '../Floor/floor.utils.js'
+import { readStoredModel } from '../modelOptions.js'
 import { openSetupPopup } from './tradeIdea.utils.js'
 import { isTerminal, isLivePosition, isAwaitingConfirm, isArmed, isUnarmed } from '../../services/entityStatus.js'
 import './AetherCandidates.scss'
@@ -580,7 +581,9 @@ function QuickRead({ c, runId, read, onRead, busy, onBusy }) {
         onBusy(true)
         setErr('')
         try {
-            const r = await aetherService.quickRead(runId, c.ticker)
+            // On the presser's AI-menu model — the one choice every desk runs on — so a candidate
+            // can be compared on the same name; the read records which model produced it.
+            const r = await aetherService.quickRead(runId, c.ticker, { model: readStoredModel() })
             onRead(r)
         } catch (e) {
             setErr(apiError(e, 'could not get a read'))
