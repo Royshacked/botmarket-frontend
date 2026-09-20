@@ -102,6 +102,72 @@ export function urgencyOf(c, now = Date.now()) {
     return age <= FRESH_DAYS ? URGENCY.fresh : URGENCY.working
 }
 
+/**
+ * The move since the event, read against Aether's claim.
+ *
+ * THE ROW USED TO SAY ONLY "moved", beside an arrow that is the CLAIM (▾ hurt, ▴ helped) and
+ * not the move. On the Meta MTIA run every "hurt" name had gone UP — AMD +13%, MRVL +12%,
+ * NVDA +5% — and the row read ▾ moved, which a reader took to the chart as "moved down" and
+ * came back saying the chart showed the opposite. And "moved" is judged at two sigma of the
+ * name's OWN daily move, so PM at −2.8% wore the same word as DELL at +28%, and −2.8% is
+ * nothing to see on a chart. The word now carries the number and the direction relative to
+ * the claim: `against +13%`, `with −11%`.
+ *
+ * `move_pct`, THE RAW MOVE, on the row — it is the number a chart shows, and the reader is
+ * checking the row against a chart. `excess_pct` (vs SPY) and the sigma stay in the hint;
+ * urgencyOf still judges "moved or not" on them, because a name up 6% in a week the market
+ * rose 6% has done nothing. Direction is read off the raw move for the same reason: the two
+ * only disagree in sign on a move too small to be called either way.
+ *
+ * `against` is the market disagreeing with the claim so far; `with` is the move Aether
+ * exists to get in front of, already partly gone. A mixed or unsided name has neither —
+ * and NOR DOES A QUIET ONE: +0.3% on a SHORT is not "against the claim", it is noise, and
+ * the direction is only a statement once urgencyOf has called the move a move.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- pure, and the direction is worth testing
+export function moveOf(c, now = Date.now()) {
+    if (c?.excess_pct == null) return null
+    const raw  = c.move_pct ?? c.excess_pct
+    const want = c.side === 'hurt' ? -1 : c.side === 'helped' ? 1 : 0
+    const got  = Math.sign(raw)
+    const big  = urgencyOf(c, now).key === 'moved'
+    const dir  = big && want && got ? (got === want ? 'with' : 'against') : null
+    const num  = signedPct(raw, Math.abs(raw) >= 0.1 ? 0 : 1)
+    const parts = [
+        `${signedPct(raw)} since the event`,
+        `${signedPct(c.excess_pct)} vs SPY`,
+        c.extension != null ? `${c.extension.toFixed(1)}σ of its own daily move` : '',
+        dir ? `${dir} Aether's ${SIDE[c.side].label}` : '',
+        c.price_asof ? `as of ${c.price_asof}` : '',
+    ].filter(Boolean)
+    return { raw, dir, label: dir ? `${dir} ${num}` : `moved ${num}`, hint: parts.join(' · ') }
+}
+
+/**
+ * What the event alone is worth, in one sentence, from the read's `delta` — Prometheus's sizing
+ * step (compute_event_delta: forward revenue × exposed share × shock × drop-through × persistence,
+ * at a constant multiple). Null when the read did not size: contradicted, a loss-maker, or no
+ * share of revenue to stand on. `open` is the base leg less what the name has already moved —
+ * the number a swing is actually built on — and `past` is the market having gone further than
+ * the event is worth, which is the yardstick "priced in" was missing.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- pure, and the sentence is worth testing
+export function sizingOf(read) {
+    const d = read?.delta
+    if (d?.delta_price_pct == null) return null
+    const worth = d.delta_price_pct / 100
+    const lo = d.delta_price_low != null ? d.delta_price_low / 100 : null
+    const hi = d.delta_price_high != null ? d.delta_price_high / 100 : null
+    const open  = d.remaining_pct != null ? d.remaining_pct / 100 : null
+    const moved = d.moved_pct != null ? d.moved_pct / 100 : null
+    const past  = open != null && worth !== 0 && Math.sign(open) !== Math.sign(worth)
+    const band  = lo != null && hi != null && lo !== hi ? ` (${signedPct(lo)} to ${signedPct(hi)})` : ''
+    const text  = `worth ${signedPct(worth)} at a constant multiple${band}`
+        + (moved != null ? ` · moved ${signedPct(moved)}` : '')
+        + (open != null ? (past ? ` · past what the event is worth` : ` · ${signedPct(open)} open`) : '')
+    return { worth, lo, hi, open, moved, past, text, basis: read.delta_basis || '' }
+}
+
 // What KIND of event this is, by who acted. A label, never a filter — the engine runs on
 // the three runnable tests, and this only tells a reader what they are looking at.
 const CATEGORY_HINT = {
@@ -219,7 +285,17 @@ export function tradable(c, now = Date.now()) {
         return { ok: false, why: 'Aether could not say which way this one goes — nothing to build a lean on' }
     }
     const urg = urgencyOf(c, now)
-    if (urg.key === 'moved') return { ok: false, why: 'the excess move has already happened — this is the part Aether exists to get in front of' }
+    if (urg.key === 'moved') {
+        // WHICH WAY it moved is the whole difference between two answers. With the claim,
+        // the move Aether exists to get in front of is partly gone. Against it, the market
+        // has so far disagreed — a different reason to wait, and the reader was taking the
+        // bare "already happened" to the chart and finding the opposite.
+        const mv = moveOf(c)
+        if (mv?.dir === 'against') {
+            return { ok: false, head: 'Moved against', why: `it is ${signedPct(mv.raw)} since the event, against Aether's ${SIDE[c.side].label} — the market disagrees so far` }
+        }
+        return { ok: false, head: 'Already moved', why: `${mv ? `it is ${signedPct(mv.raw)} since the event, the way Aether said — ` : ''}the excess move has already happened — this is the part Aether exists to get in front of` }
+    }
     if (urg.key === 'stale') return { ok: false, why: 'old enough that the mechanism needs re-checking before it is sized' }
     if (c.expires_at) {
         const ms = new Date(`${c.expires_at}T00:00:00Z`).getTime()
@@ -264,15 +340,16 @@ export function conclusionOf(c, { read = null, setup = null, now = Date.now() } 
     if (q?.verdict === 'contradicted') {
         return { tone: 'leave', head: 'Leave it', why: `contradicted${conf}: ${q.read || 'the record cuts against the mechanism'}` }
     }
+    const sized = sizingOf(q)
     if (q?.verdict === 'priced_in') {
-        return { tone: 'wait', head: 'Already priced', why: `${q.read || 'the market has looked'}` }
+        return { tone: 'wait', head: 'Already priced', why: `${q.read || 'the market has looked'}${sized ? ` — ${sized.text}` : ''}` }
     }
     const trade = tradable(c, now)
     if (!trade.ok) {
-        return { tone: 'wait', head: c.side === 'mixed' || !c.side ? 'No direction' : 'Not now', why: trade.why }
+        return { tone: 'wait', head: c.side === 'mixed' || !c.side ? 'No direction' : (trade.head ?? 'Not now'), why: trade.why }
     }
     if (q?.verdict === 'credible') {
-        return { tone: 'build', head: `Build ${side}`, why: `credible${conf}${netLabel ? `, net ${netLabel} across ${n} events` : ''}: ${q.read || 'the record confirms the exposure'}` }
+        return { tone: 'build', head: `Build ${side}`, why: `credible${conf}${netLabel ? `, net ${netLabel} across ${n} events` : ''}${sized ? ` — ${sized.text}` : ''}: ${q.read || 'the record confirms the exposure'}` }
     }
     if (q?.verdict === 'unclear') {
         return { tone: 'build', head: `${side}, unconfirmed`, why: `Prometheus found nothing either way${conf} — Aether's claim stands, unchecked` }
@@ -351,8 +428,14 @@ export function buildAetherSeed(c, run = {}) {
         lines.push(`Its filings: ${c.verdict} — not read.`)
     }
     if (c.excess_pct != null) {
+        // Raw first — Mentor reads charts too — then the market taken out, then which way
+        // against the claim. "still quiet" only when it has not been called moved.
+        const mv    = moveOf(c)
         const sigma = c.extension != null ? ` (${c.extension.toFixed(1)}σ of its own trailing move)` : ''
-        lines.push(`Since the event it is ${pct(c.excess_pct)} vs SPY${sigma}${c.price_asof ? `, as of ${c.price_asof}` : ''} — still quiet.`)
+        const close = urgencyOf(c).key === 'moved'
+            ? (mv?.dir === 'against' ? 'moved against the claim' : 'the move has begun')
+            : 'still quiet'
+        lines.push(`Since the event it is ${signedPct(c.move_pct ?? c.excess_pct)} raw, ${signedPct(c.excess_pct)} vs SPY${sigma}${c.price_asof ? `, as of ${c.price_asof}` : ''} — ${close}.`)
     } else {
         lines.push('No move measured yet.')
     }
@@ -368,6 +451,16 @@ export function buildAetherSeed(c, run = {}) {
         lines.push(`Prometheus's quick read: ${QUICKREAD_LABEL[q.verdict] ?? q.verdict}`
             + `${q.confidence != null ? ` (${Math.round(q.confidence * 100)}% confidence)` : ''}`
             + `${q.read ? ` — ${q.read}` : ''}`)
+        // The sizing — a target-shaped number for Mentor, with what is already gone taken out,
+        // and the inputs it rests on so Mentor can disagree with one rather than with the sum.
+        const sized = sizingOf(q)
+        if (sized) {
+            lines.push(`Prometheus sizes this event alone at ${signedPct(sized.worth)} to the price at a constant multiple`
+                + `${sized.lo != null && sized.hi != null && sized.lo !== sized.hi ? ` (band ${signedPct(sized.lo)} to ${signedPct(sized.hi)})` : ''}`
+                + `${sized.moved != null ? `; moved ${signedPct(sized.moved)} since` : ''}`
+                + `${sized.open != null ? (sized.past ? ' — the market is already past it' : `, about ${signedPct(sized.open)} still open`) : ''}`
+                + `${sized.basis ? `. Basis: ${sized.basis}` : ''}.`)
+        }
         // The net, when several events name it — the thing Mentor most needs when the events
         // disagree, and the line the seed's lean cannot be allowed to contradict.
         if (q.net) {
@@ -441,6 +534,7 @@ const QUICKREAD_HINT = {
  */
 function QuickRead({ c, runId, read, onRead, busy, onBusy }) {
     const [err, setErr] = useState('')
+    const sizing = sizingOf(read)
 
     if (read?.verdict) {
         return (
@@ -461,6 +555,16 @@ function QuickRead({ c, runId, read, onRead, busy, onBusy }) {
                     </span>
                 )}
                 {read.read && <p className="floor-detail__prose">{read.read}</p>}
+                {/* The sizing, when the read did one: what this event alone is worth against what
+                    has moved. The four inputs are the model's and are named in the basis; the
+                    arithmetic was the tool's. */}
+                {sizing && (
+                    <p className={`floor-detail__prose aether-candidates__read-size${sizing.past ? ' aether-candidates__read-size--past' : ''}`}
+                       title="Prometheus's sizing of this one event: forward revenue × exposed share × shock × drop-through × persistence, at a constant multiple — no re-rating, no sentiment. Band from the shock range.">
+                        <strong>Sized:</strong> {sizing.text}
+                        {sizing.basis && <em> — {sizing.basis}</em>}
+                    </p>
+                )}
                 {read.evidence?.length > 0 && (
                     <ul>
                         {read.evidence.map((e, i) => (
@@ -739,9 +843,9 @@ function rate(v) {
 }
 
 /** `+1.4%` from 0.014 — signed, because the sign is the whole point of a mean move. */
-function signedPct(v) {
+function signedPct(v, digits = 1) {
     if (v == null) return '—'
-    const s = (v * 100).toFixed(1)
+    const s = (v * 100).toFixed(digits)
     return `${v > 0 ? '+' : ''}${s}%`
 }
 
@@ -918,6 +1022,13 @@ function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTra
     }, [isOpen])
     const dir = SIDE[c.side]?.dir ?? 'mixed'
     const urg = urgencyOf(c)
+    // The status word carries the move when there is one to carry: a moved name says how far
+    // and which way against the claim (`against +13%`), and every other status keeps its word
+    // with the measured move in its hint, so the row and the chart can be read side by side.
+    const mv  = moveOf(c)
+    const statusLabel = urg.key === 'moved' && mv ? mv.label : urg.label
+    const statusHint  = mv ? `${urg.hint} · ${mv.hint}` : urg.hint
+    const statusMod   = urg.key === 'moved' && mv?.dir === 'against' ? ' floor-row__status--against' : ''
     const mag = magnitude(c)
     const hz = horizon(c)
     const others = recur ? recur.appearances.filter(a => a.run_id !== runId) : []
@@ -977,8 +1088,8 @@ function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTra
                     )}
                     <span className="floor-row__kind" title={hz.hint}>{hz.label}</span>
                     <span className="floor-row__score" title={mag.hint}>{mag.label}</span>
-                    <span className={`floor-row__status floor-row__status--${urg.key}`} title={urg.hint}>
-                        {urg.label}
+                    <span className={`floor-row__status floor-row__status--${urg.key}${statusMod}`} title={statusHint}>
+                        {statusLabel}
                     </span>
                 </button>
             </RowHost>
@@ -1022,13 +1133,20 @@ function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTra
 
                         <Section title="Move and clock"
                                  tail={[
-                                     c.excess_pct != null ? `${pct(c.excess_pct)} vs SPY` : 'no move measured',
+                                     mv ? `${signedPct(mv.raw)} ${mv.dir ? `${mv.dir} the claim` : 'since the event'}` : 'no move measured',
                                      c.expires_at ? `expires ${c.expires_at}` : '',
                                  ].filter(Boolean).join(' · ')}>
+                            {/* THE RAW MOVE FIRST — it is what a chart shows, and the reader has one open.
+                                Then the market taken out, then the sigma that decides "moved". "From the
+                                close before the event" because the event day's own close already holds
+                                the reaction, and a reader anchoring on the event day sees a smaller move. */}
                             {c.move_pct != null && (
                                 <p className="floor-detail__prose">
-                                    {pct(c.move_pct)} raw, <strong>{pct(c.excess_pct)} vs SPY</strong>
-                                    {c.extension != null && <> · {c.extension.toFixed(1)}σ</>}
+                                    <strong>{signedPct(c.move_pct)}</strong> from the close before the event
+                                    {c.event_date && <> ({c.event_date})</>}
+                                    {mv?.dir && <>, <strong>{mv.dir}</strong> Aether’s {SIDE[c.side].label}</>}
+                                    {' · '}{signedPct(c.excess_pct)} vs SPY
+                                    {c.extension != null && <> · {c.extension.toFixed(1)}σ of its own daily move</>}
                                     {c.reaction && c.reaction !== 'unknown' && <> · {c.reaction}</>}
                                     {c.price_asof && <> · as of {c.price_asof}</>}
                                 </p>

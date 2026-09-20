@@ -450,3 +450,10 @@
     font-size: var(--chat-label);
     color: var(--text-secondary);
 }
+
+// The sizing line under a read. `--past` is the market having moved further than the event is
+// worth — the one sizing outcome that changes the verdict on its own, so it takes the warning hue.
+.aether-candidates__read-size {
+    margin-top: 4px;
+    &--past { color: var(--color-warning); }
+}

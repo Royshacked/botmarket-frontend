@@ -776,6 +776,9 @@ $header-h: var(--header-h);
         // happened — and in red it would read as bearish on a name the engine may well
         // have called long. Contrast carries the ladder; hue would lie about it.
         &--moved    { color: var(--text-secondary); }
+        // A moved name that went AGAINST the claim — the market disagreeing so far — is the
+        // one word on the row worth a warning hue. Direction, not size; `with` stays as above.
+        &--against  { color: var(--color-warning); }
         &--fresh    { color: var(--color-long); }
         &--working  { color: var(--accent-light); }
         &--stale    { color: var(--text-dim); }

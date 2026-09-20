@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor, within, act } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { AetherCandidates, urgencyOf, byTicker, recurring, lastEventDate, tradable, buildAetherSeed, scorecardLine, existingSetupFor, conclusionOf } from './AetherCandidates.jsx'
+import { AetherCandidates, urgencyOf, moveOf, sizingOf, byTicker, recurring, lastEventDate, tradable, buildAetherSeed, scorecardLine, existingSetupFor, conclusionOf } from './AetherCandidates.jsx'
 import { ADMIN, MEMBER } from '../../testUtils/authStub.js'
 
 // Discovery is the one leg of the engine that spends per press — an Opus call with web
@@ -321,6 +321,41 @@ describe('AetherCandidates scrolling', () => {
         // the guard is worse than no rule: the next reader stops looking.
         expect(css).not.toMatch(/\.aether-candidates__run \{/)
         expect(css).not.toMatch(/\.aether-candidates__table \{/)
+    })
+})
+
+describe('moveOf — the move read against the claim', () => {
+    it('nothing measured is null', () => {
+        expect(moveOf({ side: 'hurt' })).toBeNull()
+        expect(moveOf({ side: 'hurt', excess_pct: null })).toBeNull()
+    })
+
+    it('a quiet name has no direction — +0.3% on a SHORT is noise, not "against"', () => {
+        expect(moveOf({ side: 'hurt', move_pct: 0.003, excess_pct: 0.003, extension: 0.2 }).dir).toBeNull()
+        expect(moveOf({ side: 'hurt', move_pct: 0.003, excess_pct: 0.003, extension: 0.2 }).label).toBe('moved +0.3%')
+    })
+
+    it('a hurt name that went up is against; one that went down is with', () => {
+        expect(moveOf({ side: 'hurt', move_pct: 0.135, excess_pct: 0.131 }).dir).toBe('against')
+        expect(moveOf({ side: 'hurt', move_pct: -0.11, excess_pct: -0.10 }).dir).toBe('with')
+        expect(moveOf({ side: 'helped', move_pct: 0.18, excess_pct: 0.17 }).dir).toBe('with')
+        expect(moveOf({ side: 'helped', move_pct: -0.14, excess_pct: -0.13 }).dir).toBe('against')
+    })
+
+    it('a mixed or unsided name has no direction, and says "moved"', () => {
+        expect(moveOf({ side: 'mixed', move_pct: 0.05, excess_pct: 0.04 })).toMatchObject({ dir: null, label: 'moved +5.0%' })
+        expect(moveOf({ move_pct: 0.05, excess_pct: 0.04 }).dir).toBeNull()
+    })
+
+    it('the label rounds to whole percent from ten up, one decimal below', () => {
+        expect(moveOf({ side: 'hurt', move_pct: 0.2878, excess_pct: 0.285 }).label).toBe('against +29%')
+        // PM: -2.8% raw is a move at two sigma of its own daily range — the number says why it is not on the chart.
+        expect(moveOf({ side: 'hurt', move_pct: -0.028, excess_pct: -0.0365, extension: -2.05 }).label).toBe('with -2.8%')
+    })
+
+    it('the raw move is what is shown; excess is the fallback when the engine stored none', () => {
+        expect(moveOf({ side: 'helped', excess_pct: 0.012 }).raw).toBe(0.012)
+        expect(moveOf({ side: 'helped', move_pct: 0.03, excess_pct: 0.012 }).raw).toBe(0.03)
     })
 })
 
@@ -1016,10 +1051,21 @@ describe('tradable — the gate on the hand-off', () => {
         expect(tradable(quiet(), NOW).ok).toBe(true)
     })
 
-    it('a name that has moved is not — that already happened', () => {
-        const t = tradable(quiet({ extension: 2.4 }), NOW)
+    it('a name that has moved the way Aether said is not — that already happened', () => {
+        const t = tradable(quiet({ move_pct: -0.06, excess_pct: -0.055, extension: -2.4 }), NOW)
         expect(t.ok).toBe(false)
-        expect(t.why).toMatch(/already happened/)
+        expect(t.head).toBe('Already moved')
+        expect(t.why).toMatch(/-6\.0% since the event, the way Aether said — the excess move has already happened/)
+    })
+
+    it('a name that has moved AGAINST the claim is not either — and says so, not "already happened"', () => {
+        // The row read ▾ moved on AMD at +13%; the reader took it to the chart and found the
+        // opposite. The arrow is the claim, and the move went the other way.
+        const t = tradable(quiet({ move_pct: 0.135, excess_pct: 0.131, extension: 3.0 }), NOW)
+        expect(t.ok).toBe(false)
+        expect(t.head).toBe('Moved against')
+        expect(t.why).toMatch(/\+13\.5% since the event, against Aether's SHORT — the market disagrees so far/)
+        expect(t.why).not.toMatch(/already happened/)
     })
 
     it('a stale name is not, until re-checked', () => {
@@ -1090,8 +1136,16 @@ describe('buildAetherSeed — what the user says to Mentor', () => {
         expect(seed).toMatch(/Its filings: quantified — "tariffs cost \$19 million"/)
     })
 
-    it('the move is stated against SPY with its sigma and date', () => {
-        expect(buildAetherSeed(c, run)).toMatch(/Since the event it is 1\.2% vs SPY \(0\.4σ of its own trailing move\), as of 2026-09-14 — still quiet\./)
+    it('the move is stated raw first, then against SPY with its sigma and date', () => {
+        // Raw first because Mentor reads charts too; no move_pct on this fixture, so raw = excess.
+        expect(buildAetherSeed(c, run)).toMatch(/Since the event it is \+1\.2% raw, \+1\.2% vs SPY \(0\.4σ of its own trailing move\), as of 2026-09-14 — still quiet\./)
+    })
+
+    it('a moved name says which way — against the claim is not "still quiet"', () => {
+        const against = buildAetherSeed({ ...c, move_pct: -0.11, excess_pct: -0.10, extension: -3.2 }, run)
+        expect(against).toMatch(/-11\.0% raw, -10\.0% vs SPY .* — moved against the claim\./)
+        const withIt = buildAetherSeed({ ...c, move_pct: 0.115, excess_pct: 0.116, extension: 4.1 }, run)
+        expect(withIt).toMatch(/\+11\.5% raw, \+11\.6% vs SPY .* — the move has begun\./)
     })
 
     it('an unmeasured move is said to be unmeasured, never zero', () => {
@@ -1136,7 +1190,7 @@ describe('AetherCandidates — Trade with Mentor', () => {
     })
 
     it('is disabled, with the reason beside it, for a name that has moved', () => {
-        const moved = { ...NOW_RUN, candidates: [{ ...NOW_RUN.candidates[0], extension: 3.1 }] }
+        const moved = { ...NOW_RUN, candidates: [{ ...NOW_RUN.candidates[0], move_pct: -0.07, excess_pct: -0.065, extension: -3.1 }] }
         render(<AetherCandidates runs={[moved]} onTradeWithMentor={vi.fn()} />)
         openEvent()
         openName()
@@ -1144,6 +1198,37 @@ describe('AetherCandidates — Trade with Mentor', () => {
         expect(b.disabled).toBe(true)
         // Said twice on purpose: under the button, and as the conclusion up top.
         expect(screen.getAllByText(/already happened/).length).toBe(2)
+    })
+
+    it('the row says how far and which way a moved name went — the arrow beside it is the claim', () => {
+        // ▾ is Aether's SHORT. AMD went +13% — the row used to read "▾ moved", and the chart
+        // showed the opposite. Now: `against +13%`, in the warning hue, with the raw, the
+        // vs-SPY and the sigma in the hint.
+        const against = { ...NOW_RUN, candidates: [{ ...NOW_RUN.candidates[0], move_pct: 0.1346, excess_pct: 0.131, extension: 2.99, price_asof: '2026-09-18' }] }
+        render(<AetherCandidates runs={[against]} />)
+        openEvent()
+        const cell = document.querySelector('.floor-row--sub .floor-row__status')
+        expect(cell.textContent).toBe('against +13%')
+        expect(cell.className).toMatch(/floor-row__status--moved/)
+        expect(cell.className).toMatch(/floor-row__status--against/)
+        expect(cell.title).toMatch(/\+13\.5% since the event · \+13\.1% vs SPY · 3\.0σ of its own daily move · against Aether's SHORT · as of 2026-09-18/)
+    })
+
+    it('a moved name that went the way Aether said reads `with`, in the ordinary hue', () => {
+        const withIt = { ...NOW_RUN, candidates: [{ ...NOW_RUN.candidates[0], move_pct: -0.1142, excess_pct: -0.1056, extension: -4.92 }] }
+        render(<AetherCandidates runs={[withIt]} />)
+        openEvent()
+        const cell = document.querySelector('.floor-row--sub .floor-row__status')
+        expect(cell.textContent).toBe('with -11%')
+        expect(cell.className).not.toMatch(/--against/)
+    })
+
+    it('a quiet name keeps its word and carries the measured move in the hint', () => {
+        render(<AetherCandidates runs={[NOW_RUN]} />)
+        openEvent()
+        const cell = document.querySelector('.floor-row--sub .floor-row__status')
+        expect(cell.textContent).toBe('fresh')
+        expect(cell.title).toMatch(/still quiet · \+0\.3% since the event · \+0\.3% vs SPY · 0\.2σ/)
     })
 
     it('is not offered at all where there is no Mentor to hand to', () => {
@@ -1327,6 +1412,38 @@ describe('AetherCandidates — Prometheus quick read', () => {
         fireEvent.click(screen.getByRole('button', { name: /Trade with Mentor/ }))
         const [, message] = onTradeWithMentor.mock.calls[0]
         expect(message).toMatch(/Prometheus's quick read: contradicted \(80% confidence\) — It hedged the exposure in the 10-Q\./)
+    })
+
+    it('a sized read shows what the event is worth against what has moved, and the seed carries it', async () => {
+        // Prometheus's sizing step: the tool's own numbers, copied into the read. Shown under the
+        // verdict with the basis, and handed to Mentor as a target-shaped number with what is
+        // already gone taken out.
+        const sized = { verdict: 'credible', confidence: 0.7, read: 'The 10-K names the line.', evidence: [],
+                        delta: { delta_price_pct: -11.25, delta_price_low: -15, delta_price_high: -7.5, moved_pct: -2, remaining_pct: -9.25 },
+                        delta_basis: '12% of revenue from the segment note; a 20–40% cut for two quarters at ~50% drop-through' }
+        quickRead.mockResolvedValue(sized)
+        const onTradeWithMentor = vi.fn()
+        render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} onTradeWithMentor={onTradeWithMentor} />)
+        openEvent()
+        openName()
+        fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+        await waitFor(() => expect(screen.getAllByText('credible').length).toBeGreaterThan(0))
+        const line = document.querySelector('.aether-candidates__read-size')
+        expect(line.textContent).toBe('Sized: worth -11.3% at a constant multiple (-15.0% to -7.5%) · moved -2.0% · -9.3% open — 12% of revenue from the segment note; a 20–40% cut for two quarters at ~50% drop-through')
+        expect(line.className).not.toMatch(/--past/)
+        fireEvent.click(screen.getByRole('button', { name: /Trade with Mentor/ }))
+        const [, message] = onTradeWithMentor.mock.calls[0]
+        expect(message).toMatch(/Prometheus sizes this event alone at -11\.3% to the price at a constant multiple \(band -15\.0% to -7\.5%\); moved -2\.0% since, about -9\.3% still open\. Basis: 12% of revenue/)
+    })
+
+    it('an unsized read shows no sizing line at all — never a number that was not computed', async () => {
+        quickRead.mockResolvedValue(READ)
+        render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} />)
+        openEvent()
+        openName()
+        fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+        await waitFor(() => expect(screen.getAllByText('contradicted').length).toBeGreaterThan(0))
+        expect(document.querySelector('.aether-candidates__read-size')).toBeNull()
     })
 
     it('the trade waits while Prometheus is reading, so the seed carries the verdict', async () => {
@@ -1611,6 +1728,33 @@ describe('AetherCandidates — the open thing goes to the top and stays there', 
 })
 
 
+describe('sizingOf — the event alone, in one sentence', () => {
+    it('nothing sized is null: no read, no delta, a delta with no percentage', () => {
+        expect(sizingOf(null)).toBeNull()
+        expect(sizingOf({ verdict: 'credible' })).toBeNull()
+        expect(sizingOf({ delta: { delta_price_pct: null, delta_net_income: 3e7 } })).toBeNull()
+    })
+
+    it('worth, band, moved and open — in fractions, for signedPct', () => {
+        const z = sizingOf({ delta: { delta_price_pct: -11.25, delta_price_low: -15, delta_price_high: -7.5, moved_pct: -2, remaining_pct: -9.25 }, delta_basis: 'b' })
+        expect(z).toMatchObject({ worth: -0.1125, lo: -0.15, hi: -0.075, moved: -0.02, open: -0.0925, past: false, basis: 'b' })
+        expect(z.text).toBe('worth -11.3% at a constant multiple (-15.0% to -7.5%) · moved -2.0% · -9.3% open')
+    })
+
+    it('a market already past the event is said as such, not as a positive number still open', () => {
+        // worth −2.5%, moved −9% → remaining +6.5%: the sign flipped, and "+6.5% open" would read
+        // as upside on a short. The yardstick priced_in was missing.
+        const z = sizingOf({ delta: { delta_price_pct: -2.5, moved_pct: -9, remaining_pct: 6.5 } })
+        expect(z.past).toBe(true)
+        expect(z.text).toBe('worth -2.5% at a constant multiple · moved -9.0% · past what the event is worth')
+    })
+
+    it('no band when the legs are absent or equal; no moved or open when none was given', () => {
+        expect(sizingOf({ delta: { delta_price_pct: 7.5 } }).text).toBe('worth +7.5% at a constant multiple')
+        expect(sizingOf({ delta: { delta_price_pct: 7.5, delta_price_low: 7.5, delta_price_high: 7.5 } }).text).toBe('worth +7.5% at a constant multiple')
+    })
+})
+
 describe('conclusionOf — the one line before the sections', () => {
     // A fixed order of authority: built > Prometheus's net > its verdict > the trade gates >
     // Aether's own claim. Each step is the reason the next one need not be read.
@@ -1658,7 +1802,18 @@ describe('conclusionOf — the one line before the sections', () => {
     it('a trade gate comes before a credible verdict — a moved name is not built on', () => {
         const k = conclusionOf(c({ excess_pct: 0.2, extension: 3.5, quick_read: q() }))
         expect(k.tone).toBe('wait')
-        expect(k.why).toMatch(/already happened/)
+        expect(k.head).toMatch(/^(Already moved|Moved against)$/)
+        expect(k.why).toMatch(/since the event/)
+    })
+
+    it('a sized verdict carries the sizing in its clause — credible says what is open, priced says how far past', () => {
+        const d = { delta_price_pct: -8, moved_pct: -2, remaining_pct: -6 }
+        const k = conclusionOf(c({ quick_read: q({ delta: d }) }))
+        expect(k.head).toBe('Build SHORT')
+        expect(k.why).toMatch(/credible, 80% — worth -8\.0% at a constant multiple · moved -2\.0% · -6\.0% open: It filed\./)
+        const past = conclusionOf(c({ quick_read: q({ verdict: 'priced_in', read: 'Estimates moved.', delta: { delta_price_pct: -3, moved_pct: -9, remaining_pct: 6 } }) }))
+        expect(past.head).toBe('Already priced')
+        expect(past.why).toBe('Estimates moved. — worth -3.0% at a constant multiple · moved -9.0% · past what the event is worth')
     })
 
     it('no direction has its own head', () => {
@@ -1714,7 +1869,7 @@ describe('AetherCandidates — the drawer is a conclusion and folded sections', 
         const tails = secs.map(d => d.querySelector('.fold-section__tail').textContent)
         expect(tails[0]).toBe('tier 2 · supplier or customer')
         expect(tails[1]).toBe('quantified')
-        expect(tails[2]).toBe('0.3% vs SPY · expires 2099-01-01')
+        expect(tails[2]).toBe('+0.3% since the event · expires 2099-01-01')
         expect(tails[3]).toBe('priced in 60% · net short')
     })
 
