@@ -8,10 +8,12 @@ export const MODEL_OPTIONS = [
     { id: 'claude-sonnet-4-6',         label: 'Claude Sonnet 4.6', short: 'Sonnet 4.6' },
     { id: 'claude-opus-4-8',           label: 'Claude Opus 4.8',   short: 'Opus 4.8' },
     { id: 'claude-opus-5',             label: 'Claude Opus 5',     short: 'Opus 5' },
-    // A CANDIDATE for the desks' base model (2026-09-20), offered to an admin only — the backend's
+    // CANDIDATES for the desks' base model (2026-09-20), offered to an admin only — the backend's
     // registry gates it the same way (llmModels adminOnly → resolveAgentStream), so a stored value
     // on a non-admin account is routed to the default server-side. See chatModelOptions.
-    { id: 'gpt-5.6-luna',              label: 'GPT-5.6 Luna',      short: 'Luna (admin)', adminOnly: true },
+    { id: 'gpt-5.6-luna',              label: 'GPT-5.6 Luna',      short: 'Luna (admin)',       adminOnly: true },
+    { id: 'qwen3.7-plus',              label: 'Qwen3.7-Plus',      short: 'Qwen (admin)',       adminOnly: true },
+    { id: 'mistral-medium-3.5',        label: 'Mistral Medium 3.5', short: 'Mistral (admin)',   adminOnly: true },
 ]
 
 /** The chat model options this user may pick from. */
