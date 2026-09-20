@@ -90,6 +90,50 @@ describe('useAetherCandidates', () => {
         expect(result.current.runs).toHaveLength(1)
     })
 
+    it('a quick read lands on its candidate in the list, and only on it', async () => {
+        // The row that asked for the read unmounts when the reader leaves the list; the
+        // read has to live here, with the list, or it reads as never asked on the way back.
+        aetherService.getCandidates.mockResolvedValue([
+            { run_id: 'a', candidates: [{ ticker: 'CVX' }, { ticker: 'DHT' }] },
+            { run_id: 'b', candidates: [{ ticker: 'CVX' }] },
+        ])
+        const { result } = renderHook(() => useAetherCandidates())
+        await waitFor(() => expect(result.current.loading).toBe(false))
+
+        const read = { verdict: 'contradicted', net: 'hurt' }
+        act(() => { result.current.onRead('a', 'CVX', read) })
+
+        const [a, b] = result.current.runs
+        expect(a.candidates[0].quick_read).toBe(read)
+        expect(a.candidates[1].quick_read).toBeUndefined()
+        expect(b.candidates[0].quick_read).toBeUndefined()
+        expect(aetherService.getCandidates).toHaveBeenCalledTimes(1)
+    })
+
+    it('a read for a name the list does not hold changes nothing', async () => {
+        const { result } = renderHook(() => useAetherCandidates())
+        await waitFor(() => expect(result.current.loading).toBe(false))
+        const before = result.current.runs
+        act(() => {
+            result.current.onRead('Canada:2026-09-08', 'NUE', { verdict: 'credible' })
+            result.current.onRead('nope', 'NUE', { verdict: 'credible' })
+            result.current.onRead('Canada:2026-09-08', 'NUE', null)
+        })
+        expect(result.current.runs[0]).toBe(before[0])
+    })
+
+    it('the server’s own copy wins on the next list read', async () => {
+        aetherService.getCandidates.mockResolvedValue([{ run_id: 'a', candidates: [{ ticker: 'CVX' }] }])
+        const { result } = renderHook(() => useAetherCandidates())
+        await waitFor(() => expect(result.current.loading).toBe(false))
+        act(() => { result.current.onRead('a', 'CVX', { verdict: 'unclear' }) })
+
+        const stored = { verdict: 'priced_in', read_at: '2026-09-20T19:46:47Z' }
+        aetherService.getCandidates.mockResolvedValue([{ run_id: 'a', candidates: [{ ticker: 'CVX', quick_read: stored }] }])
+        await act(async () => { fire(DISCOVERY_EVENT, { running: false }) })
+        await waitFor(() => expect(result.current.runs[0].candidates[0].quick_read).toEqual(stored))
+    })
+
     it('stops listening on unmount', async () => {
         const { result, unmount } = renderHook(() => useAetherCandidates())
         await waitFor(() => expect(result.current.loading).toBe(false))

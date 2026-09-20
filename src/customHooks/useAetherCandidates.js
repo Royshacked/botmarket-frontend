@@ -64,5 +64,22 @@ export function useAetherCandidates({ days = 30 } = {}) {
         }
     }, [load])
 
-    return { runs, loading, error }
+    // A QUICK READ LANDS HERE, not in the row that asked for it. The server stores the read
+    // and joins it onto the candidate on the next list read — but the next list read is a
+    // discovery run or a reconnect, and this hook lives in MainPage for the whole session.
+    // The row used to keep the read in its own state until then, so leaving the list and
+    // coming back (the row unmounts) showed four names "not asked" that Prometheus had
+    // just read and the database already held. Patched into `runs` here, the read survives
+    // every row the list mounts until the server's copy replaces it.
+    const onRead = useCallback((runId, ticker, read) => {
+        if (!runId || !ticker || !read) return
+        setRuns(prev => prev.map(run => {
+            if (run.run_id !== runId) return run
+            const cands = run.candidates ?? []
+            if (!cands.some(c => c.ticker === ticker)) return run
+            return { ...run, candidates: cands.map(c => c.ticker === ticker ? { ...c, quick_read: read } : c) }
+        }))
+    }, [])
+
+    return { runs, loading, error, onRead }
 }

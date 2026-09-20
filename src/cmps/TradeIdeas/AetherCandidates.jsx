@@ -883,10 +883,18 @@ Section.propTypes = { tone: PropTypes.string }
  * jump opens the OTHER event, which is the one place the event-first list has to be able
  * to cross from one event to another.
  */
-function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTradeWithMentor, setup, onOpenSetup }) {
+function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTradeWithMentor, setup, onOpenSetup, onRead }) {
     const runId = run.run_id
-    // A read produced on this screen, until the next list refresh carries it on `c` itself.
+    // A read produced on this screen. It goes UP to the list's owner (`onRead`, the hook in
+    // MainPage) so it outlives this row — the list is fetched once a session, and a read held
+    // only here was gone the moment the reader left the list and came back. The local copy is
+    // the fallback for a host that passes no `onRead`, and covers the frame before the patched
+    // `c` arrives.
     const [localRead, setLocalRead] = useState(null)
+    function landRead(r) {
+        setLocalRead(r)
+        onRead?.(runId, c.ticker, r)
+    }
     // One in flight. Held here rather than in QuickRead so the trade button can wait for it.
     const [reading, setReading] = useState(false)
     const read = c.quick_read ?? localRead
@@ -1075,7 +1083,7 @@ function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTra
                                  tail={read?.verdict
                                      ? `${QUICKREAD_LABEL[read.verdict] ?? read.verdict}${read.confidence != null ? ` ${Math.round(read.confidence * 100)}%` : ''}${read.net ? ` · ${NET_LABEL[read.net] ?? read.net}` : ''}`
                                      : reading ? 'reading…' : 'not asked'}>
-                            <QuickRead c={c} runId={runId} read={read} onRead={setLocalRead}
+                            <QuickRead c={c} runId={runId} read={read} onRead={landRead}
                                        busy={reading} onBusy={setReading} />
                         </Section>
 
@@ -1137,6 +1145,8 @@ NameRow.propTypes = {
     onTradeWithMentor: PropTypes.func,
     setup: PropTypes.object,
     onOpenSetup: PropTypes.func.isRequired,
+    // (runId, ticker, read) → the list's owner keeps the read on the candidate.
+    onRead: PropTypes.func,
 }
 
 /** What the event's filings said, for the row: "8/45 sized", with the run's own verdict on hover. */
@@ -1151,7 +1161,7 @@ function evidenceCell(run) {
     }
 }
 
-export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick, onTradeWithMentor, setups = [], onOpenSetup = openSetupPopup }) {
+export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick, onTradeWithMentor, setups = [], onOpenSetup = openSetupPopup, onRead }) {
     // ONE EVENT OPEN AT A TIME, and folded siblings collapse to nothing. Not a preference —
     // it is the mechanic every other list in this column uses (3bbfa59), and a list that
     // expands differently from the four above it reads as a different kind of thing.
@@ -1319,6 +1329,7 @@ export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick
                                             onTradeWithMentor={onTradeWithMentor}
                                             setup={existingSetupFor(c.ticker, setups)}
                                             onOpenSetup={onOpenSetup}
+                                            onRead={onRead}
                                         />
                                     )
                                 })}
@@ -1360,4 +1371,7 @@ AetherCandidates.propTypes = {
     // The workspace's setups — a live one on a name replaces the hand-off with "already built".
     setups: PropTypes.array,
     onOpenSetup: PropTypes.func,
+    // (runId, ticker, read) → a quick read lands on the candidate in the list's own state, so
+    // it is still there when the reader leaves this list and comes back. From useAetherCandidates.
+    onRead: PropTypes.func,
 }

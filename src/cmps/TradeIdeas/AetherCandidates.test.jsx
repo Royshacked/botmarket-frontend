@@ -1283,6 +1283,29 @@ describe('AetherCandidates — Prometheus quick read', () => {
         expect(chip.title).toMatch(/net short across every event naming it/)
     })
 
+    it('a produced read is handed UP to the list owner, so it outlives the row', async () => {
+        // The list is fetched once a session; a read kept only in the row's state was gone
+        // the moment the reader left the list and came back. The owner patches its `runs`.
+        quickRead.mockResolvedValue(READ)
+        const onRead = vi.fn()
+        render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} onRead={onRead} />)
+        openEvent()
+        openName()
+        fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+        await waitFor(() => expect(onRead).toHaveBeenCalledWith('Canada:2026-09-08', 'NUE', READ))
+    })
+
+    it('a read that failed is not handed up', async () => {
+        quickRead.mockRejectedValue(new Error('budget'))
+        const onRead = vi.fn()
+        render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} onRead={onRead} />)
+        openEvent()
+        openName()
+        fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+        await waitFor(() => expect(screen.getByText(/budget/)).toBeTruthy())
+        expect(onRead).not.toHaveBeenCalled()
+    })
+
     it('a failed read keeps the button and says why', async () => {
         quickRead.mockRejectedValue(new Error('budget'))
         render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} />)

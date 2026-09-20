@@ -740,6 +740,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                         runs={aetherCandidates?.runs ?? []}
                         loading={aetherCandidates?.loading}
                         error={aetherCandidates?.error}
+                        onRead={aetherCandidates?.onRead}
                         onSymbolClick={onSymbolClick}
                         onTradeWithMentor={aetherCandidates?.onTradeWithMentor}
                         setups={setups}
