@@ -5,6 +5,7 @@ const push = vi.hoisted(() => ({
     pushStatus:  vi.fn(),
     enablePush:  vi.fn(),
     disablePush: vi.fn(),
+    describeDevice: () => ({ browser: 'Chrome', standalone: true, origin: 'test', line: 'Chrome · installed app · test' }),
 }))
 vi.mock('../../services/push.service.js', () => push)
 
@@ -62,5 +63,11 @@ describe('PushAlertsSection', () => {
         render(<PushAlertsSection />)
         expect(await screen.findByText('Unavailable')).toBeTruthy()
         expect(screen.queryByRole('button')).toBeNull()
+    })
+
+    it('names the device, so a report can say which browser and origin it is about', async () => {
+        push.pushStatus.mockResolvedValue('off')
+        render(<PushAlertsSection />)
+        expect(await screen.findByText('Chrome · installed app · test')).toBeTruthy()
     })
 })

@@ -91,3 +91,23 @@ export function sameKey(stored, ours) {
     for (let i = 0; i < a.length; i++) if (a[i] !== ours[i]) return false
     return true
 }
+
+/**
+ * Where this page is running, for the Alerts page — the three facts a "notifications stopped
+ * working" report needs: which browser, whether it is the installed app or a tab (or an in-app
+ * WebView, which has its own storage and no subscription of the app's), and which origin (a
+ * subscription is per origin). PURE over the globals it is handed.
+ */
+export function describeDevice(win = globalThis) {
+    const ua      = String(win.navigator?.userAgent ?? '')
+    const browser = /Instagram|FBAN|FBAV|WhatsApp|Telegram|Line\//i.test(ua) ? 'in-app browser'
+        : /SamsungBrowser/i.test(ua) ? 'Samsung Internet'
+        : /EdgA?\//i.test(ua)        ? 'Edge'
+        : /Firefox|FxiOS/i.test(ua)  ? 'Firefox'
+        : /CriOS|Chrome/i.test(ua)   ? 'Chrome'
+        : /Safari/i.test(ua)         ? 'Safari'
+        : 'browser'
+    const standalone = Boolean(win.matchMedia?.('(display-mode: standalone)')?.matches || win.navigator?.standalone)
+    const origin     = win.location?.host ?? ''
+    return { browser, standalone, origin, line: `${browser} · ${standalone ? 'installed app' : 'browser tab'} · ${origin}` }
+}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { pushStatus, enablePush, disablePush } from '../../services/push.service.js'
+import { pushStatus, enablePush, disablePush, describeDevice } from '../../services/push.service.js'
 import { showErrorMsg, showSuccessMsg } from '../../services/event-bus.service'
 import './PushAlertsSection.scss'
 
@@ -57,6 +57,9 @@ export function PushAlertsSection() {
                 </span>
             </div>
             <p className="push-alerts__copy">{status ? COPY[status] : ''}</p>
+            {/* The device, named: a subscription belongs to one browser profile on one origin, and
+                "it was on, now it's off" is nearly always a different one of those. */}
+            <p className="push-alerts__device">{describeDevice().line}</p>
             {canToggle && (
                 <button
                     className={`user-profile__btn ${status === 'on' ? 'user-profile__btn--ghost' : 'user-profile__btn--primary'}`}

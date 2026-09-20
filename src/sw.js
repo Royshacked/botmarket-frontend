@@ -75,3 +75,19 @@ self.addEventListener('notificationclick', (event) => {
         await self.clients.openWindow(url)
     })())
 })
+
+// The browser rotated (or dropped and re-minted) this device's subscription — the push service
+// does that on its own schedule. Re-subscribe with the same key and tell the server, or the
+// device goes silent with the switch still reading On. Session cookie rides along.
+self.addEventListener('pushsubscriptionchange', (event) => {
+    event.waitUntil((async () => {
+        const opts = event.oldSubscription?.options
+        if (!opts?.applicationServerKey) return
+        const sub = await self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: opts.applicationServerKey })
+        await fetch('/api/push/subscriptions', {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ subscription: sub.toJSON() }),
+        })
+    })())
+})

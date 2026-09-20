@@ -5,3 +5,12 @@
     line-height: 1.5;
     color: var(--text-secondary);
 }
+
+.push-alerts__device {
+    margin: -0.5rem 0 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.71rem;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+    opacity: 0.8;
+}
