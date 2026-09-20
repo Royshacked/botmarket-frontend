@@ -62,9 +62,9 @@ describe('UserProfile — the Monitors (Talos) model card', () => {
     })
 
     it('reads a stored choice back, and ignores a stored id it does not offer', () => {
-        localStorage.setItem(TALOS_MODEL_KEY, 'mistral-large-3')
+        localStorage.setItem(TALOS_MODEL_KEY, 'mistral-medium-3.5')
         const { unmount } = render(<UserProfile />)
-        expect(screen.getByLabelText('Talos model').value).toBe('mistral-large-3')
+        expect(screen.getByLabelText('Talos model').value).toBe('mistral-medium-3.5')
         unmount()
         localStorage.setItem(TALOS_MODEL_KEY, 'claude-haiku-4-5-20251001')
         render(<UserProfile />)

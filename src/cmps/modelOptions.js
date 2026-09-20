@@ -25,7 +25,7 @@ export const TALOS_MODEL_OPTIONS = [
     { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 (default)' },
     { id: 'claude-sonnet-5',   label: 'Claude Sonnet 5' },
     { id: 'gpt-5.6-luna',      label: 'GPT-5.6 Luna' },
-    { id: 'mistral-large-3',   label: 'Mistral Large 3' },
+    { id: 'mistral-medium-3.5', label: 'Mistral Medium 3.5' },
     { id: 'qwen3.7-plus',      label: 'Qwen3.7-Plus' },
 ]
 
