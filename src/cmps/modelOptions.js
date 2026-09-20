@@ -10,7 +10,9 @@ export const MODEL_OPTIONS = [
     { id: 'claude-opus-5',             label: 'Claude Opus 5',     short: 'Opus 5' },
 ]
 
-export const DEFAULT_MODEL = 'claude-sonnet-4-6'
+// Sonnet 5 since 2026-09-20 — mirrors the backend's llmModels.DEFAULT_MODEL, which is what an
+// unset preference resolves to server-side; this is only what the select shows for it.
+export const DEFAULT_MODEL = 'claude-sonnet-5'
 
 // ── The monitors' model (Talos) ──────────────────────────────────────────────
 // A SEPARATE list, on purpose: these are the CANDIDATES under evaluation for the Talos read
