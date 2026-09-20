@@ -424,6 +424,12 @@
         gap: 0.5rem;
     }
 
+    &__agent-note {
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+        line-height: 1.35;
+    }
+
     // ── Token usage bar ──────────────────────────────────────────────────────
     &__usage-bar-track {
         height: 6px;

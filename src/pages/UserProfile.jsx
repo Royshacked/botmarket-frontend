@@ -10,7 +10,7 @@ import { CandleColorPicker }   from '../cmps/CandleColorPicker/CandleColorPicker
 import { ModeSwitcher }        from '../cmps/ModeSwitcher/ModeSwitcher'
 import { loadAppearance }      from '../services/themeService.js'
 import { PaceSlider }          from '../cmps/PaceSlider.jsx'
-import { MODEL_OPTIONS, readStoredModel }       from '../cmps/modelOptions.js'
+import { MODEL_OPTIONS, readStoredModel, TALOS_MODEL_KEY, TALOS_MODEL_OPTIONS, readStoredTalosModel } from '../cmps/modelOptions.js'
 import { AI_MODEL_KEY } from '../services/aiPrefKeys.js'
 import { DESIGNS, loadDesign, saveDesign, applyDesign } from '../services/designService.js'
 import { queuePrefSync } from '../services/preferences.service.js'
@@ -58,10 +58,11 @@ const WORKSPACE_LABEL = { live: 'Live', paper: 'Paper', manual: 'Manual' }
 // isn't running and was removed.
 //
 // NOTE: the hermesModel/hermesReasoning keys it wrote are NOT dead. assess.shared.js reads them
-// for BOTH monitors — Hermes and the live Talos — as one "how hard should my monitors think"
-// knob. They still sync (preferences.service) and are still honoured; they just have no UI now,
-// so Talos runs on whatever was last saved, or on its own defaults (Sonnet / thinking off).
-// If that knob is wanted back, this card returns as "Monitors" rather than as Hermes.
+// for the live Talos as one "how hard should my monitors think" knob. `hermesModel` got its card
+// back on 2026-09-20 as "Monitors" — ADMIN ONLY, because what it offers are the candidate models
+// under evaluation for the Talos read (cmps/modelOptions.js TALOS_MODEL_OPTIONS): the admin picks
+// one, their own setups are read on it from the next wake, and the journal rows say which model
+// made each read. `hermesReasoning` stays UI-less (capped at `low` server-side anyway).
 
 export function UserProfile() {
     const { user, setUser, signout, isAdmin } = useAuth()
@@ -100,6 +101,7 @@ export function UserProfile() {
     const [tokenUsage, setTokenUsage] = useState({ month: '', totalCost: 0, budgetUsd: 20, percentUsed: 0 })
 
     const [model, setModel] = useState(readStoredModel())
+    const [talosModel, setTalosModel] = useState(readStoredTalosModel())
 
     const [design, setDesign] = useState(loadDesign())
     function handleDesign(id) {
@@ -115,6 +117,12 @@ export function UserProfile() {
     function handleModel(value) {
         localStorage.setItem(AI_MODEL_KEY, value)
         setModel(value)
+        queuePrefSync()
+    }
+
+    function handleTalosModel(value) {
+        localStorage.setItem(TALOS_MODEL_KEY, value)
+        setTalosModel(value)
         queuePrefSync()
     }
 
@@ -363,6 +371,26 @@ export function UserProfile() {
                                     </select>
                                 </div>
                             </div>
+                            {isAdmin && (
+                                <div className="user-profile__agent">
+                                    <span className="user-profile__agent-name">Monitors (Talos) — admin</span>
+                                    <div className="user-profile__agent-field">
+                                        <span className="user-profile__label">Model</span>
+                                        <select
+                                            className="user-profile__select"
+                                            style={{ width: 'auto', minWidth: '9rem' }}
+                                            value={talosModel}
+                                            aria-label="Talos model"
+                                            onChange={e => handleTalosModel(e.target.value)}
+                                        >
+                                            {TALOS_MODEL_OPTIONS.map(m => (
+                                                <option key={m.id} value={m.id}>{m.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <span className="user-profile__agent-note">Applies to your own setups from their next read. Each journal row names the model that made it.</span>
+                                </div>
+                            )}
                         </section>
                     )}
 

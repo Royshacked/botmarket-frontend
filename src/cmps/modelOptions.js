@@ -12,6 +12,28 @@ export const MODEL_OPTIONS = [
 
 export const DEFAULT_MODEL = 'claude-sonnet-4-6'
 
+// ── The monitors' model (Talos) ──────────────────────────────────────────────
+// A SEPARATE list, on purpose: these are the CANDIDATES under evaluation for the Talos read
+// (backend monitoring/assess.shared.js TALOS_MODELS — ids must match there, and the non-Anthropic
+// ones are admin-only on the server too, so a hand-crafted preference cannot route a trader onto
+// one). The card that offers them renders for an admin only. Haiku is deliberately absent: it was
+// rejected for a real read. The key it writes is `hermesModel` — the monitors' own knob, read by
+// assessRouting for every read of the user's setups.
+export const TALOS_MODEL_KEY = 'hermesModel'
+export const TALOS_DEFAULT_MODEL = 'claude-sonnet-4-6'
+export const TALOS_MODEL_OPTIONS = [
+    { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 (default)' },
+    { id: 'claude-sonnet-5',   label: 'Claude Sonnet 5' },
+    { id: 'gpt-5.6-luna',      label: 'GPT-5.6 Luna' },
+    { id: 'mistral-large-3',   label: 'Mistral Large 3' },
+    { id: 'qwen3.7-plus',      label: 'Qwen3.7-Plus' },
+]
+
+export function readStoredTalosModel() {
+    const stored = localStorage.getItem(TALOS_MODEL_KEY)
+    return TALOS_MODEL_OPTIONS.some(m => m.id === stored) ? stored : TALOS_DEFAULT_MODEL
+}
+
 // ONE stored choice, shared by every desk (services/aiPrefKeys.js). It was once per-surface,
 // so each panel could be set independently for side-by-side comparison — that UI is gone, and
 // the per-desk keys it left behind are what let four desks drift onto the defaults unnoticed.
