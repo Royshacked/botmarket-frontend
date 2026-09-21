@@ -10,7 +10,7 @@ import { CandleColorPicker }   from '../cmps/CandleColorPicker/CandleColorPicker
 import { ModeSwitcher }        from '../cmps/ModeSwitcher/ModeSwitcher'
 import { loadAppearance }      from '../services/themeService.js'
 import { PaceSlider }          from '../cmps/PaceSlider.jsx'
-import { chatModelOptions, readStoredModel, TALOS_MODEL_KEY, TALOS_MODEL_OPTIONS, readStoredTalosModel } from '../cmps/modelOptions.js'
+import { chatModelOptions, readStoredModel, MODEL_OPTIONS, DEFAULT_MODEL, TALOS_MODEL_KEY, TALOS_MODEL_OPTIONS, TALOS_DEFAULT_MODEL, readStoredTalosModel } from '../cmps/modelOptions.js'
 import { AI_MODEL_KEY } from '../services/aiPrefKeys.js'
 import { DESIGNS, loadDesign, saveDesign, applyDesign } from '../services/designService.js'
 import { queuePrefSync } from '../services/preferences.service.js'
@@ -63,6 +63,12 @@ const WORKSPACE_LABEL = { live: 'Live', paper: 'Paper', manual: 'Manual' }
 // under evaluation for the Talos read (cmps/modelOptions.js TALOS_MODEL_OPTIONS): the admin picks
 // one, their own setups are read on it from the next wake, and the journal rows say which model
 // made each read. `hermesReasoning` stays UI-less (capped at `low` server-side anyway).
+//
+// SINCE 2026-09-21 BOTH SELECTORS ARE THE ADMIN'S ALONE. A non-admin's desks and setup reads run
+// on the HOUSE models (backend services/houseModels.service.js) — one choice the admin makes for
+// everyone, in the "House models" card below — and whatever their client still sends is not
+// consulted server-side. The admin's own two selectors stay: that is how a candidate is tried on
+// the admin's own account before it becomes the house's.
 
 export function UserProfile() {
     const { user, setUser, signout, isAdmin } = useAuth()
@@ -124,6 +130,31 @@ export function UserProfile() {
         localStorage.setItem(TALOS_MODEL_KEY, value)
         setTalosModel(value)
         queuePrefSync()
+    }
+
+    // The house models — server state, not a preference: read on load (admin only), written per
+    // change. An unset id shows as the server's default for that registry, which is what an unset
+    // one resolves to there (llmModels.DEFAULT_MODEL / assess.shared ASSESS_MODEL).
+    const [house, setHouse]           = useState(null)   // { chatModel, talosModel } once loaded
+    const [houseError, setHouseError] = useState('')
+    useEffect(() => {
+        if (!isAdmin) return
+        userService.getHouseModels()
+            .then(h => setHouse({ chatModel: h?.chatModel ?? DEFAULT_MODEL, talosModel: h?.talosModel ?? TALOS_DEFAULT_MODEL }))
+            .catch(() => setHouseError('Could not load the house models.'))
+    }, [isAdmin])
+
+    async function handleHouse(key, value) {
+        const prev = house
+        setHouse(h => ({ ...h, [key]: value }))
+        setHouseError('')
+        try {
+            const h = await userService.setHouseModels({ [key]: value })
+            setHouse({ chatModel: h?.chatModel ?? DEFAULT_MODEL, talosModel: h?.talosModel ?? TALOS_DEFAULT_MODEL })
+        } catch {
+            setHouse(prev)
+            setHouseError('The house model was not saved.')
+        }
     }
 
     // Dark ⇄ light. Held here (not just inside ModeSwitcher) because the background sliders
@@ -356,21 +387,69 @@ export function UserProfile() {
                                 <span className="user-profile__label">Text speed</span>
                                 <PaceSlider />
                             </div>
-                            <div className="user-profile__agent">
-                                <div className="user-profile__agent-field">
-                                    <span className="user-profile__label">Model</span>
-                                    <select
-                                        className="user-profile__select"
-                                        style={{ width: 'auto', minWidth: '9rem' }}
-                                        value={model}
-                                        onChange={e => handleModel(e.target.value)}
-                                    >
-                                        {chatModelOptions(isAdmin).map(m => (
-                                            <option key={m.id} value={m.id}>{m.short}</option>
-                                        ))}
-                                    </select>
+                            {isAdmin ? (
+                                <div className="user-profile__agent">
+                                    <span className="user-profile__agent-name">Your desks — admin</span>
+                                    <div className="user-profile__agent-field">
+                                        <span className="user-profile__label">Model</span>
+                                        <select
+                                            className="user-profile__select"
+                                            style={{ width: 'auto', minWidth: '9rem' }}
+                                            value={model}
+                                            aria-label="Chat model"
+                                            onChange={e => handleModel(e.target.value)}
+                                        >
+                                            {chatModelOptions(isAdmin).map(m => (
+                                                <option key={m.id} value={m.id}>{m.short}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <span className="user-profile__agent-note">Your own account only. Everyone else runs on the house models below.</span>
                                 </div>
-                            </div>
+                            ) : (
+                                <div className="user-profile__agent">
+                                    <span className="user-profile__agent-note">The model your desks run on is set by the house.</span>
+                                </div>
+                            )}
+                            {isAdmin && (
+                                <div className="user-profile__agent">
+                                    <span className="user-profile__agent-name">House models — admin</span>
+                                    <div className="user-profile__agent-field">
+                                        <span className="user-profile__label">Desks</span>
+                                        <select
+                                            className="user-profile__select"
+                                            style={{ width: 'auto', minWidth: '9rem' }}
+                                            value={house?.chatModel ?? DEFAULT_MODEL}
+                                            aria-label="House chat model"
+                                            disabled={!house}
+                                            onChange={e => handleHouse('chatModel', e.target.value)}
+                                        >
+                                            {MODEL_OPTIONS.map(m => (
+                                                <option key={m.id} value={m.id}>{m.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="user-profile__agent-field">
+                                        <span className="user-profile__label">Monitors (Talos)</span>
+                                        <select
+                                            className="user-profile__select"
+                                            style={{ width: 'auto', minWidth: '9rem' }}
+                                            value={house?.talosModel ?? TALOS_DEFAULT_MODEL}
+                                            aria-label="House Talos model"
+                                            disabled={!house}
+                                            onChange={e => handleHouse('talosModel', e.target.value)}
+                                        >
+                                            {TALOS_MODEL_OPTIONS.map(m => (
+                                                <option key={m.id} value={m.id}>{m.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <span className="user-profile__agent-note">
+                                        What every non-admin's desks and setup reads run on, from their next turn — and the house runs with no user (the market brief, the coverage re-model).
+                                        {houseError ? ` ${houseError}` : ''}
+                                    </span>
+                                </div>
+                            )}
                             {isAdmin && (
                                 <div className="user-profile__agent">
                                     <span className="user-profile__agent-name">Monitors (Talos) — admin</span>

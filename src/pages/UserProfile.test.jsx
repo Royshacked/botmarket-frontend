@@ -34,7 +34,11 @@ vi.mock('../services/broker/broker.service.remote.js', () => ({
     },
 }))
 vi.mock('../services/user/user.service.remote.js', () => ({
-    userService: { getTokenUsage: vi.fn().mockResolvedValue({ month: '2026-09', totalCost: 1, budgetUsd: 20, percentUsed: 5 }) },
+    userService: {
+        getTokenUsage:  vi.fn().mockResolvedValue({ month: '2026-09', totalCost: 1, budgetUsd: 20, percentUsed: 5 }),
+        getHouseModels: vi.fn().mockResolvedValue({ chatModel: null, talosModel: null }),
+        setHouseModels: vi.fn(),
+    },
 }))
 const listPaper = vi.fn().mockResolvedValue([])
 vi.mock('../services/paper/paper.service.remote.js', () => ({

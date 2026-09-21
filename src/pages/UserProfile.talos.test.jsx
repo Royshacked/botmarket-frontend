@@ -24,8 +24,17 @@ vi.mock('../services/broker/broker.service.remote.js', () => ({
         getTradingAccounts: vi.fn().mockResolvedValue({ accounts: [], selectedAccountId: '' }),
     },
 }))
+// The house models (2026-09-21): admin-only server state — read on load, written per change.
+const houseApi = vi.hoisted(() => ({
+    get: vi.fn(),
+    set: vi.fn(),
+}))
 vi.mock('../services/user/user.service.remote.js', () => ({
-    userService: { getTokenUsage: vi.fn().mockResolvedValue({ month: '2026-09', totalCost: 1, budgetUsd: 20, percentUsed: 5 }) },
+    userService: {
+        getTokenUsage:  vi.fn().mockResolvedValue({ month: '2026-09', totalCost: 1, budgetUsd: 20, percentUsed: 5 }),
+        getHouseModels: (...a) => houseApi.get(...a),
+        setHouseModels: (...a) => houseApi.set(...a),
+    },
 }))
 vi.mock('../services/paper/paper.service.remote.js',   () => ({ paperService:  { listAccounts: vi.fn().mockResolvedValue([]) } }))
 vi.mock('../services/manual/manual.service.remote.js', () => ({ manualService: { listAccounts: vi.fn().mockResolvedValue([]) } }))
@@ -39,9 +48,14 @@ vi.mock('../cmps/PaceSlider.jsx',                      () => ({ PaceSlider:     
 vi.mock('../cmps/PushAlerts/PushAlertsSection.jsx',    () => ({ PushAlertsSection: () => null }))
 
 import { UserProfile } from './UserProfile.jsx'
-import { TALOS_MODEL_KEY, TALOS_MODEL_OPTIONS } from '../cmps/modelOptions.js'
+import { TALOS_MODEL_KEY, TALOS_MODEL_OPTIONS, MODEL_OPTIONS } from '../cmps/modelOptions.js'
+import { waitFor } from '@testing-library/react'
 
-beforeEach(() => { localStorage.clear(); queuePrefSync.mockClear(); auth.isAdmin = true })
+beforeEach(() => {
+    localStorage.clear(); queuePrefSync.mockClear(); auth.isAdmin = true
+    houseApi.get.mockReset().mockResolvedValue({ chatModel: 'gpt-5.6-luna', talosModel: null })
+    houseApi.set.mockReset().mockImplementation(async (patch) => ({ chatModel: 'gpt-5.6-luna', talosModel: null, ...patch }))
+})
 afterEach(cleanup)
 
 describe('UserProfile — the Monitors (Talos) model card', () => {
@@ -71,18 +85,47 @@ describe('UserProfile — the Monitors (Talos) model card', () => {
         expect(screen.getByLabelText('Talos model').value).toBe('claude-sonnet-4-6')
     })
 
-    it('is not rendered for a non-admin — the chat model select still is, without the candidate', () => {
+    it('a non-admin gets NO model selector at all — neither desks nor Talos — and no house read', () => {
         auth.isAdmin = false
         render(<UserProfile />)
-        expect(screen.queryByLabelText('Talos model')).toBeNull()
         expect(screen.getByText('AI Preferences')).toBeTruthy()
-        const chat = screen.getByRole('combobox')
-        expect([...chat.options].map(o => o.value)).not.toContain('gpt-5.6-luna')
+        expect(screen.queryByRole('combobox')).toBeNull()
+        expect(screen.getByText(/set by the house/)).toBeTruthy()
+        expect(houseApi.get).not.toHaveBeenCalled()
     })
 
-    it('the chat model select offers the Luna candidate to an admin', () => {
+    it("the admin's own chat select offers the Luna candidate", () => {
         render(<UserProfile />)
-        const chat = screen.getAllByRole('combobox').find(s => s.getAttribute('aria-label') !== 'Talos model')
+        const chat = screen.getByLabelText('Chat model')
         expect([...chat.options].map(o => o.value)).toContain('gpt-5.6-luna')
+    })
+})
+
+describe('UserProfile — the House models card (admin)', () => {
+    it('loads the house choice, showing the registry default where nothing is set', async () => {
+        render(<UserProfile />)
+        await waitFor(() => expect(screen.getByLabelText('House chat model').value).toBe('gpt-5.6-luna'))
+        expect(screen.getByLabelText('House Talos model').value).toBe('claude-sonnet-4-6')
+        expect([...screen.getByLabelText('House chat model').options].map(o => o.value)).toEqual(MODEL_OPTIONS.map(m => m.id))
+        expect([...screen.getByLabelText('House Talos model').options].map(o => o.value)).toEqual(TALOS_MODEL_OPTIONS.map(m => m.id))
+    })
+
+    it('a change writes ONLY that id to the server and shows what came back; nothing goes to localStorage', async () => {
+        render(<UserProfile />)
+        await waitFor(() => expect(screen.getByLabelText('House chat model').disabled).toBe(false))
+        fireEvent.change(screen.getByLabelText('House Talos model'), { target: { value: 'gpt-5.6-luna' } })
+        await waitFor(() => expect(houseApi.set).toHaveBeenCalledWith({ talosModel: 'gpt-5.6-luna' }))
+        await waitFor(() => expect(screen.getByLabelText('House Talos model').value).toBe('gpt-5.6-luna'))
+        expect(localStorage.getItem(TALOS_MODEL_KEY)).toBeNull()
+        expect(queuePrefSync).not.toHaveBeenCalled()
+    })
+
+    it('a failed save rolls the select back and says so', async () => {
+        houseApi.set.mockRejectedValue(new Error('403'))
+        render(<UserProfile />)
+        await waitFor(() => expect(screen.getByLabelText('House chat model').disabled).toBe(false))
+        fireEvent.change(screen.getByLabelText('House chat model'), { target: { value: 'claude-opus-5' } })
+        await waitFor(() => expect(screen.getByText(/was not saved/)).toBeTruthy())
+        expect(screen.getByLabelText('House chat model').value).toBe('gpt-5.6-luna')
     })
 })

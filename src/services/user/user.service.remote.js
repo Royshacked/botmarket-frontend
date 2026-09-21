@@ -13,11 +13,23 @@ export const userService = {
     getLoggedinUser,
     saveLoggedinUser,
     getTokenUsage,
+    getHouseModels,
+    setHouseModels,
 }
 
 function getTokenUsage(userId, month) {
     const qs = month ? `?month=${month}` : ''
     return httpService.get(`api/users/${userId}/usage${qs}`)
+}
+
+// The HOUSE MODELS (admin-only; backend services/houseModels.service.js) — what every non-admin's
+// desks and setup reads run on. `patch` names `chatModel` and/or `talosModel`.
+function getHouseModels() {
+    return httpService.get('api/users/house/models')
+}
+
+function setHouseModels(patch) {
+    return httpService.put('api/users/house/models', patch)
 }
 
 function getUsers() {
