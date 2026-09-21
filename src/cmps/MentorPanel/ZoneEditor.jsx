@@ -63,25 +63,20 @@ function zonePrice(zone, key, direction) {
 }
 
 /**
- * `lockPrices` is NOT `readOnly` with a smaller blast radius — it is the shape of a plan that
- * arrived from somewhere else. Someone hands you their setup; the levels are theirs and you are
- * looking at them, but the SIZE is yours and is the one thing you must type. So the price edges go
- * flat while the quantity boxes stay live, and zones can be neither added nor removed.
- *
- * The two are ordered, not equivalent: `readOnly` wins over everything (a generated setup is not
- * editable at all), and `lockPrices` narrows only the prices.
+ * `readOnly` freezes everything — a generated setup is not editable here. (A `lockPrices` mode that
+ * froze only the levels of a plan someone else drew, and a `groups` filter that split entry from
+ * exit into separate blocks, went with the express form's body on 2026-09-21; a shared plan is an
+ * ordinary editable draft.)
  *
  * A price is written as a ZERO-WIDTH band (`lower === upper`), which is what the schema calls an
  * exact level. The stored shape is unchanged, so nothing downstream learns a new case — see the
  * note on the storage shape in services/setup.schema.js.
  */
-export function ZoneEditor({
-    scenario, direction = null, onChange, readOnly = false, lockPrices = false, groups = null,
-}) {
+export function ZoneEditor({ scenario, direction = null, onChange, readOnly = false }) {
     if (!scenario) return null
 
     // Structure — which zones exist, and where they sit.
-    const frozen = readOnly || lockPrices
+    const frozen = readOnly
 
     const patch = (groupKey, zones) => onChange?.({ ...scenario, [groupKey]: zones })
 
@@ -190,7 +185,7 @@ export function ZoneEditor({
 
     return (
         <div className="zone-editor">
-            {GROUPS.filter(g => !groups || groups.includes(g.key)).map(({ key, label, suffix, hint, priceLabel, pricePh }) => {
+            {GROUPS.map(({ key, label, suffix, hint, priceLabel, pricePh }) => {
                 const zones = scenario[key] ?? []
                 // The ready-to-type row. Its id is minted deterministically — the same one addZone
                 // would give it — so it is stable across renders and becomes the real zone's id.
@@ -365,10 +360,4 @@ ZoneEditor.propTypes = {
     direction: PropTypes.oneOf(['long', 'short']),
     onChange:  PropTypes.func,
     readOnly:  PropTypes.bool,
-    // Prices flat, sizes live — a plan someone else drew. See the component doc.
-    lockPrices: PropTypes.bool,
-    // One price per level instead of two edges — the express form. Mentor draws the bands after.
-    // Render only these groups, so a caller can split entry from exit into separate blocks.
-    // Null = all three, which is what the build worksheet wants.
-    groups:     PropTypes.arrayOf(PropTypes.string),
 }

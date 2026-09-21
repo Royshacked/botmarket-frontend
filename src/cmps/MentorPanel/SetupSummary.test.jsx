@@ -201,14 +201,6 @@ describe('ZoneEditor', () => {
         expect(screen.queryByLabelText('Remove s1e1')).toBeNull()
     })
 
-    it('neither add nor remove is offered when the prices are locked', () => {
-        // A plan that arrived from somewhere else: the levels are theirs, only the size is yours.
-        render(<ZoneEditor scenario={FADE} onChange={() => {}} lockPrices />)
-        expect(screen.queryByLabelText('Add another target')).toBeNull()
-        expect(screen.queryByLabelText('Remove s1t1')).toBeNull()
-        expect(screen.getByLabelText('Target s1t1 quantity').disabled).toBe(false)
-    })
-
     it('scopes new level ids to the scenario, so ids stay unique across premises', () => {
         // An empty group renders one ready-to-type row that becomes real on the first keystroke —
         // asking someone to press + before they can type their stop is a click charged for nothing.
