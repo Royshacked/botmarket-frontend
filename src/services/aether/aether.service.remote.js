@@ -49,6 +49,12 @@ async function getScorecard() {
     }
 }
 
+// Well above httpService's 30s default. A read is web searches + EDGAR + the sizing tool on one
+// model turn: 35–45s on Sonnet or Luna, minutes on Qwen (logs/backend.log, `took_ms`). The 30s
+// default cut every read off at "timeout of 30000ms exceeded" while the server finished it and
+// stored it anyway — the row said it failed, the next list refresh showed it read.
+export const QUICKREAD_TIMEOUT_MS = 180_000
+
 /**
  * Prometheus's quick read on one name from one event: credible, priced in, or contradicted.
  * A model call — a few cents — on the caller's budget, on the model the caller's AI menu names
@@ -57,7 +63,8 @@ async function getScorecard() {
  * when one exists, so pressing twice costs once.
  */
 function quickRead(runId, ticker, { model } = {}) {
-    return httpService.post(`${BASE}/quickread`, { run_id: runId, ticker, ...(model ? { model } : {}) })
+    return httpService.post(`${BASE}/quickread`, { run_id: runId, ticker, ...(model ? { model } : {}) },
+                            { timeout: QUICKREAD_TIMEOUT_MS })
 }
 
 /**

@@ -588,7 +588,12 @@ function QuickRead({ c, runId, read, onRead, busy, onBusy }) {
             const r = await aetherService.quickRead(runId, c.ticker, { model: readStoredModel() })
             onRead(r)
         } catch (e) {
-            setErr(apiError(e, 'could not get a read'))
+            // The server does not stop when the client does: a read that outran the timeout is
+            // still running, lands in the store, and joins the list on its next refresh. Say so,
+            // rather than "timeout of 180000ms exceeded" on a name that is about to be read.
+            setErr(e?.code === 'ECONNABORTED'
+                ? 'still reading — it will show on the next refresh'
+                : apiError(e, 'could not get a read'))
         } finally {
             onBusy(false)
         }

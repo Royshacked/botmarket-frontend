@@ -1406,6 +1406,19 @@ describe('AetherCandidates — Prometheus quick read', () => {
         expect(onRead).not.toHaveBeenCalled()
     })
 
+    it('a read that outran the client timeout says it is still coming, not that it failed', async () => {
+        quickRead.mockRejectedValue(Object.assign(new Error('timeout of 180000ms exceeded'), { code: 'ECONNABORTED' }))
+        const onRead = vi.fn()
+        render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} onRead={onRead} />)
+        openEvent()
+        openName()
+        fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+        await waitFor(() => expect(screen.getByText(/still reading/)).toBeTruthy())
+        expect(screen.queryByText(/timeout of/)).toBeNull()
+        expect(onRead).not.toHaveBeenCalled()
+        expect(screen.getByRole('button', { name: 'Ask Prometheus' })).toBeTruthy()
+    })
+
     it('a failed read keeps the button and says why', async () => {
         quickRead.mockRejectedValue(new Error('budget'))
         render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} />)
