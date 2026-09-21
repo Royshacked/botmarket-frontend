@@ -242,7 +242,7 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                                 ? <MarketBriefOfferBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'setup_shared' && msg.payload?.blueprint
                                 ? <SetupSharedBubble msg={msg} mine={isMine} onClose={onClose} onResolve={onResolveMessage} />
-                                : <div className="social-chat__msg-bubble">{msg.content}</div>
+                                : <div className="social-chat__msg-bubble" dir="auto">{msg.content}</div>
                             }
                             <div className="social-chat__msg-time">{formatTime(msg.createdAt)}</div>
                         </div>

@@ -125,6 +125,7 @@ export function ChatInputRow({
             <textarea
                 ref={setTextarea}
                 className="chat-input-row__textarea"
+                dir="auto"
                 value={value}
                 onChange={onChange}
                 onKeyDown={onKeyDown}
