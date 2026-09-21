@@ -91,6 +91,13 @@
         &.transcribing { opacity: 0.6; cursor: wait; }
     }
 
+    // A panel's own attach button (`leading`) — the mic's twin, so a row with one reads as one row.
+    &__attach {
+        @include cir-ghost;
+        svg { width: 16px; height: 16px; }
+        &.active { color: var(--accent-light); background: rgba(255, 255, 255, 0.08); }
+    }
+
     &__mic-cancel {
         @include cir-ghost;
         svg { width: 14px; height: 14px; }

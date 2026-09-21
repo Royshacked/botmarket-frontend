@@ -40,7 +40,7 @@ import { resolveEntity, resolveForEdit } from '../services/entityResolve.js'
 import { useDeskHandoff } from '../customHooks/useDeskHandoff.js'
 import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
-import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, TILT_REVIEW_OPEN, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD } from '../services/event-bus.service'
+import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, TILT_REVIEW_OPEN, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD, SETUP_SHARED_OPEN } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
 import { adoptService } from '../services/adopt/adopt.service.remote.js'
 import { AdoptBookGrid } from '../cmps/AdoptBook/AdoptBookGrid.jsx'
@@ -48,6 +48,7 @@ import { mentorService } from '../services/mentor/mentor.service.remote.js'
 import { isSetupAwaitingConfirm } from '../cmps/TradeIdeas/setupStatus.js'
 import { pickConfirmIdea, pickConfirmSetup } from '../cmps/TradeIdeas/confirmTarget.js'
 import { redrawAsk } from '../cmps/MentorPanel/redrawAsk.js'
+import { sharedAsk } from '../cmps/MentorPanel/sharedAsk.js'
 import { listenForPopupEvents } from '../services/popupBridge.js'
 import { useChatStream, toChatHistory } from '../customHooks/useChatStream.js'
 import { useCalendarEvents } from '../customHooks/useCalendarEvents.js'
@@ -709,6 +710,10 @@ export function MainPage() {
     const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, tilt, tiltLoading } = useCalendarEvents()
     const { scans, loading: scansLoading, createScan, updateScan, deleteScan } = useScans()
     const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
+    // The marked accounts as a ref, for the one-shot doorways below that must not re-register on
+    // every selection change (SETUP_SHARED_OPEN reads it to ask readiness the right question).
+    const selectedAccountsRef = useRef(selectedAccounts)
+    useEffect(() => { selectedAccountsRef.current = selectedAccounts }, [selectedAccounts])
     const { workspace, setWorkspace } = useWorkspaceMode(user?._id)
     const { positions, loading: positionsLoading, refresh: refreshPositions, closePosition, closePositions } = usePositions()
     const { ideas, setIdeas, loadIdeas, loading: ideasLoading, handleStatusChange, preEntryPrompt, setPreEntryPrompt } = useTradeIdeas()
@@ -1171,6 +1176,51 @@ export function MainPage() {
             const setup = await resolveEntity('setup', setupId)
             if (setup) handleEditSetup(setup, { ask: redrawAsk(setup) })
             else setActiveTab('mentor')
+        })
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Shared-setup card "Open in Mentor" → MY Mentor, on a plan SOMEONE ELSE drew.
+    //
+    // Not the pencil's pipeline and not the re-draw card's: there is no document of mine to edit
+    // (no `editingSetupId`), no conversation to restore, and no workspace to align to — the
+    // blueprint carries no account, so I stay where I am standing and mark my own. The server
+    // hydrates it through the same normalise + readiness the desk uses on every turn, and what
+    // comes back is always short of ready by the size: that is the point of the flow, not a
+    // failure of it. `problems` is what was sent and did not survive the read — said out loud,
+    // because silently dropping two of four levels hands the user a different trade.
+    //
+    // `freshThread` tells the panel to mint a new draft thread before restoring, so the plan never
+    // persists over whatever build was open. The ask fires a turn (sharedAsk): Mentor reads the
+    // plan against the tape now, then helps size it.
+    //
+    // The accounts are read from a ref, not the closure: this doorway is registered once.
+    useEffect(() => {
+        return eventBus.on(SETUP_SHARED_OPEN, async ({ blueprint, note = null, drawnPrice = null }) => {
+            let hydrated
+            try {
+                hydrated = await mentorService.hydrateBlueprint(blueprint, selectedAccountsRef.current)
+            } catch (err) {
+                showErrorMsg(err?.response?.data?.problems?.[0] ?? apiError(err, 'Could not open the shared setup'))
+                return
+            }
+            const { setup, problems = [] } = hydrated ?? {}
+            if (!setup) { showErrorMsg(problems[0] ?? 'Could not open the shared setup'); return }
+            // A blueprint from a newer app is the one problem that stops the open — half-understanding
+            // someone else's trade is worse than declining it. Everything else is reported and opened.
+            if (problems.some(p => /newer version/i.test(p))) { showErrorMsg(problems[0]); return }
+            for (const p of problems) showUserMsg(p)
+
+            setEditingSetupId(null)
+            setMentorChatRestore({
+                key:         `shared-${Date.now()}`,
+                setup,
+                messages:    [],
+                coverage:    [],
+                freshThread: true,
+                ask:         sharedAsk({ blueprint, note, drawnPrice }),
+            })
+            if (setup.asset) openChart({ ticker: setup.asset, source: 'mentor' })
+            setActiveTab('mentor')
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

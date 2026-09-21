@@ -21,6 +21,10 @@ import './ChatInputRow.scss'
  * (the six panels via AgentChatInput, plus ChatPanel and Axl, who wire their own)
  * renders this one row: no panel opts in, and no panel can drift. Desktop only: on
  * touch, focus means the on-screen keyboard, which is the user's tap to make.
+ *
+ * `leading` is an optional node rendered BEFORE the mic — a panel's own attach button (the
+ * social chat's "Share a setup"). The row lends it the `chat-input-row__attach` style so it
+ * sits as the mic's twin; what it opens is the panel's business.
  */
 export function ChatInputRow({
     prefix,
@@ -45,6 +49,7 @@ export function ChatInputRow({
     isTranscribing,
     micDisabled,
     textareaDisabled,
+    leading = null,
 }) {
     // The row keeps its own handle on the textarea so the focus-return below never depends on a
     // panel remembering to pass `textareaRef`; a panel that does pass one still gets it filled.
@@ -87,6 +92,7 @@ export function ChatInputRow({
 
     return (
         <div className={`chat-input-row${prefix ? ` chat-input-row--${prefix}` : ''}${empty ? ' chat-input-row--empty' : ''}`}>
+            {leading}
             <button
                 className={`chat-input-row__mic ${isRecording ? 'recording' : ''} ${isTranscribing ? 'transcribing' : ''}`}
                 onClick={onToggleMic}
@@ -228,4 +234,5 @@ ChatInputRow.propTypes = {
     isTranscribing:   PropTypes.bool,
     micDisabled:      PropTypes.bool,
     textareaDisabled: PropTypes.bool,
+    leading:          PropTypes.node,
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { chatService }   from '../../services/chat/chat.service'
+import { mentorService } from '../../services/mentor/mentor.service.remote'
 import { chatWsService } from '../../services/chat/chatWs.service'
 import { ConversationList } from './ConversationList'
 import { ChatWindow }       from './ChatWindow'
@@ -208,6 +209,20 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
         ))
     }
 
+    // Attach one of my setups to this DM. The server snapshots it as a blueprint (the plan, never
+    // the size) and posts a `setup_shared` card AS ME; what comes back is that message, appended
+    // exactly as a text send is. Human DMs only — ChatWindow offers the button on no other thread.
+    async function handleSendSetup(setupId, note) {
+        if (!activeConv) return
+        const msg = await mentorService.shareSetup(setupId, activeConv.id, note)
+        setMessages(prev => [...prev, msg])
+        setConversations(prev => prev.map(c =>
+            c.id === activeConv.id
+                ? { ...c, lastMessage: msg.content, lastMessageAt: msg.createdAt }
+                : c
+        ))
+    }
+
     function handleConversationStarted(conv) {
         setConversations(prev => prev.find(c => c.id === conv.id) ? prev : [conv, ...prev])
         handleSelectConv(conv)
@@ -268,6 +283,7 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
                         hasMore={hasMore}
                         onClose={handleClose}
                         onSend={handleSend}
+                        onSendSetup={handleSendSetup}
                         onLoadMore={handleLoadMore}
                         onResolveMessage={handleResolveMessage}
                         scrollToMsgId={scrollToMsgId}

@@ -111,8 +111,14 @@ export function MentorPanel({
     //
     // The restored history and draft are passed to `_send` EXPLICITLY rather than left to the state
     // set two lines above: this is an effect, so neither has re-rendered yet (see _send's `base`).
+    //
+    // `freshThread` (a SHARED setup arriving) mints a new draft-thread id first, so the plan does
+    // not persist over whatever build was open. Minted, not cleared: the build that was open is the
+    // user's own unfinished work and stays resumable from the threads list — clearThread would
+    // discard it, and nobody asked for that.
     useEffect(() => {
         if (!chatRestore) return
+        if (chatRestore.freshThread) threadIdRef.current = newThreadId()
         const restored = chatRestore.messages ?? []
         const draft    = chatRestore.setup ?? null
         const cov      = chatRestore.coverage ?? []

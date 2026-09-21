@@ -51,13 +51,12 @@ export const OPEN_QUEUED_LIST          = 'open-queued-list'
 // construction thread (threadId) or, for a book that already exists, its edit/review (portfolioId).
 export const RESUME_BUILD              = 'resume-build'
 
-// Open the EXPRESS SETUP FORM at the trade desk, on a plan drawn elsewhere.
-// Payload: { blueprint, locked?, note?, drawnAt?, from? } — a portable setup blueprint
-// (services/setup.blueprint.js on the server), never a setup ID: a shared plan is a snapshot COPY,
-// not a pointer into the sender's document, which carries their accounts, broker and position.
-//
-// Wired ahead of the card that will fire it. That is not speculation — it is the seam that makes
-// the sharing card a bubble and a send action rather than a second way of opening a form.
+// Shared-setup card "Open in Mentor" → open MY Mentor on a plan someone else drew, as a fresh
+// worksheet with the plan filled in and the size empty. Payload: { blueprint, note, from, drawnAt,
+// drawnPrice } — a portable setup blueprint (services/setup.blueprint.js on the server), never a
+// setup ID: a shared plan is a snapshot COPY, not a pointer into the sender's document, which
+// carries their accounts, broker and position.
+export const SETUP_SHARED_OPEN         = 'setup-shared-open'
 
 function createEventEmitter() {
     const listenersMap = {}

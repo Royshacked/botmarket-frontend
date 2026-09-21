@@ -1,5 +1,6 @@
 import { streamAgent, clientTimeContext } from '../agentStream'
 import { makeEntityApi } from '../entityApi'
+import { httpService } from '../http.service'
 
 // Mentor (Pipeline F): an SSE build stream plus CRUD for its artifact — a "setup".
 //
@@ -17,6 +18,8 @@ export const SETUPS_CHANGED = api.changeEvent
 
 export const mentorService = {
     sendStream,
+    hydrateBlueprint,
+    shareSetup,
     generateSetup,
     updateSetup,
     saveChatState,
@@ -28,6 +31,33 @@ export const mentorService = {
     disarmRestingEntry,
     actOnSetup,
     deleteSetup,
+}
+
+/**
+ * Open a plan SOMEONE ELSE drew — the recipient side of a shared setup. The server normalises the
+ * blueprint through the SAME path a Mentor emit takes and answers in the SAME shape a turn's `done`
+ * does ({ setup, readiness }), so the panel applies it with no second branch.
+ *
+ * `problems` is what was sent and did not survive the read — an unreadable price, an unknown lens,
+ * a blueprint from a newer app. SHOW IT. Silently dropping two of four levels hands the user a
+ * different trade wearing the same name, and this is the only moment they could notice.
+ *
+ * Never writes. A blueprint carries no size by construction, so what comes back is always short of
+ * ready by at least the quantity — that is the point of the flow, not a failure of it.
+ */
+function hydrateBlueprint(blueprint = null, accounts = []) {
+    return api.post('/blueprint', { blueprint, accounts })
+}
+
+/**
+ * Send one of my setups into a social-chat DM as a `setup_shared` card. Answers the posted chat
+ * message, so the caller appends it exactly as it appends a text send. What travels is decided on
+ * the server (the plan, never the size) — the client only names the setup and the conversation.
+ */
+function shareSetup(id, conversationId, note = null) {
+    // Not `api.post`: that broadcasts SETUPS_CHANGED after every write, and a share writes a chat
+    // message, not a setup — the lists have nothing to reload.
+    return httpService.post(`api/setups/${id}/share`, { conversationId, note })
 }
 
 /**

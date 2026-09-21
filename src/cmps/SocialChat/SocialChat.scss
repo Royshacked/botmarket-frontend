@@ -518,6 +518,120 @@
         margin: 0 10px 8px;
     }
 
+    // ── Shared setup (a card a PERSON sent) ──────────────────────────────────
+    // The plan's lines inside the shared NotificationCard shell: lens · timeframe, the three
+    // levels, the price when it was sent vs now, and the sender's note in their own voice.
+    &__shared-setup {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+    &__shared-setup-line {
+        font-size: 0.78rem;
+        line-height: 1.35;
+        &--muted { color: var(--text-muted); font-size: 0.74rem; }
+    }
+    &__shared-setup-levels {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 10px;
+        font-size: 0.78rem;
+        font-variant-numeric: tabular-nums;
+        color: var(--text-primary);
+    }
+    &__shared-setup-price {
+        color: var(--text-secondary);
+        font-variant-numeric: tabular-nums;
+    }
+    &__shared-setup-note {
+        margin-top: 2px;
+        font-size: 0.8rem;
+        font-style: italic;
+        color: var(--text-primary);
+        white-space: pre-wrap;
+    }
+
+    // The attachment chip above the composer: what the next send will carry.
+    &__attach-chip {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 6px 12px 0;
+        padding: 4px 8px 4px 10px;
+        border: 1px solid var(--border-mid);
+        border-radius: 999px;
+        background: var(--bg-raised);
+        font-size: 0.76rem;
+        color: var(--text-primary);
+        align-self: flex-start;
+        max-width: calc(100% - 24px);
+    }
+    &__attach-chip-label {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    &__attach-chip-remove {
+        border: 0;
+        background: transparent;
+        color: var(--text-muted);
+        font-size: 1rem;
+        line-height: 1;
+        padding: 0 2px;
+        cursor: pointer;
+        &:hover { color: var(--text-primary); }
+    }
+
+    // The "Share a setup" menu: the user's own setups, newest first, one row each.
+    &__setup-picker {
+        margin: 6px 12px 0;
+        border: 1px solid var(--border-mid);
+        border-radius: 10px;
+        background: var(--bg-raised);
+        max-height: 220px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+    }
+    &__setup-picker-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 10px;
+        font-size: 0.76rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        border-bottom: 1px solid var(--border);
+        position: sticky;
+        top: 0;
+        background: var(--bg-raised);
+    }
+    &__setup-picker-empty {
+        padding: 10px;
+        font-size: 0.78rem;
+        color: var(--text-muted);
+    }
+    &__setup-picker-row {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 10px;
+        align-items: baseline;
+        width: 100%;
+        padding: 7px 10px;
+        border: 0;
+        border-bottom: 1px solid var(--border);
+        background: transparent;
+        color: var(--text-primary);
+        font-size: 0.78rem;
+        text-align: left;
+        cursor: pointer;
+        &:last-child { border-bottom: 0; }
+        &:hover { background: var(--bg-hover); }
+    }
+    &__setup-picker-asset  { font-weight: 600; }
+    &__setup-picker-meta   { color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    &__setup-picker-status { color: var(--text-muted); font-size: 0.72rem; }
+
     &__invalidation-alert-btn {
         flex: 1 1 auto;
         min-width: 0;

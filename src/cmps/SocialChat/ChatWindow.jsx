@@ -4,8 +4,12 @@ import PropTypes from 'prop-types'
 // with the Calls list, so the window name and size can't drift between the two entry points.
 import { openCallPopup, openSetupPopup } from '../TradeIdeas/tradeIdea.utils.js'
 import { manageVerb } from '../TradeIdeas/setupManage.js'
-import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, TILT_REVIEW_OPEN, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD } from '../../services/event-bus.service'
+import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, TILT_REVIEW_OPEN, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD, SETUP_SHARED_OPEN } from '../../services/event-bus.service'
 import { manualService } from '../../services/manual/manual.service.remote'
+import { mentorService } from '../../services/mentor/mentor.service.remote'
+import { marketService } from '../../services/market/market.service.remote'
+import { fmtLevel } from '../TradeIdeas/setupPlan.utils.js'
+import { formatPrice, formatCreatedAt } from '../TradeIdeas/tradeIdea.utils.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { AGENTS, isBotId, CONVERSATIONAL_BOT_ID } from '../AxlHub/agentMeta.jsx'
@@ -111,9 +115,13 @@ function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = n
     )
 }
 
-export function ChatWindow({ conversation, messages, currentUserId, loading, hasMore, onClose, onSend, onLoadMore, onResolveMessage, scrollToMsgId, onScrolledToMsg }) {
+export function ChatWindow({ conversation, messages, currentUserId, loading, hasMore, onClose, onSend, onSendSetup, onLoadMore, onResolveMessage, scrollToMsgId, onScrolledToMsg }) {
     const [draft,   setDraft]   = useState('')
     const [sending, setSending] = useState(false)
+    // A setup attached to the NEXT send (human DMs only). The message text becomes its note; the
+    // server decides what of the setup travels (the plan, never the size — setups.service.shareSetup).
+    const [attached,   setAttached]   = useState(null)
+    const [pickerOpen, setPickerOpen] = useState(false)
     const bottomRef   = useRef(null)
     const textareaRef = useRef(null)
     const msgRefs     = useRef({})
@@ -142,7 +150,14 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
 
     async function handleSend() {
         const text = draft.trim()
-        if (!text || sending) return
+        if (sending) return
+        if (attached) {
+            // The chip stays until the send lands: a failed share must not eat the attachment.
+            setSending(true)
+            try { await onSendSetup?.(attached.id, text || null); setDraft(''); setAttached(null) } catch { /* ignore */ } finally { setSending(false) }
+            return
+        }
+        if (!text) return
         setDraft('')
         setSending(true)
         try { await onSend(text) } catch { /* ignore */ } finally { setSending(false) }
@@ -166,6 +181,9 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
     // standing footer under every feed was noise on every message the user read.
     const otherId   = conversation.participants.find(p => p !== currentUserId) ?? ''
     const notifyBot = isBotId(otherId) && otherId !== CONVERSATIONAL_BOT_ID
+    // Only a PERSON can open a shared setup, so only a human DM offers to attach one — the server
+    // refuses a bot recipient outright (`bot_recipient`), and a greyed button would only lead there.
+    const canShare  = !!onSendSetup && !!otherId && !isBotId(otherId)
 
     return (
         <div className="social-chat__window">
@@ -222,6 +240,8 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                                 ? <CoverageRefreshedBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'market_brief_offer'
                                 ? <MarketBriefOfferBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
+                                : msg.type === 'setup_shared' && msg.payload?.blueprint
+                                ? <SetupSharedBubble msg={msg} mine={isMine} onClose={onClose} onResolve={onResolveMessage} />
                                 : <div className="social-chat__msg-bubble">{msg.content}</div>
                             }
                             <div className="social-chat__msg-time">{formatTime(msg.createdAt)}</div>
@@ -231,16 +251,40 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                 <div ref={bottomRef} />
             </div>
 
-            {notifyBot ? null : (
+            {notifyBot ? null : (<>
+                {attached && (
+                    <div className="social-chat__attach-chip">
+                        <span className="social-chat__attach-chip-label">Setup · {attached.asset} {attached.direction}{attached.timeframe ? ` · ${attached.timeframe}` : ''}</span>
+                        <button type="button" className="social-chat__attach-chip-remove" onClick={() => setAttached(null)} title="Remove" aria-label="Remove attached setup">×</button>
+                    </div>
+                )}
+                {canShare && pickerOpen && (
+                    <SetupPicker onPick={s => { setAttached(s); setPickerOpen(false) }} onClose={() => setPickerOpen(false)} />
+                )}
                 <ChatInputRow
                     prefix="social-chat"
                     textareaRef={textareaRef}
                     value={draft}
                     onChange={e => setDraft(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Type a message…"
+                    placeholder={attached ? 'Add a note (optional)…' : 'Type a message…'}
                     onSend={handleSend}
-                    sendDisabled={!draft.trim() || sending}
+                    sendDisabled={(!draft.trim() && !attached) || sending}
+                    leading={canShare ? (
+                        <button
+                            type="button"
+                            className={`chat-input-row__attach${attached || pickerOpen ? ' active' : ''}`}
+                            onClick={() => setPickerOpen(o => !o)}
+                            disabled={sending}
+                            title="Share a setup"
+                            aria-label="Share a setup"
+                        >
+                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <rect x="2" y="3" width="16" height="14" rx="2"/>
+                                <path d="M4 14l4-5 3 3 2-2 3 4"/>
+                            </svg>
+                        </button>
+                    ) : null}
                     onToggleMic={toggleMic}
                     onCancelMic={cancelMic}
                     isRecording={isRecording}
@@ -248,10 +292,44 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                     micDisabled={sending || isTranscribing}
                     textareaDisabled={sending || isRecording}
                 />
-            )}
+            </>)}
         </div>
     )
 }
+
+// The user's own setups, for attaching one to the next send. Loaded when opened rather than kept
+// in sync — it is a menu, open for seconds, not a list that watches Talos. Newest first; every
+// status is offered, because the plan is the plan whatever its monitor is doing.
+function SetupPicker({ onPick, onClose }) {
+    const [setups, setSetups] = useState(null)
+    const [failed, setFailed] = useState(false)
+    useEffect(() => {
+        let live = true
+        mentorService.listSetups()
+            .then(list => { if (live) setSetups([...(list ?? [])].sort((a, b) => (b.savedAt ?? 0) - (a.savedAt ?? 0))) })
+            .catch(() => { if (live) setFailed(true) })
+        return () => { live = false }
+    }, [])
+    return (
+        <div className="social-chat__setup-picker" role="listbox" aria-label="Share a setup">
+            <div className="social-chat__setup-picker-head">
+                <span>Share a setup</span>
+                <button type="button" className="social-chat__attach-chip-remove" onClick={onClose} aria-label="Close">×</button>
+            </div>
+            {failed ? <div className="social-chat__setup-picker-empty">Could not load your setups.</div>
+            : setups === null ? <div className="social-chat__setup-picker-empty">Loading…</div>
+            : setups.length === 0 ? <div className="social-chat__setup-picker-empty">No setups yet — build one with Mentor first.</div>
+            : setups.map(s => (
+                <button key={s.id} type="button" role="option" aria-selected={false} className="social-chat__setup-picker-row" onClick={() => onPick({ id: s.id, asset: s.asset, direction: s.direction, timeframe: s.timeframe })}>
+                    <span className="social-chat__setup-picker-asset">{s.asset}</span>
+                    <span className="social-chat__setup-picker-meta">{s.direction}{s.timeframe ? ` · ${s.timeframe}` : ''}{s.trade_mode ? ` · ${s.trade_mode}` : ''}</span>
+                    <span className="social-chat__setup-picker-status">{s.status}</span>
+                </button>
+            ))}
+        </div>
+    )
+}
+SetupPicker.propTypes = { onPick: PropTypes.func.isRequired, onClose: PropTypes.func.isRequired }
 
 // ── Cards ────────────────────────────────────────────────────────────────────
 // Every card is a thin adapter over NotificationCard: it supplies the agent, heading/body, the
@@ -566,6 +644,91 @@ export function SetupManageBubble({ msg, onClose, onResolve }) {
         />
     )
 }
+
+// A setup ANOTHER USER sent — the one card in this file a person posts, not a bot. The payload is
+// a blueprint (the plan with the size, account, workspace and monitor state stripped — a snapshot
+// COPY, never a pointer into the sender's document) plus their note and the price when they sent
+// it. Primary opens MY Mentor on it as a fresh worksheet; sizing and generating are mine to do
+// there, which is why the card resolves on OPEN — looking is all it asked.
+//
+// `mine` is the SENDER's own view of the card. It is rendered actionless: "Open in Mentor" on my
+// own plan would fork it back at me, and Dismiss would invent a decision about a message I wrote.
+export function SetupSharedBubble({ msg, mine = false, onClose, onResolve }) {
+    const { blueprint, note, drawn_price: drawnPrice, rr } = msg.payload
+    const { asset, direction, trade_mode: lens, timeframe, type: horizon, from, drawn_at: drawnAt } = blueprint
+    const who   = mine ? 'You' : (from?.fullname || from?.username || 'Someone')
+    const sc    = blueprint.scenarios?.[0] ?? null
+    const conds = (blueprint.conditions?.length ?? 0) + (blueprint.scenarios ?? []).reduce((n, x) => n + (x.conditions?.length ?? 0), 0)
+    const ways  = blueprint.scenarios?.length ?? 0
+
+    const heading = (
+        <>{who} shared a setup &middot; {asset}
+            {direction && <span className="social-chat__invalidation-alert-tag"> &middot; {direction}</span>}
+        </>
+    )
+    const qualifier = [lens, timeframe, horizon].filter(Boolean).join(' · ') || null
+
+    const body = (
+        <div className="social-chat__shared-setup">
+            {qualifier && <div className="social-chat__shared-setup-line social-chat__shared-setup-line--muted">{qualifier}{ways > 1 ? ` · ${ways} ways in` : ''}</div>}
+            {sc && (
+                <div className="social-chat__shared-setup-levels">
+                    <span>Entry {sc.entry_zones?.length ? sc.entry_zones.map(fmtLevel).join(' / ') : '—'}</span>
+                    <span>Stop {sc.stop_zones?.length ? sc.stop_zones.map(fmtLevel).join(' / ') : '—'}</span>
+                    <span>Target {sc.tp_zones?.length ? sc.tp_zones.map(fmtLevel).join(' / ') : '—'}</span>
+                    {Number.isFinite(rr) && <span>r:r {rr}</span>}
+                </div>
+            )}
+            {conds > 0 && <div className="social-chat__shared-setup-line social-chat__shared-setup-line--muted">{conds} condition{conds === 1 ? '' : 's'}</div>}
+            <SharedPriceLine asset={asset} drawnPrice={drawnPrice} drawnAt={drawnAt} pending={!mine && msg.status === 'pending'} />
+            {note && <div className="social-chat__shared-setup-note">“{note}”</div>}
+        </div>
+    )
+
+    function handlePrimary() {
+        eventBus.emit(SETUP_SHARED_OPEN, { blueprint, note: note ?? null, from: from ?? null, drawnAt: drawnAt ?? null, drawnPrice: drawnPrice ?? null })
+        onClose?.()
+    }
+
+    return (
+        <NotificationCard
+            agent={AGENTS.mentor} kind="manage" heading={heading} asset={asset}
+            qualifier={qualifier} body={body} actionless={mine || !msg.actions}
+            primaryLabel={msg.actions?.primary?.label ?? 'Open in Mentor'} onPrimary={handlePrimary}
+            onResolve={onResolve} msg={msg} reopenOnDone
+            resolvedLabels={{ opened: '✓ Opened in Mentor' }}
+        />
+    )
+}
+SetupSharedBubble.propTypes = { msg: PropTypes.object.isRequired, mine: PropTypes.bool, onClose: PropTypes.func, onResolve: PropTypes.func }
+
+// "Drawn at X on <date> · now Y (+z%)". The "now" is fetched once, only while the card is still
+// pending — a card already opened or dismissed shows what the sender saw and nothing more, so a
+// long DM history does not re-quote every plan ever shared on every scroll. A failed quote leaves
+// the drawn price alone; the line never blocks the card.
+function SharedPriceLine({ asset, drawnPrice, drawnAt, pending }) {
+    const [now, setNow] = useState(null)
+    useEffect(() => {
+        if (!pending || !asset) return
+        let live = true
+        marketService.getQuote(asset)
+            .then(q => { if (live && Number.isFinite(q?.price) && q.price > 0) setNow(q.price) })
+            .catch(() => { /* drawn-only */ })
+        return () => { live = false }
+    }, [asset, pending])
+
+    const hasDrawn = Number.isFinite(drawnPrice) && drawnPrice > 0
+    if (!hasDrawn && !now) return null
+    const when = drawnAt ? ` on ${formatCreatedAt(drawnAt)}` : ''
+    const move = hasDrawn && now ? ((now - drawnPrice) / drawnPrice) * 100 : null
+    return (
+        <div className="social-chat__shared-setup-line social-chat__shared-setup-price">
+            {hasDrawn && <span>Drawn at {formatPrice(drawnPrice)}{when}</span>}
+            {now && <span> · now {formatPrice(now)}{move !== null ? ` (${move >= 0 ? '+' : ''}${move.toFixed(1)}%)` : ''}</span>}
+        </div>
+    )
+}
+SharedPriceLine.propTypes = { asset: PropTypes.string, drawnPrice: PropTypes.number, drawnAt: PropTypes.number, pending: PropTypes.bool }
 
 // "Stopped out — re-enter?" card for a Kairos call. Primary opens the call pop-out where the user
 // picks Re-enter (revive the plan) or Close (leave it terminal).
@@ -951,6 +1114,7 @@ ChatWindow.propTypes = {
     hasMore:          PropTypes.bool,
     onClose:          PropTypes.func,
     onSend:           PropTypes.func.isRequired,
+    onSendSetup:      PropTypes.func,
     onLoadMore:       PropTypes.func.isRequired,
     onResolveMessage: PropTypes.func,
     scrollToMsgId:    PropTypes.string,

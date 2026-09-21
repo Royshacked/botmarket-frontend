@@ -26,6 +26,7 @@ const TYPE_LABELS = {
     coverage_refreshed: 'Research refreshed',
     sleeve_sourced:     'Sleeve sourced',
     queue_ready:        'Market open',
+    setup_shared:       'Shared a setup',
 }
 
 // The pieces the preview toast renders: WHO it's from, WHAT it says, and — for a bot
