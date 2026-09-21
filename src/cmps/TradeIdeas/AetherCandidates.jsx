@@ -338,10 +338,12 @@ export function conclusionOf(c, { read = null, setup = null, now = Date.now() } 
     if (netLabel && netLabel !== side) {
         return { tone: 'leave', head: 'Leave it, or ask Mentor', why: `Prometheus has it net ${netLabel} across ${n} events, against this event's ${side}` }
     }
-    if (q?.verdict === 'contradicted') {
-        return { tone: 'leave', head: 'Leave it', why: `contradicted${conf}: ${q.read || 'the record cuts against the mechanism'}` }
-    }
+    // The sizing rides every verdict that has one. On a contradicted it is often the REASON —
+    // APD on the India fab: the mechanism was real and worth +0.2%, dominated by the helium hit.
     const sized = sizingOf(q)
+    if (q?.verdict === 'contradicted') {
+        return { tone: 'leave', head: 'Leave it', why: `contradicted${conf}${sized ? ` — ${sized.text}` : ''}: ${q.read || 'the record cuts against the mechanism'}` }
+    }
     if (q?.verdict === 'priced_in') {
         return { tone: 'wait', head: 'Already priced', why: `${q.read || 'the market has looked'}${sized ? ` — ${sized.text}` : ''}` }
     }

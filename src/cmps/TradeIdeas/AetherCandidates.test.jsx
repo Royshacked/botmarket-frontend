@@ -1829,6 +1829,10 @@ describe('conclusionOf — the one line before the sections', () => {
         const past = conclusionOf(c({ quick_read: q({ verdict: 'priced_in', read: 'Estimates moved.', delta: { delta_price_pct: -3, moved_pct: -9, remaining_pct: 6 } }) }))
         expect(past.head).toBe('Already priced')
         expect(past.why).toBe('Estimates moved. — worth -3.0% at a constant multiple · moved -9.0% · past what the event is worth')
+        // A contradicted carries it too — there it is usually the reason (APD: real, worth +0.2%, dominated).
+        const trivial = conclusionOf(c({ quick_read: q({ verdict: 'contradicted', read: 'Trivial next to helium.', delta: { delta_price_pct: 0.19, moved_pct: -2.3, remaining_pct: 2.49 } }) }))
+        expect(trivial.head).toBe('Leave it')
+        expect(trivial.why).toBe('contradicted, 80% — worth +0.2% at a constant multiple · moved -2.3% · +2.5% open: Trivial next to helium.')
     })
 
     it('no direction has its own head', () => {
