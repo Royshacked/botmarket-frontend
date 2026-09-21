@@ -14,6 +14,11 @@ export const MODEL_OPTIONS = [
     { id: 'gpt-5.6-luna',              label: 'GPT-5.6 Luna',      short: 'Luna (admin)',       adminOnly: true },
     { id: 'qwen3.7-plus',              label: 'Qwen3.7-Plus',      short: 'Qwen (admin)',       adminOnly: true },
     { id: 'mistral-medium-3.5',        label: 'Mistral Medium 3.5', short: 'Mistral (admin)',   adminOnly: true },
+    // 2026-09-21: the bracket below Luna, the concrete DeepSeek flash id, and the step up from
+    // Luna that stays under Sonnet money. Same gate, same registries (llmModels + TALOS_MODELS).
+    { id: 'qwen3.7-flash',             label: 'Qwen3.7 Flash',     short: 'Qwen Flash (admin)', adminOnly: true },
+    { id: 'deepseek-v4.1-flash',       label: 'DeepSeek V4.1 Flash', short: 'DeepSeek (admin)', adminOnly: true },
+    { id: 'gemini-3.8-flash',          label: 'Gemini 3.8 Flash',  short: 'Gemini (admin)',     adminOnly: true },
 ]
 
 /** The chat model options this user may pick from. */
@@ -40,6 +45,9 @@ export const TALOS_MODEL_OPTIONS = [
     { id: 'gpt-5.6-luna',      label: 'GPT-5.6 Luna' },
     { id: 'mistral-medium-3.5', label: 'Mistral Medium 3.5' },
     { id: 'qwen3.7-plus',      label: 'Qwen3.7-Plus' },
+    { id: 'qwen3.7-flash',     label: 'Qwen3.7 Flash' },
+    { id: 'deepseek-v4.1-flash', label: 'DeepSeek V4.1 Flash' },
+    { id: 'gemini-3.8-flash',  label: 'Gemini 3.8 Flash' },
 ]
 
 export function readStoredTalosModel() {
