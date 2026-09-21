@@ -10,8 +10,7 @@ import { CandleColorPicker }   from '../cmps/CandleColorPicker/CandleColorPicker
 import { ModeSwitcher }        from '../cmps/ModeSwitcher/ModeSwitcher'
 import { loadAppearance }      from '../services/themeService.js'
 import { PaceSlider }          from '../cmps/PaceSlider.jsx'
-import { chatModelOptions, readStoredModel, MODEL_OPTIONS, DEFAULT_MODEL, TALOS_MODEL_KEY, TALOS_MODEL_OPTIONS, TALOS_DEFAULT_MODEL, readStoredTalosModel } from '../cmps/modelOptions.js'
-import { AI_MODEL_KEY } from '../services/aiPrefKeys.js'
+import { MODEL_OPTIONS, DEFAULT_MODEL, TALOS_MODEL_OPTIONS, TALOS_DEFAULT_MODEL } from '../cmps/modelOptions.js'
 import { DESIGNS, loadDesign, saveDesign, applyDesign } from '../services/designService.js'
 import { queuePrefSync } from '../services/preferences.service.js'
 import { PaperTradingSection } from '../cmps/PaperTrading/PaperTradingSection.jsx'
@@ -57,18 +56,15 @@ const WORKSPACE_LABEL = { live: 'Live', paper: 'Paper', manual: 'Manual' }
 // Hermes are dormant (trading runs Argus → Mentor → Talos), so the card named a desk that
 // isn't running and was removed.
 //
-// NOTE: the hermesModel/hermesReasoning keys it wrote are NOT dead. assess.shared.js reads them
-// for the live Talos as one "how hard should my monitors think" knob. `hermesModel` got its card
-// back on 2026-09-20 as "Monitors" — ADMIN ONLY, because what it offers are the candidate models
-// under evaluation for the Talos read (cmps/modelOptions.js TALOS_MODEL_OPTIONS): the admin picks
-// one, their own setups are read on it from the next wake, and the journal rows say which model
-// made each read. `hermesReasoning` stays UI-less (capped at `low` server-side anyway).
+// NOTE: `hermesReasoning` is still read by assess.shared.js as the "how hard should my monitors
+// think" knob (capped at `low` server-side); it has no UI. `hermesModel` is no longer read for
+// anyone.
 //
-// SINCE 2026-09-21 BOTH SELECTORS ARE THE ADMIN'S ALONE. A non-admin's desks and setup reads run
-// on the HOUSE models (backend services/houseModels.service.js) — one choice the admin makes for
-// everyone, in the "House models" card below — and whatever their client still sends is not
-// consulted server-side. The admin's own two selectors stay: that is how a candidate is tried on
-// the admin's own account before it becomes the house's.
+// SINCE 2026-09-21 THERE IS ONE MODEL CARD, THE ADMIN'S, AND IT CHOOSES FOR EVERYONE — the admin
+// included. Every desk turn runs on the house chat model and every setup read on the house Talos
+// model (backend services/houseModels.service.js); a per-user selector no longer exists, and
+// whatever a client still sends on the wire is not consulted server-side. (The first cut the same
+// day kept the admin's own two selectors beside the house's; Roy asked for the separation to go.)
 
 export function UserProfile() {
     const { user, setUser, signout, isAdmin } = useAuth()
@@ -106,29 +102,11 @@ export function UserProfile() {
 
     const [tokenUsage, setTokenUsage] = useState({ month: '', totalCost: 0, budgetUsd: 20, percentUsed: 0 })
 
-    const [model, setModel] = useState(readStoredModel())
-    const [talosModel, setTalosModel] = useState(readStoredTalosModel())
-
     const [design, setDesign] = useState(loadDesign())
     function handleDesign(id) {
         setDesign(id)
         saveDesign(id)
         applyDesign(id)
-        queuePrefSync()
-    }
-
-    // One setting, so one handler. It took a `field` name while there were three (model /
-    // reasoning / routingMode); keeping that shape with one field left would silently write the
-    // model key for any field passed.
-    function handleModel(value) {
-        localStorage.setItem(AI_MODEL_KEY, value)
-        setModel(value)
-        queuePrefSync()
-    }
-
-    function handleTalosModel(value) {
-        localStorage.setItem(TALOS_MODEL_KEY, value)
-        setTalosModel(value)
         queuePrefSync()
     }
 
@@ -387,33 +365,14 @@ export function UserProfile() {
                                 <span className="user-profile__label">Text speed</span>
                                 <PaceSlider />
                             </div>
-                            {isAdmin ? (
-                                <div className="user-profile__agent">
-                                    <span className="user-profile__agent-name">Your desks — admin</span>
-                                    <div className="user-profile__agent-field">
-                                        <span className="user-profile__label">Model</span>
-                                        <select
-                                            className="user-profile__select"
-                                            style={{ width: 'auto', minWidth: '9rem' }}
-                                            value={model}
-                                            aria-label="Chat model"
-                                            onChange={e => handleModel(e.target.value)}
-                                        >
-                                            {chatModelOptions(isAdmin).map(m => (
-                                                <option key={m.id} value={m.id}>{m.short}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <span className="user-profile__agent-note">Your own account only. Everyone else runs on the house models below.</span>
-                                </div>
-                            ) : (
+                            {!isAdmin && (
                                 <div className="user-profile__agent">
                                     <span className="user-profile__agent-note">The model your desks run on is set by the house.</span>
                                 </div>
                             )}
                             {isAdmin && (
                                 <div className="user-profile__agent">
-                                    <span className="user-profile__agent-name">House models — admin</span>
+                                    <span className="user-profile__agent-name">Models — admin, for everyone</span>
                                     <div className="user-profile__agent-field">
                                         <span className="user-profile__label">Desks</span>
                                         <select
@@ -445,29 +404,9 @@ export function UserProfile() {
                                         </select>
                                     </div>
                                     <span className="user-profile__agent-note">
-                                        What every non-admin's desks and setup reads run on, from their next turn — and the house runs with no user (the market brief, the coverage re-model).
+                                        What every account&apos;s desks and setup reads run on, yours included, from the next turn — and the house runs with no user (the market brief, the coverage re-model). Each journal row names the model that made its read.
                                         {houseError ? ` ${houseError}` : ''}
                                     </span>
-                                </div>
-                            )}
-                            {isAdmin && (
-                                <div className="user-profile__agent">
-                                    <span className="user-profile__agent-name">Monitors (Talos) — admin</span>
-                                    <div className="user-profile__agent-field">
-                                        <span className="user-profile__label">Model</span>
-                                        <select
-                                            className="user-profile__select"
-                                            style={{ width: 'auto', minWidth: '9rem' }}
-                                            value={talosModel}
-                                            aria-label="Talos model"
-                                            onChange={e => handleTalosModel(e.target.value)}
-                                        >
-                                            {TALOS_MODEL_OPTIONS.map(m => (
-                                                <option key={m.id} value={m.id}>{m.label}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <span className="user-profile__agent-note">Applies to your own setups from their next read. Each journal row names the model that made it.</span>
                                 </div>
                             )}
                         </section>

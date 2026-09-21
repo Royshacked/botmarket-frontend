@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 
-// The Monitors card (2026-09-20): the admin's Talos model menu. Admin-only, writes `hermesModel`,
-// and the ids it offers are the backend's TALOS_MODELS keys (cmps/modelOptions.js).
+// The models card (2026-09-21): ONE card, the admin's, choosing the desks' and Talos's model for
+// everyone — the admin included. Server state (house_settings), never localStorage; the ids it
+// offers are the backend registries' keys (cmps/modelOptions.js). No per-user selector exists.
 
 // A mutable auth value, hoisted so the mock factory can see it and a test can flip isAdmin.
 const auth = vi.hoisted(() => ({
@@ -48,7 +49,7 @@ vi.mock('../cmps/PaceSlider.jsx',                      () => ({ PaceSlider:     
 vi.mock('../cmps/PushAlerts/PushAlertsSection.jsx',    () => ({ PushAlertsSection: () => null }))
 
 import { UserProfile } from './UserProfile.jsx'
-import { TALOS_MODEL_KEY, TALOS_MODEL_OPTIONS, MODEL_OPTIONS } from '../cmps/modelOptions.js'
+import { TALOS_MODEL_OPTIONS, MODEL_OPTIONS } from '../cmps/modelOptions.js'
 import { waitFor } from '@testing-library/react'
 
 beforeEach(() => {
@@ -58,33 +59,7 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-describe('UserProfile — the Monitors (Talos) model card', () => {
-    it('offers the five candidates to an admin, defaulting to Sonnet 4.6', () => {
-        render(<UserProfile />)
-        const select = screen.getByLabelText('Talos model')
-        expect(select.value).toBe('claude-sonnet-4-6')
-        expect([...select.options].map(o => o.value)).toEqual(TALOS_MODEL_OPTIONS.map(m => m.id))
-        expect([...select.options].map(o => o.value)).not.toContain('claude-haiku-4-5-20251001')
-    })
-
-    it('a pick writes hermesModel and syncs the snapshot', () => {
-        render(<UserProfile />)
-        fireEvent.change(screen.getByLabelText('Talos model'), { target: { value: 'gpt-5.6-luna' } })
-        expect(localStorage.getItem(TALOS_MODEL_KEY)).toBe('gpt-5.6-luna')
-        expect(screen.getByLabelText('Talos model').value).toBe('gpt-5.6-luna')
-        expect(queuePrefSync).toHaveBeenCalledTimes(1)
-    })
-
-    it('reads a stored choice back, and ignores a stored id it does not offer', () => {
-        localStorage.setItem(TALOS_MODEL_KEY, 'mistral-medium-3.5')
-        const { unmount } = render(<UserProfile />)
-        expect(screen.getByLabelText('Talos model').value).toBe('mistral-medium-3.5')
-        unmount()
-        localStorage.setItem(TALOS_MODEL_KEY, 'claude-haiku-4-5-20251001')
-        render(<UserProfile />)
-        expect(screen.getByLabelText('Talos model').value).toBe('claude-sonnet-4-6')
-    })
-
+describe('UserProfile — the one models card (admin, for everyone)', () => {
     it('a non-admin gets NO model selector at all — neither desks nor Talos — and no house read', () => {
         auth.isAdmin = false
         render(<UserProfile />)
@@ -94,20 +69,23 @@ describe('UserProfile — the Monitors (Talos) model card', () => {
         expect(houseApi.get).not.toHaveBeenCalled()
     })
 
-    it("the admin's own chat select offers the Luna candidate", () => {
+    it('an admin gets exactly two selects — the house desks model and the house Talos model — and no per-user one', async () => {
         render(<UserProfile />)
-        const chat = screen.getByLabelText('Chat model')
-        expect([...chat.options].map(o => o.value)).toContain('gpt-5.6-luna')
+        await waitFor(() => expect(screen.getByLabelText('House chat model').disabled).toBe(false))
+        expect(screen.getAllByRole('combobox')).toHaveLength(2)
+        expect(screen.queryByLabelText('Chat model')).toBeNull()
+        expect(screen.queryByLabelText('Talos model')).toBeNull()
+        expect(screen.getByText(/yours included/)).toBeTruthy()
     })
-})
 
-describe('UserProfile — the House models card (admin)', () => {
-    it('loads the house choice, showing the registry default where nothing is set', async () => {
+    it('loads the house choice, showing the registry default where nothing is set, with every candidate offered', async () => {
         render(<UserProfile />)
         await waitFor(() => expect(screen.getByLabelText('House chat model').value).toBe('gpt-5.6-luna'))
         expect(screen.getByLabelText('House Talos model').value).toBe('claude-sonnet-4-6')
         expect([...screen.getByLabelText('House chat model').options].map(o => o.value)).toEqual(MODEL_OPTIONS.map(m => m.id))
+        expect([...screen.getByLabelText('House chat model').options].map(o => o.value)).toContain('gpt-5.6-luna')
         expect([...screen.getByLabelText('House Talos model').options].map(o => o.value)).toEqual(TALOS_MODEL_OPTIONS.map(m => m.id))
+        expect([...screen.getByLabelText('House Talos model').options].map(o => o.value)).not.toContain('claude-haiku-4-5-20251001')
     })
 
     it('a change writes ONLY that id to the server and shows what came back; nothing goes to localStorage', async () => {
@@ -116,7 +94,7 @@ describe('UserProfile — the House models card (admin)', () => {
         fireEvent.change(screen.getByLabelText('House Talos model'), { target: { value: 'gpt-5.6-luna' } })
         await waitFor(() => expect(houseApi.set).toHaveBeenCalledWith({ talosModel: 'gpt-5.6-luna' }))
         await waitFor(() => expect(screen.getByLabelText('House Talos model').value).toBe('gpt-5.6-luna'))
-        expect(localStorage.getItem(TALOS_MODEL_KEY)).toBeNull()
+        expect(localStorage.getItem('hermesModel')).toBeNull()
         expect(queuePrefSync).not.toHaveBeenCalled()
     })
 
