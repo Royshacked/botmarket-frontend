@@ -12,7 +12,7 @@ export const MODEL_OPTIONS = [
     // CANDIDATES for the desks' base model (2026-09-20). `adminOnly` mirrors the backend registry's
     // flag; since 2026-09-21 only the house card offers any model and only an admin sees it, so the
     // flag gates nothing here any more and the `short` labels are unused.
-    { id: 'gpt-5.6-luna',              label: 'GPT-5.6 Luna',      short: 'Luna (admin)',       adminOnly: true },
+    { id: 'gpt-6-luna',                label: 'GPT-6 Luna',        short: 'Luna (admin)',       adminOnly: true },
     { id: 'qwen3.7-plus',              label: 'Qwen3.7-Plus',      short: 'Qwen (admin)',       adminOnly: true },
     { id: 'mistral-medium-3.5',        label: 'Mistral Medium 3.5', short: 'Mistral (admin)',   adminOnly: true },
     // 2026-09-21: the bracket below Luna, the concrete DeepSeek flash id, and the step up from
@@ -36,7 +36,7 @@ export const TALOS_DEFAULT_MODEL = 'claude-sonnet-4-6'
 export const TALOS_MODEL_OPTIONS = [
     { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 (default)' },
     { id: 'claude-sonnet-5',   label: 'Claude Sonnet 5' },
-    { id: 'gpt-5.6-luna',      label: 'GPT-5.6 Luna' },
+    { id: 'gpt-6-luna',        label: 'GPT-6 Luna' },
     { id: 'mistral-medium-3.5', label: 'Mistral Medium 3.5' },
     { id: 'qwen3.7-plus',      label: 'Qwen3.7-Plus' },
     { id: 'qwen3.7-flash',     label: 'Qwen3.7 Flash' },

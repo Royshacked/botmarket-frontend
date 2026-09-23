@@ -1334,14 +1334,14 @@ describe('AetherCandidates — Prometheus quick read', () => {
     })
 
     it('the read is asked for on the AI-menu model, so a candidate can be compared on the same name', async () => {
-        localStorage.setItem('aiModel', 'gpt-5.6-luna')
+        localStorage.setItem('aiModel', 'gpt-6-luna')
         try {
             quickRead.mockResolvedValue(READ)
             render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} />)
             openEvent()
             openName()
             fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
-            expect(quickRead).toHaveBeenCalledWith('Canada:2026-09-08', 'NUE', { model: 'gpt-5.6-luna' })
+            expect(quickRead).toHaveBeenCalledWith('Canada:2026-09-08', 'NUE', { model: 'gpt-6-luna' })
         } finally {
             localStorage.removeItem('aiModel')
         }

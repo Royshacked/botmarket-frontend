@@ -54,8 +54,8 @@ import { waitFor } from '@testing-library/react'
 
 beforeEach(() => {
     localStorage.clear(); queuePrefSync.mockClear(); auth.isAdmin = true
-    houseApi.get.mockReset().mockResolvedValue({ chatModel: 'gpt-5.6-luna', talosModel: null })
-    houseApi.set.mockReset().mockImplementation(async (patch) => ({ chatModel: 'gpt-5.6-luna', talosModel: null, ...patch }))
+    houseApi.get.mockReset().mockResolvedValue({ chatModel: 'gpt-6-luna', talosModel: null })
+    houseApi.set.mockReset().mockImplementation(async (patch) => ({ chatModel: 'gpt-6-luna', talosModel: null, ...patch }))
 })
 afterEach(cleanup)
 
@@ -80,10 +80,10 @@ describe('UserProfile — the one models card (admin, for everyone)', () => {
 
     it('loads the house choice, showing the registry default where nothing is set, with every candidate offered', async () => {
         render(<UserProfile />)
-        await waitFor(() => expect(screen.getByLabelText('House chat model').value).toBe('gpt-5.6-luna'))
+        await waitFor(() => expect(screen.getByLabelText('House chat model').value).toBe('gpt-6-luna'))
         expect(screen.getByLabelText('House Talos model').value).toBe('claude-sonnet-4-6')
         expect([...screen.getByLabelText('House chat model').options].map(o => o.value)).toEqual(MODEL_OPTIONS.map(m => m.id))
-        expect([...screen.getByLabelText('House chat model').options].map(o => o.value)).toContain('gpt-5.6-luna')
+        expect([...screen.getByLabelText('House chat model').options].map(o => o.value)).toContain('gpt-6-luna')
         expect([...screen.getByLabelText('House Talos model').options].map(o => o.value)).toEqual(TALOS_MODEL_OPTIONS.map(m => m.id))
         expect([...screen.getByLabelText('House Talos model').options].map(o => o.value)).not.toContain('claude-haiku-4-5-20251001')
     })
@@ -91,9 +91,9 @@ describe('UserProfile — the one models card (admin, for everyone)', () => {
     it('a change writes ONLY that id to the server and shows what came back; nothing goes to localStorage', async () => {
         render(<UserProfile />)
         await waitFor(() => expect(screen.getByLabelText('House chat model').disabled).toBe(false))
-        fireEvent.change(screen.getByLabelText('House Talos model'), { target: { value: 'gpt-5.6-luna' } })
-        await waitFor(() => expect(houseApi.set).toHaveBeenCalledWith({ talosModel: 'gpt-5.6-luna' }))
-        await waitFor(() => expect(screen.getByLabelText('House Talos model').value).toBe('gpt-5.6-luna'))
+        fireEvent.change(screen.getByLabelText('House Talos model'), { target: { value: 'gpt-6-luna' } })
+        await waitFor(() => expect(houseApi.set).toHaveBeenCalledWith({ talosModel: 'gpt-6-luna' }))
+        await waitFor(() => expect(screen.getByLabelText('House Talos model').value).toBe('gpt-6-luna'))
         expect(localStorage.getItem('hermesModel')).toBeNull()
         expect(queuePrefSync).not.toHaveBeenCalled()
     })
@@ -104,6 +104,6 @@ describe('UserProfile — the one models card (admin, for everyone)', () => {
         await waitFor(() => expect(screen.getByLabelText('House chat model').disabled).toBe(false))
         fireEvent.change(screen.getByLabelText('House chat model'), { target: { value: 'claude-opus-5' } })
         await waitFor(() => expect(screen.getByText(/was not saved/)).toBeTruthy())
-        expect(screen.getByLabelText('House chat model').value).toBe('gpt-5.6-luna')
+        expect(screen.getByLabelText('House chat model').value).toBe('gpt-6-luna')
     })
 })
