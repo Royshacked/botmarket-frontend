@@ -28,6 +28,21 @@ const REASON_LABEL = {
     manage:         'you accepted',
 }
 
+// What the NEXT wake costs. A wake stopped being one thing on 2026-09-23 (backend talos.tiers):
+// the full read, a numbers-only check, or nothing at all.
+const NEXT_LABEL = {
+    expensive: 'next read',
+    cheap:     'next check',
+    asleep:    'resting until',
+}
+
+// The MAP, which a read now answers apart from the moment — it can be waiting on a plan that still
+// describes the chart, or waiting on one that has stopped.
+const PREMISE_TITLE = {
+    damaged: 'Talos says the premise is hurt — this may not be a trade any more',
+    stale:   'Talos says the levels no longer describe this chart — it wants re-drawing',
+}
+
 const MET_MARK  = { yes: '✓', no: '✗', unchecked: '?' }
 const MET_TITLE = {
     yes:       'Talos checked this and it is happening',
@@ -57,15 +72,20 @@ function conditionText(setup, id) {
 function JournalHead({ setup }) {
     const ms     = setup?.monitor_state ?? {}
     const guards = Array.isArray(ms.guards) ? ms.guards : []
-    const { when, standing } = nextCall(setup)
+    const { when, standing, tier, properIn } = nextCall(setup)
     if (!ms.memo && !when && !standing) return null
     return (
         <div className="talos-journal__head">
             {when && (
                 <div className="talos-journal__summary talos-journal__summary--next">
-                    <span className="talos-journal__time">next read</span>
+                    <span className="talos-journal__time">{NEXT_LABEL[tier] ?? 'next read'}</span>
                     <span className="talos-journal__next">{when}</span>
                     {ms.timeframe && <span className="talos-journal__reason">{ms.timeframe} close</span>}
+                    {properIn > 0 && (
+                        <span className="talos-journal__chip" title="A full read — chart, structure, news. Talos set this pace itself, from how far the setup is from being decidable.">
+                            full read in {properIn} {properIn === 1 ? 'close' : 'closes'}
+                        </span>
+                    )}
                     {guards.length > 0 && (
                         <span className="talos-journal__chip talos-journal__chip--guards" title="Prices that wake Talos ahead of the next candle">
                             or at {guards.map(guardLabel).filter(Boolean).join(' · ')}
@@ -104,7 +124,17 @@ function JournalRow({ row, setup }) {
                 <span className="talos-journal__time">{fmtTime(row.at)}</span>
                 <span className="talos-journal__reason">{REASON_LABEL[row.reason] ?? row.reason}</span>
                 {row.price != null && <span className="talos-journal__price">@ {tidyPrices(String(row.price))}</span>}
+                {row.tier === 'cheap' && (
+                    <span className="talos-journal__verdict verdict--check" title="A numbers-only check — candles and indicators against the plan's conditions. No chart, no tools. It escalates to a full read the moment anything fires or it cannot tell.">
+                        check
+                    </span>
+                )}
                 {row.verdict && <span className={`talos-journal__verdict verdict--${row.verdict}`}>{row.verdict}</span>}
+                {row.premise && row.premise !== 'intact' && (
+                    <span className={`talos-journal__premise premise--${row.premise}`} title={PREMISE_TITLE[row.premise]}>
+                        map {row.premise}
+                    </span>
+                )}
                 {hasDetail && <span className="talos-journal__caret">{open ? '▾' : '▸'}</span>}
             </button>
             {row.note && <p className="talos-journal__note">{tidyPrices(row.note)}</p>}
@@ -143,10 +173,12 @@ function JournalRow({ row, setup }) {
                             <span className="talos-journal__tools">{tools.join(' · ')}</span>
                         </div>
                     )}
-                    {tools.length === 0 && row.verdict && (
+                    {tools.length === 0 && (row.verdict || row.tier === 'cheap') && (
                         <div className="talos-journal__line">
                             <span className="talos-journal__k">pulled</span>
-                            <span className="talos-journal__tools">nothing — the candles answered</span>
+                            <span className="talos-journal__tools">
+                                {row.tier === 'cheap' ? 'nothing — a check never pulls' : 'nothing — the candles answered'}
+                            </span>
                         </div>
                     )}
                     {armed.length > 0 && (

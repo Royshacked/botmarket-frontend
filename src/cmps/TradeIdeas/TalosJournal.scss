@@ -112,6 +112,24 @@
         &.verdict--add_leg      { background: rgba(240,192,64,0.15); color: var(--color-warning); }
         &.verdict--hold,
         &.verdict--wait         { background: var(--glow-soft);      color: var(--text-secondary); }
+        // A CHECK is not a verdict — the cheap tier has no verdict vocabulary. Quieter than every
+        // real one, because a row of them is the normal background hum of a setup being watched.
+        &.verdict--check        { background: transparent; color: var(--text-tertiary, var(--text-secondary));
+                                  font-weight: 600; border: 1px solid var(--glow-soft); }
+    }
+
+    // The MAP, flagged — a read saying the plan has stopped describing the chart. It sits beside
+    // the verdict rather than replacing it, because "wait" and "the map is stale" are both true at
+    // once and that pairing is the whole reason the field exists.
+    &__premise {
+        padding: 1px 6px;
+        border-radius: 3px;
+        font-weight: 700;
+        font-size: 0.72rem;
+        text-transform: lowercase;
+
+        &.premise--damaged { background: rgba(239,83,80,0.14);  color: var(--color-short); }
+        &.premise--stale   { background: rgba(240,192,64,0.15); color: var(--color-warning); }
     }
 
     &__note {

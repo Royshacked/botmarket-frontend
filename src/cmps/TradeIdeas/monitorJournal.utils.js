@@ -97,14 +97,37 @@ export function nextReadLabel(iso, now = Date.now()) {
 export function nextCall(setup, now = Date.now()) {
     const ms = setup?.monitor_state ?? {}
     const st = setup?.status
-    if (isTerminal(st)) return { when: null, standing: null }
-    if (isUnarmed(st))  return { when: null, standing: 'not armed' }
-    if (ms.dormant)     return { when: null, standing: 'dormant — every exit rests at the broker' }
-    return { when: nextReadLabel(ms.next_check_at, now) ?? 'any moment', standing: null }
+    if (isTerminal(st)) return { when: null, standing: null, tier: null, properIn: null }
+    if (isUnarmed(st))  return { when: null, standing: 'not armed', tier: null, properIn: null }
+    if (ms.dormant)     return { when: null, standing: 'dormant — every exit rests at the broker', tier: null, properIn: null }
+    return {
+        when: nextReadLabel(ms.next_check_at, now) ?? 'any moment',
+        standing: null,
+        // WHAT the next wake actually costs (backend talos.tiers). "next read" stopped meaning one
+        // thing on 2026-09-23: a wake is now the full read, a cheap numbers-only check, or nothing
+        // at all, and telling someone "next read in 15 minutes" when it is a numbers check sets the
+        // wrong expectation about what will have been looked at.
+        tier: nextTier(ms),
+        // How many closes until the next PROPER look, when that is not the next wake. Null when the
+        // next wake is itself the expensive one — there is nothing extra to say.
+        properIn: nextTier(ms) === 'expensive' ? null : (Number(ms.expensive_due) || null),
+    }
+}
+
+/**
+ * What the next wake will cost. Mirrors the backend's `tierFor` for the steady-state cases only —
+ * a first look, an expiry review and a fired guard are all decided at wake time and cannot be known
+ * from here, so this answers the common case and errs towards `expensive`, which is what an unread
+ * or freshly-armed setup actually gets.
+ */
+export function nextTier(ms = {}) {
+    if (!(Number(ms.expensive_due) > 0)) return 'expensive'
+    return ms.watch ? 'cheap' : 'asleep'
 }
 
 /** The next call as one phrase: "next read in 12 min" · "not armed" · null. */
 export function nextCallLine(setup, now = Date.now()) {
-    const { when, standing } = nextCall(setup, now)
-    return when ? `next read ${when}` : standing
+    const { when, standing, tier } = nextCall(setup, now)
+    if (!when) return standing
+    return tier === 'expensive' ? `next read ${when}` : `next check ${when}`
 }

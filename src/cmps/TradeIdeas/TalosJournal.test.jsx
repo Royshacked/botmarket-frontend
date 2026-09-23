@@ -129,13 +129,13 @@ describe('journal utils', () => {
     it('nextCall: when for a watched setup, standing for one nobody reads, neither once closed', () => {
         const now = Date.now()
         const ms = { next_check_at: new Date(now + 5 * 60_000).toISOString() }
-        expect(nextCall({ status: 'looking', monitor_state: ms }, now)).toEqual({ when: 'in 5 min', standing: null })
-        expect(nextCall({ status: 'hit',     monitor_state: ms }, now)).toEqual({ when: 'in 5 min', standing: null })
+        expect(nextCall({ status: 'looking', monitor_state: ms }, now)).toMatchObject({ when: 'in 5 min', standing: null })
+        expect(nextCall({ status: 'hit',     monitor_state: ms }, now)).toMatchObject({ when: 'in 5 min', standing: null })
         // A null stamp on an armed setup is the monitor's "due on the next tick" — just armed, or just edited.
-        expect(nextCall({ status: 'looking', monitor_state: {} }, now)).toEqual({ when: 'any moment', standing: null })
-        expect(nextCall({ status: 'waiting', monitor_state: ms }, now)).toEqual({ when: null, standing: 'not armed' })
+        expect(nextCall({ status: 'looking', monitor_state: {} }, now)).toMatchObject({ when: 'any moment', standing: null })
+        expect(nextCall({ status: 'waiting', monitor_state: ms }, now)).toMatchObject({ when: null, standing: 'not armed' })
         expect(nextCall({ status: 'long', monitor_state: { ...ms, dormant: true } }, now).standing).toMatch(/dormant/)
-        expect(nextCall({ status: 'closed', monitor_state: ms }, now)).toEqual({ when: null, standing: null })
+        expect(nextCall({ status: 'closed', monitor_state: ms }, now)).toMatchObject({ when: null, standing: null })
         expect(nextCallLine({ status: 'looking', monitor_state: ms }, now)).toBe('next read in 5 min')
         expect(nextCallLine({ status: 'waiting' }, now)).toBe('not armed')
         expect(nextCallLine({ status: 'closed' }, now)).toBe(null)
@@ -147,5 +147,55 @@ describe('journal utils', () => {
         expect(guardLabel({ price: 312, direction: 'any' })).toBe('@312')
         expect(guardLabel({ after_min: 240 })).toBe(null)
         expect(guardLabel(null)).toBe(null)
+    })
+})
+
+// ── The two tiers, on screen (2026-09-23) ─────────────────────────────────────
+// A wake is now the full read, a numbers-only check, or nothing at all. A check has no verdict, no
+// tools and no guards — without saying so it looks exactly like a read that failed to answer.
+
+describe('TalosJournal — tiers and the premise', () => {
+    afterEach(cleanup)
+
+    const rows = (extra) => [{ at: new Date().toISOString(), reason: 'candle', price: 238.1, ...extra }]
+
+    it('marks a cheap check, and does not dress it as a verdict', () => {
+        render(<TalosJournal setup={SETUP} rows={rows({ tier: 'cheap', note: 'Nothing the plan waits on has moved.' })} />)
+        expect(screen.getByText('check')).toBeTruthy()
+        expect(screen.getByText(/Nothing the plan waits on/)).toBeTruthy()
+    })
+
+    it('a full read carries its verdict and no check chip', () => {
+        render(<TalosJournal setup={SETUP} rows={rows({ verdict: 'wait', note: 'Had a proper look.' })} />)
+        expect(screen.getByText('wait')).toBeTruthy()
+        expect(screen.queryByText('check')).toBeNull()
+    })
+
+    it('shows a FLAGGED map beside the verdict, because both are true at once', () => {
+        render(<TalosJournal setup={SETUP} rows={rows({ verdict: 'wait', premise: 'stale', note: 'Levels stopped describing this.' })} />)
+        expect(screen.getByText('wait')).toBeTruthy()
+        expect(screen.getByText('map stale')).toBeTruthy()
+    })
+
+    it('stays quiet about an intact map — most rows are, and a row shows what is unusual', () => {
+        render(<TalosJournal setup={SETUP} rows={rows({ verdict: 'wait', premise: 'intact' })} />)
+        expect(screen.queryByText(/^map /)).toBeNull()
+    })
+
+    it('a condition the check could not settle reads as unchecked, never as "not happening"', () => {
+        render(<TalosJournal setup={SETUP} rows={rows({
+            tier: 'cheap', note: 'Cannot tell from the rows.',
+            conditions: [{ id: 'c1', met: 'unchecked', note: 'rows cannot show a failed break' }],
+        })} />)
+        fireEvent.click(screen.getByRole('button', { expanded: false }))
+        expect(screen.getByTitle(/could NOT check/)).toBeTruthy()
+    })
+
+    it('the head announces when the FULL read is due, so a check is not mistaken for one', () => {
+        const watched = { ...SETUP, status: 'looking',
+            monitor_state: { ...SETUP.monitor_state, expensive_due: 6, watch: { rung: '15min' } } }
+        render(<TalosJournal setup={watched} rows={[]} />)
+        expect(screen.getByText('next check')).toBeTruthy()
+        expect(screen.getByText(/full read in 6 closes/)).toBeTruthy()
     })
 })
