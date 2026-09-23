@@ -8,7 +8,7 @@ export const MODEL_OPTIONS = [
     { id: 'claude-sonnet-5',           label: 'Claude Sonnet 5',   short: 'Sonnet 5' },
     { id: 'claude-sonnet-4-6',         label: 'Claude Sonnet 4.6', short: 'Sonnet 4.6' },
     { id: 'claude-opus-4-8',           label: 'Claude Opus 4.8',   short: 'Opus 4.8' },
-    { id: 'claude-opus-5',             label: 'Claude Opus 5',     short: 'Opus 5' },
+    { id: 'claude-opus-5-5',           label: 'Claude Opus 5.5',   short: 'Opus 5.5' },
     // CANDIDATES for the desks' base model (2026-09-20). `adminOnly` mirrors the backend registry's
     // flag; since 2026-09-21 only the house card offers any model and only an admin sees it, so the
     // flag gates nothing here any more and the `short` labels are unused.
