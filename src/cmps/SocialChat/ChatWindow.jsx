@@ -72,6 +72,13 @@ function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = n
     const label   = primaryLabel ?? msg.actions?.primary?.label ?? 'Open'
     const dismiss = onDismiss ?? (() => onResolve?.(msg.id, { status: 'dismissed', outcome: 'dismissed' }))
 
+    // A card may carry a Dismiss and NO primary (chat.service `dismissOnly`): a statement that asks
+    // for nothing but is still the user's to clear. Read off `actions`, never guessed — a bubble
+    // always passes a `primaryLabel` fallback, so the label cannot tell us. Only an `actions` that
+    // is PRESENT and has no primary means this; older history with no `actions` at all keeps the
+    // two buttons it has always rendered.
+    const noPrimary = !!msg.actions && !msg.actions.primary
+
     // WHO CLOSES THIS CARD — read off the card, decided nowhere else.
     //
     // Cards that ASK FOR WORK ('work', the backend default) are not closed by being opened. Opening
@@ -104,7 +111,7 @@ function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = n
             {opened && <div className="social-chat__invalidation-alert-opened">Opened — still waiting on you</div>}
             {!actionless && (
                 <div className="social-chat__invalidation-alert-actions">
-                    <button className="social-chat__invalidation-alert-btn" onClick={handlePrimaryClick} disabled={primaryDisabled}>{label}</button>
+                    {!noPrimary && <button className="social-chat__invalidation-alert-btn" onClick={handlePrimaryClick} disabled={primaryDisabled}>{label}</button>}
                     <button
                         className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
                         onClick={dismiss}
@@ -830,7 +837,10 @@ export function CoverageEventBubble({ msg, onClose, onResolve }) {
     return (
         <NotificationCard
             agent={AGENTS.analyst} kind="coverage" heading={heading} asset={symbol} qualifier={stateCopy} body={msg.content}
-            primaryLabel={msg.actions?.primary?.label ?? 'Open coverage'} onPrimary={handlePrimary}
+            // "Revise thesis" — what this primary actually does, and what separates it from the
+            // refresh card's "Open coverage" below. The stored label still wins, so cards already
+            // in a user's history keep the words they were posted with.
+            primaryLabel={msg.actions?.primary?.label ?? 'Revise thesis'} onPrimary={handlePrimary}
             onResolve={onResolve} msg={msg}
             // `revised` / `retired` / `deleted` are what the coverage write routes stamp when the
             // work lands (analyst.controller → resolveCardsFor); the note beneath says what moved.

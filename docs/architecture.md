@@ -70,6 +70,14 @@ card can arrive before its list has loaded, and an empty list is indistinguishab
 fetch. That is how a portfolio review once got authored against no holdings. A failed read is `null`;
 tell the user.
 
+Reading the entity is only half of it — a card also says WHICH SURFACE it wants, and the two columns
+answer different asks. `pages/coverageRoute.js` holds that judgment for coverage: a `revise` runs the
+desk's update pipeline, an `open` puts the book up in the RIGHT column and leaves the left one alone,
+and only an unresolved doc moves the desk. The left column's panels are kept mounted behind
+`display:none` (most are not in `deskReset`), so switching to one shows whatever was last done there
+— a card that switches desks for no reason appears to answer itself with the previous name's work.
+(2026-09-24)
+
 ## Entities
 
 The frontend mirror of the backend's entity layer, piece for piece:

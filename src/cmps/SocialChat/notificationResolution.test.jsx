@@ -109,11 +109,13 @@ describe('CoverageEventBubble', () => {
     // A verdict card ASKS for a revision, so it must open the thesis in update mode — `mode` is what
     // carries that. Without it the handler could only open a blank Prometheus, on a card that names
     // the very thesis it wanted revised.
-    it('primary "Open coverage" opens that thesis in REVISE mode — and LEAVES IT PENDING', () => {
+    // The label is "Revise thesis", not "Open coverage": the refresh card below also said "Open
+    // coverage" and only THIS one starts a revise turn, so in the feed the two were the same button.
+    it('primary "Revise thesis" opens that thesis in REVISE mode — and LEAVES IT PENDING', () => {
         const onResolve = vi.fn(), onClose = vi.fn()
         render(<CoverageEventBubble msg={msg} onClose={onClose} onResolve={onResolve} />)
 
-        fireEvent.click(screen.getByText('Open coverage'))
+        fireEvent.click(screen.getByText('Revise thesis'))
 
         expect(eventBus.emit).toHaveBeenCalledWith(OPEN_COVERAGE, { coverageId: 'cov1', symbol: 'NVDA', mode: 'revise' })
         expect(onResolve).toHaveBeenCalledWith('m1', { status: 'pending', outcome: 'opened' })
@@ -123,7 +125,16 @@ describe('CoverageEventBubble', () => {
     it('collapses to a chip once resolved, dropping the actions', () => {
         render(<CoverageEventBubble msg={{ ...msg, status: 'done', resolveOutcome: 'opened' }} onResolve={vi.fn()} />)
         expect(screen.getByText(/Opened/)).toBeTruthy()
-        expect(screen.queryByText('Open coverage')).toBeNull()
+        expect(screen.queryByText('Revise thesis')).toBeNull()
+    })
+
+    // A card already in someone's history was posted with the OLD words. The stored label wins over
+    // the component's fallback, so scrolling back does not silently rewrite what the card said.
+    it('a card posted with its own label keeps it', () => {
+        const stored = { ...msg, actions: { primary: { label: 'Open coverage', resolvesOn: 'work' }, dismiss: true } }
+        render(<CoverageEventBubble msg={stored} onClose={vi.fn()} onResolve={vi.fn()} />)
+        expect(screen.getByText('Open coverage')).toBeTruthy()
+        expect(screen.queryByText('Revise thesis')).toBeNull()
     })
 
     // THE WORK LANDED. The revision the card asked for was saved on the desk, the server closed the
@@ -135,7 +146,7 @@ describe('CoverageEventBubble', () => {
         expect(screen.getByText('Re-modelled — rating sell → hold, PT 85 → 92')).toBeTruthy()
         // The original ask stays beneath, so a scrolled-back card still says what it was.
         expect(screen.getByText('NVDA reached our price target.')).toBeTruthy()
-        expect(screen.queryByText('Open coverage')).toBeNull()
+        expect(screen.queryByText('Revise thesis')).toBeNull()
     })
 
     it('a resolution without a note renders the chip as before — no empty line', () => {
@@ -182,6 +193,38 @@ describe('CoverageRefreshedBubble', () => {
         render(<CoverageRefreshedBubble msg={{ ...fromReview, payload: { ...fromReview.payload, ok: false } }} onClose={vi.fn()} onResolve={vi.fn()} />)
         expect(screen.getByText(/refresh failed/)).toBeTruthy()
         expect(screen.getByText('Resume review')).toBeTruthy()
+    })
+
+    // THE BUG (2026-09-24). A scheduled re-model that stored NOTHING is now posted with a Dismiss
+    // and no primary (chat.service `dismissOnly`) — it has nothing to open, and the "Open coverage"
+    // it used to carry only switched to the Analyst desk, which shows whatever was last researched
+    // there. The shell must honour that shape: Dismiss alone, and the card still clearable.
+    it('a house refresh that stored nothing renders Dismiss and NO primary', () => {
+        const onResolve = vi.fn()
+        const nothing = {
+            ...fromReview,
+            payload: { ...fromReview.payload, portfolioId: null, ok: false, house: true },
+            actions: { dismiss: true },
+        }
+        render(<CoverageRefreshedBubble msg={nothing} onClose={vi.fn()} onResolve={onResolve} />)
+
+        expect(screen.getByText(/refresh failed/)).toBeTruthy()
+        expect(screen.queryByText('Open coverage')).toBeNull()
+        fireEvent.click(screen.getByText('Dismiss'))
+        expect(onResolve).toHaveBeenCalledWith('m2', { status: 'dismissed', outcome: 'dismissed' })
+        expect(eventBus.emit).not.toHaveBeenCalled()
+    })
+
+    // Older history posted before `dismissOnly` existed carries a primary, and must keep it — the
+    // absence of a primary is read off `actions`, never inferred from the payload.
+    it('a legacy failed-refresh card with a stored primary keeps its button', () => {
+        const legacy = {
+            ...fromReview,
+            payload: { ...fromReview.payload, portfolioId: null, ok: false, house: true },
+            actions: { primary: { label: 'Open coverage', resolvesOn: 'open' }, dismiss: true },
+        }
+        render(<CoverageRefreshedBubble msg={legacy} onClose={vi.fn()} onResolve={vi.fn()} />)
+        expect(screen.getByText('Open coverage')).toBeTruthy()
     })
 })
 

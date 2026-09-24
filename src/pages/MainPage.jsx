@@ -64,6 +64,7 @@ import { useAetherCandidates } from '../customHooks/useAetherCandidates.js'
 import { deriveIdeaOverlay, deriveSetupOverlay } from '../cmps/TradeIdeas/chartOverlay.js'
 import { useAuth }           from '../context/AuthContext.jsx'
 import { nextResetKeys }     from './deskReset.js'
+import { coverageRoute }     from './coverageRoute.js'
 
 // Maps activeTab → the step name used in DESKS.steps[] for pipeline highlighting.
 const TAB_TO_STEP = {
@@ -1262,11 +1263,11 @@ export function MainPage() {
                 const book = await analystService.listCoverage()
                 cov = book.find(c => String(c.symbol ?? '').toUpperCase() === sym) ?? null
             }
-            if (mode === 'revise' && cov) { handleEditCoverage(cov); return }
-            // No doc resolved (a book this client hasn't reloaded yet) → still open the coverage
-            // surface rather than a blank chat, so the name is one click away instead of nowhere.
-            setActiveTab('analyst')
-            setNewsTab('coverage')
+            // WHICH SURFACES MOVE — coverageRoute, so the rule is assertable outside this page.
+            const go = coverageRoute({ mode, resolved: !!cov })
+            if (go.revise) { handleEditCoverage(cov); return }
+            if (go.book) setNewsTab('coverage')
+            if (go.desk) setActiveTab('analyst')
         })
     }, [])
 
