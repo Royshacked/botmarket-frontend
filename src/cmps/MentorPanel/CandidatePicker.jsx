@@ -11,7 +11,7 @@ import './CandidatePicker.scss'
 // Each candidate carries its own lens, because they're meant to differ in character (a reversal
 // at the low vs a breakout continuation), not be three wordings of one trade.
 
-const fmtZone = (z) => (z?.lower === z?.upper ? `${z?.lower}` : `${z?.lower}–${z?.upper}`)
+const fmtLeg = (z) => (z?.price == null ? null : `${z.price}`)
 
 export function CandidatePicker({ candidates = [], onPick }) {
     if (!candidates.length) return null
@@ -49,9 +49,9 @@ export function CandidatePicker({ candidates = [], onPick }) {
                                 so say when there is more than one way into it rather than showing
                                 one set of numbers as if it were the whole offer. */}
                             <span className="candidate-picker__levels">
-                                <span><em>in</em> {fmtZone(s.entry_zones?.[0])}</span>
-                                <span><em>stop</em> {fmtZone(s.stop_zones?.[0])}</span>
-                                <span><em>target</em> {fmtZone(s.tp_zones?.[0])}</span>
+                                <span><em>in</em> {fmtLeg(s.entry_legs?.[0])}</span>
+                                <span><em>stop</em> {fmtLeg(s.stop_legs?.[0])}</span>
+                                <span><em>target</em> {fmtLeg(s.target_legs?.[0])}</span>
                                 {(s.scenarios?.length ?? 0) > 1 && <span><em>+{s.scenarios.length - 1}</em> more way in</span>}
                             </span>
 

@@ -61,9 +61,9 @@ function conditionText(setup, id) {
         ...(setup?.conditions ?? []),
         ...(setup?.scenarios ?? []).flatMap(sc => [
             ...(sc.conditions ?? []),
-            ...(sc.entry_zones ?? []).flatMap(z => z.conditions ?? []),
-            ...(sc.stop_zones  ?? []).flatMap(z => z.conditions ?? []),
-            ...(sc.tp_zones    ?? []).flatMap(z => z.conditions ?? []),
+            ...(sc.entry_legs ?? []).flatMap(z => z.conditions ?? []),
+            ...(sc.stop_legs  ?? []).flatMap(z => z.conditions ?? []),
+            ...(sc.target_legs    ?? []).flatMap(z => z.conditions ?? []),
         ]),
     ]
     return all.find(c => c?.id === id)?.text ?? id

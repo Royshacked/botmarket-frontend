@@ -32,7 +32,7 @@ const STATUS_COPY = {
     closed:   { label: 'Closed',      hint: 'Finished.' },
 }
 
-const fmtZone = (z) => (z?.lower === z?.upper ? `${z?.lower}` : `${z?.lower}–${z?.upper}`)
+const fmtLeg = (z) => (z?.price == null ? null : `${z.price}`)
 
 /**
  * in / stop / target on one line — the summary a setup is actually read for.
@@ -43,10 +43,10 @@ const fmtZone = (z) => (z?.lower === z?.upper ? `${z?.lower}` : `${z?.lower}–$
  */
 function zoneSummary(setup) {
     const parts = [
-        `in ${fmtZone(setup.entry_zones?.[0])}`,
-        `stop ${fmtZone(setup.stop_zones?.[0])}`,
+        `in ${fmtLeg(setup.entry_legs?.[0])}`,
+        `stop ${fmtLeg(setup.stop_legs?.[0])}`,
     ]
-    if (setup.tp_zones?.[0]) parts.push(`target ${fmtZone(setup.tp_zones[0])}`)
+    if (setup.target_legs?.[0]) parts.push(`target ${fmtLeg(setup.target_legs[0])}`)
     const others = Math.max((setup.scenarios?.length ?? 0) - 1, 0)
     if (others > 0) parts.push(`+${others} more way${others > 1 ? 's' : ''} in`)
     return parts.join(' · ')

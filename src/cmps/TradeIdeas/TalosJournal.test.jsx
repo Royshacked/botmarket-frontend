@@ -10,7 +10,7 @@ afterEach(cleanup)
 
 const SETUP = {
     conditions: [{ id: 'c1', text: 'CHoCH up on the 15m' }],
-    scenarios: [{ id: 's1', tp_zones: [{ id: 't1', conditions: [{ id: 't1c1', text: 'bank it if momentum fades' }] }] }],
+    scenarios: [{ id: 's1', target_legs: [{ id: 't1', conditions: [{ id: 't1c1', text: 'bank it if momentum fades' }] }] }],
     monitor_state: {
         memo: 'Base building under 238.6; waiting for the 15m to confirm.',
         timeframe: '15min',

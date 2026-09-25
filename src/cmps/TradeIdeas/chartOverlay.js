@@ -146,7 +146,7 @@ function dedupeLevels(levels) {
  * is standing watch at right now — the prices that will wake the monitor, drawn as references when
  * they are not already a level above.
  *
- * The flat `entry_zones`/`stop_zones`/`tp_zones`/`validity` are read ONLY for a pre-scenario
+ * The flat `entry_legs`/`stop_legs`/`target_legs`/`validity` are read ONLY for a pre-scenario
  * document — for a scenario-shaped one they are the armed premise's projection, and drawing them too
  * would print the same lines twice (or a stale range, between the fire and the re-projection).
  *
@@ -163,12 +163,13 @@ export function deriveSetupOverlay(setup) {
     const ps     = setup.position_state
     const inTrade = Boolean(ps) && (isLivePosition(status) || isTerminal(status))
 
-    const pushZones = (zones, kind, label, suffix = '') => {
-        const list = Array.isArray(zones) ? zones : []
+    // ONE line per leg. It used to draw two — a band's `lower` and its `upper` — which on a
+    // zero-width level meant two overlapping lines at the same price. A leg is a price (2026-09-24).
+    const pushLegs = (legs, kind, label, suffix = '') => {
+        const list = Array.isArray(legs) ? legs : []
         list.forEach((z, i) => {
             const tag = `${(list.length > 1 && kind === 'tp') ? `${label}${i + 1}` : label}${suffix}`
-            if (num(z?.lower) != null) levels.push({ kind, price: num(z.lower), label: tag, side })
-            if (num(z?.upper) != null) levels.push({ kind, price: num(z.upper), label: tag, side })
+            if (num(z?.price) != null) levels.push({ kind, price: num(z.price), label: tag, side })
         })
     }
     const pushValidity = (v, suffix = '') => {
@@ -199,20 +200,20 @@ export function deriveSetupOverlay(setup) {
             levels.push({ kind: 'exit', price: num(ps.outcome.exit_price), label: 'Exit', side })
         }
         // A target ladder the position state has not written yet still comes from the plan.
-        if (!targets.length && armed) pushZones(armed.tp_zones, 'tp', 'TP')
+        if (!targets.length && armed) pushLegs(armed.target_legs, 'tp', 'TP')
     } else if (all.length) {
         for (const sc of live) {
             const tag = tagOf(sc)
-            pushZones(sc.entry_zones, 'entry', 'Entry', tag)
-            pushZones(sc.stop_zones,  'stop',  'Stop',  tag)
-            pushZones(sc.tp_zones,    'tp',    'TP',    tag)
+            pushLegs(sc.entry_legs, 'entry', 'Entry', tag)
+            pushLegs(sc.stop_legs,  'stop',  'Stop',  tag)
+            pushLegs(sc.target_legs,    'tp',    'TP',    tag)
             pushValidity(sc.validity, tag)
         }
     } else {
         // Pre-scenario document: its zones and range live at the root and nowhere else.
-        pushZones(setup.entry_zones, 'entry', 'Entry')
-        pushZones(setup.stop_zones,  'stop',  'Stop')
-        pushZones(setup.tp_zones,    'tp',    'TP')
+        pushLegs(setup.entry_legs, 'entry', 'Entry')
+        pushLegs(setup.stop_legs,  'stop',  'Stop')
+        pushLegs(setup.target_legs,    'tp',    'TP')
         pushValidity(setup.validity)
     }
 
@@ -239,15 +240,15 @@ export function deriveSetupOverlay(setup) {
  */
 function setupIndicatorText(setup) {
     const condText = conds => (Array.isArray(conds) ? conds : []).map(c => c?.text || '')
-    const zoneText = zones => (Array.isArray(zones) ? zones : []).flatMap(z => condText(z?.conditions))
+    const legText = legs => (Array.isArray(legs) ? legs : []).flatMap(z => condText(z?.conditions))
     const parts = [setup.thesis || '', ...condText(setup.conditions)]
     for (const sc of Array.isArray(setup.scenarios) ? setup.scenarios : []) {
         parts.push(sc?.name || '', ...condText(sc?.conditions))
-        parts.push(...zoneText(sc?.entry_zones), ...zoneText(sc?.stop_zones), ...zoneText(sc?.tp_zones))
+        parts.push(...legText(sc?.entry_legs), ...legText(sc?.stop_legs), ...legText(sc?.target_legs))
     }
-    // The flat zones are the armed premise's projection — same conditions, but a pre-scenario
+    // The flat legs are the armed premise's projection — same conditions, but a pre-scenario
     // document has ONLY these.
-    parts.push(...zoneText(setup.entry_zones), ...zoneText(setup.stop_zones), ...zoneText(setup.tp_zones))
+    parts.push(...legText(setup.entry_legs), ...legText(setup.stop_legs), ...legText(setup.target_legs))
     return parts.join(' ; ')
 }
 
@@ -328,6 +329,10 @@ export function deriveCallOverlay(call) {
     } else {
         // Pre-proposal: the entry zone(s) + reference levels the call was authored with. The zone IS
         // the planned entry region (a ready call has no single entry price yet), so label it as such.
+        //
+        // A CALL KEEPS ITS BANDS. Kairos is archived and its documents are frozen, so this is the
+        // last reader of `entry_zones` / `lower` / `upper` in the app — the setup kind moved off
+        // them on 2026-09-24 and these did not, because nothing will ever re-author a call.
         for (const z of call.entry_zones || []) {
             if (num(z.lower) != null) levels.push({ kind: 'zone', price: num(z.lower), label: 'Entry zone', side: z.side })
             if (num(z.upper) != null) levels.push({ kind: 'zone', price: num(z.upper), label: 'Entry zone', side: z.side })

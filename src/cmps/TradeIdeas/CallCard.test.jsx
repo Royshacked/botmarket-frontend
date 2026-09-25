@@ -12,6 +12,7 @@ function makeCall(overrides = {}) {
         // own. 'expired' was a call-only lifecycle word; it no longer exists.
         status:              'looking',
         invalidation_status: 'fired',
+        // A call is an ARCHIVED Kairos document and keeps the band shape — see CallCard.
         entry_zones: [{ side: 'long', lower: 40, upper: 41, kind: 'demand' }],
         savedAt:     1_700_000_000_000,
     }

@@ -39,6 +39,9 @@ function summary(call) {
         const o = ps.outcome
         return `${o.reason ?? 'closed'} · ${fmtR(o.r_multiple)}${o.pnl != null ? ` · P&L ${o.pnl}` : ''}`
     }
+    // An archived Kairos call still carries BANDS — `entry_zones`, `{lower, upper}`. The setup kind
+    // moved off that shape on 2026-09-24; a frozen document did not, and rewriting the read here
+    // would blank the level on every call the user still has.
     const z = call.entry_zones?.[0]
     if (!z) return '—'
     const more = call.entry_zones.length > 1 ? ` +${call.entry_zones.length - 1} more` : ''

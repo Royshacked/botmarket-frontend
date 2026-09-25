@@ -38,7 +38,7 @@ import './SetupPage.scss'     // setup-only bits (zones, watch list, timeline)
 // (SetupPlan.jsx), each leg saying whether it RESTS at the broker or is WATCHED by Talos. The
 // journal is its own collection, newest first, headed by the NEXT CALL (useJournal / TalosJournal).
 //
-// The doc's flat `entry_zones`/`stop_zones`/`tp_zones` are deliberately NOT rendered here — they are
+// The doc's flat `entry_legs`/`stop_legs`/`target_legs` are deliberately NOT rendered here — they are
 // the execution projection of whichever premise armed, so showing them alongside the scenarios would
 // print the same levels twice and imply a fourth set of zones that nobody authored.
 
@@ -47,7 +47,7 @@ import './SetupPage.scss'     // setup-only bits (zones, watch list, timeline)
 // The ONE shared ladder (services/entity/vocabulary.js). This table used to hold the setup's private
 // vocabulary — `unarmed`/`watching`/`ready` — which meant the words the app actually writes had no
 // copy at all: an armed setup sitting in `looking` printed the raw status. Being in a zone is
-// `armed_zone_id`, not a rung, so there is deliberately no separate "in zone" line here.
+// `armed_leg_id`, not a rung, so there is deliberately no separate "in zone" line here.
 const STATUS_COPY = {
     waiting: 'Not watched — generated but not armed, Talos is not looking at it yet',
     looking: 'Armed — Talos is watching for price to reach a zone',

@@ -15,11 +15,11 @@ const SETUP = {
     armed_scenario_id: null,
     scenarios: [{
         id: 's1', name: 'Break and go', rr: 2.4,
-        entry_zones: [{ id: 'e1', lower: 238.6, upper: 238.6, quantity: 100, conditions: [] }],
-        stop_zones:  [{ id: 's1z', lower: 234.8, upper: 234.8, conditions: [] }],
-        tp_zones:    [
-            { id: 't1', lower: 246, upper: 246, quantity: 50, conditions: [] },
-            { id: 't2', lower: 252, upper: 252, quantity: 50, conditions: [COND('t2c1', 'bank it if momentum fades')] },
+        entry_legs: [{ id: 'e1', price: 238.6, quantity: 100, conditions: [] }],
+        stop_legs:  [{ id: 's1z', price: 234.8, conditions: [] }],
+        target_legs:    [
+            { id: 't1', price: 246, quantity: 50, conditions: [] },
+            { id: 't2', price: 252, quantity: 50, conditions: [COND('t2c1', 'bank it if momentum fades')] },
         ],
         conditions: [COND('s1c1', 'CHoCH up on the 15m')],
     }],
@@ -48,9 +48,9 @@ describe('SetupScenarios', () => {
     it('in position, leads with the live numbers, marks the filled leg and shows only the armed premise', () => {
         const inPos = {
             ...SETUP, status: 'long', armed_scenario_id: 's1',
-            scenarios: [...SETUP.scenarios, { id: 's2', name: 'Rival', entry_zones: [], stop_zones: [{ id: 'x', lower: 1, upper: 1 }], tp_zones: [] }],
+            scenarios: [...SETUP.scenarios, { id: 's2', name: 'Rival', entry_legs: [], stop_legs: [{ id: 'x', price: 1 }], target_legs: [] }],
             position_state: {
-                entry: { fill_price: 238.7, size: 100, legs: [{ zone_id: 'e1' }] },
+                entry: { fill_price: 238.7, size: 100, legs: [{ leg_id: 'e1' }] },
                 stop: { initial: 234.8, current: 237 },
                 metrics: { r_multiple_now: 1.2, mfe: 1.5, mae: -0.2 },
             },

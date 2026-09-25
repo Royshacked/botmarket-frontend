@@ -4,7 +4,7 @@
 
 import { isLivePosition, isTerminal } from '../../services/entityStatus.js'
 
-export const fmtLevel = z => (z?.lower === z?.upper ? `${z?.lower}` : `${z?.lower} – ${z?.upper}`)
+export const fmtLevel = z => (z?.price == null ? '—' : `${z.price}`)
 export const fmtR     = r => (r == null ? '—' : `${r > 0 ? '+' : ''}${r}R`)
 export const scenarioName = (sc, i) => sc?.name?.trim() || `Way in ${i + 1}`
 
@@ -37,9 +37,9 @@ export function planTail(setup) {
     const sc = scenarios[0]
     const list = zs => (Array.isArray(zs) ? zs : []).map(fmtLevel).join(', ')
     return [
-        sc.entry_zones?.length ? `entry ${list(sc.entry_zones)}` : null,
-        sc.stop_zones?.length  ? `stop ${list(sc.stop_zones)}` : null,
-        sc.tp_zones?.length    ? `target ${list(sc.tp_zones)}` : null,
+        sc.entry_legs?.length ? `entry ${list(sc.entry_legs)}` : null,
+        sc.stop_legs?.length  ? `stop ${list(sc.stop_legs)}` : null,
+        sc.target_legs?.length    ? `target ${list(sc.target_legs)}` : null,
         Number.isFinite(sc.rr) ? `${sc.rr}R` : null,
     ].filter(Boolean).join(' · ')
 }

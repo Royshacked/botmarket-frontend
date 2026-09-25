@@ -680,9 +680,9 @@ export function SetupSharedBubble({ msg, mine = false, onClose, onResolve }) {
             {qualifier && <div className="social-chat__shared-setup-line social-chat__shared-setup-line--muted">{qualifier}{ways > 1 ? ` · ${ways} ways in` : ''}</div>}
             {sc && (
                 <div className="social-chat__shared-setup-levels">
-                    <span>Entry {sc.entry_zones?.length ? sc.entry_zones.map(fmtLevel).join(' / ') : '—'}</span>
-                    <span>Stop {sc.stop_zones?.length ? sc.stop_zones.map(fmtLevel).join(' / ') : '—'}</span>
-                    <span>Target {sc.tp_zones?.length ? sc.tp_zones.map(fmtLevel).join(' / ') : '—'}</span>
+                    <span>Entry {sc.entry_legs?.length ? sc.entry_legs.map(fmtLevel).join(' / ') : '—'}</span>
+                    <span>Stop {sc.stop_legs?.length ? sc.stop_legs.map(fmtLevel).join(' / ') : '—'}</span>
+                    <span>Target {sc.target_legs?.length ? sc.target_legs.map(fmtLevel).join(' / ') : '—'}</span>
                     {Number.isFinite(rr) && <span>r:r {rr}</span>}
                 </div>
             )}

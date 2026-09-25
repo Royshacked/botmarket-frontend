@@ -60,8 +60,8 @@ test('returns null without a setup', () => {
 // formatter for the monitor's opinion instead of the desk that owns the re-draw.
 test('never carries the proposed changes into the turn', () => {
     const ask = redrawAsk(drifted({
-        monitor_state: { last_assessment: { edit_proposal: { why: 'drifted', changes: { entry_zones: [{ lower: 205, upper: 207 }] } } } },
+        monitor_state: { last_assessment: { edit_proposal: { why: 'drifted', changes: { entry_legs: [{ price: 207 }] } } } },
     }))
     assert.doesNotMatch(ask, /205/)
-    assert.doesNotMatch(ask, /entry_zones/)
+    assert.doesNotMatch(ask, /entry_legs/)
 })

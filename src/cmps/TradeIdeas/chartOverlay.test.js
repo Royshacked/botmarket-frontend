@@ -53,6 +53,9 @@ test('parseConditionPrice: null for indicator / timeframe leaves (no wrong lines
 
 // ── deriveCallOverlay ─────────────────────────────────────────────────────────
 test('call pre-proposal → entry_zones + reference_levels', () => {
+    // A CALL KEEPS ITS BANDS: Kairos is archived and its documents are frozen, so this is the last
+    // fixture in either repo that speaks `entry_zones` / `lower` / `upper`. The setup kind moved off
+    // the shape on 2026-09-24; a document nothing will ever re-author did not.
     const call = {
         status: 'waiting', bias: 'long',
         entry_zones: [{ lower: 100, upper: 102, side: 'long' }],
@@ -178,9 +181,9 @@ test('textToIndicators: prose forms — "20 EMA", "200-day SMA", "50d EMA", "the
 
 const setup = () => ({
     direction: 'long',
-    entry_zones: [{ lower: 100, upper: 102 }],
-    stop_zones:  [{ lower: 95,  upper: 96 }],
-    tp_zones:    [{ lower: 110, upper: 112 }, { lower: 120, upper: 122 }],
+    entry_legs: [{ price: 102 }],
+    stop_legs:  [{ price: 95 }],
+    target_legs:    [{ price: 110 }, { price: 120 }],
     validity:    { lower: 90, upper: 130 },
 })
 
@@ -197,14 +200,14 @@ test('setup: multiple targets are numbered, a single one is not', () => {
     const multi = deriveSetupOverlay(setup()).levels.filter(l => l.kind === 'tp')
     assert.ok(multi.some(l => l.label === 'TP1') && multi.some(l => l.label === 'TP2'))
 
-    const one = deriveSetupOverlay({ ...setup(), tp_zones: [{ lower: 110, upper: 112 }] }).levels
+    const one = deriveSetupOverlay({ ...setup(), target_legs: [{ price: 110 }] }).levels
     assert.ok(one.filter(l => l.kind === 'tp').every(l => l.label === 'TP'))
 })
 
 test('setup: a half-open zone contributes the edge it has, never a level at zero', () => {
     // Number(null) is 0, so a permissive coercion here drew a "stop" at the bottom of the chart.
     // normalizeZone back-fills both edges server-side, but the FE must not depend on that.
-    const { levels } = deriveSetupOverlay({ direction: 'long', stop_zones: [{ lower: 95, upper: null }] })
+    const { levels } = deriveSetupOverlay({ direction: 'long', stop_legs: [{ lower: 95, upper: null }] })
     assert.deepEqual(levels.filter(l => l.kind === 'stop').map(l => l.price), [95])
 })
 
@@ -230,23 +233,23 @@ const scenarioSetup = () => ({
     direction: 'long',
     status: 'looking',
     // The flat fields are the FIRST scenario's projection — must not draw a second time.
-    entry_zones: [{ lower: 100, upper: 100 }],
-    stop_zones:  [{ lower: 95,  upper: 95 }],
-    tp_zones:    [{ lower: 110, upper: 110 }],
+    entry_legs: [{ price: 100 }],
+    stop_legs:  [{ price: 95 }],
+    target_legs:    [{ price: 110 }],
     validity:    { lower: 90, upper: 130, approach: 104 },
     scenarios: [
         {
             id: 's1', name: 'False break',
-            entry_zones: [{ id: 's1e1', lower: 100, upper: 100 }],
-            stop_zones:  [{ id: 's1s1', lower: 95,  upper: 95 }],
-            tp_zones:    [{ id: 's1t1', lower: 110, upper: 110 }],
+            entry_legs: [{ id: 's1e1', price: 100 }],
+            stop_legs:  [{ id: 's1s1', price: 95 }],
+            target_legs:    [{ id: 's1t1', price: 110 }],
             validity:    { lower: 90, upper: 130, approach: 104 },
         },
         {
             id: 's2', name: 'Break and go',
-            entry_zones: [{ id: 's2e1', lower: 106, upper: 106 }],
-            stop_zones:  [{ id: 's2s1', lower: 101, upper: 101 }],
-            tp_zones:    [{ id: 's2t1', lower: 115, upper: 115 }, { id: 's2t2', lower: 120, upper: 120 }],
+            entry_legs: [{ id: 's2e1', price: 106 }],
+            stop_legs:  [{ id: 's2s1', price: 101 }],
+            target_legs:    [{ id: 's2t1', price: 115 }, { id: 's2t2', price: 120 }],
             validity:    { lower: 98, upper: 125, approach: null },
         },
     ],
@@ -329,8 +332,8 @@ test('setup: indicators are read from every tier — root, scenario, and zone co
         conditions: [{ id: 'c1', text: 'RSI holding above 50' }],
         scenarios:  [{
             id: 's1', name: 'Way in 1',
-            entry_zones: [{ lower: 100, upper: 100 }],
-            stop_zones:  [{ lower: 95, upper: 95, conditions: [{ id: 's1s1c1', text: 'out if it closes below the ema(50)' }] }],
+            entry_legs: [{ price: 100 }],
+            stop_legs:  [{ lower: 95, upper: 95, conditions: [{ id: 's1s1c1', text: 'out if it closes below the ema(50)' }] }],
             conditions:  [{ id: 's1c1', text: 'a green 15m close back above the 20 EMA' }],
         }],
     })
@@ -343,7 +346,7 @@ test('setup: indicators are read from every tier — root, scenario, and zone co
 test('setup: a zone’s own condition names an indicator too', () => {
     const { indicators } = deriveSetupOverlay({
         direction: 'long',
-        tp_zones: [{ lower: 110, upper: 110, conditions: [{ id: 't1c1', text: 'trail behind the ema(21)' }] }],
+        target_legs: [{ lower: 110, upper: 110, conditions: [{ id: 't1c1', text: 'trail behind the ema(21)' }] }],
     })
     assert.deepEqual(indicators, [{ name: 'EMA', calcParams: [21], overlay: true }])
 })

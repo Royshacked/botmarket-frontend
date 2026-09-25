@@ -89,7 +89,7 @@ export function SetupScenarios({ setup }) {
     const inPos     = isLivePosition(setup.status)
     const closed    = isTerminal(setup.status)
     const ps        = setup.position_state ?? null
-    const filledIds = new Set((ps?.entry?.legs ?? []).map(l => l?.zone_id).filter(Boolean))
+    const filledIds = new Set((ps?.entry?.legs ?? []).map(l => l?.leg_id).filter(Boolean))
     // Past entry only the ARMED premise is real; the rivals died with the entry.
     const shown = (inPos || closed) && setup.armed_scenario_id
         ? scenarios.filter(sc => sc.id === setup.armed_scenario_id)
@@ -114,8 +114,8 @@ export function SetupScenarios({ setup }) {
                         {rrTag(sc)}
                     </span>
                     <ul className="setup-plan__legs">
-                        {(sc.entry_zones ?? []).map((z, k) => (
-                            <Leg key={z.id ?? k} zone={z} tone="entry" label={(sc.entry_zones.length > 1) ? `leg ${k + 1}` : 'entry'} filled={filledIds.has(z.id)} />
+                        {(sc.entry_legs ?? []).map((z, k) => (
+                            <Leg key={z.id ?? k} zone={z} tone="entry" label={(sc.entry_legs.length > 1) ? `leg ${k + 1}` : 'entry'} filled={filledIds.has(z.id)} />
                         ))}
                     </ul>
                     {Array.isArray(sc.conditions) && sc.conditions.length > 0 && (
@@ -125,8 +125,8 @@ export function SetupScenarios({ setup }) {
                         </div>
                     )}
                     <ul className="setup-plan__legs">
-                        {(sc.stop_zones ?? []).map((z, k) => <Leg key={z.id ?? `s${k}`} zone={z} tone="stop" label="stop" />)}
-                        {(sc.tp_zones ?? []).map((z, k) => <Leg key={z.id ?? `t${k}`} zone={z} tone="tp" label={(sc.tp_zones.length > 1) ? `target ${k + 1}` : 'target'} />)}
+                        {(sc.stop_legs ?? []).map((z, k) => <Leg key={z.id ?? `s${k}`} zone={z} tone="stop" label="stop" />)}
+                        {(sc.target_legs ?? []).map((z, k) => <Leg key={z.id ?? `t${k}`} zone={z} tone="tp" label={(sc.target_legs.length > 1) ? `target ${k + 1}` : 'target'} />)}
                     </ul>
                 </div>
             ))}

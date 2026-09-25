@@ -43,9 +43,9 @@ const SETUP = {
     asset: 'NVDA', direction: 'long', type: 'swing', trade_mode: 'smc', timeframe: '4hr',
     thesis: 'Sweep and reclaim of the 199 shelf.',
     watch: [{ kind: 'structure', look_for: 'CHoCH up on the 1hr', timeframe: '1hr', weight: 'primary' }],
-    entry_zones: [{ id: 'ez1', lower: 199, upper: 201, quantity: 110 }],
-    stop_zones:  [{ id: 'sz1', lower: 196.5, upper: 197.9, quantity: 110 }],
-    tp_zones:    [{ id: 'tp1', lower: 210, upper: 211, quantity: 110 }],
+    entry_legs: [{ id: 'ez1', price: 201, quantity: 110 }],
+    stop_legs:  [{ id: 'sz1', price: 196.5, quantity: 110 }],
+    target_legs:    [{ id: 'tp1', price: 210, quantity: 110 }],
     rr: 2.1, quantity: 110,
 }
 

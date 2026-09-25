@@ -17,7 +17,7 @@ const BLUEPRINT = {
     from: { userId: 'u_roy', username: 'roy', fullname: 'Roy' },
     asset: 'NVDA', direction: 'long', trade_mode: 'smc', timeframe: '1hr', type: 'swing',
     conditions: [{ id: 'c1', text: 'holds above VWAP' }],
-    scenarios: [{ id: 's1', entry_zones: [{ lower: 178, upper: 180 }], stop_zones: [{ lower: 173, upper: 174 }], tp_zones: [{ lower: 196, upper: 200 }], conditions: [] }],
+    scenarios: [{ id: 's1', entry_legs: [{ price: 180 }], stop_legs: [{ price: 174 }], target_legs: [{ price: 200 }], conditions: [] }],
 }
 
 function makeMsg(overrides = {}) {
@@ -40,7 +40,7 @@ describe('SetupSharedBubble', () => {
         render(<SetupSharedBubble msg={makeMsg()} onClose={onClose} onResolve={onResolve} />)
 
         expect(screen.getByText(/Roy shared a setup/)).toBeTruthy()
-        expect(screen.getByText(/Entry 178 – 180/)).toBeTruthy()
+        expect(screen.getByText(/Entry 180/)).toBeTruthy()
         expect(screen.getByText(/“wait for the retest”/)).toBeTruthy()
 
         fireEvent.click(screen.getByText('Open in Mentor'))

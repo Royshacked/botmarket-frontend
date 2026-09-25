@@ -9,14 +9,14 @@ import { SetupSummary, setupDigest } from './SetupSummary.jsx'
 afterEach(cleanup)
 
 // A price zone is a SCENARIO: a premise owning its own entry, stop, targets, conditions and death
-// line. The flat entry_zones/stop_zones/tp_zones on the setup are the server's execution projection
+// line. The flat entry_legs/stop_legs/target_legs on the setup are the server's execution projection
 // of whichever premise armed — output, not input.
 const FADE = {
     id: 's1', name: 'false break',
-    entry_zones: [{ id: 's1e1', lower: 199, upper: 201, quantity: 110 }],
-    stop_zones:  [{ id: 's1s1', lower: 196.5, upper: 197.9 }],
-    tp_zones:    [{ id: 's1t1', lower: 210.5, upper: 211, quantity: 55 },
-                  { id: 's1t2', lower: 213.4, upper: 214, quantity: 55 }],
+    entry_legs: [{ id: 's1e1', price: 201, quantity: 110 }],
+    stop_legs:  [{ id: 's1s1', price: 196.5 }],
+    target_legs:    [{ id: 's1t1', price: 210.5, quantity: 55 },
+                  { id: 's1t2', price: 213.4, quantity: 55 }],
     conditions:  [{ id: 's1c1', text: 'CHoCH up on the 1hr after the sweep', weight: 'primary', mode: 'measured', persistence: 'live' }],
     validity:    { lower: 195, upper: 208, approach: 209, on_break: 'revise' },
     quantity: 110, rr: 2.11,
@@ -24,9 +24,9 @@ const FADE = {
 
 const BREAK = {
     id: 's2', name: 'break and go',
-    entry_zones: [{ id: 's2e1', lower: 208, upper: 208, quantity: 60 }],
-    stop_zones:  [{ id: 's2s1', lower: 204, upper: 204 }],
-    tp_zones:    [{ id: 's2t1', lower: 220, upper: 220, quantity: 60 }],
+    entry_legs: [{ id: 's2e1', price: 208, quantity: 60 }],
+    stop_legs:  [{ id: 's2s1', price: 204 }],
+    target_legs:    [{ id: 's2t1', price: 220, quantity: 60 }],
     conditions:  [{ id: 's2c1', text: '1hr close above 208 on expanding volume', weight: 'primary', mode: 'measured', persistence: 'live' }],
     quantity: 60, rr: 1.4,
 }
@@ -38,7 +38,7 @@ const SETUP = {
     scenarios: [FADE, BREAK],
     conviction: { level: 'medium', rationale: 'fresh OB, but earnings in 4 weeks' },
     // The projection — what the server derives, never what the panel writes.
-    entry_zones: FADE.entry_zones, stop_zones: FADE.stop_zones, tp_zones: FADE.tp_zones,
+    entry_legs: FADE.entry_legs, stop_legs: FADE.stop_legs, target_legs: FADE.target_legs,
     rr: 2.11, quantity: 110,
 }
 
@@ -67,30 +67,31 @@ describe('CoverageChips', () => {
 })
 
 describe('ZoneEditor', () => {
-    // ONE PRICE PER LEVEL. The editor used to hold two edges per level and sort them on commit;
-    // bands are gone (docs/desks/talos-guards.md) and every row is now the exact price that acts.
+    // ONE PRICE PER LEVEL, all the way down. The editor used to hold two edges and sort them on
+    // commit; bands stopped being drawn in August 2026 and the STORAGE followed on 2026-09-24, so a
+    // row is simply the leg's `price`.
 
     it('renders a row per level across all three groups', () => {
         render(<ZoneEditor scenario={FADE} onChange={() => {}} />)
-        expect(screen.getByLabelText('Entry price s1e1').value).toBe('199')
+        expect(screen.getByLabelText('Entry price s1e1').value).toBe('201')
         expect(screen.getByLabelText('Stop s1s1').value).toBe('196.5')
         expect(screen.getByLabelText('Target s1t2 quantity').value).toBe('55')
     })
 
-    it('shows the LEGACY band at the edge that actually acts, not at its lower edge', () => {
-        // A document armed before this change still holds a real band. Showing `lower` would put
-        // "210" in the box for a 210–211 target when 211 is where the limit rests — a number that
-        // reads as a fact and is not one. Touching it collapses the band to that price, which is
-        // the migration.
-        const legacy = { ...FADE, tp_zones: [{ id: 's1t1', lower: 210, upper: 211, quantity: 110 }] }
-        render(<ZoneEditor scenario={legacy} onChange={() => {}} />)
-        expect(screen.getByLabelText('Target s1t1').value).toBe('211')
+    it('a leg with no price yet shows an EMPTY box, never a zero', () => {
+        // This asserted that a LEGACY band showed the edge it acted at, because showing `lower` put
+        // "210" in the box for a 210–211 target when 211 was where the limit rested. No document
+        // carries edges any more, so what is left to get wrong is the blank row: a null rendered as
+        // 0 reads as a price somebody chose.
+        const blank = { ...FADE, target_legs: [{ id: 's1t1', price: null, quantity: 110 }] }
+        render(<ZoneEditor scenario={blank} onChange={() => {}} />)
+        expect(screen.getByLabelText('Target s1t1').value).toBe('')
     })
 
     it('totals each group separately so a mis-split across legs is visible', () => {
         // Deliberately mis-split: 110 in, but only 80 planned out.
-        const misSplit = { ...FADE, tp_zones: [{ id: 's1t1', price: 210, lower: 210, upper: 210, quantity: 40 },
-                                               { id: 's1t2', price: 213, lower: 213, upper: 213, quantity: 40 }] }
+        const misSplit = { ...FADE, target_legs: [{ id: 's1t1', price: 210, quantity: 40 },
+                                                  { id: 's1t2', price: 213, quantity: 40 }] }
         render(<ZoneEditor scenario={misSplit} onChange={() => {}} />)
 
         const total = (label) => within(screen.getByText(label).closest('section')).getByText(/^\d+$/).textContent
@@ -104,9 +105,9 @@ describe('ZoneEditor', () => {
         fireEvent.change(screen.getByLabelText('Entry price s1e1'), { target: { value: '198' } })
 
         const next = onChange.mock.calls[0][0]
-        expect(next.entry_zones[0].lower).toBe(198)
-        expect(next.entry_zones[0].upper).toBe(198, 'written to both edges — an exact level')
-        expect(FADE.entry_zones[0].lower).toBe(199, 'the original is untouched')
+        expect(next.entry_legs[0].price).toBe(198)
+        expect(next.entry_legs[0].lower).toBe(undefined, 'no edge is written anywhere any more')
+        expect(FADE.entry_legs[0].price).toBe(201, 'the original is untouched')
     })
 
     it('a condition on an EXIT rides on the leg, in the shape an entry condition has', () => {
@@ -118,17 +119,17 @@ describe('ZoneEditor', () => {
         fireEvent.change(screen.getByLabelText('Stop s1s1 condition'),
             { target: { value: 'only on a 15min close below' } })
 
-        const [cond] = onChange.mock.calls[0][0].stop_zones[0].conditions
+        const [cond] = onChange.mock.calls[0][0].stop_legs[0].conditions
         expect(cond.text).toBe('only on a 15min close below')
         expect(cond.id).toBe('s1s1c1', 'scoped to the leg, so ids stay unique document-wide')
     })
 
     it('clearing the condition removes it rather than storing an empty sentence', () => {
-        const withCond = { ...FADE, stop_zones: [{ ...FADE.stop_zones[0], conditions: [{ id: 'x', text: 'if it closes below' }] }] }
+        const withCond = { ...FADE, stop_legs: [{ ...FADE.stop_legs[0], conditions: [{ id: 'x', text: 'if it closes below' }] }] }
         const onChange = vi.fn()
         render(<ZoneEditor scenario={withCond} onChange={onChange} />)
         fireEvent.change(screen.getByLabelText('Stop s1s1 condition'), { target: { value: '   ' } })
-        expect(onChange.mock.calls[0][0].stop_zones[0].conditions).toEqual([])
+        expect(onChange.mock.calls[0][0].stop_legs[0].conditions).toEqual([])
     })
 
     it('the ENTRY takes no condition here — that is what the premise conditions are', () => {
@@ -155,10 +156,10 @@ describe('ZoneEditor', () => {
         render(<ZoneEditor scenario={FADE} onChange={onChange} />)
         fireEvent.click(screen.getByLabelText('Add another target'))
 
-        const tps = onChange.mock.calls[0][0].tp_zones
+        const tps = onChange.mock.calls[0][0].target_legs
         expect(tps).toHaveLength(3)
         expect(tps[2].id).toBe('s1t3', 'scoped to the premise, so ids stay unique document-wide')
-        expect(FADE.tp_zones).toHaveLength(2, 'the original is untouched')
+        expect(FADE.target_legs).toHaveLength(2, 'the original is untouched')
     })
 
     it('the added level carries no price and no size of its own', () => {
@@ -168,7 +169,7 @@ describe('ZoneEditor', () => {
         render(<ZoneEditor scenario={FADE} onChange={onChange} />)
         fireEvent.click(screen.getByLabelText('Add another target'))
 
-        const added = onChange.mock.calls[0][0].tp_zones[2]
+        const added = onChange.mock.calls[0][0].target_legs[2]
         expect(added.lower).toBeNull()
         expect(added.upper).toBeNull()
         expect(added.quantity).toBeNull()
@@ -177,11 +178,11 @@ describe('ZoneEditor', () => {
     it('a new level never reuses a removed one’s id', () => {
         // A leg condition is minted off the zone id (`<zone>c1`) and monitor_state latches on that
         // key. Recycling s1t1 here would let the dead leg's latch answer for the new one.
-        const afterRemoval = { ...FADE, tp_zones: [{ id: 's1t2', lower: 213, upper: 213, quantity: 55 }] }
+        const afterRemoval = { ...FADE, target_legs: [{ id: 's1t2', price: 213, quantity: 55 }] }
         const onChange = vi.fn()
         render(<ZoneEditor scenario={afterRemoval} onChange={onChange} />)
         fireEvent.click(screen.getByLabelText('Add another target'))
-        expect(onChange.mock.calls[0][0].tp_zones[1].id).toBe('s1t3')
+        expect(onChange.mock.calls[0][0].target_legs[1].id).toBe('s1t3')
     })
 
     it('removing a target drops that one and leaves the rest', () => {
@@ -189,9 +190,9 @@ describe('ZoneEditor', () => {
         render(<ZoneEditor scenario={FADE} onChange={onChange} />)
         fireEvent.click(screen.getByLabelText('Remove s1t1'))
 
-        const tps = onChange.mock.calls[0][0].tp_zones
+        const tps = onChange.mock.calls[0][0].target_legs
         expect(tps.map(z => z.id)).toEqual(['s1t2'])
-        expect(FADE.tp_zones).toHaveLength(2, 'the original is untouched')
+        expect(FADE.target_legs).toHaveLength(2, 'the original is untouched')
     })
 
     it('will not remove the only level in a group', () => {
@@ -204,11 +205,11 @@ describe('ZoneEditor', () => {
     it('scopes new level ids to the scenario, so ids stay unique across premises', () => {
         // An empty group renders one ready-to-type row that becomes real on the first keystroke —
         // asking someone to press + before they can type their stop is a click charged for nothing.
-        const bare = { ...FADE, stop_zones: [] }
+        const bare = { ...FADE, stop_legs: [] }
         const onChange = vi.fn()
         render(<ZoneEditor scenario={bare} onChange={onChange} />)
         fireEvent.change(screen.getByLabelText('Stop s1s1'), { target: { value: '196' } })
-        expect(onChange.mock.calls[0][0].stop_zones[0].id).toBe('s1s1')
+        expect(onChange.mock.calls[0][0].stop_legs[0].id).toBe('s1s1')
     })
 
     it('hides the editing affordances when read-only', () => {
@@ -242,7 +243,7 @@ describe('ScenarioBlock', () => {
     it('names the premise, its entry and its own r:r and size', () => {
         render(<ScenarioBlock scenario={FADE} direction="long" index={0} />)
         expect(screen.getByText('false break')).toBeTruthy()
-        expect(screen.getByText('199–201')).toBeTruthy()
+        expect(screen.getByText('201')).toBeTruthy()
         expect(screen.getByText('2.11R')).toBeTruthy()
         // By title, not by text: the entry group's running total reads 110 as well.
         expect(screen.getByTitle(/The whole position/).textContent).toBe('110')
@@ -309,16 +310,16 @@ describe('SetupSummary', () => {
     })
 
     it('writes an edit into SCENARIOS, never into the flat projection', () => {
-        // The flat zones are the server's output. An edit written there looks accepted here and is
+        // The flat legs are the server's output. An edit written there looks accepted here and is
         // silently discarded on Generate, because normalizeSetup reads `scenarios`.
         const onChange = vi.fn()
         render(<SetupSummary setup={SETUP} onChange={onChange} />)
         fireEvent.change(screen.getByLabelText('Entry price s2e1'), { target: { value: '207' } })
 
         const next = onChange.mock.calls[0][0]
-        expect(next.scenarios[1].entry_zones[0].lower).toBe(207)
+        expect(next.scenarios[1].entry_legs[0].price).toBe(207)
         expect(next.scenarios[0]).toEqual(FADE, 'the rival premise is untouched')
-        expect(next.entry_zones).toEqual(SETUP.entry_zones, 'the projection is the server’s to re-derive')
+        expect(next.entry_legs).toEqual(SETUP.entry_legs, 'the projection is the server’s to re-derive')
     })
 
     it('adds a second entry scenario, not another entry zone, not as another entry zone', () => {
@@ -329,7 +330,7 @@ describe('SetupSummary', () => {
         const next = onChange.mock.calls[0][0]
         expect(next.scenarios).toHaveLength(2)
         expect(next.scenarios[1].id).toBe('s2')
-        expect(next.scenarios[1].entry_zones).toEqual([])
+        expect(next.scenarios[1].entry_legs).toEqual([])
     })
 
     it('offers removal only once there is a rival to remove', () => {
@@ -369,8 +370,8 @@ describe('setupDigest', () => {
     // With a single premise the count says nothing you didn't know, so the space goes to the entry
     // band instead — the number you actually look up mid-conversation. Same formatter as the block
     // below it, so folded and open can't disagree about where the entry is.
-    it('shows the entry band instead of a count when there is one way in', () => {
-        expect(setupDigest({ ...SETUP, scenarios: [FADE] })).toBe('NVDA · LONG · entry 199–201')
+    it('shows the entry LEVEL instead of a count when there is one way in', () => {
+        expect(setupDigest({ ...SETUP, scenarios: [FADE] })).toBe('NVDA · LONG · entry 201')
     })
 
     // Early in the build there is a ticker and little else. The digest must degrade to whatever is

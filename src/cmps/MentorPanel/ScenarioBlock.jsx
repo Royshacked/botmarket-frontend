@@ -22,14 +22,12 @@ import './ScenarioBlock.scss'
 // own validity range broke, which does NOT mean the setup is over — a rival can still be live, and
 // showing that is the entire point of rendering every scenario instead of one set of levels.
 
-// Exported: the collapsed preview line names the entry band in the same words this block does
-// (SetupSummary.setupDigest). One formatter, so the two can never disagree about 238 vs 238–240.
-export const fmtZone = (z) => {
-    if (!z) return null
-    if (z.lower == null && z.upper == null) return null
-    if (z.lower === z.upper) return `${z.lower}`
-    return `${z.lower ?? '?'}–${z.upper ?? '?'}`
-}
+// Exported: the collapsed preview line names the entry in the same words this block does
+// (SetupSummary.setupDigest). One formatter, so the two can never disagree about what a level is.
+//
+// It used to collapse a band and print `238–240` when the edges differed. There are no edges
+// (2026-09-24) — a leg is a price — so all that is left is "is there a number".
+export const fmtLeg = (z) => (z?.price == null ? null : `${z.price}`)
 
 function validityLine(v, direction) {
     if (!v) return null
@@ -57,7 +55,7 @@ export function ScenarioBlock({
     // condition applies at — and calling it that is what makes the Exit block below read as its
     // counterpart rather than as more of the same.
     const name  = scenario.name?.trim() || `Entry scenario ${index + 1}`
-    const entry = fmtZone(scenario.entry_zones?.[0])
+    const entry = fmtLeg(scenario.entry_legs?.[0])
     const valid = validityLine(scenario.validity, direction)
 
     return (
@@ -89,7 +87,7 @@ export function ScenarioBlock({
 
             {/* direction decides which edge of a target band is the take-profit and which one
                 only wakes Talos to offer a partial — see ZoneEditor.edgeNames. */}
-            <ZoneEditor scenario={scenario} direction={direction} onChange={onChange} readOnly={readOnly} />
+            <ZoneEditor scenario={scenario} onChange={onChange} readOnly={readOnly} />
 
             <ConditionList
                 conditions={scenario.conditions}
