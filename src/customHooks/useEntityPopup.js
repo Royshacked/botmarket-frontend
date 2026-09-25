@@ -18,10 +18,14 @@ import { stashKey, popupIdFromPath } from '../cmps/EntityCard/entityPopup.js'
  * @param {number}   [opts.pollMs]   re-fetch interval; a monitor writes to these docs while the
  *   window is open (a call's assessment journal, a setup's Talos timeline).
  * @param {string}   [opts.notFound] error copy when the fetch resolves empty.
+ * @param {string}   [opts.id]       the entity to load, when the page is NOT a pop-out window. The
+ *   in-app surface (EntityDetailHost) lives on a query param over the workspace, so there is no
+ *   `/setup/:id` path to read an id out of. Everything below is unchanged: the opener writes the
+ *   same stash for it as for a window, so it paints from tier 2 and polls on tier 3.
  * @returns {{ id: string, entity: Object|null, error: string|null, setEntity: Function, refresh: Function }}
  */
-export function useEntityPopup(kind, fetchFn, { pollMs = 0, notFound = 'Not found' } = {}) {
-    const id = popupIdFromPath()
+export function useEntityPopup(kind, fetchFn, { pollMs = 0, notFound = 'Not found', id: forcedId = null } = {}) {
+    const id = forcedId ?? popupIdFromPath()
     const [entity, setEntity] = useState(null)
     const [error, setError]   = useState(null)
 

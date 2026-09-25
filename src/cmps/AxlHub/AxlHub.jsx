@@ -21,6 +21,8 @@ import { ChatChartDock } from '../ChatChartDock.jsx'
 import { ChatChart } from '../ChatChart.jsx'
 import { closeChart } from '../../services/chartSurface.service.js'
 import { readStoredModel } from '../modelOptions.js'
+import { resolveForEdit } from '../../services/entityResolve.js'
+import { openEntityPopup } from '../EntityCard/entityPopup.js'
 import './AxlHub.scss'
 
 // ── axl ────────────────────────────────────────────────────────────────────────
@@ -79,6 +81,35 @@ export function MessageBubble({ msg }) {
         <div className={`axl-hub__bubble axl-hub__bubble--assistant${pending ? ' axl-hub__bubble--pending' : ''}`}>
             <ChatReasoning reasoning={msg.reasoning} live={pending} streaming={msg.streaming} />
             {!pending && <ChatMarkdown>{msg.content ?? ''}</ChatMarkdown>}
+        </div>
+    )
+}
+
+// What each kind is called in a sentence. A `setup` is a setup to the user too; an `idea` is not —
+// that is the app's word for the execution tier, and what the user has is a trade.
+const SHOW_NOUN = { setup: 'setup', idea: 'trade' }
+
+/**
+ * "Open the NVDA setup" — the button under a reply that offered to SHOW one of the user's items.
+ *
+ * The twin of RouteOffer, and deliberately not RouteOffer itself: that one takes the user to a
+ * DESK, names the agent standing there, and ends this conversation. This opens a page and ends
+ * nothing, so there is no "Not now" beside it — the offer costs nothing left unpressed, and a
+ * dismiss button on a thing that changes no state is one more decision for no reason.
+ */
+export function ShowOffer({ offer, onOpen }) {
+    if (!offer?.entity) return null
+    const noun = SHOW_NOUN[offer.kind] ?? 'item'
+    const name = offer.entity.asset || offer.entity.symbol || ''
+    return (
+        <div className="portfolio-panel__action-bubble">
+            <button
+                type="button"
+                className="portfolio-panel__review-btn portfolio-panel__review-btn--update"
+                onClick={() => onOpen?.(offer)}
+            >
+                Open the {name ? `${name} ` : ''}{noun}
+            </button>
         </div>
     )
 }
@@ -211,9 +242,20 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
     // Follow-ups Axl offered on the LAST turn. Latest turn only: they answer "what now", and a
     // question from four turns ago is not that. Cleared the moment anything is sent.
     const [suggestions, setSuggestions] = useState([])
+    // The item Axl's last turn offered to SHOW — `{ kind, entity }`, already resolved. A show is the
+    // read half of the hand-off family: no desk opens, nothing is edited, the entity's own detail
+    // page opens (a window on a desktop, the full-screen page in the app on a phone).
+    //
+    // A BUTTON, NOT AN AUTOMATIC OPEN, and the reason is mechanical as much as courteous: on a
+    // desktop this ends in `window.open`, and a pop-up that is not inside a click is what a
+    // blocker exists to stop. The click is the user activation that makes the window legal.
+    const [showOffer, setShowOffer] = useState(null)
     const [hoveredDesk, setHoveredDesk]   = useState(null)
     const timerRef  = useRef(null)
     const inputRef  = useRef(null)
+    // Which turn the show offer on screen belongs to — a slower read must not land under a
+    // newer question. See _offerShow.
+    const showSeqRef = useRef(0)
 
     const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(messages)
 
@@ -366,8 +408,48 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
         _send(trimmed)
     }
 
+    /**
+     * Open the offered item. ONE opener for every surface — the same `openEntityPopup` a card click
+     * goes through — so this button gets the pop-out window on a desktop and the full-screen page
+     * in the app on a phone without knowing which it is.
+     *
+     * The offer stands after the press: the window is a separate thing the user may close and want
+     * back, and re-pressing it is cheaper than asking Axl again.
+     */
+    function handleShowOpen() {
+        if (!showOffer) return
+        openEntityPopup(showOffer.kind, showOffer.entity)
+    }
+
+    /**
+     * Turn Axl's `<show>` into an offer, or into nothing.
+     *
+     * The entity is READ HERE, when the turn lands, not when the button is pressed, and that buys
+     * two things. A handle that resolves to nothing renders no button at all — the same posture as
+     * every other doorway in the app, and better than a button whose only outcome is "Setup not
+     * found". And the press stays SYNCHRONOUS, which on a desktop is what keeps `window.open`
+     * inside the user activation a pop-up blocker looks for.
+     *
+     * Finding it is resolveForEdit's job, not this component's: the ref is an id, or the name a
+     * person would use ("the NVDA one"), and it answers null rather than guessing when a name
+     * matches two setups. Same resolver the list pencil and the social-chat cards use — so what
+     * Axl can open is exactly what a click can open, authorised by the same owner-scoped read.
+     */
+    async function _offerShow(show) {
+        if (!show?.kind || !show?.ref) return setShowOffer(null)
+        // The read is slower than the turn that asked for it, so the thread can move on underneath:
+        // a stale answer landing after the user has said something else would hang last question's
+        // item under this question's reply. The offer belongs to the turn that carried the tag.
+        const turn = ++showSeqRef.current
+        const entity = await resolveForEdit(show.kind, show.ref)
+        if (!mountedRef.current || turn !== showSeqRef.current) return
+        setShowOffer(entity ? { kind: show.kind, entity } : null)
+    }
+
     async function _send(text) {
         setSuggestions([])          // the offer is spent the moment anything is sent
+        setShowOffer(null)          // …and so is the item the last turn offered to open
+        showSeqRef.current++        // and a resolve still in flight for it must not land here
 
         const history = toChatHistory(messages)
         // What this turn leaves behind if the user walks out of it — see `onSettled` below.
@@ -413,6 +495,11 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
                     // holdings and works backwards to the mandate, instead of on a blank construction.
                     adopt:   data.adopt === true,
                 })
+
+                // A SHOW is the third verb and the quietest: nobody is taken anywhere, the item's own
+                // detail page is offered beside the answer. The server guarantees it never arrives
+                // with a route or an edit (routing.util), so there is no ordering to decide here.
+                _offerShow(data.show)
             },
             send: ({ signal, handlers }) => axlService.streamAxl(
                 turn,
@@ -440,6 +527,7 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
         // spend the offer itself — chips from the previous turn hanging under a fresh brief would
         // answer a question nobody is looking at any more.
         setSuggestions([])
+        setShowOffer(null)
 
         const ask = "Today's market brief, please."
         const turn = [...toChatHistory(messages), { role: 'user', content: ask }]
@@ -490,6 +578,7 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
         chat.setMessages([])
         setDraft('')
         setSuggestions([])          // chips belong to a thread that no longer exists
+        setShowOffer(null)          // and so does the item the last turn offered to open
         // One Clear, one clean slate — a chart left docked under an empty hub reads as a leftover.
         closeChart()
         // Clearing is not walking away: the draft goes with the conversation, or a thread the user
@@ -685,6 +774,10 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
                     <div className="axl-hub__thread">
                         {messages.map((msg, i) => <MessageBubble key={i} msg={msg} />)}
                         {isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus: chat.streamStatus })} pulse={chat.reasoningPulse} />}
+                        {/* Under the reply it belongs to, like the route offer at every desk — and
+                            not while the turn is still streaming, since the item is part of what
+                            Axl is still saying. */}
+                        {!isLoading && <ShowOffer offer={showOffer} onOpen={handleShowOpen} />}
                         <div ref={messagesEndRef} />
                     </div>
                 )}
@@ -754,4 +847,9 @@ TicketGlyph.propTypes = {
 
 MessageBubble.propTypes = {
     msg: PropTypes.object.isRequired,
+}
+
+ShowOffer.propTypes = {
+    offer:  PropTypes.object,   // { kind, entity } — already resolved, or null for no button
+    onOpen: PropTypes.func,
 }

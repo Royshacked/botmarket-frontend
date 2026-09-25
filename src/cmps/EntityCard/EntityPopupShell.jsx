@@ -40,17 +40,29 @@ const CENTRE_STYLE = {
  * @param {string}    [statusLabel] tooltip on the status icon — the kind's own wording for it
  * @param {ReactNode} [headerExtra] kind-specific header controls
  * @param {ReactNode} [above]      full-width strip between header and body (a dev panel)
+ * @param {Function}  [onClose]    renders the back arrow. A pop-out WINDOW passes none — the OS
+ *   gives it a close button and a title bar. The in-app surface has neither, so without this the
+ *   page is a wall the user can only leave with the browser's back gesture, which a first-time
+ *   reader does not know is there. It is also what a phone's back button lands on.
  */
 export function EntityPopupShell({
     error, loading, badge, asset, direction, meta = [], status, iconStatus, statusLabel,
-    headerExtra, above, className = '', children,
+    headerExtra, above, onClose, className = '', children,
 }) {
-    if (error)   return <div className={`idea-page idea-page--err ${className}`} style={CENTRE_STYLE}>{error}</div>
-    if (loading) return <div className={`idea-page idea-page--loading ${className}`} style={CENTRE_STYLE}>Loading…</div>
+    // Rendered in the empty states too: a detail view that failed to load is exactly where a user
+    // most needs the way out, and "Not found" with no back arrow is a dead end.
+    const back = onClose && (
+        <button type="button" className="idea-page__back" onClick={onClose} aria-label="Back" title="Back">
+            ←
+        </button>
+    )
+    if (error)   return <div className={`idea-page idea-page--err ${className}`} style={CENTRE_STYLE}>{back}{error}</div>
+    if (loading) return <div className={`idea-page idea-page--loading ${className}`} style={CENTRE_STYLE}>{back}Loading…</div>
 
     return (
         <div className={`idea-page ${className}`} style={ROOT_STYLE}>
             <div className="idea-page__header">
+                {back}
                 <span className="idea-page__title">
                     {badge}
                     <span className="idea-page__asset">{asset || '—'}</span>
@@ -87,6 +99,7 @@ EntityPopupShell.propTypes = {
     statusLabel: PropTypes.string,
     headerExtra: PropTypes.node,
     above:       PropTypes.node,
+    onClose:     PropTypes.func,
     className:   PropTypes.string,
     children:    PropTypes.node,
 }

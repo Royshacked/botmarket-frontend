@@ -58,6 +58,13 @@ export const RESUME_BUILD              = 'resume-build'
 // carries their accounts, broker and position.
 export const SETUP_SHARED_OPEN         = 'setup-shared-open'
 
+// An entity's DETAIL surface, asked for from inside the app: { kind, id }. Raised by the one opener
+// (cmps/EntityCard/entityPopup.js) when a separate window is the wrong answer — a phone, where
+// `window.open` yields a tab that leaves the installed app and reports no `window.opener` — and
+// landed by EntityDetailHost, which opens the same page in place over the still-mounted workspace.
+// Never emitted on a desktop: there the pop-out window IS the surface, and it stays one.
+export const ENTITY_DETAIL_OPEN        = 'entity-detail-open'
+
 function createEventEmitter() {
     const listenersMap = {}
     return {

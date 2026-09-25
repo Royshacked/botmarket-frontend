@@ -117,7 +117,7 @@ is written alongside. `inWorkspace(list, workspace)` scopes every list of accoun
   the dialog) or a `window` CustomEvent (`paper-mode-changed`). A `[]`-dep bus handler closes over
   first-render state — read a ref or fetch, never a render-scoped list.
 
-## Pop-outs
+## The detail surface (pop-outs, and the page on a phone)
 
 An entity opens in a **real browser window**, not a modal: `pages/IdeaPage.jsx`, `pages/SetupPage.jsx`
 (the setup's right column is *cards waiting on the user*, then three folded sections — *thesis ·
@@ -127,6 +127,30 @@ NEXT CALL — when Talos reads next, on which candle, the prices that would wake
 rows, newest first). Everything a pop-out needs talks to the server
 or closes the window — except re-drawing a plan, which happens in Mentor's chat in the main window.
 `services/popupBridge.js` is that one channel back: the pop-out asks, the main window acts.
+
+**ONE opener, two surfaces (2026-09-25).** `cmps/EntityCard/entityPopup.js` is the single doorway —
+the Floor, the lists, the social-chat bubbles and Axl's `<show>` button (setups only — the one kind a desk read can name) all go through it — and it
+decides which surface the click gets. A window is a desktop answer: on a phone `window.open` ignores
+the size arguments and yields a TAB, which inside an installed PWA can leave the app altogether.
+Three things break with that tab, and every one of them was silently broken before: it reports no
+`window.opener`, so the *re-draw it in Mentor* hand-off rendered as a memo instead of a button;
+`window.close()` after a delete is a no-op on a tab the script did not open; and the service worker
+stops counting the app's only window as the app (`pwa/rules.js` `isPopoutPath`), so a push fires
+while the user is reading the very setup it is about.
+
+So a handheld (`isHandheld` — a coarse pointer, or the app's own 767px breakpoint) opens the SAME
+page in place instead: `cmps/EntityCard/EntityDetailHost.jsx`, rendered from `RootCmp` beside a
+MainPage that stays mounted (the trick `/profile` already uses, so the chat behind it survives).
+It is a ROUTE, on a query param — `?setup=<id>` / `?idea=<id>` (`entityDetail.js`) — which is what
+makes the phone's back button close it, a reload keep it, and the pathname stay `/` so the service
+worker still sees the app. A sheet was the other candidate and is the wrong shape: nothing is behind
+it to stay in context with under 767px, the body is a chart plus a nested-scrolling journal, and a
+sheet earns no history entry, so back would leave the app instead of closing the page.
+
+The pages take two props for it — `entityId` (a window reads its own `/setup/:id`; in the app there
+is no path to read) and `onClose` (a window closes itself; in the app it is a history step back) —
+and in place the re-draw ask needs no bridge at all: the page emits the same event on the app's own
+bus that `popupBridge` re-emits it on, so MainPage's one handler takes both.
 
 ## Threads
 

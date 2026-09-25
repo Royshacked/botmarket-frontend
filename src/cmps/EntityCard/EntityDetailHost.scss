@@ -1,0 +1,93 @@
+// The in-app detail surface (EntityDetailHost) — the pop-out page, rendered over the workspace.
+//
+// The page itself is the pop-out's own markup, unchanged: `.idea-page` is already fixed/inset-0 and
+// paints its own background. What is here is (1) where it sits in the stack, and (2) the phone
+// layout for a body that was drawn for a 1180×760 window.
+
+.entity-detail {
+    position: fixed;
+    inset: 0;
+    // Over the social-chat window (600), under the auth modal (1000). The dialogs the page opens
+    // for itself (confirm an order, close a position) are its descendants, so they keep stacking
+    // above it without a number of their own.
+    z-index: 700;
+
+    // 100vh measures past a phone browser's chrome, which would push the footer under the URL bar.
+    // The pop-out window keeps its 100vh — there the two are the same.
+    .idea-page { height: 100dvh; min-height: 0; }
+}
+
+// The way out. A pop-out window has the OS's close button and passes no `onClose`, so this renders
+// only in the app — where there is no chrome at all and the page would otherwise be a wall.
+.idea-page__back {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    margin-right: 4px;
+    font-size: 1.15rem;
+    line-height: 1;
+    color: var(--text-primary);
+    background: transparent;
+    border: 1px solid var(--accent-deep);
+    border-radius: 8px;
+    cursor: pointer;
+
+    &:hover { background: var(--bg-surface); }
+}
+
+// The empty states are centred flex columns, so the arrow needs pulling back to the corner rather
+// than sitting above the word "Loading…".
+.idea-page--loading .idea-page__back,
+.idea-page--err .idea-page__back {
+    position: absolute;
+    top: 10px;
+    left: 12px;
+}
+
+// ── The phone ────────────────────────────────────────────────────────────────
+// The body is a 70/30 split drawn for a window twice as wide as a phone. Stacked, the chart keeps
+// a readable slice of the screen and the column scrolls under it — the three fold sections are
+// closed by default (thesis · scenarios · journal), so what lands is a chart and three lines.
+@media (max-width: 767px) {
+    .entity-detail {
+        .idea-page__header {
+            gap: 8px;
+            padding: 8px 10px;
+            flex-wrap: wrap;
+        }
+
+        .idea-page__title { gap: 7px; }
+
+        // Every fact the header can carry does not fit on a phone line; the ones that matter on
+        // arrival are the asset, the direction and the status.
+        .idea-page__meta { font-size: 0.74rem; }
+
+        .idea-dialog__main {
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .idea-dialog__chart {
+            flex: 0 0 38dvh;
+            border-right: none;
+            border-bottom: 1px solid var(--accent-deep);
+        }
+
+        .idea-dialog__conditions {
+            flex: 1 1 auto;
+            // The column no longer scrolls inside itself — its parent does, so a long journal
+            // scrolls the page rather than a 200px box inside it.
+            overflow-y: visible;
+            padding: 12px 12px 16px;
+        }
+
+        // The footer's positions list keeps its own scroll, but not half the screen.
+        .idea-dialog__positions { max-height: 42dvh; }
+
+        // The home-indicator strip on an iPhone, and the gesture bar on Android.
+        .popout-footer { padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+    }
+}

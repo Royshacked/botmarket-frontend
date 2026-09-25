@@ -61,13 +61,19 @@ function DevInvalidationPanel({ invalidation, status, reason, edge, armed }) {
     )
 }
 
-export function IdeaPage() {
+/**
+ * @param {string}   [entityId] the idea to show, when this is the IN-APP surface rather than a
+ *   pop-out window (a phone — see entityPopup's surfaces note). A window reads its own `/idea/:id`.
+ * @param {Function} [onClose]  leave the page. A window closes itself; in the app this is a history
+ *   step back, and it is what the phone's own back gesture lands on.
+ */
+export function IdeaPage({ entityId = null, onClose = null }) {
     // Hand-off, hydration and the API fallback all live in the shared hook.
-    const { id, entity: idea, error } = useEntityPopup('idea', tradeIdeasService.getIdea, { notFound: 'Idea not found' })
+    const { id, entity: idea, error } = useEntityPopup('idea', tradeIdeasService.getIdea, { notFound: 'Idea not found', id: entityId })
     const { positions, refresh: refreshPositions, closePosition } = usePositions()
 
     async function handleDelete() {
-        try { await tradeIdeasService.deleteIdea(id); window.close() }
+        try { await tradeIdeasService.deleteIdea(id); (onClose ?? (() => window.close()))() }
         catch (e) { console.error('[idea-page] delete failed', e) }   // e.g. delete-locked (live position)
     }
 
@@ -75,6 +81,7 @@ export function IdeaPage() {
         <EntityPopupShell
             error={error}
             loading={!idea}
+            onClose={onClose}
             asset={idea?.asset}
             direction={idea?.direction}
             status={idea?.status}

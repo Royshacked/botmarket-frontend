@@ -22,7 +22,7 @@ import { useJournal } from '../customHooks/useJournal.js'
 import { usePositions } from '../customHooks/usePositions.js'
 import { mentorService } from '../services/mentor/mentor.service.remote'
 import { askOpener, hasOpener } from '../services/popupBridge.js'
-import { SETUP_INVALIDATION_EDIT } from '../services/event-bus.service'
+import { eventBus, SETUP_INVALIDATION_EDIT } from '../services/event-bus.service'
 import './IdeaPage.scss'      // the shared pop-out shell (header + chart 70 / column 30)
 import './SetupPage.scss'     // setup-only bits (zones, watch list, timeline)
 
@@ -144,12 +144,23 @@ function journalTail(setup, rows, done) {
     return [nextCallLine(setup), count].filter(Boolean).join(' · ')
 }
 
-export function SetupPage() {
+/**
+ * @param {string}   [entityId] the setup to show, when this is the IN-APP surface rather than a
+ *   pop-out window. A window reads its own `/setup/:id`; in the app the page is on a query param.
+ * @param {Function} [onClose]  leave the page — a history step back. Absent in a window, which has
+ *   the OS's own close button and ends with `window.close()`.
+ */
+export function SetupPage({ entityId = null, onClose = null }) {
     // Polled because Talos writes to monitor_state (memo, guards, the last read) while the window
     // is open. The journal rides on `check_count`, which every wake bumps.
     const { id, entity: setup, error, refresh } = useEntityPopup(
-        'setup', mentorService.getSetup, { pollMs: 20_000, notFound: 'Setup not found' },
+        'setup', mentorService.getSetup, { pollMs: 20_000, notFound: 'Setup not found', id: entityId },
     )
+    // IN THE APP, not in a window of its own (a phone — see entityPopup's surfaces note). Three
+    // things on this page are a window's and have to be answered differently in place: how it ends,
+    // how it reaches Mentor, and whether it shows the way out at all.
+    const inline = !!onClose
+    const leave  = onClose ?? (() => window.close())
     const journal = useJournal(id, setup?.monitor_state?.check_count ?? 0)
     const { positions, refresh: refreshPositions, closePosition } = usePositions()
     const [busy, setBusy] = useState(false)
@@ -160,10 +171,10 @@ export function SetupPage() {
     // derive as the confirm dialog — PriceChart keys on content, so the 20s poll doesn't rebuild.
     const { levels, indicators } = useMemo(() => deriveSetupOverlay(setup), [setup])
 
-    if (error || !setup) return <EntityPopupShell error={error} loading={!setup} />
+    if (error || !setup) return <EntityPopupShell error={error} loading={!setup} onClose={onClose} />
 
     async function handleDelete() {
-        try { await mentorService.deleteSetup(id); window.close() }
+        try { await mentorService.deleteSetup(id); leave() }
         catch (e) { console.error('[setup-page] delete failed', e) }   // e.g. in_position (409)
     }
     // THREE acts on one button, because the rung decides what "stop" means:
@@ -210,12 +221,20 @@ export function SetupPage() {
     function handleRedraw() {
         // Ask, then close: the plan is rewritten in the app window, and leaving this one open on the
         // superseded version is how a user ends up editing against a stale read of their own setup.
+        //
+        // IN PLACE the ask needs no bridge at all — popupBridge exists to carry a pop-out's message
+        // to the app and re-emit it on the eventBus, and here we ARE the app, so the page emits the
+        // same event on the same bus and MainPage's one handler takes it. (This is also the half
+        // that was silently missing on a phone: a tab has no `window.opener`, so `hasOpener()` was
+        // false and the button rendered as a memo saying to open the setup from the app.)
+        if (inline) { eventBus.emit(SETUP_INVALIDATION_EDIT, { setupId: id }); leave(); return }
         if (askOpener(SETUP_INVALIDATION_EDIT, { setupId: id })) window.close()
     }
 
     return (
         <EntityPopupShell
             className="setup-page"
+            onClose={onClose}
             badge={<TalosBadge size={22} />}
             asset={setup.asset}
             direction={setup.direction}
@@ -257,7 +276,7 @@ export function SetupPage() {
                         />
                     )}
                     {needsRedraw && (
-                        <StaleMapCard setup={setup} onRedraw={hasOpener() ? handleRedraw : null} />
+                        <StaleMapCard setup={setup} onRedraw={(inline || hasOpener()) ? handleRedraw : null} />
                     )}
 
                     {/* ── 1. Thesis — folded: its first sentence is the line, the rest is a click ── */}
@@ -291,4 +310,9 @@ export function SetupPage() {
             />
         </EntityPopupShell>
     )
+}
+
+SetupPage.propTypes = {
+    entityId: PropTypes.string,
+    onClose:  PropTypes.func,
 }

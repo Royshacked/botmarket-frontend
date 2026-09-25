@@ -50,6 +50,19 @@ vi.mock('../../customHooks/useMicInput.js', () => ({
         return { isRecording: false, isTranscribing: false, toggle: vi.fn(), cancel: vi.fn() }
     },
 }))
+// Axl's `<show>`: the reply names an item, the hub resolves it and offers to open its detail page.
+// Both halves are stubbed — the resolver is the shared owner-scoped read (its own tests), and the
+// opener is the one doorway to the two surfaces (entityPopup's tests). What is pinned here is the
+// wiring between them: resolve before offering, open on the press, and never a dead button.
+const resolveForEdit = vi.fn()
+vi.mock('../../services/entityResolve.js', () => ({
+    resolveForEdit: (...a) => resolveForEdit(...a),
+}))
+const openEntityPopup = vi.fn()
+vi.mock('../EntityCard/entityPopup.js', () => ({
+    openEntityPopup: (...a) => openEntityPopup(...a),
+}))
+
 const { AxlHub, MessageBubble } = await import('./AxlHub.jsx')
 const { DESKS } = await import('./agentMeta.jsx')
 
@@ -58,8 +71,8 @@ const { DESKS } = await import('./agentMeta.jsx')
 // Mirrors the `done` payload the server sends. Kept as an explicit field list rather than a spread so
 // a field the component reads but the server never sends cannot pass here — but that cuts both ways:
 // a NEW server field has to be added here too, or the test silently proves the component ignores it.
-function replyWith({ reply = 'Taking you to Prometheus.', route = null, routeSymbol = null, opening = null, edit = null, adopt = false } = {}) {
-    streamAxl.mockImplementation(async (_messages, opts) => { opts.onDone?.({ reply, route, routeSymbol, opening, edit, adopt }) })
+function replyWith({ reply = 'Taking you to Prometheus.', route = null, routeSymbol = null, opening = null, edit = null, adopt = false, show = null } = {}) {
+    streamAxl.mockImplementation(async (_messages, opts) => { opts.onDone?.({ reply, route, routeSymbol, opening, edit, adopt, show }) })
 }
 
 async function ask(text) {
@@ -81,6 +94,8 @@ beforeEach(() => {
     discardThread.mockReset().mockResolvedValue({ ok: true })
     micTranscript = null
     threadSeq = 0
+    resolveForEdit.mockReset().mockResolvedValue(null)
+    openEntityPopup.mockReset()
 })
 afterEach(() => { vi.useRealTimers(); cleanup() })
 
@@ -215,6 +230,79 @@ describe('AxlHub — the edit hand-off', () => {
 
         expect(onPick).toHaveBeenCalledWith('analyst', { pipeline: 'research', symbol: 'NVDA' })
         expect(onPick.mock.calls[0][1].edit).toBeUndefined()
+    })
+})
+
+// ── the SHOW hand-off: "what's going on with that one" ───────────────────────
+// The third verb, and the one a question about an existing trade usually wants. A route opens a
+// desk, an edit reopens the chat that authored an item and starts re-planning it — a show opens the
+// item's own page and changes nothing. Before it existed, "show me my NVDA setup" had only the edit
+// tag to land on, so looking at a trade meant Mentor re-drawing it.
+describe('AxlHub — showing one of the user’s own items', () => {
+    const setup = { id: 's1', asset: 'NVDA', status: 'looking' }
+
+    it('offers the item by name, and opens it on the press', async () => {
+        resolveForEdit.mockResolvedValue(setup)
+        render(<AxlHub user={{}} onPick={vi.fn()} />)
+        replyWith({ reply: 'It armed on Tuesday.', show: { kind: 'setup', ref: 's1' } })
+
+        await ask("what's going on with my NVDA setup?")
+
+        expect(resolveForEdit).toHaveBeenCalledWith('setup', 's1')
+        const btn = screen.getByText(/Open the NVDA setup/i)
+        await act(async () => { fireEvent.click(btn) })
+        // The ONE opener — which is what makes this the pop-out window on a desktop and the
+        // full-screen page in the app on a phone, without the hub knowing which.
+        expect(openEntityPopup).toHaveBeenCalledWith('setup', setup)
+    })
+
+    it('stays put — a show is not a hand-off, so no desk opens', async () => {
+        resolveForEdit.mockResolvedValue(setup)
+        const onPick = vi.fn()
+        render(<AxlHub user={{}} onPick={onPick} />)
+        replyWith({ reply: 'Here it is.', show: { kind: 'setup', ref: 's1' } })
+
+        await ask('show me that one')
+
+        expect(onPick).not.toHaveBeenCalled()
+    })
+
+    it('a handle that resolves to nothing renders NO button — never one that can only fail', async () => {
+        resolveForEdit.mockResolvedValue(null)   // two NVDA setups, or an id that never existed
+        render(<AxlHub user={{}} onPick={vi.fn()} />)
+        replyWith({ reply: 'Which one?', show: { kind: 'setup', ref: 'NVDA' } })
+
+        await ask('show me the NVDA one')
+
+        expect(screen.queryByText(/^Open the/i)).toBeNull()
+    })
+
+    it('the offer is spent by the next thing the user says', async () => {
+        resolveForEdit.mockResolvedValue(setup)
+        render(<AxlHub user={{}} onPick={vi.fn()} />)
+        replyWith({ reply: 'It armed on Tuesday.', show: { kind: 'setup', ref: 's1' } })
+        await ask("what's going on with my NVDA setup?")
+        expect(screen.getByText(/Open the NVDA setup/i)).toBeTruthy()
+
+        replyWith({ reply: 'Markets are quiet.' })
+        await ask('how are markets?')
+
+        expect(screen.queryByText(/Open the NVDA setup/i)).toBeNull()
+    })
+
+    // The hub is not the gate — the SERVER decides which kinds Axl may name (routing.util SHOW_KINDS,
+    // `setup` alone today, because nothing hands a model an idea id). What is pinned here is that the
+    // hub stays kind-agnostic: it renders whatever arrives and hands it to the one opener, which
+    // already opens idea pages for card clicks. The day an idea gets a quotable handle, this is
+    // already true — and `idea` is the app's word, not the user's, so the button says trade.
+    it('renders whatever kind the server sends, in the user’s words', async () => {
+        resolveForEdit.mockResolvedValue({ id: 'i1', asset: 'TSLA' })
+        render(<AxlHub user={{}} onPick={vi.fn()} />)
+        replyWith({ reply: 'Filled at 240.', show: { kind: 'idea', ref: 'i1' } })
+
+        await ask('show me the TSLA one')
+
+        expect(screen.getByText(/Open the TSLA trade/i)).toBeTruthy()
     })
 })
 

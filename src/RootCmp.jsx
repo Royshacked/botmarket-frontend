@@ -10,6 +10,7 @@ import { MainPage } from './pages/MainPage.jsx'
 import { UserProfile } from './pages/UserProfile.jsx'
 import { IdeaPage } from './pages/IdeaPage.jsx'
 import { SetupPage } from './pages/SetupPage.jsx'
+import { EntityDetailHost } from './cmps/EntityCard/EntityDetailHost.jsx'
 
 export function RootCmp() {
     const { user, isLoading } = useContext(AuthContext)
@@ -40,6 +41,12 @@ export function RootCmp() {
                             <MainPage />
                         </div>
                         {onProfile && <UserProfile />}
+                        {/* The same idea/setup page, opened IN the app instead of in a window —
+                            what a card tap does on a phone, and where Axl's `<show>` lands. It
+                            renders over MainPage rather than in place of it, for the reason the
+                            profile hides MainPage instead of unmounting it: the chat behind it is
+                            mid-conversation. Nothing mounts on a desktop until something asks. */}
+                        <EntityDetailHost />
                     </>
                 )}
             </div>

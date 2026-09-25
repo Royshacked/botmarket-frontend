@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act, cleanup } from '@testing-library/react'
-import { openEntityPopup, stashKey, POPUP_KINDS } from './entityPopup.js'
+import { openEntityPopup, stashKey, POPUP_KINDS, isHandheld } from './entityPopup.js'
 import { useEntityPopup } from '../../customHooks/useEntityPopup.js'
+import { eventBus, ENTITY_DETAIL_OPEN } from '../../services/event-bus.service'
 
 // The two halves of one mechanism: the opener hands the entity over, the hook picks it up.
 // These pin the hand-off contract — the part that was previously re-implemented per kind and so
@@ -9,8 +10,12 @@ import { useEntityPopup } from '../../customHooks/useEntityPopup.js'
 
 const setPath = (p) => window.history.replaceState({}, '', p)
 
+// jsdom has no matchMedia at all, which is why every test above reads as a desktop (isHandheld
+// falls back to false — the behaviour that has always worked). This is the phone.
+const asHandheld = () => { window.matchMedia = (q) => ({ matches: q.includes('coarse') }) }
+
 beforeEach(() => { localStorage.clear(); delete window.__entityData })
-afterEach(() => { cleanup(); vi.restoreAllMocks() })
+afterEach(() => { cleanup(); vi.restoreAllMocks(); delete window.matchMedia })
 
 describe('openEntityPopup', () => {
     it('opens the kind\'s route at the kind\'s window size', () => {
@@ -51,6 +56,60 @@ describe('openEntityPopup', () => {
         const open = vi.spyOn(window, 'open').mockReturnValue({})
         expect(() => openEntityPopup('idea', { id: 'i1' })).not.toThrow()
         expect(open).toHaveBeenCalled()
+    })
+
+    // ── the second surface ───────────────────────────────────────────────────
+    // On a phone `window.open` yields a TAB — no `window.opener`, `window.close()` a no-op, and the
+    // service worker stops counting the app's only window as the app. So the same page opens IN the
+    // app instead, and every call site gets that without knowing there are two surfaces.
+    it('on a handheld it asks the app to open the page, and opens no window', () => {
+        asHandheld()
+        const open = vi.spyOn(window, 'open').mockReturnValue({})
+        const asked = vi.fn()
+        const off = eventBus.on(ENTITY_DETAIL_OPEN, asked)
+
+        const result = openEntityPopup('setup', { id: 's1', asset: 'NVDA' })
+
+        expect(open).not.toHaveBeenCalled()
+        expect(result).toBeNull()
+        expect(asked).toHaveBeenCalledWith({ kind: 'setup', id: 's1' })
+        // The stash is written either way — the in-app page paints from it exactly as a window does.
+        expect(JSON.parse(localStorage.getItem(stashKey('setup', 's1')))).toEqual({ id: 's1', asset: 'NVDA' })
+        off()
+    })
+
+    it('a kind with no in-app page still opens a window on a phone — a tab beats nothing', () => {
+        asHandheld()
+        const open = vi.spyOn(window, 'open').mockReturnValue({})
+        const asked = vi.fn()
+        const off = eventBus.on(ENTITY_DETAIL_OPEN, asked)
+
+        openEntityPopup('call', 'c1')
+
+        expect(asked).not.toHaveBeenCalled()
+        expect(open).toHaveBeenCalled()
+        off()
+    })
+
+    it('a desktop is untouched: the window, sized, exactly as before', () => {
+        window.matchMedia = (q) => ({ matches: q.includes('fine') })
+        const open = vi.spyOn(window, 'open').mockReturnValue({})
+        const asked = vi.fn()
+        const off = eventBus.on(ENTITY_DETAIL_OPEN, asked)
+
+        openEntityPopup('setup', { id: 's1' })
+
+        expect(asked).not.toHaveBeenCalled()
+        expect(open).toHaveBeenCalledWith('/setup/s1', 'setup-s1', 'width=1180,height=760')
+        off()
+    })
+
+    it('isHandheld: a coarse pointer OR the phone breakpoint, and never a throw', () => {
+        expect(isHandheld({})).toBe(false)                                        // no matchMedia at all
+        expect(isHandheld({ matchMedia: () => ({ matches: false }) })).toBe(false)
+        expect(isHandheld({ matchMedia: (q) => ({ matches: q.includes('coarse') }) })).toBe(true)
+        expect(isHandheld({ matchMedia: (q) => ({ matches: q.includes('767') }) })).toBe(true)
+        expect(isHandheld({ matchMedia: () => { throw new Error('nope') } })).toBe(false)
     })
 
     it('every registered kind has a route and a size', () => {
