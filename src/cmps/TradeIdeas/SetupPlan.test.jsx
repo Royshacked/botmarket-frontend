@@ -25,6 +25,41 @@ const SETUP = {
     }],
 }
 
+describe('the paths not taken, on a saved plan', () => {
+    it('every level says what it was measured FROM, and the scenario says which way in it is', () => {
+        const anchored = {
+            ...SETUP,
+            scenarios: [{
+                ...SETUP.scenarios[0],
+                archetype: 'pullback',
+                stop_legs:   [{ id: 's1z', price: 234.8, anchor: 'structure', conditions: [] }],
+                target_legs: [{ id: 't1', price: 246, quantity: 50, anchor: 'liquidity', conditions: [] }],
+            }],
+        }
+        render(<SetupScenarios setup={anchored} />)
+        expect(screen.getByText('pullback')).toBeTruthy()
+        // `structure` means different things on a stop and on a target, so the tooltip is per tone.
+        expect(screen.getByText('structure').getAttribute('title')).toMatch(/last swing/)
+        expect(screen.getByText('liquidity').getAttribute('title')).toMatch(/next pool/)
+    })
+
+    it('carries the rejects and the challenge verdict onto the saved plan', () => {
+        render(<SetupScenarios setup={{
+            ...SETUP,
+            alternatives: [{ archetype: 'gap_fill', price: 231.8, why_not: 'the gap is below my invalidation' }],
+            challenges:   [{ pass: 'flip', verdict: 'two_sided', at: '2026-09-26T10:00:00.000Z' }],
+        }} />)
+        expect(screen.getByText(/the gap is below my invalidation/)).toBeTruthy()
+        expect(screen.getByText(/Direction attacked/).textContent).toMatch(/two-sided/)
+    })
+
+    it('says nothing about them when there is nothing to say', () => {
+        render(<SetupScenarios setup={SETUP} />)
+        expect(screen.queryByText(/Considered and not taken/)).toBeNull()
+        expect(screen.queryByText(/Direction attacked/)).toBeNull()
+    })
+})
+
 describe('SetupScenarios', () => {
     it('shows the ladder, the always-conditions, then each way in: entry, trigger, stop, targets', () => {
         render(<SetupScenarios setup={SETUP} />)

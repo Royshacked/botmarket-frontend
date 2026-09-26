@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types'
 import './ZoneEditor.scss'
+import { words, anchorHint } from '../../services/setupTaxonomy.js'
 
 // The zone editor — the genuinely new piece of Mentor's UI.
 //
@@ -195,6 +196,12 @@ export function ZoneEditor({ scenario, onChange, readOnly = false }) {
                         {rows.length === 0 && <p className="zone-editor__empty">No {label.toLowerCase()} zone yet.</p>}
 
                         {rows.map((zone, zi) => {
+                            // WHAT THIS PRICE IS MEASURED FROM (2026-09-26). Read-only and quiet: it
+                            // is Mentor's filing, not a field, and the user changes it by arguing in
+                            // the conversation ("why not the order block's edge?") rather than by
+                            // typing. An entry leg has none — what an entry is anchored to is the
+                            // scenario's archetype, shown on its header.
+                            const anchorTone = key === 'stop_legs' ? 'stop' : key === 'target_legs' ? 'tp' : null
                             // ONE number, written to both edges. Mentor widens it into a real band
                             // later; until then it is an exact level, which is a valid zone rather
                             // than a placeholder — so a form that never reaches Mentor still works.
@@ -226,7 +233,13 @@ export function ZoneEditor({ scenario, onChange, readOnly = false }) {
                                             aria-label={`${priceLabel} ${zone.id}`}
                                             onChange={e => updatePrice(key, zone.id, e.target.value)}
                                         />
-                                        <span className="zone-editor__cell-label">{pricePh}</span>
+                                        <span className="zone-editor__cell-label">
+                                            {anchorTone && zone.anchor ? (
+                                                <abbr className="zone-editor__anchor" title={anchorHint(zone.anchor, anchorTone) ?? 'What this price was measured from.'}>
+                                                    {words(zone.anchor)}
+                                                </abbr>
+                                            ) : pricePh}
+                                        </span>
                                     </label>
 
                                     <label className="zone-editor__cell">

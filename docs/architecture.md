@@ -160,6 +160,38 @@ that produced something is reached through the thing it produced. `deskWork.js` 
 unfinished threads" into a badge on the one desk they walked out of, and a lock on every desk that
 needs an agent busy elsewhere — a panel is a singleton.
 
+## The paths not taken — what a plan is NOT
+
+> 2026-09-26. The backend contract is `botmarket-backend/docs/desks/mentor-talos.md` §The paths not
+> taken; this is where the three records SHOW UP.
+
+A setup now carries four things that describe the trade it is not, and all four are authoring record
+— nothing in the monitor reads them, and nothing here writes them:
+
+| field | where it shows |
+|---|---|
+| `scenarios[].archetype` | a borderless badge on the scenario header (`ScenarioBlock`), and a tag on the saved plan (`SetupPlan`) |
+| `stop_legs[].anchor` / `target_legs[].anchor` | replaces the caption under the price box while building (`ZoneEditor`); an `abbr` beside the level on the saved plan |
+| `alternatives[]` | `cmps/PathsNotTaken` — the rejects, one clause each |
+| `challenges[]` | the same component: what was thrown at the DIRECTION, and what came back |
+
+**`PathsNotTaken` is one component in three surfaces** — the live worksheet, the saved plan, and the
+ORDER CONFIRM, which is where it earns its space: you are about to buy the pullback, and the gap that
+was considered and skipped (with the reason) is the one thing you cannot reconstruct from the levels
+in front of you. It renders **nothing** when both lists are empty, which is the ordinary case on a
+plan the user brought (they chose the way in) and on one nobody has attacked.
+
+`services/setupTaxonomy.js` holds the words and the tooltips. **An id this build has not heard of
+degrades to the id with its underscores opened out and no tooltip** — readable, obviously
+un-annotated, never a blank or a crash. That fallback is deliberate and it is why there is no test
+asserting this client knows every archetype the server does: the coupling it would pin is the one the
+fallback exists to survive.
+
+Two more, from the same build: `validity.on_away` reads in the scenario's validity line (*"gone above
+209 · let it go"*, or *"no answer yet if it runs"* — which is what Generate is refusing on), and
+`readiness.warnings` gets its own quiet line under Generate that never joins the "still needs" list,
+because a warning is not a refusal.
+
 ## Conventions worth knowing
 
 - `npm run build` writes into `../botmarket-backend/public/` — the backend serves the app.
@@ -167,6 +199,6 @@ needs an agent busy elsewhere — a panel is a singleton.
   while logged out (gate on `user`).
 - `agentMeta.jsx` is data only — brand, hue, glyph, copy, `DESKS` — because mixing components with
   constants breaks Fast Refresh for every importer; `AgentSummon.jsx` has the pieces.
-- Tests: Vitest + React Testing Library, 961 across 67 files, beside the component.
+- Tests: Vitest + React Testing Library, 1068 across 76 files, beside the component.
 - `archive/` mirrors the backend's: the Kairos panel, its contract, the `/call/:id` pop-out — imported
   by nothing (`archive/README.md`).

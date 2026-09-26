@@ -190,6 +190,17 @@
     line-height: 1;
 }
 
+// The anchor REPLACES the caption under a stop or target box, because it says everything the caption
+// did and more: "structure" under a number in the Stop group cannot be mistaken for anything else,
+// where "stop" under it was only ever repeating the group heading. Dotted underline off — on a row
+// of prices it reads as a spelling correction.
+.zone-editor__anchor {
+    text-decoration: none;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: help;
+}
+
 // The optional qualifier on an exit level, on its own line (flex-basis 100%) so it never widens the
 // row. Deliberately quiet: most stops are only a price, and a prominent box beside every one would
 // read as another thing the form is owed.

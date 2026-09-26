@@ -31,6 +31,18 @@
         color: var(--text-dim);
     }
 
+    // What the price was measured from. `abbr` for the tooltip, with the browser's dotted underline
+    // removed — it would read as a spelling correction on a row of numbers.
+    &__anchor {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+        text-decoration: none;
+        cursor: help;
+    }
+
     &__always,
     &__trigger { display: flex; flex-direction: column; gap: 3px; }
 

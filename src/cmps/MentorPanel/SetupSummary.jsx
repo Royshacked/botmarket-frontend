@@ -2,6 +2,7 @@ import PropTypes from 'prop-types'
 import { ConvictionChip } from '../ConvictionChip/ConvictionChip'
 import { ScenarioBlock, fmtLeg } from './ScenarioBlock.jsx'
 import { ConditionList } from './ConditionList.jsx'
+import { PathsNotTaken } from '../PathsNotTaken/PathsNotTaken.jsx'
 import './SetupSummary.scss'
 
 // The live worksheet — the setup as built so far, filling in turn by turn.
@@ -151,6 +152,13 @@ export function SetupSummary({ setup, onChange, readOnly = false }) {
                     </span>
                 </button>
             )}
+
+            {/* WHAT THIS PLAN IS NOT — the ways in that were rejected, and what has been thrown at the
+                direction. Below the scenarios because it is about them; above conviction because the
+                conviction rationale is often the sentence a two-sided verdict wrote. Renders nothing
+                when both are empty, which is correct on a plan the user brought (they chose the way
+                in, so nothing was rejected) and on one nobody has attacked. */}
+            <PathsNotTaken alternatives={setup.alternatives} challenges={setup.challenges} />
 
             <div className="setup-summary__metrics">
                 <ConvictionChip conviction={setup.conviction} />

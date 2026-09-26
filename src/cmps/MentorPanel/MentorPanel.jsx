@@ -519,6 +519,14 @@ export function MentorPanel({
                             ))}
                         </span>
                     )}
+                    {/* WARNINGS are not blockers and must never read as one: the gate can see that
+                        nothing was rejected and cannot see whether anything SHOULD have been — on a
+                        plan the user brought, an empty rejects pool is the right answer. So it shows
+                        whether or not Generate is lit, in its own quiet line, and never joins the
+                        "still needs" list. */}
+                    {effectiveReadiness?.warnings?.length > 0 && (
+                        <span className="mentor-panel__warning">{effectiveReadiness.warnings.join(' · ')}</span>
+                    )}
                     {/* A refusal with nothing to name would be a dead button. It can only happen if
                         the server grows a reason it doesn't report, so say that rather than nothing. */}
                     {!ready && blockers.length === 0 && (

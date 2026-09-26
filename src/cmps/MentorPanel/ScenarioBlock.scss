@@ -52,6 +52,9 @@
 
         &--armed { color: var(--accent-light); border: 1px solid var(--accent); }
         &--dead  { color: var(--text-dim);     border: 1px solid var(--border); }
+        // The way in. Borderless on purpose: `armed` and `dead` report what is happening right now,
+        // and a third bordered pill beside them would read as a third state rather than as a label.
+        &--archetype { color: var(--text-dim); padding: 0; letter-spacing: 0.06em; }
     }
 
     &__rr,

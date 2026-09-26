@@ -4,6 +4,7 @@ import { formatCreatedAtFull, orderTypeLabel } from './tradeIdea.utils.js'
 import { useMarketStatus } from '../../customHooks/useMarketStatus.js'
 import { summarizeOrderRisk, describeAllocation, fmtPrice } from './orderRisk.util.js'
 import { ConvictionChip } from '../ConvictionChip/ConvictionChip.jsx'
+import { PathsNotTaken } from '../PathsNotTaken/PathsNotTaken.jsx'
 import { Modal } from '../Modal.jsx'
 import './OrderConfirmDialog.scss'
 
@@ -98,6 +99,12 @@ export function OrderConfirmDialog({ idea, orders, levels = [], placing, onConfi
                             <ConvictionChip conviction={idea.conviction} showRationale />
                         </div>
                     )}
+
+                    {/* WHAT THIS PLAN IS NOT, at the one moment it is worth money: you are about to
+                        buy the pullback, and the gap that was considered and skipped — with the
+                        reason — is the thing you cannot reconstruct from the levels in front of you.
+                        Renders nothing on an idea, or on a setup with neither record. */}
+                    <PathsNotTaken alternatives={idea.alternatives} challenges={idea.challenges} />
 
                     {idea.triggeredWhileWaiting && (
                         <p className="order-confirm__while-waiting">

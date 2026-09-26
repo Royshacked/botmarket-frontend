@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types'
 import { ZoneEditor } from './ZoneEditor.jsx'
+import { words, archetypeHint, awayLabel } from '../../services/setupTaxonomy.js'
 import { ConditionList } from './ConditionList.jsx'
 import './ScenarioBlock.scss'
 
@@ -29,6 +30,11 @@ import './ScenarioBlock.scss'
 // (2026-09-24) — a leg is a price — so all that is left is "is there a number".
 export const fmtLeg = (z) => (z?.price == null ? null : `${z.price}`)
 
+// BOTH EDGES, each with its own authored answer. They are different events — one is "the premise
+// broke", the other is "it went without you" — and the away side had no answer at all until
+// 2026-09-26 (`on_away`). Printing the pivot without what happens at it was the half that read as
+// information and was not: knowing price can run to 246 says nothing about whether anybody will tell
+// you when it does.
 function validityLine(v, direction) {
     if (!v) return null
     const long  = direction !== 'short'
@@ -36,8 +42,11 @@ function validityLine(v, direction) {
     const away  = v.approach ?? (long ? v.upper : v.lower)
     const parts = []
     if (dies != null) parts.push(`dead on a close ${long ? 'below' : 'above'} ${dies}`)
-    if (away != null) parts.push(`gone ${long ? 'above' : 'below'} ${away}`)
     if (v.on_break)   parts.push(v.on_break === 'close' ? 'then it just dies' : v.on_break === 'revise' ? 'then re-draw it' : 'notify only')
+    if (away != null) parts.push(`gone ${long ? 'above' : 'below'} ${away}`)
+    // No answer yet is worth SAYING, not hiding: it is what Generate is refusing on, so the line the
+    // user reads while wondering why the button is dark should be the line that tells them.
+    parts.push(awayLabel(v.on_away) ?? 'no answer yet if it runs')
     return parts.join(' · ')
 }
 
@@ -63,6 +72,15 @@ export function ScenarioBlock({
             <header className="scenario-block__head">
                 <h4 className="scenario-block__name">{name}</h4>
                 {entry && <span className="scenario-block__entry">{entry}</span>}
+
+                {scenario.archetype && (
+                    // Mentor's filing of its own plan, and the thing that makes a level arguable:
+                    // "why THAT stop" has an answer from a closed set rather than a paragraph.
+                    <span className="scenario-block__badge scenario-block__badge--archetype"
+                        title={archetypeHint(scenario.archetype) ?? 'The way in, as Mentor filed it.'}>
+                        {words(scenario.archetype)}
+                    </span>
+                )}
 
                 {armed && <span className="scenario-block__badge scenario-block__badge--armed" title="Price is at this premise's zone — this is the one being judged.">armed</span>}
                 {dead  && <span className="scenario-block__badge scenario-block__badge--dead" title="This premise broke its own validity range. Any other entry scenario is unaffected.">dead</span>}
@@ -113,6 +131,7 @@ ScenarioBlock.propTypes = {
     scenario: PropTypes.shape({
         id:         PropTypes.string,
         name:       PropTypes.string,
+        archetype:  PropTypes.string,
         quantity:   PropTypes.number,
         rr:         PropTypes.number,
         conditions: PropTypes.array,

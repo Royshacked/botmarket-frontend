@@ -1,0 +1,95 @@
+// The rejects pool and the challenge verdicts, wherever a plan is shown (the live worksheet, the
+// saved plan, the order confirm). Deliberately QUIET: this is provenance sitting beside the trade,
+// and anything with the weight of the levels themselves would compete with them.
+.paths-not-taken {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+
+    &__title {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+        cursor: help;
+    }
+
+    &__challenges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin: 0;
+    }
+
+    // A verdict is the one thing here that CHANGES what the user should think, so it gets a border
+    // and a colour where the rejects list gets neither. `two_sided` is amber on purpose: it is the
+    // verdict that caps conviction, and the one nothing else in the app says out loud.
+    &__verdict {
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 1px 8px;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        white-space: nowrap;
+        color: var(--text-dim);
+        cursor: help;
+
+        &--stands {
+            color: var(--long-text);
+            border-color: var(--long-border);
+        }
+        &--two_sided {
+            color: var(--warn-text, var(--text));
+            border-color: var(--warn-border, var(--border));
+        }
+        &--reversed {
+            color: var(--short-text);
+            border-color: var(--short-border);
+        }
+    }
+
+    &__alts {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    &__alt {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--text-dim);
+        line-height: 1.5;
+    }
+
+    &__alt-name {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text);
+        cursor: help;
+    }
+
+    &__alt-price {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text);
+    }
+
+    // The clause wraps and keeps its own line when it has to: it is the only part of a reject that
+    // carries information, so truncating it would leave the label of a decision with none of it.
+    &__alt-why {
+        flex: 1 1 100%;
+        font-style: italic;
+    }
+}

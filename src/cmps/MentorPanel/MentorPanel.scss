@@ -125,6 +125,17 @@
     color: var(--accent);
 }
 
+// A WARNING IS NOT A REFUSAL, so it does not get the accent that `__problem` uses. It shows whether
+// or not Generate is lit — "nothing rejected was recorded" is worth saying about a plan that is
+// otherwise ready — which is exactly why it must not look like the reason a button is dark.
+.mentor-panel__warning {
+    display: block;
+    font-size: var(--chat-label);
+    color: var(--text-dim);
+    text-align: center;
+    opacity: 0.8;
+}
+
 // The preview's two heights. The shared shell caps this block at 140px with a scrollbar, which is
 // the wrong shape for a worksheet: too tall to ignore while you talk, too short to read in one go
 // once a second way in is drawn. So Mentor takes both ends instead — one line folded, the whole

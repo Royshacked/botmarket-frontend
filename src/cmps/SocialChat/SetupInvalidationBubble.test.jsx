@@ -72,7 +72,30 @@ describe('SetupInvalidationBubble', () => {
 
     // The whole point of the four-way split: two of these events ask nothing of the user, and the
     // backend says so by omitting `actions`. A Dismiss button there would invent a decision.
-    it.each(['ran_away', 'invalidated_fyi'])('renders %s as a statement — no buttons at all', (event) => {
+    it('a RUNAWAY opens the plan back up — it used to ask nothing', () => {
+        // Overturned 2026-09-26 (backend docs/design/mentor-challenge.md §3): the honest outcomes
+        // after a miss are wait, a continuation measured on today's structure, or close it — and a
+        // blank chart while the move runs is the worst place to decide between them.
+        const onClose = vi.fn()
+        render(
+            <SetupInvalidationBubble
+                msg={makeMsg({
+                    actions: { primary: { label: 'Re-draw with Mentor' }, dismiss: true },
+                    content: 'price ran past 247 without you',
+                    payload: { kind: 'setup', setupId: 'setup-9', asset: 'NVDA', event: 'ran_away' },
+                })}
+                onClose={onClose} onResolve={vi.fn()}
+            />,
+        )
+        const btn = screen.getByText('Re-draw with Mentor')
+        fireEvent.click(btn)
+        expect(eventBus.emit).toHaveBeenCalledWith(SETUP_INVALIDATION_EDIT, { setupId: 'setup-9' })
+        expect(onClose).toHaveBeenCalled()
+    })
+
+    // `ran_away_fyi` is the same MISS, on a scenario whose `on_away` said `pass`. The user answered
+    // this question when the plan was drawn, so asking again is what that answer exists to prevent.
+    it.each(['ran_away_fyi', 'invalidated_fyi'])('renders %s as a statement — no buttons at all', (event) => {
         render(
             <SetupInvalidationBubble
                 msg={makeMsg({ actions: undefined, payload: { setupId: 's2', asset: 'AMD', event } })}
@@ -81,8 +104,19 @@ describe('SetupInvalidationBubble', () => {
         )
 
         expect(screen.queryByText('Re-draw it')).toBeNull()
+        expect(screen.queryByText('Re-draw with Mentor')).toBeNull()
         expect(screen.queryByText('Dismiss')).toBeNull()
         expect(screen.getByText(/AMD/)).toBeTruthy()      // it still SAYS the thing
+    })
+
+    it('a missed entry is headed "Missed" whether or not it asks anything', () => {
+        // Both runaway flavours are the same event and get the same word for it; what differs is the
+        // button. A second heading would imply two different things happened.
+        for (const event of ['ran_away', 'ran_away_fyi']) {
+            cleanup()
+            render(<SetupInvalidationBubble msg={makeMsg({ actions: undefined, payload: { setupId: 's3', asset: 'AMD', event } })} onResolve={vi.fn()} />)
+            expect(screen.getByText(/Missed/)).toBeTruthy()
+        }
     })
 
     it('names the dead premise, and what survives it', () => {

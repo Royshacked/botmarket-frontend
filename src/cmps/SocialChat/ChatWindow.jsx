@@ -574,14 +574,24 @@ export function CallManageBubble({ msg, onClose, onResolve }) {
 //                reopens the setup in the Mentor chat that built it (SETUP_INVALIDATION_EDIT).
 //   stale_map    Talos's own read — the levels have drifted from where structure sits now. Same
 //                route; the ask is the same re-draw.
-//   ran_away / invalidated_fyi  statements, not requests (price left on the favourable side; or the
-//                user chose notify_only). The backend sends them with NO actions, so they render
-//                actionless — no button to press and nothing to resolve.
+//   ran_away     price left on the FAVOURABLE side unfilled. It CARRIES AN ACTION now (2026-09-26,
+//                backend docs/design/mentor-challenge.md §3) and opens the plan in Mentor, because
+//                the honest outcomes are three — wait, a continuation measured on today's structure,
+//                or close it — and nobody should be triaging those on a blank chart while the move
+//                runs. It used to ask nothing, on the reasoning that a chase is the user's own
+//                decision from a clean slate; the clean slate turned out to be the problem.
+//   ran_away_fyi / invalidated_fyi  statements, not requests: the user ALREADY answered that edge
+//                when the plan was drawn (`on_away: pass`, `on_break: notify_only`). The backend
+//                sends them with no actions, so they render actionless — re-asking is the thing
+//                those answers exist to prevent.
 //
 // `scenario` names WHICH way in died: a setup can hold rivals, and one premise breaking is not the
 // setup breaking. It rides the qualifier so the collapsed chip still says which one it was.
 const SETUP_INVALIDATION_COPY = {
     ran_away:        { head: 'Missed',        kind: 'missed'   },
+    // Same event, same word for it: what differs is whether anything is being asked, and the absent
+    // button says that better than a different heading would.
+    ran_away_fyi:    { head: 'Missed',        kind: 'missed'   },
     invalidated:     { head: 'Invalidated',   kind: 'fired'    },
     invalidated_fyi: { head: 'Invalidated',   kind: 'fired'    },
     stale_map:       { head: 'Levels drifted', kind: 'drifting' },

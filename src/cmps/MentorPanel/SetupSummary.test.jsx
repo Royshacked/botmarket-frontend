@@ -262,10 +262,29 @@ describe('ScenarioBlock', () => {
         expect(screen.getByText('dead')).toBeTruthy()
     })
 
-    it('reads the validity range in the direction it applies', () => {
+    it('reads the validity range in the direction it applies — BOTH edges, with what happens at each', () => {
         render(<ScenarioBlock scenario={FADE} direction="long" index={0} />)
         expect(screen.getByText(/dead on a close below 195/)).toBeTruthy()
         expect(screen.getByText(/gone above 209/)).toBeTruthy()
+        // The away edge had no authored answer until 2026-09-26, and an unanswered one is what
+        // Generate refuses on — so the line the user reads while the button is dark says it.
+        expect(screen.getByText(/no answer yet if it runs/)).toBeTruthy()
+
+        cleanup()
+        render(<ScenarioBlock scenario={{ ...FADE, validity: { ...FADE.validity, on_away: 'pass' } }} direction="long" index={0} />)
+        expect(screen.getByText(/let it go/)).toBeTruthy()
+        expect(screen.queryByText(/no answer yet/)).toBeNull()
+    })
+
+    it('names the way in, so "why that stop" has an answer from a closed set', () => {
+        render(<ScenarioBlock scenario={{ ...FADE, archetype: 'sweep_reclaim' }} direction="long" index={0} />)
+        const badge = screen.getByText('sweep reclaim')
+        expect(badge.getAttribute('title')).toMatch(/closes back inside/)
+    })
+
+    it('an archetype this build has not heard of still reads, without a tooltip it cannot give', () => {
+        render(<ScenarioBlock scenario={{ ...FADE, archetype: 'liquidity_grab' }} direction="long" index={0} />)
+        expect(screen.getByText('liquidity grab').getAttribute('title')).toMatch(/as Mentor filed it/)
     })
 
     it('falls back to a positional name so an unnamed premise is still addressable', () => {
