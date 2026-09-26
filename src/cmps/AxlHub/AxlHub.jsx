@@ -47,8 +47,8 @@ function firstName(fullname = '') {
 // first-time user does not. These are that ask, made out loud — the same chips Axl offers after a
 // reply, seeded before the first one.
 //
-// They must never answer the question the SEVEN CARDS answer. The cards are places to go ("Trade an
-// asset"); these are questions the cards cannot take. A chip that said "find me a trade" would steal
+// They must never answer the question the SEVEN CARDS answer. The cards are places to go ("Traders
+// desk"); these are questions the cards cannot take. A chip that said "find me a trade" would steal
 // the click from the card that does it properly, and the grid is the point of this screen.
 //
 // Written in the user's voice, because a chip sends its text AS the user's next message.

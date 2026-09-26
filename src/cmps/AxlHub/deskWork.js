@@ -15,7 +15,7 @@
  *   panel is a singleton, so a build parked at Argus closes every other door to Argus.
  *
  * Keying both off `agent` is what made a single parked build light up three desks: the badge was
- * answering the lock's question. The user thinks in desks — "Produce a watchlist" is not where they
+ * answering the lock's question. The user thinks in desks — "Scanner" is not where they
  * left off, even though Argus is where the conversation sits.
  */
 
@@ -31,7 +31,7 @@ export function deskAgents(desk) {
  *
  * `pipeline` answers it outright, and is the only answer that can be right: the user left ONE desk,
  * and marking every desk that happens to share the agent says they left three. A build parked at
- * Argus is unfinished work at the desk it belongs to, not at "Produce a watchlist".
+ * Argus is unfinished work at the desk it belongs to, not at "Scanner".
  *
  * A thread with NO pipeline was opened off any chain (a tab clicked directly, a thread reopened from
  * history). It still belongs somewhere, and the honest home is the desk that is only that agent — of

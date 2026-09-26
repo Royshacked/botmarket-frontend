@@ -159,7 +159,7 @@ describe('AxlHub — the desk hand-off', () => {
         const onPick = vi.fn()
         render(<AxlHub user={{}} onPick={onPick} />)
 
-        await act(async () => { fireEvent.click(screen.getByText('Build a portfolio')) })
+        await act(async () => { fireEvent.click(screen.getByText('Investments desk')) })
         await act(async () => { vi.advanceTimersByTime(5000) })
 
         expect(onPick).toHaveBeenCalledWith('portfolio', { pipeline: 'portfolio', symbol: null })
@@ -169,7 +169,7 @@ describe('AxlHub — the desk hand-off', () => {
         const onPick = vi.fn()
         render(<AxlHub user={{}} onPick={onPick} />)
 
-        await act(async () => { fireEvent.click(screen.getByText('Research a company')) })
+        await act(async () => { fireEvent.click(screen.getByText('Analyst')) })
         await act(async () => { vi.advanceTimersByTime(5000) })
 
         expect(onPick).toHaveBeenCalledWith('analyst', { pipeline: 'research', symbol: null })
@@ -365,7 +365,7 @@ describe('AxlHub — the opening turn that travels with them', () => {
         render(<AxlHub user={{}} onPick={onPick} />)
         await act(async () => {})   // let the unfinished list land
 
-        await act(async () => { fireEvent.click(screen.getByText('Build a portfolio')) })
+        await act(async () => { fireEvent.click(screen.getByText('Investments desk')) })
         await act(async () => { vi.advanceTimersByTime(5000) })
 
         expect(onPick).toHaveBeenCalledWith('portfolio', expect.objectContaining({
@@ -422,8 +422,8 @@ describe('AxlHub — the desk they left', () => {
         // Two threads, both the trade desk's: one mark, on the trade desk.
         expect(document.querySelectorAll('.axl-hub__desk-flag')).toHaveLength(1)
         // And it says so in words — the newest thread is waiting on the user, so it says which.
-        expect(card('Trade an asset').querySelector('.axl-hub__desk-flag')?.textContent).toBe('Your turn')
-        for (const lead of ['Build a portfolio', 'Produce a watchlist', 'Work on your own trade']) {
+        expect(card('Traders desk').querySelector('.axl-hub__desk-flag')?.textContent).toBe('Your turn')
+        for (const lead of ['Investments desk', 'Scanner', 'Build your idea']) {
             expect(card(lead).querySelector('.axl-hub__desk-flag')).toBeNull()
         }
     })
@@ -436,7 +436,7 @@ describe('AxlHub — the desk they left', () => {
         render(<AxlHub user={{}} onPick={vi.fn()} />)
         await act(async () => {})
 
-        const flag = card('Trade an asset').querySelector('.axl-hub__desk-flag')
+        const flag = card('Traders desk').querySelector('.axl-hub__desk-flag')
         expect(flag.textContent).toBe('Working..')
         expect(flag.className).not.toMatch(/is-turn/)
     })
@@ -445,30 +445,30 @@ describe('AxlHub — the desk they left', () => {
         // Mentor was the missing one: its drafts never persisted, so nothing held the assist desk and
         // the door stood open onto a panel a live build was sitting in.
         await landed()
-        for (const lead of ['Build a portfolio', 'Produce a watchlist', 'Work on your own trade']) {
+        for (const lead of ['Investments desk', 'Scanner', 'Build your idea']) {
             expect(card(lead).className).toMatch(/is-locked/)
             expect(card(lead).getAttribute('aria-disabled')).toBe('true')
         }
-        expect(card('Trade an asset').className).not.toMatch(/is-locked/)
-        expect(card('Research a company').className).not.toMatch(/is-locked/)
+        expect(card('Traders desk').className).not.toMatch(/is-locked/)
+        expect(card('Analyst').className).not.toMatch(/is-locked/)
     })
 
     it('a closed door does not open — the click does nothing at all', async () => {
         const onPick = await landed()
 
-        await act(async () => { fireEvent.click(card('Work on your own trade')) })
+        await act(async () => { fireEvent.click(card('Build your idea')) })
         await act(async () => { vi.advanceTimersByTime(5000) })
 
         expect(onPick).not.toHaveBeenCalled()
         // …and it says WHY, which is the only thing separating a rule from a bug.
         // The agent by its brand, not its key: "is using mentor" names an internal id at the user.
-        expect(card('Work on your own trade').getAttribute('title')).toMatch(/Trading Desk is using Mentor/)
+        expect(card('Build your idea').getAttribute('title')).toMatch(/Trading Desk is using Mentor/)
     })
 
     it('going back to the desk lands on MENTOR, where they left — not at the end of the scan', async () => {
         const onPick = await landed()
 
-        await act(async () => { fireEvent.click(card('Trade an asset')) })
+        await act(async () => { fireEvent.click(card('Traders desk')) })
         await act(async () => { vi.advanceTimersByTime(5000) })
 
         // The trade desk's entryTab is 'scanner'. A walk-back must override it with the thread's own
@@ -482,7 +482,7 @@ describe('AxlHub — the desk they left', () => {
     it('a desk with nothing left at it still opens at its front door', async () => {
         const onPick = await landed()
 
-        await act(async () => { fireEvent.click(card('Research a company')) })
+        await act(async () => { fireEvent.click(card('Analyst')) })
         await act(async () => { vi.advanceTimersByTime(5000) })
 
         expect(onPick).toHaveBeenCalledWith('analyst', { pipeline: 'research', symbol: null })
@@ -524,7 +524,7 @@ describe('AxlHub — a turn still running at a desk', () => {
         render(<AxlHub user={{ fullname: 'Roy' }} onPick={vi.fn()} live={live('mentor', 'assist')} />)
         await act(async () => {})
 
-        const assist = screen.getByText('Work on your own trade').closest('button')
+        const assist = screen.getByText('Build your idea').closest('button')
         expect(assist.textContent).toMatch(/Working/)
     })
 
@@ -534,8 +534,8 @@ describe('AxlHub — a turn still running at a desk', () => {
         render(<AxlHub user={{ fullname: 'Roy' }} onPick={vi.fn()} live={live('mentor')} />)
         await act(async () => {})
 
-        expect(screen.getByText('Work on your own trade').closest('button').textContent).toMatch(/Working/)
-        expect(screen.getByText('Trade an asset').closest('button').textContent).not.toMatch(/Working/)
+        expect(screen.getByText('Build your idea').closest('button').textContent).toMatch(/Working/)
+        expect(screen.getByText('Traders desk').closest('button').textContent).not.toMatch(/Working/)
     })
 
     it('a live turn is not resumable — clicking the desk opens it, it does not reopen a thread', async () => {
@@ -545,7 +545,7 @@ describe('AxlHub — a turn still running at a desk', () => {
         render(<AxlHub user={{ fullname: 'Roy' }} onPick={onPick} live={live('mentor', 'assist')} />)
         await act(async () => {})
 
-        fireEvent.click(screen.getByText('Work on your own trade').closest('button'))
+        fireEvent.click(screen.getByText('Build your idea').closest('button'))
         for (let i = 0; i < 4; i++) await act(async () => { vi.advanceTimersByTime(1500) })
         expect(onPick).toHaveBeenCalled()
         expect(onPick.mock.calls[0][1].resumeThreadId).toBeUndefined()
@@ -563,7 +563,7 @@ describe('AxlHub — a turn still running at a desk', () => {
         await act(async () => {})
 
         expect(listUnfinished).toHaveBeenCalledTimes(2)
-        expect(screen.getByText('Work on your own trade').closest('button').textContent).toMatch(/Your turn/)
+        expect(screen.getByText('Build your idea').closest('button').textContent).toMatch(/Your turn/)
     })
 })
 
@@ -579,7 +579,7 @@ describe('AxlHub — walking back into a desk that is still answering', () => {
         )
         await act(async () => {})
 
-        fireEvent.click(screen.getByText('Work on your own trade').closest('button'))
+        fireEvent.click(screen.getByText('Build your idea').closest('button'))
         for (let i = 0; i < 4; i++) await act(async () => { vi.advanceTimersByTime(1500) })
 
         expect(onPick).toHaveBeenCalled()
@@ -592,7 +592,7 @@ describe('AxlHub — walking back into a desk that is still answering', () => {
         render(<AxlHub user={{ fullname: 'Roy' }} onPick={onPick} live={[]} />)
         await act(async () => {})
 
-        fireEvent.click(screen.getByText('Work on your own trade').closest('button'))
+        fireEvent.click(screen.getByText('Build your idea').closest('button'))
         for (let i = 0; i < 4; i++) await act(async () => { vi.advanceTimersByTime(1500) })
 
         expect(onPick.mock.calls[0][1].resumeThreadId).toBe('t1')

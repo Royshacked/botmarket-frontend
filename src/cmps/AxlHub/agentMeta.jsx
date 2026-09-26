@@ -249,7 +249,7 @@ export const DESKS = [
     {
         key:      'trade',
         label:    'Trading Desk',
-        lead:     'Trade an asset',
+        lead:     'Traders desk',
         blurb:    'Intraday, day, or swing — Argus validates, Mentor builds the setup with you, Talos watches the zones.',
         hue:      'cyan',
         entryTab: 'scanner',
@@ -272,7 +272,7 @@ export const DESKS = [
     {
         key:      'portfolio',
         label:    'Portfolio Desk',
-        lead:     'Build a portfolio',
+        lead:     'Investments desk',
         blurb:    'Long-term or swing — Atlas sets the mandate, Argus screens under it, Prometheus researches, Atlas allocates.',
         hue:      'green',
         // Enters at ATLAS, not Argus. Unlike the trade desk, the portfolio pipeline starts with a
@@ -296,7 +296,7 @@ export const DESKS = [
     {
         key:      'scan',
         label:    'Scan Desk',
-        lead:     'Produce a watchlist',
+        lead:     'Scanner',
         blurb:    'Argus sweeps the market and generates a candidate list for later setups.',
         hue:      'violet',
         entryTab: 'scanner',
@@ -308,7 +308,7 @@ export const DESKS = [
     {
         key:      'assist',
         label:    'Assist Desk',
-        lead:     'Work on your own trade',
+        lead:     'Build your idea',
         blurb:    'You bring the ticker and your plan — Mentor pressure-tests it, Talos watches the zones.',
         hue:      'green',
         entryTab: 'mentor',
@@ -321,7 +321,7 @@ export const DESKS = [
     {
         key:      'research',
         label:    'Research Desk',
-        lead:     'Research a company',
+        lead:     'Analyst',
         blurb:    'Prometheus builds a living coverage thesis — our view vs the Street.',
         hue:      'amber',
         entryTab: 'analyst',
@@ -333,7 +333,7 @@ export const DESKS = [
     {
         key:       'strategy',
         label:     'Strategy Desk',
-        lead:      'Set the house view',
+        lead:      'Economics',
         blurb:     'Pythia names the regime and sets the sector tilts it implies.',
         hue:       'amber',
         entryTab:  'strategy',
@@ -349,7 +349,7 @@ export const DESKS = [
     {
         key:       'aether',
         label:     'Aether Desk',
-        lead:      'Who an event reaches',
+        lead:      'Events radar',
         blurb:     'Aether names the companies a macro, trade or policy event reaches, and quotes what each one\'s own filings say about it.',
         hue:       'cyan',
         entryTab:  'aether',

@@ -302,7 +302,7 @@
     color: var(--text-primary);
     line-height: 1.3;
     // The unfinished-work flag is a WORD now, so it takes real width; without this the lead
-    // ("Trade an asset") refuses to wrap and pushes the flag past the card's edge.
+    // ("Investments desk") refuses to wrap and pushes the flag past the card's edge.
     min-width: 0;
 }
 
