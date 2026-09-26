@@ -37,12 +37,12 @@ import { AetherCandidates } from '../TradeIdeas/AetherCandidates.jsx'
 const DESKS = [
     // Queued sits FIRST because it is the only desk that is a to-do list: the others are things
     // you own, this one is things waiting on you. A count here means someone is blocked.
-    { key: 'queued',         label: 'Queued' },
+    { key: 'queued',         label: 'Awaiting orders' },
     { key: 'trade',          label: 'Trading floor' },
     { key: 'portfolio',      label: 'Portfolio floor' },
     { key: 'scans',          label: 'Scans' },
-    { key: 'coverage',       label: 'Coverage' },
-    { key: 'aether',         label: 'Aether' },
+    { key: 'coverage',       label: 'Analyst companies' },
+    { key: 'aether',         label: 'Events radar' },
     // Admin-only: the house research pipeline backlog (Argus hits + user coverage_request).
     { key: 'research_queue', label: 'Research queue', group: 'Admin', adminOnly: true },
 

@@ -27,7 +27,7 @@ const deskBtn = name => screen.getByRole('button', { name: new RegExp(name, 'i')
 describe('FloorLists', () => {
     it('renders all four desks', () => {
         render(<FloorLists />)
-        for (const label of ['Trading floor', 'Portfolio floor', 'Scans', 'Coverage']) {
+        for (const label of ['Trading floor', 'Portfolio floor', 'Scans', 'Analyst companies']) {
             expect(deskBtn(label)).toBeTruthy()
         }
     })
@@ -35,15 +35,15 @@ describe('FloorLists', () => {
     // A refresh must not pick a desk for the reader: the column lands as a table of contents.
     it('opens no desk by default', () => {
         render(<FloorLists setups={[setup2()]} coverage={[{ symbol: 'AAPL', status: 'active' }]} />)
-        for (const label of ['Trading floor', 'Portfolio floor', 'Scans', 'Coverage']) {
+        for (const label of ['Trading floor', 'Portfolio floor', 'Scans', 'Analyst companies']) {
             expect(deskBtn(label).getAttribute('aria-expanded')).toBe('false')
         }
     })
 
     it('opening one desk closes the one that was open', () => {
         render(<FloorLists setups={[setup2()]} coverage={[{ symbol: 'AAPL', status: 'active' }]} initialDesk="trade" />)
-        fireEvent.click(deskBtn('Coverage'))
-        expect(deskBtn('Coverage').getAttribute('aria-expanded')).toBe('true')
+        fireEvent.click(deskBtn('Analyst companies'))
+        expect(deskBtn('Analyst companies').getAttribute('aria-expanded')).toBe('true')
         expect(deskBtn('Trading floor').getAttribute('aria-expanded')).toBe('false')
     })
 
@@ -51,7 +51,7 @@ describe('FloorLists', () => {
     it('clicking the open desk closes it, leaving all four collapsed', () => {
         render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
         fireEvent.click(deskBtn('Trading floor'))
-        for (const label of ['Trading floor', 'Portfolio floor', 'Scans', 'Coverage']) {
+        for (const label of ['Trading floor', 'Portfolio floor', 'Scans', 'Analyst companies']) {
             expect(deskBtn(label).getAttribute('aria-expanded')).toBe('false')
         }
     })
@@ -65,7 +65,7 @@ describe('FloorLists', () => {
         it('folds the other desks away while one is open', () => {
             render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
             expect(deskOf('Trading floor').className).not.toMatch(/floor-desk--folded/)
-            for (const label of ['Portfolio floor', 'Scans', 'Coverage']) {
+            for (const label of ['Portfolio floor', 'Scans', 'Analyst companies']) {
                 expect(deskOf(label).className).toMatch(/floor-desk--folded/)
             }
         })
@@ -77,8 +77,8 @@ describe('FloorLists', () => {
             const desks = [...container.querySelectorAll('.floor-desk')]
             expect(desks.some(d => d.className.includes('floor-desk--folded'))).toBe(false)
             expect(desks.map(d => d.querySelector('.floor-desk__label').textContent))
-                .toEqual(['Queued', 'Trading floor', 'Portfolio floor', 'Scans', 'Coverage',
-                          'Aether', 'Earnings', 'Fed', 'IPO'])
+                .toEqual(['Awaiting orders', 'Trading floor', 'Portfolio floor', 'Scans', 'Analyst companies',
+                          'Events radar', 'Earnings', 'Fed', 'IPO'])
         })
 
         // A folded header is still readable and still reports its state — it is just not somewhere
@@ -108,14 +108,14 @@ describe('FloorLists', () => {
 
         it('counts every row waiting on the user, ready or not', () => {
             render(<FloorLists queued={[q(), q({ id: 'q2', ready: false }), q({ id: 'q3', ready: false })]} />)
-            expect(within(deskBtn('Queued')).getByText('(3)')).toBeTruthy()
+            expect(within(deskBtn('Awaiting orders')).getByText('(3)')).toBeTruthy()
         })
 
         it('still shows a count off-hours, when NOTHING is ready yet', () => {
             // The regression this guards: two decisions queued for Monday used to render no badge at
             // all, so the desk looked as empty as one with nothing in it.
             render(<FloorLists queued={[q({ ready: false }), q({ id: 'q2', ready: false })]} />)
-            expect(within(deskBtn('Queued')).getByText('(2)')).toBeTruthy()
+            expect(within(deskBtn('Awaiting orders')).getByText('(2)')).toBeTruthy()
         })
 
         it('leaves which rows are pressable to the rows themselves', () => {
@@ -125,7 +125,7 @@ describe('FloorLists', () => {
 
         it('shows nothing at all when the queue is empty', () => {
             render(<FloorLists queued={[]} />)
-            expect(within(deskBtn('Queued')).queryByText(/\(/)).toBeNull()
+            expect(within(deskBtn('Awaiting orders')).queryByText(/\(/)).toBeNull()
         })
 
         // The queued row is the ONE row in this column that must not truncate. Every other desk is a
@@ -154,7 +154,7 @@ describe('FloorLists', () => {
 
     it('hides the count when a desk is empty rather than showing a zero', () => {
         render(<FloorLists />)
-        expect(within(deskBtn('Coverage')).queryByText('0')).toBeNull()
+        expect(within(deskBtn('Analyst companies')).queryByText('0')).toBeNull()
     })
 
     it('merges the trade rows into one list, each labelled by kind', () => {
@@ -241,7 +241,7 @@ describe('FloorLists', () => {
     it('expands a coverage row into its thesis', () => {
         const coverage = [{ id: 'cv1', symbol: 'AAPL', status: 'active', thesis: 'Services mix re-rates the multiple.', kill_criteria: ['Services growth < 8%'] }]
         render(<FloorLists coverage={coverage} />)
-        fireEvent.click(deskBtn('Coverage'))
+        fireEvent.click(deskBtn('Analyst companies'))
         expect(screen.queryByText(/services mix/i)).toBeNull()
 
         fireEvent.click(screen.getByText('AAPL').closest('button'))
@@ -260,7 +260,7 @@ describe('FloorLists', () => {
             { id: 'cv2', symbol: 'MSFT', status: 'active', thesis: 'Azure carries the multiple.' },
         ]
         render(<FloorLists coverage={coverage} />)
-        fireEvent.click(deskBtn('Coverage'))
+        fireEvent.click(deskBtn('Analyst companies'))
         fireEvent.click(screen.getByText('AAPL').closest('button'))
         expect(screen.getByText(/services mix/i)).toBeTruthy()
 
@@ -273,7 +273,7 @@ describe('FloorLists', () => {
     it('offers no expander on a coverage row with nothing to show', () => {
         const coverage = [{ id: 'cv1', symbol: 'AAPL', status: 'active' }]
         render(<FloorLists coverage={coverage} />)
-        fireEvent.click(deskBtn('Coverage'))
+        fireEvent.click(deskBtn('Analyst companies'))
         const row = screen.getByText('AAPL').closest('button')
         expect(row.getAttribute('aria-expanded')).toBeNull()
         expect(row.querySelector('.floor-row__chev')).toBeNull()
