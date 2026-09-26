@@ -4,6 +4,8 @@ import { scannerService } from '../../services/scanner/scanner.service.remote.js
 import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote.js'
 import { ChatBubble } from '../ChatBubble.jsx'
 import { readStoredModel } from '../modelOptions.js'
+import { aetherService } from '../../services/aether/aether.service.remote.js'
+import { apiError } from '../../services/http.service.js'
 import { useChatStream, toChatHistory, withoutPrefill } from '../../customHooks/useChatStream.js'
 import { AgentMessages } from '../AgentMessages.jsx'
 import { AgentChatInput } from '../AgentChatInput.jsx'
@@ -131,6 +133,101 @@ const MessageBubble = ({ msg, onTickerSelect, phaseLabels = SCAN_PHASE_LABELS })
     />
 )
 
+// ── the Prometheus leg of a radar cut ─────────────────────────────────────────
+// Argus cut the board on TRADEABILITY — a catalyst in the window, liquidity, a setup. This asks the
+// other question, the one only the record answers: does the claim still hold, and which way does
+// the name actually go once every event naming it is weighed together.
+//
+// A STEP, NOT A GATE. The user can generate the list without it; pressing it costs a model call per
+// name. Shown only on a radar cut, because only there is every name an event claim with a filing
+// behind it — an ordinary scan has nothing for Prometheus to read against.
+
+// What a flag means on a kept name. Every one of these is a name that SURVIVED: the flag is the
+// caveat it carries, never a rejection — those are reported separately and are gone from the list.
+const READ_FLAG = {
+    unclear:   'unsettled',
+    direction: 'direction?',
+    unread:    'not read',
+}
+
+const DROP_REASON = { contradicted: 'contradicted', priced_in: 'priced in' }
+
+export function PrometheusStep({ names, cut, busy, onRead }) {
+    if (!cut) {
+        return (
+            <div className="scanner-panel__read-step">
+                <button
+                    className="portfolio-panel__review-btn portfolio-panel__review-btn--later"
+                    onClick={onRead}
+                    disabled={busy || !names}
+                    title="Prometheus reads each name against what the company has said or filed since its event: credible, already priced in, or contradicted — and which way the name goes across every event naming it. One model call per name, on your budget."
+                >
+                    {busy ? `Prometheus is reading ${names}…` : `Read these ${names} with Prometheus`}
+                </button>
+            </div>
+        )
+    }
+
+    if (cut.error) {
+        return (
+            <div className="scanner-panel__read-step">
+                <span className="scanner-panel__read-note scanner-panel__read-note--err">
+                    The read failed — {cut.error}. The list is untouched.
+                </span>
+                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={onRead} disabled={busy}>
+                    Try again
+                </button>
+            </div>
+        )
+    }
+
+    // NOTHING SURVIVED, and the list above is still the one Argus cut. Saying which names the read
+    // refused and why is the whole answer here — an empty list with no explanation would read as a
+    // failure rather than as a verdict.
+    if (!cut.survived) {
+        return (
+            <div className="scanner-panel__read-step">
+                <span className="scanner-panel__read-note">
+                    Prometheus refused all {cut.dropped.length}: {summarise(cut.dropped)}. The list above is
+                    unchanged — nothing here is worth a long today.
+                </span>
+            </div>
+        )
+    }
+
+    return (
+        <div className="scanner-panel__read-step">
+            <span className="scanner-panel__read-note">
+                {cut.dropped.length
+                    ? <>Prometheus dropped {cut.dropped.length} — {summarise(cut.dropped)}.</>
+                    : <>Prometheus kept every name.</>}
+                {cut.flagged > 0 && <> {cut.flagged} kept with a caveat.</>}
+            </span>
+        </div>
+    )
+}
+
+PrometheusStep.propTypes = {
+    names: PropTypes.number,
+    cut:   PropTypes.object,
+    busy:  PropTypes.bool,
+    onRead: PropTypes.func,
+}
+
+/** "MOS and 2 more contradicted, APD priced in" — the names, because a count alone is unarguable. */
+function summarise(dropped = []) {
+    const by = {}
+    for (const d of dropped) {
+        const k = d.read?.verdict === 'priced_in' ? 'priced_in'
+            : d.read?.verdict === 'contradicted' ? 'contradicted'
+            : 'short'
+        ;(by[k] ??= []).push(d.ticker)
+    }
+    return Object.entries(by)
+        .map(([k, names]) => `${names.slice(0, 3).join(', ')}${names.length > 3 ? ` +${names.length - 3}` : ''} ${DROP_REASON[k] ?? 'short'}`)
+        .join('; ')
+}
+
 export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, onUpdateList, onResearchList, onResearchLater, onRoute, sleeveRun = null, onSkipSleeve, onLoadingChange, chatRestore = null, seed = null, handoff = false, handoffTo = null, autoHandoff = false, radarBoard = null, onSendPick, onDismissHandoff, resumeRef = null }) {
     const pipelineCfg = PIPELINE_CONFIG[pipeline] ?? PIPELINE_CONFIG.scan
     // The desk the pick goes on to, as the user should read it. Falls back to no name rather than a
@@ -143,6 +240,10 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
     useEffect(() => { onLoadingChange?.(chat.isLoading) }, [chat.isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
 
     const [pendingScan,    setPendingScan]    = useState(null)
+    // The Prometheus leg of a radar cut: what the read refused, and how much of what it kept it
+    // could not settle. Null until the read is run — it is a step the user takes, not a gate.
+    const [readCut,  setReadCut]  = useState(null)
+    const [reading,  setReading]  = useState(false)
     // A just-generated investing list, held only to offer the research hand-off (see handleGenerate).
     const [researchOffer,  setResearchOffer]  = useState(null)
     // Mid-run, a turn that ended with no list. The run advances on a list coming back, so this is the
@@ -233,6 +334,11 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
         if (!data.scan?.candidates?.length) return
         settledRef.current = true
         setPendingScan(data.scan)
+        // A NEW LIST HAS NO VERDICT YET. The read's result belongs to the list it was run on, and
+        // Argus re-emits the whole block whenever the list changes — so leaving it would show
+        // yesterday's "dropped 2 — MOS contradicted" over names that were never read, and leave
+        // the flags on rows whose candidate objects no longer carry one.
+        setReadCut(null)
         setSleeveStalled(false)
         // In a SLEEVE RUN nobody is steering between sectors — Atlas routed several at once and
         // the point is that it runs through. A complete list saves itself and hands control back
@@ -435,6 +541,56 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
     // "Send to research" was one button asking them to confirm a step they never wanted separately.
     // The list is still saved either way: it carries the lens and the provenance, and it holds the
     // names that did NOT get queued, which is what "also do KLAC" reads from later.
+    /**
+     * Prometheus over the list Argus just cut — the leg between the cut and the saved list.
+     *
+     * It REWRITES the pending list rather than annotating it, because the cut is the point: what
+     * the user generates should be what survived, and a list that still shows a contradicted name
+     * greyed out invites them to trade it anyway. What was refused is reported above the list
+     * instead, with the reason, so nothing disappears without saying so.
+     *
+     * NOTHING SURVIVING DOES NOT REWRITE. An empty candidate list turns `listReady` false, taking
+     * the summary and the Generate button off screen and stranding the user with no list and no
+     * way back to one. The verdict is shown over the untouched list instead, which says the same
+     * thing and leaves them somewhere to stand.
+     */
+    async function handlePrometheusRead() {
+        const cands = pendingScan?.candidates ?? []
+        if (reading || !cands.length) return
+        setReading(true)
+        try {
+            const { rows = [] } = await aetherService.batchRead(cands.map(c => c.ticker))
+            const byTicker = new Map(rows.map(r => [String(r.ticker).toUpperCase(), r]))
+            // A name the read never reached keeps its place: `keep !== false`, not `keep === true`.
+            // A row missing from the answer is a gap in the read, not a refusal of the name.
+            const kept = cands
+                .filter(c => byTicker.get(String(c.ticker).toUpperCase())?.keep !== false)
+                .map(c => {
+                    const r = byTicker.get(String(c.ticker).toUpperCase())
+                    return r ? { ...c, prometheus: {
+                        verdict:   r.read?.verdict ?? null,
+                        net:       r.read?.net ?? null,
+                        direction: r.direction,
+                        flag:      r.flag ?? null,
+                        why:       r.why ?? '',
+                        read:      r.read?.read ?? '',
+                    } } : c
+                })
+            const dropped = rows.filter(r => r.keep === false)
+            setReadCut({
+                dropped,
+                flagged: kept.filter(c => c.prometheus?.flag).length,
+                survived: kept.length > 0,
+            })
+            if (kept.length) setPendingScan(s => ({ ...s, candidates: kept }))
+        } catch (err) {
+            console.error('[prometheus:batch]', err)
+            setReadCut({ error: apiError(err, 'the read failed'), dropped: [], flagged: 0, survived: true })
+        } finally {
+            setReading(false)
+        }
+    }
+
     async function handleGenerate({ thenResearch = false, thenLeave = false, scan: given = null } = {}) {
         // Explicit `scan` for the auto path: it fires from inside onDone, where the state just set is
         // not yet readable. Manual presses read the state as before.
@@ -514,9 +670,22 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                                     {c.direction === 'short' ? '▾' : '▴'}
                                 </span>
                                 <span className="portfolio-panel__build-summary-asset">{c.ticker}</span>
+                                {/* The flag rides ON the name, because it is a caveat about THAT
+                                    name — a legend at the bottom would make the reader carry it. */}
+                                {c.prometheus?.flag && (
+                                    <span className="scanner-panel__read-flag" title={c.prometheus.why}>
+                                        {READ_FLAG[c.prometheus.flag] ?? c.prometheus.flag}
+                                    </span>
+                                )}
                             </span>
                         ))}
                     </div>
+                    {radarBoard && <PrometheusStep
+                        names={pendingScan.candidates.length}
+                        cut={readCut}
+                        busy={reading}
+                        onRead={handlePrometheusRead}
+                    />}
                 </div>
             )}
 

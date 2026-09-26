@@ -205,3 +205,36 @@
         color: var(--text-muted);
     }
 }
+
+// ── the Prometheus leg of a radar cut ─────────────────────────────────────────
+// A row under the list Argus produced: the button before the read, the verdict after it. Sits
+// inside the build summary because it is a statement ABOUT that list, not a separate panel.
+.scanner-panel__read-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-soft, var(--border-mid));
+}
+
+.scanner-panel__read-note {
+    font-size: var(--chat-label);
+    color: var(--text-secondary);
+    line-height: 1.45;
+
+    &--err { color: var(--danger, var(--text-secondary)); }
+}
+
+// The caveat a kept name carries. Deliberately quiet — it qualifies the name, it does not
+// contradict it; the names the read actually refused are gone from the list, not greyed in it.
+.scanner-panel__read-flag {
+    margin-left: 4px;
+    font-size: 0.85em;
+    padding: 0 4px;
+    border-radius: 3px;
+    border: 1px solid var(--border-mid);
+    color: var(--text-dim);
+    white-space: nowrap;
+}

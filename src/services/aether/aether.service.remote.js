@@ -13,6 +13,7 @@ export const aetherService = {
     sendStream,
     getCandidates,
     getScanUniverse,
+    batchRead,
     getScorecard,
     quickRead,
     startDiscovery,
@@ -47,6 +48,20 @@ function getCandidates({ days = 30, includeDropped = false } = {}) {
 function getScanUniverse({ days } = {}) {
     const q = days ? `?days=${encodeURIComponent(days)}` : ''
     return httpService.get(`${BASE}/scan-universe${q}`)
+}
+
+/**
+ * Prometheus over a whole list — the leg after Argus's cut. One model call per name, run
+ * SEQUENTIALLY on the server, so the wait scales with the list: the timeout is the single read's
+ * ceiling times a realistic list rather than a guess.
+ *
+ * Answers judged rows whether or not every read landed — a name that could not be read comes back
+ * flagged, never missing, so the caller's list cannot silently shorten.
+ */
+export const BATCH_READ_TIMEOUT_MS = 10 * 60_000
+
+function batchRead(tickers = []) {
+    return httpService.post(`${BASE}/batch-read`, { tickers }, { timeout: BATCH_READ_TIMEOUT_MS })
 }
 
 /**

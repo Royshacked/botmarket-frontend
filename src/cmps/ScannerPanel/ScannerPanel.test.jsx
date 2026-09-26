@@ -20,8 +20,12 @@ vi.mock('../../services/threads/threads.service.remote.js', () => ({
 vi.mock('../../customHooks/useMicInput.js', () => ({
     useMicInput: () => ({ isRecording: false, isTranscribing: false, toggle: vi.fn(), cancel: vi.fn() }),
 }))
+const batchRead = vi.fn()
+vi.mock('../../services/aether/aether.service.remote.js', () => ({
+    aetherService: { batchRead: (...a) => batchRead(...a) },
+}))
 
-const { ScannerPanel } = await import('./ScannerPanel.jsx')
+const { ScannerPanel, PrometheusStep } = await import('./ScannerPanel.jsx')
 
 const lastCall = () => sendStream.mock.calls.at(-1)
 
@@ -325,5 +329,146 @@ describe('ScannerPanel — sending the user to another desk by asking', () => {
     it('a reply that routes nowhere offers nothing', async () => {
         await askToSend({}, { reply: 'Here is the read.' })
         expect(screen.queryByRole('button', { name: /Go to/ })).toBe(null)
+    })
+})
+
+// ── the Prometheus leg of a radar cut ─────────────────────────────────────────
+// Argus cut the board on tradeability; this asks the other question. It is a STEP the user takes,
+// not a gate — so what is tested is that it only appears where it means something, that it cuts the
+// list rather than decorating it, and that it never leaves the user with nothing to stand on.
+describe('ScannerPanel — Prometheus over a radar cut', () => {
+    const BOARD = { candidates: [{ ticker: 'NUE' }], runs: 3, runIds: ['Canada:2026-09-08'] }
+    const LIST  = {
+        thesis: 'Radar cut',
+        candidates: [
+            { ticker: 'NUE', direction: 'long' },
+            { ticker: 'MOS', direction: 'long' },
+            { ticker: 'APD', direction: 'long' },
+        ],
+    }
+    const restore = (key = 1) => ({ key, scanId: null, scan: LIST, messages: [] })
+    const readBtn = () => screen.queryByText(/Read these .* with Prometheus/)
+
+    beforeEach(() => batchRead.mockReset())
+
+    it('is offered on a radar cut', async () => {
+        render(<ScannerPanel radarBoard={BOARD} chatRestore={restore()} />)
+        expect(await screen.findByText(/Read these 3 with Prometheus/)).toBeTruthy()
+    })
+
+    it('is NOT offered on an ordinary scan — there is nothing for it to read against', async () => {
+        render(<ScannerPanel chatRestore={restore(2)} />)
+        await screen.findByText('NUE')
+        expect(readBtn()).toBe(null)
+    })
+
+    it('CUTS the list: refused names leave it, and the reason is reported', async () => {
+        batchRead.mockResolvedValue({ rows: [
+            { ticker: 'NUE', keep: true,  flag: null, direction: 'long', read: { verdict: 'credible' } },
+            { ticker: 'MOS', keep: false, flag: null, direction: 'long', read: { verdict: 'contradicted' } },
+            { ticker: 'APD', keep: false, flag: null, direction: 'short', read: { verdict: 'credible', net: 'hurt' } },
+        ] })
+        render(<ScannerPanel radarBoard={BOARD} chatRestore={restore(3)} />)
+        fireEvent.click(await screen.findByText(/Read these 3 with Prometheus/))
+        await waitFor(() => expect(screen.getByText(/Prometheus dropped 2/)).toBeTruthy())
+        // Gone from the list, not greyed in it — a contradicted name left on screen invites the trade.
+        expect(screen.queryByText('MOS')).toBe(null)
+        expect(screen.queryByText('APD')).toBe(null)
+        expect(screen.getByText('NUE')).toBeTruthy()
+        expect(screen.getByText(/contradicted/)).toBeTruthy()
+    })
+
+    it('UNCLEAR SHIPS FLAGGED — it stays on the list wearing its caveat', async () => {
+        batchRead.mockResolvedValue({ rows: [
+            { ticker: 'NUE', keep: true, flag: 'unclear',   direction: 'long', why: 'could not settle', read: { verdict: 'unclear' } },
+            { ticker: 'MOS', keep: true, flag: 'direction', direction: 'unclear', why: 'events offset', read: { verdict: 'credible', net: 'unclear' } },
+            { ticker: 'APD', keep: true, flag: null,        direction: 'long', read: { verdict: 'credible' } },
+        ] })
+        render(<ScannerPanel radarBoard={BOARD} chatRestore={restore(4)} />)
+        fireEvent.click(await screen.findByText(/Read these 3 with Prometheus/))
+        await waitFor(() => expect(screen.getByText(/kept every name/)).toBeTruthy())
+        expect(screen.getByText('unsettled')).toBeTruthy()
+        expect(screen.getByText('direction?')).toBeTruthy()
+        expect(screen.getByText(/2 kept with a caveat/)).toBeTruthy()
+    })
+
+    it('NOTHING SURVIVING leaves the list alone rather than stranding the user', async () => {
+        // An empty candidate list turns listReady false, which takes the summary AND the Generate
+        // button off screen — no list, no verdict, no way back.
+        batchRead.mockResolvedValue({ rows: LIST.candidates.map(c => (
+            { ticker: c.ticker, keep: false, flag: null, direction: 'long', read: { verdict: 'priced_in' } }
+        )) })
+        render(<ScannerPanel radarBoard={BOARD} chatRestore={restore(5)} />)
+        fireEvent.click(await screen.findByText(/Read these 3 with Prometheus/))
+        await waitFor(() => expect(screen.getByText(/refused all 3/)).toBeTruthy())
+        expect(screen.getByText('NUE')).toBeTruthy()
+        expect(screen.getByText(/Generate list/)).toBeTruthy()
+    })
+
+    it('a name missing from the answer keeps its place — a gap in the read is not a refusal', async () => {
+        batchRead.mockResolvedValue({ rows: [
+            { ticker: 'NUE', keep: true, flag: null, direction: 'long', read: { verdict: 'credible' } },
+        ] })
+        render(<ScannerPanel radarBoard={BOARD} chatRestore={restore(7)} />)
+        fireEvent.click(await screen.findByText(/Read these 3 with Prometheus/))
+        await waitFor(() => expect(screen.getByText(/kept every name/)).toBeTruthy())
+        for (const t of ['NUE', 'MOS', 'APD']) expect(screen.getByText(t)).toBeTruthy()
+    })
+})
+
+// The step's own states, rendered directly.
+//
+// WHY NOT THROUGH THE PANEL. Driving the failure path end to end means a rejected service call, and
+// this runner attributes that rejection to the test however it is shaped — a bare "{ response: … }"
+// failure beside a panel that had in fact recovered and rendered the right message. (Verified by
+// hand: the recovery renders "The read failed — mongo down. The list is untouched.", keeps every
+// name, and offers Try again.) What the panel's catch does is two lines — log, and set this state —
+// so the coverage worth having is that each state READS correctly, which is here.
+describe('PrometheusStep — what each state says', () => {
+    it('offers the read, named with the count, before it has run', () => {
+        render(<PrometheusStep names={7} cut={null} busy={false} onRead={vi.fn()} />)
+        expect(screen.getByText('Read these 7 with Prometheus')).toBeTruthy()
+    })
+
+    it('says who is working while it runs, and refuses a second press', () => {
+        const onRead = vi.fn()
+        render(<PrometheusStep names={7} cut={null} busy onRead={onRead} />)
+        const btn = screen.getByText(/Prometheus is reading 7/).closest('button')
+        expect(btn.disabled).toBe(true)
+        fireEvent.click(btn)
+        expect(onRead).not.toHaveBeenCalled()
+    })
+
+    it('a failed read says the list is untouched, and offers a retry', () => {
+        const onRead = vi.fn()
+        render(<PrometheusStep names={7} cut={{ error: 'mongo down', dropped: [], flagged: 0, survived: true }} onRead={onRead} />)
+        expect(screen.getByText(/The read failed — mongo down\. The list is untouched\./)).toBeTruthy()
+        fireEvent.click(screen.getByText('Try again'))
+        expect(onRead).toHaveBeenCalledTimes(1)
+    })
+
+    it('names the dropped names and their reason, not just a count', () => {
+        render(<PrometheusStep names={3} cut={{ survived: true, flagged: 1, dropped: [
+            { ticker: 'MOS', read: { verdict: 'contradicted' } },
+            { ticker: 'APD', read: { verdict: 'priced_in' } },
+        ] }} />)
+        expect(screen.getByText(/Prometheus dropped 2/)).toBeTruthy()
+        expect(screen.getByText(/MOS contradicted/)).toBeTruthy()
+        expect(screen.getByText(/APD priced in/)).toBeTruthy()
+        expect(screen.getByText(/1 kept with a caveat/)).toBeTruthy()
+    })
+
+    it('a long drop list is summarised rather than printed whole', () => {
+        const dropped = ['A', 'B', 'C', 'D', 'E'].map(t => ({ ticker: t, read: { verdict: 'contradicted' } }))
+        render(<PrometheusStep names={9} cut={{ survived: true, flagged: 0, dropped }} />)
+        expect(screen.getByText(/A, B, C \+2 contradicted/)).toBeTruthy()
+    })
+
+    it('nothing surviving says so AND says the list is unchanged', () => {
+        render(<PrometheusStep names={3} cut={{ survived: false, flagged: 0, dropped: [
+            { ticker: 'MOS', read: { verdict: 'priced_in' } },
+        ] }} />)
+        expect(screen.getByText(/refused all 1/)).toBeTruthy()
+        expect(screen.getByText(/list above is\s+unchanged/)).toBeTruthy()
     })
 })
