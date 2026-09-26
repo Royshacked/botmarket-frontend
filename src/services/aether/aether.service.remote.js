@@ -12,6 +12,7 @@ const BASE = 'api/aether'
 export const aetherService = {
     sendStream,
     getCandidates,
+    getScanUniverse,
     getScorecard,
     quickRead,
     startDiscovery,
@@ -34,6 +35,18 @@ function getCandidates({ days = 30, includeDropped = false } = {}) {
     const q = new URLSearchParams({ days: String(days) })
     if (includeDropped) q.set('includeDropped', 'true')
     return httpService.get(`${BASE}/candidates?${q}`)
+}
+
+/**
+ * The names this user's next radar scan carries to Argus: the board minus whatever their last
+ * radar list already took, plus anything a new event has named since.
+ *
+ * PER USER, unlike every other read here — the events are broadcast, but which of them you have
+ * already worked is not. Read-only: asking twice without saving a list gives the same names.
+ */
+function getScanUniverse({ days } = {}) {
+    const q = days ? `?days=${encodeURIComponent(days)}` : ''
+    return httpService.get(`${BASE}/scan-universe${q}`)
 }
 
 /**

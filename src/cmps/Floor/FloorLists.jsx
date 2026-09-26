@@ -919,6 +919,8 @@ export function FloorLists({
                             onRead={aetherCandidates?.onRead}
                             onSymbolClick={onSymbolClick}
                             onTradeWithMentor={aetherCandidates?.onTradeWithMentor}
+                            onScanWithArgus={aetherCandidates?.onScanWithArgus}
+                            scanBusy={aetherCandidates?.scanBusy}
                             setups={setups}
                         />
                     )}
@@ -971,7 +973,7 @@ FloorLists.propTypes = {
     scans:             PropTypes.array,
     coverage:          PropTypes.array,
     queued:            PropTypes.array,
-    aetherCandidates:  PropTypes.shape({ runs: PropTypes.array, loading: PropTypes.bool, error: PropTypes.string, onTradeWithMentor: PropTypes.func }),
+    aetherCandidates:  PropTypes.shape({ runs: PropTypes.array, loading: PropTypes.bool, error: PropTypes.string, onTradeWithMentor: PropTypes.func, onScanWithArgus: PropTypes.func, scanBusy: PropTypes.bool }),
     onExecuteQueued:   PropTypes.func,
     onCancelQueued:    PropTypes.func,
     queuedBusyId:      PropTypes.string,

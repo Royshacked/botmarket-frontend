@@ -6,7 +6,7 @@ import { openChart }         from '../services/chartSurface.service.js'
 import { AgentSummon, AxlBotGlyph } from '../cmps/AxlHub/AgentSummon.jsx'
 import { RETURN_MS, DESKS } from '../cmps/AxlHub/agentMeta.jsx'
 import { resolveStepIndex, previousStep } from '../cmps/AxlHub/pipelineNav.js'
-import { scanOrigin, savesToScansList } from '../services/pipeline/scanOrigin.js'
+import { scanOrigin, savesToScansList, scanSourceFor, ORIGIN } from '../services/pipeline/scanOrigin.js'
 import { KIND, STATUS, makeArtifact, firstItem } from '../services/pipeline/artifact.js'
 import { planHop, planEntry, producesOne, hasDownstream, findReceiver } from '../services/pipeline/hop.js'
 import { contractFor } from '../services/pipeline/contracts.js'
@@ -61,6 +61,7 @@ import { useEntityList } from '../customHooks/useEntityList.js'
 import { useDesign }         from '../customHooks/useDesign.js'
 import { useSetups }         from '../customHooks/useSetups.js'
 import { useAetherCandidates } from '../customHooks/useAetherCandidates.js'
+import { aetherService } from '../services/aether/aether.service.remote.js'
 import { deriveIdeaOverlay, deriveSetupOverlay } from '../cmps/TradeIdeas/chartOverlay.js'
 import { useAuth }           from '../context/AuthContext.jsx'
 import { nextResetKeys }     from './deskReset.js'
@@ -683,6 +684,10 @@ export function MainPage() {
             // Drop every hand-off in flight — inboxes and seeds alike. A consumed one left lying
             // here re-fires on the next remount of the desk that holds it (doors.js).
             doors.clear()
+            // The radar board is the same hazard in a different shape: it is not a seed, so doors
+            // does not hold it, and left set it would keep Argus in radar mode and stamp the NEXT
+            // list — one the user typed themselves — as a radar cut, retiring names they never saw.
+            setRadarBoard(null)
             // Fresh slate for the desks with nothing in flight; a desk mid-answer keeps its
             // conversation until the reply lands (deskReset.js).
             setChatResetKey(k => nextResetKeys(k, deskBusyRef.current))
@@ -710,6 +715,12 @@ export function MainPage() {
 
     const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, tilt, tiltLoading } = useCalendarEvents()
     const { scans, loading: scansLoading, createScan, updateScan, deleteScan } = useScans()
+
+    // THE EVENTS RADAR'S BOARD, while Argus is cutting it. Its presence is what puts Argus in radar
+    // mode (ScannerPanel sends it on every turn), and `runIds` is what the saved list is stamped
+    // with so tomorrow's board knows which events this cut was shown. Cleared when the cut is over.
+    const [radarBoard, setRadarBoard] = useState(null)
+    const [radarBusy,  setRadarBusy]  = useState(false)
     const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
     // The marked accounts as a ref, for the one-shot doorways below that must not re-register on
     // every selection change (SETUP_SHARED_OPEN reads it to ask readiness the right question).
@@ -2665,6 +2676,55 @@ export function MainPage() {
         seedMentorChat(ipoItem.symbol, buildIpoSeed(ipoItem))
     }
 
+    /**
+     * Hand the Events radar's board to Argus.
+     *
+     * The board is built SERVER-SIDE (aetherScanUniverse) rather than from the runs already on this
+     * screen, for one reason: the exclusion rule needs this user's saved radar lists, and the screen
+     * has the events but not the history. Asking the server costs one read and cannot disagree with
+     * itself.
+     *
+     * A fresh Argus every time (scannerResetKey): a cut is its own conversation, and opening on
+     * yesterday's transcript would hand the model a board it has already answered.
+     */
+    async function handleScanRadar() {
+        if (radarBusy) return
+        setRadarBusy(true)
+        try {
+            const board = await aetherService.getScanUniverse()
+            if (!board?.candidates?.length) {
+                // Not an error — it is the rule working. Every name on the board is already on a
+                // list of theirs, and saying so is the answer.
+                // showSuccessMsg, not a bare showUserMsg: UserMsg interpolates `msg.type` straight
+                // into its class list, so a typeless toast renders unstyled with a literal
+                // "undefined" class. This IS the rule working, which is close enough to success.
+                showSuccessMsg('Nothing new on the radar — every name is already on one of your lists.')
+                return
+            }
+            setRadarBoard(board)
+            setScannerInbox(null)
+            setScannerChatRestore(null)
+            setScannerSeed({
+                key: `radar-${Date.now()}`,
+                // SHORT on purpose: a seed is sent as the user's own turn and rendered as their
+                // bubble. The board itself travels beside it as context, not as a hundred lines of
+                // the user appearing to have typed a list.
+                message: `Cut today's radar board — ${board.candidates.length} name${board.candidates.length === 1 ? '' : 's'}`
+                    + `${board.runs ? ` across ${board.runs} events` : ''}`
+                    + `${board.skipped?.length ? `, with ${board.skipped.length} held back from my last list` : ''}.`
+                    + ' Which have a catalyst and a setup in the coming week?',
+                profile: 'trading',
+            })
+            setScannerResetKey(k => k + 1)
+            setActiveTab('scanner')
+        } catch (err) {
+            console.error('[radar→argus]', err)
+            showErrorMsg(apiError(err, 'Could not build the scan universe'))
+        } finally {
+            setRadarBusy(false)
+        }
+    }
+
     // A finished list from the scanner panel. It is SAVED to the Scans tab only when the user asked
     // for it themselves: a scan Argus ran on another desk's brief — an Atlas sleeve mandate, a
     // Kairos discovery request — is mid-pipeline traffic, not a record anyone keeps. Screening three
@@ -2673,11 +2733,24 @@ export function MainPage() {
     // Only the saved card stops. The names travel exactly as before: the sleeve run below reads the
     // emitted `scan`, never the stored doc.
     async function handleGenerateList(scan, threadId = null) {
-        const keeps = savesToScansList(scanOrigin({
+        const origin = scanOrigin({
             sleeveRunActive: sleeveRunRef.current.active,
             handoffActive:   scannerInbox?.kind === KIND.SCAN_REQUEST,
-        }))
-        const saved = keeps ? await createScan(scan) : null
+            radarActive:     !!radarBoard,
+        })
+        const keeps = savesToScansList(origin)
+        // A radar cut carries WHICH EVENTS it was shown, not only which names it kept: that is what
+        // "unless a new event names it" is answered against tomorrow. Stamped here because this is
+        // where the origin is known — the panel only ever saw a board.
+        const stamped = origin === ORIGIN.AETHER
+            ? { ...scan, source: scanSourceFor(origin), sourceRuns: radarBoard?.runIds ?? [] }
+            : scan
+        const saved = keeps ? await createScan(stamped) : null
+        // THE CUT IS OVER once its list exists, and the board has to go with it. Left set, it keeps
+        // Argus in radar mode and stamps whatever the user asks for NEXT — a list they typed
+        // themselves — as a radar cut, whose run ids would then retire names they never saw. Cleared
+        // here rather than only on the way back to Axl, which is the exit they often do not take.
+        if (origin === ORIGIN.AETHER) setRadarBoard(null)
         // createScan swallows its error and answers null — for a list the user means to keep, that
         // is the difference between filed and vanished, so say it rather than move on quietly.
         if (keeps && !saved) console.error('[scans] list did not save', scan?.thesis ?? scan?.sector ?? '(unnamed)')
@@ -3020,6 +3093,7 @@ export function MainPage() {
                                 {...deskProps('scanner')}
                                 handoff={scannerSingle}
                                 handoffTo={scannerHandoffTo}
+                                radarBoard={radarBoard}
                                 autoHandoff={autoHandoff}
                                 onSendPick={handleSendPick}
                                 onDismissHandoff={handleCancelHandoff}
@@ -3179,7 +3253,7 @@ export function MainPage() {
                                         ipo:       ipoLoading,
                                         forecasts: tiltLoading,
                                     }}
-                                    aetherCandidates={{ runs: aetherRuns, loading: aetherLoading, error: aetherError, onRead: onAetherRead, onTradeWithMentor: seedMentorChat }}
+                                    aetherCandidates={{ runs: aetherRuns, loading: aetherLoading, error: aetherError, onRead: onAetherRead, onTradeWithMentor: seedMentorChat, onScanWithArgus: handleScanRadar, scanBusy: radarBusy }}
                                     onEarningSelect={handleBuildFromEarning}
                                     onIpoSelect={handleBuildFromIpo}
                                     onCandidateSelect={handleBuildFromCandidate}
@@ -3260,7 +3334,7 @@ export function MainPage() {
                                 ipoLoading,
                                 onIpoSelect:       handleBuildFromIpo,
                             }}
-                            aetherCandidates={{ runs: aetherRuns, loading: aetherLoading, error: aetherError, onRead: onAetherRead, onTradeWithMentor: seedMentorChat }}
+                            aetherCandidates={{ runs: aetherRuns, loading: aetherLoading, error: aetherError, onRead: onAetherRead, onTradeWithMentor: seedMentorChat, onScanWithArgus: handleScanRadar, scanBusy: radarBusy }}
                         />
                     </div>
                     )}

@@ -1289,7 +1289,7 @@ function evidenceCell(run) {
     }
 }
 
-export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick, onTradeWithMentor, setups = [], onOpenSetup = openSetupPopup, onRead }) {
+export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick, onTradeWithMentor, setups = [], onOpenSetup = openSetupPopup, onRead, onScanWithArgus, scanBusy = false }) {
     // ONE EVENT OPEN AT A TIME, and folded siblings collapse to nothing. Not a preference —
     // it is the mechanic every other list in this column uses (3bbfa59), and a list that
     // expands differently from the four above it reads as a different kind of thing.
@@ -1353,9 +1353,27 @@ export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick
         )
     }
 
+    // THE WHOLE BOARD TO ARGUS, as one scan. Beside RunButton because the two are the desk's
+    // book-ends: one fills the board, the other empties it into a list.
+    //
+    // It does NOT carry the names — the universe is built server-side, because the exclusion rule
+    // ("not the names my last list already took") needs this user's saved scans and the screen has
+    // only the events. Rendered only where a host wired it, so the list stays usable on its own.
+    const ScanButton = () => onScanWithArgus ? (
+        <button
+            type="button"
+            className="aether-candidates__scan"
+            onClick={onScanWithArgus}
+            disabled={scanBusy || !runs.length}
+            title="Hand the board to Argus: it checks each name for a catalyst in the coming week, liquidity and a setup, and cuts it to a short list. Names your last radar list already took are left out unless a new event has named them since."
+        >
+            {scanBusy ? 'Building the board…' : 'Scan with Argus'}
+        </button>
+    ) : null
+
     return (
         <div className="aether-candidates">
-            <div className="aether-candidates__bar"><RunButton /></div>
+            <div className="aether-candidates__bar"><RunButton /><ScanButton /></div>
 
             {/* A poll that failed OVER a list already on screen. The names stay — throwing
                 away what the reader is looking at because a refresh five minutes later
@@ -1486,6 +1504,8 @@ export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick
 }
 
 AetherCandidates.propTypes = {
+    onScanWithArgus: PropTypes.func,
+    scanBusy:        PropTypes.bool,
     runs: PropTypes.array,
     loading: PropTypes.bool,
     // The message from a failed read, '' when the last read succeeded. Not a boolean:

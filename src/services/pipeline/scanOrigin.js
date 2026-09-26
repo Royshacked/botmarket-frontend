@@ -13,7 +13,7 @@
 // it hands on carries a `ref` (persisted, addressable later) or only its items, inline for the
 // length of the run. See docs/hand-offs.md.
 
-export const ORIGIN = { USER: 'user', PORTFOLIO: 'portfolio', KAIROS: 'kairos' }
+export const ORIGIN = { USER: 'user', PORTFOLIO: 'portfolio', KAIROS: 'kairos', AETHER: 'aether' }
 
 /**
  * Which desk asked for this scan. Both flags false = nobody did, i.e. the user.
@@ -26,16 +26,27 @@ export const ORIGIN = { USER: 'user', PORTFOLIO: 'portfolio', KAIROS: 'kairos' }
  * @param   {{sleeveRunActive?: boolean, handoffActive?: boolean}} inbox
  * @returns {'user'|'portfolio'|'kairos'}
  */
-export function scanOrigin({ sleeveRunActive = false, handoffActive = false } = {}) {
+export function scanOrigin({ sleeveRunActive = false, handoffActive = false, radarActive = false } = {}) {
     if (sleeveRunActive) return ORIGIN.PORTFOLIO
     if (handoffActive)   return ORIGIN.KAIROS
+    // AETHER is the odd one: it is mid-pipeline traffic like the two above — the Events radar
+    // handed Argus a board rather than the user walking in — and yet the list it produces IS the
+    // artifact the user came for. So it saves, like a user scan, and is named apart from one
+    // because the next radar cut has to find it: the exclusion rule reads only these.
+    if (radarActive)     return ORIGIN.AETHER
     return ORIGIN.USER
 }
 
 /**
- * Does a scan of this origin belong in the user's Scans tab? Only their own does.
+ * Does a scan of this origin belong in the user's Scans tab? Their own, and a radar cut — which
+ * is the daily list itself and the only record that it happened.
  * @param {string} origin  a value from ORIGIN
  */
 export function savesToScansList(origin) {
-    return origin === ORIGIN.USER
+    return origin === ORIGIN.USER || origin === ORIGIN.AETHER
+}
+
+/** The `source` a saved scan is stamped with. Null for an ordinary list — most of them. */
+export function scanSourceFor(origin) {
+    return origin === ORIGIN.AETHER ? 'aether' : null
 }

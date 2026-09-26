@@ -131,7 +131,7 @@ const MessageBubble = ({ msg, onTickerSelect, phaseLabels = SCAN_PHASE_LABELS })
     />
 )
 
-export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, onUpdateList, onResearchList, onResearchLater, onRoute, sleeveRun = null, onSkipSleeve, onLoadingChange, chatRestore = null, seed = null, handoff = false, handoffTo = null, autoHandoff = false, onSendPick, onDismissHandoff, resumeRef = null }) {
+export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, onUpdateList, onResearchList, onResearchLater, onRoute, sleeveRun = null, onSkipSleeve, onLoadingChange, chatRestore = null, seed = null, handoff = false, handoffTo = null, autoHandoff = false, radarBoard = null, onSendPick, onDismissHandoff, resumeRef = null }) {
     const pipelineCfg = PIPELINE_CONFIG[pipeline] ?? PIPELINE_CONFIG.scan
     // The desk the pick goes on to, as the user should read it. Falls back to no name rather than a
     // guess — every surface here degrades to "hand it on", which is vague but never wrong.
@@ -321,6 +321,12 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                 editList:        editingScanId ? (pendingScan || null) : null,
                 handoff,     // hand-off mode: find ONE ticker, emit <kairos_pick>
                 handoffTo,   // …and which desk it goes to, so Argus's prose names the right one
+                // RADAR CUT mode: the Events radar handed over a board to cut down. It rides on
+                // EVERY turn, not just the first — it lands in the volatile system tail, which is
+                // rebuilt per turn, so a follow-up sent without it asks Argus about names it can
+                // no longer see.
+                radar:           !!radarBoard,
+                radarBoard,
                 profile:         handoff ? 'trading' : profileRef.current,   // Investing profile → the Analyst
                 signal,
                 ...handlers,
@@ -369,6 +375,8 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                 model:           readStoredModel(),
                 editList:        editingScanId ? (pendingScan || null) : null,
                 handoff,
+                radar:           !!radarBoard,
+                radarBoard,
                 profile:         handoff ? 'trading' : profileRef.current,
                 signal:          cont.signal,
                 ...cont.handlers,
@@ -715,6 +723,7 @@ ScannerPanel.propTypes = {
     seed:        PropTypes.object,
     handoff:         PropTypes.bool,
     handoffTo:       PropTypes.string,   // the receiving desk's agent key ('mentor' | 'kairos')
+    radarBoard:      PropTypes.object,   // the Events radar's universe — presence IS radar-cut mode
     autoHandoff:     PropTypes.bool,     // conveyor in auto: hand the pick on without the offer
     onSendPick:      PropTypes.func,
     onDismissHandoff: PropTypes.func,

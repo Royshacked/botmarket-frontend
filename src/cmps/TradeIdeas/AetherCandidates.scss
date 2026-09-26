@@ -35,7 +35,10 @@
     &:empty { display: none; }
 }
 
-.aether-candidates__run-btn {
+// The two bar actions share a shape — one fills the board, the other empties it into a list —
+// so the scan button is the run button with the accent that says it is the forward step.
+.aether-candidates__run-btn,
+.aether-candidates__scan {
     font: inherit;
     font-size: var(--chat-label);
     padding: 4px 10px;
@@ -47,6 +50,12 @@
 
     &:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
     &:disabled { cursor: default; color: var(--text-dim); }
+}
+
+.aether-candidates__scan {
+    margin-left: 6px;
+    border-color: var(--accent-soft, var(--border-mid));
+    color: var(--text-primary);
 }
 
 // ── the open row stays put ────────────────────────────────────────────────────
