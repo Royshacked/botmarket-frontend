@@ -152,7 +152,7 @@ const READ_FLAG = {
 
 const DROP_REASON = { contradicted: 'contradicted', priced_in: 'priced in' }
 
-export function PrometheusStep({ names, cut, busy, onRead }) {
+export function PrometheusStep({ names, cut, busy, onRead, onSkip }) {
     if (!cut) {
         return (
             <div className="scanner-panel__read-step">
@@ -164,6 +164,20 @@ export function PrometheusStep({ names, cut, busy, onRead }) {
                 >
                     {busy ? `Prometheus is reading ${names}…` : `Read these ${names} with Prometheus`}
                 </button>
+                {/* THE WAY OUT of a wait nobody chose. The read fires by itself now and it is one
+                    model call per name, so a cut of eight is minutes long with the Generate bar held
+                    back behind it — and a user who wants the list as Argus left it should not have to
+                    sit through a judgement they are not going to use. Offered only while it runs;
+                    what lands after this press is discarded, not applied. */}
+                {busy && onSkip && (
+                    <button
+                        className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss"
+                        onClick={onSkip}
+                        title="Keep the list as Argus cut it and save it now. The reads already paid for are stored either way."
+                    >
+                        Save without the read
+                    </button>
+                )}
             </div>
         )
     }
@@ -212,6 +226,7 @@ PrometheusStep.propTypes = {
     cut:   PropTypes.object,
     busy:  PropTypes.bool,
     onRead: PropTypes.func,
+    onSkip: PropTypes.func,   // absent → no way out is offered, which is the pre-auto-run behaviour
 }
 
 /** "MOS and 2 more contradicted, APD priced in" — the names, because a count alone is unarguable. */
@@ -241,9 +256,24 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
 
     const [pendingScan,    setPendingScan]    = useState(null)
     // The Prometheus leg of a radar cut: what the read refused, and how much of what it kept it
-    // could not settle. Null until the read is run — it is a step the user takes, not a gate.
+    // could not settle. Null until the read has run — on a radar cut it runs BY ITSELF (_settleScan).
     const [readCut,  setReadCut]  = useState(null)
     const [reading,  setReading]  = useState(false)
+    // In flight, as a REF as well as state. The auto-run fires from inside onDone — a closure built by
+    // the render before the one that set `reading`, so the state it can see there is always the stale
+    // one, and two reads of the same list would race each other's rewrite of it.
+    const readingRef = useRef(false)
+    // Which list the read in flight belongs to. Bumped by anything that makes its answer stale — the
+    // list being saved, the desk being cleared — and checked before the answer is applied. Without it
+    // a read landing after "save without the read" rewrites a `pendingScan` that is already null,
+    // which spreads into `{ candidates }` with no thesis and puts a ghost list back on screen.
+    const readEpochRef = useRef(0)
+    // A list that arrived while a read was still running, waiting for its own read. See _settleScan.
+    const owedReadRef = useRef(null)
+    // …and the board, for the same reason: onDone decides whether to read, and it has to be right
+    // about whether a board is in force (the same reason inRunRef exists).
+    const radarBoardRef = useRef(radarBoard)
+    radarBoardRef.current = radarBoard
     // A just-generated investing list, held only to offer the research hand-off (see handleGenerate).
     const [researchOffer,  setResearchOffer]  = useState(null)
     // Mid-run, a turn that ended with no list. The run advances on a list coming back, so this is the
@@ -344,6 +374,31 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
         // the point is that it runs through. A complete list saves itself and hands control back
         // rather than waiting on a press no one is here to make.
         if (inRunRef.current) handleGenerate({ scan: data.scan })
+        // ON A RADAR CUT THE READ IS PART OF THE CUT, not a step after it. Argus judged
+        // TRADEABILITY — a catalyst in the window, liquidity, a setup — and that is half the
+        // question: whether the claim behind the name still holds, and which way the name goes once
+        // every event naming it is weighed together, is Prometheus's, and it is the half that decides
+        // whether the name is worth trading at all. A list handed over before that ran is a list of
+        // names nobody has finished judging, and the press between the two was a question with one
+        // sensible answer.
+        //
+        // Only where a board is in force: an ordinary scan's names are not event claims and have
+        // nothing to read against. The candidates go in explicitly, for the same reason the sleeve
+        // run's handleGenerate takes its scan — the state set four lines up is not readable here.
+        //
+        // A TURN THAT LANDS MID-READ REPLACES THE READ, it does not merge with it. The user asked for
+        // a change ("drop MOS, add KLAC") and the answer still in flight is about the list before it:
+        // applied to this one it would carry the old drops over and leave the new name silently
+        // unread — the one thing every gate in this chain refuses to do. So that answer is discarded
+        // (the epoch) and the new list is queued for a read of its own, which the one in flight
+        // starts on its way out. Nothing is paid twice: quickRead returns the stored read for every
+        // name whose events have not changed.
+        if (radarBoardRef.current) {
+            if (readingRef.current) {
+                readEpochRef.current++
+                owedReadRef.current = data.scan.candidates
+            } else handlePrometheusRead(data.scan.candidates)
+        }
     }
 
     /**
@@ -511,6 +566,8 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
 
     function handleClear() {
         chat.reset()
+        readEpochRef.current++        // …and a read in flight has no list left to answer about
+        owedReadRef.current = null
         setPendingScan(null)
         setHandoffPick(null)
         routeOffer.clear()
@@ -553,13 +610,32 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
      * the summary and the Generate button off screen and stranding the user with no list and no
      * way back to one. The verdict is shown over the untouched list instead, which says the same
      * thing and leaves them somewhere to stand.
+     *
+     * IT RUNS BY ITSELF on a radar cut (_settleScan) and the button is what is left for the paths
+     * that auto-running cannot cover: a read that failed, and a list restored from a saved thread.
+     * `given` is how the auto path hands over the list it just settled — the state is one commit
+     * behind there, so reading it back would read the list BEFORE this turn's.
+     *
+     * A RE-EMITTED LIST IS READ AGAIN, deliberately: a follow-up turn of a cut ("drop MOS") re-sends
+     * the surviving names, and what a name is judged against is the set of events naming it, which
+     * the window can have moved. Re-reading costs nothing where nothing changed — quickRead returns
+     * the stored read whenever that set is the same, without a model call — so the guard is against
+     * two reads running AT ONCE, not against reading twice.
      */
-    async function handlePrometheusRead() {
-        const cands = pendingScan?.candidates ?? []
-        if (reading || !cands.length) return
+    async function handlePrometheusRead(given = null) {
+        // `Array.isArray`, not a bare `??`: the button passes this straight to onClick, so the first
+        // argument on the manual path is React's click event — truthy, and silently not a list.
+        const cands = Array.isArray(given) ? given : (pendingScan?.candidates ?? [])
+        if (readingRef.current || !cands.length) return
+        readingRef.current = true
+        const epoch = ++readEpochRef.current
         setReading(true)
         try {
             const { rows = [] } = await aetherService.batchRead(cands.map(c => c.ticker))
+            // The list this read was about is gone — saved without it, or the desk cleared. Its
+            // answer is still stored server-side and costs nothing to ask for again; applying it to
+            // whatever is on screen NOW is the only wrong move available.
+            if (epoch !== readEpochRef.current) return
             const byTicker = new Map(rows.map(r => [String(r.ticker).toUpperCase(), r]))
             // A name the read never reached keeps its place: `keep !== false`, not `keep === true`.
             // A row missing from the answer is a gap in the read, not a refusal of the name.
@@ -585,9 +661,16 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
             if (kept.length) setPendingScan(s => ({ ...s, candidates: kept }))
         } catch (err) {
             console.error('[prometheus:batch]', err)
-            setReadCut({ error: apiError(err, 'the read failed'), dropped: [], flagged: 0, survived: true })
+            if (epoch === readEpochRef.current) setReadCut({ error: apiError(err, 'the read failed'), dropped: [], flagged: 0, survived: true })
         } finally {
+            readingRef.current = false
             setReading(false)
+            // A list arrived while this one was reading — hand over to it. Held as the LIST rather
+            // than as a flag, so two turns landing mid-read queue the later one rather than fighting;
+            // a save or a Clear in between clears it, because then there is no list to read.
+            const owed = owedReadRef.current
+            owedReadRef.current = null
+            if (owed) handlePrometheusRead(owed)
         }
     }
 
@@ -596,6 +679,11 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
         // not yet readable. Manual presses read the state as before.
         const scan = given ?? pendingScan
         if (!scan) return
+        // Whatever a read in flight was going to say, it is about the list as it was BEFORE this save
+        // and there is nowhere left to put it. Saying so here rather than blocking: the read is minutes
+        // long and the user is allowed to go without it.
+        readEpochRef.current++
+        owedReadRef.current = null
         // Persist the conversation alongside the list so reopening it returns here. Chart rows are
         // dropped: a chart the user asked to LOOK at is not part of the list, and persisting one as
         // a content-less turn would reopen the thread with an empty bubble in it.
@@ -685,6 +773,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                         cut={readCut}
                         busy={reading}
                         onRead={handlePrometheusRead}
+                        onSkip={() => handleGenerate()}
                     />}
                 </div>
             )}
@@ -815,7 +904,12 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                 answers first; declining it brings this bar straight back. A route the user just
                 asked for ("send NVDA to Prometheus") is the same case: it answers first, "Not now"
                 brings this bar back. */}
-            {!chat.isLoading && !handoffPick && !researchOffer && !routeOffer.offer && (!!editingScanId || listReady) && (
+            {/* A READ IN FLIGHT holds it back too, and that only started to matter when the read
+                began firing by itself: the turn ends, this bar appears, and Prometheus is still
+                working — so the one press on screen would save the list as Argus left it, losing
+                the cut the user never asked for and never declined. The read's own line says what
+                is happening meanwhile, and the bar returns the moment it lands. */}
+            {!chat.isLoading && !reading && !handoffPick && !researchOffer && !routeOffer.offer && (!!editingScanId || listReady) && (
                 <div className="portfolio-panel__action-bubble">
                     {/* "Update/Generate list" only once there's a ready list; the "I'll do it later"
                         escape is always present in edit mode. */}

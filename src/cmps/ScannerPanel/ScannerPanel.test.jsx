@@ -332,10 +332,115 @@ describe('ScannerPanel — sending the user to another desk by asking', () => {
     })
 })
 
+// ── the read runs itself ──────────────────────────────────────────────────────
+// On a radar cut the read is part of the cut, not a step after it: Argus judged tradeability, and
+// whether the claim behind the name still holds is the other half of the same question. So the list
+// arrives already read, and what is tested is that it fires without a press, that it fires ONLY where
+// there is a board to read against, and that nothing lets the user save the list while it is running.
+describe('ScannerPanel — the read fires by itself on a radar cut', () => {
+    const BOARD = { candidates: [{ ticker: 'NUE' }], runs: 3, runIds: ['Canada:2026-09-08'] }
+    const SCAN  = { thesis: 'Radar cut', candidates: [{ ticker: 'NUE', direction: 'long' }, { ticker: 'MOS', direction: 'long' }] }
+
+    beforeEach(() => batchRead.mockReset())
+
+    // A turn of a cut, played to its end: the board is in force, Argus streams a reply and settles a
+    // list. That is the moment the auto-run hangs off, and it is reachable only through the stream —
+    // a restored thread never had a turn.
+    async function playCut({ board = BOARD, scan = SCAN } = {}) {
+        render(<ScannerPanel radarBoard={board} seed={{ key: 1, message: 'cut the board' }} />)
+        await waitFor(() => expect(sendStream).toHaveBeenCalled())
+        const [, opts] = lastCall()
+        await act(async () => {
+            opts.onToken('Two names.')
+            opts.onDone({ reply: 'Two names.', scan, phase: 4 })
+        })
+    }
+
+    it('reads the survivors with no press at all', async () => {
+        batchRead.mockResolvedValue({ rows: [
+            { ticker: 'NUE', keep: true,  flag: null, direction: 'long', read: { verdict: 'credible' } },
+            { ticker: 'MOS', keep: false, flag: null, direction: 'long', read: { verdict: 'contradicted' } },
+        ] })
+        await playCut()
+        await waitFor(() => expect(batchRead).toHaveBeenCalledTimes(1))
+        expect(batchRead.mock.calls[0][0]).toEqual(['NUE', 'MOS'])
+        // …and the cut it produced is applied, not merely fetched.
+        await waitFor(() => expect(screen.getByText(/Prometheus dropped 1/)).toBeTruthy())
+        expect(screen.queryByText('MOS')).toBe(null)
+    })
+
+    it('does NOT read an ordinary scan — its names are not event claims', async () => {
+        await playCut({ board: null })
+        await waitFor(() => expect(screen.getByText('NUE')).toBeTruthy())
+        expect(batchRead).not.toHaveBeenCalled()
+    })
+
+    // The turn is over, so the footer would normally offer Generate — and that press would save the
+    // list as ARGUS left it, throwing away a cut the user never asked for and never declined.
+    it('holds back Generate while it is still reading', async () => {
+        let release
+        batchRead.mockReturnValue(new Promise(res => { release = res }))
+        await playCut()
+        await waitFor(() => expect(screen.getByText(/Prometheus is reading 2/)).toBeTruthy())
+        expect(screen.queryByText(/Generate list/)).toBe(null)
+
+        await act(async () => { release({ rows: [{ ticker: 'NUE', keep: true, flag: null, direction: 'long', read: { verdict: 'credible' } }] }) })
+        expect(await screen.findByText(/Generate list/)).toBeTruthy()
+    })
+
+    // The read is minutes long and fires without being asked for, so there has to be a door out of it.
+    it('can be skipped — the list saves as Argus cut it, and the late answer is discarded', async () => {
+        let release
+        batchRead.mockReturnValue(new Promise(res => { release = res }))
+        const onGenerateList = vi.fn()
+        render(<ScannerPanel radarBoard={BOARD} seed={{ key: 1, message: 'cut the board' }} onGenerateList={onGenerateList} />)
+        await waitFor(() => expect(sendStream).toHaveBeenCalled())
+        const [, opts] = lastCall()
+        await act(async () => { opts.onToken('Two names.'); opts.onDone({ reply: 'Two names.', scan: SCAN, phase: 4 }) })
+
+        fireEvent.click(await screen.findByText('Save without the read'))
+        await waitFor(() => expect(onGenerateList).toHaveBeenCalledTimes(1))
+        expect(onGenerateList.mock.calls[0][0].candidates.map(c => c.ticker)).toEqual(['NUE', 'MOS'])
+
+        // The read lands on a list that no longer exists. Applying it would spread into a null scan
+        // and put a thesis-less ghost list back on screen.
+        await act(async () => { release({ rows: [{ ticker: 'MOS', keep: false, flag: null, direction: 'long', read: { verdict: 'contradicted' } }] }) })
+        expect(screen.queryByText(/Prometheus dropped/)).toBe(null)
+        expect(screen.queryByText(/Generate list/)).toBe(null)
+    })
+
+    // Both turns settle a list. The second must not start a rival read on top of the first — and must
+    // not inherit its verdict either: the new list is a different question, and a name the user just
+    // added would otherwise ship unread with nothing on the row to say so.
+    it('a turn landing mid-read queues its own read rather than racing or inheriting', async () => {
+        let release
+        batchRead.mockReturnValueOnce(new Promise(res => { release = res }))
+        await playCut()
+        await waitFor(() => expect(batchRead).toHaveBeenCalledTimes(1))
+
+        const REVISED = { ...SCAN, candidates: [{ ticker: 'NUE', direction: 'long' }, { ticker: 'KLAC', direction: 'long' }] }
+        const [, opts] = lastCall()
+        await act(async () => { opts.onDone({ reply: 'Swapped MOS for KLAC.', scan: REVISED, phase: 4 }) })
+        expect(batchRead).toHaveBeenCalledTimes(1)   // no rival while the first is in flight
+
+        // The first answer would have dropped NUE. It is about the list before the swap, so it is
+        // discarded — and the revised list gets a read of its own on the way out.
+        batchRead.mockResolvedValue({ rows: [{ ticker: 'KLAC', keep: true, flag: null, direction: 'long', read: { verdict: 'credible' } }] })
+        await act(async () => { release({ rows: [{ ticker: 'NUE', keep: false, flag: null, direction: 'long', read: { verdict: 'priced_in' } }] }) })
+
+        await waitFor(() => expect(batchRead).toHaveBeenCalledTimes(2))
+        expect(batchRead.mock.calls[1][0]).toEqual(['NUE', 'KLAC'])
+        expect(screen.getByText('NUE')).toBeTruthy()          // the stale drop never landed
+        expect(screen.getByText('KLAC')).toBeTruthy()
+    })
+})
+
 // ── the Prometheus leg of a radar cut ─────────────────────────────────────────
-// Argus cut the board on tradeability; this asks the other question. It is a STEP the user takes,
-// not a gate — so what is tested is that it only appears where it means something, that it cuts the
-// list rather than decorating it, and that it never leaves the user with nothing to stand on.
+// Argus cut the board on tradeability; this asks the other question. The read runs itself on a cut
+// (above); the button tested here is what is left for the paths that cannot cover — a read that
+// failed, and a list reopened from a saved thread. What matters is that it only appears where it
+// means something, that it cuts the list rather than decorating it, and that it never leaves the
+// user with nothing to stand on.
 describe('ScannerPanel — Prometheus over a radar cut', () => {
     const BOARD = { candidates: [{ ticker: 'NUE' }], runs: 3, runIds: ['Canada:2026-09-08'] }
     const LIST  = {
