@@ -148,6 +148,27 @@ const READ_FLAG = {
     unclear:   'unsettled',
     direction: 'direction?',
     unread:    'not read',
+    // Not one of the read's own flags — this one is derived here, because only this side of the wire
+    // knows both directions. Argus emits the direction the TAPE supports; the read answers the
+    // direction the RECORD supports across every event naming the name. They can disagree, and until
+    // radar lists could hold shorts the disagreement never shipped (a record-says-short name was
+    // dropped outright). Now it survives, so a name Argus marked long whose record reads short would
+    // render with an up arrow and nothing to say so. The arrow stays Argus's — the tape is what you
+    // would actually trade — and the disagreement rides beside it as the caveat it is.
+    side:      'record disagrees',
+}
+
+/**
+ * The flag a kept candidate wears: the read's own, or — failing that — a direction the record settled
+ * the other way from the tape. The read's flags win, because "we could not settle it" is a bigger
+ * caveat than "we settled it differently".
+ */
+function readFlagFor(c) {
+    if (c.prometheus?.flag) return c.prometheus.flag
+    const tape   = c.direction
+    const record = c.prometheus?.direction
+    const settled = record === 'long' || record === 'short'
+    return settled && (tape === 'long' || tape === 'short') && tape !== record ? 'side' : null
 }
 
 const DROP_REASON = { contradicted: 'contradicted', priced_in: 'priced in' }
@@ -655,7 +676,9 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
             const dropped = rows.filter(r => r.keep === false)
             setReadCut({
                 dropped,
-                flagged: kept.filter(c => c.prometheus?.flag).length,
+                // readFlagFor, not the read's raw flag: a record-vs-tape disagreement is a caveat the
+                // reader should be counted in the summary for, and it is derived here rather than sent.
+                flagged: kept.filter(c => readFlagFor(c)).length,
                 survived: kept.length > 0,
             })
             if (kept.length) setPendingScan(s => ({ ...s, candidates: kept }))
@@ -760,9 +783,9 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                                 <span className="portfolio-panel__build-summary-asset">{c.ticker}</span>
                                 {/* The flag rides ON the name, because it is a caveat about THAT
                                     name — a legend at the bottom would make the reader carry it. */}
-                                {c.prometheus?.flag && (
-                                    <span className="scanner-panel__read-flag" title={c.prometheus.why}>
-                                        {READ_FLAG[c.prometheus.flag] ?? c.prometheus.flag}
+                                {readFlagFor(c) && (
+                                    <span className="scanner-panel__read-flag" title={c.prometheus?.why}>
+                                        {READ_FLAG[readFlagFor(c)] ?? readFlagFor(c)}
                                     </span>
                                 )}
                             </span>

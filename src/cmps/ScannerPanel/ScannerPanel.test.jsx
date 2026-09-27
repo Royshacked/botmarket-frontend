@@ -510,6 +510,36 @@ describe('ScannerPanel — Prometheus over a radar cut', () => {
         expect(screen.getByText(/Generate list/)).toBeTruthy()
     })
 
+    // SHORTS SURVIVE NOW (RADAR_LONGS_ONLY false), which makes a disagreement shippable for the first
+    // time: Argus emits the direction the TAPE supports, the read answers the direction the RECORD
+    // supports across every event naming the name, and a long-by-the-tape name whose record reads short
+    // would otherwise render with an up arrow and nothing to say so.
+    it('flags a name the RECORD puts the other way from the tape', async () => {
+        batchRead.mockResolvedValue({ rows: [
+            // kept, unflagged by the read itself — the disagreement is the only caveat there is.
+            { ticker: 'NUE', keep: true, flag: null, direction: 'short', why: 'the record puts it short', read: { verdict: 'credible', net: 'hurt' } },
+            { ticker: 'MOS', keep: true, flag: null, direction: 'long',  read: { verdict: 'credible' } },
+            { ticker: 'APD', keep: true, flag: null, direction: 'long',  read: { verdict: 'credible' } },
+        ] })
+        render(<ScannerPanel radarBoard={BOARD} chatRestore={restore(8)} />)
+        fireEvent.click(await screen.findByText(/Read these 3 with Prometheus/))
+        await waitFor(() => expect(screen.getByText('record disagrees')).toBeTruthy())
+        // …and it counts as a caveat in the summary, not as a clean keep.
+        expect(screen.getByText(/1 kept with a caveat/)).toBeTruthy()
+        // The other two agree, so they wear nothing.
+        expect(screen.getAllByText('record disagrees').length).toBe(1)
+    })
+
+    it('agreement is silent — a short the tape AND the record both call short wears no flag', async () => {
+        batchRead.mockResolvedValue({ rows: LIST.candidates.map(c => (
+            { ticker: c.ticker, keep: true, flag: null, direction: 'long', read: { verdict: 'credible' } }
+        )) })
+        render(<ScannerPanel radarBoard={BOARD} chatRestore={restore(9)} />)
+        fireEvent.click(await screen.findByText(/Read these 3 with Prometheus/))
+        await waitFor(() => expect(screen.getByText(/kept every name/)).toBeTruthy())
+        expect(screen.queryByText('record disagrees')).toBe(null)
+    })
+
     it('a name missing from the answer keeps its place — a gap in the read is not a refusal', async () => {
         batchRead.mockResolvedValue({ rows: [
             { ticker: 'NUE', keep: true, flag: null, direction: 'long', read: { verdict: 'credible' } },
