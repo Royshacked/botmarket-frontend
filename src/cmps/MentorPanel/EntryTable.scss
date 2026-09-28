@@ -1,0 +1,126 @@
+// Two levels: trade blocks, each with its entries nested. Same height budget and scroll behaviour
+// as the spans table it replaces in the flow — it is the tall thing in a short panel, so it yields.
+.entry-table {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 12px;
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: 50%;
+    overflow-y: auto;
+
+    &__lead {
+        margin: 0;
+        font-size: var(--chat-meta);
+        color: var(--text-dim);
+    }
+
+    &__trade {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg-surface);
+    }
+
+    &__trade-name {
+        margin: 0;
+        font-size: inherit;
+        font-weight: 600;
+    }
+
+    // Stated, never implied: this line is the difference between one position and three.
+    &__semantics {
+        margin: 0;
+        font-size: var(--chat-meta);
+        color: var(--text-dim);
+
+        &--scale_in {
+            color: var(--warn, #e0a44a);
+        }
+    }
+
+    &__options {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin: 4px 0 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    &__pick {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        width: 100%;
+        padding: 6px 8px;
+        text-align: left;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        background: none;
+        color: inherit;
+        cursor: pointer;
+
+        &:hover,
+        &:focus-visible {
+            border-color: var(--accent);
+            background: var(--bg-surface-hover, transparent);
+        }
+    }
+
+    &__option.is-open &__pick { border-color: var(--border); }
+
+    &__head {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    &__label { font-weight: 600; }
+
+    &__rec,
+    &__tf,
+    &__share {
+        font-size: var(--chat-meta);
+        border-radius: 999px;
+        padding: 0 6px;
+    }
+
+    &__rec {
+        color: var(--bg);
+        background: var(--accent);
+    }
+
+    &__tf,
+    &__share {
+        color: var(--text-dim);
+        border: 1px solid var(--border);
+    }
+
+    // The share only appears when scaling in, and then it is load-bearing: it is how much of the
+    // position this one trigger takes.
+    &__share { font-variant-numeric: tabular-nums; }
+
+    &__trigger { font-size: var(--chat-meta); }
+
+    &__technique,
+    &__evidence {
+        font-size: var(--chat-meta);
+        color: var(--text-dim);
+    }
+
+    // What makes this a TESTED way in rather than a named one, so it reads as evidence.
+    &__evidence { font-style: italic; }
+
+    &__rest {
+        font-size: var(--chat-meta);
+        color: var(--text-dim);
+
+        summary { cursor: pointer; }
+    }
+}

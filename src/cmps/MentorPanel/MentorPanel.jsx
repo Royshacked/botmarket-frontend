@@ -20,6 +20,7 @@ import { CoverageChips } from './CoverageChips.jsx'
 import { SetupSummary, setupDigest } from './SetupSummary.jsx'
 import { CandidatePicker } from './CandidatePicker.jsx'
 import { SpanTable } from './SpanTable.jsx'
+import { EntryTable } from './EntryTable.jsx'
 import { SuggestionChips } from '../SuggestionChips.jsx'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import './MentorPanel.scss'
@@ -331,6 +332,10 @@ export function MentorPanel({
         _send(`Take another look at "${rejected.label}" — I'd like that one on the table.`)
     }
 
+    function handlePickEntry(option) {
+        _send(`Take "${option.label}" — ${option.trigger}.`)
+    }
+
     async function handleResumeThread(threadId) {
         const t = await threadsService.getThread(threadId)
         if (!t) return
@@ -512,11 +517,21 @@ export function MentorPanel({
             {/* The spans gate. It rides on the draft rather than in its own state: the server puts
                 it there because the draft is the one thing that round-trips, so anything kept here
                 in parallel could only ever disagree with it. */}
-            {!chat.isLoading && !candidates?.length && (
+            {!chat.isLoading && !candidates?.length && !pendingSetup?.entries && (
                 <SpanTable
                     spans={pendingSetup?.spans}
                     onPick={handlePickSpan}
                     onRevive={handleReviveSpan}
+                />
+            )}
+
+            {/* Gate two supersedes gate one: once there are ways IN on the table, which trades to
+                build has already been answered, and showing both would ask it twice. */}
+            {!chat.isLoading && !candidates?.length && (
+                <EntryTable
+                    entries={pendingSetup?.entries}
+                    spans={pendingSetup?.spans}
+                    onPick={handlePickEntry}
                 />
             )}
 
