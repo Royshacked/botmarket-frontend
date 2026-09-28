@@ -433,3 +433,35 @@ describe('SetupSummary money line', () => {
         expect(screen.queryByText(/pays/)).toBeNull()
     })
 })
+
+// ─── An entry that is not a price ─────────────────────────────────────────────
+
+describe('a trigger entry', () => {
+    const triggerSetup = {
+        asset: 'NVDA', direction: 'long', type: 'swing', trade_mode: 'discretionary',
+        scenarios: [{
+            id: 's1', name: 'the reclaim',
+            entry_legs: [{ id: 's1e1', trigger: 'RSI back above 30 on the 15m', timeframe: '15min', about: 200 }],
+            stop_legs: [{ id: 's1s1', price: 196 }],
+            target_legs: [{ id: 's1t1', price: 210 }],
+        }],
+    }
+
+    it('shows the way in instead of a blank where a price would be', () => {
+        render(<SetupSummary setup={triggerSetup} />)
+        expect(screen.getByText('~200 on trigger')).toBeTruthy()
+    })
+
+    it('says in full what the trigger is, and that it fills at market', () => {
+        render(<SetupSummary setup={triggerSetup} />)
+        const cell = screen.getByText('~200 on trigger')
+        expect(cell.getAttribute('title')).toMatch(/RSI back above 30 on the 15m/)
+        expect(cell.getAttribute('title')).toMatch(/Filled at market/)
+    })
+
+    it('a priced entry is unchanged', () => {
+        const priced = { ...triggerSetup, scenarios: [{ ...triggerSetup.scenarios[0], entry_legs: [{ id: 's1e1', price: 201 }] }] }
+        render(<SetupSummary setup={priced} />)
+        expect(screen.getByText('201')).toBeTruthy()
+    })
+})

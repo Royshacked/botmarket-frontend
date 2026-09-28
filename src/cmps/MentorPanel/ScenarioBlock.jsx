@@ -30,6 +30,16 @@ import './ScenarioBlock.scss'
 // (2026-09-24) — a leg is a price — so all that is left is "is there a number".
 export const fmtLeg = (z) => (z?.price == null ? null : `${z.price}`)
 
+// ...except an ENTRY, which since 2026-09-28 may be a TRIGGER in words instead of a level
+// (botmarket-backend docs/design/mentor-flow-intent.md #7). It fills at market when the trigger is
+// true, so there is no price to print — printing nothing would hide the whole way in.
+export const fmtEntryLeg = (z) => {
+    if (z?.price != null) return `${z.price}`
+    if (!z?.trigger) return null
+    // `about` is roughly where it would fill; it is never an order, so it is shown as a tilde.
+    return z.about != null ? `~${z.about} on trigger` : 'on trigger'
+}
+
 // BOTH EDGES, each with its own authored answer. They are different events — one is "the premise
 // broke", the other is "it went without you" — and the away side had no answer at all until
 // 2026-09-26 (`on_away`). Printing the pivot without what happens at it was the half that read as
@@ -64,14 +74,22 @@ export function ScenarioBlock({
     // condition applies at — and calling it that is what makes the Exit block below read as its
     // counterpart rather than as more of the same.
     const name  = scenario.name?.trim() || `Entry scenario ${index + 1}`
-    const entry = fmtLeg(scenario.entry_legs?.[0])
+    const entryLeg = scenario.entry_legs?.[0]
+    const entry    = fmtEntryLeg(entryLeg)
     const valid = validityLine(scenario.validity, direction)
 
     return (
         <section className={`scenario-block${armed ? ' is-armed' : ''}${dead ? ' is-dead' : ''}`} aria-label={`Scenario ${name}`}>
             <header className="scenario-block__head">
                 <h4 className="scenario-block__name">{name}</h4>
-                {entry && <span className="scenario-block__entry">{entry}</span>}
+                {entry && (
+                    <span
+                        className={`scenario-block__entry${entryLeg?.trigger ? ' is-trigger' : ''}`}
+                        title={entryLeg?.trigger
+                            ? `Gets in on a condition, not a level: ${entryLeg.trigger}${entryLeg.timeframe ? ` (read on the ${entryLeg.timeframe})` : ''}. Filled at market when it is true.`
+                            : undefined}
+                    >{entry}</span>
+                )}
 
                 {scenario.archetype && (
                     // Mentor's filing of its own plan, and the thing that makes a level arguable:
