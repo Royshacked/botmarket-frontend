@@ -19,6 +19,7 @@ import { waitingLabel } from '../ToolStatusChip/waitingLabel.js'
 import { CoverageChips } from './CoverageChips.jsx'
 import { SetupSummary, setupDigest } from './SetupSummary.jsx'
 import { CandidatePicker } from './CandidatePicker.jsx'
+import { SpanTable } from './SpanTable.jsx'
 import { SuggestionChips } from '../SuggestionChips.jsx'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import './MentorPanel.scss'
@@ -319,6 +320,17 @@ export function MentorPanel({
         _send(`Let's go with "${candidate.label}".`, candidate.setup)
     }
 
+    // Both gate actions speak in WORDS. The ledger only moves when Mentor emits <build>, so a
+    // click that quietly set local state would leave the server thinking the gate is still open —
+    // the conversation and the ledger have to agree, and the conversation is what Mentor reads.
+    function handlePickSpan(span) {
+        _send(`Let's build "${span.label}" — ${span.from} to ${span.to}.`)
+    }
+
+    function handleReviveSpan(rejected) {
+        _send(`Take another look at "${rejected.label}" — I'd like that one on the table.`)
+    }
+
     async function handleResumeThread(threadId) {
         const t = await threadsService.getThread(threadId)
         if (!t) return
@@ -495,6 +507,17 @@ export function MentorPanel({
 
             {!chat.isLoading && candidates?.length > 0 && (
                 <CandidatePicker candidates={candidates} onPick={handlePickCandidate} />
+            )}
+
+            {/* The spans gate. It rides on the draft rather than in its own state: the server puts
+                it there because the draft is the one thing that round-trips, so anything kept here
+                in parallel could only ever disagree with it. */}
+            {!chat.isLoading && !candidates?.length && (
+                <SpanTable
+                    spans={pendingSetup?.spans}
+                    onPick={handlePickSpan}
+                    onRevive={handleReviveSpan}
+                />
             )}
 
             {/* Generate lives HERE, at the foot of the conversation, not in the preview above —

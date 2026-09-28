@@ -1,0 +1,127 @@
+// Rows, not cards: the spans gate asks "which of these", and the eye answers that by reading down
+// a column. Same height budget as the candidate picker it sits in place of — it can be the tall
+// thing in a short panel, so it is what yields and scrolls inside its cap.
+.span-table {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: 50%;
+    overflow-y: auto;
+
+    &__lead {
+        margin: 0;
+        font-size: var(--chat-meta);
+        color: var(--text-dim);
+    }
+
+    &__rows {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    &__row {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        width: 100%;
+        padding: 8px 10px;
+        text-align: left;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg-surface);
+        color: inherit;
+        cursor: pointer;
+        transition: border-color 140ms ease, background 140ms ease;
+
+        &:hover,
+        &:focus-visible {
+            border-color: var(--accent);
+            background: var(--bg-surface-hover, var(--bg-surface));
+        }
+    }
+
+    &__head {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+    }
+
+    &__label {
+        font-weight: 600;
+    }
+
+    &__tag {
+        font-size: var(--chat-meta);
+        color: var(--text-dim);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 0 6px;
+    }
+
+    // The span itself is the row's subject, so it reads as the one line you cannot miss.
+    &__span {
+        font-size: var(--chat-meta);
+        color: var(--text);
+    }
+
+    &__prices {
+        display: flex;
+        gap: 10px;
+        font-size: var(--chat-meta);
+        font-variant-numeric: tabular-nums;
+        color: var(--text-dim);
+
+        em { font-style: normal; opacity: 0.7; margin-right: 3px; }
+    }
+
+    &__why,
+    &__kill {
+        font-size: var(--chat-meta);
+        color: var(--text-dim);
+    }
+
+    // Where it is wrong is not a footnote — it is half of whether the span is worth taking.
+    &__kill em {
+        font-style: normal;
+        color: var(--danger, #ef5350);
+        margin-right: 3px;
+    }
+
+    // Folded away by default: the rejects matter, but they are not what the user is choosing
+    // between. Open, they are one line each and clickable, because the way Mentor talked itself
+    // out of is often the one the user wanted.
+    &__rejects {
+        font-size: var(--chat-meta);
+        color: var(--text-dim);
+
+        summary { cursor: pointer; }
+
+        ul { margin: 6px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+    }
+
+    &__reject {
+        display: flex;
+        gap: 6px;
+        width: 100%;
+        padding: 4px 6px;
+        text-align: left;
+        border: 1px dashed var(--border);
+        border-radius: 6px;
+        background: none;
+        color: inherit;
+        cursor: pointer;
+
+        &:hover,
+        &:focus-visible { border-style: solid; border-color: var(--accent); }
+    }
+
+    &__reject-label { font-weight: 600; white-space: nowrap; }
+    &__reject-why   { opacity: 0.85; }
+}
