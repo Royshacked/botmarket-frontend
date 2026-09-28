@@ -61,6 +61,31 @@ export function setupDigest(setup) {
     return parts.join(' · ')
 }
 
+const fmtMoney = (n) => (n == null ? null : n.toLocaleString(undefined, { maximumFractionDigits: 2 }))
+
+function MoneyLine({ summary }) {
+    if (!summary || (summary.gainCash == null && summary.lossCash == null)) return null
+    const { gainCash, gainPct, lossCash, lossPct, estimated } = summary
+    return (
+        <p className={`setup-summary__money${estimated ? ' is-estimated' : ''}`}>
+            {gainCash != null && (
+                <span className="setup-summary__pays">
+                    pays <strong>{fmtMoney(gainCash)}</strong>{gainPct != null && <em> · {gainPct}%</em>}
+                </span>
+            )}
+            {lossCash != null && (
+                <span className="setup-summary__costs">
+                    risks <strong>{fmtMoney(lossCash)}</strong>{lossPct != null && <em> · {lossPct}%</em>}
+                </span>
+            )}
+            {/* Said, not implied: the entry has no authored price, so these move at the fill. */}
+            {estimated && <span className="setup-summary__est" title="This entry has no authored price — measured off the live price and recomputed at the fill.">estimate</span>}
+        </p>
+    )
+}
+
+MoneyLine.propTypes = { summary: PropTypes.object }
+
 export function SetupSummary({ setup, onChange, readOnly = false }) {
     if (!setup?.asset) {
         return <div className="setup-summary setup-summary--empty">Your setup will build here as you talk it through.</div>
@@ -159,6 +184,12 @@ export function SetupSummary({ setup, onChange, readOnly = false }) {
                 when both are empty, which is correct on a plan the user brought (they chose the way
                 in, so nothing was rejected) and on one nobody has attacked. */}
             <PathsNotTaken alternatives={setup.alternatives} challenges={setup.challenges} />
+
+            {/* WHAT IT PAYS AND WHAT IT COSTS. Computed on the server (mentorSummary.util) and
+                carried on the draft, so the panel and Mentor's sentence cannot quote different
+                numbers — and neither of them is doing arithmetic on a live account.
+                R:R is an abstraction; money is what a user decides on. */}
+            <MoneyLine summary={setup.summary} />
 
             <div className="setup-summary__metrics">
                 <ConvictionChip conviction={setup.conviction} />

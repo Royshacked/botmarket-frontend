@@ -402,3 +402,34 @@ describe('setupDigest', () => {
         expect(setupDigest({})).toBe('')
     })
 })
+
+// ─── What it pays and what it costs ───────────────────────────────────────────
+// Computed on the server and carried on the draft, so the panel and Mentor's sentence quote the
+// same figures and neither is doing arithmetic on a live account.
+
+describe('SetupSummary money line', () => {
+    const withMoney = (summary) => ({
+        asset: 'NVDA', direction: 'long', type: 'swing', trade_mode: 'smc',
+        scenarios: [{ id: 's1', entry_legs: [{ price: 200 }], stop_legs: [{ price: 196 }], target_legs: [{ price: 210 }] }],
+        summary,
+    })
+
+    it('shows both outcomes, in cash and as a share of the account', () => {
+        render(<SetupSummary setup={withMoney({ gainCash: 1250, gainPct: 2.5, lossCash: 500, lossPct: 1 })} />)
+        expect(screen.getByText('1,250')).toBeTruthy()
+        expect(screen.getByText('· 2.5%')).toBeTruthy()
+        expect(screen.getByText('500')).toBeTruthy()
+        expect(screen.getByText('· 1%')).toBeTruthy()
+    })
+
+    it('marks an estimate as an estimate — the entry has no authored price', () => {
+        render(<SetupSummary setup={withMoney({ gainCash: 1250, lossCash: 500, estimated: true })} />)
+        expect(screen.getByText('estimate')).toBeTruthy()
+    })
+
+    it('says nothing at all before there is a size to price it with', () => {
+        render(<SetupSummary setup={withMoney({ rr: 2.5, gainCash: null, lossCash: null })} />)
+        expect(screen.queryByText('estimate')).toBeNull()
+        expect(screen.queryByText(/pays/)).toBeNull()
+    })
+})

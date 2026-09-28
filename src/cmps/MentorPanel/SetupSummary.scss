@@ -188,4 +188,31 @@
         color: var(--text-dim);
         text-align: center;
     }
+
+    // What it pays and what it costs, side by side. The two numbers a user actually decides on, so
+    // they sit at the same weight — a summary that shows the upside louder than the downside is a
+    // pitch. Computed server-side; this only renders them.
+    &__money {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: baseline;
+        margin: 0;
+        font-size: var(--chat-meta);
+        font-variant-numeric: tabular-nums;
+
+        strong { font-weight: 600; }
+        em { font-style: normal; opacity: 0.7; }
+    }
+
+    &__pays  { color: var(--long, #26a69a); }
+    &__costs { color: var(--short, #ef5350); }
+
+    &__est {
+        border: 1px dashed var(--border);
+        border-radius: 999px;
+        padding: 0 6px;
+        color: var(--text-dim);
+        cursor: help;
+    }
 }
