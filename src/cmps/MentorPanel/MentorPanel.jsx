@@ -84,6 +84,9 @@ export function MentorPanel({
     // The 2–3 candidate offer. Cleared the moment the user picks or types again — a stale picker
     // next to a live worksheet would let them "pick" something the conversation has moved past.
     const [candidates,   setCandidates]   = useState(null)
+    // Every plan in this build, keyed by asset — a user may build several names in one
+    // conversation and generate them together (#15). Empty for the ordinary one-name build.
+    const [drafts,       setDrafts]       = useState({})
     // The saved setup, held only so we can offer Arm right after Generate. Arming is the real gate.
     const [generated,    setGenerated]    = useState(null)
     const [busy,         setBusy]         = useState(false)
@@ -128,6 +131,7 @@ export function MentorPanel({
         setPendingSetup(draft)
         setCoverage(cov)
         setCandidates(null)
+        setDrafts({})
         setGenerated(null)
         setEditDirty(false)
         setPreviewOpen(false)
@@ -196,13 +200,23 @@ export function MentorPanel({
             model:           readStoredModel(),
             accounts,
             mainAccountId,
-            chatState: { active_asset: draft?.asset || candidate?.ticker || '', draft, coverage: cov },
+            chatState: {
+            active_asset: draft?.asset || candidate?.ticker || '',
+            draft,
+            coverage: cov,
+            // The other names in this build travel back so they survive the turn (#15).
+            ...(Object.keys(drafts).length ? { drafts } : {}),
+        },
             seed: candidate,   // structured Argus candidate — carries the recommended lens
         }
     }
 
     function _applyDone(data, draft) {
         if (data.coverage) setCoverage(data.coverage)
+        // Every plan in a MULTI-NAME build, keyed by asset. The server only sends it once there is
+        // a second name, and it is authoritative: it already merged this turn's plan into what we
+        // sent back, so replacing wholesale is right and merging here would fight it.
+        if (data.drafts) setDrafts(data.drafts)
         if (data.setup) {
             setPendingSetup(data.setup)
             setReadiness(data.readiness ?? null)
@@ -305,6 +319,7 @@ export function MentorPanel({
         setReadiness(null)
         setCoverage([])
         setCandidates(null)
+        setDrafts({})
         setGenerated(null)
         setEditDirty(false)
         setPreviewOpen(false)
@@ -334,6 +349,43 @@ export function MentorPanel({
 
     function handlePickEntry(option) {
         _send(`Take "${option.label}" — ${option.trigger}.`)
+    }
+
+    /**
+     * GENERATE ALL — one press for every name in the build.
+     *
+     * PARTIAL SUCCESS IS THE CONTRACT (botmarket-backend setups.controller): the server saves what
+     * passes and returns the rest with reasons. So this reports both, and keeps the refused plans
+     * in hand — the conversation continues on what still needs fixing rather than the user losing
+     * three finished setups because a fourth had no size.
+     */
+    // The names in this build, with the one being worked on included exactly once.
+    const batchNames = Object.keys({ ...drafts, ...(pendingSetup?.asset ? { [pendingSetup.asset]: 1 } : {}) })
+    const batchCount = batchNames.length
+
+    async function handleGenerateAll() {
+        const all = Object.values({ ...drafts, ...(pendingSetup?.asset ? { [pendingSetup.asset]: pendingSetup } : {}) })
+        if (all.length < 2 || accounts.length === 0 || busy) return
+        setBusy(true)
+        try {
+            const state = { messages: persistedMessages(), draft: pendingSetup, coverage }
+            const { saved = [], failed = [] } = await mentorService.generateSetups(all, accounts, mainAccountId, state)
+
+            // What was refused stays on the table, by asset, so the next turn can fix it.
+            const refusedAssets = new Set(failed.map(f => f.asset).filter(Boolean))
+            setDrafts(Object.fromEntries(Object.entries(drafts).filter(([asset]) => refusedAssets.has(asset))))
+            if (saved.length) setGenerated(saved[saved.length - 1])
+
+            if (failed.length) {
+                window.alert(`${saved.length} saved. ${failed.length} not: ${
+                    failed.map(f => `${f.asset ?? `#${f.index + 1}`} — ${f.reason}`).join('; ')}`)
+            }
+        } catch (err) {
+            console.error('[mentor] generate all', err)
+            window.alert(`Couldn't generate the batch: ${err?.message || 'unknown reason'}`)
+        } finally {
+            setBusy(false)
+        }
     }
 
     async function handleResumeThread(threadId) {
@@ -547,6 +599,21 @@ export function MentorPanel({
                     >
                         {busy ? 'Generating…' : 'Generate setup'}
                     </button>
+
+                    {/* SEVERAL NAMES IN ONE BUILD (#15). The batch button appears only when there
+                        is a batch, and it says how many so nobody presses it wondering what it
+                        covers. The single button stays: generating just the one in front of them
+                        is still a thing a user may want. */}
+                    {batchCount > 1 && (
+                        <button
+                            className="portfolio-panel__review-btn mentor-panel__btn mentor-panel__btn--all"
+                            onClick={handleGenerateAll}
+                            disabled={busy}
+                            title={batchNames.join(' · ')}
+                        >
+                            {busy ? 'Generating…' : `Generate all (${batchCount})`}
+                        </button>
+                    )}
                     {!ready && blockers.length > 0 && (
                         <span className="mentor-panel__missing">
                             {blockers.filter(b => b.kind === 'missing').length > 0 && (

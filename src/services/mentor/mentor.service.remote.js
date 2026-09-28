@@ -21,6 +21,7 @@ export const mentorService = {
     hydrateBlueprint,
     shareSetup,
     generateSetup,
+    generateSetups,
     updateSetup,
     saveChatState,
     listSetups,
@@ -79,6 +80,16 @@ async function sendStream(messages, opts = {}) {
  */
 function generateSetup(setup, accounts = [], mainAccountId = null, chatState = undefined) {
     return api.post('/generate', { setup, accounts, mainAccountId, chat_state: chatState })
+}
+
+/**
+ * One press, N names. Returns `{ saved, failed }` — PARTIAL SUCCESS is the contract, so a caller
+ * must read both: the saved ones are already monitored, and `failed` carries a reason and an index
+ * for each that was refused. Treating anything but `saved.length === setups.length` as a failure
+ * would throw away setups the server has already written.
+ */
+function generateSetups(setups, accounts = [], mainAccountId = null, chatState = undefined) {
+    return api.post('/generate-all', { setups, accounts, mainAccountId, chat_state: chatState })
 }
 
 /** Edit an existing setup in place. Pre-position this re-arms it; in position it is a light edit. */

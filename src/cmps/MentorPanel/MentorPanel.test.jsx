@@ -9,6 +9,7 @@ window.HTMLElement.prototype.scrollIntoView = vi.fn()
 // tree mounts and every call is observable.
 const armSetup      = vi.fn().mockResolvedValue({ id: 's1', status: 'looking' })
 const generateSetup = vi.fn().mockResolvedValue({ id: 's1', asset: 'NVDA', status: 'waiting' })
+const generateSetups = vi.fn().mockResolvedValue({ saved: [{ id: 's1', asset: 'NVDA' }, { id: 's2', asset: 'AMD' }], failed: [] })
 const updateSetup   = vi.fn().mockResolvedValue({ id: 's1', asset: 'NVDA', status: 'waiting' })
 const saveChatState = vi.fn().mockResolvedValue({})
 const sendStream    = vi.fn().mockResolvedValue(undefined)
@@ -17,6 +18,7 @@ vi.mock('../../services/mentor/mentor.service.remote.js', () => ({
     mentorService: {
         sendStream:    (...a) => sendStream(...a),
         generateSetup: (...a) => generateSetup(...a),
+        generateSetups: (...a) => generateSetups(...a),
         updateSetup:   (...a) => updateSetup(...a),
         saveChatState: (...a) => saveChatState(...a),
         armSetup:      (...a) => armSetup(...a),
@@ -584,5 +586,61 @@ describe('the “I have my own setup” chip', () => {
         // No mode. The interview happens in the conversation that was already on screen, so the one
         // input at this desk stays exactly where it was.
         expect(chatBox()).toBeTruthy()
+    })
+})
+
+// ─── Several names in one build ───────────────────────────────────────────────
+// A user may build more than one name in a conversation and generate them together (#15). The
+// contract that matters here is PARTIAL SUCCESS: the server saves what passes and refuses the
+// rest, so the panel must report both rather than treating anything short of all-or-nothing as a
+// failure and losing setups that are already written.
+
+describe('MentorPanel — generate all', () => {
+    it('offers the batch button only when there IS a batch, and says how many', async () => {
+        render(<MentorPanel {...props()} />)
+        await runTurn({ reply: 'ok', setup: SETUP, readiness: { ready: true, missing: [] } })
+        expect(screen.queryByRole('button', { name: /Generate all/ })).toBeNull()
+
+        await runTurn({
+            reply: 'and AMD', setup: { ...SETUP, asset: 'AMD' },
+            drafts: { NVDA: SETUP, AMD: { ...SETUP, asset: 'AMD' } },
+            readiness: { ready: true, missing: [] },
+        })
+        expect(await screen.findByRole('button', { name: /Generate all \(2\)/ })).toBeTruthy()
+    })
+
+    it('sends every plan in the build, once each', async () => {
+        render(<MentorPanel {...props()} />)
+        await runTurn({
+            reply: 'both', setup: { ...SETUP, asset: 'AMD' },
+            drafts: { NVDA: SETUP, AMD: { ...SETUP, asset: 'AMD' } },
+            readiness: { ready: true, missing: [] },
+        })
+
+        fireEvent.click(await screen.findByRole('button', { name: /Generate all/ }))
+        await waitFor(() => expect(generateSetups).toHaveBeenCalled())
+
+        const [plans] = generateSetups.mock.calls[0]
+        expect(plans.map(p => p.asset).sort()).toEqual(['AMD', 'NVDA'])
+    })
+
+    it('reports a partial batch and KEEPS what was refused', async () => {
+        const alert = vi.spyOn(window, 'alert').mockImplementation(() => {})
+        generateSetups.mockResolvedValueOnce({
+            saved:  [{ id: 's1', asset: 'NVDA' }],
+            failed: [{ index: 1, asset: 'AMD', reason: 'missing_quantity' }],
+        })
+        render(<MentorPanel {...props()} />)
+        await runTurn({
+            reply: 'both', setup: { ...SETUP, asset: 'AMD' },
+            drafts: { NVDA: SETUP, AMD: { ...SETUP, asset: 'AMD' } },
+            readiness: { ready: true, missing: [] },
+        })
+
+        fireEvent.click(await screen.findByRole('button', { name: /Generate all/ }))
+        await waitFor(() => expect(alert).toHaveBeenCalled())
+        expect(alert.mock.calls[0][0]).toMatch(/1 saved/)
+        expect(alert.mock.calls[0][0]).toMatch(/AMD — missing_quantity/)
+        alert.mockRestore()
     })
 })
