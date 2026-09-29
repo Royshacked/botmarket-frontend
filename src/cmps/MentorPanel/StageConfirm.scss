@@ -1,0 +1,61 @@
+// The opening turn's answer, as a press. Sits where the gates' tables sit, and is deliberately
+// plainer than they are: three values and a yes, not a thing to study.
+.stage-confirm {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    flex: 0 0 auto;
+
+    &__lead {
+        margin: 0;
+        font-size: var(--chat-meta);
+        color: var(--text-dim);
+    }
+
+    &__values {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 14px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+
+        li { display: flex; align-items: baseline; gap: 6px; }
+    }
+
+    &__label {
+        font-size: var(--chat-meta);
+        color: var(--text-dim);
+    }
+
+    &__value { font-weight: 600; }
+
+    &__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    &__btn {
+        padding: 5px 10px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--bg-surface);
+        color: inherit;
+        font-size: var(--chat-meta);
+        cursor: pointer;
+
+        &:hover:not(:disabled),
+        &:focus-visible { border-color: var(--accent); }
+        &:disabled { opacity: 0.5; cursor: default; }
+
+        // The ordinary yes is the one most people want, so it is the one that looks like the answer.
+        &--yes {
+            border-color: var(--accent);
+            font-weight: 600;
+        }
+
+        &--quiet { opacity: 0.8; }
+    }
+}

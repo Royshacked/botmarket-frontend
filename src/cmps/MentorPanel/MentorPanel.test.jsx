@@ -644,3 +644,60 @@ describe('MentorPanel — generate all', () => {
         alert.mockRestore()
     })
 })
+
+// ─── The press, not the prose ─────────────────────────────────────────────────
+// The client knows what was pressed, so it says so in an op the server applies before the model
+// reads anything. This is the fix for the one confirmation in the app that was an inference.
+
+describe('MentorPanel — confirming by press', () => {
+    const GATE = {
+        asset: 'NVDA', stage: 'opening', awaiting: true,
+        fields: ['direction', 'horizon', 'lens'],
+        values: { direction: 'long', horizon: 'swing', lens: 'smc' },
+    }
+
+    it('sends the settlement as an OP, and says it in words too', async () => {
+        render(<MentorPanel {...props()} />)
+        await runTurn({ reply: 'right?', setup: SETUP, gate: GATE, readiness: { ready: false, missing: [] } })
+
+        fireEvent.click(await screen.findByText('Yes — carry on'))
+        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(2))
+
+        const [, opts] = sendStream.mock.calls[1]
+        expect(opts.chatState.ops).toEqual([{ settle: ['direction', 'horizon', 'lens'] }])
+        const history = sendStream.mock.calls[1][0]
+        expect(history[history.length - 1].content).toMatch(/Yes/)
+    })
+
+    it('the waiver rides on the same press', async () => {
+        render(<MentorPanel {...props()} />)
+        await runTurn({ reply: 'right?', setup: SETUP, gate: GATE, readiness: { ready: false, missing: [] } })
+
+        fireEvent.click(await screen.findByText('Yes — go all the way to sizing'))
+        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(2))
+        expect(sendStream.mock.calls[1][1].chatState.ops).toEqual([
+            { settle: ['direction', 'horizon', 'lens'], waiver: true },
+        ])
+    })
+
+    it('the card goes away once the build has moved on', async () => {
+        render(<MentorPanel {...props()} />)
+        await runTurn({ reply: 'right?', setup: SETUP, gate: GATE, readiness: { ready: false, missing: [] } })
+        expect(screen.getByText('Yes — carry on')).toBeTruthy()
+
+        await runTurn({ reply: 'settled', setup: SETUP, gate: { ...GATE, stage: 'spans', awaiting: false }, readiness: { ready: false, missing: [] } })
+        expect(screen.queryByText('Yes — carry on')).toBeNull()
+    })
+
+    it('an op is spent by the turn it rides on, never sent twice', async () => {
+        render(<MentorPanel {...props()} />)
+        await runTurn({ reply: 'right?', setup: SETUP, gate: GATE, readiness: { ready: false, missing: [] } })
+        fireEvent.click(await screen.findByText('Yes — carry on'))
+        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(2))
+
+        // The turn lands, then the user types something ordinary.
+        await runTurn({ reply: 'on to the trades', setup: SETUP, readiness: { ready: false, missing: [] } }, 'what about AMD?')
+        const last = sendStream.mock.calls[sendStream.mock.calls.length - 1][1]
+        expect(last.chatState.ops).toBeUndefined()
+    })
+})

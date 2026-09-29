@@ -21,6 +21,7 @@ import { SetupSummary, setupDigest } from './SetupSummary.jsx'
 import { CandidatePicker } from './CandidatePicker.jsx'
 import { SpanTable } from './SpanTable.jsx'
 import { EntryTable } from './EntryTable.jsx'
+import { StageConfirm } from './StageConfirm.jsx'
 import { SuggestionChips } from '../SuggestionChips.jsx'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import './MentorPanel.scss'
@@ -87,6 +88,13 @@ export function MentorPanel({
     // Every plan in this build, keyed by asset — a user may build several names in one
     // conversation and generate them together (#15). Empty for the ordinary one-name build.
     const [drafts,       setDrafts]       = useState({})
+    // What the server says the build is waiting on, and the values it put to the user. Drawn as a
+    // confirm card: a press settles it deterministically, where a typed "yes" needs the model to
+    // notice and report it — which is the one confirmation in this app that was not a button.
+    const [gate,         setGate]         = useState(null)
+    // Ops the USER authored by pressing something. Sent with the next turn and applied by the
+    // server BEFORE the model reads anything, then cleared — they are a moment, not state.
+    const pendingOps = useRef([])
     // The saved setup, held only so we can offer Arm right after Generate. Arming is the real gate.
     const [generated,    setGenerated]    = useState(null)
     const [busy,         setBusy]         = useState(false)
@@ -132,6 +140,8 @@ export function MentorPanel({
         setCoverage(cov)
         setCandidates(null)
         setDrafts({})
+        setGate(null)
+        pendingOps.current = []
         setGenerated(null)
         setEditDirty(false)
         setPreviewOpen(false)
@@ -196,6 +206,10 @@ export function MentorPanel({
         // One-shot: the hand-off turn carries it, every turn after has it in the history. Read and
         // cleared together so a second send cannot re-announce a name as newly handed over.
         const candidate = seedRef.current; seedRef.current = null
+        // Same one-shot rule as the seed above, and for the same reason: read and cleared
+        // TOGETHER. Clearing when the reply lands would leave a press alive through a turn that
+        // failed, and re-apply it to whatever the user said next.
+        const ops = pendingOps.current; pendingOps.current = []
         return {
             model:           readStoredModel(),
             accounts,
@@ -206,6 +220,8 @@ export function MentorPanel({
             coverage: cov,
             // The other names in this build travel back so they survive the turn (#15).
             ...(Object.keys(drafts).length ? { drafts } : {}),
+            // …and anything the user pressed since the last turn.
+            ...(ops.length ? { ops } : {}),
         },
             seed: candidate,   // structured Argus candidate — carries the recommended lens
         }
@@ -217,6 +233,7 @@ export function MentorPanel({
         // a second name, and it is authoritative: it already merged this turn's plan into what we
         // sent back, so replacing wholesale is right and merging here would fight it.
         if (data.drafts) setDrafts(data.drafts)
+        setGate(data.gate ?? null)
         if (data.setup) {
             setPendingSetup(data.setup)
             setReadiness(data.readiness ?? null)
@@ -320,6 +337,8 @@ export function MentorPanel({
         setCoverage([])
         setCandidates(null)
         setDrafts({})
+        setGate(null)
+        pendingOps.current = []
         setGenerated(null)
         setEditDirty(false)
         setPreviewOpen(false)
@@ -339,8 +358,31 @@ export function MentorPanel({
     // Both gate actions speak in WORDS. The ledger only moves when Mentor emits <build>, so a
     // click that quietly set local state would leave the server thinking the gate is still open —
     // the conversation and the ledger have to agree, and the conversation is what Mentor reads.
+    /**
+     * A press says what it means, in an op, AND in words.
+     *
+     * The op is what moves the ledger — deterministically, server-side, before the model reads the
+     * turn. The words are what keeps the conversation readable: a transcript where the user's
+     * agreement is invisible reads like Mentor talking to itself.
+     */
+    function _press(ops, text, draft = pendingSetup) {
+        pendingOps.current = ops
+        setGate(null)
+        _send(text, draft)
+    }
+
+    function handleConfirmStage(fields, waiver) {
+        _press(
+            [{ settle: fields, ...(waiver ? { waiver: true } : {}) }],
+            waiver ? 'Yes — and go all the way to sizing.' : 'Yes, those are right.',
+        )
+    }
+
     function handlePickSpan(span) {
-        _send(`Let's build "${span.label}" — ${span.from} to ${span.to}.`)
+        _press(
+            [{ claim: { spans: [span.id] }, settle: ['spans'] }],
+            `Let's build "${span.label}" — ${span.from} to ${span.to}.`,
+        )
     }
 
     function handleReviveSpan(rejected) {
@@ -348,7 +390,10 @@ export function MentorPanel({
     }
 
     function handlePickEntry(option) {
-        _send(`Take "${option.label}" — ${option.trigger}.`)
+        _press(
+            [{ claim: { entries: [option.id] }, settle: ['entries'] }],
+            `Take "${option.label}" — ${option.trigger}.`,
+        )
     }
 
     /**
@@ -569,6 +614,17 @@ export function MentorPanel({
             {/* The spans gate. It rides on the draft rather than in its own state: the server puts
                 it there because the draft is the one thing that round-trips, so anything kept here
                 in parallel could only ever disagree with it. */}
+            {/* The opening turn's answer. Above the gates because it comes before them, and gone
+                the moment it is pressed — the server settles it and the next turn moves on. */}
+            {!chat.isLoading && (
+                <StageConfirm
+                    gate={gate}
+                    busy={busy}
+                    onConfirm={handleConfirmStage}
+                    onChange={() => setGate(null)}
+                />
+            )}
+
             {!chat.isLoading && !candidates?.length && !pendingSetup?.entries && (
                 <SpanTable
                     spans={pendingSetup?.spans}
