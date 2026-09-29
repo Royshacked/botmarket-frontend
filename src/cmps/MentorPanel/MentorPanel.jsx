@@ -557,8 +557,12 @@ export function MentorPanel({
     // second one used to be dropped here and never rendered below. A setup that was complete but
     // contradictory therefore showed a dark Generate button with no stated reason at all, which is
     // exactly the dead button the copy under it exists to prevent. Seen on a live run.
+    // The account gap is known on BOTH sides — setupReadiness pushes it when the server sees no
+    // marked account, and this adds it when the panel has none. Said twice it printed twice
+    // ("Still needs: …, trading account, trading account"), so the list is de-duplicated: a
+    // blocker is a thing to fix, and the same thing twice reads as two.
     const effectiveReadiness = accounts.length === 0
-        ? { ...readiness, ready: false, missing: [...(readiness?.missing ?? []), 'trading account'] }
+        ? { ...readiness, ready: false, missing: [...new Set([...(readiness?.missing ?? []), 'trading account'])] }
         : readiness
     const ready = !!effectiveReadiness?.ready
     // Both refusals, worded for their kind: one is a gap to fill, the other a contradiction to fix.

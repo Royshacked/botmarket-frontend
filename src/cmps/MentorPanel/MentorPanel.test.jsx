@@ -776,3 +776,17 @@ describe('MentorPanel — gate visibility', () => {
         expect(screen.queryByText('the shelf')).toBeNull()
     })
 })
+
+describe('MentorPanel — blockers', () => {
+    it('lists the account gap once, not once per side that noticed it', async () => {
+    // Seen on screen: "Still needs: …, trading account, trading account". The server pushes it and
+    // so does the panel; neither is wrong, and together they read as two separate problems.
+    render(<MentorPanel {...props({ accounts: [] })} />)
+    await runTurn({
+        reply: 'ok', setup: SETUP,
+        readiness: { ready: false, missing: ['condition', 'trading account'] },
+    })
+        const line = screen.getByText(/Still needs:/).textContent
+        expect(line.match(/trading account/g)).toHaveLength(1)
+    })
+})
