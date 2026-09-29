@@ -55,7 +55,7 @@ describe('EntryTable', () => {
             options: ENTRIES.trades[0].options.map((o, i) => ({ ...o, share: 50, recommended: i === 0 })),
         }] }
         render(<EntryTable entries={scaled} spans={SPANS} />)
-        expect(screen.getByText(/scaling in — each of these takes its share/)).toBeTruthy()
+        expect(screen.getByText(/scaling in — these are one position/)).toBeTruthy()
         expect(screen.getAllByText('50%')).toHaveLength(2)
     })
 
@@ -65,11 +65,57 @@ describe('EntryTable', () => {
         expect(screen.getByText('5min')).toBeTruthy()
     })
 
-    it('picking an entry speaks in words, so the ledger cannot silently diverge', () => {
-        const onPick = vi.fn()
-        render(<EntryTable entries={ENTRIES} spans={SPANS} onPick={onPick} />)
-        fireEvent.click(screen.getByText('reclaim close'))
-        expect(onPick).toHaveBeenCalledWith(ENTRIES.trades[0].options[0])
+    it('MORE THAN ONE way in is a real answer, and not only when scaling', () => {
+        // Under `alternatives` the first trigger to fire takes the position and the rest are
+        // cancelled — which is exactly "I'd take it either way, whichever comes first".
+        const onTake = vi.fn()
+        render(<EntryTable entries={ENTRIES} spans={SPANS} onTake={onTake} />)
+
+        const boxes = screen.getAllByRole('checkbox')
+        fireEvent.click(boxes[0])
+        fireEvent.click(boxes[1])
+        fireEvent.click(screen.getByText('Take these 2'))
+
+        expect(onTake).toHaveBeenCalledWith([
+            { trade: 't1', option: ENTRIES.trades[0].options[0] },
+            { trade: 't1', option: ENTRIES.trades[0].options[1] },
+        ])
+    })
+
+    it('nothing ticked cannot be taken, and one reads as one', () => {
+        const onTake = vi.fn()
+        render(<EntryTable entries={ENTRIES} spans={SPANS} onTake={onTake} />)
+        expect(screen.getByText('Take it').disabled).toBe(true)
+        fireEvent.click(screen.getAllByRole('checkbox')[0])
+        fireEvent.click(screen.getByText('Take it'))
+        expect(onTake.mock.calls[0][0]).toHaveLength(1)
+    })
+
+    it('a SCALE-IN trade ticks as one — its options are halves of one position', () => {
+        // Taking two of three would author a plan whose shares no longer add to 100, and the user
+        // would fill for less than they agreed.
+        const scaled = { trades: [{
+            ...ENTRIES.trades[0],
+            semantics: 'scale_in',
+            options: ENTRIES.trades[0].options.map((o, i) => ({ ...o, share: 50, recommended: i === 0 })),
+        }] }
+        const onTake = vi.fn()
+        render(<EntryTable entries={scaled} spans={SPANS} onTake={onTake} />)
+
+        fireEvent.click(screen.getAllByRole('checkbox')[0])
+        expect(screen.getByText('Take these 2')).toBeTruthy()
+        for (const b of screen.getAllByRole('checkbox')) expect(b.checked).toBe(true)
+
+        // …and untick the same way: one position, in or out.
+        fireEvent.click(screen.getAllByRole('checkbox')[1])
+        expect(screen.getByText('Take it').disabled).toBe(true)
+    })
+
+    it('the choice can be handed back to Mentor', () => {
+        const onDelegate = vi.fn()
+        render(<EntryTable entries={ENTRIES} spans={SPANS} onDelegate={onDelegate} />)
+        fireEvent.click(screen.getByText('You choose'))
+        expect(onDelegate).toHaveBeenCalled()
     })
 
     it('renders nothing when there are no entries yet', () => {

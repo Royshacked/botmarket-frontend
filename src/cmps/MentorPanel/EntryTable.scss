@@ -52,10 +52,11 @@
         list-style: none;
     }
 
+    // A label wrapping the checkbox: the whole row is the hit area.
     &__pick {
         display: flex;
-        flex-direction: column;
-        gap: 3px;
+        align-items: flex-start;
+        gap: 8px;
         width: 100%;
         padding: 6px 8px;
         text-align: left;
@@ -66,10 +67,50 @@
         cursor: pointer;
 
         &:hover,
-        &:focus-visible {
+        &:focus-within {
             border-color: var(--accent);
             background: var(--bg-surface-hover, transparent);
         }
+    }
+
+    &__check {
+        margin-top: 3px;
+        flex: 0 0 auto;
+        accent-color: var(--accent);
+        cursor: pointer;
+    }
+
+    &__body {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-width: 0;
+    }
+
+    &__option.is-picked &__pick { border-color: var(--accent); }
+
+    &__actions {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        padding-top: 2px;
+    }
+
+    &__btn {
+        padding: 5px 10px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--bg-surface);
+        color: inherit;
+        font-size: var(--chat-meta);
+        cursor: pointer;
+
+        &:disabled { opacity: 0.45; cursor: default; }
+        &:hover:not(:disabled),
+        &:focus-visible { border-color: var(--accent); }
+
+        &--go { border-color: var(--accent); font-weight: 600; }
+        &--quiet { opacity: 0.85; }
     }
 
     &__option.is-open &__pick { border-color: var(--border); }

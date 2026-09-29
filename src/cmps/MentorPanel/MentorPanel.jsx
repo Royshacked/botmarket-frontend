@@ -420,11 +420,20 @@ export function MentorPanel({
         _send(`Take another look at "${rejected.label}" — I'd like that one on the table.`)
     }
 
-    function handlePickEntry(option) {
+    // More than one way in is a real answer, and not only when scaling: under `alternatives` the
+    // first trigger to fire takes the position and the rest are cancelled.
+    function handleTakeEntries(chosen) {
+        if (!chosen?.length) return
         _press(
-            [{ claim: { entries: [option.id] }, settle: ['entries'] }],
-            `Take "${option.label}" — ${option.trigger}.`,
+            [{ claim: { entries: chosen.map(c => `${c.trade}:${c.option.id}`) }, settle: ['entries'] }],
+            chosen.length === 1
+                ? `Take "${chosen[0].option.label}" — ${chosen[0].option.trigger}.`
+                : `Take these ${chosen.length}: ${chosen.map(c => `"${c.option.label}"`).join(', ')}.`,
         )
+    }
+
+    function handleDelegateEntries() {
+        _send('You pick the way in for each, and say why that one.')
     }
 
     /**
@@ -672,7 +681,9 @@ export function MentorPanel({
                 <EntryTable
                     entries={pendingSetup?.entries}
                     spans={pendingSetup?.spans}
-                    onPick={handlePickEntry}
+                    busy={busy}
+                    onTake={handleTakeEntries}
+                    onDelegate={handleDelegateEntries}
                 />
             )}
 
