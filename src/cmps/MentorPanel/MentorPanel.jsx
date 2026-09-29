@@ -665,7 +665,11 @@ export function MentorPanel({
                 />
             )}
 
-            {!chat.isLoading && !candidates?.length && !pendingSetup?.entries && (
+            {/* A GATE IS SHOWN WHILE IT IS THE OPEN ONE, and the server says which that is. Keyed
+                on the content instead, the entries card stayed up for the rest of the build —
+                so a user who had chosen their ways in and hit a problem at sizing saw the
+                entries table sitting there and read it as being asked to choose again. */}
+            {!chat.isLoading && !candidates?.length && gate?.stage === 'spans' && (
                 <SpanTable
                     spans={pendingSetup?.spans}
                     busy={busy}
@@ -675,9 +679,7 @@ export function MentorPanel({
                 />
             )}
 
-            {/* Gate two supersedes gate one: once there are ways IN on the table, which trades to
-                build has already been answered, and showing both would ask it twice. */}
-            {!chat.isLoading && !candidates?.length && (
+            {!chat.isLoading && !candidates?.length && gate?.stage === 'entries' && (
                 <EntryTable
                     entries={pendingSetup?.entries}
                     spans={pendingSetup?.spans}

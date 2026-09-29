@@ -738,3 +738,41 @@ describe('MentorPanel — picking a candidate', () => {
         expect(sendStream.mock.calls[1][1].chatState.ops[0].settle).toEqual(['direction'])
     })
 })
+
+// ─── A gate is on screen only while it is the OPEN stage ──────────────────────
+// Seen live: entries settled, sizing hit an empty account, and the entries table was still
+// sitting there — which reads as being asked to choose again.
+
+describe('MentorPanel — gate visibility', () => {
+    const SPANS   = { candidates: [{ id: 't1', label: 'the shelf', from: 'a', to: 'b' }] }
+    const ENTRIES = { trades: [{ id: 't1', semantics: 'alternatives', options: [
+        { id: 't1e1', label: 'reclaim', trigger: 'closes back above', recommended: true },
+    ] }] }
+    const withGate = (stage) => ({
+        reply: 'ok',
+        setup: { ...SETUP, spans: SPANS, entries: ENTRIES },
+        gate: { asset: 'NVDA', stage, awaiting: true, fields: [stage], values: {} },
+        readiness: { ready: false, missing: [] },
+    })
+
+    it('shows the spans table at the spans stage only', async () => {
+        render(<MentorPanel {...props()} />)
+        await runTurn(withGate('spans'))
+        expect(screen.getByText('the shelf')).toBeTruthy()
+        expect(screen.queryByText('reclaim')).toBeNull()
+    })
+
+    it('shows the entries table at the entries stage only', async () => {
+        render(<MentorPanel {...props()} />)
+        await runTurn(withGate('entries'))
+        expect(screen.getByText('reclaim')).toBeTruthy()
+        expect(screen.queryByText('Build it')).toBeNull()
+    })
+
+    it('shows NEITHER at sizing, even though both still ride on the draft', async () => {
+        render(<MentorPanel {...props()} />)
+        await runTurn(withGate('sizing'))
+        expect(screen.queryByText('reclaim')).toBeNull()
+        expect(screen.queryByText('the shelf')).toBeNull()
+    })
+})
