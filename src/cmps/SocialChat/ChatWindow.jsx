@@ -58,7 +58,7 @@ function ResolvedChip({ agent, outcome, asset, reason, qualifier = null, reopen 
 // `actionless` renders the same card WITHOUT the footer — the frontend half of the backend's rule
 // that `actions` is what makes a message actionable (chat.service cardLifecycle: no actions → no
 // `status`, so there is no lifecycle to drive). Some monitor cards are deliberately statements
-// rather than requests — Talos's `ran_away` / `invalidated_fyi` / `let_run` all say "this happened,
+// rather than requests — Talos's `ran_away` and `invalidated_fyi` both say "this happened,
 // nothing is being asked of you" — and a Dismiss on those would invent a decision the card isn't
 // making. Opt-in per card rather than derived from `msg.actions` here, so older history posted
 // before a producer set actions keeps the buttons it has always rendered.
@@ -547,6 +547,11 @@ export function CallExpiryBubble({ msg, onClose, onResolve }) {
 
 // "Kairos wants to manage the position" card. Primary opens the call pop-out where the user accepts
 // (move stop / take partial / exit / let run) or dismisses.
+//
+// `let_run` STAYS in this table although no live desk can emit it any more (it left Talos on
+// 2026-09-17 and the shared executor on 2026-09-29). Kairos is archived and its cards are frozen in
+// their owners' chat history; a word here is what keeps one of those old cards readable, which is
+// the same reason AGENTS.kairos and the badges are kept.
 const MANAGE_VERB_COPY = { move_stop: 'move the stop', take_partial: 'take a partial', exit_now: 'exit now', let_run: 'let it run' }
 export function CallManageBubble({ msg, onClose, onResolve }) {
     const { callId, asset, verdict, read } = msg.payload
@@ -632,8 +637,8 @@ export function SetupInvalidationBubble({ msg, onClose, onResolve }) {
 
 // "Talos wants to change something about a live setup position" — Mentor's twin of CallManageBubble.
 // Primary opens the setup pop-out, where the proposal's Accept/Dismiss buttons are (and the position,
-// and Talos's journal). `let_run` is a decision NOT to act, posted without actions, so it renders as
-// a statement.
+// and Talos's journal). A verdict posted WITHOUT actions — `hold`, or anything Talos states rather
+// than proposes — renders as a statement.
 //
 // `add_leg` is the exception, and routes somewhere else entirely: Talos has already built the order
 // plan for the printing leg and parked it awaiting confirmation, so what the user needs is the ORDER

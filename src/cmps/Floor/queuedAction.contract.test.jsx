@@ -176,13 +176,15 @@ describe('an accepted management action', () => {
         expect(confirmCopy(r).title).toBe('Get flat')
     })
 
-    it('tells a target MOVE from a target CANCEL — they are opposite intents', () => {
-        const moved = row({ type: 'let_run', proposal: { new_tp: 262 } })
-        expect(actionLine(moved)).toBe('Move the NVDA target to 262')
-
-        const gone = row({ type: 'let_run', proposal: { cancel_tp: true } })
-        expect(actionLine(gone)).toBe('Cancel the NVDA target')
-        expect(confirmCopy(gone).title).toBe('Cancel the target')
+    // `let_run` was a verb here until 2026-09-29 and had two lines of its own, one for moving a
+    // target and one for cancelling it. The verb is gone from the executor, so a row carrying it
+    // could only be legacy — and the guarantee that matters now is that it still READS, rather
+    // than rendering "undefined" or throwing in the queue list.
+    it('a verb the app no longer knows still renders as itself', () => {
+        const r = row({ type: 'let_run', proposal: { new_tp: 262 } })
+        expect(actionLine(r)).toBe('let_run · NVDA')
+        expect(actionVerb(r)).toBe('Execute')
+        expect(confirmCopy(r).title).toBe('Execute')
     })
 
     it('degrades to a readable line when the level is missing, never to "undefined"', () => {

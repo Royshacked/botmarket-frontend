@@ -73,12 +73,12 @@ describe('SetupManageBubble', () => {
         expect(screen.getByText(/scale_in/)).toBeTruthy()
     })
 
-    // `let_run` is Talos deciding NOT to trim — a statement, posted without actions.
-    it('renders let_run as a statement — no buttons', () => {
+    // A verdict Talos STATES rather than proposes comes without actions and renders as a statement.
+    it('renders an actionless verdict as a statement — no buttons', () => {
         render(
             <SetupManageBubble
                 msg={makeMsg({ actions: undefined, content: 'Your LONG NVDA is working — letting it run.',
-                    payload: { setupId: 's3', asset: 'NVDA', verdict: 'let_run', read: null } })}
+                    payload: { setupId: 's3', asset: 'NVDA', verdict: 'hold', read: null } })}
                 onResolve={vi.fn()}
             />,
         )

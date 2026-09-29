@@ -54,12 +54,10 @@ export function actionLine(row) {
             ? `Bank ${Number(a.proposal.size_pct.toFixed(1))}% of ${asset}`
             : `Bank part of ${asset}`
         case 'exit_now':     return `Get flat on ${asset}`
-        case 'let_run':      return a.proposal?.cancel_tp
-            ? `Cancel the ${asset} target`
-            : Number.isFinite(a.proposal?.new_tp)
-                ? `Move the ${asset} target to ${a.proposal.new_tp}`
-                : `Let ${asset} run`
 
+        // `let_run` had its own line here until 2026-09-29, when the verb left the executor. A row
+        // carrying it can no longer be queued OR run — the server answers `unknown_action` — so it
+        // falls to the default, which names the verb rather than pretending to know it.
         default:       return `${a.type ?? 'Action'} · ${asset}`
     }
 }
@@ -73,7 +71,7 @@ export function originLine(row) {
 export function actionVerb(row) {
     return {
         entry: 'Enter', exit: 'Close', trim: 'Trim', add_to: 'Add',
-        move_stop: 'Move stop', take_partial: 'Bank', exit_now: 'Get flat', let_run: 'Move target',
+        move_stop: 'Move stop', take_partial: 'Bank', exit_now: 'Get flat',
     }[row?.action?.type] ?? 'Execute'
 }
 
@@ -147,14 +145,6 @@ export function confirmCopy(row) {
                 title: 'Get flat',
                 body:  `Close your whole ${asset} position at market. Accepted while the market was shut${originLine(row) ? ` — ${originLine(row)}` : ''}.`,
                 cta:   'Get flat now',
-            }
-        case 'let_run':
-            return {
-                title: a.proposal?.cancel_tp ? 'Cancel the target' : 'Move the target',
-                body:  a.proposal?.cancel_tp
-                    ? `Cancel the resting take-profit on ${asset} and let it run. Accepted while the market was shut.`
-                    : `Move your ${asset} target out to ${a.proposal?.new_tp ?? 'the level you accepted'}. Accepted while the market was shut.`,
-                cta:   a.proposal?.cancel_tp ? 'Cancel it now' : 'Move it now',
             }
         default:
             return { title: 'Execute', body: `Run this ${asset} action at market.`, cta: 'Execute' }
