@@ -701,3 +701,40 @@ describe('MentorPanel — confirming by press', () => {
         expect(last.chatState.ops).toBeUndefined()
     })
 })
+
+// ─── Picking a whole plan answers the opening ─────────────────────────────────
+// <setups> forks ABOVE the opening stage — rival plans that differ in lens, sometimes in direction
+// — where the spans gate forks below it. Choosing one therefore IS the opening turn's answer.
+
+describe('MentorPanel — picking a candidate', () => {
+    const CANDIDATES = { candidates: [
+        { label: 'Sweep and reclaim', pitch: 'tight invalidation',
+          setup: { asset: 'NVDA', direction: 'long', type: 'swing', trade_mode: 'smc' } },
+        { label: 'Fade the high', pitch: 'the other side',
+          setup: { asset: 'NVDA', direction: 'short', type: 'day', trade_mode: 'institutional' } },
+    ] }
+
+    it('settles direction, horizon and lens — the question the choice just answered', async () => {
+        render(<MentorPanel {...props()} />)
+        await runTurn({ reply: 'two ways', setups: CANDIDATES, readiness: { ready: false, missing: [] } })
+
+        fireEvent.click(await screen.findByText('Fade the high'))
+        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(2))
+
+        const [{ ops }] = [sendStream.mock.calls[1][1].chatState]
+        expect(ops).toEqual([{
+            claim: { direction: 'short', horizon: 'day', lens: 'institutional' },
+            settle: ['direction', 'horizon', 'lens'],
+        }])
+    })
+
+    it('settles only what the candidate actually carries', async () => {
+        const thin = { candidates: [{ label: 'Bare', setup: { asset: 'NVDA', direction: 'long' } }] }
+        render(<MentorPanel {...props()} />)
+        await runTurn({ reply: 'one way', setups: thin, readiness: { ready: false, missing: [] } })
+
+        fireEvent.click(await screen.findByText('Bare'))
+        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(2))
+        expect(sendStream.mock.calls[1][1].chatState.ops[0].settle).toEqual(['direction'])
+    })
+})

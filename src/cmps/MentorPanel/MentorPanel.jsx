@@ -348,11 +348,31 @@ export function MentorPanel({
 
     // Picking a candidate makes it the live worksheet locally AND tells Mentor in words, so the
     // conversation and the draft can't diverge on which one was chosen.
+    /**
+     * Picking a candidate SETTLES THE OPENING, because that is what the choice was.
+     *
+     * `<setups>` forks ABOVE the opening stage — rival plans that differ in lens, and sometimes in
+     * direction or horizon — where the spans gate forks below it. So choosing one answers the
+     * opening turn's question by definition, and without saying so the desk would turn round and
+     * ask "direction, horizon, lens — right?" about the plan the user just chose.
+     */
     function handlePickCandidate(candidate) {
-        setPendingSetup(candidate.setup)
+        const s = candidate.setup ?? {}
+        const settle = [
+            ...(s.direction ? ['direction'] : []),
+            ...(s.type ? ['horizon'] : []),
+            ...(s.trade_mode ? ['lens'] : []),
+        ]
+        setPendingSetup(s)
         setCandidates(null)
         // Pass the picked setup THROUGH — the state update above lands after this call.
-        _send(`Let's go with "${candidate.label}".`, candidate.setup)
+        _press(
+            settle.length
+                ? [{ claim: { direction: s.direction, horizon: s.type, lens: s.trade_mode }, settle }]
+                : [],
+            `Let's go with "${candidate.label}".`,
+            s,
+        )
     }
 
     // Both gate actions speak in WORDS. The ledger only moves when Mentor emits <build>, so a
