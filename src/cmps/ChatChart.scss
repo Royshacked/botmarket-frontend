@@ -12,6 +12,9 @@
         display: block;
         width: 100%;
         height: auto;
+        // Pairs with the width/height attributes: the box is reserved at the right shape before
+        // the bytes arrive, so nothing jumps and the scroll lands where it was aimed.
+        aspect-ratio: 4 / 3;
         border: 1px solid var(--border);
         border-radius: 4px;
     }

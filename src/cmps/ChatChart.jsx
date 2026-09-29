@@ -23,10 +23,18 @@ export function ChatChart({ msg }) {
 
     return (
         <div className="chat-chart">
+            {/* INTRINSIC SIZE, so the list reserves the space BEFORE the image decodes. Without
+                it the auto-scroll ran against a zero-height img, the picture then appeared and
+                pushed everything down, and the view was left sitting above a chart the user could
+                not reach — worst at the spans gate, where the table already takes half the panel.
+                Every chart this app renders is 800x600 (klineRender DEFAULT_W/H); the CSS still
+                scales it to the column. */}
             <img
                 className="chat-chart__img"
                 src={`data:image/png;base64,${msg.imageBase64}`}
                 alt={`${msg.symbol ?? ''} ${msg.timeframe ?? ''} chart`.trim() || 'chart'}
+                width={800}
+                height={600}
                 loading="lazy"
             />
             {caption && <span className="chat-chart__caption">{caption}</span>}

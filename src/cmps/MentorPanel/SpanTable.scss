@@ -26,10 +26,12 @@
         list-style: none;
     }
 
+    // A row is a LABEL wrapping a checkbox now, so the whole row is the hit area — a tick target
+    // the size of a checkbox is a tick target people miss.
     &__row {
         display: flex;
-        flex-direction: column;
-        gap: 4px;
+        align-items: flex-start;
+        gap: 8px;
         width: 100%;
         padding: 8px 10px;
         text-align: left;
@@ -41,10 +43,55 @@
         transition: border-color 140ms ease, background 140ms ease;
 
         &:hover,
-        &:focus-visible {
+        &:focus-within {
             border-color: var(--accent);
             background: var(--bg-surface-hover, var(--bg-surface));
         }
+
+        &.is-picked {
+            border-color: var(--accent);
+        }
+    }
+
+    &__check {
+        margin-top: 3px;
+        flex: 0 0 auto;
+        accent-color: var(--accent);
+        cursor: pointer;
+    }
+
+    &__body {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+    }
+
+    &__actions {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+    }
+
+    &__btn {
+        padding: 5px 10px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--bg-surface);
+        color: inherit;
+        font-size: var(--chat-meta);
+        cursor: pointer;
+
+        &:disabled { opacity: 0.45; cursor: default; }
+        &:hover:not(:disabled),
+        &:focus-visible { border-color: var(--accent); }
+
+        &--go {
+            border-color: var(--accent);
+            font-weight: 600;
+        }
+
+        &--quiet { opacity: 0.85; }
     }
 
     &__head {

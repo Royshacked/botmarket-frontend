@@ -44,11 +44,51 @@ describe('SpanTable', () => {
         expect(screen.getByText(/a close below 234.8/)).toBeTruthy()
     })
 
-    it('picking a span speaks in words, so the conversation and the ledger cannot diverge', () => {
-        const onPick = vi.fn()
-        render(<SpanTable spans={SPANS} onPick={onPick} />)
-        fireEvent.click(screen.getByText('false break of the shelf'))
-        expect(onPick).toHaveBeenCalledWith(SPANS.candidates[0])
+    it('SEVERAL trades can survive the gate — that is what the stage is for', () => {
+        const onBuild = vi.fn()
+        render(<SpanTable spans={SPANS} onBuild={onBuild} />)
+
+        // A row that fired on click quietly made this a one-of-four choice.
+        const boxes = screen.getAllByRole('checkbox')
+        fireEvent.click(boxes[0])
+        fireEvent.click(boxes[1])
+        expect(screen.getByText('Build these 2')).toBeTruthy()
+
+        fireEvent.click(screen.getByText('Build these 2'))
+        expect(onBuild).toHaveBeenCalledWith(SPANS.candidates)
+    })
+
+    it('one ticked reads as one, and nothing ticked cannot be built', () => {
+        const onBuild = vi.fn()
+        render(<SpanTable spans={SPANS} onBuild={onBuild} />)
+        expect(screen.getByText('Build it').disabled).toBe(true)
+
+        fireEvent.click(screen.getAllByRole('checkbox')[1])
+        const go = screen.getByText('Build it')
+        expect(go.disabled).toBe(false)
+        fireEvent.click(go)
+        expect(onBuild).toHaveBeenCalledWith([SPANS.candidates[1]])
+    })
+
+    it('a tick can be taken back', () => {
+        render(<SpanTable spans={SPANS} onBuild={() => {}} />)
+        const box = screen.getAllByRole('checkbox')[0]
+        fireEvent.click(box)
+        fireEvent.click(box)
+        expect(screen.getByText('Build it').disabled).toBe(true)
+    })
+
+    it('the choice can be handed back to Mentor instead', () => {
+        const onDelegate = vi.fn()
+        render(<SpanTable spans={SPANS} onDelegate={onDelegate} />)
+        fireEvent.click(screen.getByText('You choose'))
+        expect(onDelegate).toHaveBeenCalled()
+    })
+
+    it('everything is disabled while a turn is in flight', () => {
+        render(<SpanTable spans={SPANS} busy />)
+        for (const b of screen.getAllByRole('checkbox')) expect(b.disabled).toBe(true)
+        expect(screen.getByText('You choose').disabled).toBe(true)
     })
 
     it('keeps the rejects, folded, and lets one be pulled back', () => {

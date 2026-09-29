@@ -398,11 +398,22 @@ export function MentorPanel({
         )
     }
 
-    function handlePickSpan(span) {
+    // SEVERAL trades may survive this gate — that is what the stage is for — so the press carries
+    // every id the user ticked, not the one they happened to click.
+    function handleBuildSpans(chosen) {
+        if (!chosen?.length) return
         _press(
-            [{ claim: { spans: [span.id] }, settle: ['spans'] }],
-            `Let's build "${span.label}" — ${span.from} to ${span.to}.`,
+            [{ claim: { spans: chosen.map(c => c.id) }, settle: ['spans'] }],
+            chosen.length === 1
+                ? `Let's build "${chosen[0].label}" — ${chosen[0].from} to ${chosen[0].to}.`
+                : `Build these ${chosen.length}: ${chosen.map(c => `"${c.label}"`).join(', ')}.`,
         )
+    }
+
+    // The other half of the design: they may hand the choice back. No op — Mentor picks and says
+    // which, and the ledger settles when it does.
+    function handleDelegateSpans() {
+        _send('You choose which of those are worth building, and say why.')
     }
 
     function handleReviveSpan(rejected) {
@@ -648,8 +659,10 @@ export function MentorPanel({
             {!chat.isLoading && !candidates?.length && !pendingSetup?.entries && (
                 <SpanTable
                     spans={pendingSetup?.spans}
-                    onPick={handlePickSpan}
+                    busy={busy}
+                    onBuild={handleBuildSpans}
                     onRevive={handleReviveSpan}
+                    onDelegate={handleDelegateSpans}
                 />
             )}
 
