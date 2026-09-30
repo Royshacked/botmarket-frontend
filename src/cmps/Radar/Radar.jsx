@@ -33,6 +33,7 @@ export function Radar({
     coverageLoading = false,
     tilt = null,
     tiltLoading = false,
+    tiltSeries = {},
     onEditCoverage,
     onRetireCoverage,
     onDeleteCoverage,
@@ -80,7 +81,7 @@ export function Radar({
             ) : tab === 'forecasts' ? (
                 <div className="news-feed__list">
                     {/* Pythia's house view — the state the Fed tab's schedule opens onto. */}
-                    <SectorView tilt={tilt} loading={tiltLoading} />
+                    <SectorView tilt={tilt} loading={tiltLoading} series={tiltSeries} />
                 </div>
             ) : tab === 'coverage' ? (
                 <div className="news-feed__list">
@@ -311,6 +312,7 @@ Radar.propTypes = {
     coverage:          PropTypes.array,
     tilt:              PropTypes.object,
     tiltLoading:       PropTypes.bool,
+    tiltSeries:        PropTypes.object,
     coverageLoading:   PropTypes.bool,
     onEditCoverage:    PropTypes.func,
     onRetireCoverage:  PropTypes.func,

@@ -23,6 +23,10 @@ export function useCalendarEvents() {
     // guards, and one more prop to thread by hand into each surface.
     const [tilt, setTilt]         = useState(null)
     const [tiltLoading, setTiltLoading] = useState(false)
+    // The LINES behind those stances, keyed by bucket. Deliberately no loading flag: a line is an
+    // ornament on a number that stands without it, so the board paints as soon as the view lands
+    // and the lines fill in when the bars do.
+    const [tiltSeries, setTiltSeries] = useState({})
     // The tilt read is requireAdmin (2026-09-14) and every surface that renders it is admin-only,
     // so a trader's fetch could only ever be a 403 in the log. Skipped rather than caught: the
     // other three feeds keep their timer either way. `?? {}` — the hook is also mounted in tests
@@ -58,6 +62,13 @@ export function useCalendarEvents() {
             load(calendarService.getFed, setFedLoading, setFed)
             load(calendarService.getIpo, setIpoLoading, setIpo)
             if (isAdmin) load(strategyService.getCurrentTilt, setTiltLoading, setTilt)
+            // A separate read on the same refresh and the same admin gate — see the state above.
+            // Its failure is swallowed rather than surfaced: the board is still correct without it.
+            if (isAdmin) {
+                strategyService.getTiltSeries()
+                    .then(s => { if (active) setTiltSeries(s ?? {}) })
+                    .catch(() => {})
+            }
         }
 
         refresh()
@@ -70,5 +81,5 @@ export function useCalendarEvents() {
         return () => { active = false; clearInterval(t); window.removeEventListener(TILT_CHANGED, refresh) }
     }, [isAdmin])
 
-    return { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, tilt, tiltLoading }
+    return { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, tilt, tiltLoading, tiltSeries }
 }

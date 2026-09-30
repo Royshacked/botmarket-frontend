@@ -77,6 +77,74 @@ describe('SectorView', () => {
         expect(container.querySelector('.sector-view__proxy')).toBeNull()
     })
 
+    // ── the line ─────────────────────────────────────────────────────────────
+    const line = (...vs) => vs.map((v, i) => ({ t: i, v }))
+
+    it('an OVERWEIGHT whose bucket beat the benchmark reads as a win', () => {
+        const { container } = render(<SectorView
+            tilt={tilt({ tilts: [row({ bucket: 'Energy', stance: 'over', active_bp: 100 })] })}
+            series={{ Energy: line(100, 101, 103) }} />)
+        const spark = container.querySelector('.sector-view__spark')
+        expect(spark).toBeTruthy()
+        expect(spark.classList.contains('sector-view__spark--up')).toBe(true)
+        expect(spark.getAttribute('data-stance')).toBe('over')
+        expect(spark.querySelector('polyline').getAttribute('points').split(' ')).toHaveLength(3)
+    })
+
+    it('an UNDERWEIGHT is signed by its weight — the same rising bucket is a LOSS', () => {
+        // The defect this pins. The server sends the BUCKET's relative return; the number in the
+        // row reports what the STANCE earned. Plot the bucket unsigned and every underweight reads
+        // backwards — Real Estate showed +7.9bp beside a falling red line, live.
+        const { container } = render(<SectorView
+            tilt={tilt({ tilts: [row({ bucket: 'Energy', stance: 'under', active_bp: -100 })] })}
+            series={{ Energy: line(100, 101, 103) }} />)
+        expect(container.querySelector('.sector-view__spark--down')).toBeTruthy()
+    })
+
+    it('an UNDERWEIGHT whose bucket FELL reads as the win it is', () => {
+        const { container } = render(<SectorView
+            tilt={tilt({ tilts: [row({ bucket: 'Energy', stance: 'under', active_bp: -100, contribution_bp: 7.9 })] })}
+            series={{ Energy: line(100, 97, 92) }} />)
+        expect(container.querySelector('.sector-view__spark--up')).toBeTruthy()
+    })
+
+    it('an overweight that lagged reads as a loss', () => {
+        const { container } = render(<SectorView
+            tilt={tilt({ tilts: [row({ bucket: 'Energy', stance: 'over', active_bp: 100 })] })}
+            series={{ Energy: line(100, 99, 96) }} />)
+        expect(container.querySelector('.sector-view__spark--down')).toBeTruthy()
+    })
+
+    it('the 100 line is always drawn, and always inside the frame', () => {
+        // Without it a rising line could be either a win or a smaller loss. It has to be visible
+        // even when every point sits above it.
+        const { container } = render(<SectorView
+            tilt={tilt({ tilts: [row({ bucket: 'Energy' })] })}
+            series={{ Energy: line(104, 106, 109) }} />)
+        const svg  = container.querySelector('.sector-view__spark')
+        const base = svg.querySelector('.sector-view__spark-base')
+        const y    = Number(base.getAttribute('y1'))
+        const [, , , h] = svg.getAttribute('viewBox').split(' ').map(Number)
+        expect(y).toBeGreaterThanOrEqual(0)
+        expect(y).toBeLessThanOrEqual(h)
+    })
+
+    it('no line, one point, or junk draws NOTHING — never an empty box', () => {
+        // A call made today has no line yet. An empty chart frame reads as a broken chart.
+        for (const series of [undefined, {}, { Healthcare: [] }, { Healthcare: line(100) }, { Healthcare: 'nope' }]) {
+            const { container, unmount } = render(<SectorView tilt={tilt()} series={series} />)
+            expect(container.querySelector('.sector-view__spark')).toBeNull()
+            unmount()
+        }
+    })
+
+    it('the board paints its numbers whether or not the lines have arrived', () => {
+        // The series is a separate read. The board must never wait for it.
+        const { container } = render(<SectorView tilt={tilt()} />)
+        expect(container.querySelectorAll('.sector-view__row')).toHaveLength(1)
+        expect(screen.getByText('+150bp')).toBeTruthy()
+    })
+
     it('an UNPRICED contribution shows a dash, never 0.0bp', () => {
         // The distinction the whole grading layer protects: "we don't know yet" is not "it earned
         // nothing". Rendering a zero would claim a result the desk does not have.

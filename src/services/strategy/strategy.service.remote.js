@@ -16,6 +16,7 @@ const _announce = () => window.dispatchEvent(new CustomEvent(TILT_CHANGED))
 export const strategyService = {
     sendStream,
     getCurrentTilt,
+    getTiltSeries,
     listTilts,
     getTilt,
     publishTilt,
@@ -32,6 +33,18 @@ async function sendStream(messages, opts = {}) {
 /** The view in force. `null` is a legitimate answer — the desk may simply not have published yet. */
 function getCurrentTilt(benchmark = 'SPX') {
     return httpService.get(`${BASE}/tilt/current?benchmark=${encodeURIComponent(benchmark)}`)
+}
+
+/**
+ * The line behind each stance on the view in force → `{ [bucket]: [{t, v}] }`, rebased to 100 at
+ * the call, so its last point is the relative return the contribution beside it is computed from.
+ *
+ * A SEPARATE read from the view. The board paints on the numbers it already has; the lines are an
+ * ornament that arrives when the bars do, and folding them into the view would put a dozen range
+ * fetches in front of every read of it. `{}` is a legitimate answer.
+ */
+function getTiltSeries(benchmark = 'SPX') {
+    return httpService.get(`${BASE}/tilt/series?benchmark=${encodeURIComponent(benchmark)}`)
 }
 
 /** Published history, newest first — the record the desk is graded on. */

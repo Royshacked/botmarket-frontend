@@ -35,6 +35,53 @@ function _date(iso) {
 }
 
 /**
+ * The stance's own line — its performance against the benchmark since the day the call was made,
+ * rebased to 100. Inline SVG, no library: it is forty points in a table cell.
+ *
+ * WHY A LINE AT ALL. `contribution_bp` says where a stance ended up and nothing about how it got
+ * there, and those are different facts about a call. A stance that bled for five months and
+ * snapped back last week reads identically to one that worked from the day it was set, and only
+ * one of them is a thesis behaving as written.
+ *
+ * The 100 line is drawn because it is the only value that means anything: above it the bucket is
+ * beating the benchmark, below it is not. Without it a rising line could be either.
+ */
+function Spark({ points, stance, activeBp }) {
+    if (!Array.isArray(points) || points.length < 2) return null
+
+    const W = 64, H = 18, PAD = 1
+    // SIGNED BY THE STANCE, and this is the whole point of the chart. The server sends the BUCKET's
+    // relative return — an objective fact, and the same quantity the grader scores. What the row's
+    // number reports is what the STANCE earned, which is that return times the sign of the weight.
+    // Plot the bucket's line unsigned and every underweight reads backwards: Real Estate showed
+    // +7.9bp beside a falling red line, because the sector fell and the desk was short it.
+    const sign = (activeBp ?? 0) < 0 ? -1 : 1
+    const vs   = points.map(p => 100 + (p.v - 100) * sign)
+    // The baseline is always inside the frame, so "above or below 100" is readable without axes.
+    const lo   = Math.min(...vs, 100)
+    const hi   = Math.max(...vs, 100)
+    const span = (hi - lo) || 1
+    const x = i => PAD + (i / (points.length - 1)) * (W - 2 * PAD)
+    const y = v => PAD + (1 - (v - lo) / span) * (H - 2 * PAD)
+
+    const last = vs[vs.length - 1]
+    // Up is the stance WORKING, whichever way it is pointed — the series is already signed.
+    const tone = last > 100.05 ? 'up' : last < 99.95 ? 'down' : 'flat'
+
+    return (
+        <svg className={`sector-view__spark sector-view__spark--${tone}`} viewBox={`0 0 ${W} ${H}`}
+            width={W} height={H} aria-hidden="true" focusable="false"
+            data-stance={stance ?? 'none'} data-points={points.length}>
+            <line className="sector-view__spark-base" x1={0} x2={W} y1={y(100)} y2={y(100)} />
+            <polyline className="sector-view__spark-line" fill="none"
+                points={vs.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')} />
+            <circle className="sector-view__spark-dot" cx={x(points.length - 1)} cy={y(last)} r={1.6} />
+        </svg>
+    )
+}
+Spark.propTypes = { points: PropTypes.array, stance: PropTypes.string, activeBp: PropTypes.number }
+
+/**
  * What the row is graded against, and what is imperfect about it. The server records `weighting`
  * and `exact` on every proxy precisely because both distort a grade, so the board has to be able
  * to say so rather than printing a ticker as if it were the bucket itself.
@@ -46,7 +93,7 @@ function _proxyTitle(proxy) {
     return `Graded against ${proxy?.symbol}${notes.length ? ` — ${notes.join('; ')}` : ''}`
 }
 
-function StanceRow({ row }) {
+function StanceRow({ row, points }) {
     const c = _contrib(row.contribution_bp)
     return (
         <div className={`sector-view__row sector-view__row--${row.stance ?? 'none'}`}>
@@ -66,6 +113,10 @@ function StanceRow({ row }) {
                 {STANCE_LABEL[row.stance] ?? 'no view'}
             </span>
             <span className="sector-view__bp">{_bp(row.active_bp)}</span>
+            {/* The line sits immediately before the number it explains — same fact, one as a shape
+                and one as a figure. It renders nothing at all when there are no bars yet (a call
+                made today), rather than an empty box that reads like a broken chart. */}
+            <Spark points={points} stance={row.stance} activeBp={row.active_bp} />
             <span className={`sector-view__contrib sector-view__contrib--${c.tone}`} title="Contribution to date: active weight x relative return">
                 {c.text}
             </span>
@@ -80,9 +131,9 @@ function StanceRow({ row }) {
         </div>
     )
 }
-StanceRow.propTypes = { row: PropTypes.object.isRequired }
+StanceRow.propTypes = { row: PropTypes.object.isRequired, points: PropTypes.array }
 
-export function SectorView({ tilt = null, loading = false }) {
+export function SectorView({ tilt = null, loading = false, series = {} }) {
     if (loading) return <div className="news-feed__loader"><span /><span /><span /></div>
     if (!tilt) {
         return <p className="news-feed__empty">No house view published yet. Ask Pythia for a top-down read.</p>
@@ -129,7 +180,7 @@ export function SectorView({ tilt = null, loading = false }) {
 
             <div className="sector-view__rows">
                 {rows.length
-                    ? rows.map(r => <StanceRow key={r.bucket} row={r} />)
+                    ? rows.map(r => <StanceRow key={r.bucket} row={r} points={series?.[r.bucket]} />)
                     : <p className="news-feed__empty">This view carries no stances.</p>}
             </div>
         </div>
@@ -139,4 +190,7 @@ export function SectorView({ tilt = null, loading = false }) {
 SectorView.propTypes = {
     tilt:    PropTypes.object,
     loading: PropTypes.bool,
+    // Keyed by bucket. Absent is the normal state for a moment after the view lands, and forever
+    // for a stance set today — the board is correct either way.
+    series:  PropTypes.object,
 }

@@ -13,10 +13,14 @@ vi.mock('../context/AuthContext.jsx', async (orig) => {
     return { ...actual, useAuth: () => AUTH }
 })
 
-const getCurrentTilt = vi.fn(async () => ({ tilts: [{ sector: 'Energy', stance: 'over' }] }))
+const getCurrentTilt = vi.fn(async () => ({ tilts: [{ bucket: 'Energy', stance: 'over' }] }))
+const getTiltSeries  = vi.fn(async () => ({ Energy: [{ t: 1, v: 100 }, { t: 2, v: 101 }] }))
 vi.mock('../services/strategy/strategy.service.remote.js', () => ({
     TILT_CHANGED: 'strategy-tilt-changed',
-    strategyService: { getCurrentTilt: (...a) => getCurrentTilt(...a) },
+    strategyService: {
+        getCurrentTilt: (...a) => getCurrentTilt(...a),
+        getTiltSeries:  (...a) => getTiltSeries(...a),
+    },
 }))
 
 const getEarnings = vi.fn(async () => ({ items: [{ symbol: 'AAPL' }], from: '2026-09-14', to: '2026-09-18' }))
@@ -43,6 +47,9 @@ describe('useCalendarEvents — the house view is fetched for admins only', () =
         const { result } = renderHook(() => useCalendarEvents())
         await waitFor(() => expect(result.current.tilt).not.toBeNull())
         expect(getCurrentTilt).toHaveBeenCalledTimes(1)
+        // The lines ride the same admin gate and the same refresh as the view itself.
+        expect(getTiltSeries).toHaveBeenCalledTimes(1)
+        await waitFor(() => expect(result.current.tiltSeries).toHaveProperty('Energy'))
         expect(result.current.earnings).toEqual([{ symbol: 'AAPL' }])
         expect(result.current.fed).toEqual([{ title: 'FOMC' }])
     })
@@ -54,7 +61,10 @@ describe('useCalendarEvents — the house view is fetched for admins only', () =
         expect(getFed).toHaveBeenCalledTimes(1)
         expect(getIpo).toHaveBeenCalledTimes(1)
         expect(getCurrentTilt).not.toHaveBeenCalled()
+        // The lines sit behind the same gate. A trader's fetch could only ever be a 403 in the log.
+        expect(getTiltSeries).not.toHaveBeenCalled()
         expect(result.current.tilt).toBeNull()
         expect(result.current.tiltLoading).toBe(false)
+        expect(result.current.tiltSeries).toEqual({})
     })
 })
