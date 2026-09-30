@@ -34,11 +34,34 @@ function _date(iso) {
     return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })
 }
 
+/**
+ * What the row is graded against, and what is imperfect about it. The server records `weighting`
+ * and `exact` on every proxy precisely because both distort a grade, so the board has to be able
+ * to say so rather than printing a ticker as if it were the bucket itself.
+ */
+function _proxyTitle(proxy) {
+    const notes = []
+    if (proxy?.weighting === 'equal') notes.push('equal-weighted against a cap-weighted benchmark, so part of a size factor rides along')
+    if (proxy?.exact === false)       notes.push('the fund spans more than this bucket')
+    return `Graded against ${proxy?.symbol}${notes.length ? ` — ${notes.join('; ')}` : ''}`
+}
+
 function StanceRow({ row }) {
     const c = _contrib(row.contribution_bp)
     return (
         <div className={`sector-view__row sector-view__row--${row.stance ?? 'none'}`}>
-            <span className="sector-view__sector">{row.sector}</span>
+            {/* A stance is held on a SECTOR or an INDUSTRY. The grain shows only on the finer one:
+                a sector is the default, and tagging every row would hide the exception. The fund
+                the row is graded against carries its own caveats — see _proxyTitle. */}
+            <span className="sector-view__bucket" title={row.bucket}>
+                {row.bucket}
+                {row.grain === 'industry' && <i className="sector-view__grain">ind</i>}
+                {row.proxy?.symbol && (
+                    <i className="sector-view__proxy" title={_proxyTitle(row.proxy)}>
+                        {row.proxy.symbol}{(row.proxy.exact === false || row.proxy.weighting === 'equal') ? '*' : ''}
+                    </i>
+                )}
+            </span>
             <span className={`sector-view__stance sector-view__stance--${row.stance ?? 'none'}`}>
                 {STANCE_LABEL[row.stance] ?? 'no view'}
             </span>
@@ -106,7 +129,7 @@ export function SectorView({ tilt = null, loading = false }) {
 
             <div className="sector-view__rows">
                 {rows.length
-                    ? rows.map(r => <StanceRow key={r.sector} row={r} />)
+                    ? rows.map(r => <StanceRow key={r.bucket} row={r} />)
                     : <p className="news-feed__empty">This view carries no stances.</p>}
             </div>
         </div>

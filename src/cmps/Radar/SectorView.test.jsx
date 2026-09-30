@@ -6,7 +6,7 @@ import { SectorView } from './SectorView.jsx'
 afterEach(cleanup)
 
 const row = (over = {}) => ({
-    sector: 'Healthcare', stance: 'over', active_bp: 150, horizon: '6m',
+    bucket: 'Healthcare', stance: 'over', active_bp: 150, horizon: '6m',
     review_date: '2027-02-06T00:00:00.000Z', state: 'open',
     contribution_bp: 9, rationale: 'Defensive earnings into a slowing tape.', ...over,
 })
@@ -40,10 +40,41 @@ describe('SectorView', () => {
     })
 
     it('an underweight reads as its own direction, negative weight and all', () => {
-        const { container } = render(<SectorView tilt={tilt({ tilts: [row({ sector: 'Energy', stance: 'under', active_bp: -150 })] })} />)
+        const { container } = render(<SectorView tilt={tilt({ tilts: [row({ bucket: 'Energy', stance: 'under', active_bp: -150 })] })} />)
         expect(screen.getByText('underweight')).toBeTruthy()
         expect(screen.getByText('-150bp')).toBeTruthy()
         expect(container.querySelector('.sector-view__row--under')).toBeTruthy()
+    })
+
+    it('an INDUSTRY row is tagged; a sector row is not', () => {
+        // The tag shows only on the finer grain. A sector is the default, and tagging every row
+        // would make the exception invisible — which is the only thing the tag is for.
+        const { container } = render(<SectorView tilt={tilt({ tilts: [
+            row({ bucket: 'Semiconductors', grain: 'industry', proxy: { symbol: 'SMH', weighting: 'cap', exact: true } }),
+            row({ bucket: 'Energy', grain: 'sector', proxy: { symbol: 'XLE', weighting: 'cap', exact: true } }),
+        ] })} />)
+        expect(screen.getByText('Semiconductors')).toBeTruthy()
+        expect(container.querySelectorAll('.sector-view__grain')).toHaveLength(1)
+        expect(container.querySelector('.sector-view__grain').textContent).toBe('ind')
+    })
+
+    it('an imperfect proxy is marked, and says why on hover', () => {
+        // `weighting` and `exact` are recorded server-side precisely because both distort a grade.
+        // A ticker printed as if it WERE the bucket is what this prevents.
+        const { container } = render(<SectorView tilt={tilt({ tilts: [
+            row({ bucket: 'Biotechnology', grain: 'industry', proxy: { symbol: 'IBB', weighting: 'cap', exact: true } }),
+            row({ bucket: 'Specialty Retail', grain: 'industry', proxy: { symbol: 'XRT', weighting: 'equal', exact: false } }),
+        ] })} />)
+        const proxies = [...container.querySelectorAll('.sector-view__proxy')]
+        expect(proxies.map(p => p.textContent)).toEqual(['IBB', 'XRT*'])
+        expect(proxies[0].getAttribute('title')).toBe('Graded against IBB')
+        expect(proxies[1].getAttribute('title')).toContain('equal-weighted')
+        expect(proxies[1].getAttribute('title')).toContain('spans more than this bucket')
+    })
+
+    it('a row with no fund shows no proxy at all, not an empty one', () => {
+        const { container } = render(<SectorView tilt={tilt({ tilts: [row({ proxy: null })] })} />)
+        expect(container.querySelector('.sector-view__proxy')).toBeNull()
     })
 
     it('an UNPRICED contribution shows a dash, never 0.0bp', () => {

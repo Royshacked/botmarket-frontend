@@ -34,6 +34,19 @@ const STANCE_LABEL = { over: 'OW', neutral: 'NEU', under: 'UW' }
 const _bp = v => (v === null || v === undefined ? '—' : `${v >= 0 ? '+' : ''}${v}bp`)
 
 /**
+ * What the row is graded against, and what is imperfect about it. The server records `weighting`
+ * and `exact` on every proxy precisely because both distort a grade, so the panel has to be able
+ * to say so rather than showing a ticker as if it were the bucket itself.
+ */
+function _proxyTitle(proxy) {
+    if (!proxy?.symbol) return 'No fund — this stance cannot be graded'
+    const notes = []
+    if (proxy.weighting === 'equal') notes.push('equal-weighted against a cap-weighted benchmark, so part of a size factor rides along')
+    if (proxy.exact === false)       notes.push('the fund spans more than this bucket')
+    return `Graded against ${proxy.symbol}${notes.length ? ` — ${notes.join('; ')}` : ''}`
+}
+
+/**
  * The drafted view before it is published — the regime, and each stance with the weight it implies.
  *
  * Shows the NET explicitly: a tilt table redistributes a fully-invested book, so the weights must
@@ -63,8 +76,18 @@ export function TiltDraft({ tilt }) {
             {tilt.regime?.thesis && <p className="strategy-panel__thesis">{tilt.regime.thesis}</p>}
             <div className="strategy-panel__stances">
                 {rows.map((r, i) => (
-                    <div key={r.sector ?? i} className={`strategy-panel__stance strategy-panel__stance--${r.stance ?? 'none'}`}>
-                        <span className="strategy-panel__stance-sector">{r.sector}</span>
+                    <div key={r.bucket ?? i} className={`strategy-panel__stance strategy-panel__stance--${r.stance ?? 'none'}`}>
+                        <span className="strategy-panel__stance-bucket" title={r.bucket}>
+                            {r.bucket}
+                            {r.grain === 'industry' && <i className="strategy-panel__stance-grain">ind</i>}
+                        </span>
+                        {/* Blank rather than a dash when there is no fund: the weight column owns
+                            the "unknown" dash, and two of them in a row read as one fact. */}
+                        <span className="strategy-panel__stance-proxy" title={_proxyTitle(r.proxy)}>
+                            {r.proxy?.symbol
+                                ? `${r.proxy.symbol}${(r.proxy.exact === false || r.proxy.weighting === 'equal') ? '*' : ''}`
+                                : ''}
+                        </span>
                         <span className="strategy-panel__stance-tag">{STANCE_LABEL[r.stance] ?? '—'}</span>
                         <span className="strategy-panel__stance-bp">{_bp(r.active_bp)}</span>
                         <span className="strategy-panel__stance-h">{r.horizon ?? '—'}</span>

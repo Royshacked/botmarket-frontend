@@ -97,7 +97,9 @@
 
     &__stance {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto auto auto;
+        // bucket · proxy · stance · weight · horizon. The bucket takes whatever is left, because an
+        // industry name ("Oil & Gas Exploration & Production") runs far longer than a sector's.
+        grid-template-columns: minmax(0, 1fr) auto auto auto auto;
         align-items: center;
         gap: 8px;
         padding: 4px 8px;
@@ -110,12 +112,42 @@
         &--under { border-left-color: var(--color-short); }
     }
 
-    &__stance-sector {
+    &__stance-bucket {
+        display: flex;
+        align-items: baseline;
+        gap: 5px;
+        min-width: 0;
         font-size: 12.5px;
         color: var(--text-primary);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+    }
+
+    // Which GRAIN the bet is held at. Only industries carry it: a sector is the default, and
+    // labelling every row would make the exception invisible.
+    &__stance-grain {
+        flex: none;
+        font-family: var(--font-mono);
+        font-size: 9.5px;
+        font-style: normal;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        padding: 0 3px;
+    }
+
+    // The fund the row is GRADED against. A trailing asterisk means the proxy is imperfect —
+    // equal-weighted, or spanning more than this bucket. The tooltip says which.
+    &__stance-proxy {
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        color: var(--text-muted);
+        min-width: 38px;
+        text-align: right;
+        cursor: help;
     }
 
     &__stance-tag {
