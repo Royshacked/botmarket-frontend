@@ -65,16 +65,29 @@ function Spark({ points, stance, activeBp }) {
     const y = v => PAD + (1 - (v - lo) / span) * (H - 2 * PAD)
 
     const last = vs[vs.length - 1]
+    // CONTEXT VS CALL. Points the server marks `pre` are where the bucket was coming from before the
+    // call — drawn dimmed, never judged. The call starts at the first point after them; the tick marks
+    // it. A call made today is all context, so it reads as a neutral history ending at the call
+    // rather than as a stance already winning or losing.
+    const split = points.findIndex(p => !p.pre)
+    const callIdx = split === -1 ? points.length - 1 : Math.max(0, split - 1)   // the last pre point joins the two
+    const hasCall = split !== -1
     // Up is the stance WORKING, whichever way it is pointed — the series is already signed.
-    const tone = last > 100.05 ? 'up' : last < 99.95 ? 'down' : 'flat'
+    const tone = !hasCall ? 'flat' : last > 100.05 ? 'up' : last < 99.95 ? 'down' : 'flat'
+    const pts = (from, to) => vs.slice(from, to + 1).map((v, i) => `${x(from + i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')
 
     return (
         <svg className={`sector-view__spark sector-view__spark--${tone}`} viewBox={`0 0 ${W} ${H}`}
             width={W} height={H} aria-hidden="true" focusable="false"
-            data-stance={stance ?? 'none'} data-points={points.length}>
+            data-stance={stance ?? 'none'} data-points={points.length} data-context={hasCall ? callIdx : points.length}>
             <line className="sector-view__spark-base" x1={0} x2={W} y1={y(100)} y2={y(100)} />
-            <polyline className="sector-view__spark-line" fill="none"
-                points={vs.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')} />
+            {callIdx > 0 && (
+                <polyline className="sector-view__spark-line sector-view__spark-line--pre" fill="none" points={pts(0, callIdx)} />
+            )}
+            {hasCall && (
+                <polyline className="sector-view__spark-line" fill="none" points={pts(callIdx, points.length - 1)} />
+            )}
+            {callIdx > 0 && <line className="sector-view__spark-call" x1={x(callIdx)} x2={x(callIdx)} y1={0} y2={H} />}
             <circle className="sector-view__spark-dot" cx={x(points.length - 1)} cy={y(last)} r={1.6} />
         </svg>
     )

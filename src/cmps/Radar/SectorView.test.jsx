@@ -129,6 +129,42 @@ describe('SectorView', () => {
         expect(y).toBeLessThanOrEqual(h)
     })
 
+    // ── context before the call ──────────────────────────────────────────────
+    const ctx = (pre, post) => [...pre.map((v, i) => ({ t: i, v, pre: true })), ...post.map((v, i) => ({ t: pre.length + i, v }))]
+
+    it('history before the call is drawn dimmed, with a tick at the call, and never judged', () => {
+        // The bucket ran up hard BEFORE the call, then went sideways: the result is flat, not a win.
+        const { container } = render(<SectorView
+            tilt={tilt({ tilts: [row({ bucket: 'Energy', stance: 'over', active_bp: 100 })] })}
+            series={{ Energy: ctx([90, 94, 99], [100, 100.02]) }} />)
+        const svg = container.querySelector('.sector-view__spark')
+        expect(svg.querySelector('.sector-view__spark-line--pre')).toBeTruthy()
+        expect(svg.querySelector('.sector-view__spark-call')).toBeTruthy()
+        expect(svg.classList.contains('sector-view__spark--flat')).toBe(true)
+        // the call's own segment starts at the last context point, so the two join
+        const segments = svg.querySelectorAll('polyline')
+        expect(segments).toHaveLength(2)
+        expect(segments[1].getAttribute('points').split(' ')).toHaveLength(3)
+    })
+
+    it('a call made today shows the quarter it was made into, neutral, instead of nothing', () => {
+        const { container } = render(<SectorView
+            tilt={tilt({ tilts: [row({ bucket: 'Energy', stance: 'under', active_bp: -100 })] })}
+            series={{ Energy: ctx([96, 98, 101, 100], []) }} />)
+        const svg = container.querySelector('.sector-view__spark')
+        expect(svg).toBeTruthy()
+        expect(svg.classList.contains('sector-view__spark--flat')).toBe(true)
+        expect(svg.querySelectorAll('polyline')).toHaveLength(1)
+        expect(svg.querySelector('.sector-view__spark-line--pre')).toBeTruthy()
+    })
+
+    it('the result after the call still takes its tone, signed by the stance', () => {
+        const { container } = render(<SectorView
+            tilt={tilt({ tilts: [row({ bucket: 'Energy', stance: 'over', active_bp: 100 })] })}
+            series={{ Energy: ctx([110, 105, 100], [100, 103]) }} />)
+        expect(container.querySelector('.sector-view__spark--up')).toBeTruthy()
+    })
+
     it('no line, one point, or junk draws NOTHING — never an empty box', () => {
         // A call made today has no line yet. An empty chart frame reads as a broken chart.
         for (const series of [undefined, {}, { Healthcare: [] }, { Healthcare: line(100) }, { Healthcare: 'nope' }]) {
