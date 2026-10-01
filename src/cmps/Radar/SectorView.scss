@@ -105,8 +105,8 @@
 
     &__row {
         display: grid;
-        // bucket · stance · weight · line · contribution · horizon — the rationale spans beneath.
-        grid-template-columns: minmax(0, 1fr) auto auto auto auto auto;
+        // bucket · weight · line · contribution · horizon — the rationale spans beneath.
+        grid-template-columns: minmax(0, 1fr) auto auto auto auto;
         align-items: center;
         gap: 8px;
         padding: 7px 18px 7px 10px;
@@ -167,33 +167,31 @@
         }
 
         &-line { stroke: currentColor; stroke-width: 1.25; stroke-linejoin: round; stroke-linecap: round; }
-        // Before the call: where the bucket came from. Context, so it never takes the result's tone.
-        &-line--pre { stroke: var(--text-muted); opacity: 0.55; }
+        // Before the call: where the bucket came from — the same colour, lighter, so the tick still
+        // separates history from the call's own performance.
+        &-line--pre { opacity: 0.5; }
         // The day the call was made.
         &-call { stroke: var(--text-muted); stroke-width: 1; opacity: 0.7; }
         &-dot  { fill: currentColor; }
 
-        &--up   { color: var(--long-text); }
-        &--down { color: var(--short-text); }
-        &--flat { color: var(--text-muted); }
+        // Coloured by DIRECTION, the same as the weight beside it.
+        &--over  { color: var(--long-text); }
+        &--under { color: var(--short-text); }
+        &--none  { color: var(--text-muted); }
     }
-    &__stance {
-        font-family: var(--font-mono);
-        font-size: 10px;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-        &--over    { color: var(--long-text); }
-        &--under   { color: var(--short-text); }
-        &--neutral,
-        &--none    { color: var(--text-muted); }
-    }
-
+    // The weight, coloured by DIRECTION — the stance word it replaced is its title. Colour here is
+    // spent on direction, which is one of the three things the Floor allows it for.
     &__bp {
         font-family: var(--font-mono);
         font-size: 12.5px;
         color: var(--text-secondary);
         min-width: 52px;
         text-align: right;
+        cursor: default;
+        &--over    { color: var(--long-text); }
+        &--under   { color: var(--short-text); }
+        &--neutral,
+        &--none    { color: var(--text-muted); }
     }
 
     // Contribution to date. `--unknown` is deliberately distinct from `--flat`: a stance we could

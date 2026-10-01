@@ -66,14 +66,14 @@ function Spark({ points, stance, activeBp }) {
 
     const last = vs[vs.length - 1]
     // CONTEXT VS CALL. Points the server marks `pre` are where the bucket was coming from before the
-    // call — drawn dimmed, never judged. The call starts at the first point after them; the tick marks
-    // it. A call made today is all context, so it reads as a neutral history ending at the call
-    // rather than as a stance already winning or losing.
+    // call — drawn lighter. The call starts at the first point after them; the tick marks it.
     const split = points.findIndex(p => !p.pre)
     const callIdx = split === -1 ? points.length - 1 : Math.max(0, split - 1)   // the last pre point joins the two
     const hasCall = split !== -1
-    // Up is the stance WORKING, whichever way it is pointed — the series is already signed.
-    const tone = !hasCall ? 'flat' : last > 100.05 ? 'up' : last < 99.95 ? 'down' : 'flat'
+    // COLOURED BY DIRECTION, like the weight beside it (Roy, 2026-10-01): green for an overweight,
+    // red for an underweight, the whole line. The RESULT is read from the shape — the series is
+    // signed, so up is the stance working whichever way it points — and from the number to its right.
+    const tone = stance === 'over' ? 'over' : stance === 'under' ? 'under' : 'none'
     const pts = (from, to) => vs.slice(from, to + 1).map((v, i) => `${x(from + i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')
 
     return (
@@ -122,10 +122,15 @@ function StanceRow({ row, points }) {
                     </i>
                 )}
             </span>
-            <span className={`sector-view__stance sector-view__stance--${row.stance ?? 'none'}`}>
-                {STANCE_LABEL[row.stance] ?? 'no view'}
+            {/* The weight carries the direction by its COLOUR — green over, red under — rather than
+                an "overweight" word beside it: the sign already says it, and the word was a second
+                column restating the first. The word stays as the title and the accessible name, so
+                the meaning is never colour alone. */}
+            <span className={`sector-view__bp sector-view__bp--${row.stance ?? 'none'}`}
+                title={STANCE_LABEL[row.stance] ?? 'no view'}
+                aria-label={`${STANCE_LABEL[row.stance] ?? 'no view'} ${_bp(row.active_bp)}`}>
+                {_bp(row.active_bp)}
             </span>
-            <span className="sector-view__bp">{_bp(row.active_bp)}</span>
             {/* The line sits immediately before the number it explains — same fact, one as a shape
                 and one as a figure. It renders nothing at all when there are no bars yet (a call
                 made today), rather than an empty box that reads like a broken chart. */}

@@ -30,19 +30,22 @@ describe('SectorView', () => {
         expect(screen.getByText('core CPI above 3.5% twice')).toBeTruthy()
     })
 
-    it('renders a stance as a signed active weight against the benchmark', () => {
+    it('renders a stance as a signed active weight, coloured by direction, with no stance word', () => {
         const { container } = render(<SectorView tilt={tilt()} />)
         expect(screen.getByText('Healthcare')).toBeTruthy()
-        expect(screen.getByText('overweight')).toBeTruthy()
-        expect(screen.getByText('+150bp')).toBeTruthy()
+        const bp = screen.getByText('+150bp')
+        expect(bp.classList.contains('sector-view__bp--over')).toBe(true)
+        expect(screen.queryByText('overweight')).toBeNull()
         expect(screen.getByText('vs SPX')).toBeTruthy()
         expect(container.querySelector('.sector-view__row--over')).toBeTruthy()
     })
 
-    it('an underweight reads as its own direction, negative weight and all', () => {
+    it('an underweight is red and negative, and the direction is never colour alone', () => {
         const { container } = render(<SectorView tilt={tilt({ tilts: [row({ bucket: 'Energy', stance: 'under', active_bp: -150 })] })} />)
-        expect(screen.getByText('underweight')).toBeTruthy()
-        expect(screen.getByText('-150bp')).toBeTruthy()
+        const bp = screen.getByText('-150bp')
+        expect(bp.classList.contains('sector-view__bp--under')).toBe(true)
+        expect(bp.getAttribute('title')).toBe('underweight')
+        expect(bp.getAttribute('aria-label')).toBe('underweight -150bp')
         expect(container.querySelector('.sector-view__row--under')).toBeTruthy()
     })
 
@@ -80,39 +83,51 @@ describe('SectorView', () => {
     // ── the line ─────────────────────────────────────────────────────────────
     const line = (...vs) => vs.map((v, i) => ({ t: i, v }))
 
-    it('an OVERWEIGHT whose bucket beat the benchmark reads as a win', () => {
+    // The line is COLOURED BY DIRECTION (green over, red under, like the weight) and SIGNED by the
+    // stance: up means the stance is working. Tested apart — the colour says which way the bet points,
+    // the shape says whether it is winning.
+    const endsAbove = (svg) => Number(svg.querySelector('.sector-view__spark-dot').getAttribute('cy'))
+        < Number(svg.querySelector('.sector-view__spark-base').getAttribute('y1'))
+
+    it('an OVERWEIGHT is green, and a bucket that beat the benchmark draws upward', () => {
         const { container } = render(<SectorView
             tilt={tilt({ tilts: [row({ bucket: 'Energy', stance: 'over', active_bp: 100 })] })}
             series={{ Energy: line(100, 101, 103) }} />)
         const spark = container.querySelector('.sector-view__spark')
-        expect(spark).toBeTruthy()
-        expect(spark.classList.contains('sector-view__spark--up')).toBe(true)
+        expect(spark.classList.contains('sector-view__spark--over')).toBe(true)
         expect(spark.getAttribute('data-stance')).toBe('over')
         expect(spark.querySelector('polyline').getAttribute('points').split(' ')).toHaveLength(3)
+        expect(endsAbove(spark)).toBe(true)
     })
 
-    it('an UNDERWEIGHT is signed by its weight — the same rising bucket is a LOSS', () => {
-        // The defect this pins. The server sends the BUCKET's relative return; the number in the
-        // row reports what the STANCE earned. Plot the bucket unsigned and every underweight reads
-        // backwards — Real Estate showed +7.9bp beside a falling red line, live.
+    it('an UNDERWEIGHT is red and signed by its weight — the same rising bucket draws DOWN', () => {
+        // The defect the signing pins: the server sends the BUCKET's relative return; the row reports
+        // what the STANCE earned. Unsigned, every underweight reads backwards — Real Estate showed
+        // +7.9bp beside a falling line, live.
         const { container } = render(<SectorView
             tilt={tilt({ tilts: [row({ bucket: 'Energy', stance: 'under', active_bp: -100 })] })}
             series={{ Energy: line(100, 101, 103) }} />)
-        expect(container.querySelector('.sector-view__spark--down')).toBeTruthy()
+        const spark = container.querySelector('.sector-view__spark')
+        expect(spark.classList.contains('sector-view__spark--under')).toBe(true)
+        expect(endsAbove(spark)).toBe(false)
     })
 
-    it('an UNDERWEIGHT whose bucket FELL reads as the win it is', () => {
+    it('an UNDERWEIGHT whose bucket FELL draws upward — the win it is — and stays red', () => {
         const { container } = render(<SectorView
             tilt={tilt({ tilts: [row({ bucket: 'Energy', stance: 'under', active_bp: -100, contribution_bp: 7.9 })] })}
             series={{ Energy: line(100, 97, 92) }} />)
-        expect(container.querySelector('.sector-view__spark--up')).toBeTruthy()
+        const spark = container.querySelector('.sector-view__spark')
+        expect(spark.classList.contains('sector-view__spark--under')).toBe(true)
+        expect(endsAbove(spark)).toBe(true)
     })
 
-    it('an overweight that lagged reads as a loss', () => {
+    it('an overweight that lagged draws down, and stays green', () => {
         const { container } = render(<SectorView
             tilt={tilt({ tilts: [row({ bucket: 'Energy', stance: 'over', active_bp: 100 })] })}
             series={{ Energy: line(100, 99, 96) }} />)
-        expect(container.querySelector('.sector-view__spark--down')).toBeTruthy()
+        const spark = container.querySelector('.sector-view__spark')
+        expect(spark.classList.contains('sector-view__spark--over')).toBe(true)
+        expect(endsAbove(spark)).toBe(false)
     })
 
     it('the 100 line is always drawn, and always inside the frame', () => {
@@ -132,37 +147,38 @@ describe('SectorView', () => {
     // ── context before the call ──────────────────────────────────────────────
     const ctx = (pre, post) => [...pre.map((v, i) => ({ t: i, v, pre: true })), ...post.map((v, i) => ({ t: pre.length + i, v }))]
 
-    it('history before the call is drawn dimmed, with a tick at the call, and never judged', () => {
-        // The bucket ran up hard BEFORE the call, then went sideways: the result is flat, not a win.
+    it('history before the call is drawn lighter, with a tick at the call, in the row colour', () => {
         const { container } = render(<SectorView
             tilt={tilt({ tilts: [row({ bucket: 'Energy', stance: 'over', active_bp: 100 })] })}
             series={{ Energy: ctx([90, 94, 99], [100, 100.02]) }} />)
         const svg = container.querySelector('.sector-view__spark')
         expect(svg.querySelector('.sector-view__spark-line--pre')).toBeTruthy()
         expect(svg.querySelector('.sector-view__spark-call')).toBeTruthy()
-        expect(svg.classList.contains('sector-view__spark--flat')).toBe(true)
+        expect(svg.classList.contains('sector-view__spark--over')).toBe(true)
         // the call's own segment starts at the last context point, so the two join
         const segments = svg.querySelectorAll('polyline')
         expect(segments).toHaveLength(2)
         expect(segments[1].getAttribute('points').split(' ')).toHaveLength(3)
     })
 
-    it('a call made today shows the quarter it was made into, neutral, instead of nothing', () => {
+    it('a call made today shows the quarter it was made into, in its direction colour', () => {
         const { container } = render(<SectorView
             tilt={tilt({ tilts: [row({ bucket: 'Energy', stance: 'under', active_bp: -100 })] })}
             series={{ Energy: ctx([96, 98, 101, 100], []) }} />)
         const svg = container.querySelector('.sector-view__spark')
         expect(svg).toBeTruthy()
-        expect(svg.classList.contains('sector-view__spark--flat')).toBe(true)
+        expect(svg.classList.contains('sector-view__spark--under')).toBe(true)
         expect(svg.querySelectorAll('polyline')).toHaveLength(1)
         expect(svg.querySelector('.sector-view__spark-line--pre')).toBeTruthy()
     })
 
-    it('the result after the call still takes its tone, signed by the stance', () => {
+    it('the result after the call is read from the shape: an overweight that worked ends above 100', () => {
         const { container } = render(<SectorView
             tilt={tilt({ tilts: [row({ bucket: 'Energy', stance: 'over', active_bp: 100 })] })}
             series={{ Energy: ctx([110, 105, 100], [100, 103]) }} />)
-        expect(container.querySelector('.sector-view__spark--up')).toBeTruthy()
+        const svg = container.querySelector('.sector-view__spark')
+        expect(svg.classList.contains('sector-view__spark--over')).toBe(true)
+        expect(endsAbove(svg)).toBe(true)
     })
 
     it('no line, one point, or junk draws NOTHING — never an empty box', () => {
