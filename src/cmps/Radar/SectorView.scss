@@ -63,6 +63,57 @@
         color: var(--text-muted);
     }
 
+    // ── the macro calls the sized rows follow ────────────────────────────────
+    // Rows, not cards, like the stances: a hairline closes the block off. Colour is spent only on the
+    // MARK (a result: ahead of history or behind it); the call's numbers stay neutral.
+    &__calls {
+        padding: 8px 10px 10px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    &__call {
+        display: grid;
+        grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto auto;
+        align-items: baseline;
+        column-gap: 10px;
+        padding: 5px 0;
+
+        & + & { border-top: 1px solid var(--border); }
+    }
+
+    &__call-name {
+        font-size: 12.5px;
+        color: var(--text-primary);
+        white-space: nowrap;
+    }
+
+    &__call-nums {
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        color: var(--text-secondary);
+        overflow-wrap: anywhere;
+        b { font-weight: 600; color: var(--text-primary); }
+    }
+
+    &__call-made,
+    &__call-mark {
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        white-space: nowrap;
+        color: var(--text-muted);
+    }
+
+    &__call-mark {
+        &--ahead  { color: var(--long-text); }
+        &--behind { color: var(--short-text); }
+    }
+
+    &__record {
+        margin: 6px 0 0;
+        font-size: 12px;
+        color: var(--text-secondary);
+    }
+
     // ── running score ─────────────────────────────────────────────────────────
     &__summary {
         display: flex;

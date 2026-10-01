@@ -236,3 +236,42 @@ describe('SectorView', () => {
         expect(container.querySelector('.sector-view__kills')).toBeNull()
     })
 })
+
+describe('SectorView — the channel calls', () => {
+    const views = [
+        { channel_id: 'discount_rate', dz: -0.5, base_dz: -1.78, deviation: 1.28, set_at: '2026-10-01T00:00:00.000Z', rationale: 'Less reversion than usual.' },
+        { channel_id: 'some_new_channel', dz: 0.4, base_dz: 0.172, deviation: 0.228, set_at: '2026-10-01T00:00:00.000Z' },
+    ]
+
+    it('each call reads in plain words: called, history, and the departure the rows are sized on', () => {
+        const { container } = render(<SectorView tilt={tilt({ channel_views: views })} />)
+        expect(screen.getByText('Real yields')).toBeTruthy()
+        expect(screen.getByText('some new channel'), 'an unnamed channel still reads').toBeTruthy()
+        expect(container.querySelector('.sector-view__call-nums').textContent).toBe('called −0.50z · history −1.78z · departs +1.28z')
+        expect(screen.getByText('Less reversion than usual.')).toBeTruthy()
+    })
+
+    it('with no marks yet, every call says so, and the record line says when grades come', () => {
+        render(<SectorView tilt={tilt({ channel_views: views })} calls={{ record: { graded: 0, confidence: 0.4 }, calls: {} }} />)
+        expect(screen.getAllByText('no mark yet')).toHaveLength(2)
+        expect(screen.getByText(/No call graded yet — each is graded at six months; calls weighted at 0.4 until ten are/)).toBeTruthy()
+    })
+
+    it('a mark is the one coloured thing: ahead of history green, behind it red', () => {
+        const { container } = render(<SectorView tilt={tilt({ channel_views: views })} calls={{
+            record: { graded: 10, beat: 7, hit_rate: 0.7, confidence: 0.4 },
+            calls: {
+                discount_rate: { latest_mark: { weeks: 13, beat_base: true, actual_dz: -0.3, expected_dz: -0.25, base_expected_dz: -0.89 } },
+                some_new_channel: { latest_mark: { weeks: 4, beat_base: false } },
+            },
+        }} />)
+        expect(container.querySelector('.sector-view__call-mark--ahead').textContent).toBe('13w ahead')
+        expect(container.querySelector('.sector-view__call-mark--behind').textContent).toBe('4w behind')
+        expect(screen.getByText(/Record: 7 of 10 calls beat history \(70%\) — calls weighted at 0.4/)).toBeTruthy()
+    })
+
+    it('a view without channel calls shows no calls block', () => {
+        const { container } = render(<SectorView tilt={tilt()} />)
+        expect(container.querySelector('.sector-view__calls')).toBeNull()
+    })
+})

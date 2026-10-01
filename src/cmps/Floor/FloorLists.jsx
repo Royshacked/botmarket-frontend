@@ -782,7 +782,7 @@ export function FloorLists({
     onEditScan, onDeleteScan,
     onEditCoverage, onRetireCoverage, onDeleteCoverage,
     onExecuteQueued, onCancelQueued, queuedBusyId = null,
-    earnings = [], fed = [], ipo = [], tilt = null, tiltSeries = {}, calendarLoading = {},
+    earnings = [], fed = [], ipo = [], tilt = null, tiltSeries = {}, tiltCalls = null, calendarLoading = {},
     onEarningSelect, onIpoSelect,
     isAdmin = false,
     researchQueue = [], onStartResearch, onMarkResearchDone, onRejectResearch, researchQueueBusyId = null,
@@ -956,7 +956,7 @@ export function FloorLists({
                     {desk.key === 'forecasts' && (
                         calendarLoading.forecasts && !tilt
                             ? <p className="floor-empty">Loading…</p>
-                            : <SectorView tilt={tilt} series={tiltSeries} />
+                            : <SectorView tilt={tilt} series={tiltSeries} calls={tiltCalls} />
                     )}
                 </Desk>
                 </Fragment>
@@ -983,6 +983,7 @@ FloorLists.propTypes = {
     ipo:               PropTypes.array,
     tilt:              PropTypes.object,
     tiltSeries:        PropTypes.object,
+    tiltCalls:         PropTypes.object,
     // Keyed by desk, not one flag for all four: a slow IPO feed used to hold up the earnings list
     // and the house view alongside it, because the old tab strip had one shared "Loading…".
     calendarLoading:     PropTypes.object,

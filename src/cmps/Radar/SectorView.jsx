@@ -12,6 +12,60 @@ import './SectorView.scss'
 
 const STANCE_LABEL = { over: 'overweight', neutral: 'neutral', under: 'underweight' }
 
+// Plain names for the engine's channel ids (aether-engine configs/channels.yaml). A channel added
+// later without a name here still reads, as its id with the underscores dropped.
+const CHANNEL_LABEL = {
+    discount_rate: 'Real yields', policy_rate_expectations: 'Policy-rate expectations', yield_curve: 'Yield curve',
+    inflation_expectations: 'Inflation expectations', energy_cost: 'Energy costs', risk_premium: 'Risk premium (VIX)',
+    fx_usd: 'Dollar', credit_access: 'IG credit spreads', high_yield_spread: 'High-yield spreads', liquidity: 'Fed liquidity',
+    freight_logistics: 'Freight costs', consumer_credit: 'Consumer credit', supply_chain_concentration: 'Supply-chain pressure',
+    corporate_capex: 'Business capex', regulatory_policy: 'Policy uncertainty', input_scarcity: 'Input costs',
+    end_demand: 'End demand', labor_cost: 'Labour costs', commodity_metals: 'Industrial metals',
+    commodity_agriculture: 'Farm commodities', housing_construction: 'Housing', fiscal_impulse: 'Fiscal impulse',
+    demographic_labor: 'Labour supply',
+}
+const _channel = (id) => CHANNEL_LABEL[id] ?? String(id ?? '').replace(/_/g, ' ')
+const _z = (v) => (v === null || v === undefined ? '—' : `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(2)}z`)
+
+/**
+ * THE MACRO CALLS behind the sized rows — what the desk forecast, against what history says, and how
+ * each call is doing. Only the DEPARTURE from history is sized (history is priced), so that number
+ * is the one the row weights follow. A mark is a RESULT, so it alone takes colour: ahead of history
+ * green, behind it red.
+ */
+function ChannelCalls({ views, marks, record }) {
+    if (!Array.isArray(views) || !views.length) return null
+    const recordLine = !record
+        ? null
+        : record.graded
+            ? `Record: ${record.beat} of ${record.graded} calls beat history (${Math.round((record.hit_rate ?? 0) * 100)}%) — calls weighted at ${record.confidence}.`
+            : `No call graded yet — each is graded at six months; calls weighted at ${record.confidence} until ten are.`
+    return (
+        <div className="sector-view__calls">
+            <span className="sector-view__kills-label">channel calls</span>
+            {views.map(v => {
+                const m = marks?.[v.channel_id]?.latest_mark ?? null
+                return (
+                    <div key={v.channel_id} className="sector-view__call">
+                        <span className="sector-view__call-name">{_channel(v.channel_id)}</span>
+                        <span className="sector-view__call-nums" title="The desk's call, history's usual move from here (priced), and the departure the rows are sized on">
+                            called {_z(v.dz)} · history {_z(v.base_dz)} · <b>departs {_z(v.deviation)}</b>
+                        </span>
+                        <span className="sector-view__call-made">{_date(v.set_at) ?? ''}</span>
+                        <span className={`sector-view__call-mark sector-view__call-mark--${m ? (m.beat_base ? 'ahead' : 'behind') : 'none'}`}
+                            title={m ? `At ${m.weeks} weeks: moved ${_z(m.actual_dz)} — the call expected ${_z(m.expected_dz)}, history ${_z(m.base_expected_dz)}` : 'First mark at four weeks'}>
+                            {m ? `${m.weeks}w ${m.beat_base ? 'ahead' : 'behind'}` : 'no mark yet'}
+                        </span>
+                        {v.rationale && <p className="sector-view__why">{v.rationale}</p>}
+                    </div>
+                )
+            })}
+            {recordLine && <p className="sector-view__record">{recordLine}</p>}
+        </div>
+    )
+}
+ChannelCalls.propTypes = { views: PropTypes.array, marks: PropTypes.object, record: PropTypes.object }
+
 /** +150bp / -50bp / — . An absent weight is not a zero. */
 function _bp(v) {
     if (v === null || v === undefined) return '—'
@@ -151,7 +205,7 @@ function StanceRow({ row, points }) {
 }
 StanceRow.propTypes = { row: PropTypes.object.isRequired, points: PropTypes.array }
 
-export function SectorView({ tilt = null, loading = false, series = {} }) {
+export function SectorView({ tilt = null, loading = false, series = {}, calls = null }) {
     if (loading) return <div className="news-feed__loader"><span /><span /><span /></div>
     if (!tilt) {
         return <p className="news-feed__empty">No house view published yet. Ask Pythia for a top-down read.</p>
@@ -182,6 +236,8 @@ export function SectorView({ tilt = null, loading = false, series = {} }) {
                 </div>
             )}
 
+            <ChannelCalls views={tilt.channel_views} marks={calls?.calls} record={calls?.record} />
+
             <div className="sector-view__summary">
                 <span className="sector-view__bench">vs {tilt.benchmark ?? 'SPX'}</span>
                 <span className={`sector-view__total sector-view__total--${total.tone}`} title="Total contribution across graded stances">
@@ -211,4 +267,7 @@ SectorView.propTypes = {
     // Keyed by bucket. Absent is the normal state for a moment after the view lands, and forever
     // for a stance set today — the board is correct either way.
     series:  PropTypes.object,
+    // `{ record, calls: { [channel_id]: { latest_mark } } }` from the call ledger. Absent until the
+    // read lands; the calls themselves come from the view, so the block paints without it.
+    calls:   PropTypes.object,
 }

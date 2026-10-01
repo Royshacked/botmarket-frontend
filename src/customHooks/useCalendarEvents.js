@@ -27,6 +27,9 @@ export function useCalendarEvents() {
     // ornament on a number that stands without it, so the board paints as soon as the view lands
     // and the lines fill in when the bars do.
     const [tiltSeries, setTiltSeries] = useState({})
+    // The channel calls' marks and the desk's record (the call ledger). Same shape of read as the
+    // lines: an ornament on the view, swallowed on failure.
+    const [tiltCalls, setTiltCalls] = useState({ record: null, calls: {} })
     // The tilt read is requireAdmin (2026-09-14) and every surface that renders it is admin-only,
     // so a trader's fetch could only ever be a 403 in the log. Skipped rather than caught: the
     // other three feeds keep their timer either way. `?? {}` — the hook is also mounted in tests
@@ -68,6 +71,9 @@ export function useCalendarEvents() {
                 strategyService.getTiltSeries()
                     .then(s => { if (active) setTiltSeries(s ?? {}) })
                     .catch(() => {})
+                strategyService.getTiltCalls()
+                    .then(c => { if (active) setTiltCalls(c ?? { record: null, calls: {} }) })
+                    .catch(() => {})
             }
         }
 
@@ -81,5 +87,5 @@ export function useCalendarEvents() {
         return () => { active = false; clearInterval(t); window.removeEventListener(TILT_CHANGED, refresh) }
     }, [isAdmin])
 
-    return { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, tilt, tiltLoading, tiltSeries }
+    return { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, tilt, tiltLoading, tiltSeries, tiltCalls }
 }

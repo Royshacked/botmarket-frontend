@@ -17,6 +17,7 @@ export const strategyService = {
     sendStream,
     getCurrentTilt,
     getTiltSeries,
+    getTiltCalls,
     listTilts,
     getTilt,
     publishTilt,
@@ -45,6 +46,15 @@ function getCurrentTilt(benchmark = 'SPX') {
  */
 function getTiltSeries(benchmark = 'SPX') {
     return httpService.get(`${BASE}/tilt/series?benchmark=${encodeURIComponent(benchmark)}`)
+}
+
+/**
+ * The view in force's CHANNEL CALLS with their latest marks, and the desk's record →
+ * `{ record, calls: { [channel_id]: { call_id, latest_mark } } }`. Separate from the view for the same
+ * reason the series is: the board paints without it. `{ record: null, calls: {} }` is legitimate.
+ */
+function getTiltCalls(benchmark = 'SPX') {
+    return httpService.get(`${BASE}/tilt/calls?benchmark=${encodeURIComponent(benchmark)}`)
 }
 
 /** Published history, newest first — the record the desk is graded on. */

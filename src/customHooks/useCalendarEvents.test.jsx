@@ -15,11 +15,13 @@ vi.mock('../context/AuthContext.jsx', async (orig) => {
 
 const getCurrentTilt = vi.fn(async () => ({ tilts: [{ bucket: 'Energy', stance: 'over' }] }))
 const getTiltSeries  = vi.fn(async () => ({ Energy: [{ t: 1, v: 100 }, { t: 2, v: 101 }] }))
+const getTiltCalls   = vi.fn(async () => ({ record: { graded: 0, confidence: 0.4 }, calls: { energy_cost: { latest_mark: null } } }))
 vi.mock('../services/strategy/strategy.service.remote.js', () => ({
     TILT_CHANGED: 'strategy-tilt-changed',
     strategyService: {
         getCurrentTilt: (...a) => getCurrentTilt(...a),
         getTiltSeries:  (...a) => getTiltSeries(...a),
+        getTiltCalls:   (...a) => getTiltCalls(...a),
     },
 }))
 
@@ -50,6 +52,9 @@ describe('useCalendarEvents — the house view is fetched for admins only', () =
         // The lines ride the same admin gate and the same refresh as the view itself.
         expect(getTiltSeries).toHaveBeenCalledTimes(1)
         await waitFor(() => expect(result.current.tiltSeries).toHaveProperty('Energy'))
+        // ...and so do the call marks and the desk's record.
+        expect(getTiltCalls).toHaveBeenCalledTimes(1)
+        await waitFor(() => expect(result.current.tiltCalls.record).toEqual({ graded: 0, confidence: 0.4 }))
         expect(result.current.earnings).toEqual([{ symbol: 'AAPL' }])
         expect(result.current.fed).toEqual([{ title: 'FOMC' }])
     })
@@ -63,6 +68,7 @@ describe('useCalendarEvents — the house view is fetched for admins only', () =
         expect(getCurrentTilt).not.toHaveBeenCalled()
         // The lines sit behind the same gate. A trader's fetch could only ever be a 403 in the log.
         expect(getTiltSeries).not.toHaveBeenCalled()
+        expect(getTiltCalls).not.toHaveBeenCalled()
         expect(result.current.tilt).toBeNull()
         expect(result.current.tiltLoading).toBe(false)
         expect(result.current.tiltSeries).toEqual({})
