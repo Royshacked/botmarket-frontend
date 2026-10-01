@@ -3,7 +3,8 @@ import { ConvictionChip } from '../ConvictionChip/ConvictionChip'
 import { TalosBadge } from '../AxlHub/AgentBadges.jsx'
 import { EntityCard, SymbolCell, Pill, StatusBadge, EditButton, DeleteButton } from '../EntityCard/EntityCard.jsx'
 import { formatCreatedAt } from './tradeIdea.utils.js'
-import { setupIcon, isSetupArmed, isSetupLive, canArmSetup } from './setupStatus.js'
+import { setupIcon, isSetupArmed, isSetupLive, canArmSetup, statusCopy } from './setupStatus.js'
+import { fmtLevel, fmtEntry } from './setupPlan.utils.js'
 import './SetupCard.scss'
 
 // One `setup` in the Lists surface. Mentor's artifact, watched by Talos.
@@ -11,28 +12,10 @@ import './SetupCard.scss'
 // Renders into the shared EntityCard, so a setup sits in the same frame as the idea and the call
 // one tab away. What stays here is the setup's own judgment — above all ARM STATE.
 //
-// A setup sits at `unarmed` after Generate and NOTHING watches it until it is armed. That
+// A setup sits at `waiting` after Generate and NOTHING watches it until it is armed. That
 // distinction is invisible in the data and expensive to get wrong, so it is stated twice: as a
-// word in the titleline (not a colour a user has to learn) and as the status toggle's action.
-//
-// The lifecycle IS the Kairos call's: armed (`waiting`) → price in a zone (`watching`) → the setup
-// fulfils (`ready`). `watching` is NOT a call to action — the zone is only the first gate, and
-// Talos asks for a confirm only once the setup itself fills in. `unarmed` is the one rung a call
-// has no equivalent of, because a call is live from the moment it is saved.
-
-// The readiness ladder a setup shares with a call: waiting → watching → ready.
-const STATUS_COPY = {
-    unarmed:  { label: 'Not watched', hint: 'Generated but not armed — Talos is not looking at it yet.' },
-    waiting:  { label: 'Armed',       hint: 'Talos is watching for price to reach a zone.' },
-    watching: { label: 'In zone',     hint: 'Price is in your zone — Talos is reading whether the setup actually fills in. No action yet.' },
-    ready:    { label: 'Ready',       hint: 'The setup filled in — an order is awaiting your confirmation.' },
-    hit:      { label: 'Placed',      hint: 'Order placed at the broker, awaiting fill.' },
-    long:     { label: 'Long',        hint: 'In position.' },
-    short:    { label: 'Short',       hint: 'In position.' },
-    closed:   { label: 'Closed',      hint: 'Finished.' },
-}
-
-const fmtLeg = (z) => (z?.price == null ? null : `${z.price}`)
+// word in the titleline (not a colour a user has to learn) and as the status toggle's action. The
+// words themselves live in setupStatus.statusCopy.
 
 /**
  * in / stop / target on one line — the summary a setup is actually read for.
@@ -43,10 +26,12 @@ const fmtLeg = (z) => (z?.price == null ? null : `${z.price}`)
  */
 function zoneSummary(setup) {
     const parts = [
-        `in ${fmtLeg(setup.entry_legs?.[0])}`,
-        `stop ${fmtLeg(setup.stop_legs?.[0])}`,
+        // The ENTRY through the shared reading: a trigger entry has no price, and this line used to
+        // print "in null" for it (driven live, 2026-10-01).
+        `in ${fmtEntry(setup.entry_legs?.[0])}`,
+        `stop ${fmtLevel(setup.stop_legs?.[0])}`,
     ]
-    if (setup.target_legs?.[0]) parts.push(`target ${fmtLeg(setup.target_legs[0])}`)
+    if (setup.target_legs?.[0]) parts.push(`target ${fmtLevel(setup.target_legs[0])}`)
     const others = Math.max((setup.scenarios?.length ?? 0) - 1, 0)
     if (others > 0) parts.push(`+${others} more way${others > 1 ? 's' : ''} in`)
     return parts.join(' · ')
@@ -54,7 +39,7 @@ function zoneSummary(setup) {
 
 export function SetupCard({ setup, onArm, onDisarm, onDelete, onOpen, onEdit, onSymbolClick, busy = false }) {
     const status = setup.status ?? 'waiting'
-    const copy   = STATUS_COPY[status] ?? { label: status, hint: '' }
+    const copy   = statusCopy(setup)
     const armed  = isSetupArmed(status)
     const live   = isSetupLive(status)
     const canArm = canArmSetup(status)

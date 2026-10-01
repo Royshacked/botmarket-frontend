@@ -19,6 +19,7 @@ export const SETUPS_CHANGED = api.changeEvent
 export const mentorService = {
     sendStream,
     hydrateBlueprint,
+    validateSetup,
     shareSetup,
     generateSetup,
     generateSetups,
@@ -48,6 +49,17 @@ export const mentorService = {
  */
 function hydrateBlueprint(blueprint = null, accounts = []) {
     return api.post('/blueprint', { blueprint, accounts })
+}
+
+/**
+ * The Generate gate for a draft, asked outside a turn — and, for a Mentor draft, the build gate open
+ * on its ledger. What a REOPENED conversation needs before the user has said anything: without it the
+ * button sat dark with nothing to say and no gate card was up to press (driven live, 2026-10-01).
+ *
+ * Read-only. Not `api.post`, which broadcasts SETUPS_CHANGED after every write — nothing was written.
+ */
+function validateSetup(setup, accounts = []) {
+    return httpService.post('api/setups/validate', { setup, accounts })
 }
 
 /**

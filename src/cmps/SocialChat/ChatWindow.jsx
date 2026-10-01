@@ -8,7 +8,7 @@ import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTR
 import { manualService } from '../../services/manual/manual.service.remote'
 import { mentorService } from '../../services/mentor/mentor.service.remote'
 import { marketService } from '../../services/market/market.service.remote'
-import { fmtLevel } from '../TradeIdeas/setupPlan.utils.js'
+import { fmtLevel, fmtEntry } from '../TradeIdeas/setupPlan.utils.js'
 import { formatPrice, formatCreatedAt } from '../TradeIdeas/tradeIdea.utils.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
@@ -695,7 +695,7 @@ export function SetupSharedBubble({ msg, mine = false, onClose, onResolve }) {
             {qualifier && <div className="social-chat__shared-setup-line social-chat__shared-setup-line--muted">{qualifier}{ways > 1 ? ` · ${ways} ways in` : ''}</div>}
             {sc && (
                 <div className="social-chat__shared-setup-levels">
-                    <span>Entry {sc.entry_legs?.length ? sc.entry_legs.map(fmtLevel).join(' / ') : '—'}</span>
+                    <span>Entry {sc.entry_legs?.length ? sc.entry_legs.map(fmtEntry).join(' / ') : '—'}</span>
                     <span>Stop {sc.stop_legs?.length ? sc.stop_legs.map(fmtLevel).join(' / ') : '—'}</span>
                     <span>Target {sc.target_legs?.length ? sc.target_legs.map(fmtLevel).join(' / ') : '—'}</span>
                     {Number.isFinite(rr) && <span>r:r {rr}</span>}

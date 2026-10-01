@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types'
 import { isLivePosition, isTerminal } from '../../services/entityStatus.js'
-import { fmtLevel, fmtR, scenarioName } from './setupPlan.utils.js'
+import { fmtLevel, fmtEntry, fmtR, scenarioName } from './setupPlan.utils.js'
 import { words, archetypeHint, anchorHint } from '../../services/setupTaxonomy.js'
 import { PathsNotTaken } from '../PathsNotTaken/PathsNotTaken.jsx'
 import './SetupPlan.scss'
@@ -44,7 +44,7 @@ function Leg({ zone, tone, label, filled = false }) {
         <li className={`setup-plan__leg setup-plan__leg--${tone}${filled ? ' is-filled' : ''}`}>
             <div className="setup-plan__leg-row">
                 <span className="setup-plan__leg-label">{label}</span>
-                <span className="setup-plan__leg-level">{fmtLevel(zone)}</span>
+                <span className="setup-plan__leg-level">{tone === 'entry' ? fmtEntry(zone) : fmtLevel(zone)}</span>
                 {/* WHAT THE PRICE IS MEASURED FROM. It changes nothing about execution — the order
                     rests at the price whatever the anchor says — and that is exactly why it belongs
                     on the row: it is the answer to "why there", available without asking. */}

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, waitFor, within, act } from '@testing-library/react'
 
 // jsdom implements no layout, so scrollIntoView is missing entirely. useChatScroll calls it after
 // every turn — without this stub the panel throws before any assertion runs.
@@ -13,10 +13,13 @@ const generateSetups = vi.fn().mockResolvedValue({ saved: [{ id: 's1', asset: 'N
 const updateSetup   = vi.fn().mockResolvedValue({ id: 's1', asset: 'NVDA', status: 'waiting' })
 const saveChatState = vi.fn().mockResolvedValue({})
 const sendStream    = vi.fn().mockResolvedValue(undefined)
+// The Generate gate asked outside a turn — what a silent reopen reads. Default: no verdict to give.
+const validateSetup = vi.fn().mockResolvedValue({})
 
 vi.mock('../../services/mentor/mentor.service.remote.js', () => ({
     mentorService: {
         sendStream:    (...a) => sendStream(...a),
+        validateSetup: (...a) => validateSetup(...a),
         generateSetup: (...a) => generateSetup(...a),
         generateSetups: (...a) => generateSetups(...a),
         updateSetup:   (...a) => updateSetup(...a),
@@ -28,8 +31,9 @@ vi.mock('../../services/mentor/mentor.service.remote.js', () => ({
 }))
 const discardThread = vi.fn()
 const saveDraft     = vi.fn()
+const getThread     = vi.fn()
 vi.mock('../../services/threads/threads.service.remote.js', () => ({
-    threadsService: { saveDraft: (...a) => saveDraft(...a), linkThread: vi.fn(), getThread: vi.fn(), discardThread: (...a) => discardThread(...a) },
+    threadsService: { saveDraft: (...a) => saveDraft(...a), linkThread: vi.fn(), getThread: (...a) => getThread(...a), discardThread: (...a) => discardThread(...a) },
     newThreadId: () => 't1',
     // Mirrors the real helper (discard what was saved, mint a fresh id) so the panel's Clear is
     // tested for what it DOES, not merely that it runs. The helper itself is unit-tested at source.
@@ -171,6 +175,25 @@ describe('MentorPanel', () => {
         expect(plan.nativeEvent).toBeUndefined()   // a SyntheticEvent's tell
         expect(sentAccounts).toEqual(ACCOUNTS)
         expect(mainId).toBe('a1')
+    })
+
+    // Driven live (2026-10-01): a refused Generate said "Request failed with status code 400" — the
+    // axios text — while the server's reason ("A level is missing its price") sat in the body.
+    it('says the SERVER\'s reason for a refused Generate, not the transport\'s', async () => {
+        const alert = vi.spyOn(window, 'alert').mockImplementation(() => {})
+        const err   = vi.spyOn(console, 'error').mockImplementation(() => {})
+        generateSetup.mockRejectedValueOnce(Object.assign(new Error('Request failed with status code 400'), {
+            response: { status: 400, data: { error: 'A level is missing its price', reason: 'invalid_leg' } },
+        }))
+
+        render(<MentorPanel {...props()} />)
+        await runTurn({ reply: 'ok', setup: SETUP, readiness: { ready: true, missing: [] } })
+        fireEvent.click(screen.getByRole('button', { name: /Generate setup/ }))
+
+        await waitFor(() => expect(alert).toHaveBeenCalledWith(expect.stringMatching(/A level is missing its price/)))
+        expect(alert.mock.calls[0][0]).not.toMatch(/status code/)
+        alert.mockRestore()
+        err.mockRestore()
     })
 
     it('says why Generate was refused, rather than leaving a button that looks pressed', async () => {
@@ -775,18 +798,156 @@ describe('MentorPanel — gate visibility', () => {
         expect(screen.queryByText('reclaim')).toBeNull()
         expect(screen.queryByText('the shelf')).toBeNull()
     })
+
+    // "You choose" is a PRESS: sent as words alone it settled nothing, the gate stayed open and the
+    // next answer the user gave was refused for being out of order (Marce, PACB, 2026-10-01).
+    it('"You choose" at the entries gate hands it back as an OP, and still says it in words', async () => {
+        render(<MentorPanel {...props()} />)
+        await runTurn(withGate('entries'))
+        fireEvent.click(screen.getByText('You choose'))
+        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(2))
+
+        const [history, opts] = sendStream.mock.calls[1]
+        expect(opts.chatState.ops).toEqual([{ delegate: 'entries' }])
+        // The content the user was looking at rides with it — the server settles the pick off it.
+        expect(opts.chatState.draft.entries).toEqual(ENTRIES)
+        expect(history[history.length - 1].content).toMatch(/You pick the way in/)
+    })
+
+    it('"You choose" at the spans gate hands that gate back, and only that one', async () => {
+        render(<MentorPanel {...props()} />)
+        await runTurn(withGate('spans'))
+        fireEvent.click(screen.getByText('You choose'))
+        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(2))
+        expect(sendStream.mock.calls[1][1].chatState.ops).toEqual([{ delegate: 'spans' }])
+    })
 })
 
 describe('MentorPanel — blockers', () => {
     it('lists the account gap once, not once per side that noticed it', async () => {
     // Seen on screen: "Still needs: …, trading account, trading account". The server pushes it and
     // so does the panel; neither is wrong, and together they read as two separate problems.
-    render(<MentorPanel {...props({ accounts: [] })} />)
+    // (`selectedAccounts`, the prop the panel reads: this used to pass `accounts: []`, which nothing
+    // reads, and only held because the panel never REMOVED the server's account gap.)
+    render(<MentorPanel {...props({ selectedAccounts: [] })} />)
     await runTurn({
         reply: 'ok', setup: SETUP,
         readiness: { ready: false, missing: ['condition', 'trading account'] },
     })
         const line = screen.getByText(/Still needs:/).textContent
         expect(line.match(/trading account/g)).toHaveLength(1)
+    })
+})
+
+// ─── Generate reads the account the user has marked NOW ───────────────────────
+// Driven live (2026-10-01): the paper account ticked at the bank icon, Generate still dark, and the
+// panel saying "ask Mentor what's outstanding" — the verdict was the last turn's, from before the
+// account was marked, and nothing re-read it until the user sent another message.
+
+describe('MentorPanel — Generate follows the marked account', () => {
+    const DARK_FOR_ACCOUNT = { ready: false, missing: ['trading account'], problems: [] }
+
+    it('lights the moment an account is marked, when the account was all it lacked', async () => {
+        const { rerender } = render(<MentorPanel {...props({ selectedAccounts: [] })} />)
+        await runTurn({ reply: 'sized', setup: SETUP, readiness: DARK_FOR_ACCOUNT })
+        expect(screen.getByRole('button', { name: /Generate setup/ }).disabled).toBe(true)
+
+        rerender(<MentorPanel {...props({ selectedAccounts: ['a1'] })} />)
+        expect(screen.getByRole('button', { name: /Generate setup/ }).disabled).toBe(false)
+        expect(screen.queryByText(/Still needs:/)).toBeNull()
+    })
+
+    it('stays dark when something besides the account is missing — the account clears only itself', async () => {
+        const { rerender } = render(<MentorPanel {...props({ selectedAccounts: [] })} />)
+        await runTurn({ reply: 'ok', setup: SETUP, readiness: { ready: false, missing: ['quantity', 'trading account'], problems: [] } })
+        rerender(<MentorPanel {...props({ selectedAccounts: ['a1'] })} />)
+
+        expect(screen.getByRole('button', { name: /Generate setup/ }).disabled).toBe(true)
+        expect(screen.getByText(/Still needs:/).textContent).toMatch(/quantity/)
+        expect(screen.getByText(/Still needs:/).textContent).not.toMatch(/trading account/)
+    })
+
+    it('goes dark again when the account is unmarked', async () => {
+        const { rerender } = render(<MentorPanel {...props()} />)
+        await runTurn({ reply: 'ok', setup: SETUP, readiness: { ready: true, missing: [], problems: [] } })
+        expect(screen.getByRole('button', { name: /Generate setup/ }).disabled).toBe(false)
+        rerender(<MentorPanel {...props({ selectedAccounts: [] })} />)
+        expect(screen.getByRole('button', { name: /Generate setup/ }).disabled).toBe(true)
+    })
+})
+
+// ─── A silent reopen asks the gate once ───────────────────────────────────────
+
+describe('MentorPanel — reopening a conversation', () => {
+    const restore = (over = {}) => ({ key: `r-${Math.random()}`, setup: SETUP, messages: [{ role: 'user', content: 'INTC long' }, { role: 'assistant', content: 'Sized.' }], coverage: [], ...over })
+
+    it('asks the Generate gate for the reopened draft, and lights the button from the answer', async () => {
+        validateSetup.mockResolvedValueOnce({ readiness: { ready: true, missing: [], problems: [] } })
+        render(<MentorPanel {...props({ chatRestore: restore() })} />)
+
+        await waitFor(() => expect(validateSetup).toHaveBeenCalledTimes(1))
+        expect(validateSetup.mock.calls[0][0].asset).toBe('NVDA')
+        expect(validateSetup.mock.calls[0][1].map(a => a.id)).toEqual(['a1'])
+        await waitFor(() => expect(screen.getByRole('button', { name: /Generate setup/ }).disabled).toBe(false))
+    })
+
+    it('puts the open gate card back up, so there is something to press', async () => {
+        const ENTRIES = { trades: [{ id: 't1', semantics: 'alternatives', options: [{ id: 't1e1', label: 'reclaim', trigger: 'closes back above', recommended: true }] }] }
+        validateSetup.mockResolvedValueOnce({
+            readiness: { ready: false, missing: ['quantity'], problems: [] },
+            gate: { asset: 'NVDA', stage: 'entries', awaiting: true, fields: ['entries'], values: {} },
+        })
+        render(<MentorPanel {...props({ chatRestore: restore({ setup: { ...SETUP, entries: ENTRIES } }) })} />)
+        expect(await screen.findByText('reclaim')).toBeTruthy()
+        expect(screen.getByText('You choose')).toBeTruthy()
+    })
+
+    it('a reopen that sends its own turn does not also ask — the turn brings the verdict', async () => {
+        render(<MentorPanel {...props({ chatRestore: restore({ ask: 'Talos says the premise broke' }) })} />)
+        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(1))
+        expect(validateSetup).not.toHaveBeenCalled()
+    })
+
+    it('a late answer never overwrites a verdict a turn has delivered since', async () => {
+        let answer
+        validateSetup.mockImplementationOnce(() => new Promise(r => { answer = r }))
+        render(<MentorPanel {...props({ chatRestore: restore() })} />)
+        await waitFor(() => expect(validateSetup).toHaveBeenCalled())
+
+        // The user types before the ask returns; the turn says the plan is dark for a real reason.
+        await runTurn({ reply: 'stop moved', setup: SETUP, readiness: { ready: false, missing: ['quantity'], problems: [] } })
+        answer({ readiness: { ready: true, missing: [], problems: [] } })
+        await new Promise(r => setTimeout(r, 20))
+
+        expect(screen.getByRole('button', { name: /Generate setup/ }).disabled).toBe(true)
+        expect(screen.getByText(/Still needs:/).textContent).toMatch(/quantity/)
+    })
+
+    // The OTHER doorway — resuming from the threads list — is the same act and the same function. It
+    // used to reset less: the last build's verdict stayed up over a different plan.
+    it('resuming from the threads list drops the last build\'s verdict and asks for this one', async () => {
+        const resumeRef = { current: null }
+        render(<MentorPanel {...props({ resumeRef })} />)
+        // Another build is open and LIT.
+        await runTurn({ reply: 'done', setup: SETUP, readiness: { ready: true, missing: [], problems: [] } })
+        expect(screen.getByRole('button', { name: /Generate setup/ }).disabled).toBe(false)
+
+        getThread.mockResolvedValueOnce({ threadId: 't9', messages: [{ role: 'user', content: 'AMD long' }], state: { draft: { ...SETUP, asset: 'AMD' }, coverage: [] } })
+        validateSetup.mockResolvedValueOnce({ readiness: { ready: false, missing: ['quantity'], problems: [] } })
+        await act(() => resumeRef.current('t9'))
+
+        await waitFor(() => expect(validateSetup).toHaveBeenCalledTimes(1))
+        expect(validateSetup.mock.calls[0][0].asset).toBe('AMD')
+        await waitFor(() => expect(screen.getByText(/Still needs:/).textContent).toMatch(/quantity/))
+        expect(screen.getByRole('button', { name: /Generate setup/ }).disabled).toBe(true)
+    })
+
+    it('a failed ask leaves the panel as it was — never half-set', async () => {
+        validateSetup.mockRejectedValueOnce(new Error('offline'))
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        render(<MentorPanel {...props({ chatRestore: restore() })} />)
+        await waitFor(() => expect(warn).toHaveBeenCalled())
+        expect(screen.getByRole('button', { name: /Generate setup/ }).disabled).toBe(true)
+        warn.mockRestore()
     })
 })

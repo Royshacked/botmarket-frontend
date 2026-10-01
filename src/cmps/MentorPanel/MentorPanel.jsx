@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { mentorService } from '../../services/mentor/mentor.service.remote.js'
+import { apiError } from '../../services/http.service'
 import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote.js'
 import { ChatBubble } from '../ChatBubble.jsx'
 import { readStoredModel } from '../modelOptions.js'
@@ -81,6 +82,9 @@ export function MentorPanel({
 
     const [pendingSetup, setPendingSetup] = useState(null)
     const [readiness,    setReadiness]    = useState(null)
+    // Bumped by every verdict a TURN delivers. An out-of-turn ask (the restore below) only applies
+    // its answer if no turn has landed since — a late reply must never overwrite a fresher one.
+    const verdictSeq = useRef(0)
     const [coverage,     setCoverage]     = useState([])
     // The 2–3 candidate offer. Cleared the moment the user picks or types again — a stale picker
     // next to a live worksheet would let them "pick" something the conversation has moved past.
@@ -129,22 +133,48 @@ export function MentorPanel({
     // not persist over whatever build was open. Minted, not cleared: the build that was open is the
     // user's own unfinished work and stays resumable from the threads list — clearThread would
     // discard it, and nobody asked for that.
+    /**
+     * OPEN A SAVED CONVERSATION — the one function both doorways use (the pencil/card restore below,
+     * and resuming from the threads list). Everything the last build left behind is dropped, the
+     * conversation and its worksheet are put up, and — when nothing is about to be SAID (`silent`) —
+     * the Generate gate and the open build gate are asked for once, because there is no turn coming
+     * to bring them. Without that ask the panel sat on Generate dark, "ask Mentor what's
+     * outstanding", and no gate card to press, until the user typed something (driven live,
+     * 2026-10-01). A turn landing first wins: the answer is applied only if none has (verdictSeq).
+     * A failed ask leaves the panel as it was, never half-set.
+     */
+    function _openConversation(messages, draft, cov, { silent = true } = {}) {
+        chat.setMessages(messages)
+        setPendingSetup(draft)
+        setCoverage(cov)
+        setCandidates(null)
+        setDrafts({})
+        setGate(null)
+        // The last verdict belongs to whatever was open BEFORE — never to the conversation arriving.
+        setReadiness(null)
+        pendingOps.current = []
+        setGenerated(null)
+        setEditDirty(false)
+        setPreviewOpen(false)
+
+        if (!silent || !draft) return
+        const seq = verdictSeq.current
+        mentorService.validateSetup(draft, accounts)
+            .then(r => {
+                if (verdictSeq.current !== seq) return
+                setReadiness(r?.readiness ?? null)
+                setGate(r?.gate ?? null)
+            })
+            .catch(err => console.warn('[mentor] reopen: could not read the Generate gate', err?.message))
+    }
+
     useEffect(() => {
         if (!chatRestore) return
         if (chatRestore.freshThread) threadIdRef.current = newThreadId()
         const restored = chatRestore.messages ?? []
         const draft    = chatRestore.setup ?? null
         const cov      = chatRestore.coverage ?? []
-        chat.setMessages(restored)
-        setPendingSetup(draft)
-        setCoverage(cov)
-        setCandidates(null)
-        setDrafts({})
-        setGate(null)
-        pendingOps.current = []
-        setGenerated(null)
-        setEditDirty(false)
-        setPreviewOpen(false)
+        _openConversation(restored, draft, cov, { silent: !chatRestore.ask })
         if (chatRestore.ask) _send(chatRestore.ask, draft, restored, cov)
     }, [chatRestore?.key])   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -233,6 +263,7 @@ export function MentorPanel({
         // a second name, and it is authoritative: it already merged this turn's plan into what we
         // sent back, so replacing wholesale is right and merging here would fight it.
         if (data.drafts) setDrafts(data.drafts)
+        verdictSeq.current += 1
         setGate(data.gate ?? null)
         if (data.setup) {
             setPendingSetup(data.setup)
@@ -410,10 +441,12 @@ export function MentorPanel({
         )
     }
 
-    // The other half of the design: they may hand the choice back. No op — Mentor picks and says
-    // which, and the ledger settles when it does.
+    // The other half of the design: they may hand the choice back. It is a PRESS like any other —
+    // `delegate` — and the server settles the gate on Mentor's recommendation before the model reads
+    // the turn. Sent as words alone it settled nothing: Mentor picked in prose, the gate stayed open,
+    // and the next answer the user gave was refused for being out of order (Marce, PACB, 2026-10-01).
     function handleDelegateSpans() {
-        _send('You choose which of those are worth building, and say why.')
+        _press([{ delegate: 'spans' }], 'You choose which of those are worth building, and say why.')
     }
 
     function handleReviveSpan(rejected) {
@@ -433,7 +466,7 @@ export function MentorPanel({
     }
 
     function handleDelegateEntries() {
-        _send('You pick the way in for each, and say why that one.')
+        _press([{ delegate: 'entries' }], 'You pick the way in for each, and say why that one.')
     }
 
     /**
@@ -467,21 +500,20 @@ export function MentorPanel({
             }
         } catch (err) {
             console.error('[mentor] generate all', err)
-            window.alert(`Couldn't generate the batch: ${err?.message || 'unknown reason'}`)
+            window.alert(`Couldn't generate the batch: ${apiError(err, 'unknown reason')}`)
         } finally {
             setBusy(false)
         }
     }
 
+    // Coming back to an unfinished build from the threads list — the same act as a restore, through
+    // the same function (_openConversation): this doorway used to reset less than the other one, and
+    // landed on the last build's verdict, no gate card, and parked plans from a different build.
     async function handleResumeThread(threadId) {
         const t = await threadsService.getThread(threadId)
         if (!t) return
-        chat.setMessages(t.messages ?? [])
-        setPendingSetup(t.state?.draft ?? null)
-        setCoverage(t.state?.coverage ?? [])
-        setCandidates(null)
-        setEditDirty(false)
         threadIdRef.current = t.threadId
+        _openConversation(t.messages ?? [], t.state?.draft ?? null, t.state?.coverage ?? [])
     }
     if (resumeRef) resumeRef.current = handleResumeThread
 
@@ -525,7 +557,9 @@ export function MentorPanel({
             // moment a plan becomes a document — a refusal has to reach the person pressing it, the
             // same way Arm's does.
             console.error('[mentor] generate', err)
-            window.alert(`Couldn't ${isEditing ? 'update' : 'generate'} this setup: ${err?.message || 'unknown reason'}`)
+            // The SERVER's reason (apiError), never axios's "Request failed with status code 400" — which is
+            // all a refused Generate said until 2026-10-01, with the real reason sitting in the body.
+            window.alert(`Couldn't ${isEditing ? 'update' : 'generate'} this setup: ${apiError(err, 'unknown reason')}`)
         } finally {
             setBusy(false)
         }
@@ -542,7 +576,7 @@ export function MentorPanel({
             // The server re-runs the full gate on arm, so this is a real, explainable refusal
             // (e.g. the broker disconnected after Generate) — surface it rather than failing silent.
             console.error('[mentor] arm', err)
-            window.alert(`Couldn't arm this setup: ${err?.message || 'unknown reason'}`)
+            window.alert(`Couldn't arm this setup: ${apiError(err, 'unknown reason')}`)
         } finally {
             setBusy(false)
         }
@@ -561,8 +595,29 @@ export function MentorPanel({
     // marked account, and this adds it when the panel has none. Said twice it printed twice
     // ("Still needs: …, trading account, trading account"), so the list is de-duplicated: a
     // blocker is a thing to fix, and the same thing twice reads as two.
-    const effectiveReadiness = accounts.length === 0
-        ? { ...readiness, ready: false, missing: [...new Set([...(readiness?.missing ?? []), 'trading account'])] }
+    //
+    // AND IT IS COMPOSED BOTH WAYS. The server judged the account gap at its last turn; the panel
+    // knows it NOW. Marking an account after the verdict used to leave "trading account" in the list
+    // and Generate dark until the user sent Mentor another message — the account was right there,
+    // ticked (driven live, 2026-10-01). The server's gate reads the account only as "is one marked"
+    // (setupReadiness `hasAccount`), so swapping that one entry for the live answer is exact, and
+    // `ready` is the gate's own rule: nothing missing, nothing contradictory.
+    const ACCOUNT_GAP = 'trading account'
+    const effectiveReadiness = readiness || accounts.length === 0
+        ? (() => {
+            const missing = [
+                ...(readiness?.missing ?? []).filter(m => m !== ACCOUNT_GAP),
+                ...(accounts.length === 0 ? [ACCOUNT_GAP] : []),
+            ]
+            const problems = readiness?.problems ?? []
+            // The account can clear only what the ACCOUNT was blocking: a verdict that was dark for
+            // the account alone lights once one is marked; a dark verdict for any other reason stays
+            // dark. No verdict yet (nothing has judged this plan) is never "ready", whatever the account.
+            const accountWasTheGap = (readiness?.missing ?? []).includes(ACCOUNT_GAP)
+            const ready = !!readiness && missing.length === 0 && problems.length === 0
+                && (readiness.ready === true || accountWasTheGap)
+            return { ...readiness, missing, problems, ready }
+        })()
         : readiness
     const ready = !!effectiveReadiness?.ready
     // Both refusals, worded for their kind: one is a gap to fill, the other a contradiction to fix.

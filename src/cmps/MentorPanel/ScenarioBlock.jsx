@@ -2,6 +2,7 @@ import PropTypes from 'prop-types'
 import { ZoneEditor } from './ZoneEditor.jsx'
 import { words, archetypeHint, awayLabel } from '../../services/setupTaxonomy.js'
 import { ConditionList } from './ConditionList.jsx'
+import { entryText } from '../TradeIdeas/setupPlan.utils.js'
 import './ScenarioBlock.scss'
 
 // ONE ENTRY SCENARIO — one way into the trade.
@@ -33,12 +34,9 @@ export const fmtLeg = (z) => (z?.price == null ? null : `${z.price}`)
 // ...except an ENTRY, which since 2026-09-28 may be a TRIGGER in words instead of a level
 // (botmarket-backend docs/design/mentor-flow-intent.md #7). It fills at market when the trigger is
 // true, so there is no price to print — printing nothing would hide the whole way in.
-export const fmtEntryLeg = (z) => {
-    if (z?.price != null) return `${z.price}`
-    if (!z?.trigger) return null
-    // `about` is roughly where it would fill; it is never an order, so it is shown as a tilde.
-    return z.about != null ? `~${z.about} on trigger` : 'on trigger'
-}
+// The one reading of an entry lives with the plan's other formatters (setupPlan.utils.entryText),
+// so the Lists card, the pop-out and this block cannot disagree about what a trigger entry says.
+export const fmtEntryLeg = entryText
 
 // BOTH EDGES, each with its own authored answer. They are different events — one is "the premise
 // broke", the other is "it went without you" — and the away side had no answer at all until
