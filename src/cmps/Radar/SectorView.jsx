@@ -35,10 +35,15 @@ const _z = (v) => (v === null || v === undefined ? '—' : `${v >= 0 ? '+' : '�
  */
 function ChannelCalls({ views, marks, record }) {
     if (!Array.isArray(views) || !views.length) return null
+    // Below ten final grades the weight is still the PLACEHOLDER, not something the record earned —
+    // "3 graded, 33%, weighted at 0.4" would read as if 0.4 came from the 33%. `measured` is the
+    // server's word for that; an older payload without it falls back to the same count.
+    const measured = record?.measured ?? (record?.graded >= 10)
     const recordLine = !record
         ? null
         : record.graded
-            ? `Record: ${record.beat} of ${record.graded} calls beat history (${Math.round((record.hit_rate ?? 0) * 100)}%) — calls weighted at ${record.confidence}.`
+            ? `Record: ${record.beat} of ${record.graded} calls beat history (${Math.round((record.hit_rate ?? 0) * 100)}%) — `
+                + (measured ? `calls weighted at ${record.confidence}.` : `calls still weighted at ${record.confidence} until ten are graded.`)
             : `No call graded yet — each is graded at six months; calls weighted at ${record.confidence} until ten are.`
     return (
         <div className="sector-view__calls">

@@ -270,6 +270,13 @@ describe('SectorView — the channel calls', () => {
         expect(screen.getByText(/Record: 7 of 10 calls beat history \(70%\) — calls weighted at 0.4/)).toBeTruthy()
     })
 
+    it('below ten grades the record line says the weight is still the placeholder, not earned', () => {
+        render(<SectorView tilt={tilt({ channel_views: views })} calls={{
+            record: { graded: 3, beat: 1, hit_rate: 0.333, confidence: 0.4, measured: false }, calls: {},
+        }} />)
+        expect(screen.getByText(/Record: 1 of 3 calls beat history \(33%\) — calls still weighted at 0.4 until ten are graded/)).toBeTruthy()
+    })
+
     it('a view without channel calls shows no calls block', () => {
         const { container } = render(<SectorView tilt={tilt()} />)
         expect(container.querySelector('.sector-view__calls')).toBeNull()
