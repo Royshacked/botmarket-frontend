@@ -40,7 +40,7 @@ import { resolveEntity, resolveForEdit } from '../services/entityResolve.js'
 import { useDeskHandoff } from '../customHooks/useDeskHandoff.js'
 import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
-import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, TILT_REVIEW_OPEN, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD, SETUP_SHARED_OPEN } from '../services/event-bus.service'
+import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, TILT_REVIEW_OPEN, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD, SETUP_SHARED_OPEN, ENTITY_DETAIL_OPEN } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
 import { adoptService } from '../services/adopt/adopt.service.remote.js'
 import { AdoptBookGrid } from '../cmps/AdoptBook/AdoptBookGrid.jsx'
@@ -66,6 +66,7 @@ import { deriveIdeaOverlay, deriveSetupOverlay } from '../cmps/TradeIdeas/chartO
 import { useAuth }           from '../context/AuthContext.jsx'
 import { nextResetKeys }     from './deskReset.js'
 import { coverageRoute }     from './coverageRoute.js'
+import { isHandheld }        from '../cmps/EntityCard/entityPopup.js'
 
 // Maps activeTab → the step name used in DESKS.steps[] for pipeline highlighting.
 const TAB_TO_STEP = {
@@ -1275,8 +1276,10 @@ export function MainPage() {
                 cov = book.find(c => String(c.symbol ?? '').toUpperCase() === sym) ?? null
             }
             // WHICH SURFACES MOVE — coverageRoute, so the rule is assertable outside this page.
-            const go = coverageRoute({ mode, resolved: !!cov })
+            // `handheld`: the book's column is display:none on a phone — a read goes to the detail page.
+            const go = coverageRoute({ mode, resolved: !!cov, handheld: isHandheld() })
             if (go.revise) { handleEditCoverage(cov); return }
+            if (go.detail) { eventBus.emit(ENTITY_DETAIL_OPEN, { kind: 'coverage', id: cov.id }); return }
             if (go.book) setNewsTab('coverage')
             if (go.desk) setActiveTab('analyst')
         })

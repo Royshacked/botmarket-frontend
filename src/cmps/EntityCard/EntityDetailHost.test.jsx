@@ -22,6 +22,15 @@ vi.mock('../../pages/IdeaPage.jsx', () => ({
     ),
 }))
 
+vi.mock('../../pages/CoveragePage.jsx', () => ({
+    CoveragePage: ({ entityId, onClose }) => (
+        <div>
+            <span data-testid="page">coverage:{entityId}</span>
+            <button onClick={onClose}>close</button>
+        </div>
+    ),
+}))
+
 const { EntityDetailHost } = await import('./EntityDetailHost.jsx')
 const { eventBus, ENTITY_DETAIL_OPEN } = await import('../../services/event-bus.service')
 
@@ -76,6 +85,12 @@ describe('EntityDetailHost', () => {
         await open('setup', 's2')
         expect(screen.getAllByTestId('page')).toHaveLength(1)
         expect(screen.getByTestId('page').textContent).toBe('setup:s2')
+    })
+
+    it('a coverage ask opens the thesis page — how a phone reads a Prometheus card', async () => {
+        renderAt('/')
+        await open('coverage', 'cov1')
+        expect(screen.getByTestId('page').textContent).toBe('coverage:cov1')
     })
 
     it('an ask for a kind with no page in the app opens nothing', async () => {

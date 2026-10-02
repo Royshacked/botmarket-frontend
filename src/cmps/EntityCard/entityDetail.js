@@ -17,7 +17,7 @@
  * import: the opener pulls it in to decide where a click goes, and these URL helpers are pure, so
  * they can be tested under node:test with no DOM and no module graph behind them.
  */
-export const INLINE_KINDS = ['idea', 'setup']
+export const INLINE_KINDS = ['idea', 'setup', 'coverage']
 
 /**
  * Which entity a search string is showing, or null.

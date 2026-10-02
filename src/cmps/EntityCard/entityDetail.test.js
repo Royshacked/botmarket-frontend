@@ -7,6 +7,8 @@ import { detailFromSearch, withDetail, withoutDetail } from './entityDetail.js'
 test('a detail param IS the open page', () => {
     assert.deepEqual(detailFromSearch('?setup=s1'), { kind: 'setup', id: 's1' })
     assert.deepEqual(detailFromSearch('?idea=i1'), { kind: 'idea', id: 'i1' })
+    // A phone reads a Prometheus thesis here — the book's own column is display:none there.
+    assert.deepEqual(detailFromSearch('?coverage=cov1'), { kind: 'coverage', id: 'cov1' })
 })
 
 test('nothing open reads as nothing — including the shapes a URL actually arrives in', () => {
@@ -20,7 +22,6 @@ test('nothing open reads as nothing — including the shapes a URL actually arri
 test('a kind with no page in the app is not openable by URL', () => {
     // `call` is archived: RootCmp renders no page for it, so the param must not read as open.
     assert.equal(detailFromSearch('?call=c1'), null)
-    assert.equal(detailFromSearch('?coverage=cov1'), null)
 })
 
 test('two named at once → the first, not a race between two full-screen pages', () => {

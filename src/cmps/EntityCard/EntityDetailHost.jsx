@@ -5,6 +5,7 @@ import { eventBus, ENTITY_DETAIL_OPEN } from '../../services/event-bus.service'
 import { detailFromSearch, withDetail, withoutDetail } from './entityDetail.js'
 import { SetupPage } from '../../pages/SetupPage.jsx'
 import { IdeaPage } from '../../pages/IdeaPage.jsx'
+import { CoveragePage } from '../../pages/CoveragePage.jsx'
 import './EntityDetailHost.scss'
 
 // ── The detail surface, IN the app ───────────────────────────────────────────
@@ -35,7 +36,7 @@ import './EntityDetailHost.scss'
 
 // The page per kind. A kind with no entry here simply cannot be shown in the app — which is what
 // keeps `?call=…` from rendering an empty frame now that the call page is archived.
-const PAGES = { setup: SetupPage, idea: IdeaPage }
+const PAGES = { setup: SetupPage, idea: IdeaPage, coverage: CoveragePage }
 
 export function EntityDetailHost() {
     const location = useLocation()

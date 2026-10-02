@@ -12,8 +12,10 @@ import { nextRevision, NEXT_REVISION_HINT } from './coverage.utils.js'
 const RATING_LABEL = { strong_buy: 'strong buy', buy: 'buy', hold: 'hold', sell: 'sell', strong_sell: 'strong sell' }
 const STATUS_LABEL = { active: 'active', target_hit: 'target hit', thesis_broken: 'thesis broken', retired: 'retired', watchlist: 'watchlist' }
 
-function CoverageCard({ c, onEdit, onRetire, onDelete, onSymbolClick }) {
-    const [open, setOpen] = useState(false)
+// Exported for CoveragePage (the phone's in-app read of one thesis), which opens it expanded —
+// a page about one name that hides that name's thesis behind a tap would be a page of nothing.
+export function CoverageCard({ c, onEdit, onRetire, onDelete, onSymbolClick, defaultOpen = false }) {
+    const [open, setOpen] = useState(defaultOpen)
     const pt   = c.price_target
     const gap  = c.gap
     const kills = Array.isArray(c.kill_criteria) ? c.kill_criteria : []
@@ -70,7 +72,7 @@ function CoverageCard({ c, onEdit, onRetire, onDelete, onSymbolClick }) {
     )
 }
 CoverageCard.propTypes = {
-    onSymbolClick: PropTypes.func, c: PropTypes.object.isRequired, onEdit: PropTypes.func, onRetire: PropTypes.func, onDelete: PropTypes.func }
+    onSymbolClick: PropTypes.func, c: PropTypes.object.isRequired, onEdit: PropTypes.func, onRetire: PropTypes.func, onDelete: PropTypes.func, defaultOpen: PropTypes.bool }
 
 export function CoverageBook({ coverage = [], loading = false, onEdit, onRetire, onDelete, onSymbolClick }) {
     if (loading) return <div className="coverage-book__loader"><span /><span /><span /></div>

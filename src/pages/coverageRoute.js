@@ -24,14 +24,22 @@
  * Pure, and out of the 3,000-line page, for the reason the doorway resolver was: the rule is one
  * line of judgment that is worth being able to assert, and inside the component it was not.
  *
+ * ON A PHONE THERE IS NO RIGHT COLUMN (2026-10-02). Under 767px the workspace folds to its chat
+ * column and `.workspace__right` is display:none — so 'open' switched the Radar to a Coverage tab
+ * nobody could see, and the card read as a dead button. A handheld reads the thesis on the in-app
+ * detail page instead (EntityDetailHost → CoveragePage), the same surface a setup card opens there.
+ *
  * @param {object}  args
  * @param {string}  args.mode      the card's ask — 'revise', 'open', or absent
  * @param {boolean} args.resolved  whether the coverage doc was actually read
- * @returns {{ revise: boolean, book: boolean, desk: boolean }} which moves to make
+ * @param {boolean} [args.handheld] the book's column is not on screen (entityPopup.isHandheld)
+ * @returns {{ revise: boolean, book: boolean, desk: boolean, detail: boolean }} which moves to make
  */
-export function coverageRoute({ mode, resolved } = {}) {
+export function coverageRoute({ mode, resolved, handheld = false } = {}) {
     // A revise needs the document — there is nothing to open in update mode without it. Unresolved,
     // it falls through and is treated like any other ask we could not answer.
-    if (mode === 'revise' && resolved) return { revise: true, book: false, desk: false }
-    return { revise: false, book: true, desk: !resolved }
+    if (mode === 'revise' && resolved) return { revise: true, book: false, desk: false, detail: false }
+    // A READ with a doc in hand: on a phone the page, never the invisible tab.
+    if (resolved && handheld) return { revise: false, book: false, desk: false, detail: true }
+    return { revise: false, book: true, desk: !resolved, detail: false }
 }
