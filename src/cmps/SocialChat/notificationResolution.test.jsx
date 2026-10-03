@@ -189,6 +189,14 @@ describe('CoverageRefreshedBubble', () => {
         expect(onResolve).toHaveBeenCalledWith('m2', { status: 'pending', outcome: 'opened' })
     })
 
+    // A PASS (2026-10-02): the re-model reviewed the thesis and kept the target, with a reason. It is
+    // a verdict, so the heading must not read as a failure.
+    it('a pass reads as a kept target, never as a failed refresh', () => {
+        render(<CoverageRefreshedBubble msg={{ ...fromReview, payload: { ...fromReview.payload, ok: false, pass: true } }} onClose={vi.fn()} onResolve={vi.fn()} />)
+        expect(screen.getByText(/target kept/)).toBeTruthy()
+        expect(screen.queryByText(/refresh failed/)).toBeNull()
+    })
+
     it('a failed refresh (ok:false) still shows the resume action', () => {
         render(<CoverageRefreshedBubble msg={{ ...fromReview, payload: { ...fromReview.payload, ok: false } }} onClose={vi.fn()} onResolve={vi.fn()} />)
         expect(screen.getByText(/refresh failed/)).toBeTruthy()

@@ -904,8 +904,10 @@ export function MarketBriefOfferBubble({ msg, onClose, onResolve }) {
 }
 
 export function CoverageRefreshedBubble({ msg, onClose, onResolve }) {
-    const { symbol, coverageId, portfolioId, ok } = msg.payload
-    const heading = `Research · ${symbol}${ok === false ? ' — refresh failed' : ' refreshed'}`
+    const { symbol, coverageId, portfolioId, ok, pass } = msg.payload
+    // `pass`: the re-model reviewed the thesis and kept the target, with a reason — a verdict, not a
+    // failure (coverageRefresh, 2026-10-02). The body carries the why.
+    const heading = `Research · ${symbol}${pass ? ' — target kept' : ok === false ? ' — refresh failed' : ' refreshed'}`
 
     function handlePrimary() {
         if (portfolioId) {
