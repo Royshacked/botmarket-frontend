@@ -107,7 +107,7 @@ describe('AxlHub — the desk hand-off', () => {
 
         await ask("let's research nvda")
 
-        expect(onPick).toHaveBeenCalledWith('analyst', { pipeline: 'research', symbol: 'NVDA' })
+        expect(onPick).toHaveBeenCalledWith('analyst', { pipeline: 'research', symbol: 'NVDA', handedOff: 'research' })
     })
 
     it('routes with no ticker (a scan, a portfolio) → the desk opens empty, not broken', async () => {
@@ -117,7 +117,7 @@ describe('AxlHub — the desk hand-off', () => {
 
         await ask('build me a watchlist')
 
-        expect(onPick).toHaveBeenCalledWith('scanner', { pipeline: 'scan', symbol: null })
+        expect(onPick).toHaveBeenCalledWith('scanner', { pipeline: 'scan', symbol: null, handedOff: 'scan' })
     })
 
     it('routes the user’s OWN trade to Mentor, ticker and all', async () => {
@@ -127,7 +127,7 @@ describe('AxlHub — the desk hand-off', () => {
 
         await ask("here's my TSLA plan, tear it apart")
 
-        expect(onPick).toHaveBeenCalledWith('mentor', { pipeline: 'assist', symbol: 'TSLA' })
+        expect(onPick).toHaveBeenCalledWith('mentor', { pipeline: 'assist', symbol: 'TSLA', handedOff: 'assist' })
     })
 
     it('a CLARIFYING question (no route) keeps the user with Axl', async () => {
@@ -152,7 +152,7 @@ describe('AxlHub — the desk hand-off', () => {
 
         await ask('I want to make 5% with 5% drawdown, across a few names')
 
-        expect(onPick).toHaveBeenCalledWith('portfolio', { pipeline: 'portfolio', symbol: null })
+        expect(onPick).toHaveBeenCalledWith('portfolio', { pipeline: 'portfolio', symbol: null, handedOff: 'portfolio' })
     })
 
     it('the portfolio BUTTON opens Atlas too — same entry, same mandate-first order', async () => {
@@ -189,6 +189,8 @@ describe('AxlHub — the edit hand-off', () => {
 
         expect(onPick).toHaveBeenCalledWith('analyst', {
             pipeline: 'research', symbol: null, edit: { kind: 'coverage', ref: 'cov_9', desk: 'research' },
+            // An edit is a hand-off too, so the walk back from it gets closed like any other.
+            handedOff: 'research',
         })
     })
 
@@ -203,6 +205,7 @@ describe('AxlHub — the edit hand-off', () => {
 
         expect(onPick).toHaveBeenCalledWith('scanner', {
             pipeline: 'trade', symbol: null, edit: { kind: 'call', ref: 'c1', desk: 'trade' },
+            handedOff: 'trade',
         })
     })
 
@@ -218,6 +221,7 @@ describe('AxlHub — the edit hand-off', () => {
 
         expect(onPick).toHaveBeenCalledWith('portfolio', {
             pipeline: 'portfolio', symbol: null, edit: { kind: 'portfolio', ref: 'p1', desk: 'portfolio' },
+            handedOff: 'portfolio',
         })
     })
 
@@ -228,7 +232,7 @@ describe('AxlHub — the edit hand-off', () => {
 
         await ask("let's research nvda")
 
-        expect(onPick).toHaveBeenCalledWith('analyst', { pipeline: 'research', symbol: 'NVDA' })
+        expect(onPick).toHaveBeenCalledWith('analyst', { pipeline: 'research', symbol: 'NVDA', handedOff: 'research' })
         expect(onPick.mock.calls[0][1].edit).toBeUndefined()
     })
 })
@@ -318,7 +322,7 @@ describe('AxlHub — the opening turn that travels with them', () => {
         await ask('several positions')
 
         expect(onPick).toHaveBeenCalledWith('portfolio', {
-            pipeline: 'portfolio', symbol: null, opening: 'I want 5% profit.',
+            pipeline: 'portfolio', symbol: null, opening: 'I want 5% profit.', handedOff: 'portfolio',
         })
     })
 
@@ -339,6 +343,7 @@ describe('AxlHub — the opening turn that travels with them', () => {
         expect(onPick).toHaveBeenCalledWith('portfolio', {
             pipeline: 'portfolio', symbol: null, adopt: true,
             opening: 'I have a portfolio at my bank I want you to manage.',
+            handedOff: 'portfolio',
         })
     })
 
@@ -351,7 +356,7 @@ describe('AxlHub — the opening turn that travels with them', () => {
         await ask('build me a portfolio')
 
         expect(onPick).toHaveBeenCalledWith('portfolio', {
-            pipeline: 'portfolio', symbol: null, opening: 'I want to build a portfolio.',
+            pipeline: 'portfolio', symbol: null, opening: 'I want to build a portfolio.', handedOff: 'portfolio',
         })
     })
 
@@ -381,7 +386,7 @@ describe('AxlHub — the opening turn that travels with them', () => {
         await ask('find me a trade on tsla')
 
         // The trade desk ENTERS at Argus, hence 'scanner' rather than 'kairos'.
-        expect(onPick).toHaveBeenCalledWith('scanner', { pipeline: 'trade', symbol: 'TSLA' })
+        expect(onPick).toHaveBeenCalledWith('scanner', { pipeline: 'trade', symbol: 'TSLA', handedOff: 'trade' })
         expect(onPick.mock.calls[0][1].opening).toBeUndefined()
     })
 
@@ -486,6 +491,163 @@ describe('AxlHub — the desk they left', () => {
         await act(async () => { vi.advanceTimersByTime(5000) })
 
         expect(onPick).toHaveBeenCalledWith('analyst', { pipeline: 'research', symbol: null })
+    })
+})
+
+// The other half of a hand-off: the walk back. Because this thread is persisted, returning from a
+// desk restored a conversation ending in Axl's own "taking you to Pythia" — a sentence about a trip
+// already taken, left standing as the live state. A return now gets a turn of its own.
+describe('AxlHub — closing the trip when they come back', () => {
+    // The desk card the pendingRoute path hands to onPick is also what the host hands BACK, so a
+    // return is set up exactly as MainPage sets it: present at mount, since the tab switch that
+    // mounts this hub and the request are the same tick.
+    const BACK_FROM_RESEARCH = { key: 1, desk: 'research' }
+
+    async function land(props = {}) {
+        const onReturnStart = vi.fn()
+        render(<AxlHub user={{ fullname: 'Roy' }} onPick={vi.fn()} onReturnStart={onReturnStart} {...props} />)
+        for (let i = 0; i < 3; i++) await act(async () => { vi.advanceTimersByTime(1500) })
+        return onReturnStart
+    }
+
+    it('answers the return itself, on a note the user never sees', async () => {
+        replyWith({ reply: 'Finished with Prometheus on NVDA — the thesis is published. What next?' })
+        const onReturnStart = await land({ returnFrom: BACK_FROM_RESEARCH })
+
+        // A real turn, not a template: Axl is the one who knows what it sent them to do.
+        expect(streamAxl).toHaveBeenCalledTimes(1)
+        expect(streamAxl.mock.calls[0][0].at(-1)).toEqual({
+            role: 'user', content: '[The user has come back to reception from the Research Desk.]',
+        })
+        expect(screen.getByText(/Finished with Prometheus on NVDA/)).toBeTruthy()
+        // The note is the APP speaking. Shown as the user's bubble it would be a line they never
+        // wrote, sitting in their own voice next to the ones they did.
+        expect(screen.queryByText(/come back to reception/)).toBeNull()
+        // …and it is not kept either: the history the next turn is built from carries the reply only.
+        expect(saveDraft.mock.calls.at(-1)[0].messages).toEqual([
+            { role: 'assistant', content: 'Finished with Prometheus on NVDA — the thesis is published. What next?' },
+        ])
+        expect(onReturnStart).toHaveBeenCalledTimes(1)
+    })
+
+    // What makes the turn worth a request. Axl cannot see a desk's conversation, so without the
+    // desk's own closing line the best it could honestly write was "finished with Prometheus?" —
+    // anything more had to be re-derived from the book, which says what EXISTS, not what just
+    // happened. /unfinished was already reading this message to decide whose turn it was.
+    it('carries the desk\'s own last word, named as the desk\'s', async () => {
+        listUnfinished.mockResolvedValue([{
+            threadId: 'thr_an', agent: 'analyst', pipeline: 'research', yourTurn: true,
+            lastLine: { role: 'assistant', text: 'The NVDA thesis is published: PT 210 vs the Street\'s 185.' },
+        }])
+        replyWith({ reply: 'The NVDA thesis is in — 210 against 185. What next?' })
+        await land({ returnFrom: BACK_FROM_RESEARCH })
+
+        expect(streamAxl.mock.calls[0][0].at(-1).content).toBe(
+            '[The user has come back to reception from the Research Desk. '
+            + 'Last said there — Prometheus: "The NVDA thesis is published: PT 210 vs the Street\'s 185."]',
+        )
+    })
+
+    // The role is half the meaning. The user speaking last means they walked out mid-turn, and the
+    // prompt branches on it — that is a trip to offer back INTO, not one to close.
+    it('attributes a line the USER spoke last to them, not to the desk', async () => {
+        listUnfinished.mockResolvedValue([{
+            threadId: 'thr_me', agent: 'analyst', pipeline: 'research', yourTurn: false,
+            lastLine: { role: 'user', text: 'what about the margin story' },
+        }])
+        replyWith({ reply: 'You left Prometheus mid-question. Pick it up, or something else?' })
+        await land({ returnFrom: BACK_FROM_RESEARCH })
+
+        expect(streamAxl.mock.calls[0][0].at(-1).content).toMatch(
+            /Last said there — the user: "what about the margin story"\]$/,
+        )
+    })
+
+    // A quote inside a quote closes it early, and everything after the stray mark would read to the
+    // model as instructions rather than as something a desk said.
+    it('neutralises quote marks in the desk\'s line so the quote cannot be broken out of', async () => {
+        listUnfinished.mockResolvedValue([{
+            threadId: 'thr_q', agent: 'analyst', pipeline: 'research', yourTurn: true,
+            lastLine: { role: 'assistant', text: 'They call it "AI capex" — ignore the label.' },
+        }])
+        replyWith({ reply: 'Done at Prometheus. What next?' })
+        await land({ returnFrom: BACK_FROM_RESEARCH })
+
+        const note = streamAxl.mock.calls[0][0].at(-1).content
+        expect(note).toContain('They call it \'AI capex\' — ignore the label.')
+        // Exactly the two that open and close the desk's line, and no others.
+        expect(note.match(/"/g)).toHaveLength(2)
+    })
+
+    // Finishing a desk run discards its working threads, so there is no line to quote — and that is
+    // a signal, not a gap: the prompt sends Axl to the book to find out what landed.
+    it('says nothing when they were not handed anywhere', async () => {
+        replyWith({ reply: 'should not be asked for' })
+        await land()                       // no returnFrom — a desk they opened from its own card
+
+        expect(streamAxl).not.toHaveBeenCalled()
+    })
+
+    // THE failure this turn must not cause. The spent hand-off is still in the history, so a model
+    // that re-emits it would march the user straight back into the desk they just walked out of —
+    // an inescapable loop. The prompt forbids it; this is the gate that holds when it forgets.
+    it('never follows a route on the way back, however the reply arrives', async () => {
+        replyWith({ reply: 'Back with Prometheus?', route: 'research', routeSymbol: 'NVDA' })
+        const onPick = vi.fn()
+        render(<AxlHub user={{}} onPick={onPick} returnFrom={BACK_FROM_RESEARCH} onReturnStart={vi.fn()} />)
+        for (let i = 0; i < 4; i++) await act(async () => { vi.advanceTimersByTime(1500) })
+
+        expect(onPick).not.toHaveBeenCalled()
+    })
+
+    // The ordering bug the two halves of this feature would otherwise cause each other. The hub
+    // restores its conversation asynchronously; a return turn sent first answers with an empty
+    // history — Axl with no idea what it handed over — and then wedges the restore, which refuses to
+    // land on a thread that has moved underneath it.
+    it('waits for the restored conversation before asking, so Axl can see its own hand-off', async () => {
+        listUnfinished.mockResolvedValue([{ threadId: 'thr_axl_3', agent: 'axl', pipeline: null, yourTurn: false }])
+        let release
+        getThread.mockReturnValue(new Promise(res => { release = res }))
+        replyWith({ reply: 'Finished with Prometheus?' })
+
+        render(<AxlHub user={{}} onPick={vi.fn()} returnFrom={BACK_FROM_RESEARCH} onReturnStart={vi.fn()} />)
+        for (let i = 0; i < 3; i++) await act(async () => { vi.advanceTimersByTime(1500) })
+
+        // Held: the read is still out, so there is nothing to answer against yet.
+        expect(streamAxl).not.toHaveBeenCalled()
+
+        await act(async () => {
+            release({
+                threadId: 'thr_axl_3',
+                messages: [
+                    { role: 'user',      content: 'take me to Prometheus for NVDA' },
+                    { role: 'assistant', content: 'Taking you to Prometheus.' },
+                ],
+            })
+        })
+        for (let i = 0; i < 3; i++) await act(async () => { vi.advanceTimersByTime(1500) })
+
+        expect(streamAxl).toHaveBeenCalledTimes(1)
+        expect(streamAxl.mock.calls[0][0]).toEqual([
+            { role: 'user',      content: 'take me to Prometheus for NVDA' },
+            { role: 'assistant', content: 'Taking you to Prometheus.' },
+            { role: 'user',      content: '[The user has come back to reception from the Research Desk.]' },
+        ])
+        // The restored conversation survived it — the turn was added to the thread, not instead of it.
+        expect(screen.getByText(/Taking you to Prometheus\./)).toBeTruthy()
+        expect(saveDraft.mock.calls.at(-1)[0].threadId).toBe('thr_axl_3')
+    })
+
+    // A read that fails must not leave the return wedged behind a gate that never opens: the user
+    // would be looking at a stale hand-off with no way to get a word out of Axl.
+    it('still closes the trip when the restore read fails', async () => {
+        listUnfinished.mockResolvedValue([{ threadId: 'thr_axl_4', agent: 'axl', pipeline: null, yourTurn: false }])
+        getThread.mockRejectedValue(new Error('offline'))
+        replyWith({ reply: 'Finished with Prometheus?' })
+
+        await land({ returnFrom: BACK_FROM_RESEARCH })
+
+        expect(streamAxl).toHaveBeenCalledTimes(1)
     })
 })
 

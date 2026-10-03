@@ -153,9 +153,11 @@ export function useChatStream({ threadPhases = false } = {}) {
      * they said — and a fixed sentence sitting beside what they actually typed is a second voice
      * that can contradict them.
      *
-     * NO CALLER TODAY. Its one user was Mentor's express setup form (deleted 2026-08-21, replaced by
-     * an interview that IS the user talking). Kept because the next such button will want it, and
-     * because the rule above is the expensive half to rediscover.
+     * ONE CALLER: AxlHub's `_sendReturn` — the turn Axl answers when the user walks back from a desk
+     * it sent them to. The app states the fact ("[The user has come back to reception from the
+     * Research Desk.]"), Axl writes the words, and the note itself is neither shown nor stored,
+     * which is exactly the split above. Its first user was Mentor's express setup form (deleted
+     * 2026-08-21, replaced by an interview that IS the user talking).
      *
      * The wire still carries a user turn; the API needs one. This is only about what is shown and
      * what is kept.

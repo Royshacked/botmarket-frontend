@@ -516,6 +516,11 @@ export function MainPage() {
     const [applyingRebalance, setApplyingRebalance] = useState(false)
     const [deletingIdea, setDeletingIdea] = useState(false)
     const [returningToAxl, setReturningToAxl] = useState(false)
+    // The desk Axl HANDED them to, remembered across the walk — `{ key, desk }`, consumed by the hub.
+    // It has to live here rather than in the hub because the hub is what the walk unmounts: the whole
+    // point is to be holding this when it comes back. Null for a desk the user opened from its own
+    // card, which left no sentence of Axl's to close.
+    const [axlReturn, setAxlReturn] = useState(null)
     // Bumped each time we head home to axl so the Atlas/Argus panels remount fresh
     // — going back to axl and re-entering an agent always starts a new chat.
     //
@@ -533,6 +538,14 @@ export function MainPage() {
     // the Atlas mandate that authored the request.
     const [scannerResetKey, setScannerResetKey] = useState(0)
     const returnTimerRef = useRef(null)
+    // Which desk the hub last HANDED them to, if it was a hand-off and not a card click. A ref, not
+    // state: nothing renders from it, and it is written during a tab switch that already re-renders
+    // everything. Read and cleared once, on the way home.
+    const axlHandOffRef = useRef(null)
+    // Monotonic across the whole session, which a counter derived from the state could not be: the
+    // request is cleared on consumption, so anything reading the previous value would restart at 1
+    // and the hub would mistake the next trip for the one it already closed.
+    const axlReturnSeqRef = useRef(0)
     const latestMessagesRef = useRef([])
     const ideaThreadIdRef   = useRef(newThreadId())   // idea construction draft thread
     // Each desk panel publishes its "resume this thread" fn here. ONE map rather than one ref
@@ -668,6 +681,14 @@ export function MainPage() {
             setActivePipeline(null)
             setPipelineStep(0)
             setNewsTab('scans')
+            // Hand the trip back to the hub so Axl can close it. Only when Axl SENT them: the
+            // sentence being closed is Axl's own hand-off, and a desk the user walked into from its
+            // card never produced one — a line about it there would be chatter. A fresh object with
+            // a monotonic key every time, so two trips to the SAME desk are two requests and the hub
+            // can tell them apart.
+            const handedOff = axlHandOffRef.current
+            axlHandOffRef.current = null
+            if (handedOff) setAxlReturn({ key: ++axlReturnSeqRef.current, desk: handedOff })
             setReturningToAxl(false)
             // Fresh slate: clear the Idea chat, drop any pending edit-restore, and
             // remount Atlas/Argus so re-entering any agent from the hub starts a new
@@ -2207,6 +2228,10 @@ export function MainPage() {
     }
 
     async function handleAxlPick(tab, opts = {}) {
+        // Was this Axl's own hand-off? Recorded on the way IN, because the way back has no idea —
+        // and OVERWRITTEN on every arrival, including the ones carrying nothing, so a desk the user
+        // opened themselves clears a hand-off that is no longer the trip they are on.
+        axlHandOffRef.current = opts.handedOff ?? null
         // An edit hand-off names an ITEM, not a desk, and the item picks the tab: a call edits in
         // Kairos even though the trading desk enters at Argus. So the tab argument is skipped and the
         // opener sets its own — but the pipeline is still stamped, so the crumb and the back button
@@ -3012,6 +3037,8 @@ export function MainPage() {
                                 onOpenTicket={handleOpenTicket}
                                 briefRequest={briefRequest}
                                 onBriefStart={() => setBriefRequest(0)}
+                                returnFrom={axlReturn}
+                                onReturnStart={() => setAxlReturn(null)}
                             />
                         ) : (
                             <div className="chat-agentbar">

@@ -125,7 +125,7 @@ function TicketGlyph({ size = 32 }) {
     )
 }
 
-export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefStart, live = [] }) {
+export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefStart, returnFrom = null, onReturnStart, live = [] }) {
     const name = firstName(user?.fullname)
     const { isAdmin } = useAuth()
     const visibleDesks = DESKS.filter(d => !d.adminOnly || isAdmin)
@@ -142,7 +142,17 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
     // the mount fetch has already been and gone. Without this the route went quiet at the exact
     // moment it had something to say. Keyed on the live set, so it costs one read per turn ending.
     const liveKey = live.map(w => `${w.agent}:${w.pipeline ?? ''}`).sort().join('|')
-    useEffect(() => { threadsService.listUnfinished().then(setUnfinished) }, [liveKey])
+    // `unfinishedLoaded` is not bookkeeping — the return turn below waits on it. The restore reads
+    // this list, so "nothing unfinished" and "the list has not arrived yet" are the same empty array
+    // without it. A return turn fired on the second one sends an EMPTY history and then blocks the
+    // restore still in flight (its own `liveThreadRef.current.length` guard), losing the conversation
+    // it was supposed to be closing.
+    const [unfinishedLoaded, setUnfinishedLoaded] = useState(false)
+    useEffect(() => {
+        threadsService.listUnfinished()
+            .then(setUnfinished, () => {})
+            .finally(() => setUnfinishedLoaded(true))
+    }, [liveKey])
 
     // ── the reception conversation, persisted ─────────────────────────────────
     // Axl's thread is a DRAFT THREAD like every desk's — the same threadsService, the same store,
@@ -211,10 +221,16 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
     // Guarded three ways because that fetch re-runs on `liveKey`: once only (restoredRef), and never
     // over a conversation already on screen or a turn in flight, so a slow restore cannot overwrite
     // what the user is in the middle of typing.
+    // `restoreSettled` is the gate the return turn waits behind — see `_sendReturn`. It means "this
+    // arrival has finished deciding what is on screen", which is true of three different endings:
+    // nothing to restore, nothing to restore INTO (a conversation already here), and a restore that
+    // has actually landed. All three set it; only the last one does any work.
+    const [restoreSettled, setRestoreSettled] = useState(false)
     useEffect(() => {
-        if (restoredRef.current || isLoading || messages.length) return
+        if (!unfinishedLoaded) return                                   // nothing to decide from yet
+        if (restoredRef.current || isLoading || messages.length) { setRestoreSettled(true); return }
         const mine = unfinished.find(t => t.agent === 'axl')
-        if (!mine) return
+        if (!mine) { setRestoreSettled(true); return }
         restoredRef.current = true
         const openedOn = threadIdRef.current
         threadsService.getThread(mine.threadId).then(t => {
@@ -231,7 +247,11 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
             chat.setMessages(restored)
             threadIdRef.current = t.threadId     // keep writing to the SAME thread, not a fork of it
         })
-    }, [unfinished]) // eslint-disable-line react-hooks/exhaustive-deps
+            // Caught before `finally`, which re-throws what it is handed: a failed read must still
+            // release the return turn, and it must not do it through an unhandled rejection.
+            .catch(() => {})
+            .finally(() => setRestoreSettled(true))
+    }, [unfinished, unfinishedLoaded]) // eslint-disable-line react-hooks/exhaustive-deps
 
     // Which desks are closed because another desk is holding an agent they need. A panel is a
     // singleton, so entering the scan desk while a portfolio build is parked at Argus would clobber the
@@ -267,7 +287,11 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
         if (!pendingRoute || isLoading) return
         const t = setTimeout(() => {
             const { desk, ...hand } = pendingRoute
-            _summon(desk, hand)
+            // `handedOff` is what separates this door from the one beside it. Both end at `_summon`,
+            // but only this one follows a turn where Axl SAID something — and that sentence is what
+            // the walk back has to close (see `_sendReturn`). A desk the user opened from its own
+            // card left nothing behind to close.
+            _summon(desk, { ...hand, handedOff: true })
             setPendingRoute(null)
         }, 900)
         return () => clearTimeout(t)
@@ -287,7 +311,10 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
     // mode, not a destination, which is why it rides beside the desk rather than being one.
     // `resume` is the unfinished thread being walked back into — the whole thread, not just its id,
     // because WHERE it opens is part of the answer (see the tab below).
-    function _summon(desk, { symbol = null, edit = null, opening = null, adopt = false, resume = null } = {}) {
+    // `handedOff` says Axl's own turn sent them, as opposed to the user picking the desk's card. It
+    // travels out so the host can remember it across the unmount this walk causes, and hand it back
+    // when they return.
+    function _summon(desk, { symbol = null, edit = null, opening = null, adopt = false, resume = null, handedOff = false } = {}) {
         setSummoning(desk)
         // A resumed conversation opens where it was LEFT, not where the desk starts. `entryTab` is the
         // front door — right for a fresh arrival, wrong for a walk-back: the trade desk enters at
@@ -299,6 +326,7 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
                 pipeline: desk.key, symbol,
                 ...(edit ? { edit } : {}), ...(opening ? { opening } : {}), ...(adopt ? { adopt: true } : {}),
                 ...(resume ? { resumeThreadId: resume.threadId } : {}),
+                ...(handedOff ? { handedOff: desk.key } : {}),
             }),
             SUMMON_MS,
         )
@@ -573,6 +601,116 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
         _sendBrief()
     }, [briefRequest, isLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
+    // ── the walk back ────────────────────────────────────────────────────────
+    // Axl sends them to a desk; they finish there and come back. Because this thread is persisted,
+    // what greeted them on return was the restored conversation ending in Axl's own hand-off —
+    // "taking you to Pythia" — a sentence about a trip already taken, sitting there as the live
+    // state. It reads as the app having forgotten them between two screens, and it is worse than
+    // cosmetic: the next thing they type reaches a model whose last word was an unresolved hand-off.
+    //
+    // So the return gets a TURN of its own. Axl is the one who decides what it says — it knows what
+    // it sent them to do and can read what actually landed (get_watched_items) — which is why this is
+    // a real turn and not a template. See "When they come back from a desk" in the prompt.
+    /**
+     * The desk's own last word, as a clause of the note — or '' when there is none.
+     *
+     * THIS is what makes the return turn worth a request. Axl cannot see a desk's conversation, so
+     * without it the only honest line it could write was "finished with Prometheus?", and anything
+     * more had to be re-derived from the book afterwards — a read that describes what EXISTS, not
+     * what the desk just did. The desk's closing turn says it outright, and it was already being
+     * fetched: /unfinished reads this exact message to decide whose turn it is (thread.service
+     * `_lastLine`) and used to drop the words.
+     *
+     * Named by WHO said it, because the two cases mean opposite things and the prompt branches on it:
+     * the agent spoke last → the trip reached an end; the USER spoke last → they walked out mid-turn,
+     * and the right offer is the way back in. No line at all is a third signal, not a gap — finishing
+     * a desk run discards its working threads, so silence here means the work landed and Axl should
+     * go and look at what.
+     */
+    function _lastWordAt(desk) {
+        const left = resumableThread(desk)
+        const said = left?.lastLine
+        if (!said?.text) return ''
+        const who = said.role === 'assistant' ? (AGENTS[left.agent]?.brand ?? desk.label) : 'the user'
+        // Double quotes close the quote, so a reply full of them would end it early and leave the
+        // rest of the desk's sentence reading as instructions to Axl.
+        return ` Last said there — ${who}: "${said.text.replace(/"/g, "'")}"`
+    }
+
+    async function _sendReturn(desk) {
+        setSuggestions([])
+        setShowOffer(null)
+        showSeqRef.current++
+
+        // The APP's note, not the user's words: third person, bracketed, and `silent` — so it is
+        // never rendered as their bubble and never written into their thread. The brackets are how
+        // the prompt recognises the turn, so the two sides have to keep saying the same thing.
+        const note = `[The user has come back to reception from the ${desk.label}.${_lastWordAt(desk)}]`
+        const history = toChatHistory(messages)
+        let answered = null
+        await chat.run(note, {
+            silent: true,
+            log: '[axl:return]',
+            errorMessage: 'Error communicating with Axl. Please try again.',
+            onSettled: () => {
+                // Walked straight out again while this was answering. Saved WITHOUT the note, unlike
+                // `_send`'s version: the history the next turn is built from must never carry a line
+                // the user did not write. No answer means nothing was said worth keeping — the note
+                // alone is not a conversation.
+                if (mountedRef.current || !answered) return
+                _saveThread([...history, { role: 'assistant', content: answered }])
+            },
+            onDone: (data) => {
+                answered = data.reply
+                const reasoning = chat.reasoningRef.current
+                chat.finishStreaming({ role: 'assistant', content: data.reply, ...(reasoning ? { reasoning } : {}) })
+                // "What's next" is the literal question this turn asks, so chips belong here more
+                // than anywhere.
+                setSuggestions(Array.isArray(data.suggestions) ? data.suggestions : [])
+                // `route`, `edit` and `adopt` are deliberately NOT read. The spent hand-off is still
+                // in the history, so the one failure worth guarding is the model re-emitting it and
+                // marching the user back into the desk they just left. The prompt forbids it; this is
+                // the gate that holds when it forgets. A `<show>` is the one hand-off that fits —
+                // it opens the item they just made and takes them nowhere.
+                _offerShow(data.show)
+            },
+            send: ({ signal, handlers }) => axlService.streamAxl(
+                [...history, { role: 'user', content: note }],
+                {
+                    model: readStoredModel(),
+                    signal,
+                    ...handlers,
+                },
+            ),
+        })
+    }
+
+    // Fires on arrival, like the brief's — the host holds the request across the unmount this hub
+    // suffers on every desk visit, so it has to survive a remount to arrive at all.
+    //
+    // `restoreSettled` is the dependency that is NOT optional. This hub restores its conversation
+    // asynchronously, and a return turn sent first would send an empty history (Axl answering with
+    // no idea what it handed over) and then wedge the restore, which refuses to land on top of a
+    // thread that has moved. Both halves of the feature would break each other.
+    //
+    // `isLoading` is a dependency rather than a bail-out, for the reason the brief states: a turn
+    // already streaming here must not swallow the request — it is left unconsumed and this re-runs.
+    // One trip, one turn — guarded HERE and not left to the host clearing the prop. This effect
+    // re-runs on every `isLoading` edge, and a turn sets `isLoading` twice, so a request that is
+    // still standing when the reply lands asks again, and again: it ran five times before this ref
+    // existed. Identity, not the key: a React state object is stable across re-renders and fresh on
+    // every new request, which is exactly the distinction being drawn.
+    const returnedRef = useRef(null)
+    useEffect(() => {
+        if (!returnFrom || isLoading || !restoreSettled) return
+        if (returnedRef.current === returnFrom) return
+        returnedRef.current = returnFrom
+        // Consumed either way. A desk key this client does not know is nothing to say a line about.
+        onReturnStart?.()
+        const desk = DESKS.find(d => d.key === returnFrom.desk)
+        if (desk) _sendReturn(desk)
+    }, [returnFrom, isLoading, restoreSettled]) // eslint-disable-line react-hooks/exhaustive-deps
+
     function handleClear() {
         chat.handleStop?.()
         chat.setMessages([])
@@ -834,11 +972,16 @@ export function AxlHub({ user, onPick, onOpenTicket, briefRequest = 0, onBriefSt
 }
 
 AxlHub.propTypes = {
-    user:         PropTypes.object,
-    onPick:       PropTypes.func.isRequired,
-    onOpenTicket: PropTypes.func,
+    user:          PropTypes.object,
+    onPick:        PropTypes.func.isRequired,
+    onOpenTicket:  PropTypes.func,
+    // The desk Axl HANDED them to and they have now walked back from, as `{ key, desk }` — `key`
+    // only so a second trip to the same desk is a new request. Null on every other arrival, which
+    // is what keeps a desk the user opened themselves silent. Consumed via onReturnStart.
+    returnFrom:    PropTypes.object,
+    onReturnStart: PropTypes.func,
     // Turns running right now, as { agent, pipeline } — the same shape a saved draft is read in.
-    live:         PropTypes.array,
+    live:          PropTypes.array,
 }
 
 TicketGlyph.propTypes = {
