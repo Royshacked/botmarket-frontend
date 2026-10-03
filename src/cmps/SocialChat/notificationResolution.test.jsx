@@ -176,17 +176,19 @@ describe('CoverageRefreshedBubble', () => {
         expect(onClose).toHaveBeenCalled()
     })
 
-    // 'open', not 'revise': this thesis was rewritten seconds ago. Re-modelling it to read it would
-    // burn a multi-minute research run answering a question that was just answered.
-    it('with no portfolioId, primary opens the coverage to READ it', () => {
+    // TO PROMETHEUS, TO REVISE (2026-10-03). Until 2026-09-24 this switched to the Prometheus desk;
+    // that day it became 'open' (the book only), which on the Floor and on a phone moved nothing
+    // visible. It now runs the revise doorway — the desk, on THIS thesis, on a fresh thread — and
+    // says so, even on a card stored with the old "Open coverage" label.
+    it('with no portfolioId, primary takes the user to Prometheus to revise this thesis', () => {
         const onResolve = vi.fn()
-        const standalone = { ...fromReview, payload: { ...fromReview.payload, portfolioId: null } }
+        const standalone = { ...fromReview, payload: { ...fromReview.payload, portfolioId: null }, actions: { primary: { label: 'Open coverage', resolvesOn: 'open' }, dismiss: true } }
         render(<CoverageRefreshedBubble msg={standalone} onClose={vi.fn()} onResolve={onResolve} />)
 
-        fireEvent.click(screen.getByText('Open coverage'))
+        expect(screen.queryByText('Open coverage')).toBeNull()
+        fireEvent.click(screen.getByText('Revise thesis'))
 
-        expect(eventBus.emit).toHaveBeenCalledWith(OPEN_COVERAGE, { coverageId: 'cov1', symbol: 'NVDA', mode: 'open' })
-        expect(onResolve).toHaveBeenCalledWith('m2', { status: 'pending', outcome: 'opened' })
+        expect(eventBus.emit).toHaveBeenCalledWith(OPEN_COVERAGE, { coverageId: 'cov1', symbol: 'NVDA', mode: 'revise' })
     })
 
     // A PASS (2026-10-02): the re-model reviewed the thesis and kept the target, with a reason. It is
@@ -217,7 +219,7 @@ describe('CoverageRefreshedBubble', () => {
         render(<CoverageRefreshedBubble msg={nothing} onClose={vi.fn()} onResolve={onResolve} />)
 
         expect(screen.getByText(/refresh failed/)).toBeTruthy()
-        expect(screen.queryByText('Open coverage')).toBeNull()
+        expect(screen.queryByText('Revise thesis')).toBeNull()
         fireEvent.click(screen.getByText('Dismiss'))
         expect(onResolve).toHaveBeenCalledWith('m2', { status: 'dismissed', outcome: 'dismissed' })
         expect(eventBus.emit).not.toHaveBeenCalled()
@@ -225,14 +227,14 @@ describe('CoverageRefreshedBubble', () => {
 
     // Older history posted before `dismissOnly` existed carries a primary, and must keep it — the
     // absence of a primary is read off `actions`, never inferred from the payload.
-    it('a legacy failed-refresh card with a stored primary keeps its button', () => {
+    it('a legacy failed-refresh card with a stored primary keeps a button — the revise one', () => {
         const legacy = {
             ...fromReview,
             payload: { ...fromReview.payload, portfolioId: null, ok: false, house: true },
             actions: { primary: { label: 'Open coverage', resolvesOn: 'open' }, dismiss: true },
         }
         render(<CoverageRefreshedBubble msg={legacy} onClose={vi.fn()} onResolve={vi.fn()} />)
-        expect(screen.getByText('Open coverage')).toBeTruthy()
+        expect(screen.getByText('Revise thesis')).toBeTruthy()
     })
 })
 

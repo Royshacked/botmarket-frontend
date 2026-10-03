@@ -909,12 +909,16 @@ export function CoverageRefreshedBubble({ msg, onClose, onResolve }) {
     // failure (coverageRefresh, 2026-10-02). The body carries the why.
     const heading = `Research · ${symbol}${pass ? ' — target kept' : ok === false ? ' — refresh failed' : ' refreshed'}`
 
+    // TO PROMETHEUS, TO REVISE (Roy, 2026-10-03). Every Prometheus card about a thesis takes the user
+    // to the desk on that thesis with a revise turn in flight — the same doorway as the verdict card.
+    // It used to be 'open' (read the book), and the book lives in a column that is hidden on a phone
+    // and not rendered at all on the Floor: on most screens the button did nothing visible. A card
+    // raised mid-review still goes back to its review — that is where its ask is answered.
     function handlePrimary() {
         if (portfolioId) {
             eventBus.emit(PORTFOLIO_REVIEW, { portfolioId, reviewMode: true })
         } else {
-            // 'open', not 'revise': this thesis was just rewritten — the ask is to READ it.
-            eventBus.emit(OPEN_COVERAGE, { coverageId, symbol, mode: 'open' })
+            eventBus.emit(OPEN_COVERAGE, { coverageId, symbol, mode: 'revise' })
         }
         onClose?.()
     }
@@ -922,7 +926,9 @@ export function CoverageRefreshedBubble({ msg, onClose, onResolve }) {
     return (
         <NotificationCard
             agent={AGENTS.analyst} kind="coverage" heading={heading} asset={symbol} body={msg.content}
-            primaryLabel={msg.actions?.primary?.label ?? (portfolioId ? 'Resume review' : 'Open coverage')} onPrimary={handlePrimary}
+            // The label says what the button does NOW, overriding the stored one: cards posted before
+            // 2026-10-03 carry "Open coverage", and a button that revises must not say it opens.
+            primaryLabel={portfolioId ? (msg.actions?.primary?.label ?? 'Resume review') : 'Revise thesis'} onPrimary={handlePrimary}
             onResolve={onResolve} msg={msg}
             resolvedLabels={{ resumed: '✓ Resumed', opened: '✓ Opened', revised: '✓ Revised', retired: '✓ Retired', deleted: '✓ Deleted' }}
         />

@@ -1280,7 +1280,14 @@ export function MainPage() {
             const go = coverageRoute({ mode, resolved: !!cov, handheld: isHandheld() })
             if (go.revise) { handleEditCoverage(cov); return }
             if (go.detail) { eventBus.emit(ENTITY_DETAIL_OPEN, { kind: 'coverage', id: cov.id }); return }
-            if (go.book) setNewsTab('coverage')
+            // The book is in the right column, which is ONE OF TWO surfaces depending on the design:
+            // the Radar's Coverage tab (`newsTab`), or — on the Floor, the default — FloorLists's
+            // "Analyst companies" desk, which never reads `newsTab`. Switching only the tab made
+            // "Open coverage" a dead button on every Floor desktop (2026-10-03). Both are asked: the
+            // listener is registered once, so it cannot read the live design, and the request the
+            // other design does not render is inert. A fresh object, so a second press re-opens a
+            // desk closed in between (same channel as the forecast and queued-list cards).
+            if (go.book) { setNewsTab('coverage'); setDeskRequest({ key: 'coverage' }) }
             if (go.desk) setActiveTab('analyst')
         })
     }, [])
