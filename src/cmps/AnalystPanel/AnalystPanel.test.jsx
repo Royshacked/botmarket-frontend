@@ -127,8 +127,14 @@ describe('AnalystPanel — revise mode', () => {
         expect(history.at(-1).content).toMatch(/^Revise our coverage on ZTS/)
         expect(opts.chatState.existing_coverage).toMatchObject({ id: 'cov_ZTS_1' })
         expect(opts.chatState.active_symbol).toBe('ZTS')
-        // Update mode, so saving is a remodel on the same doc — the draft is the live thesis.
-        expect(await screen.findByText('Franchise under attack.')).toBeTruthy()
+        // The live thesis rides as the draft-so-far…
+        expect(opts.chatState.draft).toMatchObject({ thesis: 'Franchise under attack.' })
+        // …but the book's own doc is the SUBJECT, not a proposal: nothing is offered for saving until
+        // Prometheus emits a <coverage> (the latest turn decides — 2026-10-03). Then it is UPDATE mode,
+        // a remodel on the same doc.
+        expect(screen.queryByRole('button', { name: /Update coverage on ZTS/ })).toBeNull()
+        await act(async () => { opts.onDone({ reply: 'revised', coverage: { ...doc, rating: 'hold' } }) })
+        expect(await screen.findByRole('button', { name: /Update coverage on ZTS/ })).toBeTruthy()
     })
 
     // THE REGRESSION. A coverage card carries a doc the caller already resolved from the server, and
@@ -152,8 +158,9 @@ describe('AnalystPanel — revise mode', () => {
         render(<AnalystPanel coverage={[stale]} editCoverage={{ doc, symbol: 'ZTS', key: 'cov_ZTS_1-3' }} />)
 
         await waitFor(() => expect(sendStream).toHaveBeenCalled())
-        expect(await screen.findByText('Franchise under attack.')).toBeTruthy()
-        expect(screen.queryByText('Stale thesis from a cold list.')).toBeNull()
+        const [, opts] = lastCall()
+        expect(opts.chatState.draft.thesis).toBe('Franchise under attack.')
+        expect(opts.chatState.existing_coverage.thesis).toBe('Franchise under attack.')
     })
 
     it('a bare symbol still resolves off the loaded book, case-insensitively', async () => {
@@ -274,7 +281,39 @@ describe('AnalystPanel — the draft thread', () => {
         // setPendingCoverage lands after onDone runs, so reading it off state here would persist the
         // previous draft — the reason the coverage is threaded through explicitly.
         await researchTurn()
-        expect(saveDraft.mock.calls[0][0].state).toEqual({ draft: { symbol: 'ZTS', rating: 'sell' } })
+        expect(saveDraft.mock.calls[0][0].state).toEqual({ draft: { symbol: 'ZTS', rating: 'sell' }, standing: true })
+    })
+
+    // THE LATEST TURN DECIDES (2026-10-03 — Atlas withdrew six trims in prose and Accept still sent
+    // them). A turn without <coverage> withdraws the save. The draft itself STAYS: it is still the
+    // subject Prometheus is working on and still rides back as the draft-so-far.
+    it('a turn without <coverage> withdraws the save — the draft stays as the subject', async () => {
+        await researchTurn()
+        expect(screen.getByRole('button', { name: /Initiate coverage on ZTS/ })).toBeTruthy()
+
+        const input = screen.getByRole('textbox')
+        fireEvent.change(input, { target: { value: 'are you sure about the sell?' } })
+        fireEvent.keyDown(input, { key: 'Enter' })
+        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(2))
+        const [, opts] = lastCall()
+        expect(opts.chatState.draft).toEqual({ symbol: 'ZTS', rating: 'sell' })   // still the subject
+        await act(async () => { opts.onDone({ reply: 'No — I would not rate it a sell after all.' }) })
+
+        expect(screen.queryByRole('button', { name: /Initiate coverage on ZTS/ })).toBeNull()
+        expect(saveDraft.mock.calls.at(-1)[0].state).toEqual({ draft: { symbol: 'ZTS', rating: 'sell' }, standing: false })
+    })
+
+    it('a resumed thread whose last turn withdrew the draft offers no save', async () => {
+        getThread.mockResolvedValue({
+            threadId: 'thr_w', messages: [{ role: 'assistant', content: 'Withdrawn.' }],
+            state: { draft: { symbol: 'ZTS', rating: 'hold', thesis: 'Taken back.' }, standing: false },
+        })
+        const resumeRef = { current: null }
+        render(<AnalystPanel resumeRef={resumeRef} />)
+        await act(async () => { await resumeRef.current('thr_w') })
+        expect(screen.getByText('Withdrawn.')).toBeTruthy()
+        expect(screen.queryByText('Taken back.')).toBeNull()
+        expect(screen.queryByRole('button', { name: /coverage on ZTS/ })).toBeNull()
     })
 
     it('a run with no desk behind it still saves — it just marks no route', async () => {

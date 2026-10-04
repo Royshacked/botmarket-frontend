@@ -157,9 +157,9 @@ export function StrategyPanel({ seed = null, currentTilt = null, onLoadingChange
             onStopped: () => _saveThread(history, chat.phase, pendingTilt),
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant' })
-                if (data.tilt) setPendingTilt(data.tilt)
+                setPendingTilt(data.tilt ?? null)   // the latest turn decides — a turn without <tilt> withdraws it (buildStandingProposalRule)
                 routeOffer.capture(data)
-                _saveThread([...history, { role: 'assistant', content: data.reply }], data.phase, data.tilt ?? pendingTilt)
+                _saveThread([...history, { role: 'assistant', content: data.reply }], data.phase, data.tilt ?? null)
             },
             send: ({ signal, handlers }) => strategyService.sendStream(history, {
                 model:           readStoredModel(),
@@ -196,9 +196,9 @@ export function StrategyPanel({ seed = null, currentTilt = null, onLoadingChange
             onError: () => chat.restoreStopped(base),
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant', content: base + data.reply })
-                if (data.tilt) setPendingTilt(data.tilt)
+                setPendingTilt(data.tilt ?? null)   // the latest turn decides — a turn without <tilt> withdraws it (buildStandingProposalRule)
                 routeOffer.capture(data)
-                _saveThread([...withoutPrefill(history), { role: 'assistant', content: base + data.reply }], data.phase, data.tilt ?? pendingTilt)
+                _saveThread([...withoutPrefill(history), { role: 'assistant', content: base + data.reply }], data.phase, data.tilt ?? null)
             },
         })
         if (!cont) return

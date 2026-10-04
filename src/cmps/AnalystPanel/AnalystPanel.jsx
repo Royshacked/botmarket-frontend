@@ -70,6 +70,13 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
     const routeOffer = useRouteOffer()
     const { messages, isLoading } = chat
     const [pendingCoverage, setPendingCoverage] = useState(null)
+    // Whether Prometheus's LATEST turn emitted the draft. `pendingCoverage` cannot simply be cleared
+    // on a turn without one, the way Atlas's proposal is: it is also the SUBJECT — a revise seeds it
+    // with the doc in the book, `existingCoverage` and `active_symbol` are derived from it, and it is
+    // fed back as the draft-so-far. So the draft stays and only the right to SAVE it lapses: a turn
+    // with no <coverage> withdraws it (agentUtils.buildStandingProposalRule — the model is told so).
+    const [standing, setStanding] = useState(false)
+    const proposal = standing ? pendingCoverage : null
     const [initiateErr, setInitiateErr] = useState('')
     // A DOORWAY failure — a card or pencil asked for a thesis this panel could not read. Separate
     // from initiateErr, which belongs to the draft's save button.
@@ -114,12 +121,13 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
     // `draft` is passed IN rather than read off the ref: setPendingCoverage lands after this turn's
     // onDone runs, so the ref still holds the PREVIOUS draft right here — the same reason Kairos
     // threads `nextCall` through instead of reading its state.
-    function _saveThread(msgs, phase, draft) {
+    // `isStanding` rides with it so a resumed thread offers the save only if the last turn did.
+    function _saveThread(msgs, phase, draft, isStanding = standing) {
         threadsService.saveDraft({
             pipeline,
             threadId: threadIdRef.current, agent: 'analyst',
             messages: msgs, phase: phase ?? null, subjectType: 'coverage',
-            state: draft ? { draft } : null,
+            state: draft ? { draft, standing: isStanding } : null,
         })
     }
 
@@ -146,8 +154,9 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant' })   // keep the phase-threaded bubbles
                 if (data.coverage) setPendingCoverage(data.coverage)
+                setStanding(!!data.coverage)   // the latest turn decides — none withdraws it
                 routeOffer.capture(data)
-                _saveThread([...history, { role: 'assistant', content: data.reply }], data.phase, data.coverage ?? pendingRef.current)
+                _saveThread([...history, { role: 'assistant', content: data.reply }], data.phase, data.coverage ?? pendingRef.current, !!data.coverage)
             },
             send: ({ signal, handlers }) => analystService.sendStream(history, {
                 model:           readStoredModel(),
@@ -175,8 +184,9 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant', content: base + data.reply })
                 if (data.coverage) setPendingCoverage(data.coverage)
+                setStanding(!!data.coverage)   // the latest turn decides — none withdraws it
                 routeOffer.capture(data)
-                _saveThread([...withoutPrefill(history), { role: 'assistant', content: base + data.reply }], data.phase, data.coverage ?? pendingRef.current)
+                _saveThread([...withoutPrefill(history), { role: 'assistant', content: base + data.reply }], data.phase, data.coverage ?? pendingRef.current, !!data.coverage)
             },
         })
         if (!cont) return
@@ -262,6 +272,7 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
         chat.reset()
         setInitiateErr('')
         setPendingCoverage(doc)
+        setStanding(false)   // the book's own doc is the SUBJECT, not a proposal — nothing to save until Prometheus emits
         // A thread of its OWN. The id was left as it was, so the second card's conversation saved
         // over the first's draft under the same id — one revise overwriting another in the draft
         // pile. Minted, not `clearThread`: that discards, and the previous revise is the user's
@@ -281,7 +292,7 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
 
     // Clear is not walking away — the draft goes with the conversation, or the hub keeps marking this
     // desk and holding Prometheus's other doors shut over research the user threw away. See clearThread.
-    function handleClear()     { chat.reset(); routeOffer.clear(); setPendingCoverage(null); setInitiateErr(''); clearThread(threadIdRef) }
+    function handleClear()     { chat.reset(); routeOffer.clear(); setPendingCoverage(null); setStanding(false); setInitiateErr(''); clearThread(threadIdRef) }
 
     // Resume an unfinished research draft: restore the conversation and its pending thesis, and keep
     // writing to the SAME thread. `existing_coverage` is not restored here — it is derived from the
@@ -292,6 +303,8 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
         if (!t) return
         chat.setMessages(t.messages ?? [])
         setPendingCoverage(t.state?.draft ?? null)
+        // Threads saved before the flag existed carry none — they keep the save they always offered.
+        setStanding(!!t.state?.draft && t.state?.standing !== false)
         setInitiateErr('')
         threadIdRef.current = t.threadId
     }
@@ -393,10 +406,10 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
                 {isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus: chat.streamStatus, placeholder: 'researching…' })} pulse={chat.reasoningPulse} />}
             </AgentMessages>
 
-            {!isLoading && pendingCoverage && (
+            {!isLoading && proposal && (
                 <>
                     <div className="analyst-panel__draft-wrap">
-                        <CoverageDraft coverage={pendingCoverage} />
+                        <CoverageDraft coverage={proposal} />
                     </div>
                     {isAdmin && (
                         <div className="portfolio-panel__action-bubble">
@@ -413,7 +426,7 @@ export function AnalystPanel({ inbox = null, editCoverage = null, seed = null, o
                 Atlas reads coverage itself, but nothing was returning the user to it. Shown while
                 the queue is empty and at least one name got saved, so a declined draft doesn't
                 pretend to be research. */}
-            {!isLoading && !pendingCoverage && sleeveRun && !queue.length && done.length > 0 && (
+            {!isLoading && !proposal && sleeveRun && !queue.length && done.length > 0 && (
                 <div className="portfolio-panel__action-bubble">
                     <button
                         className="portfolio-panel__review-btn portfolio-panel__review-btn--update"

@@ -192,6 +192,12 @@ export function PortfolioPanel({
                     // Construction/edit: hand off to the existing apply path.
                     if (isReviewMode) setReviewUpdate({ update: data.update, thesis: data.thesis ?? null })
                     else if (onPortfolioUpdate) onPortfolioUpdate(data.update, false, data.thesis ?? null)
+                } else if (isReviewMode) {
+                    // The latest turn decides. A review turn WITHOUT a block withdraws the proposal: Atlas
+                    // took six trims back in prose on 2026-10-03 and Accept still sent the first turn's
+                    // block. Atlas is told to re-emit a proposal it still stands behind
+                    // (agentUtils.buildStandingProposalRule), so a follow-up question does not lose it.
+                    setReviewUpdate(null)
                 }
                 // The review pass finished → show Accept/Dismiss/Later. Fires when the
                 // Review button ran (even on a hold) OR any turn produced a proposal, so a
@@ -253,6 +259,12 @@ export function PortfolioPanel({
                     // Construction/edit: hand off to the existing apply path.
                     if (isReviewMode) setReviewUpdate({ update: data.update, thesis: data.thesis ?? null })
                     else if (onPortfolioUpdate) onPortfolioUpdate(data.update, false, data.thesis ?? null)
+                } else if (isReviewMode) {
+                    // The latest turn decides. A review turn WITHOUT a block withdraws the proposal: Atlas
+                    // took six trims back in prose on 2026-10-03 and Accept still sent the first turn's
+                    // block. Atlas is told to re-emit a proposal it still stands behind
+                    // (agentUtils.buildStandingProposalRule), so a follow-up question does not lose it.
+                    setReviewUpdate(null)
                 }
                 // The review pass finished → show Accept/Dismiss/Later. Fires when the
                 // Review button ran (even on a hold) OR any turn produced a proposal, so a

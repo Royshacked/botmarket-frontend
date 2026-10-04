@@ -218,4 +218,22 @@ describe('StrategyPanel — the review-due hand-off', () => {
         rerender(<StrategyPanel seed={{ key: 2, message: 'And Energy to under.' }} />)
         await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(2))
     })
+
+    // THE LATEST TURN DECIDES (2026-10-03). Atlas withdrew six trims in prose and Accept still sent
+    // them, because its panel kept the first turn's block. Pythia's Publish is the same shape: a
+    // turn that no longer emits <tilt> has withdrawn the draft, and Publish must not act on it.
+    it('a turn without <tilt> withdraws the draft — Publish cannot act on a view the desk took back', async () => {
+        const replies = [{ reply: 'Here is the view.', tilt: draft() }, { reply: 'On reflection, hold off.' }]
+        sendStream.mockImplementation(async (history, opts) => { opts.onDone?.(replies.shift()) })
+
+        const { rerender } = render(<StrategyPanel seed={{ key: 1, message: 'Review the view.' }} />)
+        await waitFor(() => expect(screen.queryByText('Healthcare')).toBeTruthy())
+
+        rerender(<StrategyPanel seed={{ key: 2, message: 'Are you sure?' }} />)
+        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(2))
+        await waitFor(() => expect(screen.queryByText('Healthcare')).toBeNull())
+        // …and the saved thread carries no draft either, so a resume does not bring it back.
+        expect(saveDraft.mock.calls.at(-1)[0].state).toBeNull()
+        sendStream.mockImplementation(async () => {})
+    })
 })
