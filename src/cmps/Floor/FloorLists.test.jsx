@@ -805,3 +805,71 @@ describe('research queue · covered names', () => {
         expect(within(row).getByText(/Argus · Financial Services/)).toBeTruthy()
     })
 })
+
+// Every list can be sorted from one bar at the top of the open desk. The options are the desk's
+// own (floor.sort.js, tested there); what is pinned here is the bar itself — when it shows, that it
+// reorders the rows on screen, and that the choice survives a reload.
+describe('FloorLists — sorting', () => {
+    afterEach(() => { try { localStorage.clear() } catch { /* no storage */ } })
+
+    const coverage = [
+        { id: 'c1', symbol: 'MSFT', status: 'active', gap: { pct: 4 } },
+        { id: 'c2', symbol: 'AAPL', status: 'active', gap: { pct: 22 } },
+        { id: 'c3', symbol: 'NVDA', status: 'active', gap: { pct: 11 } },
+    ]
+    const rowSyms = () => [...document.querySelectorAll('.floor-desk--open .floor-row')]
+        .map(r => r.querySelector('.floor-row__sym')?.textContent)
+    const sortSelect = () => screen.getByRole('combobox')
+    const dirBtn     = () => screen.getByRole('button', { name: /ascending|descending/i })
+
+    it('shows no sort bar over a single row', () => {
+        render(<FloorLists coverage={[coverage[0]]} initialDesk="coverage" />)
+        expect(screen.queryByRole('combobox')).toBeNull()
+    })
+
+    it('opens on the default order, with the arrow disabled', () => {
+        render(<FloorLists coverage={coverage} initialDesk="coverage" />)
+        expect(sortSelect().value).toBe('default')
+        expect(dirBtn().disabled).toBe(true)
+        expect(rowSyms()).toEqual(['MSFT', 'AAPL', 'NVDA'])
+    })
+
+    it('reorders the rows by the picked field, and the arrow flips it', () => {
+        render(<FloorLists coverage={coverage} initialDesk="coverage" />)
+        fireEvent.change(sortSelect(), { target: { value: 'symbol' } })
+        expect(rowSyms()).toEqual(['AAPL', 'MSFT', 'NVDA'])
+        fireEvent.click(dirBtn())
+        expect(rowSyms()).toEqual(['NVDA', 'MSFT', 'AAPL'])
+        // Upside starts high-to-low, whatever the previous option's direction was.
+        fireEvent.change(sortSelect(), { target: { value: 'upside' } })
+        expect(rowSyms()).toEqual(['AAPL', 'NVDA', 'MSFT'])
+    })
+
+    it('back to Default restores the server order', () => {
+        render(<FloorLists coverage={coverage} initialDesk="coverage" />)
+        fireEvent.change(sortSelect(), { target: { value: 'symbol' } })
+        fireEvent.change(sortSelect(), { target: { value: 'default' } })
+        expect(rowSyms()).toEqual(['MSFT', 'AAPL', 'NVDA'])
+    })
+
+    it('remembers the choice per desk across a remount', () => {
+        const { unmount } = render(<FloorLists coverage={coverage} initialDesk="coverage" />)
+        fireEvent.change(sortSelect(), { target: { value: 'symbol' } })
+        unmount()
+        render(<FloorLists coverage={coverage} initialDesk="coverage" />)
+        expect(sortSelect().value).toBe('symbol')
+        expect(rowSyms()).toEqual(['AAPL', 'MSFT', 'NVDA'])
+    })
+
+    // Books are built inside the desk from their ideas, so the sort has to happen there too.
+    it('sorts portfolio books', () => {
+        const ideas = [
+            { id: 'i1', portfolioId: 'p1', portfolioName: 'Zeta',  asset: 'SPY', status: 'waiting', savedAt: 2 },
+            { id: 'i2', portfolioId: 'p2', portfolioName: 'Alpha', asset: 'TLT', status: 'waiting', savedAt: 1 },
+        ]
+        render(<FloorLists ideas={ideas} initialDesk="portfolio" />)
+        expect(rowSyms()).toEqual(['Zeta', 'Alpha'])
+        fireEvent.change(sortSelect(), { target: { value: 'name' } })
+        expect(rowSyms()).toEqual(['Alpha', 'Zeta'])
+    })
+})

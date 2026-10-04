@@ -8,6 +8,7 @@ import {
 import { EditButton, DeleteButton, ActivateButton, SymbolCell } from '../EntityCard/EntityCard.jsx'
 import { ActivatePortfolioDialog } from '../TradeIdeas/ActivatePortfolioDialog.jsx'
 import { tradeFloorItems } from './floor.utils.js'
+import { DESK_SORTS, sortOption, sortRows } from './floor.sort.js'
 import { actionLine, originLine, actionVerb } from './queuedAction.contract.js'
 import { RowHost } from './RowHost.jsx'
 import { CoverageActions } from '../Radar/CoverageActions.jsx'
@@ -109,6 +110,53 @@ Desk.propTypes = {
 
 const Empty = ({ children }) => <p className="floor-empty">{children}</p>
 Empty.propTypes = { children: PropTypes.node }
+
+// ── Sorting ───────────────────────────────────────────────────────────────────
+// One bar for every desk, pinned to the top of the open desk's body. The options are the desk's
+// (floor.sort.js); the bar only renders them. It shows when there are two rows or more — a sort
+// control over a single row is a control that cannot do anything.
+//
+// The choice is remembered per desk, per browser: it is a reading preference, like which way you
+// keep a drawer, and losing it on every reload would make the control feel like it didn't stick.
+const SORT_KEY = 'floorSorts'
+const readSorts  = () => { try { return JSON.parse(localStorage.getItem(SORT_KEY)) ?? {} } catch { return {} } }
+const writeSorts = (s) => { try { localStorage.setItem(SORT_KEY, JSON.stringify(s)) } catch { /* private mode */ } }
+
+function SortBar({ deskKey, sort, onChange }) {
+    const options = DESK_SORTS[deskKey]
+    const opt = sortOption(deskKey, sort)
+    const dir = opt ? (sort.dir ?? opt.dir) : null
+    return (
+        <div className="floor-sort">
+            <label className="floor-sort__label">
+                Sort
+                <select
+                    className="floor-sort__select"
+                    value={opt ? opt.key : 'default'}
+                    onChange={e => {
+                        const next = options.find(o => o.key === e.target.value)
+                        onChange(next?.dir ? { key: next.key, dir: next.dir } : null)
+                    }}
+                >
+                    {options.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+                </select>
+            </label>
+            <button
+                type="button"
+                className="floor-sort__dir"
+                onClick={() => onChange({ key: opt.key, dir: dir === 'asc' ? 'desc' : 'asc' })}
+                disabled={!opt}
+                aria-label={dir === 'desc' ? 'Descending — switch to ascending' : 'Ascending — switch to descending'}
+                title={opt ? (dir === 'desc' ? 'Descending' : 'Ascending') : 'The default order has no direction'}
+            >{dir === 'desc' ? '↓' : '↑'}</button>
+        </div>
+    )
+}
+SortBar.propTypes = {
+    deskKey:  PropTypes.string.isRequired,
+    sort:     PropTypes.object,
+    onChange: PropTypes.func.isRequired,
+}
 
 // ── Queued ────────────────────────────────────────────────────────────────────
 // Work confirmed while a venue was shut (nothing executes off-hours, paper included) plus anything
@@ -274,8 +322,10 @@ const statusText = (status) => STATUS_TEXT[status] ?? status
 // already working means the book is being managed, and re-firing it as a book is not the move.
 const isWaitingBook = (b) => b.ideas.length > 0 && b.ideas.every(i => i.status === 'waiting')
 
-function PortfolioRows({ ideas, positions, onEditPortfolio, onDeletePortfolio, onDeleteIdea, onActivatePortfolio, onSymbolClick }) {
-    const books = portfoliosFromIdeas(ideas)
+function PortfolioRows({ ideas, positions, sort, onEditPortfolio, onDeletePortfolio, onDeleteIdea, onActivatePortfolio, onSymbolClick }) {
+    // Sorted HERE rather than by the column: a book is reconstructed from its ideas, so there is
+    // nothing to sort until portfoliosFromIdeas has run.
+    const books = sortRows(portfoliosFromIdeas(ideas), 'portfolio', sort, { pnlOf: b => portfolioPnl(b.ideas, positions) })
     const [openKey, setOpenKey] = useState(null)
     // The book waiting on the pre-activation gate, or null. Same dialog the ideas table and the
     // cards put in front of this — activating fires every leg at market at once, so the last thing
@@ -417,6 +467,7 @@ PortfolioRows.propTypes = {
     onSymbolClick: PropTypes.func,
     ideas:               PropTypes.array,
     positions:           PropTypes.array,
+    sort:                PropTypes.object,
     onEditPortfolio:     PropTypes.func,
     onDeletePortfolio:   PropTypes.func,
     onDeleteIdea:        PropTypes.func,
@@ -843,6 +894,25 @@ export function FloorLists({
 
     const visibleDesks = DESKS.filter(d => !d.adminOnly || isAdmin)
 
+    const [sorts, setSorts] = useState(readSorts)
+    const setSort = (key, sort) => setSorts(cur => {
+        const next = { ...cur }
+        if (sort) next[key] = sort
+        else delete next[key]
+        writeSorts(next)
+        return next
+    })
+    const sorted = (key, rows) => sortRows(rows, key, sorts[key])
+
+    // How many rows the SORT reorders — not always the header count: the research desk counts only
+    // what is still queued, and the events desk counts names while it sorts events.
+    const aetherRuns = aetherCandidates?.runs ?? []
+    const sortableCount = {
+        ...counts,
+        research_queue: researchQueue.filter(i => i.status === 'queued' || i.status === 'in_research').length,
+        aether:         aetherRuns.length,
+    }
+
     return (
         <aside className={`floor-lists${openKey ? ' floor-lists--focused' : ''}`}>
             {/* Same .floor-sec heading the left column uses, so all three columns open on one
@@ -865,9 +935,12 @@ export function FloorLists({
                     count={counts[desk.key]}
                     onToggle={toggle}
                 >
+                    {DESK_SORTS[desk.key] && sortableCount[desk.key] > 1 && (
+                        <SortBar deskKey={desk.key} sort={sorts[desk.key]} onChange={s => setSort(desk.key, s)} />
+                    )}
                     {desk.key === 'queued'    && (
                         <QueuedRows
-                            queued={queued}
+                            queued={sorted('queued', queued)}
                             onExecute={onExecuteQueued} onCancel={onCancelQueued}
                             busyId={queuedBusyId}
                         />
@@ -875,14 +948,14 @@ export function FloorLists({
                     {desk.key === 'trade'     && (
                         <TradeRows
                             onSymbolClick={onSymbolClick}
-                            setups={setups}
+                            setups={sorted('trade', setups)}
                             onEditSetup={onEditSetup} onDeleteSetup={onDeleteSetup}
                         />
                     )}
                     {desk.key === 'portfolio' && (
                         <PortfolioRows
                             onSymbolClick={onSymbolClick}
-                            ideas={ideas} positions={positions}
+                            ideas={ideas} positions={positions} sort={sorts.portfolio}
                             onEditPortfolio={onEditPortfolio} onDeletePortfolio={onDeletePortfolio}
                             onDeleteIdea={onDeleteIdea} onActivatePortfolio={onActivatePortfolio}
                         />
@@ -890,7 +963,7 @@ export function FloorLists({
                     {desk.key === 'scans'     && (
                         <ScanRows
                             onSymbolClick={onSymbolClick}
-                            scans={scans} onCandidateSelect={onCandidateSelect}
+                            scans={sorted('scans', scans)} onCandidateSelect={onCandidateSelect}
                             onEditScan={onEditScan} onDeleteScan={onDeleteScan}
                         />
                     )}
@@ -906,14 +979,14 @@ export function FloorLists({
                     {desk.key === 'coverage'  && (
                         <CoverageRows
                             onSymbolClick={onSymbolClick}
-                            coverage={coverage}
+                            coverage={sorted('coverage', coverage)}
                             onEditCoverage={onEditCoverage} onRetireCoverage={onRetireCoverage} onDeleteCoverage={onDeleteCoverage}
                         />
                     )}
 
                     {desk.key === 'aether' && (
                         <AetherCandidates
-                            runs={aetherCandidates?.runs ?? []}
+                            runs={sorted('aether', aetherRuns)}
                             loading={aetherCandidates?.loading}
                             error={aetherCandidates?.error}
                             onRead={aetherCandidates?.onRead}
@@ -928,7 +1001,7 @@ export function FloorLists({
                     {desk.key === 'research_queue' && (
                         <ResearchQueueRows
                             onSymbolClick={onSymbolClick}
-                            researchQueue={researchQueue}
+                            researchQueue={sorted('research_queue', researchQueue)}
                             coverage={coverage}
                             onStartResearch={onStartResearch}
                             onMarkResearchDone={onMarkResearchDone}
@@ -945,13 +1018,13 @@ export function FloorLists({
                         rows are doorways — clicking one hands the event to Mentor to build a setup
                         around; a Fed row has no ticker to trade, so it is text. */}
                     {desk.key === 'earnings'  && (
-                        <CalendarRows kind="earnings" items={earnings} loading={calendarLoading.earnings} onSelect={onEarningSelect} onSymbolClick={onSymbolClick} />
+                        <CalendarRows kind="earnings" items={sorted('earnings', earnings)}loading={calendarLoading.earnings} onSelect={onEarningSelect} onSymbolClick={onSymbolClick} />
                     )}
                     {desk.key === 'fed'       && (
-                        <CalendarRows kind="fed" items={fed} loading={calendarLoading.fed} onSymbolClick={onSymbolClick} />
+                        <CalendarRows kind="fed" items={sorted('fed', fed)}loading={calendarLoading.fed} onSymbolClick={onSymbolClick} />
                     )}
                     {desk.key === 'ipo'       && (
-                        <CalendarRows kind="ipo" items={ipo} loading={calendarLoading.ipo} onSelect={onIpoSelect} onSymbolClick={onSymbolClick} />
+                        <CalendarRows kind="ipo" items={sorted('ipo', ipo)}loading={calendarLoading.ipo} onSelect={onIpoSelect} onSymbolClick={onSymbolClick} />
                     )}
                     {desk.key === 'forecasts' && (
                         calendarLoading.forecasts && !tilt
