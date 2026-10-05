@@ -2,7 +2,7 @@
 Frontend for the ar2trade / TRADVICE trading assistant — React + Vite (SCSS, react-router,
 react-redux). Talks to the botmarket-backend over `/api` (SSE for every agent chat, WebSocket for
 social chat). One page: Axl's hub routes the user into six desks — Mentor (the trade), Atlas
-(portfolio), Argus (scan), Prometheus (coverage), Pythia (tilt), Aether (events) — whose work lands
+(portfolio), Argus (scan), Prometheus (coverage), Pythia (industry views), Aether (events) — whose work lands
 as monitored entities, broker orders the user confirms, and cards in social chat; three workspaces
 (live · paper · manual). The backend repo holds the domain spec — see its README.md / APP_SPEC.md /
 CODE_MAP.md; this repo's own wiring is in `docs/` (start with `docs/README.md`).

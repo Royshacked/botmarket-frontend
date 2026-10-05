@@ -105,7 +105,7 @@ is written alongside. `inWorkspace(list, workspace)` scopes every list of accoun
 - **Agent streams** are SSE, one per turn, through `agentStream` (above).
 - **Social chat** is a WebSocket (`customHooks/useChatWs.js`, `cmps/SocialChat/`): the feed every
   monitor posts into. A **card** is a message with a `type` and a `payload` — `portfolio_review`,
-  `setup_manage`, `manual_entry` / `manual_exit`, `coverage_event`, `tilt_review`, `sleeve_sourced`,
+  `setup_manage`, `manual_entry` / `manual_exit`, `coverage_event`, `industry_view`, `sleeve_sourced`,
   `market_brief_offer`… — rendered by its own bubble, sharing one collapsed-state shell. Resolution
   is ONE read (`cardResolution.js`): top-level `status` (`done | dismissed | superseded`) is the
   truth, the legacy payload flags a fallback, so a scrolled-back card still reads and a superseded
