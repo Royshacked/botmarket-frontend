@@ -78,7 +78,7 @@ describe('FloorLists', () => {
             expect(desks.some(d => d.className.includes('floor-desk--folded'))).toBe(false)
             expect(desks.map(d => d.querySelector('.floor-desk__label').textContent))
                 .toEqual(['Awaiting orders', 'Trading floor', 'Portfolio floor', 'Scans', 'Analyst companies',
-                          'Events radar', 'Earnings', 'Fed', 'IPO'])
+                          'Events radar', 'Earnings', 'Fed', 'IPO', 'Forecasts'])
         })
 
         // A folded header is still readable and still reports its state — it is just not somewhere
@@ -341,12 +341,11 @@ describe('FloorLists', () => {
             }
         })
 
-        // The house views are Pythia's, and Pythia is admin-only (2026-09-14): the industries read behind
-        // the board is requireAdmin, so for a trader the desk could only ever open onto an empty
-        // board. It joins the group for an admin and is simply absent for everyone else.
-        it('shows the Forecasts board to an admin only', () => {
+        // The house's industry views are a broadcast (2026-10-05): the board is for everyone, and only
+        // authoring them — Pythia's desk — is admin-only.
+        it('shows the Forecasts board to everyone, trader and admin alike', () => {
             const { unmount } = render(<FloorLists />)
-            expect(screen.queryByRole('button', { name: /Forecasts/ })).toBeNull()
+            expect(deskBtn('Forecasts')).toBeTruthy()
             unmount()
             render(<FloorLists isAdmin />)
             expect(deskBtn('Forecasts')).toBeTruthy()

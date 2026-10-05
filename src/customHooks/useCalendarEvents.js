@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { calendarService } from '../services/calendar/calendar.service.remote.js'
 import { strategyService, INDUSTRIES_CHANGED } from '../services/strategy/strategy.service.remote.js'
-import { useAuth } from '../context/AuthContext.jsx'
 
 const REFRESH_MS = 60 * 60 * 1000  // re-fetch once per hour
 
@@ -22,10 +21,6 @@ export function useCalendarEvents() {
     // second data path would mean two refresh timers, two unmount guards and one more prop to thread.
     const [industries, setIndustries]               = useState([])
     const [industriesLoading, setIndustriesLoading] = useState(false)
-    // The read is requireAdmin and every surface that renders it is admin-only, so a trader's fetch
-    // could only ever be a 403 in the log. `?? {}` — the hook is also mounted in tests with no
-    // provider, and there a missing context must read as "not an admin".
-    const { isAdmin = false } = useAuth() ?? {}
 
     useEffect(() => {
         let active = true
@@ -52,7 +47,8 @@ export function useCalendarEvents() {
             })
             load(calendarService.getFed, setFedLoading, (d) => setFed(d ?? []))
             load(calendarService.getIpo, setIpoLoading, (d) => setIpo(d ?? []))
-            if (isAdmin) load(strategyService.listIndustries, setIndustriesLoading, (d) => setIndustries(Array.isArray(d) ? d : []))
+            // Every user reads the board (2026-10-05) — the views are a broadcast.
+            load(strategyService.listIndustries, setIndustriesLoading, (d) => setIndustries(Array.isArray(d) ? d : []))
         }
 
         refresh()
@@ -62,7 +58,7 @@ export function useCalendarEvents() {
         window.addEventListener(INDUSTRIES_CHANGED, refresh)
 
         return () => { active = false; clearInterval(t); window.removeEventListener(INDUSTRIES_CHANGED, refresh) }
-    }, [isAdmin])
+    }, [])
 
     return { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, industries, industriesLoading }
 }

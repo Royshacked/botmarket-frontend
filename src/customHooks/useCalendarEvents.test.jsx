@@ -2,10 +2,8 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { renderHook, waitFor, cleanup } from '@testing-library/react'
 import { ADMIN, MEMBER } from '../testUtils/authStub.js'
 
-// The industry views are Pythia's, and Pythia is admin-only (2026-09-14): GET /api/strategy/industries
-// is requireAdmin. The hook still feeds every calendar surface from one place, so the gate lives here
-// — a trader's fetch could only ever be a 403 in the log, and the three dated feeds must not lose
-// their timer over it.
+// The industry views are a broadcast every user reads (2026-10-05) — only authoring them is admin-only.
+// The hook feeds every calendar surface from one place, so traders and admins get the same four feeds.
 
 let AUTH = ADMIN
 vi.mock('../context/AuthContext.jsx', async (orig) => {
@@ -38,7 +36,7 @@ afterEach(() => {
     AUTH = ADMIN
 })
 
-describe('useCalendarEvents — the industry views are fetched for admins only', () => {
+describe('useCalendarEvents — the industry views are fetched for everyone', () => {
     it('an admin gets all four feeds, the industries included', async () => {
         const { result } = renderHook(() => useCalendarEvents())
         await waitFor(() => expect(result.current.industries).toHaveLength(1))
@@ -47,15 +45,12 @@ describe('useCalendarEvents — the industry views are fetched for admins only',
         expect(result.current.fed).toEqual([{ title: 'FOMC' }])
     })
 
-    it('a trader never asks for the industries, and the three dated feeds still load', async () => {
+    it('a trader gets the industries too', async () => {
         AUTH = MEMBER
         const { result } = renderHook(() => useCalendarEvents())
-        await waitFor(() => expect(result.current.earnings).toEqual([{ symbol: 'AAPL' }]))
+        await waitFor(() => expect(result.current.industries).toHaveLength(1))
+        expect(listIndustries).toHaveBeenCalledTimes(1)
         expect(getFed).toHaveBeenCalledTimes(1)
-        expect(getIpo).toHaveBeenCalledTimes(1)
-        expect(listIndustries).not.toHaveBeenCalled()
-        expect(result.current.industries).toEqual([])
-        expect(result.current.industriesLoading).toBe(false)
     })
 
     it('a failed industries read leaves an empty board, not a crash', async () => {

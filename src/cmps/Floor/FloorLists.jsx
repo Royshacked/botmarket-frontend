@@ -61,9 +61,9 @@ const DESKS = [
     // Not a dated list at all — the house view, rendered as a board. It sits with the calendar
     // because it answers the same question, not because it shares its shape.
     //
-    // ADMIN-ONLY (2026-09-14), with the whole strategy desk: GET /api/strategy/industries is
-    // requireAdmin, so for a trader this desk could only ever open onto an empty board. Same rule as the Research queue above.
-    { key: 'forecasts', label: 'Forecasts', group: 'Calendar', adminOnly: true },
+    // OPEN TO EVERYONE since 2026-10-05 (Roy): the house's industry views are a broadcast every user
+    // reads. Only authoring them — Pythia's desk — is admin-only.
+    { key: 'forecasts', label: 'Forecasts', group: 'Calendar' },
     // A `channels` desk sat here — Aether's z-score per pressure channel. It went with the
     // channel engine on 2026-09-09, along with the collection behind it.
 ]

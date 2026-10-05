@@ -18,7 +18,6 @@ import { CallCard } from './CallCard.jsx'
 import { isArmed } from '../../services/entityStatus.js'
 import { Radar }     from '../Radar/Radar.jsx'
 import { AetherCandidates } from './AetherCandidates.jsx'
-import { useAuth } from '../../context/AuthContext.jsx'
 import './TradeIdeas.scss'
 
 function _separateIdeas(ideas) {
@@ -358,7 +357,6 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
     const [activeFilter,   setActiveFilter]   = useState(null)    // null = hub landing
     // Read the same way AetherCandidates does: `?? {}` because the list is also rendered in tests
     // with no provider mounted, and there a missing context must read as "not an admin".
-    const { isAdmin } = useAuth() ?? {}
     // The close-at-market flow (confirm → fire → report) is shared with the Floor's book, so it
     // lives in usePositionClose rather than here — see that hook for why.
     const { requestClose, requestCloseGroup, closingId, closingGroupId, closeDialog } =
@@ -626,10 +624,8 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                                     {(radar.coverage?.length ?? 0) > 0 && <span className="trade-ideas-list__hub-card-count">{radar.coverage.length} tracked</span>}
                                 </span>
                             </button>
-                            {/* ADMIN-ONLY with the rest of Pythia's desk (2026-09-14): the industries read
-                                behind this board is requireAdmin, so a trader's card would open onto
-                                an empty board. Same gate as the Floor's Forecasts desk. */}
-                            {isAdmin && (
+                            {/* The Forecasts board is for everyone (2026-10-05): the industry views
+                                are a broadcast. Only Pythia's desk itself is admin-only. */}
                             <button className="trade-ideas-list__hub-card" onClick={() => { setActiveFilter('radar'); radar.onTabChange?.('forecasts') }}>
                                 <span className="trade-ideas-list__hub-card-icon">
                                     <AgentGlyph agentKey="strategy" icon={AGENTS.strategy.icon} size={30} />
@@ -640,7 +636,6 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                                     {(radar.industries?.length ?? 0) > 0 && <span className="trade-ideas-list__hub-card-count">{radar.industries.filter(r => r.view?.status === 'answered').length}/{radar.industries.length} industries</span>}
                                 </span>
                             </button>
-                            )}
                         </>)}
                     </div>
                 </div>
