@@ -97,6 +97,20 @@ describe('StrategyPanel', () => {
         expect(linkThread).not.toHaveBeenCalled()   // a draft is still open in this thread
     })
 
+    // The live drive (2026-10-05): the draft vanished on Publish and left an empty reply under PYTHIA.
+    it('a published draft leaves a line saying what was published, cleared by the next turn', async () => {
+        const replies = [{ reply: 'Here it is.', views: [view()] }, { reply: 'Anything else?' }]
+        sendStream.mockImplementation(async (h, opts) => { opts.onDone?.(replies.shift()) })
+        const { rerender } = render(<StrategyPanel seed={{ key: 1, message: 'Review chips.' }} />)
+        await waitFor(() => expect(screen.getByText('Publish this answer')).toBeTruthy())
+        fireEvent.click(screen.getByText('Publish this answer'))
+        await waitFor(() => expect(screen.getByText(/Published — Semiconductors: demand growing · economics good · cycle mid\./)).toBeTruthy())
+        expect(screen.queryByText('Publish this answer')).toBeNull()
+
+        rerender(<StrategyPanel seed={{ key: 2, message: 'Thanks.' }} />)
+        await waitFor(() => expect(screen.queryByText(/Published —/)).toBeNull())
+    })
+
     it('a refused publish keeps the draft and shows why', async () => {
         sendStream.mockImplementation(async (h, opts) => { opts.onDone?.({ reply: 'x', views: [view()] }) })
         publishIndustry.mockRejectedValueOnce({ response: { data: { detail: 'cycle: grade "mid" differs from the measured "peak" — give override_reason' } } })

@@ -65,6 +65,12 @@ export function IndustryDraft({ view, error = '', onPublish, busy = false }) {
 }
 IndustryDraft.propTypes = { view: PropTypes.object.isRequired, error: PropTypes.string, onPublish: PropTypes.func.isRequired, busy: PropTypes.bool }
 
+/** "Semiconductors: demand growing · economics good · cycle peak" — the published answer in one line. */
+function publishedLine(v) {
+    const g = (q) => v[q]?.grade ? `${q} ${String(v[q].grade).replace('_', ' ')}` : null
+    return `${v.name}: ${['demand', 'economics', 'cycle'].map(g).filter(Boolean).join(' · ')}`
+}
+
 export function StrategyPanel({ seed = null, onLoadingChange, onPublished, onRoute, pipeline = null, resumeRef = null }) {
     const chat = useChatStream({ threadPhases: true })
     const routeOffer = useRouteOffer()
@@ -77,6 +83,8 @@ export function StrategyPanel({ seed = null, onLoadingChange, onPublished, onRou
     const setPendingViews = (views) => { pendingRef.current = views; _setPendingState(views) }
     const [errors, setErrors]             = useState({})
     const [publishing, setPublishing]     = useState(null)
+    // What this turn published, so the draft does not just vanish and leave an empty reply under PYTHIA.
+    const [published, setPublished]       = useState([])
     const threadIdRef = useRef(newThreadId())
 
     useEffect(() => { onLoadingChange?.(isLoading) }, [isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
@@ -103,6 +111,7 @@ export function StrategyPanel({ seed = null, onLoadingChange, onPublished, onRou
         const views = [...byIndustry.values()]
         setPendingViews(views)
         setErrors({})
+        setPublished([])
         return views
     }
 
@@ -153,7 +162,7 @@ export function StrategyPanel({ seed = null, onLoadingChange, onPublished, onRou
         }
     }
 
-    function handleClear() { chat.reset(); routeOffer.clear(); setPendingViews([]); setErrors({}); clearThread(threadIdRef) }
+    function handleClear() { chat.reset(); routeOffer.clear(); setPendingViews([]); setErrors({}); setPublished([]); clearThread(threadIdRef) }
 
     async function handleResumeThread(threadId) {
         const t = await threadsService.getThread(threadId)
@@ -161,6 +170,7 @@ export function StrategyPanel({ seed = null, onLoadingChange, onPublished, onRou
         chat.setMessages(t.messages ?? [])
         setPendingViews(Array.isArray(t.state?.draft) ? t.state.draft : [])
         setErrors({})
+        setPublished([])
         threadIdRef.current = t.threadId
     }
     if (resumeRef) resumeRef.current = handleResumeThread
@@ -172,6 +182,7 @@ export function StrategyPanel({ seed = null, onLoadingChange, onPublished, onRou
             const saved = await strategyService.publishIndustry(view.industry, view)
             const rest = pendingRef.current.filter(v => v.industry !== view.industry)
             setPendingViews(rest)
+            setPublished(p => [...p.filter(x => x.industry !== view.industry), { ...view, name: saved?.name ?? view.industry }])
             if (saved?.id && !rest.length) {
                 await threadsService.linkThread(threadIdRef.current, { subjectType: 'industry_view', subjectId: saved.id, artifactName: saved.name ?? null })
                 threadIdRef.current = newThreadId()
@@ -209,6 +220,16 @@ export function StrategyPanel({ seed = null, onLoadingChange, onPublished, onRou
                     <span className="strategy-panel__hint">
                         A published answer replaces the house answer for that industry; the old one stays on its revision trail.
                     </span>
+                </div>
+            )}
+
+            {!isLoading && published.length > 0 && (
+                <div className="strategy-panel__draft-wrap">
+                    {published.map(v => (
+                        <span key={v.industry} className="strategy-panel__hint">
+                            Published — {publishedLine(v)}. It is the house answer now; the board shows it.
+                        </span>
+                    ))}
                 </div>
             )}
 
