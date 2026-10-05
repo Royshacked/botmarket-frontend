@@ -92,7 +92,7 @@ function IndustryRow({ row }) {
 }
 IndustryRow.propTypes = { row: PropTypes.object.isRequired }
 
-export function IndustryView({ industries = [], loading = false }) {
+export function IndustryView({ industries = [], loading = false, error = false }) {
     const [query, setQuery] = useState('')
     const bySector = useMemo(() => {
         const q = query.trim().toLowerCase()
@@ -107,7 +107,9 @@ export function IndustryView({ industries = [], loading = false }) {
 
     if (loading && !industries.length) return <div className="news-feed__loader"><span /><span /><span /></div>
     if (!industries.length) {
-        return <p className="news-feed__empty">No industry measurements yet — the engine has not run its industry metrics.</p>
+        return error
+            ? <p className="news-feed__empty">Could not load the industry views. They will be fetched again on the next refresh.</p>
+            : <p className="news-feed__empty">No industry measurements yet — the engine has not run its industry metrics.</p>
     }
 
     const answered = industries.filter(r => r.view?.status === 'answered').length
@@ -136,4 +138,5 @@ export function IndustryView({ industries = [], loading = false }) {
 IndustryView.propTypes = {
     industries: PropTypes.array,
     loading:    PropTypes.bool,
+    error:      PropTypes.bool,
 }

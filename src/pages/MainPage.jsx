@@ -259,9 +259,6 @@ export function MainPage() {
     // Bumped by the daily market-brief card — the hub writes the brief on every change, then clears
     // it. See the MARKET_BRIEF_OPEN listener for why it counts rather than latches.
     const [briefRequest, setBriefRequest]       = useState(0)
-    // Bumped by Pythia's "review due" card — the strategy desk runs the review on every change, then
-    // clears it. `{ n, reason }` rather than a bare counter because the trigger's own sentence rides
-    // into the turn: a review that knows a stance matured reads that stance first.
     const [activePipeline, setActivePipeline]   = useState(null)   // pipeline key from Axl reception
     const [pipelineStep,   setPipelineStep]     = useState(0)      // index into that desk's steps[] — what "back" walks from
     const [newsTab, setNewsTab]                 = useState('scans')
@@ -734,7 +731,7 @@ export function MainPage() {
         handleBackToAxl()
     }
 
-    const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, industries, industriesLoading } = useCalendarEvents()
+    const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, industries, industriesLoading, industriesError } = useCalendarEvents()
     const { scans, loading: scansLoading, createScan, updateScan, deleteScan } = useScans()
 
     // THE EVENTS RADAR'S BOARD, while Argus is cutting it. Its presence is what puts Argus in radar
@@ -3264,6 +3261,7 @@ export function MainPage() {
                                     fed={fed}
                                     ipo={ipo}
                                     industries={industries}
+                                    industriesError={industriesError}
                                     calendarLoading={{
                                         earnings:  earningsLoading,
                                         fed:       fedLoading,
@@ -3337,6 +3335,7 @@ export function MainPage() {
                                 coverageLoading,
                                 industries,
                                 industriesLoading,
+                                industriesError,
                                 onEditCoverage:    handleEditCoverage,
                                 onRetireCoverage:  handleRetireCoverage,
                                 onDeleteCoverage:  handleDeleteCoverage,

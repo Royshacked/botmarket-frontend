@@ -355,8 +355,6 @@ CardList.propTypes = {
 export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, buildingCall, loading = false, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, onClosePositions, calls = [], onActCall, onDeleteCall, onEditCall, callBusyId = null, setups = [], setupsLoading = false, onArmSetup, onDisarmSetup, onDeleteSetup, onEditSetup, setupBusyId = null, radar, aetherCandidates }) {
     const [expandedGroups, setExpandedGroups] = useState(new Set())
     const [activeFilter,   setActiveFilter]   = useState(null)    // null = hub landing
-    // Read the same way AetherCandidates does: `?? {}` because the list is also rendered in tests
-    // with no provider mounted, and there a missing context must read as "not an admin".
     // The close-at-market flow (confirm → fire → report) is shared with the Floor's book, so it
     // lives in usePositionClose rather than here — see that hook for why.
     const { requestClose, requestCloseGroup, closingId, closingGroupId, closeDialog } =

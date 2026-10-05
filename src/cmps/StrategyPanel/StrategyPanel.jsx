@@ -69,7 +69,12 @@ export function StrategyPanel({ seed = null, onLoadingChange, onPublished, onRou
     const chat = useChatStream({ threadPhases: true })
     const routeOffer = useRouteOffer()
     const { messages, isLoading } = chat
-    const [pendingViews, setPendingViews] = useState([])
+    const [pendingViews, _setPendingState] = useState([])
+    // The drafts as they are NOW, readable after an await. A publish resolves after the click, and the
+    // list may have changed meanwhile (a new turn, another publish); reading state captured at click time
+    // would write a stale list back and bring a published draft with it.
+    const pendingRef = useRef([])
+    const setPendingViews = (views) => { pendingRef.current = views; _setPendingState(views) }
     const [errors, setErrors]             = useState({})
     const [publishing, setPublishing]     = useState(null)
     const threadIdRef = useRef(newThreadId())
@@ -89,9 +94,13 @@ export function StrategyPanel({ seed = null, onLoadingChange, onPublished, onRou
     // A routed arrival's opening sentence (Axl's `<open>`), sent as this desk's next turn.
     useSeedTurn(seed, (text) => _send(text))
 
-    /** The latest turn decides — a turn without a block withdraws the earlier drafts. */
+    /**
+     * The latest turn decides — a turn without a block withdraws the earlier drafts. One draft per
+     * industry (the last one wins): the industry is the draft's key, for React and for its error.
+     */
     function _takeDrafts(data) {
-        const views = Array.isArray(data.views) ? data.views : []
+        const byIndustry = new Map((Array.isArray(data.views) ? data.views : []).map(v => [v.industry, v]))
+        const views = [...byIndustry.values()]
         setPendingViews(views)
         setErrors({})
         return views
@@ -161,7 +170,7 @@ export function StrategyPanel({ seed = null, onLoadingChange, onPublished, onRou
         setErrors(e => ({ ...e, [view.industry]: '' }))
         try {
             const saved = await strategyService.publishIndustry(view.industry, view)
-            const rest = pendingViews.filter(v => v !== view)
+            const rest = pendingRef.current.filter(v => v.industry !== view.industry)
             setPendingViews(rest)
             if (saved?.id && !rest.length) {
                 await threadsService.linkThread(threadIdRef.current, { subjectType: 'industry_view', subjectId: saved.id, artifactName: saved.name ?? null })
@@ -192,8 +201,10 @@ export function StrategyPanel({ seed = null, onLoadingChange, onPublished, onRou
             {!isLoading && pendingViews.length > 0 && (
                 <div className="strategy-panel__draft-wrap">
                     {pendingViews.map(v => (
+                        // Every Publish waits while one is in flight — two at once raced each
+                        // other's state and brought a published draft back.
                         <IndustryDraft key={v.industry} view={v} error={errors[v.industry] ?? ''}
-                            busy={publishing === v.industry} onPublish={() => handlePublish(v)} />
+                            busy={publishing !== null} onPublish={() => handlePublish(v)} />
                     ))}
                     <span className="strategy-panel__hint">
                         A published answer replaces the house answer for that industry; the old one stays on its revision trail.

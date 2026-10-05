@@ -777,7 +777,8 @@ function CallReentryBubble({ msg, onClose, onResolve }) {
 export function IndustryViewBubble({ msg, onClose, onResolve }) {
     const changed = msg.payload?.changed ?? {}
     const moved = Object.keys(changed)
-    const heading = `Industry view · ${moved.length === 1 ? moved[0] : `${moved.length} answers`} changed`
+    const what = moved.length === 1 ? moved[0] : `${moved.length} answers`
+    const heading = `${msg.payload?.name ?? 'Industry view'} · ${what} changed`
 
     function handlePrimary() {
         eventBus.emit(OPEN_SECTOR_VIEW, {})

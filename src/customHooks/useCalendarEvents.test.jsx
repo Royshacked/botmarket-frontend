@@ -56,7 +56,7 @@ describe('useCalendarEvents — the industry views are fetched for everyone', ()
     it('a failed industries read leaves an empty board, not a crash', async () => {
         listIndustries.mockRejectedValueOnce(new Error('403'))
         const { result } = renderHook(() => useCalendarEvents())
-        await waitFor(() => expect(result.current.industriesLoading).toBe(false))
+        await waitFor(() => expect(result.current.industriesError).toBe(true))
         expect(result.current.industries).toEqual([])
     })
 })

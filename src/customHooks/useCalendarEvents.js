@@ -21,6 +21,8 @@ export function useCalendarEvents() {
     // second data path would mean two refresh timers, two unmount guards and one more prop to thread.
     const [industries, setIndustries]               = useState([])
     const [industriesLoading, setIndustriesLoading] = useState(false)
+    // A failed read is NOT an empty board — "the engine has not run" would be a false statement.
+    const [industriesError, setIndustriesError]     = useState(false)
 
     useEffect(() => {
         let active = true
@@ -48,7 +50,10 @@ export function useCalendarEvents() {
             load(calendarService.getFed, setFedLoading, (d) => setFed(d ?? []))
             load(calendarService.getIpo, setIpoLoading, (d) => setIpo(d ?? []))
             // Every user reads the board (2026-10-05) — the views are a broadcast.
-            load(strategyService.listIndustries, setIndustriesLoading, (d) => setIndustries(Array.isArray(d) ? d : []))
+            load(strategyService.listIndustries, setIndustriesLoading, (d) => {
+                setIndustriesError(!Array.isArray(d))
+                if (Array.isArray(d)) setIndustries(d)
+            })
         }
 
         refresh()
@@ -60,5 +65,5 @@ export function useCalendarEvents() {
         return () => { active = false; clearInterval(t); window.removeEventListener(INDUSTRIES_CHANGED, refresh) }
     }, [])
 
-    return { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, industries, industriesLoading }
+    return { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, industries, industriesLoading, industriesError }
 }

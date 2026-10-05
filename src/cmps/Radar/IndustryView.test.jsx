@@ -63,3 +63,11 @@ describe('IndustryView', () => {
         expect(screen.getByText(/the engine has not run/)).toBeTruthy()
     })
 })
+
+describe('IndustryView — a failed read', () => {
+    it('says the read failed rather than that the engine has not run', () => {
+        render(<IndustryView industries={[]} error />)
+        expect(screen.getByText(/Could not load the industry views/)).toBeTruthy()
+        expect(screen.queryByText(/the engine has not run/)).toBeNull()
+    })
+})

@@ -118,6 +118,27 @@ describe('StrategyPanel', () => {
         expect(saveDraft.mock.calls.at(-1)[0].state).toBeNull()
     })
 
+    it('while one publish is in flight every Publish waits, and the other draft survives it', async () => {
+        sendStream.mockImplementation(async (h, opts) => { opts.onDone?.({ reply: 'x', views: [view(), view({ industry: '45301010' })] }) })
+        let release
+        publishIndustry.mockImplementationOnce((code) => new Promise(r => { release = () => r({ id: `iv_${code}`, code }) }))
+        render(<StrategyPanel seed={{ key: 1, message: 'Review chips.' }} />)
+        await waitFor(() => expect(screen.getAllByText('Publish this answer')).toHaveLength(2))
+        fireEvent.click(screen.getAllByText('Publish this answer')[0])
+        await waitFor(() => expect(screen.getAllByText('Publish this answer').every(b => b.disabled)).toBe(true))
+        release()
+        await waitFor(() => expect(screen.getAllByText('Publish this answer')).toHaveLength(1))
+        expect(screen.getByText('GICS 45301010')).toBeTruthy()
+        expect(linkThread).not.toHaveBeenCalled()
+    })
+
+    it('two drafts for one industry collapse to the last', async () => {
+        sendStream.mockImplementation(async (h, opts) => { opts.onDone?.({ reply: 'x', views: [view({ summary: 'first' }), view({ summary: 'second' })] }) })
+        render(<StrategyPanel seed={{ key: 1, message: 'Review chips.' }} />)
+        await waitFor(() => expect(screen.getAllByText('Publish this answer')).toHaveLength(1))
+        expect(screen.getByText('second')).toBeTruthy()
+    })
+
     it('a turn stopped mid-answer still saves the conversation, as an industry_view thread', async () => {
         render(<StrategyPanel pipeline="strategy" seed={{ key: 1, message: 'Review banks.' }} />)
         await waitFor(() => expect(saveDraft).toHaveBeenCalledTimes(1))

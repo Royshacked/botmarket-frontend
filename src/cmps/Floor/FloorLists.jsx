@@ -832,7 +832,7 @@ export function FloorLists({
     onEditScan, onDeleteScan,
     onEditCoverage, onRetireCoverage, onDeleteCoverage,
     onExecuteQueued, onCancelQueued, queuedBusyId = null,
-    earnings = [], fed = [], ipo = [], industries = [], calendarLoading = {},
+    earnings = [], fed = [], ipo = [], industries = [], industriesError = false, calendarLoading = {},
     onEarningSelect, onIpoSelect,
     isAdmin = false,
     researchQueue = [], onStartResearch, onMarkResearchDone, onRejectResearch, researchQueueBusyId = null,
@@ -1026,7 +1026,7 @@ export function FloorLists({
                         <CalendarRows kind="ipo" items={sorted('ipo', ipo)}loading={calendarLoading.ipo} onSelect={onIpoSelect} onSymbolClick={onSymbolClick} />
                     )}
                     {desk.key === 'forecasts' && (
-                        <IndustryView industries={industries} loading={calendarLoading.forecasts} />
+                        <IndustryView industries={industries} loading={calendarLoading.forecasts} error={industriesError} />
                     )}
                 </Desk>
                 </Fragment>
@@ -1052,6 +1052,7 @@ FloorLists.propTypes = {
     fed:               PropTypes.array,
     ipo:               PropTypes.array,
     industries:        PropTypes.array,
+    industriesError:   PropTypes.bool,
     // Keyed by desk, not one flag for all four: a slow IPO feed used to hold up the earnings list
     // and the house view alongside it, because the old tab strip had one shared "Loading…".
     calendarLoading:     PropTypes.object,

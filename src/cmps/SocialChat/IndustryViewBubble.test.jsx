@@ -27,3 +27,10 @@ describe('IndustryViewBubble', () => {
         off()
     })
 })
+
+describe('IndustryViewBubble — the heading', () => {
+    it('names the industry when the card carries it', () => {
+        render(<IndustryViewBubble msg={{ ...msg, payload: { ...msg.payload, name: 'Semiconductors' } }} onResolve={vi.fn()} />)
+        expect(screen.getByText(/Semiconductors · cycle changed/)).toBeTruthy()
+    })
+})
