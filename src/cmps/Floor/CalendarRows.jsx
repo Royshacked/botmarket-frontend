@@ -10,7 +10,7 @@ import { groupByDay, fmtDay } from './floor.utils.js'
 // for all three, and only the row differs. So the mechanism lives here once and each desk asks
 // for it by kind, rather than three near-copies drifting apart in three desk bodies.
 //
-// The house forecast is NOT here. It is a board, not a dated list — it renders SectorView, and
+// The house forecast is NOT here. It is a board, not a dated list — it renders IndustryView, and
 // forcing it through groupByDay was only ever an artefact of sharing a tab strip with these three.
 
 

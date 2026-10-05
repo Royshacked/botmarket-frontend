@@ -626,7 +626,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                                     {(radar.coverage?.length ?? 0) > 0 && <span className="trade-ideas-list__hub-card-count">{radar.coverage.length} tracked</span>}
                                 </span>
                             </button>
-                            {/* ADMIN-ONLY with the rest of Pythia's desk (2026-09-14): the tilt read
+                            {/* ADMIN-ONLY with the rest of Pythia's desk (2026-09-14): the industries read
                                 behind this board is requireAdmin, so a trader's card would open onto
                                 an empty board. Same gate as the Floor's Forecasts desk. */}
                             {isAdmin && (
@@ -636,9 +636,8 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                                 </span>
                                 <span className="trade-ideas-list__hub-card-body">
                                     <span className="trade-ideas-list__hub-card-label">Forecasts</span>
-                                    {/* The count is the number of STANCES in force, not a list length —
-                                        there is only ever one house view. */}
-                                    {(radar.tilt?.tilts?.length ?? 0) > 0 && <span className="trade-ideas-list__hub-card-count">{radar.tilt.tilts.length} sectors</span>}
+                                    {/* How many of the 163 sub-industries Pythia has answered. */}
+                                    {(radar.industries?.length ?? 0) > 0 && <span className="trade-ideas-list__hub-card-count">{radar.industries.filter(r => r.view?.status === 'answered').length}/{radar.industries.length} industries</span>}
                                 </span>
                             </button>
                             )}

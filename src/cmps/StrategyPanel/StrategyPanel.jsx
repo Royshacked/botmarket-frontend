@@ -14,176 +14,108 @@ import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { ChatBubble } from '../ChatBubble.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { waitingLabel } from '../ToolStatusChip/waitingLabel.js'
-import { reviewPrompt } from './reviewPrompt.js'
+import '../Radar/IndustryView.scss'   // the shared grade chip
 import './StrategyPanel.scss'
 
-// Pythia's desk. One turn produces a top-down read; a published turn also emits a `<tilt>` DRAFT —
-// the regime plus sector stances as active weight vs the benchmark — which the user then publishes.
+// Pythia's desk — the industry desk since 2026-10-05 (backend docs/design/pythia-industry-questions.md).
+// For a GICS sub-industry it answers three structural questions — demand, economics, cycle — and a
+// turn that answered emits one <industry_view> DRAFT per industry, which the admin then publishes.
 //
-// Publishing is deliberately a SECOND act, exactly as initiating coverage is: the draft is a
-// proposal, and a house view that supersedes the standing one should take a click.
+// Publishing is deliberately a SECOND act, one industry at a time: the draft is a proposal, and the
+// server checks it against the measured numbers (a departure from a measured grade needs its argument).
 
-const STRATEGY_PHASE_LABELS = ['Backdrop', 'Regime', 'Sector mapping', 'Cross-check', 'Publish']
-
-const MessageBubble = ({ msg }) => (
-    <ChatBubble msg={msg} phaseLabels={STRATEGY_PHASE_LABELS} phaseTotal={5} />
-)
+const MessageBubble = ({ msg }) => <ChatBubble msg={msg} phaseLabels={[]} phaseTotal={0} />
 MessageBubble.propTypes = { msg: PropTypes.object.isRequired }
 
-const STANCE_LABEL = { over: 'OW', neutral: 'NEU', under: 'UW' }
-const _bp = v => (v === null || v === undefined ? '—' : `${v >= 0 ? '+' : ''}${v}bp`)
+const QUESTIONS = [['demand', 'Demand'], ['economics', 'Economics'], ['cycle', 'Cycle']]
 
-/**
- * What the row is graded against, and what is imperfect about it. The server records `weighting`
- * and `exact` on every proxy precisely because both distort a grade, so the panel has to be able
- * to say so rather than showing a ticker as if it were the bucket itself.
- */
-function _proxyTitle(proxy) {
-    if (!proxy?.symbol) return 'No fund — this stance cannot be graded'
-    const notes = []
-    if (proxy.weighting === 'equal') notes.push('equal-weighted against a cap-weighted benchmark, so part of a size factor rides along')
-    if (proxy.exact === false)       notes.push('the fund spans more than this bucket')
-    return `Graded against ${proxy.symbol}${notes.length ? ` — ${notes.join('; ')}` : ''}`
-}
-
-/**
- * The drafted view before it is published — the regime, and each stance with the weight it implies.
- *
- * Shows the NET explicitly: a tilt table redistributes a fully-invested book, so the weights must
- * cancel. Surfacing the sum here is what lets the user catch an unbalanced table before it becomes
- * the house view, rather than reading a warning on the board afterwards.
- */
-export function TiltDraft({ tilt }) {
-    const rows = Array.isArray(tilt.tilts) ? tilt.tilts : []
-    // The SERVER's verdict, carried on the draft — the same balanceOf() that normalizeTilt records
-    // at publish. This used to be re-derived here against a hardcoded 50, a copy of the backend's
-    // BALANCE_TOLERANCE_BP: a number that decides a verdict, living in a second repo, where nothing
-    // would ever say the two had drifted. Reading it means the preview and the publish cannot
-    // disagree about whether a table nets out.
-    const net      = Number(tilt.net_bp) || 0
-    const balanced = tilt.balanced !== false
-
+/** One drafted industry answer before it is published. */
+export function IndustryDraft({ view, error = '', onPublish, busy = false }) {
     return (
         <div className="strategy-panel__draft">
             <div className="strategy-panel__draft-head">
-                <span className="strategy-panel__regime">{tilt.regime?.name ?? 'House view'}</span>
-                <span className="strategy-panel__bench">vs {tilt.benchmark ?? 'SPX'}</span>
-                <span className={`strategy-panel__net${balanced ? '' : ' strategy-panel__net--off'}`}
-                    title={balanced ? 'Weights net out' : 'Active weights do not net to zero — not directly allocatable'}>
-                    net {_bp(net)}
-                </span>
+                <span className="strategy-panel__regime">GICS {view.industry}</span>
             </div>
-            {tilt.regime?.thesis && <p className="strategy-panel__thesis">{tilt.regime.thesis}</p>}
-            <div className="strategy-panel__stances">
-                {rows.map((r, i) => (
-                    <div key={r.bucket ?? i} className={`strategy-panel__stance strategy-panel__stance--${r.stance ?? 'none'}`}>
-                        <span className="strategy-panel__stance-bucket" title={r.bucket}>
-                            {r.bucket}
-                            {r.grain === 'industry' && <i className="strategy-panel__stance-grain">ind</i>}
-                        </span>
-                        {/* Blank rather than a dash when there is no fund: the weight column owns
-                            the "unknown" dash, and two of them in a row read as one fact. */}
-                        <span className="strategy-panel__stance-proxy" title={_proxyTitle(r.proxy)}>
-                            {r.proxy?.symbol
-                                ? `${r.proxy.symbol}${(r.proxy.exact === false || r.proxy.weighting === 'equal') ? '*' : ''}`
-                                : ''}
-                        </span>
-                        <span className="strategy-panel__stance-tag">{STANCE_LABEL[r.stance] ?? '—'}</span>
-                        <span className="strategy-panel__stance-bp">{_bp(r.active_bp)}</span>
-                        <span className="strategy-panel__stance-h">{r.horizon ?? '—'}</span>
-                    </div>
-                ))}
+            {view.summary && <p className="strategy-panel__thesis">{view.summary}</p>}
+            <div className="strategy-panel__answers">
+                {QUESTIONS.map(([q, label]) => {
+                    const a = view[q] ?? {}
+                    return (
+                        <div key={q} className="strategy-panel__answer">
+                            <span className="strategy-panel__answer-q">{label}</span>
+                            <span className={`industry-grade industry-grade--${a.grade ?? 'none'}`}>{a.grade?.replace('_', ' ') ?? '—'}</span>
+                            <p className="strategy-panel__answer-why">{a.rationale}</p>
+                            {a.override_reason && <p className="strategy-panel__answer-override"><b>Departs from the measured grade:</b> {a.override_reason}</p>}
+                        </div>
+                    )
+                })}
             </div>
-            {(tilt.regime?.kill_criteria?.length ?? 0) > 0 && (
+            {(view.reopen_if?.length ?? 0) > 0 && (
                 <div className="strategy-panel__kills">
-                    <span className="strategy-panel__kills-label">what breaks it</span>
-                    <ul>{tilt.regime.kill_criteria.map((k, i) => <li key={i}>{k}</li>)}</ul>
+                    <span className="strategy-panel__kills-label">reopen early if</span>
+                    <ul>{view.reopen_if.map((k, i) => <li key={i}>{k}</li>)}</ul>
                 </div>
             )}
+            {error && <div className="strategy-panel__err">{error}</div>}
+            <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" disabled={busy} onClick={onPublish}>
+                Publish this answer
+            </button>
         </div>
     )
 }
-TiltDraft.propTypes = { tilt: PropTypes.object.isRequired }
+IndustryDraft.propTypes = { view: PropTypes.object.isRequired, error: PropTypes.string, onPublish: PropTypes.func.isRequired, busy: PropTypes.bool }
 
-export function StrategyPanel({ seed = null, currentTilt = null, onLoadingChange, onPublished, onRoute, pipeline = null, resumeRef = null, reviewRequest = null, onReviewStart }) {
+export function StrategyPanel({ seed = null, onLoadingChange, onPublished, onRoute, pipeline = null, resumeRef = null }) {
     const chat = useChatStream({ threadPhases: true })
-    // The user asked, in the chat, to be sent to another desk with a name → the reply routed →
-    // the RouteOffer button. The shared hand-off every desk has (useRouteOffer).
     const routeOffer = useRouteOffer()
     const { messages, isLoading } = chat
-    const [pendingTilt, setPendingTilt] = useState(null)
-    const [publishErr, setPublishErr]   = useState('')
-
-    // The published view rides every turn so Pythia can REAFFIRM rather than re-author. Held in a
-    // ref as well: `_send` runs before React re-renders, so reading the prop mid-send is stale.
-    const currentRef = useRef(null)
-    currentRef.current = currentTilt
-    const threadIdRef = useRef(newThreadId())   // the view-building conversation's draft thread
+    const [pendingViews, setPendingViews] = useState([])
+    const [errors, setErrors]             = useState({})
+    const [publishing, setPublishing]     = useState(null)
+    const threadIdRef = useRef(newThreadId())
 
     useEffect(() => { onLoadingChange?.(isLoading) }, [isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
 
-    /**
-     * Persist the conversation as a DRAFT THREAD — the shared mechanism every other desk uses. This
-     * desk had none, so a view the user walked out of mid-build left no marker, closed no door, and
-     * survived only as React state behind a hidden tab (gone on reload). See AnalystPanel/_saveThread.
-     *
-     * `draft` is passed in because setPendingTilt lands after this turn's onDone runs.
-     */
-    function _saveThread(msgs, phase, draft) {
+    /** Persist the conversation as a DRAFT THREAD — the shared mechanism every other desk uses. */
+    function _saveThread(msgs, phase, drafts) {
         threadsService.saveDraft({
             pipeline,
             threadId: threadIdRef.current, agent: 'strategy',
-            messages: msgs, phase: phase ?? null, subjectType: 'tilt',
-            state: draft ? { draft } : null,
+            messages: msgs, phase: phase ?? null, subjectType: 'industry_view',
+            state: drafts?.length ? { draft: drafts } : null,
         })
     }
 
-    // A routed arrival's opening sentence — Axl's `<open>` ("change the Technology stance to
-    // neutral") — sent as this desk's next turn, once per key, into whatever conversation is open.
-    // A standing view is reaffirmed or re-authored in ONE conversation, so the seed continues it
-    // rather than starting clean (mount: continues, the same call every artifact desk makes).
+    // A routed arrival's opening sentence (Axl's `<open>`), sent as this desk's next turn.
     useSeedTurn(seed, (text) => _send(text))
 
+    /** The latest turn decides — a turn without a block withdraws the earlier drafts. */
+    function _takeDrafts(data) {
+        const views = Array.isArray(data.views) ? data.views : []
+        setPendingViews(views)
+        setErrors({})
+        return views
+    }
+
     async function _send(text) {
-        setPublishErr('')
         routeOffer.clear()
         const history = toChatHistory(messages)
         history.push({ role: 'user', content: text })
 
         await chat.run(text, {
             log: '[strategy]',
-            // Stopped mid-answer: the conversation is still the user's to come back to. Phase in
-            // force rather than this turn's, which never arrived (see AnalystPanel).
-            onStopped: () => _saveThread(history, chat.phase, pendingTilt),
+            onStopped: () => _saveThread(history, chat.phase, pendingViews),
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant' })
-                setPendingTilt(data.tilt ?? null)   // the latest turn decides — a turn without <tilt> withdraws it (buildStandingProposalRule)
+                const views = _takeDrafts(data)
                 routeOffer.capture(data)
-                _saveThread([...history, { role: 'assistant', content: data.reply }], data.phase, data.tilt ?? null)
+                _saveThread([...history, { role: 'assistant', content: data.reply }], data.phase, views)
             },
             send: ({ signal, handlers }) => strategyService.sendStream(history, {
-                model:           readStoredModel(),
-                // The view in force, so a stance that still holds keeps its ORIGINAL clock and entry
-                // prices instead of being silently re-based every review.
-                chatState:       { current_tilt: currentRef.current },
-                signal,
-                ...handlers,
+                model: readStoredModel(), chatState: {}, signal, ...handlers,
             }),
         })
     }
-
-    // The review asked for from Pythia's card in the social chat (MainPage bumps `reviewRequest`).
-    // It goes through _send, so it is indistinguishable from the user typing the ask: same history,
-    // same draft thread, same `current_tilt` riding along — which is what makes the answer a REVIEW
-    // (reaffirm what holds, keep its clock and baseline) rather than a fresh view.
-    //
-    // `isLoading` is a dependency, not a guard to bail on: pressing the card mid-turn must not
-    // swallow the review. The request is left unconsumed and this re-runs when the turn ends.
-    useEffect(() => {
-        if (!reviewRequest?.n || isLoading) return
-        onReviewStart?.()
-        _send(reviewPrompt(reviewRequest.reason))
-    }, [reviewRequest?.n, isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
 
     // Resume a stopped reply (▶) — continue the same bubble.
     async function _continue() {
@@ -196,113 +128,84 @@ export function StrategyPanel({ seed = null, currentTilt = null, onLoadingChange
             onError: () => chat.restoreStopped(base),
             onDone: (data) => {
                 chat.finishStreaming({ role: 'assistant', content: base + data.reply })
-                setPendingTilt(data.tilt ?? null)   // the latest turn decides — a turn without <tilt> withdraws it (buildStandingProposalRule)
+                const views = _takeDrafts(data)
                 routeOffer.capture(data)
-                _saveThread([...withoutPrefill(history), { role: 'assistant', content: base + data.reply }], data.phase, data.tilt ?? null)
+                _saveThread([...withoutPrefill(history), { role: 'assistant', content: base + data.reply }], data.phase, views)
             },
         })
         if (!cont) return
         try {
-            await strategyService.sendStream(history, {
-                model:           readStoredModel(),
-                chatState:       { current_tilt: currentRef.current },
-                signal:          cont.signal,
-                ...cont.handlers,
-            })
+            await strategyService.sendStream(history, { model: readStoredModel(), chatState: {}, signal: cont.signal, ...cont.handlers })
         } catch (err) {
             console.error('[strategy]', err)
-            // Restore the stopped bubble rather than freezing an error over it — a failed RESUME
-            // must not cost the user the partial reply they already had.
             chat.restoreStopped(base)
         } finally {
             chat.endStream()
         }
     }
 
-    // Clear is not walking away — the draft goes with the conversation. See clearThread.
-    function handleClear() { chat.reset(); routeOffer.clear(); setPendingTilt(null); setPublishErr(''); clearThread(threadIdRef) }
+    function handleClear() { chat.reset(); routeOffer.clear(); setPendingViews([]); setErrors({}); clearThread(threadIdRef) }
 
-    // Resume an unfinished view-building draft: restore the conversation + the tilt in progress, and
-    // keep writing to the SAME thread. `current_tilt` is not restored — it rides from the live prop,
-    // so a resumed review reaffirms against the view in force NOW, not a copy frozen on the way out.
     async function handleResumeThread(threadId) {
         const t = await threadsService.getThread(threadId)
         if (!t) return
         chat.setMessages(t.messages ?? [])
-        setPendingTilt(t.state?.draft ?? null)
-        setPublishErr('')
+        setPendingViews(Array.isArray(t.state?.draft) ? t.state.draft : [])
+        setErrors({})
         threadIdRef.current = t.threadId
     }
     if (resumeRef) resumeRef.current = handleResumeThread
 
-    async function handlePublish() {
-        if (!pendingTilt) return
-        setPublishErr('')
+    async function handlePublish(view) {
+        setPublishing(view.industry)
+        setErrors(e => ({ ...e, [view.industry]: '' }))
         try {
-            const saved = await strategyService.publishTilt(pendingTilt)
-            setPendingTilt(null)
-            // AWAITED before onPublished — that callback ends the desk run, and finishing deletes the
-            // run's remaining DRAFTS. See AnalystPanel/_linkThread.
-            if (saved?.id) {
-                await threadsService.linkThread(threadIdRef.current, { subjectType: 'tilt', subjectId: saved.id, artifactName: saved.regime ?? null })
+            const saved = await strategyService.publishIndustry(view.industry, view)
+            const rest = pendingViews.filter(v => v !== view)
+            setPendingViews(rest)
+            if (saved?.id && !rest.length) {
+                await threadsService.linkThread(threadIdRef.current, { subjectType: 'industry_view', subjectId: saved.id, artifactName: saved.name ?? null })
                 threadIdRef.current = newThreadId()
             }
             onPublished?.(saved)
         } catch (err) {
-            // 422 = a stance contradicts its active weight. That is the one refusal worth spelling
-            // out, because `active_bp` is what gets allocated: publishing it would move a book the
-            // opposite way from what the words said.
+            // 422 = the answer does not hold up against the measured numbers — most often a grade that
+            // departs from the code's read without saying why. The detail names the question.
             const data = err?.response?.data
-            setPublishErr(data?.detail || data?.error || 'Could not publish the view')
+            setErrors(e => ({ ...e, [view.industry]: data?.detail || data?.error || 'Could not publish the answer' }))
+        } finally {
+            setPublishing(null)
         }
     }
-
-    const rowCount = pendingTilt?.tilts?.length ?? 0
 
     return (
         <div className="strategy-panel">
             <AgentMessages chat={chat}>
-                {/* The brand rides the shared pieces every other desk uses — badge, "Hi, I'm …",
-                    the desk's own intro/hint from agentMeta. Only the standing-view note is
-                    specific to this desk, so it goes in as a child. */}
-                {messages.length === 0 && (
-                    <AgentIntro agent={AGENTS.strategy}>
-                        {currentTilt && (
-                            <p className="strategy-panel__standing">
-                                A view is already in force ({currentTilt.tilts?.length ?? 0} stances). Ask for a review and
-                                Pythia reaffirms what still holds rather than starting over.
-                            </p>
-                        )}
-                    </AgentIntro>
-                )}
+                {messages.length === 0 && <AgentIntro agent={AGENTS.strategy} />}
                 {messages.map((msg, i) => <MessageBubble key={i} msg={msg} />)}
-                {isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus: chat.streamStatus, placeholder: 'reading the tape…' })} pulse={chat.reasoningPulse} />}
+                {isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus: chat.streamStatus, placeholder: 'reading the filings…' })} pulse={chat.reasoningPulse} />}
                 {(isLoading || messages.some(m => m.role === 'assistant' && m.content)) && (
                     <AgentTurnTag agent={AGENTS.strategy} active={isLoading} />
                 )}
             </AgentMessages>
 
-            {!isLoading && pendingTilt && (
+            {!isLoading && pendingViews.length > 0 && (
                 <div className="strategy-panel__draft-wrap">
-                    <TiltDraft tilt={pendingTilt} />
-                    {publishErr && <div className="strategy-panel__err">{publishErr}</div>}
-                    <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={handlePublish}>
-                        {currentTilt ? `Replace the house view — ${rowCount} stances` : `Publish the house view — ${rowCount} stances`}
-                    </button>
+                    {pendingViews.map(v => (
+                        <IndustryDraft key={v.industry} view={v} error={errors[v.industry] ?? ''}
+                            busy={publishing === v.industry} onPublish={() => handlePublish(v)} />
+                    ))}
                     <span className="strategy-panel__hint">
-                        {currentTilt
-                            ? 'The current view is superseded, not deleted — it stays on the record with its stances still being graded.'
-                            : 'Every stance starts its clock when you publish.'}
+                        A published answer replaces the house answer for that industry; the old one stays on its revision trail.
                     </span>
                 </div>
             )}
 
-            {/* The user asked to be sent to another desk with a name — the shared offer. */}
             <RouteOffer offer={routeOffer.offer} busy={chat.isLoading} onGo={(o) => { routeOffer.clear(); onRoute?.(o) }} onDismiss={routeOffer.clear} />
 
             <AgentChatInput
                 chat={chat}
-                placeholder="Ask for the top-down read — e.g. “What regime are we in?” (Enter to send)"
+                placeholder="Ask about an industry — e.g. “Review semiconductors” (Enter to send)"
                 onSend={_send}
                 onClear={handleClear}
                 onResume={_continue}
@@ -312,12 +215,10 @@ export function StrategyPanel({ seed = null, currentTilt = null, onLoadingChange
 }
 
 StrategyPanel.propTypes = {
-    onRoute:         PropTypes.func,     // (offer) → MainPage's doorway: the user asked to be sent to another desk
-    currentTilt:     PropTypes.object,   // the view in force — drives reaffirm-vs-re-author
+    seed:            PropTypes.object,
+    onRoute:         PropTypes.func,
     onLoadingChange: PropTypes.func,
     onPublished:     PropTypes.func,
-    pipeline:        PropTypes.string,   // the DESK this run belongs to — what the marker keys on
+    pipeline:        PropTypes.string,
     resumeRef:       PropTypes.object,
-    reviewRequest:   PropTypes.shape({ n: PropTypes.number, reason: PropTypes.string }),  // from the review-due card
-    onReviewStart:   PropTypes.func,     // consume it, so walking back here does not re-run the review
 }

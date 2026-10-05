@@ -1,15 +1,17 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
-import { render, screen, cleanup, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react'
 
 // The chat shell and the transport are stubbed: what is under test here is the panel's own logic —
-// the draft it renders, and the turn it runs when a "review due" card sends the user in.
+// the industry drafts it renders, publishing them one at a time, and the latest-turn-decides rule.
 const sendStream = vi.fn(async () => {})
+const publishIndustry = vi.fn(async (code) => ({ id: `iv_${code}`, code, name: 'Semiconductors' }))
 vi.mock('../../services/strategy/strategy.service.remote.js', () => ({
-    strategyService: { sendStream: (...a) => sendStream(...a) },
+    strategyService: { sendStream: (...a) => sendStream(...a), publishIndustry: (...a) => publishIndustry(...a) },
 }))
 const saveDraft = vi.fn()
+const linkThread = vi.fn()
 vi.mock('../../services/threads/threads.service.remote.js', () => ({
-    threadsService: { saveDraft: (...a) => saveDraft(...a), getThread: vi.fn(), linkThread: vi.fn() },
+    threadsService: { saveDraft: (...a) => saveDraft(...a), getThread: vi.fn(), linkThread: (...a) => linkThread(...a) },
     newThreadId: () => 'thr_test',
     clearThread: vi.fn(),
 }))
@@ -20,119 +22,45 @@ let chatStub
 vi.mock('../../customHooks/useChatStream.js', () => ({
     useChatStream: () => chatStub,
     toChatHistory: (msgs) => msgs.map(m => ({ role: m.role, content: m.content })),
+    withoutPrefill: (h) => h,
 }))
 
-import { TiltDraft, StrategyPanel } from './StrategyPanel.jsx'
-import { reviewPrompt } from './reviewPrompt.js'
+import { IndustryDraft, StrategyPanel } from './StrategyPanel.jsx'
 
 afterEach(cleanup)
 
-const row = (over = {}) => ({ bucket: 'Healthcare', stance: 'over', active_bp: 150, horizon: '6m', ...over })
-// `net_bp` / `balanced` are the SERVER's — balanceOf() rides on the draft the desk streams back,
-// the same verdict normalizeTilt records at publish. They are in the fixture because they are in the
-// payload; the panel no longer works them out, so a fixture that omitted them would be testing a
-// response shape the server does not send.
-const draft = (over = {}) => ({
-    benchmark: 'SPX',
-    regime: { name: 'late-cycle disinflation', thesis: 'Growth slows.', kill_criteria: ['core CPI above 3.5% twice'] },
-    tilts: [row(), row({ bucket: 'Energy', stance: 'under', active_bp: -150 })],
-    net_bp: 0, balanced: true,
+const view = (over = {}) => ({
+    industry: '45301020',
+    demand:    { grade: 'growing', rationale: 'Revenue 12%/yr against 5% for the universe.' },
+    economics: { grade: 'good',    rationale: 'Median ROIC 18% against a 10.6% hurdle.' },
+    cycle:     { grade: 'mid',     rationale: 'r', override_reason: 'The range is pre-AI; the margin floor moved.' },
+    reopen_if: ['industry revenue falls two quarters in a row'],
+    summary: 'A great industry, mid-cycle on the house read.',
     ...over,
 })
 
-// The DRAFT is the part specific to this panel — a proposed house view, shown before it supersedes
-// the standing one. The chat shell is the shared one every desk uses.
-describe('TiltDraft', () => {
-    it('shows the regime and the stances it implies', () => {
-        render(<TiltDraft tilt={draft()} />)
-        expect(screen.getByText('late-cycle disinflation')).toBeTruthy()
-        expect(screen.getByText('Growth slows.')).toBeTruthy()
-        expect(screen.getByText('Healthcare')).toBeTruthy()
-        expect(screen.getByText('+150bp')).toBeTruthy()
-        expect(screen.getByText('-150bp')).toBeTruthy()
-        expect(screen.getByText('vs SPX')).toBeTruthy()
+describe('IndustryDraft', () => {
+    it('shows each question with its grade and reasoning, and a departure with its argument', () => {
+        render(<IndustryDraft view={view()} onPublish={vi.fn()} />)
+        expect(screen.getByText('GICS 45301020')).toBeTruthy()
+        expect(screen.getByText('growing')).toBeTruthy()
+        expect(screen.getByText(/Median ROIC 18%/)).toBeTruthy()
+        expect(screen.getByText(/margin floor moved/)).toBeTruthy()
+        expect(screen.getByText('industry revenue falls two quarters in a row')).toBeTruthy()
     })
 
-    it('surfaces the NET so an unbalanced table is caught while it is still a draft', () => {
-        // A tilt table redistributes a fully-invested book, so the weights must cancel. Catching it
-        // here beats reading a warning on the board after it became the house view.
-        const { container } = render(<TiltDraft tilt={draft()} />)
-        expect(screen.getByText('net +0bp')).toBeTruthy()
-        expect(container.querySelector('.strategy-panel__net--off')).toBeNull()
-    })
-
-    it('flags a table that does not net out', () => {
-        const { container } = render(<TiltDraft tilt={draft({
-            tilts: [row({ active_bp: 300 }), row({ bucket: 'Energy', active_bp: 200 })],
-            net_bp: 500, balanced: false,
-        })} />)
-        expect(screen.getByText('net +500bp')).toBeTruthy()
-        expect(container.querySelector('.strategy-panel__net--off')).toBeTruthy()
-    })
-
-    it('renders the verdict the server sent rather than second-guessing it from the rows', () => {
-        // The tolerance itself is the backend's (balanceOf / BALANCE_TOLERANCE_BP) and is tested
-        // there. What matters HERE is that the panel does not re-derive it: given rows that sum to
-        // 500 but a verdict of balanced, it must show balanced — because the publish call will.
-        // Re-deriving is what let a copy of the tolerance drift in a second repo.
-        const { container } = render(<TiltDraft tilt={draft({
-            tilts: [row({ active_bp: 300 }), row({ bucket: 'Energy', active_bp: 200 })],
-            net_bp: 500, balanced: true,
-        })} />)
-        expect(container.querySelector('.strategy-panel__net--off')).toBeNull()
-    })
-
-    it('shows what would break the read — the falsifiers are what make it monitorable', () => {
-        render(<TiltDraft tilt={draft()} />)
-        expect(screen.getByText('what breaks it')).toBeTruthy()
-        expect(screen.getByText('core CPI above 3.5% twice')).toBeTruthy()
-    })
-
-    it('the direction is legible before any number is parsed', () => {
-        const { container } = render(<TiltDraft tilt={draft()} />)
-        expect(container.querySelector('.strategy-panel__stance--over')).toBeTruthy()
-        expect(container.querySelector('.strategy-panel__stance--under')).toBeTruthy()
-    })
-
-    it('a missing weight renders a dash, not a zero', () => {
-        render(<TiltDraft tilt={draft({ tilts: [row({ active_bp: null })] })} />)
-        expect(screen.getByText('—')).toBeTruthy()
-    })
-
-    it('a draft with no regime still renders its stances', () => {
-        render(<TiltDraft tilt={draft({ regime: null })} />)
-        expect(screen.getByText('House view')).toBeTruthy()
-        expect(screen.getByText('Healthcare')).toBeTruthy()
+    it('shows the server\'s refusal under the draft it belongs to', () => {
+        render(<IndustryDraft view={view()} error="cycle: give override_reason" onPublish={vi.fn()} />)
+        expect(screen.getByText('cycle: give override_reason')).toBeTruthy()
     })
 })
 
-// ── the review a card sends in ───────────────────────────────────────────────
-// Pythia's monitor found the standing view past its clock and asked; the confirm lands here and the
-// review runs as an ordinary turn at the desk.
-describe('reviewPrompt', () => {
-    it('carries the trigger, so the review opens on what actually came due', () => {
-        expect(reviewPrompt('stance matured: Energy')).toMatch(/stance matured: Energy/)
-    })
-
-    it('still reads as a sentence when the trigger is unknown', () => {
-        expect(reviewPrompt(null)).toMatch(/^The house view is due for review\. /)
-    })
-})
-
-describe('StrategyPanel — the review-due hand-off', () => {
+describe('StrategyPanel', () => {
     beforeEach(() => {
-        sendStream.mockClear()
-        saveDraft.mockClear()
+        sendStream.mockReset(); sendStream.mockImplementation(async () => {})
+        publishIndustry.mockClear(); saveDraft.mockClear(); linkThread.mockClear()
         chatStub = {
             messages: [], isLoading: false, streamStatus: '', reasoningPulse: null,
-            begin: () => ({ signal: null, handlers: {} }),
-            // The stub's `run` keeps the two behaviours these tests actually lean on: it refuses a
-            // turn while one is in flight (the "waits for a turn in flight" case below flips
-            // isLoading and re-renders), and it hands the panel's `send` the signal/handlers pair to
-            // spread into its service call. The real one also owns the try/finally, which has
-            // nothing to assert against a stub that cannot throw.
-            // …and the rule that a turn which never answered still leaves a conversation behind:
-            // `onStopped` fires when onDone did not, which is what the real one keys on.
             run: async (text, { send, onDone, onStopped } = {}) => {
                 if (!text || chatStub.isLoading) return false
                 let completed = false
@@ -147,93 +75,55 @@ describe('StrategyPanel — the review-due hand-off', () => {
         }
     })
 
-    it('runs the review as an ordinary turn, with the trigger in the ask', async () => {
-        const onReviewStart = vi.fn()
-        render(<StrategyPanel reviewRequest={{ n: 1, reason: 'stance matured: Energy' }} onReviewStart={onReviewStart} />)
-
+    it('a routed opening is sent as the next turn, once per key', async () => {
+        const { rerender } = render(<StrategyPanel seed={{ key: 1, message: 'Review semiconductors.' }} />)
         await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(1))
-        const [history] = sendStream.mock.calls[0]
-        expect(history.at(-1)).toEqual({ role: 'user', content: reviewPrompt('stance matured: Energy') })
-        expect(onReviewStart).toHaveBeenCalled()
+        expect(sendStream.mock.calls[0][0].at(-1)).toEqual({ role: 'user', content: 'Review semiconductors.' })
+        rerender(<StrategyPanel seed={{ key: 1, message: 'Review semiconductors.' }} />)
+        await Promise.resolve()
+        expect(sendStream).toHaveBeenCalledTimes(1)
     })
 
-    // The view in force is what makes it a REVIEW rather than a fresh build: a stance that still
-    // holds keeps its own clock and baseline instead of being silently re-based.
-    it('sends the standing view along, so reaffirming is possible', async () => {
-        const currentTilt = { id: 'tilt_SPX_1', tilts: [row()] }
-        render(<StrategyPanel currentTilt={currentTilt} reviewRequest={{ n: 1, reason: 'x' }} />)
+    it('every drafted industry gets its own Publish, and publishing one removes only that one', async () => {
+        sendStream.mockImplementation(async (h, opts) => { opts.onDone?.({ reply: 'Two answers.', views: [view(), view({ industry: '45301010' })] }) })
+        const onPublished = vi.fn()
+        render(<StrategyPanel seed={{ key: 1, message: 'Review chips.' }} onPublished={onPublished} />)
+        await waitFor(() => expect(screen.getAllByText('Publish this answer')).toHaveLength(2))
 
-        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(1))
-        expect(sendStream.mock.calls[0][1].chatState).toEqual({ current_tilt: currentTilt })
+        fireEvent.click(screen.getAllByText('Publish this answer')[0])
+        await waitFor(() => expect(publishIndustry).toHaveBeenCalledWith('45301020', expect.objectContaining({ industry: '45301020' })))
+        await waitFor(() => expect(screen.getAllByText('Publish this answer')).toHaveLength(1))
+        expect(onPublished).toHaveBeenCalled()
+        expect(linkThread).not.toHaveBeenCalled()   // a draft is still open in this thread
     })
 
-    // Persistence hung off onDone alone here too, so the ending that leaves the desk unfinished —
-    // the user stopping mid-answer — was the one that saved nothing.
-    it('a turn stopped mid-answer still saves the conversation', async () => {
-        render(<StrategyPanel pipeline="strategy" reviewRequest={{ n: 1, reason: 'stance matured: Energy' }} />)
+    it('a refused publish keeps the draft and shows why', async () => {
+        sendStream.mockImplementation(async (h, opts) => { opts.onDone?.({ reply: 'x', views: [view()] }) })
+        publishIndustry.mockRejectedValueOnce({ response: { data: { detail: 'cycle: grade "mid" differs from the measured "peak" — give override_reason' } } })
+        render(<StrategyPanel seed={{ key: 1, message: 'Review chips.' }} />)
+        await waitFor(() => expect(screen.getByText('Publish this answer')).toBeTruthy())
+        fireEvent.click(screen.getByText('Publish this answer'))
+        await waitFor(() => expect(screen.getByText(/differs from the measured "peak"/)).toBeTruthy())
+        expect(screen.getByText('Publish this answer')).toBeTruthy()
+    })
 
+    // THE LATEST TURN DECIDES: a turn that no longer emits a block has withdrawn the drafts.
+    it('a turn without <industry_view> withdraws the drafts', async () => {
+        const replies = [{ reply: 'Here it is.', views: [view()] }, { reply: 'On reflection, not yet.' }]
+        sendStream.mockImplementation(async (h, opts) => { opts.onDone?.(replies.shift()) })
+        const { rerender } = render(<StrategyPanel seed={{ key: 1, message: 'Review chips.' }} />)
+        await waitFor(() => expect(screen.queryByText('Publish this answer')).toBeTruthy())
+        rerender(<StrategyPanel seed={{ key: 2, message: 'Are you sure?' }} />)
+        await waitFor(() => expect(screen.queryByText('Publish this answer')).toBeNull())
+        expect(saveDraft.mock.calls.at(-1)[0].state).toBeNull()
+    })
+
+    it('a turn stopped mid-answer still saves the conversation, as an industry_view thread', async () => {
+        render(<StrategyPanel pipeline="strategy" seed={{ key: 1, message: 'Review banks.' }} />)
         await waitFor(() => expect(saveDraft).toHaveBeenCalledTimes(1))
         const arg = saveDraft.mock.calls[0][0]
         expect(arg.agent).toBe('strategy')
-        expect(arg.pipeline).toBe('strategy')
-        expect(arg.subjectType).toBe('tilt')
-        // The user's message and the turns before it — no assistant turn, because none arrived.
-        expect(arg.messages.at(-1)).toEqual({ role: 'user', content: reviewPrompt('stance matured: Energy') })
-        expect(arg.messages.some(m => m.role === 'assistant')).toBe(false)
-    })
-
-    it('no request, or one already consumed, runs nothing', async () => {
-        render(<StrategyPanel reviewRequest={{ n: 0, reason: 'x' }} />)
-        render(<StrategyPanel />)
-        await Promise.resolve()
-        expect(sendStream).not.toHaveBeenCalled()
-    })
-
-    // Arriving mid-turn must not swallow the review: the request is left unconsumed and re-runs when
-    // the turn ends, rather than being dropped on the floor.
-    it('waits for a turn in flight instead of dropping the review', async () => {
-        chatStub.isLoading = true
-        const onReviewStart = vi.fn()
-        const { rerender } = render(<StrategyPanel reviewRequest={{ n: 1, reason: 'x' }} onReviewStart={onReviewStart} />)
-        expect(sendStream).not.toHaveBeenCalled()
-        expect(onReviewStart).not.toHaveBeenCalled()
-
-        chatStub = { ...chatStub, isLoading: false }
-        rerender(<StrategyPanel reviewRequest={{ n: 1, reason: 'x' }} onReviewStart={onReviewStart} />)
-        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(1))
-    })
-    // A routed arrival — Axl's `<open>` for an admin — is the same mechanism every artifact desk
-    // uses (useSeedTurn): the sentence is sent as the desk's next turn, once per key, into the
-    // conversation already open, because a standing view is reaffirmed in one thread.
-    it('a routed opening is sent as the next turn, once per key, without resetting the desk', async () => {
-        const { rerender } = render(<StrategyPanel seed={{ key: 1, message: 'Change the Technology stance to neutral.' }} />)
-        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(1))
-        expect(sendStream.mock.calls[0][0].at(-1)).toEqual({ role: 'user', content: 'Change the Technology stance to neutral.' })
-        expect(chatStub.reset).not.toHaveBeenCalled()
-
-        rerender(<StrategyPanel seed={{ key: 1, message: 'Change the Technology stance to neutral.' }} />)
-        await Promise.resolve()
-        expect(sendStream).toHaveBeenCalledTimes(1)
-
-        rerender(<StrategyPanel seed={{ key: 2, message: 'And Energy to under.' }} />)
-        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(2))
-    })
-
-    // THE LATEST TURN DECIDES (2026-10-03). Atlas withdrew six trims in prose and Accept still sent
-    // them, because its panel kept the first turn's block. Pythia's Publish is the same shape: a
-    // turn that no longer emits <tilt> has withdrawn the draft, and Publish must not act on it.
-    it('a turn without <tilt> withdraws the draft — Publish cannot act on a view the desk took back', async () => {
-        const replies = [{ reply: 'Here is the view.', tilt: draft() }, { reply: 'On reflection, hold off.' }]
-        sendStream.mockImplementation(async (history, opts) => { opts.onDone?.(replies.shift()) })
-
-        const { rerender } = render(<StrategyPanel seed={{ key: 1, message: 'Review the view.' }} />)
-        await waitFor(() => expect(screen.queryByText('Healthcare')).toBeTruthy())
-
-        rerender(<StrategyPanel seed={{ key: 2, message: 'Are you sure?' }} />)
-        await waitFor(() => expect(sendStream).toHaveBeenCalledTimes(2))
-        await waitFor(() => expect(screen.queryByText('Healthcare')).toBeNull())
-        // …and the saved thread carries no draft either, so a resume does not bring it back.
-        expect(saveDraft.mock.calls.at(-1)[0].state).toBeNull()
-        sendStream.mockImplementation(async () => {})
+        expect(arg.subjectType).toBe('industry_view')
+        expect(arg.messages.at(-1)).toEqual({ role: 'user', content: 'Review banks.' })
     })
 })

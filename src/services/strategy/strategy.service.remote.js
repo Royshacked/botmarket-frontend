@@ -1,89 +1,50 @@
 import { streamAgent } from '../agentStream'
 import { httpService } from '../http.service'
 
-// Pythia (key `strategy`): an SSE top-down stream plus the `tilt` publication log — the house sector
-// view. The stream emits a DRAFT tilt in `done` (data.tilt); publishing is a separate, explicit act.
+// Pythia (key `strategy`) — the industry desk since 2026-10-05: an SSE stream plus the house INDUSTRY
+// VIEWS, one per GICS sub-industry (backend docs/design/pythia-industry-questions.md). The stream emits
+// DRAFTS in `done` (data.views); publishing one is a separate, explicit act.
 //
-// NOT owner-scoped, unlike coverage. A house view is a BROADCAST: `getCurrent` answers the same
-// document to everyone, so there is no per-user list to key off and no entityApi wrapper — scoping
-// it per user would quietly turn one house view into eleven private opinions.
+// NOT owner-scoped. The views are a BROADCAST: the same answers for everyone. Admin-only routes.
 
 const BASE = 'api/strategy'
 
-export const TILT_CHANGED = 'strategy-tilt-changed'
-const _announce = () => window.dispatchEvent(new CustomEvent(TILT_CHANGED))
+export const INDUSTRIES_CHANGED = 'strategy-industries-changed'
+const _announce = () => window.dispatchEvent(new CustomEvent(INDUSTRIES_CHANGED))
 
 export const strategyService = {
     sendStream,
-    getCurrentTilt,
-    getTiltSeries,
-    getTiltCalls,
-    listTilts,
-    getTilt,
-    publishTilt,
-    updateTilt,
-    retireTilt,
+    listIndustries,
+    getIndustry,
+    publishIndustry,
 }
 
-/** Streaming top-down chat. done → { reply, phase, tilt }. */
+/** Streaming industry-desk chat. done → { reply, phase, views }. */
 async function sendStream(messages, opts = {}) {
     const { model, chatState } = opts
     await streamAgent(BASE, { messages, model, chatState }, opts)
 }
 
-/** The view in force. `null` is a legitimate answer — the desk may simply not have published yet. */
-function getCurrentTilt(benchmark = 'SPX') {
-    return httpService.get(`${BASE}/tilt/current?benchmark=${encodeURIComponent(benchmark)}`)
+/**
+ * Every GICS sub-industry: the engine's measured first read (grades, cyclical flag, triggers, the level
+ * it is answered at) and, beside it, the house's answer (`view`, null while unanswered).
+ */
+function listIndustries() {
+    return httpService.get(`${BASE}/industries`)
+}
+
+/** One sub-industry by its 8-digit GICS code: its measurements and the house view with its trail. */
+function getIndustry(code) {
+    return httpService.get(`${BASE}/industries/${encodeURIComponent(code)}`)
 }
 
 /**
- * The line behind each stance on the view in force → `{ [bucket]: [{t, v}] }`, rebased to 100 at
- * the call, so its last point is the relative return the contribution beside it is computed from.
- *
- * A SEPARATE read from the view. The board paints on the numbers it already has; the lines are an
- * ornament that arrives when the bars do, and folding them into the view would put a dozen range
- * fetches in front of every read of it. `{}` is a legitimate answer.
+ * Publish a drafted answer. Refused (422) when it does not hold up against the measured numbers — a
+ * grade that departs from the code's read without `override_reason`, a grade outside the vocabulary,
+ * or a missing rationale.
  */
-function getTiltSeries(benchmark = 'SPX') {
-    return httpService.get(`${BASE}/tilt/series?benchmark=${encodeURIComponent(benchmark)}`)
-}
-
-/**
- * The view in force's CHANNEL CALLS with their latest marks, and the desk's record →
- * `{ record, calls: { [channel_id]: { call_id, latest_mark } } }`. Separate from the view for the same
- * reason the series is: the board paints without it. `{ record: null, calls: {} }` is legitimate.
- */
-function getTiltCalls(benchmark = 'SPX') {
-    return httpService.get(`${BASE}/tilt/calls?benchmark=${encodeURIComponent(benchmark)}`)
-}
-
-/** Published history, newest first — the record the desk is graded on. */
-function listTilts({ benchmark = 'SPX', limit = 24 } = {}) {
-    return httpService.get(`${BASE}/tilt?benchmark=${encodeURIComponent(benchmark)}&limit=${limit}`)
-}
-
-function getTilt(id) { return httpService.get(`${BASE}/tilt/${encodeURIComponent(id)}`) }
-
-/**
- * Publish a new house view, superseding the current one. Refused (422) when a stance contradicts its
- * active weight — `active_bp` is what gets allocated, so a mislabelled row would move a book the
- * wrong way. The response carries `changed`: what actually moved versus the previous view.
- */
-async function publishTilt(tilt) {
-    const doc = await httpService.post(`${BASE}/tilt`, tilt)
-    _announce()
-    return doc
-}
-
-async function updateTilt(id, patch) {
-    const doc = await httpService.put(`${BASE}/tilt/${encodeURIComponent(id)}`, patch)
-    _announce()
-    return doc
-}
-
-/** ARCHIVE: status → retired, trail kept. There is deliberately no delete — see the routes. */
-async function retireTilt(id) {
-    const doc = await httpService.post(`${BASE}/tilt/${encodeURIComponent(id)}/retire`)
+async function publishIndustry(code, draft) {
+    const doc = await httpService.post(`${BASE}/industries/${encodeURIComponent(code)}`, draft)
     _announce()
     return doc
 }

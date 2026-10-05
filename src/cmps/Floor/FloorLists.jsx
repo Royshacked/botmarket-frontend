@@ -15,7 +15,7 @@ import { CoverageActions } from '../Radar/CoverageActions.jsx'
 import { nextRevision, NEXT_REVISION_HINT } from '../Radar/coverage.utils.js'
 import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
 import { CalendarRows } from './CalendarRows.jsx'
-import { SectorView } from '../Radar/SectorView.jsx'
+import { IndustryView } from '../Radar/IndustryView.jsx'
 
 import './Floor.scss'
 import { AetherCandidates } from '../TradeIdeas/AetherCandidates.jsx'
@@ -61,9 +61,8 @@ const DESKS = [
     // Not a dated list at all — the house view, rendered as a board. It sits with the calendar
     // because it answers the same question, not because it shares its shape.
     //
-    // ADMIN-ONLY (2026-09-14), with the whole strategy desk: GET /api/strategy/tilt/current is
-    // requireAdmin now, so for a trader this desk could only ever open onto "no view published" —
-    // a board that exists to be empty. Same rule as the Research queue above.
+    // ADMIN-ONLY (2026-09-14), with the whole strategy desk: GET /api/strategy/industries is
+    // requireAdmin, so for a trader this desk could only ever open onto an empty board. Same rule as the Research queue above.
     { key: 'forecasts', label: 'Forecasts', group: 'Calendar', adminOnly: true },
     // A `channels` desk sat here — Aether's z-score per pressure channel. It went with the
     // channel engine on 2026-09-09, along with the collection behind it.
@@ -833,7 +832,7 @@ export function FloorLists({
     onEditScan, onDeleteScan,
     onEditCoverage, onRetireCoverage, onDeleteCoverage,
     onExecuteQueued, onCancelQueued, queuedBusyId = null,
-    earnings = [], fed = [], ipo = [], tilt = null, tiltSeries = {}, tiltCalls = null, calendarLoading = {},
+    earnings = [], fed = [], ipo = [], industries = [], calendarLoading = {},
     onEarningSelect, onIpoSelect,
     isAdmin = false,
     researchQueue = [], onStartResearch, onMarkResearchDone, onRejectResearch, researchQueueBusyId = null,
@@ -1027,9 +1026,7 @@ export function FloorLists({
                         <CalendarRows kind="ipo" items={sorted('ipo', ipo)}loading={calendarLoading.ipo} onSelect={onIpoSelect} onSymbolClick={onSymbolClick} />
                     )}
                     {desk.key === 'forecasts' && (
-                        calendarLoading.forecasts && !tilt
-                            ? <p className="floor-empty">Loading…</p>
-                            : <SectorView tilt={tilt} series={tiltSeries} calls={tiltCalls} />
+                        <IndustryView industries={industries} loading={calendarLoading.forecasts} />
                     )}
                 </Desk>
                 </Fragment>
@@ -1054,9 +1051,7 @@ FloorLists.propTypes = {
     earnings:          PropTypes.array,
     fed:               PropTypes.array,
     ipo:               PropTypes.array,
-    tilt:              PropTypes.object,
-    tiltSeries:        PropTypes.object,
-    tiltCalls:         PropTypes.object,
+    industries:        PropTypes.array,
     // Keyed by desk, not one flag for all four: a slow IPO feed used to hold up the earnings list
     // and the house view alongside it, because the old tab strip had one shared "Loading…".
     calendarLoading:     PropTypes.object,

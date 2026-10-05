@@ -163,10 +163,10 @@ export const AGENTS = {
         // Deliberately NOT "read the market" — that phrase belongs to Axl's market brief (what the
         // world is doing today), and a desk card offering it would send people here for a question
         // Axl answers in place. This desk SETS a view; it does not report the tape.
-        lead:  'Set the house view',
-        blurb: 'One house view: the regime, and the sector tilts it implies.',
-        intro: "Let's set the house view — what regime we're in, and which sectors that favours.",
-        hint:  'Ask for the top-down read. I publish one view: a named regime, what would break it, and sector stances as active weight vs the benchmark.',
+        lead:  'Review an industry',
+        blurb: 'For each GICS industry: is demand growing, is it a good industry to own, where is it in its cycle.',
+        intro: "Let's look at an industry — its demand, its economics and where it sits in its cycle.",
+        hint:  'Name an industry or a company. I read its measured numbers from fifteen years of filings, research what they cannot see, and answer three structural questions. Descriptions, never forecasts.',
         // The Delphic tripod — the seat the oracle spoke from. A bowl on three legs, with the vapour
         // rising: stroke-only in the 0–24 space like the other desk glyphs.
         icon: (
@@ -334,16 +334,16 @@ export const DESKS = [
         key:       'strategy',
         label:     'Strategy Desk',
         lead:      'Economics',
-        blurb:     'Pythia names the regime and sets the sector tilts it implies.',
+        blurb:     'Pythia answers three structural questions for every GICS industry.',
         hue:       'amber',
         entryTab:  'strategy',
         agentKey:  'strategy',
         adminOnly: true,
-        // ONE step, and it stays one until Atlas actually reads the tilt. A pipeline arrow drawn to
+        // ONE step. Atlas reads the industry views in-process (get_industry_views), not as a hand-off. A pipeline arrow drawn to
         // an allocator that ignores the artifact would promise a hand-off nothing performs — the
         // same failure the trade desk's scan step had before `produces: 'one'` existed.
         steps: [
-            { tab: 'strategy', label: 'Set the view' },
+            { tab: 'strategy', label: 'Review an industry' },
         ],
     },
     {

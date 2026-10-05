@@ -1,0 +1,168 @@
+// Pythia's industry views. Rows, not cards (Floor.scss): one line per sub-industry with its three
+// grade chips, expanding to the reasoning. Grouped by GICS sector.
+.industry-view {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px;
+
+    &__summary-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 12px;
+        align-items: baseline;
+        padding: 4px 4px 2px;
+        font-size: 12.5px;
+        color: var(--text-secondary);
+
+        b { color: var(--text-primary); }
+    }
+
+    &__flagged { color: var(--color-warning); }
+
+    &__legend {
+        margin-left: auto;
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        color: var(--text-muted);
+    }
+
+    &__search {
+        margin: 0 4px 2px;
+        padding: 5px 8px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg-base);
+        color: var(--text-primary);
+        font-size: 12.5px;
+    }
+
+    &__sector + &__sector { margin-top: 6px; }
+
+    &__sector-name {
+        margin: 4px 4px 2px;
+        font-size: 11px;
+        font-family: var(--font-mono);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+
+        span { margin-left: 4px; color: var(--text-dim); }
+    }
+
+    &__row { border-bottom: 1px solid var(--border); }
+
+    &__line {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 6px 4px;
+        border: 0;
+        background: none;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+
+        &:hover { background: var(--bg-hover); }
+        &:focus-visible { outline: 1px solid var(--color-teal); outline-offset: -1px; }
+    }
+
+    &__name {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 12.5px;
+        color: var(--text-primary);
+    }
+
+    &__via {
+        margin-left: 6px;
+        font-style: normal;
+        font-size: 10.5px;
+        color: var(--text-muted);
+    }
+
+    &__grades {
+        display: flex;
+        gap: 4px;
+        flex: 0 0 auto;
+    }
+
+    &__trigger {
+        flex: 0 0 auto;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10.5px;
+        font-weight: 700;
+        color: var(--color-warning);
+        border: 1px solid var(--color-warning);
+    }
+
+    &__detail {
+        padding: 2px 6px 10px 10px;
+        font-size: 12.5px;
+        line-height: 1.5;
+        color: var(--text-secondary);
+
+        p { margin: 4px 0; }
+    }
+
+    &__summary { color: var(--text-primary); }
+
+    &__answer { margin-top: 6px; }
+
+    &__answer-q,
+    &__label {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+    }
+
+    &__override { color: var(--color-warning); }
+
+    &__reopen ul {
+        margin: 4px 0 0;
+        padding-left: 16px;
+    }
+
+    &__meta,
+    &__pending {
+        font-size: 11.5px;
+        color: var(--text-muted);
+    }
+}
+
+// The grade chip, shared with the Pythia panel's drafts (StrategyPanel). Colour reads the grade's
+// direction for the INDUSTRY, never for a price: green is a good industry, not a buy.
+.industry-grade {
+    display: inline-block;
+    min-width: 58px;
+    padding: 1px 6px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    text-align: center;
+    color: var(--text-secondary);
+
+    &--growing, &--good  { color: var(--color-long);  border-color: var(--color-long); }
+    &--shrinking, &--poor { color: var(--color-short); border-color: var(--color-short); }
+    &--peak              { color: var(--color-warning); border-color: var(--color-warning); }
+    &--trough            { color: var(--color-teal);  border-color: var(--color-teal); }
+    &--none              { color: var(--text-dim); }
+
+    // Measured, not yet reviewed: the same colour, but dashed and dimmer — a number, not an answer.
+    &--measured {
+        border-style: dashed;
+        opacity: 0.7;
+    }
+}

@@ -4,7 +4,7 @@ import PropTypes from 'prop-types'
 // with the Calls list, so the window name and size can't drift between the two entry points.
 import { openCallPopup, openSetupPopup } from '../TradeIdeas/tradeIdea.utils.js'
 import { manageVerb } from '../TradeIdeas/setupManage.js'
-import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, TILT_REVIEW_OPEN, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD, SETUP_SHARED_OPEN } from '../../services/event-bus.service'
+import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD, SETUP_SHARED_OPEN } from '../../services/event-bus.service'
 import { manualService } from '../../services/manual/manual.service.remote'
 import { mentorService } from '../../services/mentor/mentor.service.remote'
 import { marketService } from '../../services/market/market.service.remote'
@@ -237,10 +237,8 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                                 ? <CallReentryBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'coverage_event' && msg.payload
                                 ? <CoverageEventBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'tilt_event' && msg.payload
-                                ? <TiltEventBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'tilt_review' && msg.payload
-                                ? <TiltReviewBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
+                                : msg.type === 'industry_view' && msg.payload
+                                ? <IndustryViewBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'sleeve_sourced' && msg.payload
                                 ? <SleeveSourcedBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'coverage_refreshed' && msg.payload
@@ -773,15 +771,13 @@ function CallReentryBubble({ msg, onClose, onResolve }) {
     )
 }
 
-// "Sector view changed" card for the strategy desk — Pythia republished and a sector THIS user
-// researches moved. Primary opens the calendar's Forecasts tab: the house view is a STATE, so there
-// is nothing to revise from the card the way a coverage verdict asks for a re-model.
-export function TiltEventBubble({ msg, onClose, onResolve }) {
-    const { sectors = [], balanced } = msg.payload ?? {}
-    const moved   = sectors.length === 1 ? sectors[0] : `${sectors.length} sectors`
-    // An unbalanced table is published rather than lost, so the card admits it — active weights that
-    // do not net out are not directly allocatable.
-    const heading = `Sector view · ${moved}${balanced === false ? ' — unbalanced' : ''}`
+// "Industry view changed" card for the strategy desk — a Pythia review changed the house answer on a
+// GICS sub-industry. Primary opens the calendar's Forecasts tab: the answer is a STATE, so there is
+// nothing to revise from the card.
+export function IndustryViewBubble({ msg, onClose, onResolve }) {
+    const changed = msg.payload?.changed ?? {}
+    const moved = Object.keys(changed)
+    const heading = `Industry view · ${moved.length === 1 ? moved[0] : `${moved.length} answers`} changed`
 
     function handlePrimary() {
         eventBus.emit(OPEN_SECTOR_VIEW, {})
@@ -790,46 +786,10 @@ export function TiltEventBubble({ msg, onClose, onResolve }) {
 
     return (
         <NotificationCard
-            agent={AGENTS.strategy} kind="tilt" heading={heading} qualifier={sectors.join(', ')} body={msg.content}
-            primaryLabel={msg.actions?.primary?.label ?? 'Open sector view'} onPrimary={handlePrimary}
+            agent={AGENTS.strategy} kind="industry" heading={heading} body={msg.content}
+            primaryLabel={msg.actions?.primary?.label ?? 'Open industry'} onPrimary={handlePrimary}
             onResolve={onResolve} msg={msg}
             resolvedLabels={{ opened: '✓ Opened' }}
-        />
-    )
-}
-
-/**
- * "House view due for review" — Pythia's monitor found the standing view past its clock (a stance
- * came due, a macro catalyst landed, or the monthly floor expired) and is ASKING for a re-author.
- *
- * The sibling above (TiltEventBubble) opens the board, because a published view is a state and there
- * is nothing to revise from a card. This one is the opposite case and routes the opposite way: the
- * ask is to re-examine, so it opens Pythia's desk and the review turn runs there — where the user
- * can push back on it — rather than superseding the house view from a click in a chat window.
- *
- * Nothing is requested here, so there is no busy or failure state to hold: a review that fails,
- * fails visibly in Pythia's thread, which is also the one place it can be retried by just asking.
- */
-export function TiltReviewBubble({ msg, onClose, onResolve }) {
-    const { reason, stances, matured = [] } = msg.payload ?? {}
-    // Lead with what the desk owes a verdict on. A matured stance is a CLOSED call — the review has
-    // to grade it, not merely restate it — so it earns the heading over the generic "due".
-    const heading = matured.length
-        ? `Sector view · ${matured.length === 1 ? matured[0] : `${matured.length} stances`} due`
-        : 'Sector view · review due'
-
-    function handlePrimary() {
-        eventBus.emit(TILT_REVIEW_OPEN, { reason: reason ?? null })
-        onClose?.()
-    }
-
-    return (
-        <NotificationCard
-            agent={AGENTS.strategy} kind="tilt" heading={heading}
-            qualifier={stances ? `${stances} standing` : null} body={msg.content}
-            primaryLabel={msg.actions?.primary?.label ?? 'Run the review'} onPrimary={handlePrimary}
-            onResolve={onResolve} msg={msg}
-            resolvedLabels={{ opened: '✓ Reviewing' }}
         />
     )
 }

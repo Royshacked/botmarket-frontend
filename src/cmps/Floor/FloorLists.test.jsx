@@ -341,7 +341,7 @@ describe('FloorLists', () => {
             }
         })
 
-        // The house view is Pythia's, and Pythia is admin-only (2026-09-14): the tilt read behind
+        // The house views are Pythia's, and Pythia is admin-only (2026-09-14): the industries read behind
         // the board is requireAdmin, so for a trader the desk could only ever open onto an empty
         // board. It joins the group for an admin and is simply absent for everyone else.
         it('shows the Forecasts board to an admin only', () => {
@@ -363,9 +363,9 @@ describe('FloorLists', () => {
             expect(within(deskBtn('Earnings')).getByText('(2)')).toBeTruthy()
         })
 
-        // The house view is ONE standing view, so a count beside it would promise a list of them.
+        // The board carries its own answered count; a desk count beside it would read as a second one.
         it('puts no count on Forecasts', () => {
-            render(<FloorLists isAdmin tilt={{ sectors: [] }} />)
+            render(<FloorLists isAdmin industries={[]} />)
             expect(within(deskBtn('Forecasts')).queryByText(/\(/)).toBeNull()
         })
 

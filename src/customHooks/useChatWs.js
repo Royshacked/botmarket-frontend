@@ -22,7 +22,7 @@ const TYPE_LABELS = {
     setup_invalidation: 'Setup update',
     setup_manage:       'Manage position',
     coverage_event:     'Coverage update',
-    tilt_event:         'Sector view changed',
+    industry_view:      'Industry view changed',
     coverage_refreshed: 'Research refreshed',
     sleeve_sourced:     'Sleeve sourced',
     queue_ready:        'Market open',

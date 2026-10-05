@@ -2,7 +2,7 @@ import PropTypes from 'prop-types'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { ScanList } from './ScanList.jsx'
 import { CoverageBook } from './CoverageBook.jsx'
-import { SectorView } from './SectorView.jsx'
+import { IndustryView } from './IndustryView.jsx'
 import { RadarTicker } from './RadarTicker.jsx'
 import './Radar.scss'
 
@@ -31,10 +31,8 @@ export function Radar({
     onIpoSelect,
     coverage = [],
     coverageLoading = false,
-    tilt = null,
-    tiltLoading = false,
-    tiltSeries = {},
-    tiltCalls = null,
+    industries = [],
+    industriesLoading = false,
     onEditCoverage,
     onRetireCoverage,
     onDeleteCoverage,
@@ -81,8 +79,8 @@ export function Radar({
                 </div>
             ) : tab === 'forecasts' ? (
                 <div className="news-feed__list">
-                    {/* Pythia's house view — the state the Fed tab's schedule opens onto. */}
-                    <SectorView tilt={tilt} loading={tiltLoading} series={tiltSeries} calls={tiltCalls} />
+                    {/* Pythia's industry views — three structural answers per GICS sub-industry. */}
+                    <IndustryView industries={industries} loading={industriesLoading} />
                 </div>
             ) : tab === 'coverage' ? (
                 <div className="news-feed__list">
@@ -311,10 +309,8 @@ Radar.propTypes = {
     ipoLoading:        PropTypes.bool,
     onIpoSelect:       PropTypes.func,
     coverage:          PropTypes.array,
-    tilt:              PropTypes.object,
-    tiltLoading:       PropTypes.bool,
-    tiltSeries:        PropTypes.object,
-    tiltCalls:         PropTypes.object,
+    industries:        PropTypes.array,
+    industriesLoading: PropTypes.bool,
     coverageLoading:   PropTypes.bool,
     onEditCoverage:    PropTypes.func,
     onRetireCoverage:  PropTypes.func,
