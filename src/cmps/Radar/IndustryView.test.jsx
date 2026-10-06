@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { IndustryView } from './IndustryView.jsx'
-import { gradeFor } from './industryGrade.js'
+import { gradeFor, conclusionFor } from './industryGrade.js'
 
 afterEach(cleanup)
 
@@ -27,7 +27,35 @@ describe('gradeFor', () => {
     })
 })
 
+describe('conclusionFor', () => {
+    it('puts the three grades in words — what the industry is, never a buy or sell', () => {
+        const c = conclusionFor(measured())
+        expect(c.line).toBe('Expanding · earns above its cost of capital · profits above normal')
+        expect(c.reading).toMatch(/today’s earnings flatter the industry/)
+        expect(c.line + c.reading).not.toMatch(/buy|sell|rise|fall/i)
+    })
+
+    it('follows the house answer where there is one, so the words never disagree with the chips', () => {
+        expect(conclusionFor(measured({ view: answered })).line).toBe('Expanding · earns above its cost of capital · profits near normal')
+    })
+
+    it('reads every grade, and leaves out a question with no grade', () => {
+        expect(conclusionFor(measured({ grades: { demand: 'shrinking', economics: 'poor', cycle: 'trough' } })).line)
+            .toBe('Shrinking · earns below its cost of capital · profits below normal')
+        expect(conclusionFor(measured({ grades: { demand: 'in_line', economics: 'average', cycle: null } })))
+            .toEqual({ line: 'Growing with the economy · earns about its cost of capital', reading: null })
+        expect(conclusionFor(measured({ grades: { demand: null, economics: null, cycle: null } }))).toBeNull()
+    })
+})
+
 describe('IndustryView', () => {
+    it('shows each row\'s conclusion under its name, and what the cycle means when opened', () => {
+        render(<IndustryView industries={[measured()]} />)
+        expect(screen.getByText('Expanding · earns above its cost of capital · profits above normal')).toBeTruthy()
+        fireEvent.click(screen.getByText('Semiconductors'))
+        expect(screen.getByText(/today’s earnings flatter the industry/)).toBeTruthy()
+    })
+
     it('groups by sector and says how many Pythia has answered', () => {
         render(<IndustryView industries={[measured({ view: answered }), measured({ code: '10102010', name: 'Integrated Oil & Gas', sector: 'Energy' })]} />)
         expect(screen.getByText('Information Technology')).toBeTruthy()

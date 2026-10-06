@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import PropTypes from 'prop-types'
-import { gradeFor } from './industryGrade.js'
+import { gradeFor, conclusionFor } from './industryGrade.js'
 import './IndustryView.scss'
 
 // Pythia's industry views — the Forecasts tab since 2026-10-05 (backend
@@ -36,12 +36,16 @@ function IndustryRow({ row }) {
     const [open, setOpen] = useState(false)
     const via = row.answered_at && row.answered_at.level !== 'sub_industry' ? row.answered_at.name : null
     const v = row.view
+    const conclusion = conclusionFor(row)
     return (
         <div className={`industry-view__row${open ? ' industry-view__row--open' : ''}`}>
             <button type="button" className="industry-view__line" onClick={() => setOpen(o => !o)} aria-expanded={open}>
-                <span className="industry-view__name" title={row.name}>
-                    {row.name}
-                    {via && <i className="industry-view__via" title={`Too few companies to measure on its own — measured at ${via}`}>via {via}</i>}
+                <span className="industry-view__head">
+                    <span className="industry-view__name" title={row.name}>
+                        {row.name}
+                        {via && <i className="industry-view__via" title={`Too few companies to measure on its own — measured at ${via}`}>via {via}</i>}
+                    </span>
+                    {conclusion && <span className="industry-view__conclusion" title={conclusion.line}>{conclusion.line}</span>}
                 </span>
                 <span className="industry-view__grades">
                     {QUESTIONS.map(([q, label]) => <GradeChip key={q} g={gradeFor(row, q)} label={label} />)}
@@ -52,6 +56,7 @@ function IndustryRow({ row }) {
             </button>
             {open && (
                 <div className="industry-view__detail">
+                    {conclusion?.reading && <p className="industry-view__reading">{conclusion.reading}</p>}
                     {v?.status === 'answered' ? (
                         <>
                             {v.summary && <p className="industry-view__summary">{v.summary}</p>}
