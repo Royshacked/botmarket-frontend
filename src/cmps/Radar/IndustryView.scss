@@ -185,3 +185,102 @@
         opacity: 0.7;
     }
 }
+
+// Pythia's weekly screen — the Forecasts tab's "Trade now" (ScreenView.jsx). Same rows as the
+// structure view; the line carries the verdict (Trade / Wait / No) and the horizon instead of grades.
+.screen-view {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    &__modes {
+        display: flex;
+        gap: 4px;
+        padding: 2px 4px;
+    }
+
+    &__mode {
+        padding: 3px 10px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: none;
+        color: var(--text-secondary);
+        font-size: 12px;
+        cursor: pointer;
+
+        &:hover { background: var(--bg-hover); }
+        &--on {
+            color: var(--text-primary);
+            border-color: var(--color-teal);
+        }
+    }
+
+    &__regime {
+        margin: 2px 4px;
+        padding: 5px 8px;
+        border-left: 3px solid var(--text-muted);
+        font-size: 12px;
+        color: var(--text-secondary);
+
+        b { color: var(--text-primary); }
+        &--green  { border-left-color: var(--color-long); }
+        &--yellow { border-left-color: var(--color-warning); }
+        &--red    { border-left-color: var(--color-short); }
+    }
+
+    &__bucket {
+        &--swing_long { color: var(--color-long); }
+        &--extended   { color: var(--color-warning); }
+        &--swing_only { color: var(--color-teal); }
+    }
+
+    &__chips {
+        display: flex;
+        gap: 4px;
+        flex: 0 0 auto;
+        align-items: center;
+    }
+
+    &__trade {
+        padding: 1px 7px;
+        border: 1px solid currentColor;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 600;
+
+        &--yes  { color: var(--color-long); }
+        &--wait { color: var(--color-warning); }
+        &--no   { color: var(--text-dim); }
+    }
+
+    &__horizon {
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        color: var(--text-muted);
+        white-space: nowrap;
+    }
+
+    &__new {
+        margin-left: 6px;
+        font-style: normal;
+        font-size: 10.5px;
+        color: var(--color-teal);
+    }
+
+    &__corrected { color: var(--color-warning); }
+
+    &__scores {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 10px;
+        align-items: baseline;
+        margin: 4px 0;
+        font-size: 11.5px;
+
+        b { color: var(--text-primary); }
+    }
+
+    &__score { white-space: nowrap; }
+
+    &__gaps { margin: 6px 4px 0; }
+}

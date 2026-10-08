@@ -23,6 +23,8 @@ export function useCalendarEvents() {
     const [industriesLoading, setIndustriesLoading] = useState(false)
     // A failed read is NOT an empty board — "the engine has not run" would be a false statement.
     const [industriesError, setIndustriesError]     = useState(false)
+    // Pythia's weekly screen (the Forecasts tab's "Trade now"). Null until one is published.
+    const [screen, setScreen] = useState(null)
 
     useEffect(() => {
         let active = true
@@ -54,6 +56,7 @@ export function useCalendarEvents() {
                 setIndustriesError(!Array.isArray(d))
                 if (Array.isArray(d)) setIndustries(d)
             })
+            load(strategyService.getScreen, () => {}, (d) => setScreen(d && Array.isArray(d.rows) ? d : null))
         }
 
         refresh()
@@ -65,5 +68,5 @@ export function useCalendarEvents() {
         return () => { active = false; clearInterval(t); window.removeEventListener(INDUSTRIES_CHANGED, refresh) }
     }, [])
 
-    return { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, industries, industriesLoading, industriesError }
+    return { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, industries, industriesLoading, industriesError, screen }
 }

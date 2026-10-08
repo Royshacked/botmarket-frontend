@@ -17,6 +17,7 @@ export const strategyService = {
     listIndustries,
     getIndustry,
     publishIndustry,
+    getScreen,
 }
 
 /** Streaming industry-desk chat. done → { reply, phase, views }. */
@@ -31,6 +32,19 @@ async function sendStream(messages, opts = {}) {
  */
 function listIndustries() {
     return httpService.get(`${BASE}/industries`)
+}
+
+/**
+ * Pythia's latest WEEKLY SCREEN (backend docs/design/industry-screener.md): every sub-industry's verdict —
+ * trade it or not, and on which horizon — with the scores behind it. Null when none is published yet.
+ */
+async function getScreen() {
+    try {
+        return await httpService.get(`${BASE}/screen`)
+    } catch (err) {
+        if (err?.response?.status === 404) return null
+        throw err
+    }
 }
 
 /** One sub-industry by its 8-digit GICS code: its measurements and the house view with its trail. */

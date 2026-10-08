@@ -34,6 +34,7 @@ export function Radar({
     industries = [],
     industriesLoading = false,
     industriesError = false,
+    screen = null,
     onEditCoverage,
     onRetireCoverage,
     onDeleteCoverage,
@@ -81,7 +82,7 @@ export function Radar({
             ) : tab === 'forecasts' ? (
                 <div className="news-feed__list">
                     {/* Pythia's industry views — three structural answers per GICS sub-industry. */}
-                    <IndustryView industries={industries} loading={industriesLoading} error={industriesError} />
+                    <IndustryView industries={industries} loading={industriesLoading} error={industriesError} screen={screen} />
                 </div>
             ) : tab === 'coverage' ? (
                 <div className="news-feed__list">
@@ -313,6 +314,7 @@ Radar.propTypes = {
     industries:        PropTypes.array,
     industriesLoading: PropTypes.bool,
     industriesError:   PropTypes.bool,
+    screen:            PropTypes.object,
     coverageLoading:   PropTypes.bool,
     onEditCoverage:    PropTypes.func,
     onRetireCoverage:  PropTypes.func,

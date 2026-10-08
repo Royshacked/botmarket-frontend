@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import PropTypes from 'prop-types'
 import { gradeFor, conclusionFor } from './industryGrade.js'
+import { ScreenView } from './ScreenView.jsx'
 import './IndustryView.scss'
 
 // Pythia's industry views — the Forecasts tab since 2026-10-05 (backend
@@ -97,8 +98,45 @@ function IndustryRow({ row }) {
 }
 IndustryRow.propTypes = { row: PropTypes.object.isRequired }
 
-export function IndustryView({ industries = [], loading = false, error = false }) {
+/**
+ * The Forecasts tab: TRADE NOW (Pythia's weekly screen — trade or not, and on which horizon) and
+ * STRUCTURE (the three structural answers). Trade now leads when a screen exists (Roy, 2026-10-08).
+ */
+export function IndustryView({ industries = [], loading = false, error = false, screen = null }) {
+    const [mode, setMode] = useState(null)
     const [query, setQuery] = useState('')
+    const shown = mode ?? (screen ? 'trade' : 'structure')
+    const tabs = (
+        <div className="screen-view__modes" role="tablist">
+            {[['trade', 'Trade now'], ['structure', 'Structure']].map(([k, label]) => (
+                <button key={k} type="button" role="tab" aria-selected={shown === k}
+                    className={`screen-view__mode${shown === k ? ' screen-view__mode--on' : ''}`} onClick={() => setMode(k)}>
+                    {label}
+                </button>
+            ))}
+        </div>
+    )
+    if (shown === 'trade') {
+        return (
+            <div className="industry-view">
+                {tabs}
+                <input className="industry-view__search" type="search" placeholder="Find an industry…" value={query}
+                    onChange={e => setQuery(e.target.value)} aria-label="Find an industry" />
+                <ScreenView screen={screen} query={query} />
+            </div>
+        )
+    }
+    return <StructureView industries={industries} loading={loading} error={error} tabs={tabs} query={query} setQuery={setQuery} />
+}
+
+IndustryView.propTypes = {
+    industries: PropTypes.array,
+    loading:    PropTypes.bool,
+    error:      PropTypes.bool,
+    screen:     PropTypes.object,
+}
+
+function StructureView({ industries, loading, error, tabs, query, setQuery }) {
     const bySector = useMemo(() => {
         const q = query.trim().toLowerCase()
         const out = new Map()
@@ -110,11 +148,17 @@ export function IndustryView({ industries = [], loading = false, error = false }
         return out
     }, [industries, query])
 
-    if (loading && !industries.length) return <div className="news-feed__loader"><span /><span /><span /></div>
+    // The empty states keep the mode switch, so "Trade now" stays one click away.
+    if (loading && !industries.length) return <div className="industry-view">{tabs}<div className="news-feed__loader"><span /><span /><span /></div></div>
     if (!industries.length) {
-        return error
-            ? <p className="news-feed__empty">Could not load the industry views. They will be fetched again on the next refresh.</p>
-            : <p className="news-feed__empty">No industry measurements yet — the engine has not run its industry metrics.</p>
+        return (
+            <div className="industry-view">
+                {tabs}
+                {error
+                    ? <p className="news-feed__empty">Could not load the industry views. They will be fetched again on the next refresh.</p>
+                    : <p className="news-feed__empty">No industry measurements yet — the engine has not run its industry metrics.</p>}
+            </div>
+        )
     }
 
     const answered = industries.filter(r => r.view?.status === 'answered').length
@@ -122,6 +166,7 @@ export function IndustryView({ industries = [], loading = false, error = false }
 
     return (
         <div className="industry-view">
+            {tabs}
             <div className="industry-view__summary-bar">
                 <span><b>{answered}</b> of {industries.length} answered by Pythia</span>
                 {flagged > 0 && <span className="industry-view__flagged">{flagged} with an early-review trigger</span>}
@@ -140,8 +185,11 @@ export function IndustryView({ industries = [], loading = false, error = false }
     )
 }
 
-IndustryView.propTypes = {
-    industries: PropTypes.array,
-    loading:    PropTypes.bool,
-    error:      PropTypes.bool,
+StructureView.propTypes = {
+    industries: PropTypes.array.isRequired,
+    loading:    PropTypes.bool.isRequired,
+    error:      PropTypes.bool.isRequired,
+    tabs:       PropTypes.node.isRequired,
+    query:      PropTypes.string.isRequired,
+    setQuery:   PropTypes.func.isRequired,
 }
