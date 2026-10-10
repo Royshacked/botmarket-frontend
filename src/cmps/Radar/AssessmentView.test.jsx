@@ -116,9 +116,9 @@ describe('AssessmentView', () => {
         expect(rtl.getByText(/No calls yet/)).toBeTruthy()
     })
 
-    it('is the Assessed tab on the Forecasts board, between Trade now and Structure', () => {
+    it('is the Assessed tab on the Forecasts board, after Trade now', () => {
         render(<IndustryView industries={[]} screen={null} assessments={DATA} />)
-        expect(rtl.getAllByRole('tab').map(t => t.textContent)).toEqual(['Trade now', 'Assessed', 'Structure'])
+        expect(rtl.getAllByRole('tab').map(t => t.textContent)).toEqual(['Trade now', 'Assessed', 'Themes', 'Structure'])
         fireEvent.click(rtl.getByRole('tab', { name: 'Assessed' }))
         expect(document.querySelector('.assessment-view .industry-view__summary-bar').textContent).toMatch(/2 industries assessed/)
     })

@@ -731,7 +731,7 @@ export function MainPage() {
         handleBackToAxl()
     }
 
-    const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, industries, industriesLoading, industriesError, screen, assessments } = useCalendarEvents()
+    const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, industries, industriesLoading, industriesError, screen, assessments, themes } = useCalendarEvents()
     const { scans, loading: scansLoading, createScan, updateScan, deleteScan } = useScans()
 
     // THE EVENTS RADAR'S BOARD, while Argus is cutting it. Its presence is what puts Argus in radar
@@ -3264,6 +3264,7 @@ export function MainPage() {
                                     industriesError={industriesError}
                                     screen={screen}
                                     assessments={assessments}
+                                    themes={themes}
                                     calendarLoading={{
                                         earnings:  earningsLoading,
                                         fed:       fedLoading,
@@ -3340,6 +3341,7 @@ export function MainPage() {
                                 industriesError,
                                 screen,
                                 assessments,
+                                themes,
                                 onEditCoverage:    handleEditCoverage,
                                 onRetireCoverage:  handleRetireCoverage,
                                 onDeleteCoverage:  handleDeleteCoverage,

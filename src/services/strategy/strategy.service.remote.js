@@ -20,6 +20,39 @@ export const strategyService = {
     getScreen,
     listAssessments,
     assessNow,
+    listThemes,
+    proposeThemes,
+    setThemeStatus,
+    assessTheme,
+}
+
+/**
+ * Pythia's THEMES (backend pythia-assessment.md §3): value chains of GICS sub-industries, each with its
+ * assessment. A trader gets the approved ones; an admin also the proposed and retired.
+ */
+function listThemes() {
+    return httpService.get(`${BASE}/themes`)
+}
+
+/** Ask Pythia to propose themes now (admin). → `{ proposed, refused, skipped, cost_usd }`. */
+async function proposeThemes(max) {
+    const r = await httpService.post(`${BASE}/themes/propose`, max ? { max } : {})
+    _announce()
+    return r
+}
+
+/** Approve or retire a theme (admin). */
+async function setThemeStatus(id, status, note = null) {
+    const r = await httpService.post(`${BASE}/themes/${encodeURIComponent(id)}/status`, { status, note })
+    _announce()
+    return r
+}
+
+/** Assess one approved theme now (admin). → `{ ok, outcome, doc, cost_usd }`. */
+async function assessTheme(id) {
+    const r = await httpService.post(`${BASE}/themes/${encodeURIComponent(id)}/assess`, {})
+    _announce()
+    return r
 }
 
 /**

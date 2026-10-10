@@ -364,3 +364,18 @@
     &__result { color: var(--text-muted); }
     &__result--bad { color: var(--color-warning); }
 }
+
+// Pythia's themes (backend pythia-assessment.md §3).
+.themes-view {
+    &__status {
+        margin-left: 6px;
+        font-style: normal;
+        font-size: 10.5px;
+        color: var(--color-warning);
+
+        &--retired { color: var(--text-dim); }
+    }
+
+    &__links { margin: 2px 0 4px 16px; padding: 0; }
+    &__move { color: var(--text-muted); }
+}

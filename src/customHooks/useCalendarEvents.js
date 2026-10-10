@@ -27,6 +27,8 @@ export function useCalendarEvents() {
     const [screen, setScreen] = useState(null)
     // Pythia's assessments ("Assessed") with the track record — `{ assessments, record }`, null on a failed read.
     const [assessments, setAssessments] = useState(null)
+    // Pythia's themes ("Themes") — value chains with their assessments; [] until loaded or on a failed read.
+    const [themes, setThemes] = useState([])
 
     useEffect(() => {
         let active = true
@@ -60,6 +62,7 @@ export function useCalendarEvents() {
             })
             load(strategyService.getScreen, () => {}, (d) => setScreen(d && Array.isArray(d.rows) ? d : null))
             load(strategyService.listAssessments, () => {}, (d) => setAssessments(d && Array.isArray(d.assessments) ? d : null))
+            load(strategyService.listThemes, () => {}, (d) => setThemes(Array.isArray(d) ? d : []))
         }
 
         refresh()
@@ -71,5 +74,5 @@ export function useCalendarEvents() {
         return () => { active = false; clearInterval(t); window.removeEventListener(INDUSTRIES_CHANGED, refresh) }
     }, [])
 
-    return { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, industries, industriesLoading, industriesError, screen, assessments }
+    return { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, industries, industriesLoading, industriesError, screen, assessments, themes }
 }

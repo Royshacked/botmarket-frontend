@@ -33,6 +33,11 @@ export function ordinal(n) {
 /** How far it has moved, in one line: "24m +188% vs SPY +40% · stretched: 64th percentile". */
 export function movedLine(moved) {
     if (!moved) return null
+    // A theme's move is its direct links' (step 3).
+    if (moved.kind === 'theme') {
+        const direct = (moved.links ?? []).filter(l => l.order === 1).map(l => `${l.name} ${linkMoveLine(l) ?? 'n/a'}`)
+        return direct.length ? `direct links: ${direct.join('; ')}` : null
+    }
     const parts = []
     if (moved.ret_24m != null) parts.push(`24m ${signed(moved.ret_24m)} vs SPY ${signed(moved.spy_24m)}`)
     else if (moved.ret_12m != null) parts.push(`12m ${signed(moved.ret_12m)} vs SPY ${signed(moved.spy_12m)}`)
@@ -96,4 +101,29 @@ export function moneyLine(money) {
     if (money.acquisitions_change != null) parts.push(`acquisitions ${signed(money.acquisitions_change)}`)
     if (money.share_count_median_change != null) parts.push(`share count ${signed(money.share_count_median_change, 1)}`)
     return parts.join(' · ')
+}
+
+// ── themes (backend theme.service; pythia-assessment.md §3) ───────────────────
+
+export const ORDER_LABEL = { 1: 'direct', 2: 'suppliers', 3: "suppliers' suppliers" }
+
+/** A theme's links grouped by order, direct first → [[order, links]]. */
+export function groupByOrder(links) {
+    const out = new Map()
+    for (const l of [...(links ?? [])].sort((a, b) => a.order - b.order)) {
+        if (!out.has(l.order)) out.set(l.order, [])
+        out.get(l.order).push(l)
+    }
+    return [...out.entries()]
+}
+
+/** One link's move, in words: "24m +200% over SPY · stretched: 90th percentile · hype". */
+export function linkMoveLine(l) {
+    if (!l) return null
+    const parts = []
+    if (l.excess_24m != null) parts.push(`24m ${signed(l.excess_24m)} over SPY`)
+    else if (l.excess_12m != null) parts.push(`12m ${signed(l.excess_12m)} over SPY`)
+    if (l.ext_percentile != null) parts.push(`stretched: ${ordinal(Math.round(l.ext_percentile * 100))} percentile`)
+    if (l.hype) parts.push('hype')
+    return parts.join(' · ') || null
 }
