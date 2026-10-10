@@ -25,6 +25,8 @@ export function useCalendarEvents() {
     const [industriesError, setIndustriesError]     = useState(false)
     // Pythia's weekly screen (the Forecasts tab's "Trade now"). Null until one is published.
     const [screen, setScreen] = useState(null)
+    // Pythia's assessments ("Assessed") with the track record — `{ assessments, record }`, null on a failed read.
+    const [assessments, setAssessments] = useState(null)
 
     useEffect(() => {
         let active = true
@@ -57,6 +59,7 @@ export function useCalendarEvents() {
                 if (Array.isArray(d)) setIndustries(d)
             })
             load(strategyService.getScreen, () => {}, (d) => setScreen(d && Array.isArray(d.rows) ? d : null))
+            load(strategyService.listAssessments, () => {}, (d) => setAssessments(d && Array.isArray(d.assessments) ? d : null))
         }
 
         refresh()
@@ -68,5 +71,5 @@ export function useCalendarEvents() {
         return () => { active = false; clearInterval(t); window.removeEventListener(INDUSTRIES_CHANGED, refresh) }
     }, [])
 
-    return { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, industries, industriesLoading, industriesError, screen }
+    return { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, industries, industriesLoading, industriesError, screen, assessments }
 }

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import PropTypes from 'prop-types'
 import { gradeFor, conclusionFor } from './industryGrade.js'
 import { ScreenView } from './ScreenView.jsx'
+import { AssessmentView } from './AssessmentView.jsx'
 import './IndustryView.scss'
 
 // Pythia's industry views — the Forecasts tab since 2026-10-05 (backend
@@ -99,16 +100,18 @@ function IndustryRow({ row }) {
 IndustryRow.propTypes = { row: PropTypes.object.isRequired }
 
 /**
- * The Forecasts tab: TRADE NOW (Pythia's weekly screen — trade or not, and on which horizon) and
- * STRUCTURE (the three structural answers). Trade now leads when a screen exists (Roy, 2026-10-08).
+ * The Forecasts tab: TRADE NOW (Pythia's weekly screen — trade or not, and on which horizon), ASSESSED
+ * (Pythia's judgment per industry with its graded track record — backend docs/design/pythia-assessment.md)
+ * and STRUCTURE (the three structural answers). Trade now leads when a screen exists (Roy, 2026-10-08);
+ * it stays until the assessment board replaces it (Roy, 2026-10-10).
  */
-export function IndustryView({ industries = [], loading = false, error = false, screen = null }) {
+export function IndustryView({ industries = [], loading = false, error = false, screen = null, assessments = null }) {
     const [mode, setMode] = useState(null)
     const [query, setQuery] = useState('')
     const shown = mode ?? (screen ? 'trade' : 'structure')
     const tabs = (
         <div className="screen-view__modes" role="tablist">
-            {[['trade', 'Trade now'], ['structure', 'Structure']].map(([k, label]) => (
+            {[['trade', 'Trade now'], ['assessed', 'Assessed'], ['structure', 'Structure']].map(([k, label]) => (
                 <button key={k} type="button" role="tab" aria-selected={shown === k}
                     className={`screen-view__mode${shown === k ? ' screen-view__mode--on' : ''}`} onClick={() => setMode(k)}>
                     {label}
@@ -126,6 +129,16 @@ export function IndustryView({ industries = [], loading = false, error = false, 
             </div>
         )
     }
+    if (shown === 'assessed') {
+        return (
+            <div className="industry-view">
+                {tabs}
+                <input className="industry-view__search" type="search" placeholder="Find an industry…" value={query}
+                    onChange={e => setQuery(e.target.value)} aria-label="Find an industry" />
+                <AssessmentView data={assessments} industries={industries} query={query} />
+            </div>
+        )
+    }
     return <StructureView industries={industries} loading={loading} error={error} tabs={tabs} query={query} setQuery={setQuery} />
 }
 
@@ -134,6 +147,7 @@ IndustryView.propTypes = {
     loading:    PropTypes.bool,
     error:      PropTypes.bool,
     screen:     PropTypes.object,
+    assessments: PropTypes.object,
 }
 
 function StructureView({ industries, loading, error, tabs, query, setQuery }) {

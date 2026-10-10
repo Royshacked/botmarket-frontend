@@ -284,3 +284,83 @@
 
     &__gaps { margin: 6px 4px 0; }
 }
+
+// Pythia's assessments — "Assessed" (backend docs/design/pythia-assessment.md).
+.assessment-view {
+    &__record {
+        margin: 4px 4px 8px;
+        padding: 6px 8px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 11.5px;
+        color: var(--text-muted);
+
+        b { color: var(--text-primary); }
+        ul { margin: 4px 0 0 16px; padding: 0; }
+    }
+
+    &__verdict {
+        padding: 1px 7px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 600;
+        white-space: nowrap;
+
+        &--interesting_trade  { color: var(--color-long); }
+        &--interesting_invest { color: var(--color-teal); }
+        &--watch              { color: var(--color-warning); }
+        &--avoid              { color: var(--text-dim); }
+    }
+
+    &__hype {
+        padding: 1px 6px;
+        border: 1px solid var(--color-warning);
+        border-radius: 10px;
+        font-size: 10px;
+        color: var(--color-warning);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    &__stale {
+        margin-left: 6px;
+        font-style: normal;
+        font-size: 10.5px;
+        color: var(--color-warning);
+    }
+
+    &__cause--none, &__cause--unverified { color: var(--color-warning); }
+
+    &__base-rate { color: var(--text-muted); }
+
+    &__assess {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+        margin: 4px 4px 8px;
+        font-size: 12px;
+
+        select, button {
+            padding: 3px 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-surface);
+            color: var(--text-primary);
+            font-size: 12px;
+        }
+
+        select { max-width: 260px; }
+
+        button {
+            cursor: pointer;
+            color: var(--color-teal);
+
+            &:hover:not(:disabled) { background: var(--bg-hover); }
+            &:disabled { cursor: default; color: var(--text-dim); }
+        }
+    }
+
+    &__result { color: var(--text-muted); }
+    &__result--bad { color: var(--color-warning); }
+}

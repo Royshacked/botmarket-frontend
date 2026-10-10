@@ -18,6 +18,27 @@ export const strategyService = {
     getIndustry,
     publishIndustry,
     getScreen,
+    listAssessments,
+    assessNow,
+}
+
+/**
+ * Pythia's ASSESSMENTS (backend docs/design/pythia-assessment.md): every assessed industry's verdict —
+ * interesting to trade, to invest in, to watch, or to avoid — and the track record of the graded calls.
+ * → `{ assessments, record }`.
+ */
+function listAssessments() {
+    return httpService.get(`${BASE}/assessments`)
+}
+
+/**
+ * Assess one industry now (admin) — a few minutes of research. → `{ ok, outcome, doc, call, cost_usd }`;
+ * a refused or failed run rejects with the same body. Announces so the board refetches.
+ */
+async function assessNow(code) {
+    const r = await httpService.post(`${BASE}/assessments/${encodeURIComponent(code)}/run`, {})
+    _announce()
+    return r
 }
 
 /** Streaming industry-desk chat. done → { reply, phase, views }. */
