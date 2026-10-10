@@ -79,3 +79,21 @@ export function recordWords(record) {
 export function isExpired(row, now = Date.now()) {
     return Boolean(row?.expires_at) && Date.parse(row.expires_at) < now
 }
+
+/**
+ * Where the industry's companies put their money, in one line (facts from the engine, backend
+ * industryData.moneyFacts): "Capex +50% (a year earlier +10%; 71% of companies raised it) · buybacks −17% ·
+ * share count −1.2%". Null without money facts.
+ */
+export function moneyLine(money) {
+    if (!money || money.capex_change == null) return null
+    const parts = [`Capex ${signed(money.capex_change)}`
+        + (money.capex_prev_change != null || money.capex_share_up != null
+            ? ` (${[money.capex_prev_change != null ? `a year earlier ${signed(money.capex_prev_change)}` : null,
+                money.capex_share_up != null ? `${Math.round(money.capex_share_up * 100)}% of companies raised it` : null].filter(Boolean).join('; ')})`
+            : '')]
+    if (money.buybacks_change != null) parts.push(`buybacks ${signed(money.buybacks_change)}`)
+    if (money.acquisitions_change != null) parts.push(`acquisitions ${signed(money.acquisitions_change)}`)
+    if (money.share_count_median_change != null) parts.push(`share count ${signed(money.share_count_median_change, 1)}`)
+    return parts.join(' · ')
+}

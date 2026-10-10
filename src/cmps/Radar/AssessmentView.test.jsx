@@ -15,7 +15,7 @@ vi.mock('../../services/strategy/strategy.service.remote.js', () => ({
 
 import { AssessmentView } from './AssessmentView.jsx'
 import { IndustryView } from './IndustryView.jsx'
-import { movedLine, groupByVerdict, recordWords, isExpired, ordinal, CAUSE_WORD } from './assessmentWords.js'
+import { movedLine, moneyLine, groupByVerdict, recordWords, isExpired, ordinal, CAUSE_WORD } from './assessmentWords.js'
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); AUTH = MEMBER })
 
@@ -29,6 +29,7 @@ const A = (over = {}) => ({
     risks: ['margins above the 10-year range'], change_view_if: ['TSMC cuts guidance on Oct 15'],
     moved: { ret_24m: 1.88, spy_24m: 0.4, ret_12m: 0.9, spy_12m: 0.17, ext_percentile: 0.64, hype: true },
     base_rates: [{ key: 'hype', text: '22% fell 40%+ within 24 months (base 9%).' }],
+    money: { capex_change: 0.5, capex_prev_change: 0.1, capex_share_up: 0.71 },
     structure: { demand: 'growing', economics: 'good', cycle: 'peak' },
     assessed_at: '2026-10-10T17:52:52.516Z', expires_at: '2099-11-21T00:00:00.000Z',
     ...over,
@@ -63,6 +64,13 @@ describe('assessment words', () => {
         expect(graded.lines).toEqual(['Avoid at 3m: 2 graded, right 50%, basket vs SPY -3.1% on average'])
     })
 
+    it('says where the companies put their money, in one line', () => {
+        expect(moneyLine({ capex_change: 0.5, capex_prev_change: 0.1, capex_share_up: 0.71, buybacks_change: -0.17, share_count_median_change: -0.012 }))
+            .toBe('Capex +50% (a year earlier +10%; 71% of companies raised it) · buybacks -17% · share count -1.2%')
+        expect(moneyLine(null)).toBeNull()
+        expect(moneyLine({ capex_change: null })).toBeNull()
+    })
+
     it('marks an assessment past its expiry', () => {
         expect(isExpired({ expires_at: '2020-01-01T00:00:00Z' })).toBe(true)
         expect(isExpired(A())).toBe(false)
@@ -87,6 +95,7 @@ describe('AssessmentView', () => {
         expect(rtl.getByText(/AMD raised 2027 supply/)).toBeTruthy()
         expect(rtl.getByText(/Not part of this verdict: Geopolitics/)).toBeTruthy()
         expect(rtl.getByText(/TSMC cuts guidance/)).toBeTruthy()
+        expect(rtl.getByText(/Capex \+50% \(a year earlier \+10%; 71% of companies raised it\)/)).toBeTruthy()
     })
 
     it('a trader sees no Assess now; an admin runs one and sees its cost', async () => {

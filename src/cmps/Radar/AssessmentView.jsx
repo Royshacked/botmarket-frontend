@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import PropTypes from 'prop-types'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { strategyService } from '../../services/strategy/strategy.service.remote.js'
-import { VERDICT_LABEL, INPUT_LABEL, CAUSE_WORD, movedLine, groupByVerdict, recordWords, isExpired } from './assessmentWords.js'
+import { VERDICT_LABEL, INPUT_LABEL, CAUSE_WORD, movedLine, moneyLine, groupByVerdict, recordWords, isExpired } from './assessmentWords.js'
 
 // Pythia's assessments — "Assessed" on the Forecasts tab (backend docs/design/pythia-assessment.md, build
 // step 1). Each assessed industry with Pythia's verdict — interesting to trade, to invest in, to watch, or
@@ -16,6 +16,7 @@ function AssessmentRow({ row }) {
     const [open, setOpen] = useState(false)
     const s = row.subject ?? {}
     const moved = movedLine(row.moved)
+    const money = moneyLine(row.money)
     const expired = isExpired(row)
     return (
         <div className={`industry-view__row${open ? ' industry-view__row--open' : ''}`}>
@@ -42,6 +43,7 @@ function AssessmentRow({ row }) {
                         {row.cause?.text ? ` — ${row.cause.text}` : ''}
                     </p>
                     {moved && <p><span className="industry-view__label">how far it has moved</span> {moved}</p>}
+                    {money && <p><span className="industry-view__label">where its companies put money</span> {money}</p>}
                     {(row.base_rates ?? []).map(b => (
                         <p key={b.key} className="assessment-view__base-rate"><span className="industry-view__label">base rate</span> {b.text}</p>
                     ))}
