@@ -2,6 +2,7 @@ import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { strategyService } from '../../services/strategy/strategy.service.remote.js'
+import { useStrategyRun } from '../../customHooks/useStrategyRun.js'
 import { VERDICT_LABEL, CAUSE_WORD, ORDER_LABEL, linkMoveLine, groupByOrder } from './assessmentWords.js'
 
 // Pythia's THEMES — "Themes" on the Forecasts tab (backend docs/design/pythia-assessment.md §3, step 3).
@@ -17,7 +18,7 @@ function ThemeRow({ theme, isAdmin }) {
     const a = theme.assessment
     const moves = new Map((a?.moved?.links ?? []).map(l => [l.code, l]))
     // A theme's Assess run survives a remount in the service's in-flight set (see strategy.service.remote).
-    const assessing = busy === 'Assess' || strategyService.isRunning(`theme:${theme.id}`)
+    const assessing = useStrategyRun(`theme:${theme.id}`) || busy === 'Assess'
     const locked = Boolean(busy) || assessing
     async function act(label, fn) {
         if (locked) return
@@ -94,7 +95,7 @@ ThemeRow.propTypes = { theme: PropTypes.object.isRequired, isAdmin: PropTypes.bo
 function ProposeThemes() {
     const [busy, setBusy] = useState(false)
     const [note, setNote] = useState(null)
-    const running = busy || strategyService.isRunning('propose_themes')
+    const running = useStrategyRun('propose_themes') || busy
     async function run() {
         if (running) return
         setBusy(true)

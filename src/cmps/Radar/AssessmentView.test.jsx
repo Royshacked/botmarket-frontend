@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen as rtl, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen as rtl, cleanup, fireEvent, waitFor, act } from '@testing-library/react'
 import { ADMIN, MEMBER } from '../../testUtils/authStub.js'
 
 // Pythia's assessment board (backend docs/design/pythia-assessment.md): the verdict words, how far the
@@ -133,6 +133,10 @@ describe('AssessmentView', () => {
         expect(btn.disabled).toBe(true)
         fireEvent.click(btn)
         expect(assessNow).not.toHaveBeenCalled()
+        // The run lands: the service announces, and the button lets go without waiting for the board's refresh.
+        running.delete('industry:45301020')
+        act(() => { window.dispatchEvent(new CustomEvent('strategy-industries-changed')) })
+        expect(rtl.getByRole('button', { name: 'Assess now' }).disabled).toBe(false)
     })
 
     it('a theme\'s assessment is labelled as a theme', () => {

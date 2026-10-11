@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import PropTypes from 'prop-types'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { strategyService } from '../../services/strategy/strategy.service.remote.js'
+import { useStrategyRun } from '../../customHooks/useStrategyRun.js'
 import { VERDICT_LABEL, INPUT_LABEL, CAUSE_WORD, movedLine, moneyLine, groupByVerdict, recordWords, isExpired } from './assessmentWords.js'
 
 // Pythia's assessments — "Assessed" on the Forecasts tab (backend docs/design/pythia-assessment.md, build
@@ -95,7 +96,8 @@ function AssessNow({ industries }) {
     const options = useMemo(() => [...industries].sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? ''))), [industries])
     // The in-flight state lives in the service too, so a button remounted mid-run (tab switched and back)
     // still shows the run instead of offering a second paid click.
-    const running = busy || (code && strategyService.isRunning(`industry:${code}`))
+    const inFlight = useStrategyRun(code ? `industry:${code}` : null)
+    const running = busy || inFlight
     async function run() {
         if (!code || running) return
         setBusy(true)
