@@ -14,7 +14,7 @@ import { handoffDoors } from '../services/pipeline/doors.js'
 import { AccountSelector }   from '../cmps/ChatPanel/AccountSelector.jsx'
 import { readStoredModel }   from '../cmps/modelOptions.js'
 import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
-import { confirmAvoid } from '../cmps/PortfolioPanel/avoidOk.js'
+import { confirmAvoid, confirmAvoidAdds } from '../cmps/PortfolioPanel/avoidOk.js'
 import { reviewApplyMessage, queuedAnything } from '../cmps/PortfolioPanel/reviewApply.js'
 import { QueuedActionDialog } from '../cmps/Floor/QueuedActionDialog.jsx'
 import { executeRoute } from '../cmps/Floor/queuedAction.contract.js'
@@ -1943,9 +1943,12 @@ export function MainPage() {
                 // still saves below so the conversation isn't lost.
                 showErrorMsg(`Can't update this plan while ${liveLegs.length} position${liveLegs.length > 1 ? 's are' : ' is'} live on the broker — close ${liveLegs.length > 1 ? 'them' : 'it'} first.`)
             } else if (plan?.ideas?.length) {
-                await Promise.all(existing.map(i => tradeIdeasService.deleteIdea(i.id)))
-
+                // SAVE FIRST, then delete the old ideas (code review 2026-10-11): a save the server refuses — an
+                // industry turned AVOID since the proposal, say — used to land after the delete, and leave the book
+                // empty. Refused now, the book keeps what it had.
                 const newIdeas   = await tradeIdeasService.createBatch(plan, accountIds, mainAccountId, portfolioId)
+                const keep       = new Set(newIdeas.map(i => i.id))
+                await Promise.all(existing.filter(i => !keep.has(i.id)).map(i => tradeIdeasService.deleteIdea(i.id)))
                 setIdeas(prev => [...newIdeas, ...prev.filter(i => i.portfolioId !== portfolioId)])
             } else {
                 // No re-plan, but the account selection may have changed while editing — so push it
@@ -2119,6 +2122,9 @@ export function MainPage() {
     // apply idea edits), then refreshes ideas. Returns false on failure so the panel keeps
     // the proposal for a retry. A pending (not-yet-activated) book gets an activate nudge.
     async function handleAcceptReview(portfolioId, update, { pending } = {}) {
+        // An add in an industry Pythia rates AVOID is applied only with the user's yes, asked here (step 7).
+        update = confirmAvoidAdds(update)
+        if (!update) return false
         let result
         try {
             result = await portfolioService.applyRebalance(portfolioId, update)
@@ -3466,7 +3472,7 @@ function RebalanceConfirmDialog({ update, ideas, applying, onConfirm, onCancel }
             case 'exit_item':   return `Exit ${assetOf(id)}${change.reason ? ` — ${change.reason}` : ''}`
             case 'trim_item':   return `Trim ${assetOf(id)} by ${pct(change.reduceFraction)}${change.targetAllocationRatio != null ? ` → target ${pct(change.targetAllocationRatio)}` : ''}`
             case 'add_to_item': return `Add to ${assetOf(id)}: +${pct(change.addFraction)}${change.targetAllocationRatio != null ? ` → target ${pct(change.targetAllocationRatio)}` : ''}`
-            case 'add_item':    return `Add ${spec?.asset ?? '?'} (${spec?.direction ?? 'long'}${spec?.allocationRatio != null ? `, target ${pct(spec.allocationRatio)}` : ''})`
+            case 'add_item':    return `Add ${spec?.asset ?? '?'} (${spec?.direction ?? 'long'}${spec?.allocationRatio != null ? `, target ${pct(spec.allocationRatio)}` : ''})${change.avoid ? ` — Pythia rates ${change.avoid.industry} AVOID` : ''}`
             case 'update_item': return `Update ${assetOf(id)}: ${Object.keys(change.patch ?? {}).join(', ') || 'fields'}`
             case 'remove_item': return `Remove ${assetOf(id)} (pending)`
             default:            return change.action
