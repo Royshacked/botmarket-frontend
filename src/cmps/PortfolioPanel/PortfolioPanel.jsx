@@ -495,6 +495,12 @@ export function PortfolioPanel({
                     <MessageBubble key={i} msg={msg} />
                 ))}
                 {isLoading && <ToolStatusChip label={waitingLabel({ messages, streamStatus })} pulse={chat.reasoningPulse} />}
+                {(pendingPlan?.limits?.notes?.length ?? 0) > 0 && (
+                    <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant portfolio-panel__bubble--warning" role="note">
+                        The house&apos;s limits on this plan:
+                        <ul>{pendingPlan.limits.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>
+                    </div>
+                )}
                 {pendingPlan && !planReady && !planHasSize && (
                     <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant portfolio-panel__bubble--warning">
                         ⚠️ I need a position size before this plan can be generated. Tell me the total capital you want to deploy and I&apos;ll size each position by its allocation — or give me a quantity per asset.

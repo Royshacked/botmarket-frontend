@@ -14,6 +14,7 @@ import { handoffDoors } from '../services/pipeline/doors.js'
 import { AccountSelector }   from '../cmps/ChatPanel/AccountSelector.jsx'
 import { readStoredModel }   from '../cmps/modelOptions.js'
 import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
+import { confirmAvoid } from '../cmps/PortfolioPanel/avoidOk.js'
 import { reviewApplyMessage, queuedAnything } from '../cmps/PortfolioPanel/reviewApply.js'
 import { QueuedActionDialog } from '../cmps/Floor/QueuedActionDialog.jsx'
 import { executeRoute } from '../cmps/Floor/queuedAction.contract.js'
@@ -437,6 +438,14 @@ export function MainPage() {
     }
     function researchOpening(item) {
         const c = item.context
+        const symbol = String(item.symbol ?? '').toUpperCase().trim()
+        // From the HOUSE SCAN (step 7): Pythia's verdict sent it. Same sentence as the backend's — keep them alike.
+        if (c?.pythia) {
+            const book  = { swing: 'FOR SWING', long_term: 'FOR LONG TERM' }[c.verdict] ?? String(c.verdict ?? '').toUpperCase()
+            const where = c.kind === 'theme' ? `the theme ${c.subject}${c.link ? ` (via ${c.link})` : ''}` : `its industry, ${c.subject}`
+            const risks = c.risks?.length ? ` Risks it named: ${c.risks.join('; ')}.` : ''
+            return `Research ${symbol} for coverage — Pythia rates ${where} ${book}${c.horizon ? ` (${c.horizon})` : ''}: ${c.thesis ?? ''}${risks} Judge whether ${symbol} is already priced for it.`
+        }
         if (!c?.sector) return `Research ${item.symbol} for coverage.`
         // A SLEEVE candidate (sleeveSource): the mandate that surfaced it is a user's book, not the
         // house view. Same sentence as the backend's researchOpening — keep them saying the same thing.
@@ -445,10 +454,7 @@ export function MainPage() {
             const note   = c.note ? ` (${c.note})` : ''
             return `Research ${item.symbol} for coverage — a candidate for the ${c.sector} sleeve of a portfolio build${school}${note}.`
         }
-        const bp     = Number.isFinite(Number(c.active_bp)) ? ` +${c.active_bp}bp` : ''
-        const regime = c.regime ? ` on a “${c.regime}” regime` : ''
-        const basis  = c.basis ? ` (basis: ${String(c.basis).replace(/_/g, ' ')})` : ''
-        return `Research ${item.symbol} for coverage — the house is overweight ${c.sector}${bp}${regime}${basis}.`
+        return `Research ${item.symbol} for coverage.`
     }
     // Coverage written on a name the queue is holding closes its row — the queue's own definition
     // of done ("house coverage written for this symbol"), so it should not need a second click.
@@ -1828,6 +1834,8 @@ export function MainPage() {
     }
 
     async function handleGeneratePlan(plan, messages = [], mandate = null, thesis = null, threadId = null) {
+        plan = confirmAvoid(plan)
+        if (!plan) return
         try {
             const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
             const accountIds   = ideaAccounts.map(a => a.id)
@@ -1919,6 +1927,10 @@ export function MainPage() {
     // every finish — even without a re-plan — so re-opening restores the conversation.
     async function handleUpdatePlan(plan, portfolioId, messages = []) {
         if (!portfolioId) return handleGeneratePlan(plan, messages)
+        if (plan?.ideas?.length) {
+            plan = confirmAvoid(plan)
+            if (!plan) return
+        }
         try {
             const accountIds = availableAccounts.filter(a => selectedAccounts.includes(a.id)).map(a => a.id)
             const existing   = ideas.filter(i => i.portfolioId === portfolioId)

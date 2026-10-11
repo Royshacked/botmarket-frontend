@@ -41,7 +41,8 @@ function deleteIdea(id)        { return api.remove(id) }
 function updateIdea(id, patch) { return api.patch(id, patch) }
 
 async function createBatch(plan, accounts = [], mainAccountId = null, portfolioId = null) {
-    const res = await api.post('/batch', { plan, accounts, mainAccountId, portfolioId })
+    // `avoid_ok`: the user OK'd a name in an industry Pythia rates AVOID (MainPage confirmAvoid) — the server checks.
+    const res = await api.post('/batch', { plan, accounts, mainAccountId, portfolioId, avoid_ok: plan?.avoid_ok === true })
     return Array.isArray(res.ideas) ? res.ideas : []
 }
 

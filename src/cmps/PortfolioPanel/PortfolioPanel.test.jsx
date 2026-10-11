@@ -107,3 +107,32 @@ describe('PortfolioPanel — a review proposal stands only while Atlas keeps mak
         expect(onAcceptReview.mock.calls[0][1]).toEqual(narrowed)
     })
 })
+
+describe('PortfolioPanel — the house limits on a plan are shown (step 7)', () => {
+    beforeEach(() => {
+        sendStream.mockReset()
+        chatStub = {
+            messages: [], setMessages: vi.fn(), isLoading: false, streamStatus: '', reasoningPulse: null,
+            run: async (text, { send, onDone } = {}) => {
+                if (!text) return false
+                await send?.({ signal: null, handlers: { onDone } })
+                return true
+            },
+            endStream: vi.fn(), finishStreaming: vi.fn(), reset: vi.fn(), freezeError: vi.fn(),
+            resumeBase: () => '', finalizeResumeHistory: (h) => h, beginContinue: () => null,
+        }
+    })
+
+    it('a plan the platform braked, capped or flagged says what it did', async () => {
+        const plan = {
+            name: 'Book', positionSize: 10000,
+            ideas: [{ asset: 'NVDA', quantity: 3, allocationRatio: 0.3 }, { asset: 'XOM', quantity: 5, allocationRatio: 0.3 }],
+            limits: { notes: ['Hype brake: NVDA at half weight.', 'Pythia rates Integrated Oil AVOID (XOM) — the book is saved only with your OK.'], avoid: [{ asset: 'XOM', industry: 'Integrated Oil' }] },
+        }
+        turns({ reply: 'Here is the book.', plan })
+        render(<PortfolioPanel seed={{ key: 1, message: 'Build me a book' }} />)
+        expect(await screen.findByText(/The house's limits on this plan/)).toBeTruthy()
+        expect(screen.getByText('Hype brake: NVDA at half weight.')).toBeTruthy()
+        expect(screen.getByText(/Integrated Oil AVOID \(XOM\)/)).toBeTruthy()
+    })
+})
