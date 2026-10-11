@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { strategyService } from '../../services/strategy/strategy.service.remote.js'
 import { useStrategyRun } from '../../customHooks/useStrategyRun.js'
-import { VERDICT_LABEL, INPUT_LABEL, CAUSE_WORD, movedLine, moneyLine, groupByVerdict, recordWords, isExpired } from './assessmentWords.js'
+import { VERDICT_LABEL, INPUT_LABEL, CAUSE_WORD, REGIME_WORD, movedLine, moneyLine, groupByVerdict, recordWords, isExpired, weekHeadline, weekResultLine } from './assessmentWords.js'
 
 // Pythia's assessments — "Assessed" on the Forecasts tab (backend docs/design/pythia-assessment.md, build
 // step 1). Each assessed industry with Pythia's verdict — interesting to trade, to invest in, to watch, or
@@ -39,6 +39,12 @@ function AssessmentRow({ row }) {
             {open && (
                 <div className="industry-view__detail">
                     <p className="industry-view__summary">{row.thesis}</p>
+                    {(row.trigger?.length ?? 0) > 0 && (
+                        <p className="assessment-view__trigger">
+                            <span className="industry-view__label">flagged by the weekly scan</span>{' '}
+                            {row.trigger.map(t => `${t.text}${t.detail ? ` (${t.detail})` : ''}`).join('; ')}
+                        </p>
+                    )}
                     <p>
                         <span className="industry-view__label">what moved it</span>{' '}
                         <b className={`assessment-view__cause assessment-view__cause--${row.cause?.kind}`}>{CAUSE_WORD[row.cause?.kind] ?? row.cause?.kind}</b>
@@ -125,7 +131,64 @@ function AssessNow({ industries }) {
 }
 AssessNow.propTypes = { industries: PropTypes.array.isRequired }
 
-export function AssessmentView({ data = null, industries = [], query = '' }) {
+/**
+ * The week (backend pythia-assessment.md §8): what the change scan flagged, what was assessed and how it came
+ * out, what waits — and the market regime it ran in. An admin also sees the spend and can run the week.
+ */
+function WeekPanel({ week, isAdmin }) {
+    const [open, setOpen] = useState(false)
+    const [busy, setBusy] = useState(false)
+    const [note, setNote] = useState(null)
+    const running = Boolean(week?.running || week?.status === 'running')
+    const reasonText = useMemo(() => Object.fromEntries((week?.flagged ?? []).flatMap(f => (f.reasons ?? []).map(r => [r.key, r.text]))), [week])
+    async function run() {
+        if (busy || running) return
+        setBusy(true)
+        setNote(null)
+        try {
+            await strategyService.runWeek({ force: week?.status === 'done' })
+            setNote('Started — the board follows it.')
+        } catch (err) {
+            setNote(`Not started — ${strategyService.runError(err)}`)
+        } finally {
+            setBusy(false)
+        }
+    }
+    const headline = weekHeadline(week)
+    return (
+        <div className="assessment-view__week">
+            <div className="assessment-view__week-head">
+                {headline
+                    ? <button type="button" className="assessment-view__week-toggle" onClick={() => setOpen(o => !o)} aria-expanded={open}>{headline}</button>
+                    : <span>No week has run yet — the change scan picks what to assess after each weekly price run.</span>}
+                {week?.regime && <span className={`screen-view__regime screen-view__regime--${week.regime}`}>regime {REGIME_WORD[week.regime] ?? week.regime}</span>}
+                {isAdmin && typeof week?.cost_usd === 'number' && <span className="industry-view__meta">cost ${week.cost_usd.toFixed(4)}{week.stopped === 'budget' ? ' — stopped at the week\'s spend ceiling' : ''}</span>}
+                {isAdmin && (
+                    <button type="button" onClick={run} disabled={busy || running}>
+                        {running ? 'Running…' : week?.status === 'done' ? 'Run the week again' : 'Run the week'}
+                    </button>
+                )}
+                <span role="status" aria-live="polite" className={note ? 'assessment-view__result' : undefined}>{note}</span>
+            </div>
+            {open && week && (
+                <div className="assessment-view__week-body">
+                    {(week.results?.length ?? 0) > 0 && (
+                        <ul>{week.results.map((r, i) => <li key={`${r.code ?? r.id}-${i}`}>{weekResultLine(r, reasonText)}</li>)}</ul>
+                    )}
+                    {(week.waiting?.length ?? 0) > 0 && (
+                        <p className="industry-view__meta">
+                            Waiting for next week: {week.waiting.map(w => w.name).join(', ')}{week.waiting_count > week.waiting.length ? ` and ${week.waiting_count - week.waiting.length} more` : ''}.
+                        </p>
+                    )}
+                    {!week.results?.length && !week.waiting?.length && <p className="industry-view__meta">Nothing moved since the last assessments.</p>}
+                </div>
+            )}
+        </div>
+    )
+}
+WeekPanel.propTypes = { week: PropTypes.object, isAdmin: PropTypes.bool.isRequired }
+
+export function AssessmentView({ data = null, industries = [], query = '', week = null }) {
     const isAdmin = Boolean(useAuth()?.isAdmin)
     const groups = useMemo(() => groupByVerdict(data?.assessments ?? [], query), [data, query])
     const record = recordWords(data?.record)
@@ -140,6 +203,7 @@ export function AssessmentView({ data = null, industries = [], query = '' }) {
                 <span><b>{total}</b> {total === 1 ? 'industry or theme' : 'industries and themes'} assessed</span>
                 <span className="industry-view__legend">a judgment from news, price, money, regime and geopolitics — not a forecast</span>
             </div>
+            <WeekPanel week={week} isAdmin={isAdmin} />
             {isAdmin && industries.length > 0 && <AssessNow industries={industries} />}
             {groups.map(([verdict, list]) => (
                 <section key={verdict} className="industry-view__sector">
@@ -155,4 +219,4 @@ export function AssessmentView({ data = null, industries = [], query = '' }) {
     )
 }
 
-AssessmentView.propTypes = { data: PropTypes.object, industries: PropTypes.array, query: PropTypes.string }
+AssessmentView.propTypes = { data: PropTypes.object, industries: PropTypes.array, query: PropTypes.string, week: PropTypes.object }

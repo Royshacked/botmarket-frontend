@@ -9,10 +9,12 @@ let AUTH = MEMBER
 const running = new Set()
 vi.mock('../../context/AuthContext.jsx', async (orig) => ({ ...(await orig()), useAuth: () => AUTH }))
 const assessNow = vi.fn(async () => ({ ok: true, doc: { verdict: 'watch' }, cost_usd: 0.004 }))
+const runWeek = vi.fn(async () => ({ ok: true, outcome: 'started' }))
 vi.mock('../../services/strategy/strategy.service.remote.js', () => ({
     INDUSTRIES_CHANGED: 'strategy-industries-changed',
     strategyService: {
         assessNow: (...a) => assessNow(...a),
+        runWeek: (...a) => runWeek(...a),
         isRunning: (k) => running.has(k),
         runError: (err) => (err?.code === 'already_running' ? 'already running — wait for it to finish' : err?.response?.data?.detail ?? err?.message),
     },
@@ -20,7 +22,7 @@ vi.mock('../../services/strategy/strategy.service.remote.js', () => ({
 
 import { AssessmentView } from './AssessmentView.jsx'
 import { IndustryView } from './IndustryView.jsx'
-import { movedLine, moneyLine, groupByVerdict, recordWords, isExpired, ordinal, CAUSE_WORD } from './assessmentWords.js'
+import { movedLine, moneyLine, groupByVerdict, recordWords, isExpired, ordinal, CAUSE_WORD, weekHeadline, weekResultLine } from './assessmentWords.js'
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); AUTH = MEMBER; running.clear() })
 
@@ -121,7 +123,7 @@ describe('AssessmentView', () => {
         render(<AssessmentView data={DATA} industries={[{ code: '45301020', name: 'Semiconductors' }]} />)
         fireEvent.change(rtl.getByLabelText('Industry to assess'), { target: { value: '45301020' } })
         fireEvent.click(rtl.getByRole('button', { name: 'Assess now' }))
-        await waitFor(() => expect(rtl.getByRole('status').textContent).toBe('Not published (refused): evidence.news is required'))
+        await waitFor(() => expect(rtl.getAllByRole('status').some(s => s.textContent === 'Not published (refused): evidence.news is required')).toBe(true))
     })
 
     it('a run already in flight (a remount mid-run) shows as running and cannot be clicked again', () => {
@@ -152,18 +154,65 @@ describe('AssessmentView', () => {
         expect(rtl.getByText(/No calls yet/)).toBeTruthy()
     })
 
-    it('is the Assessed tab on the Forecasts board, after Trade now', () => {
-        render(<IndustryView industries={[]} screen={null} assessments={DATA} />)
-        expect(rtl.getAllByRole('tab').map(t => t.textContent)).toEqual(['Trade now', 'Assessed', 'Themes', 'Structure'])
-        fireEvent.click(rtl.getByRole('tab', { name: 'Assessed' }))
+    it('the Forecasts board opens on Assessed — Trade now is retired', () => {
+        render(<IndustryView industries={[]} assessments={DATA} />)
+        expect(rtl.getAllByRole('tab').map(t => t.textContent)).toEqual(['Assessed', 'Themes', 'Structure'])
+        expect(rtl.getByRole('tab', { name: 'Assessed' }).getAttribute('aria-selected')).toBe('true')
         expect(document.querySelector('.assessment-view .industry-view__summary-bar').textContent).toMatch(/2 industries and themes assessed/)
     })
 
-    it('once a screen was seen, Trade now stays the default when a refresh reads none', () => {
-        const SCREEN = { rows: [], asof: '2026-10-09' }
-        const { rerender } = render(<IndustryView industries={[]} screen={SCREEN} assessments={DATA} />)
-        expect(rtl.getByRole('tab', { name: 'Trade now' }).getAttribute('aria-selected')).toBe('true')
-        rerender(<IndustryView industries={[]} screen={null} assessments={DATA} />)
-        expect(rtl.getByRole('tab', { name: 'Trade now' }).getAttribute('aria-selected')).toBe('true')
+    it('an assessment the weekly scan asked for says why', () => {
+        const row = A({ trigger: [{ key: 'hype_new', text: 'the hype flag turned on', detail: '24m +190% vs SPY +40%' }] })
+        render(<AssessmentView data={{ assessments: [row], record: null }} />)
+        fireEvent.click(rtl.getAllByRole('button', { name: /Semiconductors/ })[0])
+        expect(rtl.getByText(/the hype flag turned on \(24m \+190% vs SPY \+40%\)/)).toBeTruthy()
+    })
+})
+
+const WEEK = {
+    asof: '2026-10-09', status: 'done', regime: 'yellow', scanned: { industries: 163, themes: 2 },
+    flagged: [{ kind: 'industry', code: '45301020', name: 'Semiconductors', reasons: [{ key: 'hype_new', text: 'the hype flag turned on' }] }],
+    results: [{ kind: 'industry', code: '45301020', name: 'Semiconductors', reasons: ['hype_new'], outcome: 'published', verdict: 'watch', previous_verdict: 'interesting_trade' }],
+    waiting_count: 3, waiting: [{ name: 'Steel' }, { name: 'Banks' }], cost_usd: 0.005,
+}
+
+describe('the week', () => {
+    it('words the week, and lists what was assessed with what changed and why', () => {
+        expect(weekHeadline(WEEK)).toBe('Week of the 2026-10-09 run: 163 industries and 2 themes scanned · 1 flagged · 1 assessed · 3 wait for next week')
+        expect(weekHeadline({ ...WEEK, running: true })).toMatch(/^Week of the 2026-10-09 run \(running\):/)
+        expect(weekHeadline(null)).toBeNull()
+        expect(weekResultLine(WEEK.results[0], { hype_new: 'the hype flag turned on' })).toBe('Semiconductors — Watch (was Interesting to trade) · the hype flag turned on')
+        expect(weekResultLine({ name: 'Steel', outcome: 'refused', reasons: ['expired'] })).toBe('Steel — not published (refused) · expired')
+    })
+
+    it('a trader sees the week and the regime, opens it, and gets no run button or spend', () => {
+        render(<AssessmentView data={DATA} week={WEEK} />)
+        expect(rtl.getByText('regime Yellow')).toBeTruthy()
+        expect(rtl.queryByText(/cost \$/)).toBeNull()
+        expect(rtl.queryByRole('button', { name: /Run the week/ })).toBeNull()
+        fireEvent.click(rtl.getByRole('button', { name: /Week of the 2026-10-09 run/ }))
+        expect(rtl.getByText(/Semiconductors — Watch \(was Interesting to trade\)/)).toBeTruthy()
+        expect(rtl.getByText(/Waiting for next week: Steel, Banks and 1 more/)).toBeTruthy()
+    })
+
+    it('an admin sees the spend and runs the week again; a running week cannot be started twice', async () => {
+        AUTH = ADMIN
+        const { rerender } = render(<AssessmentView data={DATA} week={WEEK} />)
+        expect(rtl.getByText(/cost \$0\.0050/)).toBeTruthy()
+        fireEvent.click(rtl.getByRole('button', { name: 'Run the week again' }))
+        await waitFor(() => expect(rtl.getByText('Started — the board follows it.')).toBeTruthy())
+        expect(runWeek).toHaveBeenCalledWith({ force: true })
+        rerender(<AssessmentView data={DATA} week={{ ...WEEK, status: 'running' }} />)
+        expect(rtl.getByRole('button', { name: 'Running…' }).disabled).toBe(true)
+    })
+
+    it('before the first week, says what the scan will do; an admin can start it', async () => {
+        AUTH = ADMIN
+        runWeek.mockRejectedValueOnce({ response: { status: 409, data: {} } })
+        render(<AssessmentView data={DATA} week={null} />)
+        expect(rtl.getByText(/No week has run yet/)).toBeTruthy()
+        fireEvent.click(rtl.getByRole('button', { name: 'Run the week' }))
+        expect(runWeek).toHaveBeenCalledWith({ force: false })
+        await waitFor(() => expect(rtl.getByText(/^Not started — /)).toBeTruthy())
     })
 })

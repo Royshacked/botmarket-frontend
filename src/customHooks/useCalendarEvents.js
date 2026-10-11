@@ -3,6 +3,7 @@ import { calendarService } from '../services/calendar/calendar.service.remote.js
 import { strategyService, INDUSTRIES_CHANGED } from '../services/strategy/strategy.service.remote.js'
 
 const REFRESH_MS = 60 * 60 * 1000  // re-fetch once per hour
+const WEEK_POLL_MS = 60 * 1000     // a running week, once a minute
 
 export function useCalendarEvents() {
     const [earnings, setEarnings]         = useState([])
@@ -23,8 +24,8 @@ export function useCalendarEvents() {
     const [industriesLoading, setIndustriesLoading] = useState(false)
     // A failed read is NOT an empty board — "the engine has not run" would be a false statement.
     const [industriesError, setIndustriesError]     = useState(false)
-    // Pythia's weekly screen (the Forecasts tab's "Trade now"). Null until one is published.
-    const [screen, setScreen] = useState(null)
+    // Pythia's week (the change scan and its assessments, on "Assessed"). Null until the first one.
+    const [week, setWeek] = useState(null)
     // Pythia's assessments ("Assessed") with the track record — `{ assessments, record }`, null on a failed read.
     const [assessments, setAssessments] = useState(null)
     // Pythia's themes ("Themes") — value chains with their assessments; [] until loaded or on a failed read.
@@ -32,6 +33,9 @@ export function useCalendarEvents() {
 
     useEffect(() => {
         let active = true
+        // While a week runs on the server (many minutes), its document is re-read every WEEK_POLL_MS so the
+        // board follows it; the poll stops when the week is done. Only the week, not every feed.
+        let weekTimer = null
         // Per feed, the number of the latest refresh. A refresh fired by INDUSTRIES_CHANGED can overlap the
         // hourly one; only the newest read of a feed may land, or a slow old read overwrites a fresh board.
         const seq = {}
@@ -53,6 +57,26 @@ export function useCalendarEvents() {
             }
         }
 
+        const keep = { keepOnFail: true }
+        const loadAssessments = () => load('assessments', strategyService.listAssessments, () => {}, (d) => setAssessments(d && Array.isArray(d.assessments) ? d : null), keep)
+        const loadThemes = () => load('themes', strategyService.listThemes, () => {}, (d) => setThemes(Array.isArray(d) ? d : []), keep)
+
+        // A running week publishes verdicts as it goes, so the poll re-reads the assessments and themes with it.
+        function pollWeek() {
+            loadWeek()
+            loadAssessments()
+            loadThemes()
+        }
+
+        function loadWeek() {
+            clearTimeout(weekTimer)
+            load('week', strategyService.getWeek, () => {}, (d) => {
+                const w = d && typeof d === 'object' ? d : null
+                setWeek(w)
+                if (w && (w.running || w.status === 'running')) weekTimer = setTimeout(pollWeek, WEEK_POLL_MS)
+            }, keep)
+        }
+
         function refresh() {
             load('earnings', calendarService.getEarnings, setEarningsLoading, (d) => {
                 setEarnings(d?.items ?? [])
@@ -66,10 +90,7 @@ export function useCalendarEvents() {
                 setIndustriesError(!Array.isArray(d))
                 if (Array.isArray(d)) setIndustries(d)
             })
-            const keep = { keepOnFail: true }
-            load('screen', strategyService.getScreen, () => {}, (d) => setScreen(d && Array.isArray(d.rows) ? d : null), keep)
-            load('assessments', strategyService.listAssessments, () => {}, (d) => setAssessments(d && Array.isArray(d.assessments) ? d : null), keep)
-            load('themes', strategyService.listThemes, () => {}, (d) => setThemes(Array.isArray(d) ? d : []), keep)
+            pollWeek()
         }
 
         refresh()
@@ -78,8 +99,8 @@ export function useCalendarEvents() {
         // would show them the answer they just replaced.
         window.addEventListener(INDUSTRIES_CHANGED, refresh)
 
-        return () => { active = false; clearInterval(t); window.removeEventListener(INDUSTRIES_CHANGED, refresh) }
+        return () => { active = false; clearInterval(t); clearTimeout(weekTimer); window.removeEventListener(INDUSTRIES_CHANGED, refresh) }
     }, [])
 
-    return { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, industries, industriesLoading, industriesError, screen, assessments, themes }
+    return { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, industries, industriesLoading, industriesError, week, assessments, themes }
 }

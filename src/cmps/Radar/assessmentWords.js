@@ -127,3 +127,33 @@ export function linkMoveLine(l) {
     if (l.hype) parts.push('hype')
     return parts.join(' · ') || null
 }
+
+// ─── the week (backend pythia-assessment.md §8: the change scan and its assessments) ───
+
+/** The market regime's word for the week line. */
+export const REGIME_WORD = { green: 'Green', yellow: 'Yellow', red: 'Red' }
+
+/**
+ * The week in one line: "Week of the 2026-10-09 run: 163 industries and 2 themes scanned · 12 flagged · 10
+ * assessed · 2 wait for next week". Null without a week; "running" while the server works on it.
+ */
+export function weekHeadline(week) {
+    if (!week) return null
+    const s = week.scanned ?? {}
+    const n = (k) => s[k] ?? 0
+    const scanned = `${n('industries')} industr${n('industries') === 1 ? 'y' : 'ies'}${n('themes') ? ` and ${n('themes')} theme${n('themes') === 1 ? '' : 's'}` : ''} scanned`
+    const parts = [scanned, `${week.flagged?.length ?? 0} flagged`, `${week.results?.length ?? 0} assessed`]
+    if (week.waiting_count) parts.push(`${week.waiting_count} wait for next week`)
+    const head = week.asof ? `Week of the ${week.asof} run` : 'This week'
+    const running = week.running || week.status === 'running'
+    return `${head}${running ? ' (running)' : ''}: ${parts.join(' · ')}`
+}
+
+/** One assessed subject of the week, in words: "Semiconductors — Watch (was Avoid) · the hype flag turned on". */
+export function weekResultLine(r, reasonText = {}) {
+    if (!r) return null
+    const verdict = r.verdict ? VERDICT_LABEL[r.verdict] ?? r.verdict : r.outcome === 'published' ? '—' : `not published (${r.outcome})`
+    const was = r.previous_verdict && r.verdict && r.previous_verdict !== r.verdict ? ` (was ${VERDICT_LABEL[r.previous_verdict] ?? r.previous_verdict})` : ''
+    const why = (r.reasons ?? []).map(k => reasonText[k] ?? k).join(', ')
+    return `${r.name} — ${verdict}${was}${why ? ` · ${why}` : ''}`
+}

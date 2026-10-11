@@ -12,14 +12,14 @@ vi.mock('../context/AuthContext.jsx', async (orig) => {
 })
 
 const listIndustries = vi.fn(async () => [{ code: '45301020', name: 'Semiconductors', view: null }])
-const getScreen = vi.fn(async () => null)
+const getWeek = vi.fn(async () => null)
 const listAssessments = vi.fn(async () => ({ assessments: [{ id: 'a1' }], record: null }))
 const listThemes = vi.fn(async () => [{ id: 'th_ai' }])
 vi.mock('../services/strategy/strategy.service.remote.js', () => ({
     INDUSTRIES_CHANGED: 'strategy-industries-changed',
     strategyService: {
         listIndustries: (...a) => listIndustries(...a),
-        getScreen: (...a) => getScreen(...a),
+        getWeek: (...a) => getWeek(...a),
         listAssessments: (...a) => listAssessments(...a),
         listThemes: (...a) => listThemes(...a),
     },
@@ -81,6 +81,24 @@ describe("useCalendarEvents — Pythia's board survives a bad refresh", () => {
         await act(async () => {})
         expect(result.current.assessments?.assessments).toHaveLength(1)
         expect(result.current.themes).toEqual([{ id: 'th_ai' }])
+    })
+
+    it('a running week is followed: the week and the verdicts are re-read each minute until it is done', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true })
+        try {
+            getWeek.mockResolvedValueOnce({ asof: '2026-10-09', status: 'running', results: [] })
+            getWeek.mockResolvedValueOnce({ asof: '2026-10-09', status: 'done', results: [{ code: '1' }] })
+            const { result } = renderHook(() => useCalendarEvents())
+            await waitFor(() => expect(result.current.week?.status).toBe('running'))
+            expect(listAssessments).toHaveBeenCalledTimes(1)
+            await act(async () => { await vi.advanceTimersByTimeAsync(61_000) })
+            await waitFor(() => expect(result.current.week?.status).toBe('done'))
+            expect(listAssessments).toHaveBeenCalledTimes(2)
+            await act(async () => { await vi.advanceTimersByTimeAsync(61_000) })
+            expect(getWeek).toHaveBeenCalledTimes(2)
+        } finally {
+            vi.useRealTimers()
+        }
     })
 
     it('a slow older read cannot overwrite a newer one', async () => {

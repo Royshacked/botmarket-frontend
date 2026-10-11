@@ -186,13 +186,9 @@
     }
 }
 
-// Pythia's weekly screen — the Forecasts tab's "Trade now" (ScreenView.jsx). Same rows as the
-// structure view; the line carries the verdict (Trade / Wait / No) and the horizon instead of grades.
+// The Forecasts tab's shared pieces — the tab row, the chips on a row's line, the regime line. (The class
+// name is the retired weekly screen's, 2026-10-11; the pieces outlived it.)
 .screen-view {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-
     &__modes {
         display: flex;
         flex-wrap: wrap;
@@ -229,12 +225,6 @@
         &--red    { border-left-color: var(--color-short); }
     }
 
-    &__bucket {
-        &--swing_long { color: var(--color-long); }
-        &--extended   { color: var(--color-warning); }
-        &--swing_only { color: var(--color-teal); }
-    }
-
     &__chips {
         display: flex;
         flex-wrap: wrap;
@@ -244,18 +234,6 @@
         align-items: center;
     }
 
-    &__trade {
-        padding: 1px 7px;
-        border: 1px solid currentColor;
-        border-radius: 10px;
-        font-size: 11px;
-        font-weight: 600;
-
-        &--yes  { color: var(--color-long); }
-        &--wait { color: var(--color-warning); }
-        &--no   { color: var(--text-dim); }
-    }
-
     &__horizon {
         font-family: var(--font-mono);
         font-size: 10.5px;
@@ -263,29 +241,6 @@
         white-space: nowrap;
     }
 
-    &__new {
-        margin-left: 6px;
-        font-style: normal;
-        font-size: 10.5px;
-        color: var(--color-teal);
-    }
-
-    &__corrected { color: var(--color-warning); }
-
-    &__scores {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px 10px;
-        align-items: baseline;
-        margin: 4px 0;
-        font-size: 11.5px;
-
-        b { color: var(--text-primary); }
-    }
-
-    &__score { white-space: nowrap; }
-
-    &__gaps { margin: 6px 4px 0; }
 }
 
 // Pythia's assessments — "Assessed" (backend docs/design/pythia-assessment.md).
@@ -366,6 +321,53 @@
 
     &__result { color: var(--text-muted); }
     &__result--bad { color: var(--color-warning); }
+
+    // The week: what the change scan flagged and what was assessed.
+    &__week {
+        margin: 0 4px 8px;
+        font-size: 12px;
+        color: var(--text-secondary);
+
+        ul { margin: 4px 0 0 16px; padding: 0; }
+        li { margin: 2px 0; }
+    }
+
+    &__week-head {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 10px;
+        align-items: center;
+
+        button {
+            padding: 3px 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-surface);
+            color: var(--color-teal);
+            font-size: 12px;
+            cursor: pointer;
+
+            &:hover:not(:disabled) { background: var(--bg-hover); }
+            &:disabled { cursor: default; color: var(--text-dim); }
+        }
+
+        .screen-view__regime { margin: 0; padding: 1px 8px; }
+    }
+
+    // The headline is the toggle: plain text that opens the week's list.
+    & &__week-toggle {
+        padding: 0;
+        border: none;
+        background: none;
+        color: var(--text-secondary);
+        text-align: left;
+
+        &:hover:not(:disabled) { background: none; color: var(--text-primary); }
+    }
+
+    &__week-body { margin-top: 4px; }
+
+    &__trigger { color: var(--color-teal); }
 }
 
 // Pythia's themes (backend pythia-assessment.md §3).

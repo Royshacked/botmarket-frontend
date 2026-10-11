@@ -17,7 +17,8 @@ export const strategyService = {
     listIndustries,
     getIndustry,
     publishIndustry,
-    getScreen,
+    getWeek,
+    runWeek,
     listAssessments,
     assessNow,
     listThemes,
@@ -127,16 +128,22 @@ function listIndustries() {
 }
 
 /**
- * Pythia's latest WEEKLY SCREEN (backend docs/design/industry-screener.md): every sub-industry's verdict —
- * trade it or not, and on which horizon — with the scores behind it. Null when none is published yet.
+ * Pythia's latest WEEK (backend pythia-assessment.md §8): what the change scan flagged and why, what was assessed
+ * with its outcome, what waits for next week. Null before the first one. An admin's copy carries the spend and
+ * `running` (a week in progress on the server).
  */
-async function getScreen() {
-    try {
-        return await httpService.get(`${BASE}/screen`)
-    } catch (err) {
-        if (err?.response?.status === 404) return null
-        throw err
-    }
+function getWeek() {
+    return httpService.get(`${BASE}/weekly`)
+}
+
+/**
+ * Run the week now (admin). The server answers at once (202) and works for many minutes; the board follows it
+ * through getWeek. `force` runs a finished week again — the scan then flags only what is still due.
+ */
+async function runWeek({ force = false } = {}) {
+    const r = await httpService.post(`${BASE}/weekly/run`, force ? { force: true } : {})
+    _announce()
+    return r
 }
 
 /** One sub-industry by its 8-digit GICS code: its measurements and the house view with its trail. */

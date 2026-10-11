@@ -1,7 +1,6 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import PropTypes from 'prop-types'
 import { gradeFor, conclusionFor } from './industryGrade.js'
-import { ScreenView } from './ScreenView.jsx'
 import { AssessmentView } from './AssessmentView.jsx'
 import { ThemesView } from './ThemesView.jsx'
 import './IndustryView.scss'
@@ -101,22 +100,18 @@ function IndustryRow({ row }) {
 IndustryRow.propTypes = { row: PropTypes.object.isRequired }
 
 /**
- * The Forecasts tab: TRADE NOW (Pythia's weekly screen — trade or not, and on which horizon), ASSESSED
- * (Pythia's judgment per industry with its graded track record — backend docs/design/pythia-assessment.md)
- * and STRUCTURE (the three structural answers). Trade now leads when a screen exists (Roy, 2026-10-08);
- * it stays until the assessment board replaces it (Roy, 2026-10-10).
+ * The Forecasts tab: ASSESSED (Pythia's judgment per industry and theme, with what the weekly change scan
+ * flagged and the graded track record — backend docs/design/pythia-assessment.md), THEMES (value chains) and
+ * STRUCTURE (the three structural answers). The weekly screen's "Trade now" was retired when the assessment
+ * board replaced it (Roy, 2026-10-10; step 6, 2026-10-11).
  */
-export function IndustryView({ industries = [], loading = false, error = false, screen = null, assessments = null, themes = [] }) {
+export function IndustryView({ industries = [], loading = false, error = false, assessments = null, themes = [], week = null }) {
     const [mode, setMode] = useState(null)
     const [query, setQuery] = useState('')
-    // Once a screen has been seen, Trade now stays the default: a refresh that briefly reads no screen must
-    // not flip the board under the reader to Structure (code review 2026-10-11).
-    const sawScreen = useRef(false)
-    if (screen) sawScreen.current = true
-    const shown = mode ?? (sawScreen.current ? 'trade' : 'structure')
+    const shown = mode ?? 'assessed'
     const tabs = (
         <div className="screen-view__modes" role="tablist">
-            {[['trade', 'Trade now'], ['assessed', 'Assessed'], ['themes', 'Themes'], ['structure', 'Structure']].map(([k, label]) => (
+            {[['assessed', 'Assessed'], ['themes', 'Themes'], ['structure', 'Structure']].map(([k, label]) => (
                 <button key={k} type="button" role="tab" aria-selected={shown === k}
                     className={`screen-view__mode${shown === k ? ' screen-view__mode--on' : ''}`} onClick={() => setMode(k)}>
                     {label}
@@ -124,16 +119,6 @@ export function IndustryView({ industries = [], loading = false, error = false, 
             ))}
         </div>
     )
-    if (shown === 'trade') {
-        return (
-            <div className="industry-view">
-                {tabs}
-                <input className="industry-view__search" type="search" placeholder="Find an industry…" value={query}
-                    onChange={e => setQuery(e.target.value)} aria-label="Find an industry" />
-                <ScreenView screen={screen} query={query} />
-            </div>
-        )
-    }
     if (shown === 'themes') {
         return (
             <div className="industry-view">
@@ -148,7 +133,7 @@ export function IndustryView({ industries = [], loading = false, error = false, 
                 {tabs}
                 <input className="industry-view__search" type="search" placeholder="Find an industry…" value={query}
                     onChange={e => setQuery(e.target.value)} aria-label="Find an industry" />
-                <AssessmentView data={assessments} industries={industries} query={query} />
+                <AssessmentView data={assessments} industries={industries} query={query} week={week} />
             </div>
         )
     }
@@ -159,9 +144,9 @@ IndustryView.propTypes = {
     industries: PropTypes.array,
     loading:    PropTypes.bool,
     error:      PropTypes.bool,
-    screen:     PropTypes.object,
     assessments: PropTypes.object,
     themes:     PropTypes.array,
+    week:       PropTypes.object,
 }
 
 function StructureView({ industries, loading, error, tabs, query, setQuery }) {
@@ -176,7 +161,7 @@ function StructureView({ industries, loading, error, tabs, query, setQuery }) {
         return out
     }, [industries, query])
 
-    // The empty states keep the mode switch, so "Trade now" stays one click away.
+    // The empty states keep the mode switch, so the other tabs stay one click away.
     if (loading && !industries.length) return <div className="industry-view">{tabs}<div className="news-feed__loader"><span /><span /><span /></div></div>
     if (!industries.length) {
         return (

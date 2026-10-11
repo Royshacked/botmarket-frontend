@@ -832,7 +832,7 @@ export function FloorLists({
     onEditScan, onDeleteScan,
     onEditCoverage, onRetireCoverage, onDeleteCoverage,
     onExecuteQueued, onCancelQueued, queuedBusyId = null,
-    earnings = [], fed = [], ipo = [], industries = [], industriesError = false, screen = null, assessments = null, themes = [], calendarLoading = {},
+    earnings = [], fed = [], ipo = [], industries = [], industriesError = false, week = null, assessments = null, themes = [], calendarLoading = {},
     onEarningSelect, onIpoSelect,
     isAdmin = false,
     researchQueue = [], onStartResearch, onMarkResearchDone, onRejectResearch, researchQueueBusyId = null,
@@ -1026,7 +1026,7 @@ export function FloorLists({
                         <CalendarRows kind="ipo" items={sorted('ipo', ipo)}loading={calendarLoading.ipo} onSelect={onIpoSelect} onSymbolClick={onSymbolClick} />
                     )}
                     {desk.key === 'forecasts' && (
-                        <IndustryView industries={industries} loading={calendarLoading.forecasts} error={industriesError} screen={screen} assessments={assessments} themes={themes} />
+                        <IndustryView industries={industries} loading={calendarLoading.forecasts} error={industriesError} assessments={assessments} themes={themes} week={week} />
                     )}
                 </Desk>
                 </Fragment>
@@ -1053,7 +1053,7 @@ FloorLists.propTypes = {
     ipo:               PropTypes.array,
     industries:        PropTypes.array,
     industriesError:   PropTypes.bool,
-    screen:            PropTypes.object,
+    week:              PropTypes.object,
     assessments:       PropTypes.object,
     themes:            PropTypes.array,
     // Keyed by desk, not one flag for all four: a slow IPO feed used to hold up the earnings list

@@ -54,3 +54,16 @@ describe('the long admin runs', () => {
         expect(strategyService.runError({ response: { status: 500, data: { error: 'boom' } } })).toBe('boom')
     })
 })
+
+describe('the week', () => {
+    it('runs the week (force only when asked) and announces, without a long timeout: the server answers at once', async () => {
+        post.mockResolvedValue({ ok: true, outcome: 'started' })
+        const heard = vi.fn()
+        window.addEventListener(INDUSTRIES_CHANGED, heard)
+        await strategyService.runWeek()
+        await strategyService.runWeek({ force: true })
+        window.removeEventListener(INDUSTRIES_CHANGED, heard)
+        expect(post.mock.calls).toEqual([['api/strategy/weekly/run', {}], ['api/strategy/weekly/run', { force: true }]])
+        expect(heard).toHaveBeenCalledTimes(2)
+    })
+})
