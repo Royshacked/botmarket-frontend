@@ -265,6 +265,7 @@
         white-space: nowrap;
 
         &--swing     { color: var(--color-long); }
+        &--no_case   { color: var(--text-dim); font-weight: 400; }
         &--long_term { color: var(--color-teal); }
         &--watch              { color: var(--color-warning); }
         &--avoid              { color: var(--text-dim); }

@@ -5,11 +5,12 @@
 // what caused the move, and the track record of every verdict graded against SPY.
 
 // The verdict names the book (Roy, 2026-10-11; interesting_trade / interesting_invest before).
-export const VERDICT_ORDER = ['swing', 'long_term', 'watch', 'avoid']
+// No case last: quiet industries, kept on the board but below every verdict that asks for attention.
+export const VERDICT_ORDER = ['swing', 'long_term', 'watch', 'avoid', 'no_case']
 const LEGACY_VERDICT = { interesting_trade: 'swing', interesting_invest: 'long_term' }
 /** A verdict as today's word — an assessment or a week written before 2026-10-11 still says the old one. */
 export const verdictKey = (v) => LEGACY_VERDICT[v] ?? v
-const LABEL = { swing: 'For swing', long_term: 'For long term', watch: 'Watch', avoid: 'Avoid' }
+const LABEL = { swing: 'For swing', long_term: 'For long term', watch: 'Watch', avoid: 'Avoid', no_case: 'No case' }
 export const VERDICT_LABEL = { ...LABEL, interesting_trade: LABEL.swing, interesting_invest: LABEL.long_term }
 export const INPUT_LABEL = { news: 'News', price: 'Price', money: 'Money', regime: 'Regime', geopolitics: 'Geopolitics' }
 export const CAUSE_WORD = {

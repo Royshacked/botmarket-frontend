@@ -233,7 +233,7 @@ describe('the week', () => {
 
 describe('the verdict words (Roy, 2026-10-11)', () => {
     it('are the book — for swing, for long term — and an old word still lands in its group', () => {
-        expect(VERDICT_ORDER).toEqual(['swing', 'long_term', 'watch', 'avoid'])
+        expect(VERDICT_ORDER).toEqual(['swing', 'long_term', 'watch', 'avoid', 'no_case'])
         expect([VERDICT_LABEL.swing, VERDICT_LABEL.long_term]).toEqual(['For swing', 'For long term'])
         const old = [A({ id: 'a', verdict: 'interesting_trade' }), A({ id: 'b', verdict: 'swing' }), A({ id: 'c', verdict: 'interesting_invest' })]
         expect(groupByVerdict(old).map(([v, l]) => [v, l.length])).toEqual([['swing', 2], ['long_term', 1]])
@@ -247,5 +247,15 @@ describe('a verdict whose news could not be checked', () => {
     it('says so on its line; a checked one does not', () => {
         render(<AssessmentView data={{ assessments: [A({ id: 'u', cause: { kind: 'unverified', text: 'search down' } }), A({ id: 'n', subject: { code: '2', name: 'Steel' }, cause: { kind: 'news', text: 'x' } })], record: null }} />)
         expect(rtl.getAllByText('news not checked')).toHaveLength(1)
+    })
+})
+
+describe('watch and no case (Roy, 2026-10-11)', () => {
+    it('a watch shows the date that decides it; no case is its own group, last', () => {
+        const rows = [A({ id: 'w', verdict: 'watch', decides_by: '2026-10-21' }), A({ id: 'q', subject: { code: '2', name: 'Steel' }, verdict: 'no_case' }), A({ id: 'a', subject: { code: '3', name: 'Coal' }, verdict: 'avoid' })]
+        expect(groupByVerdict(rows).map(([v]) => v)).toEqual(['watch', 'avoid', 'no_case'])
+        render(<AssessmentView data={{ assessments: rows, record: null }} />)
+        expect(rtl.getByText('decides by 2026-10-21')).toBeTruthy()
+        expect(rtl.getAllByText('No case').length).toBeGreaterThan(0)
     })
 })

@@ -36,7 +36,7 @@ function AssessmentRow({ row }) {
                     {row.cause?.kind === 'unverified' && <span className="assessment-view__unchecked" title="The news could not be checked when this was assessed — the verdict rests on price and money only">news not checked</span>}
                     {row.moved?.hype && <span className="assessment-view__hype" title="Up 100%+ in two years and 100%+ over the market — a crash risk flag, not a timing signal">hype</span>}
                     <span className={`assessment-view__verdict assessment-view__verdict--${verdictKey(row.verdict)}`}>{VERDICT_LABEL[row.verdict] ?? row.verdict}</span>
-                    <span className="screen-view__horizon">{row.horizon}</span>
+                    <span className="screen-view__horizon">{row.verdict === 'watch' && row.decides_by ? `decides by ${row.decides_by}` : row.horizon}</span>
                 </span>
             </button>
             {open && (
