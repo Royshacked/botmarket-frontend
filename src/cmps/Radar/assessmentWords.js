@@ -4,13 +4,13 @@
 // to invest in, to watch, or to avoid. The board says it in those words, with how far the price has gone,
 // what caused the move, and the track record of every verdict graded against SPY.
 
-export const VERDICT_ORDER = ['interesting_trade', 'interesting_invest', 'watch', 'avoid']
-export const VERDICT_LABEL = {
-    interesting_trade:  'Interesting to trade',
-    interesting_invest: 'Interesting to invest',
-    watch:              'Watch',
-    avoid:              'Avoid',
-}
+// The verdict names the book (Roy, 2026-10-11; interesting_trade / interesting_invest before).
+export const VERDICT_ORDER = ['swing', 'long_term', 'watch', 'avoid']
+const LEGACY_VERDICT = { interesting_trade: 'swing', interesting_invest: 'long_term' }
+/** A verdict as today's word — an assessment or a week written before 2026-10-11 still says the old one. */
+export const verdictKey = (v) => LEGACY_VERDICT[v] ?? v
+const LABEL = { swing: 'For swing', long_term: 'For long term', watch: 'Watch', avoid: 'Avoid' }
+export const VERDICT_LABEL = { ...LABEL, interesting_trade: LABEL.swing, interesting_invest: LABEL.long_term }
 export const INPUT_LABEL = { news: 'News', price: 'Price', money: 'Money', regime: 'Regime', geopolitics: 'Geopolitics' }
 export const CAUSE_WORD = {
     news:        'news or an event',
@@ -56,7 +56,7 @@ export function groupByVerdict(rows, query = '') {
     for (const r of rows ?? []) {
         const s = r.subject ?? {}
         if (q && !`${s.name ?? ''} ${s.sector ?? ''}`.toLowerCase().includes(q)) continue
-        if (groups.has(r.verdict)) groups.get(r.verdict).push(r)
+        if (groups.has(verdictKey(r.verdict))) groups.get(verdictKey(r.verdict)).push(r)
     }
     return [...groups.entries()].filter(([, list]) => list.length)
 }

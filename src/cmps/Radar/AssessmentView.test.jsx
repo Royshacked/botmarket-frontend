@@ -22,7 +22,7 @@ vi.mock('../../services/strategy/strategy.service.remote.js', () => ({
 
 import { AssessmentView } from './AssessmentView.jsx'
 import { IndustryView } from './IndustryView.jsx'
-import { movedLine, moneyLine, groupByVerdict, recordWords, isExpired, ordinal, CAUSE_WORD, weekHeadline, weekResultLine } from './assessmentWords.js'
+import { movedLine, moneyLine, groupByVerdict, recordWords, isExpired, ordinal, CAUSE_WORD, weekHeadline, weekResultLine, VERDICT_ORDER, VERDICT_LABEL, verdictKey } from './assessmentWords.js'
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); AUTH = MEMBER; running.clear() })
 
@@ -173,7 +173,7 @@ describe('AssessmentView', () => {
 const WEEK = {
     asof: '2026-10-09', status: 'done', regime: 'yellow', scanned: { industries: 163, themes: 2 },
     flagged: [{ kind: 'industry', code: '45301020', name: 'Semiconductors', reasons: [{ key: 'hype_new', text: 'the hype flag turned on' }] }],
-    results: [{ kind: 'industry', code: '45301020', name: 'Semiconductors', reasons: ['hype_new'], outcome: 'published', verdict: 'watch', previous_verdict: 'interesting_trade' }],
+    results: [{ kind: 'industry', code: '45301020', name: 'Semiconductors', reasons: ['hype_new'], outcome: 'published', verdict: 'watch', previous_verdict: 'swing' }],
     waiting_count: 3, waiting: [{ name: 'Steel' }, { name: 'Banks' }], cost_usd: 0.005,
 }
 
@@ -185,7 +185,7 @@ describe('the week', () => {
         expect(movedLine({ ret_24m: 0.5, spy_24m: 0.4, basket: 'Metals & Mining' }, 'Copper')).toBe('24m +50% vs SPY +40% · measured as Metals & Mining')
         expect(movedLine({ ret_24m: 0.5, spy_24m: 0.4, basket: 'Copper' }, 'Copper')).toBe('24m +50% vs SPY +40%')
         expect(weekHeadline(null)).toBeNull()
-        expect(weekResultLine(WEEK.results[0], { hype_new: 'the hype flag turned on' })).toBe('Semiconductors — Watch (was Interesting to trade) · the hype flag turned on')
+        expect(weekResultLine(WEEK.results[0], { hype_new: 'the hype flag turned on' })).toBe('Semiconductors — Watch (was For swing) · the hype flag turned on')
         expect(weekResultLine({ name: 'Steel', outcome: 'refused', reasons: ['expired'] })).toBe('Steel — not published (refused) · expired')
     })
 
@@ -195,7 +195,7 @@ describe('the week', () => {
         expect(rtl.queryByText(/cost \$/)).toBeNull()
         expect(rtl.queryByRole('button', { name: /Run the week/ })).toBeNull()
         fireEvent.click(rtl.getByRole('button', { name: /Week of the 2026-10-09 run/ }))
-        expect(rtl.getByText(/Semiconductors — Watch \(was Interesting to trade\)/)).toBeTruthy()
+        expect(rtl.getByText(/Semiconductors — Watch \(was For swing\)/)).toBeTruthy()
         expect(rtl.getByText(/Waiting for next week: Steel, Banks and 1 more/)).toBeTruthy()
     })
 
@@ -228,5 +228,17 @@ describe('the week', () => {
         fireEvent.click(rtl.getByRole('button', { name: 'Run the week' }))
         expect(runWeek).toHaveBeenCalledWith({ force: false })
         await waitFor(() => expect(rtl.getByText(/^Not started — /)).toBeTruthy())
+    })
+})
+
+describe('the verdict words (Roy, 2026-10-11)', () => {
+    it('are the book — for swing, for long term — and an old word still lands in its group', () => {
+        expect(VERDICT_ORDER).toEqual(['swing', 'long_term', 'watch', 'avoid'])
+        expect([VERDICT_LABEL.swing, VERDICT_LABEL.long_term]).toEqual(['For swing', 'For long term'])
+        const old = [A({ id: 'a', verdict: 'interesting_trade' }), A({ id: 'b', verdict: 'swing' }), A({ id: 'c', verdict: 'interesting_invest' })]
+        expect(groupByVerdict(old).map(([v, l]) => [v, l.length])).toEqual([['swing', 2], ['long_term', 1]])
+        expect(verdictKey('interesting_invest')).toBe('long_term')
+        render(<AssessmentView data={{ assessments: old, record: null }} />)
+        expect(document.querySelectorAll('.assessment-view__verdict--swing').length).toBe(2)
     })
 })

@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { strategyService } from '../../services/strategy/strategy.service.remote.js'
 import { useStrategyRun } from '../../customHooks/useStrategyRun.js'
-import { VERDICT_LABEL, INPUT_LABEL, CAUSE_WORD, REGIME_WORD, movedLine, moneyLine, groupByVerdict, recordWords, isExpired, weekHeadline, weekResultLine } from './assessmentWords.js'
+import { verdictKey, VERDICT_LABEL, INPUT_LABEL, CAUSE_WORD, REGIME_WORD, movedLine, moneyLine, groupByVerdict, recordWords, isExpired, weekHeadline, weekResultLine } from './assessmentWords.js'
 
 // Pythia's assessments — "Assessed" on the Forecasts tab (backend docs/design/pythia-assessment.md, build
 // step 1). Each assessed industry with Pythia's verdict — interesting to trade, to invest in, to watch, or
@@ -32,7 +32,7 @@ function AssessmentRow({ row }) {
                 </span>
                 <span className="screen-view__chips">
                     {row.moved?.hype && <span className="assessment-view__hype" title="Up 100%+ in two years and 100%+ over the market — a crash risk flag, not a timing signal">hype</span>}
-                    <span className={`assessment-view__verdict assessment-view__verdict--${row.verdict}`}>{VERDICT_LABEL[row.verdict] ?? row.verdict}</span>
+                    <span className={`assessment-view__verdict assessment-view__verdict--${verdictKey(row.verdict)}`}>{VERDICT_LABEL[row.verdict] ?? row.verdict}</span>
                     <span className="screen-view__horizon">{row.horizon}</span>
                 </span>
             </button>

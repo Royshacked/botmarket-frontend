@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { strategyService } from '../../services/strategy/strategy.service.remote.js'
 import { useStrategyRun } from '../../customHooks/useStrategyRun.js'
-import { VERDICT_LABEL, CAUSE_WORD, ORDER_LABEL, linkMoveLine, groupByOrder } from './assessmentWords.js'
+import { verdictKey, VERDICT_LABEL, CAUSE_WORD, ORDER_LABEL, linkMoveLine, groupByOrder } from './assessmentWords.js'
 
 // Pythia's THEMES — "Themes" on the Forecasts tab (backend docs/design/pythia-assessment.md §3, step 3).
 // A theme is a value chain of GICS sub-industries in order — direct, suppliers, suppliers' suppliers — each
@@ -45,7 +45,7 @@ function ThemeRow({ theme, isAdmin }) {
                 </span>
                 <span className="screen-view__chips">
                     {a?.moved?.hype && <span className="assessment-view__hype" title="A direct link is up 100%+ in two years and 100%+ over the market — a crash risk flag">hype</span>}
-                    {a && <span className={`assessment-view__verdict assessment-view__verdict--${a.verdict}`}>{VERDICT_LABEL[a.verdict] ?? a.verdict}</span>}
+                    {a && <span className={`assessment-view__verdict assessment-view__verdict--${verdictKey(a.verdict)}`}>{VERDICT_LABEL[a.verdict] ?? a.verdict}</span>}
                     <span className="screen-view__horizon">{(theme.links ?? []).length} links</span>
                 </span>
             </button>

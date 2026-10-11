@@ -264,8 +264,8 @@
         font-weight: 600;
         white-space: nowrap;
 
-        &--interesting_trade  { color: var(--color-long); }
-        &--interesting_invest { color: var(--color-teal); }
+        &--swing     { color: var(--color-long); }
+        &--long_term { color: var(--color-teal); }
         &--watch              { color: var(--color-warning); }
         &--avoid              { color: var(--text-dim); }
     }
