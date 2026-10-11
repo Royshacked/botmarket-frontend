@@ -172,7 +172,7 @@ function WeekPanel({ week, isAdmin }) {
                 {isAdmin && typeof week?.cost_usd === 'number' && <span className="industry-view__meta">cost ${week.cost_usd.toFixed(4)}{week.stopped === 'budget' ? ' — stopped at the week\'s spend ceiling' : ''}</span>}
                 {isAdmin && (
                     <button type="button" onClick={run} disabled={busy || running}>
-                        {running ? 'Running…' : week?.status === 'done' ? 'Run the week again' : week?.status === 'interrupted' ? 'Resume the week' : 'Run the week'}
+                        {running ? 'Running…' : week?.status === 'done' ? 'Run the week again' : week?.status === 'interrupted' || week?.status === 'paused' ? 'Resume the week' : 'Run the week'}
                     </button>
                 )}
                 <span role="status" aria-live="polite" className={note ? 'assessment-view__result' : undefined}>{note}</span>

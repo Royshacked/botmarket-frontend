@@ -22,7 +22,7 @@ vi.mock('../../services/strategy/strategy.service.remote.js', () => ({
 
 import { AssessmentView } from './AssessmentView.jsx'
 import { IndustryView } from './IndustryView.jsx'
-import { movedLine, moneyLine, groupByVerdict, recordWords, isExpired, ordinal, CAUSE_WORD, weekHeadline, weekResultLine, VERDICT_ORDER, VERDICT_LABEL, verdictKey } from './assessmentWords.js'
+import { movedLine, moneyLine, groupByVerdict, recordWords, isExpired, ordinal, CAUSE_WORD, weekHeadline, weekResultLine, VERDICT_ORDER, VERDICT_LABEL, verdictKey, linkMoveLine } from './assessmentWords.js'
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); AUTH = MEMBER; running.clear() })
 
@@ -261,5 +261,22 @@ describe('watch and no case (Roy, 2026-10-11)', () => {
         render(<AssessmentView data={{ assessments: [A({ id: 'w', verdict: 'watch', decides_by: '2026-10-28', question: 'Will hyperscalers hold capex guidance?' })], record: null }} />)
         fireEvent.click(rtl.getAllByRole('button', { name: /Semiconductors/ })[0])
         expect(rtl.getByText(/Will hyperscalers hold capex guidance\? — decided by 2026-10-28/)).toBeTruthy()
+    })
+})
+
+describe('code review 2026-10-11 — the board', () => {
+    it('a paused week resumes; old words never read as a change; the record keeps an old word\'s calls; a link shows its move by size', () => {
+        expect(weekHeadline({ ...WEEK, status: 'paused' })).toMatch(/\(paused\):/)
+        expect(weekResultLine({ name: 'X', outcome: 'published', verdict: 'swing', previous_verdict: 'interesting_trade', reasons: [] })).toBe('X — For swing')
+        const rec = recordWords({ total: 2, open: 0, by_verdict: { interesting_trade: { '3m': { n: 1, right: 1, avg_vs_spy: 0.02 } }, avoid: { '3m': { n: 1, right: 0, avg_vs_spy: 0.01 } } } })
+        expect(rec.lines).toEqual(['For swing at 3m: 1 graded, right 100%, basket vs SPY +2.0% on average', 'Avoid at 3m: 1 graded, right 0%, basket vs SPY +1.0% on average'])
+        expect(linkMoveLine({ excess_24m: 0.6, excess_24m_vw: 1.1, hype: true })).toBe('24m +60% over SPY · by size +110% · hype')
+    })
+
+    it('an admin resumes a paused week', () => {
+        AUTH = ADMIN
+        render(<AssessmentView data={DATA} week={{ ...WEEK, status: 'paused' }} />)
+        fireEvent.click(rtl.getByRole('button', { name: 'Resume the week' }))
+        expect(runWeek).toHaveBeenCalledWith({ force: false })
     })
 })

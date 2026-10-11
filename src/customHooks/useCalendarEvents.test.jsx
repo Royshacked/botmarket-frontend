@@ -112,3 +112,23 @@ describe("useCalendarEvents — Pythia's board survives a bad refresh", () => {
         expect(result.current.assessments.assessments[0].id).toBe('new')
     })
 })
+
+describe('useCalendarEvents — a failed read does not stop following a running week (code review 2026-10-11)', () => {
+    it('keeps polling after a blip, until the week is done', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true })
+        try {
+            getWeek.mockResolvedValueOnce({ asof: '2026-10-09', status: 'running', results: [] })
+            getWeek.mockRejectedValueOnce(new Error('network'))
+            getWeek.mockResolvedValueOnce({ asof: '2026-10-09', status: 'done', results: [] })
+            const { result } = renderHook(() => useCalendarEvents())
+            await waitFor(() => expect(result.current.week?.status).toBe('running'))
+            await act(async () => { await vi.advanceTimersByTimeAsync(61_000) })
+            expect(result.current.week?.status).toBe('running', 'the blip keeps what was shown')
+            await act(async () => { await vi.advanceTimersByTimeAsync(61_000) })
+            await waitFor(() => expect(result.current.week?.status).toBe('done'))
+            expect(getWeek).toHaveBeenCalledTimes(3)
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+})

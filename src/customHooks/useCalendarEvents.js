@@ -43,7 +43,7 @@ export function useCalendarEvents() {
         // One load shape for every tab: flag loading, fetch, drop the result if the hook unmounted
         // mid-flight or a newer read of the same feed started. `keepOnFail`: a failed read keeps what the
         // board already shows (a refresh after an admin run must not blank the board on one network blip).
-        async function load(key, fetcher, setLoading, apply, { keepOnFail = false } = {}) {
+        async function load(key, fetcher, setLoading, apply, { keepOnFail = false, onFail = null } = {}) {
             const mine = (seq[key] = (seq[key] ?? 0) + 1)
             const current = () => active && seq[key] === mine
             setLoading(true)
@@ -52,6 +52,7 @@ export function useCalendarEvents() {
                 if (current()) apply(data)
             } catch {
                 if (current() && !keepOnFail) apply(null)
+                if (current()) onFail?.()
             } finally {
                 if (current()) setLoading(false)
             }
@@ -68,13 +69,17 @@ export function useCalendarEvents() {
             loadThemes()
         }
 
+        // The last week read: a failed read while it was running keeps the poll alive (code review 2026-10-11 —
+        // one network blip used to freeze the board on "(running)" until the hourly refresh).
+        let lastWeekStatus = null
         function loadWeek() {
             clearTimeout(weekTimer)
             load('week', strategyService.getWeek, () => {}, (d) => {
                 const w = d && typeof d === 'object' ? d : null
                 setWeek(w)
+                lastWeekStatus = w?.status ?? null
                 if (w?.status === 'running') weekTimer = setTimeout(pollWeek, WEEK_POLL_MS)
-            }, keep)
+            }, { keepOnFail: true, onFail: () => { if (lastWeekStatus === 'running') weekTimer = setTimeout(pollWeek, WEEK_POLL_MS) } })
         }
 
         function refresh() {

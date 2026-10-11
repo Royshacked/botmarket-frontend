@@ -70,7 +70,10 @@ export function recordWords(record) {
     const total = record?.total ?? 0
     if (!total) return { headline: 'No calls yet — every published verdict is logged and graded against SPY at 3 and 12 months.', lines: [] }
     const lines = []
-    for (const v of VERDICT_ORDER) {
+    // Every verdict the record holds, in board order — a call logged under the words before 2026-10-11 still
+    // counts, under its new label, until the migration renames it.
+    const rank = (v) => { const i = VERDICT_ORDER.indexOf(verdictKey(v)); return i < 0 ? VERDICT_ORDER.length : i }
+    for (const v of Object.keys(record.by_verdict ?? {}).sort((a, b) => rank(a) - rank(b))) {
         const byH = record.by_verdict?.[v]
         if (!byH) continue
         for (const h of ['3m', '12m']) {
@@ -128,6 +131,8 @@ export function linkMoveLine(l) {
     const parts = []
     if (l.excess_24m != null) parts.push(`24m ${signed(l.excess_24m)} over SPY`)
     else if (l.excess_12m != null) parts.push(`12m ${signed(l.excess_12m)} over SPY`)
+    // By size — what the link's hype chip reads (code review 2026-10-11).
+    if (l.excess_24m_vw != null) parts.push(`by size ${signed(l.excess_24m_vw)}`)
     if (l.ext_percentile != null) parts.push(`stretched: ${ordinal(Math.round(l.ext_percentile * 100))} percentile`)
     if (l.hype) parts.push('hype')
     return parts.join(' · ') || null
@@ -151,7 +156,7 @@ export function weekHeadline(week) {
     if (week.waiting_count) parts.push(`${week.waiting_count} wait for next week`)
     if (week.held_back?.length) parts.push(`${week.held_back.length} held back after two refusals`)
     const head = week.asof ? `Week of the ${week.asof} run` : 'This week'
-    const state = week.status === 'running' ? ' (running)' : week.status === 'interrupted' ? ' (interrupted)' : ''
+    const state = { running: ' (running)', interrupted: ' (interrupted)', paused: ' (paused)' }[week.status] ?? ''
     return `${head}${state}: ${parts.join(' · ')}`
 }
 
@@ -159,7 +164,7 @@ export function weekHeadline(week) {
 export function weekResultLine(r, reasonText = {}) {
     if (!r) return null
     const verdict = r.verdict ? VERDICT_LABEL[r.verdict] ?? r.verdict : r.outcome === 'published' ? '—' : `not published (${r.outcome})`
-    const was = r.previous_verdict && r.verdict && r.previous_verdict !== r.verdict ? ` (was ${VERDICT_LABEL[r.previous_verdict] ?? r.previous_verdict})` : ''
+    const was = r.previous_verdict && r.verdict && verdictKey(r.previous_verdict) !== verdictKey(r.verdict) ? ` (was ${VERDICT_LABEL[r.previous_verdict] ?? r.previous_verdict})` : ''
     const why = (r.reasons ?? []).map(k => reasonText[k] ?? k).join(', ')
     return `${r.name} — ${verdict}${was}${why ? ` · ${why}` : ''}`
 }
