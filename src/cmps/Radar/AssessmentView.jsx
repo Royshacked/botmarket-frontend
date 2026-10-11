@@ -24,6 +24,7 @@ function AssessmentRow({ row }) {
                 <span className="industry-view__head">
                     <span className="industry-view__name" title={s.name}>
                         {s.name}
+                        {s.kind === 'theme' && <i className="themes-view__status themes-view__status--theme" title="A theme: a value chain across industries (see Themes)">theme</i>}
                         {expired && <i className="assessment-view__stale" title={`Expired ${_date(row.expires_at)} — due for reassessment`}>stale</i>}
                     </span>
                     <span className="industry-view__conclusion" title={row.thesis}>{row.thesis}</span>
@@ -91,17 +92,20 @@ function AssessNow({ industries }) {
     const [code, setCode] = useState('')
     const [busy, setBusy] = useState(false)
     const [result, setResult] = useState(null)
-    const options = useMemo(() => [...industries].sort((a, b) => a.name.localeCompare(b.name)), [industries])
+    const options = useMemo(() => [...industries].sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? ''))), [industries])
+    // The in-flight state lives in the service too, so a button remounted mid-run (tab switched and back)
+    // still shows the run instead of offering a second paid click.
+    const running = busy || (code && strategyService.isRunning(`industry:${code}`))
     async function run() {
-        if (!code || busy) return
+        if (!code || running) return
         setBusy(true)
         setResult(null)
         try {
             const r = await strategyService.assessNow(code)
             setResult({ ok: true, text: `Published: ${VERDICT_LABEL[r.doc?.verdict] ?? r.doc?.verdict} · cost $${(r.cost_usd ?? 0).toFixed(4)}` })
         } catch (err) {
-            const d = err?.response?.data
-            setResult({ ok: false, text: `Not published: ${d?.outcome ?? 'error'}${d?.detail ? ` — ${String(d.detail).slice(0, 200)}` : ''}` })
+            const outcome = err?.response?.data?.outcome
+            setResult({ ok: false, text: `Not published${outcome ? ` (${outcome})` : ''}: ${strategyService.runError(err)}` })
         } finally {
             setBusy(false)
         }
@@ -112,8 +116,8 @@ function AssessNow({ industries }) {
                 <option value="">Assess an industry…</option>
                 {options.map(r => <option key={r.code} value={r.code}>{r.name}</option>)}
             </select>
-            <button type="button" onClick={run} disabled={!code || busy}>{busy ? 'Assessing…' : 'Assess now'}</button>
-            {result && <span className={`assessment-view__result${result.ok ? '' : ' assessment-view__result--bad'}`}>{result.text}</span>}
+            <button type="button" onClick={run} disabled={!code || running}>{running ? 'Assessing…' : 'Assess now'}</button>
+            <span role="status" aria-live="polite" className={result ? `assessment-view__result${result.ok ? '' : ' assessment-view__result--bad'}` : undefined}>{result?.text}</span>
         </div>
     )
 }
@@ -131,7 +135,7 @@ export function AssessmentView({ data = null, industries = [], query = '' }) {
                 {record.lines.length > 0 && <ul>{record.lines.map((l, i) => <li key={i}>{l}</li>)}</ul>}
             </div>
             <div className="industry-view__summary-bar">
-                <span><b>{total}</b> industr{total === 1 ? 'y' : 'ies'} assessed</span>
+                <span><b>{total}</b> {total === 1 ? 'industry or theme' : 'industries and themes'} assessed</span>
                 <span className="industry-view__legend">a judgment from news, price, money, regime and geopolitics — not a forecast</span>
             </div>
             {isAdmin && industries.length > 0 && <AssessNow industries={industries} />}

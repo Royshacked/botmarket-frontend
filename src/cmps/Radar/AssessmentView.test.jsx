@@ -6,18 +6,23 @@ import { ADMIN, MEMBER } from '../../testUtils/authStub.js'
 // price has gone, what caused the move, the track record, and an admin's "Assess now".
 
 let AUTH = MEMBER
+const running = new Set()
 vi.mock('../../context/AuthContext.jsx', async (orig) => ({ ...(await orig()), useAuth: () => AUTH }))
 const assessNow = vi.fn(async () => ({ ok: true, doc: { verdict: 'watch' }, cost_usd: 0.004 }))
 vi.mock('../../services/strategy/strategy.service.remote.js', () => ({
     INDUSTRIES_CHANGED: 'strategy-industries-changed',
-    strategyService: { assessNow: (...a) => assessNow(...a) },
+    strategyService: {
+        assessNow: (...a) => assessNow(...a),
+        isRunning: (k) => running.has(k),
+        runError: (err) => (err?.code === 'already_running' ? 'already running — wait for it to finish' : err?.response?.data?.detail ?? err?.message),
+    },
 }))
 
 import { AssessmentView } from './AssessmentView.jsx'
 import { IndustryView } from './IndustryView.jsx'
 import { movedLine, moneyLine, groupByVerdict, recordWords, isExpired, ordinal, CAUSE_WORD } from './assessmentWords.js'
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); AUTH = MEMBER })
+afterEach(() => { cleanup(); vi.clearAllMocks(); AUTH = MEMBER; running.clear() })
 
 const A = (over = {}) => ({
     id: 'ia_ind_45301020', subject: { kind: 'industry', code: '45301020', name: 'Semiconductors', sector: 'Information Technology' },
@@ -83,7 +88,7 @@ describe('AssessmentView', () => {
         expect(rtl.getByText(/2 calls logged/)).toBeTruthy()
         expect(rtl.getAllByText('Watch').length).toBeGreaterThan(0)
         expect(rtl.getByText('hype')).toBeTruthy()
-        expect(document.querySelector('.assessment-view .industry-view__summary-bar').textContent).toMatch(/2 industries assessed/)
+        expect(document.querySelector('.assessment-view .industry-view__summary-bar').textContent).toMatch(/2 industries and themes assessed/)
     })
 
     it('opens a row: the cause, the move, the base rate, the evidence and what it did not use', () => {
@@ -110,6 +115,33 @@ describe('AssessmentView', () => {
         expect(assessNow).toHaveBeenCalledWith('45301020')
     })
 
+    it('a refused run says why, in a live region', async () => {
+        AUTH = ADMIN
+        assessNow.mockRejectedValueOnce({ response: { status: 422, data: { outcome: 'refused', detail: 'evidence.news is required' } } })
+        render(<AssessmentView data={DATA} industries={[{ code: '45301020', name: 'Semiconductors' }]} />)
+        fireEvent.change(rtl.getByLabelText('Industry to assess'), { target: { value: '45301020' } })
+        fireEvent.click(rtl.getByRole('button', { name: 'Assess now' }))
+        await waitFor(() => expect(rtl.getByRole('status').textContent).toBe('Not published (refused): evidence.news is required'))
+    })
+
+    it('a run already in flight (a remount mid-run) shows as running and cannot be clicked again', () => {
+        AUTH = ADMIN
+        running.add('industry:45301020')
+        render(<AssessmentView data={DATA} industries={[{ code: '45301020', name: 'Semiconductors' }, { code: '1', name: null }]} />)
+        fireEvent.change(rtl.getByLabelText('Industry to assess'), { target: { value: '45301020' } })
+        const btn = rtl.getByRole('button', { name: 'Assessing…' })
+        expect(btn.disabled).toBe(true)
+        fireEvent.click(btn)
+        expect(assessNow).not.toHaveBeenCalled()
+    })
+
+    it('a theme\'s assessment is labelled as a theme', () => {
+        const theme = A({ id: 'ia_th_ai', subject: { kind: 'theme', id: 'th_ai', name: 'AI compute', sector: null } })
+        render(<AssessmentView data={{ assessments: [theme], record: null }} />)
+        expect(rtl.getByText('theme')).toBeTruthy()
+        expect(document.querySelector('.assessment-view .industry-view__summary-bar').textContent).toMatch(/1 industry or theme assessed/)
+    })
+
     it('says so when nothing is assessed yet', () => {
         render(<AssessmentView data={null} />)
         expect(rtl.getByText(/No industry assessed yet/)).toBeTruthy()
@@ -120,6 +152,14 @@ describe('AssessmentView', () => {
         render(<IndustryView industries={[]} screen={null} assessments={DATA} />)
         expect(rtl.getAllByRole('tab').map(t => t.textContent)).toEqual(['Trade now', 'Assessed', 'Themes', 'Structure'])
         fireEvent.click(rtl.getByRole('tab', { name: 'Assessed' }))
-        expect(document.querySelector('.assessment-view .industry-view__summary-bar').textContent).toMatch(/2 industries assessed/)
+        expect(document.querySelector('.assessment-view .industry-view__summary-bar').textContent).toMatch(/2 industries and themes assessed/)
+    })
+
+    it('once a screen was seen, Trade now stays the default when a refresh reads none', () => {
+        const SCREEN = { rows: [], asof: '2026-10-09' }
+        const { rerender } = render(<IndustryView industries={[]} screen={SCREEN} assessments={DATA} />)
+        expect(rtl.getByRole('tab', { name: 'Trade now' }).getAttribute('aria-selected')).toBe('true')
+        rerender(<IndustryView industries={[]} screen={null} assessments={DATA} />)
+        expect(rtl.getByRole('tab', { name: 'Trade now' }).getAttribute('aria-selected')).toBe('true')
     })
 })

@@ -6,6 +6,7 @@ import { ADMIN, MEMBER } from '../../testUtils/authStub.js'
 // assessment over it, and the admin's hand — approve, retire, propose, assess.
 
 let AUTH = MEMBER
+const running = new Set()
 vi.mock('../../context/AuthContext.jsx', async (orig) => ({ ...(await orig()), useAuth: () => AUTH }))
 const setThemeStatus = vi.fn(async () => ({ ok: true }))
 const proposeThemes = vi.fn(async () => ({ proposed: [{ id: 'th_x' }], refused: [], skipped: [], cost_usd: 0.012 }))
@@ -14,13 +15,15 @@ vi.mock('../../services/strategy/strategy.service.remote.js', () => ({
     INDUSTRIES_CHANGED: 'strategy-industries-changed',
     strategyService: {
         setThemeStatus: (...a) => setThemeStatus(...a), proposeThemes: (...a) => proposeThemes(...a), assessTheme: (...a) => assessTheme(...a),
+        isRunning: (k) => running.has(k),
+        runError: (err) => err?.response?.data?.detail ?? err?.message,
     },
 }))
 
 import { ThemesView } from './ThemesView.jsx'
 import { groupByOrder, linkMoveLine, movedLine } from './assessmentWords.js'
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); AUTH = MEMBER })
+afterEach(() => { cleanup(); vi.clearAllMocks(); AUTH = MEMBER; running.clear() })
 
 const LINKS = [
     { code: '20104010', name: 'Electrical Components & Equipment', order: 2, why: 'transformers and switchgear' },
@@ -71,6 +74,20 @@ describe('ThemesView', () => {
         await waitFor(() => expect(rtl.getByText(/Assess: done · cost \$0\.0060/)).toBeTruthy())
         fireEvent.click(rtl.getByRole('button', { name: 'Propose themes' }))
         await waitFor(() => expect(rtl.getByText(/1 proposed, 0 refused, 0 already approved · cost \$0\.0120/)).toBeTruthy())
+    })
+
+    it('a failed assess says why; a propose run in flight cannot be clicked again', async () => {
+        AUTH = ADMIN
+        assessTheme.mockRejectedValueOnce({ response: { status: 409, data: { detail: 'already running' } } })
+        running.add('propose_themes')
+        render(<ThemesView themes={[APPROVED, { ...PROPOSED, name: null }]} />)
+        const propose = rtl.getByRole('button', { name: 'Pythia is looking…' })
+        expect(propose.disabled).toBe(true)
+        fireEvent.click(propose)
+        expect(proposeThemes).not.toHaveBeenCalled()
+        fireEvent.click(rtl.getByRole('button', { name: /Data center power/ }))
+        fireEvent.click(rtl.getByRole('button', { name: 'Assess now' }))
+        await waitFor(() => expect(rtl.getAllByRole('status').some(s => s.textContent === 'Assess failed — already running')).toBe(true))
     })
 
     it('says so when there are none', () => {

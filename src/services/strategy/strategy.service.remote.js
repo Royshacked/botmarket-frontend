@@ -1,5 +1,5 @@
 import { streamAgent } from '../agentStream'
-import { httpService } from '../http.service'
+import { httpService, apiError } from '../http.service'
 
 // Pythia (key `strategy`) — the industry desk since 2026-10-05: an SSE stream plus the house INDUSTRY
 // VIEWS, one per GICS sub-industry (backend docs/design/pythia-industry-questions.md). The stream emits
@@ -24,6 +24,50 @@ export const strategyService = {
     proposeThemes,
     setThemeStatus,
     assessTheme,
+    isRunning,
+    runError,
+}
+
+// ─── Pythia's long admin runs (code review 2026-10-11) ───────────────────────
+// Assess now, Propose themes and a theme's Assess run for up to 10 minutes on the server. Two things went
+// wrong with them: the client's default 30-second timeout reported a run that was still going as failed
+// (inviting a second paid click), and the busy state lived in the button, so switching tabs and back
+// re-armed it. So each run gets a timeout past the server's own, and the in-flight set lives HERE, in the
+// module, where a remounted button still sees it. The server refuses a second run too (409).
+
+const LONG_RUN_MS = 11 * 60 * 1000
+const _inFlight = new Set()
+
+/** Is this run (`industry:<code>`, `theme:<id>`, `propose_themes`) in flight from this page? */
+function isRunning(key) {
+    return _inFlight.has(key)
+}
+
+async function _longRun(key, fn) {
+    if (_inFlight.has(key)) {
+        const err = new Error('already running')
+        err.code = 'already_running'
+        throw err
+    }
+    _inFlight.add(key)
+    try {
+        return await fn()
+    } catch (err) {
+        // A client-side timeout says nothing about the server's run, which may still land.
+        if (err?.code === 'ECONNABORTED') err.stillRunning = true
+        throw err
+    } finally {
+        _inFlight.delete(key)
+        _announce()
+    }
+}
+
+/** The words for a failed run: the server's detail, else the shared reader of its error. */
+function runError(err) {
+    if (err?.code === 'already_running' || err?.response?.status === 409) return 'already running — wait for it to finish'
+    if (err?.stillRunning) return 'still running on the server — the board refreshes when it lands'
+    const d = err?.response?.data
+    return d?.detail ? String(d.detail).slice(0, 200) : apiError(err)
 }
 
 /**
@@ -35,10 +79,8 @@ function listThemes() {
 }
 
 /** Ask Pythia to propose themes now (admin). → `{ proposed, refused, skipped, cost_usd }`. */
-async function proposeThemes(max) {
-    const r = await httpService.post(`${BASE}/themes/propose`, max ? { max } : {})
-    _announce()
-    return r
+function proposeThemes(max) {
+    return _longRun('propose_themes', () => httpService.post(`${BASE}/themes/propose`, max ? { max } : {}, { timeout: LONG_RUN_MS }))
 }
 
 /** Approve or retire a theme (admin). */
@@ -49,10 +91,8 @@ async function setThemeStatus(id, status, note = null) {
 }
 
 /** Assess one approved theme now (admin). → `{ ok, outcome, doc, cost_usd }`. */
-async function assessTheme(id) {
-    const r = await httpService.post(`${BASE}/themes/${encodeURIComponent(id)}/assess`, {})
-    _announce()
-    return r
+function assessTheme(id) {
+    return _longRun(`theme:${id}`, () => httpService.post(`${BASE}/themes/${encodeURIComponent(id)}/assess`, {}, { timeout: LONG_RUN_MS }))
 }
 
 /**
@@ -68,10 +108,8 @@ function listAssessments() {
  * Assess one industry now (admin) — a few minutes of research. → `{ ok, outcome, doc, call, cost_usd }`;
  * a refused or failed run rejects with the same body. Announces so the board refetches.
  */
-async function assessNow(code) {
-    const r = await httpService.post(`${BASE}/assessments/${encodeURIComponent(code)}/run`, {})
-    _announce()
-    return r
+function assessNow(code) {
+    return _longRun(`industry:${code}`, () => httpService.post(`${BASE}/assessments/${encodeURIComponent(code)}/run`, {}, { timeout: LONG_RUN_MS }))
 }
 
 /** Streaming industry-desk chat. done → { reply, phase, views }. */

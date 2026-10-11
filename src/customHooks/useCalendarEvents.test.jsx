@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { renderHook, waitFor, cleanup } from '@testing-library/react'
+import { renderHook, waitFor, cleanup, act } from '@testing-library/react'
 import { ADMIN, MEMBER } from '../testUtils/authStub.js'
 
 // The industry views are a broadcast every user reads (2026-10-05) — only authoring them is admin-only.
@@ -12,9 +12,17 @@ vi.mock('../context/AuthContext.jsx', async (orig) => {
 })
 
 const listIndustries = vi.fn(async () => [{ code: '45301020', name: 'Semiconductors', view: null }])
+const getScreen = vi.fn(async () => null)
+const listAssessments = vi.fn(async () => ({ assessments: [{ id: 'a1' }], record: null }))
+const listThemes = vi.fn(async () => [{ id: 'th_ai' }])
 vi.mock('../services/strategy/strategy.service.remote.js', () => ({
     INDUSTRIES_CHANGED: 'strategy-industries-changed',
-    strategyService: { listIndustries: (...a) => listIndustries(...a) },
+    strategyService: {
+        listIndustries: (...a) => listIndustries(...a),
+        getScreen: (...a) => getScreen(...a),
+        listAssessments: (...a) => listAssessments(...a),
+        listThemes: (...a) => listThemes(...a),
+    },
 }))
 
 const getEarnings = vi.fn(async () => ({ items: [{ symbol: 'AAPL' }], from: '2026-09-14', to: '2026-09-18' }))
@@ -58,5 +66,31 @@ describe('useCalendarEvents — the industry views are fetched for everyone', ()
         const { result } = renderHook(() => useCalendarEvents())
         await waitFor(() => expect(result.current.industriesError).toBe(true))
         expect(result.current.industries).toEqual([])
+    })
+})
+
+describe("useCalendarEvents — Pythia's board survives a bad refresh", () => {
+    it('a failed refresh keeps the assessments and themes already shown', async () => {
+        const { result } = renderHook(() => useCalendarEvents())
+        await waitFor(() => expect(result.current.assessments?.assessments).toHaveLength(1))
+        expect(result.current.themes).toEqual([{ id: 'th_ai' }])
+        listAssessments.mockRejectedValueOnce(new Error('network'))
+        listThemes.mockRejectedValueOnce(new Error('network'))
+        act(() => { window.dispatchEvent(new CustomEvent('strategy-industries-changed')) })
+        await waitFor(() => expect(listAssessments).toHaveBeenCalledTimes(2))
+        await act(async () => {})
+        expect(result.current.assessments?.assessments).toHaveLength(1)
+        expect(result.current.themes).toEqual([{ id: 'th_ai' }])
+    })
+
+    it('a slow older read cannot overwrite a newer one', async () => {
+        let releaseOld
+        listAssessments.mockImplementationOnce(() => new Promise(r => { releaseOld = () => r({ assessments: [{ id: 'old' }], record: null }) }))
+        listAssessments.mockImplementationOnce(async () => ({ assessments: [{ id: 'new' }], record: null }))
+        const { result } = renderHook(() => useCalendarEvents())
+        act(() => { window.dispatchEvent(new CustomEvent('strategy-industries-changed')) })
+        await waitFor(() => expect(result.current.assessments?.assessments?.[0]?.id).toBe('new'))
+        await act(async () => { releaseOld() })
+        expect(result.current.assessments.assessments[0].id).toBe('new')
     })
 })

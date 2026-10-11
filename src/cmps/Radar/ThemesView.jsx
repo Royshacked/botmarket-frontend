@@ -16,15 +16,18 @@ function ThemeRow({ theme, isAdmin }) {
     const [note, setNote] = useState(null)
     const a = theme.assessment
     const moves = new Map((a?.moved?.links ?? []).map(l => [l.code, l]))
+    // A theme's Assess run survives a remount in the service's in-flight set (see strategy.service.remote).
+    const assessing = busy === 'Assess' || strategyService.isRunning(`theme:${theme.id}`)
+    const locked = Boolean(busy) || assessing
     async function act(label, fn) {
+        if (locked) return
         setBusy(label)
         setNote(null)
         try {
             const r = await fn()
             setNote(r?.cost_usd != null ? `${label}: done · cost $${r.cost_usd.toFixed(4)}` : `${label}: done`)
         } catch (err) {
-            const d = err?.response?.data
-            setNote(`${label} failed${d?.detail ? ` — ${String(d.detail).slice(0, 200)}` : ''}`)
+            setNote(`${label} failed — ${strategyService.runError(err)}`)
         } finally {
             setBusy(null)
         }
@@ -74,11 +77,11 @@ function ThemeRow({ theme, isAdmin }) {
                     <p className="industry-view__meta">Words its filings and news use: {(theme.terms ?? []).join(', ')}</p>
                     {isAdmin && (
                         <div className="assessment-view__assess">
-                            {theme.status === 'proposed' && <button type="button" disabled={Boolean(busy)} onClick={() => act('Approve', () => strategyService.setThemeStatus(theme.id, 'approved'))}>Approve</button>}
-                            {theme.status !== 'retired' && <button type="button" disabled={Boolean(busy)} onClick={() => act('Retire', () => strategyService.setThemeStatus(theme.id, 'retired'))}>Retire</button>}
-                            {theme.status === 'retired' && <button type="button" disabled={Boolean(busy)} onClick={() => act('Approve', () => strategyService.setThemeStatus(theme.id, 'approved'))}>Re-approve</button>}
-                            {theme.status === 'approved' && <button type="button" disabled={Boolean(busy)} onClick={() => act('Assess', () => strategyService.assessTheme(theme.id))}>{busy === 'Assess' ? 'Assessing…' : 'Assess now'}</button>}
-                            {note && <span className="assessment-view__result">{note}</span>}
+                            {theme.status === 'proposed' && <button type="button" disabled={locked} onClick={() => act('Approve', () => strategyService.setThemeStatus(theme.id, 'approved'))}>Approve</button>}
+                            {theme.status !== 'retired' && <button type="button" disabled={locked} onClick={() => act('Retire', () => strategyService.setThemeStatus(theme.id, 'retired'))}>Retire</button>}
+                            {theme.status === 'retired' && <button type="button" disabled={locked} onClick={() => act('Approve', () => strategyService.setThemeStatus(theme.id, 'approved'))}>Re-approve</button>}
+                            {theme.status === 'approved' && <button type="button" disabled={locked} onClick={() => act('Assess', () => strategyService.assessTheme(theme.id))}>{assessing ? 'Assessing…' : 'Assess now'}</button>}
+                            <span role="status" aria-live="polite" className={note ? 'assessment-view__result' : undefined}>{note}</span>
                         </div>
                     )}
                 </div>
@@ -91,22 +94,24 @@ ThemeRow.propTypes = { theme: PropTypes.object.isRequired, isAdmin: PropTypes.bo
 function ProposeThemes() {
     const [busy, setBusy] = useState(false)
     const [note, setNote] = useState(null)
+    const running = busy || strategyService.isRunning('propose_themes')
     async function run() {
+        if (running) return
         setBusy(true)
         setNote(null)
         try {
             const r = await strategyService.proposeThemes()
             setNote(`${r.proposed?.length ?? 0} proposed, ${r.refused?.length ?? 0} refused, ${r.skipped?.length ?? 0} already approved · cost $${(r.cost_usd ?? 0).toFixed(4)}`)
         } catch (err) {
-            setNote(`Failed${err?.response?.data?.detail ? ` — ${String(err.response.data.detail).slice(0, 200)}` : ''}`)
+            setNote(`Failed — ${strategyService.runError(err)}`)
         } finally {
             setBusy(false)
         }
     }
     return (
         <div className="assessment-view__assess">
-            <button type="button" onClick={run} disabled={busy}>{busy ? 'Pythia is looking…' : 'Propose themes'}</button>
-            {note && <span className="assessment-view__result">{note}</span>}
+            <button type="button" onClick={run} disabled={running}>{running ? 'Pythia is looking…' : 'Propose themes'}</button>
+            <span role="status" aria-live="polite" className={note ? 'assessment-view__result' : undefined}>{note}</span>
         </div>
     )
 }
@@ -114,7 +119,7 @@ function ProposeThemes() {
 export function ThemesView({ themes = [] }) {
     const isAdmin = Boolean(useAuth()?.isAdmin)
     const order = { approved: 0, proposed: 1, retired: 2 }
-    const sorted = [...themes].sort((x, y) => (order[x.status] - order[y.status]) || x.name.localeCompare(y.name))
+    const sorted = [...themes].sort((x, y) => ((order[x.status] ?? 3) - (order[y.status] ?? 3)) || String(x.name ?? '').localeCompare(String(y.name ?? '')))
     const waiting = themes.filter(t => t.status === 'proposed').length
     return (
         <div className="themes-view">

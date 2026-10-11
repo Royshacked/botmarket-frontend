@@ -195,6 +195,7 @@
 
     &__modes {
         display: flex;
+        flex-wrap: wrap;
         gap: 4px;
         padding: 2px 4px;
     }
@@ -236,8 +237,10 @@
 
     &__chips {
         display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
         gap: 4px;
-        flex: 0 0 auto;
+        flex: 0 1 auto;
         align-items: center;
     }
 
@@ -374,6 +377,7 @@
         color: var(--color-warning);
 
         &--retired { color: var(--text-dim); }
+        &--theme   { color: var(--color-teal); }
     }
 
     &__links { margin: 2px 0 4px 16px; padding: 0; }

@@ -32,37 +32,44 @@ export function useCalendarEvents() {
 
     useEffect(() => {
         let active = true
+        // Per feed, the number of the latest refresh. A refresh fired by INDUSTRIES_CHANGED can overlap the
+        // hourly one; only the newest read of a feed may land, or a slow old read overwrites a fresh board.
+        const seq = {}
 
         // One load shape for every tab: flag loading, fetch, drop the result if the hook unmounted
-        // mid-flight. The service already degrades failures to empty.
-        async function load(fetcher, setLoading, apply) {
+        // mid-flight or a newer read of the same feed started. `keepOnFail`: a failed read keeps what the
+        // board already shows (a refresh after an admin run must not blank the board on one network blip).
+        async function load(key, fetcher, setLoading, apply, { keepOnFail = false } = {}) {
+            const mine = (seq[key] = (seq[key] ?? 0) + 1)
+            const current = () => active && seq[key] === mine
             setLoading(true)
             try {
                 const data = await fetcher()
-                if (active) apply(data)
+                if (current()) apply(data)
             } catch {
-                if (active) apply(null)
+                if (current() && !keepOnFail) apply(null)
             } finally {
-                if (active) setLoading(false)
+                if (current()) setLoading(false)
             }
         }
 
         function refresh() {
-            load(calendarService.getEarnings, setEarningsLoading, (d) => {
+            load('earnings', calendarService.getEarnings, setEarningsLoading, (d) => {
                 setEarnings(d?.items ?? [])
                 setEarningsFrom(d?.from ?? null)
                 setEarningsTo(d?.to ?? null)
             })
-            load(calendarService.getFed, setFedLoading, (d) => setFed(d ?? []))
-            load(calendarService.getIpo, setIpoLoading, (d) => setIpo(d ?? []))
+            load('fed', calendarService.getFed, setFedLoading, (d) => setFed(d ?? []))
+            load('ipo', calendarService.getIpo, setIpoLoading, (d) => setIpo(d ?? []))
             // Every user reads the board (2026-10-05) — the views are a broadcast.
-            load(strategyService.listIndustries, setIndustriesLoading, (d) => {
+            load('industries', strategyService.listIndustries, setIndustriesLoading, (d) => {
                 setIndustriesError(!Array.isArray(d))
                 if (Array.isArray(d)) setIndustries(d)
             })
-            load(strategyService.getScreen, () => {}, (d) => setScreen(d && Array.isArray(d.rows) ? d : null))
-            load(strategyService.listAssessments, () => {}, (d) => setAssessments(d && Array.isArray(d.assessments) ? d : null))
-            load(strategyService.listThemes, () => {}, (d) => setThemes(Array.isArray(d) ? d : []))
+            const keep = { keepOnFail: true }
+            load('screen', strategyService.getScreen, () => {}, (d) => setScreen(d && Array.isArray(d.rows) ? d : null), keep)
+            load('assessments', strategyService.listAssessments, () => {}, (d) => setAssessments(d && Array.isArray(d.assessments) ? d : null), keep)
+            load('themes', strategyService.listThemes, () => {}, (d) => setThemes(Array.isArray(d) ? d : []), keep)
         }
 
         refresh()

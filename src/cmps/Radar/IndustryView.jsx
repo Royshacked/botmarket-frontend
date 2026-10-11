@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import { gradeFor, conclusionFor } from './industryGrade.js'
 import { ScreenView } from './ScreenView.jsx'
@@ -109,7 +109,11 @@ IndustryRow.propTypes = { row: PropTypes.object.isRequired }
 export function IndustryView({ industries = [], loading = false, error = false, screen = null, assessments = null, themes = [] }) {
     const [mode, setMode] = useState(null)
     const [query, setQuery] = useState('')
-    const shown = mode ?? (screen ? 'trade' : 'structure')
+    // Once a screen has been seen, Trade now stays the default: a refresh that briefly reads no screen must
+    // not flip the board under the reader to Structure (code review 2026-10-11).
+    const sawScreen = useRef(false)
+    if (screen) sawScreen.current = true
+    const shown = mode ?? (sawScreen.current ? 'trade' : 'structure')
     const tabs = (
         <div className="screen-view__modes" role="tablist">
             {[['trade', 'Trade now'], ['assessed', 'Assessed'], ['themes', 'Themes'], ['structure', 'Structure']].map(([k, label]) => (
