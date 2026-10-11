@@ -15,6 +15,9 @@ const REASON_COPY = {
     no_position:    'no open position',
     not_live:       'not in a position yet',
     already_held_use_add_to_item: 'already held',
+    // The house's industry limits (backend step 7, industryLimits.service).
+    avoid_industry: 'Pythia rates its industry AVOID — needs your OK',
+    industry_cap:   'its industry already holds a third of the book',
     market_closed:  'market closed',
     // The two ways a REMOVE is refused, and they need different sentences. A live holding is closed
     // rather than deleted. A `hit` one has an order working at the broker that has not filled — so

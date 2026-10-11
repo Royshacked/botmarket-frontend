@@ -392,8 +392,12 @@ export function PortfolioPanel({
 
     async function handleGenerate() {
         const portfolioId = editingPortfolioId
+        // The save is AWAITED, and a save that did not happen (the user said no to an AVOID name, or the server
+        // refused) keeps the plan and the conversation here — the panel used to clear both and go home regardless
+        // (code review 2026-10-11). `false` is the only "it did not save"; anything else is a save.
         if (portfolioId) {
-            if (onUpdatePlan) onUpdatePlan(planReady ? pendingPlan : null, portfolioId, messages)
+            const saved = onUpdatePlan ? await onUpdatePlan(planReady ? pendingPlan : null, portfolioId, messages) : true
+            if (saved === false) return
             if (isReviewMode) await _completeReview(portfolioId)
             setEditingPortfolioId(null)
             setEditingPortfolioIdeas([])
@@ -402,7 +406,8 @@ export function PortfolioPanel({
             setDismissConfirm(false)
         } else {
             if (!planReady) return
-            if (onGeneratePlan) onGeneratePlan(pendingPlan, messages, latestMandateRef.current, latestThesisRef.current, threadIdRef.current)
+            const saved = onGeneratePlan ? await onGeneratePlan(pendingPlan, messages, latestMandateRef.current, latestThesisRef.current, threadIdRef.current) : true
+            if (saved === false) return
         }
         setPendingPlan(null); setMessages([])
         latestMandateRef.current = null

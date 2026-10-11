@@ -14,7 +14,7 @@ import { handoffDoors } from '../services/pipeline/doors.js'
 import { AccountSelector }   from '../cmps/ChatPanel/AccountSelector.jsx'
 import { readStoredModel }   from '../cmps/modelOptions.js'
 import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
-import { confirmAvoid, confirmAvoidAdds } from '../cmps/PortfolioPanel/avoidOk.js'
+import { confirmAvoid, confirmAvoidAdds, avoidRetry, avoidRefusalRetry } from '../cmps/PortfolioPanel/avoidOk.js'
 import { reviewApplyMessage, queuedAnything } from '../cmps/PortfolioPanel/reviewApply.js'
 import { QueuedActionDialog } from '../cmps/Floor/QueuedActionDialog.jsx'
 import { executeRoute } from '../cmps/Floor/queuedAction.contract.js'
@@ -444,7 +444,8 @@ export function MainPage() {
             const book  = { swing: 'FOR SWING', long_term: 'FOR LONG TERM' }[c.verdict] ?? String(c.verdict ?? '').toUpperCase()
             const where = c.kind === 'theme' ? `the theme ${c.subject}${c.link ? ` (via ${c.link})` : ''}` : `its industry, ${c.subject}`
             const risks = c.risks?.length ? ` Risks it named: ${c.risks.join('; ')}.` : ''
-            return `Research ${symbol} for coverage — Pythia rates ${where} ${book}${c.horizon ? ` (${c.horizon})` : ''}: ${c.thesis ?? ''}${risks} Judge whether ${symbol} is already priced for it.`
+            const thesis = c.thesis ? `: ${c.thesis}` : '.'
+            return `Research ${symbol} for coverage — Pythia rates ${where} ${book}${c.horizon ? ` (${c.horizon})` : ''}${thesis}${risks} Judge whether ${symbol} is already priced for it.`
         }
         if (!c?.sector) return `Research ${item.symbol} for coverage.`
         // A SLEEVE candidate (sleeveSource): the mandate that surfaced it is a user's book, not the
@@ -1833,13 +1834,15 @@ export function MainPage() {
         })
     }
 
+    // → true when the book was saved, false when it was not (the panel then keeps the plan and the conversation).
     async function handleGeneratePlan(plan, messages = [], mandate = null, thesis = null, threadId = null) {
         plan = confirmAvoid(plan)
-        if (!plan) return
+        if (!plan) return false
         try {
             const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
             const accountIds   = ideaAccounts.map(a => a.id)
-            const newIdeas     = await tradeIdeasService.createBatch(plan, accountIds, mainAccountId)
+            const newIdeas     = await _createBatchAsking(plan, accountIds, mainAccountId)
+            if (!newIdeas) return false
             setIdeas(prev => [...newIdeas, ...prev])
             if (newIdeas.length > 0) {
                 const portfolioId = newIdeas[0].portfolioId
@@ -1858,8 +1861,25 @@ export function MainPage() {
             // home the ordinary way, still resumable.
             if (newIdeas.length > 0) finishPipeline()
             else handleBackToAxl()
+            return true
         } catch (err) {
             console.error('[portfolio] batch create failed', err)
+            showErrorMsg(apiError(err, 'Could not save the book — nothing was saved.'))
+            return false
+        }
+    }
+
+    // The batch save, with the AVOID ask the server may still need: a verdict that turned after the proposal (or a plan
+    // sized while the verdicts could not be read) comes back 409 with the names — asked about, then sent again.
+    // → the new ideas, or null when the user declined (code review 2026-10-11).
+    async function _createBatchAsking(plan, accountIds, mainId, portfolioId = null) {
+        try {
+            return await tradeIdeasService.createBatch(plan, accountIds, mainId, portfolioId)
+        } catch (err) {
+            const retry = avoidRetry(err, plan)
+            if (retry === undefined) throw err
+            if (retry === null) return null
+            return tradeIdeasService.createBatch(retry, accountIds, mainId, portfolioId)
         }
     }
 
@@ -1929,8 +1949,11 @@ export function MainPage() {
         if (!portfolioId) return handleGeneratePlan(plan, messages)
         if (plan?.ideas?.length) {
             plan = confirmAvoid(plan)
-            if (!plan) return
+            if (!plan) return false
         }
+        // The conversation is saved whatever happens to the plan (code review 2026-10-11: a refused save used to skip it).
+        const saveChat = () => portfolioService.saveChatState(portfolioId, toChatHistory(messages)).catch(err =>
+            console.error('[portfolio] chat state save failed', err))
         try {
             const accountIds = availableAccounts.filter(a => selectedAccounts.includes(a.id)).map(a => a.id)
             const existing   = ideas.filter(i => i.portfolioId === portfolioId)
@@ -1946,10 +1969,14 @@ export function MainPage() {
                 // SAVE FIRST, then delete the old ideas (code review 2026-10-11): a save the server refuses — an
                 // industry turned AVOID since the proposal, say — used to land after the delete, and leave the book
                 // empty. Refused now, the book keeps what it had.
-                const newIdeas   = await tradeIdeasService.createBatch(plan, accountIds, mainAccountId, portfolioId)
-                const keep       = new Set(newIdeas.map(i => i.id))
-                await Promise.all(existing.filter(i => !keep.has(i.id)).map(i => tradeIdeasService.deleteIdea(i.id)))
-                setIdeas(prev => [...newIdeas, ...prev.filter(i => i.portfolioId !== portfolioId)])
+                const newIdeas   = await _createBatchAsking(plan, accountIds, mainAccountId, portfolioId)
+                if (!newIdeas) { await saveChat(); return false }
+                // Every old idea's delete is settled and the leftovers SAID: one failed delete used to leave the book
+                // holding old and new together, silently.
+                const deletes = await Promise.allSettled(existing.map(i => tradeIdeasService.deleteIdea(i.id)))
+                const left    = existing.filter((_, k) => deletes[k].status === 'rejected')
+                setIdeas(prev => [...newIdeas, ...left, ...prev.filter(i => i.portfolioId !== portfolioId)])
+                if (left.length) showErrorMsg(`The new plan is saved, but ${left.length} old idea${left.length > 1 ? 's' : ''} could not be removed (${left.map(i => i.asset).join(', ')}) — remove ${left.length > 1 ? 'them' : 'it'} by hand.`)
             } else {
                 // No re-plan, but the account selection may have changed while editing — so push it
                 // onto the ideas that can still take it. What may be pushed, and onto which legs, is
@@ -1966,14 +1993,15 @@ export function MainPage() {
                 }
             }
 
-            const chatMessages = toChatHistory(messages)
-            await portfolioService.saveChatState(portfolioId, chatMessages).catch(err =>
-                console.error('[portfolio] chat state save failed', err)
-            )
+            await saveChat()
             handleBackToAxl()   // plan updated — return to the axl hub
+            return true
         } catch (err) {
             console.error('[portfolio] update plan failed', err)
+            showErrorMsg(apiError(err, 'Could not update the plan.'))
+            await saveChat()
             loadIdeas()
+            return false
         }
     }
 
@@ -1985,6 +2013,10 @@ export function MainPage() {
         // Attach a same-turn thesis proposal so confirming the rebalance persists it
         // (backend reads update.thesis, reason 'accepted-rebalance'). No thesis → unchanged.
         if (reviewMode) { setPendingRebalance(thesis ? { ...update, thesis } : update); return }
+        // An add in an industry Pythia rates AVOID is applied only with the user's yes — here too, not only in a review
+        // (code review 2026-10-11: edit-mode adds skipped every limit). The server checks again, and limits the weight.
+        update = confirmAvoidAdds(update)
+        if (!update) return
         const ideaById = new Map(ideas.map(i => [i.id, i]))
         try {
             const promises   = []
@@ -2005,8 +2037,10 @@ export function MainPage() {
                     promises.push(tradeIdeasService.deleteIdea(id))
                 } else if (change.action === 'add_item' && spec) {
                     const existing = ideas.filter(i => i.portfolioId === update.portfolioId)
+                    const { avoid_ok, ...item } = spec
                     promises.push(tradeIdeasService.createIdea({
-                        ...spec,
+                        ...item,
+                        ...(avoid_ok ? { avoid_ok: [item.asset] } : {}),
                         portfolioId:   update.portfolioId,
                         portfolioName: existing[0]?.portfolioName || 'Portfolio',
                         accounts:      selectedAccounts,
@@ -2014,8 +2048,10 @@ export function MainPage() {
                     }))
                 }
             }
-            await Promise.all(promises)
+            const settled = await Promise.allSettled(promises)
             loadIdeas()
+            const refused = settled.filter(r => r.status === 'rejected')
+            if (refused.length) showErrorMsg(apiError(refused[0].reason, `${refused.length} change${refused.length > 1 ? 's' : ''} could not be applied.`))
             if (skippedLive.length) {
                 showErrorMsg(`Kept ${skippedLive.length} live position${skippedLive.length > 1 ? 's' : ''} the plan tried to remove — close ${skippedLive.length > 1 ? 'them' : 'it'} first.`)
             }
@@ -2027,7 +2063,7 @@ export function MainPage() {
     // Confirm a review rebalance: execute it on the live book server-side (which also
     // bumps the review clock + records conviction), then refresh ideas.
     async function confirmRebalance() {
-        const update = pendingRebalance
+        const update = pendingRebalance ? confirmAvoidAdds(pendingRebalance) : null
         if (!update?.portfolioId) { setPendingRebalance(null); return }
         setApplyingRebalance(true)
         try {
@@ -2124,11 +2160,23 @@ export function MainPage() {
     async function handleAcceptReview(portfolioId, update, { pending } = {}) {
         // An add in an industry Pythia rates AVOID is applied only with the user's yes, asked here (step 7).
         update = confirmAvoidAdds(update)
-        if (!update) return false
+        if (!update) { showErrorMsg('Nothing applied — the AVOID add was declined.'); return false }
         let result
         try {
             result = await portfolioService.applyRebalance(portfolioId, update)
-        } catch (err) {
+            // A change refused for an industry that turned AVOID after the proposal: ask, and send just those again.
+            const again = avoidRefusalRetry(update, (result?.results ?? []).filter(r => r && r.ok === false))
+            if (again.retry) await portfolioService.applyRebalance(portfolioId, again.retry).catch(e => showErrorMsg(apiError(e, 'Could not apply the AVOID change.')))
+        } catch (caught) {
+            let err = caught
+            const again = avoidRefusalRetry(update, err?.response?.data?.failed)
+            if (again.retry) {
+                try {
+                    result = await portfolioService.applyRebalance(portfolioId, again.retry)
+                    await Promise.all([loadIdeas(), ...(queuedAnything(result) ? [loadQueued()] : [])])
+                    return true
+                } catch (e) { err = e }
+            }
             console.error('[portfolio] accept review failed', err)
             // Say WHICH refusal it was. The server answers on the shared reason vocabulary and sends
             // the per-change failures back in `failed`, so "nothing was executed" no longer has to
