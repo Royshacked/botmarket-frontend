@@ -49,6 +49,7 @@ const DATA = {
 describe('assessment words', () => {
     it('says how far it moved and how stretched, with a real ordinal', () => {
         expect(movedLine(A().moved)).toBe('24m +188% vs SPY +40% · stretched: 64th percentile')
+        expect(movedLine({ ret_24m: 1.88, spy_24m: 0.4, ret_24m_vw: 1.41 })).toBe('24m +188% vs SPY +40% · by size +141%')
         expect(movedLine({ ret_12m: 0.1, spy_12m: 0.05 })).toBe('12m +10% vs SPY +5%')
         expect(movedLine(null)).toBeNull()
         expect([1, 2, 3, 11, 22, 92].map(ordinal)).toEqual(['1st', '2nd', '3rd', '11th', '22nd', '92nd'])

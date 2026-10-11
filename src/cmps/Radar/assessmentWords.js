@@ -41,6 +41,8 @@ export function movedLine(moved, name = null) {
     const parts = []
     if (moved.ret_24m != null) parts.push(`24m ${signed(moved.ret_24m)} vs SPY ${signed(moved.spy_24m)}`)
     else if (moved.ret_12m != null) parts.push(`12m ${signed(moved.ret_12m)} vs SPY ${signed(moved.spy_12m)}`)
+    // By size: what the hype flag reads (2026-10-11); the equal-weight line can be a few small names.
+    if (moved.ret_24m != null && moved.ret_24m_vw != null) parts.push(`by size ${signed(moved.ret_24m_vw)}`)
     if (moved.ext_percentile != null) parts.push(`stretched: ${ordinal(Math.round(moved.ext_percentile * 100))} percentile`)
     // Priced on its parent's basket, which its siblings share — the move is the parent's, not its own.
     if (parts.length && moved.basket && name && moved.basket !== name) parts.push(`measured as ${moved.basket}`)
