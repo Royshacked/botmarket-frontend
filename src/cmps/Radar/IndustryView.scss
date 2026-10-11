@@ -280,6 +280,15 @@
         letter-spacing: 0.04em;
     }
 
+    &__unchecked {
+        padding: 1px 6px;
+        border: 1px dashed var(--text-dim);
+        border-radius: 10px;
+        font-size: 10px;
+        color: var(--text-muted);
+        white-space: nowrap;
+    }
+
     &__stale {
         margin-left: 6px;
         font-style: normal;

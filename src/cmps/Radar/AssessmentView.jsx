@@ -31,6 +31,9 @@ function AssessmentRow({ row }) {
                     <span className="industry-view__conclusion" title={row.thesis}>{row.thesis}</span>
                 </span>
                 <span className="screen-view__chips">
+                    {/* The research could not be done (2026-10-11: a search quota ran out) — a verdict that rests on
+                        price and money alone must not read like one that weighed the news. */}
+                    {row.cause?.kind === 'unverified' && <span className="assessment-view__unchecked" title="The news could not be checked when this was assessed — the verdict rests on price and money only">news not checked</span>}
                     {row.moved?.hype && <span className="assessment-view__hype" title="Up 100%+ in two years and 100%+ over the market — a crash risk flag, not a timing signal">hype</span>}
                     <span className={`assessment-view__verdict assessment-view__verdict--${verdictKey(row.verdict)}`}>{VERDICT_LABEL[row.verdict] ?? row.verdict}</span>
                     <span className="screen-view__horizon">{row.horizon}</span>

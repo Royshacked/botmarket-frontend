@@ -242,3 +242,10 @@ describe('the verdict words (Roy, 2026-10-11)', () => {
         expect(document.querySelectorAll('.assessment-view__verdict--swing').length).toBe(2)
     })
 })
+
+describe('a verdict whose news could not be checked', () => {
+    it('says so on its line; a checked one does not', () => {
+        render(<AssessmentView data={{ assessments: [A({ id: 'u', cause: { kind: 'unverified', text: 'search down' } }), A({ id: 'n', subject: { code: '2', name: 'Steel' }, cause: { kind: 'news', text: 'x' } })], record: null }} />)
+        expect(rtl.getAllByText('news not checked')).toHaveLength(1)
+    })
+})
