@@ -31,7 +31,7 @@ export function ordinal(n) {
 }
 
 /** How far it has moved, in one line: "24m +188% vs SPY +40% · stretched: 64th percentile". */
-export function movedLine(moved) {
+export function movedLine(moved, name = null) {
     if (!moved) return null
     // A theme's move is its direct links' (step 3).
     if (moved.kind === 'theme') {
@@ -42,6 +42,8 @@ export function movedLine(moved) {
     if (moved.ret_24m != null) parts.push(`24m ${signed(moved.ret_24m)} vs SPY ${signed(moved.spy_24m)}`)
     else if (moved.ret_12m != null) parts.push(`12m ${signed(moved.ret_12m)} vs SPY ${signed(moved.spy_12m)}`)
     if (moved.ext_percentile != null) parts.push(`stretched: ${ordinal(Math.round(moved.ext_percentile * 100))} percentile`)
+    // Priced on its parent's basket, which its siblings share — the move is the parent's, not its own.
+    if (parts.length && moved.basket && name && moved.basket !== name) parts.push(`measured as ${moved.basket}`)
     return parts.join(' · ') || null
 }
 
@@ -144,9 +146,10 @@ export function weekHeadline(week) {
     const scanned = `${n('industries')} industr${n('industries') === 1 ? 'y' : 'ies'}${n('themes') ? ` and ${n('themes')} theme${n('themes') === 1 ? '' : 's'}` : ''} scanned`
     const parts = [scanned, `${week.flagged?.length ?? 0} flagged`, `${week.results?.length ?? 0} assessed`]
     if (week.waiting_count) parts.push(`${week.waiting_count} wait for next week`)
+    if (week.held_back?.length) parts.push(`${week.held_back.length} held back after two refusals`)
     const head = week.asof ? `Week of the ${week.asof} run` : 'This week'
-    const running = week.running || week.status === 'running'
-    return `${head}${running ? ' (running)' : ''}: ${parts.join(' · ')}`
+    const state = week.status === 'running' ? ' (running)' : week.status === 'interrupted' ? ' (interrupted)' : ''
+    return `${head}${state}: ${parts.join(' · ')}`
 }
 
 /** One assessed subject of the week, in words: "Semiconductors — Watch (was Avoid) · the hype flag turned on". */

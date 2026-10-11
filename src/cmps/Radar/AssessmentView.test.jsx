@@ -179,7 +179,10 @@ const WEEK = {
 describe('the week', () => {
     it('words the week, and lists what was assessed with what changed and why', () => {
         expect(weekHeadline(WEEK)).toBe('Week of the 2026-10-09 run: 163 industries and 2 themes scanned · 1 flagged · 1 assessed · 3 wait for next week')
-        expect(weekHeadline({ ...WEEK, running: true })).toMatch(/^Week of the 2026-10-09 run \(running\):/)
+        expect(weekHeadline({ ...WEEK, status: 'running' })).toMatch(/^Week of the 2026-10-09 run \(running\):/)
+        expect(weekHeadline({ ...WEEK, status: 'interrupted', held_back: [{ name: 'Gold' }] })).toMatch(/\(interrupted\):.* · 1 held back after two refusals$/)
+        expect(movedLine({ ret_24m: 0.5, spy_24m: 0.4, basket: 'Metals & Mining' }, 'Copper')).toBe('24m +50% vs SPY +40% · measured as Metals & Mining')
+        expect(movedLine({ ret_24m: 0.5, spy_24m: 0.4, basket: 'Copper' }, 'Copper')).toBe('24m +50% vs SPY +40%')
         expect(weekHeadline(null)).toBeNull()
         expect(weekResultLine(WEEK.results[0], { hype_new: 'the hype flag turned on' })).toBe('Semiconductors — Watch (was Interesting to trade) · the hype flag turned on')
         expect(weekResultLine({ name: 'Steel', outcome: 'refused', reasons: ['expired'] })).toBe('Steel — not published (refused) · expired')
@@ -204,6 +207,16 @@ describe('the week', () => {
         expect(runWeek).toHaveBeenCalledWith({ force: true })
         rerender(<AssessmentView data={DATA} week={{ ...WEEK, status: 'running' }} />)
         expect(rtl.getByRole('button', { name: 'Running…' }).disabled).toBe(true)
+    })
+
+    it('a week a dead process left behind is offered for resuming, not rerun; held-back subjects are named', async () => {
+        AUTH = ADMIN
+        render(<AssessmentView data={DATA} week={{ ...WEEK, status: 'interrupted', held_back: [{ name: 'Gold' }] }} />)
+        fireEvent.click(rtl.getByRole('button', { name: 'Resume the week' }))
+        expect(runWeek).toHaveBeenCalledWith({ force: false })
+        fireEvent.click(rtl.getByRole('button', { name: /Week of the 2026-10-09 run \(interrupted\)/ }))
+        expect(rtl.getByText(/Held back this week after two refusals in a row \(tried again next week\): Gold/)).toBeTruthy()
+        await waitFor(() => expect(rtl.getByText('Started — the board follows it.')).toBeTruthy())
     })
 
     it('before the first week, says what the scan will do; an admin can start it', async () => {

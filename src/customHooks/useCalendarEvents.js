@@ -73,7 +73,7 @@ export function useCalendarEvents() {
             load('week', strategyService.getWeek, () => {}, (d) => {
                 const w = d && typeof d === 'object' ? d : null
                 setWeek(w)
-                if (w && (w.running || w.status === 'running')) weekTimer = setTimeout(pollWeek, WEEK_POLL_MS)
+                if (w?.status === 'running') weekTimer = setTimeout(pollWeek, WEEK_POLL_MS)
             }, keep)
         }
 

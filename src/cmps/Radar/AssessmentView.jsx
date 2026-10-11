@@ -16,7 +16,7 @@ const _date = (iso) => (iso ? String(iso).slice(0, 10) : '—')
 function AssessmentRow({ row }) {
     const [open, setOpen] = useState(false)
     const s = row.subject ?? {}
-    const moved = movedLine(row.moved)
+    const moved = movedLine(row.moved, s.name)
     const money = moneyLine(row.money)
     const expired = isExpired(row)
     return (
@@ -139,14 +139,15 @@ function WeekPanel({ week, isAdmin }) {
     const [open, setOpen] = useState(false)
     const [busy, setBusy] = useState(false)
     const [note, setNote] = useState(null)
-    const running = Boolean(week?.running || week?.status === 'running')
+    // `status` is the server's real state: a week a dead process left behind reads `interrupted` (resumable).
+    const running = week?.status === 'running'
     const reasonText = useMemo(() => Object.fromEntries((week?.flagged ?? []).flatMap(f => (f.reasons ?? []).map(r => [r.key, r.text]))), [week])
     async function run() {
         if (busy || running) return
         setBusy(true)
         setNote(null)
         try {
-            await strategyService.runWeek({ force: week?.status === 'done' })
+            await strategyService.runWeek({ force: week?.status === 'done' })   // interrupted → resume, not rerun
             setNote('Started — the board follows it.')
         } catch (err) {
             setNote(`Not started — ${strategyService.runError(err)}`)
@@ -165,7 +166,7 @@ function WeekPanel({ week, isAdmin }) {
                 {isAdmin && typeof week?.cost_usd === 'number' && <span className="industry-view__meta">cost ${week.cost_usd.toFixed(4)}{week.stopped === 'budget' ? ' — stopped at the week\'s spend ceiling' : ''}</span>}
                 {isAdmin && (
                     <button type="button" onClick={run} disabled={busy || running}>
-                        {running ? 'Running…' : week?.status === 'done' ? 'Run the week again' : 'Run the week'}
+                        {running ? 'Running…' : week?.status === 'done' ? 'Run the week again' : week?.status === 'interrupted' ? 'Resume the week' : 'Run the week'}
                     </button>
                 )}
                 <span role="status" aria-live="polite" className={note ? 'assessment-view__result' : undefined}>{note}</span>
@@ -180,7 +181,10 @@ function WeekPanel({ week, isAdmin }) {
                             Waiting for next week: {week.waiting.map(w => w.name).join(', ')}{week.waiting_count > week.waiting.length ? ` and ${week.waiting_count - week.waiting.length} more` : ''}.
                         </p>
                     )}
-                    {!week.results?.length && !week.waiting?.length && <p className="industry-view__meta">Nothing moved since the last assessments.</p>}
+                    {(week.held_back?.length ?? 0) > 0 && (
+                        <p className="industry-view__meta">Held back this week after two refusals in a row (tried again next week): {week.held_back.map(w => w.name).join(', ')}.</p>
+                    )}
+                    {!week.results?.length && !week.waiting?.length && !week.held_back?.length && <p className="industry-view__meta">Nothing moved since the last assessments.</p>}
                 </div>
             )}
         </div>
