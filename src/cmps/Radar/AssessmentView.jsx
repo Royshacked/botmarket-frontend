@@ -42,6 +42,9 @@ function AssessmentRow({ row }) {
             {open && (
                 <div className="industry-view__detail">
                     <p className="industry-view__summary">{row.thesis}</p>
+                    {row.verdict === 'watch' && row.question && (
+                        <p><span className="industry-view__label">the open question</span> {row.question}{row.decides_by ? ` — decided by ${row.decides_by}` : ''}</p>
+                    )}
                     {(row.trigger?.length ?? 0) > 0 && (
                         <p className="assessment-view__trigger">
                             <span className="industry-view__label">flagged by the weekly scan</span>{' '}
