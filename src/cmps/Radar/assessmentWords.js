@@ -162,6 +162,20 @@ export function flowLines(flows) {
     return { insiders, funds, government }
 }
 
+// ── geopolitics (backend step 4, pythia-geopolitics.md) ──────────────────────────
+// The mapped risks that touch the industry, each with which way and how intense (z against its own ten years), and
+// the caveat said every time: the index measures attention, and the map's directions failed their history test.
+
+const z1 = (z) => (num(z) == null ? '—' : `${z >= 0 ? '+' : ''}${z.toFixed(1)}`)
+
+export function geoLine(geo) {
+    if (!geo) return null
+    const risks = geo.risks ?? []
+    if (!risks.length) return `No mapped risk touches it (world ${z1(geo.global?.z)})`
+    return risks.map(r => `${r.name} ${r.side === 'hurts' ? 'hurts' : 'helps'} it${r.elevated ? ' — ELEVATED' : ''} (${z1(r.z)})`).join('; ')
+        + ' — attention, not impact; the directions are hypotheses that failed their history test'
+}
+
 // ── themes (backend theme.service; pythia-assessment.md §3) ───────────────────
 
 export const ORDER_LABEL = { 1: 'direct', 2: 'suppliers', 3: "suppliers' suppliers" }

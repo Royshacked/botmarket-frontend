@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { strategyService } from '../../services/strategy/strategy.service.remote.js'
 import { useStrategyRun } from '../../customHooks/useStrategyRun.js'
-import { verdictKey, VERDICT_LABEL, INPUT_LABEL, causeWord, REGIME_WORD, movedLine, moneyLine, flowLines, groupByVerdict, recordWords, isExpired, weekHeadline, weekResultLine } from './assessmentWords.js'
+import { verdictKey, VERDICT_LABEL, INPUT_LABEL, causeWord, REGIME_WORD, movedLine, moneyLine, flowLines, geoLine, groupByVerdict, recordWords, isExpired, weekHeadline, weekResultLine } from './assessmentWords.js'
 
 // Pythia's assessments — "Assessed" on the Forecasts tab (backend docs/design/pythia-assessment.md, build
 // step 1). Each assessed industry with Pythia's verdict — interesting to trade, to invest in, to watch, or
@@ -19,6 +19,7 @@ function AssessmentRow({ row }) {
     const moved = movedLine(row.moved, s.name)
     const money = moneyLine(row.money)
     const flows = flowLines(row.flows)
+    const geo = geoLine(row.geopolitics)
     const expired = isExpired(row)
     return (
         <div className={`industry-view__row${open ? ' industry-view__row--open' : ''}`}>
@@ -62,6 +63,7 @@ function AssessmentRow({ row }) {
                     {flows.insiders && <p><span className="industry-view__label">insiders buying</span> {flows.insiders}</p>}
                     {flows.funds && <p><span className="industry-view__label">funds</span> {flows.funds}</p>}
                     {flows.government && <p><span className="industry-view__label">government contracts</span> {flows.government}</p>}
+                    {geo && <p><span className="industry-view__label">geopolitics</span> {geo}</p>}
                     {(row.base_rates ?? []).map(b => (
                         <p key={b.key} className="assessment-view__base-rate"><span className="industry-view__label">base rate</span> {b.text}</p>
                     ))}

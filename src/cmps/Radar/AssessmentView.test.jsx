@@ -22,7 +22,7 @@ vi.mock('../../services/strategy/strategy.service.remote.js', () => ({
 
 import { AssessmentView } from './AssessmentView.jsx'
 import { IndustryView } from './IndustryView.jsx'
-import { movedLine, moneyLine, flowLines, causeWord, groupByVerdict, recordWords, isExpired, ordinal, CAUSE_WORD, weekHeadline, weekResultLine, VERDICT_ORDER, VERDICT_LABEL, verdictKey, linkMoveLine } from './assessmentWords.js'
+import { movedLine, moneyLine, flowLines, geoLine, causeWord, groupByVerdict, recordWords, isExpired, ordinal, CAUSE_WORD, weekHeadline, weekResultLine, VERDICT_ORDER, VERDICT_LABEL, verdictKey, linkMoveLine } from './assessmentWords.js'
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); AUTH = MEMBER; running.clear() })
 
@@ -326,5 +326,24 @@ describe('the step 8 lines, QA 2026-10-12', () => {
     it('says a fall to zero, and nothing where no line ever had money', () => {
         expect(flowLines({ government: { now: 0, before: 2e9, change: -1 } }).government).toBe('Contract money on its lines -100% over a year ($0)')
         expect(flowLines({ government: { now: 0, before: 0, change: null } }).government).toBeNull()
+    })
+})
+
+describe('geopolitics (backend step 4)', () => {
+    const GEO = { global: { z: 0.7 }, risks: [
+        { id: 'gulf_hormuz', name: 'Gulf and the Strait of Hormuz', side: 'helps', z: 2.2, elevated: true },
+        { id: 'taiwan_strait', name: 'Taiwan Strait', side: 'helps', z: 0.7, elevated: false },
+    ] }
+
+    it('names each touching risk, which way, how intense, and says the directions failed their test', () => {
+        expect(geoLine(GEO)).toBe('Gulf and the Strait of Hormuz helps it — ELEVATED (+2.2); Taiwan Strait helps it (+0.7) — attention, not impact; the directions are hypotheses that failed their history test')
+        expect(geoLine({ global: { z: -0.3 }, risks: [] })).toBe('No mapped risk touches it (world -0.3)')
+        expect(geoLine(null)).toBeNull()
+    })
+
+    it('shows the row in an opened assessment', () => {
+        render(<AssessmentView data={{ ...DATA, assessments: [A({ geopolitics: GEO })] }} />)
+        fireEvent.click(rtl.getAllByRole('button', { name: /Semiconductors/ })[0])
+        expect(rtl.getByText('geopolitics')).toBeTruthy()
     })
 })
