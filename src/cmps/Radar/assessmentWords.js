@@ -115,21 +115,42 @@ export function moneyLine(money) {
 // One line each, or null. Each carries its own reading, because each is easy to over-read: the insider cluster had
 // no tested edge, funds' ownership is crowding not a lead, and contract dollars are a line's money, not revenue.
 
-const usd = (v) => (typeof v === 'number' ? (Math.abs(v) >= 1e9 ? `$${(v / 1e9).toFixed(1)}B` : `$${(v / 1e6).toFixed(1)}M`) : '—')
+const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+// $K / $M / $B, the sign in front ("-$5.0M"): insider buys run in thousands, contract lines in billions (QA 2026-10-12).
+const usd = (v) => {
+    const x = num(v)
+    if (x == null) return null
+    const a = Math.abs(x), sign = x < 0 ? '-' : ''
+    if (a === 0) return '$0'
+    return a >= 1e9 ? `${sign}$${(a / 1e9).toFixed(1)}B` : a >= 1e6 ? `${sign}$${(a / 1e6).toFixed(1)}M` : `${sign}$${Math.round(a / 1e3)}K`
+}
+/** A rank needs this many earlier quarters to mean anything (backend industryData FUNDS_MIN_QUARTERS). */
+export const FUNDS_MIN_QUARTERS = 4
 
 export function flowLines(flows) {
     const i = flows?.insiders, f = flows?.funds, g = flows?.government
-    return {
-        insiders: i ? `${i.companies_buying} of ${i.n_companies} companies bought in 90 days`
-            + (typeof i.vs_universe === 'number' ? ` (${i.vs_universe.toFixed(1)}× the market's rate)` : '')
-            + `, ${usd(i.value)}${i.cluster ? ' — a cluster, awareness only: no tested edge' : ''}` : null,
-        funds: f && f.share != null ? `${Math.round(f.share * 100)}% held by funds`
-            + (typeof f.relative_share === 'number' ? ` (${f.relative_share.toFixed(2)}× the market)` : '')
-            + (typeof f.percentile === 'number' && f.history_quarters ? `, ${Math.round(f.percentile * 100)}th percentile of ${f.history_quarters} quarters` : '')
-            + (typeof f.flow_vs_universe === 'number' ? `; last quarter ${signed(f.flow_vs_universe, 1)} vs the market` : '')
-            + ` — crowding, as of ${f.quarter}` : null,
-        government: g && g.change != null ? `Contract money on its lines ${signed(g.change)} over a year (${usd(g.now)}; a year earlier ${signed(g.prev_change)}), to ${g.through}` : null,
-    }
+    const insiders = i && num(i.companies_buying) != null
+        ? `Insiders bought at ${i.companies_buying}${num(i.n_companies) != null ? ` of ${i.n_companies}` : ''} companies in 90 days`
+            + (num(i.vs_universe) != null ? ` (${i.vs_universe.toFixed(1)}× the market's rate)` : '')
+            + (usd(i.value) ? `, ${usd(i.value)}` : '')
+            + (i.cluster ? ' — a cluster, awareness only: no tested edge' : '')
+        : null
+    const funds = f && num(f.share) != null
+        ? `${Math.round(f.share * 100)}% held by funds`
+            + (num(f.relative_share) != null ? ` (${f.relative_share.toFixed(2)}× the market)` : '')
+            + (num(f.percentile) != null && (f.history_quarters ?? 0) >= FUNDS_MIN_QUARTERS
+                ? `, ${ordinal(Math.round(f.percentile * 100))} percentile of ${f.history_quarters} quarters` : '')
+            + (num(f.flow_vs_universe) != null ? `; last quarter ${signed(f.flow_vs_universe, 1)} vs the market` : '')
+            + ` — crowding${f.quarter ? `, as of ${f.quarter}` : ''}`
+        : null
+    // A line with money a year ago and none now is a fall to zero, said as one; with neither, there is nothing to say.
+    const hasMoney = (num(g?.now) ?? 0) > 0 || (num(g?.before) ?? 0) > 0
+    const government = g && num(g.change) != null && hasMoney
+        ? `Contract money on its lines ${signed(g.change)} over a year (${usd(g.now) ?? '—'}`
+            + (num(g.prev_change) != null ? `; a year earlier ${signed(g.prev_change)}` : '')
+            + `)${g.through ? `, to ${g.through}` : ''}`
+        : null
+    return { insiders, funds, government }
 }
 
 // ── themes (backend theme.service; pythia-assessment.md §3) ───────────────────

@@ -290,7 +290,7 @@ describe('insiders, funds, government (backend step 8)', () => {
 
     it('words each with its own reading', () => {
         const l = flowLines(FLOWS)
-        expect(l.insiders).toBe("51 of 256 companies bought in 90 days (1.6× the market's rate), $17.5M — a cluster, awareness only: no tested edge")
+        expect(l.insiders).toBe("Insiders bought at 51 of 256 companies in 90 days (1.6× the market's rate), $17.5M — a cluster, awareness only: no tested edge")
         expect(l.funds).toBe('62% held by funds (0.90× the market), 100th percentile of 7 quarters; last quarter +1.1% vs the market — crowding, as of 2026-06-30')
         expect(l.government).toBe('Contract money on its lines +40% over a year ($3.0B; a year earlier +5%), to 2026-06-30')
         expect(flowLines(null)).toEqual({ insiders: null, funds: null, government: null })
@@ -307,5 +307,22 @@ describe('insiders, funds, government (backend step 8)', () => {
         render(<AssessmentView data={{ ...DATA, assessments: [A({ id: 'old', subject: { code: '2', name: 'Copper', sector: 'Materials' } })] }} />)
         fireEvent.click(rtl.getAllByRole('button', { name: /Copper/ })[0])
         expect(rtl.queryByText('insiders buying')).toBeNull()
+    })
+})
+
+describe('the step 8 lines, QA 2026-10-12', () => {
+    it('reads small and negative dollars, real ordinals, and leaves out what is missing', () => {
+        expect(flowLines({ insiders: { companies_buying: 2, n_companies: 9, value: 40e3 } }).insiders).toBe('Insiders bought at 2 of 9 companies in 90 days, $40K')
+        expect(flowLines({ insiders: { companies_buying: 2, n_companies: null, value: null } }).insiders).toBe('Insiders bought at 2 companies in 90 days')
+        expect(flowLines({ funds: { share: 0.5, percentile: 3 / 7, history_quarters: 7, quarter: null } }).funds).toBe('50% held by funds, 43rd percentile of 7 quarters — crowding')
+        expect(flowLines({ funds: { share: 0.5, percentile: 1, history_quarters: 2 } }).funds).not.toMatch(/percentile/)
+        expect(flowLines({ funds: { share: NaN } }).funds).toBeNull()
+        expect(flowLines({ government: { now: 3e9, change: 0.4, prev_change: null, through: '2026-06-30' } }).government)
+            .toBe('Contract money on its lines +40% over a year ($3.0B), to 2026-06-30')
+    })
+
+    it('says a fall to zero, and nothing where no line ever had money', () => {
+        expect(flowLines({ government: { now: 0, before: 2e9, change: -1 } }).government).toBe('Contract money on its lines -100% over a year ($0)')
+        expect(flowLines({ government: { now: 0, before: 0, change: null } }).government).toBeNull()
     })
 })
