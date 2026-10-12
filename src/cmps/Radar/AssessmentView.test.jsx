@@ -22,7 +22,7 @@ vi.mock('../../services/strategy/strategy.service.remote.js', () => ({
 
 import { AssessmentView } from './AssessmentView.jsx'
 import { IndustryView } from './IndustryView.jsx'
-import { movedLine, moneyLine, groupByVerdict, recordWords, isExpired, ordinal, CAUSE_WORD, weekHeadline, weekResultLine, VERDICT_ORDER, VERDICT_LABEL, verdictKey, linkMoveLine } from './assessmentWords.js'
+import { movedLine, moneyLine, flowLines, groupByVerdict, recordWords, isExpired, ordinal, CAUSE_WORD, weekHeadline, weekResultLine, VERDICT_ORDER, VERDICT_LABEL, verdictKey, linkMoveLine } from './assessmentWords.js'
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); AUTH = MEMBER; running.clear() })
 
@@ -278,5 +278,34 @@ describe('code review 2026-10-11 — the board', () => {
         render(<AssessmentView data={DATA} week={{ ...WEEK, status: 'paused' }} />)
         fireEvent.click(rtl.getByRole('button', { name: 'Resume the week' }))
         expect(runWeek).toHaveBeenCalledWith({ force: false })
+    })
+})
+
+describe('insiders, funds, government (backend step 8)', () => {
+    const FLOWS = {
+        insiders: { companies_buying: 51, n_companies: 256, vs_universe: 1.6, cluster: true, value: 17.5e6 },
+        funds: { quarter: '2026-06-30', share: 0.62, relative_share: 0.9, percentile: 1, history_quarters: 7, flow_vs_universe: 0.011 },
+        government: { through: '2026-06-30', now: 3e9, change: 0.4, prev_change: 0.05 },
+    }
+
+    it('words each with its own reading', () => {
+        const l = flowLines(FLOWS)
+        expect(l.insiders).toBe("51 of 256 companies bought in 90 days (1.6× the market's rate), $17.5M — a cluster, awareness only: no tested edge")
+        expect(l.funds).toBe('62% held by funds (0.90× the market), 100th percentile of 7 quarters; last quarter +1.1% vs the market — crowding, as of 2026-06-30')
+        expect(l.government).toBe('Contract money on its lines +40% over a year ($3.0B; a year earlier +5%), to 2026-06-30')
+        expect(flowLines(null)).toEqual({ insiders: null, funds: null, government: null })
+        expect(flowLines({ insiders: { ...FLOWS.insiders, cluster: false } }).insiders).not.toMatch(/cluster/)
+    })
+
+    it('shows the three rows in an opened assessment, and none on one made before step 8', () => {
+        render(<AssessmentView data={{ ...DATA, assessments: [A({ flows: FLOWS }), A({ id: 'old', subject: { code: '2', name: 'Copper', sector: 'Materials' } })] }} />)
+        fireEvent.click(rtl.getAllByRole('button', { name: /Semiconductors/ })[0])
+        expect(rtl.getByText('insiders buying')).toBeTruthy()
+        expect(rtl.getByText('funds')).toBeTruthy()
+        expect(rtl.getByText('government contracts')).toBeTruthy()
+        cleanup()
+        render(<AssessmentView data={{ ...DATA, assessments: [A({ id: 'old', subject: { code: '2', name: 'Copper', sector: 'Materials' } })] }} />)
+        fireEvent.click(rtl.getAllByRole('button', { name: /Copper/ })[0])
+        expect(rtl.queryByText('insiders buying')).toBeNull()
     })
 })
