@@ -22,7 +22,7 @@ vi.mock('../../services/strategy/strategy.service.remote.js', () => ({
 
 import { AssessmentView } from './AssessmentView.jsx'
 import { IndustryView } from './IndustryView.jsx'
-import { movedLine, moneyLine, flowLines, groupByVerdict, recordWords, isExpired, ordinal, CAUSE_WORD, weekHeadline, weekResultLine, VERDICT_ORDER, VERDICT_LABEL, verdictKey, linkMoveLine } from './assessmentWords.js'
+import { movedLine, moneyLine, flowLines, causeWord, groupByVerdict, recordWords, isExpired, ordinal, CAUSE_WORD, weekHeadline, weekResultLine, VERDICT_ORDER, VERDICT_LABEL, verdictKey, linkMoveLine } from './assessmentWords.js'
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); AUTH = MEMBER; running.clear() })
 
@@ -57,7 +57,9 @@ describe('assessment words', () => {
 
     it('keeps "could not check" apart from "nothing moved it"', () => {
         expect(CAUSE_WORD.unverified).toMatch(/not verified/)
-        expect(CAUSE_WORD.none).toMatch(/hype pattern/)
+        expect(causeWord('none', true)).toMatch(/hype pattern/)
+        expect(causeWord('none', false)).toBe('nothing nameable')
+        expect(causeWord('news')).toBe(CAUSE_WORD.news)
     })
 
     it('groups best verdict first and filters by the search', () => {

@@ -18,8 +18,17 @@ export const CAUSE_WORD = {
     money:       'money arriving',
     regime:      'the macro backdrop',
     geopolitics: 'geopolitics',
-    none:        'nothing nameable — the hype pattern',
+    none:        'nothing nameable',
     unverified:  'not verified — the research could not be done',
+}
+
+/**
+ * The cause in words. `none` reads as the hype pattern only when the hype flag is on — "nothing nameable — the hype
+ * pattern" above an industry that had not run read as an accusation (Regional Banks, live drive 2026-10-12).
+ */
+export function causeWord(kind, hype = false) {
+    const w = CAUSE_WORD[kind] ?? kind
+    return kind === 'none' && hype ? `${w} — the hype pattern` : w
 }
 
 const signed = (v, d = 0) => (typeof v === 'number' ? `${v >= 0 ? '+' : ''}${(v * 100).toFixed(d)}%` : '—')

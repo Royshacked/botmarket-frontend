@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { strategyService } from '../../services/strategy/strategy.service.remote.js'
 import { useStrategyRun } from '../../customHooks/useStrategyRun.js'
-import { verdictKey, VERDICT_LABEL, CAUSE_WORD, ORDER_LABEL, linkMoveLine, groupByOrder } from './assessmentWords.js'
+import { verdictKey, VERDICT_LABEL, causeWord, ORDER_LABEL, linkMoveLine, groupByOrder } from './assessmentWords.js'
 
 // Pythia's THEMES — "Themes" on the Forecasts tab (backend docs/design/pythia-assessment.md §3, step 3).
 // A theme is a value chain of GICS sub-industries in order — direct, suppliers, suppliers' suppliers — each
@@ -56,7 +56,7 @@ function ThemeRow({ theme, isAdmin }) {
                         <p>
                             <span className="industry-view__label">Pythia&apos;s view</span>{' '}
                             <b>{VERDICT_LABEL[a.verdict]}</b> ({a.horizon}, confidence {a.confidence}) — {a.thesis}
-                            {a.cause && <> · <i>moved by {CAUSE_WORD[a.cause.kind] ?? a.cause.kind}</i></>}
+                            {a.cause && <> · <i>moved by {causeWord(a.cause.kind, a.moved?.hype)}</i></>}
                         </p>
                     )}
                     {groupByOrder(theme.links).map(([order, links]) => (
