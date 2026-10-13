@@ -435,3 +435,22 @@ describe('a light row reads its detail when it opens', () => {
         await waitFor(() => expect(rtl.getByText(/TSMC cuts guidance/)).toBeTruthy())
     })
 })
+
+describe('the companies an assessment names (backend pythia-names.md)', () => {
+    it('an opened row lists them with their order and why; none, no section', () => {
+        const named = A({ names: [
+            { symbol: 'CIEN', why: 'record backlog (Sep 3)', order: 'first', industry: 'Communications Equipment' },
+            { symbol: 'VRT', why: 'power and cooling next', order: 'second', industry: 'Electrical Components & Equipment' },
+        ] })
+        render(<AssessmentView data={{ assessments: [named], record: null }} />)
+        fireEvent.click(rtl.getAllByRole('button', { name: /Semiconductors/ })[0])
+        expect(rtl.getByText('companies it names')).toBeTruthy()
+        expect(rtl.getByText('CIEN')).toBeTruthy()
+        expect(rtl.getByText('second order · Electrical Components & Equipment')).toBeTruthy()
+        expect(rtl.getByText(/power and cooling next/)).toBeTruthy()
+        cleanup(); closePanel()
+        render(<AssessmentView data={{ assessments: [A()], record: null }} />)
+        fireEvent.click(rtl.getAllByRole('button', { name: /Semiconductors/ })[0])
+        expect(rtl.queryByText('companies it names')).toBeNull()
+    })
+})

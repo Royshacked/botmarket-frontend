@@ -13,7 +13,11 @@ export function HouseChip({ house, showWhy = false }) {
     if (!book) return null
     const via = house.themes?.length ? ` (via ${house.themes.join(', ')})` : ''
     const flags = [house.hype ? 'HYPE — a crash-risk flag' : null, house.avoid ? 'the house rates the industry itself Avoid' : null].filter(Boolean)
-    const what = `On the house's ${book} list — ${house.industry ?? 'its industry'}${via}.${flags.length ? ` ${flags.join('; ')}.` : ''}`
+    // A company an assessment NAMED (backend pythia-names.md) may sit outside the listed industries: say whose
+    // assessment named it, and why.
+    const what = house.named
+        ? `Named by the house in its ${book} assessment of ${house.industry ?? 'an industry'}${house.why ? ` — ${house.why}` : ''}.`
+        : `On the house's ${book} list — ${house.industry ?? 'its industry'}${via}.${flags.length ? ` ${flags.join('; ')}.` : ''}`
     const title = `${what} The house's view of the industry, not of this stock; it adds nothing to the score.`
     const chip = (
         <span className={`house-chip${house.hype || house.avoid ? ' house-chip--flagged' : ''}`} title={title}>
@@ -31,6 +35,8 @@ HouseChip.propTypes = {
         hype:     PropTypes.bool,
         avoid:    PropTypes.bool,
         themes:   PropTypes.arrayOf(PropTypes.string),
+        named:    PropTypes.bool,
+        why:      PropTypes.string,
     }),
     showWhy: PropTypes.bool,
 }

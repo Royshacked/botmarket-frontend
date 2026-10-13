@@ -38,3 +38,11 @@ describe('HouseChip', () => {
         expect(render(<HouseChip house={{ book: 'watch' }} />).container.innerHTML).toBe('')
     })
 })
+
+describe('HouseChip — a company the house named (backend pythia-names.md)', () => {
+    it('says whose assessment named it and why', () => {
+        const { container } = render(<HouseChip house={{ book: 'swing', industry: 'Communications Equipment', themes: [], named: true, why: 'power and cooling next' }} showWhy />)
+        expect(container.querySelector('.house-chip').textContent).toBe('House · swing')
+        expect(container.querySelector('.house-chip-why__text').textContent).toBe('Named by the house in its swing assessment of Communications Equipment — power and cooling next.')
+    })
+})

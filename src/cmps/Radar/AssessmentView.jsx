@@ -73,6 +73,17 @@ function AssessmentDetail({ row, open }) {
                     <p className="industry-view__meta">Not part of this verdict: {a.gaps.map(g => INPUT_LABEL[g] ?? g).join(', ')}.</p>
                 )}
                 {a.second_order && <p><span className="industry-view__label">who else it reaches</span> {a.second_order}</p>}
+                {/* The companies the evidence pointed at (backend pythia-names.md) — first or second order, worked out by code. */}
+                {(a.names?.length ?? 0) > 0 && (
+                    <div className="industry-view__reopen">
+                        <span className="industry-view__label">companies it names</span>
+                        <ul>{a.names.map(n => (
+                            <li key={n.symbol}>
+                                <b>{n.symbol}</b> <span className="industry-view__meta">{n.order === 'second' ? `second order · ${n.industry ?? 'another industry'}` : 'first order'}</span> — {n.why}
+                            </li>
+                        ))}</ul>
+                    </div>
+                )}
                 {(a.risks?.length ?? 0) > 0 && (
                     <div className="industry-view__reopen">
                         <span className="industry-view__label">risks</span>
