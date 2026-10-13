@@ -20,6 +20,7 @@ export const strategyService = {
     getWeek,
     runWeek,
     listAssessments,
+    getAssessmentDetail,
     assessNow,
     listThemes,
     proposeThemes,
@@ -99,10 +100,19 @@ function assessTheme(id) {
 /**
  * Pythia's ASSESSMENTS (backend docs/design/pythia-assessment.md): every assessed industry's verdict —
  * interesting to trade, to invest in, to watch, or to avoid — and the track record of the graded calls.
- * → `{ assessments, record }`.
+ * → `{ assessments, record }`. LIGHT rows (backend assessment-light-list.md): only what a closed row shows — an opened
+ * row reads the rest through getAssessmentDetail.
  */
 function listAssessments() {
-    return httpService.get(`${BASE}/assessments`)
+    return httpService.get(`${BASE}/assessments?view=rows`)
+}
+
+/** One assessment whole, for an opened row: an industry by its code, a theme by its id. → the document, or null. */
+function getAssessmentDetail(row) {
+    const s = row?.subject ?? {}
+    return s.kind === 'theme'
+        ? httpService.get(`${BASE}/assessments/theme/${encodeURIComponent(s.id)}`)
+        : httpService.get(`${BASE}/assessments/${encodeURIComponent(s.code)}`)
 }
 
 /**

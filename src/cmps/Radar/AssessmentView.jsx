@@ -5,6 +5,7 @@ import { strategyService } from '../../services/strategy/strategy.service.remote
 import { useStrategyRun } from '../../customHooks/useStrategyRun.js'
 import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
 import { useDetailPanel } from '../DetailPanel/detailPanel.store.js'
+import { useAssessmentDetail } from '../../customHooks/useAssessmentDetail.js'
 import { verdictKey, VERDICT_LABEL, INPUT_LABEL, causeWord, REGIME_WORD, movedLine, moneyLine, flowLines, geoLine, groupByVerdict, recordWords, isExpired, weekHeadline, weekResultLine } from './assessmentWords.js'
 
 // Pythia's assessments — "Assessed" on the Forecasts tab (backend docs/design/pythia-assessment.md, build
@@ -15,6 +16,89 @@ import { verdictKey, VERDICT_LABEL, INPUT_LABEL, causeWord, REGIME_WORD, movedLi
 
 const _date = (iso) => (iso ? String(iso).slice(0, 10) : '—')
 
+/**
+ * An opened row's page. The board's list is LIGHT (backend assessment-light-list.md): the row has the name, verdict,
+ * horizon and thesis; the rest is read here, when the panel opens (useAssessmentDetail — cached per assessment and its
+ * assessed_at). While it loads, or if it fails, the panel still shows what the row has.
+ */
+function AssessmentDetail({ row, open }) {
+    const { doc: a, loading, error, retry } = useAssessmentDetail(row, open)
+    const ready = !loading && !error
+    const moved = movedLine(a.moved, a.subject?.name)
+    const money = moneyLine(a.money)
+    const flows = flowLines(a.flows)
+    const geo = geoLine(a.geopolitics)
+    return (
+        <div className="industry-view__detail">
+            <p className="industry-view__summary">{a.thesis}</p>
+            {loading && <p className="industry-view__meta" role="status">Loading the rest…</p>}
+            {error && (
+                <p className="industry-view__meta" role="alert">
+                    Could not load the rest — {error}. <button type="button" className="assessment-view__retry" onClick={retry}>Try again</button>
+                </p>
+            )}
+            {ready && (<>
+                {a.verdict === 'watch' && a.question && (
+                    <p><span className="industry-view__label">the open question</span> {a.question}{a.decides_by ? ` — decided by ${a.decides_by}` : ''}</p>
+                )}
+                {(a.trigger?.length ?? 0) > 0 && (
+                    <p className="assessment-view__trigger">
+                        <span className="industry-view__label">flagged by the weekly scan</span>{' '}
+                        {a.trigger.map(t => `${t.text}${t.detail ? ` (${t.detail})` : ''}`).join('; ')}
+                    </p>
+                )}
+                <p>
+                    <span className="industry-view__label">what moved it</span>{' '}
+                    <b className={`assessment-view__cause assessment-view__cause--${a.cause?.kind}`}>{causeWord(a.cause?.kind, a.moved?.hype)}</b>
+                    {a.cause?.text ? ` — ${a.cause.text}` : ''}
+                </p>
+                {moved && <p><span className="industry-view__label">how far it has moved</span> {moved}</p>}
+                {money && <p><span className="industry-view__label">where its companies put money</span> {money}</p>}
+                {flows.insiders && <p><span className="industry-view__label">insiders buying</span> {flows.insiders}</p>}
+                {flows.funds && <p><span className="industry-view__label">funds</span> {flows.funds}</p>}
+                {flows.government && <p><span className="industry-view__label">government contracts</span> {flows.government}</p>}
+                {geo && <p><span className="industry-view__label">geopolitics</span> {geo}</p>}
+                {(a.base_rates ?? []).map(b => (
+                    <p key={b.key} className="assessment-view__base-rate"><span className="industry-view__label">base rate</span> {b.text}</p>
+                ))}
+                <div className="assessment-view__evidence">
+                    {Object.entries(INPUT_LABEL).filter(([k]) => a.evidence?.[k]).map(([k, label]) => (
+                        <div key={k} className="industry-view__answer">
+                            <span className="industry-view__answer-q">{label}</span>
+                            <p>{a.evidence[k]}</p>
+                        </div>
+                    ))}
+                </div>
+                {(a.gaps?.length ?? 0) > 0 && (
+                    <p className="industry-view__meta">Not part of this verdict: {a.gaps.map(g => INPUT_LABEL[g] ?? g).join(', ')}.</p>
+                )}
+                {a.second_order && <p><span className="industry-view__label">who else it reaches</span> {a.second_order}</p>}
+                {(a.risks?.length ?? 0) > 0 && (
+                    <div className="industry-view__reopen">
+                        <span className="industry-view__label">risks</span>
+                        <ul>{a.risks.map((r, i) => <li key={i}>{r}</li>)}</ul>
+                    </div>
+                )}
+                {(a.change_view_if?.length ?? 0) > 0 && (
+                    <div className="industry-view__reopen">
+                        <span className="industry-view__label">would change the view</span>
+                        <ul>{a.change_view_if.map((r, i) => <li key={i}>{r}</li>)}</ul>
+                    </div>
+                )}
+                {a.structure && (
+                    <p className="industry-view__meta">
+                        Structure: demand {a.structure.demand?.replace('_', ' ') ?? '—'} · economics {a.structure.economics ?? '—'} · cycle {a.structure.cycle ?? '—'}
+                    </p>
+                )}
+                <p className="industry-view__meta">
+                    Confidence {a.confidence}{a.confidence_reason ? ` — ${a.confidence_reason}` : ''} · assessed {_date(a.assessed_at)} · reassess by {_date(a.expires_at)}
+                </p>
+            </>)}
+        </div>
+    )
+}
+AssessmentDetail.propTypes = { row: PropTypes.object.isRequired, open: PropTypes.bool.isRequired }
+
 function AssessmentRow({ row }) {
     const s = row.subject ?? {}
     // The detail opens in the DetailPanel over the chat column (one panel across the app — see its store). ONE id for
@@ -23,10 +107,6 @@ function AssessmentRow({ row }) {
     const panelId = `assessment:${row.id ?? s.code ?? s.name}`
     const panel = useDetailPanel(panelId)
     const open = panel.isOpen
-    const moved = movedLine(row.moved, s.name)
-    const money = moneyLine(row.money)
-    const flows = flowLines(row.flows)
-    const geo = geoLine(row.geopolitics)
     const expired = isExpired(row)
     return (
         <div className="industry-view__row">
@@ -49,64 +129,7 @@ function AssessmentRow({ row }) {
                 </span>
             </button>
             <DetailPanel id={panelId} kicker="Forecasts · Assessed" title={s.name} meta={<><span className={`assessment-view__verdict assessment-view__verdict--${verdictKey(row.verdict)}`}>{VERDICT_LABEL[row.verdict] ?? row.verdict}</span><span>{row.verdict === 'watch' && row.decides_by ? `decides by ${row.decides_by}` : row.horizon}</span>{expired && <span className="assessment-view__stale">stale</span>}</>}>
-                <div className="industry-view__detail">
-                    <p className="industry-view__summary">{row.thesis}</p>
-                    {row.verdict === 'watch' && row.question && (
-                        <p><span className="industry-view__label">the open question</span> {row.question}{row.decides_by ? ` — decided by ${row.decides_by}` : ''}</p>
-                    )}
-                    {(row.trigger?.length ?? 0) > 0 && (
-                        <p className="assessment-view__trigger">
-                            <span className="industry-view__label">flagged by the weekly scan</span>{' '}
-                            {row.trigger.map(t => `${t.text}${t.detail ? ` (${t.detail})` : ''}`).join('; ')}
-                        </p>
-                    )}
-                    <p>
-                        <span className="industry-view__label">what moved it</span>{' '}
-                        <b className={`assessment-view__cause assessment-view__cause--${row.cause?.kind}`}>{causeWord(row.cause?.kind, row.moved?.hype)}</b>
-                        {row.cause?.text ? ` — ${row.cause.text}` : ''}
-                    </p>
-                    {moved && <p><span className="industry-view__label">how far it has moved</span> {moved}</p>}
-                    {money && <p><span className="industry-view__label">where its companies put money</span> {money}</p>}
-                    {flows.insiders && <p><span className="industry-view__label">insiders buying</span> {flows.insiders}</p>}
-                    {flows.funds && <p><span className="industry-view__label">funds</span> {flows.funds}</p>}
-                    {flows.government && <p><span className="industry-view__label">government contracts</span> {flows.government}</p>}
-                    {geo && <p><span className="industry-view__label">geopolitics</span> {geo}</p>}
-                    {(row.base_rates ?? []).map(b => (
-                        <p key={b.key} className="assessment-view__base-rate"><span className="industry-view__label">base rate</span> {b.text}</p>
-                    ))}
-                    <div className="assessment-view__evidence">
-                        {Object.entries(INPUT_LABEL).filter(([k]) => row.evidence?.[k]).map(([k, label]) => (
-                            <div key={k} className="industry-view__answer">
-                                <span className="industry-view__answer-q">{label}</span>
-                                <p>{row.evidence[k]}</p>
-                            </div>
-                        ))}
-                    </div>
-                    {(row.gaps?.length ?? 0) > 0 && (
-                        <p className="industry-view__meta">Not part of this verdict: {row.gaps.map(g => INPUT_LABEL[g] ?? g).join(', ')}.</p>
-                    )}
-                    {row.second_order && <p><span className="industry-view__label">who else it reaches</span> {row.second_order}</p>}
-                    {(row.risks?.length ?? 0) > 0 && (
-                        <div className="industry-view__reopen">
-                            <span className="industry-view__label">risks</span>
-                            <ul>{row.risks.map((r, i) => <li key={i}>{r}</li>)}</ul>
-                        </div>
-                    )}
-                    {(row.change_view_if?.length ?? 0) > 0 && (
-                        <div className="industry-view__reopen">
-                            <span className="industry-view__label">would change the view</span>
-                            <ul>{row.change_view_if.map((r, i) => <li key={i}>{r}</li>)}</ul>
-                        </div>
-                    )}
-                    {row.structure && (
-                        <p className="industry-view__meta">
-                            Structure: demand {row.structure.demand?.replace('_', ' ') ?? '—'} · economics {row.structure.economics ?? '—'} · cycle {row.structure.cycle ?? '—'}
-                        </p>
-                    )}
-                    <p className="industry-view__meta">
-                        Confidence {row.confidence}{row.confidence_reason ? ` — ${row.confidence_reason}` : ''} · assessed {_date(row.assessed_at)} · reassess by {_date(row.expires_at)}
-                    </p>
-                </div>
+                <AssessmentDetail row={row} open={open} />
             </DetailPanel>
         </div>
     )

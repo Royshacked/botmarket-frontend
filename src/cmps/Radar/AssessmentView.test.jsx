@@ -10,11 +10,13 @@ const running = new Set()
 vi.mock('../../context/AuthContext.jsx', async (orig) => ({ ...(await orig()), useAuth: () => AUTH }))
 const assessNow = vi.fn(async () => ({ ok: true, doc: { verdict: 'watch' }, cost_usd: 0.004 }))
 const runWeek = vi.fn(async () => ({ ok: true, outcome: 'started' }))
+const getAssessmentDetail = vi.fn()
 vi.mock('../../services/strategy/strategy.service.remote.js', () => ({
     INDUSTRIES_CHANGED: 'strategy-industries-changed',
     strategyService: {
         assessNow: (...a) => assessNow(...a),
         runWeek: (...a) => runWeek(...a),
+        getAssessmentDetail: (...a) => getAssessmentDetail(...a),
         isRunning: (k) => running.has(k),
         runError: (err) => (err?.code === 'already_running' ? 'already running — wait for it to finish' : err?.response?.data?.detail ?? err?.message),
     },
@@ -22,6 +24,7 @@ vi.mock('../../services/strategy/strategy.service.remote.js', () => ({
 
 import { AssessmentView } from './AssessmentView.jsx'
 import { closePanel } from '../DetailPanel/detailPanel.store.js'
+import { _resetAssessmentDetailCache } from '../../customHooks/useAssessmentDetail.js'
 import { IndustryView } from './IndustryView.jsx'
 import { movedLine, moneyLine, flowLines, geoLine, causeWord, groupByVerdict, recordWords, isExpired, ordinal, CAUSE_WORD, weekHeadline, weekResultLine, VERDICT_ORDER, VERDICT_LABEL, verdictKey, linkMoveLine } from './assessmentWords.js'
 
@@ -365,5 +368,70 @@ describe('geopolitics (backend step 4)', () => {
         render(<AssessmentView data={{ ...DATA, assessments: [A({ geopolitics: GEO })] }} />)
         fireEvent.click(rtl.getAllByRole('button', { name: /Semiconductors/ })[0])
         expect(rtl.getByText('geopolitics')).toBeTruthy()
+    })
+})
+
+// ── the light list (backend assessment-light-list.md) ─────────────────────────
+// The board's list carries only what a closed row shows; an opened row reads the rest, once per assessment.
+
+describe('a light row reads its detail when it opens', () => {
+    afterEach(() => { _resetAssessmentDetailCache(); getAssessmentDetail.mockReset() })
+    const LIGHT = (over = {}) => {
+        const a = A(over)
+        return { id: a.id, subject: a.subject, verdict: a.verdict, horizon: a.horizon, decides_by: a.decides_by ?? null, thesis: a.thesis,
+            cause: { kind: a.cause.kind }, moved: { hype: a.moved.hype }, expires_at: a.expires_at, assessed_at: a.assessed_at }
+    }
+    const openRow = (name = /Semiconductors/) => fireEvent.click(rtl.getAllByRole('button', { name })[0])
+
+    it('the closed row shows its chips from the light row alone, and nothing is fetched', () => {
+        render(<AssessmentView data={{ assessments: [LIGHT()], record: null }} />)
+        expect(rtl.getByText('hype')).toBeTruthy()
+        expect(rtl.getByText('news not checked')).toBeTruthy()
+        expect(getAssessmentDetail).not.toHaveBeenCalled()
+    })
+
+    it('opening fetches once, shows the thesis while it loads, then the rest; a reopen does not fetch again', async () => {
+        let resolve
+        getAssessmentDetail.mockImplementation(() => new Promise(r => { resolve = r }))
+        render(<AssessmentView data={{ assessments: [LIGHT()], record: null }} />)
+        openRow()
+        expect(getAssessmentDetail).toHaveBeenCalledWith({ subject: { kind: 'industry', code: '45301020' } })
+        expect(rtl.getByText('Loading the rest…')).toBeTruthy()
+        expect(document.querySelector('.detail-panel .industry-view__summary').textContent).toMatch(/Strong growth/)
+        expect(rtl.queryByText(/TSMC cuts guidance/)).toBeNull()
+        await act(async () => { resolve(A()) })
+        expect(rtl.getByText(/TSMC cuts guidance/)).toBeTruthy()
+        expect(rtl.queryByText('Loading the rest…')).toBeNull()
+        openRow(); openRow()
+        expect(rtl.getByText(/TSMC cuts guidance/)).toBeTruthy()
+        expect(getAssessmentDetail).toHaveBeenCalledTimes(1)
+    })
+
+    it('a re-assessment (a new assessed_at in the next poll) reads the new detail', async () => {
+        getAssessmentDetail.mockResolvedValueOnce(A()).mockResolvedValueOnce(A({ change_view_if: ['a new trigger'] }))
+        const { rerender } = render(<AssessmentView data={{ assessments: [LIGHT()], record: null }} />)
+        openRow()
+        await waitFor(() => expect(rtl.getByText(/TSMC cuts guidance/)).toBeTruthy())
+        rerender(<AssessmentView data={{ assessments: [LIGHT({ assessed_at: '2026-10-14T09:00:00.000Z' })], record: null }} />)
+        await waitFor(() => expect(rtl.getByText(/a new trigger/)).toBeTruthy())
+        expect(getAssessmentDetail).toHaveBeenCalledTimes(2)
+    })
+
+    it('a failed read says so in the panel, keeps the thesis, and Try again reads it', async () => {
+        getAssessmentDetail.mockRejectedValueOnce(new Error('network down')).mockResolvedValueOnce(A())
+        render(<AssessmentView data={{ assessments: [LIGHT()], record: null }} />)
+        openRow()
+        await waitFor(() => expect(rtl.getByRole('alert').textContent).toMatch(/Could not load the rest — network down/))
+        expect(document.querySelector('.detail-panel .industry-view__summary').textContent).toMatch(/Strong growth/)
+        fireEvent.click(rtl.getByText('Try again'))
+        await waitFor(() => expect(rtl.getByText(/TSMC cuts guidance/)).toBeTruthy())
+    })
+
+    it('a theme row reads its detail by the theme id', async () => {
+        getAssessmentDetail.mockResolvedValueOnce(A({ id: 'ia_th_ai', subject: { kind: 'theme', id: 'th_ai', name: 'AI compute', sector: null } }))
+        render(<AssessmentView data={{ assessments: [LIGHT({ id: 'ia_th_ai', subject: { kind: 'theme', id: 'th_ai', name: 'AI compute', sector: null } })], record: null }} />)
+        openRow(/AI compute/)
+        expect(getAssessmentDetail).toHaveBeenCalledWith({ subject: { kind: 'theme', id: 'th_ai' } })
+        await waitFor(() => expect(rtl.getByText(/TSMC cuts guidance/)).toBeTruthy())
     })
 })
