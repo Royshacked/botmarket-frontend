@@ -27,6 +27,12 @@ describe('HouseChip', () => {
         expect(chip.className).toMatch(/house-chip--flagged/)
     })
 
+    it('showWhy says which list and which industry beside the chip', () => {
+        const { container } = render(<HouseChip house={{ book: 'swing', industry: 'Steel', themes: ['Onshoring'], hype: true }} showWhy />)
+        expect(container.querySelector('.house-chip')).not.toBeNull()
+        expect(container.querySelector('.house-chip-why__text').textContent).toBe("On the house's swing list — Steel (via Onshoring). HYPE — a crash-risk flag.")
+    })
+
     it('renders nothing without a label, or with an unknown book', () => {
         expect(render(<HouseChip house={null} />).container.innerHTML).toBe('')
         expect(render(<HouseChip house={{ book: 'watch' }} />).container.innerHTML).toBe('')

@@ -165,7 +165,7 @@ function Candidate({ c, onSelect, profile }) {
     const [open, setOpen] = useState(false)
     const signals = c.signals || {}
     const hasScoreBars = axesFor(profile).some(([k]) => Number.isFinite(c.score?.[k]))
-    const hasDetail = c.analysis || c.conviction?.rationale || hasScoreBars || Object.values(signals).some(Boolean) || (c.sources?.length > 0)
+    const hasDetail = c.analysis || c.conviction?.rationale || hasScoreBars || Object.values(signals).some(Boolean) || (c.sources?.length > 0) || Boolean(c.house)
 
     return (
         <div className="scan-list__cand">
@@ -205,6 +205,11 @@ function Candidate({ c, onSelect, profile }) {
                     {c.conviction?.rationale && (
                         <p className="scan-list__analysis scan-list__conviction-why">
                             <ConvictionChip conviction={c.conviction} /> {c.conviction.rationale}
+                        </p>
+                    )}
+                    {c.house && (
+                        <p className="scan-list__analysis">
+                            <HouseChip house={c.house} showWhy />
                         </p>
                     )}
                     {Object.entries(signals).filter(([, v]) => v).map(([k, v]) => (

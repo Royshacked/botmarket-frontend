@@ -4,20 +4,24 @@ import './HouseChip.scss'
 // "On the house's list" — the name's industry is one Pythia (the house's industry desk) currently rates for the
 // book: swing, or long term (backend docs/design/argus-on-pythia.md §3.4). The server works the label out from the
 // name's industry, never the model, so the chip is a fact. It is the house's view of the INDUSTRY, not of the
-// stock, and it adds nothing to the score — the tooltip says so. Renders nothing without a label.
+// stock, and it adds nothing to the score — the tooltip says so. Renders nothing without a label. `showWhy` adds the
+// line beside the chip (the expanded row), the way ConvictionChip shows its rationale.
 const BOOK = { swing: 'swing', long_term: 'long term' }
 
-export function HouseChip({ house }) {
+export function HouseChip({ house, showWhy = false }) {
     const book = BOOK[house?.book]
     if (!book) return null
     const via = house.themes?.length ? ` (via ${house.themes.join(', ')})` : ''
     const flags = [house.hype ? 'HYPE — a crash-risk flag' : null, house.avoid ? 'the house rates the industry itself Avoid' : null].filter(Boolean)
-    const title = `On the house's ${book} list — ${house.industry ?? 'its industry'}${via}.${flags.length ? ` ${flags.join('; ')}.` : ''} The house's view of the industry, not of this stock; it adds nothing to the score.`
-    return (
+    const what = `On the house's ${book} list — ${house.industry ?? 'its industry'}${via}.${flags.length ? ` ${flags.join('; ')}.` : ''}`
+    const title = `${what} The house's view of the industry, not of this stock; it adds nothing to the score.`
+    const chip = (
         <span className={`house-chip${house.hype || house.avoid ? ' house-chip--flagged' : ''}`} title={title}>
             <span className="house-chip__label">House · {book}</span>
         </span>
     )
+    if (!showWhy) return chip
+    return <span className="house-chip-why">{chip} <span className="house-chip-why__text">{what}</span></span>
 }
 
 HouseChip.propTypes = {
@@ -28,4 +32,5 @@ HouseChip.propTypes = {
         avoid:    PropTypes.bool,
         themes:   PropTypes.arrayOf(PropTypes.string),
     }),
+    showWhy: PropTypes.bool,
 }

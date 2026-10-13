@@ -23,3 +23,13 @@
         background: rgba(240, 192, 64, 0.06);
     }
 }
+
+// Chip + the line saying which list and which industry — the expanded row.
+.house-chip-why {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+
+    &__text { color: var(--text-secondary); }
+}

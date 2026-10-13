@@ -187,7 +187,8 @@
     &__delete { margin-left: -6px; }
 
     // ── Candidate row ───────────────────────────────────────────────────
-    &__cands { display: flex; flex-direction: column; }
+    // A container so a row can drop what does not fit the column it is in (a tablet's lists column is ~325px).
+    &__cands { display: flex; flex-direction: column; container: scan-cands / inline-size; }
 
     &__cand {
         border-bottom: 1px solid var(--border);
@@ -218,6 +219,12 @@
     .radar-ticker {
         flex: 0 1 auto;
         max-width: 52%;
+    }
+
+    // The house chip is the first thing a narrow row lets go of: it squeezed the logo to a dot on a tablet (drive
+    // 2026-10-13). It is always in the expanded row (HouseChip showWhy), so nothing is lost.
+    @container scan-cands (max-width: 480px) {
+        .scan-list__cand-row .house-chip { display: none; }
     }
 
     &__cand-thesis {
