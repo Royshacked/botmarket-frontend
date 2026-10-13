@@ -16,6 +16,7 @@ import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { waitingLabel } from '../ToolStatusChip/waitingLabel.js'
+import { HouseChip } from '../HouseChip/HouseChip.jsx'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import './ScannerPanel.scss'
 
@@ -852,6 +853,7 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                     >
                         {destBrand ? `Send to ${destBrand}` : 'Send it on'} · {handoffPick.ticker}{handoffPick.direction ? ` · ${handoffPick.direction}` : ''}
                     </button>
+                    <HouseChip house={handoffPick.house} />
                     <button
                         className="portfolio-panel__review-btn portfolio-panel__review-btn--later"
                         onClick={() => onDismissHandoff?.()}

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { EditButton, DeleteButton } from '../EntityCard/EntityCard.jsx'
 import { ConvictionChip } from '../ConvictionChip/ConvictionChip.jsx'
+import { HouseChip } from '../HouseChip/HouseChip.jsx'
 import { RadarTicker } from './RadarTicker.jsx'
 import './ScanList.scss'
 
@@ -182,6 +183,7 @@ function Candidate({ c, onSelect, profile }) {
                 <span className="scan-list__cand-thesis">{c.thesis}</span>
                 <ScoreBadge total={c.score?.total} />
                 <ConvictionChip conviction={c.conviction} />
+                <HouseChip house={c.house} />
                 {hasDetail && (
                     <button
                         className={`scan-list__expand${open ? ' scan-list__expand--open' : ''}`}

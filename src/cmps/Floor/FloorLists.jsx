@@ -21,6 +21,7 @@ import { useActivePanel, togglePanel, closePanel } from '../DetailPanel/detailPa
 
 import './Floor.scss'
 import { AetherCandidates } from '../TradeIdeas/AetherCandidates.jsx'
+import { HouseChip } from '../HouseChip/HouseChip.jsx'
 
 // The Floor's right column: four desks, one open at a time — and the open one TAKES THE COLUMN.
 //
@@ -528,6 +529,7 @@ function ScanRows({ scans, onCandidateSelect, onEditScan, onDeleteScan, onSymbol
                             >
                                 <SymbolCell className="floor-row__sym" symbol={c.ticker} onSymbolClick={onSymbolClick} />
                                 <span className="floor-row__kind floor-row__kind--dim">{c.name ?? ''}</span>
+                                <HouseChip house={c.house} />
                                 {Number.isFinite(c.score?.total) && (
                                     <span className={`floor-row__score floor-row__score--${c.score.total >= 75 ? 'hi' : c.score.total >= 55 ? 'mid' : 'lo'}`}>
                                         {c.score.total}
