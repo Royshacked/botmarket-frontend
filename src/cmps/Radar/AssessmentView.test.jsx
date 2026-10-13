@@ -109,6 +109,15 @@ describe('AssessmentView', () => {
         expect(rtl.getByText(/Capex \+50% \(a year earlier \+10%; 71% of companies raised it\)/)).toBeTruthy()
     })
 
+    it('a row with no id renders and opens, keyed by its code (code review 2026-10-13: it threw and blanked the board)', () => {
+        const noId = A({ id: undefined })
+        render(<AssessmentView data={{ assessments: [noId], record: null }} />)
+        const row = rtl.getAllByRole('button', { name: /Semiconductors/ })[0]
+        fireEvent.click(row)
+        expect(row.getAttribute('aria-expanded')).toBe('true')
+        expect(rtl.getByText(/TSMC cuts guidance/)).toBeTruthy()
+    })
+
     it('a row opens in the detail panel, one at a time', () => {
         render(<AssessmentView data={DATA} />)
         fireEvent.click(rtl.getAllByRole('button', { name: /Semiconductors/ })[0])

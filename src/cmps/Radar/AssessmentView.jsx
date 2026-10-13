@@ -16,10 +16,13 @@ import { verdictKey, VERDICT_LABEL, INPUT_LABEL, causeWord, REGIME_WORD, movedLi
 const _date = (iso) => (iso ? String(iso).slice(0, 10) : '—')
 
 function AssessmentRow({ row }) {
-    // The detail opens in the DetailPanel over the chat column (one panel across the app — see its store).
-    const panel = useDetailPanel(`assessment:${row.id ?? s.code ?? s.name}`)
-    const open = panel.isOpen
     const s = row.subject ?? {}
+    // The detail opens in the DetailPanel over the chat column (one panel across the app — see its store). ONE id for
+    // the row and its panel: it was built twice, and the row's copy read `s` before it was declared — a row with no
+    // `id` threw and took the board down (code review 2026-10-13).
+    const panelId = `assessment:${row.id ?? s.code ?? s.name}`
+    const panel = useDetailPanel(panelId)
+    const open = panel.isOpen
     const moved = movedLine(row.moved, s.name)
     const money = moneyLine(row.money)
     const flows = flowLines(row.flows)
@@ -45,7 +48,7 @@ function AssessmentRow({ row }) {
                     <span className="screen-view__horizon">{row.verdict === 'watch' && row.decides_by ? `decides by ${row.decides_by}` : row.horizon}</span>
                 </span>
             </button>
-            <DetailPanel id={`assessment:${row.id ?? s.code ?? s.name}`} kicker="Forecasts · Assessed" title={s.name} meta={<><span className={`assessment-view__verdict assessment-view__verdict--${verdictKey(row.verdict)}`}>{VERDICT_LABEL[row.verdict] ?? row.verdict}</span><span>{row.verdict === 'watch' && row.decides_by ? `decides by ${row.decides_by}` : row.horizon}</span>{expired && <span className="assessment-view__stale">stale</span>}</>}>
+            <DetailPanel id={panelId} kicker="Forecasts · Assessed" title={s.name} meta={<><span className={`assessment-view__verdict assessment-view__verdict--${verdictKey(row.verdict)}`}>{VERDICT_LABEL[row.verdict] ?? row.verdict}</span><span>{row.verdict === 'watch' && row.decides_by ? `decides by ${row.decides_by}` : row.horizon}</span>{expired && <span className="assessment-view__stale">stale</span>}</>}>
                 <div className="industry-view__detail">
                     <p className="industry-view__summary">{row.thesis}</p>
                     {row.verdict === 'watch' && row.question && (
