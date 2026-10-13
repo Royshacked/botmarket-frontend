@@ -109,7 +109,9 @@ is written alongside. `inWorkspace(list, workspace)` scopes every list of accoun
   `market_brief_offer`… — rendered by its own bubble, sharing one collapsed-state shell. Resolution
   is ONE read (`cardResolution.js`): top-level `status` (`done | dismissed | superseded`) is the
   truth, the legacy payload flags a fallback, so a scrolled-back card still reads and a superseded
-  one collapses instead of sitting in the feed as a second live ask. Visibility (`all | admin |
+  one collapses instead of sitting in the feed as a second live ask. A `message_resolved` push patches the open
+  thread in place; the open conversation is recorded the moment it is selected, not in an effect after paint — a
+  push landing while the thread loads was dropped before (2026-10-13). Visibility (`all | admin |
   own`) is filtered on the client from the message's own field.
 - **Cross-tree state** that shares no context goes over `services/event-bus.service.js` (a review
   resolved → the portfolio list refetches its due set; a manual fill confirmed → the ideas list
