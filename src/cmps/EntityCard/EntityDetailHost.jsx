@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router'
 
 import { eventBus, ENTITY_DETAIL_OPEN } from '../../services/event-bus.service'
 import { detailFromSearch, withDetail, withoutDetail } from './entityDetail.js'
+import { closePanel } from '../DetailPanel/detailPanel.store.js'
 import { SetupPage } from '../../pages/SetupPage.jsx'
 import { IdeaPage } from '../../pages/IdeaPage.jsx'
 import { CoveragePage } from '../../pages/CoveragePage.jsx'
@@ -50,10 +51,16 @@ export function EntityDetailHost() {
     const openKey = detail ? `${detail.kind}:${detail.id}` : null
 
     // Registered once — so it reads the LIVE url rather than the one this closure was born with.
+    // Opened from INSIDE a full-screen DetailPanel (a phone: "open" on an events-radar name's setup), the page would
+    // land under the panel, and two history mechanisms would stack two entries (code review 2026-10-13). So the page
+    // takes the panel's place: any open panel closes, and the history entry the panel pushed is REPLACED by this
+    // page's — the panel's cleanup then finds no entry of its own to step back over, and one back closes the page.
     useEffect(() => eventBus.on(ENTITY_DETAIL_OPEN, ({ kind, id } = {}) => {
         if (!PAGES[kind] || !id) return
+        const overPanel = Boolean(window.history.state?.detailPanel)
         pushedRef.current = true
-        navigate(`${window.location.pathname}${withDetail(window.location.search, kind, id)}`)
+        navigate(`${window.location.pathname}${withDetail(window.location.search, kind, id)}`, { replace: overPanel })
+        closePanel()
     }), [navigate])
 
     // Closed by the browser's own back, not by the button: the entry we pushed is gone, so the next

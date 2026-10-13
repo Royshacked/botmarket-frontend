@@ -646,6 +646,19 @@ describe('AetherCandidates recurrence', () => {
         expect(screen.getByTitle(/pulling in opposite directions/)).toBeTruthy()
     })
 
+    it('a chip whose name ranks below its event\'s shortlist opens the event in full, with the name open (code review 2026-10-13)', () => {
+        // Twelve names ahead of NUE in Congo, so it sits past the top ten. It used to open the event at its
+        // shortlist: no row rendered NUE's panel, and it sprang open later, when "N more" was pressed.
+        const ahead = Array.from({ length: 12 }, (_, i) => c2({ ticker: `Z${String(i).padStart(2, '0')}`, rank: 20 - i }))
+        render(<AetherCandidates runs={[
+            r2('a', 'Canada', [c2({ rank: 5, mechanism: 'steel input cost' })]),
+            r2('b', 'Congo', [...ahead, c2({ rank: 9, mechanism: 'cobalt supply' })]),
+        ]} />)
+        fireEvent.click(document.querySelector('.aether-candidates__chip'))
+        expect(screen.getByText('cobalt supply')).toBeTruthy()
+        expect(screen.getByText(`Show the top 10`)).toBeTruthy()
+    })
+
     it('the strip shows twelve and says how many it is not showing', () => {
         // 27 recurring names the day this was built — four rows of chips pushed the events
         // below the fold, which inverts what the strip is for.

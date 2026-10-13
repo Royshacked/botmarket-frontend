@@ -1325,9 +1325,14 @@ export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick
         setOpenRun(id)
         closePanel()
     }
-    // From the strip: the event AND the name's panel, in one press.
+    // From the strip: the event AND the name's panel, in one press. The name may rank below the event's shortlist —
+    // then the event opens showing all its names, or no row would render the panel and it would spring open later,
+    // when "N more" mounted it (code review 2026-10-13). A name the event does not hold opens the event only.
     const openTo = (id, ticker) => {
         setOpenRun(id)
+        const at = (runs.find(r => r.run_id === id)?.candidates ?? []).findIndex(c => c.ticker === ticker)
+        if (at < 0) { closePanel(); return }
+        if (at >= SHORTLIST) setShowAll(cur => ({ ...cur, [id]: true }))
         openPanel(namePanelId(id, ticker))
     }
 
