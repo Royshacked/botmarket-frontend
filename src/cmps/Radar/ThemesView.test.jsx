@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen as rtl, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen as rtl, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import { ADMIN, MEMBER } from '../../testUtils/authStub.js'
 
 // Pythia's themes on the Forecasts board (backend pythia-assessment.md §3): the value chain by order, the
@@ -21,9 +21,10 @@ vi.mock('../../services/strategy/strategy.service.remote.js', () => ({
 }))
 
 import { ThemesView } from './ThemesView.jsx'
+import { closePanel } from '../DetailPanel/detailPanel.store.js'
 import { groupByOrder, linkMoveLine, movedLine } from './assessmentWords.js'
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); AUTH = MEMBER; running.clear() })
+afterEach(() => { cleanup(); vi.clearAllMocks(); AUTH = MEMBER; running.clear(); closePanel() })
 
 const LINKS = [
     { code: '20104010', name: 'Electrical Components & Equipment', order: 2, why: 'transformers and switchgear' },
@@ -60,6 +61,17 @@ describe('ThemesView', () => {
         expect(rtl.getByText(/Named companies: VST/)).toBeTruthy()
         expect(rtl.queryByRole('button', { name: 'Propose themes' })).toBeNull()
         expect(rtl.queryByRole('button', { name: 'Assess now' })).toBeNull()
+    })
+
+    it('a theme opens in the detail panel; the admin buttons work from there', async () => {
+        AUTH = ADMIN
+        render(<ThemesView themes={[PROPOSED]} />)
+        fireEvent.click(rtl.getByRole('button', { name: /GLP-1/ }))
+        const panel = rtl.getByRole('dialog')
+        expect(panel.querySelector('.detail-panel__kicker').textContent).toBe('Forecasts · Themes')
+        expect(panel.querySelector('.detail-panel__title').textContent).toBe('GLP-1')
+        fireEvent.click(within(panel).getByRole('button', { name: 'Approve' }))
+        await waitFor(() => expect(setThemeStatus).toHaveBeenCalledWith('th_glp1', 'approved'))
     })
 
     it('an admin approves a proposal, assesses an approved theme, and asks for proposals', async () => {

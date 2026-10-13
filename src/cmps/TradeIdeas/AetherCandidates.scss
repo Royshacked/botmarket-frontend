@@ -213,20 +213,6 @@
     flex: 0 0 auto;
 }
 
-// The open NAME row pins to the top of the event body while its drawer scrolls — the same
-// mechanic the event row has against the list, one level down. `.floor-sub__body` is the
-// scroll container (overflow-y: auto), and nothing between it and the host sets an overflow,
-// which is the one thing that silently defeats sticky. On the HOST, not the row, for the
-// same reason as the event row: the actions overlay anchors to the host. Above the event
-// row's z-index is not needed — they never share a scroller.
-.aether-candidates__name--open > .floor-rowhost {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background: var(--bg-base);
-    box-shadow: 0 1px 0 var(--border);
-}
-
 // The jump to another event that named the same company. A link in a list item, not a
 // button in a row: it changes which accordion is open, which is navigation, and it should
 // read like it.

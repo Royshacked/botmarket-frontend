@@ -21,10 +21,11 @@ vi.mock('../../services/strategy/strategy.service.remote.js', () => ({
 }))
 
 import { AssessmentView } from './AssessmentView.jsx'
+import { closePanel } from '../DetailPanel/detailPanel.store.js'
 import { IndustryView } from './IndustryView.jsx'
 import { movedLine, moneyLine, flowLines, geoLine, causeWord, groupByVerdict, recordWords, isExpired, ordinal, CAUSE_WORD, weekHeadline, weekResultLine, VERDICT_ORDER, VERDICT_LABEL, verdictKey, linkMoveLine } from './assessmentWords.js'
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); AUTH = MEMBER; running.clear() })
+afterEach(() => { cleanup(); vi.clearAllMocks(); AUTH = MEMBER; running.clear(); closePanel() })
 
 const A = (over = {}) => ({
     id: 'ia_ind_45301020', subject: { kind: 'industry', code: '45301020', name: 'Semiconductors', sector: 'Information Technology' },
@@ -106,6 +107,16 @@ describe('AssessmentView', () => {
         expect(rtl.getByText(/Not part of this verdict: Geopolitics/)).toBeTruthy()
         expect(rtl.getByText(/TSMC cuts guidance/)).toBeTruthy()
         expect(rtl.getByText(/Capex \+50% \(a year earlier \+10%; 71% of companies raised it\)/)).toBeTruthy()
+    })
+
+    it('a row opens in the detail panel, one at a time', () => {
+        render(<AssessmentView data={DATA} />)
+        fireEvent.click(rtl.getAllByRole('button', { name: /Semiconductors/ })[0])
+        expect(rtl.getByRole('dialog').querySelector('.detail-panel__title').textContent).toBe('Semiconductors')
+        expect(rtl.getByRole('dialog').querySelector('.detail-panel__kicker').textContent).toBe('Forecasts · Assessed')
+        fireEvent.click(rtl.getAllByRole('button', { name: /Steel/ })[0])
+        expect(rtl.getAllByRole('dialog')).toHaveLength(1)
+        expect(rtl.getByRole('dialog').querySelector('.detail-panel__title').textContent).toBe('Steel')
     })
 
     it('a trader sees no Assess now; an admin runs one and sees its cost', async () => {

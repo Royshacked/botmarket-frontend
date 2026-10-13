@@ -1,0 +1,180 @@
+// The detail panel (DetailPanel.jsx). Two placements, one look:
+//   docked — over the chat column, which is position:relative (RootCmp.scss) and so anchors it;
+//   page   — full-screen over the app, portalled to <body> (a fixed element under a backdrop-filter
+//            ancestor stops being fixed, which is why it never renders in place).
+
+// The slot generates no box: the docked panel inside it positions against `.workspace__chat`.
+.detail-panel-slot { display: contents; }
+
+.detail-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--bg-base);
+    color: var(--text-primary);
+    outline: none;
+
+    &--docked {
+        position: absolute;
+        inset: 0;
+        // Over the chat's own overlays (the Axl hub's return bar sits at 20), under the social chat
+        // window (600) and every modal.
+        z-index: 30;
+        border-top: 1px solid var(--border);
+        box-shadow: -8px 0 24px rgba(0, 0, 0, 0.18);
+        // From the right: the lists it was opened from are the column to the right.
+        animation: detail-panel-in 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    }
+
+    &--page {
+        position: fixed;
+        inset: 0;
+        // The in-app entity page's layer (EntityDetailHost.scss).
+        z-index: 700;
+        height: 100dvh;
+    }
+
+    &__head {
+        flex-shrink: 0;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 14px 20px 12px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-wash);
+    }
+
+    &__titles {
+        flex: 1 1 auto;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    &__kicker {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+    }
+
+    &__title {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        line-height: 1.3;
+        color: var(--text-primary);
+        overflow-wrap: anywhere;
+    }
+
+    &__meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 10px;
+        font-size: 13px;
+        color: var(--text-secondary);
+    }
+
+    &__actions {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    &__close {
+        flex-shrink: 0;
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: transparent;
+        color: var(--text-secondary);
+        font-size: 14px;
+        cursor: pointer;
+
+        &:hover { background: var(--bg-hover); color: var(--text-primary); }
+        &:focus-visible { outline: 1px solid var(--color-teal); outline-offset: 1px; }
+    }
+
+    &__body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 16px 20px 28px;
+        // A reading measure, not the column's: on a wide screen a thesis at full width is a wall.
+        > * { max-width: 72ch; }
+    }
+}
+
+@keyframes detail-panel-in {
+    from { opacity: 0; transform: translateX(16px); }
+    to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .detail-panel--docked { animation: none; }
+}
+
+@media (max-width: 767px) {
+    .detail-panel__head { padding: 10px 12px; }
+    .detail-panel__body { padding: 12px 14px 24px; }
+}
+
+// ── The row it was opened from ───────────────────────────────────────────────
+// Every opener is a button announcing the dialog it opens (aria-haspopup + aria-expanded), so ONE
+// rule marks the selected row in every list — the list stays in view beside the panel, and this is
+// what says which of its rows the panel is about.
+[aria-haspopup="dialog"][aria-expanded="true"] {
+    background: var(--bg-hover);
+    box-shadow: inset 2px 0 0 var(--color-teal);
+}
+
+// ── The content, at reading size ─────────────────────────────────────────────
+// The bodies are the lists' own markup, drawn for a drawer in a narrow column (10–12.5px). In the
+// panel the same classes read at page size; the drawer's spacing goes with them.
+.detail-panel {
+    .floor-detail,
+    .industry-view__detail {
+        padding: 0;
+        margin: 0;
+        border: 0;
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--text-secondary);
+
+        p { margin: 8px 0; }
+        ul { margin: 6px 0 0; padding-left: 20px; }
+        li + li { margin-top: 4px; }
+    }
+
+    .floor-detail__prose,
+    .industry-view__summary,
+    .industry-view__reading { color: var(--text-primary); }
+
+    .floor-detail__label { font-size: 11px; margin-bottom: 6px; }
+
+    .industry-view__label,
+    .industry-view__answer-q {
+        margin-right: 4px;
+        font-size: 11px;
+    }
+
+    .floor-detail__block,
+    .industry-view__answer,
+    .industry-view__reopen { margin-top: 14px; }
+
+    .floor-detail__foot,
+    .floor-detail__revs,
+    .floor-detail__next,
+    .industry-view__meta,
+    .industry-view__pending { font-size: 12.5px; }
+
+    .fold-section__summary { font-size: 13px; padding-top: 8px; padding-bottom: 8px; }
+}

@@ -1,8 +1,9 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent, cleanup, within } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup, within, act } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { FloorLists } from './FloorLists.jsx'
+import { closePanel } from '../DetailPanel/detailPanel.store.js'
 
 // FloorLists renders CoverageActions, which calls useAuth(); unprovided it is null and the
 // destructure throws the moment the Coverage desk opens. See testUtils/authStub.js.
@@ -15,7 +16,7 @@ vi.mock('../../context/AuthContext.jsx', async (orig) => {
 // reason the column stays readable at four desks, and it is the kind of thing that silently
 // regresses into "all open" the first time someone adds a fifth.
 
-afterEach(() => { cleanup(); vi.restoreAllMocks() })
+afterEach(() => { cleanup(); vi.restoreAllMocks(); closePanel() })
 
 // `call` was the exemplar trade row here until Kairos was archived (2026-08-18). Every case it
 // covered is kind-blind, so `setup` carries them now.
@@ -267,6 +268,46 @@ describe('FloorLists', () => {
         fireEvent.click(screen.getByText('MSFT').closest('button'))
         expect(screen.getByText(/azure carries/i)).toBeTruthy()
         expect(screen.queryByText(/services mix/i)).toBeNull()
+    })
+
+    it('a thesis opens in the detail panel, titled by the name, with the row marked open', () => {
+        const coverage = [{ id: 'cv1', symbol: 'AAPL', status: 'active', rating: 'buy', thesis: 'Services mix re-rates.', kill_criteria: ['services growth under 8%'] }]
+        render(<FloorLists coverage={coverage} />)
+        fireEvent.click(deskBtn('Analyst companies'))
+        const row = screen.getByText('AAPL').closest('button')
+        fireEvent.click(row)
+        const panel = screen.getByRole('dialog')
+        expect(panel.closest('.floor-lists')).toBeNull()
+        expect(panel.querySelector('.detail-panel__kicker').textContent).toBe('Analyst companies')
+        expect(panel.querySelector('.detail-panel__title').textContent).toBe('AAPL')
+        expect(within(panel).getByText('services growth under 8%')).toBeTruthy()
+        expect(row.getAttribute('aria-haspopup')).toBe('dialog')
+        expect(row.getAttribute('aria-expanded')).toBe('true')
+        // The other rows stay in the list — nothing folds for a panel.
+        expect(document.querySelector('.floor-sub--folded')).toBeNull()
+    })
+
+    it('Edit in the panel closes it on the way to Prometheus — the chat it opens is under the panel', () => {
+        const onEditCoverage = vi.fn()
+        const coverage = [{ id: 'cv1', symbol: 'AAPL', status: 'active', thesis: 'Services mix re-rates.' }]
+        render(<FloorLists coverage={coverage} onEditCoverage={onEditCoverage} />)
+        fireEvent.click(deskBtn('Analyst companies'))
+        fireEvent.click(screen.getByText('AAPL').closest('button'))
+        fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Edit' }))
+        expect(onEditCoverage).toHaveBeenCalledWith(coverage[0])
+        expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it('closing the desk closes the thesis panel with it', async () => {
+        const coverage = [{ id: 'cv1', symbol: 'AAPL', status: 'active', thesis: 'Services mix re-rates.' }]
+        render(<FloorLists coverage={coverage} />)
+        fireEvent.click(deskBtn('Analyst companies'))
+        fireEvent.click(screen.getByText('AAPL').closest('button'))
+        fireEvent.click(deskBtn('Analyst companies'))
+        await act(() => new Promise(r => setTimeout(r, 0)))
+        expect(screen.queryByRole('dialog')).toBeNull()
+        fireEvent.click(deskBtn('Analyst companies'))
+        expect(screen.queryByRole('dialog')).toBeNull()
     })
 
     // A chevron that opens an empty box is worse than no chevron.

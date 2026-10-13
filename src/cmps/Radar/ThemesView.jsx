@@ -3,6 +3,8 @@ import PropTypes from 'prop-types'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { strategyService } from '../../services/strategy/strategy.service.remote.js'
 import { useStrategyRun } from '../../customHooks/useStrategyRun.js'
+import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
+import { useDetailPanel } from '../DetailPanel/detailPanel.store.js'
 import { verdictKey, VERDICT_LABEL, causeWord, ORDER_LABEL, linkMoveLine, groupByOrder } from './assessmentWords.js'
 
 // Pythia's THEMES — "Themes" on the Forecasts tab (backend docs/design/pythia-assessment.md §3, step 3).
@@ -12,7 +14,9 @@ import { verdictKey, VERDICT_LABEL, causeWord, ORDER_LABEL, linkMoveLine, groupB
 // an admin also sees the proposals waiting and approves, retires, asks for proposals and assesses.
 
 function ThemeRow({ theme, isAdmin }) {
-    const [open, setOpen] = useState(false)
+    // The detail opens in the DetailPanel over the chat column (one panel across the app — see its store).
+    const panel = useDetailPanel(`theme:${theme.id}`)
+    const open = panel.isOpen
     const [busy, setBusy] = useState(null)
     const [note, setNote] = useState(null)
     const a = theme.assessment
@@ -34,8 +38,8 @@ function ThemeRow({ theme, isAdmin }) {
         }
     }
     return (
-        <div className={`industry-view__row${open ? ' industry-view__row--open' : ''}`}>
-            <button type="button" className="industry-view__line" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        <div className="industry-view__row">
+            <button type="button" className="industry-view__line" onClick={panel.toggle} aria-haspopup="dialog" aria-expanded={open}>
                 <span className="industry-view__head">
                     <span className="industry-view__name" title={theme.name}>
                         {theme.name}
@@ -49,7 +53,7 @@ function ThemeRow({ theme, isAdmin }) {
                     <span className="screen-view__horizon">{(theme.links ?? []).length} links</span>
                 </span>
             </button>
-            {open && (
+            <DetailPanel id={`theme:${theme.id}`} kicker="Forecasts · Themes" title={theme.name} meta={<>{a && <span className={`assessment-view__verdict assessment-view__verdict--${verdictKey(a.verdict)}`}>{VERDICT_LABEL[a.verdict] ?? a.verdict}</span>}{theme.status !== 'approved' && <span>{theme.status}</span>}<span>{(theme.links ?? []).length} links</span></>}>
                 <div className="industry-view__detail">
                     <p className="industry-view__summary">{theme.thesis}</p>
                     {a && (
@@ -86,7 +90,7 @@ function ThemeRow({ theme, isAdmin }) {
                         </div>
                     )}
                 </div>
-            )}
+            </DetailPanel>
         </div>
     )
 }

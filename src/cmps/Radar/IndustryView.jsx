@@ -3,6 +3,8 @@ import PropTypes from 'prop-types'
 import { gradeFor, conclusionFor } from './industryGrade.js'
 import { AssessmentView } from './AssessmentView.jsx'
 import { ThemesView } from './ThemesView.jsx'
+import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
+import { useDetailPanel } from '../DetailPanel/detailPanel.store.js'
 import './IndustryView.scss'
 
 // Pythia's industry views — the Forecasts tab since 2026-10-05 (backend
@@ -35,13 +37,15 @@ function GradeChip({ g, label }) {
 GradeChip.propTypes = { g: PropTypes.object.isRequired, label: PropTypes.string.isRequired }
 
 function IndustryRow({ row }) {
-    const [open, setOpen] = useState(false)
+    // The detail opens in the DetailPanel over the chat column (one panel across the app — see its store).
+    const panel = useDetailPanel(`industry:${row.code ?? row.name}`)
+    const open = panel.isOpen
     const via = row.answered_at && row.answered_at.level !== 'sub_industry' ? row.answered_at.name : null
     const v = row.view
     const conclusion = conclusionFor(row)
     return (
-        <div className={`industry-view__row${open ? ' industry-view__row--open' : ''}`}>
-            <button type="button" className="industry-view__line" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        <div className="industry-view__row">
+            <button type="button" className="industry-view__line" onClick={panel.toggle} aria-haspopup="dialog" aria-expanded={open}>
                 <span className="industry-view__head">
                     <span className="industry-view__name" title={row.name}>
                         {row.name}
@@ -56,7 +60,7 @@ function IndustryRow({ row }) {
                     <span className="industry-view__trigger" title={row.triggers.map(t => TRIGGER_LABEL[t] ?? t).join('; ')}>!</span>
                 )}
             </button>
-            {open && (
+            <DetailPanel id={`industry:${row.code ?? row.name}`} kicker="Forecasts · Structure" title={row.name} meta={<>{QUESTIONS.map(([q, label]) => <span key={q}>{label} <GradeChip g={gradeFor(row, q)} label={label} /></span>)}</>}>
                 <div className="industry-view__detail">
                     {conclusion?.reading && <p className="industry-view__reading">{conclusion.reading}</p>}
                     {v?.status === 'answered' ? (
@@ -93,7 +97,7 @@ function IndustryRow({ row }) {
                         <p className="industry-view__meta">Early-review triggers: {row.triggers.map(t => TRIGGER_LABEL[t] ?? t).join('; ')}.</p>
                     )}
                 </div>
-            )}
+            </DetailPanel>
         </div>
     )
 }

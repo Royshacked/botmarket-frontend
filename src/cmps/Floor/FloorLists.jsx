@@ -16,6 +16,8 @@ import { nextRevision, NEXT_REVISION_HINT } from '../Radar/coverage.utils.js'
 import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
 import { CalendarRows } from './CalendarRows.jsx'
 import { IndustryView } from '../Radar/IndustryView.jsx'
+import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
+import { useActivePanel, togglePanel, closePanel } from '../DetailPanel/detailPanel.store.js'
 
 import './Floor.scss'
 import { AetherCandidates } from '../TradeIdeas/AetherCandidates.jsx'
@@ -557,52 +559,68 @@ const asList = (v) => (Array.isArray(v) ? v : [])
 const catalystText = (k) => (typeof k === 'string' ? k : `${k?.date ? `${k.date}: ` : ''}${k?.note ?? ''}`)
 const killText     = (k) => (typeof k === 'string' ? k : JSON.stringify(k))
 
+// The thesis opens in the DetailPanel (over the chat column), not as a drawer in this column — a
+// page of reading did not fit a 27%-wide list at 12px. The list stays as it is beside the panel, the
+// row marked as the one open; nothing folds, since there is no drawer to give the height to.
 function CoverageRows({ coverage, onEditCoverage, onRetireCoverage, onDeleteCoverage, onSymbolClick }) {
-    const [openKey, setOpenKey] = useState(null)
+    const activeId = useActivePanel()
     if (!coverage.length) return <Empty>No coverage yet.</Empty>
 
-    const toggle = id => setOpenKey(cur => cur === id ? null : id)
+    // Edit opens Prometheus IN the chat column — the one a panel covers — so it closes whichever
+    // panel is open on its way there, from the panel's header and from a row's hover actions alike.
+    const editCoverage = onEditCoverage && (cov => { closePanel(); onEditCoverage(cov) })
 
     return coverage.map(c => {
         const key   = c.id ?? c.symbol
+        const panelId = `coverage:${key}`
         const kills = asList(c.kill_criteria)
         const cats  = asList(c.catalysts)
         const revs  = asList(c.revisions)
         const next  = nextRevision(c)
-        // Nothing to open → no chevron. A control that expands to an empty box is worse than none.
-        // The re-model schedule counts as content: on a bare thesis it is all the drawer holds.
+        // Nothing to open → no chevron. A control that opens an empty panel is worse than none.
+        // The re-model schedule counts as content: on a bare thesis it is all the panel holds.
         const hasDetail = !!(c.thesis || kills.length || cats.length || revs.length || next)
-        const isOpen   = hasDetail && openKey === key
-        const isFolded = openKey !== null && openKey !== key
+        const isOpen   = hasDetail && activeId === panelId
+        const rating   = c.rating && <span className={`floor-row__rating floor-row__rating--${c.rating}`}>{RATING_LABEL[c.rating] ?? c.rating}</span>
+        const status   = <span className={`floor-row__status floor-row__status--${c.status}`}>{c.status}</span>
 
         return (
-            <div key={key} className={`floor-sub${isOpen ? ' floor-sub--open' : isFolded ? ' floor-sub--folded' : ''}`}>
-                <RowHost actions={<CoverageActions coverage={c} onEdit={onEditCoverage} onRetire={onRetireCoverage} onDelete={onDeleteCoverage} />}>
+            <div key={key} className="floor-sub">
+                <RowHost actions={<CoverageActions coverage={c} onEdit={editCoverage} onRetire={onRetireCoverage} onDelete={onDeleteCoverage} />}>
                     {/* Collapsed, this is ONE line — see .floor-row in Floor.scss. The cells are
                         multi-word ("strong buy", "thesis broken", a target with its horizon), and a
                         flex item is free to wrap at those spaces when the column is narrow, which
                         broke the row onto a second line the fixed row height then clipped. */}
                     <button
                         className={`floor-row${hasDetail ? '' : ' floor-row--static'}`}
-                        onClick={hasDetail ? () => toggle(key) : undefined}
+                        onClick={hasDetail ? () => togglePanel(panelId) : undefined}
+                        aria-haspopup={hasDetail ? 'dialog' : undefined}
                         aria-expanded={hasDetail ? isOpen : undefined}
-                        title={hasDetail ? (isOpen ? 'Hide thesis' : 'Show thesis') : undefined}
+                        title={hasDetail ? (isOpen ? 'Close thesis' : 'Read thesis') : undefined}
                     >
+                        {/* Points right and stays that way: it opens a panel to the side, not a
+                            drawer below, so there is no "open" rotation to show. */}
                         {hasDetail && (
-                            <svg className={`floor-row__chev${isOpen ? ' floor-row__chev--open' : ''}`} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                            <svg className="floor-row__chev" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                                 <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                         )}
                         <SymbolCell className="floor-row__sym" symbol={c.symbol} onSymbolClick={onSymbolClick} />
-                        {c.rating && <span className={`floor-row__rating floor-row__rating--${c.rating}`}>{RATING_LABEL[c.rating] ?? c.rating}</span>}
+                        {rating}
                         {/* No "PT" label — this column already reads as the target on a coverage row. */}
                         <PriceTarget priceTarget={c.price_target} gap={c.gap} label={null} />
-                        <span className={`floor-row__status floor-row__status--${c.status}`}>{c.status}</span>
+                        {status}
                     </button>
                 </RowHost>
 
-                {isOpen && (
-                    <div className="floor-sub__body">
+                {hasDetail && (
+                    <DetailPanel
+                        id={panelId}
+                        kicker="Analyst companies"
+                        title={c.symbol}
+                        meta={<>{rating}<PriceTarget priceTarget={c.price_target} gap={c.gap} />{status}</>}
+                        actions={<CoverageActions coverage={c} onEdit={editCoverage} onRetire={onRetireCoverage} onDelete={onDeleteCoverage} />}
+                    >
                         <div className="floor-detail">
                             {c.thesis && <p className="floor-detail__prose">{c.thesis}</p>}
                             {kills.length > 0 && (
@@ -631,7 +649,7 @@ function CoverageRows({ coverage, onEditCoverage, onRetireCoverage, onDeleteCove
                                 </div>
                             )}
                         </div>
-                    </div>
+                    </DetailPanel>
                 )}
             </div>
         )

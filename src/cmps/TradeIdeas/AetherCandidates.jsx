@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { aetherService } from '../../services/aether/aether.service.remote.js'
@@ -7,6 +7,8 @@ import { DISCOVERY_EVENT } from '../../customHooks/useAetherCandidates.js'
 import { apiError } from '../../services/http.service.js'
 import { RowHost } from '../Floor/RowHost.jsx'
 import { FoldSection } from '../FoldSection.jsx'
+import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
+import { useActivePanel, openPanel, closePanel, togglePanel } from '../DetailPanel/detailPanel.store.js'
 import { SymbolCell } from '../EntityCard/EntityCard.jsx'
 import { fmtShortDay } from '../Floor/floor.utils.js'
 import { readStoredModel } from '../modelOptions.js'
@@ -997,7 +999,7 @@ Section.propTypes = { tone: PropTypes.string }
  * jump opens the OTHER event, which is the one place the event-first list has to be able
  * to cross from one event to another.
  */
-function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTradeWithMentor, setup, onOpenSetup, onRead }) {
+function NameRow({ c, run, recur, panelId, isOpen, onToggle, onJump, onSymbolClick, onTradeWithMentor, setup, onOpenSetup, onRead }) {
     const runId = run.run_id
     // A read produced on this screen. It goes UP to the list's owner (`onRead`, the hook in
     // MainPage) so it outlives this row — the list is fetched once a session, and a read held
@@ -1014,22 +1016,6 @@ function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTra
     const read = c.quick_read ?? localRead
     const cRead = read ? { ...c, quick_read: read } : c
 
-    // TO THE TOP WHEN OPENED, and pinned there (the scss). The drawer under a name runs past a
-    // screen — mechanism, press, filing, the read, the move, the hand-off — and the row naming the
-    // company you are reading about is the first thing to scroll away. Same mechanic as the event
-    // row above it, one level down: the body is the scroll container, the row sticks to its top.
-    //
-    // THE BODY ONLY, not scrollIntoView. That scrolls every scrollable ancestor, and the list
-    // itself is one: it carried the name to the top of the LIST and pushed the event row — the
-    // pinned one — off the top of the screen. The body is the one scroller this row lives in.
-    const hostRef = useRef(null)
-    useEffect(() => {
-        if (!isOpen) return
-        const host = hostRef.current
-        const body = host?.closest('.floor-sub__body')
-        if (!host || !body) return
-        body.scrollTop += host.getBoundingClientRect().top - body.getBoundingClientRect().top
-    }, [isOpen])
     const dir = SIDE[c.side]?.dir ?? 'mixed'
     const urg = urgencyOf(c)
     // The status word carries the move when there is one to carry: a moved name says how far
@@ -1045,15 +1031,18 @@ function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTra
     const trade = tradable(c)
 
     return (
-        <div ref={hostRef} className={`aether-candidates__name${isOpen ? ' aether-candidates__name--open' : ''}`}>
+        <div className="aether-candidates__name">
             <RowHost>
                 <button
                     className="floor-row floor-row--sub"
                     onClick={onToggle}
+                    aria-haspopup="dialog"
                     aria-expanded={isOpen}
-                    title={isOpen ? 'Hide the evidence' : 'Show why this name is here'}
+                    title={isOpen ? 'Close the evidence' : 'Show why this name is here'}
                 >
-                    <svg className={`floor-row__chev${isOpen ? ' floor-row__chev--open' : ''}`}
+                    {/* Points right and stays: the evidence opens in the DetailPanel beside the
+                        list, not in a drawer under the row. */}
+                    <svg className="floor-row__chev"
                          viewBox="0 0 16 16" fill="none" aria-hidden="true">
                         <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5"
                               strokeLinecap="round" strokeLinejoin="round"/>
@@ -1104,7 +1093,24 @@ function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTra
                 </button>
             </RowHost>
 
-            {isOpen && (
+            {/* The evidence, in the DetailPanel over the chat column (it ran past a screen in
+                this column's drawer). Rendered HERE, by the row, so the read in flight, the
+                trade button and the jumps below keep the row's state and handlers. */}
+            <DetailPanel
+                id={panelId}
+                kicker={`Events radar · ${run.subject || run.event || run.run_id}`}
+                title={c.name ? `${c.ticker} · ${c.name}` : c.ticker}
+                meta={<>
+                    <span className={`floor-row__dir floor-row__dir--${dir}`} aria-hidden="true">
+                        {dir === 'short' ? '▾' : dir === 'long' ? '▴' : '±'}
+                    </span>
+                    <span title={hz.hint}>{hz.label}</span>
+                    <span title={mag.hint}>{mag.label}</span>
+                    <span className={`floor-row__status floor-row__status--${urg.key}${statusMod}`} title={statusHint}>
+                        {statusLabel}
+                    </span>
+                </>}
+            >
                 <div className="floor-detail">
                     <div className="floor-detail__block">
                         {/* THE CONCLUSION FIRST. The drawer below is a screen of evidence, and the
@@ -1257,7 +1263,7 @@ function NameRow({ c, run, recur, isOpen, onToggle, onJump, onSymbolClick, onTra
                         )}
                     </div>
                 </div>
-            )}
+            </DetailPanel>
         </div>
     )
 }
@@ -1266,6 +1272,9 @@ NameRow.propTypes = {
     c: PropTypes.object.isRequired,
     run: PropTypes.object.isRequired,
     recur: PropTypes.object,
+    // The DetailPanel store key — `aether:<run>|<ticker>`, so the same company under two events
+    // is two panels and a jump never lands on one already open.
+    panelId: PropTypes.string.isRequired,
     isOpen: PropTypes.bool,
     onToggle: PropTypes.func.isRequired,
     onJump: PropTypes.func.isRequired,
@@ -1289,14 +1298,17 @@ function evidenceCell(run) {
     }
 }
 
+const namePanelId = (runId, ticker) => `aether:${runId}|${ticker}`
+
 export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick, onTradeWithMentor, setups = [], onOpenSetup = openSetupPopup, onRead, onScanWithArgus, scanBusy = false }) {
     // ONE EVENT OPEN AT A TIME, and folded siblings collapse to nothing. Not a preference —
     // it is the mechanic every other list in this column uses (3bbfa59), and a list that
     // expands differently from the four above it reads as a different kind of thing.
     const [openRun, setOpenRun] = useState(null)
-    // One NAME open inside it, keyed by run and ticker so a jump to another event never
-    // arrives with a drawer already open on the same ticker there.
-    const [openName, setOpenName] = useState(null)
+    // One NAME open inside it — in the DetailPanel, whose store holds which (one panel across the
+    // app). Keyed by run and ticker so a jump to another event never arrives with a panel already
+    // open on the same ticker there.
+    const activePanelId = useActivePanel()
     // Which events have shown past their shortlist. Per event, because "33 more" is a
     // statement about one run's ranks, not about the screen.
     const [showAll, setShowAll] = useState({})
@@ -1306,18 +1318,17 @@ export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick
 
     const toggleRun = id => {
         setOpenRun(cur => (cur === id ? null : id))
-        setOpenName(null)
+        closePanel()
     }
     const jumpTo = id => {
         setOpenRun(id)
-        setOpenName(null)
+        closePanel()
     }
-    // From the strip: the event AND the name's drawer in it, in one press.
+    // From the strip: the event AND the name's panel, in one press.
     const openTo = (id, ticker) => {
         setOpenRun(id)
-        setOpenName(`${id}|${ticker}`)
+        openPanel(namePanelId(id, ticker))
     }
-    const toggleName = key => setOpenName(cur => (cur === key ? null : key))
 
     if (loading) return <p className="floor-empty">Loading…</p>
 
@@ -1461,15 +1472,16 @@ export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick
                                 )}
 
                                 {shown.map(c => {
-                                    const key = `${run.run_id}|${c.ticker}`
+                                    const panelId = namePanelId(run.run_id, c.ticker)
                                     return (
                                         <NameRow
-                                            key={key}
+                                            key={panelId}
                                             c={c}
                                             run={run}
                                             recur={recurByTicker.get(c.ticker)}
-                                            isOpen={openName === key}
-                                            onToggle={() => toggleName(key)}
+                                            panelId={panelId}
+                                            isOpen={activePanelId === panelId}
+                                            onToggle={() => togglePanel(panelId)}
                                             onJump={jumpTo}
                                             onSymbolClick={onSymbolClick}
                                             onTradeWithMentor={onTradeWithMentor}

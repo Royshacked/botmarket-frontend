@@ -1,9 +1,11 @@
 import { describe, it, expect, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import { IndustryView } from './IndustryView.jsx'
+import { closePanel } from '../DetailPanel/detailPanel.store.js'
 import { gradeFor, conclusionFor } from './industryGrade.js'
 
-afterEach(cleanup)
+// The open panel lives in a module store, which outlives a test's render.
+afterEach(() => { cleanup(); closePanel() })
 
 // The board opens on Assessed (step 6, 2026-10-11); these read the Structure tab.
 function structure(ui) {
@@ -76,6 +78,18 @@ describe('IndustryView', () => {
         fireEvent.click(screen.getByText('Answered One'))
         expect(screen.getByText(/the house departs: Margin floor moved/)).toBeTruthy()
         expect(screen.getByText(/next review 2027-01-05/)).toBeTruthy()
+    })
+
+    it('an industry opens in the detail panel, and leaving the tab closes it', async () => {
+        structure(<IndustryView industries={[measured({ view: answered })]} />)
+        fireEvent.click(screen.getByRole('button', { name: /Semiconductors/ }))
+        const panel = screen.getByRole('dialog')
+        expect(panel.querySelector('.detail-panel__kicker').textContent).toBe('Forecasts · Structure')
+        expect(panel.querySelector('.detail-panel__title').textContent).toBe('Semiconductors')
+        expect(panel.textContent).toMatch(/Margin floor moved/)
+        fireEvent.click(screen.getByRole('tab', { name: 'Themes' }))
+        await act(() => new Promise(r => setTimeout(r, 0)))
+        expect(screen.queryByRole('dialog')).toBeNull()
     })
 
     it('says when a sub-industry is measured at its parent, and flags a trigger', () => {

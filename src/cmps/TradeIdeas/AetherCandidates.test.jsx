@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { AetherCandidates, urgencyOf, moveOf, sizingOf, byTicker, recurring, lastEventDate, tradable, buildAetherSeed, scorecardLine, existingSetupFor, conclusionOf } from './AetherCandidates.jsx'
 import { ADMIN, MEMBER } from '../../testUtils/authStub.js'
+import { closePanel } from '../DetailPanel/detailPanel.store.js'
 
 // Discovery is the one leg of the engine that spends per press — an Opus call with web
 // search for each event it selects, plus several hundred SEC requests — so it is off the
@@ -45,6 +46,7 @@ const DISCOVERY = 'aether:discovery'
 
 afterEach(() => {
     cleanup()
+    closePanel()
     for (const k of Object.keys(listeners)) delete listeners[k]
     startDiscovery.mockReset()
     getDiscoveryStatus.mockReset()
@@ -1705,20 +1707,43 @@ describe('AetherCandidates — the open thing goes to the top and stays there', 
         await waitFor(() => expect(screen.getByText(/3 pending/)).toBeTruthy())
     })
 
-    it('opening a name scrolls the EVENT BODY so the row is at its top — and nothing else', () => {
-        // scrollIntoView would also scroll the list, carrying the pinned event row off the screen.
+    it('a name opens in the detail panel, not under its row — the list does not move', () => {
+        // The drawer ran past a screen in a 27%-wide column; it is a page now (DetailPanel), and the
+        // list it was opened from stays exactly where it was, the row marked as the one open.
         render(<AetherCandidates runs={[RUN]} />)
         openEvent()
         const body = document.querySelector('.floor-sub__body')
-        const host = document.querySelector('.aether-candidates__name')
-        body.getBoundingClientRect = () => ({ top: 100 })
-        host.getBoundingClientRect = () => ({ top: 340 })
         body.scrollTop = 50
-        const outer = document.querySelector('.aether-candidates')
-        outer.scrollTop = 0
         openName()
-        expect(body.scrollTop).toBe(290)
-        expect(outer.scrollTop).toBe(0)
+        expect(body.scrollTop).toBe(50)
+        const panel = document.querySelector('.detail-panel')
+        expect(panel).toBeTruthy()
+        expect(panel.closest('.aether-candidates')).toBeNull()
+        expect(within(panel).getAllByText('quantified').length).toBeGreaterThan(0)
+        const row = within(body).getByText('NUE').closest('button')
+        expect(row.getAttribute('aria-haspopup')).toBe('dialog')
+        expect(row.getAttribute('aria-expanded')).toBe('true')
+        // The same row closes it.
+        fireEvent.click(row)
+        expect(document.querySelector('.detail-panel')).toBeNull()
+    })
+
+    it('the panel is titled by the name and kicked by the event it came from', () => {
+        render(<AetherCandidates runs={[{ ...RUN, candidates: [{ ...RUN.candidates[0], name: 'Nucor' }] }]} />)
+        openEvent()
+        openName()
+        const panel = document.querySelector('.detail-panel')
+        expect(panel.querySelector('.detail-panel__title').textContent).toBe('NUE · Nucor')
+        expect(panel.querySelector('.detail-panel__kicker').textContent).toBe('Events radar · Canada')
+    })
+
+    it('closing the event closes the name panel with it', () => {
+        render(<AetherCandidates runs={[RUN]} />)
+        openEvent()
+        openName()
+        expect(document.querySelector('.detail-panel')).toBeTruthy()
+        openEvent()   // toggles it closed
+        expect(document.querySelector('.detail-panel')).toBeNull()
     })
 
     it('a name opened with no scrollable body around it still opens', () => {
@@ -1728,14 +1753,6 @@ describe('AetherCandidates — the open thing goes to the top and stays there', 
         expect(screen.getAllByText('quantified').length).toBeGreaterThan(0)
     })
 
-    it('the open name row pins to the top of the event body', () => {
-        const css = readFileSync(resolve(process.cwd(), 'src/cmps/TradeIdeas/AetherCandidates.scss'), 'utf8')
-        const pinned = css.slice(css.indexOf('.aether-candidates__name--open > .floor-rowhost'))
-        expect(pinned.slice(0, 300)).toMatch(/position:\s*sticky/)
-        expect(pinned.slice(0, 300)).toMatch(/top:\s*0/)
-        expect(pinned.slice(0, 400)).toMatch(/background:\s*var\(--bg-base\)/)
-    })
-
     it('the open event shrinks to the column, so its body is the scroller both pins live in', () => {
         // A flex item's min-height is its content unless told otherwise: the open event grew to
         // its drawers, the body never overflowed, the LIST scrolled instead and carried the pinned
@@ -1743,15 +1760,6 @@ describe('AetherCandidates — the open thing goes to the top and stays there', 
         const css = readFileSync(resolve(process.cwd(), 'src/cmps/TradeIdeas/AetherCandidates.scss'), 'utf8')
         expect(css).toMatch(/\.aether-candidates \.floor-sub--open \{ min-height: 0; \}/)
         expect(css).toMatch(/\.aether-candidates:has\(\.floor-sub--open\) \{ overflow-y: hidden; \}/)
-    })
-
-    it('nothing between the pinned name row and its scroller clips it', () => {
-        // `overflow: hidden` on ANY ancestor silently defeats position: sticky. The body scrolls;
-        // the name wrapper between them must set no overflow of its own.
-        const css = readFileSync(resolve(process.cwd(), 'src/cmps/TradeIdeas/AetherCandidates.scss'), 'utf8')
-        const wrapper = css.slice(css.indexOf('.aether-candidates__name {'), css.indexOf('.aether-candidates__name--open'))
-            .replace(/\/\/.*$/gm, '')   // the rule, not the comment explaining it
-        expect(wrapper).not.toMatch(/overflow/)
     })
 })
 

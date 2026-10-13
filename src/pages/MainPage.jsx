@@ -68,6 +68,8 @@ import { useAuth }           from '../context/AuthContext.jsx'
 import { nextResetKeys }     from './deskReset.js'
 import { coverageRoute }     from './coverageRoute.js'
 import { isHandheld }        from '../cmps/EntityCard/entityPopup.js'
+import { DetailPanelSlot }   from '../cmps/DetailPanel/DetailPanel.jsx'
+import { closePanel }        from '../cmps/DetailPanel/detailPanel.store.js'
 
 // Maps activeTab → the step name used in DESKS.steps[] for pipeline highlighting.
 const TAB_TO_STEP = {
@@ -2204,8 +2206,15 @@ export function MainPage() {
     // Shared calendar → Mentor handoff: open the setup desk with the catalyst already said, and put
     // the ticker on the chart so the conversation and the chart open on the same name. The message
     // rides in keyed (see MentorPanel's `seed`) so one click sends one turn.
+    // A hand-off INTO the chat closes the detail panel docked over it — the desk the user was sent
+    // to must not open underneath the thing they sent themselves from (Trade with Mentor from an
+    // events-radar name, Edit on a coverage thesis, any Axl route). seedMentorChat closes it too: a
+    // seed into the desk that is already showing changes no tab.
+    useEffect(() => { closePanel() }, [activeTab])
+
     function seedMentorChat(symbol, message) {
         if (!symbol) return
+        closePanel()
         setMentorSeed({ key: Date.now(), message })
         setActiveTab('mentor')
         openChart({ ticker: symbol, source: 'mentor' })
@@ -3075,6 +3084,9 @@ export function MainPage() {
                         </div>
                     )}
                     <div className="workspace__chat">
+                        {/* Where a list row's detail docks on desktop (DetailPanel) — over the chat,
+                            the widest column, with the chat still mounted underneath. */}
+                        <DetailPanelSlot />
                         {activeTab === 'axl' ? (
                             <AxlHub
                                 user={user}

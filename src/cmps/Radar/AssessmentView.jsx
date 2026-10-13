@@ -3,6 +3,8 @@ import PropTypes from 'prop-types'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { strategyService } from '../../services/strategy/strategy.service.remote.js'
 import { useStrategyRun } from '../../customHooks/useStrategyRun.js'
+import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
+import { useDetailPanel } from '../DetailPanel/detailPanel.store.js'
 import { verdictKey, VERDICT_LABEL, INPUT_LABEL, causeWord, REGIME_WORD, movedLine, moneyLine, flowLines, geoLine, groupByVerdict, recordWords, isExpired, weekHeadline, weekResultLine } from './assessmentWords.js'
 
 // Pythia's assessments — "Assessed" on the Forecasts tab (backend docs/design/pythia-assessment.md, build
@@ -14,7 +16,9 @@ import { verdictKey, VERDICT_LABEL, INPUT_LABEL, causeWord, REGIME_WORD, movedLi
 const _date = (iso) => (iso ? String(iso).slice(0, 10) : '—')
 
 function AssessmentRow({ row }) {
-    const [open, setOpen] = useState(false)
+    // The detail opens in the DetailPanel over the chat column (one panel across the app — see its store).
+    const panel = useDetailPanel(`assessment:${row.id ?? s.code ?? s.name}`)
+    const open = panel.isOpen
     const s = row.subject ?? {}
     const moved = movedLine(row.moved, s.name)
     const money = moneyLine(row.money)
@@ -22,8 +26,8 @@ function AssessmentRow({ row }) {
     const geo = geoLine(row.geopolitics)
     const expired = isExpired(row)
     return (
-        <div className={`industry-view__row${open ? ' industry-view__row--open' : ''}`}>
-            <button type="button" className="industry-view__line" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        <div className="industry-view__row">
+            <button type="button" className="industry-view__line" onClick={panel.toggle} aria-haspopup="dialog" aria-expanded={open}>
                 <span className="industry-view__head">
                     <span className="industry-view__name" title={s.name}>
                         {s.name}
@@ -41,7 +45,7 @@ function AssessmentRow({ row }) {
                     <span className="screen-view__horizon">{row.verdict === 'watch' && row.decides_by ? `decides by ${row.decides_by}` : row.horizon}</span>
                 </span>
             </button>
-            {open && (
+            <DetailPanel id={`assessment:${row.id ?? s.code ?? s.name}`} kicker="Forecasts · Assessed" title={s.name} meta={<><span className={`assessment-view__verdict assessment-view__verdict--${verdictKey(row.verdict)}`}>{VERDICT_LABEL[row.verdict] ?? row.verdict}</span><span>{row.verdict === 'watch' && row.decides_by ? `decides by ${row.decides_by}` : row.horizon}</span>{expired && <span className="assessment-view__stale">stale</span>}</>}>
                 <div className="industry-view__detail">
                     <p className="industry-view__summary">{row.thesis}</p>
                     {row.verdict === 'watch' && row.question && (
@@ -100,7 +104,7 @@ function AssessmentRow({ row }) {
                         Confidence {row.confidence}{row.confidence_reason ? ` — ${row.confidence_reason}` : ''} · assessed {_date(row.assessed_at)} · reassess by {_date(row.expires_at)}
                     </p>
                 </div>
-            )}
+            </DetailPanel>
         </div>
     )
 }
