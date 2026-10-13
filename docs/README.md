@@ -7,7 +7,7 @@ this side of the wire.
 
 | Doc | Covers |
 |---|---|
-| [architecture.md](./architecture.md) | How the app is wired: MainPage as the conductor, the three columns, what every desk panel is made of, the three doorways and the one reopen rule, the entity mirror, the workspace, real-time and cards, pop-outs, threads |
+| [architecture.md](./architecture.md) | How the app is wired: MainPage as the conductor, the three columns, what every desk panel is made of, the three doorways and the one reopen rule, the entity mirror, the workspace, real-time and cards, pop-outs, the detail panel a list row's reading opens in, threads |
 | [hand-offs.md](./hand-offs.md) | **The conveyor between desks.** Artifacts keyed by kind, per-desk contracts, the hop that decides who comes next, the doors and why `clear` exists, what waits at each desk, and what does NOT travel this way |
 | `../archive/README.md` | The frozen Kairos UI — imported by nothing |
 

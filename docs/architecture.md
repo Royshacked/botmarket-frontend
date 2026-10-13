@@ -18,6 +18,8 @@ waiting at each desk) and hands each surface its slice. Three columns:
 │ positions +      │ │     (Mentor · Atlas · Argus ·           │ │ open one takes the column: │
 │ ideas, one line  │ │      Prometheus · Pythia · Aether)      │ │ setups · ideas · scans ·   │
 │ each             │ │   + PipelineCrumb, AgentSummon          │ │ calendar, Radar            │
+│                  │ │   + DetailPanelSlot (a row's detail     │ │                            │
+│                  │ │     docks HERE, over the chat)          │ │                            │
 └──────────────────┘ └─────────────────────────────────────────┘ └────────────────────────────┘
 ```
 
@@ -153,6 +155,38 @@ The pages take two props for it — `entityId` (a window reads its own `/setup/:
 is no path to read) and `onClose` (a window closes itself; in the app it is a history step back) —
 and in place the re-draw ask needs no bridge at all: the page emits the same event on the app's own
 bus that `popupBridge` re-emits it on, so MainPage's one handler takes both.
+
+**The detail panel (2026-10-13).** Not every row has an entity page behind it. A coverage thesis, an
+events-radar name (its evidence, Prometheus's quick read, the hand-off to Mentor) and Pythia's rows
+(Assessed, Themes, Structure) are a page of reading, and they used to open as drawers inside the
+lists column, at 10–12.5px, in a column 27% wide. They open in `cmps/DetailPanel/` now:
+
+- **Where it lands.** On desktop, over the CHAT column: `DetailPanelSlot`, mounted once inside
+  `.workspace__chat` (in both layouts), is the dock, and the panel is absolute over it. It is not
+  a modal: the book and the lists stay live beside it, and the chat underneath stays MOUNTED, so a
+  stream mid-turn is still there when the panel closes. On a handheld (`isHandheld`), or with no slot
+  mounted, it is a full-screen page portalled to `<body>`, and a history entry on the same URL makes
+  the back gesture close it, as with `EntityDetailHost`.
+- **A portal, not a hand-off.** The row that owns the item renders `<DetailPanel id=…>` and its
+  content; the panel only decides where that renders. So everything inside keeps the row's state and
+  handlers: the quick read in flight, Trade with Mentor, the jumps between events, the theme admin
+  buttons. That is why it is never a pop-out window: a window is a second copy of the app with none
+  of that wired (the setup pop-out needs `popupBridge` for its ONE action back).
+- **One open, across the app.** `detailPanel.store.js` holds the open id (`coverage:<id>`,
+  `aether:<run>|<ticker>`, `industry:<code>`, `assessment:<id>`, `theme:<id>`); opening one closes
+  the other. A panel closes with its row (desk closed, event collapsed, tab left), counted per id so a
+  StrictMode remount or a re-keyed row does not shut it. A hand-off INTO the chat closes it too: an
+  `activeTab` change, `seedMentorChat`, and coverage's Edit, because the desk the user was sent to
+  would otherwise open underneath the panel.
+- **The shell is shared, the content is not.** Header (kicker = the desk, title, the row's chips as
+  `meta`), close, Esc, focus in and back, scroll, the reading size for the lists' own `floor-detail`
+  / `industry-view__detail` markup, and the header's `actions` slot, which is where features every
+  panel gets go (coverage puts Edit / Retire / Delete there). An opener is a button with
+  `aria-haspopup="dialog"` + `aria-expanded`, and that is the one selector that marks the open row
+  in every list.
+
+Driven end to end by `../botmarket-backend/scripts/drive-detail-panel.mjs`: both desktop layouts and a
+touch tablet.
 
 ## Threads
 

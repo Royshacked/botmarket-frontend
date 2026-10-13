@@ -17,11 +17,12 @@ import { isTerminal, isLivePosition, isAwaitingConfirm, isArmed, isUnarmed } fro
 import './AetherCandidates.scss'
 
 // Aether's event list — ONE ROW PER EVENT, the names it reached inside, and a name's own
-// evidence one level further down.
+// evidence in the DetailPanel (over the chat column since 2026-10-13 — it ran past a screen
+// as a drawer in this column).
 //
 // Event row (collapsed): subject · how many names · when it took effect · kind · how many
 // of the names its filings sized. Open: the event sentence, then a sub-row per name —
-// direction · ticker · recurrence · horizon · magnitude · urgency — and a name opens to its
+// direction · ticker · recurrence · horizon · magnitude · urgency — and a name opens its panel:
 // mechanism, the press fact, the filing sentence and the move.
 //
 // EVENT-FIRST, AND RECURRENCE STILL VISIBLE. The list was flipped ticker-first once, for
@@ -30,11 +31,11 @@ import './AetherCandidates.scss'
 // tariff AND an export ban is saying something neither event says alone. That is still the
 // case worth surfacing, so it is surfaced three ways rather than by giving up the event as
 // the unit: a strip above the list naming every recurring ticker, a ×N badge on the name's
-// row inside each event, and the other events listed in the name's own drawer as jumps.
+// row inside each event, and the other events listed in the name's own panel as jumps.
 //
 // It wears the Floor's own row vocabulary rather than a table of its own: floor-sub for the
 // event accordion, RowHost for the hover shell, floor-row for the line, floor-row--sub for
-// the names inside, floor-detail for the drawer. Five lists share this column and a sixth
+// the names inside, floor-detail for the panel's body. Five lists share this column and a sixth
 // that expanded differently, coloured differently and sized differently would read as a
 // different kind of thing on the same screen.
 //

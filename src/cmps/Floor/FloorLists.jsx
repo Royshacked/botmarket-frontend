@@ -30,9 +30,11 @@ import { AetherCandidates } from '../TradeIdeas/AetherCandidates.jsx'
 // states, not two different columns, and animating between them is what says so.
 //
 // Every row is ONE LINE and carries only what you'd scan for — never the whole entity. Anything
-// more is a click away in the pop-out that kind already has (entityPopup.js), which is why there
+// more is a click away — in the pop-out that kind already has (entityPopup.js: setups, ideas), or,
+// for the rows whose detail is a page of reading with no entity page behind it (coverage, the
+// events radar's names, Pythia's rows), in the DetailPanel over the chat column. Which is why there
 // are no cards here: a card exists to hold a summary you can't fit on a line, and once the detail
-// lives in a window there is nothing left for it to hold.
+// lives elsewhere there is nothing left for it to hold.
 //
 // The desks differ in WHAT they list; the shell — header, count, open/close, empty state — is the
 // same for all four, so it lives once in <Desk> and each desk supplies only its rows.
