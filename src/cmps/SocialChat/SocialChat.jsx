@@ -156,6 +156,10 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
 
     // ── Select conversation ─────────────────────────────────────────────────
     async function handleSelectConv(conv) {
+        // The ref NOW, not only in the effect below: the conversation and its messages can commit in one render, and the
+        // effect runs after paint — a push arriving in between found no open conversation and was dropped (the flaky
+        // "message_resolved" test, 2026-10-13).
+        activeConvRef.current = conv
         setActiveConv(conv)
         setMessages([])
         setLoading(true)
@@ -179,6 +183,7 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
     // back to the list. `consumedConvRef` is deliberately left alone — the auto-open target
     // is spent, and clearing it would yank the user straight back into the thread.
     function handleBackToList() {
+        activeConvRef.current = null
         setActiveConv(null)
         setMessages([])
         setHasMore(false)
