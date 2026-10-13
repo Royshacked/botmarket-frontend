@@ -336,8 +336,8 @@ describe('geopolitics (backend step 4)', () => {
     ] }
 
     it('names each touching risk, which way, how intense, and says the directions failed their test', () => {
-        expect(geoLine(GEO)).toBe('Gulf and the Strait of Hormuz helps it — ELEVATED (+2.2); Taiwan Strait helps it (+0.7) — attention, not impact; the directions are hypotheses that failed their history test')
-        expect(geoLine({ global: { z: -0.3 }, risks: [] })).toBe('No mapped risk touches it (world -0.3)')
+        expect(geoLine(GEO)).toBe('Gulf and the Strait of Hormuz helps it — ELEVATED (+2.2 sd); Taiwan Strait helps it (+0.7 sd) — attention, not impact; the directions are hypotheses that failed their history test')
+        expect(geoLine({ global: { z: -0.3 }, risks: [] })).toBe('No mapped risk touches it (world -0.3 sd)')
         expect(geoLine(null)).toBeNull()
     })
 

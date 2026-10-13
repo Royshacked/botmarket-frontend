@@ -166,7 +166,8 @@ export function flowLines(flows) {
 // The mapped risks that touch the industry, each with which way and how intense (z against its own ten years), and
 // the caveat said every time: the index measures attention, and the map's directions failed their history test.
 
-const z1 = (z) => (num(z) == null ? '—' : `${z >= 0 ? '+' : ''}${z.toFixed(1)}`)
+// "sd": standard deviations against the index's own ten years — a bare "+2.2" read like the percents beside it (QA 2026-10-13).
+const z1 = (z) => (num(z) == null ? '—' : `${z >= 0 ? '+' : ''}${z.toFixed(1)} sd`)
 
 export function geoLine(geo) {
     if (!geo) return null
