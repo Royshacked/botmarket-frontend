@@ -12,6 +12,12 @@ vi.mock('../../context/AuthContext.jsx', async (orig) => {
     return authModule(await orig())
 })
 
+// The Calendar desk mounts CalendarPanel, which reads the month when it opens — never over the wire
+// from a unit test (CR 2026-10-14: one case was making a real request and passing on its failure).
+vi.mock('../../services/calendar/calendar.service.remote.js', () => ({
+    calendarService: { getCounts: vi.fn(async () => ({ days: {} })), getDay: vi.fn(async () => ({ earnings: [], fed: [], ipo: [] })) },
+}))
+
 // The Floor's right column is an ACCORDION — one desk open at a time. That rule is the whole
 // reason the column stays readable at four desks, and it is the kind of thing that silently
 // regresses into "all open" the first time someone adds a fifth.

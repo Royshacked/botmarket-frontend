@@ -497,6 +497,9 @@ $desk-h: rem(36px);
 }
 
 .cal-day {
+    // Focused by script when the page opens (so Tab continues inside it) — not a control, no ring.
+    &:focus { outline: none; }
+
     &__sec + &__sec { margin-top: 16px; }
 
     &__head {
@@ -674,6 +677,11 @@ $desk-h: rem(36px);
             border-color: var(--accent-light);
         }
         &--empty:not(.floor-strip__chip--active) { color: var(--text-dim); font-weight: 500; }
+
+        // The Calendar chip opens a panel, so it carries aria-expanded — and the shared "row the panel
+        // came from" mark (DetailPanel.scss: a hover fill + a 2px inset bar) would be clipped to a
+        // sliver on a pill. The chip's own --active border already says it (CR 2026-10-14).
+        &[aria-expanded="true"] { background: none; box-shadow: none; }
     }
 
     &__count {

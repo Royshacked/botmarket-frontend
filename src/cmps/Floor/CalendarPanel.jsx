@@ -42,13 +42,28 @@ export function CalendarPanel({ onEarningSelect, onIpoSelect, onSymbolClick }) {
     // Dropped on close, so reopening tomorrow is never served yesterday's counts.
     const seen = useRef(new Map())
 
-    // Every open starts on THIS month's grid.
+    // Every open starts on THIS month's grid — decided AT the open, in render, not in an effect on
+    // close (CR 2026-10-14): the panel stays mounted all session, so a month fixed when it closed on
+    // Oct 31 reopened on October on Nov 1, and an effect would fetch that old month before fixing it.
+    const [wasOpen, setWasOpen] = useState(isOpen)
+    if (isOpen !== wasOpen) {
+        setWasOpen(isOpen)
+        if (isOpen) { setDate(null); setMonth(monthOf()) }
+    }
+    useEffect(() => { if (!isOpen) seen.current.clear() }, [isOpen])
+
+    // Keyboard focus follows the view: a day's page takes it when it opens (the clicked cell is gone
+    // with the grid), and going back hands it to the cell you came from.
+    const bodyRef = useRef(null)
+    const cameFrom = useRef(null)
     useEffect(() => {
-        if (isOpen) return
-        seen.current.clear()
-        setDate(null)
-        setMonth(monthOf())
-    }, [isOpen])
+        if (!isOpen) return
+        if (date) { cameFrom.current = date; bodyRef.current?.querySelector('.cal-day')?.focus({ preventScroll: true }); return }
+        if (cameFrom.current) {
+            bodyRef.current?.querySelector(`.cal-cell[data-date="${cameFrom.current}"]`)?.focus({ preventScroll: true })
+            cameFrom.current = null
+        }
+    }, [isOpen, date])
 
     const grid = monthGrid(month)
     const monthKey = `${grid.from}|${grid.to}`
@@ -106,11 +121,17 @@ export function CalendarPanel({ onEarningSelect, onIpoSelect, onSymbolClick }) {
 
     return (
         <DetailPanel id={CALENDAR_PANEL_ID} kicker="Calendar" title={title} actions={actions} className="cal-panel">
-            {date
-                ? <DayPage day={day} onRetry={() => setRetry(n => n + 1)} onSymbolClick={onSymbolClick}
-                    onEarningSelect={handOff(onEarningSelect)} onIpoSelect={handOff(onIpoSelect)} />
-                : <MonthGrid grid={grid} month={month} today={today} counts={counts} onPick={setDate}
-                    onRetry={() => setRetry(n => n + 1)} />}
+            <div ref={bodyRef}>
+                {date
+                    ? <div className="cal-day" tabIndex={-1} aria-label={fmtLongDay(date)}>
+                        <DayPage day={day} onRetry={() => setRetry(n => n + 1)} onSymbolClick={onSymbolClick}
+                            onEarningSelect={handOff(onEarningSelect)} onIpoSelect={handOff(onIpoSelect)} />
+                      </div>
+                    // goDay, not setDate: a padding-row day (Nov 1 under October) moves the month with
+                    // it, exactly as stepping into it with › does — one rule for where "back" lands.
+                    : <MonthGrid grid={grid} month={month} today={today} counts={counts} onPick={goDay}
+                        onRetry={() => setRetry(n => n + 1)} />}
+            </div>
         </DetailPanel>
     )
 }
@@ -143,6 +164,7 @@ function MonthGrid({ grid, month, today, counts, onPick, onRetry }) {
                         return (
                             <button
                                 key={iso}
+                                data-date={iso}
                                 type="button"
                                 className={[
                                     'cal-cell',

@@ -144,4 +144,47 @@ describe('CalendarPanel', () => {
         await flush()
         expect(document.querySelector('.cal-grid')).toBeTruthy()
     })
+
+    // CR 2026-10-14: the panel stays mounted all session, so the month must be decided at the OPEN.
+    // Closed on Oct 31 and reopened on Nov 1, it used to come back on October — and fetch it.
+    it('reopens on the CURRENT month after the month has turned, fetching only that one', async () => {
+        vi.useFakeTimers({ toFake: ['Date'] })
+        try {
+            vi.setSystemTime(new Date(2026, 9, 31, 22, 0))
+            await openCalendar()
+            act(() => closePanel())
+            vi.setSystemTime(new Date(2026, 10, 1, 9, 0))
+            calendarService.getCounts.mockClear()
+            act(() => openPanel(CALENDAR_PANEL_ID))
+            await flush()
+            expect(screen.getByRole('dialog', { name: 'November 2026' })).toBeTruthy()
+            expect(calendarService.getCounts.mock.calls).toEqual([[monthGrid({ y: 2026, m: 11 }).from, monthGrid({ y: 2026, m: 11 }).to]])
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+
+    // A keyboard reader keeps their place: the clicked cell goes with the grid, so the page takes focus,
+    // and going back returns it to the cell they came from.
+    it('moves focus into the day page, and back to the day\'s cell', async () => {
+        await openCalendar()
+        fireEvent.click(todayCell())
+        await flush()
+        expect(document.activeElement.classList.contains('cal-day')).toBe(true)
+        fireEvent.click(screen.getByRole('button', { name: /^‹ [A-Z][a-z]+$/ }))
+        await flush()
+        expect(document.activeElement.getAttribute('data-date')).toBe(today)
+    })
+
+    // One rule for where "back" lands: a padding-row day moves the month with it, like stepping into it.
+    it('a day from a neighbouring month brings that month back with it', async () => {
+        await openCalendar()
+        const g = monthGrid(monthOf())
+        const outside = g.weeks.at(-1).at(-1)          // the grid's last cell, always next month (or this one's last day)
+        fireEvent.click(document.querySelector(`.cal-cell[data-date="${outside}"]`))
+        await flush()
+        const back = screen.getByRole('button', { name: /^‹ [A-Z][a-z]+$/ })
+        const expected = new Date(`${outside}T00:00:00Z`).toLocaleString('en-US', { month: 'long', timeZone: 'UTC' })
+        expect(back.textContent).toBe(`‹ ${expected}`)
+    })
 })
