@@ -21,7 +21,7 @@ const _date = (iso) => (iso ? String(iso).slice(0, 10) : '—')
  * horizon and thesis; the rest is read here, when the panel opens (useAssessmentDetail — cached per assessment and its
  * assessed_at). While it loads, or if it fails, the panel still shows what the row has.
  */
-function AssessmentDetail({ row, open }) {
+export function AssessmentDetail({ row, open }) {
     const { doc: a, loading, error, retry } = useAssessmentDetail(row, open)
     const ready = !loading && !error
     const moved = movedLine(a.moved, a.subject?.name)

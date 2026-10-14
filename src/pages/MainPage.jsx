@@ -1308,12 +1308,13 @@ export function MainPage() {
             if (go.detail) { eventBus.emit(ENTITY_DETAIL_OPEN, { kind: 'coverage', id: cov.id }); return }
             // The book is in the right column, which is ONE OF TWO surfaces depending on the design:
             // the Radar's Coverage tab (`newsTab`), or — on the Floor, the default — FloorLists's
-            // "Analyst companies" desk, which never reads `newsTab`. Switching only the tab made
+            // Forecasts map opened on that company (it replaced the "Analyst companies" desk on
+            // 2026-10-14), which never reads `newsTab`. Switching only the tab made
             // "Open coverage" a dead button on every Floor desktop (2026-10-03). Both are asked: the
             // listener is registered once, so it cannot read the live design, and the request the
             // other design does not render is inert. A fresh object, so a second press re-opens a
             // desk closed in between (same channel as the forecast and queued-list cards).
-            if (go.book) { setNewsTab('coverage'); setDeskRequest({ key: 'coverage' }) }
+            if (go.book) { setNewsTab('coverage'); setDeskRequest({ key: 'forecasts', symbol: cov?.symbol ?? sym }) }
             if (go.desk) setActiveTab('analyst')
         })
     }, [])
@@ -3335,14 +3336,13 @@ export function MainPage() {
                                     onCancelQueued={handleCancelQueued}
                                     queuedBusyId={queuedBusyId}
                                     deskRequest={deskRequest}
+                                    // Pythia's board — the `board` desk the map's "Board" button opens.
                                     industries={industries}
+                                    industriesLoading={industriesLoading}
                                     industriesError={industriesError}
                                     week={week}
                                     assessments={assessments}
                                     themes={themes}
-                                    // The Floor's Calendar reads its own month (CalendarPanel); the
-                                    // week feeds still serve the standard layout's Radar below.
-                                    calendarLoading={{ forecasts: industriesLoading }}
                                     aetherCandidates={{ runs: aetherRuns, loading: aetherLoading, error: aetherError, onRead: onAetherRead, onTradeWithMentor: seedMentorChat, onScanWithArgus: handleScanRadar, scanBusy: radarBusy }}
                                     onEarningSelect={handleBuildFromEarning}
                                     onIpoSelect={handleBuildFromIpo}

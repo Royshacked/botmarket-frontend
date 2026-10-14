@@ -15,6 +15,7 @@
 //
 // The Earnings / Fed / IPO desks had options here, and a `within` key that kept their rows inside
 // their day. Those desks became the Calendar panel on 2026-10-14, which nothing sorts; both went.
+// The "Analyst companies" desk's options went the same day, with the desk (the Forecasts map).
 
 const toMs = (v) => {
     if (v == null || v === '') return null
@@ -24,9 +25,6 @@ const toMs = (v) => {
 }
 const num = (v) => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v))
 const str = (v) => (v == null || v === '' ? null : String(v))
-const rank = (order) => (v) => { const i = order.indexOf(v); return i < 0 ? null : i }
-
-const RATING_RANK = rank(['strong_buy', 'buy', 'hold', 'sell', 'strong_sell'])
 
 // `dir` is the direction an option STARTS in when picked; the arrow flips it from there.
 const DEFAULT = { key: 'default', label: 'Default' }
@@ -57,14 +55,6 @@ export const DESK_SORTS = {
         { key: 'thesis',     label: 'Thesis',     dir: 'asc',  value: s => str(s.thesis) },
         { key: 'candidates', label: 'Candidates', dir: 'desc', value: s => s.candidates?.length ?? 0 },
         { key: 'newest',     label: 'Saved',      dir: 'desc', value: s => toMs(s.savedAt) },
-    ],
-    coverage: [
-        DEFAULT,
-        { key: 'symbol',  label: 'Symbol',  dir: 'asc',  value: c => str(c.symbol) },
-        { key: 'rating',  label: 'Rating',  dir: 'asc',  value: c => RATING_RANK(c.rating) },
-        { key: 'upside',  label: 'Upside',  dir: 'desc', value: c => num(c.gap?.pct) },
-        { key: 'status',  label: 'Status',  dir: 'asc',  value: c => str(c.status) },
-        { key: 'updated', label: 'Updated', dir: 'desc', value: c => toMs(c.updated_at) },
     ],
     research_queue: [
         DEFAULT,

@@ -7,45 +7,41 @@ import { DESK_SORTS, sortOption, sortRows } from './floor.sort.js'
 const syms = rows => rows.map(r => r.symbol ?? r.asset)
 
 describe('sortRows', () => {
-    const coverage = [
-        { symbol: 'MSFT', rating: 'hold',       gap: { pct: 4 },   updated_at: '2026-09-01T00:00:00Z' },
-        { symbol: 'aapl', rating: 'strong_buy', gap: { pct: 22 },  updated_at: '2026-10-01T00:00:00Z' },
-        { symbol: 'NVDA', rating: 'buy',        gap: null,         updated_at: '2026-09-15T00:00:00Z' },
-        { symbol: 'AMD',  rating: 'sell',       gap: { pct: -9 },  updated_at: null },
+    // The research queue carries the mechanism cases now — the coverage desk that used to went on 2026-10-14.
+    const queue = [
+        { symbol: 'MSFT', created_at: '2026-09-01T00:00:00Z' },
+        { symbol: 'aapl', created_at: '2026-10-01T00:00:00Z' },
+        { symbol: 'NVDA', created_at: '2026-09-15T00:00:00Z' },
+        { symbol: 'AMD',  created_at: null },
     ]
 
     it('returns the rows untouched on default, a missing sort, or an unknown key', () => {
-        assert.equal(sortRows(coverage, 'coverage', null), coverage)
-        assert.equal(sortRows(coverage, 'coverage', { key: 'default' }), coverage)
-        assert.equal(sortRows(coverage, 'coverage', { key: 'gone' }), coverage)
-        assert.equal(sortRows(coverage, 'nope', { key: 'symbol' }), coverage)
+        assert.equal(sortRows(queue, 'research_queue', null), queue)
+        assert.equal(sortRows(queue, 'research_queue', { key: 'default' }), queue)
+        assert.equal(sortRows(queue, 'research_queue', { key: 'gone' }), queue)
+        assert.equal(sortRows(queue, 'nope', { key: 'symbol' }), queue)
     })
 
     it('never mutates the input', () => {
-        const before = [...coverage]
-        sortRows(coverage, 'coverage', { key: 'symbol', dir: 'asc' })
-        assert.deepEqual(coverage, before)
+        const before = [...queue]
+        sortRows(queue, 'research_queue', { key: 'symbol', dir: 'asc' })
+        assert.deepEqual(queue, before)
     })
 
     it('sorts strings case-insensitively, both ways', () => {
-        assert.deepEqual(syms(sortRows(coverage, 'coverage', { key: 'symbol', dir: 'asc' })), ['aapl', 'AMD', 'MSFT', 'NVDA'])
-        assert.deepEqual(syms(sortRows(coverage, 'coverage', { key: 'symbol', dir: 'desc' })), ['NVDA', 'MSFT', 'AMD', 'aapl'])
+        assert.deepEqual(syms(sortRows(queue, 'research_queue', { key: 'symbol', dir: 'asc' })), ['aapl', 'AMD', 'MSFT', 'NVDA'])
+        assert.deepEqual(syms(sortRows(queue, 'research_queue', { key: 'symbol', dir: 'desc' })), ['NVDA', 'MSFT', 'AMD', 'aapl'])
     })
 
-    it('ranks ratings by conviction, not alphabet', () => {
-        assert.deepEqual(syms(sortRows(coverage, 'coverage', { key: 'rating', dir: 'asc' })), ['aapl', 'NVDA', 'MSFT', 'AMD'])
-    })
-
-    // A row with no gap is not "the lowest upside" — flipping the arrow must not float it up.
+    // A row with no date is not "the oldest" — flipping the arrow must not float it up.
     it('sinks empty values to the bottom in BOTH directions', () => {
-        assert.deepEqual(syms(sortRows(coverage, 'coverage', { key: 'upside', dir: 'desc' })), ['aapl', 'MSFT', 'AMD', 'NVDA'])
-        assert.deepEqual(syms(sortRows(coverage, 'coverage', { key: 'upside', dir: 'asc' })), ['AMD', 'MSFT', 'aapl', 'NVDA'])
-        assert.equal(syms(sortRows(coverage, 'coverage', { key: 'updated', dir: 'asc' })).at(-1), 'AMD')
+        assert.deepEqual(syms(sortRows(queue, 'research_queue', { key: 'added', dir: 'desc' })), ['aapl', 'NVDA', 'MSFT', 'AMD'])
+        assert.deepEqual(syms(sortRows(queue, 'research_queue', { key: 'added', dir: 'asc' })), ['MSFT', 'NVDA', 'aapl', 'AMD'])
     })
 
     it('falls back to the option’s own direction when the sort carries none', () => {
-        // `updated` starts descending — newest first.
-        assert.deepEqual(syms(sortRows(coverage, 'coverage', { key: 'updated' })).slice(0, 3), ['aapl', 'NVDA', 'MSFT'])
+        // `added` starts descending — newest first.
+        assert.deepEqual(syms(sortRows(queue, 'research_queue', { key: 'added' })).slice(0, 3), ['aapl', 'NVDA', 'MSFT'])
     })
 
     it('keeps the server order between ties (stable)', () => {
@@ -54,11 +50,12 @@ describe('sortRows', () => {
         assert.deepEqual(sortRows(rows, 'research_queue', { key: 'status', dir: 'desc' }).map(r => r.id), [1, 3, 2])
     })
 
-    // The Earnings / Fed / IPO desks are gone (the Calendar panel, 2026-10-14), but a browser may
-    // still hold a sort saved for one in `floorSorts`. It must be a no-op, never a throw.
+    // The Earnings / Fed / IPO desks are gone (the Calendar panel, 2026-10-14), and "Analyst companies"
+    // (the Forecasts map, the same day), but a browser may still hold a sort saved for one in
+    // `floorSorts`. It must be a no-op, never a throw.
     it('treats a sort saved for a removed desk as default', () => {
         const rows = [{ symbol: 'ZM' }, { symbol: 'AA' }]
-        for (const desk of ['earnings', 'fed', 'ipo']) {
+        for (const desk of ['earnings', 'fed', 'ipo', 'coverage']) {
             assert.equal(sortOption(desk, { key: 'symbol', dir: 'asc' }), null)
             assert.equal(sortRows(rows, desk, { key: 'symbol', dir: 'asc' }), rows)
         }
@@ -89,7 +86,7 @@ describe('DESK_SORTS', () => {
     })
 
     it('sortOption treats default as no option', () => {
-        assert.equal(sortOption('coverage', { key: 'default' }), null)
-        assert.equal(sortOption('coverage', { key: 'symbol' })?.label, 'Symbol')
+        assert.equal(sortOption('research_queue', { key: 'default' }), null)
+        assert.equal(sortOption('research_queue', { key: 'symbol' })?.label, 'Symbol')
     })
 })

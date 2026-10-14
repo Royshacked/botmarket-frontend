@@ -11,13 +11,10 @@ import { tradeFloorItems } from './floor.utils.js'
 import { DESK_SORTS, sortOption, sortRows } from './floor.sort.js'
 import { actionLine, originLine, actionVerb } from './queuedAction.contract.js'
 import { RowHost } from './RowHost.jsx'
-import { CoverageActions } from '../Radar/CoverageActions.jsx'
-import { nextRevision, NEXT_REVISION_HINT } from '../Radar/coverage.utils.js'
-import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
 import { CalendarPanel, CALENDAR_PANEL_ID } from './CalendarPanel.jsx'
+import { ForecastPanel, FORECAST_PANEL_ID } from './ForecastPanel.jsx'
 import { IndustryView } from '../Radar/IndustryView.jsx'
-import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
-import { useActivePanel, togglePanel, closePanel } from '../DetailPanel/detailPanel.store.js'
+import { useActivePanel, togglePanel, openPanel } from '../DetailPanel/detailPanel.store.js'
 
 import './Floor.scss'
 import { AetherCandidates } from '../TradeIdeas/AetherCandidates.jsx'
@@ -50,7 +47,6 @@ const DESKS = [
     { key: 'trade',          label: 'Your trades' },
     { key: 'portfolio',      label: 'Your portfolios' },
     { key: 'scans',          label: 'Watchlists' },
-    { key: 'coverage',       label: 'Analyst companies' },
     // HIDDEN FOR NOW (Roy, 2026-10-14), not deleted: its rows, counts and sorts all still work, and
     // dropping the flag brings it back. MainPage still loads the candidates for the Aether desk.
     { key: 'aether',         label: 'Events radar', hidden: true },
@@ -61,12 +57,20 @@ const DESKS = [
     // rows. `panel` marks a desk whose header toggles a DetailPanel instead of taking the column.
     // (Before that the three were tabs in the left column, until 2026-08-19.)
     { key: 'calendar',  label: 'Calendar', panel: CALENDAR_PANEL_ID },
-    // Not a dated list at all — the house view, rendered as a board. It sits with the calendar
-    // because it answers the same question, not because it shares its shape.
+    // FORECASTS — a heat map of every industry in the detail panel (ForecastPanel), opened to its
+    // Pythia thesis and its companies, and a covered company to Prometheus's thesis (Roy, 2026-10-14).
+    // It replaced two desks: the Forecasts board as a list here, and "Analyst companies" (the coverage
+    // book) — a covered name is now reached through its industry.
     //
     // OPEN TO EVERYONE since 2026-10-05 (Roy): the house's industry views are a broadcast every user
     // reads. Only authoring them — Pythia's desk — is admin-only.
-    { key: 'forecasts', label: 'Forecasts' },
+    { key: 'forecasts', label: 'Forecasts', panel: FORECAST_PANEL_ID },
+    // PYTHIA'S BOARD — the Assessed / Themes / Structure tabs, with the track record, the week and the
+    // admin's Assess now and theme approval. Reached from the map's "Board" button, not from a header of
+    // its own: an `onRequest` desk is listed only while it is open (Roy, 2026-10-14). It lives in the
+    // COLUMN, not in the map's panel, because every one of its rows opens a panel of its own — inside the
+    // map's panel the first click would replace the panel holding the board, and close it.
+    { key: 'board', label: 'Forecast board', onRequest: true },
     // Admin-only: the house research pipeline backlog (Argus hits + user coverage_request). LAST
     // (Roy, 2026-10-14): it is house plumbing, not part of the reader's own run of desks.
     { key: 'research_queue', label: 'Research queue', adminOnly: true },
@@ -607,113 +611,6 @@ ScanRows.propTypes = {
     onDeleteCoverage:  PropTypes.func,
 }
 
-// ── Coverage ──────────────────────────────────────────────────────────────────
-
-const RATING_LABEL = { strong_buy: 'strong buy', buy: 'buy', hold: 'hold', sell: 'sell', strong_sell: 'strong sell' }
-
-const asList = (v) => (Array.isArray(v) ? v : [])
-// Catalysts arrive as { date, note } or as a bare string, depending on how the thesis was written.
-const catalystText = (k) => (typeof k === 'string' ? k : `${k?.date ? `${k.date}: ` : ''}${k?.note ?? ''}`)
-const killText     = (k) => (typeof k === 'string' ? k : JSON.stringify(k))
-
-// The thesis opens in the DetailPanel (over the chat column), not as a drawer in this column — a
-// page of reading did not fit a 27%-wide list at 12px. The list stays as it is beside the panel, the
-// row marked as the one open; nothing folds, since there is no drawer to give the height to.
-function CoverageRows({ coverage, onEditCoverage, onRetireCoverage, onDeleteCoverage, onSymbolClick }) {
-    const activeId = useActivePanel()
-    if (!coverage.length) return <Empty>No coverage yet — ask Prometheus to research a company.</Empty>
-
-    // Edit opens Prometheus IN the chat column — the one a panel covers — so it closes whichever
-    // panel is open on its way there, from the panel's header and from a row's hover actions alike.
-    const editCoverage = onEditCoverage && (cov => { closePanel(); onEditCoverage(cov) })
-
-    return coverage.map(c => {
-        const key   = c.id ?? c.symbol
-        const panelId = `coverage:${key}`
-        const kills = asList(c.kill_criteria)
-        const cats  = asList(c.catalysts)
-        const revs  = asList(c.revisions)
-        const next  = nextRevision(c)
-        // Nothing to open → no chevron. A control that opens an empty panel is worse than none.
-        // The re-model schedule counts as content: on a bare thesis it is all the panel holds.
-        const hasDetail = !!(c.thesis || kills.length || cats.length || revs.length || next)
-        const isOpen   = hasDetail && activeId === panelId
-        const rating   = c.rating && <span className={`floor-row__rating floor-row__rating--${c.rating}`}>{RATING_LABEL[c.rating] ?? c.rating}</span>
-        const status   = <span className={`floor-row__status floor-row__status--${c.status}`}>{c.status}</span>
-
-        return (
-            <div key={key} className="floor-sub">
-                <RowHost actions={<CoverageActions coverage={c} onEdit={editCoverage} onRetire={onRetireCoverage} onDelete={onDeleteCoverage} />}>
-                    {/* Collapsed, this is ONE line — see .floor-row in Floor.scss. The cells are
-                        multi-word ("strong buy", "thesis broken", a target with its horizon), and a
-                        flex item is free to wrap at those spaces when the column is narrow, which
-                        broke the row onto a second line the fixed row height then clipped. */}
-                    <button
-                        className={`floor-row${hasDetail ? '' : ' floor-row--static'}`}
-                        onClick={hasDetail ? () => togglePanel(panelId) : undefined}
-                        aria-haspopup={hasDetail ? 'dialog' : undefined}
-                        aria-expanded={hasDetail ? isOpen : undefined}
-                        title={hasDetail ? (isOpen ? 'Close thesis' : 'Read thesis') : undefined}
-                    >
-                        {/* Points right and stays that way: it opens a panel to the side, not a
-                            drawer below, so there is no "open" rotation to show. */}
-                        {hasDetail && (
-                            <svg className="floor-row__chev" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                                <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                        )}
-                        <SymbolCell className="floor-row__sym" symbol={c.symbol} onSymbolClick={onSymbolClick} />
-                        {rating}
-                        {/* No "PT" label — this column already reads as the target on a coverage row. */}
-                        <PriceTarget priceTarget={c.price_target} gap={c.gap} label={null} />
-                        {status}
-                    </button>
-                </RowHost>
-
-                {hasDetail && (
-                    <DetailPanel
-                        id={panelId}
-                        kicker="Analyst companies"
-                        title={c.symbol}
-                        meta={<>{rating}<PriceTarget priceTarget={c.price_target} gap={c.gap} />{status}</>}
-                        actions={<CoverageActions coverage={c} onEdit={editCoverage} onRetire={onRetireCoverage} onDelete={onDeleteCoverage} />}
-                    >
-                        <div className="floor-detail">
-                            {c.thesis && <p className="floor-detail__prose">{c.thesis}</p>}
-                            {kills.length > 0 && (
-                                <div className="floor-detail__block">
-                                    <span className="floor-detail__label">kill-criteria</span>
-                                    <ul>{kills.map((k, i) => <li key={i}>{killText(k)}</li>)}</ul>
-                                </div>
-                            )}
-                            {cats.length > 0 && (
-                                <div className="floor-detail__block">
-                                    <span className="floor-detail__label">catalysts</span>
-                                    <ul>{cats.map((k, i) => <li key={i}>{catalystText(k)}</li>)}</ul>
-                                </div>
-                            )}
-                            {(revs.length > 0 || next) && (
-                                <div className="floor-detail__foot">
-                                    {revs.length > 0 && (
-                                        <span className="floor-detail__revs">{revs.length} revision{revs.length > 1 ? 's' : ''}</span>
-                                    )}
-                                    {next && (
-                                        <span className={`floor-detail__next${next.due ? ' floor-detail__next--due' : ''}`} title={NEXT_REVISION_HINT}>
-                                            next revision {next.label}
-                                            {next.reason && <em className="floor-detail__next-why"> · {next.reason}</em>}
-                                        </span>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    </DetailPanel>
-                )}
-            </div>
-        )
-    })
-}
-CoverageRows.propTypes = { onSymbolClick: PropTypes.func, coverage: PropTypes.array, onEditCoverage: PropTypes.func, onRetireCoverage: PropTypes.func, onDeleteCoverage: PropTypes.func }
-
 // ── Research queue (admin) ────────────────────────────────────────────────────
 // The house research pipeline backlog. Each row is one name waiting to be researched by Prometheus.
 //
@@ -907,7 +804,7 @@ export function FloorLists({
     onEditScan, onDeleteScan,
     onEditCoverage, onRetireCoverage, onDeleteCoverage,
     onExecuteQueued, onCancelQueued, queuedBusyId = null,
-    industries = [], industriesError = false, week = null, assessments = null, themes = [], calendarLoading = {},
+    industries = [], industriesLoading = false, industriesError = false, week = null, assessments = null, themes = [],
     onEarningSelect, onIpoSelect,
     isAdmin = false,
     researchQueue = [], onStartResearch, onMarkResearchDone, onRejectResearch, researchQueueBusyId = null,
@@ -921,6 +818,8 @@ export function FloorLists({
     const [requestedKey, setOpenKey] = useState(initialDesk)
     // A panel desk toggles its DetailPanel and leaves the column alone: the list you had open stays
     // open beside the calendar.
+    // What the last outside ask pointed the Forecasts map at (`{ symbol }`), handed to its panel.
+    const [forecastFocus, setForecastFocus] = useState(null)
     const toggle = key => {
         const panel = DESKS.find(d => d.key === key)?.panel
         if (panel) togglePanel(panel)
@@ -932,8 +831,14 @@ export function FloorLists({
     // request OBJECT, not its value: pressing the same card twice is two asks, and a plain
     // `deskRequest === 'queued'` dependency would fire only the first time — leaving the second
     // click looking broken after the user had closed the desk in between.
+    // A PANEL desk asked for (a sector-view card → Forecasts; an "Open coverage" card → Forecasts on
+    // that company) opens its panel instead of taking the column.
     useEffect(() => {
-        if (deskRequest?.key) setOpenKey(deskRequest.key)
+        if (!deskRequest?.key) return
+        const panel = DESKS.find(d => d.key === deskRequest.key)?.panel
+        if (!panel) { setOpenKey(deskRequest.key); return }
+        if (deskRequest.key === 'forecasts') setForecastFocus(deskRequest.symbol ? { symbol: deskRequest.symbol } : null)
+        openPanel(panel)
     }, [deskRequest])
 
     // Every count is the same thing: how many items are in the list. The header says how much is
@@ -949,14 +854,13 @@ export function FloorLists({
         trade:          setups.length,
         portfolio:      portfoliosFromIdeas(ideas).length,
         scans:          scans.length,
-        coverage:       coverage.length,
         // Only queued items count — in_research is work the admin already started.
         research_queue: researchQueue.filter(i => i.status === 'queued').length,
         // One count per candidate ROW across every event in the window — a name three events
         // reached counts three times (its chip says ×3). The backend caps whole runs, never rows,
         // so this is the true count and not a ceiling: it read "(200)" once when it was a row cap.
         aether: (aetherCandidates?.runs ?? []).reduce((n, r) => n + (r.candidates?.length ?? 0), 0),
-        // No count on Forecasts: it is a standing board rather than a list, and "(1)" beside
+        // No count on Forecasts: it is a standing map rather than a list, and "(1)" beside
         // it would invite the reader to expect one. (Channels was the other, and went with
         // the channel engine on 2026-09-10.) Nor on Calendar: its counts are per day, in the grid.
     }
@@ -970,7 +874,8 @@ export function FloorLists({
     // and buried the other eight behind it. Removed 2026-09-09; the fourteen tests it was
     // failing were right.
 
-    const visibleDesks = DESKS.filter(d => !d.hidden && (!d.adminOnly || isAdmin))
+    // An `onRequest` desk (the board) joins the column only while it is the one asked for.
+    const visibleDesks = DESKS.filter(d => !d.hidden && (!d.adminOnly || isAdmin) && (!d.onRequest || d.key === requestedKey))
     // Only a desk on screen can be open: an initialDesk or desk request naming a hidden (or
     // admin-only) desk would otherwise fold every header away around a desk that never renders.
     // A panel desk is never "open" in the column either — it has no body to give the column to.
@@ -998,7 +903,7 @@ export function FloorLists({
     // Empty = no ROWS to show, not a zero header count: the research desk counts only what is still
     // queued, so a backlog that is all in research would otherwise dim a desk full of rows. A feed
     // still loading is not "nothing here" yet, and Forecasts carries no count, so it is never dimmed.
-    const loadingFor = { ...calendarLoading, aether: aetherCandidates?.loading }
+    const loadingFor = { aether: aetherCandidates?.loading }
     const isEmpty = key => sortableCount[key] === 0 && !loadingFor[key]
 
     return (
@@ -1016,6 +921,8 @@ export function FloorLists({
             {/* Always mounted: it renders nothing until its panel opens, and portals into the chat
                 column when it does. */}
             <CalendarPanel onEarningSelect={onEarningSelect} onIpoSelect={onIpoSelect} onSymbolClick={onSymbolClick} />
+            <ForecastPanel coverage={coverage} focus={forecastFocus} onOpenBoard={() => setOpenKey('board')}
+                onEditCoverage={onEditCoverage} onRetireCoverage={onRetireCoverage} onDeleteCoverage={onDeleteCoverage} />
 
             {visibleDesks.map(desk => (
                 <Desk
@@ -1060,23 +967,6 @@ export function FloorLists({
                             onEditScan={onEditScan} onDeleteScan={onDeleteScan}
                         />
                     )}
-                    {/* Edit reopens Prometheus on the thesis; Retire archives it (trail kept);
-                        Delete removes it for good. Retiring is still a research decision, not a bin —
-                        which is exactly why it is a separate button from Delete.
-
-                        They ride in RowHost like every other desk — on the ROW, revealed on hover or
-                        focus. They started life in the expanded detail, which meant you had to open a
-                        thesis before you could act on one; actions you have to go looking for are
-                        actions nobody finds. Same component as the Radar book, so the book offers one
-                        set of controls wherever you meet it. */}
-                    {desk.key === 'coverage'  && (
-                        <CoverageRows
-                            onSymbolClick={onSymbolClick}
-                            coverage={sorted('coverage', coverage)}
-                            onEditCoverage={onEditCoverage} onRetireCoverage={onRetireCoverage} onDeleteCoverage={onDeleteCoverage}
-                        />
-                    )}
-
                     {desk.key === 'aether' && (
                         <AetherCandidates
                             runs={sorted('aether', aetherRuns)}
@@ -1089,6 +979,15 @@ export function FloorLists({
                             scanBusy={aetherCandidates?.scanBusy}
                             setups={setups}
                         />
+                    )}
+
+                    {desk.key === 'board' && (
+                        <>
+                            <button type="button" className="floor-board__map" onClick={() => togglePanel(FORECAST_PANEL_ID)}>
+                                Open the heat map
+                            </button>
+                            <IndustryView industries={industries} loading={industriesLoading} error={industriesError} assessments={assessments} themes={themes} week={week} />
+                        </>
                     )}
 
                     {desk.key === 'research_queue' && (
@@ -1105,10 +1004,6 @@ export function FloorLists({
                             onStopResearchRun={onStopResearchRun}
                             onRequeueStalledResearch={onRequeueStalledResearch}
                         />
-                    )}
-
-                    {desk.key === 'forecasts' && (
-                        <IndustryView industries={industries} loading={calendarLoading.forecasts} error={industriesError} assessments={assessments} themes={themes} week={week} />
                     )}
                 </Desk>
             ))}
@@ -1129,13 +1024,13 @@ FloorLists.propTypes = {
     onCancelQueued:    PropTypes.func,
     queuedBusyId:      PropTypes.string,
     deskRequest:       PropTypes.object,
+    // Pythia's board (the `board` desk, opened from the map).
     industries:        PropTypes.array,
+    industriesLoading: PropTypes.bool,
     industriesError:   PropTypes.bool,
     week:              PropTypes.object,
     assessments:       PropTypes.object,
     themes:            PropTypes.array,
-    // Keyed by desk — today only `forecasts` (the Calendar loads its own month, CalendarPanel).
-    calendarLoading:     PropTypes.object,
     // Earnings / IPO rows on the Calendar's date page hand the event to Mentor (build a setup).
     onEarningSelect:     PropTypes.func,
     onIpoSelect:         PropTypes.func,

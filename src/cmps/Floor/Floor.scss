@@ -1416,3 +1416,210 @@ $desk-h: rem(36px);
         &:disabled { opacity: 0.4; cursor: default; }
     }
 }
+
+// ── Forecasts — the heat map in the detail panel (ForecastPanel, Roy 2026-10-14) ──────────────
+// A tile's FILL is its move against the market (green up, red down, four steps of strength); Pythia's
+// verdict is the letter in its corner, never the fill — the verdicts are not a scale.
+// The board desk's way back to the map.
+.floor-board__map {
+    align-self: flex-start;
+    margin: 4px 0 8px 12px;
+    padding: 3px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: none;
+    font: inherit;
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    cursor: pointer;
+
+    &:hover { background: var(--bg-hover); color: var(--text-primary); }
+}
+
+.cal-nav__btn--on { background: var(--bg-raised); border-color: var(--accent-light); color: var(--text-primary); }
+
+.fm-note {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-dim);
+    margin: 4px 0 10px;
+}
+
+.fm-filters, .fm-syms {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 6px;
+}
+
+.fm-filter {
+    margin: 0;
+    padding: 3px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: none;
+    font: inherit;
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    cursor: pointer;
+
+    &:hover { background: var(--bg-hover); color: var(--text-primary); }
+    &--on { border-color: var(--accent-light); color: var(--text-primary); background: var(--bg-raised); }
+}
+
+.fm-sector {
+    margin-top: 14px;
+
+    &__head {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .9px;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+        margin: 0 0 6px;
+    }
+
+    &__line {
+        font-family: inherit;
+        font-weight: 400;
+        letter-spacing: 0;
+        text-transform: none;
+        color: var(--text-dim);
+    }
+}
+
+.fm-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    gap: 4px;
+}
+
+// Shades of the long/short colours over the panel's own background, so both themes work.
+$fm-steps: (1: 14%, 2: 26%, 3: 40%, 4: 56%);
+
+.fm-tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 4px;
+    min-width: 0;
+    min-height: 58px;
+    margin: 0;
+    padding: 5px 7px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: none;
+    font: inherit;
+    text-align: left;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: opacity .12s;
+
+    &:hover { border-color: var(--border-mid); outline: 1px solid var(--border-mid); }
+
+    @each $n, $p in $fm-steps {
+        &--up-#{$n}   { background: color-mix(in srgb, var(--color-long) #{$p}, transparent); }
+        &--down-#{$n} { background: color-mix(in srgb, var(--color-short) #{$p}, transparent); }
+    }
+    &--none { color: var(--text-dim); border-style: dashed; }
+
+    // The hype flag: a striped edge, read without a legend once it has been seen.
+    &--hype {
+        border-color: transparent;
+        box-shadow: inset 0 0 0 2px var(--color-warning);
+        background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--color-warning) 22%, transparent) 0 4px, transparent 4px 9px);
+    }
+    &--stale { opacity: .55; }
+    &--dim   { opacity: .18; }
+
+    &__name {
+        font-size: 11.5px;
+        line-height: 1.25;
+        padding-right: 16px;   // the badge's corner
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    &__foot {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 4px;
+    }
+
+    &__move { font-family: var(--font-mono); font-size: 11px; font-weight: 700; }
+    &__cov  { font-size: 10.5px; color: var(--text-secondary); }
+
+    // The verdict letter. Confidence is its weight: outlined (low), tinted (medium), solid (high).
+    &__badge {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        min-width: 15px;
+        height: 15px;
+        padding: 0 3px;
+        border: 1px solid var(--fm-v);
+        border-radius: 3px;
+        font-family: var(--font-mono);
+        font-size: 9.5px;
+        font-weight: 700;
+        line-height: 13px;
+        text-align: center;
+        color: var(--fm-v);
+        background: var(--bg-surface);
+
+        // Roy, 2026-10-14: swing green, long term teal, watch dark orange, avoid red.
+        &--swing     { --fm-v: var(--color-long); }
+        &--long_term { --fm-v: var(--color-teal); }
+        &--watch     { --fm-v: color-mix(in srgb, var(--color-looking) 80%, #000); }
+        &--avoid     { --fm-v: var(--color-short); }
+
+        &--low    { background: var(--bg-surface); border-style: dashed; }
+        &--medium { background: color-mix(in srgb, var(--fm-v) 22%, var(--bg-surface)); }
+        &--high   { background: var(--fm-v); color: var(--bg-base); }
+    }
+}
+
+.fm-industry {
+    &__sec + &__sec { margin-top: 18px; }
+    .industry-view__detail { padding-left: 0; }
+}
+
+.fm-cos {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.fm-co {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr) 64px auto;
+    align-items: baseline;
+    gap: 10px;
+    width: 100%;
+    margin: 0;
+    padding: 5px 6px;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    background: none;
+    font: inherit;
+    font-size: 12.5px;
+    text-align: left;
+    color: var(--text-secondary);
+
+    &--covered { cursor: pointer; color: var(--text-primary); }
+    &--covered:hover { background: var(--bg-hover); }
+
+    &__sym  { font-family: var(--font-mono); font-weight: 700; }
+    &__name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    &__cap  { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); text-align: right; }
+    &__cov  { display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+    &__none { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+}

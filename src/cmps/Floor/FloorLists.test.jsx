@@ -5,12 +5,21 @@ import { resolve } from 'node:path'
 import { FloorLists } from './FloorLists.jsx'
 import { closePanel } from '../DetailPanel/detailPanel.store.js'
 
-// FloorLists renders CoverageActions, which calls useAuth(); unprovided it is null and the
-// destructure throws the moment the Coverage desk opens. See testUtils/authStub.js.
+// FloorLists renders CoverageActions (in the Forecasts map's company page), which calls useAuth();
+// unprovided it is null and the destructure throws. See testUtils/authStub.js.
 vi.mock('../../context/AuthContext.jsx', async (orig) => {
     const { authModule } = await import('../../testUtils/authStub.js')
     return authModule(await orig())
 })
+
+// The Forecasts desk mounts ForecastPanel, which reads the map when it opens — mocked for the same reason.
+vi.mock('../../services/strategy/strategy.service.remote.js', () => ({
+    strategyService: {
+        getForecastMap: vi.fn(async () => ({ asof: null, tiles: [], unmapped: [], covered_at: {} })),
+        getIndustryCompanies: vi.fn(async () => ({ companies: [] })),
+        getAssessmentDetail: vi.fn(async () => null),
+    },
+}))
 
 // The Calendar desk mounts CalendarPanel, which reads the month when it opens — never over the wire
 // from a unit test (CR 2026-10-14: one case was making a real request and passing on its failure).
@@ -42,7 +51,7 @@ const chip = name => within(screen.getByRole('navigation', { name: 'Desks' }))
 describe('FloorLists', () => {
     it('renders all four desks', () => {
         render(<FloorLists />)
-        for (const label of ['Your trades', 'Your portfolios', 'Watchlists', 'Analyst companies']) {
+        for (const label of ['Your trades', 'Your portfolios', 'Watchlists']) {
             expect(deskBtn(label)).toBeTruthy()
         }
     })
@@ -50,15 +59,15 @@ describe('FloorLists', () => {
     // A refresh must not pick a desk for the reader: the column lands as a table of contents.
     it('opens no desk by default', () => {
         render(<FloorLists setups={[setup2()]} coverage={[{ symbol: 'AAPL', status: 'active' }]} />)
-        for (const label of ['Your trades', 'Your portfolios', 'Watchlists', 'Analyst companies']) {
+        for (const label of ['Your trades', 'Your portfolios', 'Watchlists']) {
             expect(deskBtn(label).getAttribute('aria-expanded')).toBe('false')
         }
     })
 
     it('opening one desk closes the one that was open', () => {
-        render(<FloorLists setups={[setup2()]} coverage={[{ symbol: 'AAPL', status: 'active' }]} initialDesk="trade" />)
-        fireEvent.click(deskBtn('Analyst companies'))
-        expect(deskBtn('Analyst companies').getAttribute('aria-expanded')).toBe('true')
+        render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
+        fireEvent.click(deskBtn('Watchlists'))
+        expect(deskBtn('Watchlists').getAttribute('aria-expanded')).toBe('true')
         expect(deskBtn('Your trades').getAttribute('aria-expanded')).toBe('false')
     })
 
@@ -66,7 +75,7 @@ describe('FloorLists', () => {
     it('clicking the open desk closes it, leaving all four collapsed', () => {
         render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
         fireEvent.click(deskBtn('Your trades'))
-        for (const label of ['Your trades', 'Your portfolios', 'Watchlists', 'Analyst companies']) {
+        for (const label of ['Your trades', 'Your portfolios', 'Watchlists']) {
             expect(deskBtn(label).getAttribute('aria-expanded')).toBe('false')
         }
     })
@@ -97,11 +106,11 @@ describe('FloorLists', () => {
         })
 
         it('switches desks from a chip, and closes the open one from its own chip', () => {
-            render(<FloorLists setups={[setup2()]} coverage={[{ symbol: 'AAPL', status: 'active' }]} initialDesk="trade" />)
-            fireEvent.click(chip('Analyst companies'))
-            expect(deskBtn('Analyst companies').getAttribute('aria-expanded')).toBe('true')
+            render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
+            fireEvent.click(chip('Watchlists'))
+            expect(deskBtn('Watchlists').getAttribute('aria-expanded')).toBe('true')
             expect(deskBtn('Your trades').getAttribute('aria-expanded')).toBe('false')
-            fireEvent.click(chip('Analyst companies'))
+            fireEvent.click(chip('Watchlists'))
             expect(screen.queryByRole('navigation', { name: 'Desks' })).toBeNull()
         })
     })
@@ -151,7 +160,7 @@ describe('FloorLists', () => {
         it('folds the other desks away while one is open', () => {
             render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
             expect(deskOf('Your trades').className).not.toMatch(/floor-desk--folded/)
-            for (const label of ['Your portfolios', 'Watchlists', 'Analyst companies']) {
+            for (const label of ['Your portfolios', 'Watchlists']) {
                 expect(deskOf(label).className).toMatch(/floor-desk--folded/)
             }
         })
@@ -163,7 +172,7 @@ describe('FloorLists', () => {
             const desks = [...container.querySelectorAll('.floor-desk')]
             expect(desks.some(d => d.className.includes('floor-desk--folded'))).toBe(false)
             expect(desks.map(d => d.querySelector('.floor-desk__label').textContent))
-                .toEqual(['Awaiting orders', 'Your trades', 'Your portfolios', 'Watchlists', 'Analyst companies',
+                .toEqual(['Awaiting orders', 'Your trades', 'Your portfolios', 'Watchlists',
                           'Calendar', 'Forecasts'])
         })
 
@@ -256,7 +265,7 @@ describe('FloorLists', () => {
 
     it('hides the count when a desk is empty rather than showing a zero', () => {
         render(<FloorLists />)
-        expect(within(deskBtn('Analyst companies')).queryByText('0')).toBeNull()
+        expect(within(deskBtn('Watchlists')).queryByText('0')).toBeNull()
     })
 
     it('merges the trade rows into one list, each labelled by kind', () => {
@@ -340,85 +349,50 @@ describe('FloorLists', () => {
         expect(open.mock.calls[0][0]).toContain('/idea/i1')
     })
 
-    it('expands a coverage row into its thesis', () => {
-        const coverage = [{ id: 'cv1', symbol: 'AAPL', status: 'active', thesis: 'Services mix re-rates the multiple.', kill_criteria: ['Services growth < 8%'] }]
-        render(<FloorLists coverage={coverage} />)
-        fireEvent.click(deskBtn('Analyst companies'))
-        expect(screen.queryByText(/services mix/i)).toBeNull()
-
-        fireEvent.click(screen.getByText('AAPL').closest('button'))
-        expect(screen.getByText(/services mix/i)).toBeTruthy()
-        expect(screen.getByText('Services growth < 8%')).toBeTruthy()
+    // FORECASTS is a panel desk (2026-10-14): its header opens the heat map over the chat, and it
+    // replaced "Analyst companies" — a covered name is reached through its industry (ForecastPanel.test).
+    it('the Forecasts header opens the heat map in the panel, not a list in the column', async () => {
+        const { container } = render(<FloorLists />)
+        const head = deskBtn('Forecasts')
+        expect(head.getAttribute('aria-haspopup')).toBe('dialog')
+        fireEvent.click(head)
+        await act(async () => { await Promise.resolve() })
+        expect(screen.getByRole('dialog', { name: 'Industries' })).toBeTruthy()
+        expect(container.querySelector('.floor-desk--open')).toBeNull()
+        expect(head.getAttribute('aria-expanded')).toBe('true')
     })
 
-    // ONE THESIS AT A TIME. This asserted the opposite until 3bbfa59 made every expandable list
-    // the same accordion as the desk column above it — "one item open at a time, open item takes
-    // the full height" — which is a deliberate change, not drift, so the test moved rather than
-    // the component. Kept rather than deleted: single-open is the contract now, and sliding back
-    // to several-open is a regression in this direction just as much as it was in the other.
-    it('opening one thesis closes the last — the rows are an accordion too', () => {
-        const coverage = [
-            { id: 'cv1', symbol: 'AAPL', status: 'active', thesis: 'Services mix re-rates.' },
-            { id: 'cv2', symbol: 'MSFT', status: 'active', thesis: 'Azure carries the multiple.' },
-        ]
-        render(<FloorLists coverage={coverage} />)
-        fireEvent.click(deskBtn('Analyst companies'))
-        fireEvent.click(screen.getByText('AAPL').closest('button'))
-        expect(screen.getByText(/services mix/i)).toBeTruthy()
-
-        fireEvent.click(screen.getByText('MSFT').closest('button'))
-        expect(screen.getByText(/azure carries/i)).toBeTruthy()
-        expect(screen.queryByText(/services mix/i)).toBeNull()
+    // Pythia's board (track record, week, themes, structure, Assess now) is one click from the map, and
+    // lives in the COLUMN — its rows open panels of their own, which would close a board inside a panel.
+    it('the map’s Board button opens Pythia’s board in the column, and the board leads back to the map', async () => {
+        render(<FloorLists assessments={{ assessments: [], record: null }} />)
+        expect(screen.queryByRole('button', { name: /Forecast board/ })).toBeNull()
+        fireEvent.click(deskBtn('Forecasts'))
+        await act(async () => { await Promise.resolve() })
+        fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Board' }))
+        expect(screen.queryByRole('dialog')).toBeNull()
+        expect(deskBtn('Forecast board').getAttribute('aria-expanded')).toBe('true')
+        expect(screen.getByRole('tab', { name: 'Themes' })).toBeTruthy()
+        fireEvent.click(screen.getByRole('button', { name: 'Open the heat map' }))
+        await act(async () => { await Promise.resolve() })
+        expect(screen.getByRole('dialog', { name: 'Industries' })).toBeTruthy()
+        // Closing the board takes its header away again.
+        fireEvent.click(deskBtn('Forecast board'))
+        expect(screen.queryByRole('button', { name: /^Forecast board/ })).toBeNull()
     })
 
-    it('a thesis opens in the detail panel, titled by the name, with the row marked open', () => {
-        const coverage = [{ id: 'cv1', symbol: 'AAPL', status: 'active', rating: 'buy', thesis: 'Services mix re-rates.', kill_criteria: ['services growth under 8%'] }]
-        render(<FloorLists coverage={coverage} />)
-        fireEvent.click(deskBtn('Analyst companies'))
-        const row = screen.getByText('AAPL').closest('button')
-        fireEvent.click(row)
+    it('has no "Analyst companies" desk any more', () => {
+        render(<FloorLists isAdmin coverage={[{ symbol: 'AAPL', status: 'active' }]} />)
+        expect(screen.queryByRole('button', { name: /Analyst companies/ })).toBeNull()
+    })
+
+    it('an outside ask for a covered name opens the map on that company', async () => {
+        const coverage = [{ id: 'cv1', symbol: 'AAPL', status: 'active', thesis: 'Services mix re-rates.' }]
+        render(<FloorLists coverage={coverage} deskRequest={{ key: 'forecasts', symbol: 'AAPL' }} />)
+        await act(async () => { await Promise.resolve() })
         const panel = screen.getByRole('dialog')
-        expect(panel.closest('.floor-lists')).toBeNull()
-        expect(panel.querySelector('.detail-panel__kicker').textContent).toBe('Analyst companies')
         expect(panel.querySelector('.detail-panel__title').textContent).toBe('AAPL')
-        expect(within(panel).getByText('services growth under 8%')).toBeTruthy()
-        expect(row.getAttribute('aria-haspopup')).toBe('dialog')
-        expect(row.getAttribute('aria-expanded')).toBe('true')
-        // The other rows stay in the list — nothing folds for a panel.
-        expect(document.querySelector('.floor-sub--folded')).toBeNull()
-    })
-
-    it('Edit in the panel closes it on the way to Prometheus — the chat it opens is under the panel', () => {
-        const onEditCoverage = vi.fn()
-        const coverage = [{ id: 'cv1', symbol: 'AAPL', status: 'active', thesis: 'Services mix re-rates.' }]
-        render(<FloorLists coverage={coverage} onEditCoverage={onEditCoverage} />)
-        fireEvent.click(deskBtn('Analyst companies'))
-        fireEvent.click(screen.getByText('AAPL').closest('button'))
-        fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Edit' }))
-        expect(onEditCoverage).toHaveBeenCalledWith(coverage[0])
-        expect(screen.queryByRole('dialog')).toBeNull()
-    })
-
-    it('closing the desk closes the thesis panel with it', async () => {
-        const coverage = [{ id: 'cv1', symbol: 'AAPL', status: 'active', thesis: 'Services mix re-rates.' }]
-        render(<FloorLists coverage={coverage} />)
-        fireEvent.click(deskBtn('Analyst companies'))
-        fireEvent.click(screen.getByText('AAPL').closest('button'))
-        fireEvent.click(deskBtn('Analyst companies'))
-        await act(() => new Promise(r => setTimeout(r, 0)))
-        expect(screen.queryByRole('dialog')).toBeNull()
-        fireEvent.click(deskBtn('Analyst companies'))
-        expect(screen.queryByRole('dialog')).toBeNull()
-    })
-
-    // A chevron that opens an empty box is worse than no chevron.
-    it('offers no expander on a coverage row with nothing to show', () => {
-        const coverage = [{ id: 'cv1', symbol: 'AAPL', status: 'active' }]
-        render(<FloorLists coverage={coverage} />)
-        fireEvent.click(deskBtn('Analyst companies'))
-        const row = screen.getByText('AAPL').closest('button')
-        expect(row.getAttribute('aria-expanded')).toBeNull()
-        expect(row.querySelector('.floor-row__chev')).toBeNull()
+        expect(within(panel).getByText('Services mix re-rates.')).toBeTruthy()
     })
 
     // A COLLAPSED row is one line. jsdom lays nothing out, so this guards the rules that make it
@@ -779,7 +753,7 @@ describe('every ticker in the column opens its chart', () => {
 
     it('every symbol cell is the shared one, carrying the handler', () => {
         const cells = SRC.match(/<SymbolCell[^>]*?\/>/gs) ?? []
-        expect(cells.length).toBeGreaterThanOrEqual(5)
+        expect(cells.length).toBeGreaterThanOrEqual(4)
         for (const cell of cells) {
             expect(cell).toContain('onSymbolClick={onSymbolClick}')
             expect(cell).toContain('className="floor-row__sym"')
@@ -789,7 +763,7 @@ describe('every ticker in the column opens its chart', () => {
     it('the handler reaches every list that renders one', () => {
         // A cell wired to a prop its component never received renders a dead ticker, and
         // nothing at runtime says so.
-        for (const list of ['TradeRows', 'PortfolioRows', 'ScanRows', 'CoverageRows',
+        for (const list of ['TradeRows', 'PortfolioRows', 'ScanRows',
                             'ResearchQueueRows']) {
             // Plain string slicing rather than a built regex: expressing `function Foo({`
             // as a pattern needs escaping that is its own source of bugs, and "the text
@@ -942,10 +916,11 @@ describe('research queue · covered names', () => {
 describe('FloorLists — sorting', () => {
     afterEach(() => { try { localStorage.clear() } catch { /* no storage */ } })
 
-    const coverage = [
-        { id: 'c1', symbol: 'MSFT', status: 'active', gap: { pct: 4 } },
-        { id: 'c2', symbol: 'AAPL', status: 'active', gap: { pct: 22 } },
-        { id: 'c3', symbol: 'NVDA', status: 'active', gap: { pct: 11 } },
+    // Watchlists carry these since the coverage desk went (2026-10-14); a scan's row shows its thesis.
+    const scans = [
+        { id: 'c1', thesis: 'MSFT', candidates: [{}] },
+        { id: 'c2', thesis: 'AAPL', candidates: [{}, {}, {}] },
+        { id: 'c3', thesis: 'NVDA', candidates: [{}, {}] },
     ]
     const rowSyms = () => [...document.querySelectorAll('.floor-desk--open .floor-row')]
         .map(r => r.querySelector('.floor-row__sym')?.textContent)
@@ -953,41 +928,41 @@ describe('FloorLists — sorting', () => {
     const dirBtn     = () => screen.getByRole('button', { name: /ascending|descending/i })
 
     it('shows no sort bar over a single row', () => {
-        render(<FloorLists coverage={[coverage[0]]} initialDesk="coverage" />)
+        render(<FloorLists scans={[scans[0]]} initialDesk="scans" />)
         expect(screen.queryByRole('combobox')).toBeNull()
     })
 
     it('opens on the default order, with the arrow disabled', () => {
-        render(<FloorLists coverage={coverage} initialDesk="coverage" />)
+        render(<FloorLists scans={scans} initialDesk="scans" />)
         expect(sortSelect().value).toBe('default')
         expect(dirBtn().disabled).toBe(true)
         expect(rowSyms()).toEqual(['MSFT', 'AAPL', 'NVDA'])
     })
 
     it('reorders the rows by the picked field, and the arrow flips it', () => {
-        render(<FloorLists coverage={coverage} initialDesk="coverage" />)
-        fireEvent.change(sortSelect(), { target: { value: 'symbol' } })
+        render(<FloorLists scans={scans} initialDesk="scans" />)
+        fireEvent.change(sortSelect(), { target: { value: 'thesis' } })
         expect(rowSyms()).toEqual(['AAPL', 'MSFT', 'NVDA'])
         fireEvent.click(dirBtn())
         expect(rowSyms()).toEqual(['NVDA', 'MSFT', 'AAPL'])
-        // Upside starts high-to-low, whatever the previous option's direction was.
-        fireEvent.change(sortSelect(), { target: { value: 'upside' } })
+        // Candidates starts high-to-low, whatever the previous option's direction was.
+        fireEvent.change(sortSelect(), { target: { value: 'candidates' } })
         expect(rowSyms()).toEqual(['AAPL', 'NVDA', 'MSFT'])
     })
 
     it('back to Default restores the server order', () => {
-        render(<FloorLists coverage={coverage} initialDesk="coverage" />)
-        fireEvent.change(sortSelect(), { target: { value: 'symbol' } })
+        render(<FloorLists scans={scans} initialDesk="scans" />)
+        fireEvent.change(sortSelect(), { target: { value: 'thesis' } })
         fireEvent.change(sortSelect(), { target: { value: 'default' } })
         expect(rowSyms()).toEqual(['MSFT', 'AAPL', 'NVDA'])
     })
 
     it('remembers the choice per desk across a remount', () => {
-        const { unmount } = render(<FloorLists coverage={coverage} initialDesk="coverage" />)
-        fireEvent.change(sortSelect(), { target: { value: 'symbol' } })
+        const { unmount } = render(<FloorLists scans={scans} initialDesk="scans" />)
+        fireEvent.change(sortSelect(), { target: { value: 'thesis' } })
         unmount()
-        render(<FloorLists coverage={coverage} initialDesk="coverage" />)
-        expect(sortSelect().value).toBe('symbol')
+        render(<FloorLists scans={scans} initialDesk="scans" />)
+        expect(sortSelect().value).toBe('thesis')
         expect(rowSyms()).toEqual(['AAPL', 'MSFT', 'NVDA'])
     })
 

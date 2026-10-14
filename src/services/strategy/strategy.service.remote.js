@@ -21,6 +21,8 @@ export const strategyService = {
     runWeek,
     listAssessments,
     getAssessmentDetail,
+    getForecastMap,
+    getIndustryCompanies,
     assessNow,
     listThemes,
     proposeThemes,
@@ -113,6 +115,19 @@ function getAssessmentDetail(row) {
     return s.kind === 'theme'
         ? httpService.get(`${BASE}/assessments/theme/${encodeURIComponent(s.id)}`)
         : httpService.get(`${BASE}/assessments/${encodeURIComponent(s.code)}`)
+}
+
+/**
+ * The Forecasts heat map (Roy, 2026-10-14): every sub-industry's latest move against the market, Pythia's verdict
+ * where there is one, and how many of its names Prometheus covers. → `{ asof, tiles, unmapped }`.
+ */
+function getForecastMap() {
+    return httpService.get(`${BASE}/map`)
+}
+
+/** One sub-industry's companies, largest first, each marked covered. → `{ code, name, level, level_name, companies }`. */
+function getIndustryCompanies(code) {
+    return httpService.get(`${BASE}/industries/${encodeURIComponent(code)}/companies`)
 }
 
 /**
