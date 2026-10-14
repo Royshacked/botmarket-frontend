@@ -54,17 +54,14 @@ describe('sortRows', () => {
         assert.deepEqual(sortRows(rows, 'research_queue', { key: 'status', dir: 'desc' }).map(r => r.id), [1, 3, 2])
     })
 
-    // The calendar keeps its days: "by symbol" is alphabetical WITHIN a day, never across them —
-    // groupByDay needs same-date rows to stay consecutive.
-    it('sorts calendar rows within their day, days staying soonest-first', () => {
-        const earnings = [
-            { date: '2026-10-05', symbol: 'ZM' }, { date: '2026-10-05', symbol: 'AA' },
-            { date: '2026-10-06', symbol: 'MU' }, { date: '2026-10-06', symbol: 'BA' },
-        ]
-        const out = sortRows(earnings, 'earnings', { key: 'symbol', dir: 'desc' })
-        assert.deepEqual(out.map(e => `${e.date}:${e.symbol}`), ['2026-10-05:ZM', '2026-10-05:AA', '2026-10-06:MU', '2026-10-06:BA'])
-        const asc = sortRows(earnings, 'earnings', { key: 'symbol', dir: 'asc' })
-        assert.deepEqual(asc.map(e => e.symbol), ['AA', 'ZM', 'BA', 'MU'])
+    // The Earnings / Fed / IPO desks are gone (the Calendar panel, 2026-10-14), but a browser may
+    // still hold a sort saved for one in `floorSorts`. It must be a no-op, never a throw.
+    it('treats a sort saved for a removed desk as default', () => {
+        const rows = [{ symbol: 'ZM' }, { symbol: 'AA' }]
+        for (const desk of ['earnings', 'fed', 'ipo']) {
+            assert.equal(sortOption(desk, { key: 'symbol', dir: 'asc' }), null)
+            assert.equal(sortRows(rows, desk, { key: 'symbol', dir: 'asc' }), rows)
+        }
     })
 
     it('passes ctx through — portfolio P&L comes from the positions, not the book', () => {

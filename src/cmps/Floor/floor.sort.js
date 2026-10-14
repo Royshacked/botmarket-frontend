@@ -6,13 +6,15 @@
 // one naturally runs ("newest" starts descending, a symbol starts A→Z).
 //
 // The first option of every desk is `default`: the order the list already arrives in (server
-// order, soonest-first for the calendar, lifecycle for trades). It takes no direction — "reverse
-// the order the server chose" is not a question anyone asks — so the arrow is disabled on it.
+// order, lifecycle for trades). It takes no direction — "reverse the order the server chose" is
+// not a question anyone asks — so the arrow is disabled on it.
 //
 // Grouped desks keep their groups. A trade list sorted by symbol is still Waiting / In position /
 // Closed, alphabetical inside each (groupByLifecycle preserves input order, so sorting the flat list
-// is enough). The calendar keeps its days for the same reason — "by symbol" means within the day,
-// not a list that forgets when anything happens — which is what `within` is for.
+// is enough).
+//
+// The Earnings / Fed / IPO desks had options here, and a `within` key that kept their rows inside
+// their day. Those desks became the Calendar panel on 2026-10-14, which nothing sorts; both went.
 
 const toMs = (v) => {
     if (v == null || v === '') return null
@@ -25,8 +27,6 @@ const str = (v) => (v == null || v === '' ? null : String(v))
 const rank = (order) => (v) => { const i = order.indexOf(v); return i < 0 ? null : i }
 
 const RATING_RANK = rank(['strong_buy', 'buy', 'hold', 'sell', 'strong_sell'])
-const IMPACT_RANK = rank(['high', 'medium', 'low'])
-const EARN_RANK   = rank(['bmo', 'dmh', 'amc'])
 
 // `dir` is the direction an option STARTS in when picked; the arrow flips it from there.
 const DEFAULT = { key: 'default', label: 'Default' }
@@ -80,21 +80,6 @@ export const DESK_SORTS = {
         { key: 'category', label: 'Kind',       dir: 'asc',  value: r => str(r.event_category) },
         { key: 'subject',  label: 'Subject',    dir: 'asc',  value: r => str(r.subject || r.event) },
     ],
-    earnings: [
-        DEFAULT,
-        { key: 'symbol', label: 'Symbol', dir: 'asc', value: e => str(e.symbol), within: e => e.date },
-        { key: 'timing', label: 'Timing', dir: 'asc', value: e => EARN_RANK(String(e.time || '').toLowerCase()), within: e => e.date },
-    ],
-    fed: [
-        DEFAULT,
-        { key: 'time',   label: 'Time',   dir: 'asc', value: e => str(e.time),          within: e => e.date },
-        { key: 'impact', label: 'Impact', dir: 'asc', value: e => IMPACT_RANK(e.impact), within: e => e.date },
-    ],
-    ipo: [
-        DEFAULT,
-        { key: 'symbol', label: 'Symbol', dir: 'asc',  value: e => str(e.symbol), within: e => e.date },
-        { key: 'price',  label: 'Price',  dir: 'desc', value: e => num(e.price),  within: e => e.date },
-    ],
 }
 
 /** The option a stored sort points at, or null for default / unknown (a renamed key falls back). */
@@ -125,10 +110,6 @@ export function sortRows(rows = [], deskKey, sort, ctx) {
     const sign = (sort.dir ?? opt.dir) === 'desc' ? -1 : 1
     const keyed = rows.map((row, i) => ({ row, i, v: opt.value(row, ctx) }))
     keyed.sort((x, y) => {
-        if (opt.within) {
-            const w = compare(opt.within(x.row) ?? '', opt.within(y.row) ?? '')
-            if (w) return w
-        }
         const xn = x.v == null, yn = y.v == null
         if (xn || yn) return xn === yn ? x.i - y.i : (xn ? 1 : -1)
         return sign * compare(x.v, y.v) || x.i - y.i
