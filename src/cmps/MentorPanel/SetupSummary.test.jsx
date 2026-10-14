@@ -394,6 +394,17 @@ describe('setupDigest', () => {
         expect(setupDigest({ ...SETUP, scenarios: [FADE] })).toBe('NVDA · LONG · entry 201')
     })
 
+    // A TRIGGER entry (filled at market when its condition is true) has no price, and the folded line
+    // used to drop it for "1 entry scenario" while the open block said "on trigger" (2026-10-14).
+    it('reads a trigger entry the way the block does', () => {
+        const trigger = { ...FADE, entry_legs: [{ trigger: 'a 15m close back above 116.50', about: 117.2 }] }
+        expect(setupDigest({ ...SETUP, scenarios: [trigger] })).toBe('NVDA · LONG · entry ~117.2 on trigger')
+        const bare = { ...FADE, entry_legs: [{ trigger: 'RSI back above 30' }] }
+        expect(setupDigest({ ...SETUP, scenarios: [bare] })).toBe('NVDA · LONG · entry on trigger')
+        const none = { ...FADE, entry_legs: [{}] }
+        expect(setupDigest({ ...SETUP, scenarios: [none] })).toBe('NVDA · LONG · 1 entry scenario')
+    })
+
     // Early in the build there is a ticker and little else. The digest must degrade to whatever is
     // known rather than inventing structure — a setup with no premise drawn yet says so by omission.
     it('degrades to what is known, and is empty before there is an asset', () => {
