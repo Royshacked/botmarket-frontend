@@ -4,7 +4,7 @@ import { SetupCard } from './SetupCard.jsx'
 import { SetupScenarios } from './SetupPlan.jsx'
 import { planTail, entryText, fmtEntry } from './setupPlan.utils.js'
 import { statusCopy } from './setupStatus.js'
-import { fmtEntryLeg } from '../MentorPanel/ScenarioBlock.jsx'
+import { ScenarioBlock } from '../MentorPanel/ScenarioBlock.jsx'
 
 // Driven live (2026-10-01): a setup whose entry is a TRIGGER — "a 15-minute support reclaim",
 // filled at market — was saved, and the Lists card read "ARMED · in null". Two defects: the card
@@ -27,8 +27,15 @@ describe('a trigger entry reads as a trigger on every surface', () => {
         expect(entryText({ trigger: 'RSI back above 30' })).toBe('on trigger')
         expect(entryText({})).toBeNull()
         expect(fmtEntry({})).toBe('—')
-        // The Mentor panel reads the same function, so the two cannot disagree.
-        expect(fmtEntryLeg).toBe(entryText)
+    })
+
+    // The Mentor panel's scenario block reads the same function, so the two cannot disagree. (This
+    // used to compare an alias for identity; the alias went with the Fast Refresh cleanup, 2026-10-14,
+    // so it is asserted on what the block renders instead.)
+    it('the Mentor scenario block prints the trigger entry, not a blank or "null"', () => {
+        render(<ScenarioBlock scenario={SETUP.scenarios[0]} direction="long" index={0} />)
+        expect(document.body.textContent).toMatch(/~117\.2 on trigger/)
+        expect(document.body.textContent).not.toMatch(/null/)
     })
 
     it('the Lists card never prints "in null"', () => {

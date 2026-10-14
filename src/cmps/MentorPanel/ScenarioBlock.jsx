@@ -24,19 +24,12 @@ import './ScenarioBlock.scss'
 // own validity range broke, which does NOT mean the setup is over — a rival can still be live, and
 // showing that is the entire point of rendering every scenario instead of one set of levels.
 
-// Exported: the collapsed preview line names the entry in the same words this block does
-// (SetupSummary.setupDigest). One formatter, so the two can never disagree about what a level is.
-//
-// It used to collapse a band and print `238–240` when the edges differed. There are no edges
-// (2026-09-24) — a leg is a price — so all that is left is "is there a number".
-export const fmtLeg = (z) => (z?.price == null ? null : `${z.price}`)
-
-// ...except an ENTRY, which since 2026-09-28 may be a TRIGGER in words instead of a level
-// (botmarket-backend docs/design/mentor-flow-intent.md #7). It fills at market when the trigger is
-// true, so there is no price to print — printing nothing would hide the whole way in.
-// The one reading of an entry lives with the plan's other formatters (setupPlan.utils.entryText),
-// so the Lists card, the pop-out and this block cannot disagree about what a trigger entry says.
-export const fmtEntryLeg = entryText
+// The entry is read by THE one reading of an entry (setupPlan.utils.entryText): since 2026-09-28 it
+// may be a TRIGGER in words instead of a level (botmarket-backend docs/design/mentor-flow-intent.md
+// #7), filled at market when true, so printing a price alone would hide the whole way in. The Lists
+// card, the pop-out and this block share it so they cannot disagree. (This file used to export
+// fmtLeg — now in setupPlan.utils — and fmtEntryLeg, an alias of entryText, now gone; 2026-10-14:
+// a component file that also exports helpers breaks Fast Refresh.)
 
 // BOTH EDGES, each with its own authored answer. They are different events — one is "the premise
 // broke", the other is "it went without you" — and the away side had no answer at all until
@@ -73,7 +66,7 @@ export function ScenarioBlock({
     // counterpart rather than as more of the same.
     const name  = scenario.name?.trim() || `Entry scenario ${index + 1}`
     const entryLeg = scenario.entry_legs?.[0]
-    const entry    = fmtEntryLeg(entryLeg)
+    const entry    = entryText(entryLeg)
     const valid = validityLine(scenario.validity, direction)
 
     return (

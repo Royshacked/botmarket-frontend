@@ -5,6 +5,10 @@
 import { isLivePosition, isTerminal } from '../../services/entityStatus.js'
 
 export const fmtLevel = z => (z?.price == null ? '—' : `${z.price}`)
+/** A leg's price, or null — for a line that leaves a missing level out rather than print "—". It
+ *  used to collapse a band (`238–240`); a leg is a price since 2026-09-24. Moved here from
+ *  ScenarioBlock.jsx on 2026-10-14, and CandidatePicker's own copy with it. */
+export const fmtLeg = z => (z?.price == null ? null : `${z.price}`)
 
 /**
  * An ENTRY in words — its price, or, since 2026-09-28, the TRIGGER it gets in on (a condition, filled

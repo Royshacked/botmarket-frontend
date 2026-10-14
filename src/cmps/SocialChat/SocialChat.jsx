@@ -74,7 +74,9 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
         } catch (err) {
             console.error('[SocialChat] loadConversations failed', err)
         }
-    }, [onUnreadChange])
+    // isAdmin is read by the admin-feed filter above. It was missing here (lint, 2026-10-14), so the
+    // list kept the role it mounted with; now a role change re-reads it with the right filter.
+    }, [onUnreadChange, isAdmin])
 
     useEffect(() => { loadConversations() }, [loadConversations])
 

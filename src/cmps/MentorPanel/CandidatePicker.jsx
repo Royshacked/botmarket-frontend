@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types'
 import { ConvictionChip } from '../ConvictionChip/ConvictionChip'
+import { fmtLeg } from '../TradeIdeas/setupPlan.utils.js'
 import './CandidatePicker.scss'
 
 // The 2–3 candidate offer, shown when the user has no setup of their own.
@@ -10,8 +11,6 @@ import './CandidatePicker.scss'
 //
 // Each candidate carries its own lens, because they're meant to differ in character (a reversal
 // at the low vs a breakout continuation), not be three wordings of one trade.
-
-const fmtLeg = (z) => (z?.price == null ? null : `${z.price}`)
 
 export function CandidatePicker({ candidates = [], onPick }) {
     if (!candidates.length) return null

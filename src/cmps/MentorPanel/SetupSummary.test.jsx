@@ -4,7 +4,8 @@ import { CoverageChips } from './CoverageChips.jsx'
 import { ZoneEditor } from './ZoneEditor.jsx'
 import { ScenarioBlock } from './ScenarioBlock.jsx'
 import { ConditionList } from './ConditionList.jsx'
-import { SetupSummary, setupDigest } from './SetupSummary.jsx'
+import { SetupSummary } from './SetupSummary.jsx'
+import { setupDigest } from './setupSummary.utils.js'
 
 afterEach(cleanup)
 

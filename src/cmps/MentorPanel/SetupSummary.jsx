@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types'
 import { ConvictionChip } from '../ConvictionChip/ConvictionChip'
-import { ScenarioBlock, fmtLeg } from './ScenarioBlock.jsx'
+import { ScenarioBlock } from './ScenarioBlock.jsx'
 import { ConditionList } from './ConditionList.jsx'
 import { PathsNotTaken } from '../PathsNotTaken/PathsNotTaken.jsx'
 import './SetupSummary.scss'
@@ -39,27 +39,7 @@ const fmtDate = (iso) => {
     catch { return iso }
 }
 
-// The worksheet folded onto one line, for the collapsed preview header. It lives here rather than
-// in the panel so the summary and its one-liner describe the setup in the same vocabulary — a way
-// scenario is an entry scenario in both, and the entry level is formatted by the one shared fmtLeg.
-//
-// Says the things you check at a glance and could not otherwise see while folded: WHICH asset,
-// which direction, and how many rival premises are drawn (the count is the surprising one — a
-// second entry scenario is easy to forget you agreed to).
-export function setupDigest(setup) {
-    if (!setup?.asset) return ''
-    const parts = [setup.asset]
-    if (setup.direction) parts.push(setup.direction.toUpperCase())
-
-    const scenarios = setup.scenarios ?? []
-    if (scenarios.length === 1) {
-        const entry = fmtLeg(scenarios[0].entry_legs?.[0])
-        parts.push(entry ? 'entry ' + entry : '1 entry scenario')
-    } else if (scenarios.length > 1) {
-        parts.push(scenarios.length + ' entry scenarios')
-    }
-    return parts.join(' · ')
-}
+// The worksheet's one-line digest (the collapsed preview header) is setupSummary.utils.setupDigest.
 
 const fmtMoney = (n) => (n == null ? null : n.toLocaleString(undefined, { maximumFractionDigits: 2 }))
 

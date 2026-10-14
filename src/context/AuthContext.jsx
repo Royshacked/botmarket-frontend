@@ -3,6 +3,7 @@ import { API_BASE } from '../services/config'
 import { hydratePreferences } from '../services/preferences.service'
 import { disablePush } from '../services/push.service.js'
 
+// eslint-disable-next-line react-refresh/only-export-components -- the context lives with its provider and useAuth; moving it would move the module testUtils/authStub.js mocks for every component suite
 export const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
