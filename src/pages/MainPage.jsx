@@ -3335,20 +3335,14 @@ export function MainPage() {
                                     onCancelQueued={handleCancelQueued}
                                     queuedBusyId={queuedBusyId}
                                     deskRequest={deskRequest}
-                                    earnings={earnings}
-                                    fed={fed}
-                                    ipo={ipo}
                                     industries={industries}
                                     industriesError={industriesError}
                                     week={week}
                                     assessments={assessments}
                                     themes={themes}
-                                    calendarLoading={{
-                                        earnings:  earningsLoading,
-                                        fed:       fedLoading,
-                                        ipo:       ipoLoading,
-                                        forecasts: industriesLoading,
-                                    }}
+                                    // The Floor's Calendar reads its own month (CalendarPanel); the
+                                    // week feeds still serve the standard layout's Radar below.
+                                    calendarLoading={{ forecasts: industriesLoading }}
                                     aetherCandidates={{ runs: aetherRuns, loading: aetherLoading, error: aetherError, onRead: onAetherRead, onTradeWithMentor: seedMentorChat, onScanWithArgus: handleScanRadar, scanBusy: radarBusy }}
                                     onEarningSelect={handleBuildFromEarning}
                                     onIpoSelect={handleBuildFromIpo}

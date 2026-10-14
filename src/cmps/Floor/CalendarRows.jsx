@@ -21,39 +21,20 @@ const EARN_WHEN = { bmo: 'Pre', amc: 'Post', dmh: 'Mid' }
  * @param {object[]} items
  * @param {Function} [onSelect]  row click — earnings and IPO hand the event back to build a setup
  *                               around it. Fed rows are not doorways: there is no ticker to trade.
+ * @param {boolean} [dated]      false: the rows alone, no day headers — the calendar's date page
+ *                               is ONE day, already named in its title (2026-10-14).
  */
-export function CalendarRows({ kind, items = [], loading = false, onSelect, onSymbolClick }) {
+export function CalendarRows({ kind, items = [], loading = false, onSelect, onSymbolClick, dated = true }) {
     if (loading && !items.length) return <p className="floor-empty">Loading…</p>
     if (!items.length) return <p className="floor-empty">Nothing scheduled.</p>
+
+    const row = (e, i) => <CalendarRow key={`${e.symbol || e.event || 'row'}-${i}`} kind={kind} e={e} onSelect={onSelect} onSymbolClick={onSymbolClick} />
+    if (!dated) return <div className="floor-cal__day">{items.map(row)}</div>
 
     return groupByDay(items).map(g => (
         <div key={g.date} className="floor-cal__day">
             <div className="floor-cal__date">{fmtDay(g.date)}</div>
-            {g.items.map((e, i) => {
-                if (kind === 'fed') {
-                    return (
-                        <div key={i} className="floor-cal__row" title={e.desc || ''}>
-                            <span className="floor-cal__time">{e.time || ''}</span>
-                            <span className="floor-cal__label">{e.event}</span>
-                            <span className={`floor-cal__impact floor-cal__impact--${e.impact}`}>{e.impact}</span>
-                        </div>
-                    )
-                }
-                return (
-                    <button
-                        key={`${e.symbol || 'row'}-${i}`}
-                        className="floor-cal__row floor-cal__row--btn"
-                        onClick={() => onSelect?.(e)}
-                        title={e.symbol ? `Build a setup around ${e.symbol}` : undefined}
-                    >
-                        <SymbolCell className="floor-cal__sym" symbol={e.symbol} onSymbolClick={onSymbolClick} />
-                        <span className="floor-cal__label">{e.name ?? ''}</span>
-                        {kind === 'earnings'
-                            ? <span className="floor-cal__when">{EARN_WHEN[(e.time || '').toLowerCase()] ?? ''}</span>
-                            : <span className="floor-cal__when">{e.price ? `$${e.price}` : ''}</span>}
-                    </button>
-                )
-            })}
+            {g.items.map(row)}
         </div>
     ))
 }
@@ -64,4 +45,36 @@ CalendarRows.propTypes = {
     items:    PropTypes.array,
     loading:  PropTypes.bool,
     onSelect: PropTypes.func,
+    dated:    PropTypes.bool,
+}
+
+function CalendarRow({ kind, e, onSelect, onSymbolClick }) {
+    if (kind === 'fed') {
+        return (
+            <div className="floor-cal__row" title={e.desc || ''}>
+                <span className="floor-cal__time">{e.time || ''}</span>
+                <span className="floor-cal__label">{e.event}</span>
+                <span className={`floor-cal__impact floor-cal__impact--${e.impact}`}>{e.impact}</span>
+            </div>
+        )
+    }
+    return (
+        <button
+            className="floor-cal__row floor-cal__row--btn"
+            onClick={() => onSelect?.(e)}
+            title={e.symbol ? `Build a setup around ${e.symbol}` : undefined}
+        >
+            <SymbolCell className="floor-cal__sym" symbol={e.symbol} onSymbolClick={onSymbolClick} />
+            <span className="floor-cal__label">{e.name ?? ''}</span>
+            {kind === 'earnings'
+                ? <span className="floor-cal__when">{EARN_WHEN[(e.time || '').toLowerCase()] ?? ''}</span>
+                : <span className="floor-cal__when">{e.price ? `$${e.price}` : ''}</span>}
+        </button>
+    )
+}
+CalendarRow.propTypes = {
+    kind:          PropTypes.string.isRequired,
+    e:             PropTypes.object.isRequired,
+    onSelect:      PropTypes.func,
+    onSymbolClick: PropTypes.func,
 }

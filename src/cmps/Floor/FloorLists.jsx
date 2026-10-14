@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { groupByLifecycle, isPreEntry, isLivePosition } from '../../services/entityStatus.js'
 import {
@@ -14,7 +14,7 @@ import { RowHost } from './RowHost.jsx'
 import { CoverageActions } from '../Radar/CoverageActions.jsx'
 import { nextRevision, NEXT_REVISION_HINT } from '../Radar/coverage.utils.js'
 import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
-import { CalendarRows } from './CalendarRows.jsx'
+import { CalendarPanel, CALENDAR_PANEL_ID } from './CalendarPanel.jsx'
 import { IndustryView } from '../Radar/IndustryView.jsx'
 import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
 import { useActivePanel, togglePanel, closePanel } from '../DetailPanel/detailPanel.store.js'
@@ -43,32 +43,33 @@ import { HouseChip } from '../HouseChip/HouseChip.jsx'
 const DESKS = [
     // Queued sits FIRST because it is the only desk that is a to-do list: the others are things
     // you own, this one is things waiting on you. A count here means someone is blocked.
+    // Named for what the reader owns, not for the desk's metaphor (Roy, 2026-10-14): "Trading
+    // floor" / "Portfolio floor" / "Scans" became "Your trades" / "Your portfolios" / "Watchlists".
+    // The KEYS stay — they are what sorts, desk requests and tests address.
     { key: 'queued',         label: 'Awaiting orders' },
-    { key: 'trade',          label: 'Trading floor' },
-    { key: 'portfolio',      label: 'Portfolio floor' },
-    { key: 'scans',          label: 'Scans' },
+    { key: 'trade',          label: 'Your trades' },
+    { key: 'portfolio',      label: 'Your portfolios' },
+    { key: 'scans',          label: 'Watchlists' },
     { key: 'coverage',       label: 'Analyst companies' },
-    { key: 'aether',         label: 'Events radar' },
-    // Admin-only: the house research pipeline backlog (Argus hits + user coverage_request).
-    { key: 'research_queue', label: 'Research queue', group: 'Admin', adminOnly: true },
+    // HIDDEN FOR NOW (Roy, 2026-10-14), not deleted: its rows, counts and sorts all still work, and
+    // dropping the flag brings it back. MainPage still loads the candidates for the Aether desk.
+    { key: 'aether',         label: 'Events radar', hidden: true },
 
-    // The calendar, which used to be the left column's bottom half behind a four-tab strip
-    // (2026-08-19). Each feed is a desk of its own now for the same reason the tabs were wrong:
-    // a tab strip makes four lists share one short box and hides three of them behind the fourth,
-    // where a desk gives whichever you opened the whole column. The left column keeps the book.
-    //
-    // They stay GROUPED under one caption because they are still one thing to the reader — what
-    // the market is about to do, as opposed to the five desks above, which are what you are doing
-    // about it. Grouping is also what keeps nine headers from reading as nine unrelated buttons.
-    { key: 'earnings',  label: 'Earnings',  group: 'Calendar' },
-    { key: 'fed',       label: 'Fed',       group: 'Calendar' },
-    { key: 'ipo',       label: 'IPO',       group: 'Calendar' },
+    // THE CALENDAR — one desk that opens a month grid in the detail panel (CalendarPanel), not a
+    // list in this column (Roy, 2026-10-14). It replaced the Earnings, Fed and IPO desks: three
+    // week-long lists became one month, each day showing its three counts, each day opening to its
+    // rows. `panel` marks a desk whose header toggles a DetailPanel instead of taking the column.
+    // (Before that the three were tabs in the left column, until 2026-08-19.)
+    { key: 'calendar',  label: 'Calendar', panel: CALENDAR_PANEL_ID },
     // Not a dated list at all — the house view, rendered as a board. It sits with the calendar
     // because it answers the same question, not because it shares its shape.
     //
     // OPEN TO EVERYONE since 2026-10-05 (Roy): the house's industry views are a broadcast every user
     // reads. Only authoring them — Pythia's desk — is admin-only.
-    { key: 'forecasts', label: 'Forecasts', group: 'Calendar' },
+    { key: 'forecasts', label: 'Forecasts' },
+    // Admin-only: the house research pipeline backlog (Argus hits + user coverage_request). LAST
+    // (Roy, 2026-10-14): it is house plumbing, not part of the reader's own run of desks.
+    { key: 'research_queue', label: 'Research queue', adminOnly: true },
     // A `channels` desk sat here — Aether's z-score per pressure channel. It went with the
     // channel engine on 2026-09-09, along with the collection behind it.
 ]
@@ -79,13 +80,22 @@ function openFor(item) {
     return openIdeaPopup(item.entity)
 }
 
-function Desk({ desk, open, collapsed, count, onToggle, children }) {
+// An EMPTY desk stays in the column, dimmed — never removed (Roy, 2026-10-14). Hiding it would
+// move every header below it each time a count crossed zero, and the column is read by position;
+// it would also hide the desk from the one reader who most needs to learn it exists. The dim says
+// "nothing here" at a glance; the empty state inside says who fills it.
+//
+// A `panel` desk (the Calendar) never takes the column: its header opens a DetailPanel, so it
+// announces a dialog and reports THAT as its expanded state — which also gives it the shared
+// "row the panel came from" highlight (DetailPanel.scss).
+function Desk({ desk, open, collapsed, empty, panelOpen = false, count, onToggle, children }) {
     return (
-        <section className={`floor-desk${open ? ' floor-desk--open' : ''}${collapsed ? ' floor-desk--folded' : ''}`}>
+        <section className={`floor-desk${open ? ' floor-desk--open' : ''}${collapsed ? ' floor-desk--folded' : ''}${empty ? ' floor-desk--empty' : ''}`}>
             <button
                 className="floor-desk__head"
                 onClick={() => onToggle(desk.key)}
-                aria-expanded={open}
+                aria-expanded={desk.panel ? panelOpen : open}
+                aria-haspopup={desk.panel ? 'dialog' : undefined}
                 // Folded away, so out of the tab order — but NOT aria-hidden: the header still
                 // exists and still reports whether its desk is open, which is what a screen reader
                 // (and every test in this folder) reads to know the state of the column.
@@ -107,9 +117,52 @@ Desk.propTypes = {
     desk:      PropTypes.object.isRequired,
     open:      PropTypes.bool,
     collapsed: PropTypes.bool,
+    empty:     PropTypes.bool,
+    panelOpen: PropTypes.bool,
     count:    PropTypes.number,
     onToggle: PropTypes.func.isRequired,
     children: PropTypes.node,
+}
+
+// ── The desk strip ────────────────────────────────────────────────────────────
+// While a desk is open the other headers fold away, so the list gets the column — but the counts
+// went with them, and a count is the one thing on the Floor worth seeing without a click ("Awaiting
+// orders (2)" means someone is blocked). The strip keeps every desk and its count on screen in a
+// few wrapped lines, in the column's own order, the open one marked; one click switches desks
+// (Roy, 2026-10-14). It is not shown when every desk is closed: the headers ARE the strip then.
+// A panel desk's chip (Calendar) opens its panel, and is marked while that panel is open.
+function DeskStrip({ desks, openKey, activePanelId = null, counts, isEmpty, onToggle }) {
+    return (
+        <nav className="floor-strip" aria-label="Desks">
+            {desks.map(desk => {
+                const panelOpen = !!desk.panel && activePanelId === desk.panel
+                const active = desk.key === openKey || panelOpen
+                const count = counts[desk.key]
+                return (
+                    <button
+                        key={desk.key}
+                        type="button"
+                        className={`floor-strip__chip${active ? ' floor-strip__chip--active' : ''}${isEmpty(desk.key) ? ' floor-strip__chip--empty' : ''}`}
+                        aria-current={desk.key === openKey ? 'true' : undefined}
+                        aria-haspopup={desk.panel ? 'dialog' : undefined}
+                        aria-expanded={desk.panel ? panelOpen : undefined}
+                        onClick={() => onToggle(desk.key)}
+                    >
+                        {desk.label}
+                        {count > 0 && <span className="floor-strip__count">({count})</span>}
+                    </button>
+                )
+            })}
+        </nav>
+    )
+}
+DeskStrip.propTypes = {
+    desks:    PropTypes.array.isRequired,
+    openKey:  PropTypes.string,
+    activePanelId: PropTypes.string,
+    counts:   PropTypes.object.isRequired,
+    isEmpty:  PropTypes.func.isRequired,
+    onToggle: PropTypes.func.isRequired,
 }
 
 const Empty = ({ children }) => <p className="floor-empty">{children}</p>
@@ -237,7 +290,7 @@ QueuedRows.propTypes = {
     busyId:    PropTypes.string,
 }
 
-// ── Trading floor ─────────────────────────────────────────────────────────────
+// ── Your trades (was "Trading floor") ─────────────────────────────────────────
 
 // A trade row keeps the same action contract SetupCard uses, so a setup behaves identically
 // whether you reach it from a card or from this line. `kind` is still carried on the row: calls
@@ -272,7 +325,7 @@ function setupActions(setup, onEdit, onDelete) {
 
 function TradeRows({ setups, onEditSetup, onDeleteSetup, onSymbolClick }) {
     const items = tradeFloorItems(setups)
-    if (!items.length) return <Empty>No setups.</Empty>
+    if (!items.length) return <Empty>No setups yet — build one with Mentor.</Empty>
 
     const actionsFor = it => setupActions(it.entity, onEditSetup, onDeleteSetup)
 
@@ -305,7 +358,7 @@ TradeRows.propTypes = {
     onDeleteSetup: PropTypes.func,
 }
 
-// ── Portfolio floor ───────────────────────────────────────────────────────────
+// ── Your portfolios (was "Portfolio floor") ───────────────────────────────────
 
 // A portfolio has no record of its own — there is no `portfolios` collection. It IS the set of
 // ideas sharing a `portfolioId` (saveBatchIdeas stamps them), which is what portfoliosFromIdeas
@@ -335,7 +388,7 @@ function PortfolioRows({ ideas, positions, sort, onEditPortfolio, onDeletePortfo
     // cards put in front of this — activating fires every leg at market at once, so the last thing
     // between a built book and real exposure is the offer of a final Atlas review.
     const [activating, setActivating] = useState(null)
-    if (!books.length) return <Empty>No portfolios.</Empty>
+    if (!books.length) return <Empty>No portfolios yet — build one with Atlas.</Empty>
 
     const toggle = id => setOpenKey(cur => cur === id ? null : id)
 
@@ -484,7 +537,7 @@ PortfolioRows.propTypes = {
 
 function ScanRows({ scans, onCandidateSelect, onEditScan, onDeleteScan, onSymbolClick }) {
     const [openKey, setOpenKey] = useState(null)
-    if (!scans.length) return <Empty>No lists yet.</Empty>
+    if (!scans.length) return <Empty>No watchlists yet — ask Argus what to watch.</Empty>
 
     const toggle = id => setOpenKey(cur => cur === id ? null : id)
 
@@ -568,7 +621,7 @@ const killText     = (k) => (typeof k === 'string' ? k : JSON.stringify(k))
 // row marked as the one open; nothing folds, since there is no drawer to give the height to.
 function CoverageRows({ coverage, onEditCoverage, onRetireCoverage, onDeleteCoverage, onSymbolClick }) {
     const activeId = useActivePanel()
-    if (!coverage.length) return <Empty>No coverage yet.</Empty>
+    if (!coverage.length) return <Empty>No coverage yet — ask Prometheus to research a company.</Empty>
 
     // Edit opens Prometheus IN the chat column — the one a panel covers — so it closes whichever
     // panel is open on its way there, from the panel's header and from a row's hover actions alike.
@@ -854,7 +907,7 @@ export function FloorLists({
     onEditScan, onDeleteScan,
     onEditCoverage, onRetireCoverage, onDeleteCoverage,
     onExecuteQueued, onCancelQueued, queuedBusyId = null,
-    earnings = [], fed = [], ipo = [], industries = [], industriesError = false, week = null, assessments = null, themes = [], calendarLoading = {},
+    industries = [], industriesError = false, week = null, assessments = null, themes = [], calendarLoading = {},
     onEarningSelect, onIpoSelect,
     isAdmin = false,
     researchQueue = [], onStartResearch, onMarkResearchDone, onRejectResearch, researchQueueBusyId = null,
@@ -865,8 +918,15 @@ export function FloorLists({
     // "all closed" state is legitimate: it turns the column into a table of contents — which is
     // also why it is the state a fresh load lands in. Opening a desk is a choice the reader makes,
     // not one a refresh makes for them.
-    const [openKey, setOpenKey] = useState(initialDesk)
-    const toggle = key => setOpenKey(cur => (cur === key ? null : key))
+    const [requestedKey, setOpenKey] = useState(initialDesk)
+    // A panel desk toggles its DetailPanel and leaves the column alone: the list you had open stays
+    // open beside the calendar.
+    const toggle = key => {
+        const panel = DESKS.find(d => d.key === key)?.panel
+        if (panel) togglePanel(panel)
+        else setOpenKey(cur => (cur === key ? null : key))
+    }
+    const activePanelId = useActivePanel()
 
     // An outside ASK to open a desk (Axl's market-open card → the queued list). Keyed on the
     // request OBJECT, not its value: pressing the same card twice is two asks, and a plain
@@ -890,9 +950,6 @@ export function FloorLists({
         portfolio:      portfoliosFromIdeas(ideas).length,
         scans:          scans.length,
         coverage:       coverage.length,
-        earnings:       earnings.length,
-        fed:            fed.length,
-        ipo:            ipo.length,
         // Only queued items count — in_research is work the admin already started.
         research_queue: researchQueue.filter(i => i.status === 'queued').length,
         // One count per candidate ROW across every event in the window — a name three events
@@ -901,7 +958,7 @@ export function FloorLists({
         aether: (aetherCandidates?.runs ?? []).reduce((n, r) => n + (r.candidates?.length ?? 0), 0),
         // No count on Forecasts: it is a standing board rather than a list, and "(1)" beside
         // it would invite the reader to expect one. (Channels was the other, and went with
-        // the channel engine on 2026-09-10.)
+        // the channel engine on 2026-09-10.) Nor on Calendar: its counts are per day, in the grid.
     }
 
     // NOTHING AUTO-OPENS. There used to be an effect here that opened the first desk holding
@@ -913,7 +970,11 @@ export function FloorLists({
     // and buried the other eight behind it. Removed 2026-09-09; the fourteen tests it was
     // failing were right.
 
-    const visibleDesks = DESKS.filter(d => !d.adminOnly || isAdmin)
+    const visibleDesks = DESKS.filter(d => !d.hidden && (!d.adminOnly || isAdmin))
+    // Only a desk on screen can be open: an initialDesk or desk request naming a hidden (or
+    // admin-only) desk would otherwise fold every header away around a desk that never renders.
+    // A panel desk is never "open" in the column either — it has no body to give the column to.
+    const openKey = visibleDesks.some(d => d.key === requestedKey && !d.panel) ? requestedKey : null
 
     const [sorts, setSorts] = useState(readSorts)
     const setSort = (key, sort) => setSorts(cur => {
@@ -934,6 +995,12 @@ export function FloorLists({
         aether:         aetherRuns.length,
     }
 
+    // Empty = no ROWS to show, not a zero header count: the research desk counts only what is still
+    // queued, so a backlog that is all in research would otherwise dim a desk full of rows. A feed
+    // still loading is not "nothing here" yet, and Forecasts carries no count, so it is never dimmed.
+    const loadingFor = { ...calendarLoading, aether: aetherCandidates?.loading }
+    const isEmpty = key => sortableCount[key] === 0 && !loadingFor[key]
+
     return (
         <aside className={`floor-lists${openKey ? ' floor-lists--focused' : ''}`}>
             {/* Same .floor-sec heading the left column uses, so all three columns open on one
@@ -942,17 +1009,22 @@ export function FloorLists({
                 <h2 className="floor-sec__title">Lists</h2>
             </header>
 
-            {visibleDesks.map((desk, i) => (
-                <Fragment key={desk.key}>
-                {/* One caption where the group STARTS — a hairline label, not a section header:
-                    it names what follows without competing with the desks it is naming. */}
-                {desk.group && desk.group !== visibleDesks[i - 1]?.group && (
-                    <div className="floor-lists__grp">{desk.group}</div>
-                )}
+            {openKey && (
+                <DeskStrip desks={visibleDesks} openKey={openKey} activePanelId={activePanelId} counts={counts} isEmpty={isEmpty} onToggle={toggle} />
+            )}
+
+            {/* Always mounted: it renders nothing until its panel opens, and portals into the chat
+                column when it does. */}
+            <CalendarPanel onEarningSelect={onEarningSelect} onIpoSelect={onIpoSelect} onSymbolClick={onSymbolClick} />
+
+            {visibleDesks.map(desk => (
                 <Desk
+                    key={desk.key}
                     desk={desk}
                     open={openKey === desk.key}
                     collapsed={!!openKey && openKey !== desk.key}
+                    empty={isEmpty(desk.key)}
+                    panelOpen={!!desk.panel && activePanelId === desk.panel}
                     count={counts[desk.key]}
                     onToggle={toggle}
                 >
@@ -1035,23 +1107,10 @@ export function FloorLists({
                         />
                     )}
 
-                    {/* Each dated feed asks the shared renderer for its own kind. Earnings and IPO
-                        rows are doorways — clicking one hands the event to Mentor to build a setup
-                        around; a Fed row has no ticker to trade, so it is text. */}
-                    {desk.key === 'earnings'  && (
-                        <CalendarRows kind="earnings" items={sorted('earnings', earnings)}loading={calendarLoading.earnings} onSelect={onEarningSelect} onSymbolClick={onSymbolClick} />
-                    )}
-                    {desk.key === 'fed'       && (
-                        <CalendarRows kind="fed" items={sorted('fed', fed)}loading={calendarLoading.fed} onSymbolClick={onSymbolClick} />
-                    )}
-                    {desk.key === 'ipo'       && (
-                        <CalendarRows kind="ipo" items={sorted('ipo', ipo)}loading={calendarLoading.ipo} onSelect={onIpoSelect} onSymbolClick={onSymbolClick} />
-                    )}
                     {desk.key === 'forecasts' && (
                         <IndustryView industries={industries} loading={calendarLoading.forecasts} error={industriesError} assessments={assessments} themes={themes} week={week} />
                     )}
                 </Desk>
-                </Fragment>
             ))}
         </aside>
     )
@@ -1070,17 +1129,14 @@ FloorLists.propTypes = {
     onCancelQueued:    PropTypes.func,
     queuedBusyId:      PropTypes.string,
     deskRequest:       PropTypes.object,
-    earnings:          PropTypes.array,
-    fed:               PropTypes.array,
-    ipo:               PropTypes.array,
     industries:        PropTypes.array,
     industriesError:   PropTypes.bool,
     week:              PropTypes.object,
     assessments:       PropTypes.object,
     themes:            PropTypes.array,
-    // Keyed by desk, not one flag for all four: a slow IPO feed used to hold up the earnings list
-    // and the house view alongside it, because the old tab strip had one shared "Loading…".
+    // Keyed by desk — today only `forecasts` (the Calendar loads its own month, CalendarPanel).
     calendarLoading:     PropTypes.object,
+    // Earnings / IPO rows on the Calendar's date page hand the event to Mentor (build a setup).
     onEarningSelect:     PropTypes.func,
     onIpoSelect:         PropTypes.func,
     onCandidateSelect:   PropTypes.func,

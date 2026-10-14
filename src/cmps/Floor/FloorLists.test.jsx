@@ -23,12 +23,20 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); closePanel() })
 const setup  = (over = {}) => ({ id: 's1', asset: 'SPY',  direction: 'short', status: 'waiting', ...over })
 const setup2 = (over = {}) => setup({ id: 's2', asset: 'NVDA', ...over })
 
-const deskBtn = name => screen.getByRole('button', { name: new RegExp(name, 'i') })
+// The desk HEADER — the strip's chip carries the same name while a desk is open.
+const deskBtn = name => {
+    const heads = screen.getAllByRole('button', { name: new RegExp(name, 'i') })
+        .filter(b => b.classList.contains('floor-desk__head'))
+    if (heads.length !== 1) throw new Error(`expected one desk header for ${name}, got ${heads.length}`)
+    return heads[0]
+}
+const chip = name => within(screen.getByRole('navigation', { name: 'Desks' }))
+    .getByRole('button', { name: new RegExp(name, 'i') })
 
 describe('FloorLists', () => {
     it('renders all four desks', () => {
         render(<FloorLists />)
-        for (const label of ['Trading floor', 'Portfolio floor', 'Scans', 'Analyst companies']) {
+        for (const label of ['Your trades', 'Your portfolios', 'Watchlists', 'Analyst companies']) {
             expect(deskBtn(label)).toBeTruthy()
         }
     })
@@ -36,7 +44,7 @@ describe('FloorLists', () => {
     // A refresh must not pick a desk for the reader: the column lands as a table of contents.
     it('opens no desk by default', () => {
         render(<FloorLists setups={[setup2()]} coverage={[{ symbol: 'AAPL', status: 'active' }]} />)
-        for (const label of ['Trading floor', 'Portfolio floor', 'Scans', 'Analyst companies']) {
+        for (const label of ['Your trades', 'Your portfolios', 'Watchlists', 'Analyst companies']) {
             expect(deskBtn(label).getAttribute('aria-expanded')).toBe('false')
         }
     })
@@ -45,16 +53,87 @@ describe('FloorLists', () => {
         render(<FloorLists setups={[setup2()]} coverage={[{ symbol: 'AAPL', status: 'active' }]} initialDesk="trade" />)
         fireEvent.click(deskBtn('Analyst companies'))
         expect(deskBtn('Analyst companies').getAttribute('aria-expanded')).toBe('true')
-        expect(deskBtn('Trading floor').getAttribute('aria-expanded')).toBe('false')
+        expect(deskBtn('Your trades').getAttribute('aria-expanded')).toBe('false')
     })
 
     // All-closed is a legitimate state: the column becomes a table of contents.
     it('clicking the open desk closes it, leaving all four collapsed', () => {
         render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
-        fireEvent.click(deskBtn('Trading floor'))
-        for (const label of ['Trading floor', 'Portfolio floor', 'Scans', 'Analyst companies']) {
+        fireEvent.click(deskBtn('Your trades'))
+        for (const label of ['Your trades', 'Your portfolios', 'Watchlists', 'Analyst companies']) {
             expect(deskBtn(label).getAttribute('aria-expanded')).toBe('false')
         }
+    })
+
+    // With every desk closed the COLUMN scrolls, and the "Lists" header must not scroll off with
+    // the desk buttons (Roy, 2026-10-14). jsdom can't scroll, so guard the rule itself.
+    it('pins the column header while the closed desks scroll', () => {
+        const css = readFileSync(resolve(__dirname, 'Floor.scss'), 'utf8')
+        const column = css.slice(css.indexOf('.floor-lists {'), css.indexOf('.floor-strip {'))
+        expect(column).toMatch(/>\s*\.floor-sec\s*\{[^}]*position:\s*sticky[^}]*top:\s*0/)
+    })
+
+    // While a desk has the column the other headers are folded — the strip keeps every desk and
+    // its count on screen, and switches desks in one click (Roy, 2026-10-14).
+    describe('desk strip', () => {
+        it('is absent while every desk is closed — the headers are the strip then', () => {
+            render(<FloorLists setups={[setup2()]} />)
+            expect(screen.queryByRole('navigation', { name: 'Desks' })).toBeNull()
+        })
+
+        it('lists every visible desk with its count while one is open, the open one marked', () => {
+            render(<FloorLists setups={[setup2()]} queued={[{ id: 'q1' }, { id: 'q2' }]} initialDesk="trade" />)
+            expect(chip('Awaiting orders').textContent).toBe('Awaiting orders(2)')
+            expect(chip('Your trades').getAttribute('aria-current')).toBe('true')
+            expect(chip('Watchlists').getAttribute('aria-current')).toBeNull()
+            const nav = screen.getByRole('navigation', { name: 'Desks' })
+            expect(within(nav).queryByRole('button', { name: /Research queue/ })).toBeNull()
+        })
+
+        it('switches desks from a chip, and closes the open one from its own chip', () => {
+            render(<FloorLists setups={[setup2()]} coverage={[{ symbol: 'AAPL', status: 'active' }]} initialDesk="trade" />)
+            fireEvent.click(chip('Analyst companies'))
+            expect(deskBtn('Analyst companies').getAttribute('aria-expanded')).toBe('true')
+            expect(deskBtn('Your trades').getAttribute('aria-expanded')).toBe('false')
+            fireEvent.click(chip('Analyst companies'))
+            expect(screen.queryByRole('navigation', { name: 'Desks' })).toBeNull()
+        })
+    })
+
+    // An empty desk stays where it is, dimmed — hiding it would move every header below it each
+    // time a count crossed zero (Roy, 2026-10-14).
+    describe('empty desks', () => {
+        const deskOf = label => deskBtn(label).closest('.floor-desk')
+
+        it('keeps an empty desk in the column, dimmed, and a full one not', () => {
+            render(<FloorLists setups={[setup2()]} />)
+            expect(deskOf('Watchlists').className).toMatch(/floor-desk--empty/)
+            expect(deskOf('Your trades').className).not.toMatch(/floor-desk--empty/)
+        })
+
+        // The research desk's COUNT is only what is still queued — but a backlog that is all in
+        // research still has rows, so it is not empty.
+        it('goes by rows, not the header count: an all-in-research queue is not dimmed', () => {
+            render(<FloorLists isAdmin researchQueue={[{ id: 'r1', symbol: 'AAPL', status: 'in_research' }]} />)
+            expect(deskOf('Research queue').className).not.toMatch(/floor-desk--empty/)
+        })
+
+        it('never dims the uncounted desks — Calendar and Forecasts', () => {
+            render(<FloorLists />)
+            expect(deskOf('Calendar').className).not.toMatch(/floor-desk--empty/)
+            expect(deskOf('Forecasts').className).not.toMatch(/floor-desk--empty/)
+        })
+
+        it('dims an empty desk’s chip too', () => {
+            render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
+            expect(chip('Watchlists').className).toMatch(/floor-strip__chip--empty/)
+            expect(chip('Your trades').className).not.toMatch(/floor-strip__chip--empty/)
+        })
+
+        it('says who fills an empty desk', () => {
+            render(<FloorLists initialDesk="scans" />)
+            expect(screen.getByText(/ask Argus/)).toBeTruthy()
+        })
     })
 
     // The open desk TAKES THE COLUMN — the other headers fold away so the list gets the full
@@ -65,8 +144,8 @@ describe('FloorLists', () => {
 
         it('folds the other desks away while one is open', () => {
             render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
-            expect(deskOf('Trading floor').className).not.toMatch(/floor-desk--folded/)
-            for (const label of ['Portfolio floor', 'Scans', 'Analyst companies']) {
+            expect(deskOf('Your trades').className).not.toMatch(/floor-desk--folded/)
+            for (const label of ['Your portfolios', 'Watchlists', 'Analyst companies']) {
                 expect(deskOf(label).className).toMatch(/floor-desk--folded/)
             }
         })
@@ -74,21 +153,37 @@ describe('FloorLists', () => {
         // Closing puts every desk back — same components, same order as a fresh load.
         it('unfolds all of them in their original order when the desk closes', () => {
             const { container } = render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
-            fireEvent.click(deskBtn('Trading floor'))
+            fireEvent.click(deskBtn('Your trades'))
             const desks = [...container.querySelectorAll('.floor-desk')]
             expect(desks.some(d => d.className.includes('floor-desk--folded'))).toBe(false)
             expect(desks.map(d => d.querySelector('.floor-desk__label').textContent))
-                .toEqual(['Awaiting orders', 'Trading floor', 'Portfolio floor', 'Scans', 'Analyst companies',
-                          'Events radar', 'Earnings', 'Fed', 'IPO', 'Forecasts'])
+                .toEqual(['Awaiting orders', 'Your trades', 'Your portfolios', 'Watchlists', 'Analyst companies',
+                          'Calendar', 'Forecasts'])
+        })
+
+        // Roy, 2026-10-14: Events radar hidden for now; the admin's Research queue sits LAST.
+        it('hides Events radar and puts the Research queue at the bottom', () => {
+            const { container } = render(<FloorLists isAdmin aetherCandidates={{ runs: [{ run_id: 'r', candidates: [{}] }] }} />)
+            const labels = [...container.querySelectorAll('.floor-desk__label')].map(l => l.textContent)
+            expect(labels).not.toContain('Events radar')
+            expect(labels.at(-1)).toBe('Research queue')
+        })
+
+        // A request for a desk that is not on screen must not fold the column around nothing.
+        it('ignores an initial desk that is hidden', () => {
+            const { container } = render(<FloorLists initialDesk="aether" />)
+            expect(container.querySelector('.floor-lists').className).not.toMatch(/floor-lists--focused/)
+            expect(container.querySelector('.floor-desk--folded')).toBeNull()
+            expect(screen.queryByRole('navigation', { name: 'Desks' })).toBeNull()
         })
 
         // A folded header is still readable and still reports its state — it is just not somewhere
         // you can tab into, since it is not on screen.
         it('takes the folded headers out of the tab order without hiding them', () => {
             render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
-            expect(deskBtn('Scans').getAttribute('tabindex')).toBe('-1')
-            expect(deskBtn('Scans').getAttribute('aria-expanded')).toBe('false')
-            expect(deskBtn('Trading floor').getAttribute('tabindex')).toBeNull()
+            expect(deskBtn('Watchlists').getAttribute('tabindex')).toBe('-1')
+            expect(deskBtn('Watchlists').getAttribute('aria-expanded')).toBe('false')
+            expect(deskBtn('Your trades').getAttribute('tabindex')).toBeNull()
         })
 
         // The list has to be able to USE the height it just took: the open desk grows, and it is
@@ -150,7 +245,7 @@ describe('FloorLists', () => {
 
     it('counts every trade row on the trading floor', () => {
         render(<FloorLists setups={[setup(), setup2(), setup({ id: 's3' })]} />)
-        expect(within(deskBtn('Trading floor')).getByText('(3)')).toBeTruthy()
+        expect(within(deskBtn('Your trades')).getByText('(3)')).toBeTruthy()
     })
 
     it('hides the count when a desk is empty rather than showing a zero', () => {
@@ -200,7 +295,7 @@ describe('FloorLists', () => {
             { id: 'i2', portfolioId: 'p1', portfolioName: 'Core', asset: 'TLT', direction: 'long', status: 'waiting', allocationRatio: 0.4 },
         ]
         render(<FloorLists ideas={ideas} />)
-        fireEvent.click(deskBtn('Portfolio floor'))
+        fireEvent.click(deskBtn('Your portfolios'))
         expect(screen.getByText('(2 holdings)')).toBeTruthy()
         expect(screen.queryByText('SPY')).toBeNull()
 
@@ -213,7 +308,7 @@ describe('FloorLists', () => {
     it('renders a holding weight as a percentage', () => {
         const ideas = [{ id: 'i1', portfolioId: 'p1', portfolioName: 'Core', asset: 'SPY', direction: 'long', status: 'looking', allocationRatio: 0.6 }]
         render(<FloorLists ideas={ideas} />)
-        fireEvent.click(deskBtn('Portfolio floor'))
+        fireEvent.click(deskBtn('Your portfolios'))
         fireEvent.click(screen.getByText('Core').closest('button'))
         expect(screen.getByText('60%')).toBeTruthy()
     })
@@ -223,7 +318,7 @@ describe('FloorLists', () => {
     it('shows an in-position holding as a stage, not as a second copy of the direction', () => {
         const ideas = [{ id: 'i1', portfolioId: 'p1', portfolioName: 'Core', asset: 'SPY', direction: 'long', status: 'long', allocationRatio: 1 }]
         render(<FloorLists ideas={ideas} />)
-        fireEvent.click(deskBtn('Portfolio floor'))
+        fireEvent.click(deskBtn('Your portfolios'))
         fireEvent.click(screen.getByText('Core').closest('button'))
         expect(screen.getByText('in position')).toBeTruthy()
         expect(screen.queryByText('long')).toBeNull()
@@ -233,7 +328,7 @@ describe('FloorLists', () => {
         const open = vi.spyOn(window, 'open').mockReturnValue(null)
         const ideas = [{ id: 'i1', portfolioId: 'p1', portfolioName: 'Core', asset: 'SPY', direction: 'long', status: 'looking', allocationRatio: 1 }]
         render(<FloorLists ideas={ideas} />)
-        fireEvent.click(deskBtn('Portfolio floor'))
+        fireEvent.click(deskBtn('Your portfolios'))
         fireEvent.click(screen.getByText('Core').closest('button'))
         fireEvent.click(screen.getByText('SPY').closest('button'))
         expect(open.mock.calls[0][0]).toContain('/idea/i1')
@@ -346,7 +441,7 @@ describe('FloorLists', () => {
             { id: 'y', thesis: 'Banks', direction: 'long', candidates: [{ ticker: 'JPM',  score: { total: 61 } }] },
         ]
         render(<FloorLists scans={scans} />)
-        fireEvent.click(deskBtn('Scans'))
+        fireEvent.click(deskBtn('Watchlists'))
         expect(screen.queryByText('NVDA')).toBeNull()
 
         fireEvent.click(screen.getByText('Semis').closest('button'))
@@ -362,24 +457,43 @@ describe('FloorLists', () => {
     it('prints a scan’s candidate count in parentheses immediately after the thesis', () => {
         const scans = [{ id: 'x', thesis: 'Semis', direction: 'long', candidates: [{ ticker: 'NVDA' }, { ticker: 'AMD' }] }]
         render(<FloorLists scans={scans} />)
-        fireEvent.click(deskBtn('Scans'))
+        fireEvent.click(deskBtn('Watchlists'))
 
         const name = screen.getByText('Semis')
         expect(name.nextElementSibling.textContent).toBe('(2)')
     })
 
-    // ── The calendar, as four desks ───────────────────────────────────────────
-    // Earnings/Fed/IPO/Forecasts were the left column's bottom half, behind a tab strip. They are
-    // desks here now (2026-08-19), which means each opens to the full column instead of four lists
-    // sharing one short box — and it means the left column is the book alone.
-    describe('calendar desks', () => {
-        const earning = (over = {}) => ({ symbol: 'AAPL', name: 'Apple', date: '2026-08-20', time: 'amc', ...over })
-
-        it('lists the three dated feeds as desks of their own', () => {
+    // ── The calendar ──────────────────────────────────────────────────────────
+    // Earnings / Fed / IPO were three week-long desks; since 2026-10-14 they are ONE Calendar desk
+    // that opens a month grid in the detail panel (CalendarPanel has its own tests).
+    describe('calendar desk', () => {
+        it('is one Calendar desk — the three dated feeds are no longer desks of their own', () => {
             render(<FloorLists />)
+            expect(deskBtn('Calendar')).toBeTruthy()
             for (const label of ['Earnings', 'Fed', 'IPO']) {
-                expect(deskBtn(label)).toBeTruthy()
+                expect(screen.queryByRole('button', { name: new RegExp(`^${label}`) })).toBeNull()
             }
+        })
+
+        // It opens a PANEL, not the column: the list you had open stays open beside it.
+        it('opens the calendar panel and leaves the column as it was', () => {
+            const { container } = render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
+            const head = deskBtn('Calendar')
+            expect(head.getAttribute('aria-haspopup')).toBe('dialog')
+            fireEvent.click(chip('Calendar'))
+            expect(screen.getByRole('dialog', { name: /20\d\d/ })).toBeTruthy()
+            expect(head.getAttribute('aria-expanded')).toBe('true')
+            expect(chip('Calendar').getAttribute('aria-expanded')).toBe('true')
+            expect(deskBtn('Your trades').getAttribute('aria-expanded')).toBe('true')
+            expect(container.querySelector('.floor-lists').className).toMatch(/floor-lists--focused/)
+            fireEvent.click(chip('Calendar'))
+            expect(screen.queryByRole('dialog')).toBeNull()
+        })
+
+        it('is never a column desk, even when asked for as the initial one', () => {
+            const { container } = render(<FloorLists initialDesk="calendar" />)
+            expect(container.querySelector('.floor-desk--folded')).toBeNull()
+            expect(screen.queryByRole('dialog')).toBeNull()
         })
 
         // The house's industry views are a broadcast (2026-10-05): the board is for everyone, and only
@@ -392,48 +506,18 @@ describe('FloorLists', () => {
             expect(deskBtn('Forecasts')).toBeTruthy()
         })
 
-        it('captions them as one group, once, where the group starts', () => {
-            const { container } = render(<FloorLists />)
-            const caps = [...container.querySelectorAll('.floor-lists__grp')]
-            expect(caps.map(c => c.textContent)).toEqual(['Calendar'])
-        })
-
-        it('counts a feed the way every other desk counts its list', () => {
-            render(<FloorLists earnings={[earning(), earning({ symbol: 'MSFT' })]} />)
-            expect(within(deskBtn('Earnings')).getByText('(2)')).toBeTruthy()
+        // One flat run of desks — no "Admin" / "Calendar" captions (Roy, 2026-10-14).
+        it('puts no group captions in the column', () => {
+            const { container } = render(<FloorLists isAdmin />)
+            expect(container.querySelector('.floor-lists__grp')).toBeNull()
+            expect(screen.queryByText('Admin')).toBeNull()
         })
 
         // The board carries its own answered count; a desk count beside it would read as a second one.
         it('puts no count on Forecasts', () => {
             render(<FloorLists isAdmin industries={[]} />)
             expect(within(deskBtn('Forecasts')).queryByText(/\(/)).toBeNull()
-        })
-
-        it('opens a feed to its rows, and takes over the column like any other desk', () => {
-            const { container } = render(<FloorLists earnings={[earning()]} initialDesk="earnings" />)
-            expect(screen.getByText('AAPL')).toBeTruthy()
-            expect(deskBtn('Fed').closest('.floor-desk').className).toMatch(/floor-desk--folded/)
-            expect(container.querySelector('.floor-lists').className).toMatch(/floor-lists--focused/)
-        })
-
-        // An earnings row is a doorway: it hands the event back to build a setup around it.
-        it('hands an earnings row back to the caller on click', () => {
-            const onEarningSelect = vi.fn()
-            render(<FloorLists earnings={[earning()]} initialDesk="earnings" onEarningSelect={onEarningSelect} />)
-            fireEvent.click(screen.getByText('AAPL').closest('button'))
-            expect(onEarningSelect).toHaveBeenCalledWith(expect.objectContaining({ symbol: 'AAPL' }))
-        })
-
-        // A slow IPO feed used to hold up the earnings list AND the house view, because the tab
-        // strip had one shared "Loading…" for all four. Each desk waits on its own feed now.
-        it('waits per feed, not on all four at once', () => {
-            render(<FloorLists
-                earnings={[earning()]}
-                calendarLoading={{ earnings: false, fed: true, ipo: true }}
-                initialDesk="earnings"
-            />)
-            expect(screen.getByText('AAPL')).toBeTruthy()
-            expect(screen.queryByText('Loading…')).toBeNull()
+            expect(within(deskBtn('Calendar')).queryByText(/\(/)).toBeNull()
         })
     })
 
@@ -540,7 +624,7 @@ describe('FloorLists row actions', () => {
             { id: 'i2', portfolioId: 'p1', portfolioName: 'Core', asset: 'TLT', direction: 'long', status: 'waiting' },
         ]
         render(<FloorLists ideas={ideas} onDeletePortfolio={vi.fn()} onDeleteIdea={vi.fn()} />)
-        fireEvent.click(deskBtn('Portfolio floor'))
+        fireEvent.click(deskBtn('Your portfolios'))
         expect(screen.getByTitle(/close it first to delete this portfolio/i).disabled).toBe(true)
 
         fireEvent.click(screen.getByText('Core').closest('button'))
@@ -559,7 +643,7 @@ describe('FloorLists row actions', () => {
 
         function openBook(props) {
             render(<FloorLists ideas={waiting} {...props} />)
-            fireEvent.click(deskBtn('Portfolio floor'))
+            fireEvent.click(deskBtn('Your portfolios'))
         }
 
         it('says on the row that the book is waiting, so it cannot sit un-activated unnoticed', () => {
@@ -577,7 +661,7 @@ describe('FloorLists row actions', () => {
         it('a book already part-working does not', () => {
             const mixed = [waiting[0], { ...waiting[1], status: 'long' }]
             render(<FloorLists ideas={mixed} onActivatePortfolio={vi.fn()} />)
-            fireEvent.click(deskBtn('Portfolio floor'))
+            fireEvent.click(deskBtn('Your portfolios'))
             expect(screen.queryByTitle(/Activate this portfolio/i)).toBeNull()
             expect(screen.queryByText('waiting')).toBeNull()
         })
@@ -619,7 +703,7 @@ describe('FloorLists row actions', () => {
     it('gives the portfolio row a pencil and the holdings none', () => {
         const ideas = [{ id: 'i1', portfolioId: 'p1', portfolioName: 'Core', asset: 'SPY', direction: 'long', status: 'waiting' }]
         render(<FloorLists ideas={ideas} onEditPortfolio={vi.fn()} onDeleteIdea={vi.fn()} />)
-        fireEvent.click(deskBtn('Portfolio floor'))
+        fireEvent.click(deskBtn('Your portfolios'))
         fireEvent.click(screen.getByText('Core').closest('button'))
 
         expect(screen.getAllByTitle('Edit portfolio in chat')).toHaveLength(1)
@@ -638,7 +722,7 @@ describe('FloorLists row actions', () => {
         ]
         const onEditPortfolio = vi.fn()
         render(<FloorLists ideas={ideas} onEditPortfolio={onEditPortfolio} onDeleteIdea={vi.fn()} />)
-        fireEvent.click(deskBtn('Portfolio floor'))
+        fireEvent.click(deskBtn('Your portfolios'))
         fireEvent.click(screen.getByText('Core').closest('button'))
 
         expect(screen.queryByTitle('Edit portfolio in chat')).toBeNull()
@@ -652,7 +736,7 @@ describe('FloorLists row actions', () => {
         const scans = [{ id: 'x', thesis: 'Semis', direction: 'long', candidates: [{ ticker: 'NVDA' }] }]
         const onDeleteScan = vi.fn()
         render(<FloorLists scans={scans} onEditScan={vi.fn()} onDeleteScan={onDeleteScan} />)
-        fireEvent.click(deskBtn('Scans'))
+        fireEvent.click(deskBtn('Watchlists'))
         fireEvent.click(screen.getByText('Semis').closest('button'))
 
         expect(screen.getByText('NVDA').closest('.floor-rowhost')).toBeNull()
