@@ -13,15 +13,24 @@ waiting at each desk) and hands each surface its slice. Three columns:
 
 ```
 ┌ workspace__left ─┐ ┌ workspace__chat ───────────────────────┐ ┌ workspace__right ──────────┐
-│ FloorLeft        │ │ activeTab === 'axl' ? <AxlHub>          │ │ FloorLists — four desks,   │
+│ FloorLeft        │ │ activeTab === 'axl' ? <AxlHub>          │ │ FloorLists — the desks,    │
 │ the book:        │ │   : the desk panel for activeTab        │ │ one open at a time, the    │
-│ positions +      │ │     (Mentor · Atlas · Argus ·           │ │ open one takes the column: │
-│ ideas, one line  │ │      Prometheus · Pythia · Aether)      │ │ setups · ideas · scans ·   │
-│ each             │ │   + PipelineCrumb, AgentSummon          │ │ calendar, Radar            │
-│                  │ │   + DetailPanelSlot (a row's detail     │ │                            │
-│                  │ │     docks HERE, over the chat)          │ │                            │
+│ positions +      │ │     (Mentor · Atlas · Argus ·           │ │ open one takes the column; │
+│ ideas, one line  │ │      Prometheus · Pythia · Aether)      │ │ a chip strip keeps every   │
+│ each             │ │   + PipelineCrumb, AgentSummon          │ │ desk + count on screen.    │
+│                  │ │   + DetailPanelSlot (a row's detail     │ │ Calendar is a PANEL desk:  │
+│                  │ │     docks HERE, over the chat)          │ │ its month opens in the     │
+│                  │ │                                         │ │ DetailPanel, not here      │
 └──────────────────┘ └─────────────────────────────────────────┘ └────────────────────────────┘
 ```
+
+The Lists column's desks, in order (2026-10-14): Awaiting orders · Your trades · Your portfolios ·
+Watchlists · Analyst companies · Calendar · Forecasts · Research queue (admin, last). Events radar is
+`hidden: true` for now, not deleted. An empty desk stays in place, dimmed; a request to open a
+hidden or panel desk is ignored. The Calendar (`cmps/Floor/CalendarPanel.jsx`) is a month grid —
+per-day earnings / Fed / IPO counts, the high-impact Fed days named — and a clicked day replaces the
+grid with that day's rows; it replaced the Earnings, Fed and IPO desks. Record:
+`../botmarket-backend/docs/design/floor-calendar.md`.
 
 `activeTab` is the **agent key** (`axl · mentor · portfolio · scanner · analyst · strategy ·
 aether`) — the same key `AGENTS` in `cmps/AxlHub/agentMeta.jsx` is keyed by, the contract registry is
@@ -173,7 +182,7 @@ lists column, at 10–12.5px, in a column 27% wide. They open in `cmps/DetailPan
   buttons. That is why it is never a pop-out window: a window is a second copy of the app with none
   of that wired (the setup pop-out needs `popupBridge` for its ONE action back).
 - **One open, across the app.** `detailPanel.store.js` holds the open id (`coverage:<id>`,
-  `aether:<run>|<ticker>`, `industry:<code>`, `assessment:<id>`, `theme:<id>`); opening one closes
+  `aether:<run>|<ticker>`, `industry:<code>`, `assessment:<id>`, `theme:<id>`, `calendar`); opening one closes
   the other. A panel closes with its row (desk closed, event collapsed, tab left), counted per id so a
   StrictMode remount or a re-keyed row does not shut it. A hand-off INTO the chat closes it too: an
   `activeTab` change, `seedMentorChat`, and coverage's Edit, because the desk the user was sent to
@@ -186,7 +195,7 @@ lists column, at 10–12.5px, in a column 27% wide. They open in `cmps/DetailPan
   in every list.
 
 Driven end to end by `../botmarket-backend/scripts/drive-detail-panel.mjs`: both desktop layouts and a
-touch tablet.
+touch tablet. The Lists column and the Calendar: `../botmarket-backend/scripts/drive-floor-lists.mjs`.
 
 ## Threads
 
