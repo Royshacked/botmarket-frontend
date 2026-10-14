@@ -175,9 +175,10 @@ test('textToIndicators: prose forms — "20 EMA", "200-day SMA", "50d EMA", "the
 })
 
 // ── deriveSetupOverlay ────────────────────────────────────────────────────────
-// The numbers are already clean (setup.schema normalizeZones), so unlike an idea nothing here is
-// parsed from text. `setup()` is a PRE-SCENARIO document — flat zones + root validity, legacy bands
-// with two edges — which is the only shape whose flat fields are read at all.
+// The numbers are already clean (the setup schema normalises them), so unlike an idea nothing here
+// is parsed from text. `setup()` is a PRE-SCENARIO document — flat legs + root validity — which is
+// the only shape whose flat fields are read at all. A leg is `{ price }` since 2026-09-24 (a114632);
+// the validity band keeps its two edges.
 
 const setup = () => ({
     direction: 'long',
@@ -187,12 +188,15 @@ const setup = () => ({
     validity:    { lower: 90, upper: 130 },
 })
 
-test('setup: both edges of every zone become levels', () => {
+// ONE line per leg (a114632 — two edges of a zero-width band drew two lines at one price). This
+// asserted two per zone until 2026-10-14: the refactor moved the fixture to `{ price }` and left
+// the old expectations behind, so it failed on main for three weeks.
+test('setup: every leg becomes one level, the validity band both its edges', () => {
     const { levels } = deriveSetupOverlay(setup())
     const at = kind => levels.filter(l => l.kind === kind).map(l => l.price).sort((a, b) => a - b)
-    assert.deepEqual(at('entry'), [100, 102])
-    assert.deepEqual(at('stop'),  [95, 96])
-    assert.deepEqual(at('tp'),    [110, 112, 120, 122])
+    assert.deepEqual(at('entry'), [102])
+    assert.deepEqual(at('stop'),  [95])
+    assert.deepEqual(at('tp'),    [110, 120])
     assert.deepEqual(at('invalidation'), [90, 130])
 })
 
@@ -204,11 +208,12 @@ test('setup: multiple targets are numbered, a single one is not', () => {
     assert.ok(one.filter(l => l.kind === 'tp').every(l => l.label === 'TP'))
 })
 
-test('setup: a half-open zone contributes the edge it has, never a level at zero', () => {
+test('setup: a leg without a price draws nothing — never a level at zero', () => {
     // Number(null) is 0, so a permissive coercion here drew a "stop" at the bottom of the chart.
-    // normalizeZone back-fills both edges server-side, but the FE must not depend on that.
-    const { levels } = deriveSetupOverlay({ direction: 'long', stop_legs: [{ lower: 95, upper: null }] })
-    assert.deepEqual(levels.filter(l => l.kind === 'stop').map(l => l.price), [95])
+    // The server normalises legs, but the FE must not depend on that — nor read a legacy band's
+    // edges as if they were a price.
+    const { levels } = deriveSetupOverlay({ direction: 'long', stop_legs: [{ price: null }, { lower: 95, upper: 96 }, { price: 94 }] })
+    assert.deepEqual(levels.filter(l => l.kind === 'stop').map(l => l.price), [94])
 })
 
 test('a null price never becomes a level at zero, in ANY extractor', () => {
