@@ -1,5 +1,4 @@
 export const SHOW_MSG                 = 'show-msg'
-export const INVALIDATION_EDIT_IDEA   = 'invalidation-edit-idea'
 export const INVALIDATION_CLOSE_TRADE = 'invalidation-close-trade'
 export const PORTFOLIO_REVIEW         = 'portfolio-review'
 // A portfolio review was resolved (dismissed or accepted) → the portfolio list refetches
@@ -27,8 +26,6 @@ export const CALL_EXPIRY_EDIT          = 'call-expiry-edit'
 // SETUP_CONFIRM_OPEN is separate from ENTRY_CONFIRM_OPEN: the entity is resolved out of the setups
 // list, which calls are not in.
 export const SETUP_INVALIDATION_EDIT   = 'setup-invalidation-edit'
-// Entry-confirm card "Edit" → reopen the idea in its chat to change it (idea → building).
-export const ENTRY_CONFIRM_EDIT        = 'entry-confirm-edit'
 // Entry-confirm card "Dismiss" → park the triggered idea back to 'waiting' (re-armable).
 export const ENTRY_CONFIRM_DISMISS     = 'entry-confirm-dismiss'
 // Coverage-update card "Open coverage" → open the Analyst (its living coverage book).

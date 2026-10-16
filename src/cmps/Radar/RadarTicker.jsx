@@ -3,7 +3,7 @@ import './RadarTicker.scss'
 
 // Shared clickable ticker used across every Axl Radar list (earnings, IPO, scans).
 // Renders the company logo (or a letter-tile fallback) + symbol + name, and a
-// hover hint, then hands off to the idea chat via `onSelect`. Keeping this in one
+// hover hint, then hands off via `onSelect`. Keeping this in one
 // place means the logo/name/hover treatment can't drift between the lists.
 export function RadarTicker({ symbol, name, logo, onSelect, disabled = false, hint = 'Build idea →', title }) {
     const usable = !disabled && !!symbol

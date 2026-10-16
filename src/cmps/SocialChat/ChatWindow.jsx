@@ -4,7 +4,7 @@ import PropTypes from 'prop-types'
 // with the Calls list, so the window name and size can't drift between the two entry points.
 import { openCallPopup, openSetupPopup } from '../TradeIdeas/tradeIdea.utils.js'
 import { manageVerb } from '../TradeIdeas/setupManage.js'
-import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD, SETUP_SHARED_OPEN } from '../../services/event-bus.service'
+import { eventBus, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD, SETUP_SHARED_OPEN } from '../../services/event-bus.service'
 import { manualService } from '../../services/manual/manual.service.remote'
 import { mentorService } from '../../services/mentor/mentor.service.remote'
 import { marketService } from '../../services/market/market.service.remote'
@@ -62,7 +62,7 @@ function ResolvedChip({ agent, outcome, asset, reason, qualifier = null, reopen 
 // nothing is being asked of you" — and a Dismiss on those would invent a decision the card isn't
 // making. Opt-in per card rather than derived from `msg.actions` here, so older history posted
 // before a producer set actions keeps the buttons it has always rendered.
-function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = null, body, primaryLabel, onPrimary, onResolve, onDismiss, msg, resolvedLabels = {}, reopenOnDone = false, primaryDisabled = false, actionless = false }) {
+function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = null, body, primaryLabel, onPrimary, onResolve, onDismiss, msg, resolvedLabels = {}, reopenOnDone = false, primaryDisabled = false, actionless = false, dismissOnly = false }) {
     const { resolved, status, outcome, note } = readResolution(msg)
     if (resolved) {
         const label  = resolvedLabels[outcome] ?? (status === 'done' ? '✓ Done' : 'Dismissed')
@@ -76,8 +76,9 @@ function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = n
     // for nothing but is still the user's to clear. Read off `actions`, never guessed — a bubble
     // always passes a `primaryLabel` fallback, so the label cannot tell us. Only an `actions` that
     // is PRESENT and has no primary means this; older history with no `actions` at all keeps the
-    // two buttons it has always rendered.
-    const noPrimary = !!msg.actions && !msg.actions.primary
+    // two buttons it has always rendered. `dismissOnly` is the card's own say-so, for a card whose
+    // primary the producer still sends but whose destination no longer exists.
+    const noPrimary = dismissOnly || (!!msg.actions && !msg.actions.primary)
 
     // WHO CLOSES THIS CARD — read off the card, decided nowhere else.
     //
@@ -211,7 +212,7 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                             className={`social-chat__msg ${isMine ? 'social-chat__msg--mine' : 'social-chat__msg--theirs'}${highlight ? ' social-chat__msg--highlight' : ''}`}
                         >
                             {msg.type === 'invalidation_alert' && msg.payload
-                                ? <InvalidationAlertBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
+                                ? <InvalidationAlertBubble msg={msg} onResolve={onResolveMessage} />
                                 : msg.type === 'portfolio_review' && msg.payload
                                 ? <PortfolioReviewBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : (msg.type === 'manual_entry' || msg.type === 'manual_exit') && msg.payload
@@ -340,27 +341,23 @@ SetupPicker.propTypes = { onPick: PropTypes.func.isRequired, onClose: PropTypes.
 // Every card is a thin adapter over NotificationCard: it supplies the agent, heading/body, the
 // primary "do something" (route + resolve done) and — where dismissing has a side effect — a
 // custom dismiss. Strictly two buttons; finer actions (close/delete/edit) live in the surface the
-// primary opens (the idea chat, the call pop-out, the Calls tab).
+// primary opens (the call pop-out, the Calls tab).
 
-export function InvalidationAlertBubble({ msg, onClose, onResolve }) {
-    const { reason, asset, status, inPosition, ideaId } = msg.payload
+// An idea's invalidation alert. Dismiss only: the idea chat its primary used to reopen is gone, and
+// editing a hand-made idea's levels returns through the order ticket. `resolvedLabels` stay so the
+// alerts already resolved in history keep their chips.
+export function InvalidationAlertBubble({ msg, onResolve }) {
+    const { reason, asset, status, inPosition } = msg.payload
     const isDrifting = status === 'drifting'
     const kind    = isDrifting ? 'drifting' : 'fired'
     const heading = isDrifting
         ? `Setup drifting · ${asset}`
         : `Invalidation${inPosition ? ' (in position)' : ''} · ${asset}`
 
-    // Primary routes to the idea's own chat, where you re-map or close it. (The old inline "Close"
-    // now lives there / in the positions tab — strictly two buttons on the card.)
-    function handlePrimary() {
-        eventBus.emit(INVALIDATION_EDIT_IDEA, { ideaId })
-        onClose?.()
-    }
-
     return (
         <NotificationCard
             agent={AGENTS.idea} kind={kind} heading={heading} asset={asset} qualifier={kind} body={reason}
-            primaryLabel={msg.actions?.primary?.label ?? 'Edit in chat'} onPrimary={handlePrimary}
+            dismissOnly
             onResolve={onResolve} msg={msg}
             resolvedLabels={{ editing: '✓ Opened in chat', closing: '✓ Closing' }}
         />

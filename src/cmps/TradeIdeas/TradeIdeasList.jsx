@@ -352,7 +352,7 @@ CardList.propTypes = {
     renderCard: PropTypes.func, lead: PropTypes.node,
 }
 
-export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio, buildingCall, loading = false, onDelete, onCancelBuild, onStatusChange, onSymbolClick, onEdit, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, onClosePositions, calls = [], onActCall, onDeleteCall, onEditCall, callBusyId = null, setups = [], setupsLoading = false, onArmSetup, onDisarmSetup, onDeleteSetup, onEditSetup, setupBusyId = null, radar, aetherCandidates }) {
+export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, buildingCall, loading = false, onDelete, onStatusChange, onSymbolClick, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, onClosePositions, calls = [], onActCall, onDeleteCall, callBusyId = null, setups = [], setupsLoading = false, onArmSetup, onDisarmSetup, onDeleteSetup, onEditSetup, setupBusyId = null, radar, aetherCandidates }) {
     const [expandedGroups, setExpandedGroups] = useState(new Set())
     const [activeFilter,   setActiveFilter]   = useState(null)    // null = hub landing
     // The close-at-market flow (confirm → fire → report) is shared with the Floor's book, so it
@@ -375,11 +375,10 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
         return () => { alive = false; off() }
     }, [ideas])
 
-    // Follow the chat tab: idea mode shows ideas, portfolio mode shows portfolios.
+    // Follow the chat tab: portfolio mode shows portfolios, Mentor shows setups.
     // The user can still override via the filter buttons until the tab changes again.
     useEffect(() => {
         if (chatTab === 'portfolio')   setActiveFilter('portfolios')
-        else if (chatTab === 'idea')   setActiveFilter('ideas')
         else if (chatTab === 'kairos') setActiveFilter('calls')
         else if (chatTab === 'mentor') setActiveFilter('setups')
         else if (chatTab === 'axl')    setActiveFilter(null)   // return to hub when back at AxlHub
@@ -426,23 +425,10 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
         })
     }
 
-    // Editing substitution: when the building draft carries a real (saved) id, swap it into the
-    // list IN PLACE — the existing row turns to 'building' — rather than adding a separate top row.
-    // Group keys (portfolioId/groupId/savedAt) are carried over so it stays in its group + position.
-    const editBuildIdeaId = buildingIdea && buildingIdea.id !== '__building__' ? buildingIdea.id : null
-    const ideaInList = editBuildIdeaId != null && ideas.some(i => i.id === editBuildIdeaId)
-    const effectiveIdeas = ideaInList
-        ? ideas.map(i => i.id === editBuildIdeaId
-            ? { ...buildingIdea, portfolioId: i.portfolioId, groupId: i.groupId, portfolioName: i.portfolioName, savedAt: i.savedAt }
-            : i)
-        : ideas
-    // A brand-new build (or an edit whose row isn't in the current view) gets a prepended top row;
-    // an edit whose row IS in the list is substituted in place above, so no top row.
-    const topBuildingIdea = buildingIdea && !ideaInList ? buildingIdea : null
+    const { standalone, groups, brokerGroups } = _separateIdeas(ideas)
 
-    const { standalone, groups, brokerGroups } = _separateIdeas(effectiveIdeas)
-
-    // Same in-place substitution for a call being edited (Kairos Calls tab).
+    // Editing substitution for a call: when the building draft carries a real (saved) id, swap it
+    // into the list IN PLACE rather than adding a separate top row (Kairos Calls tab).
     const editBuildCallId = buildingCall && buildingCall.id !== '__building_call__' ? buildingCall.id : null
     const callInList      = editBuildCallId != null && calls.some(c => c.id === editBuildCallId)
     const effectiveCalls  = callInList ? calls.map(c => c.id === editBuildCallId ? buildingCall : c) : calls
@@ -468,7 +454,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
     const showPositions  = activeFilter === 'positions'
     const showRadar      = activeFilter === 'radar'
     const showAether     = activeFilter === 'aether'
-    const hasIdeasRows   = topBuildingIdea || ideaRows.length > 0
+    const hasIdeasRows   = ideaRows.length > 0
     const hasPortfolios  = visibleGroups.length > 0
 
     // ── The section registry ──────────────────────────────────────────────────
@@ -495,7 +481,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
             renderCard: (c) => (
                 <CallCard
                     key={c.id} call={c} busy={callBusyId === c.id}
-                    onAct={onActCall} onDelete={onDeleteCall} onEdit={onEditCall} onSymbolClick={onSymbolClick}
+                    onAct={onActCall} onDelete={onDeleteCall} onSymbolClick={onSymbolClick}
                 />
             ),
         },
@@ -670,15 +656,6 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                                 </tr>
                             </thead>
                             <tbody>
-                                {topBuildingIdea && (
-                                    <TradeIdeaRow
-                                        key="__building__"
-                                        idea={topBuildingIdea}
-                                        onDelete={onCancelBuild}
-                                        onStatusChange={() => {}}
-                                        onOpen={() => {}}
-                                    />
-                                )}
                                 {ideaRows.map(row => row.kind === 'group' ? (
                                     <BrokerGroupRow
                                         key={row.item.groupId}
@@ -698,7 +675,6 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
                                         onStatusChange={onStatusChange}
                                         onOpen={handleOpen}
                                         onSymbolClick={onSymbolClick}
-                                        onEdit={onEdit}
                                     />
                                 ))}
                             </tbody>
@@ -797,13 +773,10 @@ export function TradeIdeasList({ ideas, chatTab, buildingIdea, buildingPortfolio
 TradeIdeasList.propTypes = {
     ideas:            PropTypes.array.isRequired,
     chatTab:          PropTypes.string,
-    buildingIdea:     PropTypes.object,
     buildingPortfolio: PropTypes.object,
     buildingCall:     PropTypes.object,
     onDelete:         PropTypes.func.isRequired,
-    onCancelBuild:    PropTypes.func.isRequired,
     onStatusChange:   PropTypes.func.isRequired,
-    onEdit:           PropTypes.func,
     onEditPortfolio:  PropTypes.func,
     onDeletePortfolio: PropTypes.func,
     positions:        PropTypes.array,
@@ -814,7 +787,6 @@ TradeIdeasList.propTypes = {
     calls:            PropTypes.array,
     onActCall:        PropTypes.func,
     onDeleteCall:     PropTypes.func,
-    onEditCall:       PropTypes.func,
     callBusyId:       PropTypes.string,
     setups:           PropTypes.array,
     setupsLoading:    PropTypes.bool,

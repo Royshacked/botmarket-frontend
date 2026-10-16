@@ -3,8 +3,6 @@ import { stopTurn } from '../services/turn.service.js'
 /**
  * Shared streaming stop + error-recovery helpers for chat panels that own
  * their own SSE streaming loop (PortfolioPanel, ScannerPanel).
- *
- * ChatPanel is stateless (streaming runs in MainPage) and does not use this.
  */
 export function makeStreamHandlers({ abortRef, stopDrain, setMessages, setIsLoading, turnRef = null }) {
     function handleStop() {

@@ -11,7 +11,7 @@ import PropTypes from 'prop-types'
 // knowledge, not something a shared button can decide.
 //
 // `className` is a deliberate seam rather than a variant enum: most action bars are built from
-// `portfolio-panel__review-btn` (the default below), but the idea chat and Atlas sit this next to a
+// `portfolio-panel__review-btn` (the default below), but Atlas sits this next to a
 // full-size `__generate` primary and size it to match. One panel modifier rides along the same way
 // (Kairos and Mentor already appended theirs).
 export const LATER_BTN_CLASS = 'portfolio-panel__review-btn portfolio-panel__review-btn--later'

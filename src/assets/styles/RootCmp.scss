@@ -48,8 +48,6 @@
     border-top: 1px solid var(--border);
 }
 
-.workspace__chat .chat-panel { border-top-right-radius: 0; border-bottom-right-radius: 0; }
-
 .workspace__ideas {
     grid-area: ideas;
     min-height: 0;
@@ -79,12 +77,6 @@
 [data-design="floor"] .workspace__left  { grid-area: floor-left;  min-height: 0; min-width: 0; }
 [data-design="floor"] .workspace__right { grid-area: floor-right; min-height: 0; min-width: 0; }
 
-// The chat panel is a middle column here, so it keeps square edges on both sides.
-[data-design="floor"] .workspace__chat .chat-panel {
-    border-top-left-radius: 0;
-    border-bottom-left-radius: 0;
-}
-
 // Narrow desktop: the book/calendar column is the first to go — the desks and the chat are
 // what you act in. Below the tablet breakpoint the design falls back to the standard layout.
 @media (max-width: 1439px) {
@@ -112,6 +104,22 @@
     to   { opacity: 1; transform: none; }
 }
 
+// Status-dot pulses shared by the Axl hub (AxlHub.scss) and the Floor (Floor.scss).
+@keyframes cp-idle {
+    0%, 100% { opacity: 0.45; }
+    50%       { opacity: 1;    }
+}
+
+@keyframes cp-loading {
+    0%, 100% { opacity: 0.7; transform: scale(1);   }
+    50%       { opacity: 1;   transform: scale(1.4); }
+}
+
+@keyframes cp-building {
+    0%, 100% { opacity: 0.7; transform: scale(1);    box-shadow: 0 0 0 0   transparent;          }
+    50%       { opacity: 1;   transform: scale(1.35); box-shadow: 0 0 5px 1px var(--accent-light); }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .chat-tabs__panel { animation: none; }
 }
@@ -131,8 +139,8 @@
 // own on desktop. So the workspace collapses to its chat column; the lists column, the Floor's
 // two side columns and the monitor dashboard are all desktop/tablet surfaces here.
 //
-// (This replaced Monitor Mode + the chat FAB/sheet: the sheet opened the ARCHIVED idea chat,
-// which can no longer send — /api/idea is unmounted — so mobile had no live agent at all.)
+// (This replaced Monitor Mode + the chat FAB/sheet, whose sheet opened a chat that could no longer
+// send, so mobile had no live agent at all.)
 @media (max-width: 767px) {
     .workspace {
         grid-template-columns: minmax(0, 1fr);
@@ -159,7 +167,6 @@
     .main-container { height: 100dvh; }
 
     // Full-bleed column — no rounded corners to round against.
-    .workspace__chat .chat-panel,
     .workspace__chat .axl-hub { border-radius: 0; border-left: none; border-right: none; }
 
     .chat-agentbar { padding: 6px 8px; gap: 6px; }

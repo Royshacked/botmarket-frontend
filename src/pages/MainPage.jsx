@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 
-import { ChatPanel }         from '../cmps/ChatPanel/ChatPanel.jsx'
 import { AxlHub }            from '../cmps/AxlHub/AxlHub.jsx'
 import { openChart }         from '../services/chartSurface.service.js'
 import { AgentSummon, AxlBotGlyph } from '../cmps/AxlHub/AgentSummon.jsx'
@@ -12,7 +11,6 @@ import { planHop, planEntry, producesOne, hasDownstream, findReceiver } from '..
 import { contractFor } from '../services/pipeline/contracts.js'
 import { handoffDoors } from '../services/pipeline/doors.js'
 import { AccountSelector }   from '../cmps/AccountSelector/AccountSelector.jsx'
-import { readStoredModel }   from '../cmps/modelOptions.js'
 import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
 import { confirmAvoid, confirmAvoidAdds, avoidRetry, avoidRefusalRetry } from '../cmps/PortfolioPanel/avoidOk.js'
 import { reviewApplyMessage, queuedAnything } from '../cmps/PortfolioPanel/reviewApply.js'
@@ -31,17 +29,16 @@ import { analystService, COVERAGE_CHANGED, RESEARCH_QUEUE_CHANGED } from '../ser
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
-import { activatePortfolio, isManualIdea, buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace, inWorkspace, planAccountRebind, positionOpenTarget, openIdeaPopup, matchPositionsForIdea, isPortfolioReview } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { activatePortfolio, isManualIdea, buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, brokerSymbolLabel, ideaWorkspace, inWorkspace, planAccountRebind, positionOpenTarget, openIdeaPopup, matchPositionsForIdea, isPortfolioReview } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { TradeTicket } from '../cmps/TradeTicket/TradeTicket.jsx'
 import { apiError } from '../services/http.service.js'
-import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
 import { resolveEntity, resolveForEdit } from '../services/entityResolve.js'
 import { useDeskHandoff } from '../customHooks/useDeskHandoff.js'
-import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
+import { threadsService } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
-import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD, SETUP_SHARED_OPEN, ENTITY_DETAIL_OPEN } from '../services/event-bus.service'
+import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD, SETUP_SHARED_OPEN, ENTITY_DETAIL_OPEN } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
 import { adoptService } from '../services/adopt/adopt.service.remote.js'
 import { AdoptBookGrid } from '../cmps/AdoptBook/AdoptBookGrid.jsx'
@@ -51,7 +48,7 @@ import { pickConfirmIdea, pickConfirmSetup } from '../cmps/TradeIdeas/confirmTar
 import { redrawAsk } from '../cmps/MentorPanel/redrawAsk.js'
 import { sharedAsk } from '../cmps/MentorPanel/sharedAsk.js'
 import { listenForPopupEvents } from '../services/popupBridge.js'
-import { useChatStream, toChatHistory } from '../customHooks/useChatStream.js'
+import { toChatHistory } from '../customHooks/useChatStream.js'
 import { useCalendarEvents } from '../customHooks/useCalendarEvents.js'
 import { useScans }          from '../customHooks/useScans.js'
 import { useBrokerAccounts } from '../customHooks/useBrokerAccounts.js'
@@ -76,7 +73,6 @@ const TAB_TO_STEP = {
     scanner:    'Argus',
     portfolio:  'Atlas',
     analyst:    'Prometheus',
-    idea:       'Idea',
     mentor:     'Mentor',
     ticket:     'Order ticket',
 }
@@ -114,58 +110,6 @@ function PipelineCrumb({ pipeline, activeTab, step = 0 }) {
             ))}
         </div>
     )
-}
-
-// Chart defaults — restored when a build/edit session ends.
-
-// Chart bubbles are persisted in chat_state (so they re-show on edit) but capped
-// so accumulated base64 doesn't bloat the idea doc. Keeps the most recent charts,
-// dropping the oldest first; non-chart messages are untouched.
-const MAX_PERSISTED_CHARTS = 4
-function _capPersistedCharts(msgs) {
-    let over = msgs.filter(m => m.type === 'chart').length - MAX_PERSISTED_CHARTS
-    if (over <= 0) return msgs
-    return msgs.filter(m => {
-        if (m.type === 'chart' && over > 0) { over--; return false }
-        return true
-    })
-}
-
-// The persisted messages array is display-only (re-shown on edit); the model
-// restores context from analysisState, not this. Cap it to the most recent N so
-// the save/update payload stays small over the wire — mirrors the backend trim.
-const MAX_PERSISTED_MESSAGES = 40
-function _capPersistedMessages(msgs) {
-    if (!Array.isArray(msgs) || msgs.length <= MAX_PERSISTED_MESSAGES) return msgs
-    return msgs.slice(-MAX_PERSISTED_MESSAGES)
-}
-
-// Derive a live "building" idea from chat state — shown in the list but not yet saved
-function deriveBuildingIdea(analysisState) {
-    if (!analysisState) return null
-    const s  = analysisState.structured_state || {}
-    const pt = s.pending_trade || {}
-    if (!s.active_asset) return null   // nothing to show yet
-    return {
-        id:               '__building__',
-        status:           'building',
-        asset:            s.active_asset,
-        asset_class:      pt.asset_class     || null,
-        direction:        pt.direction       || null,
-        type:             pt.type            || null,
-        quantity:         pt.quantity        ?? null,
-        immediate:        pt.immediate       || false,
-        entry_order_type: pt.entry_order_type || null,
-        entry_timeframe:  pt.entry_timeframe || null,
-        stop_timeframe:   pt.stop_timeframe  || null,
-        tp_timeframe:     pt.tp_timeframe    || null,
-        entry_conditions: pt.entry_conditions || [],
-        stop_conditions:  pt.stop_conditions  || [],
-        tp_conditions:    pt.tp_conditions    || [],
-        notes:            pt.notes           || null,
-        conviction:       pt.conviction       || null,
-        invalidation:     pt.invalidation     || null,
-    }
 }
 
 // (Scan candidates now seed the KAIROS chat via handleBuildFromCandidate — the idea-summary/context
@@ -250,13 +194,8 @@ function _moneyShort(v) {
 const DESK_TABS = ['scanner', 'portfolio', 'mentor', 'analyst', 'strategy', 'aether']
 
 export function MainPage() {
-    const chat = useChatStream()
-    const { messages, setMessages, isLoading, streamStatus, reasoningPulse } = chat
     const { user, isAdmin } = useAuth()
 
-    const [analysisState, setAnalysisState] = useState(null)
-    const [editingIdeaId,     setEditingIdeaId]     = useState(null)
-    const [isInvalidationReview, setIsInvalidationReview] = useState(false)
     const [activeTab, setActiveTab]             = useState('axl')
     // Bumped by the daily market-brief card — the hub writes the brief on every change, then clears
     // it. See the MARKET_BRIEF_OPEN listener for why it counts rather than latches.
@@ -537,13 +476,10 @@ export function MainPage() {
     // request is cleared on consumption, so anything reading the previous value would restart at 1
     // and the hub would mistake the next trip for the one it already closed.
     const axlReturnSeqRef = useRef(0)
-    const latestMessagesRef = useRef([])
-    const ideaThreadIdRef   = useRef(newThreadId())   // idea construction draft thread
     // Each desk panel publishes its "resume this thread" fn here. ONE map rather than one ref
     // per desk: the refs were identical in every respect except which desk they belonged to, and
     // every one of them also needed its own branch in _resumeThreadOn below. Adding a desk is now
-    // a key, not a declaration plus a branch — and a desk whose key is missing degrades to the
-    // idea-thread fallback instead of silently doing nothing.
+    // a key, not a declaration plus a branch.
     const resumeRefs = useRef(Object.fromEntries(DESK_TABS.map(t => [t, { current: null }])))
 
     // Which desks are mid-turn. STATE, not a ref: it drives what the UI lets you do. Memoised
@@ -655,11 +591,6 @@ export function MainPage() {
         setMentorChatRestore(null)
         handleBackToAxl()   // setup updated / edit cancelled — return to the axl hub
     }
-    // Ids of ideas BORN from a "Buy Market" click (created solely to carry the immediate
-    // order). If their placement fails outright we roll them back out of existence rather
-    // than strand a phantom 'hit' idea on "Update idea". Cleared once placed or rolled back.
-    const buyMarketBornRef   = useRef(new Set())
-
     // Leaving an agent plays a short "heading back to axl" beat (mirrors the summon
     // on the way in) before the hub returns. The timer is cleared on unmount so it
     // can't fire into a gone component.
@@ -681,10 +612,8 @@ export function MainPage() {
             axlHandOffRef.current = null
             if (handedOff) setAxlReturn({ key: ++axlReturnSeqRef.current, desk: handedOff })
             setReturningToAxl(false)
-            // Fresh slate: clear the Idea chat, drop any pending edit-restore, and
-            // remount Atlas/Argus so re-entering any agent from the hub starts a new
-            // conversation.
-            handleCancelBuild()
+            // Fresh slate: drop any pending edit-restore, and remount Atlas/Argus so
+            // re-entering any agent from the hub starts a new conversation.
             setScannerChatRestore(null)
             setPortfolioChatRestore(null)
             // The SETUP twin, which was missing — and its absence was not cosmetic. `handleSetupEditDone`
@@ -773,12 +702,6 @@ export function MainPage() {
         if (target?.kind === 'idea') openIdeaPopup(target.idea)
     }
 
-    const buildingIdea = deriveBuildingIdea(analysisState)
-    // While editing, the live draft REPLACES the saved row in place (same id → the existing Axl-list
-    // row turns to 'building') instead of adding a separate row. A brand-new build keeps its
-    // synthetic __building__ id so it renders as a new top row.
-    const buildingIdeaRow = buildingIdea && editingIdeaId ? { ...buildingIdea, id: editingIdeaId } : buildingIdea
-
     // buildingPortfolio is reported up from PortfolioPanel (assets recommended /
     // pending plan) → drives the list's "building" portfolio row.
 
@@ -817,220 +740,6 @@ export function MainPage() {
     // A setup's plan is authored as zones, so its levels come from its own extractor.
     const confirmSetupLevels = confirmSetup ? deriveSetupOverlay(confirmSetup).levels : []
 
-    // ⚠ ARCHIVED 2026-07-29 — the Idea chat's send path. Its panel only shows while
-    // activeTab === 'idea', which now only handleEditIdea can reach (legacy documents only).
-    // userPromptService posts to the unmounted /api/idea; the catch below is what the user
-    // would see. Kept with the panel rather than deleted — see handleEditIdea.
-    async function handleSend(userPrompt, currentAnalysisState) {
-        const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
-
-        const { signal, handlers } = chat.begin(userPrompt, {
-
-            // (a surfaced chart lands as its own row — useChatStream's shared onChart)
-
-            onDone: (data) => {
-                const reasoning = chat.reasoningRef.current
-                const finalMsg = { role: 'assistant', content: data.reply, analysisState: data.analysisState ?? null, ...(reasoning ? { reasoning } : {}) }
-                // Mirror the final messages into the persisted-state ref now —
-                // so a navigate/generate while the typewriter is still catching
-                // up still saves the complete reply — without changing what's on
-                // screen (the read returns prev unchanged).
-                setMessages(prev => {
-                    const finalMsgs = prev.map((m, i) => (i === prev.length - 1 && m.streaming ? finalMsg : m))
-                    // Keep chart bubbles in the saved chat_state so they re-render
-                    // when the idea is reopened for editing. They stay display-only:
-                    // the trade chat sends analysisState (text), never this messages
-                    // array, so charts never enter the model's context. Cap the count
-                    // so the saved base64 doesn't bloat the idea doc / each progressive
-                    // save (oldest charts are dropped first).
-                    latestMessagesRef.current = _capPersistedCharts(finalMsgs)
-                    // Construction only: persist the building conversation as a draft thread
-                    // HERE, using the authoritative final list. Reading latestMessagesRef right
-                    // after setMessages lags one turn (the updater runs async), which made the
-                    // draft miss the latest phase on resume. Backend enforces the phase floor + TTL.
-                    if (!editingIdeaId && data.analysisState) {
-                        threadsService.saveDraft({
-                            threadId:    ideaThreadIdRef.current,
-                            agent:       'idea',
-                            messages:    _capPersistedMessages(latestMessagesRef.current),
-                            phase:       data.phase ?? null,
-                            subjectType: 'idea',
-                            state:       { analysisState: data.analysisState },
-                        })
-                    }
-                    return prev
-                })
-                // Visually finish typing the backlog, then swap in finalMsg —
-                // no end-of-stream dump. Keep Stop live until the drain ends.
-                chat.finishStreaming(finalMsg)
-                // Save chat state progressively when editing
-                if (editingIdeaId && data.analysisState) {
-                    tradeIdeasService.updateIdea(editingIdeaId, {
-                        chat_state: { messages: _capPersistedMessages(latestMessagesRef.current), analysisState: data.analysisState }
-                    }).catch(err => console.error('[chat_state] save failed', err))
-                }
-                setAnalysisState(data.analysisState ?? null)
-                if (data.ideaSaved) loadIdeas()
-            },
-        })
-
-        try {
-            await userPromptService.sendPromptStream(
-                userPrompt,
-                currentAnalysisState,
-                { signal, ...handlers },
-                ideaAccounts,
-                readStoredModel(),
-                mainAccountId
-            )
-        } catch (err) {
-            console.error(err)
-            chat.freezeError('Error communicating with the server. Please try again.')
-        } finally {
-            chat.endStream()
-        }
-    }
-
-    // Resume a stopped idea reply in place. Sends the conversation as a `messages`
-    // array ending with the partial assistant turn (no userPrompt) so the model
-    // continues that same bubble (Anthropic prefill). recent_messages is rebuilt
-    // client-side from the sent history + the completed bubble, so the model-facing
-    // history doesn't fragment (the backend only sees the continuation as the reply).
-    async function _continueIdea() {
-        if (isLoading) return
-        const last = messages[messages.length - 1]
-        if (!last || last.role !== 'assistant' || !last.stopped) return
-        const base = chat.resumeBase()   // '' = stopped before any token → regenerate
-
-        const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
-
-        // Model-facing history: the text conversation (phase headings + chart image bubbles
-        // excluded), ended with the partial as an assistant prefill when continuing, or at the
-        // user turn when regenerating — the shared finalizeResumeHistory decides which.
-        const history = chat.finalizeResumeHistory(
-            messages
-                .filter(m => (m.role === 'user' || m.role === 'assistant') && !m.streaming && m.type !== 'chart' && typeof m.content === 'string' && m.content.trim())
-                .map(m => ({ role: m.role, content: m.content.trim() })),
-            base,
-        )
-
-        const cont = chat.beginContinue({
-            onError: () => chat.restoreStopped(base),
-            onDone: (data) => {
-                const reasoning = chat.reasoningRef.current
-                const content = base + data.reply
-                // The continued bubble is ONE assistant turn (base + continuation); rebuild
-                // recent_messages from the sent history with that turn completed.
-                const correctedRecent = [...history.slice(0, -1), { role: 'assistant', content }].slice(-6)
-                const finalState = data.analysisState ? { ...data.analysisState, recent_messages: correctedRecent } : null
-                const finalMsg = { role: 'assistant', content, analysisState: finalState, ...(reasoning ? { reasoning } : {}) }
-                setMessages(prev => {
-                    const finalMsgs = prev.map((m, i) => (i === prev.length - 1 && m.streaming ? finalMsg : m))
-                    latestMessagesRef.current = _capPersistedCharts(finalMsgs)
-                    if (!editingIdeaId && finalState) {
-                        threadsService.saveDraft({
-                            threadId:    ideaThreadIdRef.current,
-                            agent:       'idea',
-                            messages:    _capPersistedMessages(latestMessagesRef.current),
-                            phase:       data.phase ?? null,
-                            subjectType: 'idea',
-                            state:       { analysisState: finalState },
-                        })
-                    }
-                    return prev
-                })
-                chat.finishStreaming(finalMsg)
-                if (editingIdeaId && finalState) {
-                    tradeIdeasService.updateIdea(editingIdeaId, {
-                        chat_state: { messages: _capPersistedMessages(latestMessagesRef.current), analysisState: finalState }
-                    }).catch(err => console.error('[chat_state] save failed', err))
-                }
-                setAnalysisState(finalState)
-                if (data.ideaSaved) loadIdeas()
-            },
-        })
-        if (!cont) return   // nothing continuable
-
-        try {
-            await userPromptService.continuePromptStream(
-                history,
-                analysisState,
-                { signal: cont.signal, ...cont.handlers },
-                ideaAccounts,
-                readStoredModel(),
-                mainAccountId
-            )
-        } catch (err) {
-            console.error(err)
-            chat.restoreStopped(base)
-        } finally {
-            chat.endStream()
-        }
-    }
-
-    function handleCancelBuild() {
-        setAnalysisState(null)
-        setMessages([])
-        ideaThreadIdRef.current = newThreadId()   // fresh construction thread; abandoned draft TTL-expires
-        setEditingIdeaId(null)
-        setIsInvalidationReview(false)
-        chat.setPhase(null)
-        latestMessagesRef.current = []
-    }
-
-    // ⚠ ARCHIVED 2026-07-29 — reachable only from a legacy `idea`-kind document, and nothing
-    // builds those any more (Kairos builds calls, Mentor builds setups; the pencil on those
-    // routes to their own chats). Left wired so an old idea still opens rather than breaking the
-    // list, but the chat it opens can no longer send: /api/idea is unmounted.
-    function handleEditIdea(idea, { invalidationReview = false } = {}) {
-        const cs = idea.chat_state
-        // Restore prior chat if available, otherwise seed state from the idea's conditions
-        const restoredState = cs?.analysisState ?? {
-            recent_messages: [],
-            recent_chat_summary: '',
-            structured_state: {
-                active_asset: idea.asset || '',
-                pending_trade: {
-                    direction:        idea.direction        ?? null,
-                    type:             idea.type             ?? null,
-                    asset_class:      idea.asset_class      ?? null,
-                    quantity:         idea.quantity         ?? null,
-                    entry_timeframe:  idea.entry_timeframe  ?? null,
-                    stop_timeframe:   idea.stop_timeframe   ?? null,
-                    tp_timeframe:     idea.tp_timeframe     ?? null,
-                    entry_logic:      idea.entry_logic      ?? 'AND',
-                    entry_conditions: idea.entry_conditions ?? [],
-                    stop_logic:       idea.stop_logic       ?? 'OR',
-                    stop_conditions:  idea.stop_conditions  ?? [],
-                    tp_logic:           idea.tp_logic           ?? 'OR',
-                    tp_conditions:      idea.tp_conditions      ?? [],
-                    additional_entries: (idea.additional_entries ?? []).map(ae => ({
-                        conditions: ae.conditions ?? [],
-                        logic:      ae.logic      ?? 'AND',
-                        quantity:   ae.quantity   ?? null,
-                    })),
-                    notes:            idea.notes            ?? null,
-                    invalidation:     idea.invalidation     ?? null,
-                },
-            },
-        }
-        const restoredMessages = cs?.messages ?? []
-        setMessages(restoredMessages)
-        latestMessagesRef.current = restoredMessages
-        setAnalysisState(restoredState)
-        const editAsset = restoredState.structured_state?.active_asset || idea.asset
-        if (editAsset) openChart({ ticker: editAsset, source: 'idea' })
-        setEditingIdeaId(idea.id)
-        setIsInvalidationReview(invalidationReview)
-        alignWorkspaceTo(idea)
-        setSelectedAccounts(Array.isArray(idea.accounts) ? idea.accounts : [])
-        setMainAccountId(idea.mainAccountId ?? null)
-        // Editing an idea from a list (ideas list / mobile monitor / invalidation alert)
-        // opens the Idea chat — otherwise the restored state stays hidden behind the Axl
-        // hub or another agent's panel.
-        setActiveTab('idea')
-    }
-
     // The card listeners below register once, so they cannot close over state — these are what they
     // read instead. There used to be four more, mirroring the ideas / calls / setups / coverage
     // lists so a card could resolve its subject out of them; the cards now READ their subject by id
@@ -1063,13 +772,6 @@ export function MainPage() {
         const ws = doc && ideaWorkspace(doc)
         if (ws && ws !== workspaceRef.current) setWorkspace(ws)
     }
-    useEffect(() => {
-        return eventBus.on(INVALIDATION_EDIT_IDEA, async ({ ideaId }) => {
-            const idea = await resolveEntity('idea', ideaId)
-            if (idea) handleEditIdea(idea, { invalidationReview: true })
-        })
-    }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
     // "Close trade" from an in-position invalidation alert. The alert payload only
     // carries the ideaId, so resolve the open position by the idea's symbol (matching
     // the broker-symbol alias too, e.g. NQ ↔ US100) and close it at market.
@@ -1143,14 +845,6 @@ export function MainPage() {
                 if (!prev.has(ideaId)) return prev
                 const next = new Set(prev); next.delete(ideaId); return next
             })
-        })
-    }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Entry-confirm card "Edit": reopen the triggered idea in its chat to change it (→ building).
-    useEffect(() => {
-        return eventBus.on(ENTRY_CONFIRM_EDIT, async ({ ideaId }) => {
-            const idea = await resolveEntity('idea', ideaId)
-            if (idea) handleEditIdea(idea)
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1373,49 +1067,9 @@ export function MainPage() {
         })
     }, [])
 
-    async function handleBuyMarket() {
-        if (!buildingIdea) return
-        const { id: _id, status: _status, ...ideaFields } = buildingIdea
-        const chatState = { messages: _capPersistedMessages(latestMessagesRef.current), analysisState }
-        try {
-            // Editing a still-pending idea and going in at market now: persist the
-            // edits + flip to immediate on the existing idea rather than creating a
-            // duplicate. The backend attaches the order plan and surfaces the
-            // OrderConfirm dialog (orderState 'awaiting_confirm'). Keep the chat open
-            // on the same idea so the user can still add stops/TPs.
-            if (editingIdeaId) {
-                const res = await tradeIdeasService.updateIdea(editingIdeaId, {
-                    ...ideaFields,
-                    immediate:     true,
-                    chat_state:    chatState,
-                    accounts:      selectedAccounts,
-                    mainAccountId,
-                })
-                if (res?.idea) setIdeas(prev => prev.map(i => i.id === editingIdeaId ? res.idea : i))
-                return
-            }
-            const saved = await tradeIdeasService.createIdea({
-                ...ideaFields,
-                immediate:  true,
-                chat_state: chatState,
-                accounts:   selectedAccounts,
-                mainAccountId,
-            })
-            setIdeas(prev => [...saved, ...prev])
-            // Mark these as born-from-buy-market so a failed placement can roll them back
-            // (the edit-branch above flips a PRE-EXISTING idea and must never be deleted).
-            saved.forEach(s => { if (s?.id) buyMarketBornRef.current.add(s.id) })
-            // Keep chat open so user can add stops/TPs; point edit session at the
-            // primary idea (first returned, before any broker-fork children).
-            if (saved[0]?.id) setEditingIdeaId(saved[0].id)
-        } catch (err) {
-            console.error('[tradeIdeas] buy market failed', err)
-        }
-    }
-
     // ── Immediate-trade ticket ────────────────────────────────────────────────
-    // The discretionary order pad. It authors the SAME entity the chat's Buy Market does and
-    // places it through the SAME endpoints — a ticket trade is an idea like any other, so it is
+    // The discretionary order pad. It authors an `idea` and places it through the same
+    // endpoints as every other order — a ticket trade is an idea like any other, so it is
     // monitored, shows in the Floor, reaches the ledger and is visible to the agents. What is
     // dropped is the conversation, not the pipeline.
     //
@@ -1470,7 +1124,7 @@ export function MainPage() {
             if (failed.length === saved.length) {
                 // Nothing reached a broker, so the entity is a ghost: an idea sitting at 'hit'
                 // holding no position, which would show in the book as a trade that never was.
-                // Roll it back — the same guard handleBuyMarket keeps for its own born-here ideas.
+                // Roll it back.
                 await Promise.allSettled(saved.map(s => tradeIdeasService.deleteIdea(s.id)))
                 await loadIdeas()
                 throw failed[0].reason ?? new Error('the broker rejected the order')
@@ -1572,87 +1226,6 @@ export function MainPage() {
         setTicketError(null)
     }
 
-    async function handleGenerate() {
-        if (!buildingIdea) {
-            // Nothing to save — if we're editing, leave edit mode and head home to axl
-            // so the user is never stuck (the Update button doubles as "exit edit").
-            if (editingIdeaId) handleBackToAxl()
-            return
-        }
-        // Strip `immediate` here: "Update idea"/"Generate idea" builds a *monitored*
-        // idea. Only handleBuyMarket sends immediate:true (the one path that places a
-        // market order), so the backend never confuses an update for a live entry.
-        const { id: _id, status: _status, immediate: _immediate, ...ideaFields } = buildingIdea
-        const chatState = { messages: _capPersistedMessages(latestMessagesRef.current), analysisState }
-
-        // Don't reset to 'waiting' when editing a live idea (hit/long/short) —
-        // the user is just adding stops/TPs to an already-placed order.
-        const editingIdea    = ideas.find(i => i.id === editingIdeaId)
-        const isPostOrderEdit = !!editingIdea && isPostOrderStatus(editingIdea.status)
-
-        if (editingIdeaId) {
-            try {
-                const res = await tradeIdeasService.updateIdea(editingIdeaId, {
-                    ...ideaFields,
-                    ...(!isPostOrderEdit && { status: 'waiting' }),
-                    chat_state: chatState,
-                    accounts:      selectedAccounts,
-                    mainAccountId: mainAccountId,
-                    // Invalidation review: clear the alert + re-arm so the monitor re-evaluates from scratch
-                    ...(isInvalidationReview && { invalidation_status: null, invalidation_reason: null, invalidation_edge: null, invalidation_armed: false }),
-                })
-                setIdeas(prev => prev.map(i => i.id === editingIdeaId ? res.idea : i))
-                setEditingIdeaId(null)
-                setIsInvalidationReview(false)
-                setAnalysisState(null)
-                setMessages([])
-                                latestMessagesRef.current = []
-                handleBackToAxl()   // idea saved — return to the axl hub
-            } catch (err) {
-                console.error('[tradeIdeas] edit update failed', err)
-            }
-        } else {
-            try {
-                const saved = await tradeIdeasService.createIdea({ ...ideaFields, chat_state: chatState, accounts: selectedAccounts, mainAccountId })
-                // createIdea returns an array — one idea, or N when a multi-broker
-                // idea was forked into single-broker children.
-                setIdeas(prev => [...saved, ...prev])
-                // Link the construction draft thread to the created idea (first of the fork
-                // group); clears its TTL so the conversation lives with the idea.
-                if (saved[0]?.id) {
-                    threadsService.linkThread(ideaThreadIdRef.current, {
-                        subjectType: 'idea', subjectId: saved[0].id, artifactName: ideaFields?.asset ?? null,
-                    })
-                }
-                ideaThreadIdRef.current = newThreadId()   // next build gets a fresh draft thread
-                setAnalysisState(null)
-                setMessages([])
-                                latestMessagesRef.current = []
-                handleBackToAxl()   // idea generated — return to the axl hub
-            } catch (err) {
-                console.error('[tradeIdeas] create failed', err)
-            }
-        }
-    }
-
-    // Invalidation review "Dismiss": idea is fine as-is, just clear the alert so
-    // the monitor can re-evaluate. Does NOT change status or conditions.
-    async function handleDismissInvalidation() {
-        if (!editingIdeaId) return
-        try {
-            const res = await tradeIdeasService.updateIdea(editingIdeaId, {
-                invalidation_status: null,
-                invalidation_reason: null,
-                invalidation_edge:   null,
-                invalidation_armed:  false,
-            })
-            setIdeas(prev => prev.map(i => i.id === editingIdeaId ? res.idea : i))
-        } catch (err) {
-            console.error('[invalidation] dismiss failed', err)
-        }
-        handleCancelBuild()
-    }
-
     // A 'hit' idea has fired and is awaiting order confirmation — deleting discards
     // that pending entry, so confirm intent in a dialog first. Everything else deletes
     // straight away (the bin is already disabled for live long/short positions).
@@ -1666,7 +1239,6 @@ export function MainPage() {
         try {
             await tradeIdeasService.deleteIdea(id)
             setIdeas(prev => prev.filter(idea => idea.id !== id))
-            if (id === editingIdeaId) handleCancelBuild()
         } catch (err) {
             console.error('[tradeIdeas] delete failed', err)
             showErrorMsg('Delete failed — the idea may now be live on the broker.')
@@ -1701,7 +1273,6 @@ export function MainPage() {
         try {
             await Promise.all(portfolioIdeas.map(i => tradeIdeasService.deleteIdea(i.id)))
             setIdeas(prev => prev.filter(i => i.portfolioId !== portfolioId))
-            if (portfolioIdeas.some(i => i.id === editingIdeaId)) handleCancelBuild()
             // Also delete the portfolio's chat history
             await portfolioService.deleteChatState(portfolioId)
                 .catch(err => console.error('[portfolio] chat delete failed', err))
@@ -1716,35 +1287,20 @@ export function MainPage() {
         try {
             const updated = await tradeIdeasService.placeOrders(idea.id, orders)
             if (updated) setIdeas(prev => prev.map(i => i.id === idea.id ? updated : i))
-            buyMarketBornRef.current.delete(idea.id)   // placed — no longer a phantom
         } catch (err) {
             console.error('[tradeIdeas] place orders failed', err)
             // Surface the broker's rejection reason (e.g. "symbol 'QQQ' not found on
             // account") instead of failing silently — apiError prefers the per-account
             // result over the summary line.
             showErrorMsg(`Order placement failed: ${apiError(err)}`)
-
-            if (buyMarketBornRef.current.has(idea.id)) {
-                // Buy-market idea whose order never placed: it exists only to carry this
-                // order, so roll it back out of existence and return the chat to its
-                // pre-buy state instead of leaving a phantom 'hit' idea stuck on
-                // "Update idea". ('hit' is not delete-locked — only long/short are.)
-                buyMarketBornRef.current.delete(idea.id)
-                setEditingIdeaId(prev => (prev === idea.id ? null : prev))
-                setIdeas(prev => prev.filter(i => i.id !== idea.id))
-                tradeIdeasService.deleteIdea(idea.id)
-                    .catch(e => console.error('[tradeIdeas] rollback delete failed', e))
-            } else {
-                // Conditional idea (reached 'hit' via the monitor) or a pre-existing idea
-                // flipped to immediate: keep it in 'hit' so the user can retry.
-                setDismissedConfirmIds(prev => new Set(prev).add(idea.id))
-            }
+            // The idea reached 'hit' via the monitor: keep it there so the user can retry.
+            setDismissedConfirmIds(prev => new Set(prev).add(idea.id))
         } finally {
             setPlacingOrders(false)
         }
     }
 
-    // ── Arm-time pre-flight prompt actions (Buy now / Edit / Reset) ────────────
+    // ── Arm-time pre-flight prompt actions (Buy now / Reset) ─────────────────
     // Buy now: force-trigger the entry (→ hit + built plan). The confirmIdea
     // derivation then surfaces the normal OrderConfirmDialog for account selection.
     async function handlePreEntryBuyNow(idea) {
@@ -1762,12 +1318,6 @@ export function MainPage() {
         } finally {
             setPreEntryBusy(false)
         }
-    }
-
-    // Edit: reopen the idea in chat to change the level.
-    function handlePreEntryEdit(idea) {
-        setPreEntryPrompt(null)
-        handleEditIdea(idea)
     }
 
     // Reset: keep watching, but re-arm the entry floor to now so only a fresh
@@ -2809,22 +2359,8 @@ export function MainPage() {
         }
     }
 
-    // Resume an unfinished idea-building draft: restore the conversation + analysisState
-    // and keep writing to the SAME thread. Generated ideas use the edit/update flow instead.
-    async function handleResumeIdeaThread(threadId) {
-        const t = await threadsService.getThread(threadId)
-        if (!t) return
-        setEditingIdeaId(null)
-        setIsInvalidationReview(false)
-        setMessages(t.messages ?? [])
-        latestMessagesRef.current = t.messages ?? []
-        setAnalysisState(t.state?.analysisState ?? null)
-        ideaThreadIdRef.current = t.threadId
-    }
-
-    // Resume dispatcher for the shared agent-bar hamburger — routes to the active agent.
-    // Idea resumes here (MainPage owns its state); portfolio/scanner expose their own
-    // resume fn via a ref since they own their conversation state.
+    // Resume dispatcher for the shared agent-bar hamburger — routes to the active agent. Each
+    // desk exposes its own resume fn via resumeRefs, since it owns its conversation state.
     /**
      * Resume a thread on a NAMED tab.
      *
@@ -2834,39 +2370,11 @@ export function MainPage() {
      */
     function _resumeThreadOn(tab, threadId) {
         if (!threadId) return undefined
-        const desk = resumeRefs.current[tab]
-        if (desk) return desk.current?.(threadId)
-        return handleResumeIdeaThread(threadId)
+        return resumeRefs.current[tab]?.current?.(threadId)
     }
 
     function handleResumeActiveThread(threadId) {
         return _resumeThreadOn(activeTab, threadId)
-    }
-
-    // Shared by the desktop workspace chat and the mobile chat sheet so the two
-    // instances never drift. The mobile sheet overrides onGenerate to also close.
-    const chatPanelProps = {
-        messages,
-        analysisState,
-        onSend:              handleSend,
-        onGenerate:          handleGenerate,
-        onClear:             handleCancelBuild,
-        onStop:              chat.handleStop,
-        canResume:           chat.canResume,
-        onResume:            _continueIdea,
-        isLoading,
-        streamStatus,
-        reasoningPulse,
-        isEditing:           !!editingIdeaId,
-        isInvalidationReview,
-        onDismissInvalidation: handleDismissInvalidation,
-        onBuyMarket:         handleBuyMarket,
-        isPostOrderEdit:     !!ideas.find(i => i.id === editingIdeaId && isPostOrderStatus(i.status)),
-        // The chat is header-less everywhere now — account selection lives in the
-        // agent strip (desktop) / the mobile sheet bar; availableAccounts +
-        // selectedAccounts are still read for the build summary + generate gating.
-        availableAccounts,
-        selectedAccounts,
     }
 
     // The pad is built here, beside the agent panels, and shown by the same display switch they
@@ -2985,7 +2493,7 @@ export function MainPage() {
                                     {/* (Trading by hand is picked in the hub, beside the desks — the pad
                                         is its own tab, so no strip toggle is needed here. The account
                                         selector below stays off it: the pad carries its own.) */}
-                                    {(activeTab === 'idea' || activeTab === 'portfolio' || activeTab === 'mentor') && (
+                                    {(activeTab === 'portfolio' || activeTab === 'mentor') && (
                                         <AccountSelector
                                             accounts={availableAccounts}
                                             selectedIds={selectedAccounts}
@@ -2998,9 +2506,6 @@ export function MainPage() {
                                 </div>
                             </div>
                         )}
-                        <div className="chat-tabs__panel" style={{ display: activeTab === 'idea' ? 'flex' : 'none' }}>
-                            <ChatPanel {...chatPanelProps} />
-                        </div>
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'scanner' ? 'flex' : 'none' }}>
                             <ScannerPanel
                                 key={`scanner-${chatResetKey.scanner}-${scannerResetKey}`}
@@ -3203,13 +2708,10 @@ export function MainPage() {
                         <TradeIdeasList
                             ideas={inWorkspace(ideas, workspace).filter(i => i.status !== 'closed')}
                             chatTab={activeTab}
-                            buildingIdea={buildingIdeaRow}
                             buildingPortfolio={buildingPortfolio}
                             loading={ideasLoading}
                             onDelete={handleDeleteIdea}
-                            onCancelBuild={handleCancelBuild}
                             onStatusChange={handleStatusChange}
-                            onEdit={handleEditIdea}
                             onEditPortfolio={handleEditPortfolio}
                             onDeletePortfolio={handleDeletePortfolio}
                             onPlaceOrder={handleReopenConfirm}
@@ -3264,8 +2766,7 @@ export function MainPage() {
                 {/* ── Mobile ──
                     No separate mobile surface: the workspace above collapses to its chat column
                     (RootCmp.scss, < 768px), so a phone gets the header and the live desks. The
-                    monitor dashboard + chat FAB/sheet that used to stand in here are gone — the
-                    sheet opened the archived idea chat, which can no longer send. */}
+                    monitor dashboard + chat FAB/sheet that used to stand in here are gone. */}
             </main>
 
             {confirmIdea && confirmOrders.length > 0 && (
@@ -3297,7 +2798,6 @@ export function MainPage() {
                     prompt={preEntryPrompt}
                     busy={preEntryBusy}
                     onBuyNow={handlePreEntryBuyNow}
-                    onEdit={handlePreEntryEdit}
                     onReset={handlePreEntryReset}
                     onClose={() => { if (!preEntryBusy) setPreEntryPrompt(null) }}
                 />

@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import PropTypes from 'prop-types'
+import './AccountSelector.scss'
 
-// Matches the dropdown's min-width in ChatPanel.scss. Used only as the pre-measurement estimate on
+// Matches the dropdown's min-width in AccountSelector.scss. Used only as the pre-measurement estimate on
 // the very first open, before the node exists to measure.
 const DROPDOWN_MIN_W = 210
 
@@ -9,7 +10,7 @@ const DROPDOWN_MIN_W = 210
  * The rectangle that will actually CLIP an absolutely-positioned child — the nearest ancestor whose
  * overflow isn't `visible`, or the viewport when there is none.
  *
- * The panels this selector lives in (.kairos-panel / .chat-panel) are overflow-hidden flex shells,
+ * The panels this selector lives in are overflow-hidden flex shells,
  * so "is there room on screen" is the wrong question: there can be room in the window and none in
  * the panel, which is exactly how half the dropdown ended up invisible in the trade ticket.
  */

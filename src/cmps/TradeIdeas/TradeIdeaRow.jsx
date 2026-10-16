@@ -1,20 +1,16 @@
 import PropTypes from 'prop-types'
-import { conditionSummary, formatCreatedAt, formatCreatedAtFull, needsExitConditions, activationStatus, brokerSymbolLabel, brokerChildLabel, isDeleteLocked, isSystemStatus, formatPnl } from './tradeIdea.utils.js'
+import { conditionSummary, formatCreatedAt, formatCreatedAtFull, activationStatus, brokerSymbolLabel, brokerChildLabel, isDeleteLocked, isSystemStatus, formatPnl } from './tradeIdea.utils.js'
 import { StatusIcon } from '../StatusIcon.jsx'
-import { EditButton, DeleteButton } from '../EntityCard/EntityCard.jsx'
+import { DeleteButton } from '../EntityCard/EntityCard.jsx'
 
-const BUILDING = 'building'
-
-export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolClick, onEdit, isPortfolioChild, isBrokerChild, showPnl = false, pnl = null }) {
+export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolClick, isPortfolioChild, isBrokerChild, showPnl = false, pnl = null }) {
     const { id, asset, direction, type, status, savedAt } = idea
     const summary = conditionSummary(idea)
     const createdAt = formatCreatedAt(savedAt)
-    const needsExits = needsExitConditions(idea)
     // Aliased broker symbol (NQ → US100). On a group child the broker is the point of
     // the row, so it leads the cell; otherwise it's a small badge beside the asset.
     const brokerSym = brokerSymbolLabel(idea)
 
-    const isBuilding = status === BUILDING
     // Live on the broker ('hit'/'long'/'short') → deleting would orphan the position
     // or pending order, so the bin is disabled until it's closed.
     const deleteLocked = isDeleteLocked(idea)
@@ -22,12 +18,11 @@ export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolC
     // A leaf idea with no broker account attached will only ever *alert* on a hit —
     // the monitor builds no order plan, so no confirm dialog appears. Flag it so the
     // user can spot it and attach an account. Broker-child forks are per-account by
-    // definition; closed/building rows are moot.
-    const noAccount = !isBrokerChild && !isBuilding && status !== 'closed' &&
+    // definition; closed rows are moot.
+    const noAccount = !isBrokerChild && status !== 'closed' &&
         (!Array.isArray(idea.accounts) || idea.accounts.length === 0)
 
     function handleRowClick(ev) {
-        if (isBuilding) return              // building row is not editable
         if (ev.target.closest('.idea-row__controls')) return
         onOpen(idea)
     }
@@ -51,7 +46,7 @@ export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolC
                         {noAccount && (
                             <span
                                 className="idea-row__no-account"
-                                title="No broker account attached — this idea will alert only (no order placed). Edit to attach an account."
+                                title="No broker account attached — this idea will alert only (no order placed)."
                             >⚠</span>
                         )}
                     </>
@@ -72,14 +67,7 @@ export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolC
                 {idea.orderState === 'awaiting_market' && (
                     <span className="idea-row__await-market" title="Order deferred until the market opens">⏳</span>
                 )}
-                {isBuilding ? (
-                    <svg className="idea-row__building-bot" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg" title="Building…" aria-hidden="true">
-                        {/* hammer — building in progress */}
-                        <path d="m15 12-8.373 8.373a1 1 0 1 1-3-3L12 9"/>
-                        <path d="m18 15 4-4"/>
-                        <path d="m21.5 11.5-1.914-1.914A2 2 0 0 1 19 8.172V7l-2.26-2.26a6 6 0 0 0-4.202-1.756L9 2.96l.92.82A6.18 6.18 0 0 1 12 8.4V10l2 2h1.172a2 2 0 0 1 1.414.586z"/>
-                    </svg>
-                ) : isSystemStatus(status) ? (
+                {isSystemStatus(status) ? (
                     <span className={`idea-row__status-badge status--${status}`}>
                         <StatusIcon status={status} />
                     </span>
@@ -96,14 +84,7 @@ export function TradeIdeaRow({ idea, onDelete, onStatusChange, onOpen, onSymbolC
                 )}
 
                 <span className="idea-row__actions">
-                    {!isBuilding && onEdit && (
-                        <EditButton
-                            onClick={() => onEdit(idea)}
-                            alert={needsExits}
-                            title={needsExits ? 'Missing stop / take profit — click to add' : 'Edit in chat'}
-                        />
-                    )}
-                    {!isBuilding && onDelete && (
+                    {onDelete && (
                         <DeleteButton
                             onClick={() => onDelete(id)}
                             title="Delete idea"
@@ -122,7 +103,6 @@ TradeIdeaRow.propTypes = {
     onStatusChange:  PropTypes.func.isRequired,
     onOpen:          PropTypes.func.isRequired,
     onSymbolClick:   PropTypes.func,
-    onEdit:          PropTypes.func,
     isPortfolioChild: PropTypes.bool,
     isBrokerChild:   PropTypes.bool,
     showPnl:         PropTypes.bool,

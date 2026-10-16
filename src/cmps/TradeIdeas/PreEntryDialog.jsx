@@ -14,13 +14,12 @@ import './PreEntryDialog.scss'
  *
  *   • Buy now — the level is met right now; enter at market (routes through the
  *     normal order-confirm flow, so accounts / market-hours / ownership all apply).
- *   • Edit    — the level was wrong; reopen the idea in chat to change it.
  *   • Reset   — keep watching, but re-arm from now so it fires on the *next*
  *     genuine cross (dip below → close back above).
  *
  * Closing (×) leaves the idea 'looking' unchanged.
  */
-export function PreEntryDialog({ prompt, busy = false, onBuyNow, onEdit, onReset, onClose }) {
+export function PreEntryDialog({ prompt, busy = false, onBuyNow, onReset, onClose }) {
     const idea = prompt?.idea
     const { market, marketClosed } = useMarketStatus(idea?.asset, idea?.asset_class)
 
@@ -44,12 +43,6 @@ export function PreEntryDialog({ prompt, busy = false, onBuyNow, onEdit, onReset
                     disabled={busy}
                     title="Keep watching — fire on the next genuine cross"
                 >Reset</button>
-                <button
-                    className="pre-entry__btn pre-entry__btn--edit"
-                    onClick={() => onEdit(idea)}
-                    disabled={busy}
-                    title="Reopen in chat to change the level"
-                >Edit</button>
                 <button
                     className="pre-entry__btn pre-entry__btn--buy"
                     onClick={() => onBuyNow(idea)}
@@ -86,7 +79,6 @@ PreEntryDialog.propTypes = {
     prompt:   PropTypes.shape({ idea: PropTypes.object, close: PropTypes.number }),
     busy:     PropTypes.bool,
     onBuyNow: PropTypes.func.isRequired,
-    onEdit:   PropTypes.func.isRequired,
     onReset:  PropTypes.func.isRequired,
     onClose:  PropTypes.func.isRequired,
 }

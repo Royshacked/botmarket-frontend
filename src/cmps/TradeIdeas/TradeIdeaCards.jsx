@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types'
 import { useState } from 'react'
 import {
-    conditionSummary, formatCreatedAt, formatCreatedAtFull, needsExitConditions,
+    conditionSummary, formatCreatedAt, formatCreatedAtFull,
     activationStatus, activatePortfolio, brokerSymbolLabel, brokerChildLabel, isDeleteLocked, isManualIdea,
     isSystemStatus, formatPnl, formatPnlPct, formatNum, formatPrice, portfolioPnl, ideaPnl,
     positionPnlPct, positionWorkspace, groupPositions, summarizePositions, isPortfolioReview,
@@ -22,27 +22,23 @@ const BROKER_LABELS = { ctrader: 'cTrader', ibkr: 'IBKR' }
 
 // Card renderings of an idea / broker group / portfolio / position. Full parity with
 // the table's TradeIdeaRow / BrokerGroupRow: same lifecycle colours, status toggle,
-// broker badge, ⚠ no-account, ⏳ await-market, building pulse, edit + delete — just
-// stacked cards instead of table rows. Reuses the same utils so the two renders stay
-// in lockstep. PositionsCards is the live consumer (idea pop-out footer); the idea /
-// group / portfolio cards are kept as the card counterparts of the table rows.
-
-const BUILDING = 'building'
+// broker badge, ⚠ no-account, ⏳ await-market, delete — just stacked cards instead of
+// table rows. Reuses the same utils so the two renders stay in lockstep. PositionsCards is
+// the live consumer (idea pop-out footer); the idea / group / portfolio cards are kept as
+// the card counterparts of the table rows.
 
 // ── Single idea card ───────────────────────────────────────────────────────────
 
-export function IdeaCard({ idea, onDelete, onStatusChange, onOpen, onSymbolClick, onEdit, isBrokerChild, showPnl = false, pnl = null }) {
+export function IdeaCard({ idea, onDelete, onStatusChange, onOpen, onSymbolClick, isBrokerChild, showPnl = false, pnl = null }) {
     const { id, asset, direction, type, status, savedAt } = idea
     const summary    = conditionSummary(idea)
     const createdAt  = formatCreatedAt(savedAt)
-    const needsExits = needsExitConditions(idea)
     const brokerSym  = brokerSymbolLabel(idea)
-    const isBuilding = status === BUILDING
     const deleteLocked = isDeleteLocked(idea)
 
     // Leaf idea with no broker account → alert-only (no order plan / confirm dialog).
-    // Broker-child forks are per-account by definition; closed/building are moot.
-    const noAccount = !isBrokerChild && !isBuilding && status !== 'closed' &&
+    // Broker-child forks are per-account by definition; closed is moot.
+    const noAccount = !isBrokerChild && status !== 'closed' &&
         (!Array.isArray(idea.accounts) || idea.accounts.length === 0)
 
     const title = (
@@ -56,7 +52,7 @@ export function IdeaCard({ idea, onDelete, onStatusChange, onOpen, onSymbolClick
                 <span className="idea-card__broker-badge" title={`Trades as ${brokerSym} on the broker`}>{brokerSym}</span>
             )}
             {noAccount && (
-                <span className="idea-card__no-account" title="No broker account attached — this idea will alert only (no order placed). Edit to attach an account.">⚠</span>
+                <span className="idea-card__no-account" title="No broker account attached — this idea will alert only (no order placed).">⚠</span>
             )}
             {showPnl && pnl && (
                 <span className={`idea-card__pnl${pnl.pnl > 0 ? ' pnl--pos' : pnl.pnl < 0 ? ' pnl--neg' : ''}`}>
@@ -80,7 +76,7 @@ export function IdeaCard({ idea, onDelete, onStatusChange, onOpen, onSymbolClick
                 <span className="idea-card__await-market" title="Order deferred until the market opens">⏳</span>
             )}
 
-            {isBuilding ? <BuildingIcon /> : isSystemStatus(status) ? (
+            {isSystemStatus(status) ? (
                 <StatusBadge status={status} />
             ) : (
                 <StatusBadge
@@ -92,14 +88,7 @@ export function IdeaCard({ idea, onDelete, onStatusChange, onOpen, onSymbolClick
                 />
             )}
 
-            {!isBuilding && onEdit && (
-                <EditButton
-                    onClick={() => onEdit(idea)}
-                    alert={needsExits}
-                    title={needsExits ? 'Missing stop / take profit — click to add' : 'Edit in chat'}
-                />
-            )}
-            {!isBuilding && onDelete && (
+            {onDelete && (
                 <DeleteButton
                     onClick={() => onDelete(id)}
                     title="Delete idea"
@@ -116,7 +105,7 @@ export function IdeaCard({ idea, onDelete, onStatusChange, onOpen, onSymbolClick
             title={title}
             summary={cardSummary}
             controls={controls}
-            onOpen={isBuilding ? undefined : () => onOpen(idea)}
+            onOpen={() => onOpen(idea)}
             className={isBrokerChild ? 'idea-card--broker-child' : ''}
         />
     )
@@ -128,7 +117,6 @@ IdeaCard.propTypes = {
     onStatusChange: PropTypes.func.isRequired,
     onOpen:         PropTypes.func.isRequired,
     onSymbolClick:  PropTypes.func,
-    onEdit:         PropTypes.func,
     isBrokerChild:  PropTypes.bool,
     showPnl:        PropTypes.bool,
     pnl:            PropTypes.object,

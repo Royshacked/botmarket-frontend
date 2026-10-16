@@ -10,8 +10,8 @@
 // mandate, then the allocation), which makes a plain tab match ambiguous. Resolve by proximity to
 // the step they were on: arriving at Atlas from Research means Allocate, not a walk back to Mandate.
 //
-// Returns `prev` unchanged when the tab belongs to no step — the order ticket and the Idea chat sit
-// outside every pipeline, and a visit there shouldn't lose the user's place in one.
+// Returns `prev` unchanged when the tab belongs to no step — the order ticket sits outside every
+// pipeline, and a visit there shouldn't lose the user's place in one.
 export function resolveStepIndex(steps = [], tab, prev = 0) {
     const matches = []
     steps.forEach((s, i) => { if (s.tab === tab) matches.push(i) })
