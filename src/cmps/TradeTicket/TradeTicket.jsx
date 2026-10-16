@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import PropTypes from 'prop-types'
-import { AccountSelector } from '../ChatPanel/AccountSelector.jsx'
+import { AccountSelector } from '../AccountSelector/AccountSelector.jsx'
 // No extension — matches how the rest of the app (and its vi.mock calls) name this module.
 import { marketService } from '../../services/market/market.service.remote'
 import { useAutoRefresh } from '../../customHooks/useAutoRefresh.js'

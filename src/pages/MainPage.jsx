@@ -11,7 +11,7 @@ import { KIND, STATUS, makeArtifact, firstItem } from '../services/pipeline/arti
 import { planHop, planEntry, producesOne, hasDownstream, findReceiver } from '../services/pipeline/hop.js'
 import { contractFor } from '../services/pipeline/contracts.js'
 import { handoffDoors } from '../services/pipeline/doors.js'
-import { AccountSelector }   from '../cmps/ChatPanel/AccountSelector.jsx'
+import { AccountSelector }   from '../cmps/AccountSelector/AccountSelector.jsx'
 import { readStoredModel }   from '../cmps/modelOptions.js'
 import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
 import { confirmAvoid, confirmAvoidAdds, avoidRetry, avoidRefusalRetry } from '../cmps/PortfolioPanel/avoidOk.js'
@@ -74,7 +74,6 @@ import { closePanel }        from '../cmps/DetailPanel/detailPanel.store.js'
 // Maps activeTab → the step name used in DESKS.steps[] for pipeline highlighting.
 const TAB_TO_STEP = {
     scanner:    'Argus',
-    kairos:     'Kairos',
     portfolio:  'Atlas',
     analyst:    'Prometheus',
     idea:       'Idea',
@@ -308,20 +307,7 @@ export function MainPage() {
     // confirm grid beside the chat — the conversation gathers the mandate and the reasons, the grid
     // holds the numbers. Null the rest of the time, which is what makes the mode invisible elsewhere.
     const [adoptDraft, setAdoptDraft] = useState(null)
-    // A SLEEVE RUN: Atlas routed several sectors at once, Argus screens them back to back, and the
-    // survivors pool until the last one lands. `queue` is what is still to screen; `survivors` is
-    // what has cleared so far. Empty queue + empty survivors = no run in progress.
-    // The sleeve run lives in a REF, not in state. It is accumulated from an async save handler, and
-    // the render-time mirror this used to have (`ref.current = state`, re-run on EVERY render) could
-    // overwrite what that handler had just added — which is how a run that screened three sectors
-    // reached the Analyst carrying only the last one. State holds the one thing the UI needs.
-    // `sectors` keeps each sleeve's names under its own label instead of one flat pile, so the
-    // Analyst can say which sleeve a name is being researched FOR.
-    const sleeveRunRef = useRef({ active: false, queue: [], sectors: [], total: 0, current: null })
-    // What the UI shows about the run: which sleeve of how many, and its label. A run used to be
-    // invisible — three sectors were queued and the only evidence was Argus starting to talk again.
-    const [sleeveRun, setSleeveRun] = useState({ active: false, index: 0, total: 0, label: null })
-    // What the run produced, kept from the Argus hand-off until Prometheus hands back: which sleeve
+    // What a research run produced, kept from the Argus hand-off until Prometheus hands back: which sleeve
     // each queued name belongs to, which sleeves screened EMPTY, and the full queue (so the names
     // whose coverage the user declined are derivable). Read once by handleSleeveResearched, which
     // is the only place Atlas hears what did not come back.
@@ -1179,11 +1165,6 @@ export function MainPage() {
             if (idea?.status === 'hit') handleDismissConfirm(idea)
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Kairos call entry-confirm card ("Confirm order") → surface the SAME OrderConfirmDialog the idea
-    // flow uses, driven by the call's Hermes-proposed entry. Switch to the call's workspace first so
-    // The CALL_CONFIRM_OPEN doorway was here — it opened the shared OrderConfirmDialog on a call
-    // awaiting confirm. Archived with Kairos on 2026-08-18; nothing reaches `hit` on a call now.
 
     // The CALL_EXPIRY_EDIT doorway was here. Kairos was archived on 2026-08-18, so an expiry card
     // has no desk to reopen into; historical cards still RENDER (their bubbles are pure), they
@@ -2415,13 +2396,9 @@ export function MainPage() {
     const autoHandoff = pipelineMode === 'auto' && !!activePipeline
     const stepsOf = (key) => (key ? (DESKS.find(d => d.key === key)?.steps ?? []) : [])
 
-    // Argus in single-pick mode: it answers with ONE name for a build desk instead of a watchlist.
-    // Two ways in, and they are the same question asked from either side — a desk handed it a
-    // scan_request, or the desk it is standing on exists to build one trade (`produces: 'one'`).
-    // Only the first existed before, which is why entering the trade desk AT Argus dead-ended in a
-    // saved list with no way forward.
-    const scannerSingle = scannerInbox?.kind === KIND.SCAN_REQUEST
-        || producesOne(stepsOf(activePipeline), 'scanner')
+    // Argus in single-pick mode: it answers with ONE name for a build desk instead of a watchlist,
+    // because the desk it is standing on exists to build one trade (`produces: 'one'`).
+    const scannerSingle = producesOne(stepsOf(activePipeline), 'scanner')
 
     // …and WHICH desk that is. Asked of findReceiver rather than assumed, because this answer is
     // shown to the user — in Argus's empty state, in its hand-off button, and in the prompt Argus
@@ -2511,67 +2488,6 @@ export function MainPage() {
         setActivePipeline(pipelineKey)   // they are IN it now — the crumb and the back button follow
         _applyHop(plan, artifact)
         return true
-    }
-
-    // Route OUT: Atlas emitted a <screen_request> (a sleeve mandate) → open Argus in the INVESTING
-    // What to call a sleeve in the UI and in the record handed back to Atlas. The industry is the
-    // binding pond when Atlas named one, so it leads.
-    const sleeveLabel = (sr) => sr?.industry || sr?.sector || sr?.style || 'sleeve'
-
-    /**
-     * Move the run on: the next sleeve, or the hand-off to Prometheus once they are all screened.
-     * ONE mover for both paths — a sector that produced a list (handleGenerateList) and one that
-     * produced nothing and was skipped — so the two can never advance the queue differently.
-     */
-    function _advanceSleeveRun() {
-        const run  = sleeveRunRef.current
-        const next = run.queue[0]
-        run.queue  = run.queue.slice(1)
-        if (next) { _screenSleeve(next); return }
-        run.active  = false
-        run.current = null
-        setSleeveRun({ active: false, index: 0, total: 0, label: null })
-        _researchSurvivors(run.sectors)
-    }
-
-    /**
-     * This sleeve produced no list — Argus said nothing cleared the bar, asked a question nobody is
-     * here to answer, or its block never closed. Record it as SCREENED-EMPTY and move on.
-     *
-     * The run used to have only a happy path: the advance lived inside "a list came back", so a
-     * listless turn stalled it silently and every remaining sleeve was lost. An empty sleeve is a
-     * RESULT — Atlas hears about it at the end (see _researchSurvivors) and can widen or drop it.
-     */
-    function handleSkipSleeve() {
-        const run = sleeveRunRef.current
-        if (!run.active) return
-        run.sectors.push({ sector: sleeveLabel(run.current), names: [], empty: true })
-        _advanceSleeveRun()
-    }
-
-    // Seed Argus for ONE sleeve. Remounts it fresh so each sector is its own scan — a sleeve's list
-    // is its own artifact, and its ranking only means anything within its own pond.
-    function _screenSleeve(sr, { fresh = false } = {}) {
-        const run = sleeveRunRef.current
-        run.current = sr
-        // index counts sleeves ENTERED, not finished: `total` minus what is still queued.
-        setSleeveRun({ active: true, index: run.total - run.queue.length, total: run.total, label: sleeveLabel(sr) })
-        // The sleeve travels as a MANDATE artifact and Argus's own contract composes the brief —
-        // this desk states what it wants screened, not how Argus should open on it. (The run still
-        // applies the hop itself: its remount discipline is per-sleeve, not per-hop. Phase 4.)
-        const mandate = makeArtifact({
-            kind: KIND.MANDATE, items: [sr], from: { agent: 'portfolio', label: 'Mandate' },
-        })
-        const brief = contractFor('scanner').brief(mandate)
-        setScannerInbox(mandate)
-        setScannerChatRestore(null)
-        setScannerSeed({ key: mandate.key, message: brief.message, profile: brief.profile })
-        // Remount only when ENTERING the run — a fresh Argus for a fresh book. Between sectors the
-        // conversation continues: remounting there wiped the transcript the user had just watched
-        // build, and tore the panel down in the middle of the turn that triggered it.
-        if (fresh) setScannerResetKey(k => k + 1)
-        setActiveTab('scanner')
-        setNewsTab('scans')
     }
 
     // Route ON: Argus emitted a <kairos_pick> and the user tapped the hand-off button → give the
@@ -2816,19 +2732,10 @@ export function MainPage() {
         }
     }
 
-    // A finished list from the scanner panel. It is SAVED to the Scans tab only when the user asked
-    // for it themselves: a scan Argus ran on another desk's brief — an Atlas sleeve mandate, a
-    // Kairos discovery request — is mid-pipeline traffic, not a record anyone keeps. Screening three
-    // sleeves for one book used to leave three sector lists among the user's saved lists.
-    //
-    // Only the saved card stops. The names travel exactly as before: the sleeve run below reads the
-    // emitted `scan`, never the stored doc.
+    // A finished list from the scanner panel, saved to the Scans tab (see scanOrigin for which
+    // origins are kept).
     async function handleGenerateList(scan, threadId = null) {
-        const origin = scanOrigin({
-            sleeveRunActive: sleeveRunRef.current.active,
-            handoffActive:   scannerInbox?.kind === KIND.SCAN_REQUEST,
-            radarActive:     !!radarBoard,
-        })
+        const origin = scanOrigin({ radarActive: !!radarBoard })
         const keeps = savesToScansList(origin)
         // A radar cut carries WHICH EVENTS it was shown, not only which names it kept: that is what
         // "unless a new event names it" is answered against tomorrow. Stamped here because this is
@@ -2860,17 +2767,6 @@ export function MainPage() {
             }
         }
 
-        // Mid-SLEEVE-RUN: this sector is done. Take its top names, then either screen the next sector
-        // or — once the last one lands — send everything to Prometheus as ONE queue. The user is not
-        // asked anything between sectors; being asked N times is the friction this replaced.
-        const run = sleeveRunRef.current
-        if (scan?.profile === 'investing' && run.active) {
-            const names = (scan.candidates ?? []).map(c => c?.ticker).filter(Boolean)
-            run.sectors.push({ sector: scan.thesis || scan.sector || sleeveLabel(run.current), names })
-            _advanceSleeveRun()
-            return
-        }
-
         // Is this list the end of the road, or is a desk still waiting for it? A finished artifact
         // belongs back at the hub; a mid-pipeline one must not be walked away from — that threw the
         // user out one beat before the hand-off could be offered, which is the whole reason the list
@@ -2885,70 +2781,6 @@ export function MainPage() {
             if (saved) finishPipeline()
             else handleBackToAxl()
         }
-    }
-
-    // Every sector screened -> the top of EACH sleeve pools into one Prometheus queue. Built from the
-    // per-sector record, so a three-sector run hands over three sectors' names and the Analyst knows
-    // which sleeve each name is for.
-    function _researchSurvivors(sectors = []) {
-        // Dedupe ACROSS sleeves before the top-N cut: overlapping ponds (a semis sleeve and a broad
-        // technology one) can surface the same name twice, and researching it twice costs the user
-        // a full coverage cycle to land on a 409. First sleeve to claim a name keeps it — and the
-        // cut runs after, so the second sleeve still gets its own four.
-        const claimed = new Set()
-        const bySector = sectors
-            .map(sec => {
-                const fresh = sec.names.filter(t => !claimed.has(t))
-                fresh.forEach(t => claimed.add(t))
-                return { sector: sec.sector, names: fresh.slice(0, RESEARCH_TOP_N) }
-            })
-            .filter(sec => sec.names.length)
-        const queue = bySector.flatMap(sec => sec.names)
-        const pool  = sectors.flatMap(sec => sec.names)
-        // Sleeves that screened to nothing — skipped mid-run, or a list whose candidates carried no
-        // ticker. Held for the hand-off back so Atlas is told a bucket is empty rather than left to
-        // notice (it doesn't) that a sector it planned for has no names under it.
-        const unfilled = sectors.filter(sec => !sec.names.length).map(sec => sec.sector)
-        sleeveOutcomeRef.current = { unfilled, bySector, queue }
-
-        // A run that screened every sleeve and produced nobody is a RESULT, not a non-event. Falling
-        // through to the hub looked identical to the pipeline breaking, which is how it read.
-        //
-        // It goes back as the SAME artifact a successful run does, empty: from Atlas's side the
-        // question is "what came back with a thesis", and "nothing, and here is which sleeves" is an
-        // answer to it. One inbox, one brief, one voice — rather than a second hand-written message
-        // for the unhappy path, which is exactly where wording drifts.
-        if (!queue.length) {
-            sleeveOutcomeRef.current = { unfilled: [], bySector: [], queue: [] }
-            const nothing = makeArtifact({
-                kind:    KIND.COVERAGE_SET,
-                items:   [],
-                status:  STATUS.EMPTY,
-                context: { unfilled, declined: [] },
-                note:    'every sleeve screened empty',
-                from:    { agent: 'scanner', label: 'Screen' },
-            })
-            if (!enterPipelineAt('portfolio', 'portfolio', nothing)) {
-                setPortfolioSeed({ key: nothing.key, message: contractFor('portfolio').brief(nothing).message })
-                setActiveTab('portfolio')
-            }
-            return
-        }
-        // Set directly rather than routed: this is the tail of the sleeve RUN, whose fan-out and
-        // join the conveyor does not own yet (phase 4). Same artifact shape as the routed hops, so
-        // Prometheus has one inbox however the names reached it.
-        setAnalystInbox(makeArtifact({
-            kind:  KIND.CANDIDATE_LIST,
-            items: queue.map(ticker => ({ ticker })),
-            context: {
-                queued: true,
-                pool,                    // everything screened — "also do KLAC" reads from this
-                bySector,                // which sleeve each name is being researched FOR
-                sector: bySector.length === 1 ? bySector[0].sector : null,
-            },
-            from: { agent: 'scanner', label: 'Screen' },
-        }))
-        setActiveTab('analyst')
     }
 
     // Edit a saved list (pencil) → reopen its conversation in the scanner, in edit
@@ -3153,7 +2985,7 @@ export function MainPage() {
                                     {/* (Trading by hand is picked in the hub, beside the desks — the pad
                                         is its own tab, so no strip toggle is needed here. The account
                                         selector below stays off it: the pad carries its own.) */}
-                                    {(activeTab === 'idea' || activeTab === 'portfolio' || activeTab === 'kairos' || activeTab === 'mentor') && (
+                                    {(activeTab === 'idea' || activeTab === 'portfolio' || activeTab === 'mentor') && (
                                         <AccountSelector
                                             accounts={availableAccounts}
                                             selectedIds={selectedAccounts}
@@ -3180,11 +3012,6 @@ export function MainPage() {
                                 onResearchList={handleResearchList}
                                 onResearchLater={handleBackToAxl}
                                 onRoute={handleRoute}
-                                // Mid sleeve-run Argus saves each sector itself — nobody is waiting
-                                // to press between sectors. The panel also shows where the run is
-                                // and offers the skip when a sector comes back with no list.
-                                sleeveRun={sleeveRun}
-                                onSkipSleeve={handleSkipSleeve}
                                 onLoadingChange={deskLoadingSetters.scanner}
                                 {...deskProps('scanner')}
                                 handoff={scannerSingle}

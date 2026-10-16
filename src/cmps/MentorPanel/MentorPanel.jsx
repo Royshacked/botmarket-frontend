@@ -66,7 +66,7 @@ const OWN_SETUP_CHIP = 'I have my own setup — take it down as I give it'
 const MessageBubble = ({ msg }) => <ChatBubble msg={msg} />
 
 export function MentorPanel({
-    onLoadingChange, onGenerated, onPendingSetup, onRoute,
+    onLoadingChange, onGenerated, onRoute,
     chatRestore = null, seed = null, inbox = null, editingSetupId = null, onEditDone,
     availableAccounts = [], selectedAccounts = [], mainAccountId = null, resumeRef = null,
     // The desk this conversation belongs to, stamped on its draft thread so an unfinished BUILD
@@ -117,8 +117,6 @@ export function MentorPanel({
 
     const isEditing = !!editingSetupId
     const accounts  = availableAccounts.filter(a => selectedAccounts.includes(a.id))
-
-    useEffect(() => { onPendingSetup?.(pendingSetup) }, [pendingSetup])   // eslint-disable-line react-hooks/exhaustive-deps
 
     // Edit pencil pushed a keyed restore: reopen the build conversation with its draft.
     //
@@ -863,7 +861,6 @@ MentorPanel.propTypes = {
     onRoute:         PropTypes.func,     // (offer) → MainPage's doorway: the user asked to be sent to another desk
     onLoadingChange:   PropTypes.func,
     onGenerated:       PropTypes.func,
-    onPendingSetup:    PropTypes.func,
     chatRestore:       PropTypes.object,
     seed:              PropTypes.object,
     inbox:             PropTypes.object,

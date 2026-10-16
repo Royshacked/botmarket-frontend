@@ -265,7 +265,7 @@ function summarise(dropped = []) {
         .join('; ')
 }
 
-export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, onUpdateList, onResearchList, onResearchLater, onRoute, sleeveRun = null, onSkipSleeve, onLoadingChange, chatRestore = null, seed = null, handoff = false, handoffTo = null, autoHandoff = false, radarBoard = null, onSendPick, onDismissHandoff, resumeRef = null }) {
+export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, onUpdateList, onResearchList, onResearchLater, onRoute, onLoadingChange, chatRestore = null, seed = null, handoff = false, handoffTo = null, autoHandoff = false, radarBoard = null, onSendPick, onDismissHandoff, resumeRef = null }) {
     const pipelineCfg = PIPELINE_CONFIG[pipeline] ?? PIPELINE_CONFIG.scan
     // The desk the pick goes on to, as the user should read it. Falls back to no name rather than a
     // guess — every surface here degrades to "hand it on", which is vague but never wrong.
@@ -293,23 +293,11 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
     // A list that arrived while a read was still running, waiting for its own read. See _settleScan.
     const owedReadRef = useRef(null)
     // …and the board, for the same reason: onDone decides whether to read, and it has to be right
-    // about whether a board is in force (the same reason inRunRef exists).
+    // about whether a board is in force — a render-time value would be stale by then.
     const radarBoardRef = useRef(radarBoard)
     radarBoardRef.current = radarBoard
     // A just-generated investing list, held only to offer the research hand-off (see handleGenerate).
     const [researchOffer,  setResearchOffer]  = useState(null)
-    // Mid-run, a turn that ended with no list. The run advances on a list coming back, so this is the
-    // state where it has stopped moving and only the user can decide what that means: answer Argus's
-    // question, or accept that the pond was empty and skip the sleeve.
-    const [sleeveStalled,  setSleeveStalled]  = useState(false)
-    const inSleeveRun = !!sleeveRun?.active
-    // Live mirror: onDone fires long after the render that armed it, and whether we are mid-run is
-    // the thing it has to be right about (same reason profileRef exists below).
-    const inRunRef = useRef(inSleeveRun)
-    inRunRef.current = inSleeveRun
-    // Did THIS turn produce a list? Read once the turn is over (_endTurn) to tell "the sleeve is
-    // done" apart from "the sleeve is stuck".
-    const settledRef = useRef(false)
     const [editingScanId,  setEditingScanId]  = useState(null)
     // …and the same id as a ref, because _send has to read it in the SAME COMMIT the restore writes
     // it. Reopening a list to refine it pushes a restore and a seeded turn together; effects run in
@@ -355,13 +343,10 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
     const pendingTickersRef = useRef([])
     const threadIdRef       = useRef(newThreadId())   // scan construction draft thread
 
-    // Kairos hand-off seed: MainPage remounts this panel fresh (chatResetKey) then pushes a
-    // constraints message (direction/horizon/window). We just send it — Argus reads the constraints
-    // and asks for the scan angle, exactly as if the user opened a fresh scan. Keyed so it fires once.
-    // Fires once per seed key — but WAITS for any turn in flight, because _send bails while
-    // chat.isLoading. A sleeve run seeds the next sector from inside the previous one's onDone, which
-    // runs BEFORE the stream's finally, so a fire-and-forget seed would silently do nothing. It used
-    // to survive only because the panel was remounted, and the remount is what wiped the transcript.
+    // Hand-off seed: MainPage pushes an opening message (direction/horizon/window). We just send it —
+    // Argus reads the constraints and asks for the scan angle, exactly as if the user opened a fresh
+    // scan. Fires once per seed key — but WAITS for any turn in flight, because _send bails while
+    // chat.isLoading, so a seed landing mid-turn would otherwise silently do nothing.
     const seededKeyRef = useRef(null)
     useEffect(() => {
         if (!seed?.message || chat.isLoading) return
@@ -384,18 +369,12 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
      */
     function _settleScan(data) {
         if (!data.scan?.candidates?.length) return
-        settledRef.current = true
         setPendingScan(data.scan)
         // A NEW LIST HAS NO VERDICT YET. The read's result belongs to the list it was run on, and
         // Argus re-emits the whole block whenever the list changes — so leaving it would show
         // yesterday's "dropped 2 — MOS contradicted" over names that were never read, and leave
         // the flags on rows whose candidate objects no longer carry one.
         setReadCut(null)
-        setSleeveStalled(false)
-        // In a SLEEVE RUN nobody is steering between sectors — Atlas routed several at once and
-        // the point is that it runs through. A complete list saves itself and hands control back
-        // rather than waiting on a press no one is here to make.
-        if (inRunRef.current) handleGenerate({ scan: data.scan })
         // ON A RADAR CUT THE READ IS PART OF THE CUT, not a step after it. Argus judged
         // TRADEABILITY — a catalyst in the window, liquidity, a setup — and that is half the
         // question: whether the claim behind the name still holds, and which way the name goes once
@@ -405,8 +384,8 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
         // sensible answer.
         //
         // Only where a board is in force: an ordinary scan's names are not event claims and have
-        // nothing to read against. The candidates go in explicitly, for the same reason the sleeve
-        // run's handleGenerate takes its scan — the state set four lines up is not readable here.
+        // nothing to read against. The candidates go in explicitly — the state set four lines up is
+        // not readable here.
         //
         // A TURN THAT LANDS MID-READ REPLACES THE READ, it does not merge with it. The user asked for
         // a change ("drop MOS, add KLAC") and the answer still in flight is about the list before it:
@@ -421,16 +400,6 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
                 owedReadRef.current = data.scan.candidates
             } else handlePrometheusRead(data.scan.candidates)
         }
-    }
-
-    /**
-     * Close out a turn. Mid-run, a turn that ended with NO list is where the queue stops moving —
-     * Argus answering "nothing worth owning here", asking for the angle, a block cut short, a failed
-     * request, or the user pressing Stop. Checked here rather than in onDone because the abort and
-     * error paths never reach onDone at all, and they strand the run just as thoroughly.
-     */
-    function _stallCheck() {
-        if (inRunRef.current && !settledRef.current) setSleeveStalled(true)
     }
 
     /**
@@ -457,7 +426,6 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
     // Kept for _continue, which starts from beginContinue and so cannot go through chat.run.
     function _endTurn() {
         chat.endStream()
-        _stallCheck()
     }
 
     async function _send(text) {
@@ -465,8 +433,6 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
         setHandoffPick(null)   // a new turn supersedes any prior hand-off pick
         routeOffer.clear()     // …and any prior "go to that desk" — the user kept talking instead
         setResearchOffer(null)
-        setSleeveStalled(false)   // a new turn is a fresh chance at this sleeve's list
-        settledRef.current = false
         // NOTE: the chip selection is intentionally NOT cleared here — it persists as
         // "marked" so that after a scan the user can see their prior pick and refine it.
         // It's reset only on Clear or when a saved list is restored.
@@ -478,7 +444,6 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
 
         await chat.run(text, {
             log: '[scanner]',
-            onSettled: _stallCheck,
             // Stopped mid-answer: keep the user's message and the turns before it. Phase in force,
             // since this turn emitted none — below the backend's floor that saves nothing, which is
             // the same answer a completed turn gets there.
@@ -525,7 +490,6 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
         if (!last || last.role !== 'assistant' || !last.stopped) return
         const base = chat.resumeBase()   // '' = stopped before any token → regenerate
         setEditDirty(true)
-        settledRef.current = false   // the resumed turn owes this sleeve a list of its own
 
         // Continuing: history ends with the partial as an assistant prefill. Regenerating (empty
         // base): it ends at the user turn. finalizeResumeHistory decides which.
@@ -734,10 +698,8 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
             if (profileRef.current === 'investing') {
                 if (thenResearch) onResearchList?.(scan)
                 // `thenLeave` is the save-and-go path — setting an offer we are walking away from
-                // would leave one primed behind us for no one. Mid-RUN is the same case: the run
-                // pools every sleeve and hands over once at the end, so a per-sector offer left
-                // behind here would re-enter Prometheus with this one sector and drop the others.
-                else if (!thenLeave && !inRunRef.current) setResearchOffer(scan)
+                // would leave one primed behind us for no one.
+                else if (!thenLeave) setResearchOffer(scan)
             }
             setPendingScan(null)
             if (thenLeave) onResearchLater?.()
@@ -868,31 +830,6 @@ export function ScannerPanel({ pipeline = null, onTickerSelect, onGenerateList, 
 
             {/* Action bar — a footer below the scroll area (not inside it) so it stays
                 pinned above the input without ever covering the messages. */}
-            {/* SLEEVE RUN — where we are in it. Atlas routes three or four sectors at once and Argus
-                walks them unattended, so without this the user watches it start talking again with
-                no idea a queue exists or how much of it is left. The skip appears only once a turn
-                has ended with no list: that is the moment the run has stopped moving and the choice
-                (answer Argus, or accept the empty pond) is genuinely theirs. */}
-            {inSleeveRun && (
-                <div className="scanner-panel__sleeve-run">
-                    <span className="scanner-panel__sleeve-run-pos">
-                        Sleeve {sleeveRun.index} of {sleeveRun.total}{sleeveRun.label ? ` · ${sleeveRun.label}` : ''}
-                    </span>
-                    {!chat.isLoading && sleeveStalled && (
-                        <>
-                            <span className="scanner-panel__sleeve-run-hint">
-                                No list came back for this one. Answer Argus to try again, or record it as empty and move on.
-                            </span>
-                            <button
-                                className="portfolio-panel__review-btn portfolio-panel__review-btn--later"
-                                onClick={() => { setSleeveStalled(false); onSkipSleeve?.() }}
-                            >
-                                {sleeveRun.index < sleeveRun.total ? 'Nothing here — next sleeve →' : 'Nothing here — finish the run →'}
-                            </button>
-                        </>
-                    )}
-                </div>
-            )}
             {/* Investing list generated → send the top of it to research. Argus ranked them, so the
                 top slice is the part worth Prometheus's time (it researches few and deep, and each
                 name is a full coverage cycle). The rest stay on the saved list and can be asked for
@@ -1004,8 +941,6 @@ ScannerPanel.propTypes = {
     onGenerateList:  PropTypes.func,
     onUpdateList:    PropTypes.func,
     onRoute:         PropTypes.func,     // (offer) → MainPage's doorway: the user asked to be sent to another desk
-    sleeveRun:       PropTypes.object,   // { active, index, total, label } — the Atlas→Argus run
-    onSkipSleeve:    PropTypes.func,
     onLoadingChange: PropTypes.func,
     chatRestore:     PropTypes.object,
     seed:        PropTypes.object,

@@ -4,7 +4,7 @@ import PropTypes from 'prop-types'
 // with the Calls list, so the window name and size can't drift between the two entry points.
 import { openCallPopup, openSetupPopup } from '../TradeIdeas/tradeIdea.utils.js'
 import { manageVerb } from '../TradeIdeas/setupManage.js'
-import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD, SETUP_SHARED_OPEN } from '../../services/event-bus.service'
+import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD, SETUP_SHARED_OPEN } from '../../services/event-bus.service'
 import { manualService } from '../../services/manual/manual.service.remote'
 import { mentorService } from '../../services/mentor/mentor.service.remote'
 import { marketService } from '../../services/market/market.service.remote'
@@ -372,7 +372,7 @@ export function InvalidationAlertBubble({ msg, onClose, onResolve }) {
 const ENTRY_CONFIRM_NOTE = { passed_earlier: 'Scheduled time already passed', off_hours: 'Fired while market was closed' }
 
 function EntryConfirmBubble({ msg, onClose, onResolve }) {
-    const { kind, ideaId, callId, setupId, asset, note, warning, scenario } = msg.payload
+    const { kind, ideaId, setupId, asset, note, warning, scenario } = msg.payload
     const isCall  = kind === 'call'
     const isSetup = kind === 'setup'
     // Tag = the desk that sent it. A holding's confirm is Atlas's; a lone legacy idea keeps the
@@ -381,7 +381,8 @@ function EntryConfirmBubble({ msg, onClose, onResolve }) {
         : kind === 'portfolio_item' ? AGENTS.portfolio : AGENTS.idea
 
     function route() {
-        if (isCall)       eventBus.emit(CALL_CONFIRM_OPEN,  { callId })
+        // A call's confirm surface was archived with Kairos (2026-08-18): nothing to open.
+        if (isCall)       return
         else if (isSetup) eventBus.emit(SETUP_CONFIRM_OPEN, { setupId })
         else              eventBus.emit(ENTRY_CONFIRM_OPEN, { ideaId })
     }
