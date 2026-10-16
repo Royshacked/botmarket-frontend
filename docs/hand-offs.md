@@ -117,9 +117,10 @@ The user's position in a pipeline is DERIVED from the open tab (`pipelineNav.js`
 hand-off — the conveyor's, the hub's, a desk's route, any added later — keeps the crumb and the back
 button honest without stamping a step number. Atlas stands at two different steps of the portfolio
 desk (Mandate, Allocate), which is the ambiguity that file resolves. `scanOrigin.js` answers, the
-same way everywhere it is asked, which desk asked for a scan — the user, a portfolio sleeve, or a
-build hand-off — and therefore whether it saves to the scans list and whether the artifact it hands
-on carries a `ref` (persisted) or only its items (inline for the run).
+same way everywhere it is asked, where a scan came from — the user, or an Events radar board — and
+therefore whether it saves to the scans list and whether the artifact it hands on carries a `ref`
+(persisted) or only its items (inline for the run). (The portfolio-sleeve and build-hand-off origins
+were removed 2026-10-16: sleeve sourcing runs server-side, and nothing sends a discovery request.)
 
 ## What does NOT travel this way
 

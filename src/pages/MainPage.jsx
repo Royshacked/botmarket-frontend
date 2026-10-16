@@ -29,7 +29,7 @@ import { analystService, COVERAGE_CHANGED, RESEARCH_QUEUE_CHANGED } from '../ser
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
-import { activatePortfolio, isManualIdea, buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, brokerSymbolLabel, ideaWorkspace, inWorkspace, planAccountRebind, positionOpenTarget, openIdeaPopup, matchPositionsForIdea, isPortfolioReview } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { activatePortfolio, isManualIdea, buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, ideaWorkspace, inWorkspace, planAccountRebind, positionOpenTarget, openIdeaPopup, matchPositionsForIdea, isPortfolioReview } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { TradeTicket } from '../cmps/TradeTicket/TradeTicket.jsx'
 import { apiError } from '../services/http.service.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
@@ -38,7 +38,7 @@ import { resolveEntity, resolveForEdit } from '../services/entityResolve.js'
 import { useDeskHandoff } from '../customHooks/useDeskHandoff.js'
 import { threadsService } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
-import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD, SETUP_SHARED_OPEN, ENTITY_DETAIL_OPEN } from '../services/event-bus.service'
+import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD, SETUP_SHARED_OPEN, ENTITY_DETAIL_OPEN } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
 import { adoptService } from '../services/adopt/adopt.service.remote.js'
 import { AdoptBookGrid } from '../cmps/AdoptBook/AdoptBookGrid.jsx'
@@ -234,9 +234,9 @@ export function MainPage() {
     // shape per desk instead of a bespoke payload per hop: the conveyor puts an artifact in an
     // inbox and switches the tab, and the desk decides what to do with it.
     //
-    // Argus's inbox also marks it as working on someone else's brief — a `scan_request` means
-    // single-pick mode, and either way a list it produces here is not filed in the user's Scans tab
-    // (see scanOrigin). `scannerSeed` is the delivery mechanism for a desk that opens on a
+    // Argus's inbox also marks it as working on someone else's brief, and a list it produces here is
+    // not filed in the user's Scans tab (see scanOrigin). Single-pick mode is not the inbox's call:
+    // it comes from the pipeline step producing one trade (`producesOne`, see scannerSingle). `scannerSeed` is the delivery mechanism for a desk that opens on a
     // sentence: the conveyor writes the brief the receiving contract composed.
     // How the conveyor advances: 'manual' waits for the user to send the artifact on (they can read
     // and keep chatting first), 'auto' hands it straight to the next desk. A gate never
@@ -749,8 +749,6 @@ export function MainPage() {
     activeTabRef.current = activeTab
     const isAdminRef = useRef(isAdmin)
     isAdminRef.current = isAdmin
-    const positionsRef = useRef(positions)
-    positionsRef.current = positions
     const workspaceRef = useRef(workspace)   // for []-dep event handlers that must read the live workspace
     workspaceRef.current = workspace
 
@@ -772,26 +770,6 @@ export function MainPage() {
         const ws = doc && ideaWorkspace(doc)
         if (ws && ws !== workspaceRef.current) setWorkspace(ws)
     }
-    // "Close trade" from an in-position invalidation alert. The alert payload only
-    // carries the ideaId, so resolve the open position by the idea's symbol (matching
-    // the broker-symbol alias too, e.g. NQ ↔ US100) and close it at market.
-    useEffect(() => {
-        return eventBus.on(INVALIDATION_CLOSE_TRADE, async ({ ideaId }) => {
-            const idea = await resolveEntity('idea', ideaId)
-            if (!idea) return
-            const ideaSymbols = [idea.asset, brokerSymbolLabel(idea)].filter(Boolean).map(s => String(s).toUpperCase())
-            const pos = positionsRef.current.find(p => p.symbol && ideaSymbols.includes(String(p.symbol).toUpperCase()))
-            if (!pos) { showErrorMsg('No open position found for this idea'); return }
-            try {
-                await closePosition(pos.broker, pos.id, pos.accountId)
-                showSuccessMsg('Position closed')
-            } catch (err) {
-                console.error('[invalidation] close trade failed', err)
-                showErrorMsg('Could not close the position — try again')
-            }
-        })
-    }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
     useEffect(() => {
         return eventBus.on(PORTFOLIO_REVIEW, ({ portfolioId }) => {
             handleEditPortfolio(portfolioId, { reviewMode: true })
@@ -2049,7 +2027,7 @@ export function MainPage() {
     // not Argus's guess at it.
     function handleSendPick(pick, opts = {}) {
         if (!pick?.ticker) return
-        const request = firstItem(scannerInbox)                      // the scan_request Argus is holding
+        const request = firstItem(scannerInbox)                      // the brief Argus is holding, if any
         const sent = emitArtifact(makeArtifact({
             kind:  KIND.CANDIDATE_LIST,
             items: [{

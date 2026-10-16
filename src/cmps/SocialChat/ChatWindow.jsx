@@ -4,7 +4,7 @@ import PropTypes from 'prop-types'
 // with the Calls list, so the window name and size can't drift between the two entry points.
 import { openCallPopup, openSetupPopup } from '../TradeIdeas/tradeIdea.utils.js'
 import { manageVerb } from '../TradeIdeas/setupManage.js'
-import { eventBus, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD, SETUP_SHARED_OPEN } from '../../services/event-bus.service'
+import { eventBus, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD, SETUP_SHARED_OPEN } from '../../services/event-bus.service'
 import { manualService } from '../../services/manual/manual.service.remote'
 import { mentorService } from '../../services/mentor/mentor.service.remote'
 import { marketService } from '../../services/market/market.service.remote'
@@ -227,7 +227,7 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                                 : msg.type === 'orders_ready' && msg.payload
                                 ? <OrdersReadyBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'call_expiry' && msg.payload
-                                ? <CallExpiryBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
+                                ? <CallExpiryBubble msg={msg} onResolve={onResolveMessage} />
                                 : msg.type === 'call_manage' && msg.payload
                                 ? <CallManageBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
                                 : msg.type === 'setup_invalidation' && msg.payload
@@ -364,11 +364,12 @@ export function InvalidationAlertBubble({ msg, onResolve }) {
     )
 }
 
-// "Entry triggered — confirm" card. An idea routes to the workspace's OrderConfirmDialog; a Kairos
-// call opens its pop-out where Confirm entry lives. Replayable on the collapsed chip.
+// "Entry triggered — confirm" card. An idea routes to the workspace's OrderConfirmDialog, a setup to
+// its own confirm. Replayable on the collapsed chip. A Kairos call's confirm surface was archived with
+// Kairos (2026-08-18), so its card is Dismiss only — the primary would open nothing.
 const ENTRY_CONFIRM_NOTE = { passed_earlier: 'Scheduled time already passed', off_hours: 'Fired while market was closed' }
 
-function EntryConfirmBubble({ msg, onClose, onResolve }) {
+export function EntryConfirmBubble({ msg, onClose, onResolve }) {
     const { kind, ideaId, setupId, asset, note, warning, scenario } = msg.payload
     const isCall  = kind === 'call'
     const isSetup = kind === 'setup'
@@ -378,10 +379,8 @@ function EntryConfirmBubble({ msg, onClose, onResolve }) {
         : kind === 'portfolio_item' ? AGENTS.portfolio : AGENTS.idea
 
     function route() {
-        // A call's confirm surface was archived with Kairos (2026-08-18): nothing to open.
-        if (isCall)       return
-        else if (isSetup) eventBus.emit(SETUP_CONFIRM_OPEN, { setupId })
-        else              eventBus.emit(ENTRY_CONFIRM_OPEN, { ideaId })
+        if (isSetup) eventBus.emit(SETUP_CONFIRM_OPEN, { setupId })
+        else         eventBus.emit(ENTRY_CONFIRM_OPEN, { ideaId })
     }
     function handlePrimary() {
         onResolve?.(msg.id, { status: 'done', outcome: 'confirmed' })
@@ -410,7 +409,10 @@ function EntryConfirmBubble({ msg, onClose, onResolve }) {
     return (
         <NotificationCard
             agent={agent} kind="confirm" heading={heading} asset={asset} body={msg.content}
-            primaryLabel={msg.actions?.primary?.label ?? 'Confirm order'} onPrimary={handlePrimary}
+            // No onPrimary for a call either: a call card resolved `done` in old history would
+            // otherwise offer to reopen through it from the collapsed chip.
+            primaryLabel={msg.actions?.primary?.label ?? 'Confirm order'} onPrimary={isCall ? undefined : handlePrimary}
+            dismissOnly={isCall}
             onDismiss={handleDismiss} onResolve={onResolve} msg={msg} reopenOnDone
             resolvedLabels={{ confirmed: '✓ Opened' }}
         />
@@ -514,27 +516,18 @@ export function QueueReadyBubble({ msg, onClose, onResolve }) {
     )
 }
 
-// "Trade thesis expiring / expired" card for a Kairos call. Primary re-maps it in Kairos's in-app
-// edit mode (re-arms the monitor on save). Delete now lives in the Calls tab / call pop-out.
-export function CallExpiryBubble({ msg, onClose, onResolve }) {
-    const { callId, asset, kind, why } = msg.payload
+// "Trade thesis expiring / expired" card for a Kairos call. Dismiss only: the Kairos edit mode its
+// primary used to open was archived with Kairos (2026-08-18). Delete lives in the Calls tab / call
+// pop-out. `resolvedLabels` stay so the cards already resolved in history keep their chips.
+export function CallExpiryBubble({ msg, onResolve }) {
+    const { asset, kind, why } = msg.payload
     const heading   = `${kind === 'expired' ? 'Thesis expired' : 'Thesis expiring'} · ${asset}`
     const kindLabel = kind === 'expired' ? 'expired' : 'expiring'   // payload kind is 'edit'|'expired'
-
-    function handlePrimary() {
-        // `kind` rides along because it is the CARD's axis, not the call's status (see buildCallExpiry
-        // — a stale thesis leaves the call at 'looking' either way). The desk opens on a different
-        // question for a thesis that HAS expired than for one that is expiring, and nothing on the
-        // document can tell them apart. The reason itself is not passed: that is read off the call
-        // when the doorway resolves it, so it is the reason that stands now.
-        eventBus.emit(CALL_EXPIRY_EDIT, { callId, kind })
-        onClose?.()
-    }
 
     return (
         <NotificationCard
             agent={AGENTS.kairos} kind="expiry" heading={heading} asset={asset} qualifier={kindLabel} body={why || msg.content}
-            primaryLabel={msg.actions?.primary?.label ?? 'Edit call'} onPrimary={handlePrimary}
+            dismissOnly
             onResolve={onResolve} msg={msg}
             resolvedLabels={{ editing: '✓ Opened in chat', deleted: '✓ Deleted' }}
         />

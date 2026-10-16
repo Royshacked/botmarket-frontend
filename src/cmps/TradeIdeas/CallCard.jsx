@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types'
 import { HermesBadge } from '../AxlHub/AgentBadges.jsx'
-import { EntityCard, SymbolCell, Pill, StatusBadge, DeleteButton, BuildingIcon } from '../EntityCard/EntityCard.jsx'
+import { EntityCard, SymbolCell, Pill, StatusBadge, DeleteButton } from '../EntityCard/EntityCard.jsx'
 import { formatCreatedAt, openCallPopup } from './tradeIdea.utils.js'
 import { isAwaitingConfirm, isLivePosition, isTerminal } from '../../services/entityStatus.js'
 
@@ -39,9 +39,8 @@ function summary(call) {
 }
 
 export function CallCard({ call, busy = false, onAct, onDelete, onSymbolClick }) {
-    const isReady     = isAwaitingConfirm(call.status)
-    const isBuilding  = call.status === 'building'   // live draft (not yet saved) — hammer row
-    const hasPending  =isLivePosition(call.status) && !!call.position_state?.pending_action
+    const isReady    = isAwaitingConfirm(call.status)
+    const hasPending = isLivePosition(call.status) && !!call.position_state?.pending_action
 
     const title = (
         <>
@@ -58,8 +57,7 @@ export function CallCard({ call, busy = false, onAct, onDelete, onSymbolClick })
         </>
     )
 
-    // Generate lives in the Kairos panel, so a draft offers no actions — just the hammer.
-    const controls = isBuilding ? <BuildingIcon className="idea-row__building-bot" /> : (
+    const controls = (
         <>
             {hasPending && (
                 <span className="idea-card__manage-dot" title={`Kairos suggests: ${call.position_state.pending_action.verdict}`}>⚑</span>
@@ -94,8 +92,8 @@ export function CallCard({ call, busy = false, onAct, onDelete, onSymbolClick })
             title={title}
             summary={cardSummary}
             controls={controls}
-            onOpen={isBuilding ? undefined : () => openCallPopup(call)}
-            cardTitle={isBuilding ? 'Building…' : 'Open call'}
+            onOpen={() => openCallPopup(call)}
+            cardTitle="Open call"
         />
     )
 }

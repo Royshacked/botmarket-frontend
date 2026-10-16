@@ -6,8 +6,7 @@ import { ChatBubble } from '../ChatBubble.jsx'
 import { MessageBubble as AxlMessageBubble } from '../AxlHub/AxlHub.jsx'
 
 // Waiting is ONE state — "thinking…" before the first token, "fetching…" while a tool runs. It used
-// to be drawn three ways (a bespoke `__thinking` span in ChatPanel, another in PortfolioPanel, and
-// this chip), AND in two places at once: useChatStream.begin() appends the empty streaming bubble
+// to be drawn three ways (a bespoke `__thinking` span in each of two desk panels, and this chip), AND in two places at once: useChatStream.begin() appends the empty streaming bubble
 // immediately, so a tool firing mid-wait put "thinking…" inside the bubble and "fetching…" right
 // below it. One mark, one place — these tests are what keep it that way.
 

@@ -1,4 +1,3 @@
-import { httpService } from '../http.service'
 import { streamAgent } from '../agentStream'
 import { makeEntityApi } from '../entityApi'
 
@@ -7,7 +6,6 @@ const BASE = 'api/scanner'
 export const scannerService = {
     sendStream,
     listScans, getScan, createScan, updateScan, deleteScan,
-    saveChatState, getChatState, deleteChatState,
 }
 
 async function sendStream(messages, opts = {}) {
@@ -39,18 +37,3 @@ async function updateScan(id, scan) {
 }
 
 function deleteScan(id) { return api.remove(id) }
-
-async function saveChatState(messages) {
-    return httpService.post(`${BASE}/chat-state`, { messages })
-}
-
-async function getChatState() {
-    try {
-        const data = await httpService.get(`${BASE}/chat-state`)
-        return data.chatState ?? null
-    } catch { return null }
-}
-
-async function deleteChatState() {
-    return httpService.delete(`${BASE}/chat-state`)
-}

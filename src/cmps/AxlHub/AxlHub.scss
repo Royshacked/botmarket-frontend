@@ -412,7 +412,7 @@
     }
 
     // No frame around what the desk says — matching every other agent chat
-    // (chat-panel__bubble--assistant, portfolio-panel__bubble--assistant). The USER's
+    // (portfolio-panel__bubble--assistant). The USER's
     // turn keeps its accent fill; that contrast is what separates the two voices, so a
     // box around the reply was doing the same job twice.
     &--assistant {

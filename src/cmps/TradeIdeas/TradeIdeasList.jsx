@@ -352,7 +352,7 @@ CardList.propTypes = {
     renderCard: PropTypes.func, lead: PropTypes.node,
 }
 
-export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, buildingCall, loading = false, onDelete, onStatusChange, onSymbolClick, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, onClosePositions, calls = [], onActCall, onDeleteCall, callBusyId = null, setups = [], setupsLoading = false, onArmSetup, onDisarmSetup, onDeleteSetup, onEditSetup, setupBusyId = null, radar, aetherCandidates }) {
+export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, loading = false, onDelete, onStatusChange, onSymbolClick, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, onClosePositions, calls = [], onActCall, onDeleteCall, callBusyId = null, setups = [], setupsLoading = false, onArmSetup, onDisarmSetup, onDeleteSetup, onEditSetup, setupBusyId = null, radar, aetherCandidates }) {
     const [expandedGroups, setExpandedGroups] = useState(new Set())
     const [activeFilter,   setActiveFilter]   = useState(null)    // null = hub landing
     // The close-at-market flow (confirm → fire → report) is shared with the Floor's book, so it
@@ -379,7 +379,6 @@ export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, buildingCall
     // The user can still override via the filter buttons until the tab changes again.
     useEffect(() => {
         if (chatTab === 'portfolio')   setActiveFilter('portfolios')
-        else if (chatTab === 'kairos') setActiveFilter('calls')
         else if (chatTab === 'mentor') setActiveFilter('setups')
         else if (chatTab === 'axl')    setActiveFilter(null)   // return to hub when back at AxlHub
     }, [chatTab])
@@ -390,12 +389,6 @@ export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, buildingCall
     useEffect(() => {
         if (isBuildingPortfolio) setActiveFilter('portfolios')
     }, [isBuildingPortfolio])
-
-    // A Kairos call taking shape in chat → surface the building row in the Calls slot.
-    const isBuildingCall = !!buildingCall
-    useEffect(() => {
-        if (isBuildingCall) setActiveFilter('calls')
-    }, [isBuildingCall])
 
     // Clicking an idea row opens it straight in its own pop-out window.
     function handleOpen(idea) { openIdeaPopup(idea) }
@@ -426,13 +419,6 @@ export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, buildingCall
     }
 
     const { standalone, groups, brokerGroups } = _separateIdeas(ideas)
-
-    // Editing substitution for a call: when the building draft carries a real (saved) id, swap it
-    // into the list IN PLACE rather than adding a separate top row (Kairos Calls tab).
-    const editBuildCallId = buildingCall && buildingCall.id !== '__building_call__' ? buildingCall.id : null
-    const callInList      = editBuildCallId != null && calls.some(c => c.id === editBuildCallId)
-    const effectiveCalls  = callInList ? calls.map(c => c.id === editBuildCallId ? buildingCall : c) : calls
-    const topBuildingCall = buildingCall && !callInList ? buildingCall : null
 
     // Interleave standalone ideas and multi-broker groups by recency so a forked
     // idea sorts where its creation time puts it (one row, expandable).
@@ -473,11 +459,8 @@ export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, buildingCall
         },
         {
             key: 'calls', label: 'Calls', icon: <HermesBadge size={30} />,
-            count: effectiveCalls.length, hubCount: effectiveCalls.length ? `${effectiveCalls.length} active` : null,
-            items: effectiveCalls, empty: 'No calls yet',
-            lead: topBuildingCall
-                ? <CallCard key="__building_call__" call={topBuildingCall} onAct={() => {}} onSymbolClick={onSymbolClick} />
-                : null,
+            count: calls.length, hubCount: calls.length ? `${calls.length} active` : null,
+            items: calls, empty: 'No calls yet',
             renderCard: (c) => (
                 <CallCard
                     key={c.id} call={c} busy={callBusyId === c.id}
@@ -774,7 +757,6 @@ TradeIdeasList.propTypes = {
     ideas:            PropTypes.array.isRequired,
     chatTab:          PropTypes.string,
     buildingPortfolio: PropTypes.object,
-    buildingCall:     PropTypes.object,
     onDelete:         PropTypes.func.isRequired,
     onStatusChange:   PropTypes.func.isRequired,
     onEditPortfolio:  PropTypes.func,
