@@ -17,6 +17,18 @@ export const chatWsService = {
     disconnect,
     on,
     off,
+    send,
+}
+
+/**
+ * Send one client frame (`{ event, data }`) — the session channel's `session_sync` (unified-chat plan phase 7).
+ * Answers false when the socket is not open: the caller re-sends on the next `connected`, which every
+ * reconnect dispatches, so nothing is queued here.
+ */
+function send(event, data) {
+    if (socket?.readyState !== WebSocket.OPEN) return false
+    socket.send(JSON.stringify({ event, data }))
+    return true
 }
 
 function connect() {
