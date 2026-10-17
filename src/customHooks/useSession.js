@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react'
 import { chatWsService } from '../services/chat/chatWs.service'
 import { sessionService } from '../services/session/session.service.remote'
+import { chatService } from '../services/chat/chat.service'
 import { sessionReducer, emptySession, SESSION_EVENTS } from '../services/session/sessionReducer.js'
 import { newTurnId, stopTurn } from '../services/turn.service'
 import { apiError } from '../services/http.service'
@@ -17,9 +18,9 @@ import { openChart } from '../services/chartSurface.service'
  * The socket is connected by the app header (useChatWs); this only listens and sends.
  *
  * @param {'main'|'strategy'|'aether'} [scope]
- * @param {{ ws?: object, api?: object }} [deps]  test seams
+ * @param {{ ws?: object, api?: object, cards?: object }} [deps]  test seams
  */
-export function useSession(scope = 'main', { ws = chatWsService, api = sessionService } = {}) {
+export function useSession(scope = 'main', { ws = chatWsService, api = sessionService, cards = chatService } = {}) {
     const [state, dispatch] = useReducer(sessionReducer, { ...emptySession, scope })
     const ref = useRef(state)
     ref.current = state
@@ -87,5 +88,17 @@ export function useSession(scope = 'main', { ws = chatWsService, api = sessionSe
 
     const startNew = useCallback(() => load(() => api.startNew(scope)), [api, scope, load])
 
-    return { ...state, send, stop, choose, startNew }
+    /**
+     * A card row's button (dismiss, done, opened): drawn at once, then written through the card's own
+     * conversation — the same resolve the social chat uses, which echoes `message_resolved` to every screen.
+     */
+    const resolveCard = useCallback(async (row, { status = 'dismissed', outcome = null } = {}) => {
+        const { msgId, conversationId } = row?.ref ?? {}
+        if (!msgId || !conversationId) return
+        dispatch({ type: 'message_resolved', data: { id: msgId, status, resolveOutcome: outcome } })
+        try { await cards.resolveMessage(conversationId, msgId, { status, outcome }) }
+        catch (err) { console.error('[useSession] card resolve failed', err) }
+    }, [cards])
+
+    return { ...state, send, stop, choose, startNew, resolveCard }
 }

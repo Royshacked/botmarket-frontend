@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 
-import { AxlHub }            from '../cmps/AxlHub/AxlHub.jsx'
+import { ChatTimeline }      from '../cmps/ChatTimeline/ChatTimeline.jsx'
 import { openChart }         from '../services/chartSurface.service.js'
 import { AgentSummon, AxlBotGlyph } from '../cmps/AxlHub/AgentSummon.jsx'
 import { RETURN_MS, DESKS } from '../cmps/AxlHub/agentMeta.jsx'
@@ -446,11 +446,6 @@ export function MainPage() {
     const [applyingRebalance, setApplyingRebalance] = useState(false)
     const [deletingIdea, setDeletingIdea] = useState(false)
     const [returningToAxl, setReturningToAxl] = useState(false)
-    // The desk Axl HANDED them to, remembered across the walk — `{ key, desk }`, consumed by the hub.
-    // It has to live here rather than in the hub because the hub is what the walk unmounts: the whole
-    // point is to be holding this when it comes back. Null for a desk the user opened from its own
-    // card, which left no sentence of Axl's to close.
-    const [axlReturn, setAxlReturn] = useState(null)
     // Bumped each time we head home to axl so the Atlas/Argus panels remount fresh
     // — going back to axl and re-entering an agent always starts a new chat.
     //
@@ -468,14 +463,6 @@ export function MainPage() {
     // the Atlas mandate that authored the request.
     const [scannerResetKey, setScannerResetKey] = useState(0)
     const returnTimerRef = useRef(null)
-    // Which desk the hub last HANDED them to, if it was a hand-off and not a card click. A ref, not
-    // state: nothing renders from it, and it is written during a tab switch that already re-renders
-    // everything. Read and cleared once, on the way home.
-    const axlHandOffRef = useRef(null)
-    // Monotonic across the whole session, which a counter derived from the state could not be: the
-    // request is cleared on consumption, so anything reading the previous value would restart at 1
-    // and the hub would mistake the next trip for the one it already closed.
-    const axlReturnSeqRef = useRef(0)
     // Each desk panel publishes its "resume this thread" fn here. ONE map rather than one ref
     // per desk: the refs were identical in every respect except which desk they belonged to, and
     // every one of them also needed its own branch in _resumeThreadOn below. Adding a desk is now
@@ -490,34 +477,12 @@ export function MainPage() {
     // close over whatever was busy when the arrow was pressed.
     const deskBusyRef = useRef({})
     deskBusyRef.current = deskBusy
-    // WHICH DESK a running turn belongs to, captured when it starts — because by the time anything
-    // asks, the user is at the hub and `activePipeline` has been cleared. Same field the saved
-    // thread carries (`pipeline`), so a live turn and a left-behind draft are read the same way.
-    const livePipelines = useRef({})
-    const activePipelineRef = useRef(null)
-    activePipelineRef.current = activePipeline
     const deskLoadingSetters = useMemo(() => Object.fromEntries(DESK_TABS.map(tab => [tab,
         (is) => setDeskBusy(prev => {
             if (Boolean(prev[tab]) === Boolean(is)) return prev
-            if (is) livePipelines.current[tab] = activePipelineRef.current
             return { ...prev, [tab]: Boolean(is) }
         }),
     ])), [])
-    /**
-     * TURNS RUNNING RIGHT NOW, shaped as the hub already reads work: `{ agent, pipeline }` — the
-     * same two fields a saved draft carries, so `deskOfThread` files a live turn on exactly the desk
-     * it would file the draft it is about to become. No second mapping, and no chance of the two
-     * disagreeing about which route to mark.
-     *
-     * The hub needs this because a turn in flight has NO draft yet — persistence happens when the
-     * reply lands. Walking away mid-answer therefore left every route silent about the one desk that
-     * was actually working, which is the thing the user went to the hub to see.
-     */
-    const liveWork = useMemo(
-        () => DESK_TABS.filter(tab => deskBusy[tab])
-            .map(tab => ({ agent: tab, pipeline: livePipelines.current[tab] ?? null, live: true })),
-        [deskBusy],
-    )
 
     const { setups, setupsLoading, refreshSetups } = useSetups()
     const [setupBusyId, setSetupBusyId] = useState(null)
@@ -603,14 +568,6 @@ export function MainPage() {
             setActivePipeline(null)
             setPipelineStep(0)
             setNewsTab('scans')
-            // Hand the trip back to the hub so Axl can close it. Only when Axl SENT them: the
-            // sentence being closed is Axl's own hand-off, and a desk the user walked into from its
-            // card never produced one — a line about it there would be chatter. A fresh object with
-            // a monotonic key every time, so two trips to the SAME desk are two requests and the hub
-            // can tell them apart.
-            const handedOff = axlHandOffRef.current
-            axlHandOffRef.current = null
-            if (handedOff) setAxlReturn({ key: ++axlReturnSeqRef.current, desk: handedOff })
             setReturningToAxl(false)
             // Fresh slate: drop any pending edit-restore, and remount Atlas/Argus so
             // re-entering any agent from the hub starts a new conversation.
@@ -666,6 +623,10 @@ export function MainPage() {
     const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
     // The marked accounts as a ref, for the one-shot doorways below that must not re-register on
     // every selection change (SETUP_SHARED_OPEN reads it to ask readiness the right question).
+    const timelineAccounts = useMemo(
+        () => availableAccounts.filter(a => selectedAccounts.includes(a.id)),
+        [availableAccounts, selectedAccounts],
+    )
     const selectedAccountsRef = useRef(selectedAccounts)
     useEffect(() => { selectedAccountsRef.current = selectedAccounts }, [selectedAccounts])
     const { workspace, setWorkspace } = useWorkspaceMode(user?._id)
@@ -1733,9 +1694,11 @@ export function MainPage() {
     // ── Axl reception → the order ticket ──────────────────────────────────────
     // Trade by hand, picked in the hub beside the desks. No pipeline and no summon: the pad is one
     // screen, and the agentbar's "← axl" is the way back, exactly as it is from a desk.
-    function handleOpenTicket() {
+    function handleOpenTicket(symbol = null) {
         setActiveTab('ticket')
         setActivePipeline(null)
+        // The pad starts blank; the chart of the name they asked about is beside it.
+        if (symbol) openChart({ ticker: symbol, source: 'ticket' })
     }
 
     // ── Axl reception → a desk ────────────────────────────────────────────────
@@ -1793,10 +1756,6 @@ export function MainPage() {
     }
 
     async function handleAxlPick(tab, opts = {}) {
-        // Was this Axl's own hand-off? Recorded on the way IN, because the way back has no idea —
-        // and OVERWRITTEN on every arrival, including the ones carrying nothing, so a desk the user
-        // opened themselves clears a hand-off that is no longer the trip they are on.
-        axlHandOffRef.current = opts.handedOff ?? null
         // An edit hand-off names an ITEM, not a desk, and the item picks the tab: a call edits in
         // Kairos even though the trading desk enters at Argus. So the tab argument is skipped and the
         // opener sets its own — but the pipeline is still stamped, so the crumb and the back button
@@ -2407,15 +2366,12 @@ export function MainPage() {
                             the widest column, with the chat still mounted underneath. */}
                         <DetailPanelSlot />
                         {activeTab === 'axl' ? (
-                            <AxlHub
-                                user={user}
-                                live={liveWork}
-                                onPick={handleAxlPick}
+                            <ChatTimeline
+                                accounts={timelineAccounts}
+                                mainAccountId={mainAccountId}
                                 onOpenTicket={handleOpenTicket}
                                 briefRequest={briefRequest}
                                 onBriefStart={() => setBriefRequest(0)}
-                                returnFrom={axlReturn}
-                                onReturnStart={() => setAxlReturn(null)}
                             />
                         ) : (
                             <div className="chat-agentbar">
@@ -2619,7 +2575,7 @@ export function MainPage() {
                             <div className="chat-return-overlay" role="status" aria-live="polite">
                                 <AgentSummon
                                     hue="axl"
-                                    label={<>Heading back to <span className="axl-summon__brand axl-hub__wordmark"><b>A</b>XL</span></>}
+                                    label={<>Heading back to <span className="axl-summon__brand chat-timeline__wordmark"><b>A</b>XL</span></>}
                                     sub="one moment…"
                                 >
                                     <AxlBotGlyph />

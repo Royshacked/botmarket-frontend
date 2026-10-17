@@ -3,7 +3,6 @@ import { render, cleanup } from '@testing-library/react'
 import { ToolStatusChip } from './ToolStatusChip.jsx'
 import { waitingLabel } from './waitingLabel.js'
 import { ChatBubble } from '../ChatBubble.jsx'
-import { MessageBubble as AxlMessageBubble } from '../AxlHub/AxlHub.jsx'
 
 // Waiting is ONE state — "thinking…" before the first token, "fetching…" while a tool runs. It used
 // to be drawn three ways (a bespoke `__thinking` span in each of two desk panels, and this chip), AND in two places at once: useChatStream.begin() appends the empty streaming bubble
@@ -56,15 +55,10 @@ describe('waitingLabel — the one thing said while a turn waits', () => {
 })
 
 describe('no bubble draws its own waiting mark', () => {
-    // ChatBubble is Kairos / Atlas / Argus / Mentor / Analyst; Axl keeps its own bubble. If either
-    // grows a placeholder back, the mark doubles up the moment a tool fires.
+    // ChatBubble is every agent's bubble — the unified chat's included. If it grows a placeholder back,
+    // the mark doubles up the moment a tool fires.
     it('the shared bubble renders nothing while wordless', () => {
         const { container } = render(<ChatBubble msg={{ role: 'assistant', streaming: true, content: '' }} />)
-        expect(container.innerHTML).toBe('')
-    })
-
-    it("Axl's own bubble renders nothing while wordless", () => {
-        const { container } = render(<AxlMessageBubble msg={{ role: 'assistant', streaming: true, content: '' }} />)
         expect(container.innerHTML).toBe('')
     })
 

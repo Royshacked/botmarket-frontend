@@ -123,6 +123,46 @@ function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = n
     )
 }
 
+/**
+ * THE card dispatch — one card message → its bubble, or `fallback` when it is not a card this app draws.
+ * Shared by the social chat and the unified chat's timeline (plan phase 7, J3), so a card looks and acts the
+ * same in both. Every bubble only emits on the event bus and calls `onResolve(msgId, { status, outcome })`,
+ * so it renders anywhere it is given a message and a resolver.
+ */
+export function CardBubble({ msg, mine = false, onClose = () => {}, onResolve, fallback = null }) {
+    switch (msg.type) {
+        case 'invalidation_alert': return msg.payload ? <InvalidationAlertBubble msg={msg} onResolve={onResolve} /> : fallback
+        case 'portfolio_review':   return msg.payload ? <PortfolioReviewBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
+        case 'manual_entry':
+        case 'manual_exit':        return msg.payload ? <ManualFillCard msg={msg} onResolve={onResolve} /> : fallback
+        case 'entry_confirm':      return msg.payload ? <EntryConfirmBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
+        case 'queue_ready':        return msg.payload ? <QueueReadyBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
+        // RETIRED 2026-08-07 — nothing posts orders_ready any more (the market-open sweep sends one
+        // queue_ready instead). Kept so the batch cards already in a user's history still render.
+        case 'orders_ready':       return msg.payload ? <OrdersReadyBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
+        case 'call_expiry':        return msg.payload ? <CallExpiryBubble msg={msg} onResolve={onResolve} /> : fallback
+        case 'call_manage':        return msg.payload ? <CallManageBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
+        case 'setup_invalidation': return msg.payload ? <SetupInvalidationBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
+        case 'setup_manage':       return msg.payload ? <SetupManageBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
+        case 'call_reentry':       return msg.payload ? <CallReentryBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
+        case 'coverage_event':     return msg.payload ? <CoverageEventBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
+        case 'industry_view':      return msg.payload ? <IndustryViewBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
+        case 'sleeve_sourced':     return msg.payload ? <SleeveSourcedBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
+        case 'coverage_refreshed': return msg.payload ? <CoverageRefreshedBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
+        case 'market_brief_offer': return <MarketBriefOfferBubble msg={msg} onClose={onClose} onResolve={onResolve} />
+        case 'setup_shared':       return msg.payload?.blueprint ? <SetupSharedBubble msg={msg} mine={mine} onClose={onClose} onResolve={onResolve} /> : fallback
+        default:                   return fallback
+    }
+}
+
+CardBubble.propTypes = {
+    msg:       PropTypes.object.isRequired,
+    mine:      PropTypes.bool,
+    onClose:   PropTypes.func,
+    onResolve: PropTypes.func.isRequired,
+    fallback:  PropTypes.node,
+}
+
 export function ChatWindow({ conversation, messages, currentUserId, loading, hasMore, onClose, onSend, onSendSetup, onLoadMore, onResolveMessage, scrollToMsgId, onScrolledToMsg }) {
     const [draft,   setDraft]   = useState('')
     const [sending, setSending] = useState(false)
@@ -211,45 +251,8 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                             ref={el => { if (el) msgRefs.current[msg.id] = el }}
                             className={`social-chat__msg ${isMine ? 'social-chat__msg--mine' : 'social-chat__msg--theirs'}${highlight ? ' social-chat__msg--highlight' : ''}`}
                         >
-                            {msg.type === 'invalidation_alert' && msg.payload
-                                ? <InvalidationAlertBubble msg={msg} onResolve={onResolveMessage} />
-                                : msg.type === 'portfolio_review' && msg.payload
-                                ? <PortfolioReviewBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : (msg.type === 'manual_entry' || msg.type === 'manual_exit') && msg.payload
-                                ? <ManualFillCard msg={msg} onResolve={onResolveMessage} />
-                                : msg.type === 'entry_confirm' && msg.payload
-                                ? <EntryConfirmBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'queue_ready' && msg.payload
-                                ? <QueueReadyBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                // RETIRED 2026-08-07 — nothing posts orders_ready any more (the
-                                // market-open sweep sends one queue_ready instead). Kept so the
-                                // batch cards already in a user's history still render.
-                                : msg.type === 'orders_ready' && msg.payload
-                                ? <OrdersReadyBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'call_expiry' && msg.payload
-                                ? <CallExpiryBubble msg={msg} onResolve={onResolveMessage} />
-                                : msg.type === 'call_manage' && msg.payload
-                                ? <CallManageBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'setup_invalidation' && msg.payload
-                                ? <SetupInvalidationBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'setup_manage' && msg.payload
-                                ? <SetupManageBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'call_reentry' && msg.payload
-                                ? <CallReentryBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'coverage_event' && msg.payload
-                                ? <CoverageEventBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'industry_view' && msg.payload
-                                ? <IndustryViewBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'sleeve_sourced' && msg.payload
-                                ? <SleeveSourcedBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'coverage_refreshed' && msg.payload
-                                ? <CoverageRefreshedBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'market_brief_offer'
-                                ? <MarketBriefOfferBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'setup_shared' && msg.payload?.blueprint
-                                ? <SetupSharedBubble msg={msg} mine={isMine} onClose={onClose} onResolve={onResolveMessage} />
-                                : <div className="social-chat__msg-bubble" dir="auto">{msg.content}</div>
-                            }
+                            <CardBubble msg={msg} mine={isMine} onClose={onClose} onResolve={onResolveMessage}
+                                fallback={<div className="social-chat__msg-bubble" dir="auto">{msg.content}</div>} />
                             <div className="social-chat__msg-time">{formatTime(msg.createdAt)}</div>
                         </div>
                     )
