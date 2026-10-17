@@ -25,9 +25,11 @@ export function SessionHistory({ scope = 'main', onClose, api = sessionService }
     // A dialog: focus lands on it once, and Escape closes it.
     useEffect(() => {
         closeRef.current?.focus()
-        const onKey = (e) => { if (e.key === 'Escape') onCloseRef.current() }
-        window.addEventListener('keydown', onKey)
-        return () => window.removeEventListener('keydown', onKey)
+        // Captured and claimed, so the drawers under it (DrawerShell: the side pane, the detail panel) let this Esc be
+        // — one Esc closes one layer.
+        const onKey = (e) => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); onCloseRef.current() } }
+        document.addEventListener('keydown', onKey, true)
+        return () => document.removeEventListener('keydown', onKey, true)
     }, [])
 
     useEffect(() => {

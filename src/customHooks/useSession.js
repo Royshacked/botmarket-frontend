@@ -53,8 +53,11 @@ export function useSession(scope = 'main', { ws = chatWsService, api = sessionSe
     // (a turn) or refused as "not open" (a reopen). Each call waits for the session id instead, up to READY_MS.
     const waiters = useRef([])
     useEffect(() => { if (state.sessionId) waiters.current.splice(0).forEach(done => done(true)) }, [state.sessionId])
+    // A load that failed answers the waiting presses now, not after READY_MS (phase 8b CR).
+    useEffect(() => { if (state.loadError) waiters.current.splice(0).forEach(done => done(false)) }, [state.loadError])
     const ready = useCallback(() => {
         if (ref.current.sessionId) return Promise.resolve(true)
+        if (ref.current.loadError) return Promise.resolve(false)
         return new Promise(resolve => {
             const done = (ok) => { clearTimeout(timer); resolve(ok) }
             const timer = setTimeout(() => { waiters.current = waiters.current.filter(w => w !== done); resolve(false) }, READY_MS)
@@ -156,14 +159,19 @@ export function useSession(scope = 'main', { ws = chatWsService, api = sessionSe
         }
     }, [api, _outcome, ready])
 
-    /** A hand edit of a desk's work (a draft field, Argus's lens, a Prometheus read). @returns {Promise<object>} an outcome */
-    const edit = useCallback(async (agent, change) => {
+    /**
+     * A hand edit of a desk's work (a draft field, Argus's lens, a Prometheus read). `rev`, when given, is the revision
+     * the edit was MADE against — a debounced edit sent later must not borrow a newer one, or it would overwrite state
+     * the user never saw (phase 8b CR). @returns {Promise<object>} an outcome
+     */
+    const edit = useCallback(async (agent, change, { rev: madeAt = null } = {}) => {
         if (!(await ready())) return { ok: false, reason: 'not_found', message: 'The chat is not open yet', extra: {} }
         const s = ref.current
         try {
-            const { rev } = await api.editState(s.sessionId, { agent, edit: change, rev: s.agentRev?.[agent] ?? 0 })
+            const rev0 = Number.isInteger(madeAt) ? madeAt : (s.agentRev?.[agent] ?? 0)
+            const { rev } = await api.editState(s.sessionId, { agent, edit: change, rev: rev0 })
             if (Number.isInteger(rev)) dispatch({ type: 'rev', agent, rev })
-            return { ok: true, result: {} }
+            return { ok: true, result: {}, rev: Number.isInteger(rev) ? rev : null }
         } catch (err) {
             return _outcome(agent, err, 'That change did not go through')
         }

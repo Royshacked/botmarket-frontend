@@ -126,3 +126,16 @@ export function handoffTurn(candidate) {
 export function batchNames(draft, drafts = {}) {
     return Object.keys({ ...(drafts ?? {}), ...(draft?.asset ? { [draft.asset]: 1 } : {}) })
 }
+
+/**
+ * What Mentor's table holds that a fresh plan would put aside, said for the question — or null when there is nothing.
+ * ANY work counts (phase 8b CR): a generated setup waiting on Arm has no draft, an edit and the other plans neither.
+ */
+export function mentorHolding(state) {
+    if (!state) return null
+    if (state.generated) return `${state.generated.asset ?? 'a setup'} (saved, waiting on Arm)`
+    if (state.draft) return state.draft.asset ?? 'a setup'
+    if (state.editing) return 'an edit of a saved setup'
+    const others = Object.keys(state.drafts ?? {})
+    return others.length ? others.join(', ') : null
+}

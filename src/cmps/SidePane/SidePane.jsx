@@ -47,6 +47,8 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
             label={current ? `${agentMeta(current).brand}'s work` : 'Desk'}
             className={`side-pane side-pane--${handheld ? 'sheet' : 'docked'}`}
             modal={handheld}
+            // Docked, it opens beside the chat — often on its own, as the floor moves — so focus stays in the input.
+            autoFocus={handheld}
             history={handheld ? { field: 'sidePane', key: 'pane' } : null}
         >
             <header className="side-pane__head">
@@ -80,7 +82,8 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
                 <button type="button" className="side-pane__close" onClick={closePane} aria-label="Close" title="Close (Esc)">✕</button>
             </header>
             <div className="side-pane__body" role="tabpanel">
-                {Surface && <Surface session={session} deskProps={deskProps} />}
+                {/* Keyed on the session: a surface's half-typed edit belongs to the session it was typed in. */}
+                {Surface && <Surface key={session?.sessionId ?? 'none'} session={session} deskProps={deskProps} />}
             </div>
         </DrawerShell>
     )

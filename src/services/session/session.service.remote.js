@@ -1,4 +1,5 @@
 import { httpService } from '../http.service'
+import { SETUPS_CHANGED } from '../mentor/mentor.service.remote'
 
 // The unified chat's session (backend api/sessions — unified-chat plan phases 3–7). One timeline per user per
 // scope; every agent speaks in it. A turn is ACCEPTED here (202) and streams on the chat socket
@@ -6,6 +7,11 @@ import { httpService } from '../http.service'
 // Stopping a turn stays the shared POST /api/turns/:turnId/stop (services/turn.service.js).
 
 const BASE = 'api/sessions'
+
+// A commit writes the desk's kind, so the lists of it reload — the same window broadcast the kind's own CRUD sends
+// (entityApi). Phase 8b CR: Generate/Arm/Update from the session left the Floor stale until its poll. The other desks'
+// kinds join as their surfaces arrive (8c, 8d).
+const CHANGE_EVENTS = { mentor: SETUPS_CHANGED }
 
 export const sessionService = {
     /** The user's running session in a scope (created when there is none). */
@@ -60,7 +66,9 @@ export const sessionService = {
      * @returns {Promise<object>}  the desk's result `{ <kind>: doc, ... }` and the new `rev`
      */
     async act(sessionId, { agent, action, args = {}, rev }) {
-        return httpService.post(`${BASE}/${encodeURIComponent(sessionId)}/act`, { agent, action, args, rev })
+        const res = await httpService.post(`${BASE}/${encodeURIComponent(sessionId)}/act`, { agent, action, args, rev })
+        if (CHANGE_EVENTS[agent]) window.dispatchEvent(new Event(CHANGE_EVENTS[agent]))
+        return res
     },
 
     /** A hand edit of a desk's work — validated by the desk, pushed back on the socket. @returns {Promise<{ ok, rev }>} */

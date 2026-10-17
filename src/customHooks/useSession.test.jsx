@@ -149,6 +149,16 @@ describe('useSession — commit / edit / reopen', () => {
         expect(result.current.agentRev.scanner).toBe(2)
     })
 
+    it('a debounced edit names the revision it was MADE against, not the one current when it goes (8b CR)', async () => {
+        api.editState = vi.fn(async () => ({ ok: true, rev: 6 }))
+        const { result } = mount()
+        await waitFor(() => expect(result.current.sessionId).toBe('s1'))
+        let out
+        await act(async () => { out = await result.current.edit('mentor', { draft: {} }, { rev: 4 }) })
+        expect(api.editState).toHaveBeenCalledWith('s1', { agent: 'mentor', edit: { draft: {} }, rev: 4 })
+        expect(out).toEqual({ ok: true, result: {}, rev: 6 })
+    })
+
     it('reopen answers busy with the agent holding the work — the caller asks, then repeats with force', async () => {
         api.edit = vi.fn(async (sid, body) => {
             if (!body.force) throw refusal(409, { error: 'That desk is in the middle of something else', reason: 'busy', agent: 'mentor' })
@@ -189,5 +199,17 @@ describe('useSession — phase 8b bug hunt', () => {
         expect(await sent).toBe(true)
         expect(api.turn).toHaveBeenCalledWith('s1', expect.objectContaining({ text: 'Work on NVDA', agent: 'mentor' }))
         expect((await reopened).ok).toBe(true)
+    })
+
+    it('a load that failed answers a waiting press at once, not after the wait (8b CR)', async () => {
+        let fail
+        api.getActive = vi.fn(() => new Promise((_, reject) => { fail = reject }))
+        const { result } = mount()
+        api.act = vi.fn()
+        let pressed
+        act(() => { pressed = result.current.commit('mentor', 'generate') })
+        await act(async () => { fail(new Error('down')) })
+        expect((await pressed).ok).toBe(false)
+        expect(api.act).not.toHaveBeenCalled()
     })
 })

@@ -19,7 +19,7 @@ import { executeRoute } from '../cmps/Floor/queuedAction.contract.js'
 import { pendingActionService } from '../services/pendingAction/pendingAction.service.remote.js'
 import { ScannerPanel, RESEARCH_TOP_N }      from '../cmps/ScannerPanel/ScannerPanel.jsx'
 import { MentorSurface }     from '../cmps/MentorSurface/MentorSurface.jsx'
-import { handoffTurn }       from '../cmps/MentorSurface/mentorSurface.utils.js'
+import { handoffTurn, mentorHolding } from '../cmps/MentorSurface/mentorSurface.utils.js'
 import { SidePane }          from '../cmps/SidePane/SidePane.jsx'
 import { openSurface }       from '../cmps/SidePane/sidePane.store.js'
 import { SessionContext }    from '../context/SessionContext.jsx'
@@ -522,19 +522,22 @@ export function MainPage() {
     // Since phase 8b the setup reopens IN THE SESSION: the server puts Mentor's state back from the document and its
     // sealed conversation (seal.openForEdit), Mentor takes the floor, and its surface comes up in the side pane.
     async function handleEditSetup(setup, { ask = null } = {}) {
-        // The venue is re-bound on Update from the MARKED accounts, so restore the ones this setup
-        // was generated against — otherwise an edit could silently re-bind it to another broker.
-        // Standing in the setup's own workspace first is what makes those accounts LISTABLE; without
-        // it the selector holds ids it cannot show and the re-bind resolves to nothing.
-        alignWorkspaceTo(setup)
         const accountIds = Array.isArray(setup.accounts) ? setup.accounts : []
-        setSelectedAccounts(accountIds)
-        setMainAccountId(setup.mainAccountId ?? null)
-        if (setup.asset) openChart({ ticker: setup.asset, source: 'mentor' })
         await editEntity('setup', setup.id, {
             name: setup.asset ? `${setup.asset} setup` : null, ask,
-            // The ask goes out with the accounts just restored — the state set above is not readable yet.
+            // The ask goes out with the accounts restored below — that state is not readable yet.
             accounts: availableAccounts.filter(a => accountIds.includes(a.id)), mainAccountId: setup.mainAccountId ?? null,
+            // ONLY ONCE IT REOPENED (phase 8b CR): a "no" to the busy question keeps the user's own build, and it must
+            // keep its workspace and accounts with it. The venue is re-bound on Update from the MARKED accounts, so
+            // restore the ones this setup was generated against — otherwise an edit could silently re-bind it to
+            // another broker. Standing in the setup's own workspace first is what makes those accounts LISTABLE;
+            // without it the selector holds ids it cannot show and the re-bind resolves to nothing.
+            onOpened: () => {
+                alignWorkspaceTo(setup)
+                setSelectedAccounts(accountIds)
+                setMainAccountId(setup.mainAccountId ?? null)
+                if (setup.asset) openChart({ ticker: setup.asset, source: 'mentor' })
+            },
         })
     }
     // Leaving an agent plays a short "heading back to axl" beat (mirrors the summon
@@ -617,8 +620,8 @@ export function MainPage() {
     deskAccountsRef.current = { accounts: timelineAccounts, mainAccountId }
     // What a surface needs to mark and read the accounts — Mentor's Generate binds to them.
     const paneDeskProps = useMemo(
-        () => ({ availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId }),
-        [availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId],
+        () => ({ availableAccounts, selectedAccounts, accounts: timelineAccounts, setSelectedAccounts, mainAccountId, setMainAccountId }),
+        [availableAccounts, selectedAccounts, timelineAccounts, setSelectedAccounts, mainAccountId, setMainAccountId],
     )
 
     /** A turn to a desk, with the marked accounts — what a doorway that opens a desk ON a sentence sends. */
@@ -629,6 +632,9 @@ export function MainPage() {
 
     /** Show a desk's surface beside the chat (the chat column is the timeline's while it is open). */
     function openDesk(agent) {
+        // The desk the user was sent to must not open underneath the thing they sent themselves from — the tab change
+        // used to close the docked panel (the activeTab effect below), and the tab is usually axl already (8b CR).
+        closePanel()
         setActiveTab('axl')
         openSurface(agent)
     }
@@ -638,7 +644,7 @@ export function MainPage() {
      * other unsaved work answers busy: the user is asked, and a yes repeats it with `force`. `ask` is the turn the
      * desk opens ON (a card's reason); a pencil passes none.
      */
-    async function editEntity(kind, id, { name = null, ask = null, reviewMode = false, accounts = null, mainAccountId: mainId } = {}) {
+    async function editEntity(kind, id, { name = null, ask = null, reviewMode = false, accounts = null, mainAccountId: mainId, onOpened = null } = {}) {
         const session = mainSessionRef.current
         let out = await session.reopen(kind, id, { name, reviewMode })
         if (!out.ok && out.reason === 'busy') {
@@ -647,6 +653,7 @@ export function MainPage() {
             out = await session.reopen(kind, id, { name, reviewMode, force: true })
         }
         if (!out.ok) { showErrorMsg(out.message); return false }
+        onOpened?.()
         const agent = out.result?.agent
         if (agent) openDesk(agent)
         if (ask && agent) {
@@ -910,11 +917,19 @@ export function MainPage() {
 
             // Someone else's plan goes onto MY Mentor's table as a fresh plan — never as an edit of the setup I may be
             // editing (the server clears Mentor's markers for it). Work Mentor is holding is not thrown away unasked.
+            // ANY work counts (phase 8b CR) — a generated setup waiting on Arm has no draft, and a fresh plan clears it.
             const session = mainSessionRef.current
-            const holding = session.agentState?.mentor?.draft
-            if (holding && !window.confirm(`Mentor is working on ${holding.asset ?? 'a setup'}. Put it aside and open the shared ${setup.asset ?? ''} plan?`)) return
-            const put = await session.edit('mentor', { draft: setup, fresh: true, accounts: deskAccountsRef.current.accounts })
-            if (!put.ok) { showErrorMsg(put.message); return }
+            const held = mentorHolding(session.agentState?.mentor)
+            if (held && !window.confirm(`Mentor is working on ${held}. Put it aside and open the shared ${setup.asset ?? ''} plan?`)) return
+            const fresh = { draft: setup, fresh: true, accounts: deskAccountsRef.current.accounts }
+            let put = await session.edit('mentor', fresh)
+            // A Mentor turn finishing in between moves the revision: once more on the one the refusal named. The user
+            // already said yes to what was on the table; a turn's next words are not worth a second question.
+            if (!put.ok && put.reason === 'stale_state' && Number.isInteger(put.extra?.rev)) put = await session.edit('mentor', fresh, { rev: put.extra.rev })
+            if (!put.ok) {
+                showErrorMsg(put.reason === 'stale_state' ? 'Mentor is mid-reply — open the shared plan again once it finishes.' : put.message)
+                return
+            }
             if (setup.asset) openChart({ ticker: setup.asset, source: 'mentor' })
             openDesk('mentor')
             talkTo('mentor', sharedAsk({ blueprint, note, drawnPrice }))

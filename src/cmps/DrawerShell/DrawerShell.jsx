@@ -17,9 +17,9 @@ const open = []
 
 /**
  * @param {{ isOpen: boolean, onClose: Function, portalTo?: Element|null, label?: string, className?: string,
- *           modal?: boolean, history?: { field: string, key: string }|null, children?: any }} props
+ *           modal?: boolean, autoFocus?: boolean, history?: { field: string, key: string }|null, children?: any }} props
  */
-export function DrawerShell({ isOpen, onClose, portalTo = null, label = 'Panel', className = '', modal = false, history = null, children }) {
+export function DrawerShell({ isOpen, onClose, portalTo = null, label = 'Panel', className = '', modal = false, autoFocus = true, history = null, children }) {
     const ref = useRef(null)
     // The latest close, read at fire time — the listeners below are registered once per opening.
     const closeRef = useRef(onClose)
@@ -46,17 +46,19 @@ export function DrawerShell({ isOpen, onClose, portalTo = null, label = 'Panel',
     // Focus into the shell on open and back to whatever had it on close — the opener, normally — so a keyboard
     // reader is not stranded behind a surface they cannot Tab into. Only when focus would otherwise be lost (it was
     // in the shell, which is gone): a click on another row has already put focus where the user wants it.
+    // `autoFocus` false leaves focus where it is: a docked pane that opens on its own (the floor moved) must not pull
+    // the user out of the chat input mid-sentence (phase 8b CR).
     useEffect(() => {
         if (!isOpen) return
         const before = document.activeElement
         const node = ref.current
-        node?.focus({ preventScroll: true })
+        if (autoFocus) node?.focus({ preventScroll: true })
         return () => {
             const now = document.activeElement
             const lost = !now || now === document.body || node?.contains(now)
             if (lost && before?.isConnected) before.focus?.({ preventScroll: true })
         }
-    }, [isOpen])
+    }, [isOpen]) // eslint-disable-line react-hooks/exhaustive-deps -- autoFocus is read at open
 
     // The phone's back gesture closes it, as it closes the in-app entity page. A history entry on the SAME url,
     // carrying the router's own state so react-router reads the pop as a no-op; any close that was not that pop
@@ -92,6 +94,8 @@ DrawerShell.propTypes = {
     label:     PropTypes.string,
     className: PropTypes.string,
     modal:     PropTypes.bool,
+    // Take focus on open (the default) — false for a surface that opens beside what the user is doing.
+    autoFocus: PropTypes.bool,
     // A handheld's back gesture: the history-state field it marks its entry with, and its value. Null: no entry.
     history:   PropTypes.shape({ field: PropTypes.string.isRequired, key: PropTypes.string }),
     children:  PropTypes.node,

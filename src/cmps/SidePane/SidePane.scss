@@ -39,8 +39,9 @@
         right: 0;
         bottom: 0;
         height: min(88dvh, 100dvh - 48px);
-        // Over the app, under the in-app entity page (700) and every modal.
-        z-index: 650;
+        // Over the app, UNDER the dialogs (300–320: order confirm, queued action…) a card can raise while it is up, the
+        // social chat (600) and the in-app entity page (700). Phase 8b CR: at 650 a confirm opened behind it.
+        z-index: 250;
         border-top-left-radius: 14px;
         border-top-right-radius: 14px;
         box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.25);

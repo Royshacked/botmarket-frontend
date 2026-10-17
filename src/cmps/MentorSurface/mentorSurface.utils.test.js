@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
     liveReadiness, ACCOUNT_GAP, candidatePress, stagePress, spansPress, entriesPress, delegatePress, revivePress,
-    handoffTurn, batchNames,
+    handoffTurn, batchNames, mentorHolding,
 } from './mentorSurface.utils.js'
 
 // The rules Mentor's surface draws by (phase 8b) — moved from MentorPanel with its suite's assertions.
@@ -86,4 +86,13 @@ test('a handed-over name opens as a name to WORK ON, its lens carried as data', 
 test('the names in a build count the one being worked on once', () => {
     assert.deepEqual(batchNames({ asset: 'NVDA' }, { NVDA: {}, AMD: {} }).sort(), ['AMD', 'NVDA'])
     assert.deepEqual(batchNames(null, {}), [])
+})
+
+test('what a fresh plan would put aside: any work on the table counts, not only a draft (8b CR)', () => {
+    assert.equal(mentorHolding(null), null)
+    assert.equal(mentorHolding({ draft: null, drafts: {} }), null)
+    assert.equal(mentorHolding({ draft: null, generated: { id: 's1', asset: 'NVDA' } }), 'NVDA (saved, waiting on Arm)')
+    assert.equal(mentorHolding({ draft: { asset: 'AMD' } }), 'AMD')
+    assert.equal(mentorHolding({ draft: null, editing: { kind: 'setup', entityId: 's1' } }), 'an edit of a saved setup')
+    assert.equal(mentorHolding({ draft: null, drafts: { TSLA: {}, AAPL: {} } }), 'TSLA, AAPL')
 })

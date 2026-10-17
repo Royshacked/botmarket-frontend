@@ -29,7 +29,20 @@ describe('SessionHistory — a dialog', () => {
         const api = { list: vi.fn(async () => []), messages: vi.fn() }
         render(<SessionHistory onClose={onClose} api={api} />)
         expect(document.activeElement.getAttribute('aria-label')).toBe('Close')
-        fireEvent.keyDown(window, { key: 'Escape' })
+        fireEvent.keyDown(document, { key: 'Escape' })
         expect(onClose).toHaveBeenCalled()
+    })
+
+    it('claims its Escape, so a drawer under it (the side pane) stays open — one Esc, one layer (8b CR)', () => {
+        const onClose = vi.fn()
+        const api = { list: vi.fn(async () => []), messages: vi.fn() }
+        let seen = null
+        const under = (e) => { seen = e.defaultPrevented }
+        document.addEventListener('keydown', under)
+        render(<SessionHistory onClose={onClose} api={api} />)
+        fireEvent.keyDown(document, { key: 'Escape' })
+        document.removeEventListener('keydown', under)
+        expect(onClose).toHaveBeenCalledTimes(1)
+        expect(seen).toBe(true)
     })
 })

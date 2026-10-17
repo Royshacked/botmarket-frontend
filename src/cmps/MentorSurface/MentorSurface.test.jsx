@@ -191,7 +191,7 @@ describe('MentorSurface — hand edits and Update', () => {
         vi.useFakeTimers()
         const scenario = { id: 's1', name: 'false break', entry_legs: [{ id: 's1e1', price: 201, quantity: 110 }], stop_legs: [{ id: 's1s1', price: 196.5 }], target_legs: [{ id: 's1t1', price: 210.5, quantity: 110 }], quantity: 110 }
         mount({ draft: { ...SETUP, scenarios: [scenario] }, view: { readiness: READY } })
-        fireEvent.click(screen.getByRole('button', { name: /your setup/ }))
+        fireEvent.click(screen.getByRole('button', { name: /your setup|editing NVDA/ }))
         fireEvent.change(screen.getByLabelText('Entry price s1e1'), { target: { value: '19' } })
         fireEvent.change(screen.getByLabelText('Entry price s1e1'), { target: { value: '198' } })
         expect(session.edit).not.toHaveBeenCalled()
@@ -212,6 +212,63 @@ describe('MentorSurface — hand edits and Update', () => {
         rerender(<MentorSurface session={{ ...session, agentState: { mentor: { draft: { ...SETUP, rr: 3 }, view: { readiness: READY }, editing } } }} deskProps={desk()} />)
         fireEvent.click(screen.getByText('Update setup'))
         await waitFor(() => expect(session.commit).toHaveBeenCalledWith('mentor', 'update', { accounts: ACCOUNTS, mainAccountId: 'a1' }))
+    })
+})
+
+describe('MentorSurface — an edit and a press, in order (8b CR)', () => {
+    const scenario = { id: 's1', name: 'false break', entry_legs: [{ id: 's1e1', price: 201, quantity: 110 }], stop_legs: [{ id: 's1s1', price: 196.5 }], target_legs: [{ id: 's1t1', price: 210.5, quantity: 110 }], quantity: 110 }
+    const mentor = { draft: { ...SETUP, scenarios: [scenario] }, view: { readiness: READY } }
+    const typeEntry = (value) => {
+        fireEvent.click(screen.getByRole('button', { name: /your setup|editing NVDA/ }))
+        fireEvent.change(screen.getByLabelText('Entry price s1e1'), { target: { value } })
+    }
+
+    it('a press inside the settle window sends the edit FIRST, then commits what the session holds', async () => {
+        const order = []
+        mount(mentor, {
+            agentRev: { mentor: 4 },
+            edit:   vi.fn(async () => { order.push('edit'); return { ok: true, result: {}, rev: 5 } }),
+            commit: vi.fn(async () => { order.push('commit'); return { ok: true, result: {} } }),
+        })
+        typeEntry('198')
+        fireEvent.click(screen.getByText('Generate setup'))
+        await waitFor(() => expect(session.commit).toHaveBeenCalled())
+        expect(order).toEqual(['edit', 'commit'])
+        expect(session.edit.mock.calls[0][2]).toEqual({ rev: 4 })
+    })
+
+    it('a refused edit stops the press — the plan on screen is not the one it would commit', async () => {
+        mount(mentor, { edit: vi.fn(async () => ({ ok: false, reason: 'stale_state', message: 'x', extra: { rev: 9 } })) })
+        typeEntry('198')
+        fireEvent.click(screen.getByText('Generate setup'))
+        await screen.findByText(/moved on while you were typing/)
+        expect(session.commit).not.toHaveBeenCalled()
+    })
+
+    it('the edit names the revision the typing started on, even when a frame lands before it goes', async () => {
+        vi.useFakeTimers()
+        const { rerender } = mount(mentor, { agentRev: { mentor: 4 } })
+        typeEntry('198')
+        // A turn's frame: Mentor's state moved on while the edit waited.
+        rerender(<MentorSurface session={{ ...session, agentRev: { mentor: 5 }, agentState: { mentor: { ...mentor, coverage: ['levels'] } } }} deskProps={desk()} />)
+        await act(async () => { vi.advanceTimersByTime(700) })
+        expect(session.edit).toHaveBeenCalledTimes(1)
+        expect(session.edit.mock.calls[0][2]).toEqual({ rev: 4 })
+    })
+
+    it('closing the surface inside the settle window sends the edit rather than dropping it', async () => {
+        const { unmount } = mount(mentor)
+        typeEntry('198')
+        unmount()
+        await waitFor(() => expect(session.edit).toHaveBeenCalledTimes(1))
+        expect(session.edit.mock.calls[0][1].draft.scenarios[0].entry_legs[0].price).toBe(198)
+    })
+
+    it('Update lights only once the server holds the change, not on the keystroke', async () => {
+        const editing = { kind: 'setup', entityId: 's1' }
+        mount({ ...mentor, editing })
+        typeEntry('198')
+        expect(screen.queryByText('Update setup')).toBeNull()
     })
 })
 

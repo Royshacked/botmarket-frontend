@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import { AccountSelector } from '../AccountSelector/AccountSelector.jsx'
 import { LaterButton, LATER_BTN_CLASS } from '../LaterButton.jsx'
@@ -34,13 +34,14 @@ const SUGGESTIONS = [
 // The user who is not here to talk — a sentence like the others, named for what it is.
 const OWN_SETUP_CHIP = 'I have my own setup — take it down as I give it'
 
+/** Each refused plan with its reason — a Generate-all's partial news and an all-refused press say it the same way. */
+const refusals = (failed) => failed.map(f => `${f.asset ?? `#${f.index + 1}`} — ${f.reason}`).join('; ')
+
 /** A Generate-all's news: what was saved, and each plan refused with its reason (partial success is the contract). */
 function batchReport(result) {
     const saved = result?.setups?.length ?? 0
     const failed = result?.failed ?? []
-    return failed.length
-        ? `${saved} saved. ${failed.length} not: ${failed.map(f => `${f.asset ?? `#${f.index + 1}`} — ${f.reason}`).join('; ')}`
-        : `${saved} saved.`
+    return failed.length ? `${saved} saved. ${failed.length} not: ${refusals(failed)}` : `${saved} saved.`
 }
 
 // A hand edit is sent after the typing stops, one at a time: a PATCH per keystroke would race its own revisions.
@@ -48,30 +49,66 @@ const EDIT_SETTLE_MS = 600
 
 /**
  * The worksheet's hand edits: a local copy while the user types, sent once they pause, one PATCH in flight. A server
- * draft that moves while nothing is pending (a turn landed) replaces the local copy.
+ * draft that moves while nothing is pending (a turn landed) replaces the local copy; one that moved while an edit was
+ * out is put back once it settles (the server's re-judged copy wins).
+ *
+ * Each edit names the revision it was MADE against (`base`): the server's when the typing started, then the one each
+ * accepted edit left. Never the revision current at send time — that would overwrite a turn the user never saw
+ * (phase 8b CR). `push(draft, rev)` answers the outcome; a refusal ends the run and the caller resets.
+ *
+ * `settle()` sends what is waiting and resolves once nothing is out — true when every edit went through. A press
+ * awaits it first, so it never commits the plan as it stood before the last keystrokes.
  */
-function useDraftEditor(serverDraft, push) {
+function useDraftEditor(serverDraft, serverRev, push) {
     const [local, setLocal] = useState(serverDraft)
     const pending = useRef(null)
-    const inFlight = useRef(false)
+    const inFlight = useRef(null)      // the promise of the edit out now
     const timer = useRef(null)
+    const base = useRef(null)          // the revision the waiting edit was made against
+    const behind = useRef(false)       // the server's draft moved while an edit was waiting or out
+    const fails = useRef(0)            // refused edits so far — settle() compares across its wait
+    // Read at send time: an account marked inside the settle window rides the edit (the closure would hold the old).
+    const pushRef = useRef(push)
+    pushRef.current = push
+    const server = useRef({ draft: serverDraft, rev: serverRev })
+    server.current = { draft: serverDraft, rev: serverRev }
 
     useEffect(() => {
         if (!pending.current && !inFlight.current) setLocal(serverDraft)
+        else behind.current = true
     }, [serverDraft])
-    useEffect(() => () => clearTimeout(timer.current), [])
 
-    const flush = useCallback(async () => {
-        if (inFlight.current || !pending.current) return
+    const flush = useCallback(() => {
+        clearTimeout(timer.current)
+        timer.current = null
+        if (inFlight.current) return inFlight.current.then(() => flush())
+        if (!pending.current) {
+            base.current = null
+            if (behind.current) { behind.current = false; setLocal(server.current.draft) }
+            return Promise.resolve()
+        }
         const next = pending.current
         pending.current = null
-        inFlight.current = true
-        await push(next)
-        inFlight.current = false
-        if (pending.current) flush()
-    }, [push])
+        inFlight.current = (async () => {
+            try {
+                const out = await pushRef.current(next, base.current)
+                if (out?.ok) base.current = Number.isInteger(out.rev) ? out.rev : null
+                else { fails.current += 1; pending.current = null }
+            } catch {
+                fails.current += 1
+                pending.current = null
+            } finally {
+                inFlight.current = null
+            }
+        })()
+        return inFlight.current.then(() => flush())
+    }, [])
+
+    // Closing the pane, a tab switch or Esc inside the settle window sends the edit rather than dropping it.
+    useEffect(() => () => { if (pending.current) flush() }, [flush])
 
     const change = useCallback((next) => {
+        if (!pending.current && !inFlight.current && base.current === null) base.current = server.current.rev
         setLocal(next)
         pending.current = next
         clearTimeout(timer.current)
@@ -79,15 +116,31 @@ function useDraftEditor(serverDraft, push) {
     }, [flush])
 
     /** Drop what was typed and stand on the server's draft again (a refused edit). */
-    const reset = useCallback(() => { pending.current = null; clearTimeout(timer.current); setLocal(serverDraft) }, [serverDraft])
+    const reset = useCallback(() => {
+        pending.current = null
+        clearTimeout(timer.current)
+        base.current = null
+        behind.current = false
+        setLocal(server.current.draft)
+    }, [])
 
-    return { draft: local, change, reset }
+    const settle = useCallback(() => {
+        const before = fails.current
+        return flush().then(() => fails.current === before)
+    }, [flush])
+
+    return { draft: local, change, reset, settle }
 }
 
 export function MentorSurface({ session, deskProps = {} }) {
     const { availableAccounts = [], selectedAccounts = [], setSelectedAccounts, mainAccountId = null, setMainAccountId } = deskProps
-    const accounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
+    // The marked accounts, memoised by the page (a fresh array per render would rebuild every callback below).
+    const accounts = useMemo(
+        () => deskProps.accounts ?? availableAccounts.filter(a => selectedAccounts.includes(a.id)),
+        [deskProps.accounts, availableAccounts, selectedAccounts],
+    )
     const state = session?.agentState?.mentor ?? null
+    const rev   = session?.agentRev?.mentor ?? 0
 
     const serverDraft = state?.draft ?? null
     const coverage    = state?.coverage ?? []
@@ -110,16 +163,17 @@ export function MentorSurface({ session, deskProps = {} }) {
 
     // A refused edit puts the server's draft back — read through a ref, the editor is made with this callback.
     const resetEdit = useRef(null)
-    const pushEdit = useCallback(async (draft) => {
-        const out = await session.edit('mentor', { draft, accounts })
+    const pushEdit = useCallback(async (draft, madeAt) => {
+        const out = await session.edit('mentor', { draft, accounts }, { rev: madeAt })
         if (!out.ok) {
             setNote(out.reason === 'stale_state'
                 ? { kind: 'error', stale: true, text: 'Mentor moved on while you were typing — your edit was not saved.' }
                 : { kind: 'error', text: out.message })
             resetEdit.current?.()
         }
+        return out
     }, [session, accounts])
-    const editor = useDraftEditor(serverDraft, pushEdit)
+    const editor = useDraftEditor(serverDraft, rev, pushEdit)
     resetEdit.current = editor.reset
     const draft = editor.draft
 
@@ -130,11 +184,12 @@ export function MentorSurface({ session, deskProps = {} }) {
 
     // UPDATE ONLY ONCE THE PLAN MOVED. An update re-runs the venue gate and sends a watched setup back to `waiting`,
     // so pressing it on an unchanged plan would stop Talos watching for nothing. The baseline is the plan as it
-    // reopened, held per setup.
+    // reopened, held per setup. Read off the SERVER's draft, not the local copy: Update lights once the edit has
+    // landed, never while the keystrokes are still on their way (phase 8b CR).
     const baseline = useRef({ id: null, json: null })
     if (editingId && baseline.current.id !== editingId && serverDraft) baseline.current = { id: editingId, json: JSON.stringify(serverDraft) }
     if (!editingId && baseline.current.id) baseline.current = { id: null, json: null }
-    const dirty = !!editingId && JSON.stringify(draft) !== baseline.current.json
+    const dirty = !!editingId && JSON.stringify(serverDraft) !== baseline.current.json
 
     const talk = useCallback((text, ops = []) => {
         setNote(null)
@@ -146,14 +201,15 @@ export function MentorSurface({ session, deskProps = {} }) {
         if (pressing) return
         setPressing(true)
         setNote(null)
+        // The hand edit still settling goes first — the server commits what IS in the session. A refused edit has
+        // said so (its note) and the press stops: the plan on screen is not the one it would commit.
+        if (!(await editor.settle())) { setPressing(false); return }
         const out = await session.commit('mentor', action, { accounts, mainAccountId })
         setPressing(false)
         if (out.ok) { if (done) setNote({ kind: 'done', text: done(out.result) }); return }
         if (out.reason === 'stale_state') { setNote({ kind: 'error', stale: true, text: 'Mentor moved on while you were looking — check the plan and press again.' }); return }
         const failed = out.extra?.failed
-        setNote({ kind: 'error', text: failed?.length
-            ? `Nothing was saved: ${failed.map(f => `${f.asset ?? `#${f.index + 1}`} — ${f.reason}`).join('; ')}`
-            : out.message })
+        setNote({ kind: 'error', text: failed?.length ? `Nothing was saved: ${refusals(failed)}` : out.message })
     }
 
     const live = liveReadiness(readiness, accounts.length)
@@ -339,6 +395,7 @@ MentorSurface.propTypes = {
     session:   PropTypes.shape({
         agentState: PropTypes.object,
         live:       PropTypes.object,
+        agentRev:   PropTypes.object,
         send:       PropTypes.func.isRequired,
         commit:     PropTypes.func.isRequired,
         edit:       PropTypes.func.isRequired,
@@ -346,6 +403,7 @@ MentorSurface.propTypes = {
     deskProps: PropTypes.shape({
         availableAccounts:   PropTypes.array,
         selectedAccounts:    PropTypes.array,
+        accounts:            PropTypes.array,
         setSelectedAccounts: PropTypes.func,
         mainAccountId:       PropTypes.string,
         setMainAccountId:    PropTypes.func,
