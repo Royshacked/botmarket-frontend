@@ -115,3 +115,42 @@ test('tap options: only under the last reply, gone once the user has answered', 
     assert.deepEqual(lastTapOptions([...withTaps, row(3, { kind: 'card' })]), ['A', 'B'], 'a card arriving does not hide them')
     assert.deepEqual(lastTapOptions([]), [])
 })
+
+// ─── Phase 7 CR ───────────────────────────────────────────────────────────────
+
+test('speaking while a turn runs queues behind it; it becomes live when the server starts it', () => {
+    let s = sessionReducer(loaded, { type: 'session_turn', data: { sessionId: S, turnId: 'chn_1', agent: 'mentor', status: 'started' } })
+    s = sessionReducer(s, { type: 'sending', turnId: 't2', agent: 'mentor', text: 'wait, use AMD' })
+    assert.equal(s.live.turnId, 'chn_1', 'the running turn keeps the screen')
+    assert.deepEqual(s.queuedTurn, { turnId: 't2', agent: 'mentor', text: 'wait, use AMD' })
+    s = sessionReducer(s, { type: 'session_turn', data: { sessionId: S, turnId: 'chn_1', agent: 'mentor', status: 'done' } })
+    assert.equal(s.live, null)
+    assert.equal(s.queuedTurn.turnId, 't2', 'still waiting until the server starts it')
+    s = sessionReducer(s, { type: 'session_turn', data: { sessionId: S, turnId: 't2', agent: 'mentor', status: 'started' } })
+    assert.equal(s.live.turnId, 't2')
+    assert.equal(s.queuedTurn, null)
+})
+
+test('a queued turn that fails to post, or is stopped before it runs, leaves the queue', () => {
+    const running = sessionReducer(loaded, { type: 'session_turn', data: { sessionId: S, turnId: 'a', agent: 'axl', status: 'started' } })
+    const queued = sessionReducer(running, { type: 'sending', turnId: 'b', agent: 'axl', text: 'x' })
+    const failed = sessionReducer(queued, { type: 'sendFailed', turnId: 'b', message: 'offline' })
+    assert.equal(failed.queuedTurn, null)
+    assert.equal(failed.live.turnId, 'a')
+    assert.equal(failed.lastTurn.message, 'offline')
+    const stopped = sessionReducer(queued, { type: 'session_turn', data: { sessionId: S, turnId: 'b', agent: 'axl', status: 'stopped', queued: true } })
+    assert.equal(stopped.queuedTurn, null)
+})
+
+test('replay: the server’s running turn wins over a stale one; a turn we just sent survives an empty replay', () => {
+    const stale = sessionReducer(loaded, { type: 'session_turn', data: { sessionId: S, turnId: 'old', agent: 'axl', status: 'started' } })
+    const s = sessionReducer(stale, { type: 'session_replay', data: { sessionId: S, messages: [], running: { turnId: 'new', agent: 'mentor' } } })
+    assert.deepEqual([s.live.turnId, s.live.agent], ['new', 'mentor'])
+    const justSent = sessionReducer(loaded, { type: 'sending', turnId: 't1', agent: 'axl' })
+    assert.equal(sessionReducer(justSent, { type: 'session_replay', data: { sessionId: S, messages: [], running: null } }).live.turnId, 't1')
+})
+
+test('tap options vanish once a decision, hand-off or reopened context follows the reply', () => {
+    const reply = row(2, { ref: { suggestions: ['A'] } })
+    for (const kind of ['decision', 'handoff', 'sealed']) assert.deepEqual(lastTapOptions([reply, row(3, { kind })]), [], kind)
+})

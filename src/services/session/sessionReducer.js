@@ -17,6 +17,7 @@ export const emptySession = Object.freeze({
     sessionId: null, scope: 'main', status: null, next: null,
     rows: [], lastSeq: 0,
     live: null,          // { turnId, agent, text, reasoning, tool, phase, status: 'queued' | 'running' }
+    queuedTurn: null,    // { turnId, agent, text } — the user spoke while another turn ran; it waits its turn
     lastTurn: null,      // { turnId, agent, status, payload, reason, message } — the last turn that ENDED
     floor: 'axl', agentState: {}, chain: null,
     loadError: null,     // the session could not be opened (network, server down)
@@ -40,6 +41,9 @@ function liveFor(state, turnId, agent) {
         : { turnId, agent, text: '', reasoning: '', tool: null, phase: null, status: 'running' }
 }
 
+/** Set the live turn; the user's queued turn leaves the queue when it is the one now running. */
+const withLive = (state, live) => ({ ...state, live, queuedTurn: state.queuedTurn?.turnId === live?.turnId ? null : state.queuedTurn })
+
 /**
  * @param {typeof emptySession} state
  * @param {{ type: string, [k: string]: any }} action
@@ -59,15 +63,26 @@ export function sessionReducer(state, action) {
         case 'loadFailed':
             return { ...state, loadError: action.message ?? 'Could not open the chat' }
 
-        // The user pressed send: the turn is ours before the server says a word, so Stop works at once.
+        // The user pressed send. Nothing running → the turn is ours before the server says a word, so Stop
+        // works at once. Another turn running (a chain step, a slow reply) → it QUEUES behind that one — the
+        // server runs turns one at a time and pauses a chain for it (G4) — and shows as waiting.
         case 'sending':
+            if (state.live && state.live.turnId !== action.turnId) {
+                return { ...state, queuedTurn: { turnId: action.turnId, agent: action.agent, text: action.text ?? '' } }
+            }
             return { ...state, live: { ...liveFor(state, action.turnId, action.agent), status: 'queued' } }
 
-        // The POST itself failed (network, 4xx) — nothing is running.
-        case 'sendFailed':
-            return state.live?.turnId === action.turnId
-                ? { ...state, live: null, lastTurn: { turnId: action.turnId, agent: state.live.agent, status: 'error', message: action.message ?? null } }
-                : state
+        // The POST itself failed (network, 4xx) — nothing is running or waiting for it.
+        case 'sendFailed': {
+            const ours = state.live?.turnId === action.turnId ? state.live : state.queuedTurn?.turnId === action.turnId ? state.queuedTurn : null
+            if (!ours) return state
+            return {
+                ...state,
+                live:       state.live?.turnId === action.turnId ? null : state.live,
+                queuedTurn: state.queuedTurn?.turnId === action.turnId ? null : state.queuedTurn,
+                lastTurn:   { turnId: action.turnId, agent: ours.agent, status: 'error', message: action.message ?? null },
+            }
+        }
     }
 
     const d = action.data
@@ -80,12 +95,12 @@ export function sessionReducer(state, action) {
         case 'session_replay': {
             if (d.error) return state
             const rows = mergeRows(state.rows, d.messages)
-            const running = d.running && !state.live
-                ? { turnId: d.running.turnId, agent: d.running.agent, text: '', reasoning: '', tool: null, phase: null, status: 'running' }
-                : state.live
-            // Nothing running on the server any more → a live turn we were showing ended while we were away.
-            const live = d.running ? running : null
-            return { ...state, rows, lastSeq: maxSeq(rows, state.lastSeq), floor: d.floor ?? state.floor, status: d.status ?? state.status, live }
+            // The server's running turn wins over whatever we were showing; nothing running → a turn we showed
+            // ended while we were away — unless it is the one we just sent, which the server may not have yet.
+            const live = d.running
+                ? (state.live?.turnId === d.running.turnId ? state.live : { turnId: d.running.turnId, agent: d.running.agent, text: '', reasoning: '', tool: null, phase: null, status: 'running' })
+                : (state.live?.status === 'queued' ? state.live : null)
+            return { ...withLive(state, live), rows, lastSeq: maxSeq(rows, state.lastSeq), floor: d.floor ?? state.floor, status: d.status ?? state.status }
         }
 
         case 'session_message': {
@@ -117,19 +132,24 @@ export function sessionReducer(state, action) {
             const live = liveFor(state, d.turnId, d.agent)
             const data = d.data ?? {}
             switch (d.type) {
-                case 'token':     return { ...state, live: { ...live, status: 'running', tool: null, text: live.text + (data.text ?? '') } }
-                case 'reasoning': return { ...state, live: { ...live, status: 'running', reasoning: live.reasoning + (data.text ?? '') } }
-                case 'status':    return { ...state, live: { ...live, status: 'running', tool: data.tool ?? null } }
-                case 'phase':     return { ...state, live: { ...live, status: 'running', phase: data.phase ?? null } }
-                default:          return state.live?.turnId === d.turnId ? state : { ...state, live }
+                case 'token':     return withLive(state, { ...live, status: 'running', tool: null, text: live.text + (data.text ?? '') })
+                case 'reasoning': return withLive(state, { ...live, status: 'running', reasoning: live.reasoning + (data.text ?? '') })
+                case 'status':    return withLive(state, { ...live, status: 'running', tool: data.tool ?? null })
+                case 'phase':     return withLive(state, { ...live, status: 'running', phase: data.phase ?? null })
+                default:          return state.live?.turnId === d.turnId ? state : withLive(state, live)
             }
         }
 
         case 'session_turn': {
-            if (d.status === 'started') return { ...state, live: { ...liveFor(state, d.turnId, d.agent), status: 'running' } }
+            if (d.status === 'started') return withLive(state, { ...liveFor(state, d.turnId, d.agent), status: 'running' })
             if (!ENDED.has(d.status)) return state
             const lastTurn = { turnId: d.turnId, agent: d.agent, status: d.status, payload: d.payload ?? null, reason: d.reason ?? null, message: d.message ?? null }
-            return { ...state, live: state.live?.turnId === d.turnId ? null : state.live, lastTurn }
+            return {
+                ...state, lastTurn,
+                live:       state.live?.turnId === d.turnId ? null : state.live,
+                // A queued turn stopped before it ran (Stop on a waiting message) leaves the queue too.
+                queuedTurn: state.queuedTurn?.turnId === d.turnId ? null : state.queuedTurn,
+            }
         }
 
         case 'message_resolved': {
@@ -164,12 +184,18 @@ export function bubbleOf(row) {
     return { role: row.role, content: row.content ?? '' }
 }
 
-/** The tap options under the LAST reply, if that reply is the last agent row and offered some. */
+/**
+ * The tap options under the LAST reply — only while that reply is still the last word. A user turn, a decision,
+ * a hand-off or a reopened context after it means the conversation moved on; a background card arriving
+ * does not (it is an alert beside the conversation, not a turn in it).
+ */
 export function lastTapOptions(rows) {
     for (let i = rows.length - 1; i >= 0; i--) {
         const r = rows[i]
-        if (r.role === 'user') return []
-        if (r.role === 'assistant' && (r.kind ?? 'msg') === 'msg') return r.ref?.suggestions ?? []
+        const kind = r.kind ?? 'msg'
+        if (kind === 'card') continue
+        if (r.role === 'assistant' && kind === 'msg') return r.ref?.suggestions ?? []
+        return []
     }
     return []
 }

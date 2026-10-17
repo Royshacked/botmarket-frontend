@@ -249,6 +249,27 @@
     &--gone { color: var(--text-subtle); font-size: var(--chat-text); font-style: italic; }
 }
 
+.chat-timeline__row--queued { opacity: 0.7; }
+
+// "Ask Axl instead" — above the input while a desk holds the floor.
+.chat-timeline__address {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 24px 4px;
+
+    &-btn {
+        padding: 3px 10px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: none;
+        color: var(--text-secondary);
+        font-size: 12px;
+        cursor: pointer;
+
+        &:hover, &.is-on { border-color: var(--accent); color: var(--accent-bright); }
+    }
+}
+
 .chat-timeline__note {
     margin: 0;
     font-size: 12.5px;

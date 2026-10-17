@@ -68,7 +68,7 @@ export function useSession(scope = 'main', { ws = chatWsService, api = sessionSe
         const s = ref.current
         if (!s.sessionId || !String(text ?? '').trim()) return false
         const turnId = newTurnId()
-        dispatch({ type: 'sending', turnId, agent: agent ?? s.floor ?? 'axl' })
+        dispatch({ type: 'sending', turnId, agent: agent ?? s.floor ?? 'axl', text: String(text).trim() })
         try {
             await api.turn(s.sessionId, { text, agent, turnId, ...extras })
             return true

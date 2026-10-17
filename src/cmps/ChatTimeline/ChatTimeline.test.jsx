@@ -159,3 +159,30 @@ describe('speaker runs around self-named rows', () => {
         expect(tags).toEqual(['Axl', 'Axl'])
     })
 })
+
+describe('phase 7 CR', () => {
+    it('the user can speak while a turn runs — the message waits, and says so', async () => {
+        session = base({ rows: [row(1, { role: 'user', content: 'go' })], live: { turnId: 'chn_1', agent: 'mentor', text: 'Working', status: 'running' }, chain: { status: 'running' }, floor: 'mentor' })
+        const { rerender } = render(<ChatTimeline />)
+        const box = screen.getByPlaceholderText('Message Mentor…')
+        fireEvent.change(box, { target: { value: 'use AMD instead' } })
+        expect(screen.queryByLabelText('Stop response')).toBeNull()
+        await act(async () => { fireEvent.click(screen.getByTitle('Send')) })
+        expect(send).toHaveBeenCalledWith('use AMD instead', { accounts: [], mainAccountId: null })
+        session = { ...session, queuedTurn: { turnId: 't2', agent: 'mentor', text: 'use AMD instead' } }
+        rerender(<ChatTimeline />)
+        expect(screen.getByText('use AMD instead')).toBeTruthy()
+        expect(screen.getByText(/Sends when Mentor finishes — the chain will pause for it/)).toBeTruthy()
+    })
+
+    it('while a desk holds the floor, "Ask Axl instead" sends the next message to Axl', async () => {
+        session = base({ rows: [row(1, { agent: 'portfolio', content: 'Objective?' })], floor: 'portfolio' })
+        render(<ChatTimeline />)
+        fireEvent.click(screen.getByText('Ask Axl instead'))
+        const box = screen.getByPlaceholderText('Ask Axl anything, or say what you’d like to do…')
+        fireEvent.change(box, { target: { value: 'what is a stop?' } })
+        await act(async () => { fireEvent.click(screen.getByTitle('Send')) })
+        expect(send).toHaveBeenCalledWith('what is a stop?', { accounts: [], mainAccountId: null, agent: 'axl' })
+        expect(screen.getByPlaceholderText('Message Atlas…')).toBeTruthy()
+    })
+})

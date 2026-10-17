@@ -35,9 +35,12 @@ const BRIEF_ASK = "Today's market brief, please."
 export function ChatTimeline({ scope = 'main', accounts = [], mainAccountId = null, briefRequest = 0, onBriefStart, onOpenTicket }) {
     const { user } = useAuth()
     const session = useSession(scope)
-    const { rows, live, lastTurn, chain, floor, send, stop, choose, startNew, resolveCard, loadError } = session
+    const { rows, live, queuedTurn, lastTurn, chain, floor, send, stop, choose, startNew, resolveCard, loadError } = session
     const [draft, setDraft]             = useState('')
     const [historyOpen, setHistoryOpen] = useState(false)
+    // "Ask Axl" — the next message goes to Axl even though a desk holds the floor (the server's own rule is
+    // that an unaddressed message goes to the floor-holder).
+    const [toAxl, setToAxl]             = useState(false)
     const inputRef = useRef(null)
 
     const busy  = !!live
@@ -50,12 +53,16 @@ export function ChatTimeline({ scope = 'main', accounts = [], mainAccountId = nu
     // The per-turn extras every desk reads: the marked accounts. The clock is added by the client service.
     const extras = useMemo(() => ({ accounts, mainAccountId }), [accounts, mainAccountId])
 
+    // Allowed while another turn runs — it waits behind it, and a running chain pauses for it (G4). One
+    // waiting message at a time.
     const sendText = useCallback(async (text, more = {}) => {
         const t = String(text ?? '').trim()
-        if (!t || busy) return
+        if (!t || queuedTurn) return
         setDraft('')
-        await send(t, { ...extras, ...more })
-    }, [send, extras, busy])
+        const to = toAxl && !more.agent ? { agent: 'axl' } : {}
+        setToAxl(false)
+        await send(t, { ...extras, ...to, ...more })
+    }, [send, extras, queuedTurn, toAxl])
 
     // The brief card / bus asked for today's brief — Axl's turn (J4).
     useEffect(() => {
@@ -83,7 +90,8 @@ export function ChatTimeline({ scope = 'main', accounts = [], mainAccountId = nu
         ? (live.tool ? toolStatusLabel(live.tool) : live.status === 'queued' ? 'sending…' : 'thinking…')
         : ''
     const floorName = agentMeta(floor ?? 'axl').brand
-    const placeholder = (floor ?? 'axl') === 'axl' ? 'Ask Axl anything, or say what you’d like to do…' : `Message ${floorName}…`
+    const atDesk = (floor ?? 'axl') !== 'axl'
+    const placeholder = !atDesk || toAxl ? 'Ask Axl anything, or say what you’d like to do…' : `Message ${floorName}…`
 
     function handleKeyDown(e) {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendText(draft) }
@@ -134,6 +142,13 @@ export function ChatTimeline({ scope = 'main', accounts = [], mainAccountId = nu
                             </div>
                         )}
 
+                        {queuedTurn && (
+                            <div className="chat-timeline__row chat-timeline__row--user chat-timeline__row--queued">
+                                <ChatBubble msg={{ role: 'user', content: queuedTurn.text }} />
+                                <span className="chat-timeline__note">Sends when {agentMeta(live?.agent ?? floor).brand} finishes{chain?.status === 'running' ? ' — the chain will pause for it' : ''}.</span>
+                            </div>
+                        )}
+
                         {failed && (
                             <p className="chat-timeline__note chat-timeline__note--error">
                                 {lastTurn.message || 'That did not go through — try again.'}
@@ -148,6 +163,14 @@ export function ChatTimeline({ scope = 'main', accounts = [], mainAccountId = nu
 
             {taps.length > 0 && <SuggestionChips suggestions={taps} onPick={(t) => sendText(t)} disabled={busy} />}
 
+            {atDesk && !empty && (
+                <div className="chat-timeline__address">
+                    <button type="button" className={`chat-timeline__address-btn${toAxl ? ' is-on' : ''}`} onClick={() => setToAxl(v => !v)} aria-pressed={toAxl}>
+                        {toAxl ? `Back to ${floorName}` : 'Ask Axl instead'}
+                    </button>
+                </div>
+            )}
+
             <ChatInputRow
                 prefix="axl"
                 empty={empty}
@@ -157,8 +180,9 @@ export function ChatTimeline({ scope = 'main', accounts = [], mainAccountId = nu
                 textareaRef={inputRef}
                 placeholder={placeholder}
                 onSend={() => sendText(draft)}
-                sendDisabled={!draft.trim() || busy || !session.sessionId}
-                isStreaming={busy}
+                sendDisabled={!draft.trim() || !!queuedTurn || !session.sessionId}
+                // Stop while a turn runs and the box is empty; typed text turns the button back into Send.
+                isStreaming={busy && !draft.trim()}
                 onStop={stop}
                 onToggleMic={toggleMic}
                 onCancelMic={cancelMic}
