@@ -122,7 +122,7 @@ export function PortfolioSurface({ session, deskProps = {} }) {
             const id = out.result?.portfolio?.portfolioId ?? portfolioId
             // A review resolved (accepted, dismissed, or an edit opened from it saved) clears the list's red pencil.
             if (wasReview && action !== 'later') eventBus.emit(REVIEW_RESOLVED, { portfolioId: id })
-            onSaved?.({ action, result: out.result, portfolioId: id })
+            onSaved?.({ agent: 'portfolio', action, result: out.result, portfolioId: id })
         })
     }
 

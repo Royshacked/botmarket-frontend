@@ -1,0 +1,38 @@
+// Argus's surface in the side pane (ScannerSurface.jsx). The list, the lens and the angle chips keep their
+// scanner-panel__* styles (ScannerPanel.scss, and the shared portfolio-panel__* bubbles — renamed in phase 10); this
+// lays them out in the pane.
+
+.scanner-surface {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    min-height: 0;
+
+    &--empty { justify-content: flex-start; }
+
+    // In the pane the surface GROWS and the pane scrolls — the shared portfolio-panel shell clips (phase 8c CR).
+    &.portfolio-panel { height: auto; overflow: visible; flex: 0 0 auto; }
+
+    &__lead {
+        margin: 4px 0 0;
+        font-size: 14px;
+        color: var(--text-secondary);
+    }
+
+    &__note {
+        margin: 0;
+        padding: 8px 10px;
+        border-radius: 6px;
+        font-size: 13px;
+        border: 1px solid var(--border);
+
+        &--error { color: var(--danger, #c0392b); border-color: currentColor; }
+        &--done  { color: var(--text-secondary); background: var(--bg-wash); }
+    }
+
+    // The panel pinned these above its input; in the pane they flow with the rest.
+    .scanner-panel__angles-bar,
+    .scanner-panel__profiles { position: static; }
+}

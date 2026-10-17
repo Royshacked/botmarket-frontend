@@ -1,0 +1,37 @@
+// Prometheus's surface in the side pane (AnalystSurface.jsx). The draft keeps its analyst-panel__* styles
+// (AnalystPanel.scss — renamed in phase 10); this lays it out in the pane.
+
+.analyst-surface {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    min-height: 0;
+
+    &--empty { justify-content: flex-start; }
+
+    // In the pane the surface GROWS and the pane scrolls — the shared portfolio-panel shell clips (phase 8c CR).
+    &.portfolio-panel { height: auto; overflow: visible; flex: 0 0 auto; }
+
+    // The panel capped the draft at half its height so its pinned input stayed in view; in the pane the pane scrolls,
+    // and the cap cut the kill-criteria off under their label (driven, 2026-10-17).
+    .analyst-panel__draft-wrap { max-height: none; overflow: visible; padding: 0; }
+
+    &__lead {
+        margin: 4px 0 0;
+        font-size: 14px;
+        color: var(--text-secondary);
+    }
+
+    &__note {
+        margin: 0;
+        padding: 8px 10px;
+        border-radius: 6px;
+        font-size: 13px;
+        border: 1px solid var(--border);
+
+        &[data-kind='error'] { color: var(--danger, #c0392b); border-color: currentColor; }
+        &[data-kind='done']  { color: var(--text-secondary); background: var(--bg-wash); }
+    }
+}
