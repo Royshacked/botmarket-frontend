@@ -103,6 +103,16 @@ describe('ScannerSurface — a radar cut', () => {
         expect(session.edit).not.toHaveBeenCalled()
     })
 
+    it('the same names re-emitted (the verdict cleared) are read again', async () => {
+        batchRead.mockResolvedValue({ rows: [] })
+        const cut = { dropped: [], survived: true }
+        const { rerender } = mount({ radar: true, pendingScan: LIST })
+        await waitFor(() => expect(batchRead).toHaveBeenCalledTimes(1))
+        rerender(<ScannerSurface session={{ ...session, agentState: { scanner: { radar: true, pendingScan: LIST, readCut: cut } } }} deskProps={desk} />)
+        rerender(<ScannerSurface session={{ ...session, agentState: { scanner: { radar: true, pendingScan: { ...LIST } } } }} deskProps={desk} />)
+        await waitFor(() => expect(batchRead).toHaveBeenCalledTimes(2))
+    })
+
     it('a failed read says so and offers Try again; a list that moved on is quiet', async () => {
         batchRead.mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce({ rows: [] })
         mount({ radar: true, pendingScan: LIST }, { edit: vi.fn(async () => ({ ok: false, reason: 'stale_read', message: 'x' })) })

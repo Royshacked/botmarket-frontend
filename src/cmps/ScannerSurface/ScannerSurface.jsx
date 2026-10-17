@@ -123,9 +123,16 @@ export function ScannerSurface({ session, deskProps = {} }) {
             if (live.current === forKey) setRead({ key: forKey, busy: false, error: apiError(err, 'the read failed') })
         }
     }
+    // A verdict cleared on the SAME names is a list Argus re-emitted: read it again (phase 8d bug hunt #2) — what a name
+    // is judged against is the set of events naming it, which the window can have moved. Re-reading costs nothing where
+    // nothing changed (the stored read comes back without a model call).
+    const handedBack = useRef(null)
+    if (state?.readCut && key) handedBack.current = key
     useEffect(() => {
         if (!radar || !key || state?.readCut || turning) return
-        if (read.key === key) return   // this list has its read (running, failed, or handed back)
+        // This list has its read — running, failed, or still to be handed back — unless its verdict came and went.
+        if (read.key === key && handedBack.current !== key) return
+        handedBack.current = null
         runRead(key)
     }, [radar, key, state?.readCut, turning]) // eslint-disable-line react-hooks/exhaustive-deps
 

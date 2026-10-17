@@ -1756,8 +1756,14 @@ export function MainPage() {
                 + `${board.runs ? ` across ${board.runs} events` : ''}`
                 + `${board.skipped?.length ? `, with ${board.skipped.length} held back from my last list` : ''}.`
                 + ' Which have a catalyst and a setup in the coming week?'
-            // A cut is read on the trading lens.
-            await mainSessionRef.current.edit('scanner', { profile: 'trading' })
+            // A CUT STARTS ON A CLEAN TABLE, on the trading lens — it is its own conversation (the panel remounted Argus
+            // for it). Landing on a list being edited would make Update overwrite that saved list with the radar's names;
+            // a list in progress is not thrown away unasked (phase 8d bug hunt #1).
+            const argus = mainSessionRef.current.agentState?.scanner
+            const held = argus?.editingScanId ? 'editing a saved list' : argus?.pendingScan?.candidates?.length ? `building "${argus.pendingScan.thesis ?? 'a list'}"` : null
+            if (held && !window.confirm(`Argus is ${held}. Put it aside and cut the radar board?`)) return
+            const clean = await mainSessionRef.current.edit('scanner', { fresh: true, profile: 'trading' })
+            if (!clean.ok) { showErrorMsg(clean.message); return }
             talkTo('scanner', message, { radarBoard: board })
             openDesk('scanner')
         } catch (err) {
