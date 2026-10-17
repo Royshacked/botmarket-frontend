@@ -59,7 +59,9 @@ export function useSidePane() {
     return useSyncExternalStore(subscribe, read, read)
 }
 
-/** Tests only: back to empty. */
-export function _resetSidePane() {
+/** Back to empty — a new user (MainPage, on sign-in) must not inherit the last one's tabs (8e CR). */
+export function resetSidePane() {
     set({ ...EMPTY })
 }
+/** Tests: the same. */
+export const _resetSidePane = resetSidePane

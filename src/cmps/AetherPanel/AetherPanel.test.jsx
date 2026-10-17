@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
+import { _resetSeedTurns } from '../../customHooks/useSeedTurn.js'
 import { render, cleanup, waitFor } from '@testing-library/react'
 
 // The chat shell and the transport are stubbed; under test is the one thing this panel does that
@@ -27,6 +28,7 @@ afterEach(cleanup)
 
 describe('AetherPanel — a routed opening', () => {
     beforeEach(() => {
+        _resetSeedTurns()
         sendStream.mockClear()
         chatStub = {
             messages: [], isLoading: false, streamStatus: '', reasoningPulse: null,

@@ -99,4 +99,19 @@ describe('SidePane', () => {
         act(() => openSurface('ticket'))
         expect(screen.getByLabelText('kept input').value).toBe('', 'closing its own tab ended it')
     })
+
+    it('8e CR: on a handheld the kept surface rides into the bottom sheet, and keeps its state across a close', () => {
+        handheld = true
+        const Typed = () => <input aria-label="kept input" />
+        Typed.keepMounted = true
+        render(<SidePane session={{ floor: 'axl' }} surfaces={{ ...surfaces, ticket: Typed }} />)
+        act(() => openSurface('ticket'))
+        const sheet = screen.getByRole('dialog')
+        expect(sheet.parentElement).toBe(document.body)
+        expect(sheet.contains(screen.getByLabelText('kept input'))).toBe(true)
+        fireEvent.change(screen.getByLabelText('kept input'), { target: { value: 'AAPL 5' } })
+        fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+        act(() => openSurface('ticket'))
+        expect(screen.getByLabelText('kept input').value).toBe('AAPL 5')
+    })
 })

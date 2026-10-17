@@ -318,7 +318,7 @@ export function MentorSurface({ session, deskProps = {} }) {
                             {pressing ? 'Generating…' : `Generate all (${names.length})`}
                         </button>
                     )}
-                    <DiscardButton what={names.length > 1 ? 'these plans' : `the ${draft?.asset ?? ''} plan`} onDiscard={() => commitPress('discard', { done: () => 'Discarded — Mentor\'s table is clear.' })} disabled={pressing} />
+                    <DiscardButton what={names.length > 1 ? 'these plans' : `the ${draft?.asset ?? ''} plan`} onDiscard={() => commitPress('discard', { before: async () => { editor.reset(); await editor.settle(); return true }, done: () => 'Discarded — Mentor\'s table is clear.' })} disabled={pressing} />
                     {!live.ready && missing.length > 0 && (
                         <span className="mentor-panel__missing">Still needs: {missing.map(b => b.text).join(', ')}</span>
                     )}

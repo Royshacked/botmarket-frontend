@@ -187,7 +187,7 @@
     // ── Accounts ────────────────────────────────────────────────────────────
     // A pinned strip above the scrolling body. `position: relative` + a z-index above the body is
     // what lets the selector's absolutely-positioned dropdown overlay the form instead of being
-    // painted under it — the same fix .chat-agentbar needed for the same component.
+    // painted under it.
     &__accounts {
         display: flex;
         align-items: center;

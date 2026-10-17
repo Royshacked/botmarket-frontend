@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { chatService } from '../../services/chat/chat.service'
-import { BotAvatarGlyph } from '../AxlHub/AgentSummon'
+import { BotAvatarGlyph } from '../AxlHub/AgentGlyphs.jsx'
 import { AGENTS, BOT_IDS, isBotId, isRetiredBotId } from '../AxlHub/agentMeta.jsx'
 
 // The agent behind a conversation, or null for a human DM. Drives the brand name

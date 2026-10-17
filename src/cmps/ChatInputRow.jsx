@@ -78,9 +78,9 @@ export function ChatInputRow({
         if (isTouchPrimary()) return
 
         const el = innerRef.current
-        // A hidden composer must not pull the cursor out of the chat the user is looking at: the
-        // workspace keeps every panel MOUNTED and hides the inactive ones with `display: none`, so
-        // a background agent finishing is a live component with an off-screen textarea.
+        // A hidden composer must not pull the cursor out of the chat the user is looking at: a kept side-pane tab (Pythia,
+        // Aether — SidePane) stays MOUNTED while hidden, so a background agent finishing is a live component with an
+        // off-screen textarea.
         if (!el || el.disabled || !isVisible(el)) return
         // Nor may a reply landing in the background steal a field the user is mid-way through.
         const active = document.activeElement

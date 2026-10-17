@@ -1,4 +1,3 @@
-import { streamAgent } from '../agentStream'
 import { makeEntityApi } from '../entityApi'
 
 // Analyst: an SSE research stream plus CRUD for its artifact — `coverage`, the living per-name
@@ -14,7 +13,6 @@ export const COVERAGE_CHANGED       = api.changeEvent
 export const RESEARCH_QUEUE_CHANGED = queueApi.changeEvent
 
 export const analystService = {
-    sendStream,
     initiateCoverage,
     listCoverage,
     getCoverage,
@@ -29,14 +27,6 @@ export const analystService = {
     getResearchRun,
     stopResearchRun,
     requeueStalledResearch,
-}
-
-// Streaming research chat. `seed` (a structured Argus investing candidate) pre-seeds the research on
-// a hand-off turn. The analyst reads the user's book server-side now (get_trading_context), so the
-// client no longer ships a brokerContext. done → { reply, phase, coverage }.
-async function sendStream(messages, opts = {}) {
-    const { model, chatState, seed } = opts
-    await streamAgent(BASE, { messages, model, chatState, seed }, opts)
 }
 
 // Initiation is an EVENT — one per name; a duplicate → 409 already_covered.

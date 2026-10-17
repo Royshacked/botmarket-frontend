@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
-import { BotAvatarGlyph } from '../AxlHub/AgentSummon.jsx'
+import { BotAvatarGlyph } from '../AxlHub/AgentGlyphs.jsx'
 import { ChatBubble } from '../ChatBubble.jsx'
 import { CardBubble } from '../SocialChat/ChatWindow.jsx'
 import { openChart } from '../../services/chartSurface.service.js'

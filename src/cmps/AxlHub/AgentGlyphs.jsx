@@ -2,7 +2,7 @@ import PropTypes from 'prop-types'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { AgentGlyph } from './AgentBadges.jsx'
 import { AGENTS } from './agentMeta.jsx'
-import './AgentSummon.scss'
+import './AgentGlyphs.scss'
 
 // ── Agent presentational pieces ────────────────────────────────────────────────
 // Components only (data + timings live in agentMeta.jsx). Keeping this file

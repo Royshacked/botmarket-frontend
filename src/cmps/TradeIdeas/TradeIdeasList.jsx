@@ -375,12 +375,12 @@ export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, loading = fa
         return () => { alive = false; off() }
     }, [ideas])
 
-    // Follow the chat tab: portfolio mode shows portfolios, Mentor shows setups.
-    // The user can still override via the filter buttons until the tab changes again.
+    // Follow the desk the user is talking to (the session's floor): Atlas shows portfolios, Mentor shows setups. The
+    // user can still override via the filter buttons until another of those desks takes the floor. The floor going
+    // back to Axl changes nothing — it does on every Axl reply, and reset the user's own filter each time (8e CR).
     useEffect(() => {
         if (chatTab === 'portfolio')   setActiveFilter('portfolios')
         else if (chatTab === 'mentor') setActiveFilter('setups')
-        else if (chatTab === 'axl')    setActiveFilter(null)   // return to hub when back at AxlHub
     }, [chatTab])
 
     // When a portfolio starts taking shape in chat, move the list to the

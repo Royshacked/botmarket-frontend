@@ -1,76 +1,10 @@
-// ── agent chrome — shared by the desk panels and MainPage ──────────────────────────
-// What outlived the Axl hub (unified-chat phase 7): the desk panels' introduction and per-turn tag, the
-// agent bar + its pipeline crumb, the "heading back" overlay, and the composer/landing-chip treatment the
-// chat timeline still uses. The hub's own screen went with it; the bar, crumb and overlay go with the
-// panels in phase 8.
+// ── agent chrome ───────────────────────────────────────────────────────────────
+// What outlived the Axl hub (unified-chat phase 7) and the desk tabs (phase 8e): an agent's introduction and per-turn
+// tag (Pythia's and Aether's panels), and the composer / landing-chip treatment the chat timeline uses.
 
 @keyframes chat-fade-in {
     from { opacity: 0; }
     to   { opacity: 1; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .chat-agentbar,
-    .axl-summon,
-    .axl-summon__pulse,
-    .axl-summon__icon,
-    .axl-summon__dots i,
-    .chat-return-overlay { animation: none; }
-
-    .axl-summon__pulse { opacity: 0; }
-}
-
-// ── the desk path, as one type treatment ──
-// The hub header (hovering a desk) and the chat strip (standing inside one) draw the SAME object: a
-// desk name, then its steps joined by rules. They were two copies that had drifted — different type
-// scale, different rule weight, different gaps — so walking from the hub into a pipeline changed how
-// the path looked. Held here as placeholders, extended by both, so the path is one definition.
-%pipeline-path {
-    display: flex;
-    align-items: center;
-    gap: rem(4px);
-    font-family: var(--font-mono);
-}
-
-// Font size deliberately unset — the desk name takes the header's own size, which is what makes it
-// read as the heading with the steps hung off it.
-%pipeline-desk {
-    font-weight: 700;
-    text-transform: uppercase;
-    color: var(--text-secondary);
-    // Open space between the desk name and its first step, so the name reads as the heading the path
-    // hangs off rather than as the path's own first stop.
-    margin-right: rem(24px);
-}
-
-%pipeline-step-group {
-    display: flex;
-    align-items: center;
-    gap: 0;
-}
-
-// A hairline in --border, not a bar in --text-muted: the rule is the join between two steps, and
-// should be quieter than either of them. The right margin holds it off the step it points at.
-%pipeline-line {
-    display: block;
-    width: rem(18px);
-    height: 1px;
-    background: var(--border);
-    flex-shrink: 0;
-    margin-right: rem(8px);
-}
-
-%pipeline-step {
-    display: inline-flex;
-    align-items: center;
-    color: var(--text-muted);
-}
-
-%pipeline-text {
-    font-size: rem(12px);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    white-space: nowrap;
 }
 
 // ── the landing composer, and the asks under it ────────────────────────────────

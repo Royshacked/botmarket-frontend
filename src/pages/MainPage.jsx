@@ -13,7 +13,7 @@ import { ScannerSurface }    from '../cmps/ScannerSurface/ScannerSurface.jsx'
 import { AnalystSurface }    from '../cmps/AnalystSurface/AnalystSurface.jsx'
 import { handoffTurn, mentorHolding } from '../cmps/MentorSurface/mentorSurface.utils.js'
 import { SidePane }          from '../cmps/SidePane/SidePane.jsx'
-import { openSurface }       from '../cmps/SidePane/sidePane.store.js'
+import { openSurface, resetSidePane } from '../cmps/SidePane/sidePane.store.js'
 import { SessionContext }    from '../context/SessionContext.jsx'
 import { useSession }        from '../customHooks/useSession.js'
 import { agentMeta }         from '../cmps/ChatTimeline/timelineRows.js'
@@ -155,8 +155,8 @@ const SURFACES = Object.freeze({
 export function MainPage() {
     const { user, isAdmin } = useAuth()
 
-    // Bumped by the daily market-brief card — the hub writes the brief on every change, then clears
-    // it. See the MARKET_BRIEF_OPEN listener for why it counts rather than latches.
+    // Bumped by the daily market-brief card — the chat timeline writes the brief on every change, then clears it. See
+    // the MARKET_BRIEF_OPEN listener for why it counts rather than latches.
     const [briefRequest, setBriefRequest]       = useState(0)
     // A route Pythia's or Aether's panel offered (its RouteOffer) INTO the other — the panels still open on a seed.
     const [pythiaSeed, setPythiaSeed] = useState(null)
@@ -413,6 +413,8 @@ export function MainPage() {
     // ONE useSession for the main chat: the timeline draws it, the side pane's surfaces press it, and the doorways
     // below speak through it. Refs for the doorways registered once (the event-bus listeners).
     const mainSession = useSession('main')
+    // The pane's tabs are a module store: a parked Pythia tab must not survive into the next user's session (8e CR).
+    useEffect(() => { resetSidePane() }, [user?._id])
     const mainSessionRef = useRef(mainSession)
     mainSessionRef.current = mainSession
     const deskAccountsRef = useRef({ accounts: timelineAccounts, mainAccountId })
@@ -690,7 +692,7 @@ export function MainPage() {
 
     // Setup-invalidation card "Re-draw it" → reopen the setup in Mentor's chat AND open the turn.
     //
-    // It shares the pencil's pipeline (chat_state + marked accounts restored, "Update setup" re-arms
+    // It shares the pencil's doorway (the setup reopened in the session, its accounts restored, "Update setup" re-arms
     // Talos) but not its silence. The pencil lands on a restored conversation and waits, which is
     // right when the user chose to edit — and wrong here, where a monitor is the one who raised its
     // hand. It made the card's only button appear to do nothing: the desk opened with the old
@@ -702,7 +704,7 @@ export function MainPage() {
     // Talos keeps current, so a card opened tomorrow arrives at today's reason, and a setup already
     // re-drawn opens clean instead of on a complaint that no longer holds.
     //
-    // Unresolvable ids fall back to the Mentor tab rather than a dead click — same rule as
+    // Unresolvable ids fall back to Mentor's surface rather than a dead click — same rule as
     // SETUP_CONFIRM_OPEN. A setup deleted since the card was posted is the ordinary case.
     useEffect(() => {
         return eventBus.on(SETUP_INVALIDATION_EDIT, async ({ setupId }) => {
@@ -714,17 +716,17 @@ export function MainPage() {
 
     // Shared-setup card "Open in Mentor" → MY Mentor, on a plan SOMEONE ELSE drew.
     //
-    // Not the pencil's pipeline and not the re-draw card's: there is no document of mine to edit
-    // (no `editingSetupId`), no conversation to restore, and no workspace to align to — the
+    // Not the pencil's doorway and not the re-draw card's: there is no document of mine to edit, no conversation to
+    // restore, and no workspace to align to — the
     // blueprint carries no account, so I stay where I am standing and mark my own. The server
     // hydrates it through the same normalise + readiness the desk uses on every turn, and what
     // comes back is always short of ready by the size: that is the point of the flow, not a
     // failure of it. `problems` is what was sent and did not survive the read — said out loud,
     // because silently dropping two of four levels hands the user a different trade.
     //
-    // `freshThread` tells the panel to mint a new draft thread before restoring, so the plan never
-    // persists over whatever build was open. The ask fires a turn (sharedAsk): Mentor reads the
-    // plan against the tape now, then helps size it.
+    // It goes onto Mentor's table as a FRESH plan (a hand edit, `fresh: true`), never as an edit of whatever build was
+    // open — asked first over work Mentor holds. The ask fires a turn (sharedAsk): Mentor reads the plan against the
+    // tape now, then helps size it.
     //
     // The accounts are read from a ref, not the closure: this doorway is registered once.
     useEffect(() => {
@@ -766,11 +768,10 @@ export function MainPage() {
 
     // Market-brief card "Get the brief" → open Axl and have him write it there.
     //
-    // The chat is always the timeline (phase 8e), so the brief is asked for where the user already is.
-    // The counter is what tells the hub to write. A counter and not a flag, because two briefs a
-    // day (a second card after the first was dismissed) must both fire, and because switching to
-    // the tab you are already on changes nothing on its own. The hub clears it once it starts, so
-    // coming back to Axl later doesn't re-deliver a brief the user already read.
+    // The chat is always the timeline (phase 8e), so the brief is asked for where the user already is. The counter is
+    // what tells the timeline to write. A counter and not a flag, because two briefs a day (a second card after the
+    // first was dismissed) must both fire. The timeline clears it once it starts, so a later render doesn't re-deliver
+    // a brief the user already read.
     useEffect(() => {
         return eventBus.on(MARKET_BRIEF_OPEN, () => {
             setBriefRequest(n => n + 1)
@@ -1349,12 +1350,9 @@ export function MainPage() {
     }
 
     // ── A desk → another desk, by the user's ask ──────────────────────────────
-    // "Send NVDA to Prometheus", said at Argus (or Mentor, or Atlas…): the desk's reply carried the
-    // same route grammar Axl's does, the panel offered it (RouteOffer), and the user pressed Go.
-    // It lands on the SAME doorway as reception's summon — the desk opens on the opening sentence the
-    // sender wrote, which is where what it found travels. One doorway for every arrival is the point:
-    // a hop added at any desk is a prompt edit there, never a handler here. Mirrors AxlHub._summon
-    // without the animation — the user pressed a button, they are not being fetched.
+    // "Send NVDA to Prometheus", said at a desk: its reply carried the same route grammar Axl's does, the panel offered
+    // it (RouteOffer), and the user pressed Go. The desk opens on the opening sentence the sender wrote, which is where
+    // what it found travels — a hop added at any desk is a prompt edit there, never a handler here.
     //
     // Since phase 8e only Pythia's and Aether's panels offer one (the session desks route through Axl, on the server).
     // An edit opens the item; a desk on the session gets the opening as a turn; Pythia or Aether opens on it as a seed.
@@ -1376,7 +1374,7 @@ export function MainPage() {
         }
         // New work for Argus lands on a clean table, asked first over its work (phase 8e bug hunt #1) — like a radar cut.
         if (agent === 'scanner') {
-            if (!opening || await onArgusTable(opening, { what: 'start this scan' })) openDesk(agent)
+            if (!opening || await onArgusTable(opening, { profile: 'trading', what: 'start this scan' })) openDesk(agent)
             return
         }
         if (opening) talkTo(agent, opening)

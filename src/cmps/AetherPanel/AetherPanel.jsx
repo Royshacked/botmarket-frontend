@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
 import PropTypes from 'prop-types'
 import { aetherService } from '../../services/aether/aether.service.remote.js'
 import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote.js'
@@ -10,7 +10,7 @@ import { RouteOffer } from '../RouteOffer.jsx'
 import { useRouteOffer } from '../../customHooks/useRouteOffer.js'
 import { useSeedTurn } from '../../customHooks/useSeedTurn.js'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
-import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
+import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentGlyphs.jsx'
 import { ChatBubble } from '../ChatBubble.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { waitingLabel } from '../ToolStatusChip/waitingLabel.js'
@@ -22,7 +22,7 @@ import './AetherPanel.scss'
 const MessageBubble = ({ msg }) => <ChatBubble msg={msg} />
 MessageBubble.propTypes = { msg: PropTypes.object.isRequired }
 
-export function AetherPanel({ seed = null, onLoadingChange, onRoute, pipeline = null, resumeRef = null }) {
+export function AetherPanel({ seed = null, onRoute }) {
     const chat = useChatStream()
     // The user asked, in the chat, to be sent to another desk with a name → the reply routed →
     // the RouteOffer button. The shared hand-off every desk has (useRouteOffer).
@@ -30,11 +30,9 @@ export function AetherPanel({ seed = null, onLoadingChange, onRoute, pipeline = 
     const { messages, isLoading } = chat
     const threadIdRef = useRef(newThreadId())
 
-    useEffect(() => { onLoadingChange?.(isLoading) }, [isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
-
+    // A DRAFT THREAD per conversation — still saved since phase 8e, reopened again once Aether is on the session (D1).
     function _saveThread(msgs, phase) {
         threadsService.saveDraft({
-            pipeline,
             threadId: threadIdRef.current, agent: 'aether',
             messages: msgs, phase: phase ?? null, subjectType: null,
             state: null,
@@ -97,14 +95,6 @@ export function AetherPanel({ seed = null, onLoadingChange, onRoute, pipeline = 
 
     function handleClear() { chat.reset(); routeOffer.clear(); clearThread(threadIdRef) }
 
-    async function handleResumeThread(threadId) {
-        const t = await threadsService.getThread(threadId)
-        if (!t) return
-        chat.setMessages(t.messages ?? [])
-        threadIdRef.current = t.threadId
-    }
-    if (resumeRef) resumeRef.current = handleResumeThread
-
     return (
         <div className="aether-panel">
             <AgentMessages chat={chat}>
@@ -132,7 +122,4 @@ export function AetherPanel({ seed = null, onLoadingChange, onRoute, pipeline = 
 
 AetherPanel.propTypes = {
     onRoute:         PropTypes.func,     // (offer) → MainPage's doorway: the user asked to be sent to another desk
-    onLoadingChange: PropTypes.func,
-    pipeline:        PropTypes.string,
-    resumeRef:       PropTypes.object,
 }

@@ -5,6 +5,12 @@ React + Vite, one page. The backend owns every rule about what an entity is and 
 own architecture is about **one thing: many doorways into a few desks, without a second copy of any
 mechanism.** Written 2026-09-19 from the code and its comments.
 
+> **Status (2026-10-17, unified chat phase 8e).** The chat column is now ONE conversation — the session timeline — with
+> each desk's work in the side pane beside it; the desk tabs, the agent bar, the pipeline conveyor and the desk panels
+> described in "The page", "A desk panel" and "Doorways" below are gone (Pythia's and Aether's panels remain, as kept
+> pane tabs). What replaced them is "The drawer shell and the side pane" further down, and the record is
+> `../botmarket-backend/docs/design/unified-chat-plan.md` §10. Those older sections are rewritten in phase 10 (docs).
+
 ## The page
 
 `pages/MainPage.jsx` is the conductor — ~3,300 lines, 38 `useState`s, and that is the honest shape:
@@ -216,9 +222,15 @@ review bar, the AVOID ask, the adopt grid), Argus's `cmps/ScannerSurface` and Pr
 `cmps/AnalystSurface` (8d — the lens, the radar cut's Prometheus read handed back as a hand edit,
 the coverage draft). New work onto Argus's table goes through one step on MainPage, `onArgusTable`
 (asked over Argus's work, then a fresh table). The pipeline conveyor is gone: desks hand work on
-through the server's chain. The contract and the record:
-`../botmarket-backend/docs/design/unified-chat-plan.md` §10.2–10.5. Driven by
-`../botmarket-backend/scripts/drive-{mentor,portfolio,scanner-analyst}-surface.mjs`.
+through the server's chain. Every surface has Discard for unsaved work (`SidePane/DiscardButton`).
+
+KEPT TABS (8e). Pythia's and Aether's panels — still their own chats — and the order ticket are pane
+tabs that stay MOUNTED while hidden: each renders once, through a portal, into a host node of its
+own, which `KeptSlot` moves into the pane while its tab shows; closing the pane parks them, and only
+a tab's own ✕ ends one. An admin opens Pythia and Aether from a row under the chat's header. The
+contract and the record: `../botmarket-backend/docs/design/unified-chat-plan.md` §10.2–10.6. Driven by
+`../botmarket-backend/scripts/drive-{mentor,portfolio,scanner-analyst}-surface.mjs` and
+`drive-pane-tabs.mjs`.
 
 ## Threads
 

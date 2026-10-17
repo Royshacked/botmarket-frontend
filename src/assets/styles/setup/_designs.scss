@@ -74,7 +74,7 @@
     }
 
     // Square hard-edged buttons
-    button, .chat-tabs__tab, .news-feed__tab {
+    button, .news-feed__tab {
         border-radius: 0 !important;
         text-transform: uppercase;
         letter-spacing: 0.08em;
@@ -153,7 +153,7 @@
     }
 
     // Pill buttons with a soft lift
-    button, .chat-tabs__tab, .news-feed__tab {
+    button, .news-feed__tab {
         border-radius: 999px !important;
         text-transform: none;
         letter-spacing: 0;
@@ -232,7 +232,7 @@
     }
 
     // Glowing outline buttons
-    button, .chat-tabs__tab, .news-feed__tab {
+    button, .news-feed__tab {
         border-radius: var(--radius) !important;
         text-transform: uppercase;
         letter-spacing: 0.08em;
@@ -313,7 +313,7 @@
     }
 
     // Restrained buttons — small radius, mono labels for the numeric/terminal feel
-    button, .chat-tabs__tab, .news-feed__tab {
+    button, .news-feed__tab {
         border-radius: var(--radius) !important;
         letter-spacing: 0.04em;
     }
@@ -321,11 +321,11 @@
     // Nav tabs: surround the chosen tab with a full border box (not a bottom
     // underline). A transparent 1px border is reserved on every tab so switching
     // doesn't shift layout; the active tab fills it in with the accent + a tint.
-    .news-feed__tab, .chat-tabs__tab {
+    .news-feed__tab {
         border: 1px solid transparent !important;
         margin-bottom: 0 !important;   // cancel the underline-merge offset
     }
-    .news-feed__tab--active, .chat-tabs__tab--active {
+    .news-feed__tab--active {
         border-color: var(--accent) !important;
         background: color-mix(in srgb, var(--accent) 12%, transparent) !important;
     }

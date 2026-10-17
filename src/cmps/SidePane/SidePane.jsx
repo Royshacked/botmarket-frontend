@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
 import { DrawerShell } from '../DrawerShell/DrawerShell.jsx'
@@ -27,7 +27,8 @@ import './SidePane.scss'
 /** Moves a kept surface's host node into the pane while it is the one showing. */
 function KeptSlot({ host }) {
     const ref = useRef(null)
-    useEffect(() => {
+    // Before paint: attached in a plain effect, the pane showed empty for a frame (8e CR).
+    useLayoutEffect(() => {
         const slot = ref.current
         slot?.appendChild(host)
         return () => { if (host.parentNode === slot) slot.removeChild(host) }

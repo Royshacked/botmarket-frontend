@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
+import { _resetSeedTurns } from '../../customHooks/useSeedTurn.js'
 import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react'
 
 // The chat shell and the transport are stubbed: what is under test here is the panel's own logic —
@@ -57,6 +58,7 @@ describe('IndustryDraft', () => {
 
 describe('StrategyPanel', () => {
     beforeEach(() => {
+        _resetSeedTurns()
         sendStream.mockReset(); sendStream.mockImplementation(async () => {})
         publishIndustry.mockClear(); saveDraft.mockClear(); linkThread.mockClear()
         chatStub = {

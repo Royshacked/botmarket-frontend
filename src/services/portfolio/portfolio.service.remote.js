@@ -1,9 +1,8 @@
 import { httpService } from '../http.service'
-import { streamAgent } from '../agentStream'
 
 const BASE = 'api/portfolio'
 
-export const portfolioService = { sendStream, saveChatState, getChatState, deleteChatState, completeReview, applyRebalance, getPendingReviews, getItems, listPortfolios }
+export const portfolioService = { saveChatState, getChatState, deleteChatState, completeReview, applyRebalance, getPendingReviews, getItems, listPortfolios }
 
 // The user's books. [] on failure, the same posture every other list getter takes — a list surface
 // degrades to empty and never throws into a render.
@@ -62,17 +61,3 @@ async function completeReview(portfolioId, reviewCadence, outcome) {
     return httpService.post(`${BASE}/${encodeURIComponent(portfolioId)}/complete-review`, { reviewCadence, outcome })
 }
 
-async function sendStream(messages, ideaAccounts = [], opts = {}) {
-    const { mainAccountId = null, portfolioId = null, threadId = null, reviewMode = false, mandate = null, adoptDraftId = null, model } = opts
-    // `adoptDraftId` puts the turn in ADOPT mode: the server parses the user's own text into that
-    // staged book before Atlas sees it, so a pasted holdings list becomes rows without the model ever
-    // reading a number.
-    //
-    // `portfolioIdeas` is NOT sent any more. It used to carry this client's whole holdings list up
-    // with every turn, and the server rendered it into an EDIT MODE block beside the book it had
-    // already read from the database — two descriptions of one portfolio in one prompt, spelling the
-    // same holding's id two different ways. The server reads the book itself now (backend §4), so
-    // sending the list was a page of holdings per turn that nothing looked at. Callers may still pass
-    // it; it is ignored here rather than at the far end of a request.
-    await streamAgent(BASE, { messages, ideaAccounts, mainAccountId, portfolioId, threadId, reviewMode, mandate, adoptDraftId, model }, opts)
-}

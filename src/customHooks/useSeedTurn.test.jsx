@@ -1,6 +1,8 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { renderHook, cleanup } from '@testing-library/react'
-import { useSeedTurn } from './useSeedTurn.js'
+import { useSeedTurn, _resetSeedTurns } from './useSeedTurn.js'
+
+beforeEach(() => _resetSeedTurns())
 
 // The hand-off seed every desk shares: Axl routes a ticker to Prometheus, a calendar row opens
 // Mentor on a catalyst. The whole contract is "one hand-off, one turn" — a seed that fires twice
@@ -51,5 +53,16 @@ describe('useSeedTurn', () => {
 
         expect(stale).not.toHaveBeenCalled()
         expect(fresh).toHaveBeenCalledOnce()
+    })
+})
+
+describe('useSeedTurn — once, ever (unified-chat 8e CR)', () => {
+    it('a panel that unmounts and mounts again with the same seed does not resend it', () => {
+        const send = vi.fn()
+        const seed = { key: 'k-once', message: 'Review semiconductors' }
+        const first = renderHook(() => useSeedTurn(seed, send))
+        first.unmount()
+        renderHook(() => useSeedTurn(seed, send))
+        expect(send).toHaveBeenCalledTimes(1)
     })
 })

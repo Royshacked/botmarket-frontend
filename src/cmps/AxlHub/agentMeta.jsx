@@ -1,10 +1,9 @@
-// ── Shared agent metadata + transition timings ─────────────────────────────────
-// One source of truth for the specialist agents (brand, hue, icon, copy) so
-// the hub cards, the "summoning" beat and the in-chat introductions stay in sync.
+// ── Shared agent metadata ──────────────────────────────────────────────────────
+// One source of truth for the specialist agents (brand, hue, icon, copy) so the timeline, the social chat and the
+// in-chat introductions stay in sync.
 //
-// Data only — no component exports live here on purpose: mixing components with
-// constants in one module breaks React Fast Refresh (HMR) for every importer.
-// The presentational pieces live in AgentSummon.jsx.
+// Data only — no component exports live here on purpose: mixing components with constants in one module breaks
+// React Fast Refresh (HMR) for every importer. The presentational pieces live in AgentGlyphs.jsx.
 
 
 export const AGENTS = {
@@ -196,8 +195,8 @@ AGENTS.axl = {
     ),
 }
 
-// NB: there is deliberately no AGENT_LIST. The hub renders from DESKS (pipelines), not from a
-// list of agents — an agent becomes reachable by belonging to a desk, not by being enumerated.
+// NB: there is deliberately no AGENT_LIST — an agent is reachable through the session (Axl routes to it) or a pane tab,
+// not by being enumerated.
 
 // The social-chat notification bots — one per agent, ids matching the AGENTS keys and
 // the backend BOT_IDS. Each agent owns its own notifications: Atlas (portfolio) posts
