@@ -46,7 +46,7 @@ function OwnSessionTimeline(props) {
     return <TimelineView {...props} session={session} />
 }
 
-function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, briefRequest = 0, onBriefStart, onOpenTicket, session }) {
+function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, briefRequest = 0, onBriefStart, onOpenTicket, desks = [], onOpenDesk, session }) {
     const { user } = useAuth()
     const { rows, live, queuedTurn, lastTurn, chain, floor, send, stop, cancelQueued, choose, startNew, resolveCard, loadError } = session
     const [draft, setDraft]             = useState('')
@@ -126,6 +126,16 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
                     <button type="button" className="chat-timeline__action" onClick={() => startNew()} disabled={busy || empty}>New session</button>
                 </span>
             </div>
+            {/* Desks the chat does not route to yet — Pythia's and Aether's, for an admin — opened beside it in the side pane
+                (unified-chat phase 8e, K6; temporary, plan §1 q4). A row of their own under the header: beside History and
+                New session they pushed the header off the narrow column the pane leaves. */}
+            {onOpenDesk && desks.length > 0 && (
+                <div className="chat-timeline__desks">
+                    {desks.map(d => (
+                        <button key={d.agent} type="button" className="chat-timeline__action chat-timeline__desk" onClick={() => onOpenDesk(d.agent)} title={d.title}>{d.label}</button>
+                    ))}
+                </div>
+            )}
 
             {historyOpen && <SessionHistory scope={scope} onClose={() => setHistoryOpen(false)} />}
 
@@ -228,6 +238,9 @@ ChatTimeline.propTypes = {
     briefRequest:  PropTypes.number,
     onBriefStart:  PropTypes.func,
     onOpenTicket:  PropTypes.func,
+    // Desks opened from the header (admin: Pythia, Aether) — `{ agent, label, title? }` — and the opener.
+    desks:         PropTypes.arrayOf(PropTypes.shape({ agent: PropTypes.string.isRequired, label: PropTypes.string.isRequired, title: PropTypes.string })),
+    onOpenDesk:    PropTypes.func,
 }
 OwnSessionTimeline.propTypes = ChatTimeline.propTypes
 TimelineView.propTypes = { ...ChatTimeline.propTypes, session: PropTypes.object.isRequired }

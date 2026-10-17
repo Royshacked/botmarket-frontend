@@ -72,6 +72,18 @@ describe('ScannerSurface — a list', () => {
     })
 })
 
+describe('ScannerSurface — Discard (8e)', () => {
+    it('a list never saved can be thrown away; a saved list being edited cannot (Later)', async () => {
+        vi.spyOn(window, 'confirm').mockReturnValue(true)
+        mount({ pendingScan: LIST })
+        fireEvent.click(screen.getByText('Discard'))
+        await waitFor(() => expect(session.commit).toHaveBeenCalledWith('scanner', 'discard', expect.any(Object)))
+        cleanup()
+        mount({ pendingScan: LIST, editingScanId: 's1' })
+        expect(screen.queryByText('Discard')).toBeNull()
+    })
+})
+
 describe('ScannerSurface — phase 8d CR', () => {
     it('a name on the list opens its chart; Later is not a save; a refused lens says so; angles reset once sent', async () => {
         const { rerender } = mount({ pendingScan: LIST, editingScanId: 's1' }, { edit: vi.fn(async () => ({ ok: false, reason: 'invalid_edit', message: 'That change is not valid' })) })

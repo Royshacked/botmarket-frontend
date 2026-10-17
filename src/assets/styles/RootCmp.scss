@@ -87,23 +87,6 @@
     [data-design="floor"] .workspace__left { display: none; }
 }
 
-// ── Chat agent panels (axl hub routes here; breadcrumb bar lives in AxlHub.scss) ──
-// The panel entrance replays every time a panel flips from display:none → flex
-// (picking an agent from the hub), because un-hiding an element restarts its
-// animation. The breadcrumb bar above it fades in on the same beat.
-.chat-tabs__panel {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    animation: chat-panel-enter 0.32s cubic-bezier(0.22, 0.61, 0.36, 1) both;
-}
-
-@keyframes chat-panel-enter {
-    from { opacity: 0; transform: translateY(10px) scale(0.992); }
-    to   { opacity: 1; transform: none; }
-}
-
 // Status-dot pulses shared by the Axl hub (AxlHub.scss) and the Floor (Floor.scss).
 @keyframes cp-idle {
     0%, 100% { opacity: 0.45; }
@@ -120,9 +103,6 @@
     50%       { opacity: 1;   transform: scale(1.35); box-shadow: 0 0 5px 1px var(--accent-light); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .chat-tabs__panel { animation: none; }
-}
 
 // ── Tablet: 768px – 1023px ────────────────────────────────────────────────────
 // Already 2-column on desktop; tablet inherits the same layout.
@@ -168,41 +148,6 @@
 
     // Full-bleed column — no rounded corners to round against.
     .workspace__chat .chat-timeline { border-radius: 0; border-left: none; border-right: none; }
-
-    .chat-agentbar { padding: 6px 8px; gap: 6px; }
-
-    // ── The pipeline path, stacked for a phone ──
-    // The path used to be `display: none` here: the desktop path (up to five step names joined by
-    // rules) is wider than the phone and pushed the controls off the edge. But dropping it meant the
-    // one thing the user had just CHOSEN — which pipeline they're in — was the one thing the header
-    // didn't say, and on mobile this strip is the ONLY chrome above the conversation; there is no
-    // lists column and no Floor to infer it from.
-    //
-    // The fold itself — steps to dots, only the active one named — is no longer here: it is a
-    // container query on the strip in AxlHub.scss, because a laptop's chat column needs it just as
-    // much as a phone does, and a phone's strip is narrow enough to trip it on its own. What is
-    // phone-only is the STACKING: two lines inside the 54px strip, the desk name over its steps,
-    // because at this width even "PORTFOLIO DESK ○ ● SCREEN ○ ○" on one line is a squeeze.
-    .chat-agentbar__pipeline {
-        flex-wrap: wrap;
-        align-content: center;
-        gap: 1px 5px;
-        margin-left: -4px;
-    }
-
-    // Its own line, and quieter than the steps under it — on the phone the desk name is context,
-    // while the step is where you are.
-    .chat-agentbar__pipeline-label {
-        flex-basis: 100%;
-        margin-right: 0;      // the desktop 24px gap held the path off; stacked, there is nothing beside it
-        font-size: 9.5px;
-        line-height: 1.2;
-        color: var(--text-dim);
-    }
-
-    // A step down from the desktop fold's 12px — the phone strip is two lines, and this is the
-    // lower one.
-    .chat-agentbar__pipeline-step.is-active .chat-agentbar__pipeline-text { font-size: 11px; }
 
     // Tighten header on small screens
     .app-header {

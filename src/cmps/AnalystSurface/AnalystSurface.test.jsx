@@ -82,6 +82,16 @@ describe('AnalystSurface', () => {
         await waitFor(() => expect(session.commit).toHaveBeenCalledWith('analyst', 'update', expect.any(Object)))
     })
 
+    it('8e: a draft — standing or not — can be thrown away; a thesis being revised has Later', async () => {
+        vi.spyOn(window, 'confirm').mockReturnValue(true)
+        mount({ draft: DRAFT, standing: false })
+        fireEvent.click(screen.getByText('Discard'))
+        await waitFor(() => expect(session.commit).toHaveBeenCalledWith('analyst', 'discard', expect.any(Object)))
+        cleanup()
+        mount({ draft: DRAFT, standing: true, editing: EDITING, editingSymbol: 'ZTS' })
+        expect(screen.queryByText('Discard')).toBeNull()
+    })
+
     it('a trader reads the draft but does not save it', () => {
         admin = false
         mount({ draft: DRAFT, standing: true })

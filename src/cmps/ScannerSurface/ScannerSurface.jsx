@@ -5,6 +5,7 @@ import { aetherService } from '../../services/aether/aether.service.remote.js'
 import { apiError } from '../../services/http.service.js'
 import { useSurfacePress } from '../../customHooks/useSurfacePress.js'
 import { SurfaceNote } from '../SidePane/SurfaceNote.jsx'
+import { DiscardButton } from '../SidePane/DiscardButton.jsx'
 import { ANGLES, anglePrompt, READ_FLAG, readFlagFor, summariseDropped, listKey } from './scannerSurface.utils.js'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import '../ScannerPanel/ScannerPanel.scss'
@@ -270,6 +271,7 @@ export function ScannerSurface({ session, deskProps = {} }) {
                         </button>
                     )}
                     {editingId && <LaterButton onClick={() => commit('later')} disabled={pressing} />}
+                    {!editingId && listReady && <DiscardButton what="this list" onDiscard={() => press('discard', { done: () => 'Discarded — Argus\'s table is clear.' })} disabled={pressing} />}
                 </div>
             )}
 

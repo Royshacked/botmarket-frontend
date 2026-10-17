@@ -8,9 +8,9 @@ import './AgentSummon.scss'
 // Components only (data + timings live in agentMeta.jsx). Keeping this file
 // component-only is what lets React Fast Refresh hot-update it.
 
-// The meditating axl bot as a plain stroke glyph (no gradients) so it inherits the
-// orb's hue via currentColor — used inside the "back to axl" interstitial.
-export function AxlBotGlyph() {
+// The meditating axl bot as a plain stroke glyph (no gradients) so it inherits its tint via currentColor — Axl's
+// avatar below. (Its other use, the "back to axl" interstitial, went with the desk tabs — phase 8e.)
+function AxlBotGlyph() {
     return (
         <svg width="38" height="38" viewBox="0 0 44 44" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <line x1="22" y1="9.3" x2="22" y2="7.3" />
@@ -85,28 +85,4 @@ export function AgentTurnTag({ agent, active = false }) {
 AgentTurnTag.propTypes = {
     agent:  PropTypes.object.isRequired,
     active: PropTypes.bool,
-}
-
-// Presentational interstitial: a pulsing hue-tinted orb with a label + sub line.
-// The orb content (agent sigil or axl bot) is passed as children.
-export function AgentSummon({ hue = 'green', label, sub, children }) {
-    return (
-        <div className={`axl-summon axl-summon--${hue}`}>
-            <div className="axl-summon__orb">
-                <span className="axl-summon__pulse" />
-                <span className="axl-summon__pulse axl-summon__pulse--2" />
-                <span className="axl-summon__ring" />
-                <span className="axl-summon__icon">{children}</span>
-            </div>
-            <p className="axl-summon__label">{label}</p>
-            {sub && <p className="axl-summon__sub">{sub}</p>}
-        </div>
-    )
-}
-
-AgentSummon.propTypes = {
-    hue:      PropTypes.string,
-    label:    PropTypes.node,
-    sub:      PropTypes.node,
-    children: PropTypes.node,
 }

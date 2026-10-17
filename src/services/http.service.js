@@ -49,7 +49,7 @@ export function apiError(err, fallback = 'Something went wrong') {
 
 // A request must not hang forever: without a timeout a stalled socket (the Windows
 // Chrome `localhost` keep-alive stall this app already fights with the same-origin
-// proxy) leaves the awaiting caller pending indefinitely — e.g. ThreadHistory stuck
+// proxy) leaves the awaiting caller pending indefinitely — e.g. a history list stuck
 // on "Loading…", or the page wedged on refresh until the window is fully closed.
 const TIMEOUT_MS = 30000
 

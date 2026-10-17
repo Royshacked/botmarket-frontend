@@ -10,8 +10,11 @@ import { useSyncExternalStore } from 'react'
 //   tabs    the surfaces open, in the order they were opened — one tab per desk
 //   active  the one showing
 //   pinned  the user pinned the active tab: the floor moving to another desk adds that desk's tab but does not switch
+//   parked  tabs the pane was CLOSED over (closePane) — a surface that keeps its own conversation (Pythia, Aether, the
+//           ticket — `keepMounted`) stays mounted, hidden, until its own tab is closed (phase 8e)
 
-let state = Object.freeze({ tabs: [], active: null, pinned: false })
+const EMPTY = { tabs: [], active: null, pinned: false, parked: [] }
+let state = Object.freeze({ ...EMPTY })
 const subs = new Set()
 const set = (next) => { state = Object.freeze(next); subs.forEach(fn => fn()) }
 const subscribe = (fn) => { subs.add(fn); return () => subs.delete(fn) }
@@ -34,13 +37,13 @@ export function closeSurface(agent) {
     if (i < 0) return
     const tabs = state.tabs.filter(t => t !== agent)
     const active = state.active === agent ? (tabs[i - 1] ?? tabs[0] ?? null) : state.active
-    set({ tabs, active, pinned: active ? state.pinned && state.active !== agent : false })
+    set({ tabs, active, pinned: active ? state.pinned && state.active !== agent : false, parked: state.parked.filter(t => t !== agent) })
 }
 
-/** Close the pane — every tab. */
+/** Close the pane — every tab; the ones closed over are parked (a kept surface stays mounted, hidden). */
 export function closePane() {
     if (!state.tabs.length) return
-    set({ tabs: [], active: null, pinned: false })
+    set({ tabs: [], active: null, pinned: false, parked: [...new Set([...state.parked, ...state.tabs])] })
 }
 
 export function showSurface(agent) {
@@ -58,5 +61,5 @@ export function useSidePane() {
 
 /** Tests only: back to empty. */
 export function _resetSidePane() {
-    set({ tabs: [], active: null, pinned: false })
+    set({ ...EMPTY })
 }

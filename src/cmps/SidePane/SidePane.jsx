@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
 import { DrawerShell } from '../DrawerShell/DrawerShell.jsx'
 import { isHandheld } from '../EntityCard/entityPopup.js'
@@ -17,12 +18,41 @@ import './SidePane.scss'
 // conversation stays readable and the input stays reachable. On a handheld it is a bottom sheet over the app, and the
 // phone's back gesture closes it. Esc closes it either way (DrawerShell — the top drawer only).
 
+// KEPT SURFACES (phase 8e). Pythia's and Aether's panels keep their own conversation (they are not on the session yet),
+// and the order ticket a half-typed order: unmounted, either is lost. A surface marked `keepMounted` is rendered ONCE,
+// into a host node of its own, through a portal — the node is moved into the pane while its tab shows and out of it
+// otherwise, so the component under it never unmounts while the pane hides, closes or switches tabs (only closing its
+// own tab ends it). `paneLabel` names a tab that is not an agent's (the ticket).
+
+/** Moves a kept surface's host node into the pane while it is the one showing. */
+function KeptSlot({ host }) {
+    const ref = useRef(null)
+    useEffect(() => {
+        const slot = ref.current
+        slot?.appendChild(host)
+        return () => { if (host.parentNode === slot) slot.removeChild(host) }
+    }, [host])
+    return <div ref={ref} className="side-pane__kept-slot" />
+}
+KeptSlot.propTypes = { host: PropTypes.object.isRequired }
+
 /**
  * @param {{ session: object, surfaces: Record<string, Function>, deskProps?: object }} props
- *   surfaces  the desks that have one, by agent key → the component (it gets `session` and `deskProps`)
+ *   surfaces  the desks that have one, by agent key → the component (it gets `session` and `deskProps`); a component
+ *             may carry `keepMounted` and `paneLabel` (above)
  */
 export function SidePane({ session, surfaces, deskProps = {} }) {
-    const { tabs, active, pinned } = useSidePane()
+    const { tabs, active, pinned, parked } = useSidePane()
+    const hosts = useRef(new Map())
+    const hostFor = (t) => {
+        if (!hosts.current.has(t)) {
+            const node = document.createElement('div')
+            node.className = 'side-pane__kept'
+            hosts.current.set(t, node)
+        }
+        return hosts.current.get(t)
+    }
+    const labelOf = (t) => surfaces[t]?.paneLabel ?? agentMeta(t).brand
     const floor = session?.floor ?? 'axl'
 
     // Follow the floor. Keyed on the floor's CHANGE, not its value, so closing the pane while a desk holds the floor
@@ -38,13 +68,20 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
     const current = shown.includes(active) ? active : null
     const Surface = current ? surfaces[current] : null
     const handheld = !!Surface && isHandheld()
+    const kept = [...new Set([...shown, ...(parked ?? [])])].filter(t => surfaces[t]?.keepMounted)
 
     return (
+        <>
+        {/* The kept surfaces, each mounted once into its own host node (moved into the pane by KeptSlot). */}
+        {kept.map(t => {
+            const Kept = surfaces[t]
+            return createPortal(<Kept session={session} deskProps={deskProps} />, hostFor(t), `kept-${t}`)
+        })}
         <DrawerShell
             isOpen={!!Surface}
             onClose={closePane}
             portalTo={handheld ? document.body : null}
-            label={current ? `${agentMeta(current).brand}'s work` : 'Desk'}
+            label={current ? `${labelOf(current)}'s work` : 'Desk'}
             className={`side-pane side-pane--${handheld ? 'sheet' : 'docked'}`}
             modal={handheld}
             // Docked, it opens beside the chat — often on its own, as the floor moves — so focus stays in the input.
@@ -62,9 +99,9 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
                                 className="side-pane__tab-btn"
                                 onClick={() => showSurface(t)}
                             >
-                                {agentMeta(t).brand}
+                                {labelOf(t)}
                             </button>
-                            <button type="button" className="side-pane__tab-close" onClick={() => closeSurface(t)} aria-label={`Close ${agentMeta(t).brand}`}>
+                            <button type="button" className="side-pane__tab-close" onClick={() => closeSurface(t)} aria-label={`Close ${labelOf(t)}`}>
                                 ×
                             </button>
                         </span>
@@ -83,9 +120,12 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
             </header>
             <div className="side-pane__body" role="tabpanel">
                 {/* Keyed on the session: a surface's half-typed edit belongs to the session it was typed in. */}
-                {Surface && <Surface key={session?.sessionId ?? 'none'} session={session} deskProps={deskProps} />}
+                {Surface && (Surface.keepMounted
+                    ? <KeptSlot host={hostFor(current)} />
+                    : <Surface key={session?.sessionId ?? 'none'} session={session} deskProps={deskProps} />)}
             </div>
         </DrawerShell>
+        </>
     )
 }
 

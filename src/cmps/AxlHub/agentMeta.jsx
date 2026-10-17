@@ -6,15 +6,12 @@
 // constants in one module breaks React Fast Refresh (HMR) for every importer.
 // The presentational pieces live in AgentSummon.jsx.
 
-// Transition timing (ms): "Heading back to axl" before the chat returns from a desk panel. (The
-// hub's "summoning" beat went with the hub — unified-chat phase 7; this goes with the panels in phase 8.)
-export const RETURN_MS = 2000
 
 export const AGENTS = {
     // ⚠ ARCHIVED 2026-07-29 — the Idea agent is superseded by Kairos (`call`) and Mentor
     // (`setup`), and its backend route is unmounted. It belongs to no desk, so the hub cannot
     // summon it (see the "no AGENT_LIST" note below — desks make an agent reachable). The entry
-    // STAYS because it is still read for display: ThreadHistory / SocialChat render this brand +
+    // STAYS because it is still read for display: SocialChat and the timeline render this brand +
     // glyph for threads and alerts it already posted. Removing it would blank the name on that
     // existing history. It is NOT in BOT_IDS any more — the notification feed is retired.
     idea: {
@@ -240,9 +237,8 @@ export const isAdminBotId = (id) => ADMIN_BOT_IDS.includes(id)
 export const CONVERSATIONAL_BOT_ID = 'axl'
 
 // ── Reception desks ────────────────────────────────────────────────────────────
-// Axl routes the user into one of these pipelines. `entryTab` is the first agent
-// tab to open; `agentKey` drives the summon icon; `steps` is the ordered pipeline.
-// Each step: `tab` is the agent's activeTab key (null for background agents like Hermes/Themis).
+// The desks a route names (a RouteOffer's `route`): `entryTab` is the agent it lands on, `agentKey` its icon. The
+// pipelines' `steps` went with the conveyor and the crumb (unified-chat phase 8e) — the server's chain walks desks now.
 export const DESKS = [
     {
         key:      'trade',
@@ -252,20 +248,6 @@ export const DESKS = [
         hue:      'cyan',
         entryTab: 'scanner',
         agentKey: 'mentor',
-        // Argus → Mentor → Talos (docs/desks/trade-pipeline.md). The build step was Kairos, which
-        // AUTHORS a call and stops; Mentor builds the setup WITH the user and hands Talos zones it
-        // can manage. Kairos and Hermes are silent, not deleted — calls already in flight run to
-        // their natural close, so both tabs stay reachable and nothing new is routed there.
-        steps: [
-            // `produces: 'one'` — this desk builds ONE trade, so its scan step ends in a single
-            // name for the build step, not a watchlist. Argus reads it and answers with a pick,
-            // which is the same single-pick mode it enters when asked for a name mid-desk. Without
-            // it, entering the desk AT Argus produced a saved list and no way forward — the step
-            // promised a hand-off ("I'll hand you on") that nothing performed.
-            { tab: 'scanner', label: 'Scan', produces: 'one' },
-            { tab: 'mentor',  label: 'Build trade' },
-            { tab: null,      label: 'Arm & monitor' },
-        ],
     },
     {
         key:      'portfolio',
@@ -280,16 +262,6 @@ export const DESKS = [
         // them AGAINST, and Atlas deliberately has no screener of its own to fall back on.
         entryTab: 'portfolio',
         agentKey: 'portfolio',
-        // Atlas stands at BOTH ends, so its steps must say which arrival is which: `awaits` is what
-        // makes "hand this to Atlas" answerable when there are two of it. Mandate declares nothing
-        // and therefore receives nothing — it is where the user ENTERS, not somewhere work arrives.
-        steps: [
-            { tab: 'portfolio', label: 'Mandate' },
-            { tab: 'scanner',   label: 'Screen' },
-            { tab: 'analyst',   label: 'Research' },
-            { tab: 'portfolio', label: 'Allocate', awaits: 'coverage_set' },
-            { tab: null,        label: 'Monitor' },
-        ],
     },
     {
         key:      'scan',
@@ -299,9 +271,6 @@ export const DESKS = [
         hue:      'violet',
         entryTab: 'scanner',
         agentKey: 'scanner',
-        steps: [
-            { tab: 'scanner', label: 'Scan' },
-        ],
     },
     {
         key:      'assist',
@@ -311,10 +280,6 @@ export const DESKS = [
         hue:      'green',
         entryTab: 'mentor',
         agentKey: 'mentor',
-        steps: [
-            { tab: 'mentor', label: 'Build setup' },
-            { tab: null,     label: 'Arm & monitor' },
-        ],
     },
     {
         key:      'research',
@@ -324,9 +289,6 @@ export const DESKS = [
         hue:      'amber',
         entryTab: 'analyst',
         agentKey: 'analyst',
-        steps: [
-            { tab: 'analyst', label: 'Research' },
-        ],
     },
     {
         key:       'strategy',
@@ -337,12 +299,6 @@ export const DESKS = [
         entryTab:  'strategy',
         agentKey:  'strategy',
         adminOnly: true,
-        // ONE step. Atlas reads the industry views in-process (get_industry_views), not as a hand-off. A pipeline arrow drawn to
-        // an allocator that ignores the artifact would promise a hand-off nothing performs — the
-        // same failure the trade desk's scan step had before `produces: 'one'` existed.
-        steps: [
-            { tab: 'strategy', label: 'Review an industry' },
-        ],
     },
     {
         key:       'aether',
@@ -357,8 +313,5 @@ export const DESKS = [
         // that exists to be refused. The candidate LIST is unaffected: it is readable by
         // everyone and lives in the right column, not behind this card.
         adminOnly: true,
-        steps: [
-            { tab: 'aether', label: 'Event exposure' },
-        ],
     },
 ]

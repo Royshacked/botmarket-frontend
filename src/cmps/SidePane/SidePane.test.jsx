@@ -75,4 +75,28 @@ describe('SidePane', () => {
         expect(sheet.parentElement).toBe(document.body)
         expect(sheet.getAttribute('aria-modal')).toBe('true')
     })
+
+    it('8e: a KEPT surface keeps its state while the pane closes and other tabs show; its own ✕ ends it', () => {
+        // A desk with its own conversation (Pythia's, Aether's panels) or a half-typed order (the ticket).
+        const Typed = () => <input aria-label="kept input" />
+        Typed.keepMounted = true
+        Typed.paneLabel = 'Order ticket'
+        const kept = { ...surfaces, ticket: Typed }
+        render(<SidePane session={{ floor: 'axl' }} surfaces={kept} />)
+        act(() => openSurface('ticket'))
+        expect(screen.getByRole('tab', { name: 'Order ticket' })).toBeTruthy()
+        fireEvent.change(screen.getByLabelText('kept input'), { target: { value: 'NVDA 10' } })
+
+        act(() => openSurface('mentor'))                        // another tab shows…
+        act(() => openSurface('ticket'))
+        expect(screen.getByLabelText('kept input').value).toBe('NVDA 10')
+        fireEvent.click(screen.getByRole('button', { name: 'Close' }))   // …the pane closes…
+        expect(screen.queryByRole('dialog')).toBeNull()
+        act(() => openSurface('ticket'))                        // …and it is all still there
+        expect(screen.getByLabelText('kept input').value).toBe('NVDA 10')
+
+        fireEvent.click(screen.getByRole('button', { name: 'Close Order ticket' }))
+        act(() => openSurface('ticket'))
+        expect(screen.getByLabelText('kept input').value).toBe('', 'closing its own tab ended it')
+    })
 })

@@ -272,6 +272,24 @@ describe('MentorSurface — an edit and a press, in order (8b CR)', () => {
     })
 })
 
+describe('MentorSurface — Discard (8e)', () => {
+    it('throws away an unsaved draft after asking; a no keeps it', async () => {
+        const ask = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
+        mount({ draft: SETUP, view: { readiness: READY } })
+        fireEvent.click(screen.getByText('Discard'))
+        expect(session.commit).not.toHaveBeenCalled()
+        fireEvent.click(screen.getByText('Discard'))
+        await waitFor(() => expect(session.commit).toHaveBeenCalledWith('mentor', 'discard', expect.any(Object)))
+        expect(ask.mock.calls[0][0]).toMatch(/Discard the NVDA plan\? It is not saved anywhere/)
+        ask.mockRestore()
+    })
+
+    it('a setup being edited has Later, not Discard', () => {
+        mount({ draft: SETUP, view: { readiness: READY }, editing: { kind: 'setup', entityId: 's1' } })
+        expect(screen.queryByText('Discard')).toBeNull()
+    })
+})
+
 describe('MentorSurface — a stale press', () => {
     it('keeps saying why through the redraw that follows it', async () => {
         const { rerender } = mount({ draft: SETUP, view: { readiness: READY } }, { commit: vi.fn(async () => ({ ok: false, reason: 'stale_state', message: 'x', extra: { rev: 3 } })) })

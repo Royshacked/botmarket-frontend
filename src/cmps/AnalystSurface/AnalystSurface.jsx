@@ -5,6 +5,7 @@ import { LaterButton } from '../LaterButton.jsx'
 import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
 import { useSurfacePress } from '../../customHooks/useSurfacePress.js'
 import { SurfaceNote } from '../SidePane/SurfaceNote.jsx'
+import { DiscardButton } from '../SidePane/DiscardButton.jsx'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import '../AnalystPanel/AnalystPanel.scss'
 
@@ -90,6 +91,7 @@ export function AnalystSurface({ session, deskProps = {} }) {
                             // a question) — said, rather than "working" over a desk that has stopped.
                             : `Prometheus's last answer on ${symbol ?? 'this name'} put up no draft to save — ask it for one when you are ready.`}
                 </p>
+                {draft && !turning && <DiscardButton what={`the ${symbol ?? ''} draft`} onDiscard={() => press('discard', { done: () => 'Discarded — Prometheus\'s table is clear.' })} disabled={pressing} />}
             </div>
         )
     }
@@ -123,6 +125,7 @@ export function AnalystSurface({ session, deskProps = {} }) {
                         <span className="analyst-panel__ask-hint">House coverage is saved by an admin.</span>
                     ))}
                     {editingId && <LaterButton onClick={() => commit('later')} disabled={pressing} />}
+                    {!editingId && <DiscardButton what={`the ${symbol ?? ''} draft`} onDiscard={() => press('discard', { done: () => 'Discarded — Prometheus\'s table is clear.' })} disabled={pressing} />}
                 </div>
             )}
         </div>

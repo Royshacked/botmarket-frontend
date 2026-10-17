@@ -80,6 +80,19 @@ describe('PortfolioSurface — the table', () => {
     })
 })
 
+describe('PortfolioSurface — Discard (8e)', () => {
+    it('a new plan — sized or not — can be thrown away after asking; a book being edited has Later instead', async () => {
+        vi.spyOn(window, 'confirm').mockReturnValue(true)
+        mount({ pendingPlan: { ideas: [{ asset: 'MSFT' }] } })
+        fireEvent.click(screen.getByText('Discard'))
+        await waitFor(() => expect(session.commit).toHaveBeenCalledWith('portfolio', 'discard', expect.any(Object)))
+        expect(desk.onSaved).not.toHaveBeenCalled()
+        cleanup()
+        mount({ portfolioId: 'p1', editing: EDITING, pendingPlan: PLAN })
+        expect(screen.queryByText('Discard')).toBeNull()
+    })
+})
+
 describe('PortfolioSurface — the AVOID ask', () => {
     it('a yes presses again with the OK on the names asked about', async () => {
         vi.spyOn(window, 'confirm').mockReturnValue(true)

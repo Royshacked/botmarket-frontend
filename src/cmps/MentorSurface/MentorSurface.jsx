@@ -12,6 +12,7 @@ import { EntryTable } from '../MentorPanel/EntryTable.jsx'
 import { StageConfirm } from '../MentorPanel/StageConfirm.jsx'
 import { useSurfacePress } from '../../customHooks/useSurfacePress.js'
 import { SurfaceNote } from '../SidePane/SurfaceNote.jsx'
+import { DiscardButton } from '../SidePane/DiscardButton.jsx'
 import { liveReadiness, candidatePress, stagePress, spansPress, entriesPress, delegatePress, revivePress, batchNames } from './mentorSurface.utils.js'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import '../MentorPanel/MentorPanel.scss'
@@ -317,6 +318,7 @@ export function MentorSurface({ session, deskProps = {} }) {
                             {pressing ? 'Generating…' : `Generate all (${names.length})`}
                         </button>
                     )}
+                    <DiscardButton what={names.length > 1 ? 'these plans' : `the ${draft?.asset ?? ''} plan`} onDiscard={() => commitPress('discard', { done: () => 'Discarded — Mentor\'s table is clear.' })} disabled={pressing} />
                     {!live.ready && missing.length > 0 && (
                         <span className="mentor-panel__missing">Still needs: {missing.map(b => b.text).join(', ')}</span>
                     )}

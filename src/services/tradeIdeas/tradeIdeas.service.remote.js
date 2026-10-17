@@ -11,7 +11,6 @@ const api = makeEntityApi({ base: 'api/trade-ideas', listKey: 'ideas' })
 
 export const tradeIdeasService = {
     createIdea,
-    createBatch,
     getIdeas,
     getIdea,
     deleteIdea,
@@ -39,13 +38,6 @@ async function getIdea(id) {
 
 function deleteIdea(id)        { return api.remove(id) }
 function updateIdea(id, patch) { return api.patch(id, patch) }
-
-async function createBatch(plan, accounts = [], mainAccountId = null, portfolioId = null) {
-    // `avoid_ok`: the symbols the user OK'd in industries Pythia rates AVOID (asked on Atlas's surface since phase 8c) — the server
-    // checks that they cover every AVOID name in the book.
-    const res = await api.post('/batch', { plan, accounts, mainAccountId, portfolioId, avoid_ok: Array.isArray(plan?.avoid_ok) ? plan.avoid_ok : [] })
-    return Array.isArray(res.ideas) ? res.ideas : []
-}
 
 async function placeOrders(id, orders) {
     const res = await api.post(`/${encodeURIComponent(id)}/orders`, { orders })

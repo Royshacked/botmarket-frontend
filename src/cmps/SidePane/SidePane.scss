@@ -116,6 +116,18 @@
     }
 }
 
+// A kept surface's host node and the slot it moves into (SidePane, KeptSlot): a desk with its own chat fills the pane,
+// its messages scrolling inside it rather than the pane.
+.side-pane__kept-slot,
+.side-pane__kept {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+
+    > .portfolio-panel { flex: 1 1 auto; min-height: 0; }
+}
+
 // ── A desk's surface in the pane: the shell, the lead line and the note, once (phase 8d CR) ──
 // Every surface root carries `desk-surface` beside its own class; what is particular to a desk stays in its own sheet.
 .desk-surface {

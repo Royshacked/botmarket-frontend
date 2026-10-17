@@ -2,11 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 
 import { ChatTimeline }      from '../cmps/ChatTimeline/ChatTimeline.jsx'
 import { openChart }         from '../services/chartSurface.service.js'
-import { AgentSummon, AxlBotGlyph } from '../cmps/AxlHub/AgentSummon.jsx'
-import { RETURN_MS, DESKS } from '../cmps/AxlHub/agentMeta.jsx'
-import { resolveStepIndex, previousStep } from '../cmps/AxlHub/pipelineNav.js'
-import { handoffDoors } from '../services/pipeline/doors.js'
-import { AccountSelector }   from '../cmps/AccountSelector/AccountSelector.jsx'
+import { DESKS } from '../cmps/AxlHub/agentMeta.jsx'
 import { queuedAnything } from '../cmps/PortfolioPanel/reviewApply.js'
 import { QueuedActionDialog } from '../cmps/Floor/QueuedActionDialog.jsx'
 import { executeRoute } from '../cmps/Floor/queuedAction.contract.js'
@@ -36,8 +32,6 @@ import { apiError } from '../services/http.service.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
 import { resolveEntity, resolveForEdit } from '../services/entityResolve.js'
-import { useDeskHandoff } from '../customHooks/useDeskHandoff.js'
-import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
 import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD, SETUP_SHARED_OPEN, ENTITY_DETAIL_OPEN } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
 import { mentorService } from '../services/mentor/mentor.service.remote.js'
@@ -63,50 +57,6 @@ import { coverageRoute }     from './coverageRoute.js'
 import { isHandheld }        from '../cmps/EntityCard/entityPopup.js'
 import { DetailPanelSlot }   from '../cmps/DetailPanel/DetailPanel.jsx'
 import { closePanel }        from '../cmps/DetailPanel/detailPanel.store.js'
-
-// Maps activeTab → the step name used in DESKS.steps[] for pipeline highlighting.
-const TAB_TO_STEP = {
-    scanner:    'Argus',
-    portfolio:  'Atlas',
-    analyst:    'Prometheus',
-    mentor:     'Mentor',
-    ticket:     'Order ticket',
-}
-
-// Agentbar breadcrumb: plain agent name when no pipeline is active, full
-// pipeline path with the current step highlighted when one is set.
-function PipelineCrumb({ pipeline, activeTab, step = 0 }) {
-    const desk        = pipeline ? DESKS.find(d => d.key === pipeline) : null
-    const currentStep = TAB_TO_STEP[activeTab]
-    // `step` is the tracked position, not a tab match: an agent can appear twice in one pipeline
-    // (Atlas: mandate, then allocate) and the tab alone can't say which visit this is. Confirm it
-    // still agrees with the tab — standing somewhere outside the pipeline lights nothing, which is
-    // truer than lighting the wrong step.
-    const activeIdx   = desk?.steps[step]?.tab === activeTab ? step : -1
-    if (!desk) return (
-        <>
-            <span className="chat-agentbar__crumb" aria-hidden="true">/</span>
-            <span className="chat-agentbar__current">{currentStep ?? activeTab}</span>
-        </>
-    )
-    // `--long` lets the strip fold a five-step path (Portfolio) to dots at a width where a three-step
-    // one still fits in words — the fold is a container query in AxlHub.scss, and CSS can count
-    // neither steps nor pixels of text, so the markup says which of the two schedules applies.
-    const long = desk.steps.length >= 4
-    return (
-        <div className={`chat-agentbar__pipeline${long ? ' chat-agentbar__pipeline--long' : ''}`}>
-            <span className="chat-agentbar__pipeline-label">{desk.label}</span>
-            {desk.steps.map((step, i) => (
-                <span key={step.label} className="chat-agentbar__pipeline-group">
-                    {i > 0 && <span className="chat-agentbar__pipeline-line" aria-hidden="true" />}
-                    <span className={`chat-agentbar__pipeline-step${i === activeIdx ? ' is-active' : ''}`}>
-                        <span className="chat-agentbar__pipeline-text">{step.label}</span>
-                    </span>
-                </span>
-            ))}
-        </div>
-    )
-}
 
 // (Scan candidates now seed the KAIROS chat via handleBuildFromCandidate — the idea-summary/context
 // builders they used were removed with that reroute. See K3, KAIROS_MODES.md.)
@@ -178,69 +128,40 @@ function _moneyShort(v) {
     return `$${n.toFixed(0)}`
 }
 
-// THE DESK ROSTER. One list drives the resume refs and the busy state below; adding a desk is
-// an entry here rather than a useRef, a useState, a branch in _resumeThreadOn and a prop.
-//
-// It exists because the absence of it cost a feature. `portfolioLoading` and `scannerLoading`
-// were declared as `const [, setX]` — the VALUE discarded — so nothing could read them; the
-// other three desks never reported at all. MainPage therefore had no idea any desk was busy,
-// which let ThreadHistory offer a resume mid-turn that the running stream then silently
-// overwrote, and left the agent-bar live dot unable to pulse for the very desks those two
-// setters were added for.
-const DESK_TABS = ['scanner', 'portfolio', 'mentor', 'analyst', 'strategy', 'aether']
+// ── The side pane's tabs (phase 8e, K6) ──
+// Pythia and Aether still run their own chats (they are not on the session yet — D1), and the order ticket is a pad of
+// its own: each is a pane tab that stays MOUNTED while hidden (`keepMounted`, SidePane), so a conversation or a half-typed
+// order survives the pane closing. Admin-only for the two desks — their props are given to admins only.
+function PythiaSurface({ deskProps }) { return deskProps.pythia ? <StrategyPanel {...deskProps.pythia} /> : null }
+PythiaSurface.keepMounted = true
+function AetherSurface({ deskProps }) { return deskProps.aether ? <AetherPanel {...deskProps.aether} /> : null }
+AetherSurface.keepMounted = true
+function TicketSurface({ deskProps }) { return <div className="portfolio-panel">{deskProps.ticketPad}</div> }
+TicketSurface.keepMounted = true
+TicketSurface.paneLabel = 'Order ticket'
 
-// The desks whose work is drawn in the side pane, by agent (8b Mentor, 8c Atlas, 8d Argus and Prometheus).
-const SURFACES = Object.freeze({ mentor: MentorSurface, portfolio: PortfolioSurface, scanner: ScannerSurface, analyst: AnalystSurface })
+// The admin desks the chat's header opens (it does not route to them yet — they are not on the session).
+const ADMIN_DESKS = Object.freeze([
+    { agent: 'strategy', label: 'Pythia', title: 'Pythia — the industry views' },
+    { agent: 'aether',   label: 'Aether', title: 'Aether — event exposure' },
+])
+
+// The desks whose work is drawn in the side pane, by agent (8b Mentor, 8c Atlas, 8d Argus and Prometheus, 8e the rest).
+const SURFACES = Object.freeze({
+    mentor: MentorSurface, portfolio: PortfolioSurface, scanner: ScannerSurface, analyst: AnalystSurface,
+    strategy: PythiaSurface, aether: AetherSurface, ticket: TicketSurface,
+})
 
 export function MainPage() {
     const { user, isAdmin } = useAuth()
 
-    const [activeTab, setActiveTab]             = useState('axl')
     // Bumped by the daily market-brief card — the hub writes the brief on every change, then clears
     // it. See the MARKET_BRIEF_OPEN listener for why it counts rather than latches.
     const [briefRequest, setBriefRequest]       = useState(0)
-    const [activePipeline, setActivePipeline]   = useState(null)   // pipeline key from Axl reception
-    const [pipelineStep,   setPipelineStep]     = useState(0)      // index into that desk's steps[] — what "back" walks from
+    // A route Pythia's or Aether's panel offered (its RouteOffer) INTO the other — the panels still open on a seed.
+    const [pythiaSeed, setPythiaSeed] = useState(null)
+    const [aetherSeed, setAetherSeed] = useState(null)
     const [newsTab, setNewsTab]                 = useState('scans')
-
-    // WHAT IS WAITING AT EACH DESK — a seed (an opening turn), an inbox (a delivered artifact) or a
-    // chatRestore (a conversation being reopened), per desk. Was eleven useState declarations spread
-    // through this component with 25 setter call sites between them; the slot names and the setter
-    // names now come from one table, which is what doors.js reads its routing off.
-    //
-    // The names below are unchanged on purpose: every call site, prop and door still says
-    // `mentorSeed` / `setScannerInbox`, so this move is inert by construction.
-    // `clearAll` is deliberately not taken yet: clearing still goes through doors.clear(), which
-    // calls these same setters. Swapping that over is a wiring change, and this step is meant to be
-    // inert.
-    const { desks: deskHandoff, setters: deskSetters, deskProps } = useDeskHandoff()
-    // The slots reach their panels through `deskProps(desk)` at the JSX; the surfaced desks' doors are bridged to the
-    // session below.
-    const {
-        setScannerSeed, setScannerInbox, setScannerChatRestore,
-        setAnalystSeed, setAnalystInbox,
-        setMentorSeed,  setMentorInbox,  setMentorChatRestore,
-        setPortfolioSeed,
-        setStrategySeed, setAetherSeed,
-    } = deskSetters
-    // Streaming state reported up from the portfolio/scanner panels (they own their
-    // own chat stream) so the agent-bar "live" dot can pulse for Atlas/Argus too.
-    // The desks' doors (useDeskHandoff): what is left of the panel-era hand-offs — a SEED (an opening sentence) a route
-    // or a card still leaves for a desk. The conveyor that filled the inboxes went with the panels (phase 8d); the
-    // chain hands work between desks on the server. The bridge below turns a seed into a session turn (until 8e).
-
-    // Every door an artifact can be delivered through, and the one way to shut them all. Declared
-    // here, beside the state it owns, because both users of it are far apart: the conveyor fills a
-    // door (_applyHop), and leaving for the hub drops whatever is still in one (handleBackToAxl).
-    // A delivered artifact that outlives its run REPLAYS on the next remount of the desk holding it
-    // — see services/pipeline/doors.js for the run it did that on.
-    const doors = handoffDoors({
-        setScannerInbox, setAnalystInbox, setMentorInbox,
-        setScannerSeed, setPortfolioSeed, setMentorSeed, setAnalystSeed,
-        // Seeded only from a route, never by the conveyor (doors.js leaves them out of its seed
-        // table); listed so `clear` drops them with everything else on the way home.
-        setStrategySeed, setAetherSeed,
-    })
 
     // The Analyst's living coverage book (Radar Coverage tab). Reloads on initiate/retire
     // (COVERAGE_CHANGED); polled so the monitor's status/gap updates surface.
@@ -333,7 +254,8 @@ export function MainPage() {
         setResearchQueueBusyId(id)
         try {
             if (item.status === 'queued') await analystService.startResearch(id)
-            if (item.symbol) handleAxlPick('analyst', { symbol: item.symbol, opening: researchOpening(item), pipeline: 'research' })
+            // Since phase 8e a session turn to Prometheus, its surface beside the chat.
+            if (item.symbol) { talkTo('analyst', researchOpening(item)); openDesk('analyst') }
         } catch (err) { console.error('[researchQueue] start', err) }
         finally { setResearchQueueBusyId(null) }
     }
@@ -422,29 +344,6 @@ export function MainPage() {
     const [placingOrders, setPlacingOrders] = useState(false)
     const [pendingDeleteIdea, setPendingDeleteIdea] = useState(null)
     const [deletingIdea, setDeletingIdea] = useState(false)
-    const [returningToAxl, setReturningToAxl] = useState(false)
-    const returnTimerRef = useRef(null)
-    // Each desk panel publishes its "resume this thread" fn here. ONE map rather than one ref
-    // per desk: the refs were identical in every respect except which desk they belonged to, and
-    // every one of them also needed its own branch in _resumeThreadOn below. Adding a desk is now
-    // a key, not a declaration plus a branch.
-    const resumeRefs = useRef(Object.fromEntries(DESK_TABS.map(t => [t, { current: null }])))
-
-    // Which desks are mid-turn. STATE, not a ref: it drives what the UI lets you do. Memoised
-    // setters so a panel's onLoadingChange prop keeps a stable identity across renders, and the
-    // no-op guard stops a panel re-reporting the same value from re-rendering the page.
-    const [deskBusy, setDeskBusy] = useState({})
-    // Read inside the walk-home timeout, which runs RETURN_MS after the click and would otherwise
-    // close over whatever was busy when the arrow was pressed.
-    const deskBusyRef = useRef({})
-    deskBusyRef.current = deskBusy
-    const deskLoadingSetters = useMemo(() => Object.fromEntries(DESK_TABS.map(tab => [tab,
-        (is) => setDeskBusy(prev => {
-            if (Boolean(prev[tab]) === Boolean(is)) return prev
-            return { ...prev, [tab]: Boolean(is) }
-        }),
-    ])), [])
-
     const { setups, setupsLoading, refreshSetups } = useSetups()
     const [setupBusyId, setSetupBusyId] = useState(null)
 
@@ -494,31 +393,6 @@ export function MainPage() {
             },
         })
     }
-    // Leaving an agent plays a short "heading back to axl" beat (mirrors the summon
-    // on the way in) before the hub returns. The timer is cleared on unmount so it
-    // can't fire into a gone component.
-    useEffect(() => () => clearTimeout(returnTimerRef.current), [])
-    function handleBackToAxl() {
-        if (returningToAxl) return
-        setReturningToAxl(true)
-        returnTimerRef.current = setTimeout(() => {
-            setActiveTab('axl')
-            setActivePipeline(null)
-            setPipelineStep(0)
-            setNewsTab('scans')
-            setReturningToAxl(false)
-            // Fresh slate: drop any pending edit-restore, and remount Atlas/Argus so
-            // re-entering any agent from the hub starts a new conversation.
-            setScannerChatRestore(null)
-            // Mentor's slot — no panel reads it since phase 8b (the bridge below does), but a value left in
-            // it would be replayed by that bridge on the next delivery.
-            setMentorChatRestore(null)
-            // Drop every hand-off in flight — inboxes and seeds alike. A consumed one left lying
-            // here re-fires on the next remount of the desk that holds it (doors.js).
-            doors.clear()
-        }, RETURN_MS)
-    }
-
     const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, industries, industriesLoading, industriesError, week, assessments, themes } = useCalendarEvents()
     const { scans, loading: scansLoading, loadScans, deleteScan } = useScans()
 
@@ -557,10 +431,8 @@ export function MainPage() {
 
     /** Show a desk's surface beside the chat (the chat column is the timeline's while it is open). */
     function openDesk(agent) {
-        // The desk the user was sent to must not open underneath the thing they sent themselves from — the tab change
-        // used to close the docked panel (the activeTab effect below), and the tab is usually axl already (8b CR).
+        // The desk the user was sent to must not open underneath the thing they sent themselves from (8b CR).
         closePanel()
-        setActiveTab('axl')
         openSurface(agent)
     }
 
@@ -588,34 +460,6 @@ export function MainPage() {
         return true
     }
 
-    // THE BRIDGE TO THE OLD DESK MACHINERY (until phase 8e deletes it). A seed a route or a card still leaves for a
-    // surfaced desk becomes a session turn to it, and a switch to its tab opens its surface.
-    const mentorDoor = deskHandoff.mentor
-    useEffect(() => {
-        const message = mentorDoor.seed?.message
-        if (!message) return
-        talkTo('mentor', message)
-        setMentorSeed(null)
-        openDesk('mentor')
-    }, [mentorDoor.seed?.key]) // eslint-disable-line react-hooks/exhaustive-deps
-    // Argus's and Prometheus's (phase 8d). A brief for Argus is new work: it lands on a clean table (onArgusTable).
-    const scannerDoor = deskHandoff.scanner
-    useEffect(() => {
-        const seed = scannerDoor.seed
-        if (!seed?.message) return
-        setScannerSeed(null)
-        onArgusTable(seed.message, { profile: seed.profile, what: 'start this scan' })
-            .then(sent => { if (sent) openDesk('scanner') })
-    }, [scannerDoor.seed?.key]) // eslint-disable-line react-hooks/exhaustive-deps
-    const analystDoor = deskHandoff.analyst
-    useEffect(() => {
-        const message = analystDoor.seed?.message
-        if (!message) return
-        talkTo('analyst', message)
-        setAnalystSeed(null)
-        openDesk('analyst')
-    }, [analystDoor.seed?.key]) // eslint-disable-line react-hooks/exhaustive-deps
-
     /**
      * New work onto ARGUS'S TABLE — a radar cut, a brief from a route or a card (phase 8d CR). Never on top of what Argus
      * holds: a list being built, a saved list being edited (Update would write the new names over it), a name it is
@@ -636,15 +480,6 @@ export function MainPage() {
         if (await talkTo('scanner', text, extra) === false) { showErrorMsg('Argus did not get that — send it again from the chat.'); return false }
         return true
     }
-    // Atlas's (phase 8c): a seed — a sleeve resumed, a conveyor brief — is a turn to Atlas.
-    const portfolioDoor = deskHandoff.portfolio
-    useEffect(() => {
-        const message = portfolioDoor.seed?.message
-        if (!message) return
-        talkTo('portfolio', message)
-        setPortfolioSeed(null)
-        openDesk('portfolio')
-    }, [portfolioDoor.seed?.key]) // eslint-disable-line react-hooks/exhaustive-deps
     const { workspace, setWorkspace } = useWorkspaceMode(user?._id)
     const { positions, loading: positionsLoading, refresh: refreshPositions, closePosition, closePositions } = usePositions()
     const { ideas, setIdeas, loadIdeas, loading: ideasLoading, handleStatusChange, preEntryPrompt, setPreEntryPrompt } = useTradeIdeas()
@@ -696,8 +531,8 @@ export function MainPage() {
     const [queuedConfirm, setQueuedConfirm] = useState(null)
     const [queuedBusyId,  setQueuedBusyId]  = useState(null)
     const [queuedError,   setQueuedError]   = useState(null)
-    // Immediate-trade ticket. Whether the pad is SHOWING is just `activeTab === 'ticket'` — the hub
-    // opens it the way it opens a desk, so there is one notion of "what is in the chat column".
+    // Immediate-trade ticket. Whether the pad is SHOWING is the side pane's (its `ticket` tab, kept mounted) — opened
+    // the way a desk is, so there is one notion of "what is beside the chat".
     // Which entity it manages is state, but the entity ITSELF is read from `ideas`
     // (see handleTicketPlace) so a broker fill moves the ticket on without tracking the lifecycle twice.
     const [ticketIdeaId, setTicketIdeaId] = useState(null)
@@ -755,8 +590,6 @@ export function MainPage() {
     // lists so a card could resolve its subject out of them; the cards now READ their subject by id
     // (resolveEntity), which is both fresher and the same authorization the server already applies.
     // What is left is state with no document behind it to fetch.
-    const activeTabRef = useRef(activeTab)
-    activeTabRef.current = activeTab
     const isAdminRef = useRef(isAdmin)
     isAdminRef.current = isAdmin
     const workspaceRef = useRef(workspace)   // for []-dep event handlers that must read the live workspace
@@ -786,16 +619,14 @@ export function MainPage() {
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Sleeve-sourced card → back to the build the sleeve was FOR. A book that exists reopens as its
-    // edit; a construction still in a thread reopens that thread on Atlas, the same path the thread
-    // history's resume takes. Plain setActiveTab, like Pythia's review: the desk panels are mounted
-    // behind a display toggle, so the resume lands on a live panel.
+    // Sleeve-sourced card → back to the build the sleeve was FOR. A book that exists reopens as its edit. A construction
+    // still in a pre-session THREAD (a card from before phase 5d — sleeves settle into the session's chain since) has no
+    // way back: the threads drawer went with the panels (phase 8e), so Atlas's surface opens and the user is told.
     useEffect(() => {
         return eventBus.on(RESUME_BUILD, ({ portfolioId = null, threadId = null } = {}) => {
             if (portfolioId) { handleEditPortfolio(portfolioId); return }
-            setActiveTab('portfolio')
-            setActivePipeline('portfolio')
-            if (threadId) _resumeThreadOn('portfolio', threadId)
+            openDesk('portfolio')
+            if (threadId) showUserMsg('That build was started before the chat moved — tell Atlas to pick it up from the research.')
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -935,21 +766,16 @@ export function MainPage() {
 
     // Market-brief card "Get the brief" → open Axl and have him write it there.
     //
-    // Routing uses the normal leave-the-desk path (return overlay, pipeline cleared, panels reset)
-    // so arriving from a card lands exactly where arriving by the back arrow does — but ONLY from
-    // another tab: run on a user already talking to Axl it would remount the hub and wipe the
-    // conversation they are in, to deliver a brief into the wreckage.
-    //
+    // The chat is always the timeline (phase 8e), so the brief is asked for where the user already is.
     // The counter is what tells the hub to write. A counter and not a flag, because two briefs a
     // day (a second card after the first was dismissed) must both fire, and because switching to
     // the tab you are already on changes nothing on its own. The hub clears it once it starts, so
     // coming back to Axl later doesn't re-deliver a brief the user already read.
     useEffect(() => {
         return eventBus.on(MARKET_BRIEF_OPEN, () => {
-            if (activeTabRef.current !== 'axl') handleBackToAxl()
             setBriefRequest(n => n + 1)
         })
-    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [])
 
     // Coverage cards → the Analyst. WHICH Prometheus depends on what the card asked for, and the
     // payload has always carried enough to tell: this used to drop it on the floor and open a blank
@@ -985,7 +811,7 @@ export function MainPage() {
             // other design does not render is inert. A fresh object, so a second press re-opens a
             // desk closed in between (same channel as the forecast and queued-list cards).
             if (go.book) { setNewsTab('coverage'); setDeskRequest({ key: 'forecasts', symbol: cov?.symbol ?? sym }) }
-            if (go.desk) setActiveTab('analyst')
+            if (go.desk) openDesk('analyst')
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps -- registered once; handleEditCoverage reads the session through its ref
 
@@ -1485,16 +1311,9 @@ export function MainPage() {
 
     // Shared calendar → Mentor handoff: open the setup desk with the catalyst already said, and put
     // the ticker on the chart so the conversation and the chart open on the same name. The message
-    // goes out as one session turn to Mentor, so one click is one turn.
-    // A hand-off INTO the chat closes the detail panel docked over it — the desk the user was sent
-    // to must not open underneath the thing they sent themselves from (Trade with Mentor from an
-    // events-radar name, Edit on a coverage thesis, any Axl route). seedMentorChat closes it too: a
-    // seed into the desk that is already showing changes no tab.
-    useEffect(() => { closePanel() }, [activeTab])
-
-    // The bridge's third leg (until phase 8e): a path that still switches to a surfaced desk's TAB lands on its surface.
-    useEffect(() => { if (SURFACES[activeTab]) openDesk(activeTab) }, [activeTab])
-
+    // goes out as one session turn to Mentor, so one click is one turn. A hand-off INTO the chat closes
+    // the detail panel docked over it (openDesk does) — the desk the user was sent to must not open
+    // underneath the thing they sent themselves from.
     function seedMentorChat(symbol, message) {
         if (!symbol) return
         closePanel()
@@ -1503,118 +1322,30 @@ export function MainPage() {
         openChart({ ticker: symbol, source: 'mentor' })
     }
 
-    // ── Axl reception → the order ticket ──────────────────────────────────────
-    // Trade by hand, picked in the hub beside the desks. No pipeline and no summon: the pad is one
-    // screen, and the agentbar's "← axl" is the way back, exactly as it is from a desk.
+    // ── The order ticket ──────────────────────────────────────────────────────
+    // Trade by hand (Axl's <show>ticket, the Lists): the pad is a pane tab beside the chat (phase 8e).
     function handleOpenTicket(symbol = null) {
-        setActiveTab('ticket')
-        setActivePipeline(null)
+        openDesk('ticket')
         // The pad starts blank; the chart of the name they asked about is beside it.
         if (symbol) openChart({ ticker: symbol, source: 'ticket' })
     }
 
-    // ── Axl reception → a desk ────────────────────────────────────────────────
-    // The hub summoned a desk (AxlHub's `onPick`), and it carries the hand-off in two parts.
-    //
-    // `opts.opening` is the whole point of routing: what the user said they came for, in their own
-    // words, sent at the desk as THEIR first message. EVERY desk takes one, because it is not a
-    // parameter anyone has to interpret — it is the sentence the user would have typed on arrival,
-    // and each entry agent already knows what to do with a sentence. (This is why the desks that
-    // used to be excluded no longer are: a bare TICKER seed at Argus or Atlas jumped the frame they
-    // have to establish first — Argus opens on a screen, Atlas on the mandate — but "I want 5%
-    // profit" IS Atlas's Phase 1 material, and "I think NVDA breaks out" is Argus's.)
-    //
-    // `opts.symbol` is the name Axl resolved from the conversation, so the entry agent opens ON it
-    // and the user doesn't say "NVDA" twice. It still words its own sentence for the two single-name
-    // desks — but only when no opening came, since the user's own words always say it better.
-    //
-    // Both go through the same keyed one-shot seed every hand-off in the app uses (useSeedTurn).
-    // ── Axl hand-off → an item's own EDIT mode ────────────────────────────────
-    // A route opens a desk for new work; this reopens something the user already has. Axl names the
-    // kind and the handle (both come straight off `get_watched_items`, whose rows lead with
-    // `[kind:id]`), and the doc is handed to the SAME function the list-surface pencil calls — so an
-    // edit reached from a sentence and an edit reached from a click are the one edit, with the same
-    // conversation restored. Nothing new is built here; that is the whole point of the feature.
-    //
-    // The ref is READ by id, through the same pipe the cards and the pencils use — the server's
-    // owner-scoped get is also the authorization, so a hallucinated or borrowed id answers 404
-    // rather than relying on being absent from a list this client happened to load.
-    //
-    // Falls back to the symbol for the kinds that have one (Axl may have had no id to quote), and
-    // resolves false when nothing matches so the caller can open the desk the ordinary way rather
-    // than leaving the hand-off dead — the same choice the OPEN_COVERAGE card makes.
     /**
-     * Open something the user already has, at the desk that owns it.
+     * Open something the user already has, at the desk that owns it — an edit a route names by id or by name.
      *
-     * FINDING it is not this component's job — resolveForEdit answers an id or a name, and answers
-     * null rather than guessing when a name is ambiguous. What stays here is the OPENING, because
-     * each desk's opener is a closure over this component's state and cannot leave it.
+     * FINDING it is not this component's job — resolveForEdit answers an id or a name, and answers null rather than
+     * guessing when a name is ambiguous. What stays here is the OPENING, each kind through its own doorway.
      */
     async function openForEdit({ kind, ref } = {}) {
         const doc = await resolveForEdit(kind, ref)
         if (!doc) return false
         switch (kind) {
-            case 'setup':    handleEditSetup(doc);   return true
-            case 'scan':     handleEditScan(doc);    return true
-            // The coverage tab is brought forward: the pencil is normally pressed from it, so
-            // arriving from a sentence should land on the same surface a click would have.
-            case 'coverage': setNewsTab('coverage'); handleEditCoverage(doc); return true
-            // Keyed, not handed — the one kind whose editor takes an id. handleEditPortfolio does
-            // its own read and decides review-vs-replan from the book's state; passing that from
-            // here would be a second copy of the judgment.
+            case 'setup':     handleEditSetup(doc);   return true
+            case 'scan':      handleEditScan(doc);    return true
+            case 'coverage':  setNewsTab('coverage'); handleEditCoverage(doc); return true
             case 'portfolio': handleEditPortfolio(doc.portfolioId); return true
             default:          return false
         }
-    }
-
-    async function handleAxlPick(tab, opts = {}) {
-        // An edit hand-off names an ITEM, not a desk, and the item picks the tab: a call edits in
-        // Kairos even though the trading desk enters at Argus. So the tab argument is skipped and the
-        // opener sets its own — but the pipeline is still stamped, so the crumb and the back button
-        // read exactly as they do on any other arrival.
-        if (opts.edit) {
-            setActivePipeline(opts.pipeline ?? null)
-            setPipelineStep(0)
-            if (await openForEdit(opts.edit)) return
-            // Nothing resolved (a list this client hasn't loaded, a ref that never existed) — fall
-            // through and open the desk normally. Worse than the edit, far better than nothing.
-        }
-        setActiveTab(tab)
-        setActivePipeline(opts.pipeline ?? null)
-        setPipelineStep(0)                                    // a desk always opens at its first step
-        setNewsTab('scans')
-
-        // Walked back into something left unfinished → pick it up, rather than opening a blank desk and
-        // making the user find it in a drawer. Returns before the seed branch below: a resumed
-        // conversation already has its own history and must not be opened on a fresh opening turn too.
-        if (opts.resumeThreadId) {
-            _resumeThreadOn(tab, opts.resumeThreadId)
-            return
-        }
-
-        const opening = typeof opts.opening === 'string' ? opts.opening.trim() : ''
-        const key = Date.now()
-        if (opening) {
-            switch (tab) {
-                case 'analyst':   return setAnalystSeed({ key, message: opening })
-                case 'mentor':    return setMentorSeed({ key, message: opening })
-                case 'portfolio': return setPortfolioSeed({ key, message: opening })
-                // Argus is the entry for BOTH the trade desk and the scan desk, and both are the
-                // trading profile — named rather than left to the panel, which may still be on the
-                // investing profile from a portfolio sleeve run.
-                case 'scanner':   return setScannerSeed({ key, message: opening, profile: 'trading' })
-                // Admin desks. The server already drops a route to either for a trader
-                // (routing.util ADMIN_DESKS), so this is the second lock on the same door: a
-                // sentence for Pythia or Aether is dropped here too, rather than seeded into a
-                // panel a trader is not shown.
-                case 'strategy':  return isAdmin ? setStrategySeed({ key, message: opening }) : undefined
-                case 'aether':    return isAdmin ? setAetherSeed({ key, message: opening }) : undefined
-                default: break
-            }
-        }
-        if (!opts.symbol) return
-        if (tab === 'analyst') setAnalystSeed({ key, message: `Research ${opts.symbol} for coverage.` })
-        if (tab === 'mentor')  setMentorSeed({ key, message: `I want to work on my own ${opts.symbol} trade.` })
     }
 
     // ── A desk → another desk, by the user's ask ──────────────────────────────
@@ -1624,40 +1355,27 @@ export function MainPage() {
     // sender wrote, which is where what it found travels. One doorway for every arrival is the point:
     // a hop added at any desk is a prompt edit there, never a handler here. Mirrors AxlHub._summon
     // without the animation — the user pressed a button, they are not being fetched.
-    function handleRoute(offer) {
+    //
+    // Since phase 8e only Pythia's and Aether's panels offer one (the session desks route through Axl, on the server).
+    // An edit opens the item; a desk on the session gets the opening as a turn; Pythia or Aether opens on it as a seed.
+    async function handleRoute(offer) {
         const desk = DESKS.find(d => d.key === (offer?.edit?.desk ?? offer?.route))
         if (!desk) return
-        handleAxlPick(desk.entryTab, {
-            pipeline: desk.key,
-            symbol:   offer.routeSymbol ?? null,
-            ...(offer.edit    ? { edit: offer.edit }       : {}),
-            ...(offer.opening ? { opening: offer.opening } : {}),
-        })
-    }
-
-    // ── Walking the pipeline ──────────────────────────────────────────────────
-    // Follow the user along the desk's chain. Derived from the tab so every hand-off — the ones
-    // above, the ones below, and any added later — keeps the crumb and the back button honest
-    // without having to remember to stamp a step number. See pipelineNav.js for the ambiguity it
-    // resolves (Atlas stands at two different steps).
-    useEffect(() => {
-        if (!activePipeline) return
-        const steps = DESKS.find(d => d.key === activePipeline)?.steps ?? []
-        setPipelineStep(prev => resolveStepIndex(steps, activeTab, prev))
-    }, [activeTab, activePipeline])
-
-    // One step back up the chain. Distinct from the axl button beside it, which leaves the pipeline
-    // altogether: this keeps the desk and the work, so the user can re-read the mandate that framed
-    // a screen, or re-open the list a call came from, and carry on forward again.
-    //
-    // A plain tab switch, deliberately: every panel stays mounted (hidden, not unmounted), so going
-    // back finds the conversation as it was left. It must NOT bump a reset key.
-    const activeDesk   = activePipeline ? DESKS.find(d => d.key === activePipeline) : null
-    const backStep     = previousStep(activeDesk?.steps, pipelineStep)
-    function handleStepBack() {
-        if (!backStep) return
-        setPipelineStep(pipelineStep - 1)
-        setActiveTab(backStep.tab)
+        if (offer.edit && await openForEdit(offer.edit)) return
+        const agent = desk.entryTab
+        const symbol = offer.routeSymbol ?? null
+        const opening = typeof offer.opening === 'string' && offer.opening.trim() ? offer.opening.trim()
+            : symbol && agent === 'analyst' ? `Research ${symbol} for coverage.`
+            : symbol && agent === 'mentor' ? `I want to work on my own ${symbol} trade.`
+            : null
+        if (agent === 'strategy' || agent === 'aether') {
+            if (!isAdmin) return
+            if (opening) (agent === 'strategy' ? setPythiaSeed : setAetherSeed)({ key: Date.now(), message: opening })
+            openDesk(agent)
+            return
+        }
+        if (opening) talkTo(agent, opening)
+        openDesk(agent)
     }
 
     // Scan candidate → idea: carries the scanner's intended direction.
@@ -1760,27 +1478,8 @@ export function MainPage() {
         editEntity('scan', scan.id, { name: scan.thesis ?? null })
     }
 
-    // Resume dispatcher for the shared agent-bar hamburger — routes to the active agent. Each
-    // desk exposes its own resume fn via resumeRefs, since it owns its conversation state.
-    /**
-     * Resume a thread on a NAMED tab.
-     *
-     * Named rather than read from `activeTab`, because arriving at a desk and resuming its conversation
-     * happen in the same tick: the closure still holds the tab the user was on, so dispatching by state
-     * would resume on the desk they just left.
-     */
-    function _resumeThreadOn(tab, threadId) {
-        if (!threadId) return undefined
-        return resumeRefs.current[tab]?.current?.(threadId)
-    }
-
-    function handleResumeActiveThread(threadId) {
-        return _resumeThreadOn(activeTab, threadId)
-    }
-
-    // The pad is built here, beside the agent panels, and shown by the same display switch they
-    // use. Always MOUNTED: a half-typed ticket (or a resting order it is tracking) survives a trip
-    // back to the hub, the way every desk's thread does.
+    // The pad is built here and shown in the side pane's `ticket` tab, which stays MOUNTED (TicketSurface.keepMounted):
+    // a half-typed ticket (or a resting order it is tracking) survives the pane closing.
     const ticketPad = (
         <TradeTicket
             accounts={availableAccounts}
@@ -1799,6 +1498,17 @@ export function MainPage() {
             onReset={handleTicketReset}
         />
     )
+
+    // The side pane's props: what every surface reads (surfaceProps), and the kept tabs' — the ticket pad, and Pythia's
+    // and Aether's panels for an admin (their props are their own: a seed a route left, where a publish lands).
+    const paneProps = {
+        ...surfaceProps,
+        ticketPad,
+        ...(isAdmin ? {
+            pythia: { seed: pythiaSeed, onRoute: handleRoute, onPublished: () => setNewsTab('forecasts') },
+            aether: { seed: aetherSeed, onRoute: handleRoute },
+        } : {}),
+    }
 
     return (
         <>
@@ -1829,116 +1539,22 @@ export function MainPage() {
                         {/* Where a list row's detail docks on desktop (DetailPanel) — over the chat,
                             the widest column, with the chat still mounted underneath. */}
                         <DetailPanelSlot />
-                        {activeTab === 'axl' ? (
-                            <SessionContext.Provider value={mainSession}>
-                                {/* The chat and, beside it, each desk's working surface (phase 8b). */}
-                                <div className="chat-with-pane">
-                                    <ChatTimeline
-                                        accounts={timelineAccounts}
-                                        mainAccountId={mainAccountId}
-                                        onOpenTicket={handleOpenTicket}
-                                        briefRequest={briefRequest}
-                                        onBriefStart={() => setBriefRequest(0)}
-                                    />
-                                    <SidePane session={mainSession} surfaces={SURFACES} deskProps={surfaceProps} />
-                                </div>
-                            </SessionContext.Provider>
-                        ) : (
-                            <div className="chat-agentbar">
-                                {/* Inside a pipeline the arrow goes bare: the desk path beside it is
-                                    already carrying the words, and "axl" next to it read as a step. */}
-                                <button
-                                    className={`chat-agentbar__back${activePipeline ? ' chat-agentbar__back--bare' : ''}`}
-                                    onClick={handleBackToAxl}
-                                    aria-label="Back to axl"
-                                    title="Back to axl"
-                                >
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                        <path d="M20 12H6" /><path d="M12 5l-7 7 7 7" />
-                                    </svg>
-                                    {!activePipeline && 'axl'}
-                                </button>
-                                {backStep && (
-                                    <button
-                                        className="chat-agentbar__back chat-agentbar__back--step"
-                                        onClick={handleStepBack}
-                                        aria-label={`Back to ${backStep.label}`}
-                                        title={`Back to ${backStep.label}`}
-                                    >
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                            <path d="M15 18l-6-6 6-6" />
-                                        </svg>
-                                        {backStep.label}
-                                    </button>
-                                )}
-                                <PipelineCrumb pipeline={activePipeline} activeTab={activeTab} step={pipelineStep} />
-
-                                <div className="chat-agentbar__right">
-                                    {/* (Trading by hand is picked in the hub, beside the desks — the pad
-                                        is its own tab, so no strip toggle is needed here. The account
-                                        selector below stays off it: the pad carries its own.) */}
-                                    {(activeTab === 'portfolio' || activeTab === 'mentor') && (
-                                        <AccountSelector
-                                            accounts={availableAccounts}
-                                            selectedIds={selectedAccounts}
-                                            onChange={setSelectedAccounts}
-                                            mainAccountId={mainAccountId}
-                                            onMainChange={setMainAccountId}
-                                        />
-                                    )}
-                                    <ThreadHistory agent={activeTab} onResume={handleResumeActiveThread} busy={Boolean(deskBusy[activeTab])} />
-                                </div>
-                            </div>
-                        )}
-                        {/* Trade by hand — a panel of its own, not a mode of a desk's chat: it is
-                            reached from the hub, and it belongs to no pipeline. */}
-                        <div className="chat-tabs__panel" style={{ display: activeTab === 'ticket' ? 'flex' : 'none' }}>
-                            <div className="portfolio-panel">{ticketPad}</div>
-                        </div>
-
-
-                        {isAdmin && (
-                            <div className="chat-tabs__panel" style={{ display: activeTab === 'strategy' ? 'flex' : 'none' }}>
-                                <StrategyPanel
-                                    {...deskProps('strategy')}
-                                    onRoute={handleRoute}
-                                    onLoadingChange={deskLoadingSetters.strategy}
-                                    pipeline={activePipeline}
-                                    resumeRef={resumeRefs.current.strategy}
-                                    // A published answer lands on the Forecasts board. The admin stays at the
-                                    // desk: one turn can draft several industries, published one at a time.
-                                    onPublished={() => setNewsTab('forecasts')}
+                        {/* The chat and, beside it, the side pane: each desk's working surface (8b–8d), and Pythia, Aether and the
+                            order ticket as kept tabs (8e). The chat column is always the timeline — no desk tab replaces it. */}
+                        <SessionContext.Provider value={mainSession}>
+                            <div className="chat-with-pane">
+                                <ChatTimeline
+                                    accounts={timelineAccounts}
+                                    mainAccountId={mainAccountId}
+                                    onOpenTicket={handleOpenTicket}
+                                    briefRequest={briefRequest}
+                                    onBriefStart={() => setBriefRequest(0)}
+                                    desks={isAdmin ? ADMIN_DESKS : []}
+                                    onOpenDesk={openDesk}
                                 />
+                                <SidePane session={mainSession} surfaces={SURFACES} deskProps={paneProps} />
                             </div>
-                        )}
-
-                        {/* Admin-only, like Pythia's: the hub never offers the desk to a trader and the
-                            server drops a route to it, so a mounted panel would only ever be a door
-                            with nothing behind it. */}
-                        {isAdmin && (
-                            <div className="chat-tabs__panel" style={{ display: activeTab === 'aether' ? 'flex' : 'none' }}>
-                                <AetherPanel
-                                    {...deskProps('aether')}
-                                    onRoute={handleRoute}
-                                    onLoadingChange={deskLoadingSetters.aether}
-                                    pipeline={activePipeline}
-                                    resumeRef={resumeRefs.current.aether}
-                                />
-                            </div>
-                        )}
-
-                        {/* Departure beat — covers the agent chat while heading home to axl. */}
-                        {returningToAxl && (
-                            <div className="chat-return-overlay" role="status" aria-live="polite">
-                                <AgentSummon
-                                    hue="axl"
-                                    label={<>Heading back to <span className="axl-summon__brand chat-timeline__wordmark"><b>A</b>XL</span></>}
-                                    sub="one moment…"
-                                >
-                                    <AxlBotGlyph />
-                                </AgentSummon>
-                            </div>
-                        )}
+                        </SessionContext.Provider>
                     </div>
                     {floorMode ? (
                         <div className="workspace__right">
@@ -1982,6 +1598,7 @@ export function MainPage() {
                                     onRetireCoverage={handleRetireCoverage}
                                     onDeleteCoverage={handleDeleteCoverage}
                                     isAdmin={isAdmin}
+                                    onOpenDesk={openDesk}
                                     researchQueue={researchQueue}
                                     onStartResearch={handleStartResearch}
                                     onMarkResearchDone={handleMarkResearchDone}
@@ -1998,7 +1615,8 @@ export function MainPage() {
                     <div className="workspace__ideas">
                         <TradeIdeasList
                             ideas={inWorkspace(ideas, workspace).filter(i => i.status !== 'closed')}
-                            chatTab={activeTab}
+                            // The desk the user is talking to — the list opens on its kind (the floor, since phase 8e).
+                            chatTab={mainSession.floor ?? 'axl'}
                             buildingPortfolio={buildingPortfolio}
                             loading={ideasLoading}
                             onDelete={handleDeleteIdea}

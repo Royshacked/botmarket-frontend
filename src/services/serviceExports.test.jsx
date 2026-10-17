@@ -26,7 +26,7 @@ const SERVICES = {
     scannerService:    [scannerService,    ['sendStream', 'listScans', 'createScan', 'updateScan', 'deleteScan']],
     mentorService:     [mentorService,     ['sendStream', 'generateSetup', 'updateSetup', 'listSetups', 'getSetup', 'armSetup', 'disarmSetup', 'deleteSetup']],
     analystService:    [analystService,    ['sendStream', 'initiateCoverage', 'listCoverage', 'getCoverage', 'updateCoverage', 'retireCoverage']],
-    tradeIdeasService: [tradeIdeasService, ['createIdea', 'createBatch', 'getIdeas', 'getIdea', 'deleteIdea', 'updateIdea', 'placeOrders', 'triggerEntry']],
+    tradeIdeasService: [tradeIdeasService, ['createIdea', 'getIdeas', 'getIdea', 'deleteIdea', 'updateIdea', 'placeOrders', 'triggerEntry']],
 }
 
 describe('agent service exports', () => {

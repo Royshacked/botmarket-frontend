@@ -8,6 +8,7 @@ import { adoptService } from '../../services/adopt/adopt.service.remote'
 import { eventBus, REVIEW_RESOLVED } from '../../services/event-bus.service'
 import { useSurfacePress } from '../../customHooks/useSurfacePress.js'
 import { SurfaceNote } from '../SidePane/SurfaceNote.jsx'
+import { DiscardButton } from '../SidePane/DiscardButton.jsx'
 import {
     REVIEW_REQUEST, OPENINGS, ADOPT_OPENING, bookIdeas, buildSummary, planStatus, accountsMoved, bookPending,
     avoidQuestion, sleeveLine, pressReport, refusalText, describeChange,
@@ -322,15 +323,20 @@ export function PortfolioSurface({ session, deskProps = {} }) {
                             )}
                             {later}
                         </>
-                    ) : planReady ? (
-                        <button
-                            className="portfolio-panel__generate"
-                            onClick={() => commit('generate')}
-                            disabled={!canGenerate || pressing}
-                            title={canGenerate ? undefined : 'Mark a broker account above to generate this plan'}
-                        >
-                            {pressing ? 'Saving…' : 'Generate plan'}
-                        </button>
+                    ) : plan ? (
+                        <>
+                            {planReady && (
+                                <button
+                                    className="portfolio-panel__generate"
+                                    onClick={() => commit('generate')}
+                                    disabled={!canGenerate || pressing}
+                                    title={canGenerate ? undefined : 'Mark a broker account above to generate this plan'}
+                                >
+                                    {pressing ? 'Saving…' : 'Generate plan'}
+                                </button>
+                            )}
+                            <DiscardButton what={`the ${plan.name ?? 'new'} plan`} onDiscard={() => press('discard', { done: () => 'Discarded — Atlas\'s table is clear.' })} disabled={pressing} />
+                        </>
                     ) : null}
                 </div>
             )}
