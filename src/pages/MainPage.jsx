@@ -11,14 +11,13 @@ import { planHop, planEntry, producesOne, hasDownstream, findReceiver } from '..
 import { contractFor } from '../services/pipeline/contracts.js'
 import { handoffDoors } from '../services/pipeline/doors.js'
 import { AccountSelector }   from '../cmps/AccountSelector/AccountSelector.jsx'
-import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
-import { confirmAvoid, confirmAvoidAdds, avoidRetry, avoidRefusalRetry } from '../cmps/PortfolioPanel/avoidOk.js'
-import { reviewApplyMessage, queuedAnything } from '../cmps/PortfolioPanel/reviewApply.js'
+import { queuedAnything } from '../cmps/PortfolioPanel/reviewApply.js'
 import { QueuedActionDialog } from '../cmps/Floor/QueuedActionDialog.jsx'
 import { executeRoute } from '../cmps/Floor/queuedAction.contract.js'
 import { pendingActionService } from '../services/pendingAction/pendingAction.service.remote.js'
 import { ScannerPanel, RESEARCH_TOP_N }      from '../cmps/ScannerPanel/ScannerPanel.jsx'
 import { MentorSurface }     from '../cmps/MentorSurface/MentorSurface.jsx'
+import { PortfolioSurface }  from '../cmps/PortfolioSurface/PortfolioSurface.jsx'
 import { handoffTurn, mentorHolding } from '../cmps/MentorSurface/mentorSurface.utils.js'
 import { SidePane }          from '../cmps/SidePane/SidePane.jsx'
 import { openSurface }       from '../cmps/SidePane/sidePane.store.js'
@@ -35,7 +34,7 @@ import { analystService, COVERAGE_CHANGED, RESEARCH_QUEUE_CHANGED } from '../ser
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
-import { activatePortfolio, isManualIdea, buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, ideaWorkspace, inWorkspace, planAccountRebind, positionOpenTarget, openIdeaPopup, matchPositionsForIdea, isPortfolioReview } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { activatePortfolio, isManualIdea, buildOrderPreview, orderTypeLabel, isDeleteConfirmRequired, ideaWorkspace, inWorkspace, positionOpenTarget, openIdeaPopup, matchPositionsForIdea, isPortfolioReview } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { TradeTicket } from '../cmps/TradeTicket/TradeTicket.jsx'
 import { apiError } from '../services/http.service.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
@@ -46,15 +45,12 @@ import { threadsService } from '../services/threads/threads.service.remote.js'
 import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
 import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD, SETUP_SHARED_OPEN, ENTITY_DETAIL_OPEN } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
-import { adoptService } from '../services/adopt/adopt.service.remote.js'
-import { AdoptBookGrid } from '../cmps/AdoptBook/AdoptBookGrid.jsx'
 import { mentorService } from '../services/mentor/mentor.service.remote.js'
 import { isSetupAwaitingConfirm } from '../cmps/TradeIdeas/setupStatus.js'
 import { pickConfirmIdea, pickConfirmSetup } from '../cmps/TradeIdeas/confirmTarget.js'
 import { redrawAsk } from '../cmps/MentorPanel/redrawAsk.js'
 import { sharedAsk } from '../cmps/MentorPanel/sharedAsk.js'
 import { listenForPopupEvents } from '../services/popupBridge.js'
-import { toChatHistory } from '../customHooks/useChatStream.js'
 import { useCalendarEvents } from '../customHooks/useCalendarEvents.js'
 import { useScans }          from '../customHooks/useScans.js'
 import { useBrokerAccounts } from '../customHooks/useBrokerAccounts.js'
@@ -199,8 +195,8 @@ function _moneyShort(v) {
 // setters were added for.
 const DESK_TABS = ['scanner', 'portfolio', 'mentor', 'analyst', 'strategy', 'aether']
 
-// The desks whose work is drawn in the side pane, by agent (phase 8b: Mentor; Atlas, Argus and Prometheus follow).
-const SURFACES = Object.freeze({ mentor: MentorSurface })
+// The desks whose work is drawn in the side pane, by agent (8b Mentor, 8c Atlas; Argus and Prometheus follow).
+const SURFACES = Object.freeze({ mentor: MentorSurface, portfolio: PortfolioSurface })
 
 export function MainPage() {
     const { user, isAdmin } = useAuth()
@@ -235,7 +231,6 @@ export function MainPage() {
         setPortfolioSeed, setPortfolioChatRestore,
         setStrategySeed, setAetherSeed,
     } = deskSetters
-    const [buildingPortfolio, setBuildingPortfolio] = useState(null)
     // Streaming state reported up from the portfolio/scanner panels (they own their
     // own chat stream) so the agent-bar "live" dot can pulse for Atlas/Argus too.
     // ── Pipeline inboxes ──────────────────────────────────────────────────────
@@ -251,10 +246,6 @@ export function MainPage() {
     // and keep chatting first), 'auto' hands it straight to the next desk. A gate never
     // auto-advances in either mode — see planHop.
     const [pipelineMode,     setPipelineMode]     = useState('manual')
-    // The staged book of an adoption in progress. Its presence puts Atlas in adopt mode and mounts the
-    // confirm grid beside the chat — the conversation gathers the mandate and the reasons, the grid
-    // holds the numbers. Null the rest of the time, which is what makes the mode invisible elsewhere.
-    const [adoptDraft, setAdoptDraft] = useState(null)
     // What a research run produced, kept from the Argus hand-off until Prometheus hands back: which sleeve
     // each queued name belongs to, which sleeves screened EMPTY, and the full queue (so the names
     // whose coverage the user declined are derivable). Read once by handleSleeveResearched, which
@@ -449,8 +440,6 @@ export function MainPage() {
     const [setupConfirmId, setSetupConfirmId] = useState(null) // Mentor setup showing the OrderConfirmDialog
     const [placingOrders, setPlacingOrders] = useState(false)
     const [pendingDeleteIdea, setPendingDeleteIdea] = useState(null)
-    const [pendingRebalance,  setPendingRebalance]  = useState(null)
-    const [applyingRebalance, setApplyingRebalance] = useState(false)
     const [deletingIdea, setDeletingIdea] = useState(false)
     const [returningToAxl, setReturningToAxl] = useState(false)
     // Bumped each time we head home to axl so the Atlas/Argus panels remount fresh
@@ -681,9 +670,47 @@ export function MainPage() {
         setMentorSeed(null)
         openDesk('mentor')
     }, [mentorDoor.seed?.key]) // eslint-disable-line react-hooks/exhaustive-deps
+    // Atlas's (phase 8c): a seed — a sleeve resumed, a conveyor brief — is a turn to Atlas.
+    const portfolioDoor = deskHandoff.portfolio
+    useEffect(() => {
+        const message = portfolioDoor.seed?.message
+        if (!message) return
+        talkTo('portfolio', message)
+        setPortfolioSeed(null)
+        openDesk('portfolio')
+    }, [portfolioDoor.seed?.key]) // eslint-disable-line react-hooks/exhaustive-deps
     const { workspace, setWorkspace } = useWorkspaceMode(user?._id)
     const { positions, loading: positionsLoading, refresh: refreshPositions, closePosition, closePositions } = usePositions()
     const { ideas, setIdeas, loadIdeas, loading: ideasLoading, handleStatusChange, preEntryPrompt, setPreEntryPrompt } = useTradeIdeas()
+
+    // Atlas's surface reads the books (a book's holdings are ideas with its portfolioId) and hands back what follows a
+    // save or an adoption — on top of the props every surface takes.
+    const surfaceProps = useMemo(
+        () => ({ ...paneDeskProps, ideas, onSaved: handleBookSaved, onAdopted: handleBookAdopted }),
+        [paneDeskProps, ideas], // eslint-disable-line react-hooks/exhaustive-deps -- the two handlers are re-read through the memo's next build
+    )
+
+    // A press on Atlas's surface saved something: the lists re-read the book, and the queued list too when a change
+    // waits for the open (the list is fetched, never pushed — reviewApply.queuedAnything).
+    function handleBookSaved({ result }) {
+        loadIdeas()
+        if (queuedAnything(result?.rebalance)) loadQueued()
+    }
+    // An adoption landed: straight into the book that now exists — the next thing to do is look at what was adopted.
+    function handleBookAdopted(portfolioId) {
+        Promise.resolve(loadIdeas()).then(() => handleEditPortfolio(portfolioId)).catch(() => {})
+    }
+
+    // The trade-ideas list's "building" row: Atlas's plan on the table, or the book it is editing, from the session.
+    const atlasState = mainSession.agentState?.portfolio ?? null
+    const buildingPortfolio = useMemo(() => {
+        const plan = atlasState?.pendingPlan
+        const editingId = atlasState?.portfolioId ?? null
+        if (plan?.ideas?.length) return { name: plan.name ?? 'New portfolio', ideasCount: plan.ideas.length, portfolioId: editingId }
+        if (!editingId) return null
+        const legs = ideas.filter(i => i.portfolioId === editingId)
+        return legs.length ? { name: legs[0].portfolioName ?? 'Portfolio', ideasCount: legs.length, portfolioId: editingId } : null
+    }, [atlasState, ideas])
     // NOTE: the chart used to take over this page's lists panel (and the Floor's right column). It
     // now docks at the bottom of the chat that asked for it (cmps/ChatChartDock.jsx) — the same
     // shared store, rendered where the user was actually looking — so this page owns no chart state.
@@ -1366,55 +1393,6 @@ export function MainPage() {
         })
     }
 
-    // → true when the book was saved, false when it was not (the panel then keeps the plan and the conversation).
-    async function handleGeneratePlan(plan, messages = [], mandate = null, thesis = null, threadId = null) {
-        plan = confirmAvoid(plan)
-        if (!plan) return false
-        try {
-            const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
-            const accountIds   = ideaAccounts.map(a => a.id)
-            const newIdeas     = await _createBatchAsking(plan, accountIds, mainAccountId)
-            if (!newIdeas) return false
-            setIdeas(prev => [...newIdeas, ...prev])
-            if (newIdeas.length > 0) {
-                const portfolioId = newIdeas[0].portfolioId
-                const portfolioName = plan?.name ?? newIdeas[0]?.portfolioName ?? null
-                const chatMessages = toChatHistory(messages)
-                // threadId links the construction draft thread to the new portfolio (clears its TTL).
-                // AWAITED: finishPipeline below deletes this desk's remaining drafts, and this thread
-                // is one of them until the link lands. Losing that race would take the mandate
-                // conversation with it — the very thing "edit the book" is supposed to reopen.
-                await portfolioService.saveChatState(portfolioId, chatMessages, mandate, thesis, threadId, portfolioName).catch(err =>
-                    console.error('[portfolio] chat state save failed', err)
-                )
-            }
-            // The book exists → the run is over, not paused, so the desk's drafts go with it. An empty
-            // batch created nothing, and its conversation is then the only copy of the work: that goes
-            // home the ordinary way, still resumable.
-            if (newIdeas.length > 0) finishPipeline()
-            else handleBackToAxl()
-            return true
-        } catch (err) {
-            console.error('[portfolio] batch create failed', err)
-            showErrorMsg(apiError(err, 'Could not save the book — nothing was saved.'))
-            return false
-        }
-    }
-
-    // The batch save, with the AVOID ask the server may still need: a verdict that turned after the proposal (or a plan
-    // sized while the verdicts could not be read) comes back 409 with the names — asked about, then sent again.
-    // → the new ideas, or null when the user declined (code review 2026-10-11).
-    async function _createBatchAsking(plan, accountIds, mainId, portfolioId = null) {
-        try {
-            return await tradeIdeasService.createBatch(plan, accountIds, mainId, portfolioId)
-        } catch (err) {
-            const retry = avoidRetry(err, plan)
-            if (retry === undefined) throw err
-            if (retry === null) return null
-            return tradeIdeasService.createBatch(retry, accountIds, mainId, portfolioId)
-        }
-    }
-
     // Which act this is belongs to the BOOK, not to the surface the click came from. Four paths reach
     // here — three pencils and the Axl hand-off — and they disagreed: the two lists forced a review
     // only when one was DUE, the Floor pencil never did, so the same live book was reviewed from one
@@ -1424,6 +1402,9 @@ export function MainPage() {
     // A caller may still FORCE a review (a due-review pencil, the review card, the pre-activation
     // prompt) — that is a schedule or a request, and it is legitimate on a book with nothing live.
     // None of them can force a plain edit on a book that holds a position. See isPortfolioReview.
+    //
+    // Since phase 8c the book reopens IN THE SESSION (backend POST /sessions/:id/edit, `reviewMode` honoured): Atlas's
+    // state is the book's id, its mode and its standing thesis, the floor goes to Atlas and its surface comes up.
     async function handleEditPortfolio(portfolioId, { reviewMode: forceReview = false } = {}) {
         // The book is READ, not filtered out of whatever this client happens to be holding. It used
         // to be `ideas.filter(...)`, which made opening a book depend on a list having loaded — and
@@ -1434,183 +1415,30 @@ export function MainPage() {
         if (!portfolioIdeas.length) { showErrorMsg('This portfolio has no holdings'); return }
         const reviewMode = forceReview || isPortfolioReview(portfolioIdeas)
 
-        // Seed the account selector from the portfolio's own ideas so it reflects
-        // what's actually attached (not stale global selection) — and so saving the
-        // edit doesn't wipe accounts the user never meant to change.
-        const seedAccounts = [...new Set(portfolioIdeas.flatMap(i => Array.isArray(i.accounts) ? i.accounts : []))]
-        // A book's holdings all bind to the same workspace, so the first one names it for the book.
-        alignWorkspaceTo(portfolioIdeas[0])
-        setSelectedAccounts(seedAccounts)
-        setMainAccountId(portfolioIdeas.find(i => i.mainAccountId)?.mainAccountId ?? null)
+        await editEntity('portfolio', portfolioId, {
+            name: portfolioIdeas[0]?.portfolioName ?? null, reviewMode,
+            // ONLY ONCE IT REOPENED: a "no" to the busy question keeps the user's own work, with its accounts.
+            onOpened: () => {
+                // Seed the account selector from the portfolio's own ideas so it reflects what's actually attached
+                // (not stale global selection) — and so saving the edit doesn't wipe accounts the user never meant to
+                // change. A book's holdings all bind to the same workspace, so the first one names it for the book.
+                const seedAccounts = [...new Set(portfolioIdeas.flatMap(i => Array.isArray(i.accounts) ? i.accounts : []))]
+                alignWorkspaceTo(portfolioIdeas[0])
+                setSelectedAccounts(seedAccounts)
+                setMainAccountId(portfolioIdeas.find(i => i.mainAccountId)?.mainAccountId ?? null)
 
-        // Editing the plan de-activates it: move every idea back to 'waiting' until the
-        // user re-activates. A scheduled REVIEW must NOT do this — a live book stays live
-        // and monitored while reviewed; only accepted changes touch positions. (Pre-
-        // activation books are already 'waiting', so review is a no-op here either way.)
-        const toReset = reviewMode ? [] : portfolioIdeas.filter(i => i.status !== 'waiting')
-        if (toReset.length > 0) {
-            setIdeas(prev => prev.map(i => i.portfolioId === portfolioId ? { ...i, status: 'waiting' } : i))
-            Promise.all(toReset.map(i => tradeIdeasService.updateIdea(i.id, { status: 'waiting' })))
-                .catch(err => console.error('[portfolio] reset to waiting failed', err))
-        }
-
-        try {
-            const chatState = await portfolioService.getChatState(portfolioId)
-            setPortfolioChatRestore({
-                key: Date.now(),
-                messages:      chatState?.messages ?? [],
-                portfolioId,
-                // Review keeps real statuses (so accept can tell in-position from pending);
-                // construction edit resets to 'waiting'.
-                portfolioIdeas: portfolioIdeas.map(i => reviewMode ? i : ({ ...i, status: 'waiting' })),
-                thesis:        chatState?.thesis ?? null,
-                reviewMode,
-            })
-            setActiveTab('portfolio')
-        } catch (err) {
-            console.error('[portfolio] restore failed', err)
-            setActiveTab('portfolio')
-        }
-    }
-
-    // Edit mode "Update plan": persist the edited portfolio. A re-plan (when one is
-    // ready) replaces the portfolio's ideas in place, keeping the same portfolioId
-    // (fixes updates creating a whole new portfolio). The chat history is saved on
-    // every finish — even without a re-plan — so re-opening restores the conversation.
-    async function handleUpdatePlan(plan, portfolioId, messages = []) {
-        if (!portfolioId) return handleGeneratePlan(plan, messages)
-        if (plan?.ideas?.length) {
-            plan = confirmAvoid(plan)
-            if (!plan) return false
-        }
-        // The conversation is saved whatever happens to the plan (code review 2026-10-11: a refused save used to skip it).
-        const saveChat = () => portfolioService.saveChatState(portfolioId, toChatHistory(messages)).catch(err =>
-            console.error('[portfolio] chat state save failed', err))
-        try {
-            const accountIds = availableAccounts.filter(a => selectedAccounts.includes(a.id)).map(a => a.id)
-            const existing   = ideas.filter(i => i.portfolioId === portfolioId)
-            const liveLegs   = existing.filter(isDeleteLocked)
-
-            if (plan?.ideas?.length && liveLegs.length) {
-                // A re-plan replaces the portfolio's ideas in place, which means deleting
-                // the current ones. A live leg (in position / hit) can't be deleted, so
-                // block the whole replace and keep the portfolio as-is. The chat history
-                // still saves below so the conversation isn't lost.
-                showErrorMsg(`Can't update this plan while ${liveLegs.length} position${liveLegs.length > 1 ? 's are' : ' is'} live on the broker — close ${liveLegs.length > 1 ? 'them' : 'it'} first.`)
-            } else if (plan?.ideas?.length) {
-                // SAVE FIRST, then delete the old ideas (code review 2026-10-11): a save the server refuses — an
-                // industry turned AVOID since the proposal, say — used to land after the delete, and leave the book
-                // empty. Refused now, the book keeps what it had.
-                const newIdeas   = await _createBatchAsking(plan, accountIds, mainAccountId, portfolioId)
-                if (!newIdeas) { await saveChat(); return false }
-                // Every old idea's delete is settled and the leftovers SAID: one failed delete used to leave the book
-                // holding old and new together, silently.
-                const deletes = await Promise.allSettled(existing.map(i => tradeIdeasService.deleteIdea(i.id)))
-                const left    = existing.filter((_, k) => deletes[k].status === 'rejected')
-                setIdeas(prev => [...newIdeas, ...left, ...prev.filter(i => i.portfolioId !== portfolioId)])
-                if (left.length) showErrorMsg(`The new plan is saved, but ${left.length} old idea${left.length > 1 ? 's' : ''} could not be removed (${left.map(i => i.asset).join(', ')}) — remove ${left.length > 1 ? 'them' : 'it'} by hand.`)
-            } else {
-                // No re-plan, but the account selection may have changed while editing — so push it
-                // onto the ideas that can still take it. What may be pushed, and onto which legs, is
-                // planAccountRebind's call: this writes the field the order and exit paths route by,
-                // and it used to write `accounts: []` over a live holding's broker id whenever the
-                // book was opened from another workspace. null = nothing legitimate to push.
-                const rebind = planAccountRebind(existing, accountIds, mainAccountId)
-                if (rebind) {
-                    await Promise.all(rebind.targets.map(i =>
-                        tradeIdeasService.updateIdea(i.id, { accounts: rebind.accounts, mainAccountId: rebind.mainAccountId })))
-                    const touched = new Set(rebind.targets.map(i => i.id))
-                    setIdeas(prev => prev.map(i =>
-                        touched.has(i.id) ? { ...i, accounts: rebind.accounts, mainAccountId: rebind.mainAccountId } : i))
+                // Editing the plan de-activates it: move every idea back to 'waiting' until the user re-activates. A
+                // scheduled REVIEW must NOT do this — a live book stays live and monitored while reviewed; only
+                // accepted changes touch positions. (Pre-activation books are already 'waiting', so review is a
+                // no-op here either way.)
+                const toReset = reviewMode ? [] : portfolioIdeas.filter(i => i.status !== 'waiting')
+                if (toReset.length > 0) {
+                    setIdeas(prev => prev.map(i => i.portfolioId === portfolioId ? { ...i, status: 'waiting' } : i))
+                    Promise.all(toReset.map(i => tradeIdeasService.updateIdea(i.id, { status: 'waiting' })))
+                        .catch(err => console.error('[portfolio] reset to waiting failed', err))
                 }
-            }
-
-            await saveChat()
-            handleBackToAxl()   // plan updated — return to the axl hub
-            return true
-        } catch (err) {
-            console.error('[portfolio] update plan failed', err)
-            showErrorMsg(apiError(err, 'Could not update the plan.'))
-            await saveChat()
-            loadIdeas()
-            return false
-        }
-    }
-
-    // In REVIEW mode a portfolio_update is a proposed rebalance — it can close/trim live
-    // positions, so it must be confirmed and executed server-side (never auto-applied).
-    // In construction/edit mode it keeps the existing immediate client-side apply.
-    async function handlePortfolioUpdate(update, reviewMode = false, thesis = null) {
-        if (!update?.changes?.length) return
-        // Attach a same-turn thesis proposal so confirming the rebalance persists it
-        // (backend reads update.thesis, reason 'accepted-rebalance'). No thesis → unchanged.
-        if (reviewMode) { setPendingRebalance(thesis ? { ...update, thesis } : update); return }
-        // An add in an industry Pythia rates AVOID is applied only with the user's yes — here too, not only in a review
-        // (code review 2026-10-11: edit-mode adds skipped every limit). The server checks again, and limits the weight.
-        update = confirmAvoidAdds(update)
-        if (!update) return
-        const ideaById = new Map(ideas.map(i => [i.id, i]))
-        try {
-            const promises   = []
-            const skippedLive = []
-            for (const change of update.changes) {
-                // `_item` vocab — a holding is a portfolio_item. The `_idea` spelling was accepted
-                // here through the rename and was dropped 2026-08-19 on both sides, after a raw scan
-                // of every stored document found none: nothing produces it and nothing holds one.
-                const id   = change.itemId
-                const spec = change.item
-                if (change.action === 'update_item' && id && change.patch) {
-                    promises.push(tradeIdeasService.updateIdea(id, change.patch))
-                } else if (change.action === 'remove_item' && id) {
-                    // A live leg (in position / hit) can't be deleted — keep it and flag
-                    // it rather than fail the whole batch. The rest of the changes apply.
-                    const target = ideaById.get(id)
-                    if (target && isDeleteLocked(target)) { skippedLive.push(target); continue }
-                    promises.push(tradeIdeasService.deleteIdea(id))
-                } else if (change.action === 'add_item' && spec) {
-                    const existing = ideas.filter(i => i.portfolioId === update.portfolioId)
-                    const { avoid_ok, ...item } = spec
-                    promises.push(tradeIdeasService.createIdea({
-                        ...item,
-                        ...(avoid_ok ? { avoid_ok: [item.asset] } : {}),
-                        portfolioId:   update.portfolioId,
-                        portfolioName: existing[0]?.portfolioName || 'Portfolio',
-                        accounts:      selectedAccounts,
-                        mainAccountId,
-                    }))
-                }
-            }
-            const settled = await Promise.allSettled(promises)
-            loadIdeas()
-            const refused = settled.filter(r => r.status === 'rejected')
-            if (refused.length) showErrorMsg(apiError(refused[0].reason, `${refused.length} change${refused.length > 1 ? 's' : ''} could not be applied.`))
-            if (skippedLive.length) {
-                showErrorMsg(`Kept ${skippedLive.length} live position${skippedLive.length > 1 ? 's' : ''} the plan tried to remove — close ${skippedLive.length > 1 ? 'them' : 'it'} first.`)
-            }
-        } catch (err) {
-            console.error('[portfolio] update failed', err)
-        }
-    }
-
-    // Confirm a review rebalance: execute it on the live book server-side (which also
-    // bumps the review clock + records conviction), then refresh ideas.
-    async function confirmRebalance() {
-        const update = pendingRebalance ? confirmAvoidAdds(pendingRebalance) : null
-        if (!update?.portfolioId) { setPendingRebalance(null); return }
-        setApplyingRebalance(true)
-        try {
-            const result = await portfolioService.applyRebalance(update.portfolioId, update)
-            loadIdeas()
-            // Shut venue: the changes were queued, not executed. The list is fetched, never pushed
-            // to, so re-read it here or they stay invisible until the next page load.
-            if (queuedAnything(result)) loadQueued()
-        } catch (err) {
-            console.error('[portfolio] rebalance failed', err)
-            showErrorMsg('Could not apply the rebalance — try again.')
-        } finally {
-            setApplyingRebalance(false)
-            setPendingRebalance(null)
-        }
+            },
+        })
     }
 
     // ── The queued list ───────────────────────────────────────────────────────
@@ -1685,49 +1513,6 @@ export function MainPage() {
         showSuccessMsg(res?.noted ? 'Cancelled — the desk has been told.' : 'Cancelled.')
     }
 
-    // Accept an Atlas review proposal from the inline review bar. Executes server-side
-    // (routed by mode/position: paper/live close, manual posts a Fill card, pending books
-    // apply idea edits), then refreshes ideas. Returns false on failure so the panel keeps
-    // the proposal for a retry. A pending (not-yet-activated) book gets an activate nudge.
-    async function handleAcceptReview(portfolioId, update, { pending } = {}) {
-        // An add in an industry Pythia rates AVOID is applied only with the user's yes, asked here (step 7).
-        update = confirmAvoidAdds(update)
-        if (!update) { showErrorMsg('Nothing applied — the AVOID add was declined.'); return false }
-        let result
-        try {
-            result = await portfolioService.applyRebalance(portfolioId, update)
-            // A change refused for an industry that turned AVOID after the proposal: ask, and send just those again.
-            const again = avoidRefusalRetry(update, (result?.results ?? []).filter(r => r && r.ok === false))
-            if (again.retry) await portfolioService.applyRebalance(portfolioId, again.retry).catch(e => showErrorMsg(apiError(e, 'Could not apply the AVOID change.')))
-        } catch (caught) {
-            let err = caught
-            const again = avoidRefusalRetry(update, err?.response?.data?.failed)
-            if (again.retry) {
-                try {
-                    result = await portfolioService.applyRebalance(portfolioId, again.retry)
-                    await Promise.all([loadIdeas(), ...(queuedAnything(result) ? [loadQueued()] : [])])
-                    return true
-                } catch (e) { err = e }
-            }
-            console.error('[portfolio] accept review failed', err)
-            // Say WHICH refusal it was. The server answers on the shared reason vocabulary and sends
-            // the per-change failures back in `failed`, so "nothing was executed" no longer has to
-            // stand in for a book that couldn't be reached, holdings already closed, and ids that
-            // matched nothing alike. Returning false keeps the proposal on screen for a retry.
-            const failed  = err?.response?.data?.failed
-            const reasons = Array.isArray(failed) ? [...new Set(failed.map(f => f?.reason).filter(Boolean))] : []
-            const detail  = reasons.length ? ` (${reasons.join(', ')})` : ''
-            showErrorMsg(`${apiError(err, 'Could not apply the changes')}${detail} — nothing was executed.`)
-            return false
-        }
-        // `loadQueued` only when something was actually deferred — the message and the refresh read
-        // the SAME bucket, so the list can never be stale behind a toast that says "waiting in your
-        // queued list". (See queuedAnything.)
-        await Promise.all([loadIdeas(), ...(queuedAnything(result) ? [loadQueued()] : [])])
-        showSuccessMsg(reviewApplyMessage(result, { pending }))
-        return true
-    }
-
     // Scanner ticker chip click (inside the scanner chat): just preview on the chart.
     function handleScannerSymbol(ticker) {
         if (ticker) openChart({ ticker, source: 'scanner' })
@@ -1742,8 +1527,8 @@ export function MainPage() {
     // seed into the desk that is already showing changes no tab.
     useEffect(() => { closePanel() }, [activeTab])
 
-    // The bridge's third leg (until phase 8e): a path that still switches to Mentor's TAB lands on its surface.
-    useEffect(() => { if (activeTab === 'mentor') openDesk('mentor') }, [activeTab])
+    // The bridge's third leg (until phase 8e): a path that still switches to a surfaced desk's TAB lands on its surface.
+    useEffect(() => { if (SURFACES[activeTab]) openDesk(activeTab) }, [activeTab])
 
     function seedMentorChat(symbol, message) {
         if (!symbol) return
@@ -1834,19 +1619,11 @@ export function MainPage() {
         setPipelineStep(0)                                    // a desk always opens at its first step
         setNewsTab('scans')
 
-        // ADOPT MODE. The user already owns the book, so Atlas must not open on a blank construction.
-        // A draft is staged EMPTY and immediately: the desk needs a draftId to attach the conversation
-        // to, every turn parses into it, and the grid renders it. Staged here rather than on the first
-        // paste because the draftId is what makes the whole session one book — a draft minted later,
-        // per paste, would adopt two half-books.
+        // ADOPT MODE. The user already owns the book, so Atlas must not open on a blank construction. Since phase
+        // 8c the draft is staged by the SERVER, on Atlas's state (a hand edit), and the grid is Atlas's surface.
         if (opts.adopt) {
-            adoptService.stage({ name: 'My bank book' })
-                .then(draft => setAdoptDraft(draft))
-                .catch(() => showErrorMsg('Could not open the adoption'))
-        } else if (adoptDraft) {
-            // Leaving the desk by any other door ends the adoption session. The draft itself survives
-            // on the server (listStaged resumes it) — this only stops it bleeding into the next book.
-            setAdoptDraft(null)
+            mainSessionRef.current.edit('portfolio', { adopt: 'start' })
+                .then(out => { if (!out.ok) showErrorMsg(out.message) })
         }
 
         // Walked back into something left unfinished → pick it up, rather than opening a blank desk and
@@ -2427,7 +2204,7 @@ export function MainPage() {
                                         briefRequest={briefRequest}
                                         onBriefStart={() => setBriefRequest(0)}
                                     />
-                                    <SidePane session={mainSession} surfaces={SURFACES} deskProps={paneDeskProps} />
+                                    <SidePane session={mainSession} surfaces={SURFACES} deskProps={surfaceProps} />
                                 </div>
                             </SessionContext.Provider>
                         ) : (
@@ -2518,42 +2295,6 @@ export function MainPage() {
                                 onDismissHandoff={handleCancelHandoff}
                             />
                         </div>
-                        <div className="chat-tabs__panel" style={{ display: activeTab === 'portfolio' ? 'flex' : 'none' }}>
-                            <PortfolioPanel
-                                onRoute={handleRoute}
-                                key={`portfolio-${chatResetKey.portfolio}`}
-                                resumeRef={resumeRefs.current.portfolio}
-                                onGeneratePlan={handleGeneratePlan}
-                                onUpdatePlan={handleUpdatePlan}
-                                onPortfolioUpdate={handlePortfolioUpdate}
-                                onBuildingPlanChange={setBuildingPortfolio}
-                                onLoadingChange={deskLoadingSetters.portfolio}
-                                onReviewResolved={handleBackToAxl}
-                                onAcceptReview={handleAcceptReview}
-                                {...deskProps('portfolio')}
-                                availableAccounts={availableAccounts}
-                                selectedAccounts={selectedAccounts}
-                                onAccountsChange={setSelectedAccounts}
-                                mainAccountId={mainAccountId}
-                                onMainAccountChange={setMainAccountId}
-                                adoptDraft={adoptDraft}
-                            />
-                            {adoptDraft && (
-                                <AdoptBookGrid
-                                    draft={adoptDraft}
-                                    onDraftChange={setAdoptDraft}
-                                    onAdopted={({ portfolioId, legs }) => {
-                                        setAdoptDraft(null)
-                                        showSuccessMsg(`Adopted ${legs} holding${legs === 1 ? '' : 's'}`)
-                                        // Straight into the book that now exists, rather than back to a
-                                        // blank desk: the next thing to do is look at what was adopted.
-                                        loadIdeas().then(() => handleEditPortfolio(portfolioId)).catch(() => {})
-                                    }}
-                                    onCancel={() => setAdoptDraft(null)}
-                                />
-                            )}
-                        </div>
-
                         {/* Trade by hand — a panel of its own, not a mode of a desk's chat: it is
                             reached from the hub, and it belongs to no pipeline. */}
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'ticket' ? 'flex' : 'none' }}>
@@ -2788,16 +2529,6 @@ export function MainPage() {
                 />
             )}
 
-            {pendingRebalance && (
-                <RebalanceConfirmDialog
-                    update={pendingRebalance}
-                    ideas={ideas}
-                    applying={applyingRebalance}
-                    onConfirm={confirmRebalance}
-                    onCancel={() => { if (!applyingRebalance) setPendingRebalance(null) }}
-                />
-            )}
-
             {/* A queued trim/exit/scale-in. An ENTRY never gets here — it routes to the
                 OrderConfirmDialog above, which is where an entry has always been confirmed. */}
             {queuedConfirm && (
@@ -2810,53 +2541,5 @@ export function MainPage() {
                 />
             )}
         </>
-    )
-}
-
-// Confirmation gate for an accepted review rebalance. Nothing executes until the user
-// confirms; on confirm the parent POSTs the update to the live-book rebalance endpoint.
-function RebalanceConfirmDialog({ update, ideas, applying, onConfirm, onCancel }) {
-    const ideaById = new Map((ideas ?? []).map(i => [i.id, i]))
-    const assetOf  = (id) => ideaById.get(id)?.asset ?? id ?? '—'
-    const pct      = (n) => `${Math.round((Number(n) || 0) * 100)}%`
-
-    // A holding is a portfolio_item, so the vocabulary is `_item`. The `_idea` spelling was carried
-    // as an alias through the rename and dropped 2026-08-19 — see the note in the apply path above.
-    function describe(change) {
-        const id   = change.itemId
-        const spec = change.item
-        switch (change.action) {
-            case 'exit_item':   return `Exit ${assetOf(id)}${change.reason ? ` — ${change.reason}` : ''}`
-            case 'trim_item':   return `Trim ${assetOf(id)} by ${pct(change.reduceFraction)}${change.targetAllocationRatio != null ? ` → target ${pct(change.targetAllocationRatio)}` : ''}`
-            case 'add_to_item': return `Add to ${assetOf(id)}: +${pct(change.addFraction)}${change.targetAllocationRatio != null ? ` → target ${pct(change.targetAllocationRatio)}` : ''}`
-            case 'add_item':    return `Add ${spec?.asset ?? '?'} (${spec?.direction ?? 'long'}${spec?.allocationRatio != null ? `, target ${pct(spec.allocationRatio)}` : ''})${change.avoid ? ` — Pythia rates ${change.avoid.industry} AVOID` : ''}`
-            case 'update_item': return `Update ${assetOf(id)}: ${Object.keys(change.patch ?? {}).join(', ') || 'fields'}`
-            case 'remove_item': return `Remove ${assetOf(id)} (pending)`
-            default:            return change.action
-        }
-    }
-
-    const overlay = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }
-    const card    = { background: 'var(--surface, #1b1f27)', color: 'var(--text, #e8eaed)', border: '1px solid var(--border, #333)', borderRadius: 12, padding: 20, width: 'min(460px, 92vw)', maxHeight: '80vh', overflow: 'auto', boxShadow: '0 12px 40px rgba(0,0,0,0.5)' }
-    const btn     = { padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border, #444)', cursor: 'pointer', fontSize: 14 }
-
-    return (
-        <div style={overlay} onClick={() => !applying && onCancel?.()}>
-            <div style={card} onClick={e => e.stopPropagation()}>
-                <h3 style={{ margin: '0 0 4px' }}>Confirm rebalance</h3>
-                <p style={{ margin: '0 0 12px', opacity: 0.7, fontSize: 13 }}>
-                    These actions will run on your live broker account{update.thesis ? ' and update the portfolio thesis' : ''}. Nothing executes until you confirm.
-                </p>
-                <ul style={{ margin: '0 0 16px', paddingLeft: 18, lineHeight: 1.7 }}>
-                    {(update.changes ?? []).map((c, i) => <li key={i}>{describe(c)}</li>)}
-                </ul>
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                    <button style={{ ...btn, background: 'transparent' }} onClick={onCancel} disabled={applying}>Cancel</button>
-                    <button style={{ ...btn, background: 'var(--accent, #4f8cff)', color: '#fff', borderColor: 'transparent' }} onClick={onConfirm} disabled={applying}>
-                        {applying ? 'Applying…' : 'Confirm & execute'}
-                    </button>
-                </div>
-            </div>
-        </div>
     )
 }

@@ -41,7 +41,7 @@ function deleteIdea(id)        { return api.remove(id) }
 function updateIdea(id, patch) { return api.patch(id, patch) }
 
 async function createBatch(plan, accounts = [], mainAccountId = null, portfolioId = null) {
-    // `avoid_ok`: the symbols the user OK'd in industries Pythia rates AVOID (avoidOk.confirmAvoid) — the server
+    // `avoid_ok`: the symbols the user OK'd in industries Pythia rates AVOID (asked on Atlas's surface since phase 8c) — the server
     // checks that they cover every AVOID name in the book.
     const res = await api.post('/batch', { plan, accounts, mainAccountId, portfolioId, avoid_ok: Array.isArray(plan?.avoid_ok) ? plan.avoid_ok : [] })
     return Array.isArray(res.ideas) ? res.ideas : []

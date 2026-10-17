@@ -1,0 +1,189 @@
+// Atlas's surface in the side pane (PortfolioSurface.jsx). The bubbles and bars keep the shared portfolio-panel__*
+// classes (PortfolioPanel.scss — renamed in phase 10); this lays them out in the pane, and draws the thesis card and
+// the adopt grid, which had only inline styles or none.
+
+.portfolio-surface {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    min-height: 0;
+
+    &--empty { justify-content: flex-start; }
+
+    &__lead {
+        margin: 4px 0 0;
+        font-size: 14px;
+        color: var(--text-secondary);
+    }
+
+    &__accounts {
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    &__thesis {
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 12.5px;
+    }
+
+    &__thesis-toggle {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        width: 100%;
+        padding: 0;
+        background: none;
+        border: none;
+        color: inherit;
+        font: inherit;
+        font-weight: 600;
+        text-align: left;
+        cursor: pointer;
+    }
+
+    &__caret { opacity: 0.7; }
+
+    &__thesis-text {
+        margin: 6px 0 0;
+        color: var(--text-secondary);
+    }
+
+    &__exposures {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 6px;
+    }
+
+    &__exposure {
+        padding: 2px 8px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+    }
+
+    &__proposal {
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 13px;
+
+        ul { margin: 6px 0 0; padding-left: 18px; line-height: 1.6; }
+    }
+
+    &__proposal-title { font-weight: 600; }
+
+    &__hint {
+        font-size: 13px;
+        color: var(--text-secondary);
+    }
+
+    &__note {
+        margin: 0;
+        padding: 8px 10px;
+        border-radius: 6px;
+        font-size: 13px;
+        border: 1px solid var(--border);
+
+        &--error { color: var(--danger, #c0392b); border-color: currentColor; }
+        &--done  { color: var(--text-secondary); background: var(--bg-wash); }
+    }
+
+    // The adopt grid (cmps/AdoptBook) had no stylesheet; in the pane it must fit the column.
+    .adopt-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        font-size: 13px;
+
+        h2 { margin: 0; font-size: 15px; }
+
+        &__sub { margin: 4px 0 0; color: var(--text-secondary); }
+
+        &__paste {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+
+            textarea {
+                width: 100%;
+                box-sizing: border-box;
+                font-family: var(--font-mono, monospace);
+                font-size: 12.5px;
+                background: var(--bg-wash);
+                color: var(--text-primary);
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                padding: 8px;
+            }
+
+            button { align-self: flex-end; }
+        }
+
+        &__table {
+            width: 100%;
+            border-collapse: collapse;
+            font-variant-numeric: tabular-nums;
+
+            th, td { padding: 4px 6px; border-bottom: 1px solid var(--border); text-align: left; }
+            tr.is-problem td { color: var(--danger, #c0392b); }
+        }
+
+        &__rowmsg span { display: block; font-size: 12px; }
+
+        &__account {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            gap: 8px 12px;
+
+            label {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                flex: 1 1 160px;
+                color: var(--text-secondary);
+            }
+        }
+
+        &__sums { flex-basis: 100%; margin: 0; color: var(--text-secondary); }
+
+        input {
+            box-sizing: border-box;
+            width: 100%;
+            padding: 6px 8px;
+            font: inherit;
+            background: var(--bg-wash);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+
+        button {
+            padding: 6px 12px;
+            font: inherit;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-primary);
+            cursor: pointer;
+
+            &.is-primary { border-color: var(--accent); color: var(--accent); }
+            &:disabled { opacity: 0.5; cursor: default; }
+        }
+
+        &__problems, &__error { color: var(--danger, #c0392b); }
+        &__warnings { color: var(--warning, #c99a2e); }
+        &__problems, &__warnings { margin: 0; padding-left: 18px; }
+        &__excluded h3 { margin: 0 0 4px; font-size: 13px; }
+
+        &__foot {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+    }
+}
