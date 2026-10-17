@@ -146,3 +146,16 @@ describe('ChatTimeline', () => {
         expect(startNew).toHaveBeenCalled()
     })
 })
+
+describe('speaker runs around self-named rows', () => {
+    it('a card carries its own tag — no speaker tag over it — and the reply after it is tagged again', () => {
+        session = base({ rows: [
+            row(1, { content: 'Hello' }),
+            row(2, { kind: 'card', agent: 'axl', content: 'Brief?', ref: { msgId: 'm', type: 'unknown_type' }, card: { status: 'pending' } }),
+            row(3, { content: 'Anything else?' }),
+        ] })
+        const { container } = render(<ChatTimeline />)
+        const tags = [...container.querySelectorAll('.chat-timeline__speaker-name')].map(n => n.textContent)
+        expect(tags).toEqual(['Axl', 'Axl'])
+    })
+})

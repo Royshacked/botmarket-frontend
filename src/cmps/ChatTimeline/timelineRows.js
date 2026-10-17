@@ -11,13 +11,17 @@ export function agentMeta(key) {
     return AGENTS[key] ?? { tab: key, brand: key ?? 'Agent', hue: 'accent' }
 }
 
+// Rows that name their own speaker: a hand-off names both sides, a card carries its desk's own tag.
+const SELF_NAMED = new Set(['handoff', 'card'])
+
 /**
  * Whether a row starts a new speaker run: an agent's row after the user, or after another agent. User turns
- * never carry a tag (they are the user's), nor do hand-off dividers (they name both sides themselves).
+ * never carry a tag (they are the user's), nor do rows that name their own speaker — and the row after one
+ * of those starts a fresh run, so a reply under a card still says who is talking.
  */
 export function startsRun(row, prev) {
-    if (row.role === 'user' || row.kind === 'handoff') return false
-    if (!prev || prev.role === 'user' || prev.kind === 'handoff') return true
+    if (row.role === 'user' || SELF_NAMED.has(row.kind)) return false
+    if (!prev || prev.role === 'user' || SELF_NAMED.has(prev.kind)) return true
     return prev.agent !== row.agent
 }
 

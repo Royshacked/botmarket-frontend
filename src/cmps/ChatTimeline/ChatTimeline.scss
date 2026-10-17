@@ -236,7 +236,15 @@
 }
 
 .chat-timeline__card {
-    max-width: 92%;
+    max-width: min(92%, 480px);
+
+    // The social chat frames a card through its message wrapper; the timeline has none, so it frames it
+    // here — the same raised bubble, so a card looks the same in both places.
+    .social-chat__msg-bubble {
+        background: var(--bg-raised);
+        color: var(--text-primary);
+        border-radius: 16px 16px 16px 4px;
+    }
 
     &--gone { color: var(--text-subtle); font-size: var(--chat-text); font-style: italic; }
 }
