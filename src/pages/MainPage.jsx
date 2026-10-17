@@ -1374,6 +1374,11 @@ export function MainPage() {
             openDesk(agent)
             return
         }
+        // New work for Argus lands on a clean table, asked first over its work (phase 8e bug hunt #1) — like a radar cut.
+        if (agent === 'scanner') {
+            if (!opening || await onArgusTable(opening, { what: 'start this scan' })) openDesk(agent)
+            return
+        }
         if (opening) talkTo(agent, opening)
         openDesk(agent)
     }
