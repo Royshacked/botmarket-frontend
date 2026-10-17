@@ -185,8 +185,8 @@ lists column, at 10–12.5px, in a column 27% wide. They open in `cmps/DetailPan
   `aether:<run>|<ticker>`, `industry:<code>`, `assessment:<id>`, `theme:<id>`, `calendar`); opening one closes
   the other. A panel closes with its row (desk closed, event collapsed, tab left), counted per id so a
   StrictMode remount or a re-keyed row does not shut it. A hand-off INTO the chat closes it too: an
-  `activeTab` change, `seedMentorChat`, and coverage's Edit, because the desk the user was sent to
-  would otherwise open underneath the panel.
+  `activeTab` change, `seedMentorChat`, coverage's Edit and every `openDesk` (the side pane, below),
+  because the desk the user was sent to would otherwise open underneath the panel.
 - **The shell is shared, the content is not.** Header (kicker = the desk, title, the row's chips as
   `meta`), close, Esc, focus in and back, scroll, the reading size for the lists' own `floor-detail`
   / `industry-view__detail` markup, and the header's `actions` slot, which is where features every
@@ -196,6 +196,21 @@ lists column, at 10–12.5px, in a column 27% wide. They open in `cmps/DetailPan
 
 Driven end to end by `../botmarket-backend/scripts/drive-detail-panel.mjs`: both desktop layouts and a
 touch tablet. The Lists column and the Calendar: `../botmarket-backend/scripts/drive-floor-lists.mjs`.
+
+**The drawer shell and the side pane (unified chat, phase 8b — 2026-10-17).** The detail panel's
+mechanics are `cmps/DrawerShell` now, shared with the side pane: Esc closes the TOP open shell only
+(something above it that claims Esc first — the history drawer, the header menu — keeps it), focus in
+and back, the handheld back gesture, portal or in place. `cmps/SidePane` is each desk's WORK beside the
+timeline — the conversation is the timeline's, the surface draws the desk's state on the session
+(`agentState`), never a reply. It follows the floor, pins, keeps a tab per desk; docked in
+`.chat-with-pane` on a desktop (it does not take focus — it often opens on its own), a bottom sheet
+under the dialogs on a handheld. ONE `useSession('main')` on MainPage is shared through
+`context/SessionContext`; a surface presses three ways — a gate or pick is a TURN, a field is a HAND
+EDIT (`session.edit`, naming the revision it was made against), a button is a COMMIT
+(`session.commit`; a press first lets a settling edit land). Mentor's is `cmps/MentorSurface`
+(MentorPanel is gone); Atlas, Argus and Prometheus follow in 8c / 8d. The contract and the record:
+`../botmarket-backend/docs/design/unified-chat-plan.md` §10.2–10.3. Driven by
+`../botmarket-backend/scripts/drive-mentor-surface.mjs`.
 
 ## Threads
 
