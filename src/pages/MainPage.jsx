@@ -18,7 +18,13 @@ import { QueuedActionDialog } from '../cmps/Floor/QueuedActionDialog.jsx'
 import { executeRoute } from '../cmps/Floor/queuedAction.contract.js'
 import { pendingActionService } from '../services/pendingAction/pendingAction.service.remote.js'
 import { ScannerPanel, RESEARCH_TOP_N }      from '../cmps/ScannerPanel/ScannerPanel.jsx'
-import { MentorPanel }       from '../cmps/MentorPanel/MentorPanel.jsx'
+import { MentorSurface }     from '../cmps/MentorSurface/MentorSurface.jsx'
+import { handoffTurn }       from '../cmps/MentorSurface/mentorSurface.utils.js'
+import { SidePane }          from '../cmps/SidePane/SidePane.jsx'
+import { openSurface }       from '../cmps/SidePane/sidePane.store.js'
+import { SessionContext }    from '../context/SessionContext.jsx'
+import { useSession }        from '../customHooks/useSession.js'
+import { agentMeta }         from '../cmps/ChatTimeline/timelineRows.js'
 import { AnalystPanel }      from '../cmps/AnalystPanel/AnalystPanel.jsx'
 import { StrategyPanel }     from '../cmps/StrategyPanel/StrategyPanel.jsx'
 import { AetherPanel }       from '../cmps/AetherPanel/AetherPanel.jsx'
@@ -193,6 +199,9 @@ function _moneyShort(v) {
 // setters were added for.
 const DESK_TABS = ['scanner', 'portfolio', 'mentor', 'analyst', 'strategy', 'aether']
 
+// The desks whose work is drawn in the side pane, by agent (phase 8b: Mentor; Atlas, Argus and Prometheus follow).
+const SURFACES = Object.freeze({ mentor: MentorSurface })
+
 export function MainPage() {
     const { user, isAdmin } = useAuth()
 
@@ -252,8 +261,6 @@ export function MainPage() {
     // is the only place Atlas hears what did not come back.
     const sleeveOutcomeRef = useRef({ unfilled: [], bySector: [], queue: [] })
     const [analystEditCoverage, setAnalystEditCoverage] = useState(null)   // coverage pencil → re-open Prometheus on that name
-    // Editing a saved setup in the Mentor chat — the setup twin of editingCallId + its restore.
-    const [editingSetupId,   setEditingSetupId]   = useState(null)
 
     // Every door an artifact can be delivered through, and the one way to shut them all. Declared
     // here, beside the state it owns, because both users of it are far apart: the conveyor fills a
@@ -506,55 +513,29 @@ export function MainPage() {
     // for a call. Mentor persists `chat_state` (messages + draft + coverage) on Generate and on
     // every edit turn, so the conversation reopens where it left off.
     //
-    // The fallback draft matters more here than it does for a call: a setup saved before chat_state
-    // was carried has no messages to restore, and without a worksheet the panel would open on an
-    // empty chat that quietly loses the zones. Rebuilt from the doc, the user edits a real setup —
-    // they just don't get the reasoning that produced it.
-    // `ask`, when given, is the turn the desk opens ON — see MentorPanel's restore effect. The
+    // A setup saved before chat_state was carried has no conversation to restore: the server rebuilds
+    // Mentor's draft from the document (mentorStateFromEntity), so the user still edits a real setup.
+    // `ask`, when given, is the turn the desk opens ON. The
     // pencil passes none (nothing has happened; the user is the one with something to say); the
     // re-draw card passes Talos's reason, which is the whole difference between the two doorways.
-    function handleEditSetup(setup, { ask = null } = {}) {
-        const draft = setup.chat_state?.draft ?? {
-            asset:       setup.asset,
-            asset_class: setup.asset_class ?? null,
-            direction:   setup.direction   ?? null,
-            type:        setup.type        ?? null,
-            trade_mode:  setup.trade_mode  ?? null,
-            timeframe:   setup.timeframe   ?? null,
-            ladder:      setup.ladder      ?? [],
-            thesis:      setup.thesis      ?? null,
-            watch:       setup.watch       ?? [],
-            entry_legs: setup.entry_legs ?? [],
-            stop_legs:  setup.stop_legs  ?? [],
-            target_legs:    setup.target_legs    ?? [],
-            quantity:    setup.quantity    ?? null,
-            rr:          setup.rr          ?? null,
-            conviction:  setup.conviction  ?? null,
-            active_from: setup.active_from ?? null,
-            valid_until: setup.valid_until ?? null,
-        }
-        setMentorChatRestore({
-            key:      `${setup.id}-${Date.now()}`,
-            setup:    draft,
-            messages: setup.chat_state?.messages ?? [],
-            coverage: setup.chat_state?.coverage ?? [],
-            ask,
-        })
-        setEditingSetupId(setup.id)
+    //
+    // Since phase 8b the setup reopens IN THE SESSION: the server puts Mentor's state back from the document and its
+    // sealed conversation (seal.openForEdit), Mentor takes the floor, and its surface comes up in the side pane.
+    async function handleEditSetup(setup, { ask = null } = {}) {
         // The venue is re-bound on Update from the MARKED accounts, so restore the ones this setup
         // was generated against — otherwise an edit could silently re-bind it to another broker.
         // Standing in the setup's own workspace first is what makes those accounts LISTABLE; without
         // it the selector holds ids it cannot show and the re-bind resolves to nothing.
         alignWorkspaceTo(setup)
-        setSelectedAccounts(Array.isArray(setup.accounts) ? setup.accounts : [])
+        const accountIds = Array.isArray(setup.accounts) ? setup.accounts : []
+        setSelectedAccounts(accountIds)
         setMainAccountId(setup.mainAccountId ?? null)
         if (setup.asset) openChart({ ticker: setup.asset, source: 'mentor' })
-        setActiveTab('mentor')
-    }
-    function handleSetupEditDone() {
-        setEditingSetupId(null)
-        setMentorChatRestore(null)
-        handleBackToAxl()   // setup updated / edit cancelled — return to the axl hub
+        await editEntity('setup', setup.id, {
+            name: setup.asset ? `${setup.asset} setup` : null, ask,
+            // The ask goes out with the accounts just restored — the state set above is not readable yet.
+            accounts: availableAccounts.filter(a => accountIds.includes(a.id)), mainAccountId: setup.mainAccountId ?? null,
+        })
     }
     // Leaving an agent plays a short "heading back to axl" beat (mirrors the summon
     // on the way in) before the hub returns. The timer is cleared on unmount so it
@@ -573,12 +554,8 @@ export function MainPage() {
             // re-entering any agent from the hub starts a new conversation.
             setScannerChatRestore(null)
             setPortfolioChatRestore(null)
-            // The SETUP twin, which was missing — and its absence was not cosmetic. `handleSetupEditDone`
-            // clears these, but the agentbar's back arrow comes straight here, so leaving a setup edit
-            // that way left `editingSetupId` set with nothing to unset it. Mentor then opened in a mode
-            // the user could not see and could not leave: "Generate setup" is hidden while editing, so a
-            // fresh build offered no button at all, and every turn wrote chat_state onto the stale setup.
-            setEditingSetupId(null)
+            // Mentor's slot — no panel reads it since phase 8b (the bridge below does), but a value left in
+            // it would be replayed by that bridge on the next delivery.
             setMentorChatRestore(null)
             // Drop every hand-off in flight — inboxes and seeds alike. A consumed one left lying
             // here re-fires on the next remount of the desk that holds it (doors.js).
@@ -629,6 +606,74 @@ export function MainPage() {
     )
     const selectedAccountsRef = useRef(selectedAccounts)
     useEffect(() => { selectedAccountsRef.current = selectedAccounts }, [selectedAccounts])
+
+    // ── The live session, shared (phase 8b) ──
+    // ONE useSession for the main chat: the timeline draws it, the side pane's surfaces press it, and the doorways
+    // below speak through it. Refs for the doorways registered once (the event-bus listeners).
+    const mainSession = useSession('main')
+    const mainSessionRef = useRef(mainSession)
+    mainSessionRef.current = mainSession
+    const deskAccountsRef = useRef({ accounts: timelineAccounts, mainAccountId })
+    deskAccountsRef.current = { accounts: timelineAccounts, mainAccountId }
+    // What a surface needs to mark and read the accounts — Mentor's Generate binds to them.
+    const paneDeskProps = useMemo(
+        () => ({ availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId }),
+        [availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId],
+    )
+
+    /** A turn to a desk, with the marked accounts — what a doorway that opens a desk ON a sentence sends. */
+    function talkTo(agent, text, extra = {}) {
+        const { accounts, mainAccountId: mainId } = deskAccountsRef.current
+        return mainSessionRef.current.send(text, { agent, accounts, mainAccountId: mainId, ...extra })
+    }
+
+    /** Show a desk's surface beside the chat (the chat column is the timeline's while it is open). */
+    function openDesk(agent) {
+        setActiveTab('axl')
+        openSurface(agent)
+    }
+
+    /**
+     * Reopen a saved item at the desk that owns it, in the session (backend POST /sessions/:id/edit). A desk holding
+     * other unsaved work answers busy: the user is asked, and a yes repeats it with `force`. `ask` is the turn the
+     * desk opens ON (a card's reason); a pencil passes none.
+     */
+    async function editEntity(kind, id, { name = null, ask = null, reviewMode = false, accounts = null, mainAccountId: mainId } = {}) {
+        const session = mainSessionRef.current
+        let out = await session.reopen(kind, id, { name, reviewMode })
+        if (!out.ok && out.reason === 'busy') {
+            const brand = agentMeta(out.extra?.agent).brand
+            if (!window.confirm(`${brand} is in the middle of something else. Set it aside and open this?`)) return false
+            out = await session.reopen(kind, id, { name, reviewMode, force: true })
+        }
+        if (!out.ok) { showErrorMsg(out.message); return false }
+        const agent = out.result?.agent
+        if (agent) openDesk(agent)
+        if (ask && agent) {
+            const marked = accounts ?? deskAccountsRef.current.accounts
+            session.send(ask, { agent, accounts: marked, mainAccountId: mainId !== undefined ? mainId : deskAccountsRef.current.mainAccountId })
+        }
+        return true
+    }
+
+    // THE BRIDGE TO THE OLD DESK MACHINERY (until phase 8e deletes it). Mentor's panel is gone, but the conveyor, the
+    // doors and the panels still mounted can hand Mentor a seed or an inbox, or switch to its tab. Each becomes what
+    // it means now: a sentence → a session turn to Mentor; a delivered name → its hand-off turn; the tab → its surface.
+    const mentorDoor = deskHandoff.mentor
+    useEffect(() => {
+        const turn = handoffTurn(firstItem(mentorDoor.inbox))
+        if (!turn) return
+        talkTo('mentor', turn.text, { seed: turn.seed })
+        setMentorInbox(null)
+        openDesk('mentor')
+    }, [mentorDoor.inbox?.key]) // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => {
+        const message = mentorDoor.seed?.message
+        if (!message) return
+        talkTo('mentor', message)
+        setMentorSeed(null)
+        openDesk('mentor')
+    }, [mentorDoor.seed?.key]) // eslint-disable-line react-hooks/exhaustive-deps
     const { workspace, setWorkspace } = useWorkspaceMode(user?._id)
     const { positions, loading: positionsLoading, refresh: refreshPositions, closePosition, closePositions } = usePositions()
     const { ideas, setIdeas, loadIdeas, loading: ideasLoading, handleStatusChange, preEntryPrompt, setPreEntryPrompt } = useTradeIdeas()
@@ -828,7 +873,7 @@ export function MainPage() {
         return eventBus.on(SETUP_INVALIDATION_EDIT, async ({ setupId }) => {
             const setup = await resolveEntity('setup', setupId)
             if (setup) handleEditSetup(setup, { ask: redrawAsk(setup) })
-            else setActiveTab('mentor')
+            else openDesk('mentor')
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -863,19 +908,18 @@ export function MainPage() {
             if (problems.some(p => /newer version/i.test(p))) { showErrorMsg(problems[0]); return }
             for (const p of problems) showUserMsg(p)
 
-            setEditingSetupId(null)
-            setMentorChatRestore({
-                key:         `shared-${Date.now()}`,
-                setup,
-                messages:    [],
-                coverage:    [],
-                freshThread: true,
-                ask:         sharedAsk({ blueprint, note, drawnPrice }),
-            })
+            // Someone else's plan goes onto MY Mentor's table as a fresh plan — never as an edit of the setup I may be
+            // editing (the server clears Mentor's markers for it). Work Mentor is holding is not thrown away unasked.
+            const session = mainSessionRef.current
+            const holding = session.agentState?.mentor?.draft
+            if (holding && !window.confirm(`Mentor is working on ${holding.asset ?? 'a setup'}. Put it aside and open the shared ${setup.asset ?? ''} plan?`)) return
+            const put = await session.edit('mentor', { draft: setup, fresh: true, accounts: deskAccountsRef.current.accounts })
+            if (!put.ok) { showErrorMsg(put.message); return }
             if (setup.asset) openChart({ ticker: setup.asset, source: 'mentor' })
-            setActiveTab('mentor')
+            openDesk('mentor')
+            talkTo('mentor', sharedAsk({ blueprint, note, drawnPrice }))
         })
-    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [])
 
     // Market-brief card "Get the brief" → open Axl and have him write it there.
     //
@@ -958,7 +1002,7 @@ export function MainPage() {
             // Confirm that the setup is real and the user's before opening a dialog keyed to it —
             // the same read every other card doorway makes now.
             const setup = setupId ? await resolveEntity('setup', setupId) : null
-            if (!setup) { setActiveTab('mentor'); return }
+            if (!setup) { openDesk('mentor'); return }
             setSetupConfirmId(setupId)
             // The dialog derives from the setups list, so make sure it holds this setup's current
             // state — the market-open sweep can flip a parked setup while the list is 20s behind.
@@ -1676,18 +1720,21 @@ export function MainPage() {
 
     // Shared calendar → Mentor handoff: open the setup desk with the catalyst already said, and put
     // the ticker on the chart so the conversation and the chart open on the same name. The message
-    // rides in keyed (see MentorPanel's `seed`) so one click sends one turn.
+    // goes out as one session turn to Mentor, so one click is one turn.
     // A hand-off INTO the chat closes the detail panel docked over it — the desk the user was sent
     // to must not open underneath the thing they sent themselves from (Trade with Mentor from an
     // events-radar name, Edit on a coverage thesis, any Axl route). seedMentorChat closes it too: a
     // seed into the desk that is already showing changes no tab.
     useEffect(() => { closePanel() }, [activeTab])
 
+    // The bridge's third leg (until phase 8e): a path that still switches to Mentor's TAB lands on its surface.
+    useEffect(() => { if (activeTab === 'mentor') openDesk('mentor') }, [activeTab])
+
     function seedMentorChat(symbol, message) {
         if (!symbol) return
         closePanel()
-        setMentorSeed({ key: Date.now(), message })
-        setActiveTab('mentor')
+        talkTo('mentor', message)
+        openDesk('mentor')
         openChart({ ticker: symbol, source: 'mentor' })
     }
 
@@ -2129,30 +2176,19 @@ export function MainPage() {
         if (!candidate?.ticker) return
         // Investing lists produce RESEARCH candidates → route to the Analyst; trading → Mentor.
         if (scan?.profile === 'investing' || scan?.destination === 'analyst') return handleResearchCandidate(candidate, scan)
-        // A forward-dated list is period-scoped (main category = period). Carry that period as the
-        // setup's scheduled window so Talos gates monitoring to it (no watching before it opens).
-        const p = scan?.period
-        const window = (p && (p.start || p.end)) ? { from: p.start ?? null, to: p.end ?? null } : null
-        // The same artifact Argus hands back mid-pipeline, from a saved list instead of a live pick —
-        // so the trading desk has one inbox, not one per place a name can come from. Delivered
-        // straight rather than routed: the Lists surface stands outside every pipeline, so there is
-        // no chain to walk. Went to Kairos until it was archived (2026-08-18); Mentor reads the same
-        // artifact, because the live Argus → Mentor hand-off already hands it this shape.
-        setMentorInbox(makeArtifact({
-            kind:  KIND.CANDIDATE_LIST,
-            items: [{
-                ticker:    candidate.ticker,
-                direction: candidate.direction === 'short' ? 'short' : 'long',
-                thesis:    candidate.thesis ?? null,
-                analysis:  candidate.analysis ?? candidate.thesis ?? null,
-                recommended_mode: candidate.recommended_mode ?? null,
-            }],
-            // A forward-dated list is period-scoped; the window gates the setup's monitoring.
-            context: { style: scan?.style ?? null, window },
-            ref:     scan?.id ? { entityKind: 'scan', id: scan.id } : null,
-            from:    { agent: 'scanner', label: 'Scan' },
-        }))
-        setActiveTab('mentor')
+        // A name off a saved list, to Mentor as a session turn (phase 8b) — the read and the recommended lens ride as
+        // the seed, as the live Argus → Mentor hand-off's do. (The list's period never reached the setup: Mentor
+        // read the candidate alone, then and now.)
+        const turn = handoffTurn({
+            ticker:    candidate.ticker,
+            direction: candidate.direction === 'short' ? 'short' : 'long',
+            thesis:    candidate.thesis ?? null,
+            analysis:  candidate.analysis ?? candidate.thesis ?? null,
+            recommended_mode: candidate.recommended_mode ?? null,
+        })
+        if (!turn) return
+        talkTo('mentor', turn.text, { seed: turn.seed })
+        openDesk('mentor')
     }
 
 
@@ -2366,13 +2402,19 @@ export function MainPage() {
                             the widest column, with the chat still mounted underneath. */}
                         <DetailPanelSlot />
                         {activeTab === 'axl' ? (
-                            <ChatTimeline
-                                accounts={timelineAccounts}
-                                mainAccountId={mainAccountId}
-                                onOpenTicket={handleOpenTicket}
-                                briefRequest={briefRequest}
-                                onBriefStart={() => setBriefRequest(0)}
-                            />
+                            <SessionContext.Provider value={mainSession}>
+                                {/* The chat and, beside it, each desk's working surface (phase 8b). */}
+                                <div className="chat-with-pane">
+                                    <ChatTimeline
+                                        accounts={timelineAccounts}
+                                        mainAccountId={mainAccountId}
+                                        onOpenTicket={handleOpenTicket}
+                                        briefRequest={briefRequest}
+                                        onBriefStart={() => setBriefRequest(0)}
+                                    />
+                                    <SidePane session={mainSession} surfaces={SURFACES} deskProps={paneDeskProps} />
+                                </div>
+                            </SessionContext.Provider>
                         ) : (
                             <div className="chat-agentbar">
                                 {/* Inside a pipeline the arrow goes bare: the desk path beside it is
@@ -2503,21 +2545,6 @@ export function MainPage() {
                             <div className="portfolio-panel">{ticketPad}</div>
                         </div>
 
-                        <div className="chat-tabs__panel" style={{ display: activeTab === 'mentor' ? 'flex' : 'none' }}>
-                            <MentorPanel
-                                onRoute={handleRoute}
-                                onLoadingChange={deskLoadingSetters.mentor}
-                                pipeline={activePipeline}
-                                onGenerated={finishPipeline}
-                                {...deskProps('mentor')}
-                                resumeRef={resumeRefs.current.mentor}
-                                editingSetupId={editingSetupId}
-                                onEditDone={handleSetupEditDone}
-                                availableAccounts={availableAccounts}
-                                selectedAccounts={selectedAccounts}
-                                mainAccountId={mainAccountId}
-                            />
-                        </div>
 
                         <div className="chat-tabs__panel" style={{ display: activeTab === 'analyst' ? 'flex' : 'none' }}>
                             <AnalystPanel

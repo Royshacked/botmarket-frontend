@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useSession } from '../../customHooks/useSession.js'
+import { useSharedSession } from '../../context/SessionContext.jsx'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { lastTapOptions } from '../../services/session/sessionReducer.js'
@@ -29,12 +30,24 @@ const BRIEF_ASK = "Today's market brief, please."
  * speaker; Stop is the shared turn stop. A decision card's taps are live only while the chain waits on that
  * card. Background desk cards land here as rows drawn by the same bubble the social chat uses.
  *
+ * The session is the one MainPage shares (SessionContext — the side pane and the doorways press the same one);
+ * without a provider for this scope the timeline runs its own.
+ *
  * @param {{ scope?: string, accounts?: object[], mainAccountId?: string|null, briefRequest?: number,
  *           onBriefStart?: Function, onOpenTicket?: Function }} props
  */
-export function ChatTimeline({ scope = 'main', accounts = [], mainAccountId = null, briefRequest = 0, onBriefStart, onOpenTicket }) {
+export function ChatTimeline(props) {
+    const shared = useSharedSession(props.scope ?? 'main')
+    return shared ? <TimelineView {...props} session={shared} /> : <OwnSessionTimeline {...props} />
+}
+
+function OwnSessionTimeline(props) {
+    const session = useSession(props.scope ?? 'main')
+    return <TimelineView {...props} session={session} />
+}
+
+function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, briefRequest = 0, onBriefStart, onOpenTicket, session }) {
     const { user } = useAuth()
-    const session = useSession(scope)
     const { rows, live, queuedTurn, lastTurn, chain, floor, send, stop, cancelQueued, choose, startNew, resolveCard, loadError } = session
     const [draft, setDraft]             = useState('')
     const [historyOpen, setHistoryOpen] = useState(false)
@@ -216,3 +229,5 @@ ChatTimeline.propTypes = {
     onBriefStart:  PropTypes.func,
     onOpenTicket:  PropTypes.func,
 }
+OwnSessionTimeline.propTypes = ChatTimeline.propTypes
+TimelineView.propTypes = { ...ChatTimeline.propTypes, session: PropTypes.object.isRequired }

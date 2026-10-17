@@ -197,3 +197,19 @@ test('the same session loaded again keeps its rows (New session racing its own a
     assert.equal(again.rows.length, 1)
     assert.equal(again.lastSeq, 4)
 })
+
+// ─── revisions (phase 8b) — what a press names ────────────────────────────────
+
+test('revisions come from the load, the replay, every state frame and a press\'s own answer — never backwards', () => {
+    const s0 = sessionReducer(emptySession, { type: 'load', session: { sessionId: S, status: 'active', agentRev: { mentor: 3 } } })
+    assert.deepEqual(s0.agentRev, { mentor: 3 })
+    const s1 = fold(s0, { type: 'session_state', data: { sessionId: S, agent: 'mentor', state: { draft: 2 }, rev: 4 } })
+    assert.equal(s1.agentRev.mentor, 4)
+    assert.deepEqual(s1.agentState.mentor, { draft: 2 })
+    const s2 = fold(s1, { type: 'rev', agent: 'mentor', rev: 6 }, { type: 'session_state', data: { sessionId: S, agent: 'mentor', state: { draft: 3 }, rev: 5 } })
+    assert.equal(s2.agentRev.mentor, 6, 'a frame that arrives after the press\'s answer does not move it back')
+    const s3 = fold(s2, { type: 'session_replay', data: { sessionId: S, messages: [], agentRev: { mentor: 9, portfolio: 2 } } })
+    assert.deepEqual(s3.agentRev, { mentor: 9, portfolio: 2 })
+    assert.deepEqual(fold(s3, { type: 'session_state', data: { sessionId: S, floor: 'mentor' } }).agentRev, s3.agentRev, 'a floor frame carries none')
+    assert.deepEqual(sessionReducer(s3, { type: 'load', session: { sessionId: 'ses_2' } }).agentRev, {}, 'a new session starts over')
+})

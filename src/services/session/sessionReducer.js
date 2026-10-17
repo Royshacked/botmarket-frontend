@@ -4,7 +4,7 @@
 //   session_replay   the rows after our last seq + the floor, status and any turn running now (a reconnect)
 //   session_message  one settled row — a user turn, a reply, a hand-off, a decision, a card
 //   session_removed  rows a stopped turn took back
-//   session_state    a patch: one agent's working state, the floor, the chain, "archived → next"
+//   session_state    a patch: one agent's working state (and its revision), the floor, the chain, "archived → next"
 //   session_delta    the running turn's stream: tokens, reasoning, the tool chip, a phase
 //   session_turn     the running turn's lifecycle: started / done / stopped / refused / error
 //   message_resolved a card's state moved (done, dismissed, superseded) — matched on the card row's msgId
@@ -20,6 +20,9 @@ export const emptySession = Object.freeze({
     queuedTurn: null,    // { turnId, agent, text } — the user spoke while another turn ran; it waits its turn
     lastTurn: null,      // { turnId, agent, status, payload, reason, message } — the last turn that ENDED
     floor: 'axl', agentState: {}, chain: null,
+    // Each agent's REVISION — what a press or a hand edit names (backend plan §10.2). Bumped by every write of that
+    // agent's state; a press made on an older one is refused (stale_state) so it never acts on work the user did not see.
+    agentRev: {},
     loadError: null,     // the session could not be opened (network, server down)
 })
 
@@ -43,6 +46,14 @@ function liveFor(state, turnId, agent) {
         : { turnId, agent, text: '', reasoning: '', tool: null, phase: null, status: 'running' }
 }
 
+/** Revisions merged — the higher one wins, so a frame that arrives late never moves one backwards. */
+function mergeRevs(have, incoming) {
+    if (!incoming) return have
+    const out = { ...have }
+    for (const [agent, rev] of Object.entries(incoming)) if (Number.isInteger(rev) && !(out[agent] > rev)) out[agent] = rev
+    return out
+}
+
 /** Set the live turn; the user's queued turn leaves the queue when it is the one now running. */
 const withLive = (state, live) => ({ ...state, live, queuedTurn: state.queuedTurn?.turnId === live?.turnId ? null : state.queuedTurn })
 
@@ -57,16 +68,20 @@ export function sessionReducer(state, action) {
             const s = action.session
             if (!s) return state
             if (s.sessionId === state.sessionId) {
-                return { ...state, status: s.status ?? state.status, floor: s.floor ?? state.floor, chain: s.chain ?? state.chain, loadError: null }
+                return { ...state, status: s.status ?? state.status, floor: s.floor ?? state.floor, chain: s.chain ?? state.chain, agentRev: mergeRevs(state.agentRev, s.agentRev), loadError: null }
             }
             return {
                 ...emptySession, sessionId: s.sessionId, scope: s.scope ?? state.scope, status: s.status ?? 'active',
-                floor: s.floor ?? 'axl', agentState: s.agentState ?? {}, chain: s.chain ?? null,
+                floor: s.floor ?? 'axl', agentState: s.agentState ?? {}, agentRev: mergeRevs({}, s.agentRev), chain: s.chain ?? null,
             }
         }
 
         case 'loadFailed':
             return { ...state, loadError: action.message ?? 'Could not open the chat' }
+
+        // A press or a hand edit answered with the revision it left (or a stale_state with the current one).
+        case 'rev':
+            return action.agent ? { ...state, agentRev: mergeRevs(state.agentRev, { [action.agent]: action.rev }) } : state
 
         // The user pressed send. Nothing running → the turn is ours before the server says a word, so Stop
         // works at once. Another turn running (a chain step, a slow reply) → it QUEUES behind that one — the
@@ -123,6 +138,7 @@ export function sessionReducer(state, action) {
                 rows, lastSeq: maxSeq(rows, state.lastSeq), floor: d.floor ?? state.floor, status: d.status ?? state.status,
                 ...('chain' in d ? { chain: d.chain ?? null } : {}),
                 ...(d.agentState ? { agentState: d.agentState } : {}),
+                agentRev: mergeRevs(state.agentRev, d.agentRev),
             }
         }
 
@@ -147,7 +163,7 @@ export function sessionReducer(state, action) {
             if (d.archived) next = { ...next, status: 'archived', next: d.next ?? null }
             if ('floor' in d) next = { ...next, floor: d.floor ?? 'axl' }
             if ('chain' in d) next = { ...next, chain: d.chain ?? null }
-            if (d.agent) next = { ...next, agentState: { ...next.agentState, [d.agent]: d.state ?? null } }
+            if (d.agent) next = { ...next, agentState: { ...next.agentState, [d.agent]: d.state ?? null }, agentRev: mergeRevs(next.agentRev, { [d.agent]: d.rev }) }
             return next
         }
 

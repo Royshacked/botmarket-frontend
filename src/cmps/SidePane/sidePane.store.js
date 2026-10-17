@@ -1,0 +1,62 @@
+import { useSyncExternalStore } from 'react'
+
+// ── Which desk surfaces the side pane holds (unified-chat plan phase 8b, K5) ──
+//
+// The pane opens from two directions: it FOLLOWS THE FLOOR (Mentor takes the floor → Mentor's surface comes up), and
+// a doorway opens it on a desk outright (a "fall back to the desk" path, a desk opened with nothing said yet). The
+// doorways live all over MainPage and the cards, so — like the detail panel's — the state is a module store rather
+// than something threaded through props.
+//
+//   tabs    the surfaces open, in the order they were opened — one tab per desk
+//   active  the one showing
+//   pinned  the user pinned the active tab: the floor moving to another desk adds that desk's tab but does not switch
+
+let state = Object.freeze({ tabs: [], active: null, pinned: false })
+const subs = new Set()
+const set = (next) => { state = Object.freeze(next); subs.forEach(fn => fn()) }
+const subscribe = (fn) => { subs.add(fn); return () => subs.delete(fn) }
+const read = () => state
+
+export const sidePaneState = read
+
+/** Open `agent`'s surface and show it. `{ follow: true }` is the floor moving — a pinned tab is not taken over. */
+export function openSurface(agent, { follow = false } = {}) {
+    if (!agent) return
+    const tabs = state.tabs.includes(agent) ? state.tabs : [...state.tabs, agent]
+    const keep = follow && state.pinned && state.active && state.active !== agent
+    if (tabs === state.tabs && (keep || state.active === agent)) return
+    set({ ...state, tabs, active: keep ? state.active : agent })
+}
+
+/** Close one tab; the pane shows the tab before it, and closes when it was the last. */
+export function closeSurface(agent) {
+    const i = state.tabs.indexOf(agent)
+    if (i < 0) return
+    const tabs = state.tabs.filter(t => t !== agent)
+    const active = state.active === agent ? (tabs[i - 1] ?? tabs[0] ?? null) : state.active
+    set({ tabs, active, pinned: active ? state.pinned && state.active !== agent : false })
+}
+
+/** Close the pane — every tab. */
+export function closePane() {
+    if (!state.tabs.length) return
+    set({ tabs: [], active: null, pinned: false })
+}
+
+export function showSurface(agent) {
+    if (state.tabs.includes(agent) && state.active !== agent) set({ ...state, active: agent })
+}
+
+export function setPinned(pinned) {
+    if (state.pinned !== !!pinned && state.active) set({ ...state, pinned: !!pinned })
+}
+
+/** The pane's state — re-renders the caller when it changes. */
+export function useSidePane() {
+    return useSyncExternalStore(subscribe, read, read)
+}
+
+/** Tests only: back to empty. */
+export function _resetSidePane() {
+    set({ tabs: [], active: null, pinned: false })
+}

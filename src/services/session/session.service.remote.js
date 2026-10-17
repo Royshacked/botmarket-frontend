@@ -46,9 +46,26 @@ export const sessionService = {
         })
     },
 
-    /** Reopen an entity for editing in the live session. A busy desk answers 409 with its agent. */
-    async edit(sessionId, { kind, id, name = null, force = false }) {
-        return httpService.post(`${BASE}/${encodeURIComponent(sessionId)}/edit`, { kind, id, name, force })
+    /**
+     * Reopen an entity for editing in the live session. A busy desk answers 409 with its agent. `reviewMode` opens a
+     * book for its review (Atlas).
+     */
+    async edit(sessionId, { kind, id, name = null, force = false, reviewMode = false }) {
+        return httpService.post(`${BASE}/${encodeURIComponent(sessionId)}/edit`, { kind, id, name, force, reviewMode })
+    },
+
+    /**
+     * A desk's commit (Generate, Arm, Update, Later…) — the server reads the work from the session, never from here
+     * (backend plan §10.2). `rev` is the agent's revision the user was looking at; a stale one answers 409 stale_state.
+     * @returns {Promise<object>}  the desk's result `{ <kind>: doc, ... }` and the new `rev`
+     */
+    async act(sessionId, { agent, action, args = {}, rev }) {
+        return httpService.post(`${BASE}/${encodeURIComponent(sessionId)}/act`, { agent, action, args, rev })
+    },
+
+    /** A hand edit of a desk's work — validated by the desk, pushed back on the socket. @returns {Promise<{ ok, rev }>} */
+    async editState(sessionId, { agent, edit, rev }) {
+        return httpService.patch(`${BASE}/${encodeURIComponent(sessionId)}/state`, { agent, edit, rev })
     },
 
     /** A tap on a decision card (continue, finish, set aside, research, next, reopen, keep…). */

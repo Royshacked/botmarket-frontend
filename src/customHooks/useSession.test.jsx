@@ -108,3 +108,86 @@ describe('useSession', () => {
         expect(ws.count('connected')).toBe(0)
     })
 })
+
+// ─── a desk's surface: commits, hand edits, reopening (phase 8b) ──────────────
+
+const refusal = (status, data) => Object.assign(new Error('refused'), { response: { status, data } })
+
+describe('useSession — commit / edit / reopen', () => {
+    it('a commit names the revision the user was looking at, and folds in the one it left', async () => {
+        api.getActive = vi.fn(async () => ({ sessionId: 's1', scope: 'main', status: 'active', floor: 'mentor', agentRev: { mentor: 4 } }))
+        api.act = vi.fn(async () => ({ setup: { id: 'n1' }, rev: 6 }))
+        const { result } = mount()
+        await waitFor(() => expect(result.current.sessionId).toBe('s1'))
+        let out
+        await act(async () => { out = await result.current.commit('mentor', 'generate', { accounts: [{ id: 'a1' }] }) })
+        expect(api.act).toHaveBeenCalledWith('s1', { agent: 'mentor', action: 'generate', args: { accounts: [{ id: 'a1' }] }, rev: 4 })
+        expect(out).toEqual({ ok: true, result: { setup: { id: 'n1' } } })
+        expect(result.current.agentRev.mentor).toBe(6)
+    })
+
+    it('a refusal is a value — its reason, its words and its extra — and a stale one moves the revision on', async () => {
+        api.act = vi.fn(async () => { throw refusal(409, { error: 'That changed while you were looking', reason: 'stale_state', rev: 9 }) })
+        const { result } = mount()
+        await waitFor(() => expect(result.current.sessionId).toBe('s1'))
+        let out
+        await act(async () => { out = await result.current.commit('mentor', 'generate') })
+        expect(out).toEqual({ ok: false, reason: 'stale_state', message: 'That changed while you were looking', extra: { rev: 9 }, status: 409 })
+        expect(result.current.agentRev.mentor).toBe(9)
+
+        api.act = vi.fn(async () => { throw refusal(409, { error: 'Nothing could be saved', reason: 'nothing_saved', failed: [{ asset: 'X' }] }) })
+        await act(async () => { out = await result.current.commit('mentor', 'generateAll') })
+        expect(out.extra).toEqual({ failed: [{ asset: 'X' }] })
+    })
+
+    it('a hand edit names the revision too, and takes the new one', async () => {
+        api.editState = vi.fn(async () => ({ ok: true, rev: 2 }))
+        const { result } = mount()
+        await waitFor(() => expect(result.current.sessionId).toBe('s1'))
+        await act(async () => { await result.current.edit('scanner', { profile: 'investing' }) })
+        expect(api.editState).toHaveBeenCalledWith('s1', { agent: 'scanner', edit: { profile: 'investing' }, rev: 0 })
+        expect(result.current.agentRev.scanner).toBe(2)
+    })
+
+    it('reopen answers busy with the agent holding the work — the caller asks, then repeats with force', async () => {
+        api.edit = vi.fn(async (sid, body) => {
+            if (!body.force) throw refusal(409, { error: 'That desk is in the middle of something else', reason: 'busy', agent: 'mentor' })
+            return { agent: 'mentor', floor: 'mentor' }
+        })
+        const { result } = mount()
+        await waitFor(() => expect(result.current.sessionId).toBe('s1'))
+        let out
+        await act(async () => { out = await result.current.reopen('setup', 's9', { name: 'NVDA setup' }) })
+        expect(out.reason).toBe('busy')
+        expect(out.extra.agent).toBe('mentor')
+        await act(async () => { out = await result.current.reopen('setup', 's9', { force: true }) })
+        expect(out).toEqual({ ok: true, result: { agent: 'mentor', floor: 'mentor' } })
+        expect(api.edit).toHaveBeenLastCalledWith('s1', { kind: 'setup', id: 's9', name: null, force: true, reviewMode: false })
+    })
+})
+
+describe('useSession — phase 8b bug hunt', () => {
+    it('#1: a stale refusal asks for a replay, so the surface redraws before the next press', async () => {
+        api.act = vi.fn(async () => { throw refusal(409, { error: 'changed', reason: 'stale_state', rev: 5 }) })
+        const { result } = mount()
+        await waitFor(() => expect(result.current.sessionId).toBe('s1'))
+        ws.sent.length = 0
+        await act(async () => { await result.current.commit('mentor', 'generate') })
+        expect(ws.sent).toEqual([{ event: 'session_sync', data: { sessionId: 's1', afterSeq: 0 } }])
+    })
+
+    it('#2: a turn or a reopen asked before the session has loaded WAITS for it, then goes', async () => {
+        let open
+        api.getActive = vi.fn(() => new Promise(r => { open = r }))
+        api.edit = vi.fn(async () => ({ agent: 'mentor' }))
+        const { result } = mount()
+        let sent, reopened
+        act(() => { sent = result.current.send('Work on NVDA', { agent: 'mentor' }) })
+        act(() => { reopened = result.current.reopen('setup', 's9') })
+        expect(api.turn).not.toHaveBeenCalled()
+        await act(async () => { open({ sessionId: 's1', scope: 'main', status: 'active', floor: 'axl' }) })
+        expect(await sent).toBe(true)
+        expect(api.turn).toHaveBeenCalledWith('s1', expect.objectContaining({ text: 'Work on NVDA', agent: 'mentor' }))
+        expect((await reopened).ok).toBe(true)
+    })
+})

@@ -1,0 +1,130 @@
+// The side pane (SidePane.jsx). Two placements:
+//   docked — beside the timeline inside the chat column's row; the timeline narrows (flex) to make room;
+//   sheet  — a bottom sheet over the app on a handheld, portalled to <body> (a fixed element under a
+//            backdrop-filter ancestor stops being fixed — see feedback in the frontend docs).
+
+// The chat column's row: the timeline and, when open, the pane beside it.
+.chat-with-pane {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: row;
+
+    > .chat-timeline { min-width: 0; }
+}
+
+.side-pane {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--bg-base);
+    color: var(--text-primary);
+    outline: none;
+
+    &--docked {
+        flex: 0 0 min(560px, 58%);
+        // A flex item will not shrink below its content's min-content by default, and the worksheet's one-line
+        // header set that past the basis — the pane grew to ~650px and squeezed the chat to 210 (driven, 2026-10-17).
+        min-width: 0;
+        max-width: min(560px, 58%);
+        border-left: 1px solid var(--border);
+        border-top: 1px solid var(--border);
+        box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12);
+        animation: side-pane-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    }
+
+    &--sheet {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: min(88dvh, 100dvh - 48px);
+        // Over the app, under the in-app entity page (700) and every modal.
+        z-index: 650;
+        border-top-left-radius: 14px;
+        border-top-right-radius: 14px;
+        box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.25);
+        animation: side-pane-up 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    }
+
+    &__head {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-wash);
+    }
+
+    &__tabs {
+        flex: 1 1 auto;
+        min-width: 0;
+        display: flex;
+        gap: 4px;
+        overflow-x: auto;
+    }
+
+    &__tab {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: transparent;
+
+        &.is-active {
+            background: var(--bg-base);
+            border-color: var(--accent);
+        }
+    }
+
+    &__tab-btn,
+    &__tab-close,
+    &__pin,
+    &__close {
+        border: none;
+        background: transparent;
+        color: var(--text-secondary);
+        font: inherit;
+        font-size: 13px;
+        cursor: pointer;
+        padding: 4px 8px;
+
+        &:hover { color: var(--text-primary); }
+    }
+
+    &__tab.is-active &__tab-btn { color: var(--text-primary); font-weight: 600; }
+    &__tab-close { padding: 4px 6px 4px 0; font-size: 15px; line-height: 1; }
+
+    &__pin {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 12px;
+
+        &.is-on { color: var(--accent); border-color: var(--accent); }
+    }
+
+    &__body {
+        flex: 1 1 auto;
+        min-height: 0;
+        min-width: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+}
+
+@keyframes side-pane-in {
+    from { transform: translateX(16px); opacity: 0; }
+    to   { transform: none; opacity: 1; }
+}
+
+@keyframes side-pane-up {
+    from { transform: translateY(24px); opacity: 0; }
+    to   { transform: none; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .side-pane--docked, .side-pane--sheet { animation: none; }
+}
