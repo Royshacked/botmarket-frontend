@@ -1,32 +1,10 @@
 .analyst-panel {
-    &__intro {
-        padding: 16px;
-        color: var(--text-secondary);
-        h3 { margin: 0 0 6px; font-size: 15px; color: var(--text-primary); }
-        p  { margin: 0; font-size: 12.5px; line-height: 1.5; }
-    }
-
-    // Capped against the PANEL, not the screen, and allowed to yield — same contract as Pythia's
-    // draft (StrategyPanel.scss). 40vh with flex-shrink: 0 was a cap the column could not enforce:
-    // on a laptop the column is the viewport less two headers, and a block that refuses to shrink
-    // takes that difference out of whatever sits below it. The Initiate button is in its own
-    // action bubble underneath, so what scrolls is only ever the draft.
+    // In the side pane the pane scrolls, so the draft is never capped (phase 8d): the panel held it to half its height
+    // so its pinned input stayed in view, and in the pane that cap cut the kill-criteria off under their label.
     &__draft-wrap {
-        flex: 0 1 auto;
-        min-height: 0;
-        max-height: 50%;
-        overflow-y: auto;
-        padding: 8px 12px 4px;
         display: flex;
         flex-direction: column;
         gap: 8px;
-        scrollbar-width: thin;
-        scrollbar-color: var(--accent-deep) var(--bg-base);
-    }
-
-    // Shown when a research turn ended with no draft — a PASS, or a block that never landed.
-    &__ask {
-        align-items: center;
     }
 
     &__ask-hint {
@@ -123,10 +101,5 @@
         }
         ul { margin: 0; padding-left: 16px; }
         li { line-height: 1.45; }
-    }
-
-    &__err {
-        font-size: 12.5px;
-        color: var(--short-text);
     }
 }

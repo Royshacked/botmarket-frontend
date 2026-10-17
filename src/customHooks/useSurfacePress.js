@@ -77,5 +77,16 @@ export function useSurfacePress(session, agent, deskProps = {}, { brand }) {
         }
     }, [session, agent, accounts, mainAccountId, brand])
 
-    return { accounts, mainAccountId, rev, pressing, note, setNote, talk, press }
+    /**
+     * A hand edit of this desk's state (a lens, a mode) that SAYS a refusal, as a press does — an edit used to fail in
+     * silence (phase 8d CR). A stale one is quiet: the replay that follows redraws what it was about.
+     * @returns {Promise<object>} the outcome
+     */
+    const edit = useCallback(async (change) => {
+        const out = await session.edit(agent, change)
+        if (!out.ok && out.reason !== 'stale_state') setNote({ kind: 'error', text: out.message })
+        return out
+    }, [session, agent])
+
+    return { accounts, mainAccountId, rev, pressing, note, setNote, talk, press, edit }
 }

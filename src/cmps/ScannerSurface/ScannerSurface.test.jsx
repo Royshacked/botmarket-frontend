@@ -72,6 +72,67 @@ describe('ScannerSurface — a list', () => {
     })
 })
 
+describe('ScannerSurface — phase 8d CR', () => {
+    it('a name on the list opens its chart; Later is not a save; a refused lens says so; angles reset once sent', async () => {
+        const { rerender } = mount({ pendingScan: LIST, editingScanId: 's1' }, { edit: vi.fn(async () => ({ ok: false, reason: 'invalid_edit', message: 'That change is not valid' })) })
+        desk = { ...desk, onTicker: vi.fn() }
+        rerender(<ScannerSurface session={session} deskProps={desk} />)
+        fireEvent.click(screen.getByText('NVDA'))
+        expect(desk.onTicker).toHaveBeenCalledWith('NVDA')
+        fireEvent.click(screen.getByText(/later/i))
+        await waitFor(() => expect(session.commit).toHaveBeenCalledWith('scanner', 'later', expect.any(Object)))
+        expect(desk.onSaved).not.toHaveBeenCalled()
+        fireEvent.click(screen.getByText('Investing'))
+        expect((await screen.findByRole('alert')).textContent).toBe('That change is not valid')
+        cleanup()
+        mount({ profile: 'trading' })
+        fireEvent.click(screen.getByText('Momentum'))
+        fireEvent.click(screen.getByText('Scan this (1) →'))
+        expect(screen.getByText('Momentum').getAttribute('aria-pressed')).toBe('false')
+    })
+
+    it('a stale hand-back is retried ON the revision the refusal named', async () => {
+        batchRead.mockResolvedValue({ rows: [] })
+        const edit = vi.fn()
+            .mockResolvedValueOnce({ ok: false, reason: 'stale_state', message: 'x', extra: { rev: 7 } })
+            .mockResolvedValueOnce({ ok: true, result: {}, rev: 8 })
+        mount({ radar: true, pendingScan: LIST }, { edit })
+        await waitFor(() => expect(edit).toHaveBeenCalledTimes(2))
+        expect(edit.mock.calls[1][2]).toEqual({ rev: 7 })
+    })
+
+    it('a refused "Save without the read" does not strand the read: it lands and applies', async () => {
+        let answer
+        batchRead.mockReturnValue(new Promise(r => { answer = r }))
+        mount({ radar: true, pendingScan: LIST }, { commit: vi.fn(async () => ({ ok: false, reason: 'save_failed', message: 'Could not save the list' })) })
+        fireEvent.click(await screen.findByText('Save without the read'))
+        await screen.findByRole('alert')
+        answer({ rows: [] })
+        await waitFor(() => expect(session.edit).toHaveBeenCalledWith('scanner', { read: { tickers: ['NVDA', 'MOS'], rows: [] } }))
+    })
+
+    it('a read answering after the surface closed is not handed back', async () => {
+        let answer
+        batchRead.mockReturnValue(new Promise(r => { answer = r }))
+        const { unmount } = mount({ radar: true, pendingScan: LIST })
+        await waitFor(() => expect(batchRead).toHaveBeenCalled())
+        unmount()
+        answer({ rows: [] })
+        await new Promise(r => setTimeout(r, 20))
+        expect(session.edit).not.toHaveBeenCalled()
+    })
+
+    it('a list whose read DROPPED names, re-emitted as it was first cut, is read again', async () => {
+        batchRead.mockResolvedValue({ rows: [] })
+        const { rerender } = mount({ radar: true, pendingScan: LIST })
+        await waitFor(() => expect(batchRead).toHaveBeenCalledTimes(1))
+        const narrowed = { ...LIST, candidates: [LIST.candidates[0]] }
+        rerender(<ScannerSurface session={{ ...session, agentState: { scanner: { radar: true, pendingScan: narrowed, readCut: { dropped: [{ ticker: 'MOS' }], survived: true } } } }} deskProps={desk} />)
+        rerender(<ScannerSurface session={{ ...session, agentState: { scanner: { radar: true, pendingScan: LIST } } }} deskProps={desk} />)
+        await waitFor(() => expect(batchRead).toHaveBeenCalledTimes(2))
+    })
+})
+
 describe('ScannerSurface — a radar cut', () => {
     it('the read runs BY ITSELF and hands its rows back as an edit of THAT list; the bar waits for it', async () => {
         let answer

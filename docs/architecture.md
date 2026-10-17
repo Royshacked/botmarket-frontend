@@ -209,11 +209,16 @@ under the dialogs on a handheld. ONE `useSession('main')` on MainPage is shared 
 EDIT (`session.edit`, naming the revision it was made against), a button is a COMMIT
 (`session.commit`; a press first lets a settling edit land). The press mechanics are one hook,
 `customHooks/useSurfacePress` (the marked accounts, one press at a time, the note, the stale refusal,
-a `before` and an `again` step); what a press MEANS stays in each surface. Mentor's is
-`cmps/MentorSurface` (8b), Atlas's `cmps/PortfolioSurface` (8c — the review bar, the AVOID ask, and
-the adopt grid); Argus and Prometheus follow in 8d. The contract and the record:
-`../botmarket-backend/docs/design/unified-chat-plan.md` §10.2–10.4. Driven by
-`../botmarket-backend/scripts/drive-mentor-surface.mjs` and `drive-portfolio-surface.mjs`.
+a `before` and an `again` step, and `edit`, which says a refusal); the note line is
+`SidePane/SurfaceNote` and the frame the `.desk-surface` shell (SidePane.scss). What a press MEANS
+stays in each surface: Mentor's `cmps/MentorSurface` (8b), Atlas's `cmps/PortfolioSurface` (8c — the
+review bar, the AVOID ask, the adopt grid), Argus's `cmps/ScannerSurface` and Prometheus's
+`cmps/AnalystSurface` (8d — the lens, the radar cut's Prometheus read handed back as a hand edit,
+the coverage draft). New work onto Argus's table goes through one step on MainPage, `onArgusTable`
+(asked over Argus's work, then a fresh table). The pipeline conveyor is gone: desks hand work on
+through the server's chain. The contract and the record:
+`../botmarket-backend/docs/design/unified-chat-plan.md` §10.2–10.5. Driven by
+`../botmarket-backend/scripts/drive-{mentor,portfolio,scanner-analyst}-surface.mjs`.
 
 ## Threads
 

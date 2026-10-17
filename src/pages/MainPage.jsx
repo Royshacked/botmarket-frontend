@@ -5,8 +5,6 @@ import { openChart }         from '../services/chartSurface.service.js'
 import { AgentSummon, AxlBotGlyph } from '../cmps/AxlHub/AgentSummon.jsx'
 import { RETURN_MS, DESKS } from '../cmps/AxlHub/agentMeta.jsx'
 import { resolveStepIndex, previousStep } from '../cmps/AxlHub/pipelineNav.js'
-import { firstItem, resolveArtifact } from '../services/pipeline/artifact.js'
-import { contractFor } from '../services/pipeline/contracts.js'
 import { handoffDoors } from '../services/pipeline/doors.js'
 import { AccountSelector }   from '../cmps/AccountSelector/AccountSelector.jsx'
 import { queuedAnything } from '../cmps/PortfolioPanel/reviewApply.js'
@@ -227,19 +225,9 @@ export function MainPage() {
     } = deskSetters
     // Streaming state reported up from the portfolio/scanner panels (they own their
     // own chat stream) so the agent-bar "live" dot can pulse for Atlas/Argus too.
-    // ── Pipeline inboxes ──────────────────────────────────────────────────────
-    // What each desk has been HANDED, as a pipeline artifact (services/pipeline/artifact.js). One
-    // shape per desk instead of a bespoke payload per hop: the conveyor puts an artifact in an
-    // inbox and switches the tab, and the desk decides what to do with it.
-    //
-    // Argus's inbox also marks it as working on someone else's brief, and a list it produces here is
-    // not filed in the user's Scans tab (see scanOrigin). Single-pick mode is not the inbox's call:
-    // it comes from the pipeline step producing one trade (`producesOne`, see scannerSingle). `scannerSeed` is the delivery mechanism for a desk that opens on a
-    // sentence: the conveyor writes the brief the receiving contract composed.
-    // How the conveyor advances: 'manual' waits for the user to send the artifact on (they can read
-    // and keep chatting first), 'auto' hands it straight to the next desk. A gate never
-    // auto-advances in either mode — see planHop.
-    const [pipelineMode,     setPipelineMode]     = useState('manual')
+    // The desks' doors (useDeskHandoff): what is left of the panel-era hand-offs — a SEED (an opening sentence) a route
+    // or a card still leaves for a desk. The conveyor that filled the inboxes went with the panels (phase 8d); the
+    // chain hands work between desks on the server. The bridge below turns a seed into a session turn (until 8e).
 
     // Every door an artifact can be delivered through, and the one way to shut them all. Declared
     // here, beside the state it owns, because both users of it are far apart: the conveyor fills a
@@ -600,17 +588,9 @@ export function MainPage() {
         return true
     }
 
-    // THE BRIDGE TO THE OLD DESK MACHINERY (until phase 8e deletes it). Mentor's panel is gone, but the conveyor, the
-    // doors and the panels still mounted can hand Mentor a seed or an inbox, or switch to its tab. Each becomes what
-    // it means now: a sentence → a session turn to Mentor; a delivered name → its hand-off turn; the tab → its surface.
+    // THE BRIDGE TO THE OLD DESK MACHINERY (until phase 8e deletes it). A seed a route or a card still leaves for a
+    // surfaced desk becomes a session turn to it, and a switch to its tab opens its surface.
     const mentorDoor = deskHandoff.mentor
-    useEffect(() => {
-        const turn = handoffTurn(firstItem(mentorDoor.inbox))
-        if (!turn) return
-        talkTo('mentor', turn.text, { seed: turn.seed })
-        setMentorInbox(null)
-        openDesk('mentor')
-    }, [mentorDoor.inbox?.key]) // eslint-disable-line react-hooks/exhaustive-deps
     useEffect(() => {
         const message = mentorDoor.seed?.message
         if (!message) return
@@ -618,39 +598,44 @@ export function MainPage() {
         setMentorSeed(null)
         openDesk('mentor')
     }, [mentorDoor.seed?.key]) // eslint-disable-line react-hooks/exhaustive-deps
-    // Argus's and Prometheus's (phase 8d): a seed is a turn to the desk — Argus's carries its lens, set first; a delivered
-    // artifact is the brief its contract composed (Argus) or the research turn on its first name (Prometheus — a queue
-    // of several is the chain's now: the rest are named for the user to ask for).
+    // Argus's and Prometheus's (phase 8d). A brief for Argus is new work: it lands on a clean table (onArgusTable).
     const scannerDoor = deskHandoff.scanner
     useEffect(() => {
         const seed = scannerDoor.seed
-        const brief = seed?.message ? seed : (scannerDoor.inbox ? contractFor('scanner').brief(scannerDoor.inbox) : null)
-        if (!brief?.message) return
-        ;(async () => {
-            if (brief.profile === 'investing' || brief.profile === 'trading') await mainSessionRef.current.edit('scanner', { profile: brief.profile })
-            talkTo('scanner', brief.message)
-        })()
+        if (!seed?.message) return
         setScannerSeed(null)
-        setScannerInbox(null)
-        openDesk('scanner')
-    }, [scannerDoor.seed?.key, scannerDoor.inbox?.key]) // eslint-disable-line react-hooks/exhaustive-deps
+        onArgusTable(seed.message, { profile: seed.profile, what: 'start this scan' })
+            .then(sent => { if (sent) openDesk('scanner') })
+    }, [scannerDoor.seed?.key]) // eslint-disable-line react-hooks/exhaustive-deps
     const analystDoor = deskHandoff.analyst
     useEffect(() => {
         const message = analystDoor.seed?.message
-        const items = analystDoor.inbox ? resolveArtifact(analystDoor.inbox).items.filter(c => c?.ticker) : []
-        if (!message && !items.length) return
-        if (message) talkTo('analyst', message)
-        else {
-            const [first, ...rest] = items
-            const sector = analystDoor.inbox?.context?.sector ?? null
-            const lines = [`Research ${first.ticker} for coverage${sector ? ` — it is a candidate for the ${sector} sleeve` : ''}.`]
-            if (rest.length) lines.push(`${rest.map(c => c.ticker).join(', ')} follow after it — do ${first.ticker} only for now.`)
-            talkTo('analyst', lines.join(' '), { seed: { ticker: first.ticker, sector, thesis: first.thesis ?? null, analysis: first.analysis ?? null } })
-        }
+        if (!message) return
+        talkTo('analyst', message)
         setAnalystSeed(null)
-        setAnalystInbox(null)
         openDesk('analyst')
-    }, [analystDoor.seed?.key, analystDoor.inbox?.key]) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [analystDoor.seed?.key]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    /**
+     * New work onto ARGUS'S TABLE — a radar cut, a brief from a route or a card (phase 8d CR). Never on top of what Argus
+     * holds: a list being built, a saved list being edited (Update would write the new names over it), a name it is
+     * finding for another desk. Any of those → the user is asked; then the table is cleaned (the lens kept, or the one
+     * given) and the turn goes. → whether it went.
+     */
+    async function onArgusTable(text, { profile = null, extra = {}, what = 'start this' } = {}) {
+        const argus = mainSessionRef.current.agentState?.scanner
+        const held = argus?.editingScanId ? 'editing a saved list'
+            : argus?.pendingScan?.candidates?.length ? `building "${argus.pendingScan.thesis ?? 'a list'}"`
+            : argus?.handoff || argus?.chainId ? 'finding a name for another desk'
+            : null
+        if (held && !window.confirm(`Argus is ${held}. Put it aside and ${what}?`)) return false
+        const lens = profile === 'investing' || profile === 'trading' ? { profile } : {}
+        const clean = await mainSessionRef.current.edit('scanner', { fresh: true, ...lens })
+        if (!clean.ok) { showErrorMsg(clean.message); return false }
+        // The table is already clean — a turn that did not go is said, so the user knows to send it again.
+        if (await talkTo('scanner', text, extra) === false) { showErrorMsg('Argus did not get that — send it again from the chat.'); return false }
+        return true
+    }
     // Atlas's (phase 8c): a seed — a sleeve resumed, a conveyor brief — is a turn to Atlas.
     const portfolioDoor = deskHandoff.portfolio
     useEffect(() => {
@@ -667,7 +652,7 @@ export function MainPage() {
     // Atlas's surface reads the books (a book's holdings are ideas with its portfolioId) and hands back what follows a
     // save or an adoption — on top of the props every surface takes.
     const surfaceProps = useMemo(
-        () => ({ ...paneDeskProps, ideas, coverage, onSaved: handleDeskSaved, onAdopted: handleBookAdopted }),
+        () => ({ ...paneDeskProps, ideas, coverage, onSaved: handleDeskSaved, onAdopted: handleBookAdopted, onTicker: (t) => openChart({ ticker: t, source: 'scanner' }) }),
         [paneDeskProps, ideas, coverage], // eslint-disable-line react-hooks/exhaustive-deps -- the two handlers are re-read through the memo's next build
     )
 
@@ -676,6 +661,7 @@ export function MainPage() {
     // Scans tab. Prometheus: the coverage book, and the research queue's row for the name (settleResearchQueue).
     function handleDeskSaved({ agent, result }) {
         if (agent === 'scanner') { loadScans(); setNewsTab('scans'); return }
+        // (The coverage book itself reloads on COVERAGE_CHANGED, which the commit announces — session.service.remote.)
         if (agent === 'analyst') { if (result?.coverage) settleResearchQueue(result.coverage); setNewsTab('coverage'); return }
         loadIdeas()
         if (queuedAnything(result?.rebalance)) loadQueued()
@@ -1733,8 +1719,8 @@ export function MainPage() {
      * has the events but not the history. Asking the server costs one read and cannot disagree with
      * itself.
      *
-     * A fresh Argus every time (scannerResetKey): a cut is its own conversation, and opening on
-     * yesterday's transcript would hand the model a board it has already answered.
+     * A fresh Argus every time (onArgusTable): a cut is its own conversation, and opening on yesterday's list would hand
+     * the model a board it has already answered.
      */
     async function handleScanRadar() {
         if (radarBusy) return
@@ -1757,15 +1743,8 @@ export function MainPage() {
                 + `${board.skipped?.length ? `, with ${board.skipped.length} held back from my last list` : ''}.`
                 + ' Which have a catalyst and a setup in the coming week?'
             // A CUT STARTS ON A CLEAN TABLE, on the trading lens — it is its own conversation (the panel remounted Argus
-            // for it). Landing on a list being edited would make Update overwrite that saved list with the radar's names;
-            // a list in progress is not thrown away unasked (phase 8d bug hunt #1).
-            const argus = mainSessionRef.current.agentState?.scanner
-            const held = argus?.editingScanId ? 'editing a saved list' : argus?.pendingScan?.candidates?.length ? `building "${argus.pendingScan.thesis ?? 'a list'}"` : null
-            if (held && !window.confirm(`Argus is ${held}. Put it aside and cut the radar board?`)) return
-            const clean = await mainSessionRef.current.edit('scanner', { fresh: true, profile: 'trading' })
-            if (!clean.ok) { showErrorMsg(clean.message); return }
-            talkTo('scanner', message, { radarBoard: board })
-            openDesk('scanner')
+            // for it), and never on top of Argus's work (phase 8d bug hunt #1, CR).
+            if (await onArgusTable(message, { profile: 'trading', extra: { radarBoard: board }, what: 'cut the radar board' })) openDesk('scanner')
         } catch (err) {
             console.error('[radar→argus]', err)
             showErrorMsg(apiError(err, 'Could not build the scan universe'))
@@ -1895,26 +1874,6 @@ export function MainPage() {
                                 <PipelineCrumb pipeline={activePipeline} activeTab={activeTab} step={pipelineStep} />
 
                                 <div className="chat-agentbar__right">
-                                    {/* How the desk hands its work on. Manual stops at each step so the
-                                        user can read it and keep chatting before sending it forward;
-                                        auto walks the chain on its own. Shown only inside a pipeline —
-                                        off a desk there is no chain to advance. Arming and order
-                                        confirmation are gated steps and stay manual in both modes.
-                                        Sits with the account / history controls rather than beside the
-                                        stepper: it is a setting, and next to the path it read as a step. */}
-                                    {activePipeline && (
-                                        <button
-                                            type="button"
-                                            className={`chat-agentbar__mode${pipelineMode === 'auto' ? ' is-auto' : ''}`}
-                                            onClick={() => setPipelineMode(m => (m === 'auto' ? 'manual' : 'auto'))}
-                                            aria-pressed={pipelineMode === 'auto'}
-                                            title={pipelineMode === 'auto'
-                                                ? 'Auto: each desk hands its work straight to the next'
-                                                : 'Manual: you send the work on when you are ready'}
-                                        >
-                                            {pipelineMode === 'auto' ? 'auto' : 'manual'}
-                                        </button>
-                                    )}
                                     {/* (Trading by hand is picked in the hub, beside the desks — the pad
                                         is its own tab, so no strip toggle is needed here. The account
                                         selector below stays off it: the pad carries its own.) */}

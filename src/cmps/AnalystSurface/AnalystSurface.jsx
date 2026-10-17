@@ -4,9 +4,9 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { LaterButton } from '../LaterButton.jsx'
 import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
 import { useSurfacePress } from '../../customHooks/useSurfacePress.js'
+import { SurfaceNote } from '../SidePane/SurfaceNote.jsx'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import '../AnalystPanel/AnalystPanel.scss'
-import './AnalystSurface.scss'
 
 // ── Prometheus's surface (unified-chat plan phase 8d) ────────────────────────
 //
@@ -62,44 +62,60 @@ export function AnalystSurface({ session, deskProps = {} }) {
     const draft     = state?.draft ?? null
     const proposal  = state?.standing === true && draft ? draft : null
     const editingId = state?.editing?.kind === 'coverage' ? state.editing.entityId : null
-    const symbol    = draft?.symbol ?? state?.active_symbol ?? null
+    const upper     = (s) => String(s ?? '').toUpperCase()
+    // The name of the thesis being revised is the EDIT's, not the draft's (phase 8d CR): a draft about another company
+    // mid-revision is new work — Initiate saves it (backend analyst.actions, `elsewhere`), Later keeps it.
+    const revising  = editingId ? (state?.editingSymbol ?? null) : null
+    const symbol    = proposal?.symbol ?? draft?.symbol ?? state?.active_symbol ?? null
+    const another   = !!revising && !!proposal?.symbol && upper(proposal.symbol) !== upper(revising)
     // Already in the book → the save revises it (the server's initiateOrRevise decides; this is only the label).
-    const inBook    = !!symbol && (coverage ?? []).some(c => String(c.symbol ?? '').toUpperCase() === String(symbol).toUpperCase())
+    const inBook    = !!symbol && (coverage ?? []).some(c => upper(c.symbol) === upper(symbol))
 
     function commit(action, done) {
         return press(action, { done, refused: refusalText }).then(out => {
-            if (out?.ok) onSaved?.({ agent: 'analyst', action, result: out.result })
+            if (out?.ok && action !== 'later') onSaved?.({ agent: 'analyst', action, result: out.result })
         })
     }
 
-    const noteLine = note && <p className="analyst-surface__note" data-kind={note.kind} role={note.kind === 'error' ? 'alert' : 'status'}>{note.text}</p>
-
     if (!proposal && !editingId) {
         return (
-            <div className="analyst-surface analyst-surface--empty">
-                {noteLine}
-                <p className="analyst-surface__lead">
-                    {draft
-                        ? `Prometheus is working on ${symbol ?? 'a name'} — the draft appears here once it stands.`
-                        : 'Buy-side research — a living thesis per name: a variant view, our price target vs the Street, and monitorable kill-criteria. Name a ticker in the chat to start.'}
+            <div className="desk-surface analyst-surface">
+                <SurfaceNote note={note} />
+                <p className="desk-surface__lead">
+                    {!draft
+                        ? 'Buy-side research — a living thesis per name: a variant view, our price target vs the Street, and monitorable kill-criteria. Name a ticker in the chat to start.'
+                        : turning
+                            ? `Prometheus is working on ${symbol ?? 'a name'} — the draft appears here once it stands.`
+                            // A turn that ended without a <coverage> block withdrew the draft's right to be saved (a pass,
+                            // a question) — said, rather than "working" over a desk that has stopped.
+                            : `Prometheus's last answer on ${symbol ?? 'this name'} put up no draft to save — ask it for one when you are ready.`}
                 </p>
             </div>
         )
     }
 
-    const label = editingId || inBook ? `Update coverage on ${symbol}` : `Initiate coverage on ${symbol}`
+    const name   = symbol ?? 'this name'
+    const action = editingId && !another ? 'update' : 'generate'
+    const label  = action === 'update' || inBook ? `Update coverage on ${name}` : `Initiate coverage on ${name}`
     return (
-        <div className="portfolio-panel analyst-panel analyst-surface">
-            {editingId && <p className="analyst-surface__lead">Revising {symbol ?? 'this thesis'}{proposal ? '' : ' — Prometheus drafts the new view when you ask it to.'}</p>}
+        <div className="portfolio-panel analyst-panel desk-surface analyst-surface">
+            {editingId && (
+                <p className="desk-surface__lead">
+                    Revising {revising ?? symbol ?? 'this thesis'}
+                    {another
+                        ? ` — Prometheus's draft is about ${proposal.symbol}, another company: saving it starts its own coverage, and Later keeps it.`
+                        : proposal ? '' : ' — Prometheus drafts the new view when you ask it to.'}
+                </p>
+            )}
             {proposal && <div className="analyst-panel__draft-wrap"><CoverageDraft coverage={proposal} /></div>}
-            {noteLine}
+            <SurfaceNote note={note} />
             {!turning && (
                 <div className="portfolio-panel__action-bubble">
                     {proposal && (isAdmin ? (
                         <button
                             className="portfolio-panel__review-btn portfolio-panel__review-btn--update"
-                            onClick={() => commit(editingId ? 'update' : 'generate', (r) => `${r.coverage?.symbol ?? symbol} is ${r.revised ? 'revised' : 'in coverage'}.`)}
-                            disabled={pressing}
+                            onClick={() => commit(action, (r) => `${r.coverage?.symbol ?? name} is ${r.revised ? 'revised' : 'in coverage'}.`)}
+                            disabled={pressing || !proposal.symbol}
                         >
                             {pressing ? 'Saving…' : label}
                         </button>

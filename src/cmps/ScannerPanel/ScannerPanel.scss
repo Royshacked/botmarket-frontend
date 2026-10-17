@@ -2,16 +2,6 @@
 // only the scanner-specific bits.
 
 .scanner-panel {
-    // Override the green portfolio accent with the theme accent for the bot icon.
-    .portfolio-panel__title-icon { color: var(--accent-light); }
-    .portfolio-panel__status-dot {
-        background: var(--accent-light);
-        &.loading  { background: var(--accent-bright); }
-        // Re-tint the building pulse to the theme accent (animation + glow via
-        // currentColor come from the shared pp-building keyframe).
-        &.building { background: var(--accent-bright); color: var(--accent-bright); }
-    }
-
     &__period-chip {
         font-family: var(--font-mono);
         font-size: var(--chat-label);
@@ -33,31 +23,6 @@
         &--short { color: var(--short-text); }
     }
 
-    // Starter-prompt chips in the empty state.
-    &__suggestions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 16px;
-    }
-
-    &__suggestion {
-        font-family: var(--font-mono);
-        font-size: 12.5px;
-        padding: 6px 12px;
-        border-radius: 14px;
-        background: var(--bg-wash-surface);
-        border: 1px solid var(--border);
-        color: var(--text-secondary);
-        cursor: pointer;
-        transition: border-color 0.15s, color 0.15s;
-
-        &:hover:not(:disabled) {
-            border-color: var(--accent);
-            color: var(--accent-bright);
-        }
-        &:disabled { opacity: 0.5; cursor: default; }
-    }
 
     // Small label above / beside the angle chips.
     &__angles-hint {

@@ -11,6 +11,7 @@ import { SpanTable } from '../MentorPanel/SpanTable.jsx'
 import { EntryTable } from '../MentorPanel/EntryTable.jsx'
 import { StageConfirm } from '../MentorPanel/StageConfirm.jsx'
 import { useSurfacePress } from '../../customHooks/useSurfacePress.js'
+import { SurfaceNote } from '../SidePane/SurfaceNote.jsx'
 import { liveReadiness, candidatePress, stagePress, spansPress, entriesPress, delegatePress, revivePress, batchNames } from './mentorSurface.utils.js'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import '../MentorPanel/MentorPanel.scss'
@@ -202,9 +203,9 @@ export function MentorSurface({ session, deskProps = {} }) {
     // ── Nothing on the table ──
     if (!state || (!draft && !generated && !candidates?.length && !coverage.length)) {
         return (
-            <div className="mentor-surface mentor-surface--empty">
-                {note?.kind === 'done' && <p className="mentor-surface__note mentor-surface__note--done">{note.text}</p>}
-                <p className="mentor-surface__lead">Nothing on Mentor&apos;s table. Tell Mentor about a trade in the chat, or start here:</p>
+            <div className="desk-surface mentor-surface">
+                {note?.kind === 'done' && <SurfaceNote note={note} />}
+                <p className="desk-surface__lead">Nothing on Mentor&apos;s table. Tell Mentor about a trade in the chat, or start here:</p>
                 <SuggestionChips
                     variant="intro"
                     disabled={turning}
@@ -219,7 +220,7 @@ export function MentorSurface({ session, deskProps = {} }) {
     }
 
     return (
-        <div className="portfolio-panel mentor-panel mentor-surface">
+        <div className="portfolio-panel mentor-panel desk-surface mentor-surface">
             {setSelectedAccounts && (
                 <div className="mentor-surface__accounts">
                     <AccountSelector
@@ -294,7 +295,7 @@ export function MentorSurface({ session, deskProps = {} }) {
                 />
             )}
 
-            {note && <p className={`mentor-surface__note mentor-surface__note--${note.kind}`} role={note.kind === 'error' ? 'alert' : 'status'}>{note.text}</p>}
+            <SurfaceNote note={note} />
 
             {/* Generate: shown as soon as there is a setup, so what is still missing is said, not hidden. */}
             {!turning && hasPreview && !generated && !editingId && (

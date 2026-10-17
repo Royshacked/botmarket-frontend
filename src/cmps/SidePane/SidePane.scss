@@ -116,6 +116,38 @@
     }
 }
 
+// ── A desk's surface in the pane: the shell, the lead line and the note, once (phase 8d CR) ──
+// Every surface root carries `desk-surface` beside its own class; what is particular to a desk stays in its own sheet.
+.desk-surface {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    min-height: 0;
+
+    // In the pane the surface GROWS and the pane scrolls (phase 8c CR): the shared portfolio-panel shell is a desk's
+    // frame — `height: 100%; overflow: hidden` — and clipped a long surface.
+    &.portfolio-panel { height: auto; overflow: visible; flex: 0 0 auto; }
+
+    &__lead {
+        margin: 4px 0 0;
+        font-size: 14px;
+        color: var(--text-secondary);
+    }
+
+    &__note {
+        margin: 0;
+        padding: 8px 10px;
+        border-radius: 6px;
+        font-size: 13px;
+        border: 1px solid var(--border);
+
+        &--error { color: var(--danger, #c0392b); border-color: currentColor; }
+        &--done  { color: var(--text-secondary); background: var(--bg-wash); }
+    }
+}
+
 @keyframes side-pane-in {
     from { transform: translateX(16px); opacity: 0; }
     to   { transform: none; opacity: 1; }

@@ -7,6 +7,7 @@ import { AdoptBookGrid } from '../AdoptBook/AdoptBookGrid.jsx'
 import { adoptService } from '../../services/adopt/adopt.service.remote'
 import { eventBus, REVIEW_RESOLVED } from '../../services/event-bus.service'
 import { useSurfacePress } from '../../customHooks/useSurfacePress.js'
+import { SurfaceNote } from '../SidePane/SurfaceNote.jsx'
 import {
     REVIEW_REQUEST, OPENINGS, ADOPT_OPENING, bookIdeas, buildSummary, planStatus, accountsMoved, bookPending,
     avoidQuestion, sleeveLine, pressReport, refusalText, describeChange,
@@ -122,18 +123,17 @@ export function PortfolioSurface({ session, deskProps = {} }) {
             const id = out.result?.portfolio?.portfolioId ?? portfolioId
             // A review resolved (accepted, dismissed, or an edit opened from it saved) clears the list's red pencil.
             if (wasReview && action !== 'later') eventBus.emit(REVIEW_RESOLVED, { portfolioId: id })
-            onSaved?.({ agent: 'portfolio', action, result: out.result, portfolioId: id })
+            if (action !== 'later') onSaved?.({ agent: 'portfolio', action, result: out.result, portfolioId: id })
         })
     }
 
     const has = adopting || portfolioId || plan || proposal || notices.screenRequests?.length || notices.coverageRequest
     if (!state || !has) {
         return (
-            <div className="portfolio-surface portfolio-surface--empty">
-                {note?.kind === 'done' && <p className="portfolio-surface__note portfolio-surface__note--done" role="status">{note.text}</p>}
-                {note?.kind === 'error' && <p className="portfolio-surface__note portfolio-surface__note--error" role="alert">{note.text}</p>}
-                {adoptError && <p className="portfolio-surface__note portfolio-surface__note--error" role="alert">{adoptError}</p>}
-                <p className="portfolio-surface__lead">Nothing on Atlas&apos;s table. Tell Atlas about a portfolio in the chat, or start here:</p>
+            <div className="desk-surface portfolio-surface">
+                <SurfaceNote note={note} />
+                <SurfaceNote note={adoptError ? { kind: 'error', text: adoptError } : null} />
+                <p className="desk-surface__lead">Nothing on Atlas&apos;s table. Tell Atlas about a portfolio in the chat, or start here:</p>
                 <SuggestionChips
                     variant="intro"
                     disabled={turning}
@@ -155,7 +155,7 @@ export function PortfolioSurface({ session, deskProps = {} }) {
     const later = <LaterButton className="portfolio-panel__generate portfolio-panel__generate--cancel" onClick={() => commit('later')} disabled={pressing} />
 
     return (
-        <div className="portfolio-panel portfolio-surface">
+        <div className="portfolio-panel desk-surface portfolio-surface">
             {setSelectedAccounts && !adopting && (
                 <div className="portfolio-surface__accounts">
                     <AccountSelector
@@ -192,8 +192,8 @@ export function PortfolioSurface({ session, deskProps = {} }) {
                     // Never a dead end: a failed stage or read says so, and Cancel always leaves the mode.
                     <div className="portfolio-surface__opening">
                         {adoptError
-                            ? <p className="portfolio-surface__note portfolio-surface__note--error" role="alert">{adoptError}</p>
-                            : <p className="portfolio-surface__lead">Opening the adoption…</p>}
+                            ? <SurfaceNote note={{ kind: 'error', text: adoptError }} />
+                            : <p className="desk-surface__lead">Opening the adoption…</p>}
                         <div className="portfolio-panel__dismiss-confirm-btns">
                             {adoptError && <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={() => (adoptDraftId ? setReload(r => r + 1) : stage())}>Try again</button>}
                             <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={endAdopt}>Cancel</button>
@@ -278,7 +278,7 @@ export function PortfolioSurface({ session, deskProps = {} }) {
                 </div>
             )}
 
-            {note && <p className={`portfolio-surface__note portfolio-surface__note--${note.kind}`} role={note.kind === 'error' ? 'alert' : 'status'}>{note.text}</p>}
+            <SurfaceNote note={note} />
 
             {!turning && !adopting && (
                 <div className="portfolio-panel__action-bubble">

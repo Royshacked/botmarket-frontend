@@ -1,5 +1,6 @@
 import { httpService } from '../http.service'
 import { SETUPS_CHANGED } from '../mentor/mentor.service.remote'
+import { COVERAGE_CHANGED } from '../analyst/analyst.service.remote'
 
 // The unified chat's session (backend api/sessions — unified-chat plan phases 3–7). One timeline per user per
 // scope; every agent speaks in it. A turn is ACCEPTED here (202) and streams on the chat socket
@@ -9,9 +10,10 @@ import { SETUPS_CHANGED } from '../mentor/mentor.service.remote'
 const BASE = 'api/sessions'
 
 // A commit writes the desk's kind, so the lists of it reload — the same window broadcast the kind's own CRUD sends
-// (entityApi). Phase 8b CR: Generate/Arm/Update from the session left the Floor stale until its poll. The other desks'
-// kinds join as their surfaces arrive (8c, 8d).
-const CHANGE_EVENTS = { mentor: SETUPS_CHANGED }
+// (entityApi). Phase 8b CR: Generate/Arm/Update from the session left the Floor stale until its poll. Prometheus's
+// coverage joined in the 8d CR. Atlas's books and Argus's scans have no such broadcast — their surfaces' onSaved
+// re-reads them (MainPage.handleDeskSaved).
+const CHANGE_EVENTS = { mentor: SETUPS_CHANGED, analyst: COVERAGE_CHANGED }
 
 export const sessionService = {
     /** The user's running session in a scope (created when there is none). */

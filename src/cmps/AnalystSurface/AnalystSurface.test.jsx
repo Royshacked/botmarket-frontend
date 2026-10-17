@@ -45,7 +45,29 @@ describe('AnalystSurface', () => {
         cleanup()
         mount({ draft: DRAFT, standing: false })
         expect(screen.queryByText(/coverage on ZTS/)).toBeNull()
+        // 8d CR: a turn that ended without a draft to save says so — never "working" over a desk that has stopped.
+        expect(screen.getByText(/last answer on ZTS put up no draft to save/)).toBeTruthy()
+        cleanup()
+        mount({ draft: DRAFT, standing: false }, { live: { turnId: 't1' } })
         expect(screen.getByText(/working on ZTS/)).toBeTruthy()
+    })
+
+    it('8d CR: revising one name with a draft about ANOTHER — said, and saved as its own coverage; Later is not a save', async () => {
+        mount({ draft: { ...DRAFT, symbol: 'MSFT' }, standing: true, editing: EDITING, editingSymbol: 'ZTS' })
+        expect(screen.getByText(/Revising ZTS — Prometheus's draft is about MSFT, another company/)).toBeTruthy()
+        fireEvent.click(screen.getByText('Initiate coverage on MSFT'))
+        await waitFor(() => expect(session.commit).toHaveBeenCalledWith('analyst', 'generate', expect.any(Object)))
+        cleanup()
+        mount({ draft: DRAFT, standing: false, editing: EDITING, editingSymbol: 'ZTS' }, { commit: vi.fn(async () => ({ ok: true, result: {} })) })
+        fireEvent.click(screen.getByText(/later/i))
+        await waitFor(() => expect(session.commit).toHaveBeenCalled())
+        expect(desk.onSaved).not.toHaveBeenCalled()
+    })
+
+    it('8d CR: a draft with no name is never offered as "coverage on null"', () => {
+        mount({ draft: { ...DRAFT, symbol: null }, standing: true })
+        expect(screen.queryByText(/null/)).toBeNull()
+        expect(screen.getByText('Initiate coverage on this name').closest('button').disabled).toBe(true)
     })
 
     it('revising a thesis: Update saves it, Later leaves it; before a new draft only Later', async () => {

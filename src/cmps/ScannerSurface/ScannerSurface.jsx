@@ -4,6 +4,7 @@ import { LaterButton } from '../LaterButton.jsx'
 import { aetherService } from '../../services/aether/aether.service.remote.js'
 import { apiError } from '../../services/http.service.js'
 import { useSurfacePress } from '../../customHooks/useSurfacePress.js'
+import { SurfaceNote } from '../SidePane/SurfaceNote.jsx'
 import { ANGLES, anglePrompt, READ_FLAG, readFlagFor, summariseDropped, listKey } from './scannerSurface.utils.js'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import '../ScannerPanel/ScannerPanel.scss'
@@ -14,7 +15,7 @@ import './ScannerSurface.scss'
 // What ScannerPanel drew beside its own chat, drawn from ARGUS'S STATE ON THE SESSION instead: the list in progress,
 // the lens, the angle chips, the Prometheus read of a radar cut, and the Generate / Update / Later bar. The hand-off
 // pick and the "research the top N" offer are not here — they are the chain's (a pick goes on by itself; the research
-// offer is a decision card in the timeline).
+// offer is a decision card in the timeline, and it saves the list before the run).
 //
 // THE PRESSES (backend plan §10.2): an angle is a TURN; the lens is a HAND EDIT; Generate / Update / Later are
 // COMMITS. The Prometheus read runs on its own route (minutes long — it cannot hold the session lock) and hands its
@@ -85,8 +86,8 @@ PrometheusStep.propTypes = {
 }
 
 export function ScannerSurface({ session, deskProps = {} }) {
-    const { onSaved } = deskProps
-    const { pressing, note, talk, press } = useSurfacePress(session, 'scanner', deskProps, { brand: 'Argus' })
+    const { onSaved, onTicker } = deskProps
+    const { pressing, note, talk, press, edit } = useSurfacePress(session, 'scanner', deskProps, { brand: 'Argus' })
     const state   = session?.agentState?.scanner ?? null
     const turning = !!session?.live
 
@@ -100,39 +101,50 @@ export function ScannerSurface({ session, deskProps = {} }) {
 
     const [angles, setAngles] = useState(() => new Set())
     const toggle = (label) => setAngles(prev => { const next = new Set(prev); next.has(label) ? next.delete(label) : next.add(label); return next })
+    // Sent → the selection is spent (the panel kept it for a refine; the strip only shows before a list now).
+    const scanAngles = () => { talk(anglePrompt([...angles])); setAngles(new Set()) }
 
     // ── the Prometheus read of a radar cut: it runs BY ITSELF on each list the cut puts up ──
     const [read, setRead] = useState({ key: null, busy: false, error: null })
-    const live = useRef(null)      // the list a read in flight belongs to
-    const skipped = useRef(null)   // a list saved without its read — its answer is discarded
+    const live    = useRef(null)    // the list a read in flight belongs to — null once the surface is gone
+    const skipped = useRef(null)    // a list SAVED without its read — its answer is discarded
+    const sessionRef = useRef(session)
+    sessionRef.current = session
+    // A verdict came back since this read started — so a cleared one is a list Argus re-emitted (phase 8d CR): the
+    // names, the same or not, are read again.
+    const verdictSeen = useRef(false)
+    if (state?.readCut) verdictSeen.current = true
+    useEffect(() => () => { live.current = null }, [])
+
     async function runRead(forKey) {
         if (!forKey) return
         live.current = forKey
+        skipped.current = null
+        verdictSeen.current = false
+        const sid = sessionRef.current?.sessionId
         setRead({ key: forKey, busy: true, error: null })
         const tickers = forKey.split(',')
+        const settle = (error = null) => { if (live.current === forKey) setRead({ key: forKey, busy: false, error }) }
         try {
             const { rows = [] } = await aetherService.batchRead(tickers)
-            if (live.current !== forKey || skipped.current === forKey) return
-            let out = await session.edit('scanner', { read: { tickers, rows } })
-            // A frame between the read and the hand-back moved the revision: once more on the current one. A list that
-            // changed since is the server's `stale_read` — the next list gets its own read.
-            if (!out.ok && out.reason === 'stale_state') out = await session.edit('scanner', { read: { tickers, rows } })
-            const quiet = out.ok || ['stale_read', 'nothing_to_edit', 'stale_state'].includes(out.reason)
-            if (live.current === forKey) setRead({ key: forKey, busy: false, error: quiet ? null : out.message })
+            // The answer belongs to the list it was read for, in the session it was read in — a list saved without
+            // it, a surface closed, a new session: discarded (the read is stored server-side either way).
+            if (live.current !== forKey || skipped.current === forKey || sessionRef.current?.sessionId !== sid) return settle()
+            const change = { read: { tickers, rows } }
+            const hand = (rev) => (rev != null ? sessionRef.current.edit('scanner', change, { rev }) : sessionRef.current.edit('scanner', change))
+            let out = await hand()
+            // A frame between the read and the hand-back moved the revision: once more, on the revision the refusal
+            // named (the one on screen is a render behind). A list that changed since is the server's `stale_read`.
+            if (!out.ok && out.reason === 'stale_state') out = await hand(Number.isInteger(out.extra?.rev) ? out.extra.rev : null)
+            settle(out.ok || ['stale_read', 'nothing_to_edit'].includes(out.reason) ? null : out.message)
         } catch (err) {
-            if (live.current === forKey) setRead({ key: forKey, busy: false, error: apiError(err, 'the read failed') })
+            settle(apiError(err, 'the read failed'))
         }
     }
-    // A verdict cleared on the SAME names is a list Argus re-emitted: read it again (phase 8d bug hunt #2) — what a name
-    // is judged against is the set of events naming it, which the window can have moved. Re-reading costs nothing where
-    // nothing changed (the stored read comes back without a model call).
-    const handedBack = useRef(null)
-    if (state?.readCut && key) handedBack.current = key
     useEffect(() => {
         if (!radar || !key || state?.readCut || turning) return
-        // This list has its read — running, failed, or still to be handed back — unless its verdict came and went.
-        if (read.key === key && handedBack.current !== key) return
-        handedBack.current = null
+        // This list has its read — running, failed, or still to be handed back — unless a verdict came and went.
+        if (read.key === key && !verdictSeen.current) return
         runRead(key)
     }, [radar, key, state?.readCut, turning]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -142,9 +154,13 @@ export function ScannerSurface({ session, deskProps = {} }) {
     const reading = read.busy && read.key === key
 
     function commit(action, done) {
-        if (action === 'generate' && reading) skipped.current = key
+        const during = action === 'generate' && reading ? key : null
         return press(action, { done }).then(out => {
-            if (out?.ok) onSaved?.({ agent: 'scanner', action, result: out.result })
+            if (!out?.ok) return
+            // Only a list that WAS saved without its read discards the read's answer — a refused save leaves the read
+            // to land and apply (phase 8d CR).
+            if (during) { skipped.current = during; setRead(r => (r.key === during ? { ...r, busy: false } : r)) }
+            if (action !== 'later') onSaved?.({ agent: 'scanner', action, result: out.result })
         })
     }
 
@@ -156,7 +172,7 @@ export function ScannerSurface({ session, deskProps = {} }) {
                     key={p}
                     type="button"
                     className={`scanner-panel__profile-chip${profile === p ? ' is-active' : ''}`}
-                    onClick={() => profile !== p && session.edit('scanner', { profile: p })}
+                    onClick={() => profile !== p && edit({ profile: p })}
                     disabled={turning}
                     title={p === 'trading' ? 'Technical / catalyst setups → a trade with Mentor' : 'Fundamental / quality candidates → research with Prometheus'}
                 >{p === 'trading' ? 'Trading' : 'Investing'}</button>
@@ -179,20 +195,18 @@ export function ScannerSurface({ session, deskProps = {} }) {
                 ))}
             </div>
             {angles.size > 0 && (
-                <button className="scanner-panel__angles-go" onClick={() => talk(anglePrompt([...angles]))}>
+                <button className="scanner-panel__angles-go" onClick={scanAngles}>
                     Scan {angles.size === 1 ? 'this' : 'these'} ({angles.size}) →
                 </button>
             )}
         </div>
     )
 
-    const noteLine = note && <p className={`scanner-surface__note scanner-surface__note--${note.kind}`} role={note.kind === 'error' ? 'alert' : 'status'}>{note.text}</p>
-
     if (!listReady && !editingId) {
         return (
-            <div className="scanner-surface scanner-surface--empty">
-                {noteLine}
-                <p className="scanner-surface__lead">
+            <div className="desk-surface scanner-surface">
+                <SurfaceNote note={note} />
+                <p className="desk-surface__lead">
                     {handoff
                         ? 'Argus is finding one name to trade — it goes on to Mentor by itself once it is settled.'
                         : radar
@@ -206,7 +220,7 @@ export function ScannerSurface({ session, deskProps = {} }) {
     }
 
     return (
-        <div className="portfolio-panel scanner-panel scanner-surface">
+        <div className="portfolio-panel scanner-panel desk-surface scanner-surface">
             {listReady && (
                 <div className="portfolio-panel__build-summary">
                     <div className="portfolio-panel__build-summary-header">
@@ -219,7 +233,10 @@ export function ScannerSurface({ session, deskProps = {} }) {
                         {scan.candidates.map(c => (
                             <span key={c.ticker} className="portfolio-panel__build-summary-item">
                                 <span className={`scanner-panel__dir scanner-panel__dir--${c.direction}`}>{c.direction === 'short' ? '▾' : '▴'}</span>
-                                <span className="portfolio-panel__build-summary-asset">{c.ticker}</span>
+                                {/* A name on the list opens its chart (the panel's ticker chips did). */}
+                                <button type="button" className="portfolio-panel__build-summary-asset scanner-surface__ticker" onClick={() => onTicker?.(c.ticker)} title={`Chart ${c.ticker}`}>
+                                    {c.ticker}
+                                </button>
                                 {/* The flag rides ON the name — it is a caveat about THAT name. */}
                                 {readFlagFor(c) && (
                                     <span className="scanner-panel__read-flag" title={c.prometheus?.why}>{READ_FLAG[readFlagFor(c)] ?? readFlagFor(c)}</span>
@@ -240,9 +257,9 @@ export function ScannerSurface({ session, deskProps = {} }) {
                 </div>
             )}
 
-            {editingId && !listReady && <p className="scanner-surface__lead">Editing your list — ask Argus to add, remove or change names, then Update.</p>}
+            {editingId && !listReady && <p className="desk-surface__lead">Editing your list — ask Argus to add, remove or change names, then Update.</p>}
 
-            {noteLine}
+            <SurfaceNote note={note} />
 
             {/* A read in flight holds the bar back: the one press on screen would save the list without the cut. */}
             {!turning && !reading && (
@@ -263,6 +280,7 @@ export function ScannerSurface({ session, deskProps = {} }) {
 
 ScannerSurface.propTypes = {
     session: PropTypes.shape({
+        sessionId:  PropTypes.string,
         agentState: PropTypes.object,
         agentRev:   PropTypes.object,
         live:       PropTypes.object,
@@ -272,6 +290,8 @@ ScannerSurface.propTypes = {
     }).isRequired,
     deskProps: PropTypes.shape({
         // After a saved press: the page re-reads the lists.
-        onSaved: PropTypes.func,
+        onSaved:  PropTypes.func,
+        // A name on the list → its chart.
+        onTicker: PropTypes.func,
     }),
 }
