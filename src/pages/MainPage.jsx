@@ -228,7 +228,7 @@ export function MainPage() {
         setScannerSeed, setScannerInbox, setScannerChatRestore,
         setAnalystSeed, setAnalystInbox,
         setMentorSeed,  setMentorInbox,  setMentorChatRestore,
-        setPortfolioSeed, setPortfolioChatRestore,
+        setPortfolioSeed,
         setStrategySeed, setAetherSeed,
     } = deskSetters
     // Streaming state reported up from the portfolio/scanner panels (they own their
@@ -545,7 +545,6 @@ export function MainPage() {
             // Fresh slate: drop any pending edit-restore, and remount Atlas/Argus so
             // re-entering any agent from the hub starts a new conversation.
             setScannerChatRestore(null)
-            setPortfolioChatRestore(null)
             // Mentor's slot — no panel reads it since phase 8b (the bridge below does), but a value left in
             // it would be replayed by that bridge on the next delivery.
             setMentorChatRestore(null)
@@ -701,16 +700,18 @@ export function MainPage() {
         Promise.resolve(loadIdeas()).then(() => handleEditPortfolio(portfolioId)).catch(() => {})
     }
 
-    // The trade-ideas list's "building" row: Atlas's plan on the table, or the book it is editing, from the session.
+    // The trade-ideas list's "building" row: a plan on Atlas's table, from the session. Only while there IS one (8c CR):
+    // the session outlives a visit, so a book merely opened would otherwise stay "building" after the user walked
+    // away — and an edited book's row shows only in its own workspace.
     const atlasState = mainSession.agentState?.portfolio ?? null
     const buildingPortfolio = useMemo(() => {
         const plan = atlasState?.pendingPlan
+        if (!plan?.ideas?.length) return null
         const editingId = atlasState?.portfolioId ?? null
-        if (plan?.ideas?.length) return { name: plan.name ?? 'New portfolio', ideasCount: plan.ideas.length, portfolioId: editingId }
-        if (!editingId) return null
-        const legs = ideas.filter(i => i.portfolioId === editingId)
-        return legs.length ? { name: legs[0].portfolioName ?? 'Portfolio', ideasCount: legs.length, portfolioId: editingId } : null
-    }, [atlasState, ideas])
+        const legs = editingId ? ideas.filter(i => i.portfolioId === editingId) : []
+        if (legs.length && !inWorkspace(legs, workspace).length) return null
+        return { name: plan.name ?? legs[0]?.portfolioName ?? 'New portfolio', ideasCount: plan.ideas.length, portfolioId: editingId }
+    }, [atlasState, ideas, workspace])
     // NOTE: the chart used to take over this page's lists panel (and the Floor's right column). It
     // now docks at the bottom of the chat that asked for it (cmps/ChatChartDock.jsx) — the same
     // shared store, rendered where the user was actually looking — so this page owns no chart state.
@@ -742,8 +743,6 @@ export function MainPage() {
         if (target?.kind === 'idea') openIdeaPopup(target.idea)
     }
 
-    // buildingPortfolio is reported up from PortfolioPanel (assets recommended /
-    // pending plan) → drives the list's "building" portfolio row.
 
     // Build the per-account order list for a hit idea: prefer the server-built plan,
     // fall back to a client preview for legacy ideas saved before plans were persisted.
@@ -1618,13 +1617,6 @@ export function MainPage() {
         setActivePipeline(opts.pipeline ?? null)
         setPipelineStep(0)                                    // a desk always opens at its first step
         setNewsTab('scans')
-
-        // ADOPT MODE. The user already owns the book, so Atlas must not open on a blank construction. Since phase
-        // 8c the draft is staged by the SERVER, on Atlas's state (a hand edit), and the grid is Atlas's surface.
-        if (opts.adopt) {
-            mainSessionRef.current.edit('portfolio', { adopt: 'start' })
-                .then(out => { if (!out.ok) showErrorMsg(out.message) })
-        }
 
         // Walked back into something left unfinished → pick it up, rather than opening a blank desk and
         // making the user find it in a drawer. Returns before the seed branch below: a resumed

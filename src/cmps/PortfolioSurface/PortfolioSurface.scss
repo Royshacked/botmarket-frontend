@@ -12,6 +12,10 @@
 
     &--empty { justify-content: flex-start; }
 
+    // In the pane the surface GROWS and the pane scrolls (phase 8c CR): the shared portfolio-panel shell is
+    // `height: 100%; overflow: hidden` — a desk's frame — and clipped a long adopt grid below its Adopt button.
+    &.portfolio-panel { height: auto; overflow: visible; flex: 0 0 auto; }
+
     &__lead {
         margin: 4px 0 0;
         font-size: 14px;
@@ -75,6 +79,12 @@
     }
 
     &__proposal-title { font-weight: 600; }
+
+    &__opening {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
 
     &__hint {
         font-size: 13px;

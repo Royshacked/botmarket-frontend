@@ -1,7 +1,7 @@
 // The rules Atlas's surface draws by — pure, so each is tested on its own (unified-chat plan phase 8c). Moved from
 // PortfolioPanel with their reasons; the panel is gone, the rules are the same.
 
-import { planAccountRebind } from '../TradeIdeas/tradeIdea.utils.js'
+import { planAccountRebind, isPostOrderStatus } from '../TradeIdeas/tradeIdea.utils.js'
 import { reviewApplyMessage } from '../PortfolioPanel/reviewApply.js'
 
 // The canned turn the "Review" button sends to start Atlas's review pass. Atlas then confirms "hold as-is" or
@@ -56,7 +56,7 @@ export function accountsMoved(book, accountIds, mainAccountId = null) {
 }
 
 /** A book with nothing placed yet — an accepted change there edits the plan, and the book still needs activating. */
-export const bookPending = (book) => !book.some(i => ['hit', 'long', 'short'].includes(i.status))
+export const bookPending = (book) => !book.some(i => isPostOrderStatus(i.status))
 
 /**
  * The AVOID ask (backend step 7). The server refused with the names; the user is asked about THOSE. On a proposal a
@@ -97,6 +97,7 @@ export function pressReport(action, result = {}, { name = null, pending = false 
     if (action === 'update') {
         const left = result.left ?? []
         if (left.length) return `The new plan is saved, but ${plural(left.length, 'old holding', 'old holdings')} could not be removed (${left.map(i => i.asset ?? i.id).join(', ')}) — remove ${left.length === 1 ? 'it' : 'them'} by hand.`
+        if (result.rebound === 0) return 'Nothing to change — the holdings already carry those accounts, or have orders placed.'
         if (result.rebound != null) return `${book} is updated — the marked accounts are on ${plural(result.rebound, 'holding', 'holdings')}.`
         return `${book} is updated.`
     }
@@ -108,11 +109,12 @@ export function pressReport(action, result = {}, { name = null, pending = false 
     return null
 }
 
-/** A refused Accept, with the per-change reasons the server sends back. */
+/** A refusal in words: the server's, with the per-change reasons it sends back, or how many positions are live. */
 export function refusalText(out) {
     const failed = out?.extra?.failed
     const reasons = Array.isArray(failed) ? [...new Set(failed.map(f => f?.reason).filter(Boolean))] : []
-    return `${out?.message ?? 'That did not go through'}${reasons.length ? ` (${reasons.join(', ')})` : ''}`
+    const live = Number.isInteger(out?.extra?.live) && out.extra.live > 0 ? ` (${plural(out.extra.live, 'position', 'positions')} live)` : ''
+    return `${out?.message ?? 'That did not go through'}${reasons.length ? ` (${reasons.join(', ')})` : ''}${live}`
 }
 
 /**

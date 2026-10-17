@@ -69,6 +69,7 @@ test('what a press did is said without claiming more than the result', () => {
     assert.match(pressReport('generate', { portfolio: { ideas: [1, 2] }, failed: [{}] }, { name: 'Quality' }), /^Quality is saved — 2 holdings, 1 could not be\./)
     assert.match(pressReport('update', { left: [{ asset: 'KO' }] }), /could not be removed \(KO\)/)
     assert.match(pressReport('update', { rebound: 2 }), /marked accounts are on 2 holdings/)
+    assert.match(pressReport('update', { rebound: 0 }), /^Nothing to change/, 'never "on 0 holdings"')
     assert.match(pressReport('accept', { held: true }), /^Reviewed — holding as is\./)
     assert.match(pressReport('accept', { rebalance: { applied: 2, failed: [], deferredItems: [] } }), /^2 changes applied\./)
     assert.match(pressReport('accept', { rebalance: { applied: 1, deferredItems: [] } }, { pending: true }), /Activate the book/)
@@ -80,6 +81,7 @@ test('a refused Accept says the server\'s words and each per-change reason once'
     assert.equal(refusalText({ message: 'None applied', extra: { failed: [{ reason: 'market_closed' }, { reason: 'market_closed' }, { reason: 'no_position' }] } }),
         'None applied (market_closed, no_position)')
     assert.equal(refusalText({ message: 'No' }), 'No')
+    assert.equal(refusalText({ message: 'A position is live', extra: { live: 2 } }), 'A position is live (2 positions live)')
 })
 
 test('a proposed change reads as what Accept will do', () => {

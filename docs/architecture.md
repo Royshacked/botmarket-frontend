@@ -207,10 +207,13 @@ timeline — the conversation is the timeline's, the surface draws the desk's st
 under the dialogs on a handheld. ONE `useSession('main')` on MainPage is shared through
 `context/SessionContext`; a surface presses three ways — a gate or pick is a TURN, a field is a HAND
 EDIT (`session.edit`, naming the revision it was made against), a button is a COMMIT
-(`session.commit`; a press first lets a settling edit land). Mentor's is `cmps/MentorSurface`
-(MentorPanel is gone); Atlas, Argus and Prometheus follow in 8c / 8d. The contract and the record:
-`../botmarket-backend/docs/design/unified-chat-plan.md` §10.2–10.3. Driven by
-`../botmarket-backend/scripts/drive-mentor-surface.mjs`.
+(`session.commit`; a press first lets a settling edit land). The press mechanics are one hook,
+`customHooks/useSurfacePress` (the marked accounts, one press at a time, the note, the stale refusal,
+a `before` and an `again` step); what a press MEANS stays in each surface. Mentor's is
+`cmps/MentorSurface` (8b), Atlas's `cmps/PortfolioSurface` (8c — the review bar, the AVOID ask, and
+the adopt grid); Argus and Prometheus follow in 8d. The contract and the record:
+`../botmarket-backend/docs/design/unified-chat-plan.md` §10.2–10.4. Driven by
+`../botmarket-backend/scripts/drive-mentor-surface.mjs` and `drive-portfolio-surface.mjs`.
 
 ## Threads
 

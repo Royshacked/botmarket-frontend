@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import { AccountSelector } from '../AccountSelector/AccountSelector.jsx'
 import { LaterButton, LATER_BTN_CLASS } from '../LaterButton.jsx'
@@ -10,6 +10,7 @@ import { CandidatePicker } from '../MentorPanel/CandidatePicker.jsx'
 import { SpanTable } from '../MentorPanel/SpanTable.jsx'
 import { EntryTable } from '../MentorPanel/EntryTable.jsx'
 import { StageConfirm } from '../MentorPanel/StageConfirm.jsx'
+import { useSurfacePress } from '../../customHooks/useSurfacePress.js'
 import { liveReadiness, candidatePress, stagePress, spansPress, entriesPress, delegatePress, revivePress, batchNames } from './mentorSurface.utils.js'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import '../MentorPanel/MentorPanel.scss'
@@ -133,14 +134,10 @@ function useDraftEditor(serverDraft, serverRev, push) {
 }
 
 export function MentorSurface({ session, deskProps = {} }) {
-    const { availableAccounts = [], selectedAccounts = [], setSelectedAccounts, mainAccountId = null, setMainAccountId } = deskProps
-    // The marked accounts, memoised by the page (a fresh array per render would rebuild every callback below).
-    const accounts = useMemo(
-        () => deskProps.accounts ?? availableAccounts.filter(a => selectedAccounts.includes(a.id)),
-        [deskProps.accounts, availableAccounts, selectedAccounts],
-    )
+    const { availableAccounts = [], selectedAccounts = [], setSelectedAccounts, setMainAccountId } = deskProps
+    // The press mechanics every surface shares: the marked accounts, the note, one press at a time, the stale refusal.
+    const { accounts, mainAccountId, rev, pressing, note, setNote, talk: say, press: commitPress } = useSurfacePress(session, 'mentor', deskProps, { brand: 'Mentor' })
     const state = session?.agentState?.mentor ?? null
-    const rev   = session?.agentRev?.mentor ?? 0
 
     const serverDraft = state?.draft ?? null
     const coverage    = state?.coverage ?? []
@@ -153,13 +150,7 @@ export function MentorSurface({ session, deskProps = {} }) {
     // A turn running anywhere: the gates and the worksheet wait for it — what they show is about to change.
     const turning     = !!session?.live
 
-    const [pressing, setPressing] = useState(false)
-    const [note, setNote]         = useState(null)   // { kind: 'error'|'done', text }
     const [previewOpen, setPreviewOpen] = useState(false)
-
-    // Mentor's table moved on — a note about the last one no longer applies.
-    // A STALE note stays: the replay that follows it redraws the plan, and that redraw is what the note points at.
-    useEffect(() => { setNote(n => (n?.kind === 'error' && !n.stale ? null : n)) }, [serverDraft, gate, generated])
 
     // A refused edit puts the server's draft back — read through a ref, the editor is made with this callback.
     const resetEdit = useRef(null)
@@ -167,12 +158,12 @@ export function MentorSurface({ session, deskProps = {} }) {
         const out = await session.edit('mentor', { draft, accounts }, { rev: madeAt })
         if (!out.ok) {
             setNote(out.reason === 'stale_state'
-                ? { kind: 'error', stale: true, text: 'Mentor moved on while you were typing — your edit was not saved.' }
+                ? { kind: 'error', sticky: true, text: 'Mentor moved on while you were typing — your edit was not saved.' }
                 : { kind: 'error', text: out.message })
             resetEdit.current?.()
         }
         return out
-    }, [session, accounts])
+    }, [session, accounts, setNote])
     const editor = useDraftEditor(serverDraft, rev, pushEdit)
     resetEdit.current = editor.reset
     const draft = editor.draft
@@ -191,26 +182,16 @@ export function MentorSurface({ session, deskProps = {} }) {
     if (!editingId && baseline.current.id) baseline.current = { id: null, json: null }
     const dirty = !!editingId && JSON.stringify(serverDraft) !== baseline.current.json
 
-    const talk = useCallback((text, ops = []) => {
-        setNote(null)
-        return session.send(text, { agent: 'mentor', ...(ops.length ? { ops } : {}), accounts, mainAccountId })
-    }, [session, accounts, mainAccountId])
+    const talk = (text, ops = []) => say(text, ops.length ? { ops } : {})
     const press = (p) => { if (p) talk(p.text, p.ops) }
 
-    async function commit(action, done) {
-        if (pressing) return
-        setPressing(true)
-        setNote(null)
-        // The hand edit still settling goes first — the server commits what IS in the session. A refused edit has
-        // said so (its note) and the press stops: the plan on screen is not the one it would commit.
-        if (!(await editor.settle())) { setPressing(false); return }
-        const out = await session.commit('mentor', action, { accounts, mainAccountId })
-        setPressing(false)
-        if (out.ok) { if (done) setNote({ kind: 'done', text: done(out.result) }); return }
-        if (out.reason === 'stale_state') { setNote({ kind: 'error', stale: true, text: 'Mentor moved on while you were looking — check the plan and press again.' }); return }
-        const failed = out.extra?.failed
-        setNote({ kind: 'error', text: failed?.length ? `Nothing was saved: ${refusals(failed)}` : out.message })
-    }
+    // The hand edit still settling goes first — the server commits what IS in the session. A refused edit has said so
+    // (its note) and the press stops: the plan on screen is not the one it would commit.
+    const commit = (action, done) => commitPress(action, {
+        before:  () => editor.settle(),
+        done:    done ? (result) => done(result) : undefined,
+        refused: (out) => (out.extra?.failed?.length ? `Nothing was saved: ${refusals(out.extra.failed)}` : null),
+    })
 
     const live = liveReadiness(readiness, accounts.length)
     const names = batchNames(draft, drafts)

@@ -184,7 +184,74 @@ describe('PortfolioSurface — adopt mode', () => {
         await screen.findByText('Your book at the bank')
         rerender(<PortfolioSurface session={{ ...session, agentRev: { portfolio: 4 } }} deskProps={desk} />)
         await waitFor(() => expect(refresh).toHaveBeenCalledTimes(2))
-        fireEvent.click(screen.getByText(/Cancel|Not now|Start over/i))
+        fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
         await waitFor(() => expect(session.edit).toHaveBeenCalledWith('portfolio', { adopt: 'end' }))
+    })
+
+    it('8c CR: over unsaved work it ASKS — a yes stages fresh, a no keeps working', async () => {
+        mount({ adopt: true, pendingPlan: PLAN })
+        expect(screen.getByText(/Put it aside and adopt your bank book\?/)).toBeTruthy()
+        expect(session.edit).not.toHaveBeenCalled()
+        fireEvent.click(screen.getByText('Put it aside'))
+        await waitFor(() => expect(session.edit).toHaveBeenCalledWith('portfolio', { adopt: 'start', fresh: true }))
+        cleanup()
+        mount({ adopt: true, pendingPlan: PLAN })
+        fireEvent.click(screen.getByText('Keep working'))
+        await waitFor(() => expect(session.edit).toHaveBeenCalledWith('portfolio', { adopt: 'end' }))
+    })
+
+    it('8c CR: never a dead end — a draft that cannot be read says so, with Try again and Cancel', async () => {
+        refresh.mockRejectedValueOnce({ response: { data: { error: 'That adoption was already committed' } } })
+        mount({ adopt: true, adoptDraftId: 'dead' })
+        expect((await screen.findByRole('alert')).textContent).toMatch(/already committed/)
+        fireEvent.click(screen.getByText('Try again'))
+        await screen.findByText('Your book at the bank')
+        expect(refresh).toHaveBeenCalledTimes(2)
+    })
+
+    it('8c CR: a stage that loses a race (stale) is quiet; a real failure says so and waits for Try again', async () => {
+        mount({ adopt: true }, { edit: vi.fn(async () => ({ ok: false, reason: 'stale_state', message: 'x' })) })
+        await waitFor(() => expect(session.edit).toHaveBeenCalled())
+        expect(screen.queryByRole('alert')).toBeNull()
+        cleanup()
+        mount({ adopt: true }, { edit: vi.fn(async () => ({ ok: false, reason: 'adopt_failed', message: 'Could not open the adoption — try again' })) })
+        expect((await screen.findByRole('alert')).textContent).toMatch(/Could not open the adoption/)
+        expect(session.edit).toHaveBeenCalledTimes(1)
+    })
+
+    it('8c CR: adopted → adopt mode ends FIRST, then the page opens the new book', async () => {
+        const order = []
+        const { adoptService } = await import('../../services/adopt/adopt.service.remote')
+        adoptService.commit.mockResolvedValueOnce({ portfolioId: 'p_adopted', legs: 3 })
+        refresh.mockResolvedValueOnce({ draftId: 'd1', holdings: [{ symbol: 'AAPL', quantity: 10, avgCost: 150, mark: 200 }], excluded: [], reconciliation: { startingBalance: 2000 } })
+        mount({ adopt: true, adoptDraftId: 'd1' }, { edit: vi.fn(async (a, e) => { order.push(`edit:${e.adopt}`); return { ok: true, result: {} } }) })
+        desk.onAdopted.mockImplementation((id) => order.push(`open:${id}`))
+        const adopt = await screen.findByText('Adopt this book')
+        expect(adopt.disabled).toBe(false)
+        fireEvent.click(adopt)
+        await waitFor(() => expect(order).toEqual(['edit:end', 'open:p_adopted']))
+    })
+})
+
+describe('PortfolioSurface — phase 8c CR', () => {
+    it('Update is never offered for an unsized plan, even when the accounts moved', () => {
+        mount({ portfolioId: 'p1', editing: EDITING, pendingPlan: { ideas: [{ asset: 'MSFT' }] } }, { ideas: BOOK.map(i => (i.id === 'i2' ? { ...i, accounts: ['a0'] } : i)) })
+        expect(screen.queryByText('Update plan')).toBeNull()
+        expect(screen.getByText(/needs a position size/)).toBeTruthy()
+    })
+
+    it('an edit with a proposal AND a ready plan offers both', () => {
+        mount({ portfolioId: 'p1', editing: EDITING, pendingPlan: PLAN, reviewUpdate: { changes: [TRIM] } })
+        expect(screen.getByText('Accept changes (1)')).toBeTruthy()
+        expect(screen.getByText('Update plan')).toBeTruthy()
+    })
+
+    it('a refusal\'s words stay through the frame that follows it (the server narrowed the proposal)', async () => {
+        const { rerender } = mount({ ...EDITING, portfolioId: 'p1', reviewMode: true, reviewed: true, editing: EDITING, reviewUpdate: { changes: [TRIM, TRIM] } },
+            { commit: vi.fn(async () => ({ ok: false, reason: 'nothing_applied', message: 'None of the proposed changes could be applied', extra: { failed: [{ reason: 'market_closed' }] } })) })
+        fireEvent.click(screen.getByText('Accept changes (2)'))
+        await screen.findByRole('alert')
+        rerender(<PortfolioSurface session={{ ...session, agentRev: { portfolio: 4 }, agentState: { portfolio: { portfolioId: 'p1', reviewMode: false, editing: EDITING, reviewUpdate: { changes: [TRIM] } } } }} deskProps={desk} />)
+        expect(screen.getByRole('alert').textContent).toMatch(/None of the proposed changes could be applied \(market_closed\)/)
     })
 })

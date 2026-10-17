@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import { AccountSelector } from '../AccountSelector/AccountSelector.jsx'
 import { LaterButton } from '../LaterButton.jsx'
@@ -6,6 +6,7 @@ import { SuggestionChips } from '../SuggestionChips.jsx'
 import { AdoptBookGrid } from '../AdoptBook/AdoptBookGrid.jsx'
 import { adoptService } from '../../services/adopt/adopt.service.remote'
 import { eventBus, REVIEW_RESOLVED } from '../../services/event-bus.service'
+import { useSurfacePress } from '../../customHooks/useSurfacePress.js'
 import {
     REVIEW_REQUEST, OPENINGS, ADOPT_OPENING, bookIdeas, buildSummary, planStatus, accountsMoved, bookPending,
     avoidQuestion, sleeveLine, pressReport, refusalText, describeChange,
@@ -26,13 +27,10 @@ import './PortfolioSurface.scss'
 // → pressed again with the OK (or, on a proposal, without those changes).
 
 export function PortfolioSurface({ session, deskProps = {} }) {
-    const { availableAccounts = [], selectedAccounts = [], setSelectedAccounts, mainAccountId = null, setMainAccountId, ideas = [], onSaved, onAdopted } = deskProps
-    const accounts = useMemo(
-        () => deskProps.accounts ?? availableAccounts.filter(a => selectedAccounts.includes(a.id)),
-        [deskProps.accounts, availableAccounts, selectedAccounts],
-    )
+    const { availableAccounts = [], selectedAccounts = [], setSelectedAccounts, setMainAccountId, ideas = [], onSaved, onAdopted } = deskProps
+    // The press mechanics every surface shares: the marked accounts, the note, one press at a time, the stale refusal.
+    const { accounts, mainAccountId, rev, pressing, note, setNote, talk, press } = useSurfacePress(session, 'portfolio', deskProps, { brand: 'Atlas' })
     const state = session?.agentState?.portfolio ?? null
-    const rev   = session?.agentRev?.portfolio ?? 0
     const turning = !!session?.live
 
     const portfolioId  = state?.portfolioId ?? null
@@ -50,87 +48,82 @@ export function PortfolioSurface({ session, deskProps = {} }) {
     const { ready: planReady, hasSize } = planStatus(plan)
     const accountIds = accounts.map(a => a.id)
 
-    const [pressing, setPressing]   = useState(false)
-    const [note, setNote]           = useState(null)   // { kind: 'error'|'done', text, stale? }
     const [confirmDismiss, setConfirmDismiss] = useState(false)
     const [thesisOpen, setThesisOpen] = useState(true)
-
-    // Atlas's table moved on — a note about the last one no longer applies (a stale one stays: its redraw is the point).
-    useEffect(() => { setNote(n => (n?.kind === 'error' && !n.stale ? null : n)) }, [plan, proposal, portfolioId])
     useEffect(() => { setConfirmDismiss(false) }, [portfolioId, reviewMode])
 
-    const talk = useCallback((text) => {
-        setNote(null)
-        return session.send(text, { agent: 'portfolio', accounts, mainAccountId })
-    }, [session, accounts, mainAccountId])
-
-    // ── adopt mode: the server stages the draft once; the grid reads it, re-read after every turn (a paste in the
-    // chat is parsed into it server-side) ──
+    // ── adopt mode ──
+    // The SERVER stages the draft (a hand edit, under the session lock) — once; the surface asks for it when Axl's
+    // adopt landed, and the grid reads it, re-read after every turn (a paste in the chat is parsed into it there).
+    // Over unsaved work the server waits for the user's yes (`fresh`), so the surface asks first.
     const [adoptDraft, setAdoptDraft] = useState(null)
+    const [adoptError, setAdoptError] = useState(null)
     const askedStage = useRef(false)
+    const overWork   = state?.adopt === true && !adoptDraftId && !!(plan || proposal)
+
+    async function stage({ fresh = false } = {}) {
+        askedStage.current = true
+        setAdoptError(null)
+        const out = await session.edit('portfolio', { adopt: 'start', ...(fresh ? { fresh: true } : {}) })
+        if (out.ok) return true
+        askedStage.current = false
+        // A second ask racing the first (a remount) is refused as stale — the frame that follows redraws: no error.
+        if (out.reason !== 'stale_state') setAdoptError(out.message)
+        return false
+    }
     useEffect(() => {
         // Out of adopt mode: a later adopt (Axl again) asks again.
         if (state?.adopt !== true) { askedStage.current = false; return }
-        if (adoptDraftId || askedStage.current) return
-        askedStage.current = true
-        session.edit('portfolio', { adopt: 'start' }).then(out => {
-            if (!out.ok) { askedStage.current = false; setNote({ kind: 'error', text: out.message }) }
-        })
-    }, [state?.adopt, adoptDraftId, session])
+        if (adoptDraftId || overWork || askedStage.current || adoptError) return
+        stage()
+    }, [state?.adopt, adoptDraftId, overWork, adoptError]) // eslint-disable-line react-hooks/exhaustive-deps -- stage reads the latest session
+
+    // The draft as the server holds it — answers that arrive out of order are dropped (a later frame's read wins).
+    const reads = useRef(0)
+    const [reload, setReload] = useState(0)
     useEffect(() => {
         if (!adoptDraftId) { setAdoptDraft(null); return }
-        let live = true
-        adoptService.refresh(adoptDraftId, {}).then(d => { if (live) setAdoptDraft(d) }).catch(() => {})
-        return () => { live = false }
-    }, [adoptDraftId, rev])
+        const n = ++reads.current
+        adoptService.refresh(adoptDraftId, {})
+            .then(d => { if (n === reads.current) { setAdoptDraft(d); setAdoptError(null) } })
+            .catch(err => { if (n === reads.current) setAdoptError(err?.response?.data?.error ?? 'Could not read the adoption') })
+    }, [adoptDraftId, rev, reload])
 
     async function endAdopt() {
+        setAdoptError(null)
         const out = await session.edit('portfolio', { adopt: 'end' })
-        if (!out.ok) setNote({ kind: 'error', text: out.message })
+        if (!out.ok) setNote({ kind: 'error', sticky: true, text: out.message })
         return out.ok
     }
 
     async function startAdopt() {
-        askedStage.current = true
-        const out = await session.edit('portfolio', { adopt: 'start' })
-        if (!out.ok) { setNote({ kind: 'error', text: out.message }); return }
-        talk(ADOPT_OPENING)
+        if (await stage()) talk(ADOPT_OPENING)
     }
 
     // ── the commits ──
-    async function commit(action, { proposalPress = false } = {}) {
-        if (pressing) return
-        setPressing(true)
-        setNote(null)
+    function commit(action, { proposalPress = false } = {}) {
         const name = summary.name
         const wasReview = reviewMode
         const pending = bookPending(book)
-        let args = { accounts, mainAccountId }
-        let out = await session.commit('portfolio', action, args)
-        if (!out.ok && out.reason === 'avoid_needs_ok' && out.extra?.avoid?.length) {
-            if (window.confirm(avoidQuestion(out.extra.avoid, { proposal: proposalPress }))) {
-                args = { ...args, avoidOk: out.extra.avoid.map(a => a.asset) }
-            } else if (proposalPress) {
-                args = { ...args, dropAvoid: true }
-            } else {
-                setPressing(false)
-                setNote({ kind: 'error', text: 'Nothing was saved — the AVOID names were declined.' })
-                return
-            }
-            out = await session.commit('portfolio', action, args)
-        }
-        setPressing(false)
-        if (!out.ok) {
-            if (out.reason === 'stale_state') { setNote({ kind: 'error', stale: true, text: 'Atlas moved on while you were looking — check the plan and press again.' }); return }
-            setNote({ kind: 'error', text: refusalText(out) })
-            return
-        }
-        const text = pressReport(action, out.result, { name, pending })
-        if (text) setNote({ kind: 'done', text })
-        const id = out.result?.portfolio?.portfolioId ?? portfolioId
-        // A review resolved (accepted, dismissed, or an edit opened from it saved) clears the list's red pencil.
-        if (wasReview && action !== 'later') eventBus.emit(REVIEW_RESOLVED, { portfolioId: id })
-        onSaved?.({ action, result: out.result, portfolioId: id })
+        return press(action, {
+            // The AVOID ask: refused with the names → asked → pressed once more with the OK (or, on a proposal,
+            // without those changes). On a book a no saves nothing.
+            again: (out) => {
+                if (out.reason !== 'avoid_needs_ok' || !out.extra?.avoid?.length) return null
+                if (window.confirm(avoidQuestion(out.extra.avoid, { proposal: proposalPress }))) return { avoidOk: out.extra.avoid.map(a => a.asset) }
+                if (proposalPress) return { dropAvoid: true }
+                setNote({ kind: 'error', sticky: true, text: 'Nothing was saved — the AVOID names were declined.' })
+                return false
+            },
+            refused: (out) => refusalText(out),
+            done:    (result) => pressReport(action, result, { name, pending }),
+        }).then(out => {
+            if (!out?.ok) return
+            const id = out.result?.portfolio?.portfolioId ?? portfolioId
+            // A review resolved (accepted, dismissed, or an edit opened from it saved) clears the list's red pencil.
+            if (wasReview && action !== 'later') eventBus.emit(REVIEW_RESOLVED, { portfolioId: id })
+            onSaved?.({ action, result: out.result, portfolioId: id })
+        })
     }
 
     const has = adopting || portfolioId || plan || proposal || notices.screenRequests?.length || notices.coverageRequest
@@ -139,6 +132,7 @@ export function PortfolioSurface({ session, deskProps = {} }) {
             <div className="portfolio-surface portfolio-surface--empty">
                 {note?.kind === 'done' && <p className="portfolio-surface__note portfolio-surface__note--done" role="status">{note.text}</p>}
                 {note?.kind === 'error' && <p className="portfolio-surface__note portfolio-surface__note--error" role="alert">{note.text}</p>}
+                {adoptError && <p className="portfolio-surface__note portfolio-surface__note--error" role="alert">{adoptError}</p>}
                 <p className="portfolio-surface__lead">Nothing on Atlas&apos;s table. Tell Atlas about a portfolio in the chat, or start here:</p>
                 <SuggestionChips
                     variant="intro"
@@ -156,7 +150,8 @@ export function PortfolioSurface({ session, deskProps = {} }) {
     const sleeves = sleeveLine(notices.screenRequests)
     const editing = !!portfolioId
     const canGenerate = planReady && accounts.length > 0
-    const canUpdate = planReady || accountsMoved(book, accountIds, mainAccountId)
+    // A plan on the table is what Update saves, so it must be ready; with none, Update pushes moved accounts (8c CR).
+    const canUpdate = plan ? planReady : accountsMoved(book, accountIds, mainAccountId)
     const later = <LaterButton className="portfolio-panel__generate portfolio-panel__generate--cancel" onClick={() => commit('later')} disabled={pressing} />
 
     return (
@@ -173,7 +168,15 @@ export function PortfolioSurface({ session, deskProps = {} }) {
                 </div>
             )}
 
-            {adopting && (
+            {overWork ? (
+                <div className="portfolio-panel__dismiss-confirm portfolio-surface__ask">
+                    <span>Atlas has {plan ? `the ${plan.name ?? 'new'} plan` : 'a proposal'} on the table. Put it aside and adopt your bank book?</span>
+                    <div className="portfolio-panel__dismiss-confirm-btns">
+                        <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={() => stage({ fresh: true })}>Put it aside</button>
+                        <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={endAdopt}>Keep working</button>
+                    </div>
+                </div>
+            ) : adopting && (
                 adoptDraft ? (
                     <AdoptBookGrid
                         draft={adoptDraft}
@@ -186,7 +189,16 @@ export function PortfolioSurface({ session, deskProps = {} }) {
                         onCancel={endAdopt}
                     />
                 ) : (
-                    <p className="portfolio-surface__lead">Opening the adoption…</p>
+                    // Never a dead end: a failed stage or read says so, and Cancel always leaves the mode.
+                    <div className="portfolio-surface__opening">
+                        {adoptError
+                            ? <p className="portfolio-surface__note portfolio-surface__note--error" role="alert">{adoptError}</p>
+                            : <p className="portfolio-surface__lead">Opening the adoption…</p>}
+                        <div className="portfolio-panel__dismiss-confirm-btns">
+                            {adoptError && <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={() => (adoptDraftId ? setReload(r => r + 1) : stage())}>Try again</button>}
+                            <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={endAdopt}>Cancel</button>
+                        </div>
+                    </div>
                 )
             )}
 
@@ -296,15 +308,16 @@ export function PortfolioSurface({ session, deskProps = {} }) {
                         )
                     ) : editing ? (
                         <>
-                            {proposal ? (
+                            {proposal && (
                                 <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={() => commit('accept', { proposalPress: true })} disabled={pressing}>
                                     {pressing ? 'Applying…' : `Accept changes (${proposal.changes.length})`}
                                 </button>
-                            ) : canUpdate ? (
+                            )}
+                            {canUpdate ? (
                                 <button className="portfolio-panel__generate" onClick={() => commit('update')} disabled={pressing || accounts.length === 0}>
                                     {accounts.length === 0 ? 'Mark an account to update' : 'Update plan'}
                                 </button>
-                            ) : (
+                            ) : !proposal && (
                                 <span className="portfolio-surface__hint">Tell Atlas what to change — “Update plan” appears once there is something to save.</span>
                             )}
                             {later}
