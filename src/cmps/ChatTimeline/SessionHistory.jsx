@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import { sessionService } from '../../services/session/session.service.remote'
 import { apiError } from '../../services/http.service'
@@ -16,6 +16,19 @@ export function SessionHistory({ scope = 'main', onClose, api = sessionService }
     const [sessions, setSessions] = useState(null)
     const [open, setOpen]         = useState(null)    // { session, rows }
     const [error, setError]       = useState(null)
+    const closeRef   = useRef(null)
+    // Read through a ref: the parent re-renders on every streamed token, and a new onClose each time must not
+    // re-run the focus below and steal focus back to the close button.
+    const onCloseRef = useRef(onClose)
+    onCloseRef.current = onClose
+
+    // A dialog: focus lands on it once, and Escape closes it.
+    useEffect(() => {
+        closeRef.current?.focus()
+        const onKey = (e) => { if (e.key === 'Escape') onCloseRef.current() }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [])
 
     useEffect(() => {
         let live = true
@@ -32,12 +45,12 @@ export function SessionHistory({ scope = 'main', onClose, api = sessionService }
     }
 
     return (
-        <div className="chat-timeline__history" role="dialog" aria-label="Past sessions">
+        <div className="chat-timeline__history" role="dialog" aria-modal="true" aria-label="Past sessions">
             <div className="chat-timeline__history-head">
                 {open
                     ? <button type="button" className="chat-timeline__history-back" onClick={() => setOpen(null)}>← All sessions</button>
                     : <span className="chat-timeline__history-title">Past sessions</span>}
-                <button type="button" className="chat-timeline__history-close" onClick={onClose} aria-label="Close">×</button>
+                <button type="button" className="chat-timeline__history-close" onClick={onClose} aria-label="Close" ref={closeRef}>×</button>
             </div>
             {error && <p className="chat-timeline__note chat-timeline__note--error">{error}</p>}
             {open ? (

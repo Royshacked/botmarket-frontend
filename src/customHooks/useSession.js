@@ -71,6 +71,7 @@ export function useSession(scope = 'main', { ws = chatWsService, api = sessionSe
         dispatch({ type: 'sending', turnId, agent: agent ?? s.floor ?? 'axl', text: String(text).trim() })
         try {
             await api.turn(s.sessionId, { text, agent, turnId, ...extras })
+            dispatch({ type: 'accepted', turnId })
             return true
         } catch (err) {
             dispatch({ type: 'sendFailed', turnId, message: apiError(err, 'That message did not go through') })
@@ -79,6 +80,8 @@ export function useSession(scope = 'main', { ws = chatWsService, api = sessionSe
     }, [api])
 
     const stop = useCallback(() => stopTurn(ref.current.live?.turnId), [])
+    /** Take back a message that is still waiting behind another turn (the server cancels it unrun). */
+    const cancelQueued = useCallback(() => stopTurn(ref.current.queuedTurn?.turnId), [])
 
     /** A tap on a decision card. @returns {Promise<string|null>} an error to show, or null */
     const choose = useCallback(async (choice) => {
@@ -100,5 +103,5 @@ export function useSession(scope = 'main', { ws = chatWsService, api = sessionSe
         catch (err) { console.error('[useSession] card resolve failed', err) }
     }, [cards])
 
-    return { ...state, send, stop, choose, startNew, resolveCard }
+    return { ...state, send, stop, cancelQueued, choose, startNew, resolveCard }
 }

@@ -251,6 +251,16 @@
 
 .chat-timeline__row--queued { opacity: 0.7; }
 
+.chat-timeline__link {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--accent-bright);
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
 // "Ask Axl instead" — above the input while a desk holds the floor.
 .chat-timeline__address {
     display: flex;

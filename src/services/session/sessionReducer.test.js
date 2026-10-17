@@ -154,3 +154,46 @@ test('tap options vanish once a decision, hand-off or reopened context follows t
     const reply = row(2, { ref: { suggestions: ['A'] } })
     for (const kind of ['decision', 'handoff', 'sealed']) assert.deepEqual(lastTapOptions([reply, row(3, { kind })]), [], kind)
 })
+
+// ─── Phase 7 CR ───────────────────────────────────────────────────────────────
+
+test('a sent turn the server accepted does not survive a replay that shows nothing running (no ghost "sending…")', () => {
+    let s = sessionReducer(loaded, { type: 'sending', turnId: 't1', agent: 'axl' })
+    assert.equal(sessionReducer(s, { type: 'session_replay', data: { sessionId: S, messages: [], running: null } }).live.turnId, 't1', 'not accepted yet → kept')
+    s = sessionReducer(s, { type: 'accepted', turnId: 't1' })
+    assert.equal(sessionReducer(s, { type: 'session_replay', data: { sessionId: S, messages: [], running: null } }).live, null)
+})
+
+test('a queued message the server accepted is cleared by a replay with nothing running — the input is not blocked for good', () => {
+    let s = sessionReducer(loaded, { type: 'session_turn', data: { sessionId: S, turnId: 'a', agent: 'axl', status: 'started' } })
+    s = sessionReducer(s, { type: 'sending', turnId: 'b', agent: 'axl', text: 'x' })
+    s = sessionReducer(s, { type: 'accepted', turnId: 'b' })
+    const stillRunning = sessionReducer(s, { type: 'session_replay', data: { sessionId: S, messages: [], running: { turnId: 'a', agent: 'axl', text: '' } } })
+    assert.equal(stillRunning.queuedTurn.turnId, 'b', 'the turn ahead still runs → it still waits')
+    const allDone = sessionReducer(s, { type: 'session_replay', data: { sessionId: S, messages: [row(1, { role: 'user', content: 'x' })], running: null } })
+    assert.equal(allDone.queuedTurn, null)
+    assert.equal(allDone.live, null)
+})
+
+test('the replay carries the running turn’s text so far, the chain and the agents’ states', () => {
+    const s = sessionReducer(loaded, { type: 'session_replay', data: { sessionId: S, messages: [], running: { turnId: 't', agent: 'mentor', text: 'So far' }, chain: { status: 'awaiting' }, agentState: { mentor: { d: 1 } } } })
+    assert.equal(s.live.text, 'So far')
+    assert.deepEqual(s.chain, { status: 'awaiting' })
+    assert.deepEqual(s.agentState, { mentor: { d: 1 } })
+})
+
+test('the server names who answers: an "@Atlas" sent while Axl held the floor streams as Atlas, and its row replaces the bubble', () => {
+    let s = sessionReducer(loaded, { type: 'sending', turnId: 't1', agent: 'axl' })
+    s = sessionReducer(s, { type: 'session_turn', data: { sessionId: S, turnId: 't1', agent: 'portfolio', status: 'started' } })
+    assert.equal(s.live.agent, 'portfolio')
+    s = sessionReducer(s, { type: 'session_delta', data: { sessionId: S, turnId: 't1', agent: 'portfolio', type: 'token', data: { text: 'Hi' } } })
+    s = sessionReducer(s, { type: 'session_message', data: { sessionId: S, message: row(1, { agent: 'portfolio', content: 'Hi' }) } })
+    assert.equal(s.live.text, '')
+})
+
+test('the same session loaded again keeps its rows (New session racing its own archive frame)', () => {
+    const withRows = sessionReducer(loaded, { type: 'session_message', data: { sessionId: S, message: row(4) } })
+    const again = sessionReducer(withRows, { type: 'load', session: { sessionId: S, status: 'active', floor: 'axl' } })
+    assert.equal(again.rows.length, 1)
+    assert.equal(again.lastSeq, 4)
+})

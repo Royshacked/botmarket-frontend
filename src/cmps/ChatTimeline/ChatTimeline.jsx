@@ -35,7 +35,7 @@ const BRIEF_ASK = "Today's market brief, please."
 export function ChatTimeline({ scope = 'main', accounts = [], mainAccountId = null, briefRequest = 0, onBriefStart, onOpenTicket }) {
     const { user } = useAuth()
     const session = useSession(scope)
-    const { rows, live, queuedTurn, lastTurn, chain, floor, send, stop, choose, startNew, resolveCard, loadError } = session
+    const { rows, live, queuedTurn, lastTurn, chain, floor, send, stop, cancelQueued, choose, startNew, resolveCard, loadError } = session
     const [draft, setDraft]             = useState('')
     const [historyOpen, setHistoryOpen] = useState(false)
     // "Ask Axl" — the next message goes to Axl even though a desk holds the floor (the server's own rule is
@@ -57,19 +57,26 @@ export function ChatTimeline({ scope = 'main', accounts = [], mainAccountId = nu
     // waiting message at a time.
     const sendText = useCallback(async (text, more = {}) => {
         const t = String(text ?? '').trim()
-        if (!t || queuedTurn) return
+        if (!t || queuedTurn) return false
         setDraft('')
         const to = toAxl && !more.agent ? { agent: 'axl' } : {}
         setToAxl(false)
-        await send(t, { ...extras, ...to, ...more })
+        return send(t, { ...extras, ...to, ...more })
     }, [send, extras, queuedTurn, toAxl])
 
+    // What the user TYPED is theirs: a send that did not go through puts it back in the box.
+    const sendDraft = useCallback(async () => {
+        const typed = draft
+        if (await sendText(typed) === false && typed.trim()) setDraft(d => d || typed)
+    }, [draft, sendText])
+
     // The brief card / bus asked for today's brief — Axl's turn (J4).
+    // One waiting message at a time: with one already waiting, the brief waits for it to start.
     useEffect(() => {
-        if (!briefRequest || !session.sessionId) return
+        if (!briefRequest || !session.sessionId || queuedTurn) return
         onBriefStart?.()
         send(BRIEF_ASK, { agent: 'axl', brief: true, ...extras })
-    }, [briefRequest, session.sessionId]) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [briefRequest, session.sessionId, queuedTurn]) // eslint-disable-line react-hooks/exhaustive-deps
 
     // Dictation goes out as a turn, read through a ref at fire time (useMicInput keeps its callback stable).
     const sendRef = useRef(sendText)
@@ -94,7 +101,7 @@ export function ChatTimeline({ scope = 'main', accounts = [], mainAccountId = nu
     const placeholder = !atDesk || toAxl ? 'Ask Axl anything, or say what you’d like to do…' : `Message ${floorName}…`
 
     function handleKeyDown(e) {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendText(draft) }
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendDraft() }
     }
 
     return (
@@ -116,6 +123,7 @@ export function ChatTimeline({ scope = 'main', accounts = [], mainAccountId = nu
                     <div className="chat-timeline__empty">
                         <AxlGreeting name={firstName(user?.fullname)} question={OPENING_QUESTION} />
                         <SuggestionChips suggestions={OPENING_OPTIONS} onPick={(t) => sendText(t, { agent: 'axl' })} disabled={busy || !session.sessionId} />
+                        {failed && <p className="chat-timeline__note chat-timeline__note--error">{lastTurn.message || 'That did not go through — try again.'}</p>}
                     </div>
                 ) : (
                     <div className="chat-timeline__thread">
@@ -145,7 +153,10 @@ export function ChatTimeline({ scope = 'main', accounts = [], mainAccountId = nu
                         {queuedTurn && (
                             <div className="chat-timeline__row chat-timeline__row--user chat-timeline__row--queued">
                                 <ChatBubble msg={{ role: 'user', content: queuedTurn.text }} />
-                                <span className="chat-timeline__note">Sends when {agentMeta(live?.agent ?? floor).brand} finishes{chain?.status === 'running' ? ' — the chain will pause for it' : ''}.</span>
+                                <span className="chat-timeline__note">
+                                    Sends when {agentMeta(live?.agent ?? floor).brand} finishes{chain?.status === 'running' ? ' — the chain will pause for it' : ''}.{' '}
+                                    <button type="button" className="chat-timeline__link" onClick={cancelQueued}>Cancel</button>
+                                </span>
                             </div>
                         )}
 
@@ -179,7 +190,7 @@ export function ChatTimeline({ scope = 'main', accounts = [], mainAccountId = nu
                 onKeyDown={handleKeyDown}
                 textareaRef={inputRef}
                 placeholder={placeholder}
-                onSend={() => sendText(draft)}
+                onSend={sendDraft}
                 sendDisabled={!draft.trim() || !!queuedTurn || !session.sessionId}
                 // Stop while a turn runs and the box is empty; typed text turns the button back into Send.
                 isStreaming={busy && !draft.trim()}

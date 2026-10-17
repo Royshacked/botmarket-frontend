@@ -186,3 +186,38 @@ describe('phase 7 CR', () => {
         expect(screen.getByPlaceholderText('Message Atlas…')).toBeTruthy()
     })
 })
+
+describe('phase 7 CR (frontend)', () => {
+    it('a first message that did not go through says so on the empty chat', () => {
+        session = base({ lastTurn: { status: 'error', message: 'offline' } })
+        render(<ChatTimeline />)
+        expect(screen.getByText('What would you like to do?')).toBeTruthy()
+        expect(screen.getByText('offline')).toBeTruthy()
+    })
+
+    it('a typed message that failed comes back to the box', async () => {
+        send.mockResolvedValueOnce(false)
+        session = base({ rows: [row(1)] })
+        render(<ChatTimeline />)
+        const box = screen.getByPlaceholderText('Ask Axl anything, or say what you’d like to do…')
+        fireEvent.change(box, { target: { value: 'hello there' } })
+        await act(async () => { fireEvent.click(screen.getByTitle('Send')) })
+        expect(box.value).toBe('hello there')
+    })
+
+    it('a waiting message can be cancelled', () => {
+        const cancelQueued = vi.fn()
+        session = base({ rows: [row(1)], live: { turnId: 'a', agent: 'axl', text: 'x', status: 'running' }, queuedTurn: { turnId: 'b', agent: 'axl', text: 'later' }, cancelQueued })
+        render(<ChatTimeline />)
+        fireEvent.click(screen.getByText('Cancel'))
+        expect(cancelQueued).toHaveBeenCalled()
+    })
+
+    it('the brief waits while a message is already waiting', () => {
+        const onBriefStart = vi.fn()
+        session = base({ rows: [row(1)], live: { turnId: 'a', agent: 'axl', text: 'x', status: 'running' }, queuedTurn: { turnId: 'b', agent: 'axl', text: 'later' } })
+        render(<ChatTimeline briefRequest={1} onBriefStart={onBriefStart} />)
+        expect(onBriefStart).not.toHaveBeenCalled()
+        expect(send).not.toHaveBeenCalled()
+    })
+})

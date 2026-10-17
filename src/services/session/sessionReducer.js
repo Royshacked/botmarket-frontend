@@ -37,7 +37,9 @@ const maxSeq = (rows, prev) => rows.reduce((n, r) => Math.max(n, r.seq), prev)
 
 function liveFor(state, turnId, agent) {
     return state.live?.turnId === turnId
-        ? state.live
+        // The server names who is answering; the client only guessed (the floor) when it sent — an "@Atlas"
+        // while Axl holds the floor is Atlas's turn.
+        ? { ...state.live, agent: agent ?? state.live.agent }
         : { turnId, agent, text: '', reasoning: '', tool: null, phase: null, status: 'running' }
 }
 
@@ -54,6 +56,9 @@ export function sessionReducer(state, action) {
         case 'load': {
             const s = action.session
             if (!s) return state
+            if (s.sessionId === state.sessionId) {
+                return { ...state, status: s.status ?? state.status, floor: s.floor ?? state.floor, chain: s.chain ?? state.chain, loadError: null }
+            }
             return {
                 ...emptySession, sessionId: s.sessionId, scope: s.scope ?? state.scope, status: s.status ?? 'active',
                 floor: s.floor ?? 'axl', agentState: s.agentState ?? {}, chain: s.chain ?? null,
@@ -71,6 +76,15 @@ export function sessionReducer(state, action) {
                 return { ...state, queuedTurn: { turnId: action.turnId, agent: action.agent, text: action.text ?? '' } }
             }
             return { ...state, live: { ...liveFor(state, action.turnId, action.agent), status: 'queued' } }
+
+        // The turn POST answered 202: the server has it. A replay that then shows nothing running means it ran
+        // while we were away — the marker is what lets the replay clear it instead of waiting for ever.
+        case 'accepted':
+            return {
+                ...state,
+                live:       state.live?.turnId === action.turnId ? { ...state.live, accepted: true } : state.live,
+                queuedTurn: state.queuedTurn?.turnId === action.turnId ? { ...state.queuedTurn, accepted: true } : state.queuedTurn,
+            }
 
         // The POST itself failed (network, 4xx) — nothing is running or waiting for it.
         case 'sendFailed': {
@@ -97,10 +111,19 @@ export function sessionReducer(state, action) {
             const rows = mergeRows(state.rows, d.messages)
             // The server's running turn wins over whatever we were showing; nothing running → a turn we showed
             // ended while we were away — unless it is the one we just sent, which the server may not have yet.
+            // The running turn's text so far comes with it — the deltas carry on from there.
             const live = d.running
-                ? (state.live?.turnId === d.running.turnId ? state.live : { turnId: d.running.turnId, agent: d.running.agent, text: '', reasoning: '', tool: null, phase: null, status: 'running' })
-                : (state.live?.status === 'queued' ? state.live : null)
-            return { ...withLive(state, live), rows, lastSeq: maxSeq(rows, state.lastSeq), floor: d.floor ?? state.floor, status: d.status ?? state.status }
+                ? { ...(state.live?.turnId === d.running.turnId ? state.live : { reasoning: '', tool: null, phase: null }),
+                    turnId: d.running.turnId, agent: d.running.agent, text: d.running.text ?? '', status: 'running' }
+                : (state.live?.status === 'queued' && !state.live.accepted ? state.live : null)
+            // Nothing running → a queued message the server accepted has run (its row is in the replay).
+            const queued = !d.running && state.queuedTurn?.accepted ? null : state.queuedTurn
+            return {
+                ...withLive({ ...state, queuedTurn: queued }, live),
+                rows, lastSeq: maxSeq(rows, state.lastSeq), floor: d.floor ?? state.floor, status: d.status ?? state.status,
+                ...('chain' in d ? { chain: d.chain ?? null } : {}),
+                ...(d.agentState ? { agentState: d.agentState } : {}),
+            }
         }
 
         case 'session_message': {

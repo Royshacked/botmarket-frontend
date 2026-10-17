@@ -94,10 +94,15 @@ export function TimelineRow({ row, decisionOpen = false, onChoose, onResolveCard
     if (kind === 'card') {
         // The card is gone from the store (or the read failed): its words still say what it was.
         if (!row.card) return <div className="chat-timeline__card chat-timeline__card--gone">{row.content}</div>
+        // History: the card's words and how it ended — its buttons would open dialogs on a past session.
+        if (readOnly) {
+            const ended = row.card.status && row.card.status !== 'pending' ? ` · ${row.card.status}` : ''
+            return <div className="chat-timeline__card chat-timeline__card--gone">{row.content}{ended}</div>
+        }
         const msg = cardMessageOf(row)
         return (
             <div className="chat-timeline__card">
-                <CardBubble msg={msg} onResolve={(_id, res) => (readOnly ? undefined : onResolveCard(row, res))}
+                <CardBubble msg={msg} onResolve={(_id, res) => onResolveCard(row, res)}
                     fallback={<div className="portfolio-panel__bubble portfolio-panel__bubble--assistant">{row.content}</div>} />
             </div>
         )
