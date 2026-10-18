@@ -28,7 +28,7 @@ const BRIEF_ASK = "Today's market brief, please."
  *
  * An empty session is Axl's opening question with taps (J5). The live turn streams in place under its
  * speaker; Stop is the shared turn stop. A decision card's taps are live only while the chain waits on that
- * card. Background desk cards land here as rows drawn by the same bubble the social chat uses.
+ * card. Background desk cards are not drawn here — they live, and are acted on, in the social chat.
  *
  * The session is the one MainPage shares (SessionContext — the side pane and the doorways press the same one);
  * without a provider for this scope the timeline runs its own.
@@ -48,7 +48,7 @@ function OwnSessionTimeline(props) {
 
 function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, briefRequest = 0, onBriefStart, onOpenTicket, desks = [], onOpenDesk, session }) {
     const { user } = useAuth()
-    const { rows, live, queuedTurn, lastTurn, chain, floor, send, stop, cancelQueued, choose, startNew, resolveCard, loadError } = session
+    const { rows, live, queuedTurn, lastTurn, chain, floor, send, stop, cancelQueued, choose, startNew, loadError } = session
     const [draft, setDraft]             = useState('')
     const [historyOpen, setHistoryOpen] = useState(false)
     // "Ask Axl" — the next message goes to Axl even though a desk holds the floor (the server's own rule is
@@ -157,7 +157,6 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
                                     row={row}
                                     decisionOpen={row.seq === openDecisionSeq}
                                     onChoose={choose}
-                                    onResolveCard={resolveCard}
                                     onOpenTicket={onOpenTicket}
                                 />
                             </div>

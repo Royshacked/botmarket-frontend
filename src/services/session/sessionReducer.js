@@ -2,12 +2,11 @@
 //
 // One pure reducer, so every frame's effect is testable without a socket or React:
 //   session_replay   the rows after our last seq + the floor, status and any turn running now (a reconnect)
-//   session_message  one settled row — a user turn, a reply, a hand-off, a decision, a card
+//   session_message  one settled row — a user turn, a reply, a hand-off, a decision
 //   session_removed  rows a stopped turn took back
 //   session_state    a patch: one agent's working state (and its revision), the floor, the chain, "archived → next"
 //   session_delta    the running turn's stream: tokens, reasoning, the tool chip, a phase
 //   session_turn     the running turn's lifecycle: started / done / stopped / refused / error
-//   message_resolved a card's state moved (done, dismissed, superseded) — matched on the card row's msgId
 //
 // Rows are kept in seq order and de-duplicated by seq, so a replay that overlaps a live push is harmless.
 // Frames for another session are ignored: a frame names its session, and the user may have two (main and
@@ -115,10 +114,7 @@ export function sessionReducer(state, action) {
     }
 
     const d = action.data
-    if (!d || (d.sessionId && d.sessionId !== state.sessionId)) {
-        // message_resolved names a card, not a session — it is handled below for any session.
-        if (action.type !== 'message_resolved') return state
-    }
+    if (!d || (d.sessionId && d.sessionId !== state.sessionId)) return state
 
     switch (action.type) {
         case 'session_replay': {
@@ -191,33 +187,17 @@ export function sessionReducer(state, action) {
             }
         }
 
-        case 'message_resolved': {
-            if (!d?.id) return state
-            let hit = false
-            const rows = state.rows.map(r => {
-                if (r.kind !== 'card' || r.ref?.msgId !== d.id) return r
-                hit = true
-                const card = r.card ?? {}
-                return { ...r, card: {
-                    ...card, status: d.status ?? card.status, resolveOutcome: d.resolveOutcome ?? card.resolveOutcome ?? null,
-                    resolveNote: d.resolveNote ?? card.resolveNote ?? null,
-                    payload: d.payloadPatch ? { ...(card.payload ?? {}), ...d.payloadPatch } : (card.payload ?? null),
-                } }
-            })
-            return hit ? { ...state, rows } : state
-        }
-
         default:
             return state
     }
 }
 
 /** Every socket event the reducer folds — useSession subscribes to exactly these. */
-export const SESSION_EVENTS = Object.freeze(['session_replay', 'session_message', 'session_removed', 'session_state', 'session_delta', 'session_turn', 'message_resolved'])
+export const SESSION_EVENTS = Object.freeze(['session_replay', 'session_message', 'session_removed', 'session_state', 'session_delta', 'session_turn'])
 
 /**
  * A row as the shared ChatBubble reads it (`{ role, content, reasoning?, streaming? }`) — a user turn or an
- * agent's prose. Hand-offs, decisions, cards and sealed lines render their own rows.
+ * agent's prose. Hand-offs, decisions and sealed lines render their own rows.
  */
 export function bubbleOf(row) {
     return { role: row.role, content: row.content ?? '' }
@@ -225,14 +205,12 @@ export function bubbleOf(row) {
 
 /**
  * The tap options under the LAST reply — only while that reply is still the last word. A user turn, a decision,
- * a hand-off or a reopened context after it means the conversation moved on; a background card arriving
- * does not (it is an alert beside the conversation, not a turn in it).
+ * a hand-off or a reopened context after it means the conversation moved on.
  */
 export function lastTapOptions(rows) {
     for (let i = rows.length - 1; i >= 0; i--) {
         const r = rows[i]
         const kind = r.kind ?? 'msg'
-        if (kind === 'card') continue
         if (r.role === 'assistant' && kind === 'msg') return r.ref?.suggestions ?? []
         return []
     }

@@ -1,25 +1,21 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 
-// History is read-only: a card there is its words and how it ended, never live buttons (phase 7 CR).
 vi.mock('../../services/entityResolve.js', () => ({ resolveForEdit: vi.fn(async () => null) }))
 vi.mock('../EntityCard/entityPopup.js', () => ({ openEntityPopup: vi.fn() }))
 const { TimelineRow } = await import('./TimelineRow.jsx')
 const { SessionHistory } = await import('./SessionHistory.jsx')
 afterEach(cleanup)
 
-const card = { seq: 1, agent: 'axl', role: 'assistant', kind: 'card', content: 'Want today’s brief?', ref: { msgId: 'm1', conversationId: 'c1', type: 'market_brief_offer' }, card: { payload: {}, actions: { primary: { label: 'Show me' } }, status: 'pending' } }
-
-describe('TimelineRow — read-only', () => {
-    it('a card in history shows its words, no buttons', () => {
-        render(<TimelineRow row={card} readOnly onChoose={async () => null} onResolveCard={() => {}} />)
+// Desk cards are not timeline rows (they live in the social chat — reverted 2026-10-18): a card row left in an
+// old session reads as its words, never as a live card.
+describe('TimelineRow — a leftover card row', () => {
+    it('reads as plain words, with no card buttons', () => {
+        const old = { seq: 1, agent: 'axl', role: 'assistant', kind: 'card', content: 'Want today’s brief?', ref: { msgId: 'm1' } }
+        const { container } = render(<TimelineRow row={old} onChoose={async () => null} />)
         expect(screen.getByText(/Want today’s brief\?/)).toBeTruthy()
+        expect(container.querySelector('.chat-timeline__card')).toBeNull()
         expect(screen.queryByRole('button')).toBeNull()
-    })
-
-    it('the same card live keeps its buttons', () => {
-        render(<TimelineRow row={card} onChoose={async () => null} onResolveCard={() => {}} />)
-        expect(screen.getAllByRole('button').length).toBeGreaterThan(0)
     })
 })
 

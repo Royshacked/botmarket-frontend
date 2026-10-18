@@ -98,21 +98,14 @@ test('removed rows go; state patches: an agent’s state, the floor, the chain, 
     assert.deepEqual([s.status, s.next], ['archived', 'ses_2'])
 })
 
-test('a card resolves by its msgId — status, outcome, and the review’s payload patch', () => {
-    const card = row(1, { kind: 'card', agent: 'portfolio', ref: { msgId: 'm1' }, card: { status: 'pending', payload: { portfolioId: 'p1' } } })
-    let s = sessionReducer(loaded, { type: 'session_message', data: { sessionId: S, message: card } })
-    s = sessionReducer(s, { type: 'message_resolved', data: { id: 'm1', conversationId: 'c', status: 'done', resolveOutcome: 'updated', payloadPatch: { nextReviewAt: 99 } } })
-    assert.equal(s.rows[0].card.status, 'done')
-    assert.equal(s.rows[0].card.resolveOutcome, 'updated')
-    assert.deepEqual(s.rows[0].card.payload, { portfolioId: 'p1', nextReviewAt: 99 })
-    assert.equal(sessionReducer(s, { type: 'message_resolved', data: { id: 'nope', status: 'done' } }), s, 'not ours → same state')
+test('a card resolve frame is not the timeline’s — desk cards live in the social chat', () => {
+    assert.equal(sessionReducer(loaded, { type: 'message_resolved', data: { id: 'm1', status: 'done' } }), loaded)
 })
 
 test('tap options: only under the last reply, gone once the user has answered', () => {
     const withTaps = [row(1, { role: 'user', content: 'hi' }), row(2, { ref: { suggestions: ['A', 'B'] } })]
     assert.deepEqual(lastTapOptions(withTaps), ['A', 'B'])
     assert.deepEqual(lastTapOptions([...withTaps, row(3, { role: 'user', content: 'A' })]), [])
-    assert.deepEqual(lastTapOptions([...withTaps, row(3, { kind: 'card' })]), ['A', 'B'], 'a card arriving does not hide them')
     assert.deepEqual(lastTapOptions([]), [])
 })
 

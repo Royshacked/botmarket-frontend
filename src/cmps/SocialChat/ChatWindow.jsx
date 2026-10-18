@@ -125,9 +125,9 @@ function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = n
 
 /**
  * THE card dispatch — one card message → its bubble, or `fallback` when it is not a card this app draws.
- * Shared by the social chat and the unified chat's timeline (plan phase 7, J3), so a card looks and acts the
- * same in both. Every bubble only emits on the event bus and calls `onResolve(msgId, { status, outcome })`,
- * so it renders anywhere it is given a message and a resolver.
+ * Desk cards live in the social chat only (the unified chat's timeline stopped drawing them, 2026-10-18).
+ * Every bubble only emits on the event bus and calls `onResolve(msgId, { status, outcome })`, so it renders
+ * anywhere it is given a message and a resolver.
  */
 export function CardBubble({ msg, mine = false, onClose = () => {}, onResolve, fallback = null }) {
     switch (msg.type) {

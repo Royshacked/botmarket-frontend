@@ -22,18 +22,17 @@ const send = vi.fn(async () => true)
 const stop = vi.fn()
 const choose = vi.fn(async () => null)
 const startNew = vi.fn()
-const resolveCard = vi.fn()
 vi.mock('../../customHooks/useSession.js', () => ({ useSession: () => session }))
 
 const { ChatTimeline } = await import('./ChatTimeline.jsx')
 
 const base = (over = {}) => ({
     sessionId: 's1', status: 'active', rows: [], live: null, lastTurn: null, chain: null, floor: 'axl', agentState: {}, loadError: null,
-    send, stop, choose, startNew, resolveCard, ...over,
+    send, stop, choose, startNew, ...over,
 })
 const row = (seq, over = {}) => ({ seq, agent: 'axl', role: 'assistant', kind: 'msg', content: `r${seq}`, at: seq, ...over })
 
-beforeEach(() => { session = base(); [send, stop, choose, startNew, resolveCard, openEntityPopup].forEach(f => f.mockClear()) })
+beforeEach(() => { session = base(); [send, stop, choose, startNew, openEntityPopup].forEach(f => f.mockClear()) })
 afterEach(cleanup)
 
 describe('ChatTimeline', () => {
@@ -74,16 +73,6 @@ describe('ChatTimeline', () => {
         session = base({ rows: [decision], chain: { status: 'done' } })
         render(<ChatTimeline />)
         expect(screen.getByText('Keep going').disabled).toBe(true)
-    })
-
-    it('a card row is drawn by the shared card bubble from its card; a gone card keeps its words', () => {
-        session = base({ rows: [
-            row(1, { kind: 'card', agent: 'axl', content: 'Want today’s brief?', ref: { msgId: 'm1', conversationId: 'c1', type: 'market_brief_offer' }, card: { payload: { day: '2026-10-17' }, actions: { primary: { label: 'Show me' } }, status: 'pending' } }),
-            row(2, { kind: 'card', agent: 'mentor', content: 'NVDA setup expired', ref: { msgId: 'm2', type: 'setup_invalidation' }, card: null }),
-        ] })
-        const { container } = render(<ChatTimeline />)
-        expect(container.querySelectorAll('.chat-timeline__card').length).toBe(2)
-        expect(screen.getByText('NVDA setup expired')).toBeTruthy()
     })
 
     it('tap options sit under the last reply and go out as a turn; gone while a turn runs', async () => {
@@ -148,10 +137,10 @@ describe('ChatTimeline', () => {
 })
 
 describe('speaker runs around self-named rows', () => {
-    it('a card carries its own tag — no speaker tag over it — and the reply after it is tagged again', () => {
+    it('a hand-off names both sides — no speaker tag over it — and the reply after it is tagged again', () => {
         session = base({ rows: [
             row(1, { content: 'Hello' }),
-            row(2, { kind: 'card', agent: 'axl', content: 'Brief?', ref: { msgId: 'm', type: 'unknown_type' }, card: { status: 'pending' } }),
+            row(2, { kind: 'handoff', agent: 'axl', to: 'axl', content: 'Brief' }),
             row(3, { content: 'Anything else?' }),
         ] })
         const { container } = render(<ChatTimeline />)

@@ -2,15 +2,14 @@ import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { BotAvatarGlyph } from '../AxlHub/AgentGlyphs.jsx'
 import { ChatBubble } from '../ChatBubble.jsx'
-import { CardBubble } from '../SocialChat/ChatWindow.jsx'
 import { openChart } from '../../services/chartSurface.service.js'
 import { bubbleOf } from '../../services/session/sessionReducer.js'
 import { ShowOffer } from './ShowOffer.jsx'
-import { agentMeta, cardMessageOf } from './timelineRows.js'
+import { agentMeta } from './timelineRows.js'
 
 // One row of the unified chat's timeline, by kind (plan phase 7, 7c). Every agent speaks in it; the speaker
-// tag marks where the voice changes. What a row's buttons do is the app's existing doorways — a card's own
-// bubble, the session's continue, the chart surface, the entity opener — never a second copy of them.
+// tag marks where the voice changes. What a row's buttons do is the app's existing doorways — the session's
+// continue, the chart surface, the entity opener — never a second copy of them.
 
 /** Who is talking — drawn when the voice changes, not on every row. */
 export function SpeakerTag({ agent }) {
@@ -72,10 +71,10 @@ function DecisionRow({ row, open, onChoose }) {
 DecisionRow.propTypes = { row: PropTypes.object.isRequired, open: PropTypes.bool, onChoose: PropTypes.func.isRequired }
 
 /**
- * @param {{ row: object, decisionOpen?: boolean, onChoose: Function, onResolveCard: Function,
- *           onOpenTicket?: Function, readOnly?: boolean }} props
+ * @param {{ row: object, decisionOpen?: boolean, onChoose: Function, onOpenTicket?: Function,
+ *           readOnly?: boolean }} props
  */
-export function TimelineRow({ row, decisionOpen = false, onChoose, onResolveCard, onOpenTicket, readOnly = false }) {
+export function TimelineRow({ row, decisionOpen = false, onChoose, onOpenTicket, readOnly = false }) {
     const kind = row.kind ?? 'msg'
 
     if (kind === 'handoff') {
@@ -90,23 +89,6 @@ export function TimelineRow({ row, decisionOpen = false, onChoose, onResolveCard
     if (kind === 'decision') return <DecisionRow row={row} open={decisionOpen && !readOnly} onChoose={onChoose} />
 
     if (kind === 'sealed') return <div className="chat-timeline__sealed">{row.content}</div>
-
-    if (kind === 'card') {
-        // The card is gone from the store (or the read failed): its words still say what it was.
-        if (!row.card) return <div className="chat-timeline__card chat-timeline__card--gone">{row.content}</div>
-        // History: the card's words and how it ended — its buttons would open dialogs on a past session.
-        if (readOnly) {
-            const ended = row.card.status && row.card.status !== 'pending' ? ` · ${row.card.status}` : ''
-            return <div className="chat-timeline__card chat-timeline__card--gone">{row.content}{ended}</div>
-        }
-        const msg = cardMessageOf(row)
-        return (
-            <div className="chat-timeline__card">
-                <CardBubble msg={msg} onResolve={(_id, res) => onResolveCard(row, res)}
-                    fallback={<div className="portfolio-panel__bubble portfolio-panel__bubble--assistant">{row.content}</div>} />
-            </div>
-        )
-    }
 
     return (
         <>
@@ -125,7 +107,6 @@ TimelineRow.propTypes = {
     row:           PropTypes.object.isRequired,
     decisionOpen:  PropTypes.bool,
     onChoose:      PropTypes.func,
-    onResolveCard: PropTypes.func,
     onOpenTicket:  PropTypes.func,
     readOnly:      PropTypes.bool,
 }

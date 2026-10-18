@@ -60,7 +60,7 @@ export function SessionHistory({ scope = 'main', onClose, api = sessionService }
                     {open.rows.map((row, i) => (
                         <div key={row.seq} className={`chat-timeline__row chat-timeline__row--${row.role}`}>
                             {startsRun(row, open.rows[i - 1]) && <SpeakerTag agent={row.agent} />}
-                            <TimelineRow row={row} readOnly onChoose={async () => null} onResolveCard={() => {}} />
+                            <TimelineRow row={row} readOnly onChoose={async () => null} />
                         </div>
                     ))}
                 </div>
