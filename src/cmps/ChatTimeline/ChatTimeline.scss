@@ -344,21 +344,42 @@
         overflow-y: auto;
     }
 
+    // A row: the session (opens it) and its delete beside it.
+    &-row {
+        display: flex;
+        align-items: stretch;
+        border-bottom: 1px solid var(--border);
+    }
+
     &-item {
-        width: 100%;
+        flex: 1 1 auto;
+        min-width: 0;
         display: flex;
         justify-content: space-between;
         gap: 12px;
         padding: 10px 16px;
         background: none;
         border: none;
-        border-bottom: 1px solid var(--border);
         color: var(--text-primary);
         text-align: left;
         cursor: pointer;
 
         &:hover { background: var(--bg-wash-surface); }
     }
+
+    &-delete {
+        flex-shrink: 0;
+        padding: 0 14px;
+        background: none;
+        border: none;
+        color: var(--text-subtle);
+        font-size: 12px;
+        cursor: pointer;
+
+        &:hover, &:focus-visible { color: var(--danger, #c0392b); }
+    }
+
+    &-head &-delete { margin-left: auto; margin-right: 12px; padding: 4px 8px; font-size: 13px; }
 
     &-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     &-date { flex-shrink: 0; color: var(--text-subtle); font-size: 12px; font-family: var(--font-mono); }

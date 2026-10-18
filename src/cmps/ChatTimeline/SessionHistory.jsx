@@ -46,12 +46,25 @@ export function SessionHistory({ scope = 'main', onClose, api = sessionService }
         catch (err) { setError(apiError(err, 'Could not open that session')) }
     }
 
+    /** Delete a past session (Roy, 2026-10-18) — asked first; it is gone for good, the work it produced is not. */
+    async function remove(session) {
+        const name = session.title || 'this session'
+        if (!window.confirm(`Delete “${name}”? The conversation is gone for good — anything it saved stays.`)) return
+        setError(null)
+        try {
+            await api.remove(session.sessionId)
+            setSessions(list => (list ?? []).filter(s => s.sessionId !== session.sessionId))
+            setOpen(o => (o?.session.sessionId === session.sessionId ? null : o))
+        } catch (err) { setError(apiError(err, 'Could not delete that session')) }
+    }
+
     return (
         <div className="chat-timeline__history" role="dialog" aria-modal="true" aria-label="Past sessions">
             <div className="chat-timeline__history-head">
                 {open
                     ? <button type="button" className="chat-timeline__history-back" onClick={() => setOpen(null)}>← All sessions</button>
                     : <span className="chat-timeline__history-title">Past sessions</span>}
+                {open && <button type="button" className="chat-timeline__history-delete" onClick={() => remove(open.session)}>Delete</button>}
                 <button type="button" className="chat-timeline__history-close" onClick={onClose} aria-label="Close" ref={closeRef}>×</button>
             </div>
             {error && <p className="chat-timeline__note chat-timeline__note--error">{error}</p>}
@@ -71,11 +84,12 @@ export function SessionHistory({ scope = 'main', onClose, api = sessionService }
             ) : (
                 <ul className="chat-timeline__history-list">
                     {sessions.map(s => (
-                        <li key={s.sessionId}>
+                        <li key={s.sessionId} className="chat-timeline__history-row">
                             <button type="button" className="chat-timeline__history-item" onClick={() => show(s)}>
                                 <span className="chat-timeline__history-name">{s.title || 'Untitled session'}</span>
                                 <span className="chat-timeline__history-date">{fmtDate(s.archivedAt ?? s.updatedAt)}</span>
                             </button>
+                            <button type="button" className="chat-timeline__history-delete" onClick={() => remove(s)} aria-label={`Delete ${s.title || 'session'}`} title="Delete this session">✕</button>
                         </li>
                     ))}
                 </ul>

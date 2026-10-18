@@ -42,6 +42,11 @@ export const sessionService = {
         return messages
     },
 
+    /** Delete a past session and its rows (History's delete). The live session is refused (409). */
+    async remove(sessionId) {
+        return httpService.delete(`${BASE}/${encodeURIComponent(sessionId)}`)
+    },
+
     /**
      * Post a turn. `agent` null → the floor-holder answers. `extras` are the per-turn inputs a desk reads:
      * `{ ops, seed, accounts, mainAccountId, brief }`; the clock is added here.
