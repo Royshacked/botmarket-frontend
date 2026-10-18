@@ -4,6 +4,7 @@ import { sessionService } from '../../services/session/session.service.remote'
 import { apiError } from '../../services/http.service'
 import { TimelineRow, SpeakerTag } from './TimelineRow.jsx'
 import { startsRun } from './timelineRows.js'
+import { DeleteConfirmDialog } from '../DeleteConfirmDialog.jsx'
 
 const fmtDate = (ms) => (ms ? new Date(ms).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '')
 
@@ -22,12 +23,23 @@ export function SessionHistory({ scope = 'main', onClose, api = sessionService }
     const onCloseRef = useRef(onClose)
     onCloseRef.current = onClose
 
-    // A dialog: focus lands on it once, and Escape closes it.
+    // The delete ask (the shared DeleteConfirmDialog): the session it is about, and whether the delete is in flight.
+    const [asking, setAsking]     = useState(null)
+    const [deleting, setDeleting] = useState(false)
+    const askingRef = useRef(null)
+    askingRef.current = asking
+
+    // A dialog: focus lands on it once, and Escape closes it — the delete ask first, when it is up (one Esc, one layer).
     useEffect(() => {
         closeRef.current?.focus()
         // Captured and claimed, so the drawers under it (DrawerShell: the side pane, the detail panel) let this Esc be
         // — one Esc closes one layer.
-        const onKey = (e) => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); onCloseRef.current() } }
+        const onKey = (e) => {
+            if (e.key !== 'Escape' || e.defaultPrevented) return
+            e.preventDefault()
+            if (askingRef.current) setAsking(null)
+            else onCloseRef.current()
+        }
         document.addEventListener('keydown', onKey, true)
         return () => document.removeEventListener('keydown', onKey, true)
     }, [])
@@ -46,16 +58,18 @@ export function SessionHistory({ scope = 'main', onClose, api = sessionService }
         catch (err) { setError(apiError(err, 'Could not open that session')) }
     }
 
-    /** Delete a past session (Roy, 2026-10-18) — asked first; it is gone for good, the work it produced is not. */
-    async function remove(session) {
-        const name = session.title || 'this session'
-        if (!window.confirm(`Delete “${name}”? The conversation is gone for good — anything it saved stays.`)) return
+    /** Delete a past session (Roy, 2026-10-18) — asked first, in the app's delete dialog; gone for good, its work is not. */
+    async function remove() {
+        const session = asking
+        if (!session) return
+        setDeleting(true)
         setError(null)
         try {
             await api.remove(session.sessionId)
             setSessions(list => (list ?? []).filter(s => s.sessionId !== session.sessionId))
             setOpen(o => (o?.session.sessionId === session.sessionId ? null : o))
         } catch (err) { setError(apiError(err, 'Could not delete that session')) }
+        finally { setDeleting(false); setAsking(null) }
     }
 
     return (
@@ -64,7 +78,7 @@ export function SessionHistory({ scope = 'main', onClose, api = sessionService }
                 {open
                     ? <button type="button" className="chat-timeline__history-back" onClick={() => setOpen(null)}>← All sessions</button>
                     : <span className="chat-timeline__history-title">Past sessions</span>}
-                {open && <button type="button" className="chat-timeline__history-delete" onClick={() => remove(open.session)}>Delete</button>}
+                {open && <button type="button" className="chat-timeline__history-delete" onClick={() => setAsking(open.session)}>Delete</button>}
                 <button type="button" className="chat-timeline__history-close" onClick={onClose} aria-label="Close" ref={closeRef}>×</button>
             </div>
             {error && <p className="chat-timeline__note chat-timeline__note--error">{error}</p>}
@@ -89,10 +103,21 @@ export function SessionHistory({ scope = 'main', onClose, api = sessionService }
                                 <span className="chat-timeline__history-name">{s.title || 'Untitled session'}</span>
                                 <span className="chat-timeline__history-date">{fmtDate(s.archivedAt ?? s.updatedAt)}</span>
                             </button>
-                            <button type="button" className="chat-timeline__history-delete" onClick={() => remove(s)} aria-label={`Delete ${s.title || 'session'}`} title="Delete this session">✕</button>
+                            <button type="button" className="chat-timeline__history-delete" onClick={() => setAsking(s)} aria-label={`Delete ${s.title || 'session'}`} title="Delete this session">✕</button>
                         </li>
                     ))}
                 </ul>
+            )}
+            {asking && (
+                <DeleteConfirmDialog
+                    title="Delete session"
+                    subject={asking.title || 'Untitled session'}
+                    deleting={deleting}
+                    confirmLabel="Delete session"
+                    onConfirm={remove}
+                    onCancel={() => { if (!deleting) setAsking(null) }}
+                    lead="The conversation is deleted for good. Anything it saved — a setup, a book, a list, coverage — stays where it is."
+                />
             )}
         </div>
     )
