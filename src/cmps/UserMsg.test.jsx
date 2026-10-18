@@ -61,3 +61,13 @@ describe('UserMsg — the social-chat preview', () => {
         expect(document.querySelector('.user-msg__chat')).toBeNull()
     })
 })
+
+describe('UserMsg — a plain-string toast', () => {
+    // The string form rendered an EMPTY toast — UserMsg reads `msg.txt` (8f drive, 2026-10-18).
+    it('shows the line, as an informational toast', () => {
+        render(<UserMsg />)
+        act(() => showUserMsg('Your queued list is on the Floor.'))
+        expect(toast().textContent).toContain('Your queued list is on the Floor.')
+        expect(toast().className).toMatch(/\binfo\b/)
+    })
+})

@@ -485,6 +485,11 @@ export function MainPage() {
     const { workspace, setWorkspace } = useWorkspaceMode(user?._id)
     const { positions, loading: positionsLoading, refresh: refreshPositions, closePosition, closePositions } = usePositions()
     const { ideas, setIdeas, loadIdeas, loading: ideasLoading, handleStatusChange, preEntryPrompt, setPreEntryPrompt } = useTradeIdeas()
+    // The workspace's lists, computed once per change — NOT inline in the JSX. This page re-renders on every session
+    // frame (each streamed token), and a fresh array each time re-ran every effect keyed on it: TradeIdeasList's
+    // pending-reviews read fired per token and tripped the API limiter mid-build (8f drive, 2026-10-18).
+    const workspaceIdeas  = useMemo(() => inWorkspace(ideas, workspace).filter(i => i.status !== 'closed'), [ideas, workspace])
+    const workspaceSetups = useMemo(() => inWorkspace(setups, workspace), [setups, workspace])
 
     // Atlas's surface reads the books (a book's holdings are ideas with its portfolioId) and hands back what follows a
     // save or an adoption — on top of the props every surface takes.
@@ -1568,8 +1573,8 @@ export function MainPage() {
                                 below, the same handler the Lists tab's SetupCard runs). */}
                             {(
                                 <FloorLists
-                                        setups={inWorkspace(setups, workspace)}
-                                    ideas={inWorkspace(ideas, workspace).filter(i => i.status !== 'closed')}
+                                        setups={workspaceSetups}
+                                    ideas={workspaceIdeas}
                                     positions={positions}
                                     scans={scans}
                                     coverage={coverage}
@@ -1617,7 +1622,7 @@ export function MainPage() {
                     ) : (
                     <div className="workspace__ideas">
                         <TradeIdeasList
-                            ideas={inWorkspace(ideas, workspace).filter(i => i.status !== 'closed')}
+                            ideas={workspaceIdeas}
                             // The desk the user is talking to — the list opens on its kind (the floor, since phase 8e).
                             chatTab={mainSession.floor ?? 'axl'}
                             buildingPortfolio={buildingPortfolio}
@@ -1632,7 +1637,7 @@ export function MainPage() {
                             onRefreshPositions={refreshPositions}
                             onClosePosition={closePosition}
                             onClosePositions={closePositions}
-                            setups={inWorkspace(setups, workspace)}
+                            setups={workspaceSetups}
                             setupsLoading={setupsLoading}
                             onArmSetup={handleArmSetup}
                             onDisarmSetup={handleDisarmSetup}

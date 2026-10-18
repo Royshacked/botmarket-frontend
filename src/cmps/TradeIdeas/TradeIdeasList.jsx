@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { TradeIdeaRow } from './TradeIdeaRow.jsx'
 import { EditOrdersDialog } from './EditOrdersDialog.jsx'
@@ -361,8 +361,11 @@ export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, loading = fa
         usePositionClose({ onClosePosition, onClosePositions })
     const [editOrdersPos,  setEditOrdersPos]  = useState(null)
     // Portfolios with a review due now → their edit pencil turns red and routes into
-    // review mode. Refetched whenever the ideas list changes (covers activate/rebalance
-    // reloads); a resolved review clears on the next reload / portfolio-tab remount.
+    // review mode. Refetched whenever the BOOKS change — a holding added, removed or moved status (covers
+    // activate/rebalance reloads); a resolved review clears on the next reload / portfolio-tab remount.
+    // Keyed on that, never on the array's identity: a parent that rebuilt the list per render (MainPage did,
+    // on every streamed token) fired this read per token and tripped the API limiter (8f drive, 2026-10-18).
+    const booksKey = useMemo(() => ideas.filter(i => i.portfolioId).map(i => `${i.portfolioId}:${i.id}:${i.status}`).sort().join('|'), [ideas])
     const [dueReviewIds, setDueReviewIds] = useState(() => new Set())
     useEffect(() => {
         let alive = true
@@ -373,7 +376,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, loading = fa
         // A resolved review (dismiss / accept) clears its pencil immediately.
         const off = eventBus.on(REVIEW_RESOLVED, refresh)
         return () => { alive = false; off() }
-    }, [ideas])
+    }, [booksKey])
 
     // Follow the desk the user is talking to (the session's floor): Atlas shows portfolios, Mentor shows setups. The
     // user can still override via the filter buttons until another of those desks takes the floor. The floor going

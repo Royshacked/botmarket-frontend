@@ -59,6 +59,7 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
     }
 
     // ── Load conversation list ──────────────────────────────────────────────
+    const loadedRef = useRef(false)   // the list has been read once — the badge is reported from then on
     const loadConversations = useCallback(async () => {
         try {
             // The server already hides retired feeds; this repeats it because the failure mode is
@@ -69,16 +70,23 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
                 .filter(c => isAdmin || !c.participants.some(isAdminBotId))
             const bots = convs.filter(c => c.participants.some(isBotId))
             const rest = convs.filter(c => !c.participants.some(isBotId))
+            loadedRef.current = true
             setConversations([...bots, ...rest])
-            onUnreadChange?.(convs.reduce((s, c) => s + (c.unread ?? 0), 0))
         } catch (err) {
             console.error('[SocialChat] loadConversations failed', err)
         }
     // isAdmin is read by the admin-feed filter above. It was missing here (lint, 2026-10-14), so the
     // list kept the role it mounted with; now a role change re-reads it with the right filter.
-    }, [onUnreadChange, isAdmin])
+    }, [isAdmin])
 
     useEffect(() => { loadConversations() }, [loadConversations])
+
+    // The header's badge follows the list — reported AFTER it commits, never from inside a state updater (that set
+    // the header's state while this panel rendered: React's "Cannot update a component while rendering a different
+    // component", 8f drive 2026-10-18). Not before the first load, or opening the panel would flash the badge to 0.
+    useEffect(() => {
+        if (loadedRef.current) onUnreadChange?.(conversations.reduce((s, c) => s + (c.unread ?? 0), 0))
+    }, [conversations, onUnreadChange])
 
     // The WS handler below is registered once, so it can't read `conversations` from the closure.
     const conversationsRef = useRef([])
@@ -101,16 +109,12 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
                 return
             }
             const isActive = activeConvRef.current?.id === msg.conversationId
-            setConversations(prev => {
-                const updated = prev.map(c => c.id !== msg.conversationId ? c : {
-                    ...c,
-                    lastMessage:   msg.content,
-                    lastMessageAt: msg.createdAt,
-                    unread: isActive ? 0 : (c.unread ?? 0) + 1,
-                })
-                onUnreadChange?.(updated.reduce((s, c) => s + (c.unread ?? 0), 0))
-                return updated
-            })
+            setConversations(prev => prev.map(c => c.id !== msg.conversationId ? c : {
+                ...c,
+                lastMessage:   msg.content,
+                lastMessageAt: msg.createdAt,
+                unread: isActive ? 0 : (c.unread ?? 0) + 1,
+            }))
             if (isActive) setMessages(m => [...m, msg])
         }
 
@@ -133,7 +137,7 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
             chatWsService.off('new_message',      onNewMessage)
             chatWsService.off('message_resolved', onMessageResolved)
         }
-    }, [loadConversations, onUnreadChange])
+    }, [loadConversations])
 
     useEffect(() => { activeConvRef.current = activeConv }, [activeConv])
 
@@ -171,11 +175,7 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
             setMessages(msgs)
             setHasMore(raw.length === PAGE)
             await chatService.markRead(conv.id)
-            setConversations(prev => {
-                const updated = prev.map(c => c.id === conv.id ? { ...c, unread: 0 } : c)
-                onUnreadChange?.(updated.reduce((s, c) => s + (c.unread ?? 0), 0))
-                return updated
-            })
+            setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, unread: 0 } : c))
         } catch (err) {
             console.error('[SocialChat] getMessages failed', err)
         } finally { setLoading(false) }

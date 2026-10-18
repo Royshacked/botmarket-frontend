@@ -68,8 +68,12 @@ function createEventEmitter() {
 
 export const eventBus = createEventEmitter()
 
+/**
+ * A toast. `msg` is `{ txt, type, … }` — or a plain string, an informational line. The string form used to reach
+ * UserMsg as-is and render an EMPTY toast (it reads `msg.txt`): three doorways said nothing at all (8f, 2026-10-18).
+ */
 export function showUserMsg(msg) {
-    eventBus.emit(SHOW_MSG, msg)
+    eventBus.emit(SHOW_MSG, typeof msg === 'string' ? { txt: msg, type: 'info' } : msg)
 }
 
 export function showSuccessMsg(txt) {
