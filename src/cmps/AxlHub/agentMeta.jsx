@@ -31,6 +31,7 @@ export const AGENTS = {
     portfolio: {
         tab:   'portfolio',
         brand: 'Atlas',
+        role:  'Investor',   // what the chat's speaker tag calls it — the name sits small under the glyph (Roy, 2026-10-18)
         hue:   'green',
         lead:  'Compose a portfolio',
         blurb: 'Design and manage a diversified book around a thesis.',
@@ -49,6 +50,7 @@ export const AGENTS = {
     scanner: {
         tab:   'scanner',
         brand: 'Argus',
+        role:  'Scanner',
         hue:   'violet',
         lead:  'Scan the market',
         blurb: 'Surface fresh opportunities worth turning into trades.',
@@ -80,6 +82,7 @@ export const AGENTS = {
     mentor: {
         tab:   'mentor',
         brand: 'Mentor',
+        role:  'Trader',
         hue:   'green',   // the counsel desk — steady, not the amber urgency of Kairos
         lead:  'Work on your own trade',
         blurb: 'Bring a ticker and your plan. Mentor analyses it, argues with it, and sharpens it.',
@@ -104,6 +107,7 @@ export const AGENTS = {
     analyst: {
         tab:   'analyst',
         brand: 'Prometheus',
+        role:  'Analyst',
         hue:   'violet',   // research desk — shares the discovery family with Argus
         lead:  'Research a name',
         blurb: 'A living thesis per name — our price target vs the Street, kept alive.',

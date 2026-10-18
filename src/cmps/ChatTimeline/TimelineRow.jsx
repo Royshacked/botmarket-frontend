@@ -12,13 +12,20 @@ import { openEntityPopup } from '../EntityCard/entityPopup.js'
 // tag marks where the voice changes. What a row's buttons do is the app's existing doorways — the session's
 // continue, the chart surface, the entity opener — never a second copy of them.
 
-/** Who is talking — drawn when the voice changes, not on every row. */
+/**
+ * Who is talking — drawn when the voice changes, not on every row. A desk speaks by its ROLE — Trader, Investor,
+ * Scanner, Analyst — beside its glyph, with its name small under the glyph (Roy, 2026-10-18). Axl has no role: his
+ * name stands where the role would.
+ */
 export function SpeakerTag({ agent }) {
     const meta = agentMeta(agent)
     return (
         <div className={`chat-timeline__speaker chat-timeline__speaker--${meta.hue}`}>
-            <span className="chat-timeline__speaker-icon"><BotAvatarGlyph agentKey={agent} size={18} /></span>
-            <span className="chat-timeline__speaker-name">{meta.brand}</span>
+            <span className="chat-timeline__speaker-badge">
+                <span className="chat-timeline__speaker-icon"><BotAvatarGlyph agentKey={agent} size={18} /></span>
+                {meta.role && <span className="chat-timeline__speaker-agent">{meta.brand}</span>}
+            </span>
+            <span className="chat-timeline__speaker-name">{meta.role ?? meta.brand}</span>
         </div>
     )
 }
