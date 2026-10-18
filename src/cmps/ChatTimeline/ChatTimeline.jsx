@@ -13,7 +13,7 @@ import { SuggestionChips } from '../SuggestionChips.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { ChatChartDock } from '../ChatChartDock.jsx'
 import { TimelineRow, SpeakerTag } from './TimelineRow.jsx'
-import { startsRun, agentMeta } from './timelineRows.js'
+import { startsRun, agentMeta, isEndedLine } from './timelineRows.js'
 import { AxlGreeting } from './AxlGreeting.jsx'
 import { SessionHistory } from './SessionHistory.jsx'
 import { PaneToggle } from '../SidePane/PaneToggle.jsx'
@@ -59,9 +59,11 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
 
     const busy  = !!live
     // A session a commit opened starts with the line saying what was saved (backend act.endAfterCommit) — it is
-    // still a fresh start: Axl's greeting and taps, with that line above them.
-    const endedLines = rows.filter(r => r.kind === 'sealed' && r.ref?.ended)
+    // still a fresh start: Axl's greeting and taps, with that line above them. The line belongs to THAT moment only
+    // (Roy, 2026-10-18): once the session has anything else in it — the first message — it is gone from the chat.
+    const endedLines = rows.filter(isEndedLine)
     const empty = rows.length === endedLines.length && !live
+    const thread = useMemo(() => rows.filter(r => !isEndedLine(r)), [rows])
 
     // The scroll follows rows AND the streaming text (the live bubble is not a row).
     const scrollItems = useMemo(() => (live ? [...rows, live] : rows), [rows, live])
@@ -156,9 +158,9 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
                     </div>
                 ) : (
                     <div className="chat-timeline__thread">
-                        {rows.map((row, i) => (
+                        {thread.map((row, i) => (
                             <div key={row.seq} className={`chat-timeline__row chat-timeline__row--${row.role}${row.kind && row.kind !== 'msg' ? ` chat-timeline__row--${row.kind}` : ''}`}>
-                                {startsRun(row, rows[i - 1]) && <SpeakerTag agent={row.agent} />}
+                                {startsRun(row, thread[i - 1]) && <SpeakerTag agent={row.agent} />}
                                 <TimelineRow
                                     row={row}
                                     decisionOpen={row.seq === openDecisionSeq}
@@ -170,7 +172,7 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
 
                         {busy && (
                             <div className="chat-timeline__row chat-timeline__row--assistant chat-timeline__row--live">
-                                {startsRun({ role: 'assistant', agent: live.agent }, rows.at(-1)) && <SpeakerTag agent={live.agent} />}
+                                {startsRun({ role: 'assistant', agent: live.agent }, thread.at(-1)) && <SpeakerTag agent={live.agent} />}
                                 {(live.text || live.reasoning) && (
                                     <ChatBubble msg={{ role: 'assistant', content: live.text, reasoning: live.reasoning, streaming: true }} />
                                 )}

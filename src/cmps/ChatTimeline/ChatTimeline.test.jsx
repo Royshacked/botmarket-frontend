@@ -240,14 +240,17 @@ describe('a session a commit opened (Roy, 2026-10-18)', () => {
         expect(openEntityPopup).toHaveBeenCalledWith('setup', 's9')
     })
 
-    it('anything else saved has no button; once the user speaks it is an ordinary chat', () => {
+    it('anything else saved has no button; once the user speaks the line is GONE — it was for the fresh start only', () => {
         session = base({ rows: [ended({ ref: { kind: 'scan', ids: ['x'], ended: true } })] })
         render(<ChatTimeline />)
         expect(screen.queryByRole('button', { name: /Open the setup/ })).toBeNull()
         cleanup()
-        session = base({ rows: [ended(), row(2, { role: 'user', content: 'hi' })] })
+        session = base({ rows: [ended(), row(2, { role: 'user', content: 'hi' }), row(3, { content: 'Hello — what next?' })] })
         const { container } = render(<ChatTimeline />)
         expect(screen.queryByText('Trade it')).toBeNull()
-        expect(container.querySelector('.chat-timeline__thread .chat-timeline__ended'), 'the line stays, above the chat').toBeTruthy()
+        expect(container.querySelector('.chat-timeline__ended')).toBeNull()
+        expect(screen.queryByText(/back with Axl/)).toBeNull()
+        // The reply is tagged as Axl's run as ever — the hidden line is not a row it follows.
+        expect([...container.querySelectorAll('.chat-timeline__speaker-name')].map(n => n.textContent)).toEqual(['Axl'])
     })
 })

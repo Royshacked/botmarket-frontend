@@ -24,3 +24,9 @@ export function startsRun(row, prev) {
     if (!prev || prev.role === 'user' || SELF_NAMED.has(prev.kind)) return true
     return prev.agent !== row.agent
 }
+
+/**
+ * The "✓ … You're back with Axl." line a commit opens a session with (backend act.endAfterCommit). It is shown only
+ * while the session is fresh — above Axl's greeting — and never once the conversation has started (Roy, 2026-10-18).
+ */
+export const isEndedLine = (row) => row?.kind === 'sealed' && row.ref?.ended === true

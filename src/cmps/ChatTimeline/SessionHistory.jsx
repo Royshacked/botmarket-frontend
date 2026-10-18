@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { sessionService } from '../../services/session/session.service.remote'
 import { apiError } from '../../services/http.service'
 import { TimelineRow, SpeakerTag } from './TimelineRow.jsx'
-import { startsRun } from './timelineRows.js'
+import { startsRun, isEndedLine } from './timelineRows.js'
 import { DeleteConfirmDialog } from '../DeleteConfirmDialog.jsx'
 
 const fmtDate = (ms) => (ms ? new Date(ms).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '')
@@ -54,7 +54,8 @@ export function SessionHistory({ scope = 'main', onClose, api = sessionService }
 
     async function show(session) {
         setError(null)
-        try { setOpen({ session, rows: await api.messages(session.sessionId) }) }
+        // Without the opening "✓ … back with Axl" line: it was for the moment the session began, not its record.
+        try { setOpen({ session, rows: ((await api.messages(session.sessionId)) ?? []).filter(r => !isEndedLine(r)) }) }
         catch (err) { setError(apiError(err, 'Could not open that session')) }
     }
 

@@ -100,3 +100,19 @@ describe('SessionHistory — delete (Roy, 2026-10-18)', () => {
         expect(screen.getByText('NVDA earnings')).toBeTruthy()
     })
 })
+
+describe('SessionHistory — a past session read (2026-10-18)', () => {
+    it('leaves out the opening "back with Axl" line — it was for the moment, not the record', async () => {
+        const api = {
+            list: vi.fn(async () => [{ sessionId: 'a', status: 'archived', title: 'hi', archivedAt: 1 }]),
+            messages: vi.fn(async () => [
+                { seq: 1, agent: 'axl', role: 'assistant', kind: 'sealed', content: '✓ Mentor built NVDA setup — saved. You\'re back with Axl.', ref: { kind: 'setup', ids: ['s1'], ended: true } },
+                { seq: 2, agent: 'axl', role: 'user', kind: 'msg', content: 'hi' },
+            ]),
+        }
+        render(<SessionHistory onClose={() => {}} api={api} />)
+        fireEvent.click(await screen.findByText('hi'))
+        await waitFor(() => expect(document.querySelectorAll('.chat-timeline__history-thread .chat-timeline__row').length).toBe(1))
+        expect(screen.queryByText(/back with Axl/)).toBeNull()
+    })
+})
