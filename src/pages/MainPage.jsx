@@ -140,11 +140,6 @@ function TicketSurface({ deskProps }) { return <div className="portfolio-panel">
 TicketSurface.keepMounted = true
 TicketSurface.paneLabel = 'Order ticket'
 
-// The admin desks the chat's header opens (it does not route to them yet — they are not on the session).
-const ADMIN_DESKS = Object.freeze([
-    { agent: 'strategy', label: 'Pythia', title: 'Pythia — the industry views' },
-    { agent: 'aether',   label: 'Aether', title: 'Aether — event exposure' },
-])
 
 // The desks whose work is drawn in the side pane, by agent (8b Mentor, 8c Atlas, 8d Argus and Prometheus, 8e the rest).
 const SURFACES = Object.freeze({
@@ -1557,8 +1552,10 @@ export function MainPage() {
                                     onOpenTicket={handleOpenTicket}
                                     briefRequest={briefRequest}
                                     onBriefStart={() => setBriefRequest(0)}
-                                    desks={isAdmin ? ADMIN_DESKS : []}
-                                    onOpenDesk={openDesk}
+                                    // The admin row that opened Pythia and Aether under the header is OFF for now (Roy,
+                                    // 2026-10-18). To bring it back: desks={isAdmin ? [{ agent: 'strategy', label: 'Pythia' },
+                                    // { agent: 'aether', label: 'Aether' }] : []} onOpenDesk={openDesk} — ChatTimeline still
+                                    // draws the row when given them.
                                     paneSurfaces={SURFACES}
                                 />
                                 <SidePane session={mainSession} surfaces={SURFACES} deskProps={paneProps} />
