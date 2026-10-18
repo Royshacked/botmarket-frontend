@@ -111,20 +111,23 @@ export function AnalystSurface({ session, deskProps = {} }) {
             )}
             {proposal && <div className="analyst-panel__draft-wrap"><CoverageDraft coverage={proposal} /></div>}
             <SurfaceNote note={note} />
-            {!turning && (
-                <div className="portfolio-panel__action-bubble">
-                    {proposal && (isAdmin ? (
+            {/* EDITING, the bar is always there (Roy, 2026-10-18): Update dark until Prometheus has a draft standing and
+                while it answers. */}
+            {(editingId || !turning) && (
+                <div className="portfolio-panel__action-bubble desk-surface__bar">
+                    {(proposal || editingId) && (isAdmin ? (
                         <button
                             className="portfolio-panel__review-btn portfolio-panel__review-btn--update"
                             onClick={() => commit(action, (r) => `${r.coverage?.symbol ?? name} is ${r.revised ? 'revised' : 'in coverage'}.`)}
-                            disabled={pressing || !proposal.symbol}
+                            disabled={pressing || turning || !proposal?.symbol}
                         >
                             {pressing ? 'Saving…' : label}
                         </button>
                     ) : (
                         <span className="analyst-panel__ask-hint">House coverage is saved by an admin.</span>
                     ))}
-                    {editingId && <LaterButton onClick={() => commit('later')} disabled={pressing} />}
+                    {editingId && <LaterButton onClick={() => commit('later')} disabled={pressing || turning} />}
+                    {editingId && turning && <span className="analyst-panel__ask-hint">Prometheus is answering…</span>}
                     {!editingId && <DiscardButton what={`the ${symbol ?? ''} draft`} onDiscard={() => press('discard', { done: () => 'Discarded — Prometheus\'s table is clear.' })} disabled={pressing} />}
                 </div>
             )}

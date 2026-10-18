@@ -200,6 +200,12 @@ export function MentorSurface({ session, deskProps = {} }) {
     const hasPreview = !!draft?.asset
     const missing = live.blockers.filter(b => b.kind === 'missing')
     const problems = live.blockers.filter(b => b.kind === 'problem')
+    // Why Update is dark while editing — the bar is always on screen, so it says so rather than leaving a dead button.
+    const editHint = !editingId ? null
+        : turning ? 'Mentor is answering…'
+        : !dirty ? 'Tell Mentor what to change — Update lights once the plan moves.'
+        : !live.ready ? (missing.length ? `Still needs: ${missing.map(b => b.text).join(', ')}` : 'Not ready yet — ask Mentor what’s outstanding.')
+        : null
 
     // ── Nothing on the table ──
     if (!state || (!draft && !generated && !candidates?.length && !coverage.length)) {
@@ -300,7 +306,7 @@ export function MentorSurface({ session, deskProps = {} }) {
 
             {/* Generate: shown as soon as there is a setup, so what is still missing is said, not hidden. */}
             {!turning && hasPreview && !generated && !editingId && (
-                <div className="portfolio-panel__action-bubble mentor-panel__generate">
+                <div className="portfolio-panel__action-bubble mentor-panel__generate desk-surface__bar">
                     <button
                         className="portfolio-panel__review-btn portfolio-panel__review-btn--update mentor-panel__btn"
                         onClick={() => commit('generate')}
@@ -355,20 +361,19 @@ export function MentorSurface({ session, deskProps = {} }) {
                 </div>
             )}
 
-            {!turning && editingId && (
-                <div className="portfolio-panel__action-bubble">
-                    {dirty ? (
-                        <button
-                            className="portfolio-panel__review-btn portfolio-panel__review-btn--update mentor-panel__btn"
-                            onClick={() => commit('update', (r) => `${r.setup?.asset ?? 'The setup'} is updated.`)}
-                            disabled={!live.ready || pressing}
-                        >
-                            {accounts.length === 0 ? 'Mark an account to update' : 'Update setup'}
-                        </button>
-                    ) : (
-                        <span className="mentor-panel__missing">Tell Mentor what to change — “Update setup” appears once the plan moves.</span>
-                    )}
-                    <LaterButton className={`${LATER_BTN_CLASS} mentor-panel__btn`} onClick={() => commit('later')} />
+            {/* EDITING: the bar is always there, pinned to the pane's bottom (Roy, 2026-10-18) — Update lit only once the
+                plan has moved and is whole, both dark while Mentor is answering; the line under them says why. */}
+            {editingId && (
+                <div className="portfolio-panel__action-bubble desk-surface__bar">
+                    <button
+                        className="portfolio-panel__review-btn portfolio-panel__review-btn--update mentor-panel__btn"
+                        onClick={() => commit('update', (r) => `${r.setup?.asset ?? 'The setup'} is updated.`)}
+                        disabled={turning || pressing || !dirty || !live.ready || accounts.length === 0}
+                    >
+                        {pressing ? 'Updating…' : accounts.length === 0 ? 'Mark an account to update' : 'Update setup'}
+                    </button>
+                    <LaterButton className={`${LATER_BTN_CLASS} mentor-panel__btn`} onClick={() => commit('later')} disabled={turning || pressing} />
+                    {editHint && <span className="mentor-panel__missing">{editHint}</span>}
                 </div>
             )}
         </div>

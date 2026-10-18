@@ -153,7 +153,9 @@ export function PortfolioSurface({ session, deskProps = {} }) {
     const canGenerate = planReady && accounts.length > 0
     // A plan on the table is what Update saves, so it must be ready; with none, Update pushes moved accounts (8c CR).
     const canUpdate = plan ? planReady : accountsMoved(book, accountIds, mainAccountId)
-    const later = <LaterButton className="portfolio-panel__generate portfolio-panel__generate--cancel" onClick={() => commit('later')} disabled={pressing} />
+    const later = <LaterButton className="portfolio-panel__generate portfolio-panel__generate--cancel" onClick={() => commit('later')} disabled={pressing || turning} />
+    // EDITING or REVIEWING, the bar is always there (Roy, 2026-10-18), its presses dark while Atlas answers.
+    const barAlways = editing || reviewMode
 
     return (
         <div className="portfolio-panel desk-surface portfolio-surface">
@@ -281,47 +283,46 @@ export function PortfolioSurface({ session, deskProps = {} }) {
 
             <SurfaceNote note={note} />
 
-            {!turning && !adopting && (
-                <div className="portfolio-panel__action-bubble">
+            {(barAlways || !turning) && !adopting && (
+                <div className="portfolio-panel__action-bubble desk-surface__bar">
                     {confirmDismiss ? (
                         <div className="portfolio-panel__dismiss-confirm">
                             <span>Dismiss this review? The next review comes round on its schedule.</span>
                             <div className="portfolio-panel__dismiss-confirm-btns">
-                                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" onClick={() => { setConfirmDismiss(false); commit('dismiss') }} disabled={pressing}>Confirm</button>
+                                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" onClick={() => { setConfirmDismiss(false); commit('dismiss') }} disabled={pressing || turning}>Confirm</button>
                                 <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={() => setConfirmDismiss(false)}>Cancel</button>
                             </div>
                         </div>
                     ) : reviewMode ? (
                         state.reviewed ? (
                             <>
-                                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={() => commit('accept', { proposalPress: true })} disabled={pressing}>
+                                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={() => commit('accept', { proposalPress: true })} disabled={pressing || turning}>
                                     {pressing ? 'Applying…' : proposal ? `Accept changes (${proposal.changes.length})` : 'Accept — hold as is'}
                                 </button>
-                                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" onClick={() => setConfirmDismiss(true)} disabled={pressing}>Dismiss</button>
+                                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" onClick={() => setConfirmDismiss(true)} disabled={pressing || turning}>Dismiss</button>
                                 {later}
                             </>
                         ) : (
                             <>
-                                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={() => talk(REVIEW_REQUEST)}>Review</button>
+                                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={() => talk(REVIEW_REQUEST)} disabled={turning}>Review</button>
                                 {later}
-                                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" onClick={() => setConfirmDismiss(true)}>Dismiss</button>
+                                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" onClick={() => setConfirmDismiss(true)} disabled={turning}>Dismiss</button>
                             </>
                         )
                     ) : editing ? (
                         <>
                             {proposal && (
-                                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={() => commit('accept', { proposalPress: true })} disabled={pressing}>
+                                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={() => commit('accept', { proposalPress: true })} disabled={pressing || turning}>
                                     {pressing ? 'Applying…' : `Accept changes (${proposal.changes.length})`}
                                 </button>
                             )}
-                            {canUpdate ? (
-                                <button className="portfolio-panel__generate" onClick={() => commit('update')} disabled={pressing || accounts.length === 0}>
-                                    {accounts.length === 0 ? 'Mark an account to update' : 'Update plan'}
-                                </button>
-                            ) : !proposal && (
-                                <span className="portfolio-surface__hint">Tell Atlas what to change — “Update plan” appears once there is something to save.</span>
-                            )}
+                            <button className="portfolio-panel__generate" onClick={() => commit('update')} disabled={!canUpdate || pressing || turning || accounts.length === 0}>
+                                {accounts.length === 0 ? 'Mark an account to update' : 'Update plan'}
+                            </button>
                             {later}
+                            {turning
+                                ? <span className="portfolio-surface__hint">Atlas is answering…</span>
+                                : !canUpdate && !proposal && <span className="portfolio-surface__hint">Tell Atlas what to change — Update lights once there is something to save.</span>}
                         </>
                     ) : plan ? (
                         <>

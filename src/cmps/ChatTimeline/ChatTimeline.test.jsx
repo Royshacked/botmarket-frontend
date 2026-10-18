@@ -221,3 +221,33 @@ describe('phase 7 CR (frontend)', () => {
         expect(screen.queryByRole('button', { name: 'Pythia' })).toBeNull()
     })
 })
+
+describe('a session a commit opened (Roy, 2026-10-18)', () => {
+    const ended = (over = {}) => row(1, { kind: 'sealed', agent: 'axl', content: '✓ Mentor built NVDA setup — saved to your Setups. You\'re back with Axl.', ref: { kind: 'setup', ids: ['s9'], ended: true }, ...over })
+
+    it('is a fresh start: the saved line ABOVE Axl\'s greeting and opening taps', () => {
+        session = base({ rows: [ended()] })
+        const { container } = render(<ChatTimeline />)
+        expect(container.querySelector('.chat-timeline__empty .chat-timeline__ended').textContent).toMatch(/back with Axl/)
+        expect(screen.getByText('Trade it')).toBeTruthy()
+        expect(container.querySelector('.chat-timeline__title').textContent).toBe('Chat')
+    })
+
+    it('a saved setup opens in its own window — where it is armed', () => {
+        session = base({ rows: [ended()] })
+        render(<ChatTimeline />)
+        fireEvent.click(screen.getByRole('button', { name: 'Open the setup to arm it' }))
+        expect(openEntityPopup).toHaveBeenCalledWith('setup', 's9')
+    })
+
+    it('anything else saved has no button; once the user speaks it is an ordinary chat', () => {
+        session = base({ rows: [ended({ ref: { kind: 'scan', ids: ['x'], ended: true } })] })
+        render(<ChatTimeline />)
+        expect(screen.queryByRole('button', { name: /Open the setup/ })).toBeNull()
+        cleanup()
+        session = base({ rows: [ended(), row(2, { role: 'user', content: 'hi' })] })
+        const { container } = render(<ChatTimeline />)
+        expect(screen.queryByText('Trade it')).toBeNull()
+        expect(container.querySelector('.chat-timeline__thread .chat-timeline__ended'), 'the line stays, above the chat').toBeTruthy()
+    })
+})

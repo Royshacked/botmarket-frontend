@@ -1559,6 +1559,7 @@ export function MainPage() {
                                     onBriefStart={() => setBriefRequest(0)}
                                     desks={isAdmin ? ADMIN_DESKS : []}
                                     onOpenDesk={openDesk}
+                                    paneSurfaces={SURFACES}
                                 />
                                 <SidePane session={mainSession} surfaces={SURFACES} deskProps={paneProps} />
                             </div>

@@ -4,7 +4,7 @@ import PropTypes from 'prop-types'
 import { DrawerShell } from '../DrawerShell/DrawerShell.jsx'
 import { isHandheld } from '../EntityCard/entityPopup.js'
 import { agentMeta } from '../ChatTimeline/timelineRows.js'
-import { closePane, closeSurface, openSurface, setPinned, showSurface, useSidePane } from './sidePane.store.js'
+import { closePane, closeSurface, openSurface, setPinned, showSurface, sidePaneState, useSidePane } from './sidePane.store.js'
 import './SidePane.scss'
 
 // ── The side pane: each desk's working surface, beside the chat (unified-chat plan phase 8b, K5) ──
@@ -64,6 +64,18 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
         lastFloor.current = floor
         if (surfaces[floor]) openSurface(floor, { follow: true })
     }, [floor, surfaces])
+
+    // A NEW SESSION (a commit ended the last one — Roy, 2026-10-18 — or New session) starts back with Axl: the desks'
+    // tabs held the old session's work, so they close. A kept surface (Pythia, Aether, the ticket) is not session work
+    // and stays. Not on the first load — there is nothing open yet to close.
+    const lastSession = useRef(session?.sessionId ?? null)
+    useEffect(() => {
+        const id = session?.sessionId ?? null
+        const was = lastSession.current
+        lastSession.current = id
+        if (!was || !id || was === id) return
+        for (const t of sidePaneState().tabs) if (!surfaces[t]?.keepMounted) closeSurface(t)
+    }, [session?.sessionId, surfaces])
 
     const shown = tabs.filter(t => surfaces[t])
     const current = shown.includes(active) ? active : null

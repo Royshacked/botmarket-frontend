@@ -153,13 +153,14 @@ describe('PortfolioSurface — a review', () => {
 })
 
 describe('PortfolioSurface — editing a book', () => {
-    it('Update appears once there is something to save — a ready plan, or the accounts moved', () => {
+    it('Update is always on the bar; it lights once there is something to save — a ready plan, or the accounts moved', () => {
         mount({ portfolioId: 'p1', editing: EDITING })
-        expect(screen.getByText(/“Update plan” appears once/)).toBeTruthy()
+        expect(screen.getByText('Update plan').closest('button').disabled).toBe(true)
+        expect(screen.getByText(/Update lights once there is something to save/)).toBeTruthy()
         cleanup()
         // The waiting leg still points at an account the user has since moved off.
         mount({ portfolioId: 'p1', editing: EDITING }, { ideas: BOOK.map(i => (i.id === 'i2' ? { ...i, accounts: ['a0'] } : i)) })
-        expect(screen.getByText('Update plan')).toBeTruthy()
+        expect(screen.getByText('Update plan').closest('button').disabled).toBe(false)
         cleanup()
         mount({ portfolioId: 'p1', editing: EDITING, pendingPlan: PLAN })
         fireEvent.click(screen.getByText('Update plan'))
@@ -247,9 +248,9 @@ describe('PortfolioSurface — adopt mode', () => {
 })
 
 describe('PortfolioSurface — phase 8c CR', () => {
-    it('Update is never offered for an unsized plan, even when the accounts moved', () => {
+    it('Update never lights for an unsized plan, even when the accounts moved', () => {
         mount({ portfolioId: 'p1', editing: EDITING, pendingPlan: { ideas: [{ asset: 'MSFT' }] } }, { ideas: BOOK.map(i => (i.id === 'i2' ? { ...i, accounts: ['a0'] } : i)) })
-        expect(screen.queryByText('Update plan')).toBeNull()
+        expect(screen.getByText('Update plan').closest('button').disabled).toBe(true)
         expect(screen.getByText(/needs a position size/)).toBeTruthy()
     })
 
@@ -266,5 +267,20 @@ describe('PortfolioSurface — phase 8c CR', () => {
         await screen.findByRole('alert')
         rerender(<PortfolioSurface session={{ ...session, agentRev: { portfolio: 4 }, agentState: { portfolio: { portfolioId: 'p1', reviewMode: false, editing: EDITING, reviewUpdate: { changes: [TRIM] } } } }} deskProps={desk} />)
         expect(screen.getByRole('alert').textContent).toMatch(/None of the proposed changes could be applied \(market_closed\)/)
+    })
+})
+
+describe('PortfolioSurface — the edit bar is always there (Roy, 2026-10-18)', () => {
+    it('while Atlas answers, a review\'s Accept / Dismiss / Later stay on the bar, dark', () => {
+        mount({ portfolioId: 'p1', reviewMode: true, reviewed: true, editing: EDITING, reviewUpdate: { changes: [TRIM] } }, { live: { turnId: 't', agent: 'portfolio', text: '', status: 'running' } })
+        expect(screen.getByText('Accept changes (1)').closest('button').disabled).toBe(true)
+        expect(screen.getByText('Dismiss').closest('button').disabled).toBe(true)
+        expect(screen.getByText(/later/i).closest('button').disabled).toBe(true)
+    })
+
+    it('editing a book while Atlas answers: Update plan stays, dark, and it says why', () => {
+        mount({ portfolioId: 'p1', editing: EDITING, pendingPlan: PLAN }, { live: { turnId: 't', agent: 'portfolio', text: '', status: 'running' } })
+        expect(screen.getByText('Update plan').closest('button').disabled).toBe(true)
+        expect(screen.getByText('Atlas is answering…')).toBeTruthy()
     })
 })

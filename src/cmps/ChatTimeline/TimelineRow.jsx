@@ -6,6 +6,7 @@ import { openChart } from '../../services/chartSurface.service.js'
 import { bubbleOf } from '../../services/session/sessionReducer.js'
 import { ShowOffer } from './ShowOffer.jsx'
 import { agentMeta } from './timelineRows.js'
+import { openEntityPopup } from '../EntityCard/entityPopup.js'
 
 // One row of the unified chat's timeline, by kind (plan phase 7, 7c). Every agent speaks in it; the speaker
 // tag marks where the voice changes. What a row's buttons do is the app's existing doorways — the session's
@@ -71,6 +72,27 @@ function DecisionRow({ row, open, onChoose }) {
 DecisionRow.propTypes = { row: PropTypes.object.isRequired, open: PropTypes.bool, onChoose: PropTypes.func.isRequired }
 
 /**
+ * The first line of a session a commit opened (Roy, 2026-10-18): what was saved, and that the user is back with Axl.
+ * A setup is generated NOT watched — arming lives in its own window, so the line opens it.
+ */
+function EndedLine({ row, readOnly }) {
+    const ids = row.ref?.ids ?? []
+    const openable = !readOnly && row.ref?.kind === 'setup' && ids.length === 1
+    return (
+        <div className="chat-timeline__ended" role="status">
+            <span>{row.content}</span>
+            {openable && (
+                <button type="button" className="chat-timeline__link" onClick={() => openEntityPopup('setup', ids[0])}>
+                    Open the setup to arm it
+                </button>
+            )}
+        </div>
+    )
+}
+
+EndedLine.propTypes = { row: PropTypes.object.isRequired, readOnly: PropTypes.bool }
+
+/**
  * @param {{ row: object, decisionOpen?: boolean, onChoose: Function, onOpenTicket?: Function,
  *           readOnly?: boolean }} props
  */
@@ -87,6 +109,8 @@ export function TimelineRow({ row, decisionOpen = false, onChoose, onOpenTicket,
     }
 
     if (kind === 'decision') return <DecisionRow row={row} open={decisionOpen && !readOnly} onChoose={onChoose} />
+
+    if (kind === 'sealed' && row.ref?.ended) return <EndedLine row={row} readOnly={readOnly} />
 
     if (kind === 'sealed') return <div className="chat-timeline__sealed">{row.content}</div>
 

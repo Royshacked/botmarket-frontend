@@ -195,3 +195,14 @@ describe('ScannerSurface — a radar cut', () => {
         expect(screen.queryByText(/The read failed/)).toBeNull()
     })
 })
+
+describe('ScannerSurface — the edit bar is always there (Roy, 2026-10-18)', () => {
+    it('while Argus answers, Update list and Later stay, dark; with no list Update is dark too', () => {
+        mount({ editingScanId: 's1', editing: { kind: 'scan', entityId: 's1' }, pendingScan: LIST }, { live: { turnId: 't', agent: 'scanner', text: '', status: 'running' } })
+        expect(screen.getByText('Update list').closest('button').disabled).toBe(true)
+        expect(screen.getByText(/later/i).closest('button').disabled).toBe(true)
+        cleanup()
+        mount({ editingScanId: 's1', editing: { kind: 'scan', entityId: 's1' } })
+        expect(screen.getByText('Update list').closest('button').disabled).toBe(true)
+    })
+})

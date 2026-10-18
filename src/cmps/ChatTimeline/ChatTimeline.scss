@@ -245,6 +245,26 @@
     border-radius: 12px;
 }
 
+// The first line of a session a commit opened: what was saved, and that the user is back with Axl. Above Axl's
+// greeting — it has to read as "done", not as one more chat line, so it is framed and accented.
+.chat-timeline__ended {
+    align-self: center;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px 12px;
+    max-width: min(92%, 560px);
+    margin: 0 auto 18px;
+    padding: 8px 14px;
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+    background: var(--bg-wash-surface);
+    color: var(--text-primary);
+    font-size: var(--chat-meta);
+    text-align: center;
+}
+
 .chat-timeline__row--queued { opacity: 0.7; }
 
 .chat-timeline__link {

@@ -55,10 +55,11 @@ describe('MentorSurface — the table', () => {
         expect(toggle.getAttribute('aria-expanded')).toBe('true')
     })
 
-    it('says which setup is being edited, and that Update appears once the plan moves', () => {
+    it('says which setup is being edited; Update is on the bar, dark until the plan moves — and says so (2026-10-18)', () => {
         mount({ draft: SETUP, view: { readiness: READY }, editing: { kind: 'setup', entityId: 's1' } })
         expect(screen.getByText('editing NVDA')).toBeTruthy()
-        expect(screen.getByText(/“Update setup” appears once the plan moves/)).toBeTruthy()
+        expect(screen.getByText('Update setup').closest('button').disabled).toBe(true)
+        expect(screen.getByText(/Update lights once the plan moves/)).toBeTruthy()
         expect(screen.queryByText('Generate setup')).toBeNull()
     })
 })
@@ -268,7 +269,7 @@ describe('MentorSurface — an edit and a press, in order (8b CR)', () => {
         const editing = { kind: 'setup', entityId: 's1' }
         mount({ ...mentor, editing })
         typeEntry('198')
-        expect(screen.queryByText('Update setup')).toBeNull()
+        expect(screen.getByText('Update setup').closest('button').disabled).toBe(true)
     })
 })
 
@@ -298,5 +299,16 @@ describe('MentorSurface — a stale press', () => {
         // The replay brings Mentor's current plan — a new object, maybe new levels.
         rerender(<MentorSurface session={{ ...session, agentState: { mentor: { draft: { ...SETUP, rr: 2.4 }, view: { readiness: READY } } } }} deskProps={desk()} />)
         expect(screen.getByRole('alert').textContent).toMatch(/check the plan and press again/)
+    })
+})
+
+describe('MentorSurface — the edit bar is always there (Roy, 2026-10-18)', () => {
+    it('while Mentor answers, Update and Later stay on the bar, dark, and it says why', () => {
+        mount({ draft: SETUP, view: { readiness: READY }, editing: { kind: 'setup', entityId: 's1' } }, { live: { turnId: 't', agent: 'mentor', text: '', status: 'running' } })
+        const bar = document.querySelector('.desk-surface__bar')
+        expect(bar).toBeTruthy()
+        expect(screen.getByText('Update setup').closest('button').disabled).toBe(true)
+        expect(screen.getByText(/later/i).closest('button').disabled).toBe(true)
+        expect(screen.getByText('Mentor is answering…')).toBeTruthy()
     })
 })

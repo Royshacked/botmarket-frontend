@@ -262,16 +262,19 @@ export function ScannerSurface({ session, deskProps = {} }) {
 
             <SurfaceNote note={note} />
 
-            {/* A read in flight holds the bar back: the one press on screen would save the list without the cut. */}
-            {!turning && !reading && (
-                <div className="portfolio-panel__action-bubble">
-                    {listReady && (
-                        <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={() => commit(editingId ? 'update' : 'generate', editingId ? () => 'The list is updated.' : () => 'The list is saved.')} disabled={pressing}>
+            {/* A read in flight holds the bar back: the one press on screen would save the list without the cut. EDITING, the
+                bar is always there instead (Roy, 2026-10-18) — dark while Argus answers or a read runs, lit once there is a
+                list to save. */}
+            {(editingId || (!turning && !reading)) && (
+                <div className="portfolio-panel__action-bubble desk-surface__bar">
+                    {(listReady || editingId) && (
+                        <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={() => commit(editingId ? 'update' : 'generate', editingId ? () => 'The list is updated.' : () => 'The list is saved.')} disabled={pressing || turning || reading || !listReady}>
                             {pressing ? 'Saving…' : editingId ? 'Update list' : 'Generate list'}
                         </button>
                     )}
-                    {editingId && <LaterButton onClick={() => commit('later')} disabled={pressing} />}
+                    {editingId && <LaterButton onClick={() => commit('later')} disabled={pressing || turning} />}
                     {!editingId && listReady && <DiscardButton what="this list" onDiscard={() => press('discard', { done: () => 'Discarded — Argus\'s table is clear.' })} disabled={pressing} />}
+                    {editingId && (turning || reading) && <span className="mentor-panel__missing">{reading ? 'Prometheus is reading the cut…' : 'Argus is answering…'}</span>}
                 </div>
             )}
 

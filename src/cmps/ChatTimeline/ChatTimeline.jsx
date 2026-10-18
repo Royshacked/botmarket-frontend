@@ -16,6 +16,7 @@ import { TimelineRow, SpeakerTag } from './TimelineRow.jsx'
 import { startsRun, agentMeta } from './timelineRows.js'
 import { AxlGreeting } from './AxlGreeting.jsx'
 import { SessionHistory } from './SessionHistory.jsx'
+import { PaneToggle } from '../SidePane/PaneToggle.jsx'
 import { OPENING_OPTIONS, LANDING_ASKS, OPENING_QUESTION } from './openingOptions.js'
 import './ChatTimeline.scss'
 
@@ -46,7 +47,7 @@ function OwnSessionTimeline(props) {
     return <TimelineView {...props} session={session} />
 }
 
-function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, briefRequest = 0, onBriefStart, onOpenTicket, desks = [], onOpenDesk, session }) {
+function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, briefRequest = 0, onBriefStart, onOpenTicket, desks = [], onOpenDesk, paneSurfaces = null, session }) {
     const { user } = useAuth()
     const { rows, live, queuedTurn, lastTurn, chain, floor, send, stop, cancelQueued, choose, startNew, loadError } = session
     const [draft, setDraft]             = useState('')
@@ -57,7 +58,10 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
     const inputRef = useRef(null)
 
     const busy  = !!live
-    const empty = rows.length === 0 && !live
+    // A session a commit opened starts with the line saying what was saved (backend act.endAfterCommit) — it is
+    // still a fresh start: Axl's greeting and taps, with that line above them.
+    const endedLines = rows.filter(r => r.kind === 'sealed' && r.ref?.ended)
+    const empty = rows.length === endedLines.length && !live
 
     // The scroll follows rows AND the streaming text (the live bubble is not a row).
     const scrollItems = useMemo(() => (live ? [...rows, live] : rows), [rows, live])
@@ -122,6 +126,7 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
             <div className="panel-header chat-timeline__header">
                 <span className="chat-timeline__title">{empty ? 'Chat' : `Talking with ${floorName}`}</span>
                 <span className="chat-timeline__actions">
+                    {paneSurfaces && <PaneToggle floor={floor} surfaces={paneSurfaces} />}
                     <button type="button" className="chat-timeline__action" onClick={() => setHistoryOpen(true)}>History</button>
                     <button type="button" className="chat-timeline__action" onClick={() => startNew()} disabled={busy || empty}>New session</button>
                 </span>
@@ -144,6 +149,7 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
 
                 {empty ? (
                     <div className="chat-timeline__empty">
+                        {endedLines.map(r => <TimelineRow key={r.seq} row={r} onChoose={choose} />)}
                         <AxlGreeting name={firstName(user?.fullname)} question={OPENING_QUESTION} />
                         <SuggestionChips suggestions={OPENING_OPTIONS} onPick={(t) => sendText(t, { agent: 'axl' })} disabled={busy || !session.sessionId} />
                         {failed && <p className="chat-timeline__note chat-timeline__note--error">{lastTurn.message || 'That did not go through — try again.'}</p>}
@@ -240,6 +246,8 @@ ChatTimeline.propTypes = {
     // Desks opened from the header (admin: Pythia, Aether) — `{ agent, label, title? }` — and the opener.
     desks:         PropTypes.arrayOf(PropTypes.shape({ agent: PropTypes.string.isRequired, label: PropTypes.string.isRequired, title: PropTypes.string })),
     onOpenDesk:    PropTypes.func,
+    // The desks with a side-pane surface — given, the header offers Show / Hide for the pane (PaneToggle).
+    paneSurfaces:  PropTypes.object,
 }
 OwnSessionTimeline.propTypes = ChatTimeline.propTypes
 TimelineView.propTypes = { ...ChatTimeline.propTypes, session: PropTypes.object.isRequired }

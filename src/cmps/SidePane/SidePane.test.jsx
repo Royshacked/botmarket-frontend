@@ -115,3 +115,22 @@ describe('SidePane', () => {
         expect(screen.getByLabelText('kept input').value).toBe('AAPL 5')
     })
 })
+
+describe('SidePane — a new session (a commit ended the last one, 2026-10-18)', () => {
+    it('closes the desks\' tabs (back with Axl) but keeps a kept surface', () => {
+        const Kept = () => <p>kept surface</p>
+        Kept.keepMounted = true
+        const all = { ...surfaces, strategy: Kept }
+        const { rerender } = render(<SidePane session={{ sessionId: 's1', floor: 'mentor' }} surfaces={all} />)
+        act(() => openSurface('strategy'))
+        expect(sidePaneState().tabs).toEqual(['mentor', 'strategy'])
+        rerender(<SidePane session={{ sessionId: 's2', floor: 'axl' }} surfaces={all} />)
+        expect(sidePaneState().tabs).toEqual(['strategy'])
+    })
+
+    it('the first load closes nothing', () => {
+        act(() => openSurface('portfolio'))
+        render(<SidePane session={{ sessionId: 's1', floor: 'axl' }} surfaces={surfaces} />)
+        expect(sidePaneState().tabs).toEqual(['portfolio'])
+    })
+})

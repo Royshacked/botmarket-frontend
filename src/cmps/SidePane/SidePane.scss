@@ -22,11 +22,13 @@
     outline: none;
 
     &--docked {
-        flex: 0 0 min(560px, 58%);
+        // The CHAT keeps most of the column (Roy, 2026-10-18 — it was min(560px, 58%), more than half): about a third,
+        // never under a worksheet's readable 280px nor over 400px.
+        flex: 0 0 clamp(280px, 34%, 400px);
         // A flex item will not shrink below its content's min-content by default, and the worksheet's one-line
         // header set that past the basis — the pane grew to ~650px and squeezed the chat to 210 (driven, 2026-10-17).
         min-width: 0;
-        max-width: min(560px, 58%);
+        max-width: clamp(280px, 34%, 400px);
         border-left: 1px solid var(--border);
         border-top: 1px solid var(--border);
         box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12);
@@ -139,8 +141,24 @@
     min-height: 0;
 
     // In the pane the surface GROWS and the pane scrolls (phase 8c CR): the shared portfolio-panel shell is a desk's
-    // frame — `height: 100%; overflow: hidden` — and clipped a long surface.
-    &.portfolio-panel { height: auto; overflow: visible; flex: 0 0 auto; }
+    // frame — `height: 100%; overflow: hidden` — and clipped a long surface. It also FILLS a tall pane (grow 1, never
+    // shrink), so the bar below can sit on the pane's bottom edge when the surface is short.
+    &.portfolio-panel { height: auto; overflow: visible; flex: 1 0 auto; }
+
+    // THE BAR — a surface's presses (Generate / Update / Accept / Later…), pinned to the pane's bottom (Roy, 2026-10-18):
+    // pushed down when the surface is short (margin-top: auto), stuck to the pane's bottom edge while a long one scrolls
+    // under it. The pane's body is the scroller (.side-pane__body); `bottom: -12px` covers the surface's own padding so
+    // nothing shows through below it. Two classes deep: `.portfolio-panel__action-bubble` (the same element) sets a
+    // background and padding at one class, and bundle order must not decide which wins.
+    & &__bar {
+        margin-top: auto;
+        position: sticky;
+        bottom: -12px;
+        z-index: 1;
+        padding-block: 10px 12px;
+        background: var(--bg-base);
+        border-top: 1px solid var(--border);
+    }
 
     &__lead {
         margin: 4px 0 0;

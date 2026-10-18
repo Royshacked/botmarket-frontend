@@ -70,10 +70,10 @@ describe('AnalystSurface', () => {
         expect(screen.getByText('Initiate coverage on this name').closest('button').disabled).toBe(true)
     })
 
-    it('revising a thesis: Update saves it, Later leaves it; before a new draft only Later', async () => {
+    it('revising a thesis: Update saves it, Later leaves it; before a new draft Update is there but dark (2026-10-18)', async () => {
         mount({ draft: DRAFT, standing: false, editing: EDITING, editingSymbol: 'ZTS' })
         expect(screen.getByText(/Revising ZTS — Prometheus drafts the new view/)).toBeTruthy()
-        expect(screen.queryByText(/Update coverage/)).toBeNull()
+        expect(screen.getByText('Update coverage on ZTS').closest('button').disabled).toBe(true)
         fireEvent.click(screen.getByText(/later/i))
         await waitFor(() => expect(session.commit).toHaveBeenCalledWith('analyst', 'later', expect.any(Object)))
         cleanup()
@@ -111,5 +111,14 @@ describe('AnalystSurface', () => {
         const head = screen.getByRole('button', { expanded: true })
         fireEvent.click(head)
         expect(screen.queryByText('Companion-animal pricing holds.')).toBeNull()
+    })
+})
+
+describe('AnalystSurface — the edit bar is always there (Roy, 2026-10-18)', () => {
+    it('while Prometheus answers, Update and Later stay on the bar, dark', () => {
+        mount({ draft: DRAFT, standing: true, editing: EDITING, editingSymbol: 'ZTS' }, { live: { turnId: 't', agent: 'analyst', text: '', status: 'running' } })
+        expect(document.querySelector('.desk-surface__bar')).toBeTruthy()
+        expect(screen.getByText('Update coverage on ZTS').closest('button').disabled).toBe(true)
+        expect(screen.getByText(/later/i).closest('button').disabled).toBe(true)
     })
 })

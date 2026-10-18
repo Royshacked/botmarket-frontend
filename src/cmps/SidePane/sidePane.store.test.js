@@ -1,6 +1,6 @@
 import { test, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { openSurface, closeSurface, closePane, showSurface, setPinned, sidePaneState, _resetSidePane } from './sidePane.store.js'
+import { openSurface, closeSurface, closePane, showSurface, setPinned, sidePaneState, reopenPane, _resetSidePane } from './sidePane.store.js'
 
 // The side pane's tabs (unified-chat plan phase 8b): one per desk opened, following the floor unless pinned.
 
@@ -9,7 +9,7 @@ beforeEach(() => _resetSidePane())
 test('opening a desk adds its tab and shows it; opening it again only shows it', () => {
     openSurface('mentor')
     openSurface('portfolio')
-    assert.deepEqual(sidePaneState(), { tabs: ['mentor', 'portfolio'], active: 'portfolio', pinned: false, parked: [] })
+    assert.deepEqual(sidePaneState(), { tabs: ['mentor', 'portfolio'], active: 'portfolio', pinned: false, parked: [], hidden: null })
     openSurface('mentor')
     assert.deepEqual(sidePaneState().tabs, ['mentor', 'portfolio'])
     assert.equal(sidePaneState().active, 'mentor')
@@ -19,7 +19,7 @@ test('the floor moving does not take over a pinned tab — it adds its own besid
     openSurface('mentor')
     setPinned(true)
     openSurface('portfolio', { follow: true })
-    assert.deepEqual(sidePaneState(), { tabs: ['mentor', 'portfolio'], active: 'mentor', pinned: true, parked: [] })
+    assert.deepEqual(sidePaneState(), { tabs: ['mentor', 'portfolio'], active: 'mentor', pinned: true, parked: [], hidden: null })
     openSurface('portfolio')
     assert.equal(sidePaneState().active, 'portfolio', 'the user\'s own open still switches')
     setPinned(false)
@@ -32,10 +32,10 @@ test('closing a tab shows the one before it; the last one closes the pane and it
     showSurface('portfolio')
     setPinned(true)
     closeSurface('portfolio')
-    assert.deepEqual(sidePaneState(), { tabs: ['mentor', 'scanner'], active: 'mentor', pinned: false, parked: [] })
+    assert.deepEqual(sidePaneState(), { tabs: ['mentor', 'scanner'], active: 'mentor', pinned: false, parked: [], hidden: null })
     closeSurface('scanner')
     closeSurface('mentor')
-    assert.deepEqual(sidePaneState(), { tabs: [], active: null, pinned: false, parked: [] })
+    assert.deepEqual(sidePaneState(), { tabs: [], active: null, pinned: false, parked: [], hidden: null })
     closeSurface('nope')
     assert.equal(sidePaneState().active, null)
 })
@@ -45,10 +45,34 @@ test('closePane drops every tab — PARKED, so a kept surface stays mounted; clo
     assert.equal(sidePaneState().pinned, false)
     openSurface('mentor'); openSurface('strategy')
     closePane()
-    assert.deepEqual(sidePaneState(), { tabs: [], active: null, pinned: false, parked: ['mentor', 'strategy'] })
+    assert.deepEqual(sidePaneState(), { tabs: [], active: null, pinned: false, parked: ['mentor', 'strategy'], hidden: { tabs: ['mentor', 'strategy'], active: 'strategy' } })
     openSurface('strategy')
     closeSurface('strategy')
     assert.deepEqual(sidePaneState().parked, ['mentor'], 'its own tab closed — no longer parked')
     openSurface(null)
     assert.deepEqual(sidePaneState().tabs, [])
+})
+
+test('reopenPane brings back what the pane was CLOSED over — tabs and the one showing — once', () => {
+    openSurface('mentor'); openSurface('portfolio'); showSurface('mentor')
+    closePane()
+    reopenPane('scanner')
+    assert.deepEqual(sidePaneState(), { tabs: ['mentor', 'portfolio'], active: 'mentor', pinned: false, parked: ['mentor', 'portfolio'], hidden: null })
+    reopenPane('scanner')
+    assert.deepEqual(sidePaneState().tabs, ['mentor', 'portfolio'], 'open → a no-op')
+})
+
+test('reopenPane with nothing remembered opens the fallback (the floor\'s desk); a closed TAB is not remembered', () => {
+    reopenPane('mentor')
+    assert.deepEqual([sidePaneState().tabs, sidePaneState().active], [['mentor'], 'mentor'])
+    closeSurface('mentor')
+    assert.equal(sidePaneState().hidden, null)
+    reopenPane(null)
+    assert.deepEqual(sidePaneState().tabs, [], 'no fallback → nothing opens')
+})
+
+test('any open forgets what was hidden — the toggle never resurrects an old set over new work', () => {
+    openSurface('mentor'); closePane()
+    openSurface('scanner', { follow: true })
+    assert.equal(sidePaneState().hidden, null)
 })

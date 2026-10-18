@@ -12,8 +12,10 @@ import { useSyncExternalStore } from 'react'
 //   pinned  the user pinned the active tab: the floor moving to another desk adds that desk's tab but does not switch
 //   parked  tabs the pane was CLOSED over (closePane) — a surface that keeps its own conversation (Pythia, Aether, the
 //           ticket — `keepMounted`) stays mounted, hidden, until its own tab is closed (phase 8e)
+//   hidden  `{ tabs, active }` the pane was last CLOSED over — what the chat header's toggle brings back (reopenPane).
+//           Closing a desk's own tab is "done with it", not hiding it, so it is not remembered; any open clears it.
 
-const EMPTY = { tabs: [], active: null, pinned: false, parked: [] }
+const EMPTY = { tabs: [], active: null, pinned: false, parked: [], hidden: null }
 let state = Object.freeze({ ...EMPTY })
 const subs = new Set()
 const set = (next) => { state = Object.freeze(next); subs.forEach(fn => fn()) }
@@ -28,7 +30,7 @@ export function openSurface(agent, { follow = false } = {}) {
     const tabs = state.tabs.includes(agent) ? state.tabs : [...state.tabs, agent]
     const keep = follow && state.pinned && state.active && state.active !== agent
     if (tabs === state.tabs && (keep || state.active === agent)) return
-    set({ ...state, tabs, active: keep ? state.active : agent })
+    set({ ...state, tabs, active: keep ? state.active : agent, hidden: null })
 }
 
 /** Close one tab; the pane shows the tab before it, and closes when it was the last. */
@@ -37,13 +39,24 @@ export function closeSurface(agent) {
     if (i < 0) return
     const tabs = state.tabs.filter(t => t !== agent)
     const active = state.active === agent ? (tabs[i - 1] ?? tabs[0] ?? null) : state.active
-    set({ tabs, active, pinned: active ? state.pinned && state.active !== agent : false, parked: state.parked.filter(t => t !== agent) })
+    set({ tabs, active, pinned: active ? state.pinned && state.active !== agent : false, parked: state.parked.filter(t => t !== agent), hidden: null })
 }
 
-/** Close the pane — every tab; the ones closed over are parked (a kept surface stays mounted, hidden). */
+/** Close the pane — every tab; the ones closed over are parked (a kept surface stays mounted, hidden) and remembered. */
 export function closePane() {
     if (!state.tabs.length) return
-    set({ tabs: [], active: null, pinned: false, parked: [...new Set([...state.parked, ...state.tabs])] })
+    set({ tabs: [], active: null, pinned: false, parked: [...new Set([...state.parked, ...state.tabs])], hidden: { tabs: state.tabs, active: state.active } })
+}
+
+/**
+ * Bring the pane back (the chat header's toggle): the tabs it was closed over, or — nothing remembered — `fallback`'s
+ * surface (the desk holding the floor). A no-op while it is open.
+ */
+export function reopenPane(fallback = null) {
+    if (state.tabs.length) return
+    const h = state.hidden
+    if (h?.tabs?.length) { set({ ...state, tabs: h.tabs, active: h.active ?? h.tabs[0], hidden: null }); return }
+    openSurface(fallback)
 }
 
 export function showSurface(agent) {
