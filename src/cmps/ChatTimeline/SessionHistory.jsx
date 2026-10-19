@@ -5,18 +5,34 @@ import { apiError } from '../../services/http.service'
 import { TimelineRow, SpeakerTag } from './TimelineRow.jsx'
 import { startsRun, isEndedLine } from './timelineRows.js'
 import { DeleteConfirmDialog } from '../DeleteConfirmDialog.jsx'
+import { ChatInputRow } from '../ChatInputRow.jsx'
 
 const fmtDate = (ms) => (ms ? new Date(ms).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '')
 
 /**
  * The past sessions (plan phase 7, 7d — replaces the per-desk ThreadHistory for the main chat): a list of
- * archived sessions, each opening READ-ONLY — the rows as they were, no taps, no card buttons. The live
- * session is the one in the chat; it is not listed here.
+ * archived sessions, each opening with its rows as they were — no taps, no card buttons. The live session is the
+ * one in the chat; it is not listed here. An open one has the input under it: writing there PICKS IT BACK UP
+ * (design §3.5 "…or resumes it"; Roy, 2026-10-19 — it opened with no prompt box) — it becomes the live session,
+ * the live one goes to History, and the message is its next turn.
  */
-export function SessionHistory({ scope = 'main', onClose, api = sessionService }) {
+export function SessionHistory({ scope = 'main', onClose, onResume = null, busy = false, api = sessionService }) {
     const [sessions, setSessions] = useState(null)
     const [open, setOpen]         = useState(null)    // { session, rows }
     const [error, setError]       = useState(null)
+    const [draft, setDraft]       = useState('')
+    const [resuming, setResuming] = useState(false)
+
+    async function resume() {
+        const text = draft.trim()
+        if (!text || !open || !onResume || resuming || busy) return
+        setResuming(true)
+        setError(null)
+        const err = await onResume(open.session.sessionId, text)
+        setResuming(false)
+        if (err) { setError(err); return }
+        onCloseRef.current()
+    }
     const closeRef   = useRef(null)
     // Read through a ref: the parent re-renders on every streamed token, and a new onClose each time must not
     // re-run the focus below and steal focus back to the close button.
@@ -77,21 +93,42 @@ export function SessionHistory({ scope = 'main', onClose, api = sessionService }
         <div className="chat-timeline__history" role="dialog" aria-modal="true" aria-label="Past sessions">
             <div className="chat-timeline__history-head">
                 {open
-                    ? <button type="button" className="chat-timeline__history-back" onClick={() => setOpen(null)}>← All sessions</button>
+                    ? <button type="button" className="chat-timeline__history-back" onClick={() => { setOpen(null); setDraft('') }}>← All sessions</button>
                     : <span className="chat-timeline__history-title">Past sessions</span>}
                 {open && <button type="button" className="chat-timeline__history-delete" onClick={() => setAsking(open.session)}>Delete</button>}
                 <button type="button" className="chat-timeline__history-close" onClick={onClose} aria-label="Close" ref={closeRef}>×</button>
             </div>
             {error && <p className="chat-timeline__note chat-timeline__note--error">{error}</p>}
             {open ? (
-                <div className="chat-timeline__history-thread">
-                    {open.rows.map((row, i) => (
-                        <div key={row.seq} className={`chat-timeline__row chat-timeline__row--${row.role}`}>
-                            {startsRun(row, open.rows[i - 1]) && <SpeakerTag agent={row.agent} />}
-                            <TimelineRow row={row} readOnly onChoose={async () => null} />
+                <>
+                    <div className="chat-timeline__history-thread">
+                        {open.rows.map((row, i) => (
+                            <div key={row.seq} className={`chat-timeline__row chat-timeline__row--${row.role}`}>
+                                {startsRun(row, open.rows[i - 1]) && <SpeakerTag agent={row.agent} />}
+                                <TimelineRow row={row} readOnly onChoose={async () => null} />
+                            </div>
+                        ))}
+                    </div>
+                    {onResume && (
+                        <div className="chat-timeline__history-resume">
+                            <p className="chat-timeline__note">
+                                {busy ? 'Wait for the reply in your current chat to finish, then you can pick this one up.'
+                                    : 'Write here to pick this session back up — your current chat moves to History.'}
+                            </p>
+                            <ChatInputRow
+                                prefix="axl"
+                                value={draft}
+                                onChange={e => setDraft(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); resume() } }}
+                                placeholder="Continue this session…"
+                                onSend={resume}
+                                sendDisabled={!draft.trim() || resuming || busy}
+                                micDisabled
+                                textareaDisabled={resuming}
+                            />
                         </div>
-                    ))}
-                </div>
+                    )}
+                </>
             ) : sessions === null ? (
                 <p className="chat-timeline__note">Loading…</p>
             ) : sessions.length === 0 ? (
@@ -125,7 +162,10 @@ export function SessionHistory({ scope = 'main', onClose, api = sessionService }
 }
 
 SessionHistory.propTypes = {
-    scope:   PropTypes.string,
-    onClose: PropTypes.func.isRequired,
-    api:     PropTypes.object,
+    scope:    PropTypes.string,
+    onClose:  PropTypes.func.isRequired,
+    // (sessionId, text) → an error to show, or null. Absent → read-only.
+    onResume: PropTypes.func,
+    busy:     PropTypes.bool,
+    api:      PropTypes.object,
 }

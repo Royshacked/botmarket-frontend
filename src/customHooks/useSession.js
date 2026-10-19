@@ -85,20 +85,37 @@ export function useSession(scope = 'main', { ws = chatWsService, api = sessionSe
     }, [ws, sync])
 
     /** Post a turn. `agent` null → whoever holds the floor answers. `extras`: ops, seed, accounts, mainAccountId, brief. */
-    const send = useCallback(async (text, { agent = null, ...extras } = {}) => {
-        if (!String(text ?? '').trim() || !(await ready())) return false
-        const s = ref.current
+    const post = useCallback(async (sessionId, floor, text, { agent = null, ...extras } = {}) => {
         const turnId = newTurnId()
-        dispatch({ type: 'sending', turnId, agent: agent ?? s.floor ?? 'axl', text: String(text).trim() })
+        dispatch({ type: 'sending', turnId, agent: agent ?? floor ?? 'axl', text: String(text).trim() })
         try {
-            await api.turn(s.sessionId, { text, agent, turnId, ...extras })
+            await api.turn(sessionId, { text, agent, turnId, ...extras })
             dispatch({ type: 'accepted', turnId })
             return true
         } catch (err) {
             dispatch({ type: 'sendFailed', turnId, message: apiError(err, 'That message did not go through') })
             return false
         }
-    }, [api, ready])
+    }, [api])
+
+    const send = useCallback(async (text, opts = {}) => {
+        if (!String(text ?? '').trim() || !(await ready())) return false
+        return post(ref.current.sessionId, ref.current.floor, text, opts)
+    }, [post, ready])
+
+    /**
+     * History's resume (Roy, 2026-10-19): a past session becomes the live one — the live one is put away as "New session"
+     * puts it — and `text`, when given, is its next turn. Posted to the resumed id directly: `ref` catches up only on the
+     * next render. @returns {Promise<string|null>} an error to show, or null
+     */
+    const resume = useCallback(async (sessionId, text = '', opts = {}) => {
+        let session
+        try { session = await api.resume(sessionId) }
+        catch (err) { return apiError(err, 'Could not pick that session back up') }
+        dispatch({ type: 'load', session })
+        if (String(text ?? '').trim()) await post(session.sessionId, session.floor, text, opts)
+        return null
+    }, [api, post])
 
     const stop = useCallback(() => stopTurn(ref.current.live?.turnId), [])
     /** Take back a message that is still waiting behind another turn (the server cancels it unrun). */
@@ -178,5 +195,5 @@ export function useSession(scope = 'main', { ws = chatWsService, api = sessionSe
         }
     }, [api, _outcome, ready])
 
-    return { ...state, send, stop, cancelQueued, choose, startNew, commit, edit, reopen }
+    return { ...state, send, stop, cancelQueued, choose, startNew, resume, commit, edit, reopen }
 }

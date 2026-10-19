@@ -42,6 +42,12 @@ export const sessionService = {
         return messages
     },
 
+    /** Pick a past session back up (History's resume): it becomes the live one, and the live one is put away. */
+    async resume(sessionId) {
+        const { session } = await httpService.post(`${BASE}/${encodeURIComponent(sessionId)}/resume`, {})
+        return session
+    },
+
     /** Delete a past session and its rows (History's delete). The live session is refused (409). */
     async remove(sessionId) {
         return httpService.delete(`${BASE}/${encodeURIComponent(sessionId)}`)

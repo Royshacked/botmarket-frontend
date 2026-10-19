@@ -147,7 +147,16 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
                 </div>
             )}
 
-            {historyOpen && <SessionHistory scope={scope} onClose={() => setHistoryOpen(false)} />}
+            {historyOpen && (
+                <SessionHistory
+                    scope={scope}
+                    onClose={() => setHistoryOpen(false)}
+                    // Writing in a past session picks it back up (design §3.5) — with the same per-turn extras as here.
+                    onResume={(id, text) => session.resume(id, text, extras)}
+                    // A turn running here would be cut off by the put-away — the History input waits for it.
+                    busy={busy}
+                />
+            )}
 
             <div className={`chat-timeline__body${empty ? '' : ' chat-timeline__body--active'}`} ref={messagesRef} onScroll={handleScroll}>
                 {loadError && <p className="chat-timeline__note chat-timeline__note--error">{loadError}</p>}

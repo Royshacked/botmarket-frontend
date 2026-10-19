@@ -84,6 +84,31 @@ describe('useSession', () => {
         expect(typeof err).toBe('string')
     })
 
+    it('resume loads the past session and posts the message to IT — not to the one it replaced (2026-10-19)', async () => {
+        api = fakeApi({ resume: vi.fn(async () => ({ sessionId: 'old', scope: 'main', status: 'active', floor: 'mentor' })) })
+        const { result } = mount()
+        await waitFor(() => expect(result.current.sessionId).toBe('s1'))
+        let err
+        await act(async () => { err = await result.current.resume('old', 'and gold?', { accounts: ['a1'] }) })
+        expect(err).toBe(null)
+        expect(api.resume).toHaveBeenCalledWith('old')
+        expect(api.turn).toHaveBeenCalledWith('old', { text: 'and gold?', agent: null, turnId: 'turn_x', accounts: ['a1'] })
+        expect(result.current.sessionId).toBe('old')
+        expect(result.current.live).toMatchObject({ agent: 'mentor', status: 'queued' })
+        expect(ws.sent.at(-1)).toEqual({ event: 'session_sync', data: { sessionId: 'old', afterSeq: 0 } })
+    })
+
+    it('a refused resume is an error to show; nothing is posted and the live session stays', async () => {
+        api = fakeApi({ resume: vi.fn(async () => { throw new Error('gone') }) })
+        const { result } = mount()
+        await waitFor(() => expect(result.current.sessionId).toBe('s1'))
+        let err
+        await act(async () => { err = await result.current.resume('old', 'hi') })
+        expect(typeof err).toBe('string')
+        expect(api.turn).not.toHaveBeenCalled()
+        expect(result.current.sessionId).toBe('s1')
+    })
+
     it('New session loads the new one and replays it', async () => {
         const { result } = mount()
         await waitFor(() => expect(result.current.sessionId).toBe('s1'))

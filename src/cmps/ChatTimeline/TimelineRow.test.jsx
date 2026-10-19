@@ -116,3 +116,49 @@ describe('SessionHistory — a past session read (2026-10-18)', () => {
         expect(screen.queryByText(/back with Axl/)).toBeNull()
     })
 })
+
+describe('SessionHistory — pick a past session back up (Roy, 2026-10-19)', () => {
+    const past = [{ sessionId: 'a', status: 'archived', title: 'What moved oil today?', archivedAt: 1 }]
+    const api = () => ({ list: vi.fn(async () => past), messages: vi.fn(async () => [{ seq: 1, agent: 'axl', role: 'user', kind: 'msg', content: 'oil?' }]) })
+    const openIt = async (props) => {
+        render(<SessionHistory api={api()} {...props} />)
+        fireEvent.click(await screen.findByText('What moved oil today?'))
+        return screen.findByPlaceholderText('Continue this session…')
+    }
+
+    it('an open session has the input; writing resumes it with the message, then History closes', async () => {
+        const onResume = vi.fn(async () => null)
+        const onClose = vi.fn()
+        const box = await openIt({ onResume, onClose })
+        expect(screen.getByText(/your current chat moves to History/)).toBeTruthy()
+        fireEvent.change(box, { target: { value: '  and gold?  ' } })
+        fireEvent.keyDown(box, { key: 'Enter' })
+        await waitFor(() => expect(onResume).toHaveBeenCalledWith('a', 'and gold?'))
+        await waitFor(() => expect(onClose).toHaveBeenCalled())
+    })
+
+    it('a refused resume says why and stays open', async () => {
+        const onClose = vi.fn()
+        const box = await openIt({ onResume: vi.fn(async () => 'Could not pick that session back up'), onClose })
+        fireEvent.change(box, { target: { value: 'go' } })
+        fireEvent.keyDown(box, { key: 'Enter' })
+        expect(await screen.findByText('Could not pick that session back up')).toBeTruthy()
+        expect(onClose).not.toHaveBeenCalled()
+    })
+
+    it('waits while a reply runs in the current chat — the put-away would cut it off', async () => {
+        const onResume = vi.fn(async () => null)
+        const box = await openIt({ onResume, onClose: () => {}, busy: true })
+        expect(screen.getByText(/Wait for the reply in your current chat/)).toBeTruthy()
+        fireEvent.change(box, { target: { value: 'go' } })
+        fireEvent.keyDown(box, { key: 'Enter' })
+        expect(onResume).not.toHaveBeenCalled()
+    })
+
+    it('without onResume it stays read-only — no input', async () => {
+        render(<SessionHistory api={api()} onClose={() => {}} />)
+        fireEvent.click(await screen.findByText('What moved oil today?'))
+        await waitFor(() => expect(document.querySelectorAll('.chat-timeline__history-thread .chat-timeline__row').length).toBe(1))
+        expect(screen.queryByPlaceholderText('Continue this session…')).toBeNull()
+    })
+})

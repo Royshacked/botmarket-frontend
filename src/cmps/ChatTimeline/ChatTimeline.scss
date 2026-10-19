@@ -406,6 +406,18 @@
         gap: 10px;
         padding: 16px 24px;
     }
+
+    // An open session's input — writing picks it back up. The note says so before the first key.
+    &-resume {
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 8px 0 12px;
+        border-top: 1px solid var(--border);
+
+        > .chat-timeline__note { padding: 0 24px; }
+    }
 }
 
 @media (max-width: 767px) {
