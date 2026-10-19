@@ -60,6 +60,18 @@
         background: var(--bg-wash);
     }
 
+    // What the pane holds and how it is saved — one quiet line under the tabs.
+    &__hint {
+        flex-shrink: 0;
+        margin: 0;
+        padding: 6px 12px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-wash);
+        color: var(--text-subtle);
+        font-size: 11.5px;
+        line-height: 1.4;
+    }
+
     &__tabs {
         flex: 1 1 auto;
         min-width: 0;

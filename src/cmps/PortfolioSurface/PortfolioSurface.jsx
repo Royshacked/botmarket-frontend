@@ -345,6 +345,9 @@ export function PortfolioSurface({ session, deskProps = {} }) {
     )
 }
 
+// What this pane is, said once under its tabs (SidePane — Roy, 2026-10-19: the pane was not clear to a user).
+PortfolioSurface.paneHint = 'Your portfolio plan, as you build it with Atlas. It fills in while you talk; when it’s ready, the button at the bottom saves it.'
+
 PortfolioSurface.propTypes = {
     session: PropTypes.shape({
         agentState: PropTypes.object,

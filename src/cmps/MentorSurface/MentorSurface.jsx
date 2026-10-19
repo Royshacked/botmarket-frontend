@@ -380,6 +380,9 @@ export function MentorSurface({ session, deskProps = {} }) {
     )
 }
 
+// What this pane is, said once under its tabs (SidePane — Roy, 2026-10-19: the pane was not clear to a user).
+MentorSurface.paneHint = 'Your setup, as you build it with Mentor. It fills in while you talk; when it’s ready, the button at the bottom saves it.'
+
 MentorSurface.propTypes = {
     session:   PropTypes.shape({
         agentState: PropTypes.object,

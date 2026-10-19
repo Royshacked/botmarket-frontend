@@ -135,6 +135,9 @@ export function AnalystSurface({ session, deskProps = {} }) {
     )
 }
 
+// What this pane is, said once under its tabs (SidePane — Roy, 2026-10-19: the pane was not clear to a user).
+AnalystSurface.paneHint = 'Prometheus’s draft coverage: the thesis and price target. It fills in while you talk; the button at the bottom saves it.'
+
 AnalystSurface.propTypes = {
     session: PropTypes.shape({
         agentState: PropTypes.object,

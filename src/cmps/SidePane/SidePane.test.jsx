@@ -37,6 +37,24 @@ describe('SidePane', () => {
         expect(screen.getByText(/mentor surface/)).toBeTruthy()
     })
 
+    it('says what it is: the showing surface’s hint under the tabs; none for a surface without one (Roy, 2026-10-19)', () => {
+        const Hinted = () => <p>hinted surface</p>
+        Hinted.paneHint = 'Your setup, as you build it.'
+        const { rerender } = render(<SidePane session={{ floor: 'mentor' }} surfaces={{ mentor: Hinted, portfolio: Atlas }} />)
+        expect(screen.getByText('Your setup, as you build it.').className).toBe('side-pane__hint')
+        rerender(<SidePane session={{ floor: 'portfolio' }} surfaces={{ mentor: Hinted, portfolio: Atlas }} />)
+        expect(screen.queryByText('Your setup, as you build it.')).toBeNull()
+    })
+
+    it('every desk surface carries a hint', async () => {
+        const mods = await Promise.all([
+            import('../MentorSurface/MentorSurface.jsx'), import('../PortfolioSurface/PortfolioSurface.jsx'),
+            import('../ScannerSurface/ScannerSurface.jsx'), import('../AnalystSurface/AnalystSurface.jsx'),
+        ])
+        const hints = [mods[0].MentorSurface, mods[1].PortfolioSurface, mods[2].ScannerSurface, mods[3].AnalystSurface].map(s => s.paneHint)
+        for (const h of hints) expect(typeof h === 'string' && h.length > 20).toBe(true)
+    })
+
     it('a pinned desk is not taken over by the floor', () => {
         const { rerender } = render(<SidePane session={{ floor: 'mentor' }} surfaces={surfaces} />)
         fireEvent.click(screen.getByRole('button', { name: 'Pin' }))

@@ -283,6 +283,9 @@ export function ScannerSurface({ session, deskProps = {} }) {
     )
 }
 
+// What this pane is, said once under its tabs (SidePane — Roy, 2026-10-19: the pane was not clear to a user).
+ScannerSurface.paneHint = 'What Argus finds for you lands here: a list the button at the bottom saves, or one name it hands back to Mentor.'
+
 ScannerSurface.propTypes = {
     session: PropTypes.shape({
         sessionId:  PropTypes.string,

@@ -22,7 +22,8 @@ import './SidePane.scss'
 // and the order ticket a half-typed order: unmounted, either is lost. A surface marked `keepMounted` is rendered ONCE,
 // into a host node of its own, through a portal — the node is moved into the pane while its tab shows and out of it
 // otherwise, so the component under it never unmounts while the pane hides, closes or switches tabs (only closing its
-// own tab ends it). `paneLabel` names a tab that is not an agent's (the ticket).
+// own tab ends it). `paneLabel` names a tab that is not an agent's (the ticket). `paneHint` is the one line under the
+// tabs that says what the pane holds and how it is saved (Roy, 2026-10-19: the pane was not clear to a user).
 
 /** Moves a kept surface's host node into the pane while it is the one showing. */
 function KeptSlot({ host }) {
@@ -131,6 +132,8 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
                 </button>
                 <button type="button" className="side-pane__close" onClick={closePane} aria-label="Close" title="Close (Esc)">✕</button>
             </header>
+            {/* What this pane is — the surface says it (`paneHint`); a kept surface with its own screen has none. */}
+            {Surface?.paneHint && <p className="side-pane__hint">{Surface.paneHint}</p>}
             <div className="side-pane__body" role="tabpanel">
                 {/* Keyed on the session: a surface's half-typed edit belongs to the session it was typed in. */}
                 {Surface && (Surface.keepMounted
