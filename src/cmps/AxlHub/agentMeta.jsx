@@ -247,9 +247,9 @@ export const DESKS = [
         key:      'trade',
         label:    'Trading Desk',
         lead:     'Traders desk',
-        blurb:    'Intraday, day, or swing — Argus validates, Mentor builds the setup with you, Talos watches the zones.',
+        blurb:    'Intraday, day, or swing — Mentor builds the setup with you (Argus finds a name when you have none), Talos watches the zones.',
         hue:      'cyan',
-        entryTab: 'scanner',
+        entryTab: 'mentor',   // every trade starts at Mentor (2026-10-19) — the server's registry says the same
         agentKey: 'mentor',
     },
     {
