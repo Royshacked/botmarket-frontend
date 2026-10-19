@@ -896,8 +896,10 @@ export function CoverageRefreshedBubble({ msg, onClose, onResolve }) {
  * construction thread, or the book's edit when the sleeve was for a portfolio that already exists.
  */
 export function SleeveSourcedBubble({ msg, onClose, onResolve }) {
-    const { sector, school, threadId, portfolioId, covered = [], screened } = msg.payload
-    const heading = `Sleeve · ${sector}${school ? ` (${school})` : ''} — ${covered.length} of ${screened ?? covered.length} in coverage`
+    const { sector, industry, industryCode, school, threadId, portfolioId, covered = [], screened } = msg.payload
+    // A sleeve is a GICS sub-industry now (atlas-industry-sleeves.md, 2026-10-19); an older card has only its sector.
+    const label = industryCode && industry ? industry : sector
+    const heading = `Sleeve · ${label}${school ? ` (${school})` : ''} — ${covered.length} of ${screened ?? covered.length} in coverage`
 
     function handlePrimary() {
         eventBus.emit(RESUME_BUILD, { threadId: threadId ?? null, portfolioId: portfolioId ?? null })
@@ -906,7 +908,7 @@ export function SleeveSourcedBubble({ msg, onClose, onResolve }) {
 
     return (
         <NotificationCard
-            agent={AGENTS.portfolio} kind="portfolio" heading={heading} asset={sector} body={msg.content}
+            agent={AGENTS.portfolio} kind="portfolio" heading={heading} asset={label} body={msg.content}
             primaryLabel={msg.actions?.primary?.label ?? 'Resume build'} onPrimary={handlePrimary}
             onResolve={onResolve} msg={msg}
             resolvedLabels={{ resumed: '✓ Resumed', opened: '✓ Opened' }}
