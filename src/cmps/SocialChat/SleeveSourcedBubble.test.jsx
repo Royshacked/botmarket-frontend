@@ -42,6 +42,11 @@ describe('SleeveSourcedBubble', () => {
         off()
     })
 
+    it('an industry sleeve is named by its industry, not its sector (2026-10-19)', () => {
+        render(<SleeveSourcedBubble msg={msg({ sector: 'Information Technology', industry: 'Semiconductors', industryCode: '45301020' })} onClose={vi.fn()} onResolve={vi.fn()} />)
+        expect(screen.getByText(/Sleeve · Semiconductors \(quality-value\) — 2 of 3 in coverage/)).toBeTruthy()
+    })
+
     it('a sleeve sourced for a book that already exists resumes that book', () => {
         const heard = vi.fn()
         const off   = eventBus.on(RESUME_BUILD, heard)

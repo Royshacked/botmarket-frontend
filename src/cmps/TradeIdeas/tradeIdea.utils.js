@@ -920,21 +920,6 @@ export function isDeleteConfirmRequired(idea) {
 }
 
 /**
- * True when an idea is missing a stop loss or a take profit — used to flag
- * (e.g. immediate) ideas that were generated without exits so the user is
- * reminded to add them.
- *
- * @param {import('../../types.js').Idea} idea
- * @returns {boolean}
- */
-export function needsExitConditions(idea) {
-    if (!idea) return false
-    const hasStop = Array.isArray(idea.stop_conditions) && idea.stop_conditions.length > 0
-    const hasTp   = Array.isArray(idea.tp_conditions)   && idea.tp_conditions.length   > 0
-    return !hasStop || !hasTp
-}
-
-/**
  * The broker's tradable symbol for an idea, but only when it differs from the
  * authored (canonical) asset — i.e. an aliased instrument like NQ → US100. Returns
  * null when the broker trades it under the same name (nothing extra to surface).

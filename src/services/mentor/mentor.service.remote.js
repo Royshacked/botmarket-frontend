@@ -1,8 +1,8 @@
-import { streamAgent, clientTimeContext } from '../agentStream'
 import { makeEntityApi } from '../entityApi'
 import { httpService } from '../http.service'
 
-// Mentor (Pipeline F): an SSE build stream plus CRUD for its artifact — a "setup".
+// Mentor: CRUD for its artifact — a "setup". (The build conversation is a session turn since unified-chat 8e; its SSE
+// stream went with the panel.)
 //
 // Transport is the shared entityApi; what stays here is Mentor's own judgment. Two things differ
 // from the call flow and both are deliberate:
@@ -11,13 +11,10 @@ import { httpService } from '../http.service'
 //   • Generate and Arm are SEPARATE. A generated setup sits at 'waiting' and is NOT monitored;
 //     arming is what starts Talos spending price fetches and assessments on it.
 
-const BASE = 'api/mentor'
-
 const api = makeEntityApi({ base: 'api/setups', changeEvent: 'mentor-setups-changed' })
 export const SETUPS_CHANGED = api.changeEvent
 
 export const mentorService = {
-    sendStream,
     hydrateBlueprint,
     validateSetup,
     shareSetup,
@@ -71,18 +68,6 @@ function shareSetup(id, conversationId, note = null) {
     // Not `api.post`: that broadcasts SETUPS_CHANGED after every write, and a share writes a chat
     // message, not a setup — the lists have nothing to reload.
     return httpService.post(`api/setups/${id}/share`, { conversationId, note })
-}
-
-/**
- * Stream a build turn. `chatState` carries the live worksheet forward:
- *   { active_asset, draft, coverage }
- * The draft is echoed back into the system prompt, so an omitted field survives a thin re-emit.
- */
-async function sendStream(messages, opts = {}) {
-    const { model, accounts = [], mainAccountId = null, chatState, seed } = opts
-    // `seed` is the Argus hand-off, sent on the hand-off turn only. Named explicitly because this
-    // body is an allow-list, not a spread — an unlisted field is dropped without a word.
-    await streamAgent(BASE, { messages, model, accounts, mainAccountId, chatState, seed, ...clientTimeContext() }, opts)
 }
 
 /**

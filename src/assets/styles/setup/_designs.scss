@@ -61,13 +61,12 @@
 }
 
 [data-design="terminal"] {
-    .chat-panel, .portfolio-panel, .news-feed, .trade-ideas-list, .workspace__chart,
-    .scan-list__card, .idea-row, .chat-panel__bubble, .news-feed__item {
+    .portfolio-panel, .news-feed, .trade-ideas-list, .workspace__chart, .scan-list__card, .idea-row, .news-feed__item {
         border-radius: 0 !important;
     }
 
     // Boxed uppercase titles
-    .chat-panel__title, .portfolio-panel__title, .news-feed__title, .brand-title__word, h1, h2 {
+    .portfolio-panel__title, .news-feed__title, .brand-title__word, h1, h2 {
         font-family: var(--font-display);
         text-transform: uppercase;
         letter-spacing: 0.16em;
@@ -75,20 +74,13 @@
     }
 
     // Square hard-edged buttons
-    button, .chat-panel__generate, .chat-panel__market-btn, .chat-tabs__tab, .news-feed__tab {
+    button, .news-feed__tab {
         border-radius: 0 !important;
         text-transform: uppercase;
         letter-spacing: 0.08em;
         font-family: var(--font-mono);
     }
-    .chat-panel__generate, .chat-panel__market-btn {
-        border: 1px solid var(--border-strong);
-    }
 
-    // Chat bubbles — squared, mono, bracketed feel
-    .chat-panel__bubble { font-family: var(--font-mono); font-size: 12.5px; }
-    .chat-panel__bubble--user     { background: var(--accent-deep); border: 1px solid var(--border-strong); }
-    .chat-panel__bubble--assistant{ background: none; border: none; }
 
     // Ideas list + scans + news read as data rows
     .idea-row, .scan-list__cand, .news-feed__item { font-family: var(--font-mono); }
@@ -145,7 +137,7 @@
 }
 
 [data-design="aurora"] {
-    .chat-panel, .portfolio-panel, .news-feed, .trade-ideas-list, .workspace__chart {
+    .portfolio-panel, .news-feed, .trade-ideas-list, .workspace__chart {
         border-radius: var(--radius-lg) !important;
     }
     .scan-list__card, .idea-row, .news-feed__item, .cal-item {
@@ -153,7 +145,7 @@
     }
 
     // Friendly bold display titles
-    .chat-panel__title, .portfolio-panel__title, .news-feed__title, .brand-title__word, h1, h2 {
+    .portfolio-panel__title, .news-feed__title, .brand-title__word, h1, h2 {
         font-family: var(--font-display);
         font-weight: 800;
         letter-spacing: -0.01em;
@@ -161,19 +153,12 @@
     }
 
     // Pill buttons with a soft lift
-    button, .chat-panel__generate, .chat-panel__market-btn, .chat-tabs__tab, .news-feed__tab {
+    button, .news-feed__tab {
         border-radius: 999px !important;
         text-transform: none;
         letter-spacing: 0;
     }
-    .chat-panel__generate, .chat-panel__market-btn {
-        box-shadow: 0 6px 18px -8px var(--accent);
-    }
 
-    // Rounded, roomy chat bubbles
-    .chat-panel__bubble { border-radius: 16px !important; }
-    .chat-panel__bubble--user     { background: var(--accent); color: #fff; }
-    .chat-panel__bubble--assistant{ background: none; }
 
     .idea-row__status-badge { border-radius: 999px !important; }
 }
@@ -230,7 +215,7 @@
 }
 
 [data-design="neon"] {
-    .chat-panel, .portfolio-panel, .news-feed, .trade-ideas-list, .workspace__chart {
+    .portfolio-panel, .news-feed, .trade-ideas-list, .workspace__chart {
         border-radius: var(--radius-lg) !important;
         box-shadow: 0 0 0 1px rgba(0,229,255,0.10), 0 0 22px -10px rgba(255,46,136,0.5);
     }
@@ -239,7 +224,7 @@
     }
 
     // Orbitron display titles with neon glow
-    .chat-panel__title, .portfolio-panel__title, .news-feed__title, .brand-title__word, h1, h2 {
+    .portfolio-panel__title, .news-feed__title, .brand-title__word, h1, h2 {
         font-family: var(--font-display);
         text-transform: uppercase;
         letter-spacing: 0.12em;
@@ -247,20 +232,14 @@
     }
 
     // Glowing outline buttons
-    button, .chat-panel__generate, .chat-panel__market-btn, .chat-tabs__tab, .news-feed__tab {
+    button, .news-feed__tab {
         border-radius: var(--radius) !important;
         text-transform: uppercase;
         letter-spacing: 0.08em;
         font-family: var(--font-display);
         font-size: 0.85em;
     }
-    .chat-panel__generate, .chat-panel__market-btn {
-        border: 1px solid var(--border-strong);
-        box-shadow: 0 0 16px -4px var(--accent);
-    }
 
-    .chat-panel__bubble--user     { background: rgba(255,46,136,0.12); border: 1px solid var(--border-mid); }
-    .chat-panel__bubble--assistant{ background: none; border: none; }
 
     .idea-row__status-badge { box-shadow: 0 0 10px -3px currentColor; }
     .radar-ticker__sym { text-shadow: 0 0 8px var(--glow); }
@@ -318,7 +297,7 @@
 }
 
 [data-design="slate"] {
-    .chat-panel, .portfolio-panel, .news-feed, .trade-ideas-list, .workspace__chart {
+    .portfolio-panel, .news-feed, .trade-ideas-list, .workspace__chart {
         border-radius: var(--radius-lg) !important;
     }
     .scan-list__card, .idea-row, .news-feed__item, .cal-item {
@@ -326,7 +305,7 @@
     }
 
     // Clean uppercase, letter-spaced section titles (ATLAS / AXL RADAR / AXL LISTS)
-    .chat-panel__title, .portfolio-panel__title, .news-feed__title, .brand-title__word, h2 {
+    .portfolio-panel__title, .news-feed__title, .brand-title__word, h2 {
         font-family: var(--font-display);
         text-transform: uppercase;
         letter-spacing: 0.14em;
@@ -334,30 +313,22 @@
     }
 
     // Restrained buttons — small radius, mono labels for the numeric/terminal feel
-    button, .chat-panel__generate, .chat-panel__market-btn, .chat-tabs__tab, .news-feed__tab {
+    button, .news-feed__tab {
         border-radius: var(--radius) !important;
         letter-spacing: 0.04em;
-    }
-    .chat-panel__generate, .chat-panel__market-btn {
-        border: 1px solid var(--border-strong);
     }
 
     // Nav tabs: surround the chosen tab with a full border box (not a bottom
     // underline). A transparent 1px border is reserved on every tab so switching
     // doesn't shift layout; the active tab fills it in with the accent + a tint.
-    .news-feed__tab, .chat-tabs__tab {
+    .news-feed__tab {
         border: 1px solid transparent !important;
         margin-bottom: 0 !important;   // cancel the underline-merge offset
     }
-    .news-feed__tab--active, .chat-tabs__tab--active {
+    .news-feed__tab--active {
         border-color: var(--accent) !important;
         background: color-mix(in srgb, var(--accent) 12%, transparent) !important;
     }
-
-    // Tidy chat bubbles
-    .chat-panel__bubble { border-radius: var(--radius-lg) !important; }
-    .chat-panel__bubble--user     { background: var(--accent-deep); }
-    .chat-panel__bubble--assistant{ background: none; border: none; }
 
     // Monospace numerics in the data surfaces
     .idea-row, .scan-list__cand, .positions-table, .ideas-table { font-family: var(--font-mono); }

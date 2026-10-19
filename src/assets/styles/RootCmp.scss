@@ -48,8 +48,6 @@
     border-top: 1px solid var(--border);
 }
 
-.workspace__chat .chat-panel { border-top-right-radius: 0; border-bottom-right-radius: 0; }
-
 .workspace__ideas {
     grid-area: ideas;
     min-height: 0;
@@ -79,12 +77,6 @@
 [data-design="floor"] .workspace__left  { grid-area: floor-left;  min-height: 0; min-width: 0; }
 [data-design="floor"] .workspace__right { grid-area: floor-right; min-height: 0; min-width: 0; }
 
-// The chat panel is a middle column here, so it keeps square edges on both sides.
-[data-design="floor"] .workspace__chat .chat-panel {
-    border-top-left-radius: 0;
-    border-bottom-left-radius: 0;
-}
-
 // Narrow desktop: the book/calendar column is the first to go — the desks and the chat are
 // what you act in. Below the tablet breakpoint the design falls back to the standard layout.
 @media (max-width: 1439px) {
@@ -95,26 +87,22 @@
     [data-design="floor"] .workspace__left { display: none; }
 }
 
-// ── Chat agent panels (axl hub routes here; breadcrumb bar lives in AxlHub.scss) ──
-// The panel entrance replays every time a panel flips from display:none → flex
-// (picking an agent from the hub), because un-hiding an element restarts its
-// animation. The breadcrumb bar above it fades in on the same beat.
-.chat-tabs__panel {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    animation: chat-panel-enter 0.32s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+// Status-dot pulses shared by the Axl hub (AxlHub.scss) and the Floor (Floor.scss).
+@keyframes cp-idle {
+    0%, 100% { opacity: 0.45; }
+    50%       { opacity: 1;    }
 }
 
-@keyframes chat-panel-enter {
-    from { opacity: 0; transform: translateY(10px) scale(0.992); }
-    to   { opacity: 1; transform: none; }
+@keyframes cp-loading {
+    0%, 100% { opacity: 0.7; transform: scale(1);   }
+    50%       { opacity: 1;   transform: scale(1.4); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .chat-tabs__panel { animation: none; }
+@keyframes cp-building {
+    0%, 100% { opacity: 0.7; transform: scale(1);    box-shadow: 0 0 0 0   transparent;          }
+    50%       { opacity: 1;   transform: scale(1.35); box-shadow: 0 0 5px 1px var(--accent-light); }
 }
+
 
 // ── Tablet: 768px – 1023px ────────────────────────────────────────────────────
 // Already 2-column on desktop; tablet inherits the same layout.
@@ -131,8 +119,8 @@
 // own on desktop. So the workspace collapses to its chat column; the lists column, the Floor's
 // two side columns and the monitor dashboard are all desktop/tablet surfaces here.
 //
-// (This replaced Monitor Mode + the chat FAB/sheet: the sheet opened the ARCHIVED idea chat,
-// which can no longer send — /api/idea is unmounted — so mobile had no live agent at all.)
+// (This replaced Monitor Mode + the chat FAB/sheet, whose sheet opened a chat that could no longer
+// send, so mobile had no live agent at all.)
 @media (max-width: 767px) {
     .workspace {
         grid-template-columns: minmax(0, 1fr);
@@ -159,43 +147,7 @@
     .main-container { height: 100dvh; }
 
     // Full-bleed column — no rounded corners to round against.
-    .workspace__chat .chat-panel,
-    .workspace__chat .axl-hub { border-radius: 0; border-left: none; border-right: none; }
-
-    .chat-agentbar { padding: 6px 8px; gap: 6px; }
-
-    // ── The pipeline path, stacked for a phone ──
-    // The path used to be `display: none` here: the desktop path (up to five step names joined by
-    // rules) is wider than the phone and pushed the controls off the edge. But dropping it meant the
-    // one thing the user had just CHOSEN — which pipeline they're in — was the one thing the header
-    // didn't say, and on mobile this strip is the ONLY chrome above the conversation; there is no
-    // lists column and no Floor to infer it from.
-    //
-    // The fold itself — steps to dots, only the active one named — is no longer here: it is a
-    // container query on the strip in AxlHub.scss, because a laptop's chat column needs it just as
-    // much as a phone does, and a phone's strip is narrow enough to trip it on its own. What is
-    // phone-only is the STACKING: two lines inside the 54px strip, the desk name over its steps,
-    // because at this width even "PORTFOLIO DESK ○ ● SCREEN ○ ○" on one line is a squeeze.
-    .chat-agentbar__pipeline {
-        flex-wrap: wrap;
-        align-content: center;
-        gap: 1px 5px;
-        margin-left: -4px;
-    }
-
-    // Its own line, and quieter than the steps under it — on the phone the desk name is context,
-    // while the step is where you are.
-    .chat-agentbar__pipeline-label {
-        flex-basis: 100%;
-        margin-right: 0;      // the desktop 24px gap held the path off; stacked, there is nothing beside it
-        font-size: 9.5px;
-        line-height: 1.2;
-        color: var(--text-dim);
-    }
-
-    // A step down from the desktop fold's 12px — the phone strip is two lines, and this is the
-    // lower one.
-    .chat-agentbar__pipeline-step.is-active .chat-agentbar__pipeline-text { font-size: 11px; }
+    .workspace__chat .chat-timeline { border-radius: 0; border-left: none; border-right: none; }
 
     // Tighten header on small screens
     .app-header {

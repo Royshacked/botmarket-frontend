@@ -17,8 +17,8 @@ import { useMicInput } from '../customHooks/useMicInput.js'
 //
 // It also renders the chart dock immediately above the input, which is why five panels needed no
 // change to get one: ChatChartDock takes no props (it reads the shared chart store), and "just above
-// the composer, outside the scrolling thread" is exactly where a docked chart belongs. Panels that
-// build their own composer (ChatPanel, AxlChatPanel) render the dock themselves, in the same place.
+// the composer, outside the scrolling thread" is exactly where a docked chart belongs. A panel that
+// builds its own composer (AxlChatPanel) renders the dock itself, in the same place.
 
 export function AgentChatInput({
     chat,

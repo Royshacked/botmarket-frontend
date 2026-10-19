@@ -1,12 +1,11 @@
 import PropTypes from 'prop-types'
 import { HermesBadge } from '../AxlHub/AgentBadges.jsx'
-import { EntityCard, SymbolCell, Pill, StatusBadge, EditButton, DeleteButton, BuildingIcon } from '../EntityCard/EntityCard.jsx'
+import { EntityCard, SymbolCell, Pill, StatusBadge, DeleteButton } from '../EntityCard/EntityCard.jsx'
 import { formatCreatedAt, openCallPopup } from './tradeIdea.utils.js'
-import { isAwaitingConfirm, isLivePosition, isTerminal, isPreEntry } from '../../services/entityStatus.js'
+import { isAwaitingConfirm, isLivePosition, isTerminal } from '../../services/entityStatus.js'
 
 // A Kairos "call" in the Lists surface. Renders into the shared EntityCard; what stays here is the
-// call's own judgment — its status vocabulary, what the summary reads like at each phase, and when
-// the pencil edits vs merely opens.
+// call's own judgment — its status vocabulary and what the summary reads like at each phase.
 
 // A call speaks the ONE shared ladder, so the StatusIcon set already covers every rung — the
 // per-kind remap table this used to carry is gone along with the synonyms that needed it.
@@ -14,15 +13,6 @@ const STATUS_LABEL = {
     waiting: 'not watched', looking: 'watching', hit: 'ready — confirm',
     long: 'in position', short: 'in position', closed: 'closed',
 }
-
-// Pre-entry, the call can be re-worked in the Kairos chat — including when its thesis has gone
-// stale, since invalidation only ever latches PRE-ENTRY, so an invalidated call is pre-entry by
-// definition. Testing the latch as well would be worse than redundant: a closed call that still
-// carries a stale latch would read as editable.
-//
-// Once a position is live or the call is closed the pencil just opens the pop-out — mid-position
-// edits go via management cards, not the chat.
-const isChatEditable = (call) => isPreEntry(call.status)
 
 const fmtR = r => (r == null ? '—' : `${r > 0 ? '+' : ''}${r}R`)
 
@@ -48,11 +38,9 @@ function summary(call) {
     return `${z.side ?? call.bias ?? ''} ${z.lower}–${z.upper}${z.kind ? ` · ${z.kind}` : ''}${more}`.trim()
 }
 
-export function CallCard({ call, busy = false, onAct, onDelete, onEdit, onSymbolClick }) {
-    const isReady     = isAwaitingConfirm(call.status)
-    const isBuilding  = call.status === 'building'   // live draft (not yet saved) — hammer row
-    const canChatEdit = !!onEdit && isChatEditable(call)
-    const hasPending  = isLivePosition(call.status) && !!call.position_state?.pending_action
+export function CallCard({ call, busy = false, onAct, onDelete, onSymbolClick }) {
+    const isReady    = isAwaitingConfirm(call.status)
+    const hasPending = isLivePosition(call.status) && !!call.position_state?.pending_action
 
     const title = (
         <>
@@ -69,8 +57,7 @@ export function CallCard({ call, busy = false, onAct, onDelete, onEdit, onSymbol
         </>
     )
 
-    // Generate lives in the Kairos panel, so a draft offers no actions — just the hammer.
-    const controls = isBuilding ? <BuildingIcon className="idea-row__building-bot" /> : (
+    const controls = (
         <>
             {hasPending && (
                 <span className="idea-card__manage-dot" title={`Kairos suggests: ${call.position_state.pending_action.verdict}`}>⚑</span>
@@ -84,13 +71,6 @@ export function CallCard({ call, busy = false, onAct, onDelete, onEdit, onSymbol
                     onClick={e => { e.stopPropagation(); onAct(call.id, 'confirm') }}
                 >✓</button>
             )}
-            {/* Past entry the pencil is disabled, not a second door to the pop-out — the card
-                itself opens that. A control that greys out and still fires is worse than either. */}
-            <EditButton
-                onClick={() => onEdit?.(call)}
-                title={canChatEdit ? 'Edit in chat' : 'Editing is off once the position is live'}
-                locked={!canChatEdit}
-            />
             {/* A live position is delete-locked server-side (409 reason:'in_position') — the call is
                 what Hermes manages the position THROUGH, so deleting it leaves an open position
                 with nothing running its stop. Same rule as a setup and a holding. */}
@@ -112,8 +92,8 @@ export function CallCard({ call, busy = false, onAct, onDelete, onEdit, onSymbol
             title={title}
             summary={cardSummary}
             controls={controls}
-            onOpen={isBuilding ? undefined : () => openCallPopup(call)}
-            cardTitle={isBuilding ? 'Building…' : 'Open call'}
+            onOpen={() => openCallPopup(call)}
+            cardTitle="Open call"
         />
     )
 }
@@ -123,6 +103,5 @@ CallCard.propTypes = {
     busy:          PropTypes.bool,
     onAct:         PropTypes.func.isRequired,
     onDelete:      PropTypes.func,
-    onEdit:        PropTypes.func,
     onSymbolClick: PropTypes.func,
 }

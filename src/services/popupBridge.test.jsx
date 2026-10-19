@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { askOpener, hasOpener, listenForPopupEvents } from './popupBridge.js'
-import { eventBus, SETUP_INVALIDATION_EDIT, CALL_EXPIRY_EDIT } from './event-bus.service'
+import { eventBus, SETUP_INVALIDATION_EDIT, ENTRY_CONFIRM_OPEN } from './event-bus.service'
 
 // The pop-out → app-window channel. Every test here guards something that would either break the
 // hand-off silently or widen it into a hole: a pop-out is a real window, and `postMessage` is
@@ -42,7 +42,7 @@ describe('askOpener', () => {
     it('refuses to send an event that is not on the allow-list', () => {
         const opener = fakeOpener()
         window.opener = opener
-        expect(askOpener(CALL_EXPIRY_EDIT, { callId: 'c1' })).toBe(false)
+        expect(askOpener(ENTRY_CONFIRM_OPEN, { ideaId: 'i1' })).toBe(false)
         expect(opener.postMessage).not.toHaveBeenCalled()
     })
 
@@ -70,18 +70,18 @@ describe('listenForPopupEvents', () => {
     // without the origin check and the allow-list, the app's whole event vocabulary is open to
     // whatever is on the other end.
     it('ignores another origin, another channel, and an event off the list', () => {
-        const setup = vi.fn(); const call = vi.fn()
+        const setup = vi.fn(); const entry = vi.fn()
         const offA = eventBus.on(SETUP_INVALIDATION_EDIT, setup)
-        const offB = eventBus.on(CALL_EXPIRY_EDIT, call)
+        const offB = eventBus.on(ENTRY_CONFIRM_OPEN, entry)
         stop = listenForPopupEvents()
 
         deliver(message(SETUP_INVALIDATION_EDIT, { setupId: 'evil' }), 'https://attacker.example')
         deliver({ channel: 'something-else', event: SETUP_INVALIDATION_EDIT, payload: { setupId: 'evil' } })
-        deliver(message(CALL_EXPIRY_EDIT, { callId: 'evil' }))
+        deliver(message(ENTRY_CONFIRM_OPEN, { ideaId: 'evil' }))
         deliver(null)
 
         expect(setup).not.toHaveBeenCalled()
-        expect(call).not.toHaveBeenCalled()
+        expect(entry).not.toHaveBeenCalled()
         offA(); offB()
     })
 

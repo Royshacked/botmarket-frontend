@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { strategyService } from '../../services/strategy/strategy.service.remote.js'
 import { threadsService, newThreadId, clearThread } from '../../services/threads/threads.service.remote.js'
@@ -10,7 +10,7 @@ import { RouteOffer } from '../RouteOffer.jsx'
 import { useRouteOffer } from '../../customHooks/useRouteOffer.js'
 import { useSeedTurn } from '../../customHooks/useSeedTurn.js'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
-import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentSummon.jsx'
+import { AgentIntro, AgentTurnTag } from '../AxlHub/AgentGlyphs.jsx'
 import { ChatBubble } from '../ChatBubble.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { waitingLabel } from '../ToolStatusChip/waitingLabel.js'
@@ -71,7 +71,7 @@ function publishedLine(v) {
     return `${v.name}: ${['demand', 'economics', 'cycle'].map(g).filter(Boolean).join(' · ')}`
 }
 
-export function StrategyPanel({ seed = null, onLoadingChange, onPublished, onRoute, pipeline = null, resumeRef = null }) {
+export function StrategyPanel({ seed = null, onPublished, onRoute }) {
     const chat = useChatStream({ threadPhases: true })
     const routeOffer = useRouteOffer()
     const { messages, isLoading } = chat
@@ -87,12 +87,12 @@ export function StrategyPanel({ seed = null, onLoadingChange, onPublished, onRou
     const [published, setPublished]       = useState([])
     const threadIdRef = useRef(newThreadId())
 
-    useEffect(() => { onLoadingChange?.(isLoading) }, [isLoading])   // eslint-disable-line react-hooks/exhaustive-deps
-
-    /** Persist the conversation as a DRAFT THREAD — the shared mechanism every other desk uses. */
+    /**
+     * Persist the conversation as a DRAFT THREAD. Still saved since phase 8e, though nothing reopens one yet: resuming
+     * returns when Pythia moves onto the session (D1).
+     */
     function _saveThread(msgs, phase, drafts) {
         threadsService.saveDraft({
-            pipeline,
             threadId: threadIdRef.current, agent: 'strategy',
             messages: msgs, phase: phase ?? null, subjectType: 'industry_view',
             state: drafts?.length ? { draft: drafts } : null,
@@ -163,17 +163,6 @@ export function StrategyPanel({ seed = null, onLoadingChange, onPublished, onRou
     }
 
     function handleClear() { chat.reset(); routeOffer.clear(); setPendingViews([]); setErrors({}); setPublished([]); clearThread(threadIdRef) }
-
-    async function handleResumeThread(threadId) {
-        const t = await threadsService.getThread(threadId)
-        if (!t) return
-        chat.setMessages(t.messages ?? [])
-        setPendingViews(Array.isArray(t.state?.draft) ? t.state.draft : [])
-        setErrors({})
-        setPublished([])
-        threadIdRef.current = t.threadId
-    }
-    if (resumeRef) resumeRef.current = handleResumeThread
 
     async function handlePublish(view) {
         setPublishing(view.industry)
@@ -249,8 +238,5 @@ export function StrategyPanel({ seed = null, onLoadingChange, onPublished, onRou
 StrategyPanel.propTypes = {
     seed:            PropTypes.object,
     onRoute:         PropTypes.func,
-    onLoadingChange: PropTypes.func,
     onPublished:     PropTypes.func,
-    pipeline:        PropTypes.string,
-    resumeRef:       PropTypes.object,
 }

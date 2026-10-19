@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { actionLine, originLine, actionVerb, executeRoute, confirmCopy, EXECUTE_ERRORS } from './queuedAction.contract.js'
-import { ENTRY_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_CONFIRM_OPEN } from '../../services/event-bus.service'
+import { ENTRY_CONFIRM_OPEN, SETUP_CONFIRM_OPEN } from '../../services/event-bus.service'
 
 // The per-type judgment behind the queued list. The list itself is blind: it renders rows and
 // offers two buttons, and everything that differs between "enter NVDA" and "trim 30% of MU" —
@@ -56,11 +56,14 @@ describe('executeRoute', () => {
             .toEqual({ kind: 'event', event: ENTRY_CONFIRM_OPEN, payload: { ideaId: 'h9' } })
     })
 
-    it('a call and a setup route to their own confirm surfaces', () => {
-        expect(executeRoute(entityRow({ origin: { kind: 'call', entityId: 'c1' } })))
-            .toEqual({ kind: 'event', event: CALL_CONFIRM_OPEN, payload: { callId: 'c1' } })
+    it('a setup routes to its own confirm surface', () => {
         expect(executeRoute(entityRow({ origin: { kind: 'setup', entityId: 's1' } })))
             .toEqual({ kind: 'event', event: SETUP_CONFIRM_OPEN, payload: { setupId: 's1' } })
+    })
+
+    it('a call has no confirm surface left — its desk is archived', () => {
+        expect(executeRoute(entityRow({ origin: { kind: 'call', entityId: 'c1' } })))
+            .toEqual({ kind: 'none', reason: 'archived_desk' })
     })
 
     it('a QUEUED action gets the queue\'s own confirm — there is nothing left to fill in', () => {

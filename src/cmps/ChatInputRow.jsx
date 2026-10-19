@@ -18,7 +18,7 @@ import './ChatInputRow.scss'
  *
  * The cursor comes back here the moment an agent finishes talking — a reply ends,
  * the box is live again, you type. That lives HERE, once, because every agent chat
- * (the six panels via AgentChatInput, plus ChatPanel and Axl, who wire their own)
+ * (the six panels via AgentChatInput, plus Axl, who wires its own)
  * renders this one row: no panel opts in, and no panel can drift. Desktop only: on
  * touch, focus means the on-screen keyboard, which is the user's tap to make.
  *
@@ -78,9 +78,9 @@ export function ChatInputRow({
         if (isTouchPrimary()) return
 
         const el = innerRef.current
-        // A hidden composer must not pull the cursor out of the chat the user is looking at: the
-        // workspace keeps every panel MOUNTED and hides the inactive ones with `display: none`, so
-        // a background agent finishing is a live component with an off-screen textarea.
+        // A hidden composer must not pull the cursor out of the chat the user is looking at: a kept side-pane tab (Pythia,
+        // Aether — SidePane) stays MOUNTED while hidden, so a background agent finishing is a live component with an
+        // off-screen textarea.
         if (!el || el.disabled || !isVisible(el)) return
         // Nor may a reply landing in the background steal a field the user is mid-way through.
         const active = document.activeElement

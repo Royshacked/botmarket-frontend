@@ -33,7 +33,7 @@ export function buildStreamHandlers(cb = {}) {
         // Mentor's progress signal. Unlike `phase` (one number, a step) this is the CUMULATIVE
         // set of dimensions read so far — order-free, because Mentor works by invariants, not steps.
         coverage:  (d) => cb.onCoverage?.(d.coverage),
-        status:    (d) => cb.onStatus?.(d.tool),
+        status:    (d) => cb.onStatus?.(d.tool, d.targets),
         // WHOSE thinking this is: the desk's own model, or the reasoning sidecar it consulted for
         // one bounded decision (backend services/deepThink.service.js). One event with a label
         // rather than two events — a second sidecar is then a new label, not new wiring in five

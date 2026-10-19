@@ -1,0 +1,159 @@
+// ── agent chrome ───────────────────────────────────────────────────────────────
+// What outlived the Axl hub (unified-chat phase 7) and the desk tabs (phase 8e): an agent's introduction and per-turn
+// tag (Pythia's and Aether's panels), and the composer / landing-chip treatment the chat timeline uses.
+
+@keyframes chat-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+// ── the landing composer, and the asks under it ────────────────────────────────
+// The opening screen's composer and its three chips are ONE object: an empty box with three
+// sentences you could put in it. So the pair moves together, and the styling below is what keeps
+// them reading that way.
+//
+// The border states it with a LINE, not a glow. On this screen the composer is already the only lit
+// thing on an otherwise empty panel, so the shared landing drop-glow was decoration on top of an
+// answer nothing was asking; the accent border says the same "this is the subject" in one stroke,
+// and it holds its shape on focus instead of swapping a ring in for the lift.
+.chat-input-row--axl.chat-input-row--empty {
+    // The accent border and the absent glow moved into the shared `--empty` rule, where every desk
+    // now gets them — this screen was the only place they lived, and being the only place is what
+    // made Axl's composer look like a different app's.
+    //
+    // What is still Axl's ALONE is the margin. The shared rule lifts the box off the floor with a
+    // big bottom margin, and here that margin would fall BETWEEN the box and its chips and tear the
+    // pair apart. So it shrinks to a gap and the chips below carry the lift for both. No other desk
+    // puts anything under its composer.
+    margin-bottom: 8px;
+}
+
+// Everything else on this screen is centred — the mark, the greeting, the card grid, the composer —
+// so the shared row's left-aligned default would leave the chips hanging off the panel's edge,
+// reading as a stray control rather than as the box's own offer.
+//
+// They keep WRAPPING (the shared default): the chat column clips its overflow, so forcing one line would
+// CUT a chip off on a narrow column, and a second row is the cheaper failure — the body above
+// already scrolls. The quiet chip styling stays untouched: it is what keeps three sentences from
+// reading as cards eight through ten, and dressing them up here would undo exactly that.
+.suggestion-chips--landing {
+    justify-content: center;
+    padding-bottom: 0;
+    // Inherited from `.chat-input-row--empty`, because the pair is lifted, not the box alone — but
+    // far smaller than the shared 15vh. That lift was up to 150px of nothing held under the box
+    // while the seven cards above it were being pushed off the top of a scrolling body; the space
+    // is worth more as the seam above the composer than as floor clearance.
+    margin-bottom: clamp(10px, 2.5vh, 26px);
+}
+
+// ── per-turn agent attribution (minimal layout) ──
+.agent-turn-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    width: 100%;
+
+    &__icon {
+        display: grid;
+        place-items: center;
+        width: 31px;
+        height: 31px;
+        flex-shrink: 0;
+        color: var(--accent-light);
+        border: 1px solid color-mix(in srgb, var(--accent-light) 40%, transparent);
+        border-radius: 50%;
+        background: color-mix(in srgb, var(--accent-light) 12%, transparent);
+    }
+
+    &__name {
+        font-family: var(--font-mono);
+        font-size: 14.5px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--accent-light);
+    }
+
+    // While a reply is streaming the signature stays put and gently pulses
+    // (the sigil glows, the name breathes) so it reads as "Idea is thinking".
+    &.is-active {
+        .agent-turn-tag__icon { animation: agent-tag-pulse 1.3s ease-in-out infinite; }
+        .agent-turn-tag__name { animation: agent-tag-breathe 1.3s ease-in-out infinite; }
+    }
+}
+
+@keyframes agent-tag-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 transparent; transform: scale(1); }
+    50%      { box-shadow: 0 0 14px -3px var(--accent-light); transform: scale(1.06); }
+}
+
+@keyframes agent-tag-breathe {
+    0%, 100% { opacity: 0.6; }
+    50%      { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .agent-turn-tag.is-active .agent-turn-tag__icon,
+    .agent-turn-tag.is-active .agent-turn-tag__name { animation: none; }
+}
+
+// ── in-chat agent introduction prompt (each panel's fresh/empty state) ──
+// Echoes axl's hub greeting — a hue-tinted sigil, "Hi, I'm <Agent>", the agent's
+// one-liner, then a concrete hint (or starter chips passed as children).
+.agent-intro {
+    --hue: var(--accent-light);
+    align-self: center;
+    margin: auto 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+    padding: 24px 12px 8px;
+    animation: chat-fade-in 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    // hue follows the active theme accent (base --hue above).
+}
+
+.agent-intro__icon {
+    display: grid;
+    place-items: center;
+    width: 54px;
+    height: 54px;
+    margin-bottom: 6px;
+    color: var(--hue);
+}
+
+.agent-intro__greeting {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: 0.01em;
+}
+
+.agent-intro__brand { font-weight: 700; }
+
+.agent-intro__intro {
+    margin: 0;
+    max-width: 330px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+.agent-intro__hint {
+    margin: 6px 0 0;
+    max-width: 330px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .agent-intro { animation: none; }
+
+}
+

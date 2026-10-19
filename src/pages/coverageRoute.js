@@ -15,7 +15,7 @@
  *
  * WHY THIS IS ITS OWN FUNCTION (2026-09-24). 'open' used to share the unresolved-doc fallback, which
  * switches the left column to the Analyst desk as well. That desk is kept mounted behind
- * `display:none` and is not in `chatResetKey` (see deskReset), so it holds whatever was last
+ * `display:none`, so it holds whatever was last
  * researched or revised there. A user who revised CIFR through one card and then pressed a second
  * card for WIX was shown CIFR's revise turn — it read as Prometheus answering the new card with the
  * old name's thesis. The tab switch bought nothing on that path (the book is in the other column)

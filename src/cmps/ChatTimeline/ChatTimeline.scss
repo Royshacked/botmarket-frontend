@@ -1,0 +1,433 @@
+// ── the unified chat (plan phase 7) ────────────────────────────────────────────
+// One timeline, every agent under its own name. The bubbles are the shared ones (ChatBubble →
+// PortfolioPanel.scss); this file is the column, the speaker tags, and the rows only the timeline has
+// (hand-off dividers, decisions, sealed lines, the history drawer).
+.chat-timeline {
+    position: relative;   // the history drawer sits over the column
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-wash);
+    border-bottom: 1px solid var(--border);
+    animation: chat-timeline-enter 0.34s ease both;
+}
+
+@keyframes chat-timeline-enter {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.chat-timeline__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    height: var(--header-h);
+    padding: 0 16px;
+}
+
+.chat-timeline__title {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.chat-timeline__actions { display: inline-flex; gap: 8px; flex-shrink: 0; }
+
+// An admin's desks the chat does not route to (Pythia, Aether) — a thin row under the header (phase 8e).
+.chat-timeline__desks {
+    display: flex;
+    gap: 6px;
+    padding: 0 16px 6px;
+    flex-shrink: 0;
+}
+
+.chat-timeline__desk { padding: 2px 10px; font-size: 11px; }
+
+.chat-timeline__action {
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-wash-surface);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-family: var(--font-mono);
+    cursor: pointer;
+
+    &:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-bright); }
+    &:disabled { opacity: 0.5; cursor: default; }
+}
+
+// The scroll area. `flex-start`, not `center`: a centred column that overflows puts its first child above
+// the scroll edge, out of reach. The empty state's downward push is an auto margin instead.
+.chat-timeline__body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 18px;
+    padding: 18px 24px;
+
+    &--active { align-items: stretch; }
+}
+
+// ── the empty chat: Axl's greeting and opening question ──
+.chat-timeline__empty {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: clamp(10px, 2.5vh, 26px);
+}
+
+.chat-timeline__intro {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+    animation: chat-timeline-rise 0.42s cubic-bezier(0.22, 0.61, 0.36, 1) 0.02s backwards;
+}
+
+@keyframes chat-timeline-rise {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: none; }
+}
+
+.chat-timeline__mark {
+    width: 60px;
+    height: 60px;
+    margin-bottom: 2px;
+    animation: chat-timeline-breathe 6s ease-in-out infinite;
+
+    .chat-timeline__aura { fill: url(#chatTimelineAura); stroke: none; }
+    .chat-timeline__ring { fill: none; stroke: url(#chatTimelineRing); stroke-width: 1.4; opacity: 0.55; }
+    .chat-timeline__bot  { fill: none; stroke: var(--text-subtle); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+}
+
+@keyframes chat-timeline-breathe {
+    0%, 100% { transform: translateY(0)    scale(1);    }
+    50%      { transform: translateY(-2px) scale(1.02); }
+}
+
+.chat-timeline__greeting {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: 0.01em;
+}
+
+.chat-timeline__wordmark {
+    font-family: var(--font-mono);
+    letter-spacing: 0.04em;
+    b { color: var(--accent-light); font-weight: 700; }
+}
+
+.chat-timeline__question {
+    margin: 4px 0 0;
+    color: var(--text-secondary);
+    font-size: var(--chat-text);
+}
+
+// ── the thread ──
+.chat-timeline__thread {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.chat-timeline__row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    &--user { align-items: flex-end; }
+}
+
+.chat-timeline__speaker {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    color: var(--accent-light);
+
+    // Beside the glyph: the agent's name, its role small under it ("Trade agent").
+    &-label {
+        display: inline-flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    &-role {
+        font-size: 10.5px;
+        line-height: 1;
+        color: var(--text-subtle);
+        letter-spacing: 0.02em;
+    }
+
+    &-icon {
+        display: grid;
+        place-items: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        border: 1px solid color-mix(in srgb, currentColor 40%, transparent);
+        background: color-mix(in srgb, currentColor 12%, transparent);
+
+        svg { width: 18px; height: 18px; }
+    }
+
+    &-name {
+        font-family: var(--font-mono);
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+}
+
+// A hand-off: one agent addressing another — a divider with the brief under it.
+.chat-timeline__handoff {
+    margin: 6px 0;
+    padding: 8px 12px;
+    border-left: 2px solid var(--accent);
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
+    border-radius: 0 8px 8px 0;
+
+    &-route {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--accent-light);
+    }
+
+    &-brief {
+        margin: 4px 0 0;
+        font-size: var(--chat-text);
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+}
+
+// A decision the chain waits on.
+.chat-timeline__decision {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-wash-surface);
+
+    &-text { margin: 0; color: var(--text-primary); font-size: var(--chat-text); }
+
+    &-choices { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+}
+
+.chat-timeline__choice {
+    padding: 5px 12px;
+    border: 1px solid var(--accent);
+    border-radius: 14px;
+    background: none;
+    color: var(--accent-bright);
+    font-size: 12.5px;
+    cursor: pointer;
+
+    &:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+    &:disabled { opacity: 0.45; cursor: default; border-color: var(--border); color: var(--text-subtle); }
+}
+
+// A reopened item's context, loaded back into the chat.
+.chat-timeline__sealed {
+    align-self: center;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--text-subtle);
+    padding: 4px 10px;
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+}
+
+// The first line of a session a commit opened: what was saved, and that the user is back with Axl. Above Axl's
+// greeting — it has to read as "done", not as one more chat line, so it is framed and accented.
+.chat-timeline__ended {
+    align-self: center;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px 12px;
+    max-width: min(92%, 560px);
+    margin: 0 auto 18px;
+    padding: 8px 14px;
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+    background: var(--bg-wash-surface);
+    color: var(--text-primary);
+    font-size: var(--chat-meta);
+    text-align: center;
+}
+
+.chat-timeline__row--queued { opacity: 0.7; }
+
+.chat-timeline__link {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--accent-bright);
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+// "Ask Axl instead" — above the input while a desk holds the floor.
+.chat-timeline__address {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 24px 4px;
+
+    &-btn {
+        padding: 3px 10px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: none;
+        color: var(--text-secondary);
+        font-size: 12px;
+        cursor: pointer;
+
+        &:hover, &.is-on { border-color: var(--accent); color: var(--accent-bright); }
+    }
+}
+
+.chat-timeline__note {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--text-subtle);
+
+    &--error { color: var(--loss, #e5484d); }
+}
+
+// ── past sessions ──
+.chat-timeline__history {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-wash);
+    animation: chat-timeline-enter 0.2s ease both;
+
+    &-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: var(--header-h);
+        padding: 0 16px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    &-title { font-family: var(--font-mono); font-size: 13px; color: var(--text-secondary); }
+
+    &-back, &-close {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-size: 13px;
+
+        &:hover { color: var(--accent-bright); }
+    }
+
+    &-close { font-size: 20px; line-height: 1; }
+
+    &-list {
+        list-style: none;
+        margin: 0;
+        padding: 8px 0;
+        overflow-y: auto;
+    }
+
+    // A row: the session (opens it) and its delete beside it.
+    &-row {
+        display: flex;
+        align-items: stretch;
+        border-bottom: 1px solid var(--border);
+    }
+
+    &-item {
+        flex: 1 1 auto;
+        min-width: 0;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 16px;
+        background: none;
+        border: none;
+        color: var(--text-primary);
+        text-align: left;
+        cursor: pointer;
+
+        &:hover { background: var(--bg-wash-surface); }
+    }
+
+    &-delete {
+        flex-shrink: 0;
+        padding: 0 14px;
+        background: none;
+        border: none;
+        color: var(--text-subtle);
+        font-size: 12px;
+        cursor: pointer;
+
+        &:hover, &:focus-visible { color: var(--danger, #c0392b); }
+    }
+
+    &-head &-delete { margin-left: auto; margin-right: 12px; padding: 4px 8px; font-size: 13px; }
+
+    &-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    &-date { flex-shrink: 0; color: var(--text-subtle); font-size: 12px; font-family: var(--font-mono); }
+
+    &-thread {
+        flex: 1;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 16px 24px;
+    }
+
+    // An open session's input — writing picks it back up. The note says so before the first key.
+    &-resume {
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 8px 0 12px;
+        border-top: 1px solid var(--border);
+
+        > .chat-timeline__note { padding: 0 24px; }
+    }
+}
+
+@media (max-width: 767px) {
+    .chat-timeline__body { padding: 14px 16px; }
+    .chat-timeline__history-thread { padding: 12px 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chat-timeline,
+    .chat-timeline__intro,
+    .chat-timeline__mark,
+    .chat-timeline__history { animation: none; }
+}

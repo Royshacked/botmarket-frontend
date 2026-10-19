@@ -1,0 +1,205 @@
+// The side pane (SidePane.jsx). Two placements:
+//   docked — beside the timeline inside the chat column's row; the timeline narrows (flex) to make room;
+//   sheet  — a bottom sheet over the app on a handheld, portalled to <body> (a fixed element under a
+//            backdrop-filter ancestor stops being fixed — see feedback in the frontend docs).
+
+// The chat column's row: the timeline and, when open, the pane beside it.
+.chat-with-pane {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: row;
+
+    > .chat-timeline { min-width: 0; }
+}
+
+.side-pane {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--bg-base);
+    color: var(--text-primary);
+    outline: none;
+
+    &--docked {
+        // The CHAT keeps most of the column (Roy, 2026-10-18 — it was min(560px, 58%), more than half): about a third,
+        // never under a worksheet's readable 280px nor over 400px.
+        flex: 0 0 clamp(280px, 34%, 400px);
+        // A flex item will not shrink below its content's min-content by default, and the worksheet's one-line
+        // header set that past the basis — the pane grew to ~650px and squeezed the chat to 210 (driven, 2026-10-17).
+        min-width: 0;
+        max-width: clamp(280px, 34%, 400px);
+        border-left: 1px solid var(--border);
+        border-top: 1px solid var(--border);
+        box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12);
+        animation: side-pane-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    }
+
+    &--sheet {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: min(88dvh, 100dvh - 48px);
+        // Over the app, UNDER the dialogs (300–320: order confirm, queued action…) a card can raise while it is up, the
+        // social chat (600) and the in-app entity page (700). Phase 8b CR: at 650 a confirm opened behind it.
+        z-index: 250;
+        border-top-left-radius: 14px;
+        border-top-right-radius: 14px;
+        box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.25);
+        animation: side-pane-up 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    }
+
+    &__head {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-wash);
+    }
+
+    // What the pane holds and how it is saved — one quiet line under the tabs.
+    &__hint {
+        flex-shrink: 0;
+        margin: 0;
+        padding: 6px 12px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-wash);
+        color: var(--text-subtle);
+        font-size: 11.5px;
+        line-height: 1.4;
+    }
+
+    &__tabs {
+        flex: 1 1 auto;
+        min-width: 0;
+        display: flex;
+        gap: 4px;
+        overflow-x: auto;
+    }
+
+    &__tab {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: transparent;
+
+        &.is-active {
+            background: var(--bg-base);
+            border-color: var(--accent);
+        }
+    }
+
+    &__tab-btn,
+    &__tab-close,
+    &__pin,
+    &__close {
+        border: none;
+        background: transparent;
+        color: var(--text-secondary);
+        font: inherit;
+        font-size: 13px;
+        cursor: pointer;
+        padding: 4px 8px;
+
+        &:hover { color: var(--text-primary); }
+    }
+
+    &__tab.is-active &__tab-btn { color: var(--text-primary); font-weight: 600; }
+    &__tab-close { padding: 4px 6px 4px 0; font-size: 15px; line-height: 1; }
+
+    &__pin {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 12px;
+
+        &.is-on { color: var(--accent); border-color: var(--accent); }
+    }
+
+    &__body {
+        flex: 1 1 auto;
+        min-height: 0;
+        min-width: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+}
+
+// A kept surface's host node and the slot it moves into (SidePane, KeptSlot): a desk with its own chat fills the pane,
+// its messages scrolling inside it rather than the pane.
+.side-pane__kept-slot,
+.side-pane__kept {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+
+    > .portfolio-panel { flex: 1 1 auto; min-height: 0; }
+}
+
+// ── A desk's surface in the pane: the shell, the lead line and the note, once (phase 8d CR) ──
+// Every surface root carries `desk-surface` beside its own class; what is particular to a desk stays in its own sheet.
+.desk-surface {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    min-height: 0;
+
+    // In the pane the surface GROWS and the pane scrolls (phase 8c CR): the shared portfolio-panel shell is a desk's
+    // frame — `height: 100%; overflow: hidden` — and clipped a long surface. It also FILLS a tall pane (grow 1, never
+    // shrink), so the bar below can sit on the pane's bottom edge when the surface is short.
+    &.portfolio-panel { height: auto; overflow: visible; flex: 1 0 auto; }
+
+    // THE BAR — a surface's presses (Generate / Update / Accept / Later…), pinned to the pane's bottom (Roy, 2026-10-18):
+    // pushed down when the surface is short (margin-top: auto), stuck to the pane's bottom edge while a long one scrolls
+    // under it. The pane's body is the scroller (.side-pane__body); `bottom: -12px` covers the surface's own padding so
+    // nothing shows through below it. Two classes deep: `.portfolio-panel__action-bubble` (the same element) sets a
+    // background and padding at one class, and bundle order must not decide which wins.
+    & &__bar {
+        margin-top: auto;
+        position: sticky;
+        bottom: -12px;
+        z-index: 1;
+        padding-block: 10px 12px;
+        background: var(--bg-base);
+        border-top: 1px solid var(--border);
+    }
+
+    &__lead {
+        margin: 4px 0 0;
+        font-size: 14px;
+        color: var(--text-secondary);
+    }
+
+    &__note {
+        margin: 0;
+        padding: 8px 10px;
+        border-radius: 6px;
+        font-size: 13px;
+        border: 1px solid var(--border);
+
+        &--error { color: var(--danger, #c0392b); border-color: currentColor; }
+        &--done  { color: var(--text-secondary); background: var(--bg-wash); }
+    }
+}
+
+@keyframes side-pane-in {
+    from { transform: translateX(16px); opacity: 0; }
+    to   { transform: none; opacity: 1; }
+}
+
+@keyframes side-pane-up {
+    from { transform: translateY(24px); opacity: 0; }
+    to   { transform: none; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .side-pane--docked, .side-pane--sheet { animation: none; }
+}

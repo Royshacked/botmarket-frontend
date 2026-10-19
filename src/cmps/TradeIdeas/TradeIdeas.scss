@@ -218,8 +218,6 @@
         .idea-row__type,
         .idea-row__notes { opacity: 0.7; }
 
-        .idea-row__building-bot { color: var(--building-text); }
-
         td { border-bottom: none; }
     }
 
@@ -876,8 +874,8 @@ $sym-status-colors: (
 }
 
 // Expanded portfolio children render like normal trade-idea rows (status-based
-// background, left-aligned columns, same first-column padding) — only the edit
-// pencil is left out (onEdit is not passed) so the inner list matches the Ideas list.
+// background, left-aligned columns, same first-column padding) so the inner list matches
+// the Ideas list.
 
 // ── Multi-broker fork: one group row, expandable to per-broker child rows ───────
 

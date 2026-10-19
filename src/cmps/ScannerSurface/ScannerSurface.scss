@@ -1,0 +1,17 @@
+// Argus's surface in the side pane (ScannerSurface.jsx). The list, the lens and the angle chips keep their
+// scanner-panel__* styles (ScannerPanel.scss, and the shared portfolio-panel__* bubbles — renamed in phase 10); the
+// shell, the lead and the note are the pane's (`.desk-surface`, SidePane.scss).
+
+.scanner-surface {
+    // A name on the list is a button now (it opens the chart) — drawn as the name it was: the button's own chrome and
+    // face go (the face is the row's), the colour stays the list's (portfolio-panel__build-summary-asset).
+    &__ticker {
+        padding: 0;
+        border: none;
+        background: none;
+        font: inherit;
+        cursor: pointer;
+
+        &:hover { text-decoration: underline; }
+    }
+}

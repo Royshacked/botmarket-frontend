@@ -1,6 +1,6 @@
 import { eventBus, SHOW_MSG } from '../services/event-bus.service'
 import { useState, useEffect, useRef } from 'react'
-import { BotAvatarGlyph } from './AxlHub/AgentSummon'
+import { BotAvatarGlyph } from './AxlHub/AgentGlyphs.jsx'
 
 // Rich body for an incoming social-chat message (`msg.preview`, built by chatPreviewParts):
 // the sender's avatar — the agent's own tinted sigil for a bot, an initial disc for a human —

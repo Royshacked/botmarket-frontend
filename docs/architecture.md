@@ -5,6 +5,12 @@ React + Vite, one page. The backend owns every rule about what an entity is and 
 own architecture is about **one thing: many doorways into a few desks, without a second copy of any
 mechanism.** Written 2026-09-19 from the code and its comments.
 
+> **Status (2026-10-17, unified chat phase 8e).** The chat column is now ONE conversation — the session timeline — with
+> each desk's work in the side pane beside it; the desk tabs, the agent bar, the pipeline conveyor and the desk panels
+> described in "The page", "A desk panel" and "Doorways" below are gone (Pythia's and Aether's panels remain, as kept
+> pane tabs). What replaced them is "The drawer shell and the side pane" further down, and the record is
+> `../botmarket-backend/docs/design/unified-chat-plan.md` §10. Those older sections are rewritten in phase 10 (docs).
+
 ## The page
 
 `pages/MainPage.jsx` is the conductor — ~3,300 lines, 38 `useState`s, and that is the honest shape:
@@ -185,8 +191,8 @@ lists column, at 10–12.5px, in a column 27% wide. They open in `cmps/DetailPan
   `aether:<run>|<ticker>`, `industry:<code>`, `assessment:<id>`, `theme:<id>`, `calendar`); opening one closes
   the other. A panel closes with its row (desk closed, event collapsed, tab left), counted per id so a
   StrictMode remount or a re-keyed row does not shut it. A hand-off INTO the chat closes it too: an
-  `activeTab` change, `seedMentorChat`, and coverage's Edit, because the desk the user was sent to
-  would otherwise open underneath the panel.
+  `activeTab` change, `seedMentorChat`, coverage's Edit and every `openDesk` (the side pane, below),
+  because the desk the user was sent to would otherwise open underneath the panel.
 - **The shell is shared, the content is not.** Header (kicker = the desk, title, the row's chips as
   `meta`), close, Esc, focus in and back, scroll, the reading size for the lists' own `floor-detail`
   / `industry-view__detail` markup, and the header's `actions` slot, which is where features every
@@ -196,6 +202,35 @@ lists column, at 10–12.5px, in a column 27% wide. They open in `cmps/DetailPan
 
 Driven end to end by `../botmarket-backend/scripts/drive-detail-panel.mjs`: both desktop layouts and a
 touch tablet. The Lists column and the Calendar: `../botmarket-backend/scripts/drive-floor-lists.mjs`.
+
+**The drawer shell and the side pane (unified chat, phase 8b — 2026-10-17).** The detail panel's
+mechanics are `cmps/DrawerShell` now, shared with the side pane: Esc closes the TOP open shell only
+(something above it that claims Esc first — the history drawer, the header menu — keeps it), focus in
+and back, the handheld back gesture, portal or in place. `cmps/SidePane` is each desk's WORK beside the
+timeline — the conversation is the timeline's, the surface draws the desk's state on the session
+(`agentState`), never a reply. It follows the floor, pins, keeps a tab per desk; docked in
+`.chat-with-pane` on a desktop (it does not take focus — it often opens on its own), a bottom sheet
+under the dialogs on a handheld. ONE `useSession('main')` on MainPage is shared through
+`context/SessionContext`; a surface presses three ways — a gate or pick is a TURN, a field is a HAND
+EDIT (`session.edit`, naming the revision it was made against), a button is a COMMIT
+(`session.commit`; a press first lets a settling edit land). The press mechanics are one hook,
+`customHooks/useSurfacePress` (the marked accounts, one press at a time, the note, the stale refusal,
+a `before` and an `again` step, and `edit`, which says a refusal); the note line is
+`SidePane/SurfaceNote` and the frame the `.desk-surface` shell (SidePane.scss). What a press MEANS
+stays in each surface: Mentor's `cmps/MentorSurface` (8b), Atlas's `cmps/PortfolioSurface` (8c — the
+review bar, the AVOID ask, the adopt grid), Argus's `cmps/ScannerSurface` and Prometheus's
+`cmps/AnalystSurface` (8d — the lens, the radar cut's Prometheus read handed back as a hand edit,
+the coverage draft). New work onto Argus's table goes through one step on MainPage, `onArgusTable`
+(asked over Argus's work, then a fresh table). The pipeline conveyor is gone: desks hand work on
+through the server's chain. Every surface has Discard for unsaved work (`SidePane/DiscardButton`).
+
+KEPT TABS (8e). Pythia's and Aether's panels — still their own chats — and the order ticket are pane
+tabs that stay MOUNTED while hidden: each renders once, through a portal, into a host node of its
+own, which `KeptSlot` moves into the pane while its tab shows; closing the pane parks them, and only
+a tab's own ✕ ends one. An admin opens Pythia and Aether from a row under the chat's header. The
+contract and the record: `../botmarket-backend/docs/design/unified-chat-plan.md` §10.2–10.6. Driven by
+`../botmarket-backend/scripts/drive-{mentor,portfolio,scanner-analyst}-surface.mjs` and
+`drive-pane-tabs.mjs`.
 
 ## Threads
 

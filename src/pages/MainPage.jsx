@@ -1,27 +1,22 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 
-import { ChatPanel }         from '../cmps/ChatPanel/ChatPanel.jsx'
-import { AxlHub }            from '../cmps/AxlHub/AxlHub.jsx'
+import { ChatTimeline }      from '../cmps/ChatTimeline/ChatTimeline.jsx'
 import { openChart }         from '../services/chartSurface.service.js'
-import { AgentSummon, AxlBotGlyph } from '../cmps/AxlHub/AgentSummon.jsx'
-import { RETURN_MS, DESKS } from '../cmps/AxlHub/agentMeta.jsx'
-import { resolveStepIndex, previousStep } from '../cmps/AxlHub/pipelineNav.js'
-import { scanOrigin, savesToScansList, scanSourceFor, ORIGIN } from '../services/pipeline/scanOrigin.js'
-import { KIND, STATUS, makeArtifact, firstItem } from '../services/pipeline/artifact.js'
-import { planHop, planEntry, producesOne, hasDownstream, findReceiver } from '../services/pipeline/hop.js'
-import { contractFor } from '../services/pipeline/contracts.js'
-import { handoffDoors } from '../services/pipeline/doors.js'
-import { AccountSelector }   from '../cmps/ChatPanel/AccountSelector.jsx'
-import { readStoredModel }   from '../cmps/modelOptions.js'
-import { PortfolioPanel }    from '../cmps/PortfolioPanel/PortfolioPanel.jsx'
-import { confirmAvoid, confirmAvoidAdds, avoidRetry, avoidRefusalRetry } from '../cmps/PortfolioPanel/avoidOk.js'
-import { reviewApplyMessage, queuedAnything } from '../cmps/PortfolioPanel/reviewApply.js'
+import { DESKS } from '../cmps/AxlHub/agentMeta.jsx'
+import { queuedAnything } from '../cmps/PortfolioPanel/reviewApply.js'
 import { QueuedActionDialog } from '../cmps/Floor/QueuedActionDialog.jsx'
 import { executeRoute } from '../cmps/Floor/queuedAction.contract.js'
 import { pendingActionService } from '../services/pendingAction/pendingAction.service.remote.js'
-import { ScannerPanel, RESEARCH_TOP_N }      from '../cmps/ScannerPanel/ScannerPanel.jsx'
-import { MentorPanel }       from '../cmps/MentorPanel/MentorPanel.jsx'
-import { AnalystPanel }      from '../cmps/AnalystPanel/AnalystPanel.jsx'
+import { MentorSurface }     from '../cmps/MentorSurface/MentorSurface.jsx'
+import { PortfolioSurface }  from '../cmps/PortfolioSurface/PortfolioSurface.jsx'
+import { ScannerSurface }    from '../cmps/ScannerSurface/ScannerSurface.jsx'
+import { AnalystSurface }    from '../cmps/AnalystSurface/AnalystSurface.jsx'
+import { handoffTurn, mentorHolding } from '../cmps/MentorSurface/mentorSurface.utils.js'
+import { SidePane }          from '../cmps/SidePane/SidePane.jsx'
+import { openSurface, resetSidePane } from '../cmps/SidePane/sidePane.store.js'
+import { SessionContext }    from '../context/SessionContext.jsx'
+import { useSession }        from '../customHooks/useSession.js'
+import { agentMeta }         from '../cmps/ChatTimeline/timelineRows.js'
 import { StrategyPanel }     from '../cmps/StrategyPanel/StrategyPanel.jsx'
 import { AetherPanel }       from '../cmps/AetherPanel/AetherPanel.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
@@ -31,27 +26,20 @@ import { analystService, COVERAGE_CHANGED, RESEARCH_QUEUE_CHANGED } from '../ser
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
-import { activatePortfolio, isManualIdea, buildOrderPreview, orderTypeLabel, isDeleteLocked, isDeleteConfirmRequired, isPostOrderStatus, brokerSymbolLabel, ideaWorkspace, inWorkspace, planAccountRebind, positionOpenTarget, openIdeaPopup, matchPositionsForIdea, isPortfolioReview } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { activatePortfolio, isManualIdea, buildOrderPreview, orderTypeLabel, isDeleteConfirmRequired, ideaWorkspace, inWorkspace, positionOpenTarget, openIdeaPopup, matchPositionsForIdea, isPortfolioReview } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { TradeTicket } from '../cmps/TradeTicket/TradeTicket.jsx'
 import { apiError } from '../services/http.service.js'
-import { userPromptService } from '../services/userPrompt/userPrompt.service.remote.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
 import { portfolioService }  from '../services/portfolio/portfolio.service.remote.js'
 import { resolveEntity, resolveForEdit } from '../services/entityResolve.js'
-import { useDeskHandoff } from '../customHooks/useDeskHandoff.js'
-import { threadsService, newThreadId } from '../services/threads/threads.service.remote.js'
-import { ThreadHistory }    from '../cmps/ThreadHistory/ThreadHistory.jsx'
-import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, INVALIDATION_EDIT_IDEA, INVALIDATION_CLOSE_TRADE, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_EDIT, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD, SETUP_SHARED_OPEN, ENTITY_DETAIL_OPEN } from '../services/event-bus.service'
+import { showErrorMsg, showSuccessMsg, showUserMsg, eventBus, PORTFOLIO_REVIEW, MANUAL_FILLED, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD, SETUP_SHARED_OPEN, ENTITY_DETAIL_OPEN } from '../services/event-bus.service'
 import { manualService } from '../services/manual/manual.service.remote.js'
-import { adoptService } from '../services/adopt/adopt.service.remote.js'
-import { AdoptBookGrid } from '../cmps/AdoptBook/AdoptBookGrid.jsx'
 import { mentorService } from '../services/mentor/mentor.service.remote.js'
 import { isSetupAwaitingConfirm } from '../cmps/TradeIdeas/setupStatus.js'
 import { pickConfirmIdea, pickConfirmSetup } from '../cmps/TradeIdeas/confirmTarget.js'
 import { redrawAsk } from '../cmps/MentorPanel/redrawAsk.js'
 import { sharedAsk } from '../cmps/MentorPanel/sharedAsk.js'
 import { listenForPopupEvents } from '../services/popupBridge.js'
-import { useChatStream, toChatHistory } from '../customHooks/useChatStream.js'
 import { useCalendarEvents } from '../customHooks/useCalendarEvents.js'
 import { useScans }          from '../customHooks/useScans.js'
 import { useBrokerAccounts } from '../customHooks/useBrokerAccounts.js'
@@ -65,109 +53,10 @@ import { useAetherCandidates } from '../customHooks/useAetherCandidates.js'
 import { aetherService } from '../services/aether/aether.service.remote.js'
 import { deriveIdeaOverlay, deriveSetupOverlay } from '../cmps/TradeIdeas/chartOverlay.js'
 import { useAuth }           from '../context/AuthContext.jsx'
-import { nextResetKeys }     from './deskReset.js'
 import { coverageRoute }     from './coverageRoute.js'
 import { isHandheld }        from '../cmps/EntityCard/entityPopup.js'
 import { DetailPanelSlot }   from '../cmps/DetailPanel/DetailPanel.jsx'
 import { closePanel }        from '../cmps/DetailPanel/detailPanel.store.js'
-
-// Maps activeTab → the step name used in DESKS.steps[] for pipeline highlighting.
-const TAB_TO_STEP = {
-    scanner:    'Argus',
-    kairos:     'Kairos',
-    portfolio:  'Atlas',
-    analyst:    'Prometheus',
-    idea:       'Idea',
-    mentor:     'Mentor',
-    ticket:     'Order ticket',
-}
-
-// Agentbar breadcrumb: plain agent name when no pipeline is active, full
-// pipeline path with the current step highlighted when one is set.
-function PipelineCrumb({ pipeline, activeTab, step = 0 }) {
-    const desk        = pipeline ? DESKS.find(d => d.key === pipeline) : null
-    const currentStep = TAB_TO_STEP[activeTab]
-    // `step` is the tracked position, not a tab match: an agent can appear twice in one pipeline
-    // (Atlas: mandate, then allocate) and the tab alone can't say which visit this is. Confirm it
-    // still agrees with the tab — standing somewhere outside the pipeline lights nothing, which is
-    // truer than lighting the wrong step.
-    const activeIdx   = desk?.steps[step]?.tab === activeTab ? step : -1
-    if (!desk) return (
-        <>
-            <span className="chat-agentbar__crumb" aria-hidden="true">/</span>
-            <span className="chat-agentbar__current">{currentStep ?? activeTab}</span>
-        </>
-    )
-    // `--long` lets the strip fold a five-step path (Portfolio) to dots at a width where a three-step
-    // one still fits in words — the fold is a container query in AxlHub.scss, and CSS can count
-    // neither steps nor pixels of text, so the markup says which of the two schedules applies.
-    const long = desk.steps.length >= 4
-    return (
-        <div className={`chat-agentbar__pipeline${long ? ' chat-agentbar__pipeline--long' : ''}`}>
-            <span className="chat-agentbar__pipeline-label">{desk.label}</span>
-            {desk.steps.map((step, i) => (
-                <span key={step.label} className="chat-agentbar__pipeline-group">
-                    {i > 0 && <span className="chat-agentbar__pipeline-line" aria-hidden="true" />}
-                    <span className={`chat-agentbar__pipeline-step${i === activeIdx ? ' is-active' : ''}`}>
-                        <span className="chat-agentbar__pipeline-text">{step.label}</span>
-                    </span>
-                </span>
-            ))}
-        </div>
-    )
-}
-
-// Chart defaults — restored when a build/edit session ends.
-
-// Chart bubbles are persisted in chat_state (so they re-show on edit) but capped
-// so accumulated base64 doesn't bloat the idea doc. Keeps the most recent charts,
-// dropping the oldest first; non-chart messages are untouched.
-const MAX_PERSISTED_CHARTS = 4
-function _capPersistedCharts(msgs) {
-    let over = msgs.filter(m => m.type === 'chart').length - MAX_PERSISTED_CHARTS
-    if (over <= 0) return msgs
-    return msgs.filter(m => {
-        if (m.type === 'chart' && over > 0) { over--; return false }
-        return true
-    })
-}
-
-// The persisted messages array is display-only (re-shown on edit); the model
-// restores context from analysisState, not this. Cap it to the most recent N so
-// the save/update payload stays small over the wire — mirrors the backend trim.
-const MAX_PERSISTED_MESSAGES = 40
-function _capPersistedMessages(msgs) {
-    if (!Array.isArray(msgs) || msgs.length <= MAX_PERSISTED_MESSAGES) return msgs
-    return msgs.slice(-MAX_PERSISTED_MESSAGES)
-}
-
-// Derive a live "building" idea from chat state — shown in the list but not yet saved
-function deriveBuildingIdea(analysisState) {
-    if (!analysisState) return null
-    const s  = analysisState.structured_state || {}
-    const pt = s.pending_trade || {}
-    if (!s.active_asset) return null   // nothing to show yet
-    return {
-        id:               '__building__',
-        status:           'building',
-        asset:            s.active_asset,
-        asset_class:      pt.asset_class     || null,
-        direction:        pt.direction       || null,
-        type:             pt.type            || null,
-        quantity:         pt.quantity        ?? null,
-        immediate:        pt.immediate       || false,
-        entry_order_type: pt.entry_order_type || null,
-        entry_timeframe:  pt.entry_timeframe || null,
-        stop_timeframe:   pt.stop_timeframe  || null,
-        tp_timeframe:     pt.tp_timeframe    || null,
-        entry_conditions: pt.entry_conditions || [],
-        stop_conditions:  pt.stop_conditions  || [],
-        tp_conditions:    pt.tp_conditions    || [],
-        notes:            pt.notes           || null,
-        conviction:       pt.conviction       || null,
-        invalidation:     pt.invalidation     || null,
-    }
-}
 
 // (Scan candidates now seed the KAIROS chat via handleBuildFromCandidate — the idea-summary/context
 // builders they used were removed with that reroute. See K3, KAIROS_MODES.md.)
@@ -239,109 +128,35 @@ function _moneyShort(v) {
     return `$${n.toFixed(0)}`
 }
 
-// THE DESK ROSTER. One list drives the resume refs and the busy state below; adding a desk is
-// an entry here rather than a useRef, a useState, a branch in _resumeThreadOn and a prop.
-//
-// It exists because the absence of it cost a feature. `portfolioLoading` and `scannerLoading`
-// were declared as `const [, setX]` — the VALUE discarded — so nothing could read them; the
-// other three desks never reported at all. MainPage therefore had no idea any desk was busy,
-// which let ThreadHistory offer a resume mid-turn that the running stream then silently
-// overwrote, and left the agent-bar live dot unable to pulse for the very desks those two
-// setters were added for.
-const DESK_TABS = ['scanner', 'portfolio', 'mentor', 'analyst', 'strategy', 'aether']
+// ── The side pane's tabs (phase 8e, K6) ──
+// Pythia and Aether still run their own chats (they are not on the session yet — D1), and the order ticket is a pad of
+// its own: each is a pane tab that stays MOUNTED while hidden (`keepMounted`, SidePane), so a conversation or a half-typed
+// order survives the pane closing. Admin-only for the two desks — their props are given to admins only.
+function PythiaSurface({ deskProps }) { return deskProps.pythia ? <StrategyPanel {...deskProps.pythia} /> : null }
+PythiaSurface.keepMounted = true
+function AetherSurface({ deskProps }) { return deskProps.aether ? <AetherPanel {...deskProps.aether} /> : null }
+AetherSurface.keepMounted = true
+function TicketSurface({ deskProps }) { return <div className="portfolio-panel">{deskProps.ticketPad}</div> }
+TicketSurface.keepMounted = true
+TicketSurface.paneLabel = 'Order ticket'
+
+
+// The desks whose work is drawn in the side pane, by agent (8b Mentor, 8c Atlas, 8d Argus and Prometheus, 8e the rest).
+const SURFACES = Object.freeze({
+    mentor: MentorSurface, portfolio: PortfolioSurface, scanner: ScannerSurface, analyst: AnalystSurface,
+    strategy: PythiaSurface, aether: AetherSurface, ticket: TicketSurface,
+})
 
 export function MainPage() {
-    const chat = useChatStream()
-    const { messages, setMessages, isLoading, streamStatus, reasoningPulse } = chat
     const { user, isAdmin } = useAuth()
 
-    const [analysisState, setAnalysisState] = useState(null)
-    const [editingIdeaId,     setEditingIdeaId]     = useState(null)
-    const [isInvalidationReview, setIsInvalidationReview] = useState(false)
-    const [activeTab, setActiveTab]             = useState('axl')
-    // Bumped by the daily market-brief card — the hub writes the brief on every change, then clears
-    // it. See the MARKET_BRIEF_OPEN listener for why it counts rather than latches.
+    // Bumped by the daily market-brief card — the chat timeline writes the brief on every change, then clears it. See
+    // the MARKET_BRIEF_OPEN listener for why it counts rather than latches.
     const [briefRequest, setBriefRequest]       = useState(0)
-    const [activePipeline, setActivePipeline]   = useState(null)   // pipeline key from Axl reception
-    const [pipelineStep,   setPipelineStep]     = useState(0)      // index into that desk's steps[] — what "back" walks from
+    // A route Pythia's or Aether's panel offered (its RouteOffer) INTO the other — the panels still open on a seed.
+    const [pythiaSeed, setPythiaSeed] = useState(null)
+    const [aetherSeed, setAetherSeed] = useState(null)
     const [newsTab, setNewsTab]                 = useState('scans')
-
-    // WHAT IS WAITING AT EACH DESK — a seed (an opening turn), an inbox (a delivered artifact) or a
-    // chatRestore (a conversation being reopened), per desk. Was eleven useState declarations spread
-    // through this component with 25 setter call sites between them; the slot names and the setter
-    // names now come from one table, which is what doors.js reads its routing off.
-    //
-    // The names below are unchanged on purpose: every call site, prop and door still says
-    // `mentorSeed` / `setScannerInbox`, so this move is inert by construction.
-    // `clearAll` is deliberately not taken yet: clearing still goes through doors.clear(), which
-    // calls these same setters. Swapping that over is a wiring change, and this step is meant to be
-    // inert.
-    const { desks: deskHandoff, setters: deskSetters, deskProps } = useDeskHandoff()
-    // The slots reach their panels through `deskProps(desk)` at the JSX. Only one is read HERE:
-    // Argus's inbox decides whether this is a single-pick hand-off run, which shapes the desk's
-    // header and its hand-off button long before the panel sees it.
-    const scannerInbox = deskHandoff.scanner.inbox
-    const {
-        setScannerSeed, setScannerInbox, setScannerChatRestore,
-        setAnalystSeed, setAnalystInbox,
-        setMentorSeed,  setMentorInbox,  setMentorChatRestore,
-        setPortfolioSeed, setPortfolioChatRestore,
-        setStrategySeed, setAetherSeed,
-    } = deskSetters
-    const [buildingPortfolio, setBuildingPortfolio] = useState(null)
-    // Streaming state reported up from the portfolio/scanner panels (they own their
-    // own chat stream) so the agent-bar "live" dot can pulse for Atlas/Argus too.
-    // ── Pipeline inboxes ──────────────────────────────────────────────────────
-    // What each desk has been HANDED, as a pipeline artifact (services/pipeline/artifact.js). One
-    // shape per desk instead of a bespoke payload per hop: the conveyor puts an artifact in an
-    // inbox and switches the tab, and the desk decides what to do with it.
-    //
-    // Argus's inbox also marks it as working on someone else's brief — a `scan_request` means
-    // single-pick mode, and either way a list it produces here is not filed in the user's Scans tab
-    // (see scanOrigin). `scannerSeed` is the delivery mechanism for a desk that opens on a
-    // sentence: the conveyor writes the brief the receiving contract composed.
-    // How the conveyor advances: 'manual' waits for the user to send the artifact on (they can read
-    // and keep chatting first), 'auto' hands it straight to the next desk. A gate never
-    // auto-advances in either mode — see planHop.
-    const [pipelineMode,     setPipelineMode]     = useState('manual')
-    // The staged book of an adoption in progress. Its presence puts Atlas in adopt mode and mounts the
-    // confirm grid beside the chat — the conversation gathers the mandate and the reasons, the grid
-    // holds the numbers. Null the rest of the time, which is what makes the mode invisible elsewhere.
-    const [adoptDraft, setAdoptDraft] = useState(null)
-    // A SLEEVE RUN: Atlas routed several sectors at once, Argus screens them back to back, and the
-    // survivors pool until the last one lands. `queue` is what is still to screen; `survivors` is
-    // what has cleared so far. Empty queue + empty survivors = no run in progress.
-    // The sleeve run lives in a REF, not in state. It is accumulated from an async save handler, and
-    // the render-time mirror this used to have (`ref.current = state`, re-run on EVERY render) could
-    // overwrite what that handler had just added — which is how a run that screened three sectors
-    // reached the Analyst carrying only the last one. State holds the one thing the UI needs.
-    // `sectors` keeps each sleeve's names under its own label instead of one flat pile, so the
-    // Analyst can say which sleeve a name is being researched FOR.
-    const sleeveRunRef = useRef({ active: false, queue: [], sectors: [], total: 0, current: null })
-    // What the UI shows about the run: which sleeve of how many, and its label. A run used to be
-    // invisible — three sectors were queued and the only evidence was Argus starting to talk again.
-    const [sleeveRun, setSleeveRun] = useState({ active: false, index: 0, total: 0, label: null })
-    // What the run produced, kept from the Argus hand-off until Prometheus hands back: which sleeve
-    // each queued name belongs to, which sleeves screened EMPTY, and the full queue (so the names
-    // whose coverage the user declined are derivable). Read once by handleSleeveResearched, which
-    // is the only place Atlas hears what did not come back.
-    const sleeveOutcomeRef = useRef({ unfilled: [], bySector: [], queue: [] })
-    const [analystEditCoverage, setAnalystEditCoverage] = useState(null)   // coverage pencil → re-open Prometheus on that name
-    // Editing a saved setup in the Mentor chat — the setup twin of editingCallId + its restore.
-    const [editingSetupId,   setEditingSetupId]   = useState(null)
-
-    // Every door an artifact can be delivered through, and the one way to shut them all. Declared
-    // here, beside the state it owns, because both users of it are far apart: the conveyor fills a
-    // door (_applyHop), and leaving for the hub drops whatever is still in one (handleBackToAxl).
-    // A delivered artifact that outlives its run REPLAYS on the next remount of the desk holding it
-    // — see services/pipeline/doors.js for the run it did that on.
-    const doors = handoffDoors({
-        setScannerInbox, setAnalystInbox, setMentorInbox,
-        setScannerSeed, setPortfolioSeed, setMentorSeed, setAnalystSeed,
-        // Seeded only from a route, never by the conveyor (doors.js leaves them out of its seed
-        // table); listed so `clear` drops them with everything else on the way home.
-        setStrategySeed, setAetherSeed,
-    })
 
     // The Analyst's living coverage book (Radar Coverage tab). Reloads on initiate/retire
     // (COVERAGE_CHANGED); polled so the monitor's status/gap updates surface.
@@ -434,7 +249,8 @@ export function MainPage() {
         setResearchQueueBusyId(id)
         try {
             if (item.status === 'queued') await analystService.startResearch(id)
-            if (item.symbol) handleAxlPick('analyst', { symbol: item.symbol, opening: researchOpening(item), pipeline: 'research' })
+            // Since phase 8e a session turn to Prometheus, its surface beside the chat.
+            if (item.symbol) { talkTo('analyst', researchOpening(item)); openDesk('analyst') }
         } catch (err) { console.error('[researchQueue] start', err) }
         finally { setResearchQueueBusyId(null) }
     }
@@ -504,10 +320,15 @@ export function MainPage() {
     // tab, missed the list, bailed silently, and left the user on a clean desk being asked to revise
     // a thesis that was nowhere in sight. The symbol stays as a fallback key for the panel; the doc
     // is what it should actually use.
+    //
+    // Since phase 8d the thesis reopens IN THE SESSION (POST /sessions/:id/edit — admin-only, the coverage routes' own
+    // gate): Prometheus's state is the doc, its surface comes up, and it opens on the revise turn.
     function handleEditCoverage(cov) {
-        if (!cov?.symbol) return
-        setActiveTab('analyst')
-        setAnalystEditCoverage({ doc: cov, symbol: cov.symbol, key: `${cov.id}-${Date.now()}` })
+        if (!cov?.id) return
+        editEntity('coverage', cov.id, {
+            name: cov.symbol ?? null,
+            ask:  `Revise our coverage on ${cov.symbol}. What has changed since the last view, and does the thesis still hold?`,
+        })
     }
 
     // The Calls-tab pencil (handleEditCall) and its exit (handleCallEditDone) lived here. Kairos
@@ -517,86 +338,7 @@ export function MainPage() {
     const [setupConfirmId, setSetupConfirmId] = useState(null) // Mentor setup showing the OrderConfirmDialog
     const [placingOrders, setPlacingOrders] = useState(false)
     const [pendingDeleteIdea, setPendingDeleteIdea] = useState(null)
-    const [pendingRebalance,  setPendingRebalance]  = useState(null)
-    const [applyingRebalance, setApplyingRebalance] = useState(false)
     const [deletingIdea, setDeletingIdea] = useState(false)
-    const [returningToAxl, setReturningToAxl] = useState(false)
-    // The desk Axl HANDED them to, remembered across the walk — `{ key, desk }`, consumed by the hub.
-    // It has to live here rather than in the hub because the hub is what the walk unmounts: the whole
-    // point is to be holding this when it comes back. Null for a desk the user opened from its own
-    // card, which left no sentence of Axl's to close.
-    const [axlReturn, setAxlReturn] = useState(null)
-    // Bumped each time we head home to axl so the Atlas/Argus panels remount fresh
-    // — going back to axl and re-entering an agent always starts a new chat.
-    //
-    // PER DESK, because a desk MID-TURN must not be remounted. Walking away is not stopping: the
-    // server no longer reads a closed socket as an abort (api/_shared/sse.util.js), so the turn goes
-    // on running and the answer arrives at a panel that is still there to receive it. Remounting on
-    // the way home threw exactly that away — the fetch survived, the component holding its reply did
-    // not, so Argus and Atlas alone lost the answer to a turn the user had already paid for. The
-    // three desks that were never keyed here have always streamed in the background; this is those
-    // two catching up, not a new promise.
-    const [chatResetKey, setChatResetKey] = useState({ scanner: 0, portfolio: 0 })
-    // Bumped to remount ARGUS ALONE. Every hand-off that seeds it (Kairos discovery, Atlas sourcing)
-    // wants a clean panel — but the desk that SENT them there has to keep its conversation, or
-    // stepping back lands on a blank chat. Folded into chatResetKey, routing a sleeve to Argus wiped
-    // the Atlas mandate that authored the request.
-    const [scannerResetKey, setScannerResetKey] = useState(0)
-    const returnTimerRef = useRef(null)
-    // Which desk the hub last HANDED them to, if it was a hand-off and not a card click. A ref, not
-    // state: nothing renders from it, and it is written during a tab switch that already re-renders
-    // everything. Read and cleared once, on the way home.
-    const axlHandOffRef = useRef(null)
-    // Monotonic across the whole session, which a counter derived from the state could not be: the
-    // request is cleared on consumption, so anything reading the previous value would restart at 1
-    // and the hub would mistake the next trip for the one it already closed.
-    const axlReturnSeqRef = useRef(0)
-    const latestMessagesRef = useRef([])
-    const ideaThreadIdRef   = useRef(newThreadId())   // idea construction draft thread
-    // Each desk panel publishes its "resume this thread" fn here. ONE map rather than one ref
-    // per desk: the refs were identical in every respect except which desk they belonged to, and
-    // every one of them also needed its own branch in _resumeThreadOn below. Adding a desk is now
-    // a key, not a declaration plus a branch — and a desk whose key is missing degrades to the
-    // idea-thread fallback instead of silently doing nothing.
-    const resumeRefs = useRef(Object.fromEntries(DESK_TABS.map(t => [t, { current: null }])))
-
-    // Which desks are mid-turn. STATE, not a ref: it drives what the UI lets you do. Memoised
-    // setters so a panel's onLoadingChange prop keeps a stable identity across renders, and the
-    // no-op guard stops a panel re-reporting the same value from re-rendering the page.
-    const [deskBusy, setDeskBusy] = useState({})
-    // Read inside the walk-home timeout, which runs RETURN_MS after the click and would otherwise
-    // close over whatever was busy when the arrow was pressed.
-    const deskBusyRef = useRef({})
-    deskBusyRef.current = deskBusy
-    // WHICH DESK a running turn belongs to, captured when it starts — because by the time anything
-    // asks, the user is at the hub and `activePipeline` has been cleared. Same field the saved
-    // thread carries (`pipeline`), so a live turn and a left-behind draft are read the same way.
-    const livePipelines = useRef({})
-    const activePipelineRef = useRef(null)
-    activePipelineRef.current = activePipeline
-    const deskLoadingSetters = useMemo(() => Object.fromEntries(DESK_TABS.map(tab => [tab,
-        (is) => setDeskBusy(prev => {
-            if (Boolean(prev[tab]) === Boolean(is)) return prev
-            if (is) livePipelines.current[tab] = activePipelineRef.current
-            return { ...prev, [tab]: Boolean(is) }
-        }),
-    ])), [])
-    /**
-     * TURNS RUNNING RIGHT NOW, shaped as the hub already reads work: `{ agent, pipeline }` — the
-     * same two fields a saved draft carries, so `deskOfThread` files a live turn on exactly the desk
-     * it would file the draft it is about to become. No second mapping, and no chance of the two
-     * disagreeing about which route to mark.
-     *
-     * The hub needs this because a turn in flight has NO draft yet — persistence happens when the
-     * reply lands. Walking away mid-answer therefore left every route silent about the one desk that
-     * was actually working, which is the thing the user went to the hub to see.
-     */
-    const liveWork = useMemo(
-        () => DESK_TABS.filter(tab => deskBusy[tab])
-            .map(tab => ({ agent: tab, pipeline: livePipelines.current[tab] ?? null, live: true })),
-        [deskBusy],
-    )
-
     const { setups, setupsLoading, refreshSetups } = useSetups()
     const [setupBusyId, setSetupBusyId] = useState(null)
 
@@ -619,143 +361,165 @@ export function MainPage() {
     // for a call. Mentor persists `chat_state` (messages + draft + coverage) on Generate and on
     // every edit turn, so the conversation reopens where it left off.
     //
-    // The fallback draft matters more here than it does for a call: a setup saved before chat_state
-    // was carried has no messages to restore, and without a worksheet the panel would open on an
-    // empty chat that quietly loses the zones. Rebuilt from the doc, the user edits a real setup —
-    // they just don't get the reasoning that produced it.
-    // `ask`, when given, is the turn the desk opens ON — see MentorPanel's restore effect. The
+    // A setup saved before chat_state was carried has no conversation to restore: the server rebuilds
+    // Mentor's draft from the document (mentorStateFromEntity), so the user still edits a real setup.
+    // `ask`, when given, is the turn the desk opens ON. The
     // pencil passes none (nothing has happened; the user is the one with something to say); the
     // re-draw card passes Talos's reason, which is the whole difference between the two doorways.
-    function handleEditSetup(setup, { ask = null } = {}) {
-        const draft = setup.chat_state?.draft ?? {
-            asset:       setup.asset,
-            asset_class: setup.asset_class ?? null,
-            direction:   setup.direction   ?? null,
-            type:        setup.type        ?? null,
-            trade_mode:  setup.trade_mode  ?? null,
-            timeframe:   setup.timeframe   ?? null,
-            ladder:      setup.ladder      ?? [],
-            thesis:      setup.thesis      ?? null,
-            watch:       setup.watch       ?? [],
-            entry_legs: setup.entry_legs ?? [],
-            stop_legs:  setup.stop_legs  ?? [],
-            target_legs:    setup.target_legs    ?? [],
-            quantity:    setup.quantity    ?? null,
-            rr:          setup.rr          ?? null,
-            conviction:  setup.conviction  ?? null,
-            active_from: setup.active_from ?? null,
-            valid_until: setup.valid_until ?? null,
-        }
-        setMentorChatRestore({
-            key:      `${setup.id}-${Date.now()}`,
-            setup:    draft,
-            messages: setup.chat_state?.messages ?? [],
-            coverage: setup.chat_state?.coverage ?? [],
-            ask,
+    //
+    // Since phase 8b the setup reopens IN THE SESSION: the server puts Mentor's state back from the document and its
+    // sealed conversation (seal.openForEdit), Mentor takes the floor, and its surface comes up in the side pane.
+    async function handleEditSetup(setup, { ask = null } = {}) {
+        const accountIds = Array.isArray(setup.accounts) ? setup.accounts : []
+        await editEntity('setup', setup.id, {
+            name: setup.asset ? `${setup.asset} setup` : null, ask,
+            // The ask goes out with the accounts restored below — that state is not readable yet.
+            accounts: availableAccounts.filter(a => accountIds.includes(a.id)), mainAccountId: setup.mainAccountId ?? null,
+            // ONLY ONCE IT REOPENED (phase 8b CR): a "no" to the busy question keeps the user's own build, and it must
+            // keep its workspace and accounts with it. The venue is re-bound on Update from the MARKED accounts, so
+            // restore the ones this setup was generated against — otherwise an edit could silently re-bind it to
+            // another broker. Standing in the setup's own workspace first is what makes those accounts LISTABLE;
+            // without it the selector holds ids it cannot show and the re-bind resolves to nothing.
+            onOpened: () => {
+                alignWorkspaceTo(setup)
+                setSelectedAccounts(accountIds)
+                setMainAccountId(setup.mainAccountId ?? null)
+                if (setup.asset) openChart({ ticker: setup.asset, source: 'mentor' })
+            },
         })
-        setEditingSetupId(setup.id)
-        // The venue is re-bound on Update from the MARKED accounts, so restore the ones this setup
-        // was generated against — otherwise an edit could silently re-bind it to another broker.
-        // Standing in the setup's own workspace first is what makes those accounts LISTABLE; without
-        // it the selector holds ids it cannot show and the re-bind resolves to nothing.
-        alignWorkspaceTo(setup)
-        setSelectedAccounts(Array.isArray(setup.accounts) ? setup.accounts : [])
-        setMainAccountId(setup.mainAccountId ?? null)
-        if (setup.asset) openChart({ ticker: setup.asset, source: 'mentor' })
-        setActiveTab('mentor')
     }
-    function handleSetupEditDone() {
-        setEditingSetupId(null)
-        setMentorChatRestore(null)
-        handleBackToAxl()   // setup updated / edit cancelled — return to the axl hub
-    }
-    // Ids of ideas BORN from a "Buy Market" click (created solely to carry the immediate
-    // order). If their placement fails outright we roll them back out of existence rather
-    // than strand a phantom 'hit' idea on "Update idea". Cleared once placed or rolled back.
-    const buyMarketBornRef   = useRef(new Set())
-
-    // Leaving an agent plays a short "heading back to axl" beat (mirrors the summon
-    // on the way in) before the hub returns. The timer is cleared on unmount so it
-    // can't fire into a gone component.
-    useEffect(() => () => clearTimeout(returnTimerRef.current), [])
-    function handleBackToAxl() {
-        if (returningToAxl) return
-        setReturningToAxl(true)
-        returnTimerRef.current = setTimeout(() => {
-            setActiveTab('axl')
-            setActivePipeline(null)
-            setPipelineStep(0)
-            setNewsTab('scans')
-            // Hand the trip back to the hub so Axl can close it. Only when Axl SENT them: the
-            // sentence being closed is Axl's own hand-off, and a desk the user walked into from its
-            // card never produced one — a line about it there would be chatter. A fresh object with
-            // a monotonic key every time, so two trips to the SAME desk are two requests and the hub
-            // can tell them apart.
-            const handedOff = axlHandOffRef.current
-            axlHandOffRef.current = null
-            if (handedOff) setAxlReturn({ key: ++axlReturnSeqRef.current, desk: handedOff })
-            setReturningToAxl(false)
-            // Fresh slate: clear the Idea chat, drop any pending edit-restore, and
-            // remount Atlas/Argus so re-entering any agent from the hub starts a new
-            // conversation.
-            handleCancelBuild()
-            setScannerChatRestore(null)
-            setPortfolioChatRestore(null)
-            // The SETUP twin, which was missing — and its absence was not cosmetic. `handleSetupEditDone`
-            // clears these, but the agentbar's back arrow comes straight here, so leaving a setup edit
-            // that way left `editingSetupId` set with nothing to unset it. Mentor then opened in a mode
-            // the user could not see and could not leave: "Generate setup" is hidden while editing, so a
-            // fresh build offered no button at all, and every turn wrote chat_state onto the stale setup.
-            setEditingSetupId(null)
-            setMentorChatRestore(null)
-            // Drop every hand-off in flight — inboxes and seeds alike. A consumed one left lying
-            // here re-fires on the next remount of the desk that holds it (doors.js).
-            doors.clear()
-            // The radar board is the same hazard in a different shape: it is not a seed, so doors
-            // does not hold it, and left set it would keep Argus in radar mode and stamp the NEXT
-            // list — one the user typed themselves — as a radar cut, retiring names they never saw.
-            setRadarBoard(null)
-            // Fresh slate for the desks with nothing in flight; a desk mid-answer keeps its
-            // conversation until the reply lands (deskReset.js).
-            setChatResetKey(k => nextResetKeys(k, deskBusyRef.current))
-        }, RETURN_MS)
-    }
-
-    /**
-     * The desk FINISHED — its artifact exists — as opposed to being walked away from.
-     *
-     * Both end at the hub, which is why this is not folded into handleBackToAxl: the arrow beside the
-     * crumb means "I'll come back to this", and the drafts it leaves behind are the entire point of
-     * resume. Finishing is the opposite claim, and the conversations that fed the run are spent.
-     *
-     * Only the SCAFFOLDING goes. The thread that authored the artifact was linked to it (Mentor's
-     * setup, Atlas's book), and it is reached by editing that artifact — which is why the desk can be
-     * cleared without losing the reasoning behind what it produced. Deleting drafts cannot touch it.
-     *
-     * Fire-and-forget: the walk home takes RETURN_MS, and the hub reads /unfinished when it mounts at
-     * the end of it.
-     */
-    function finishPipeline() {
-        if (activePipeline) threadsService.discardPipelineDrafts(activePipeline)
-        handleBackToAxl()
-    }
-
     const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, industries, industriesLoading, industriesError, week, assessments, themes } = useCalendarEvents()
-    const { scans, loading: scansLoading, createScan, updateScan, deleteScan } = useScans()
+    const { scans, loading: scansLoading, loadScans, deleteScan } = useScans()
 
-    // THE EVENTS RADAR'S BOARD, while Argus is cutting it. Its presence is what puts Argus in radar
-    // mode (ScannerPanel sends it on every turn), and `runIds` is what the saved list is stamped
-    // with so tomorrow's board knows which events this cut was shown. Cleared when the cut is over.
-    const [radarBoard, setRadarBoard] = useState(null)
+    // The Events radar's "scan it" is in flight (the board is built server-side). The board itself rides on the session
+    // turn and is kept in ARGUS'S state for the cut (phase 8d) — its runIds stamp the saved list there.
     const [radarBusy,  setRadarBusy]  = useState(false)
     const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
     // The marked accounts as a ref, for the one-shot doorways below that must not re-register on
     // every selection change (SETUP_SHARED_OPEN reads it to ask readiness the right question).
+    const timelineAccounts = useMemo(
+        () => availableAccounts.filter(a => selectedAccounts.includes(a.id)),
+        [availableAccounts, selectedAccounts],
+    )
     const selectedAccountsRef = useRef(selectedAccounts)
     useEffect(() => { selectedAccountsRef.current = selectedAccounts }, [selectedAccounts])
+
+    // ── The live session, shared (phase 8b) ──
+    // ONE useSession for the main chat: the timeline draws it, the side pane's surfaces press it, and the doorways
+    // below speak through it. Refs for the doorways registered once (the event-bus listeners).
+    const mainSession = useSession('main')
+    // The pane's tabs are a module store: a parked Pythia tab must not survive into the next user's session (8e CR).
+    useEffect(() => { resetSidePane() }, [user?._id])
+    const mainSessionRef = useRef(mainSession)
+    mainSessionRef.current = mainSession
+    const deskAccountsRef = useRef({ accounts: timelineAccounts, mainAccountId })
+    deskAccountsRef.current = { accounts: timelineAccounts, mainAccountId }
+    // What a surface needs to mark and read the accounts — Mentor's Generate binds to them.
+    const paneDeskProps = useMemo(
+        () => ({ availableAccounts, selectedAccounts, accounts: timelineAccounts, setSelectedAccounts, mainAccountId, setMainAccountId }),
+        [availableAccounts, selectedAccounts, timelineAccounts, setSelectedAccounts, mainAccountId, setMainAccountId],
+    )
+
+    /** A turn to a desk, with the marked accounts — what a doorway that opens a desk ON a sentence sends. */
+    function talkTo(agent, text, extra = {}) {
+        const { accounts, mainAccountId: mainId } = deskAccountsRef.current
+        return mainSessionRef.current.send(text, { agent, accounts, mainAccountId: mainId, ...extra })
+    }
+
+    /** Show a desk's surface beside the chat (the chat column is the timeline's while it is open). */
+    function openDesk(agent) {
+        // The desk the user was sent to must not open underneath the thing they sent themselves from (8b CR).
+        closePanel()
+        openSurface(agent)
+    }
+
+    /**
+     * Reopen a saved item at the desk that owns it, in the session (backend POST /sessions/:id/edit). A desk holding
+     * other unsaved work answers busy: the user is asked, and a yes repeats it with `force`. `ask` is the turn the
+     * desk opens ON (a card's reason); a pencil passes none.
+     */
+    async function editEntity(kind, id, { name = null, ask = null, reviewMode = false, accounts = null, mainAccountId: mainId, onOpened = null } = {}) {
+        const session = mainSessionRef.current
+        let out = await session.reopen(kind, id, { name, reviewMode })
+        if (!out.ok && out.reason === 'busy') {
+            const brand = agentMeta(out.extra?.agent).brand
+            if (!window.confirm(`${brand} is in the middle of something else. Set it aside and open this?`)) return false
+            out = await session.reopen(kind, id, { name, reviewMode, force: true })
+        }
+        if (!out.ok) { showErrorMsg(out.message); return false }
+        onOpened?.()
+        const agent = out.result?.agent
+        if (agent) openDesk(agent)
+        if (ask && agent) {
+            const marked = accounts ?? deskAccountsRef.current.accounts
+            session.send(ask, { agent, accounts: marked, mainAccountId: mainId !== undefined ? mainId : deskAccountsRef.current.mainAccountId })
+        }
+        return true
+    }
+
+    /**
+     * New work onto ARGUS'S TABLE — a radar cut, a brief from a route or a card (phase 8d CR). Never on top of what Argus
+     * holds: a list being built, a saved list being edited (Update would write the new names over it), a name it is
+     * finding for another desk. Any of those → the user is asked; then the table is cleaned (the lens kept, or the one
+     * given) and the turn goes. → whether it went.
+     */
+    async function onArgusTable(text, { profile = null, extra = {}, what = 'start this' } = {}) {
+        const argus = mainSessionRef.current.agentState?.scanner
+        const held = argus?.editingScanId ? 'editing a saved list'
+            : argus?.pendingScan?.candidates?.length ? `building "${argus.pendingScan.thesis ?? 'a list'}"`
+            : argus?.handoff || argus?.chainId ? 'finding a name for another desk'
+            : null
+        if (held && !window.confirm(`Argus is ${held}. Put it aside and ${what}?`)) return false
+        const lens = profile === 'investing' || profile === 'trading' ? { profile } : {}
+        const clean = await mainSessionRef.current.edit('scanner', { fresh: true, ...lens })
+        if (!clean.ok) { showErrorMsg(clean.message); return false }
+        // The table is already clean — a turn that did not go is said, so the user knows to send it again.
+        if (await talkTo('scanner', text, extra) === false) { showErrorMsg('Argus did not get that — send it again from the chat.'); return false }
+        return true
+    }
     const { workspace, setWorkspace } = useWorkspaceMode(user?._id)
     const { positions, loading: positionsLoading, refresh: refreshPositions, closePosition, closePositions } = usePositions()
     const { ideas, setIdeas, loadIdeas, loading: ideasLoading, handleStatusChange, preEntryPrompt, setPreEntryPrompt } = useTradeIdeas()
+    // The workspace's lists, computed once per change — NOT inline in the JSX. This page re-renders on every session
+    // frame (each streamed token), and a fresh array each time re-ran every effect keyed on it: TradeIdeasList's
+    // pending-reviews read fired per token and tripped the API limiter mid-build (8f drive, 2026-10-18).
+    const workspaceIdeas  = useMemo(() => inWorkspace(ideas, workspace).filter(i => i.status !== 'closed'), [ideas, workspace])
+    const workspaceSetups = useMemo(() => inWorkspace(setups, workspace), [setups, workspace])
+
+    // Atlas's surface reads the books (a book's holdings are ideas with its portfolioId) and hands back what follows a
+    // save or an adoption — on top of the props every surface takes.
+    const surfaceProps = useMemo(
+        () => ({ ...paneDeskProps, ideas, coverage, onSaved: handleDeskSaved, onAdopted: handleBookAdopted, onTicker: (t) => openChart({ ticker: t, source: 'scanner' }) }),
+        [paneDeskProps, ideas, coverage], // eslint-disable-line react-hooks/exhaustive-deps -- the two handlers are re-read through the memo's next build
+    )
+
+    // A press on a surface saved something: the page re-reads what it changed. Atlas: the book, and the queued list
+    // when a change waits for the open (the list is fetched, never pushed — reviewApply.queuedAnything). Argus: the
+    // Scans tab. Prometheus: the coverage book, and the research queue's row for the name (settleResearchQueue).
+    function handleDeskSaved({ agent, result }) {
+        if (agent === 'scanner') { loadScans(); setNewsTab('scans'); return }
+        // (The coverage book itself reloads on COVERAGE_CHANGED, which the commit announces — session.service.remote.)
+        if (agent === 'analyst') { if (result?.coverage) settleResearchQueue(result.coverage); setNewsTab('coverage'); return }
+        loadIdeas()
+        if (queuedAnything(result?.rebalance)) loadQueued()
+    }
+    // An adoption landed: straight into the book that now exists — the next thing to do is look at what was adopted.
+    function handleBookAdopted(portfolioId) {
+        Promise.resolve(loadIdeas()).then(() => handleEditPortfolio(portfolioId)).catch(() => {})
+    }
+
+    // The trade-ideas list's "building" row: a plan on Atlas's table, from the session. Only while there IS one (8c CR):
+    // the session outlives a visit, so a book merely opened would otherwise stay "building" after the user walked
+    // away — and an edited book's row shows only in its own workspace.
+    const atlasState = mainSession.agentState?.portfolio ?? null
+    const buildingPortfolio = useMemo(() => {
+        const plan = atlasState?.pendingPlan
+        if (!plan?.ideas?.length) return null
+        const editingId = atlasState?.portfolioId ?? null
+        const legs = editingId ? ideas.filter(i => i.portfolioId === editingId) : []
+        if (legs.length && !inWorkspace(legs, workspace).length) return null
+        return { name: plan.name ?? legs[0]?.portfolioName ?? 'New portfolio', ideasCount: plan.ideas.length, portfolioId: editingId }
+    }, [atlasState, ideas, workspace])
     // NOTE: the chart used to take over this page's lists panel (and the Floor's right column). It
     // now docks at the bottom of the chat that asked for it (cmps/ChatChartDock.jsx) — the same
     // shared store, rendered where the user was actually looking — so this page owns no chart state.
@@ -769,8 +533,8 @@ export function MainPage() {
     const [queuedConfirm, setQueuedConfirm] = useState(null)
     const [queuedBusyId,  setQueuedBusyId]  = useState(null)
     const [queuedError,   setQueuedError]   = useState(null)
-    // Immediate-trade ticket. Whether the pad is SHOWING is just `activeTab === 'ticket'` — the hub
-    // opens it the way it opens a desk, so there is one notion of "what is in the chat column".
+    // Immediate-trade ticket. Whether the pad is SHOWING is the side pane's (its `ticket` tab, kept mounted) — opened
+    // the way a desk is, so there is one notion of "what is beside the chat".
     // Which entity it manages is state, but the entity ITSELF is read from `ideas`
     // (see handleTicketPlace) so a broker fill moves the ticket on without tracking the lifecycle twice.
     const [ticketIdeaId, setTicketIdeaId] = useState(null)
@@ -787,14 +551,6 @@ export function MainPage() {
         if (target?.kind === 'idea') openIdeaPopup(target.idea)
     }
 
-    const buildingIdea = deriveBuildingIdea(analysisState)
-    // While editing, the live draft REPLACES the saved row in place (same id → the existing Axl-list
-    // row turns to 'building') instead of adding a separate row. A brand-new build keeps its
-    // synthetic __building__ id so it renders as a new top row.
-    const buildingIdeaRow = buildingIdea && editingIdeaId ? { ...buildingIdea, id: editingIdeaId } : buildingIdea
-
-    // buildingPortfolio is reported up from PortfolioPanel (assets recommended /
-    // pending plan) → drives the list's "building" portfolio row.
 
     // Build the per-account order list for a hit idea: prefer the server-built plan,
     // fall back to a client preview for legacy ideas saved before plans were persisted.
@@ -831,231 +587,13 @@ export function MainPage() {
     // A setup's plan is authored as zones, so its levels come from its own extractor.
     const confirmSetupLevels = confirmSetup ? deriveSetupOverlay(confirmSetup).levels : []
 
-    // ⚠ ARCHIVED 2026-07-29 — the Idea chat's send path. Its panel only shows while
-    // activeTab === 'idea', which now only handleEditIdea can reach (legacy documents only).
-    // userPromptService posts to the unmounted /api/idea; the catch below is what the user
-    // would see. Kept with the panel rather than deleted — see handleEditIdea.
-    async function handleSend(userPrompt, currentAnalysisState) {
-        const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
-
-        const { signal, handlers } = chat.begin(userPrompt, {
-
-            // (a surfaced chart lands as its own row — useChatStream's shared onChart)
-
-            onDone: (data) => {
-                const reasoning = chat.reasoningRef.current
-                const finalMsg = { role: 'assistant', content: data.reply, analysisState: data.analysisState ?? null, ...(reasoning ? { reasoning } : {}) }
-                // Mirror the final messages into the persisted-state ref now —
-                // so a navigate/generate while the typewriter is still catching
-                // up still saves the complete reply — without changing what's on
-                // screen (the read returns prev unchanged).
-                setMessages(prev => {
-                    const finalMsgs = prev.map((m, i) => (i === prev.length - 1 && m.streaming ? finalMsg : m))
-                    // Keep chart bubbles in the saved chat_state so they re-render
-                    // when the idea is reopened for editing. They stay display-only:
-                    // the trade chat sends analysisState (text), never this messages
-                    // array, so charts never enter the model's context. Cap the count
-                    // so the saved base64 doesn't bloat the idea doc / each progressive
-                    // save (oldest charts are dropped first).
-                    latestMessagesRef.current = _capPersistedCharts(finalMsgs)
-                    // Construction only: persist the building conversation as a draft thread
-                    // HERE, using the authoritative final list. Reading latestMessagesRef right
-                    // after setMessages lags one turn (the updater runs async), which made the
-                    // draft miss the latest phase on resume. Backend enforces the phase floor + TTL.
-                    if (!editingIdeaId && data.analysisState) {
-                        threadsService.saveDraft({
-                            threadId:    ideaThreadIdRef.current,
-                            agent:       'idea',
-                            messages:    _capPersistedMessages(latestMessagesRef.current),
-                            phase:       data.phase ?? null,
-                            subjectType: 'idea',
-                            state:       { analysisState: data.analysisState },
-                        })
-                    }
-                    return prev
-                })
-                // Visually finish typing the backlog, then swap in finalMsg —
-                // no end-of-stream dump. Keep Stop live until the drain ends.
-                chat.finishStreaming(finalMsg)
-                // Save chat state progressively when editing
-                if (editingIdeaId && data.analysisState) {
-                    tradeIdeasService.updateIdea(editingIdeaId, {
-                        chat_state: { messages: _capPersistedMessages(latestMessagesRef.current), analysisState: data.analysisState }
-                    }).catch(err => console.error('[chat_state] save failed', err))
-                }
-                setAnalysisState(data.analysisState ?? null)
-                if (data.ideaSaved) loadIdeas()
-            },
-        })
-
-        try {
-            await userPromptService.sendPromptStream(
-                userPrompt,
-                currentAnalysisState,
-                { signal, ...handlers },
-                ideaAccounts,
-                readStoredModel(),
-                mainAccountId
-            )
-        } catch (err) {
-            console.error(err)
-            chat.freezeError('Error communicating with the server. Please try again.')
-        } finally {
-            chat.endStream()
-        }
-    }
-
-    // Resume a stopped idea reply in place. Sends the conversation as a `messages`
-    // array ending with the partial assistant turn (no userPrompt) so the model
-    // continues that same bubble (Anthropic prefill). recent_messages is rebuilt
-    // client-side from the sent history + the completed bubble, so the model-facing
-    // history doesn't fragment (the backend only sees the continuation as the reply).
-    async function _continueIdea() {
-        if (isLoading) return
-        const last = messages[messages.length - 1]
-        if (!last || last.role !== 'assistant' || !last.stopped) return
-        const base = chat.resumeBase()   // '' = stopped before any token → regenerate
-
-        const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
-
-        // Model-facing history: the text conversation (phase headings + chart image bubbles
-        // excluded), ended with the partial as an assistant prefill when continuing, or at the
-        // user turn when regenerating — the shared finalizeResumeHistory decides which.
-        const history = chat.finalizeResumeHistory(
-            messages
-                .filter(m => (m.role === 'user' || m.role === 'assistant') && !m.streaming && m.type !== 'chart' && typeof m.content === 'string' && m.content.trim())
-                .map(m => ({ role: m.role, content: m.content.trim() })),
-            base,
-        )
-
-        const cont = chat.beginContinue({
-            onError: () => chat.restoreStopped(base),
-            onDone: (data) => {
-                const reasoning = chat.reasoningRef.current
-                const content = base + data.reply
-                // The continued bubble is ONE assistant turn (base + continuation); rebuild
-                // recent_messages from the sent history with that turn completed.
-                const correctedRecent = [...history.slice(0, -1), { role: 'assistant', content }].slice(-6)
-                const finalState = data.analysisState ? { ...data.analysisState, recent_messages: correctedRecent } : null
-                const finalMsg = { role: 'assistant', content, analysisState: finalState, ...(reasoning ? { reasoning } : {}) }
-                setMessages(prev => {
-                    const finalMsgs = prev.map((m, i) => (i === prev.length - 1 && m.streaming ? finalMsg : m))
-                    latestMessagesRef.current = _capPersistedCharts(finalMsgs)
-                    if (!editingIdeaId && finalState) {
-                        threadsService.saveDraft({
-                            threadId:    ideaThreadIdRef.current,
-                            agent:       'idea',
-                            messages:    _capPersistedMessages(latestMessagesRef.current),
-                            phase:       data.phase ?? null,
-                            subjectType: 'idea',
-                            state:       { analysisState: finalState },
-                        })
-                    }
-                    return prev
-                })
-                chat.finishStreaming(finalMsg)
-                if (editingIdeaId && finalState) {
-                    tradeIdeasService.updateIdea(editingIdeaId, {
-                        chat_state: { messages: _capPersistedMessages(latestMessagesRef.current), analysisState: finalState }
-                    }).catch(err => console.error('[chat_state] save failed', err))
-                }
-                setAnalysisState(finalState)
-                if (data.ideaSaved) loadIdeas()
-            },
-        })
-        if (!cont) return   // nothing continuable
-
-        try {
-            await userPromptService.continuePromptStream(
-                history,
-                analysisState,
-                { signal: cont.signal, ...cont.handlers },
-                ideaAccounts,
-                readStoredModel(),
-                mainAccountId
-            )
-        } catch (err) {
-            console.error(err)
-            chat.restoreStopped(base)
-        } finally {
-            chat.endStream()
-        }
-    }
-
-    function handleCancelBuild() {
-        setAnalysisState(null)
-        setMessages([])
-        ideaThreadIdRef.current = newThreadId()   // fresh construction thread; abandoned draft TTL-expires
-        setEditingIdeaId(null)
-        setIsInvalidationReview(false)
-        chat.setPhase(null)
-        latestMessagesRef.current = []
-    }
-
-    // ⚠ ARCHIVED 2026-07-29 — reachable only from a legacy `idea`-kind document, and nothing
-    // builds those any more (Kairos builds calls, Mentor builds setups; the pencil on those
-    // routes to their own chats). Left wired so an old idea still opens rather than breaking the
-    // list, but the chat it opens can no longer send: /api/idea is unmounted.
-    function handleEditIdea(idea, { invalidationReview = false } = {}) {
-        const cs = idea.chat_state
-        // Restore prior chat if available, otherwise seed state from the idea's conditions
-        const restoredState = cs?.analysisState ?? {
-            recent_messages: [],
-            recent_chat_summary: '',
-            structured_state: {
-                active_asset: idea.asset || '',
-                pending_trade: {
-                    direction:        idea.direction        ?? null,
-                    type:             idea.type             ?? null,
-                    asset_class:      idea.asset_class      ?? null,
-                    quantity:         idea.quantity         ?? null,
-                    entry_timeframe:  idea.entry_timeframe  ?? null,
-                    stop_timeframe:   idea.stop_timeframe   ?? null,
-                    tp_timeframe:     idea.tp_timeframe     ?? null,
-                    entry_logic:      idea.entry_logic      ?? 'AND',
-                    entry_conditions: idea.entry_conditions ?? [],
-                    stop_logic:       idea.stop_logic       ?? 'OR',
-                    stop_conditions:  idea.stop_conditions  ?? [],
-                    tp_logic:           idea.tp_logic           ?? 'OR',
-                    tp_conditions:      idea.tp_conditions      ?? [],
-                    additional_entries: (idea.additional_entries ?? []).map(ae => ({
-                        conditions: ae.conditions ?? [],
-                        logic:      ae.logic      ?? 'AND',
-                        quantity:   ae.quantity   ?? null,
-                    })),
-                    notes:            idea.notes            ?? null,
-                    invalidation:     idea.invalidation     ?? null,
-                },
-            },
-        }
-        const restoredMessages = cs?.messages ?? []
-        setMessages(restoredMessages)
-        latestMessagesRef.current = restoredMessages
-        setAnalysisState(restoredState)
-        const editAsset = restoredState.structured_state?.active_asset || idea.asset
-        if (editAsset) openChart({ ticker: editAsset, source: 'idea' })
-        setEditingIdeaId(idea.id)
-        setIsInvalidationReview(invalidationReview)
-        alignWorkspaceTo(idea)
-        setSelectedAccounts(Array.isArray(idea.accounts) ? idea.accounts : [])
-        setMainAccountId(idea.mainAccountId ?? null)
-        // Editing an idea from a list (ideas list / mobile monitor / invalidation alert)
-        // opens the Idea chat — otherwise the restored state stays hidden behind the Axl
-        // hub or another agent's panel.
-        setActiveTab('idea')
-    }
-
     // The card listeners below register once, so they cannot close over state — these are what they
     // read instead. There used to be four more, mirroring the ideas / calls / setups / coverage
     // lists so a card could resolve its subject out of them; the cards now READ their subject by id
     // (resolveEntity), which is both fresher and the same authorization the server already applies.
     // What is left is state with no document behind it to fetch.
-    const activeTabRef = useRef(activeTab)
-    activeTabRef.current = activeTab
     const isAdminRef = useRef(isAdmin)
     isAdminRef.current = isAdmin
-    const positionsRef = useRef(positions)
-    positionsRef.current = positions
     const workspaceRef = useRef(workspace)   // for []-dep event handlers that must read the live workspace
     workspaceRef.current = workspace
 
@@ -1078,48 +616,19 @@ export function MainPage() {
         if (ws && ws !== workspaceRef.current) setWorkspace(ws)
     }
     useEffect(() => {
-        return eventBus.on(INVALIDATION_EDIT_IDEA, async ({ ideaId }) => {
-            const idea = await resolveEntity('idea', ideaId)
-            if (idea) handleEditIdea(idea, { invalidationReview: true })
-        })
-    }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-    // "Close trade" from an in-position invalidation alert. The alert payload only
-    // carries the ideaId, so resolve the open position by the idea's symbol (matching
-    // the broker-symbol alias too, e.g. NQ ↔ US100) and close it at market.
-    useEffect(() => {
-        return eventBus.on(INVALIDATION_CLOSE_TRADE, async ({ ideaId }) => {
-            const idea = await resolveEntity('idea', ideaId)
-            if (!idea) return
-            const ideaSymbols = [idea.asset, brokerSymbolLabel(idea)].filter(Boolean).map(s => String(s).toUpperCase())
-            const pos = positionsRef.current.find(p => p.symbol && ideaSymbols.includes(String(p.symbol).toUpperCase()))
-            if (!pos) { showErrorMsg('No open position found for this idea'); return }
-            try {
-                await closePosition(pos.broker, pos.id, pos.accountId)
-                showSuccessMsg('Position closed')
-            } catch (err) {
-                console.error('[invalidation] close trade failed', err)
-                showErrorMsg('Could not close the position — try again')
-            }
-        })
-    }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-    useEffect(() => {
         return eventBus.on(PORTFOLIO_REVIEW, ({ portfolioId }) => {
             handleEditPortfolio(portfolioId, { reviewMode: true })
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Sleeve-sourced card → back to the build the sleeve was FOR. A book that exists reopens as its
-    // edit; a construction still in a thread reopens that thread on Atlas, the same path the thread
-    // history's resume takes. Plain setActiveTab, like Pythia's review: the desk panels are mounted
-    // behind a display toggle, so the resume lands on a live panel.
+    // Sleeve-sourced card → back to the build the sleeve was FOR. A book that exists reopens as its edit. A construction
+    // still in a pre-session THREAD (a card from before phase 5d — sleeves settle into the session's chain since) has no
+    // way back: the threads drawer went with the panels (phase 8e), so Atlas's surface opens and the user is told.
     useEffect(() => {
         return eventBus.on(RESUME_BUILD, ({ portfolioId = null, threadId = null } = {}) => {
             if (portfolioId) { handleEditPortfolio(portfolioId); return }
-            setActiveTab('portfolio')
-            setActivePipeline('portfolio')
-            if (threadId) _resumeThreadOn('portfolio', threadId)
+            openDesk('portfolio')
+            if (threadId) showUserMsg('That build was started before the chat moved — tell Atlas to pick it up from the research.')
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1160,14 +669,6 @@ export function MainPage() {
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Entry-confirm card "Edit": reopen the triggered idea in its chat to change it (→ building).
-    useEffect(() => {
-        return eventBus.on(ENTRY_CONFIRM_EDIT, async ({ ideaId }) => {
-            const idea = await resolveEntity('idea', ideaId)
-            if (idea) handleEditIdea(idea)
-        })
-    }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
     // Entry-confirm card "Dismiss": park the triggered idea back to 'waiting' (re-armable),
     // same server transition as the workspace hit-card dismiss. Only when the idea is still
     // 'hit' — the card lingers in social chat, so a late dismiss (after the idea already
@@ -1180,11 +681,6 @@ export function MainPage() {
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Kairos call entry-confirm card ("Confirm order") → surface the SAME OrderConfirmDialog the idea
-    // flow uses, driven by the call's Hermes-proposed entry. Switch to the call's workspace first so
-    // The CALL_CONFIRM_OPEN doorway was here — it opened the shared OrderConfirmDialog on a call
-    // awaiting confirm. Archived with Kairos on 2026-08-18; nothing reaches `hit` on a call now.
-
     // The CALL_EXPIRY_EDIT doorway was here. Kairos was archived on 2026-08-18, so an expiry card
     // has no desk to reopen into; historical cards still RENDER (their bubbles are pure), they
     // just no longer offer an edit that would land nowhere. See archive/README.md.
@@ -1196,7 +692,7 @@ export function MainPage() {
 
     // Setup-invalidation card "Re-draw it" → reopen the setup in Mentor's chat AND open the turn.
     //
-    // It shares the pencil's pipeline (chat_state + marked accounts restored, "Update setup" re-arms
+    // It shares the pencil's doorway (the setup reopened in the session, its accounts restored, "Update setup" re-arms
     // Talos) but not its silence. The pencil lands on a restored conversation and waits, which is
     // right when the user chose to edit — and wrong here, where a monitor is the one who raised its
     // hand. It made the card's only button appear to do nothing: the desk opened with the old
@@ -1208,29 +704,29 @@ export function MainPage() {
     // Talos keeps current, so a card opened tomorrow arrives at today's reason, and a setup already
     // re-drawn opens clean instead of on a complaint that no longer holds.
     //
-    // Unresolvable ids fall back to the Mentor tab rather than a dead click — same rule as
+    // Unresolvable ids fall back to Mentor's surface rather than a dead click — same rule as
     // SETUP_CONFIRM_OPEN. A setup deleted since the card was posted is the ordinary case.
     useEffect(() => {
         return eventBus.on(SETUP_INVALIDATION_EDIT, async ({ setupId }) => {
             const setup = await resolveEntity('setup', setupId)
             if (setup) handleEditSetup(setup, { ask: redrawAsk(setup) })
-            else setActiveTab('mentor')
+            else openDesk('mentor')
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
     // Shared-setup card "Open in Mentor" → MY Mentor, on a plan SOMEONE ELSE drew.
     //
-    // Not the pencil's pipeline and not the re-draw card's: there is no document of mine to edit
-    // (no `editingSetupId`), no conversation to restore, and no workspace to align to — the
+    // Not the pencil's doorway and not the re-draw card's: there is no document of mine to edit, no conversation to
+    // restore, and no workspace to align to — the
     // blueprint carries no account, so I stay where I am standing and mark my own. The server
     // hydrates it through the same normalise + readiness the desk uses on every turn, and what
     // comes back is always short of ready by the size: that is the point of the flow, not a
     // failure of it. `problems` is what was sent and did not survive the read — said out loud,
     // because silently dropping two of four levels hands the user a different trade.
     //
-    // `freshThread` tells the panel to mint a new draft thread before restoring, so the plan never
-    // persists over whatever build was open. The ask fires a turn (sharedAsk): Mentor reads the
-    // plan against the tape now, then helps size it.
+    // It goes onto Mentor's table as a FRESH plan (a hand edit, `fresh: true`), never as an edit of whatever build was
+    // open — asked first over work Mentor holds. The ask fires a turn (sharedAsk): Mentor reads the plan against the
+    // tape now, then helps size it.
     //
     // The accounts are read from a ref, not the closure: this doorway is registered once.
     useEffect(() => {
@@ -1249,37 +745,38 @@ export function MainPage() {
             if (problems.some(p => /newer version/i.test(p))) { showErrorMsg(problems[0]); return }
             for (const p of problems) showUserMsg(p)
 
-            setEditingSetupId(null)
-            setMentorChatRestore({
-                key:         `shared-${Date.now()}`,
-                setup,
-                messages:    [],
-                coverage:    [],
-                freshThread: true,
-                ask:         sharedAsk({ blueprint, note, drawnPrice }),
-            })
+            // Someone else's plan goes onto MY Mentor's table as a fresh plan — never as an edit of the setup I may be
+            // editing (the server clears Mentor's markers for it). Work Mentor is holding is not thrown away unasked.
+            // ANY work counts (phase 8b CR) — a generated setup waiting on Arm has no draft, and a fresh plan clears it.
+            const session = mainSessionRef.current
+            const held = mentorHolding(session.agentState?.mentor)
+            if (held && !window.confirm(`Mentor is working on ${held}. Put it aside and open the shared ${setup.asset ?? ''} plan?`)) return
+            const fresh = { draft: setup, fresh: true, accounts: deskAccountsRef.current.accounts }
+            let put = await session.edit('mentor', fresh)
+            // A Mentor turn finishing in between moves the revision: once more on the one the refusal named. The user
+            // already said yes to what was on the table; a turn's next words are not worth a second question.
+            if (!put.ok && put.reason === 'stale_state' && Number.isInteger(put.extra?.rev)) put = await session.edit('mentor', fresh, { rev: put.extra.rev })
+            if (!put.ok) {
+                showErrorMsg(put.reason === 'stale_state' ? 'Mentor is mid-reply — open the shared plan again once it finishes.' : put.message)
+                return
+            }
             if (setup.asset) openChart({ ticker: setup.asset, source: 'mentor' })
-            setActiveTab('mentor')
+            openDesk('mentor')
+            talkTo('mentor', sharedAsk({ blueprint, note, drawnPrice }))
         })
-    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [])
 
     // Market-brief card "Get the brief" → open Axl and have him write it there.
     //
-    // Routing uses the normal leave-the-desk path (return overlay, pipeline cleared, panels reset)
-    // so arriving from a card lands exactly where arriving by the back arrow does — but ONLY from
-    // another tab: run on a user already talking to Axl it would remount the hub and wipe the
-    // conversation they are in, to deliver a brief into the wreckage.
-    //
-    // The counter is what tells the hub to write. A counter and not a flag, because two briefs a
-    // day (a second card after the first was dismissed) must both fire, and because switching to
-    // the tab you are already on changes nothing on its own. The hub clears it once it starts, so
-    // coming back to Axl later doesn't re-deliver a brief the user already read.
+    // The chat is always the timeline (phase 8e), so the brief is asked for where the user already is. The counter is
+    // what tells the timeline to write. A counter and not a flag, because two briefs a day (a second card after the
+    // first was dismissed) must both fire. The timeline clears it once it starts, so a later render doesn't re-deliver
+    // a brief the user already read.
     useEffect(() => {
         return eventBus.on(MARKET_BRIEF_OPEN, () => {
-            if (activeTabRef.current !== 'axl') handleBackToAxl()
             setBriefRequest(n => n + 1)
         })
-    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [])
 
     // Coverage cards → the Analyst. WHICH Prometheus depends on what the card asked for, and the
     // payload has always carried enough to tell: this used to drop it on the floor and open a blank
@@ -1315,9 +812,9 @@ export function MainPage() {
             // other design does not render is inert. A fresh object, so a second press re-opens a
             // desk closed in between (same channel as the forecast and queued-list cards).
             if (go.book) { setNewsTab('coverage'); setDeskRequest({ key: 'forecasts', symbol: cov?.symbol ?? sym }) }
-            if (go.desk) setActiveTab('analyst')
+            if (go.desk) openDesk('analyst')
         })
-    }, [])
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps -- registered once; handleEditCoverage reads the session through its ref
 
     // Sector-view card → the Radar's Forecasts tab. Unlike a coverage verdict there is nothing to
     // revise from here: the house view is a STATE, and the card's job is to put the board in front of
@@ -1344,7 +841,7 @@ export function MainPage() {
             // Confirm that the setup is real and the user's before opening a dialog keyed to it —
             // the same read every other card doorway makes now.
             const setup = setupId ? await resolveEntity('setup', setupId) : null
-            if (!setup) { setActiveTab('mentor'); return }
+            if (!setup) { openDesk('mentor'); return }
             setSetupConfirmId(setupId)
             // The dialog derives from the setups list, so make sure it holds this setup's current
             // state — the market-open sweep can flip a parked setup while the list is 20s behind.
@@ -1392,49 +889,9 @@ export function MainPage() {
         })
     }, [])
 
-    async function handleBuyMarket() {
-        if (!buildingIdea) return
-        const { id: _id, status: _status, ...ideaFields } = buildingIdea
-        const chatState = { messages: _capPersistedMessages(latestMessagesRef.current), analysisState }
-        try {
-            // Editing a still-pending idea and going in at market now: persist the
-            // edits + flip to immediate on the existing idea rather than creating a
-            // duplicate. The backend attaches the order plan and surfaces the
-            // OrderConfirm dialog (orderState 'awaiting_confirm'). Keep the chat open
-            // on the same idea so the user can still add stops/TPs.
-            if (editingIdeaId) {
-                const res = await tradeIdeasService.updateIdea(editingIdeaId, {
-                    ...ideaFields,
-                    immediate:     true,
-                    chat_state:    chatState,
-                    accounts:      selectedAccounts,
-                    mainAccountId,
-                })
-                if (res?.idea) setIdeas(prev => prev.map(i => i.id === editingIdeaId ? res.idea : i))
-                return
-            }
-            const saved = await tradeIdeasService.createIdea({
-                ...ideaFields,
-                immediate:  true,
-                chat_state: chatState,
-                accounts:   selectedAccounts,
-                mainAccountId,
-            })
-            setIdeas(prev => [...saved, ...prev])
-            // Mark these as born-from-buy-market so a failed placement can roll them back
-            // (the edit-branch above flips a PRE-EXISTING idea and must never be deleted).
-            saved.forEach(s => { if (s?.id) buyMarketBornRef.current.add(s.id) })
-            // Keep chat open so user can add stops/TPs; point edit session at the
-            // primary idea (first returned, before any broker-fork children).
-            if (saved[0]?.id) setEditingIdeaId(saved[0].id)
-        } catch (err) {
-            console.error('[tradeIdeas] buy market failed', err)
-        }
-    }
-
     // ── Immediate-trade ticket ────────────────────────────────────────────────
-    // The discretionary order pad. It authors the SAME entity the chat's Buy Market does and
-    // places it through the SAME endpoints — a ticket trade is an idea like any other, so it is
+    // The discretionary order pad. It authors an `idea` and places it through the same
+    // endpoints as every other order — a ticket trade is an idea like any other, so it is
     // monitored, shows in the Floor, reaches the ledger and is visible to the agents. What is
     // dropped is the conversation, not the pipeline.
     //
@@ -1489,7 +946,7 @@ export function MainPage() {
             if (failed.length === saved.length) {
                 // Nothing reached a broker, so the entity is a ghost: an idea sitting at 'hit'
                 // holding no position, which would show in the book as a trade that never was.
-                // Roll it back — the same guard handleBuyMarket keeps for its own born-here ideas.
+                // Roll it back.
                 await Promise.allSettled(saved.map(s => tradeIdeasService.deleteIdea(s.id)))
                 await loadIdeas()
                 throw failed[0].reason ?? new Error('the broker rejected the order')
@@ -1591,87 +1048,6 @@ export function MainPage() {
         setTicketError(null)
     }
 
-    async function handleGenerate() {
-        if (!buildingIdea) {
-            // Nothing to save — if we're editing, leave edit mode and head home to axl
-            // so the user is never stuck (the Update button doubles as "exit edit").
-            if (editingIdeaId) handleBackToAxl()
-            return
-        }
-        // Strip `immediate` here: "Update idea"/"Generate idea" builds a *monitored*
-        // idea. Only handleBuyMarket sends immediate:true (the one path that places a
-        // market order), so the backend never confuses an update for a live entry.
-        const { id: _id, status: _status, immediate: _immediate, ...ideaFields } = buildingIdea
-        const chatState = { messages: _capPersistedMessages(latestMessagesRef.current), analysisState }
-
-        // Don't reset to 'waiting' when editing a live idea (hit/long/short) —
-        // the user is just adding stops/TPs to an already-placed order.
-        const editingIdea    = ideas.find(i => i.id === editingIdeaId)
-        const isPostOrderEdit = !!editingIdea && isPostOrderStatus(editingIdea.status)
-
-        if (editingIdeaId) {
-            try {
-                const res = await tradeIdeasService.updateIdea(editingIdeaId, {
-                    ...ideaFields,
-                    ...(!isPostOrderEdit && { status: 'waiting' }),
-                    chat_state: chatState,
-                    accounts:      selectedAccounts,
-                    mainAccountId: mainAccountId,
-                    // Invalidation review: clear the alert + re-arm so the monitor re-evaluates from scratch
-                    ...(isInvalidationReview && { invalidation_status: null, invalidation_reason: null, invalidation_edge: null, invalidation_armed: false }),
-                })
-                setIdeas(prev => prev.map(i => i.id === editingIdeaId ? res.idea : i))
-                setEditingIdeaId(null)
-                setIsInvalidationReview(false)
-                setAnalysisState(null)
-                setMessages([])
-                                latestMessagesRef.current = []
-                handleBackToAxl()   // idea saved — return to the axl hub
-            } catch (err) {
-                console.error('[tradeIdeas] edit update failed', err)
-            }
-        } else {
-            try {
-                const saved = await tradeIdeasService.createIdea({ ...ideaFields, chat_state: chatState, accounts: selectedAccounts, mainAccountId })
-                // createIdea returns an array — one idea, or N when a multi-broker
-                // idea was forked into single-broker children.
-                setIdeas(prev => [...saved, ...prev])
-                // Link the construction draft thread to the created idea (first of the fork
-                // group); clears its TTL so the conversation lives with the idea.
-                if (saved[0]?.id) {
-                    threadsService.linkThread(ideaThreadIdRef.current, {
-                        subjectType: 'idea', subjectId: saved[0].id, artifactName: ideaFields?.asset ?? null,
-                    })
-                }
-                ideaThreadIdRef.current = newThreadId()   // next build gets a fresh draft thread
-                setAnalysisState(null)
-                setMessages([])
-                                latestMessagesRef.current = []
-                handleBackToAxl()   // idea generated — return to the axl hub
-            } catch (err) {
-                console.error('[tradeIdeas] create failed', err)
-            }
-        }
-    }
-
-    // Invalidation review "Dismiss": idea is fine as-is, just clear the alert so
-    // the monitor can re-evaluate. Does NOT change status or conditions.
-    async function handleDismissInvalidation() {
-        if (!editingIdeaId) return
-        try {
-            const res = await tradeIdeasService.updateIdea(editingIdeaId, {
-                invalidation_status: null,
-                invalidation_reason: null,
-                invalidation_edge:   null,
-                invalidation_armed:  false,
-            })
-            setIdeas(prev => prev.map(i => i.id === editingIdeaId ? res.idea : i))
-        } catch (err) {
-            console.error('[invalidation] dismiss failed', err)
-        }
-        handleCancelBuild()
-    }
-
     // A 'hit' idea has fired and is awaiting order confirmation — deleting discards
     // that pending entry, so confirm intent in a dialog first. Everything else deletes
     // straight away (the bin is already disabled for live long/short positions).
@@ -1685,7 +1061,6 @@ export function MainPage() {
         try {
             await tradeIdeasService.deleteIdea(id)
             setIdeas(prev => prev.filter(idea => idea.id !== id))
-            if (id === editingIdeaId) handleCancelBuild()
         } catch (err) {
             console.error('[tradeIdeas] delete failed', err)
             showErrorMsg('Delete failed — the idea may now be live on the broker.')
@@ -1720,7 +1095,6 @@ export function MainPage() {
         try {
             await Promise.all(portfolioIdeas.map(i => tradeIdeasService.deleteIdea(i.id)))
             setIdeas(prev => prev.filter(i => i.portfolioId !== portfolioId))
-            if (portfolioIdeas.some(i => i.id === editingIdeaId)) handleCancelBuild()
             // Also delete the portfolio's chat history
             await portfolioService.deleteChatState(portfolioId)
                 .catch(err => console.error('[portfolio] chat delete failed', err))
@@ -1735,35 +1109,20 @@ export function MainPage() {
         try {
             const updated = await tradeIdeasService.placeOrders(idea.id, orders)
             if (updated) setIdeas(prev => prev.map(i => i.id === idea.id ? updated : i))
-            buyMarketBornRef.current.delete(idea.id)   // placed — no longer a phantom
         } catch (err) {
             console.error('[tradeIdeas] place orders failed', err)
             // Surface the broker's rejection reason (e.g. "symbol 'QQQ' not found on
             // account") instead of failing silently — apiError prefers the per-account
             // result over the summary line.
             showErrorMsg(`Order placement failed: ${apiError(err)}`)
-
-            if (buyMarketBornRef.current.has(idea.id)) {
-                // Buy-market idea whose order never placed: it exists only to carry this
-                // order, so roll it back out of existence and return the chat to its
-                // pre-buy state instead of leaving a phantom 'hit' idea stuck on
-                // "Update idea". ('hit' is not delete-locked — only long/short are.)
-                buyMarketBornRef.current.delete(idea.id)
-                setEditingIdeaId(prev => (prev === idea.id ? null : prev))
-                setIdeas(prev => prev.filter(i => i.id !== idea.id))
-                tradeIdeasService.deleteIdea(idea.id)
-                    .catch(e => console.error('[tradeIdeas] rollback delete failed', e))
-            } else {
-                // Conditional idea (reached 'hit' via the monitor) or a pre-existing idea
-                // flipped to immediate: keep it in 'hit' so the user can retry.
-                setDismissedConfirmIds(prev => new Set(prev).add(idea.id))
-            }
+            // The idea reached 'hit' via the monitor: keep it there so the user can retry.
+            setDismissedConfirmIds(prev => new Set(prev).add(idea.id))
         } finally {
             setPlacingOrders(false)
         }
     }
 
-    // ── Arm-time pre-flight prompt actions (Buy now / Edit / Reset) ────────────
+    // ── Arm-time pre-flight prompt actions (Buy now / Reset) ─────────────────
     // Buy now: force-trigger the entry (→ hit + built plan). The confirmIdea
     // derivation then surfaces the normal OrderConfirmDialog for account selection.
     async function handlePreEntryBuyNow(idea) {
@@ -1781,12 +1140,6 @@ export function MainPage() {
         } finally {
             setPreEntryBusy(false)
         }
-    }
-
-    // Edit: reopen the idea in chat to change the level.
-    function handlePreEntryEdit(idea) {
-        setPreEntryPrompt(null)
-        handleEditIdea(idea)
     }
 
     // Reset: keep watching, but re-arm the entry floor to now so only a fresh
@@ -1837,55 +1190,6 @@ export function MainPage() {
         })
     }
 
-    // → true when the book was saved, false when it was not (the panel then keeps the plan and the conversation).
-    async function handleGeneratePlan(plan, messages = [], mandate = null, thesis = null, threadId = null) {
-        plan = confirmAvoid(plan)
-        if (!plan) return false
-        try {
-            const ideaAccounts = availableAccounts.filter(a => selectedAccounts.includes(a.id))
-            const accountIds   = ideaAccounts.map(a => a.id)
-            const newIdeas     = await _createBatchAsking(plan, accountIds, mainAccountId)
-            if (!newIdeas) return false
-            setIdeas(prev => [...newIdeas, ...prev])
-            if (newIdeas.length > 0) {
-                const portfolioId = newIdeas[0].portfolioId
-                const portfolioName = plan?.name ?? newIdeas[0]?.portfolioName ?? null
-                const chatMessages = toChatHistory(messages)
-                // threadId links the construction draft thread to the new portfolio (clears its TTL).
-                // AWAITED: finishPipeline below deletes this desk's remaining drafts, and this thread
-                // is one of them until the link lands. Losing that race would take the mandate
-                // conversation with it — the very thing "edit the book" is supposed to reopen.
-                await portfolioService.saveChatState(portfolioId, chatMessages, mandate, thesis, threadId, portfolioName).catch(err =>
-                    console.error('[portfolio] chat state save failed', err)
-                )
-            }
-            // The book exists → the run is over, not paused, so the desk's drafts go with it. An empty
-            // batch created nothing, and its conversation is then the only copy of the work: that goes
-            // home the ordinary way, still resumable.
-            if (newIdeas.length > 0) finishPipeline()
-            else handleBackToAxl()
-            return true
-        } catch (err) {
-            console.error('[portfolio] batch create failed', err)
-            showErrorMsg(apiError(err, 'Could not save the book — nothing was saved.'))
-            return false
-        }
-    }
-
-    // The batch save, with the AVOID ask the server may still need: a verdict that turned after the proposal (or a plan
-    // sized while the verdicts could not be read) comes back 409 with the names — asked about, then sent again.
-    // → the new ideas, or null when the user declined (code review 2026-10-11).
-    async function _createBatchAsking(plan, accountIds, mainId, portfolioId = null) {
-        try {
-            return await tradeIdeasService.createBatch(plan, accountIds, mainId, portfolioId)
-        } catch (err) {
-            const retry = avoidRetry(err, plan)
-            if (retry === undefined) throw err
-            if (retry === null) return null
-            return tradeIdeasService.createBatch(retry, accountIds, mainId, portfolioId)
-        }
-    }
-
     // Which act this is belongs to the BOOK, not to the surface the click came from. Four paths reach
     // here — three pencils and the Axl hand-off — and they disagreed: the two lists forced a review
     // only when one was DUE, the Floor pencil never did, so the same live book was reviewed from one
@@ -1895,6 +1199,9 @@ export function MainPage() {
     // A caller may still FORCE a review (a due-review pencil, the review card, the pre-activation
     // prompt) — that is a schedule or a request, and it is legitimate on a book with nothing live.
     // None of them can force a plain edit on a book that holds a position. See isPortfolioReview.
+    //
+    // Since phase 8c the book reopens IN THE SESSION (backend POST /sessions/:id/edit, `reviewMode` honoured): Atlas's
+    // state is the book's id, its mode and its standing thesis, the floor goes to Atlas and its surface comes up.
     async function handleEditPortfolio(portfolioId, { reviewMode: forceReview = false } = {}) {
         // The book is READ, not filtered out of whatever this client happens to be holding. It used
         // to be `ideas.filter(...)`, which made opening a book depend on a list having loaded — and
@@ -1905,183 +1212,30 @@ export function MainPage() {
         if (!portfolioIdeas.length) { showErrorMsg('This portfolio has no holdings'); return }
         const reviewMode = forceReview || isPortfolioReview(portfolioIdeas)
 
-        // Seed the account selector from the portfolio's own ideas so it reflects
-        // what's actually attached (not stale global selection) — and so saving the
-        // edit doesn't wipe accounts the user never meant to change.
-        const seedAccounts = [...new Set(portfolioIdeas.flatMap(i => Array.isArray(i.accounts) ? i.accounts : []))]
-        // A book's holdings all bind to the same workspace, so the first one names it for the book.
-        alignWorkspaceTo(portfolioIdeas[0])
-        setSelectedAccounts(seedAccounts)
-        setMainAccountId(portfolioIdeas.find(i => i.mainAccountId)?.mainAccountId ?? null)
+        await editEntity('portfolio', portfolioId, {
+            name: portfolioIdeas[0]?.portfolioName ?? null, reviewMode,
+            // ONLY ONCE IT REOPENED: a "no" to the busy question keeps the user's own work, with its accounts.
+            onOpened: () => {
+                // Seed the account selector from the portfolio's own ideas so it reflects what's actually attached
+                // (not stale global selection) — and so saving the edit doesn't wipe accounts the user never meant to
+                // change. A book's holdings all bind to the same workspace, so the first one names it for the book.
+                const seedAccounts = [...new Set(portfolioIdeas.flatMap(i => Array.isArray(i.accounts) ? i.accounts : []))]
+                alignWorkspaceTo(portfolioIdeas[0])
+                setSelectedAccounts(seedAccounts)
+                setMainAccountId(portfolioIdeas.find(i => i.mainAccountId)?.mainAccountId ?? null)
 
-        // Editing the plan de-activates it: move every idea back to 'waiting' until the
-        // user re-activates. A scheduled REVIEW must NOT do this — a live book stays live
-        // and monitored while reviewed; only accepted changes touch positions. (Pre-
-        // activation books are already 'waiting', so review is a no-op here either way.)
-        const toReset = reviewMode ? [] : portfolioIdeas.filter(i => i.status !== 'waiting')
-        if (toReset.length > 0) {
-            setIdeas(prev => prev.map(i => i.portfolioId === portfolioId ? { ...i, status: 'waiting' } : i))
-            Promise.all(toReset.map(i => tradeIdeasService.updateIdea(i.id, { status: 'waiting' })))
-                .catch(err => console.error('[portfolio] reset to waiting failed', err))
-        }
-
-        try {
-            const chatState = await portfolioService.getChatState(portfolioId)
-            setPortfolioChatRestore({
-                key: Date.now(),
-                messages:      chatState?.messages ?? [],
-                portfolioId,
-                // Review keeps real statuses (so accept can tell in-position from pending);
-                // construction edit resets to 'waiting'.
-                portfolioIdeas: portfolioIdeas.map(i => reviewMode ? i : ({ ...i, status: 'waiting' })),
-                thesis:        chatState?.thesis ?? null,
-                reviewMode,
-            })
-            setActiveTab('portfolio')
-        } catch (err) {
-            console.error('[portfolio] restore failed', err)
-            setActiveTab('portfolio')
-        }
-    }
-
-    // Edit mode "Update plan": persist the edited portfolio. A re-plan (when one is
-    // ready) replaces the portfolio's ideas in place, keeping the same portfolioId
-    // (fixes updates creating a whole new portfolio). The chat history is saved on
-    // every finish — even without a re-plan — so re-opening restores the conversation.
-    async function handleUpdatePlan(plan, portfolioId, messages = []) {
-        if (!portfolioId) return handleGeneratePlan(plan, messages)
-        if (plan?.ideas?.length) {
-            plan = confirmAvoid(plan)
-            if (!plan) return false
-        }
-        // The conversation is saved whatever happens to the plan (code review 2026-10-11: a refused save used to skip it).
-        const saveChat = () => portfolioService.saveChatState(portfolioId, toChatHistory(messages)).catch(err =>
-            console.error('[portfolio] chat state save failed', err))
-        try {
-            const accountIds = availableAccounts.filter(a => selectedAccounts.includes(a.id)).map(a => a.id)
-            const existing   = ideas.filter(i => i.portfolioId === portfolioId)
-            const liveLegs   = existing.filter(isDeleteLocked)
-
-            if (plan?.ideas?.length && liveLegs.length) {
-                // A re-plan replaces the portfolio's ideas in place, which means deleting
-                // the current ones. A live leg (in position / hit) can't be deleted, so
-                // block the whole replace and keep the portfolio as-is. The chat history
-                // still saves below so the conversation isn't lost.
-                showErrorMsg(`Can't update this plan while ${liveLegs.length} position${liveLegs.length > 1 ? 's are' : ' is'} live on the broker — close ${liveLegs.length > 1 ? 'them' : 'it'} first.`)
-            } else if (plan?.ideas?.length) {
-                // SAVE FIRST, then delete the old ideas (code review 2026-10-11): a save the server refuses — an
-                // industry turned AVOID since the proposal, say — used to land after the delete, and leave the book
-                // empty. Refused now, the book keeps what it had.
-                const newIdeas   = await _createBatchAsking(plan, accountIds, mainAccountId, portfolioId)
-                if (!newIdeas) { await saveChat(); return false }
-                // Every old idea's delete is settled and the leftovers SAID: one failed delete used to leave the book
-                // holding old and new together, silently.
-                const deletes = await Promise.allSettled(existing.map(i => tradeIdeasService.deleteIdea(i.id)))
-                const left    = existing.filter((_, k) => deletes[k].status === 'rejected')
-                setIdeas(prev => [...newIdeas, ...left, ...prev.filter(i => i.portfolioId !== portfolioId)])
-                if (left.length) showErrorMsg(`The new plan is saved, but ${left.length} old idea${left.length > 1 ? 's' : ''} could not be removed (${left.map(i => i.asset).join(', ')}) — remove ${left.length > 1 ? 'them' : 'it'} by hand.`)
-            } else {
-                // No re-plan, but the account selection may have changed while editing — so push it
-                // onto the ideas that can still take it. What may be pushed, and onto which legs, is
-                // planAccountRebind's call: this writes the field the order and exit paths route by,
-                // and it used to write `accounts: []` over a live holding's broker id whenever the
-                // book was opened from another workspace. null = nothing legitimate to push.
-                const rebind = planAccountRebind(existing, accountIds, mainAccountId)
-                if (rebind) {
-                    await Promise.all(rebind.targets.map(i =>
-                        tradeIdeasService.updateIdea(i.id, { accounts: rebind.accounts, mainAccountId: rebind.mainAccountId })))
-                    const touched = new Set(rebind.targets.map(i => i.id))
-                    setIdeas(prev => prev.map(i =>
-                        touched.has(i.id) ? { ...i, accounts: rebind.accounts, mainAccountId: rebind.mainAccountId } : i))
+                // Editing the plan de-activates it: move every idea back to 'waiting' until the user re-activates. A
+                // scheduled REVIEW must NOT do this — a live book stays live and monitored while reviewed; only
+                // accepted changes touch positions. (Pre-activation books are already 'waiting', so review is a
+                // no-op here either way.)
+                const toReset = reviewMode ? [] : portfolioIdeas.filter(i => i.status !== 'waiting')
+                if (toReset.length > 0) {
+                    setIdeas(prev => prev.map(i => i.portfolioId === portfolioId ? { ...i, status: 'waiting' } : i))
+                    Promise.all(toReset.map(i => tradeIdeasService.updateIdea(i.id, { status: 'waiting' })))
+                        .catch(err => console.error('[portfolio] reset to waiting failed', err))
                 }
-            }
-
-            await saveChat()
-            handleBackToAxl()   // plan updated — return to the axl hub
-            return true
-        } catch (err) {
-            console.error('[portfolio] update plan failed', err)
-            showErrorMsg(apiError(err, 'Could not update the plan.'))
-            await saveChat()
-            loadIdeas()
-            return false
-        }
-    }
-
-    // In REVIEW mode a portfolio_update is a proposed rebalance — it can close/trim live
-    // positions, so it must be confirmed and executed server-side (never auto-applied).
-    // In construction/edit mode it keeps the existing immediate client-side apply.
-    async function handlePortfolioUpdate(update, reviewMode = false, thesis = null) {
-        if (!update?.changes?.length) return
-        // Attach a same-turn thesis proposal so confirming the rebalance persists it
-        // (backend reads update.thesis, reason 'accepted-rebalance'). No thesis → unchanged.
-        if (reviewMode) { setPendingRebalance(thesis ? { ...update, thesis } : update); return }
-        // An add in an industry Pythia rates AVOID is applied only with the user's yes — here too, not only in a review
-        // (code review 2026-10-11: edit-mode adds skipped every limit). The server checks again, and limits the weight.
-        update = confirmAvoidAdds(update)
-        if (!update) return
-        const ideaById = new Map(ideas.map(i => [i.id, i]))
-        try {
-            const promises   = []
-            const skippedLive = []
-            for (const change of update.changes) {
-                // `_item` vocab — a holding is a portfolio_item. The `_idea` spelling was accepted
-                // here through the rename and was dropped 2026-08-19 on both sides, after a raw scan
-                // of every stored document found none: nothing produces it and nothing holds one.
-                const id   = change.itemId
-                const spec = change.item
-                if (change.action === 'update_item' && id && change.patch) {
-                    promises.push(tradeIdeasService.updateIdea(id, change.patch))
-                } else if (change.action === 'remove_item' && id) {
-                    // A live leg (in position / hit) can't be deleted — keep it and flag
-                    // it rather than fail the whole batch. The rest of the changes apply.
-                    const target = ideaById.get(id)
-                    if (target && isDeleteLocked(target)) { skippedLive.push(target); continue }
-                    promises.push(tradeIdeasService.deleteIdea(id))
-                } else if (change.action === 'add_item' && spec) {
-                    const existing = ideas.filter(i => i.portfolioId === update.portfolioId)
-                    const { avoid_ok, ...item } = spec
-                    promises.push(tradeIdeasService.createIdea({
-                        ...item,
-                        ...(avoid_ok ? { avoid_ok: [item.asset] } : {}),
-                        portfolioId:   update.portfolioId,
-                        portfolioName: existing[0]?.portfolioName || 'Portfolio',
-                        accounts:      selectedAccounts,
-                        mainAccountId,
-                    }))
-                }
-            }
-            const settled = await Promise.allSettled(promises)
-            loadIdeas()
-            const refused = settled.filter(r => r.status === 'rejected')
-            if (refused.length) showErrorMsg(apiError(refused[0].reason, `${refused.length} change${refused.length > 1 ? 's' : ''} could not be applied.`))
-            if (skippedLive.length) {
-                showErrorMsg(`Kept ${skippedLive.length} live position${skippedLive.length > 1 ? 's' : ''} the plan tried to remove — close ${skippedLive.length > 1 ? 'them' : 'it'} first.`)
-            }
-        } catch (err) {
-            console.error('[portfolio] update failed', err)
-        }
-    }
-
-    // Confirm a review rebalance: execute it on the live book server-side (which also
-    // bumps the review clock + records conviction), then refresh ideas.
-    async function confirmRebalance() {
-        const update = pendingRebalance ? confirmAvoidAdds(pendingRebalance) : null
-        if (!update?.portfolioId) { setPendingRebalance(null); return }
-        setApplyingRebalance(true)
-        try {
-            const result = await portfolioService.applyRebalance(update.portfolioId, update)
-            loadIdeas()
-            // Shut venue: the changes were queued, not executed. The list is fetched, never pushed
-            // to, so re-read it here or they stay invisible until the next page load.
-            if (queuedAnything(result)) loadQueued()
-        } catch (err) {
-            console.error('[portfolio] rebalance failed', err)
-            showErrorMsg('Could not apply the rebalance — try again.')
-        } finally {
-            setApplyingRebalance(false)
-            setPendingRebalance(null)
-        }
+            },
+        })
     }
 
     // ── The queued list ───────────────────────────────────────────────────────
@@ -2156,458 +1310,84 @@ export function MainPage() {
         showSuccessMsg(res?.noted ? 'Cancelled — the desk has been told.' : 'Cancelled.')
     }
 
-    // Accept an Atlas review proposal from the inline review bar. Executes server-side
-    // (routed by mode/position: paper/live close, manual posts a Fill card, pending books
-    // apply idea edits), then refreshes ideas. Returns false on failure so the panel keeps
-    // the proposal for a retry. A pending (not-yet-activated) book gets an activate nudge.
-    async function handleAcceptReview(portfolioId, update, { pending } = {}) {
-        // An add in an industry Pythia rates AVOID is applied only with the user's yes, asked here (step 7).
-        update = confirmAvoidAdds(update)
-        if (!update) { showErrorMsg('Nothing applied — the AVOID add was declined.'); return false }
-        let result
-        try {
-            result = await portfolioService.applyRebalance(portfolioId, update)
-            // A change refused for an industry that turned AVOID after the proposal: ask, and send just those again.
-            const again = avoidRefusalRetry(update, (result?.results ?? []).filter(r => r && r.ok === false))
-            if (again.retry) await portfolioService.applyRebalance(portfolioId, again.retry).catch(e => showErrorMsg(apiError(e, 'Could not apply the AVOID change.')))
-        } catch (caught) {
-            let err = caught
-            const again = avoidRefusalRetry(update, err?.response?.data?.failed)
-            if (again.retry) {
-                try {
-                    result = await portfolioService.applyRebalance(portfolioId, again.retry)
-                    await Promise.all([loadIdeas(), ...(queuedAnything(result) ? [loadQueued()] : [])])
-                    return true
-                } catch (e) { err = e }
-            }
-            console.error('[portfolio] accept review failed', err)
-            // Say WHICH refusal it was. The server answers on the shared reason vocabulary and sends
-            // the per-change failures back in `failed`, so "nothing was executed" no longer has to
-            // stand in for a book that couldn't be reached, holdings already closed, and ids that
-            // matched nothing alike. Returning false keeps the proposal on screen for a retry.
-            const failed  = err?.response?.data?.failed
-            const reasons = Array.isArray(failed) ? [...new Set(failed.map(f => f?.reason).filter(Boolean))] : []
-            const detail  = reasons.length ? ` (${reasons.join(', ')})` : ''
-            showErrorMsg(`${apiError(err, 'Could not apply the changes')}${detail} — nothing was executed.`)
-            return false
-        }
-        // `loadQueued` only when something was actually deferred — the message and the refresh read
-        // the SAME bucket, so the list can never be stale behind a toast that says "waiting in your
-        // queued list". (See queuedAnything.)
-        await Promise.all([loadIdeas(), ...(queuedAnything(result) ? [loadQueued()] : [])])
-        showSuccessMsg(reviewApplyMessage(result, { pending }))
-        return true
-    }
-
-    // Scanner ticker chip click (inside the scanner chat): just preview on the chart.
-    function handleScannerSymbol(ticker) {
-        if (ticker) openChart({ ticker, source: 'scanner' })
-    }
-
     // Shared calendar → Mentor handoff: open the setup desk with the catalyst already said, and put
     // the ticker on the chart so the conversation and the chart open on the same name. The message
-    // rides in keyed (see MentorPanel's `seed`) so one click sends one turn.
-    // A hand-off INTO the chat closes the detail panel docked over it — the desk the user was sent
-    // to must not open underneath the thing they sent themselves from (Trade with Mentor from an
-    // events-radar name, Edit on a coverage thesis, any Axl route). seedMentorChat closes it too: a
-    // seed into the desk that is already showing changes no tab.
-    useEffect(() => { closePanel() }, [activeTab])
-
+    // goes out as one session turn to Mentor, so one click is one turn. A hand-off INTO the chat closes
+    // the detail panel docked over it (openDesk does) — the desk the user was sent to must not open
+    // underneath the thing they sent themselves from.
     function seedMentorChat(symbol, message) {
         if (!symbol) return
         closePanel()
-        setMentorSeed({ key: Date.now(), message })
-        setActiveTab('mentor')
+        talkTo('mentor', message)
+        openDesk('mentor')
         openChart({ ticker: symbol, source: 'mentor' })
     }
 
-    // ── Axl reception → the order ticket ──────────────────────────────────────
-    // Trade by hand, picked in the hub beside the desks. No pipeline and no summon: the pad is one
-    // screen, and the agentbar's "← axl" is the way back, exactly as it is from a desk.
-    function handleOpenTicket() {
-        setActiveTab('ticket')
-        setActivePipeline(null)
+    // ── The order ticket ──────────────────────────────────────────────────────
+    // Trade by hand (Axl's <show>ticket, the Lists): the pad is a pane tab beside the chat (phase 8e).
+    function handleOpenTicket(symbol = null) {
+        openDesk('ticket')
+        // The pad starts blank; the chart of the name they asked about is beside it.
+        if (symbol) openChart({ ticker: symbol, source: 'ticket' })
     }
 
-    // ── Axl reception → a desk ────────────────────────────────────────────────
-    // The hub summoned a desk (AxlHub's `onPick`), and it carries the hand-off in two parts.
-    //
-    // `opts.opening` is the whole point of routing: what the user said they came for, in their own
-    // words, sent at the desk as THEIR first message. EVERY desk takes one, because it is not a
-    // parameter anyone has to interpret — it is the sentence the user would have typed on arrival,
-    // and each entry agent already knows what to do with a sentence. (This is why the desks that
-    // used to be excluded no longer are: a bare TICKER seed at Argus or Atlas jumped the frame they
-    // have to establish first — Argus opens on a screen, Atlas on the mandate — but "I want 5%
-    // profit" IS Atlas's Phase 1 material, and "I think NVDA breaks out" is Argus's.)
-    //
-    // `opts.symbol` is the name Axl resolved from the conversation, so the entry agent opens ON it
-    // and the user doesn't say "NVDA" twice. It still words its own sentence for the two single-name
-    // desks — but only when no opening came, since the user's own words always say it better.
-    //
-    // Both go through the same keyed one-shot seed every hand-off in the app uses (useSeedTurn).
-    // ── Axl hand-off → an item's own EDIT mode ────────────────────────────────
-    // A route opens a desk for new work; this reopens something the user already has. Axl names the
-    // kind and the handle (both come straight off `get_watched_items`, whose rows lead with
-    // `[kind:id]`), and the doc is handed to the SAME function the list-surface pencil calls — so an
-    // edit reached from a sentence and an edit reached from a click are the one edit, with the same
-    // conversation restored. Nothing new is built here; that is the whole point of the feature.
-    //
-    // The ref is READ by id, through the same pipe the cards and the pencils use — the server's
-    // owner-scoped get is also the authorization, so a hallucinated or borrowed id answers 404
-    // rather than relying on being absent from a list this client happened to load.
-    //
-    // Falls back to the symbol for the kinds that have one (Axl may have had no id to quote), and
-    // resolves false when nothing matches so the caller can open the desk the ordinary way rather
-    // than leaving the hand-off dead — the same choice the OPEN_COVERAGE card makes.
+    // ── The house's views, from Axl's <show>heatmap / <show>calendar (Roy, 2026-10-19) ──
+    // The Floor's own panels, through the one outside-ask channel they already answer (deskRequest): Forecasts is
+    // Pythia's heat map (on a company's industry when a symbol rides along), Calendar the month grid — both open as
+    // the detail panel over the chat column.
+    function handleOpenView(kind, symbol = null) {
+        if (kind === 'heatmap') setDeskRequest({ key: 'forecasts', symbol: symbol ?? null })
+        else if (kind === 'calendar') setDeskRequest({ key: 'calendar' })
+    }
+
     /**
-     * Open something the user already has, at the desk that owns it.
+     * Open something the user already has, at the desk that owns it — an edit a route names by id or by name.
      *
-     * FINDING it is not this component's job — resolveForEdit answers an id or a name, and answers
-     * null rather than guessing when a name is ambiguous. What stays here is the OPENING, because
-     * each desk's opener is a closure over this component's state and cannot leave it.
+     * FINDING it is not this component's job — resolveForEdit answers an id or a name, and answers null rather than
+     * guessing when a name is ambiguous. What stays here is the OPENING, each kind through its own doorway.
      */
     async function openForEdit({ kind, ref } = {}) {
         const doc = await resolveForEdit(kind, ref)
         if (!doc) return false
         switch (kind) {
-            case 'setup':    handleEditSetup(doc);   return true
-            case 'scan':     handleEditScan(doc);    return true
-            // The coverage tab is brought forward: the pencil is normally pressed from it, so
-            // arriving from a sentence should land on the same surface a click would have.
-            case 'coverage': setNewsTab('coverage'); handleEditCoverage(doc); return true
-            // Keyed, not handed — the one kind whose editor takes an id. handleEditPortfolio does
-            // its own read and decides review-vs-replan from the book's state; passing that from
-            // here would be a second copy of the judgment.
+            case 'setup':     handleEditSetup(doc);   return true
+            case 'scan':      handleEditScan(doc);    return true
+            case 'coverage':  setNewsTab('coverage'); handleEditCoverage(doc); return true
             case 'portfolio': handleEditPortfolio(doc.portfolioId); return true
             default:          return false
         }
     }
 
-    async function handleAxlPick(tab, opts = {}) {
-        // Was this Axl's own hand-off? Recorded on the way IN, because the way back has no idea —
-        // and OVERWRITTEN on every arrival, including the ones carrying nothing, so a desk the user
-        // opened themselves clears a hand-off that is no longer the trip they are on.
-        axlHandOffRef.current = opts.handedOff ?? null
-        // An edit hand-off names an ITEM, not a desk, and the item picks the tab: a call edits in
-        // Kairos even though the trading desk enters at Argus. So the tab argument is skipped and the
-        // opener sets its own — but the pipeline is still stamped, so the crumb and the back button
-        // read exactly as they do on any other arrival.
-        if (opts.edit) {
-            setActivePipeline(opts.pipeline ?? null)
-            setPipelineStep(0)
-            if (await openForEdit(opts.edit)) return
-            // Nothing resolved (a list this client hasn't loaded, a ref that never existed) — fall
-            // through and open the desk normally. Worse than the edit, far better than nothing.
-        }
-        setActiveTab(tab)
-        setActivePipeline(opts.pipeline ?? null)
-        setPipelineStep(0)                                    // a desk always opens at its first step
-        setNewsTab('scans')
-
-        // ADOPT MODE. The user already owns the book, so Atlas must not open on a blank construction.
-        // A draft is staged EMPTY and immediately: the desk needs a draftId to attach the conversation
-        // to, every turn parses into it, and the grid renders it. Staged here rather than on the first
-        // paste because the draftId is what makes the whole session one book — a draft minted later,
-        // per paste, would adopt two half-books.
-        if (opts.adopt) {
-            adoptService.stage({ name: 'My bank book' })
-                .then(draft => setAdoptDraft(draft))
-                .catch(() => showErrorMsg('Could not open the adoption'))
-        } else if (adoptDraft) {
-            // Leaving the desk by any other door ends the adoption session. The draft itself survives
-            // on the server (listStaged resumes it) — this only stops it bleeding into the next book.
-            setAdoptDraft(null)
-        }
-
-        // Walked back into something left unfinished → pick it up, rather than opening a blank desk and
-        // making the user find it in a drawer. Returns before the seed branch below: a resumed
-        // conversation already has its own history and must not be opened on a fresh opening turn too.
-        if (opts.resumeThreadId) {
-            _resumeThreadOn(tab, opts.resumeThreadId)
-            return
-        }
-
-        const opening = typeof opts.opening === 'string' ? opts.opening.trim() : ''
-        const key = Date.now()
-        if (opening) {
-            switch (tab) {
-                case 'analyst':   return setAnalystSeed({ key, message: opening })
-                case 'mentor':    return setMentorSeed({ key, message: opening })
-                case 'portfolio': return setPortfolioSeed({ key, message: opening })
-                // Argus is the entry for BOTH the trade desk and the scan desk, and both are the
-                // trading profile — named rather than left to the panel, which may still be on the
-                // investing profile from a portfolio sleeve run.
-                case 'scanner':   return setScannerSeed({ key, message: opening, profile: 'trading' })
-                // Admin desks. The server already drops a route to either for a trader
-                // (routing.util ADMIN_DESKS), so this is the second lock on the same door: a
-                // sentence for Pythia or Aether is dropped here too, rather than seeded into a
-                // panel a trader is not shown.
-                case 'strategy':  return isAdmin ? setStrategySeed({ key, message: opening }) : undefined
-                case 'aether':    return isAdmin ? setAetherSeed({ key, message: opening }) : undefined
-                default: break
-            }
-        }
-        if (!opts.symbol) return
-        if (tab === 'analyst') setAnalystSeed({ key, message: `Research ${opts.symbol} for coverage.` })
-        if (tab === 'mentor')  setMentorSeed({ key, message: `I want to work on my own ${opts.symbol} trade.` })
-    }
-
     // ── A desk → another desk, by the user's ask ──────────────────────────────
-    // "Send NVDA to Prometheus", said at Argus (or Mentor, or Atlas…): the desk's reply carried the
-    // same route grammar Axl's does, the panel offered it (RouteOffer), and the user pressed Go.
-    // It lands on the SAME doorway as reception's summon — the desk opens on the opening sentence the
-    // sender wrote, which is where what it found travels. One doorway for every arrival is the point:
-    // a hop added at any desk is a prompt edit there, never a handler here. Mirrors AxlHub._summon
-    // without the animation — the user pressed a button, they are not being fetched.
-    function handleRoute(offer) {
+    // "Send NVDA to Prometheus", said at a desk: its reply carried the same route grammar Axl's does, the panel offered
+    // it (RouteOffer), and the user pressed Go. The desk opens on the opening sentence the sender wrote, which is where
+    // what it found travels — a hop added at any desk is a prompt edit there, never a handler here.
+    //
+    // Since phase 8e only Pythia's and Aether's panels offer one (the session desks route through Axl, on the server).
+    // An edit opens the item; a desk on the session gets the opening as a turn; Pythia or Aether opens on it as a seed.
+    async function handleRoute(offer) {
         const desk = DESKS.find(d => d.key === (offer?.edit?.desk ?? offer?.route))
         if (!desk) return
-        handleAxlPick(desk.entryTab, {
-            pipeline: desk.key,
-            symbol:   offer.routeSymbol ?? null,
-            ...(offer.edit    ? { edit: offer.edit }       : {}),
-            ...(offer.opening ? { opening: offer.opening } : {}),
-        })
-    }
-
-    // ── Walking the pipeline ──────────────────────────────────────────────────
-    // Follow the user along the desk's chain. Derived from the tab so every hand-off — the ones
-    // above, the ones below, and any added later — keeps the crumb and the back button honest
-    // without having to remember to stamp a step number. See pipelineNav.js for the ambiguity it
-    // resolves (Atlas stands at two different steps).
-    useEffect(() => {
-        if (!activePipeline) return
-        const steps = DESKS.find(d => d.key === activePipeline)?.steps ?? []
-        setPipelineStep(prev => resolveStepIndex(steps, activeTab, prev))
-    }, [activeTab, activePipeline])
-
-    // One step back up the chain. Distinct from the axl button beside it, which leaves the pipeline
-    // altogether: this keeps the desk and the work, so the user can re-read the mandate that framed
-    // a screen, or re-open the list a call came from, and carry on forward again.
-    //
-    // A plain tab switch, deliberately: every panel stays mounted (hidden, not unmounted), so going
-    // back finds the conversation as it was left. It must NOT bump a reset key.
-    const activeDesk   = activePipeline ? DESKS.find(d => d.key === activePipeline) : null
-    const backStep     = previousStep(activeDesk?.steps, pipelineStep)
-    function handleStepBack() {
-        if (!backStep) return
-        setPipelineStep(pipelineStep - 1)
-        setActiveTab(backStep.tab)
-    }
-
-    // ── The conveyor ──────────────────────────────────────────────────────────
-    // One hand-off mechanism for every desk that has declared a contract. A desk emits an artifact;
-    // planHop decides who takes it, how they take delivery, and whether their panel starts clean;
-    // this applies the plan. Nothing here knows which two desks are talking — that is the point.
-    //
-    // The four moves each hop used to hand-roll (compose a seed, remount the right panel, clear the
-    // other hops' state, switch the tab) live here once, so a hop added later cannot get one of
-    // them subtly wrong. See docs/hand-offs.md.
-    // Where the conveyor puts what it delivers, per desk (services/pipeline/doors.js): an INBOX for
-    // a desk that takes the envelope whole, a SEED for one that opens on a sentence it wrote itself.
-    // A desk declares which in its contract (`deliver`); the doors say where it lands. Mentor and
-    // Prometheus keep seed doors that are NOT here — a calendar card, an Axl routing — reachable
-    // only from outside a chain, and closed by `doors.clear()` all the same.
-    const PIPELINE_INBOX = doors.inbox
-    const PIPELINE_SEED  = doors.pipelineSeed
-    // Only inside a pipeline: off a desk there is no chain, so there is nothing to advance along
-    // and a panel must keep offering its hand-off by hand.
-    const autoHandoff = pipelineMode === 'auto' && !!activePipeline
-    const stepsOf = (key) => (key ? (DESKS.find(d => d.key === key)?.steps ?? []) : [])
-
-    // Argus in single-pick mode: it answers with ONE name for a build desk instead of a watchlist.
-    // Two ways in, and they are the same question asked from either side — a desk handed it a
-    // scan_request, or the desk it is standing on exists to build one trade (`produces: 'one'`).
-    // Only the first existed before, which is why entering the trade desk AT Argus dead-ended in a
-    // saved list with no way forward.
-    const scannerSingle = scannerInbox?.kind === KIND.SCAN_REQUEST
-        || producesOne(stepsOf(activePipeline), 'scanner')
-
-    // …and WHICH desk that is. Asked of findReceiver rather than assumed, because this answer is
-    // shown to the user — in Argus's empty state, in its hand-off button, and in the prompt Argus
-    // writes from — and emitArtifact routes the pick with the very same call. Derived, so the label
-    // cannot drift from the destination: for two months every one of those surfaces said "Kairos"
-    // while the trade desk had already moved its build step to Mentor.
-    //
-    // The chain it walks mirrors emitArtifact exactly, borrowed-chain fallback included: inside a
-    // pipeline its own steps, outside one the steps of the desk Argus belongs to.
-    const scannerHandoffTo = (() => {
-        const steps = activePipeline
-            ? stepsOf(activePipeline)
-            : (DESKS.find(d => d.steps.some(s => s.tab === 'scanner'))?.steps ?? [])
-        const from = steps.length ? resolveStepIndex(steps, 'scanner', pipelineStep) : 0
-        return findReceiver(steps, from, KIND.CANDIDATE_LIST)?.step?.tab ?? null
-    })()
-
-    function _applyHop(plan, artifact) {
-        // Only one desk holds an inbox at a time: an artifact still sitting somewhere upstream is a
-        // stale hand-off waiting to re-fire on the next remount. Clearing every inbox and then
-        // filling the target's is what the per-hop handlers each used to do by hand.
-        Object.values(PIPELINE_INBOX).forEach(set => set(null))
-        PIPELINE_INBOX[plan.agent]?.(artifact)
-
-        if (plan.delivery.type === 'seed') {
-            const { type: _t, message, ...opts } = plan.delivery
-            // An edit-restore must not fight a brief. Scanner-only because it is the only desk whose
-            // hand-off can collide with a list reopened from its pencil.
-            if (plan.agent === 'scanner') setScannerChatRestore(null)
-            PIPELINE_SEED[plan.agent]?.({ key: artifact.key, message, ...opts })
+        if (offer.edit && await openForEdit(offer.edit)) return
+        const agent = desk.entryTab
+        const symbol = offer.routeSymbol ?? null
+        const opening = typeof offer.opening === 'string' && offer.opening.trim() ? offer.opening.trim()
+            : symbol && agent === 'analyst' ? `Research ${symbol} for coverage.`
+            : symbol && agent === 'mentor' ? `I want to work on my own ${symbol} trade.`
+            : null
+        if (agent === 'strategy' || agent === 'aether') {
+            if (!isAdmin) return
+            if (opening) (agent === 'strategy' ? setPythiaSeed : setAetherSeed)({ key: Date.now(), message: opening })
+            openDesk(agent)
+            return
         }
-        // A remount is per-desk on purpose: the desk that SENT the artifact has to keep its
-        // conversation, or stepping back lands on a blank chat.
-        if (plan.remount && plan.agent === 'scanner') setScannerResetKey(k => k + 1)
-        if (plan.targetIndex != null) setPipelineStep(plan.targetIndex)
-        setActiveTab(plan.targetTab)
-    }
-
-    /**
-     * A desk produced something. Routes it, or answers false when this pipeline has nowhere to put
-     * it — an unroutable artifact is the caller's to report, never silently dropped here.
-     *
-     * `viaUser` is the difference between the user pressing "send it on" and the conveyor moving by
-     * itself. A user press always travels; an automatic advance has to be allowed by the plan, which
-     * is where auto mode and the gates are decided (planHop). That is what keeps a gated step —
-     * arming, order confirmation — human even with the toggle on.
-     */
-    function emitArtifact(artifact, { fromTab = activeTab, viaUser = true } = {}) {
-        // Outside a pipeline — a call reopened for editing, say — there is still a hand-off to make.
-        // BORROW the chain this desk belongs to rather than routing on capability alone: three desks
-        // now take a candidate_list, so "the only agent that qualifies" stopped being an answer the
-        // moment Mentor and Prometheus declared themselves. A desk's own pipeline knows which of
-        // them comes next; nothing else does.
-        const inPipeline = !!activePipeline
-        const steps = inPipeline
-            ? stepsOf(activePipeline)
-            : (DESKS.find(d => d.steps.some(s => s.tab === fromTab))?.steps ?? [])
-        const plan  = planHop({
-            steps,
-            fromIndex: steps.length ? resolveStepIndex(steps, fromTab, pipelineStep) : 0,
-            artifact,
-            mode: pipelineMode,
-        })
-        if (!plan) return false
-        if (!viaUser && !plan.auto) return false
-        // A borrowed chain routes but does not place the user IN it: stamping a step for a pipeline
-        // they never entered would light a crumb that isn't on screen.
-        _applyHop(inPipeline ? plan : { ...plan, targetIndex: null }, artifact)
-        return true
-    }
-
-    /**
-     * ENTER a pipeline at one of its steps, artifact in hand — the move that "send this list to
-     * research" actually is. Not a hop from where the user is standing: they may be standing on the
-     * trade desk, or on the Lists surface, standing nowhere at all. What they pressed says which
-     * desk's work this is, and the artifact says what it starts with.
-     *
-     * The step is named by AGENT, so reordering that pipeline moves the entry point with it.
-     *
-     * Answers false when that desk cannot take this kind, so the caller can fall back rather than
-     * leave the user on a panel holding something it does not read.
-     */
-    function enterPipelineAt(pipelineKey, agent, artifact) {
-        const steps = stepsOf(pipelineKey)
-        const plan  = planEntry({ steps, agent, artifact, mode: pipelineMode })
-        if (!plan) return false
-        setActivePipeline(pipelineKey)   // they are IN it now — the crumb and the back button follow
-        _applyHop(plan, artifact)
-        return true
-    }
-
-    // Route OUT: Atlas emitted a <screen_request> (a sleeve mandate) → open Argus in the INVESTING
-    // What to call a sleeve in the UI and in the record handed back to Atlas. The industry is the
-    // binding pond when Atlas named one, so it leads.
-    const sleeveLabel = (sr) => sr?.industry || sr?.sector || sr?.style || 'sleeve'
-
-    /**
-     * Move the run on: the next sleeve, or the hand-off to Prometheus once they are all screened.
-     * ONE mover for both paths — a sector that produced a list (handleGenerateList) and one that
-     * produced nothing and was skipped — so the two can never advance the queue differently.
-     */
-    function _advanceSleeveRun() {
-        const run  = sleeveRunRef.current
-        const next = run.queue[0]
-        run.queue  = run.queue.slice(1)
-        if (next) { _screenSleeve(next); return }
-        run.active  = false
-        run.current = null
-        setSleeveRun({ active: false, index: 0, total: 0, label: null })
-        _researchSurvivors(run.sectors)
-    }
-
-    /**
-     * This sleeve produced no list — Argus said nothing cleared the bar, asked a question nobody is
-     * here to answer, or its block never closed. Record it as SCREENED-EMPTY and move on.
-     *
-     * The run used to have only a happy path: the advance lived inside "a list came back", so a
-     * listless turn stalled it silently and every remaining sleeve was lost. An empty sleeve is a
-     * RESULT — Atlas hears about it at the end (see _researchSurvivors) and can widen or drop it.
-     */
-    function handleSkipSleeve() {
-        const run = sleeveRunRef.current
-        if (!run.active) return
-        run.sectors.push({ sector: sleeveLabel(run.current), names: [], empty: true })
-        _advanceSleeveRun()
-    }
-
-    // Seed Argus for ONE sleeve. Remounts it fresh so each sector is its own scan — a sleeve's list
-    // is its own artifact, and its ranking only means anything within its own pond.
-    function _screenSleeve(sr, { fresh = false } = {}) {
-        const run = sleeveRunRef.current
-        run.current = sr
-        // index counts sleeves ENTERED, not finished: `total` minus what is still queued.
-        setSleeveRun({ active: true, index: run.total - run.queue.length, total: run.total, label: sleeveLabel(sr) })
-        // The sleeve travels as a MANDATE artifact and Argus's own contract composes the brief —
-        // this desk states what it wants screened, not how Argus should open on it. (The run still
-        // applies the hop itself: its remount discipline is per-sleeve, not per-hop. Phase 4.)
-        const mandate = makeArtifact({
-            kind: KIND.MANDATE, items: [sr], from: { agent: 'portfolio', label: 'Mandate' },
-        })
-        const brief = contractFor('scanner').brief(mandate)
-        setScannerInbox(mandate)
-        setScannerChatRestore(null)
-        setScannerSeed({ key: mandate.key, message: brief.message, profile: brief.profile })
-        // Remount only when ENTERING the run — a fresh Argus for a fresh book. Between sectors the
-        // conversation continues: remounting there wiped the transcript the user had just watched
-        // build, and tore the panel down in the middle of the turn that triggered it.
-        if (fresh) setScannerResetKey(k => k + 1)
-        setActiveTab('scanner')
-        setNewsTab('scans')
-    }
-
-    // Route ON: Argus emitted a <kairos_pick> and the user tapped the hand-off button → give the
-    // ticker (+ its read) to the build desk as a one-item candidate list. Where it lands is
-    // emitArtifact's call, not ours (scannerHandoffTo shows the user the same answer up front).
-    //
-    // When a desk SENT the request it still holds the bias and horizon in its (never-unmounted)
-    // conversation, so the horizon rides in `context` off that request: the sender's own answer,
-    // not Argus's guess at it.
-    function handleSendPick(pick, opts = {}) {
-        if (!pick?.ticker) return
-        const request = firstItem(scannerInbox)                      // the scan_request Argus is holding
-        const sent = emitArtifact(makeArtifact({
-            kind:  KIND.CANDIDATE_LIST,
-            items: [{
-                ticker:    pick.ticker,
-                direction: pick.direction === 'short' ? 'short' : 'long',
-                thesis:    pick.thesis ?? null,
-                analysis:  pick.analysis ?? pick.thesis ?? null,
-                recommended_mode: pick.recommended_mode ?? null,   // Argus's lens suggestion → pre-fills the chip
-            }],
-            context: { style: request?.style ?? null },            // the sender's own horizon (authoritative)
-            from:    { agent: 'scanner', label: 'Scan' },
-        }), { fromTab: 'scanner', ...opts })
-        if (!sent) return
-        // Retiring the SENDER, which is not part of the hop: Argus is done, and leaving it mounted
-        // means coming back later to a stale pick and its chat. The receiver's mount policy is the
-        // conveyor's business; this is ours.
-        setScannerSeed(null)
-        setScannerResetKey(k => k + 1)
-    }
-    // Dismiss the hand-off → back to Axl. Shut the doors NOW rather than leaving it to the walk
-    // home: the departure beat is RETURN_MS long, and the artifact is refused as of this click.
-    function handleCancelHandoff() {
-        doors.clear()
-        handleBackToAxl()
+        // New work for Argus lands on a clean table, asked first over its work (phase 8e bug hunt #1) — like a radar cut.
+        if (agent === 'scanner') {
+            if (!opening || await onArgusTable(opening, { profile: 'trading', what: 'start this scan' })) openDesk(agent)
+            return
+        }
+        if (opening) talkTo(agent, opening)
+        openDesk(agent)
     }
 
     // Scan candidate → idea: carries the scanner's intended direction.
@@ -2617,139 +1397,33 @@ export function MainPage() {
     // ONE name off a list → the RESEARCH desk, which is exactly its job: a coverage thesis on a
     // company. Distinct from sending a whole sleeve, which is portfolio work — the user who clicked
     // a single ticker asked about that company, not to start building a book around it.
+    // Since phase 8d it is a session turn to Prometheus, the name's read riding as the turn's seed.
     function handleResearchCandidate(candidate, scan) {
         if (!candidate?.ticker) return
-        const artifact = makeArtifact({
-            kind:  KIND.CANDIDATE_LIST,
-            items: [{
-                ticker:   candidate.ticker,
-                thesis:   candidate.thesis ?? null,
-                analysis: candidate.analysis ?? candidate.thesis ?? null,
-            }],
-            // Not `queued`: one name the user picked is not a run, and telling Prometheus otherwise
-            // puts it in run mode with a queue of one.
-            context: { sector: scan?.thesis ?? null },   // the sleeve/mandate label frames the read
-            ref:     scan?.id ? { entityKind: 'scan', id: scan.id } : null,
-            from:    { agent: 'scanner', label: 'Screen' },
+        const sector = scan?.thesis ?? null   // the sleeve/mandate label frames the read
+        talkTo('analyst', `Research ${candidate.ticker} for coverage${sector ? ` — it is a candidate for the ${sector} sleeve` : ''}.`, {
+            seed: { ticker: candidate.ticker, sector, thesis: candidate.thesis ?? null, analysis: candidate.analysis ?? candidate.thesis ?? null },
         })
-        if (!enterPipelineAt('research', 'analyst', artifact)) {
-            setAnalystInbox(artifact)          // the desk changed shape — still open it, unframed
-            setActiveTab('analyst')
-        }
-    }
-
-    /**
-     * Argus investing list → Prometheus, as a SLEEVE rather than a name. The top slice is queued;
-     * the rest ride along so "also do KLAC" works without walking back to the saved card.
-     *
-     * A `candidate_list` leaving
-     * Argus means Kairos on the trade desk and Prometheus on the portfolio desk — the artifact cannot
-     * say which, because the difference is not in the names but in what they are FOR. Routing it
-     * would misroute an investing candidate clicked while the trade desk happens to be open, and
-     * "the desk I am standing on" is the wrong answer when the user came from a saved list.
-     *
-     * So it ENTERS the portfolio pipeline at its Research step instead — the intent is in the button
-     * they pressed, and entering is what expresses it. Skipping Mandate and Screen is the point: the
-     * names already exist. Atlas is not cut out — the user can walk BACK to the mandate, and
-     * Prometheus hands the coverage forward to it at the end either way (handleSleeveResearched).
-     */
-    function handleResearchList(scan) {
-        const names = (scan?.candidates ?? []).map(c => c?.ticker).filter(Boolean)
-        if (!names.length) return
-        const queue = names.slice(0, RESEARCH_TOP_N)
-        // A single list is a one-sleeve run as far as the hand-off back is concerned: no unfilled
-        // sleeves, but the queue still has to be recorded or a declined draft goes unmentioned.
-        sleeveOutcomeRef.current = { unfilled: [], bySector: [{ sector: scan?.thesis ?? null, names: queue }], queue }
-        const artifact = makeArtifact({
-            kind:  KIND.CANDIDATE_LIST,
-            // The QUEUE is the payload — what Prometheus is being asked to research. Everything else
-            // Argus surfaced rides in `pool`, which is what "also do KLAC" reads from.
-            items: queue.map(ticker => ({ ticker })),
-            context: {
-                queued: true,                        // a run: Prometheus paces itself through it
-                pool:   names,
-                sector: scan?.thesis ?? null,        // the sleeve label, as context for the research
-            },
-            ref:  scan?.id ? { entityKind: 'scan', id: scan.id } : null,
-            from: { agent: 'scanner', label: 'Screen' },
-        })
-        if (!enterPipelineAt('portfolio', 'analyst', artifact)) {
-            setAnalystInbox(artifact)          // the desk changed shape — still open it, unframed
-            setActiveTab('analyst')
-        }
-    }
-
-    /**
-     * Prometheus → Atlas, once the run has coverage. Atlas reads coverage itself (get_coverage), so
-     * the names here are a nudge, not the payload — what this restores is the user, who otherwise
-     * had no way back and had to re-enter through Axl, which resets the mandate conversation.
-     *
-     * It also carries what did NOT come back. A sleeve that screened empty was filtered out of
-     * `bySector`, and a name whose draft the user declined was simply absent from `done` — so Atlas
-     * saw a shorter coverage list and no reason for it, and built a book quietly missing a sleeve its
-     * own architecture had called for. An unfilled sleeve is a decision (widen it, drop it,
-     * reallocate its weight), and a decision it cannot make without being told.
-     */
-    function handleSleeveResearched(names = []) {
-        const covered  = names.filter(Boolean)
-        const outcome  = sleeveOutcomeRef.current
-        const inSleeve = (t) => outcome.bySector.find(s => s.names.includes(t))?.sector ?? null
-        // Each name paired with the sleeve it was researched FOR, so Atlas can place it without
-        // inferring the mapping from the ticker. The WORDS are Atlas's own business now
-        // (portfolio.contract.js) — this says what came back, not how to say it.
-        const withSleeve = (list) => list.map(ticker => ({ ticker, sector: inSleeve(ticker) }))
-        const declined   = outcome.queue.filter(t => !covered.includes(t))
-
-        const artifact = makeArtifact({
-            kind:  KIND.COVERAGE_SET,
-            items: withSleeve(covered),
-            // A run that came back short is PARTIAL, not filled — the shortfall is the decision
-            // Atlas has to make (widen, drop, reallocate), and it cannot make it unasked.
-            status: (outcome.unfilled.length || declined.length)
-                ? (covered.length ? STATUS.PARTIAL : STATUS.EMPTY)
-                : STATUS.FILLED,
-            context: { unfilled: outcome.unfilled, declined: withSleeve(declined) },
-            note:    outcome.unfilled.length ? `unfilled sleeves: ${outcome.unfilled.join(', ')}` : null,
-            from:    { agent: 'analyst', label: 'Research' },
-        })
-
-        sleeveOutcomeRef.current = { unfilled: [], bySector: [], queue: [] }
-        // Enters at ALLOCATE — the step that awaits a coverage set. Atlas also stands at Mandate,
-        // and landing a finished run there would hand a book to the desk meant to frame it.
-        if (!enterPipelineAt('portfolio', 'portfolio', artifact)) {
-            setPortfolioSeed({ key: artifact.key, message: contractFor('portfolio').brief(artifact).message })
-            setActiveTab('portfolio')
-        }
+        openDesk('analyst')
     }
 
     function handleBuildFromCandidate(candidate, scan) {
         if (!candidate?.ticker) return
         // Investing lists produce RESEARCH candidates → route to the Analyst; trading → Mentor.
         if (scan?.profile === 'investing' || scan?.destination === 'analyst') return handleResearchCandidate(candidate, scan)
-        // A forward-dated list is period-scoped (main category = period). Carry that period as the
-        // setup's scheduled window so Talos gates monitoring to it (no watching before it opens).
-        const p = scan?.period
-        const window = (p && (p.start || p.end)) ? { from: p.start ?? null, to: p.end ?? null } : null
-        // The same artifact Argus hands back mid-pipeline, from a saved list instead of a live pick —
-        // so the trading desk has one inbox, not one per place a name can come from. Delivered
-        // straight rather than routed: the Lists surface stands outside every pipeline, so there is
-        // no chain to walk. Went to Kairos until it was archived (2026-08-18); Mentor reads the same
-        // artifact, because the live Argus → Mentor hand-off already hands it this shape.
-        setMentorInbox(makeArtifact({
-            kind:  KIND.CANDIDATE_LIST,
-            items: [{
-                ticker:    candidate.ticker,
-                direction: candidate.direction === 'short' ? 'short' : 'long',
-                thesis:    candidate.thesis ?? null,
-                analysis:  candidate.analysis ?? candidate.thesis ?? null,
-                recommended_mode: candidate.recommended_mode ?? null,
-            }],
-            // A forward-dated list is period-scoped; the window gates the setup's monitoring.
-            context: { style: scan?.style ?? null, window },
-            ref:     scan?.id ? { entityKind: 'scan', id: scan.id } : null,
-            from:    { agent: 'scanner', label: 'Scan' },
-        }))
-        setActiveTab('mentor')
+        // A name off a saved list, to Mentor as a session turn (phase 8b) — the read and the recommended lens ride as
+        // the seed, as the live Argus → Mentor hand-off's do. (The list's period never reached the setup: Mentor
+        // read the candidate alone, then and now.)
+        const turn = handoffTurn({
+            ticker:    candidate.ticker,
+            direction: candidate.direction === 'short' ? 'short' : 'long',
+            thesis:    candidate.thesis ?? null,
+            analysis:  candidate.analysis ?? candidate.thesis ?? null,
+            recommended_mode: candidate.recommended_mode ?? null,
+        })
+        if (!turn) return
+        talkTo('mentor', turn.text, { seed: turn.seed })
+        openDesk('mentor')
     }
 
 
@@ -2775,8 +1449,8 @@ export function MainPage() {
      * has the events but not the history. Asking the server costs one read and cannot disagree with
      * itself.
      *
-     * A fresh Argus every time (scannerResetKey): a cut is its own conversation, and opening on
-     * yesterday's transcript would hand the model a board it has already answered.
+     * A fresh Argus every time (onArgusTable): a cut is its own conversation, and opening on yesterday's list would hand
+     * the model a board it has already answered.
      */
     async function handleScanRadar() {
         if (radarBusy) return
@@ -2792,22 +1466,15 @@ export function MainPage() {
                 showSuccessMsg('Nothing new on the radar — every name is already on one of your lists.')
                 return
             }
-            setRadarBoard(board)
-            setScannerInbox(null)
-            setScannerChatRestore(null)
-            setScannerSeed({
-                key: `radar-${Date.now()}`,
-                // SHORT on purpose: a seed is sent as the user's own turn and rendered as their
-                // bubble. The board itself travels beside it as context, not as a hundred lines of
-                // the user appearing to have typed a list.
-                message: `Cut today's radar board — ${board.candidates.length} name${board.candidates.length === 1 ? '' : 's'}`
-                    + `${board.runs ? ` across ${board.runs} events` : ''}`
-                    + `${board.skipped?.length ? `, with ${board.skipped.length} held back from my last list` : ''}.`
-                    + ' Which have a catalyst and a setup in the coming week?',
-                profile: 'trading',
-            })
-            setScannerResetKey(k => k + 1)
-            setActiveTab('scanner')
+            // SHORT on purpose: the turn is the user's own bubble. The board travels beside it (the turn's
+            // `radarBoard`, kept in Argus's state for the cut), not as a hundred lines the user appears to have typed.
+            const message = `Cut today's radar board — ${board.candidates.length} name${board.candidates.length === 1 ? '' : 's'}`
+                + `${board.runs ? ` across ${board.runs} events` : ''}`
+                + `${board.skipped?.length ? `, with ${board.skipped.length} held back from my last list` : ''}.`
+                + ' Which have a catalyst and a setup in the coming week?'
+            // A CUT STARTS ON A CLEAN TABLE, on the trading lens — it is its own conversation (the panel remounted Argus
+            // for it), and never on top of Argus's work (phase 8d bug hunt #1, CR).
+            if (await onArgusTable(message, { profile: 'trading', extra: { radarBoard: board }, what: 'cut the radar board' })) openDesk('scanner')
         } catch (err) {
             console.error('[radar→argus]', err)
             showErrorMsg(apiError(err, 'Could not build the scan universe'))
@@ -2816,230 +1483,15 @@ export function MainPage() {
         }
     }
 
-    // A finished list from the scanner panel. It is SAVED to the Scans tab only when the user asked
-    // for it themselves: a scan Argus ran on another desk's brief — an Atlas sleeve mandate, a
-    // Kairos discovery request — is mid-pipeline traffic, not a record anyone keeps. Screening three
-    // sleeves for one book used to leave three sector lists among the user's saved lists.
-    //
-    // Only the saved card stops. The names travel exactly as before: the sleeve run below reads the
-    // emitted `scan`, never the stored doc.
-    async function handleGenerateList(scan, threadId = null) {
-        const origin = scanOrigin({
-            sleeveRunActive: sleeveRunRef.current.active,
-            handoffActive:   scannerInbox?.kind === KIND.SCAN_REQUEST,
-            radarActive:     !!radarBoard,
-        })
-        const keeps = savesToScansList(origin)
-        // A radar cut carries WHICH EVENTS it was shown, not only which names it kept: that is what
-        // "unless a new event names it" is answered against tomorrow. Stamped here because this is
-        // where the origin is known — the panel only ever saw a board.
-        const stamped = origin === ORIGIN.AETHER
-            ? { ...scan, source: scanSourceFor(origin), sourceRuns: radarBoard?.runIds ?? [] }
-            : scan
-        const saved = keeps ? await createScan(stamped) : null
-        // THE CUT IS OVER once its list exists, and the board has to go with it. Left set, it keeps
-        // Argus in radar mode and stamps whatever the user asks for NEXT — a list they typed
-        // themselves — as a radar cut, whose run ids would then retire names they never saw. Cleared
-        // here rather than only on the way back to Axl, which is the exit they often do not take.
-        if (origin === ORIGIN.AETHER) setRadarBoard(null)
-        // createScan swallows its error and answers null — for a list the user means to keep, that
-        // is the difference between filed and vanished, so say it rather than move on quietly.
-        if (keeps && !saved) console.error('[scans] list did not save', scan?.thesis ?? scan?.sector ?? '(unnamed)')
-        if (saved) {
-            setNewsTab('scans')
-            // Link the construction draft thread to the created scan (clears its TTL). A
-            // mid-pipeline screening has no scan to link to, so its draft TTL-expires unpinned —
-            // the deliberate default until a run carries its threads to the artifact it produces
-            // (docs/hand-offs.md, "Decided and deferred").
-            // AWAITED, not fired and forgotten: finishPipeline below deletes this desk's remaining
-            // DRAFTS, and until this link lands, this thread is still one of them. Losing that race
-            // would delete the conversation that built the list, and the link would then update a
-            // document that no longer exists — silently, since a no-match is not an error.
-            if (threadId && saved.id) {
-                await threadsService.linkThread(threadId, { subjectType: 'scan', subjectId: saved.id, artifactName: scan?.thesis ?? null })
-            }
-        }
-
-        // Mid-SLEEVE-RUN: this sector is done. Take its top names, then either screen the next sector
-        // or — once the last one lands — send everything to Prometheus as ONE queue. The user is not
-        // asked anything between sectors; being asked N times is the friction this replaced.
-        const run = sleeveRunRef.current
-        if (scan?.profile === 'investing' && run.active) {
-            const names = (scan.candidates ?? []).map(c => c?.ticker).filter(Boolean)
-            run.sectors.push({ sector: scan.thesis || scan.sector || sleeveLabel(run.current), names })
-            _advanceSleeveRun()
-            return
-        }
-
-        // Is this list the end of the road, or is a desk still waiting for it? A finished artifact
-        // belongs back at the hub; a mid-pipeline one must not be walked away from — that threw the
-        // user out one beat before the hand-off could be offered, which is the whole reason the list
-        // exists. Asked of the PIPELINE rather than the profile: "investing" happened to mean
-        // mid-pipeline only because Atlas was the only desk with a further step, and the trade desk
-        // (a trading list, with Kairos still waiting) proved that wrong.
-        const steps = stepsOf(activePipeline)
-        if (!hasDownstream(steps, resolveStepIndex(steps, 'scanner', pipelineStep))) {
-            // FINISHED only if something was actually produced. createScan swallows its error and
-            // answers null, and a run that saved nothing has its conversation as the only copy of the
-            // work — ending the desk there would delete it. That is walking away, not finishing.
-            if (saved) finishPipeline()
-            else handleBackToAxl()
-        }
-    }
-
-    // Every sector screened -> the top of EACH sleeve pools into one Prometheus queue. Built from the
-    // per-sector record, so a three-sector run hands over three sectors' names and the Analyst knows
-    // which sleeve each name is for.
-    function _researchSurvivors(sectors = []) {
-        // Dedupe ACROSS sleeves before the top-N cut: overlapping ponds (a semis sleeve and a broad
-        // technology one) can surface the same name twice, and researching it twice costs the user
-        // a full coverage cycle to land on a 409. First sleeve to claim a name keeps it — and the
-        // cut runs after, so the second sleeve still gets its own four.
-        const claimed = new Set()
-        const bySector = sectors
-            .map(sec => {
-                const fresh = sec.names.filter(t => !claimed.has(t))
-                fresh.forEach(t => claimed.add(t))
-                return { sector: sec.sector, names: fresh.slice(0, RESEARCH_TOP_N) }
-            })
-            .filter(sec => sec.names.length)
-        const queue = bySector.flatMap(sec => sec.names)
-        const pool  = sectors.flatMap(sec => sec.names)
-        // Sleeves that screened to nothing — skipped mid-run, or a list whose candidates carried no
-        // ticker. Held for the hand-off back so Atlas is told a bucket is empty rather than left to
-        // notice (it doesn't) that a sector it planned for has no names under it.
-        const unfilled = sectors.filter(sec => !sec.names.length).map(sec => sec.sector)
-        sleeveOutcomeRef.current = { unfilled, bySector, queue }
-
-        // A run that screened every sleeve and produced nobody is a RESULT, not a non-event. Falling
-        // through to the hub looked identical to the pipeline breaking, which is how it read.
-        //
-        // It goes back as the SAME artifact a successful run does, empty: from Atlas's side the
-        // question is "what came back with a thesis", and "nothing, and here is which sleeves" is an
-        // answer to it. One inbox, one brief, one voice — rather than a second hand-written message
-        // for the unhappy path, which is exactly where wording drifts.
-        if (!queue.length) {
-            sleeveOutcomeRef.current = { unfilled: [], bySector: [], queue: [] }
-            const nothing = makeArtifact({
-                kind:    KIND.COVERAGE_SET,
-                items:   [],
-                status:  STATUS.EMPTY,
-                context: { unfilled, declined: [] },
-                note:    'every sleeve screened empty',
-                from:    { agent: 'scanner', label: 'Screen' },
-            })
-            if (!enterPipelineAt('portfolio', 'portfolio', nothing)) {
-                setPortfolioSeed({ key: nothing.key, message: contractFor('portfolio').brief(nothing).message })
-                setActiveTab('portfolio')
-            }
-            return
-        }
-        // Set directly rather than routed: this is the tail of the sleeve RUN, whose fan-out and
-        // join the conveyor does not own yet (phase 4). Same artifact shape as the routed hops, so
-        // Prometheus has one inbox however the names reached it.
-        setAnalystInbox(makeArtifact({
-            kind:  KIND.CANDIDATE_LIST,
-            items: queue.map(ticker => ({ ticker })),
-            context: {
-                queued: true,
-                pool,                    // everything screened — "also do KLAC" reads from this
-                bySector,                // which sleeve each name is being researched FOR
-                sector: bySector.length === 1 ? bySector[0].sector : null,
-            },
-            from: { agent: 'scanner', label: 'Screen' },
-        }))
-        setActiveTab('analyst')
-    }
-
-    // Edit a saved list (pencil) → reopen its conversation in the scanner, in edit
-    // mode, primed with the list's current contents so the chat can refine it.
+    // Edit a saved list (pencil) → it reopens IN THE SESSION (phase 8d): Argus's state is the list, its surface comes up,
+    // and the next turn refines it — Update saves it back to the same scan.
     function handleEditScan(scan) {
-        setActiveTab('scanner')
-        setScannerChatRestore({
-            key:      Date.now(),
-            messages: scan.chat ?? [],
-            scanId:   scan.id,
-            scan:     { period: scan.period, thesis: scan.thesis, direction: scan.direction, candidates: scan.candidates },
-        })
+        if (!scan?.id) return
+        editEntity('scan', scan.id, { name: scan.thesis ?? null })
     }
 
-    // "Update list" from the scanner → persist the refined list to the same scan.
-    async function handleUpdateList(scanId, scan) {
-        const saved = await updateScan(scanId, scan)
-        if (saved) setNewsTab('scans')
-        // Same rule as handleGenerateList: a list with a desk still waiting on it is mid-pipeline
-        // whether it was just built or just refined, so leaving for the hub pre-empts the hand-off.
-        // And likewise, an update that did not save is not a finished run — it goes home unspent.
-        const steps = stepsOf(activePipeline)
-        if (!hasDownstream(steps, resolveStepIndex(steps, 'scanner', pipelineStep))) {
-            if (saved) finishPipeline()
-            else handleBackToAxl()
-        }
-    }
-
-    // Resume an unfinished idea-building draft: restore the conversation + analysisState
-    // and keep writing to the SAME thread. Generated ideas use the edit/update flow instead.
-    async function handleResumeIdeaThread(threadId) {
-        const t = await threadsService.getThread(threadId)
-        if (!t) return
-        setEditingIdeaId(null)
-        setIsInvalidationReview(false)
-        setMessages(t.messages ?? [])
-        latestMessagesRef.current = t.messages ?? []
-        setAnalysisState(t.state?.analysisState ?? null)
-        ideaThreadIdRef.current = t.threadId
-    }
-
-    // Resume dispatcher for the shared agent-bar hamburger — routes to the active agent.
-    // Idea resumes here (MainPage owns its state); portfolio/scanner expose their own
-    // resume fn via a ref since they own their conversation state.
-    /**
-     * Resume a thread on a NAMED tab.
-     *
-     * Named rather than read from `activeTab`, because arriving at a desk and resuming its conversation
-     * happen in the same tick: the closure still holds the tab the user was on, so dispatching by state
-     * would resume on the desk they just left.
-     */
-    function _resumeThreadOn(tab, threadId) {
-        if (!threadId) return undefined
-        const desk = resumeRefs.current[tab]
-        if (desk) return desk.current?.(threadId)
-        return handleResumeIdeaThread(threadId)
-    }
-
-    function handleResumeActiveThread(threadId) {
-        return _resumeThreadOn(activeTab, threadId)
-    }
-
-    // Shared by the desktop workspace chat and the mobile chat sheet so the two
-    // instances never drift. The mobile sheet overrides onGenerate to also close.
-    const chatPanelProps = {
-        messages,
-        analysisState,
-        onSend:              handleSend,
-        onGenerate:          handleGenerate,
-        onClear:             handleCancelBuild,
-        onStop:              chat.handleStop,
-        canResume:           chat.canResume,
-        onResume:            _continueIdea,
-        isLoading,
-        streamStatus,
-        reasoningPulse,
-        isEditing:           !!editingIdeaId,
-        isInvalidationReview,
-        onDismissInvalidation: handleDismissInvalidation,
-        onBuyMarket:         handleBuyMarket,
-        isPostOrderEdit:     !!ideas.find(i => i.id === editingIdeaId && isPostOrderStatus(i.status)),
-        // The chat is header-less everywhere now — account selection lives in the
-        // agent strip (desktop) / the mobile sheet bar; availableAccounts +
-        // selectedAccounts are still read for the build summary + generate gating.
-        availableAccounts,
-        selectedAccounts,
-    }
-
-    // The pad is built here, beside the agent panels, and shown by the same display switch they
-    // use. Always MOUNTED: a half-typed ticket (or a resting order it is tracking) survives a trip
-    // back to the hub, the way every desk's thread does.
+    // The pad is built here and shown in the side pane's `ticket` tab, which stays MOUNTED (TicketSurface.keepMounted):
+    // a half-typed ticket (or a resting order it is tracking) survives the pane closing.
     const ticketPad = (
         <TradeTicket
             accounts={availableAccounts}
@@ -3058,6 +1510,17 @@ export function MainPage() {
             onReset={handleTicketReset}
         />
     )
+
+    // The side pane's props: what every surface reads (surfaceProps), and the kept tabs' — the ticket pad, and Pythia's
+    // and Aether's panels for an admin (their props are their own: a seed a route left, where a publish lands).
+    const paneProps = {
+        ...surfaceProps,
+        ticketPad,
+        ...(isAdmin ? {
+            pythia: { seed: pythiaSeed, onRoute: handleRoute, onPublished: () => setNewsTab('forecasts') },
+            aether: { seed: aetherSeed, onRoute: handleRoute },
+        } : {}),
+    }
 
     return (
         <>
@@ -3088,234 +1551,26 @@ export function MainPage() {
                         {/* Where a list row's detail docks on desktop (DetailPanel) — over the chat,
                             the widest column, with the chat still mounted underneath. */}
                         <DetailPanelSlot />
-                        {activeTab === 'axl' ? (
-                            <AxlHub
-                                user={user}
-                                live={liveWork}
-                                onPick={handleAxlPick}
-                                onOpenTicket={handleOpenTicket}
-                                briefRequest={briefRequest}
-                                onBriefStart={() => setBriefRequest(0)}
-                                returnFrom={axlReturn}
-                                onReturnStart={() => setAxlReturn(null)}
-                            />
-                        ) : (
-                            <div className="chat-agentbar">
-                                {/* Inside a pipeline the arrow goes bare: the desk path beside it is
-                                    already carrying the words, and "axl" next to it read as a step. */}
-                                <button
-                                    className={`chat-agentbar__back${activePipeline ? ' chat-agentbar__back--bare' : ''}`}
-                                    onClick={handleBackToAxl}
-                                    aria-label="Back to axl"
-                                    title="Back to axl"
-                                >
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                        <path d="M20 12H6" /><path d="M12 5l-7 7 7 7" />
-                                    </svg>
-                                    {!activePipeline && 'axl'}
-                                </button>
-                                {backStep && (
-                                    <button
-                                        className="chat-agentbar__back chat-agentbar__back--step"
-                                        onClick={handleStepBack}
-                                        aria-label={`Back to ${backStep.label}`}
-                                        title={`Back to ${backStep.label}`}
-                                    >
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                            <path d="M15 18l-6-6 6-6" />
-                                        </svg>
-                                        {backStep.label}
-                                    </button>
-                                )}
-                                <PipelineCrumb pipeline={activePipeline} activeTab={activeTab} step={pipelineStep} />
-
-                                <div className="chat-agentbar__right">
-                                    {/* How the desk hands its work on. Manual stops at each step so the
-                                        user can read it and keep chatting before sending it forward;
-                                        auto walks the chain on its own. Shown only inside a pipeline —
-                                        off a desk there is no chain to advance. Arming and order
-                                        confirmation are gated steps and stay manual in both modes.
-                                        Sits with the account / history controls rather than beside the
-                                        stepper: it is a setting, and next to the path it read as a step. */}
-                                    {activePipeline && (
-                                        <button
-                                            type="button"
-                                            className={`chat-agentbar__mode${pipelineMode === 'auto' ? ' is-auto' : ''}`}
-                                            onClick={() => setPipelineMode(m => (m === 'auto' ? 'manual' : 'auto'))}
-                                            aria-pressed={pipelineMode === 'auto'}
-                                            title={pipelineMode === 'auto'
-                                                ? 'Auto: each desk hands its work straight to the next'
-                                                : 'Manual: you send the work on when you are ready'}
-                                        >
-                                            {pipelineMode === 'auto' ? 'auto' : 'manual'}
-                                        </button>
-                                    )}
-                                    {/* (Trading by hand is picked in the hub, beside the desks — the pad
-                                        is its own tab, so no strip toggle is needed here. The account
-                                        selector below stays off it: the pad carries its own.) */}
-                                    {(activeTab === 'idea' || activeTab === 'portfolio' || activeTab === 'kairos' || activeTab === 'mentor') && (
-                                        <AccountSelector
-                                            accounts={availableAccounts}
-                                            selectedIds={selectedAccounts}
-                                            onChange={setSelectedAccounts}
-                                            mainAccountId={mainAccountId}
-                                            onMainChange={setMainAccountId}
-                                        />
-                                    )}
-                                    <ThreadHistory agent={activeTab} onResume={handleResumeActiveThread} busy={Boolean(deskBusy[activeTab])} />
-                                </div>
-                            </div>
-                        )}
-                        <div className="chat-tabs__panel" style={{ display: activeTab === 'idea' ? 'flex' : 'none' }}>
-                            <ChatPanel {...chatPanelProps} />
-                        </div>
-                        <div className="chat-tabs__panel" style={{ display: activeTab === 'scanner' ? 'flex' : 'none' }}>
-                            <ScannerPanel
-                                key={`scanner-${chatResetKey.scanner}-${scannerResetKey}`}
-                                resumeRef={resumeRefs.current.scanner}
-                                pipeline={activePipeline}
-                                onTickerSelect={handleScannerSymbol}
-                                onGenerateList={handleGenerateList}
-                                onUpdateList={handleUpdateList}
-                                onResearchList={handleResearchList}
-                                onResearchLater={handleBackToAxl}
-                                onRoute={handleRoute}
-                                // Mid sleeve-run Argus saves each sector itself — nobody is waiting
-                                // to press between sectors. The panel also shows where the run is
-                                // and offers the skip when a sector comes back with no list.
-                                sleeveRun={sleeveRun}
-                                onSkipSleeve={handleSkipSleeve}
-                                onLoadingChange={deskLoadingSetters.scanner}
-                                {...deskProps('scanner')}
-                                handoff={scannerSingle}
-                                handoffTo={scannerHandoffTo}
-                                radarBoard={radarBoard}
-                                autoHandoff={autoHandoff}
-                                onSendPick={handleSendPick}
-                                onDismissHandoff={handleCancelHandoff}
-                            />
-                        </div>
-                        <div className="chat-tabs__panel" style={{ display: activeTab === 'portfolio' ? 'flex' : 'none' }}>
-                            <PortfolioPanel
-                                onRoute={handleRoute}
-                                key={`portfolio-${chatResetKey.portfolio}`}
-                                resumeRef={resumeRefs.current.portfolio}
-                                onGeneratePlan={handleGeneratePlan}
-                                onUpdatePlan={handleUpdatePlan}
-                                onPortfolioUpdate={handlePortfolioUpdate}
-                                onBuildingPlanChange={setBuildingPortfolio}
-                                onLoadingChange={deskLoadingSetters.portfolio}
-                                onReviewResolved={handleBackToAxl}
-                                onAcceptReview={handleAcceptReview}
-                                {...deskProps('portfolio')}
-                                availableAccounts={availableAccounts}
-                                selectedAccounts={selectedAccounts}
-                                onAccountsChange={setSelectedAccounts}
-                                mainAccountId={mainAccountId}
-                                onMainAccountChange={setMainAccountId}
-                                adoptDraft={adoptDraft}
-                            />
-                            {adoptDraft && (
-                                <AdoptBookGrid
-                                    draft={adoptDraft}
-                                    onDraftChange={setAdoptDraft}
-                                    onAdopted={({ portfolioId, legs }) => {
-                                        setAdoptDraft(null)
-                                        showSuccessMsg(`Adopted ${legs} holding${legs === 1 ? '' : 's'}`)
-                                        // Straight into the book that now exists, rather than back to a
-                                        // blank desk: the next thing to do is look at what was adopted.
-                                        loadIdeas().then(() => handleEditPortfolio(portfolioId)).catch(() => {})
-                                    }}
-                                    onCancel={() => setAdoptDraft(null)}
+                        {/* The chat and, beside it, the side pane: each desk's working surface (8b–8d), and Pythia, Aether and the
+                            order ticket as kept tabs (8e). The chat column is always the timeline — no desk tab replaces it. */}
+                        <SessionContext.Provider value={mainSession}>
+                            <div className="chat-with-pane">
+                                <ChatTimeline
+                                    accounts={timelineAccounts}
+                                    mainAccountId={mainAccountId}
+                                    onOpenTicket={handleOpenTicket}
+                                    onOpenView={handleOpenView}
+                                    briefRequest={briefRequest}
+                                    onBriefStart={() => setBriefRequest(0)}
+                                    // The admin row that opened Pythia and Aether under the header is OFF for now (Roy,
+                                    // 2026-10-18). To bring it back: desks={isAdmin ? [{ agent: 'strategy', label: 'Pythia' },
+                                    // { agent: 'aether', label: 'Aether' }] : []} onOpenDesk={openDesk} — ChatTimeline still
+                                    // draws the row when given them.
+                                    paneSurfaces={SURFACES}
                                 />
-                            )}
-                        </div>
-
-                        {/* Trade by hand — a panel of its own, not a mode of a desk's chat: it is
-                            reached from the hub, and it belongs to no pipeline. */}
-                        <div className="chat-tabs__panel" style={{ display: activeTab === 'ticket' ? 'flex' : 'none' }}>
-                            <div className="portfolio-panel">{ticketPad}</div>
-                        </div>
-
-                        <div className="chat-tabs__panel" style={{ display: activeTab === 'mentor' ? 'flex' : 'none' }}>
-                            <MentorPanel
-                                onRoute={handleRoute}
-                                onLoadingChange={deskLoadingSetters.mentor}
-                                pipeline={activePipeline}
-                                onGenerated={finishPipeline}
-                                {...deskProps('mentor')}
-                                resumeRef={resumeRefs.current.mentor}
-                                editingSetupId={editingSetupId}
-                                onEditDone={handleSetupEditDone}
-                                availableAccounts={availableAccounts}
-                                selectedAccounts={selectedAccounts}
-                                mainAccountId={mainAccountId}
-                            />
-                        </div>
-
-                        <div className="chat-tabs__panel" style={{ display: activeTab === 'analyst' ? 'flex' : 'none' }}>
-                            <AnalystPanel
-                                onRoute={handleRoute}
-                                onLoadingChange={deskLoadingSetters.analyst}
-                                {...deskProps('analyst')}
-                                editCoverage={analystEditCoverage}
-                                coverage={coverage}
-                                pipeline={activePipeline}
-                                resumeRef={resumeRefs.current.analyst}
-                                onSleeveResearched={handleSleeveResearched}
-                                // Leaving for Axl after a save is right for a ONE-name research run.
-                                // During a SLEEVE it would throw the user out between names, and on
-                                // the last one it would pre-empt the hand-back to Atlas entirely.
-                                onInitiated={(saved, { sleeve } = {}) => {
-                                    settleResearchQueue(saved)   // a queued name just got its coverage
-                                    setNewsTab('coverage')
-                                    if (!sleeve) handleBackToAxl()
-                                }}
-                            />
-                        </div>
-
-                        {isAdmin && (
-                            <div className="chat-tabs__panel" style={{ display: activeTab === 'strategy' ? 'flex' : 'none' }}>
-                                <StrategyPanel
-                                    {...deskProps('strategy')}
-                                    onRoute={handleRoute}
-                                    onLoadingChange={deskLoadingSetters.strategy}
-                                    pipeline={activePipeline}
-                                    resumeRef={resumeRefs.current.strategy}
-                                    // A published answer lands on the Forecasts board. The admin stays at the
-                                    // desk: one turn can draft several industries, published one at a time.
-                                    onPublished={() => setNewsTab('forecasts')}
-                                />
+                                <SidePane session={mainSession} surfaces={SURFACES} deskProps={paneProps} />
                             </div>
-                        )}
-
-                        {/* Admin-only, like Pythia's: the hub never offers the desk to a trader and the
-                            server drops a route to it, so a mounted panel would only ever be a door
-                            with nothing behind it. */}
-                        {isAdmin && (
-                            <div className="chat-tabs__panel" style={{ display: activeTab === 'aether' ? 'flex' : 'none' }}>
-                                <AetherPanel
-                                    {...deskProps('aether')}
-                                    onRoute={handleRoute}
-                                    onLoadingChange={deskLoadingSetters.aether}
-                                    pipeline={activePipeline}
-                                    resumeRef={resumeRefs.current.aether}
-                                />
-                            </div>
-                        )}
-
-                        {/* Departure beat — covers the agent chat while heading home to axl. */}
-                        {returningToAxl && (
-                            <div className="chat-return-overlay" role="status" aria-live="polite">
-                                <AgentSummon
-                                    hue="axl"
-                                    label={<>Heading back to <span className="axl-summon__brand axl-hub__wordmark"><b>A</b>XL</span></>}
-                                    sub="one moment…"
-                                >
-                                    <AxlBotGlyph />
-                                </AgentSummon>
-                            </div>
-                        )}
+                        </SessionContext.Provider>
                     </div>
                     {floorMode ? (
                         <div className="workspace__right">
@@ -3326,8 +1581,8 @@ export function MainPage() {
                                 below, the same handler the Lists tab's SetupCard runs). */}
                             {(
                                 <FloorLists
-                                        setups={inWorkspace(setups, workspace)}
-                                    ideas={inWorkspace(ideas, workspace).filter(i => i.status !== 'closed')}
+                                        setups={workspaceSetups}
+                                    ideas={workspaceIdeas}
                                     positions={positions}
                                     scans={scans}
                                     coverage={coverage}
@@ -3359,6 +1614,7 @@ export function MainPage() {
                                     onRetireCoverage={handleRetireCoverage}
                                     onDeleteCoverage={handleDeleteCoverage}
                                     isAdmin={isAdmin}
+                                    onOpenDesk={openDesk}
                                     researchQueue={researchQueue}
                                     onStartResearch={handleStartResearch}
                                     onMarkResearchDone={handleMarkResearchDone}
@@ -3374,15 +1630,13 @@ export function MainPage() {
                     ) : (
                     <div className="workspace__ideas">
                         <TradeIdeasList
-                            ideas={inWorkspace(ideas, workspace).filter(i => i.status !== 'closed')}
-                            chatTab={activeTab}
-                            buildingIdea={buildingIdeaRow}
+                            ideas={workspaceIdeas}
+                            // The desk the user is talking to — the list opens on its kind (the floor, since phase 8e).
+                            chatTab={mainSession.floor ?? 'axl'}
                             buildingPortfolio={buildingPortfolio}
                             loading={ideasLoading}
                             onDelete={handleDeleteIdea}
-                            onCancelBuild={handleCancelBuild}
                             onStatusChange={handleStatusChange}
-                            onEdit={handleEditIdea}
                             onEditPortfolio={handleEditPortfolio}
                             onDeletePortfolio={handleDeletePortfolio}
                             onPlaceOrder={handleReopenConfirm}
@@ -3391,7 +1645,7 @@ export function MainPage() {
                             onRefreshPositions={refreshPositions}
                             onClosePosition={closePosition}
                             onClosePositions={closePositions}
-                            setups={inWorkspace(setups, workspace)}
+                            setups={workspaceSetups}
                             setupsLoading={setupsLoading}
                             onArmSetup={handleArmSetup}
                             onDisarmSetup={handleDisarmSetup}
@@ -3437,8 +1691,7 @@ export function MainPage() {
                 {/* ── Mobile ──
                     No separate mobile surface: the workspace above collapses to its chat column
                     (RootCmp.scss, < 768px), so a phone gets the header and the live desks. The
-                    monitor dashboard + chat FAB/sheet that used to stand in here are gone — the
-                    sheet opened the archived idea chat, which can no longer send. */}
+                    monitor dashboard + chat FAB/sheet that used to stand in here are gone. */}
             </main>
 
             {confirmIdea && confirmOrders.length > 0 && (
@@ -3470,7 +1723,6 @@ export function MainPage() {
                     prompt={preEntryPrompt}
                     busy={preEntryBusy}
                     onBuyNow={handlePreEntryBuyNow}
-                    onEdit={handlePreEntryEdit}
                     onReset={handlePreEntryReset}
                     onClose={() => { if (!preEntryBusy) setPreEntryPrompt(null) }}
                 />
@@ -3482,16 +1734,6 @@ export function MainPage() {
                     deleting={deletingIdea}
                     onConfirm={handleConfirmDeleteIdea}
                     onCancel={() => { if (!deletingIdea) setPendingDeleteIdea(null) }}
-                />
-            )}
-
-            {pendingRebalance && (
-                <RebalanceConfirmDialog
-                    update={pendingRebalance}
-                    ideas={ideas}
-                    applying={applyingRebalance}
-                    onConfirm={confirmRebalance}
-                    onCancel={() => { if (!applyingRebalance) setPendingRebalance(null) }}
                 />
             )}
 
@@ -3507,53 +1749,5 @@ export function MainPage() {
                 />
             )}
         </>
-    )
-}
-
-// Confirmation gate for an accepted review rebalance. Nothing executes until the user
-// confirms; on confirm the parent POSTs the update to the live-book rebalance endpoint.
-function RebalanceConfirmDialog({ update, ideas, applying, onConfirm, onCancel }) {
-    const ideaById = new Map((ideas ?? []).map(i => [i.id, i]))
-    const assetOf  = (id) => ideaById.get(id)?.asset ?? id ?? '—'
-    const pct      = (n) => `${Math.round((Number(n) || 0) * 100)}%`
-
-    // A holding is a portfolio_item, so the vocabulary is `_item`. The `_idea` spelling was carried
-    // as an alias through the rename and dropped 2026-08-19 — see the note in the apply path above.
-    function describe(change) {
-        const id   = change.itemId
-        const spec = change.item
-        switch (change.action) {
-            case 'exit_item':   return `Exit ${assetOf(id)}${change.reason ? ` — ${change.reason}` : ''}`
-            case 'trim_item':   return `Trim ${assetOf(id)} by ${pct(change.reduceFraction)}${change.targetAllocationRatio != null ? ` → target ${pct(change.targetAllocationRatio)}` : ''}`
-            case 'add_to_item': return `Add to ${assetOf(id)}: +${pct(change.addFraction)}${change.targetAllocationRatio != null ? ` → target ${pct(change.targetAllocationRatio)}` : ''}`
-            case 'add_item':    return `Add ${spec?.asset ?? '?'} (${spec?.direction ?? 'long'}${spec?.allocationRatio != null ? `, target ${pct(spec.allocationRatio)}` : ''})${change.avoid ? ` — Pythia rates ${change.avoid.industry} AVOID` : ''}`
-            case 'update_item': return `Update ${assetOf(id)}: ${Object.keys(change.patch ?? {}).join(', ') || 'fields'}`
-            case 'remove_item': return `Remove ${assetOf(id)} (pending)`
-            default:            return change.action
-        }
-    }
-
-    const overlay = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }
-    const card    = { background: 'var(--surface, #1b1f27)', color: 'var(--text, #e8eaed)', border: '1px solid var(--border, #333)', borderRadius: 12, padding: 20, width: 'min(460px, 92vw)', maxHeight: '80vh', overflow: 'auto', boxShadow: '0 12px 40px rgba(0,0,0,0.5)' }
-    const btn     = { padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border, #444)', cursor: 'pointer', fontSize: 14 }
-
-    return (
-        <div style={overlay} onClick={() => !applying && onCancel?.()}>
-            <div style={card} onClick={e => e.stopPropagation()}>
-                <h3 style={{ margin: '0 0 4px' }}>Confirm rebalance</h3>
-                <p style={{ margin: '0 0 12px', opacity: 0.7, fontSize: 13 }}>
-                    These actions will run on your live broker account{update.thesis ? ' and update the portfolio thesis' : ''}. Nothing executes until you confirm.
-                </p>
-                <ul style={{ margin: '0 0 16px', paddingLeft: 18, lineHeight: 1.7 }}>
-                    {(update.changes ?? []).map((c, i) => <li key={i}>{describe(c)}</li>)}
-                </ul>
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                    <button style={{ ...btn, background: 'transparent' }} onClick={onCancel} disabled={applying}>Cancel</button>
-                    <button style={{ ...btn, background: 'var(--accent, #4f8cff)', color: '#fff', borderColor: 'transparent' }} onClick={onConfirm} disabled={applying}>
-                        {applying ? 'Applying…' : 'Confirm & execute'}
-                    </button>
-                </div>
-            </div>
-        </div>
     )
 }

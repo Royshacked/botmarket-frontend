@@ -4,7 +4,7 @@ import PropTypes from 'prop-types'
 // with the Calls list, so the window name and size can't drift between the two entry points.
 import { openCallPopup, openSetupPopup } from '../TradeIdeas/tradeIdea.utils.js'
 import { manageVerb } from '../TradeIdeas/setupManage.js'
-import { eventBus, INVALIDATION_EDIT_IDEA, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, CALL_CONFIRM_OPEN, SETUP_CONFIRM_OPEN, CALL_EXPIRY_EDIT, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD, SETUP_SHARED_OPEN } from '../../services/event-bus.service'
+import { eventBus, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD, SETUP_SHARED_OPEN } from '../../services/event-bus.service'
 import { manualService } from '../../services/manual/manual.service.remote'
 import { mentorService } from '../../services/mentor/mentor.service.remote'
 import { marketService } from '../../services/market/market.service.remote'
@@ -62,7 +62,7 @@ function ResolvedChip({ agent, outcome, asset, reason, qualifier = null, reopen 
 // nothing is being asked of you" — and a Dismiss on those would invent a decision the card isn't
 // making. Opt-in per card rather than derived from `msg.actions` here, so older history posted
 // before a producer set actions keeps the buttons it has always rendered.
-function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = null, body, primaryLabel, onPrimary, onResolve, onDismiss, msg, resolvedLabels = {}, reopenOnDone = false, primaryDisabled = false, actionless = false }) {
+function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = null, body, primaryLabel, onPrimary, onResolve, onDismiss, msg, resolvedLabels = {}, reopenOnDone = false, primaryDisabled = false, actionless = false, dismissOnly = false }) {
     const { resolved, status, outcome, note } = readResolution(msg)
     if (resolved) {
         const label  = resolvedLabels[outcome] ?? (status === 'done' ? '✓ Done' : 'Dismissed')
@@ -76,8 +76,9 @@ function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = n
     // for nothing but is still the user's to clear. Read off `actions`, never guessed — a bubble
     // always passes a `primaryLabel` fallback, so the label cannot tell us. Only an `actions` that
     // is PRESENT and has no primary means this; older history with no `actions` at all keeps the
-    // two buttons it has always rendered.
-    const noPrimary = !!msg.actions && !msg.actions.primary
+    // two buttons it has always rendered. `dismissOnly` is the card's own say-so, for a card whose
+    // primary the producer still sends but whose destination no longer exists.
+    const noPrimary = dismissOnly || (!!msg.actions && !msg.actions.primary)
 
     // WHO CLOSES THIS CARD — read off the card, decided nowhere else.
     //
@@ -120,6 +121,46 @@ function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = n
             )}
         </div>
     )
+}
+
+/**
+ * THE card dispatch — one card message → its bubble, or `fallback` when it is not a card this app draws.
+ * Desk cards live in the social chat only (the unified chat's timeline stopped drawing them, 2026-10-18).
+ * Every bubble only emits on the event bus and calls `onResolve(msgId, { status, outcome })`, so it renders
+ * anywhere it is given a message and a resolver.
+ */
+export function CardBubble({ msg, mine = false, onClose = () => {}, onResolve, fallback = null }) {
+    switch (msg.type) {
+        case 'invalidation_alert': return msg.payload ? <InvalidationAlertBubble msg={msg} onResolve={onResolve} /> : fallback
+        case 'portfolio_review':   return msg.payload ? <PortfolioReviewBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
+        case 'manual_entry':
+        case 'manual_exit':        return msg.payload ? <ManualFillCard msg={msg} onResolve={onResolve} /> : fallback
+        case 'entry_confirm':      return msg.payload ? <EntryConfirmBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
+        case 'queue_ready':        return msg.payload ? <QueueReadyBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
+        // RETIRED 2026-08-07 — nothing posts orders_ready any more (the market-open sweep sends one
+        // queue_ready instead). Kept so the batch cards already in a user's history still render.
+        case 'orders_ready':       return msg.payload ? <OrdersReadyBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
+        case 'call_expiry':        return msg.payload ? <CallExpiryBubble msg={msg} onResolve={onResolve} /> : fallback
+        case 'call_manage':        return msg.payload ? <CallManageBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
+        case 'setup_invalidation': return msg.payload ? <SetupInvalidationBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
+        case 'setup_manage':       return msg.payload ? <SetupManageBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
+        case 'call_reentry':       return msg.payload ? <CallReentryBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
+        case 'coverage_event':     return msg.payload ? <CoverageEventBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
+        case 'industry_view':      return msg.payload ? <IndustryViewBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
+        case 'sleeve_sourced':     return msg.payload ? <SleeveSourcedBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
+        case 'coverage_refreshed': return msg.payload ? <CoverageRefreshedBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
+        case 'market_brief_offer': return <MarketBriefOfferBubble msg={msg} onClose={onClose} onResolve={onResolve} />
+        case 'setup_shared':       return msg.payload?.blueprint ? <SetupSharedBubble msg={msg} mine={mine} onClose={onClose} onResolve={onResolve} /> : fallback
+        default:                   return fallback
+    }
+}
+
+CardBubble.propTypes = {
+    msg:       PropTypes.object.isRequired,
+    mine:      PropTypes.bool,
+    onClose:   PropTypes.func,
+    onResolve: PropTypes.func.isRequired,
+    fallback:  PropTypes.node,
 }
 
 export function ChatWindow({ conversation, messages, currentUserId, loading, hasMore, onClose, onSend, onSendSetup, onLoadMore, onResolveMessage, scrollToMsgId, onScrolledToMsg }) {
@@ -210,45 +251,8 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
                             ref={el => { if (el) msgRefs.current[msg.id] = el }}
                             className={`social-chat__msg ${isMine ? 'social-chat__msg--mine' : 'social-chat__msg--theirs'}${highlight ? ' social-chat__msg--highlight' : ''}`}
                         >
-                            {msg.type === 'invalidation_alert' && msg.payload
-                                ? <InvalidationAlertBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'portfolio_review' && msg.payload
-                                ? <PortfolioReviewBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : (msg.type === 'manual_entry' || msg.type === 'manual_exit') && msg.payload
-                                ? <ManualFillCard msg={msg} onResolve={onResolveMessage} />
-                                : msg.type === 'entry_confirm' && msg.payload
-                                ? <EntryConfirmBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'queue_ready' && msg.payload
-                                ? <QueueReadyBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                // RETIRED 2026-08-07 — nothing posts orders_ready any more (the
-                                // market-open sweep sends one queue_ready instead). Kept so the
-                                // batch cards already in a user's history still render.
-                                : msg.type === 'orders_ready' && msg.payload
-                                ? <OrdersReadyBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'call_expiry' && msg.payload
-                                ? <CallExpiryBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'call_manage' && msg.payload
-                                ? <CallManageBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'setup_invalidation' && msg.payload
-                                ? <SetupInvalidationBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'setup_manage' && msg.payload
-                                ? <SetupManageBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'call_reentry' && msg.payload
-                                ? <CallReentryBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'coverage_event' && msg.payload
-                                ? <CoverageEventBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'industry_view' && msg.payload
-                                ? <IndustryViewBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'sleeve_sourced' && msg.payload
-                                ? <SleeveSourcedBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'coverage_refreshed' && msg.payload
-                                ? <CoverageRefreshedBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'market_brief_offer'
-                                ? <MarketBriefOfferBubble msg={msg} onClose={onClose} onResolve={onResolveMessage} />
-                                : msg.type === 'setup_shared' && msg.payload?.blueprint
-                                ? <SetupSharedBubble msg={msg} mine={isMine} onClose={onClose} onResolve={onResolveMessage} />
-                                : <div className="social-chat__msg-bubble" dir="auto">{msg.content}</div>
-                            }
+                            <CardBubble msg={msg} mine={isMine} onClose={onClose} onResolve={onResolveMessage}
+                                fallback={<div className="social-chat__msg-bubble" dir="auto">{msg.content}</div>} />
                             <div className="social-chat__msg-time">{formatTime(msg.createdAt)}</div>
                         </div>
                     )
@@ -340,39 +344,36 @@ SetupPicker.propTypes = { onPick: PropTypes.func.isRequired, onClose: PropTypes.
 // Every card is a thin adapter over NotificationCard: it supplies the agent, heading/body, the
 // primary "do something" (route + resolve done) and — where dismissing has a side effect — a
 // custom dismiss. Strictly two buttons; finer actions (close/delete/edit) live in the surface the
-// primary opens (the idea chat, the call pop-out, the Calls tab).
+// primary opens (the call pop-out, the Calls tab).
 
-export function InvalidationAlertBubble({ msg, onClose, onResolve }) {
-    const { reason, asset, status, inPosition, ideaId } = msg.payload
+// An idea's invalidation alert. Dismiss only: the idea chat its primary used to reopen is gone, and
+// editing a hand-made idea's levels returns through the order ticket. `resolvedLabels` stay so the
+// alerts already resolved in history keep their chips.
+export function InvalidationAlertBubble({ msg, onResolve }) {
+    const { reason, asset, status, inPosition } = msg.payload
     const isDrifting = status === 'drifting'
     const kind    = isDrifting ? 'drifting' : 'fired'
     const heading = isDrifting
         ? `Setup drifting · ${asset}`
         : `Invalidation${inPosition ? ' (in position)' : ''} · ${asset}`
 
-    // Primary routes to the idea's own chat, where you re-map or close it. (The old inline "Close"
-    // now lives there / in the positions tab — strictly two buttons on the card.)
-    function handlePrimary() {
-        eventBus.emit(INVALIDATION_EDIT_IDEA, { ideaId })
-        onClose?.()
-    }
-
     return (
         <NotificationCard
             agent={AGENTS.idea} kind={kind} heading={heading} asset={asset} qualifier={kind} body={reason}
-            primaryLabel={msg.actions?.primary?.label ?? 'Edit in chat'} onPrimary={handlePrimary}
+            dismissOnly
             onResolve={onResolve} msg={msg}
             resolvedLabels={{ editing: '✓ Opened in chat', closing: '✓ Closing' }}
         />
     )
 }
 
-// "Entry triggered — confirm" card. An idea routes to the workspace's OrderConfirmDialog; a Kairos
-// call opens its pop-out where Confirm entry lives. Replayable on the collapsed chip.
+// "Entry triggered — confirm" card. An idea routes to the workspace's OrderConfirmDialog, a setup to
+// its own confirm. Replayable on the collapsed chip. A Kairos call's confirm surface was archived with
+// Kairos (2026-08-18), so its card is Dismiss only — the primary would open nothing.
 const ENTRY_CONFIRM_NOTE = { passed_earlier: 'Scheduled time already passed', off_hours: 'Fired while market was closed' }
 
-function EntryConfirmBubble({ msg, onClose, onResolve }) {
-    const { kind, ideaId, callId, setupId, asset, note, warning, scenario } = msg.payload
+export function EntryConfirmBubble({ msg, onClose, onResolve }) {
+    const { kind, ideaId, setupId, asset, note, warning, scenario } = msg.payload
     const isCall  = kind === 'call'
     const isSetup = kind === 'setup'
     // Tag = the desk that sent it. A holding's confirm is Atlas's; a lone legacy idea keeps the
@@ -381,9 +382,8 @@ function EntryConfirmBubble({ msg, onClose, onResolve }) {
         : kind === 'portfolio_item' ? AGENTS.portfolio : AGENTS.idea
 
     function route() {
-        if (isCall)       eventBus.emit(CALL_CONFIRM_OPEN,  { callId })
-        else if (isSetup) eventBus.emit(SETUP_CONFIRM_OPEN, { setupId })
-        else              eventBus.emit(ENTRY_CONFIRM_OPEN, { ideaId })
+        if (isSetup) eventBus.emit(SETUP_CONFIRM_OPEN, { setupId })
+        else         eventBus.emit(ENTRY_CONFIRM_OPEN, { ideaId })
     }
     function handlePrimary() {
         onResolve?.(msg.id, { status: 'done', outcome: 'confirmed' })
@@ -412,7 +412,10 @@ function EntryConfirmBubble({ msg, onClose, onResolve }) {
     return (
         <NotificationCard
             agent={agent} kind="confirm" heading={heading} asset={asset} body={msg.content}
-            primaryLabel={msg.actions?.primary?.label ?? 'Confirm order'} onPrimary={handlePrimary}
+            // No onPrimary for a call either: a call card resolved `done` in old history would
+            // otherwise offer to reopen through it from the collapsed chip.
+            primaryLabel={msg.actions?.primary?.label ?? 'Confirm order'} onPrimary={isCall ? undefined : handlePrimary}
+            dismissOnly={isCall}
             onDismiss={handleDismiss} onResolve={onResolve} msg={msg} reopenOnDone
             resolvedLabels={{ confirmed: '✓ Opened' }}
         />
@@ -516,27 +519,18 @@ export function QueueReadyBubble({ msg, onClose, onResolve }) {
     )
 }
 
-// "Trade thesis expiring / expired" card for a Kairos call. Primary re-maps it in Kairos's in-app
-// edit mode (re-arms the monitor on save). Delete now lives in the Calls tab / call pop-out.
-export function CallExpiryBubble({ msg, onClose, onResolve }) {
-    const { callId, asset, kind, why } = msg.payload
+// "Trade thesis expiring / expired" card for a Kairos call. Dismiss only: the Kairos edit mode its
+// primary used to open was archived with Kairos (2026-08-18). Delete lives in the Calls tab / call
+// pop-out. `resolvedLabels` stay so the cards already resolved in history keep their chips.
+export function CallExpiryBubble({ msg, onResolve }) {
+    const { asset, kind, why } = msg.payload
     const heading   = `${kind === 'expired' ? 'Thesis expired' : 'Thesis expiring'} · ${asset}`
     const kindLabel = kind === 'expired' ? 'expired' : 'expiring'   // payload kind is 'edit'|'expired'
-
-    function handlePrimary() {
-        // `kind` rides along because it is the CARD's axis, not the call's status (see buildCallExpiry
-        // — a stale thesis leaves the call at 'looking' either way). The desk opens on a different
-        // question for a thesis that HAS expired than for one that is expiring, and nothing on the
-        // document can tell them apart. The reason itself is not passed: that is read off the call
-        // when the doorway resolves it, so it is the reason that stands now.
-        eventBus.emit(CALL_EXPIRY_EDIT, { callId, kind })
-        onClose?.()
-    }
 
     return (
         <NotificationCard
             agent={AGENTS.kairos} kind="expiry" heading={heading} asset={asset} qualifier={kindLabel} body={why || msg.content}
-            primaryLabel={msg.actions?.primary?.label ?? 'Edit call'} onPrimary={handlePrimary}
+            dismissOnly
             onResolve={onResolve} msg={msg}
             resolvedLabels={{ editing: '✓ Opened in chat', deleted: '✓ Deleted' }}
         />
@@ -902,8 +896,10 @@ export function CoverageRefreshedBubble({ msg, onClose, onResolve }) {
  * construction thread, or the book's edit when the sleeve was for a portfolio that already exists.
  */
 export function SleeveSourcedBubble({ msg, onClose, onResolve }) {
-    const { sector, school, threadId, portfolioId, covered = [], screened } = msg.payload
-    const heading = `Sleeve · ${sector}${school ? ` (${school})` : ''} — ${covered.length} of ${screened ?? covered.length} in coverage`
+    const { sector, industry, industryCode, school, threadId, portfolioId, covered = [], screened } = msg.payload
+    // A sleeve is a GICS sub-industry now (atlas-industry-sleeves.md, 2026-10-19); an older card has only its sector.
+    const label = industryCode && industry ? industry : sector
+    const heading = `Sleeve · ${label}${school ? ` (${school})` : ''} — ${covered.length} of ${screened ?? covered.length} in coverage`
 
     function handlePrimary() {
         eventBus.emit(RESUME_BUILD, { threadId: threadId ?? null, portfolioId: portfolioId ?? null })
@@ -912,7 +908,7 @@ export function SleeveSourcedBubble({ msg, onClose, onResolve }) {
 
     return (
         <NotificationCard
-            agent={AGENTS.portfolio} kind="portfolio" heading={heading} asset={sector} body={msg.content}
+            agent={AGENTS.portfolio} kind="portfolio" heading={heading} asset={label} body={msg.content}
             primaryLabel={msg.actions?.primary?.label ?? 'Resume build'} onPrimary={handlePrimary}
             onResolve={onResolve} msg={msg}
             resolvedLabels={{ resumed: '✓ Resumed', opened: '✓ Opened' }}

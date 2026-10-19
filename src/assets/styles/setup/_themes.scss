@@ -419,24 +419,23 @@
     --glass-anchor: #070b0d;
 
     // ── Panel header height — one number, app-wide ────────────────────────────
-    // Every column header sits on this line: the agent chat headers (.chat-panel__header and the
-    // shared .portfolio-panel__header behind Portfolio/Kairos/Mentor/Scanner/Analyst) and the
+    // Every column header sits on this line: the agent chat headers (the shared
+    // .portfolio-panel__header behind Portfolio/Mentor/Scanner/Analyst) and the
     // Floor design's column headings. Headers that miss each other by a few pixels are the single
     // most visible way a multi-column layout stops reading as one app, and three stylesheets each
     // holding their own copy of the number is how that drift starts.
     //
-    // 54px = the .axl-hub__option row ("Traders desk" and siblings), which is what these were
-    // matched to: a 36px title icon clears it with room, so raising it is safe, lowering below
-    // ~38px is not.
+    // 54px: a 36px title icon clears it with room, so raising it is safe, lowering below ~38px is not. (It was matched
+    // to the Axl hub's desk rows, which went in unified-chat phase 7.)
     //
     // In rem so every header follows the fluid root on laptop viewports (basics/_base.scss) —
     // and because it is ONE token, they all shrink by the same amount and stay lined up.
     --header-h: #{rem(54px)};
 
     // ── Chat body text — one number, every desk ───────────────────────────────
-    // What an agent SAYS, in all seven chats: .chat-panel__bubble (Idea), the shared
-    // .portfolio-panel__bubble (Atlas/Kairos/Argus/Mentor/Analyst) and .axl-hub__bubble.
-    // Held here for the same reason as --header-h: three stylesheets each owning a copy is
+    // What an agent SAYS, in every chat: the shared .portfolio-panel__bubble
+    // and the chat timeline's rows.
+    // Held here for the same reason as --header-h: stylesheets each owning a copy is
     // how Axl ended up reading at 13px while every other desk sat at 16px.
     // This is the app's primary reading surface — long-form analysis a user works through —
     // so it runs a step above UI text rather than matching it.

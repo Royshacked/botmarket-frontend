@@ -116,3 +116,20 @@ describe('chatWs heartbeat', () => {
         expect(frames(second)).toEqual(['ping'])   // exactly one loop, not two stacked
     })
 })
+
+describe('send — a client frame (the session channel’s session_sync)', () => {
+    it('sends { event, data } on an open socket', () => {
+        const ws = connected()
+        expect(chatWsService.send('session_sync', { sessionId: 's1', afterSeq: 4 })).toBe(true)
+        expect(JSON.parse(ws.sent.at(-1))).toEqual({ event: 'session_sync', data: { sessionId: 's1', afterSeq: 4 } })
+    })
+
+    it('answers false and sends nothing when the socket is not open — the caller re-sends on connected', () => {
+        expect(chatWsService.send('session_sync', {})).toBe(false)
+        const ws = connected()
+        ws.readyState = FakeSocket.CLOSED
+        const before = ws.sent.length
+        expect(chatWsService.send('session_sync', {})).toBe(false)
+        expect(ws.sent.length).toBe(before)
+    })
+})

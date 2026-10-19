@@ -2,7 +2,6 @@ import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, cleanup, renderHook, act } from '@testing-library/react'
 import { ChatChart } from './ChatChart.jsx'
 import { ChatBubble } from './ChatBubble.jsx'
-import { MessageBubble as AxlMessageBubble } from './AxlHub/AxlHub.jsx'
 import { useChatStream, toChatHistory } from '../customHooks/useChatStream.js'
 
 // The in-thread chart row: the STILL image an agent rendered and read. The live chart a user asked
@@ -44,23 +43,6 @@ describe('ChatBubble routes chart rows to the shared component', () => {
     it('a normal assistant row is untouched', () => {
         const { container } = render(<ChatBubble msg={{ role: 'assistant', content: 'hello' }} />)
         expect(container.querySelector('.chat-chart')).toBeNull()
-        expect(container.textContent).toContain('hello')
-    })
-})
-
-describe('Axl renders the same row from its own bubbles', () => {
-    // Axl keeps its own bubble (own SCSS namespace, a status chip while thinking), so it is the one
-    // surface that can silently lose a chart row — in exactly the chat a user is most likely to type
-    // "give SPY" into.
-    it('a type:chart row renders the chart, not an empty Axl bubble', () => {
-        const { container } = render(<AxlMessageBubble msg={{ role: 'assistant', type: 'chart', symbol: 'SPY', timeframe: 'day', imageBase64: 'CCC' }} />)
-        expect(container.querySelector('.chat-chart__img').getAttribute('src')).toBe('data:image/png;base64,CCC')
-        expect(container.querySelector('.axl-hub__bubble')).toBeNull()
-    })
-
-    it('a normal assistant row still renders as an Axl bubble', () => {
-        const { container } = render(<AxlMessageBubble msg={{ role: 'assistant', content: 'hello' }} />)
-        expect(container.querySelector('.axl-hub__bubble--assistant')).toBeTruthy()
         expect(container.textContent).toContain('hello')
     })
 })

@@ -140,8 +140,7 @@
 
         &:disabled { opacity: 0.5; cursor: default; }
 
-        &--reset,
-        &--edit {
+        &--reset {
             background: transparent;
             border: 1px solid var(--accent-deep);
             color: var(--text-muted);

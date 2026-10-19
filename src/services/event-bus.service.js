@@ -1,6 +1,4 @@
 export const SHOW_MSG                 = 'show-msg'
-export const INVALIDATION_EDIT_IDEA   = 'invalidation-edit-idea'
-export const INVALIDATION_CLOSE_TRADE = 'invalidation-close-trade'
 export const PORTFOLIO_REVIEW         = 'portfolio-review'
 // A portfolio review was resolved (dismissed or accepted) → the portfolio list refetches
 // its due-review set so the red edit-pencil clears immediately.
@@ -18,18 +16,9 @@ export const ENTRY_CONFIRM_OPEN        = 'entry-confirm-open'
 // A `setup` (Mentor/Talos) reached its zone. Separate from ENTRY_CONFIRM_OPEN because that one
 // resolves the entity out of the loaded IDEAS list, which setups are not in — see MainPage.
 export const SETUP_CONFIRM_OPEN        = 'setup-confirm-open'
-export const CALL_CONFIRM_OPEN         = 'call-confirm-open'
-// Call-expiry card "Edit call" → reopen the call in Kairos's in-app edit mode to re-map the
-// thesis (re-arms the monitor on save). A stale thesis is the invalidation axis, not a status
-// (terminal) calls — updateKairosCall re-arms to 'waiting' regardless of prior status.
-export const CALL_EXPIRY_EDIT          = 'call-expiry-edit'
-// Setup-invalidation card "Re-draw it" → reopen the setup in Mentor's chat to re-map it, the same
-// move CALL_EXPIRY_EDIT makes for a call. Separate from that one for the same reason
-// SETUP_CONFIRM_OPEN is separate from ENTRY_CONFIRM_OPEN: the entity is resolved out of the setups
-// list, which calls are not in.
+// Setup-invalidation card "Re-draw it" → reopen the setup in Mentor's chat to re-map it. The entity
+// is resolved out of the setups list, the same reason SETUP_CONFIRM_OPEN is its own event.
 export const SETUP_INVALIDATION_EDIT   = 'setup-invalidation-edit'
-// Entry-confirm card "Edit" → reopen the idea in its chat to change it (idea → building).
-export const ENTRY_CONFIRM_EDIT        = 'entry-confirm-edit'
 // Entry-confirm card "Dismiss" → park the triggered idea back to 'waiting' (re-armable).
 export const ENTRY_CONFIRM_DISMISS     = 'entry-confirm-dismiss'
 // Coverage-update card "Open coverage" → open the Analyst (its living coverage book).
@@ -79,8 +68,12 @@ function createEventEmitter() {
 
 export const eventBus = createEventEmitter()
 
+/**
+ * A toast. `msg` is `{ txt, type, … }` — or a plain string, an informational line. The string form used to reach
+ * UserMsg as-is and render an EMPTY toast (it reads `msg.txt`): three doorways said nothing at all (8f, 2026-10-18).
+ */
 export function showUserMsg(msg) {
-    eventBus.emit(SHOW_MSG, msg)
+    eventBus.emit(SHOW_MSG, typeof msg === 'string' ? { txt: msg, type: 'info' } : msg)
 }
 
 export function showSuccessMsg(txt) {

@@ -66,12 +66,13 @@ export function AppHeaderAxl() {
     useEffect(() => {
         if (!navOpen) return
         const onDown = (e) => { if (!rightRef.current?.contains(e.target)) setNavOpen(false) }
-        const onKey  = (e) => { if (e.key === 'Escape') setNavOpen(false) }
+        // Captured and claimed: one Esc closes the menu, not the drawer under it as well.
+        const onKey  = (e) => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); setNavOpen(false) } }
         document.addEventListener('pointerdown', onDown)
-        document.addEventListener('keydown', onKey)
+        document.addEventListener('keydown', onKey, true)
         return () => {
             document.removeEventListener('pointerdown', onDown)
-            document.removeEventListener('keydown', onKey)
+            document.removeEventListener('keydown', onKey, true)
         }
     }, [navOpen])
 

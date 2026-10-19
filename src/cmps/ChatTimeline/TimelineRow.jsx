@@ -1,0 +1,144 @@
+import { useState } from 'react'
+import PropTypes from 'prop-types'
+import { BotAvatarGlyph } from '../AxlHub/AgentGlyphs.jsx'
+import { ChatBubble } from '../ChatBubble.jsx'
+import { openChart } from '../../services/chartSurface.service.js'
+import { bubbleOf } from '../../services/session/sessionReducer.js'
+import { ShowOffer } from './ShowOffer.jsx'
+import { agentMeta } from './timelineRows.js'
+import { openEntityPopup } from '../EntityCard/entityPopup.js'
+
+// One row of the unified chat's timeline, by kind (plan phase 7, 7c). Every agent speaks in it; the speaker
+// tag marks where the voice changes. What a row's buttons do is the app's existing doorways — the session's
+// continue, the chart surface, the entity opener — never a second copy of them.
+
+/**
+ * Who is talking — drawn when the voice changes, not on every row. The glyph, the agent's name beside it, and its
+ * role small under the name — Trade agent, Investment agent, Scan agent, Analyst agent (Roy, 2026-10-19). Axl has
+ * no role: his name stands alone.
+ */
+export function SpeakerTag({ agent }) {
+    const meta = agentMeta(agent)
+    return (
+        <div className={`chat-timeline__speaker chat-timeline__speaker--${meta.hue}`}>
+            <span className="chat-timeline__speaker-icon"><BotAvatarGlyph agentKey={agent} size={18} /></span>
+            <span className="chat-timeline__speaker-label">
+                <span className="chat-timeline__speaker-name">{meta.brand}</span>
+                {meta.role && <span className="chat-timeline__speaker-role">{meta.role}</span>}
+            </span>
+        </div>
+    )
+}
+
+SpeakerTag.propTypes = { agent: PropTypes.string.isRequired }
+
+/** A reply's chart request (`ref.chart`, J2) — docks the live chart, like the user asking for it. */
+function ChartOffer({ chart, agent }) {
+    if (!chart?.ticker) return null
+    return (
+        <div className="portfolio-panel__action-bubble">
+            <button type="button" className="portfolio-panel__review-btn" onClick={() => openChart({ ticker: chart.ticker, timeframe: chart.timeframe, source: agent })}>
+                Chart {chart.ticker}{chart.timeframe ? ` · ${chart.timeframe}` : ''}
+            </button>
+        </div>
+    )
+}
+
+ChartOffer.propTypes = { chart: PropTypes.object, agent: PropTypes.string }
+
+/** A decision the chain is waiting on: the question and its taps — open only while it is the live one. */
+function DecisionRow({ row, open, onChoose }) {
+    const [busy, setBusy]   = useState(false)
+    const [error, setError] = useState(null)
+    const choices = row.ref?.choices ?? []
+
+    async function pick(id) {
+        setBusy(true); setError(null)
+        const err = await onChoose(id)
+        setBusy(false)
+        if (err) setError(err)
+    }
+
+    return (
+        <div className="chat-timeline__decision">
+            <p className="chat-timeline__decision-text">{row.content}</p>
+            {choices.length > 0 && (
+                <div className="chat-timeline__decision-choices">
+                    {choices.map(c => (
+                        <button key={c.id} type="button" className="chat-timeline__choice" disabled={!open || busy} onClick={() => pick(c.id)}>
+                            {c.label}
+                        </button>
+                    ))}
+                </div>
+            )}
+            {error && <p className="chat-timeline__note chat-timeline__note--error">{error}</p>}
+        </div>
+    )
+}
+
+DecisionRow.propTypes = { row: PropTypes.object.isRequired, open: PropTypes.bool, onChoose: PropTypes.func.isRequired }
+
+/**
+ * The first line of a session a commit opened (Roy, 2026-10-18): what was saved, and that the user is back with Axl.
+ * A setup is generated NOT watched — arming lives in its own window, so the line opens it.
+ */
+function EndedLine({ row, readOnly }) {
+    const ids = row.ref?.ids ?? []
+    const openable = !readOnly && row.ref?.kind === 'setup' && ids.length === 1
+    return (
+        <div className="chat-timeline__ended" role="status">
+            <span>{row.content}</span>
+            {openable && (
+                <button type="button" className="chat-timeline__link" onClick={() => openEntityPopup('setup', ids[0])}>
+                    Open the setup to arm it
+                </button>
+            )}
+        </div>
+    )
+}
+
+EndedLine.propTypes = { row: PropTypes.object.isRequired, readOnly: PropTypes.bool }
+
+/**
+ * @param {{ row: object, decisionOpen?: boolean, onChoose: Function, onOpenTicket?: Function,
+ *           readOnly?: boolean }} props
+ */
+export function TimelineRow({ row, decisionOpen = false, onChoose, onOpenTicket, onOpenView, readOnly = false }) {
+    const kind = row.kind ?? 'msg'
+
+    if (kind === 'handoff') {
+        return (
+            <div className="chat-timeline__handoff">
+                <span className="chat-timeline__handoff-route">{agentMeta(row.agent).brand} → {agentMeta(row.to).brand}</span>
+                <p className="chat-timeline__handoff-brief">{row.content}</p>
+            </div>
+        )
+    }
+
+    if (kind === 'decision') return <DecisionRow row={row} open={decisionOpen && !readOnly} onChoose={onChoose} />
+
+    if (kind === 'sealed' && row.ref?.ended) return <EndedLine row={row} readOnly={readOnly} />
+
+    if (kind === 'sealed') return <div className="chat-timeline__sealed">{row.content}</div>
+
+    return (
+        <>
+            <ChatBubble msg={bubbleOf(row)} />
+            {row.role === 'assistant' && !readOnly && (
+                <>
+                    <ChartOffer chart={row.ref?.chart} agent={row.agent} />
+                    {row.ref?.show && <ShowOffer show={row.ref.show} onOpenTicket={onOpenTicket} onOpenView={onOpenView} />}
+                </>
+            )}
+        </>
+    )
+}
+
+TimelineRow.propTypes = {
+    row:           PropTypes.object.isRequired,
+    decisionOpen:  PropTypes.bool,
+    onChoose:      PropTypes.func,
+    onOpenTicket:  PropTypes.func,
+    onOpenView:    PropTypes.func,
+    readOnly:      PropTypes.bool,
+}

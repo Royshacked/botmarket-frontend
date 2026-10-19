@@ -23,10 +23,10 @@ import { analystService }    from './analyst/analyst.service.remote'
 import { tradeIdeasService } from './tradeIdeas/tradeIdeas.service.remote'
 
 const SERVICES = {
-    scannerService:    [scannerService,    ['sendStream', 'listScans', 'createScan', 'updateScan', 'deleteScan']],
-    mentorService:     [mentorService,     ['sendStream', 'generateSetup', 'updateSetup', 'listSetups', 'getSetup', 'armSetup', 'disarmSetup', 'deleteSetup']],
-    analystService:    [analystService,    ['sendStream', 'initiateCoverage', 'listCoverage', 'getCoverage', 'updateCoverage', 'retireCoverage']],
-    tradeIdeasService: [tradeIdeasService, ['createIdea', 'createBatch', 'getIdeas', 'getIdea', 'deleteIdea', 'updateIdea', 'placeOrders', 'triggerEntry']],
+    scannerService:    [scannerService,    ['listScans', 'createScan', 'updateScan', 'deleteScan']],
+    mentorService:     [mentorService,     ['generateSetup', 'updateSetup', 'listSetups', 'getSetup', 'armSetup', 'disarmSetup', 'deleteSetup']],
+    analystService:    [analystService,    ['initiateCoverage', 'listCoverage', 'getCoverage', 'updateCoverage', 'retireCoverage']],
+    tradeIdeasService: [tradeIdeasService, ['createIdea', 'getIdeas', 'getIdea', 'deleteIdea', 'updateIdea', 'placeOrders', 'triggerEntry']],
 }
 
 describe('agent service exports', () => {

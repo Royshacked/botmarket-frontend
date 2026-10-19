@@ -16,7 +16,10 @@
         display: flex;
         align-items: center;
         gap: 8px;
-        min-width: 0;
+        // A basis it never shrinks under: in the side pane (~300px since 2026-10-18) the chips used to take the line
+        // and squeeze this — the fold's only handle — to nothing (driven). Short of room, the chips wrap below it.
+        flex: 1 1 12em;
+        min-width: min(100%, 12em);
         padding: 0;
         border: none;
         background: transparent;
@@ -151,12 +154,9 @@
     max-height: none;
     overflow: visible;
 
-    // FOLDED = exactly one line: the digest ellipsises and the chips stop wrapping, so a narrow
-    // panel can't quietly turn "collapsed" back into three rows.
-    &:not(.is-open) {
-        .mentor-panel__build-head { flex-wrap: nowrap; }
-        .coverage-chips           { flex-wrap: nowrap; flex-shrink: 0; }
-    }
+    // FOLDED: the digest ellipsises to one line; the chips keep their own wrapping (CoverageChips.scss). They were held
+    // to one unwrapped line here until the pane narrowed (2026-10-18) — then they crushed the fold's handle and ran
+    // off the pane's edge (driven). Below the handle and wrapped is better than clipped: half a chip reads as another.
 
     // OPEN = read it in one go, no inner scrollbar. The cap and the shrink are a floor under the
     // pathological case only — the panel clips its overflow, so an unbounded worksheet with four

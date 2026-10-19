@@ -1,0 +1,14 @@
+// Mentor's surface in the side pane (MentorSurface.jsx). The blocks keep their own styles (MentorPanel.scss and the
+// shared portfolio-panel bubble classes — renamed in phase 10); this only lays them out in the pane.
+
+// The shell, the lead and the note are the pane's (`.desk-surface`, SidePane.scss).
+.mentor-surface {
+    &__accounts {
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    // The panel's hint is a flex column (its "still needs" nested its problems); here each hint is one flat sentence,
+    // and a column split "Generates as / waiting / — arm it…" into three centred fragments (driven, 2026-10-17).
+    .mentor-panel__missing { display: block; }
+}

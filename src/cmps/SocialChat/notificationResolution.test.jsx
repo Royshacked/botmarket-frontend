@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { readResolution } from './cardResolution.js'
-import { CoverageEventBubble, CoverageRefreshedBubble, QueueReadyBubble } from './ChatWindow.jsx'
-import { eventBus, OPEN_COVERAGE, PORTFOLIO_REVIEW, OPEN_QUEUED_LIST } from '../../services/event-bus.service.js'
+import { CoverageEventBubble, CoverageRefreshedBubble, QueueReadyBubble, EntryConfirmBubble } from './ChatWindow.jsx'
+import { eventBus, OPEN_COVERAGE, PORTFOLIO_REVIEW, OPEN_QUEUED_LIST, SETUP_CONFIRM_OPEN } from '../../services/event-bus.service.js'
 
 vi.mock('../../services/manual/manual.service.remote', () => ({ manualService: {} }))
 
@@ -272,5 +272,43 @@ describe('QueueReadyBubble', () => {
         // The list is the standing answer to "what is waiting on me" — the chip keeps pointing at it.
         fireEvent.click(screen.getByText(/Opened/))
         expect(eventBus.emit).toHaveBeenCalledWith(OPEN_QUEUED_LIST, {})
+    })
+})
+
+// A call's confirm surface was archived with Kairos (2026-08-18): its entry card is Dismiss only,
+// whatever the stored primary says, and a call card already resolved `done` is not a doorway.
+describe('EntryConfirmBubble', () => {
+    beforeEach(() => vi.spyOn(eventBus, 'emit'))
+    afterEach(() => { vi.restoreAllMocks(); cleanup() })
+
+    const callMsg = {
+        id: 'm4', type: 'entry_confirm', content: 'SPY entry triggered.',
+        payload: { kind: 'call', callId: 'c1', asset: 'SPY' },
+        actions: { primary: { label: 'Confirm entry' }, dismiss: true },
+    }
+
+    it('a call renders Dismiss and NO primary; Dismiss routes nowhere', () => {
+        const onResolve = vi.fn()
+        render(<EntryConfirmBubble msg={callMsg} onClose={vi.fn()} onResolve={onResolve} />)
+
+        expect(screen.queryByText('Confirm entry')).toBeNull()
+        fireEvent.click(screen.getByText('Dismiss'))
+        expect(onResolve).toHaveBeenCalledWith('m4', { status: 'dismissed', outcome: 'dismissed' })
+        expect(eventBus.emit).not.toHaveBeenCalled()
+    })
+
+    it('a call card resolved done collapses to a chip that does not reopen', () => {
+        render(<EntryConfirmBubble msg={{ ...callMsg, status: 'done', resolveOutcome: 'confirmed' }} onClose={vi.fn()} onResolve={vi.fn()} />)
+
+        fireEvent.click(screen.getByText(/Opened/))
+        expect(eventBus.emit).not.toHaveBeenCalled()
+    })
+
+    it('a setup still offers its primary, which opens the setup confirm', () => {
+        const msg = { ...callMsg, payload: { kind: 'setup', setupId: 's1', asset: 'SPY' } }
+        render(<EntryConfirmBubble msg={msg} onClose={vi.fn()} onResolve={vi.fn()} />)
+
+        fireEvent.click(screen.getByText('Confirm entry'))
+        expect(eventBus.emit).toHaveBeenCalledWith(SETUP_CONFIRM_OPEN, { setupId: 's1' })
     })
 })

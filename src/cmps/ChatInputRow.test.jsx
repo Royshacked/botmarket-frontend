@@ -40,7 +40,7 @@ describe('ChatInputRow landing state', () => {
 })
 
 // When an agent stops talking the cursor returns to the composer, so the next turn is just typing.
-// It's pinned on the shared row: the six AgentChatInput panels, ChatPanel and Axl all pass
+// It's pinned on the shared row: the six AgentChatInput panels and Axl all pass
 // `isStreaming` already, so none of them wires anything for this.
 describe('ChatInputRow focus return', () => {
     const textarea = container => container.querySelector('.chat-input-row__textarea')
