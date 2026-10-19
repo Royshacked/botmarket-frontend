@@ -293,3 +293,39 @@ describe('the speaker tag (Roy, 2026-10-19)', () => {
         ])
     })
 })
+
+describe('the house views open from Axl (Roy, 2026-10-19)', () => {
+    const shown = (kind, ref = null) => row(2, { content: kind === 'calendar' ? "Here's the calendar." : "Here's the forecast heat map.", ref: { show: { kind, ref } } })
+
+    it('"show me the calendar" — it opens as the turn ends, once; the row keeps a button to open it again', () => {
+        const onOpenView = vi.fn()
+        session = base({ rows: [row(1, { role: 'user', content: 'show me the calendar' }), shown('calendar')], lastTurn: { turnId: 't1', status: 'done', payload: { show: { kind: 'calendar', ref: null } } } })
+        const { rerender } = render(<ChatTimeline onOpenView={onOpenView} />)
+        expect(onOpenView).toHaveBeenCalledWith('calendar', null)
+        rerender(<ChatTimeline onOpenView={onOpenView} />)
+        expect(onOpenView).toHaveBeenCalledTimes(1)
+        fireEvent.click(screen.getByText('Open the calendar'))
+        expect(onOpenView).toHaveBeenCalledTimes(2)
+    })
+
+    it('"show me the heat map" on a name — the map opens on it', () => {
+        const onOpenView = vi.fn()
+        session = base({ rows: [shown('heatmap', 'NVDA')], lastTurn: { turnId: 't2', status: 'done', payload: { show: { kind: 'heatmap', ref: 'NVDA' } } } })
+        render(<ChatTimeline onOpenView={onOpenView} />)
+        expect(onOpenView).toHaveBeenCalledWith('heatmap', 'NVDA')
+        expect(screen.getByText('Open the forecast heat map on NVDA')).toBeTruthy()
+    })
+
+    it('a reload (no live turn) does not reopen it, nor does a setup show or a failed turn', () => {
+        const onOpenView = vi.fn()
+        session = base({ rows: [shown('calendar')], lastTurn: null })
+        render(<ChatTimeline onOpenView={onOpenView} />)
+        cleanup()
+        session = base({ rows: [], lastTurn: { turnId: 't3', status: 'done', payload: { show: { kind: 'setup', ref: 's1' } } } })
+        render(<ChatTimeline onOpenView={onOpenView} />)
+        cleanup()
+        session = base({ rows: [], lastTurn: { turnId: 't4', status: 'error', payload: { show: { kind: 'calendar' } } } })
+        render(<ChatTimeline onOpenView={onOpenView} />)
+        expect(onOpenView).not.toHaveBeenCalled()
+    })
+})

@@ -1331,6 +1331,15 @@ export function MainPage() {
         if (symbol) openChart({ ticker: symbol, source: 'ticket' })
     }
 
+    // ── The house's views, from Axl's <show>heatmap / <show>calendar (Roy, 2026-10-19) ──
+    // The Floor's own panels, through the one outside-ask channel they already answer (deskRequest): Forecasts is
+    // Pythia's heat map (on a company's industry when a symbol rides along), Calendar the month grid — both open as
+    // the detail panel over the chat column.
+    function handleOpenView(kind, symbol = null) {
+        if (kind === 'heatmap') setDeskRequest({ key: 'forecasts', symbol: symbol ?? null })
+        else if (kind === 'calendar') setDeskRequest({ key: 'calendar' })
+    }
+
     /**
      * Open something the user already has, at the desk that owns it — an edit a route names by id or by name.
      *
@@ -1550,6 +1559,7 @@ export function MainPage() {
                                     accounts={timelineAccounts}
                                     mainAccountId={mainAccountId}
                                     onOpenTicket={handleOpenTicket}
+                                    onOpenView={handleOpenView}
                                     briefRequest={briefRequest}
                                     onBriefStart={() => setBriefRequest(0)}
                                     // The admin row that opened Pythia and Aether under the header is OFF for now (Roy,

@@ -103,7 +103,7 @@ EndedLine.propTypes = { row: PropTypes.object.isRequired, readOnly: PropTypes.bo
  * @param {{ row: object, decisionOpen?: boolean, onChoose: Function, onOpenTicket?: Function,
  *           readOnly?: boolean }} props
  */
-export function TimelineRow({ row, decisionOpen = false, onChoose, onOpenTicket, readOnly = false }) {
+export function TimelineRow({ row, decisionOpen = false, onChoose, onOpenTicket, onOpenView, readOnly = false }) {
     const kind = row.kind ?? 'msg'
 
     if (kind === 'handoff') {
@@ -127,7 +127,7 @@ export function TimelineRow({ row, decisionOpen = false, onChoose, onOpenTicket,
             {row.role === 'assistant' && !readOnly && (
                 <>
                     <ChartOffer chart={row.ref?.chart} agent={row.agent} />
-                    {row.ref?.show && <ShowOffer show={row.ref.show} onOpenTicket={onOpenTicket} />}
+                    {row.ref?.show && <ShowOffer show={row.ref.show} onOpenTicket={onOpenTicket} onOpenView={onOpenView} />}
                 </>
             )}
         </>
@@ -139,5 +139,6 @@ TimelineRow.propTypes = {
     decisionOpen:  PropTypes.bool,
     onChoose:      PropTypes.func,
     onOpenTicket:  PropTypes.func,
+    onOpenView:    PropTypes.func,
     readOnly:      PropTypes.bool,
 }

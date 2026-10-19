@@ -5,6 +5,9 @@ import { openEntityPopup } from '../EntityCard/entityPopup.js'
 
 // What each kind is called in a sentence. A `setup` is a setup to the user too.
 const SHOW_NOUN = { setup: 'setup' }
+// The house views a show opens (Roy, 2026-10-19) — the button's words. Exported: the timeline opens these by
+// themselves as the reply ends.
+export const VIEW_LABELS = Object.freeze({ heatmap: 'Open the forecast heat map', calendar: 'Open the calendar' })
 
 /**
  * The button under a reply that offered to SHOW something (Axl's `<show>`, kept on the row — phase 7, J2).
@@ -14,10 +17,13 @@ const SHOW_NOUN = { setup: 'setup' }
  *           resolves to nothing draws no button, and the press stays synchronous — which keeps
  *           `window.open` inside the user activation a pop-up blocker looks for.
  *   ticket  the order ticket, with the symbol when the user named one — a screen, not a desk.
+ *   heatmap / calendar  the house's two views: the forecast heat map (on a company's industry when the ref names
+ *           one) and the month calendar. They open by themselves as the reply ends (ChatTimeline); this
+ *           button opens them again.
  *
  * It opens a page and ends nothing, so there is no "Not now" beside it.
  */
-export function ShowOffer({ show, onOpenTicket }) {
+export function ShowOffer({ show, onOpenTicket, onOpenView }) {
     const [entity, setEntity] = useState(null)
     const kind = show?.kind
     const ref  = show?.ref
@@ -38,6 +44,15 @@ export function ShowOffer({ show, onOpenTicket }) {
             </div>
         )
     }
+    if (VIEW_LABELS[kind]) {
+        return (
+            <div className="portfolio-panel__action-bubble">
+                <button type="button" className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={() => onOpenView?.(kind, ref ?? null)}>
+                    {VIEW_LABELS[kind]}{kind === 'heatmap' && ref ? ` on ${ref}` : ''}
+                </button>
+            </div>
+        )
+    }
     if (!entity) return null
     const name = entity.asset || entity.symbol || ''
     return (
@@ -52,4 +67,5 @@ export function ShowOffer({ show, onOpenTicket }) {
 ShowOffer.propTypes = {
     show:         PropTypes.shape({ kind: PropTypes.string, ref: PropTypes.string }),
     onOpenTicket: PropTypes.func,
+    onOpenView:   PropTypes.func,
 }

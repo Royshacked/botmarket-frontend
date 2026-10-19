@@ -16,6 +16,7 @@ import { TimelineRow, SpeakerTag } from './TimelineRow.jsx'
 import { startsRun, agentMeta, isEndedLine } from './timelineRows.js'
 import { AxlGreeting } from './AxlGreeting.jsx'
 import { SessionHistory } from './SessionHistory.jsx'
+import { VIEW_LABELS } from './ShowOffer.jsx'
 import { PaneToggle } from '../SidePane/PaneToggle.jsx'
 import { OPENING_OPTIONS, LANDING_ASKS, OPENING_QUESTION } from './openingOptions.js'
 import './ChatTimeline.scss'
@@ -35,7 +36,7 @@ const BRIEF_ASK = "Today's market brief, please."
  * without a provider for this scope the timeline runs its own.
  *
  * @param {{ scope?: string, accounts?: object[], mainAccountId?: string|null, briefRequest?: number,
- *           onBriefStart?: Function, onOpenTicket?: Function }} props
+ *           onBriefStart?: Function, onOpenTicket?: Function, onOpenView?: Function }} props
  */
 export function ChatTimeline(props) {
     const shared = useSharedSession(props.scope ?? 'main')
@@ -47,7 +48,7 @@ function OwnSessionTimeline(props) {
     return <TimelineView {...props} session={session} />
 }
 
-function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, briefRequest = 0, onBriefStart, onOpenTicket, desks = [], onOpenDesk, paneSurfaces = null, session }) {
+function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, briefRequest = 0, onBriefStart, onOpenTicket, onOpenView, desks = [], onOpenDesk, paneSurfaces = null, session }) {
     const { user } = useAuth()
     const { rows, live, queuedTurn, lastTurn, chain, floor, send, stop, cancelQueued, choose, startNew, loadError } = session
     const [draft, setDraft]             = useState('')
@@ -96,6 +97,17 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
         onBriefStart?.()
         send(BRIEF_ASK, { agent: 'axl', brief: true, ...extras })
     }, [briefRequest, session.sessionId, queuedTurn]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // A show of a house VIEW — the heat map, the calendar — opens by itself as the reply ends (Roy, 2026-10-19: "show me
+    // the calendar" should open it). On the LIVE turn's end only: lastTurn is set by the turn's own frames, never by a
+    // load, so a reload or History does not reopen it — the row keeps its button for that.
+    const openedFor = useRef(null)
+    useEffect(() => {
+        const show = lastTurn?.status === 'done' ? lastTurn.payload?.show : null
+        if (!show || !VIEW_LABELS[show.kind] || openedFor.current === lastTurn.turnId) return
+        openedFor.current = lastTurn.turnId
+        onOpenView?.(show.kind, show.ref ?? null)
+    }, [lastTurn]) // eslint-disable-line react-hooks/exhaustive-deps -- once per turn; the opener is read at that moment
 
     // Dictation goes out as a turn, read through a ref at fire time (useMicInput keeps its callback stable).
     const sendRef = useRef(sendText)
@@ -178,6 +190,7 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
                                     decisionOpen={row.seq === openDecisionSeq}
                                     onChoose={choose}
                                     onOpenTicket={onOpenTicket}
+                                    onOpenView={onOpenView}
                                 />
                             </div>
                         ))}
@@ -257,6 +270,7 @@ ChatTimeline.propTypes = {
     briefRequest:  PropTypes.number,
     onBriefStart:  PropTypes.func,
     onOpenTicket:  PropTypes.func,
+    onOpenView:    PropTypes.func,
     // Desks opened from the header (admin: Pythia, Aether) — `{ agent, label, title? }` — and the opener.
     desks:         PropTypes.arrayOf(PropTypes.shape({ agent: PropTypes.string.isRequired, label: PropTypes.string.isRequired, title: PropTypes.string })),
     onOpenDesk:    PropTypes.func,
