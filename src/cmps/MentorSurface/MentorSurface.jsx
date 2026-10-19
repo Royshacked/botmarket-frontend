@@ -207,10 +207,25 @@ export function MentorSurface({ session, deskProps = {} }) {
         : !live.ready ? (missing.length ? `Still needs: ${missing.map(b => b.text).join(', ')}` : 'Not ready yet — ask Mentor what’s outstanding.')
         : null
 
+    // Which account the setup trades in. On the empty table too (Roy, 2026-10-19 — "the account icon is gone"): the start
+    // of a trade is when it is chosen, and Mentor sizes against it from the first turn.
+    const accountsPick = setSelectedAccounts && (
+        <div className="mentor-surface__accounts">
+            <AccountSelector
+                accounts={availableAccounts}
+                selectedIds={selectedAccounts}
+                onChange={setSelectedAccounts}
+                mainAccountId={mainAccountId}
+                onMainChange={setMainAccountId}
+            />
+        </div>
+    )
+
     // ── Nothing on the table ──
     if (!state || (!draft && !generated && !candidates?.length && !coverage.length)) {
         return (
             <div className="desk-surface mentor-surface">
+                {accountsPick}
                 {note?.kind === 'done' && <SurfaceNote note={note} />}
                 <p className="desk-surface__lead">Nothing on Mentor&apos;s table. Tell Mentor about a trade in the chat, or start here:</p>
                 <SuggestionChips
@@ -228,17 +243,7 @@ export function MentorSurface({ session, deskProps = {} }) {
 
     return (
         <div className="portfolio-panel mentor-panel desk-surface mentor-surface">
-            {setSelectedAccounts && (
-                <div className="mentor-surface__accounts">
-                    <AccountSelector
-                        accounts={availableAccounts}
-                        selectedIds={selectedAccounts}
-                        onChange={setSelectedAccounts}
-                        mainAccountId={mainAccountId}
-                        onMainChange={setMainAccountId}
-                    />
-                </div>
-            )}
+            {accountsPick}
 
             {(hasPreview || coverage.length > 0) && (
                 <div className={`portfolio-panel__build-summary mentor-panel__build${previewOpen ? ' is-open' : ''}`}>

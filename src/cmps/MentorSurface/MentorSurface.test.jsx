@@ -46,6 +46,15 @@ describe('MentorSurface — the table', () => {
         expect(session.send).toHaveBeenLastCalledWith('I have my own setup — take it down as I give it', expect.objectContaining({ agent: 'mentor' }))
     })
 
+    it('the account picker is there from the empty table on — a trade’s account is chosen at its start (2026-10-19)', () => {
+        const setSelectedAccounts = vi.fn()
+        const { container, rerender } = render(<MentorSurface session={stub(null)} deskProps={{ ...desk(), setSelectedAccounts }} />)
+        expect(screen.getByText(/Nothing on Mentor/)).toBeTruthy()
+        expect(container.querySelector('.mentor-surface__accounts')).toBeTruthy()
+        rerender(<MentorSurface session={stub({ draft: SETUP, view: { readiness: READY } })} deskProps={{ ...desk(), setSelectedAccounts }} />)
+        expect(container.querySelectorAll('.mentor-surface__accounts')).toHaveLength(1)
+    })
+
     it('renders the coverage chips and the folded worksheet, which opens on a click', () => {
         mount({ draft: SETUP, coverage: ['direction', 'levels'], view: { readiness: READY } })
         expect(screen.getByText('your setup')).toBeTruthy()
