@@ -206,3 +206,14 @@ test('revisions come from the load, the replay, every state frame and a press\'s
     assert.deepEqual(fold(s3, { type: 'session_state', data: { sessionId: S, floor: 'mentor' } }).agentRev, s3.agentRev, 'a floor frame carries none')
     assert.deepEqual(sessionReducer(s3, { type: 'load', session: { sessionId: 'ses_2' } }).agentRev, {}, 'a new session starts over')
 })
+
+test('a tool status keeps the names it runs on; the next bare start or a token clears them (2026-10-19)', () => {
+    const d = (type, data) => ({ type: 'session_delta', data: { sessionId: S, turnId: 't1', agent: 'scanner', type, data } })
+    let s = fold(loaded, { type: 'session_turn', data: { sessionId: S, turnId: 't1', agent: 'scanner', status: 'started' } },
+        d('status', { tool: 'get_candles' }), d('status', { tool: 'get_candles', targets: ['SCCO'] }))
+    assert.deepEqual([s.live.tool, s.live.targets], ['get_candles', ['SCCO']])
+    s = fold(s, d('status', { tool: 'get_indicators' }))
+    assert.deepEqual([s.live.tool, s.live.targets], ['get_indicators', null])
+    s = fold(s, d('status', { tool: 'get_indicators', targets: ['FCX'] }), d('token', { text: 'Pick' }))
+    assert.deepEqual([s.live.tool, s.live.targets], [null, null])
+})

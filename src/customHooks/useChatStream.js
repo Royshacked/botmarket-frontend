@@ -265,7 +265,7 @@ export function useChatStream({ threadPhases = false } = {}) {
     function _buildHandlers(sendPhase, extraHandlers) {
         return {
             onToken:  (t)    => { setStreamStatus(''); enqueueToken(t) },
-            onStatus: (tool) => setStreamStatus(toolStatusLabel(tool)),
+            onStatus: (tool, targets) => setStreamStatus(toolStatusLabel(tool, targets)),
             // A chart the AGENT rendered and read (get_chart with show_to_user) — an inline row in
             // the thread, because it is evidence belonging to the turn that produced it. A chart the
             // USER asked for never arrives here: it docks at the bottom of the chat instead

@@ -98,6 +98,21 @@ describe('ChatTimeline', () => {
         expect(stop).toHaveBeenCalled()
     })
 
+    it('a running tool names the stock it is on — and still shows under text already streamed (2026-10-19)', () => {
+        const live = { turnId: 't1', agent: 'scanner', text: '', reasoning: '', tool: 'get_candles', targets: ['SCCO'], status: 'running' }
+        session = base({ rows: [row(1, { role: 'user', content: 'pick one' })], live, floor: 'scanner' })
+        const { rerender } = render(<ChatTimeline />)
+        expect(screen.getByText('Reading price action · SCCO…')).toBeTruthy()
+        session = { ...session, live: { ...live, text: 'Validating the twelve.', tool: 'get_indicators', targets: ['FCX'] } }
+        rerender(<ChatTimeline />)
+        expect(screen.getByText('Validating the twelve.')).toBeTruthy()
+        expect(screen.getByText('Computing indicators · FCX…')).toBeTruthy()
+        session = { ...session, live: { ...session.live, tool: null, targets: null } }
+        rerender(<ChatTimeline />)
+        expect(screen.queryByText(/Computing indicators/)).toBeNull()
+        expect(screen.queryByText('thinking…')).toBeNull()      // text streaming, no tool: no chip
+    })
+
     it('a failed turn says so; the placeholder names who holds the floor', () => {
         session = base({ rows: [row(1, { role: 'user', content: 'x' })], lastTurn: { status: 'error', message: 'That message did not go through' }, floor: 'mentor' })
         render(<ChatTimeline />)

@@ -42,7 +42,7 @@ function liveFor(state, turnId, agent) {
         // The server names who is answering; the client only guessed (the floor) when it sent — an "@Atlas"
         // while Axl holds the floor is Atlas's turn.
         ? { ...state.live, agent: agent ?? state.live.agent }
-        : { turnId, agent, text: '', reasoning: '', tool: null, phase: null, status: 'running' }
+        : { turnId, agent, text: '', reasoning: '', tool: null, targets: null, phase: null, status: 'running' }
 }
 
 /** Revisions merged — the higher one wins, so a frame that arrives late never moves one backwards. */
@@ -124,7 +124,7 @@ export function sessionReducer(state, action) {
             // ended while we were away — unless it is the one we just sent, which the server may not have yet.
             // The running turn's text so far comes with it — the deltas carry on from there.
             const live = d.running
-                ? { ...(state.live?.turnId === d.running.turnId ? state.live : { reasoning: '', tool: null, phase: null }),
+                ? { ...(state.live?.turnId === d.running.turnId ? state.live : { reasoning: '', tool: null, targets: null, phase: null }),
                     turnId: d.running.turnId, agent: d.running.agent, text: d.running.text ?? '', status: 'running' }
                 : (state.live?.status === 'queued' && !state.live.accepted ? state.live : null)
             // Nothing running → a queued message the server accepted has run (its row is in the replay).
@@ -167,9 +167,9 @@ export function sessionReducer(state, action) {
             const live = liveFor(state, d.turnId, d.agent)
             const data = d.data ?? {}
             switch (d.type) {
-                case 'token':     return withLive(state, { ...live, status: 'running', tool: null, text: live.text + (data.text ?? '') })
+                case 'token':     return withLive(state, { ...live, status: 'running', tool: null, targets: null, text: live.text + (data.text ?? '') })
                 case 'reasoning': return withLive(state, { ...live, status: 'running', reasoning: live.reasoning + (data.text ?? '') })
-                case 'status':    return withLive(state, { ...live, status: 'running', tool: data.tool ?? null })
+                case 'status':    return withLive(state, { ...live, status: 'running', tool: data.tool ?? null, targets: Array.isArray(data.targets) ? data.targets : null })
                 case 'phase':     return withLive(state, { ...live, status: 'running', phase: data.phase ?? null })
                 default:          return state.live?.turnId === d.turnId ? state : withLive(state, live)
             }

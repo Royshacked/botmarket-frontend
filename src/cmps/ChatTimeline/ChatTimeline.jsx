@@ -112,9 +112,12 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
 
     const taps = busy ? [] : lastTapOptions(rows)
     const failed = lastTurn && (lastTurn.status === 'error' || lastTurn.status === 'refused') && !busy
-    const waiting = busy && !live.text
-        ? (live.tool ? toolStatusLabel(live.tool) : live.status === 'queued' ? 'sending…' : 'thinking…')
-        : ''
+    // A running tool is named even under text already streamed — a desk that says one line and then checks twelve
+    // names would otherwise go quiet for minutes (2026-10-19). With no tool, only an empty turn shows a chip.
+    const waiting = !busy ? ''
+        : live.tool ? toolStatusLabel(live.tool, live.targets)
+        : live.text ? ''
+        : live.status === 'queued' ? 'sending…' : 'thinking…'
     const floorName = agentMeta(floor ?? 'axl').brand
     const atDesk = (floor ?? 'axl') !== 'axl'
     const placeholder = !atDesk || toAxl ? 'Ask Axl anything, or say what you’d like to do…' : `Message ${floorName}…`
