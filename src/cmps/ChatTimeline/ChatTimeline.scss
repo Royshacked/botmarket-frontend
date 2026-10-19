@@ -164,18 +164,15 @@
     margin-top: 8px;
     color: var(--accent-light);
 
-    // The glyph with the agent's name small under it; the role ("TRADER") beside them.
-    // One width for every badge, so every role starts at the same x ("Prometheus" under its glyph is the widest).
-    &-badge {
+    // Beside the glyph: the agent's name, its role small under it ("Trade agent").
+    &-label {
         display: inline-flex;
         flex-direction: column;
-        align-items: center;
         gap: 2px;
-        min-width: 56px;
     }
 
-    &-agent {
-        font-size: 10px;
+    &-role {
+        font-size: 10.5px;
         line-height: 1;
         color: var(--text-subtle);
         letter-spacing: 0.02em;

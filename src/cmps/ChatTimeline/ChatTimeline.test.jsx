@@ -52,7 +52,7 @@ describe('ChatTimeline', () => {
         ] })
         const { container } = render(<ChatTimeline />)
         const tags = [...container.querySelectorAll('.chat-timeline__speaker-name')].map(n => n.textContent)
-        expect(tags).toEqual(['Axl', 'Trader'])   // a desk speaks by its role (2026-10-18)
+        expect(tags).toEqual(['Axl', 'Mentor'])
     })
 
     it('a hand-off names both sides and carries its brief', () => {
@@ -89,7 +89,7 @@ describe('ChatTimeline', () => {
     it('the live turn streams under its speaker; the waiting chip names the tool; Stop stops it', () => {
         session = base({ rows: [row(1, { role: 'user', content: 'scan semis' })], live: { turnId: 't1', agent: 'scanner', text: '', reasoning: '', tool: null, status: 'running' }, floor: 'scanner' })
         const { container, rerender } = render(<ChatTimeline />)
-        expect(container.querySelector('.chat-timeline__row--live .chat-timeline__speaker-name').textContent).toBe('Scanner')
+        expect(container.querySelector('.chat-timeline__row--live .chat-timeline__speaker-name').textContent).toBe('Argus')
         expect(screen.getByText('thinking…')).toBeTruthy()
         session = { ...session, live: { ...session.live, text: 'Looking at' } }
         rerender(<ChatTimeline />)
@@ -255,8 +255,8 @@ describe('a session a commit opened (Roy, 2026-10-18)', () => {
     })
 })
 
-describe('the speaker tag (Roy, 2026-10-18)', () => {
-    it('a desk speaks by its ROLE beside its glyph, its name small under the glyph; Axl by his name alone', () => {
+describe('the speaker tag (Roy, 2026-10-19)', () => {
+    it('the agent’s name beside its glyph, its role small under the name; Axl by his name alone', () => {
         session = base({ rows: [
             row(1, { content: 'Hello' }),
             row(2, { agent: 'mentor', content: 'NVDA — here is the plan' }),
@@ -266,15 +266,15 @@ describe('the speaker tag (Roy, 2026-10-18)', () => {
         ] })
         const { container } = render(<ChatTimeline />)
         const tags = [...container.querySelectorAll('.chat-timeline__speaker')].map(t => ({
-            role:  t.querySelector('.chat-timeline__speaker-name').textContent,
-            agent: t.querySelector('.chat-timeline__speaker-badge .chat-timeline__speaker-agent')?.textContent ?? null,
+            name: t.querySelector('.chat-timeline__speaker-label .chat-timeline__speaker-name').textContent,
+            role: t.querySelector('.chat-timeline__speaker-label .chat-timeline__speaker-role')?.textContent ?? null,
         }))
         expect(tags).toEqual([
-            { role: 'Axl', agent: null },
-            { role: 'Trader', agent: 'Mentor' },
-            { role: 'Investor', agent: 'Atlas' },
-            { role: 'Scanner', agent: 'Argus' },
-            { role: 'Analyst', agent: 'Prometheus' },
+            { name: 'Axl', role: null },
+            { name: 'Mentor', role: 'Trade agent' },
+            { name: 'Atlas', role: 'Investment agent' },
+            { name: 'Argus', role: 'Scan agent' },
+            { name: 'Prometheus', role: 'Analyst agent' },
         ])
     })
 })
