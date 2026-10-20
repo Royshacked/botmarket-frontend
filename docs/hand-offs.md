@@ -1,5 +1,13 @@
 # Hand-offs — the conveyor between desks
 
+> **SUPERSEDED (unified chat, 2026-10-17 → 10-20).** The client-side conveyor described here (`src/services/pipeline/`)
+> is gone. Hand-offs between desks now run on the SERVER, inside the one session: a desk's `<route>` moves the floor,
+> and an artifact one desk emits is handed to the next by the CHAIN (`botmarket-backend/services/chain/` — `rules.js`
+> says what is emitted and what makes a turn the user's call, `contracts.js` writes the receiving desk's opening,
+> `runner.js` hops, pauses and resumes). The kinds and the contract idea moved there unchanged. Kept as the record of
+> why the hops became declarative; the current wiring is `architecture.md` → "Doorways".
+
+
 How one desk's output becomes another desk's opening, without either desk knowing the other exists.
 Built 2026-08-04 → 08-19 (`src/services/pipeline/`); the design and its migration order are the
 backend's [design/pipeline-service.md](../../botmarket-backend/docs/design/pipeline-service.md),

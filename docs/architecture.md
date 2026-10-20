@@ -5,95 +5,92 @@ React + Vite, one page. The backend owns every rule about what an entity is and 
 own architecture is about **one thing: many doorways into a few desks, without a second copy of any
 mechanism.** Written 2026-09-19 from the code and its comments.
 
-> **Status (2026-10-17, unified chat phase 8e).** The chat column is now ONE conversation — the session timeline — with
-> each desk's work in the side pane beside it; the desk tabs, the agent bar, the pipeline conveyor and the desk panels
-> described in "The page", "A desk panel" and "Doorways" below are gone (Pythia's and Aether's panels remain, as kept
-> pane tabs). What replaced them is "The drawer shell and the side pane" further down, and the record is
-> `../botmarket-backend/docs/design/unified-chat-plan.md` §10. Those older sections are rewritten in phase 10 (docs).
+> **Rewritten 2026-10-20 for the unified chat** (`../botmarket-backend/docs/design/unified-chat.md`, the build record in
+> `unified-chat-plan.md` §7–§11). The chat column is ONE conversation — the session timeline — with each desk's work in
+> the side pane beside it. The desk tabs, the agent bar, the pipeline conveyor and the per-desk chat panels are gone;
+> Pythia's and Aether's panels remain, as kept pane tabs with their own conversations.
 
 ## The page
 
-`pages/MainPage.jsx` is the conductor — ~3,300 lines, 38 `useState`s, and that is the honest shape:
-it holds what crosses between surfaces (the open desk, the lists, the positions, the dialogs, what is
-waiting at each desk) and hands each surface its slice. Three columns:
+`pages/MainPage.jsx` is the conductor — ~1,750 lines, 22 `useState`s: it holds what crosses between surfaces (the
+lists, the positions, the dialogs, the marked accounts, the outside asks) and hands each surface its slice. Three
+columns:
 
 ```
-┌ workspace__left ─┐ ┌ workspace__chat ───────────────────────┐ ┌ workspace__right ──────────┐
-│ FloorLeft        │ │ activeTab === 'axl' ? <AxlHub>          │ │ FloorLists — the desks,    │
-│ the book:        │ │   : the desk panel for activeTab        │ │ one open at a time, the    │
-│ positions +      │ │     (Mentor · Atlas · Argus ·           │ │ open one takes the column; │
-│ ideas, one line  │ │      Prometheus · Pythia · Aether)      │ │ a chip strip keeps every   │
-│ each             │ │   + PipelineCrumb, AgentSummon          │ │ desk + count on screen.    │
-│                  │ │   + DetailPanelSlot (a row's detail     │ │ Calendar is a PANEL desk:  │
-│                  │ │     docks HERE, over the chat)          │ │ its month opens in the     │
-│                  │ │                                         │ │ DetailPanel, not here      │
-└──────────────────┘ └─────────────────────────────────────────┘ └────────────────────────────┘
+┌ workspace__left ─┐ ┌ workspace__chat ───────────────────────────────┐ ┌ workspace__right ──────────┐
+│ FloorLeft        │ │ <ChatTimeline>            <SidePane>            │ │ FloorLists — the desks,    │
+│ the book:        │ │  the session: every desk   the floor desk's     │ │ one open at a time; the    │
+│ positions +      │ │  speaks here, under its    WORK (worksheet,     │ │ Calendar and Forecasts are │
+│ ideas, one line  │ │  name and role; Axl's      plan, list, draft) + │ │ PANEL desks: they open in  │
+│ each             │ │  greeting when it is new;  kept tabs (Pythia,   │ │ the DetailPanel over the   │
+│                  │ │  History; the input        Aether, the ticket)  │ │ chat column                │
+│                  │ │ + DetailPanelSlot (a row's detail docks over it)│ │                            │
+└──────────────────┘ └─────────────────────────────────────────────────┘ └────────────────────────────┘
 ```
 
-The Lists column's desks, in order (2026-10-14): Awaiting orders · Your trades · Your portfolios ·
-Watchlists · Analyst companies · Calendar · Forecasts · Research queue (admin, last). Events radar is
-`hidden: true` for now, not deleted. An empty desk stays in place, dimmed; a request to open a
-hidden or panel desk is ignored. The Calendar (`cmps/Floor/CalendarPanel.jsx`) is a month grid —
-per-day earnings / Fed / IPO counts, the high-impact Fed days named — and a clicked day replaces the
-grid with that day's rows; it replaced the Earnings, Fed and IPO desks. Record:
-`../botmarket-backend/docs/design/floor-calendar.md`.
+The Lists column's desks, in order (2026-10-14): Awaiting orders · Your trades · Your portfolios · Watchlists ·
+Calendar · Forecasts · Research queue (admin, last). Events radar is `hidden: true` for now, not deleted. The
+Calendar (`cmps/Floor/CalendarPanel.jsx`) is a month grid — per-day earnings / Fed / IPO counts, a clicked day
+replacing the grid with that day's rows (`../botmarket-backend/docs/design/floor-calendar.md`); Forecasts is the
+heat map of every industry (`ForecastPanel.jsx`). The Floor (`cmps/Floor/`) is a design variant (`useDesign() ===
+'floor'`, `Ctrl+Shift+D`); the classic layout renders `TradeIdeasList` in the right column instead.
 
-`activeTab` is the **agent key** (`axl · mentor · portfolio · scanner · analyst · strategy ·
-aether`) — the same key `AGENTS` in `cmps/AxlHub/agentMeta.jsx` is keyed by, the contract registry is
-keyed by, and a pipeline step's `tab` names. One vocabulary, so a desk is reachable without a second
-mapping to keep in step. The Floor (`cmps/Floor/`) is a design variant (`useDesign() === 'floor'`,
-`Ctrl+Shift+D`); the classic layout renders `TradeIdeasList` in the right column instead. Two of the
-six panels remount on the way home to Axl (Argus, Atlas — a fresh conversation next time), four hide
-with `display:none` and keep state; a desk mid-turn is exempt, because the server keeps the turn
-running when the socket closes (`pages/deskReset.js`).
+**One session per scope** (`customHooks/useSession.js`): the main chat's is shared through `SessionContext`, so the
+timeline, the side pane and every doorway press the SAME one. Its state is folded from the socket's frames by
+`services/session/sessionReducer.js` — rows, the live turn (text, reasoning, the tool status line with the stocks it
+runs on), the floor, the chain, each agent's working state and revision. A commit (Generate / Update / Accept…) ends
+the session: the desk's conversation is sealed onto the entity, and a fresh session opens with Axl, a line above his
+greeting saying what was saved.
 
-## A desk panel
+Agent keys (`axl · mentor · portfolio · scanner · analyst · strategy · aether`) are the one vocabulary —
+`AGENTS` in `cmps/AxlHub/agentMeta.jsx` (brand, role, hue, glyph), the side pane's tabs, the session's `floor`.
 
-Every desk is the same five parts, and the shared ones live once:
+## A desk's surface
 
-| Part | Where | What it owns |
+The CONVERSATION is the timeline's; the WORK is a surface in the side pane (`cmps/SidePane/`), drawn from the desk's
+state on the session — never from a reply. `SURFACES` in MainPage maps each agent to its surface:
+
+| Surface | Draws | Presses |
 |---|---|---|
-| the stream | `customHooks/useChatStream.js` | the messages list, loading/status/phase, the typewriter drain, abort, "keep Stop live until the drain finishes", resume (▶) and its saved-history rule. `run()` owns the whole turn; the panel supplies the request and an `onDone` tail |
-| the transport | `services/agentStream.js` → `services/sse.util.js` | ONE way to open an agent stream; only the endpoint and body fields differ per desk. `buildStreamHandlers` maps every SSE event a stream can emit; a stream that emits a subset simply never calls the rest |
-| the opening turn | `customHooks/useSeedTurn.js` | a keyed one-shot `{ key, message }` SENT as the panel's next turn — the words are the user's, the hand-off says them. Keyed, not value-watched: one hand-off is one turn however often the panel re-renders |
-| the way out | `customHooks/useRouteOffer.js` → `cmps/RouteOffer.jsx` | any desk's `done` may carry `route · routeSymbol · opening · edit` because the user asked to be sent somewhere; the panel holds the offer, shows *Go to {brand} · SYMBOL / Not now*, and hands the press to MainPage's one doorway |
-| the contract | `cmps/<Desk>Panel/<desk>.contract.js` | what this desk emits and accepts, and how it takes delivery (see [hand-offs.md](./hand-offs.md)) |
+| `MentorSurface` | the worksheet, the coverage chips, the gates, the account picker, the Generate / Update bar | a gate or a pick is a TURN (ops ride the message); a worksheet field is a hand EDIT; Generate / Update / Later are COMMITS |
+| `PortfolioSurface` | the plan, the review's proposal, the adopt grid, the accounts | Generate plan / Update plan / Accept / Dismiss are commits |
+| `ScannerSurface` | the list, the lens, the angle chips, a radar cut | Generate / Update list are commits; an angle is a turn |
+| `AnalystSurface` | the coverage draft | Initiate / Update coverage are commits |
+| `PythiaSurface` · `AetherSurface` · `TicketSurface` | Pythia's and Aether's own panels (their own chats, `useChatStream` over `/api/strategy` · `/api/aether` `/stream`), the order ticket | kept MOUNTED (`keepMounted`) through portals, so a half-typed draft survives a tab switch |
 
-What stays per desk is the panel's own body: its request params, its artifact preview (a `<setup>`
-worksheet, a `<portfolio_plan>`, a `<scan_list>`), its `onDone`. `AgentChatInput`, `AgentMessages`,
-`ChatPhaseHeading`, `ChatReasoning`, `ToolStatusChip`, `SuggestionChips` and the chart dock are the
-shared rendering pieces every panel composes.
+Every press goes through `useSurfacePress` → `useSession.commit` / `edit` / `send` (`POST /api/sessions/:id/act`,
+`PATCH …/state`, `…/turn`), naming the agent's revision it was looking at — a stale one is refused and the surface
+says so. In edit and review modes the bar is always on screen, dark until there is something valid to save. The pane
+follows the floor (a pinned tab is not taken over), closes its desk tabs on a new session, and says what it is in one
+line under its tabs (`paneHint`).
+
+The timeline's own pieces live in `cmps/ChatTimeline/`: `TimelineRow` (a reply, a hand-off, a decision, a sealed or
+ended line), `SpeakerTag` (the glyph, the agent's name, its role small under it), `ShowOffer` (a setup's window, the
+ticket, the heat map, the calendar), `SessionHistory` (past sessions — read, delete, or write in one to pick it back
+up). `ChatBubble`, `ChatInputRow`, `SuggestionChips`, `ToolStatusChip` and the chart dock are shared with the panels.
 
 ## Doorways — how something gets opened
 
-Three kinds of arrival, and the rule is that each kind has ONE handler in MainPage:
+Hand-offs between desks happen on the SERVER: Axl's or a desk's `<route>` moves the floor in the session and runs the
+desk's first turn there; the side pane follows. What MainPage keeps is the doorways from OUTSIDE the chat — a card, a
+list row, a calendar day — and each kind has ONE handler:
 
-1. **From the hub.** `AxlHub` is the one Axl surface — greets, shows the desk buttons, holds a real
-   conversation, and *summons* a desk when Axl's reply carries a route (`handleAxlPick`). The
-   hand-off is the user's own ask plus Axl's `opening` sentence, seeded as the desk's first turn —
-   every desk, including Pythia and Aether, which take it only for an admin: the server drops the
-   route for a trader (`routing.util` `ADMIN_DESKS`), the summon checks the role again, and neither
-   panel is mounted for a trader at all.
-2. **From a desk, by the user's ask.** "Send NVDA to Prometheus" said at Argus: the reply carries the
-   same route grammar Axl's does, the panel offers it, the press lands on the **same** doorway as the
-   hub's summon (`handleRoute`). A hop added at any desk is a prompt edit there, never a handler here.
-3. **From an artifact.** A desk finished and produced something the next desk takes — the conveyor
-   ([hand-offs.md](./hand-offs.md)). Nothing in MainPage knows which two desks are talking.
+1. **A desk ON a sentence** — `talkTo(agent, text)`: a turn to that desk with the marked accounts (a card's "Build",
+   a candidate's "Research", the market brief). Argus's table is asked about first when it holds work (`onArgusTable`).
+2. **Reopening an item** — `editEntity(kind, id)`: `POST /api/sessions/:id/edit` reopens it IN the session, its
+   sealed conversation loaded; a desk holding other unsaved work answers busy, and the user is asked. A card's reason
+   rides as the desk's first turn (`ask`).
+3. **A screen** — `handleOpenTicket(symbol)` (the ticket tab), `handleOpenView('heatmap' | 'calendar', symbol)` (the
+   Floor's Forecasts / Calendar panels, through `deskRequest`), `openEntityPopup(kind, entity)` (a setup's window).
+   Axl's `<show>` lands on these.
+4. **Pythia's and Aether's routes** — `handleRoute(offer)`: their panels still offer a route (`RouteOffer`), which
+   becomes a session turn, an edit, or the other panel's seed.
 
-And one rule for **reopening**: a social-chat card, a list pencil and an Axl `<edit>` all reach a
-desk's edit/review mode by READING the entity by id — `services/entityResolve.js`, React → service →
-HTTP → Mongo and back. Never out of a list this client holds, never a stale row on a failed read: a
-card can arrive before its list has loaded, and an empty list is indistinguishable from a failed
-fetch. That is how a portfolio review once got authored against no holdings. A failed read is `null`;
-tell the user.
-
-Reading the entity is only half of it — a card also says WHICH SURFACE it wants, and the two columns
-answer different asks. `pages/coverageRoute.js` holds that judgment for coverage: a `revise` runs the
-desk's update pipeline, an `open` puts the book up in the RIGHT column and leaves the left one alone,
-and only an unresolved doc moves the desk. The left column's panels are kept mounted behind
-`display:none` (most are not in `deskReset`), so switching to one shows whatever was last done there
-— a card that switches desks for no reason appears to answer itself with the previous name's work.
-(2026-09-24)
+And one rule for **reading**: a card, a list pencil and an Axl `<edit>` reach an item by READING it by id —
+`services/entityResolve.js` client-side, `services/desks/entityLookup.js` on the server — never out of a list this
+client holds: a card can arrive before its list has loaded, and an empty list is indistinguishable from a failed
+fetch. A failed read is `null`; tell the user. `pages/coverageRoute.js` keeps the judgment of WHICH surface a coverage
+card wants (a `revise` reopens the desk, an `open` shows the book in the right column).
 
 ## Entities
 
@@ -232,13 +229,15 @@ contract and the record: `../botmarket-backend/docs/design/unified-chat-plan.md`
 `../botmarket-backend/scripts/drive-{mentor,portfolio,scanner-analyst}-surface.mjs` and
 `drive-pane-tabs.mjs`.
 
-## Threads
+## Sessions, and what is left of threads
 
-A conversation that crossed the substantive floor but produced no artifact is a DRAFT thread
-(`services/threads/`), resumable from `cmps/ThreadHistory/`, pinnable, TTL'd on the server. A thread
-that produced something is reached through the thing it produced. `deskWork.js` turns "the user has
-unfinished threads" into a badge on the one desk they walked out of, and a lock on every desk that
-needs an agent busy elsewhere — a panel is a singleton.
+A conversation lives in the SESSION (`/api/sessions`): the live one is the chat; "New session" files it in History
+under the user's first words (one they never spoke in is not kept), and a commit resolves it — the desk's conversation
+is sealed onto the entity it produced (`agent_contexts`), reopened with it on the next edit. History lists the rest:
+read one, delete it, or write in it to pick it back up (`POST /api/sessions/:id/resume`; the live one is filed).
+
+Draft THREADS (`services/threads/`) are Pythia's and Aether's alone now — their panels save, link and discard them. Every
+other desk's old threads were moved onto their entities by the phase-9 migration (`scripts/migrate-unified-chat.mjs`).
 
 ## The paths not taken — what a plan is NOT
 
