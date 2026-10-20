@@ -24,7 +24,7 @@ import { tradeIdeasService } from './tradeIdeas/tradeIdeas.service.remote'
 
 const SERVICES = {
     scannerService:    [scannerService,    ['listScans', 'createScan', 'updateScan', 'deleteScan']],
-    mentorService:     [mentorService,     ['generateSetup', 'updateSetup', 'listSetups', 'getSetup', 'armSetup', 'disarmSetup', 'deleteSetup']],
+    mentorService:     [mentorService,     ['listSetups', 'getSetup', 'armSetup', 'disarmSetup', 'deleteSetup']],
     analystService:    [analystService,    ['initiateCoverage', 'listCoverage', 'getCoverage', 'updateCoverage', 'retireCoverage']],
     tradeIdeasService: [tradeIdeasService, ['createIdea', 'getIdeas', 'getIdea', 'deleteIdea', 'updateIdea', 'placeOrders', 'triggerEntry']],
 }
