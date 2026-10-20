@@ -14,7 +14,7 @@ vi.mock('../http.service', () => ({
     httpService: { post: (...a) => post(...a), delete: (...a) => del(...a), get: vi.fn() },
 }))
 
-const { clearThread, newThreadId, threadsService } = await import('./threads.service.remote.js')
+const { clearThread, newThreadId } = await import('./threads.service.remote.js')
 
 beforeEach(() => { post.mockClear(); del.mockClear() })
 
@@ -60,21 +60,3 @@ describe('clearThread', () => {
 // A desk RUN ending is not the same act as clearing one chat: the artifact exists, and every
 // conversation that fed it is spent. The thread that AUTHORED it is not a draft any more — it was
 // linked to the artifact — so this cannot reach it.
-describe('discardPipelineDrafts', () => {
-    it('asks for one desk by key', async () => {
-        await threadsService.discardPipelineDrafts('trade')
-        expect(del).toHaveBeenCalledWith('api/threads/pipeline/trade')
-    })
-
-    it('encodes the key, so a desk name can never walk up the path', async () => {
-        await threadsService.discardPipelineDrafts('../threads')
-        expect(del).toHaveBeenCalledWith('api/threads/pipeline/..%2Fthreads')
-    })
-
-    it('a failing request answers null instead of throwing into the walk home', async () => {
-        // It is fired as the user leaves for the hub; a rejection there would surface as an unhandled
-        // rejection over a desk they have already finished with.
-        del.mockRejectedValueOnce(new Error('offline'))
-        expect(await threadsService.discardPipelineDrafts('trade')).toBe(null)
-    })
-})

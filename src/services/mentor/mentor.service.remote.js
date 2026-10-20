@@ -18,10 +18,6 @@ export const mentorService = {
     hydrateBlueprint,
     validateSetup,
     shareSetup,
-    generateSetup,
-    generateSetups,
-    updateSetup,
-    saveChatState,
     listSetups,
     getSetup,
     getSetupJournal,
@@ -70,42 +66,8 @@ function shareSetup(id, conversationId, note = null) {
     return httpService.post(`api/setups/${id}/share`, { conversationId, note })
 }
 
-/**
- * Persist a drafted setup → status 'waiting' (created, NOT yet monitored).
- * `accounts` are the full marked-account objects (bank icon); the server binds the main account's
- * broker, resolves the symbol gate, and stamps mode + event_risk. Never author those client-side.
- */
-function generateSetup(setup, accounts = [], mainAccountId = null, chatState = undefined) {
-    return api.post('/generate', { setup, accounts, mainAccountId, chat_state: chatState })
-}
-
-/**
- * One press, N names. Returns `{ saved, failed }` — PARTIAL SUCCESS is the contract, so a caller
- * must read both: the saved ones are already monitored, and `failed` carries a reason and an index
- * for each that was refused. Treating anything but `saved.length === setups.length` as a failure
- * would throw away setups the server has already written.
- */
-function generateSetups(setups, accounts = [], mainAccountId = null, chatState = undefined) {
-    return api.post('/generate-all', { setups, accounts, mainAccountId, chat_state: chatState })
-}
-
-/** Edit an existing setup in place. Pre-position this re-arms it; in position it is a light edit. */
-function updateSetup(id, setup, accounts = [], mainAccountId = null, chatState = undefined) {
-    return api.post('/generate', { setup, accounts, mainAccountId, chat_state: chatState, updateId: id })
-}
-
-/**
- * Progressive save mid-edit: persist the build CONVERSATION alone, with no plan rewrite. Parity
- * with kairos's `updateCall({ chatState })`, and the distinction matters more here than there —
- * routing this through updateSetup would re-run the readiness gate, re-bind the venue from the
- * currently-marked accounts, and send a WATCHED setup back to 'waiting' on every turn. Talos would
- * stop watching a live setup because the user asked Mentor a question about it.
- *
- * The plan itself is written when the user presses "Update setup" — that is what an edit IS.
- */
-function saveChatState(id, chatState) {
-    return api.patch(id, { chat_state: chatState })
-}
+// Generate / Generate-all / Update and the progressive chat-state save were Mentor's panel's calls. Mentor commits
+// through its session actions (useSession.commit → /api/sessions/:id/act) — the routes went in phase 9 (2026-10-20).
 
 function listSetups(status = null) { return api.list(status ? { status } : undefined) }
 
