@@ -867,7 +867,9 @@ export function MainPage() {
             refreshSetups()
         } catch (err) {
             const data = err?.response?.data
-            if (data?.reason === 'price_moved' && data.drift) { setSetupDrift(data.drift); return }
+            // `past_stop` is final — the dialog shows it with no way to place; `price_moved` is the
+            // one a second press (acceptPrice) can take.
+            if ((data?.reason === 'price_moved' || data?.reason === 'past_stop') && data.drift) { setSetupDrift(data.drift); return }
             console.error('[setups] place orders failed', err)
             showErrorMsg(`Order placement failed: ${apiError(err)}`)
         } finally {

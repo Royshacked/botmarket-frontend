@@ -46,8 +46,20 @@ describe('OrderConfirmDialog — the price at Confirm', () => {
         expect(onConfirm).toHaveBeenCalledWith(SETUP, ORDERS)
     })
 
-    it('past the stop: says the plan is broken, not merely expensive', () => {
-        mount({ drift: { ...DRIFT, live: 189.5, slippage: -6.5, liveRr: null, pastStop: true } })
+    it('past the stop: says the plan is broken, and offers NO way to place it', () => {
+        // The server refuses this one for good (past_stop) — a long bought under its own stop has
+        // its protection on the wrong side of the market.
+        const onConfirm = vi.fn()
+        mount({ drift: { ...DRIFT, live: 189.5, slippage: -6.5, liveRr: null, pastStop: true }, onConfirm })
         expect(screen.getByText(/already past your stop/)).toBeTruthy()
+        const btn = screen.getByRole('button', { name: 'Plan broken' })
+        expect(btn.disabled).toBe(true)
+        fireEvent.click(btn)
+        expect(onConfirm).not.toHaveBeenCalled()
+    })
+
+    it('a short is SOLD at market anyway, not bought', () => {
+        mount({ idea: { ...SETUP, direction: 'short' }, drift: { ...DRIFT, slippage: 2.81 } })
+        expect(screen.getByRole('button', { name: 'Sell at market anyway' })).toBeTruthy()
     })
 })

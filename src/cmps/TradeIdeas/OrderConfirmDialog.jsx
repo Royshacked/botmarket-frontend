@@ -47,7 +47,8 @@ export function OrderConfirmDialog({ idea, orders, levels = [], drift = null, pl
 
     if (!idea || !Array.isArray(orders) || orders.length === 0) return null
 
-    const confirmDisabled = placing || marketClosed
+    // Past the stop is FINAL on the server (past_stop): no press places it, so none is offered.
+    const confirmDisabled = placing || marketClosed || Boolean(drift?.pastStop)
 
     // HOW OLD the plan is. An order that parked overnight at 'awaiting_market' is confirmed against
     // a price the desk never saw: the quantities below were sized before the close. We show the age
@@ -87,7 +88,8 @@ export function OrderConfirmDialog({ idea, orders, levels = [], drift = null, pl
                     onClick={() => onConfirm(idea, orders)}
                     disabled={confirmDisabled}
                     title={marketClosed ? 'Market is closed' : undefined}
-                >{placing ? 'Placing…' : marketClosed ? 'Market closed' : drift ? 'Buy at market anyway' : 'Confirm & place'}</button>
+                >{placing ? 'Placing…' : marketClosed ? 'Market closed' : drift?.pastStop ? 'Plan broken'
+                    : drift ? `${idea.direction === 'short' ? 'Sell' : 'Buy'} at market anyway` : 'Confirm & place'}</button>
             </>}
         >
                     <p className="order-confirm__triggered">
@@ -129,7 +131,7 @@ export function OrderConfirmDialog({ idea, orders, levels = [], drift = null, pl
                     {drift && (
                         <p className="order-confirm__drift">
                             {drift.pastStop
-                                ? <>⚠️ Price is {fmtPrice(drift.live)} — already past your stop ({fmtPrice(risk.stop)}). The plan is broken; buying now is a different trade.</>
+                                ? <>⚠️ Price is {fmtPrice(drift.live)} — already past your stop ({fmtPrice(risk.stop)}). The plan is broken and cannot be placed; re-draw it with Mentor.</>
                                 : <>⚠️ Price is {fmtPrice(drift.live)}, {fmtPrice(Math.abs(drift.slippage))} {idea.direction === 'short' ? 'below' : 'above'} your {fmtPrice(drift.planned)} plan
                                     {drift.liveRr != null ? <> — R:R now <strong>{drift.liveRr}</strong> (planned {drift.plannedRr})</> : null}.
                                     {' '}This order fills at market.</>}
