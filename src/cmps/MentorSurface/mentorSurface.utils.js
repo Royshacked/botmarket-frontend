@@ -118,6 +118,9 @@ export function handoffTurn(candidate) {
             thesis:           candidate.thesis ?? null,
             analysis:         candidate.analysis ?? null,
             recommended_mode: candidate.recommended_mode ?? null,
+            // A name off the HOTLIST rides as a reference to its board and column; the server reads the
+            // board's facts back itself (backend hotlist.service hotlistSeed) — they are never sent from here.
+            ...(candidate.hotlist ? { hotlist: { board: candidate.hotlist.board, column: candidate.hotlist.column } } : {}),
         },
     }
 }

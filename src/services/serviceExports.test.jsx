@@ -21,12 +21,14 @@ import { scannerService }    from './scanner/scanner.service.remote'
 import { mentorService }     from './mentor/mentor.service.remote'
 import { analystService }    from './analyst/analyst.service.remote'
 import { tradeIdeasService } from './tradeIdeas/tradeIdeas.service.remote'
+import { hotlistService }    from './hotlist/hotlist.service.remote'
 
 const SERVICES = {
     scannerService:    [scannerService,    ['listScans', 'createScan', 'updateScan', 'deleteScan']],
     mentorService:     [mentorService,     ['listSetups', 'getSetup', 'armSetup', 'disarmSetup', 'deleteSetup']],
     analystService:    [analystService,    ['initiateCoverage', 'listCoverage', 'getCoverage', 'updateCoverage', 'retireCoverage']],
     tradeIdeasService: [tradeIdeasService, ['createIdea', 'getIdeas', 'getIdea', 'deleteIdea', 'updateIdea', 'placeOrders', 'triggerEntry']],
+    hotlistService:    [hotlistService,    ['getToday', 'getBoard', 'getOutcomes']],
 }
 
 describe('agent service exports', () => {

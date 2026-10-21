@@ -12,6 +12,7 @@ import { PortfolioSurface }  from '../cmps/PortfolioSurface/PortfolioSurface.jsx
 import { ScannerSurface }    from '../cmps/ScannerSurface/ScannerSurface.jsx'
 import { AnalystSurface }    from '../cmps/AnalystSurface/AnalystSurface.jsx'
 import { handoffTurn, mentorHolding } from '../cmps/MentorSurface/mentorSurface.utils.js'
+import { handoffRead, askArgusText } from '../cmps/Floor/hotlist.utils.js'
 import { SidePane }          from '../cmps/SidePane/SidePane.jsx'
 import { openSurface, resetSidePane } from '../cmps/SidePane/sidePane.store.js'
 import { SessionContext }    from '../context/SessionContext.jsx'
@@ -1442,6 +1443,30 @@ export function MainPage() {
     // Earnings ticker → MENTOR: a scheduled print is a date with a ticker attached and no bias,
     // which is a setup (zones + a window), not an idea's condition tree. Each row carries its own
     // report date (the list spans the trading week).
+    // A name off the HOTLIST → Mentor, ONE at a time (Roy, 2026-10-21) — the scan pick's path, with the
+    // board and column as a reference the server resolves into the board's facts (the horizon, the
+    // grade and free range, the catalyst, Argus's note). The read in the opening sentence is Argus's
+    // pick note, else the board's own reason the name is in play.
+    function handleBuildFromHotlist(row, column, board) {
+        if (!row?.symbol || !board?.id || !column) return
+        const turn = handoffTurn({
+            ticker:    row.symbol,
+            direction: 'long',                       // the board is long side only (daily-names.md §9)
+            thesis:    handoffRead(row, column),
+            hotlist:   { board: board.id, column },
+        })
+        if (!turn) return
+        talkTo('mentor', turn.text, { seed: turn.seed })
+        openDesk('mentor')
+    }
+
+    // "Ask Argus" on a hotlist row: the row's facts, put to Argus as the user's own question, on a clean
+    // table (onArgusTable asks first when Argus is holding other work).
+    async function handleAskArgusHotlist(row, column) {
+        if (!row?.symbol) return
+        if (await onArgusTable(askArgusText(row, column), { profile: 'trading', what: `ask about ${row.symbol}` })) openDesk('scanner')
+    }
+
     function handleBuildFromEarning(earning) {
         if (!earning?.symbol) return
         seedMentorChat(earning.symbol, buildEarningSeed(earning, earning.date))
@@ -1613,6 +1638,8 @@ export function MainPage() {
                                     aetherCandidates={{ runs: aetherRuns, loading: aetherLoading, error: aetherError, onRead: onAetherRead, onTradeWithMentor: seedMentorChat, onScanWithArgus: handleScanRadar, scanBusy: radarBusy }}
                                     onEarningSelect={handleBuildFromEarning}
                                     onIpoSelect={handleBuildFromIpo}
+                                    onHotlistBuild={handleBuildFromHotlist}
+                                    onHotlistAsk={handleAskArgusHotlist}
                                     onCandidateSelect={handleBuildFromCandidate}
                                     onEditSetup={handleEditSetup}
                                     onDeleteSetup={handleDeleteSetup}

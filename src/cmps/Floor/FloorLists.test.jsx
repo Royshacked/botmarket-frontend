@@ -172,7 +172,7 @@ describe('FloorLists', () => {
             const desks = [...container.querySelectorAll('.floor-desk')]
             expect(desks.some(d => d.className.includes('floor-desk--folded'))).toBe(false)
             expect(desks.map(d => d.querySelector('.floor-desk__label').textContent))
-                .toEqual(['Awaiting orders', 'Your trades', 'Your portfolios', 'Watchlists',
+                .toEqual(['Awaiting orders', 'Your trades', 'Your portfolios', 'Watchlists', 'Hotlist',
                           'Calendar', 'Forecasts'])
         })
 

@@ -13,6 +13,7 @@ import { actionLine, originLine, actionVerb } from './queuedAction.contract.js'
 import { RowHost } from './RowHost.jsx'
 import { CalendarPanel, CALENDAR_PANEL_ID } from './CalendarPanel.jsx'
 import { ForecastPanel, FORECAST_PANEL_ID } from './ForecastPanel.jsx'
+import { HotlistPanel, HOTLIST_PANEL_ID } from './HotlistPanel.jsx'
 import { IndustryView } from '../Radar/IndustryView.jsx'
 import { useActivePanel, togglePanel, openPanel } from '../DetailPanel/detailPanel.store.js'
 
@@ -47,6 +48,10 @@ const DESKS = [
     { key: 'trade',          label: 'Your trades' },
     { key: 'portfolio',      label: 'Your portfolios' },
     { key: 'scans',          label: 'Watchlists' },
+    // THE HOTLIST — the screener's daily board of names in play, graded per horizon by free range,
+    // with Argus's read of it; opens over the chat like the Calendar (HotlistPanel; daily-names.md §8,
+    // Roy 2026-10-21). Named "Hotlist", not "Daily watchlist", to stay clear of Watchlists above.
+    { key: 'hotlist',        label: 'Hotlist', panel: HOTLIST_PANEL_ID },
     // HIDDEN FOR NOW (Roy, 2026-10-14), not deleted: its rows, counts and sorts all still work, and
     // dropping the flag brings it back. MainPage still loads the candidates for the Aether desk.
     { key: 'aether',         label: 'Events radar', hidden: true },
@@ -806,6 +811,7 @@ export function FloorLists({
     onExecuteQueued, onCancelQueued, queuedBusyId = null,
     industries = [], industriesLoading = false, industriesError = false, week = null, assessments = null, themes = [],
     onEarningSelect, onIpoSelect,
+    onHotlistBuild, onHotlistAsk,
     isAdmin = false,
     researchQueue = [], onStartResearch, onMarkResearchDone, onRejectResearch, researchQueueBusyId = null,
     researchRun = null, onStartResearchRun, onStopResearchRun, onRequeueStalledResearch,
@@ -921,6 +927,7 @@ export function FloorLists({
             {/* Always mounted: it renders nothing until its panel opens, and portals into the chat
                 column when it does. */}
             <CalendarPanel onEarningSelect={onEarningSelect} onIpoSelect={onIpoSelect} onSymbolClick={onSymbolClick} />
+            <HotlistPanel onBuild={onHotlistBuild} onAsk={onHotlistAsk} onSymbolClick={onSymbolClick} />
             <ForecastPanel coverage={coverage} focus={forecastFocus} onOpenBoard={() => setOpenKey('board')}
                 onEditCoverage={onEditCoverage} onRetireCoverage={onRetireCoverage} onDeleteCoverage={onDeleteCoverage} />
 
@@ -1034,6 +1041,8 @@ FloorLists.propTypes = {
     // Earnings / IPO rows on the Calendar's date page hand the event to Mentor (build a setup).
     onEarningSelect:     PropTypes.func,
     onIpoSelect:         PropTypes.func,
+    onHotlistBuild:      PropTypes.func,
+    onHotlistAsk:        PropTypes.func,
     onCandidateSelect:   PropTypes.func,
     onEditSetup:         PropTypes.func,
     onDeleteSetup:       PropTypes.func,

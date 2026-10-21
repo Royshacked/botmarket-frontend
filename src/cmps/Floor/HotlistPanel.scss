@@ -1,0 +1,92 @@
+// The Hotlist panel (HotlistPanel.jsx) — the screener's board over the chat column. Rows, not cards
+// (Floor.scss): a table, because the board IS columns — one grade per horizon, read across.
+
+.hot-panel .detail-panel__head { align-items: center; }
+.hot-panel .detail-panel__close { margin: 0; }
+
+.hot-sr {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+.hot-nav {
+    display: flex; gap: 4px; flex-wrap: wrap;
+    &__btn {
+        font-size: 11.5px; padding: 3px 8px; border-radius: 4px; cursor: pointer;
+        background: transparent; color: var(--text-secondary); border: 1px solid var(--border);
+        &:hover { background: var(--bg-hover); }
+        &--on { color: var(--text-primary); border-color: var(--accent-light); }
+    }
+}
+
+.hot-board { display: flex; flex-direction: column; gap: 10px; padding: 4px 2px 12px; }
+
+.hot-argus {
+    display: flex; gap: 10px; align-items: baseline;
+    padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-surface);
+    &__who { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--accent-light); flex: none; }
+    &__text { margin: 0; font-size: 13px; line-height: 1.45; color: var(--text-primary); }
+}
+
+.hot-meta {
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--text-secondary);
+    &__item--up   { color: var(--color-long); }
+    &__item--down { color: var(--color-short); }
+    &__item--warn { color: var(--color-warning); }
+    &__filter { margin-left: auto; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+}
+
+.hot-note { margin: 0; font-size: 12px; color: var(--text-dim); line-height: 1.4; }
+
+.hot-table-wrap { overflow-x: auto; }
+.hot-table {
+    width: 100%; border-collapse: collapse; font-size: 12.5px;
+    th {
+        text-align: left; font-weight: 500; font-size: 11px; color: var(--text-dim);
+        padding: 4px 6px; border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 6px; border-bottom: 1px solid var(--border); vertical-align: middle; white-space: nowrap; }
+    &__num { text-align: right; font-family: var(--font-mono); }
+    &__star { width: 28px; }
+}
+
+.hot-row--pick td { background: var(--bg-wash-surface); }
+.hot-note-row td { border-bottom: 1px solid var(--border); padding-top: 0; }
+.hot-row__note { white-space: normal !important; font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+.hot-row__caution { color: var(--text-dim); }
+.hot-row--avoid .hot-sym { text-decoration: line-through; text-decoration-color: var(--color-short); }
+
+.hot-star { color: var(--color-warning); font-family: var(--font-mono); font-size: 11.5px; }
+.hot-sym {
+    background: none; border: 0; padding: 0; cursor: pointer;
+    font-family: var(--font-mono); font-weight: 600; color: var(--text-primary);
+    &:hover { color: var(--accent-light); }
+}
+.hot-name { display: block; font-size: 11px; color: var(--text-dim); max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+.hot-up   { color: var(--color-long); }
+.hot-down { color: var(--color-short); }
+.hot-dim  { color: var(--text-muted); }
+.hot-earn { margin-left: 6px; font-size: 11px; }
+
+.hot-cat {
+    font-size: 11px; padding: 1px 6px; border-radius: 3px; border: 1px solid var(--border); color: var(--text-secondary);
+    &--positive { color: var(--color-long); border-color: var(--color-long); }
+    &--negative { color: var(--color-short); border-color: var(--color-short); }
+    &--mixed    { color: var(--color-warning); border-color: var(--color-warning); }
+}
+.hot-flag { margin-left: 6px; font-size: 11px; color: var(--color-warning); }
+
+.hot-grade {
+    display: inline-flex; gap: 6px; align-items: baseline;
+    b { font-family: var(--font-mono); width: 14px; text-align: center; }
+    &--A b { color: var(--color-long); }
+    &--B b { color: var(--accent-light); }
+    &--C b { color: var(--text-dim); }
+}
+.hot-range { font-size: 11px; color: var(--text-secondary); font-family: var(--font-mono); }
+
+// Stacked, not side by side: the rows are already two lines tall (the symbol over its name), and two
+// buttons abreast pushed the table past the panel's width (the first browser drive, 2026-10-21).
+.hot-actions { text-align: right; width: 1%; }
+.hot-actions .floor-queued__btn { display: block; width: 100%; white-space: nowrap; }
+.hot-actions .floor-queued__btn + .floor-queued__btn { margin-top: 4px; }

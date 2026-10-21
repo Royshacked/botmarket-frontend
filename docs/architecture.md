@@ -28,8 +28,12 @@ columns:
 └──────────────────┘ └─────────────────────────────────────────────────┘ └────────────────────────────┘
 ```
 
-The Lists column's desks, in order (2026-10-14): Awaiting orders · Your trades · Your portfolios · Watchlists ·
-Calendar · Forecasts · Research queue (admin, last). Events radar is `hidden: true` for now, not deleted. The
+The Lists column's desks, in order (2026-10-21): Awaiting orders · Your trades · Your portfolios · Watchlists ·
+Hotlist · Calendar · Forecasts · Research queue (admin, last). The Hotlist (`cmps/Floor/HotlistPanel.jsx`, a
+DetailPanel like the Calendar) is the screener's daily board — Argus's read on top, one row per name in play,
+a grade and free range per column, the day's checkpoints as tabs — and its rows hand on ONE name at a time:
+**Build with Mentor** (`handoffTurn` with a `hotlist` board reference the server resolves) and **Ask Argus**
+(`onArgusTable`) (`../botmarket-backend/docs/design/daily-names.md` §8). Events radar is `hidden: true` for now, not deleted. The
 Calendar (`cmps/Floor/CalendarPanel.jsx`) is a month grid — per-day earnings / Fed / IPO counts, a clicked day
 replacing the grid with that day's rows (`../botmarket-backend/docs/design/floor-calendar.md`); Forecasts is the
 heat map of every industry (`ForecastPanel.jsx`). The Floor (`cmps/Floor/`) is a design variant (`useDesign() ===
@@ -198,7 +202,8 @@ lists column, at 10–12.5px, in a column 27% wide. They open in `cmps/DetailPan
   in every list.
 
 Driven end to end by `../botmarket-backend/scripts/drive-detail-panel.mjs`: both desktop layouts and a
-touch tablet. The Lists column and the Calendar: `../botmarket-backend/scripts/drive-floor-lists.mjs`.
+touch tablet. The Lists column and the Calendar: `../botmarket-backend/scripts/drive-floor-lists.mjs`. The Hotlist:
+`../botmarket-backend/scripts/drive-hotlist.mjs` (a fixture board; the hand-off turns captured, then aborted).
 
 **The drawer shell and the side pane (unified chat, phase 8b — 2026-10-17).** The detail panel's
 mechanics are `cmps/DrawerShell` now, shared with the side pane: Esc closes the TOP open shell only
