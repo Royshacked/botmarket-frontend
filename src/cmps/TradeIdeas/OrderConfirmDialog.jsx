@@ -24,7 +24,7 @@ import './OrderConfirmDialog.scss'
 // Matches STALE_HOURS in services/tradeNotify.service.js, which decides when the CARD says so.
 const STALE_PLAN_HOURS = 12
 
-export function OrderConfirmDialog({ idea, orders, levels = [], placing, onConfirm, onDismiss, onReset }) {
+export function OrderConfirmDialog({ idea, orders, levels = [], drift = null, placing, onConfirm, onDismiss, onReset }) {
     // Block placement while the market is known to be closed (crypto is 24/7).
     const { market, marketClosed } = useMarketStatus(idea?.asset, idea?.asset_class)
 
@@ -87,7 +87,7 @@ export function OrderConfirmDialog({ idea, orders, levels = [], placing, onConfi
                     onClick={() => onConfirm(idea, orders)}
                     disabled={confirmDisabled}
                     title={marketClosed ? 'Market is closed' : undefined}
-                >{placing ? 'Placing…' : marketClosed ? 'Market closed' : 'Confirm & place'}</button>
+                >{placing ? 'Placing…' : marketClosed ? 'Market closed' : drift ? 'Buy at market anyway' : 'Confirm & place'}</button>
             </>}
         >
                     <p className="order-confirm__triggered">
@@ -120,6 +120,19 @@ export function OrderConfirmDialog({ idea, orders, levels = [], placing, onConfi
                         <p className="order-confirm__market-closed">
                             🔒 Markets are closed — orders cannot be placed right now.
                             {market.nextOpenMs ? ` Opens ${formatCreatedAtFull(market.nextOpenMs)}.` : ''}
+                        </p>
+                    )}
+
+                    {/* THE PRICE NOW, from the server's refusal (409 price_moved). The order goes
+                        out at market, so the plan's entry below is not what it will cost — this is.
+                        Pressing again buys anyway; Dismiss leaves the setup waiting. */}
+                    {drift && (
+                        <p className="order-confirm__drift">
+                            {drift.pastStop
+                                ? <>⚠️ Price is {fmtPrice(drift.live)} — already past your stop ({fmtPrice(risk.stop)}). The plan is broken; buying now is a different trade.</>
+                                : <>⚠️ Price is {fmtPrice(drift.live)}, {fmtPrice(Math.abs(drift.slippage))} {idea.direction === 'short' ? 'below' : 'above'} your {fmtPrice(drift.planned)} plan
+                                    {drift.liveRr != null ? <> — R:R now <strong>{drift.liveRr}</strong> (planned {drift.plannedRr})</> : null}.
+                                    {' '}This order fills at market.</>}
                         </p>
                     )}
 
@@ -245,6 +258,12 @@ OrderConfirmDialog.propTypes = {
     // [{ kind:'entry'|'stop'|'tp'|…, price }] from the caller's derive*Overlay — the SAME
     // extraction the chart uses, so the approval screen and the chart cannot disagree.
     levels:    PropTypes.array,
+    // The server's 409 `price_moved` numbers (services/setup.schema entryDrift) — set once a confirm
+    // was refused because the live price left the plan; the next press buys at market anyway.
+    drift:     PropTypes.shape({
+        planned: PropTypes.number, live: PropTypes.number, slippage: PropTypes.number,
+        plannedRr: PropTypes.number, liveRr: PropTypes.number, pastStop: PropTypes.bool,
+    }),
     placing:   PropTypes.bool,
     onConfirm: PropTypes.func.isRequired,
     onDismiss: PropTypes.func.isRequired,

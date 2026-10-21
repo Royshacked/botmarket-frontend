@@ -336,6 +336,7 @@ export function MainPage() {
     // is the surviving shape of the same gesture.
     const [dismissedConfirmIds, setDismissedConfirmIds] = useState(() => new Set())
     const [setupConfirmId, setSetupConfirmId] = useState(null) // Mentor setup showing the OrderConfirmDialog
+    const [setupDrift, setSetupDrift]         = useState(null) // the server's 409 `price_moved` numbers, once refused
     const [placingOrders, setPlacingOrders] = useState(false)
     const [pendingDeleteIdea, setPendingDeleteIdea] = useState(null)
     const [deletingIdea, setDeletingIdea] = useState(false)
@@ -842,6 +843,7 @@ export function MainPage() {
             // the same read every other card doorway makes now.
             const setup = setupId ? await resolveEntity('setup', setupId) : null
             if (!setup) { openDesk('mentor'); return }
+            setSetupDrift(null)   // a refusal belongs to the dialog it was shown in, never the next
             setSetupConfirmId(setupId)
             // The dialog derives from the setups list, so make sure it holds this setup's current
             // state — the market-open sweep can flip a parked setup while the list is 20s behind.
@@ -851,20 +853,28 @@ export function MainPage() {
 
     // Confirm a setup's entry. Execution is kind-blind (placeOrdersForIdea resolves the entity by
     // id, not by kind), so the setup's own plan places through the same endpoint an idea uses.
+    //
+    // The server re-prices at this moment: a confirmed entry goes out at MARKET, so if the price has
+    // moved off the plan it answers 409 `price_moved` with the live numbers instead of placing. The
+    // dialog then shows them, and the second press carries `acceptPrice` — the user buys at market
+    // knowing what it costs (EXPD 2026-10-20: planned 196, paid 198.81, nobody said so).
     async function handleConfirmSetupOrders(setup, orders) {
         setPlacingOrders(true)
         try {
-            await tradeIdeasService.placeOrders(setup.id, orders)
+            await tradeIdeasService.placeOrders(setup.id, orders, { acceptPrice: Boolean(setupDrift) })
             setSetupConfirmId(null)
+            setSetupDrift(null)
             refreshSetups()
         } catch (err) {
+            const data = err?.response?.data
+            if (data?.reason === 'price_moved' && data.drift) { setSetupDrift(data.drift); return }
             console.error('[setups] place orders failed', err)
             showErrorMsg(`Order placement failed: ${apiError(err)}`)
         } finally {
             setPlacingOrders(false)
         }
     }
-    function handleDismissSetupConfirm() { setSetupConfirmId(null) }
+    function handleDismissSetupConfirm() { setSetupConfirmId(null); setSetupDrift(null) }
 
     // Manual portfolio activate → mark every pending leg awaiting-fill + post the N-leg
     // entry FillCard; reload so the legs reflect the new state (the card arrives via WS).
@@ -1712,6 +1722,7 @@ export function MainPage() {
                     idea={confirmSetup}
                     orders={confirmSetupOrders}
                     levels={confirmSetupLevels}
+                    drift={setupDrift}
                     placing={placingOrders}
                     onConfirm={handleConfirmSetupOrders}
                     onDismiss={handleDismissSetupConfirm}

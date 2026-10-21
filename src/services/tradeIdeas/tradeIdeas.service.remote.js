@@ -39,8 +39,10 @@ async function getIdea(id) {
 function deleteIdea(id)        { return api.remove(id) }
 function updateIdea(id, patch) { return api.patch(id, patch) }
 
-async function placeOrders(id, orders) {
-    const res = await api.post(`/${encodeURIComponent(id)}/orders`, { orders })
+// `acceptPrice`: the user has SEEN the live price the server refused on (409 `price_moved`, with
+// `drift`) and still wants the market order. Only a setup is refused that way.
+async function placeOrders(id, orders, { acceptPrice = false } = {}) {
+    const res = await api.post(`/${encodeURIComponent(id)}/orders`, { orders, ...(acceptPrice && { acceptPrice: true }) })
     return res.idea ?? null
 }
 
