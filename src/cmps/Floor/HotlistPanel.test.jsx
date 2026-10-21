@@ -99,6 +99,30 @@ describe('HotlistPanel', () => {
         expect(screen.getByText('3.0%'), 'pre-market volume as % of a day').toBeTruthy()
     })
 
+    it('a slow board read for a tab the user has left does not overwrite the one they switched to', async () => {
+        const THIRD = { ...BOARD, id: 'hb_2026-10-21_eod', checkpoint: 'eod', columns: ['eod'], argus: null,
+            rows: [{ symbol: 'LATE', price: 50, cells: { eod: { grade: 'A', range: { pct: 3, atr_mult: 1 } } } }] }
+        hotlistService.getToday.mockResolvedValue({ day: '2026-10-21', latest: BOARD, checkpoints: [
+            { id: EARLIER.id, checkpoint: 'premarket' }, { id: BOARD.id, checkpoint: 'mid' }, { id: THIRD.id, checkpoint: 'eod' }] })
+        let release
+        hotlistService.getBoard.mockImplementation(id => (id === EARLIER.id ? new Promise(r => { release = () => r(EARLIER) }) : Promise.resolve(THIRD)))
+        await mount()
+        fireEvent.click(screen.getByRole('tab', { name: '08:00 pre-market' }))
+        fireEvent.click(screen.getByRole('tab', { name: '14:30' }))
+        await flush()
+        expect(screen.getByText('LATE')).toBeTruthy()
+        await act(async () => { release(); await Promise.resolve() })
+        expect(screen.getByText('LATE')).toBeTruthy()
+        expect(screen.queryByText('ABC')).toBeNull()
+    })
+
+    it('an unknown SPY reading is not shown as "below"', async () => {
+        hotlistService.getToday.mockResolvedValue({ day: '2026-10-21', latest: { ...BOARD, regime: { breadth_above_sma20: 58, spy: { above_sma20: null } } }, checkpoints: [] })
+        await mount()
+        expect(screen.queryByText(/SPY below/)).toBeNull()
+        expect(screen.queryByText(/SPY above/)).toBeNull()
+    })
+
     it('no board yet says when the boards come, not "nothing in play"', async () => {
         hotlistService.getToday.mockResolvedValue({ day: null, latest: null, checkpoints: [] })
         await mount()

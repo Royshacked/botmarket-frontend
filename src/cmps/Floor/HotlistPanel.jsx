@@ -38,8 +38,11 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick }) {
     const [retry, setRetry] = useState(0)
     // Boards already read while the panel is open; dropped on close so a reopen shows the newest.
     const seen = useRef(new Map())
+    // The board the panel WANTS on screen. A slow read that comes back for another tab, or after a
+    // close, is cached but not shown — or the 14:30 tab would end up showing the 10:30 board.
+    const wanted = useRef(null)
 
-    useEffect(() => { if (!isOpen) seen.current.clear() }, [isOpen])
+    useEffect(() => { if (!isOpen) { seen.current.clear(); wanted.current = null } }, [isOpen])
 
     // Every open starts on the day's latest board.
     useEffect(() => {
@@ -50,6 +53,7 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick }) {
             d => {
                 if (!live) return
                 setToday({ status: 'ok', day: d.day, checkpoints: d.checkpoints })
+                wanted.current = d.latest?.id ?? null
                 if (d.latest) { seen.current.set(d.latest.id, d.latest); setBoardId(d.latest.id); setBoard({ status: 'ok', data: d.latest }) }
                 else { setBoardId(null); setBoard({ status: 'ok', data: null }) }
             },
@@ -61,12 +65,13 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick }) {
     const pickBoard = (id) => {
         if (id === boardId) return
         setBoardId(id)
+        wanted.current = id
         const cached = seen.current.get(id)
         if (cached) { setBoard({ status: 'ok', data: cached }); return }
         setBoard({ status: 'loading', data: null })
         hotlistService.getBoard(id).then(
-            b => { seen.current.set(id, b); setBoard({ status: 'ok', data: b }) },
-            () => setBoard({ status: 'error', data: null }),
+            b => { seen.current.set(id, b); if (wanted.current === id) setBoard({ status: 'ok', data: b }) },
+            () => { if (wanted.current === id) setBoard({ status: 'error', data: null }) },
         )
     }
 
@@ -128,7 +133,7 @@ function Body({ today, board, picksOnly, setPicksOnly, onRetry, onBuild, onAsk, 
                         Breadth {regime.breadth_above_sma20.toFixed(0)}%
                     </span>
                 )}
-                {regime.spy && (
+                {typeof regime.spy?.above_sma20 === 'boolean' && (
                     <span className={`hot-meta__item hot-meta__item--${regime.spy.above_sma20 ? 'up' : 'down'}`}>
                         SPY {regime.spy.above_sma20 ? 'above' : 'below'} its 20-day
                     </span>
