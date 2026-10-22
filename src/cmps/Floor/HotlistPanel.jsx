@@ -294,7 +294,7 @@ function DayList({ today, sort, setSort, only, setOnly, onBuild, onAsk, onSymbol
             {!rows.length
                 ? <p className="floor-empty">Nothing {STATUS_LABEL[only]?.toLowerCase() ?? 'listed'} today.</p>
                 : (
-                    <div className="hot-table-wrap">
+                    <div className="hot-table-wrap hot-table-wrap--list">
                         <table className="hot-table hot-table--list">
                             <thead>
                                 <tr>
