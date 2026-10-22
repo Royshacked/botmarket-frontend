@@ -46,6 +46,78 @@ export function bestColumn(row, columns) {
     return graded.sort((a, b) => (GRADE_RANK[row.cells[b].grade] - GRADE_RANK[row.cells[a].grade]) || room(b) - room(a))[0]
 }
 
+// ─── The day's watchlist (Roy, 2026-10-22) ────────────────────────────────────
+
+/** The board's columns in order — what a day-list row's merged cells are walked in. */
+export const COLUMN_ORDER = Object.freeze(['open', 'mid', 'eod', 'tomorrow', 'week'])
+const CHECKPOINT_ORDER = ['premarket', 'preopen', 'mid', 'eod', 'close']
+
+/** In play now · building · setting up — the backend's `status` (hotlist.columns rowStatus), best first. */
+export const STATUS_LABEL = Object.freeze({ in_play: 'In play', building: 'Building', setting_up: 'Setting up' })
+export const STATUS_TITLE = Object.freeze({
+    in_play:    'In play now — moving on the tape or on a fresh story',
+    building:   'Building — money arriving: 5-day volume well above its 50-day pace, on a rising week',
+    setting_up: 'Setting up — quiet today, with a known date ahead (a run-up: out before the report)',
+})
+
+/**
+ * The row's status. Rows from before the field existed: a graded session column is in play, a week
+ * cell with a material story too, the rest is setting up.
+ */
+export function rowStatus(row) {
+    if (row?.status && STATUS_LABEL[row.status]) return row.status
+    const graded = Object.entries(row?.cells ?? {}).filter(([, c]) => c?.grade)
+    if (!graded.length) return null
+    if (graded.some(([c]) => c !== 'week') || row.catalyst?.material) return 'in_play'
+    return 'setting_up'
+}
+
+/** Why the name is on the list, in plain words: the best column's own reason, or null. */
+export function rowReason(row) {
+    const col = bestColumn(row, COLUMN_ORDER)
+    const why = col ? row.cells[col]?.why : null
+    return Array.isArray(why) && why.length ? why.join('; ') : null
+}
+
+/** The sortable columns of the watchlist, each with the direction it sorts in first. */
+export const LIST_SORTS = Object.freeze({
+    status: 'asc', symbol: 'asc', price: 'desc', chg: 'desc', vol: 'desc', atr: 'desc', grade: 'desc', earnings: 'asc', found: 'asc',
+})
+
+const _grade = (row) => {
+    const col = bestColumn(row, COLUMN_ORDER)
+    if (!col) return -1
+    const c = row.cells[col]
+    return GRADE_RANK[c.grade] * 1000 + (c.range?.open_sky ? 99 : (c.range?.atr_mult ?? 0))
+}
+const SORT_KEY = {
+    status:   (r) => { const i = Object.keys(STATUS_LABEL).indexOf(rowStatus(r)); return i < 0 ? 9 : i },
+    symbol:   (r) => r.symbol ?? '',
+    price:    (r) => r.price,
+    chg:      (r) => r.gap_pct,
+    vol:      (r) => (Number.isFinite(r.rvol) ? r.rvol : null),
+    atr:      (r) => r.atr_pct,
+    grade:    _grade,
+    earnings: (r) => r.next_earnings ?? null,
+    found:    (r) => { const i = CHECKPOINT_ORDER.indexOf(r.first_seen); return i < 0 ? null : i },
+}
+
+/**
+ * The watchlist sorted by one column. Missing values sort LAST in either direction (a name with no
+ * earnings date is not "the soonest"); ties keep Argus's picks first, then the symbol. Pure — a new array.
+ */
+export function sortList(rows, key, dir) {
+    const get = SORT_KEY[key] ?? SORT_KEY.status
+    const sign = (dir ?? LIST_SORTS[key] ?? 'asc') === 'desc' ? -1 : 1
+    const known = (v) => v != null && v !== '' && !(typeof v === 'number' && !Number.isFinite(v))
+    return [...(rows ?? [])].sort((a, b) => {
+        const va = get(a), vb = get(b)
+        if (known(va) !== known(vb)) return known(va) ? -1 : 1
+        if (known(va) && va !== vb) return (va < vb ? -1 : 1) * sign
+        return (a.pick ? 0 : 1) - (b.pick ? 0 : 1) || String(a.symbol).localeCompare(String(b.symbol))
+    })
+}
+
 /** The catalyst as a short chip: "drift · positive", "not material", or null without a label. */
 export function catalystChip(catalyst) {
     if (!catalyst) return null
@@ -70,9 +142,49 @@ export function askArgusText(row, column) {
     return `From today's hotlist: ${row.symbol}${bits.length ? ` — ${bits.join(', ')}` : ''}. What's your read — is this a trade, and what would make it wrong?`
 }
 
+/**
+ * The row's earnings chip, or null. A week cell holding the report inside its window carries
+ * `exit_before` (Roy, 2026-10-22): the trade is a run-up INTO the report, and the chip says to be out
+ * before it instead of only showing the date.
+ */
+export function earningsChip(row) {
+    if (!row?.next_earnings) return null
+    const exit = Object.values(row.cells ?? {}).some(c => c?.grade && c.exit_before)
+    const date = row.next_earnings.slice(5)
+    return exit
+        ? { text: `E ${date} · out before`, title: `Earnings ${row.next_earnings} — a run-up into the report: be out before it`, exit: true }
+        : { text: `E ${date}`, title: 'Next earnings', exit: false }
+}
+
 /** The read Mentor's opening sentence carries for a row: Argus's pick note, else the board's own why. */
 export function handoffRead(row, column) {
     if (row?.pick?.why) return row.pick.why
     const why = row?.cells?.[column]?.why
     return Array.isArray(why) && why.length ? why.join('; ') : null
+}
+
+/**
+ * A row's sparkline (Roy, 2026-10-22): the last daily closes as a line, today's price as a dot at the
+ * right edge, and the level the row's best grade measures its free range to as a dashed line — all on
+ * one scale, so a gap shows as a jump and the room overhead as the gap to the dash. Pure; null when
+ * there are too few closes to draw. → `{ line, dot, levelY, up, changePct }` in a w × h box.
+ */
+export function sparkGeometry(closes, { price = null, level = null, w = 90, h = 28, pad = 3 } = {}) {
+    const pts = (Array.isArray(closes) ? closes : []).filter(Number.isFinite)
+    if (pts.length < 2) return null
+    const now = Number.isFinite(price) ? price : pts.at(-1)
+    const all = [...pts, now, ...(Number.isFinite(level) ? [level] : [])]
+    const lo = Math.min(...all), hi = Math.max(...all)
+    const span = hi - lo || 1
+    const y = (v) => +(h - pad - ((v - lo) / span) * (h - 2 * pad)).toFixed(1)
+    // The closes fill the box up to a small gap; the dot (today) sits at the right edge.
+    const right = w - pad - 4
+    const x = (i) => +(pad + (i / (pts.length - 1)) * (right - pad)).toFixed(1)
+    return {
+        line:      pts.map((v, i) => `${i ? 'L' : 'M'}${x(i)} ${y(v)}`).join(' '),
+        dot:       { x: w - pad, y: y(now) },
+        levelY:    Number.isFinite(level) ? y(level) : null,
+        up:        now >= pts[0],
+        changePct: +(((now - pts[0]) / pts[0]) * 100).toFixed(1),
+    }
 }

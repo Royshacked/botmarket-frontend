@@ -6,7 +6,7 @@ vi.mock('../../services/hotlist/hotlist.service.remote.js', () => ({
 }))
 
 import { hotlistService } from '../../services/hotlist/hotlist.service.remote.js'
-import { HotlistPanel, HOTLIST_PANEL_ID } from './HotlistPanel.jsx'
+import { HotlistPanel, HOTLIST_PANEL_ID, WORKING_POLL_MS } from './HotlistPanel.jsx'
 import { openPanel, closePanel, useActivePanel } from '../DetailPanel/detailPanel.store.js'
 
 // The Hotlist panel (docs/design/daily-names.md §8; Roy, 2026-10-21): the screener's board with
@@ -136,5 +136,131 @@ describe('HotlistPanel', () => {
         fireEvent.click(screen.getByText('Try again'))
         await flush()
         expect(screen.getByText('Breadth is fine; the room is in SPCX.')).toBeTruthy()
+    })
+
+    // ─── The screener at work (Roy, 2026-10-22: "an indication in the UI that it is running") ───
+
+    it('a row with saved closes gets its sparkline, with the room overhead in its label; a row without gets none', async () => {
+        const spcx = { ...BOARD.rows[0], spark: [150, 151, 149, 152, 148] }
+        hotlistService.getToday.mockResolvedValue({ day: '2026-10-21', latest: { ...BOARD, rows: [spcx, BOARD.rows[1]] }, checkpoints: [] })
+        await mount()
+        const chart = within(screen.getByText('SPCX').closest('tr')).getByRole('img')
+        expect(chart.getAttribute('aria-label')).toBe('Last 5 sessions: +8.5% — room to 166.18')
+        expect(chart.querySelector('.hot-spark__level')).toBeTruthy()
+        expect(within(screen.getByText('TSLA').closest('tr')).queryByRole('img')).toBeNull()
+    })
+
+    it('the overnight pass shows as running, with its count, over the empty note', async () => {
+        hotlistService.getToday.mockResolvedValue({ day: null, latest: null, checkpoints: [],
+            working: { kind: 'overnight', day: '2026-10-21', started_at: Date.now(), done: 430, of: 1512 }, stats: null })
+        await mount()
+        expect(screen.getByRole('status').textContent).toMatch(/Preparing the screener’s stats from .*’s close — 430 of 1,512 names/)
+        expect(screen.getByText(/No hotlist yet/)).toBeTruthy()
+        expect(screen.queryByText(/Stats ready/)).toBeNull()
+    })
+
+    it('a checkpoint building its board shows over the board already up', async () => {
+        hotlistService.getToday.mockResolvedValue({ day: '2026-10-21', latest: BOARD, checkpoints: [],
+            working: { kind: 'board', checkpoint: 'eod', started_at: Date.now() } })
+        await mount()
+        expect(screen.getByRole('status').textContent).toMatch(/Building the 14:30 board/)
+        expect(screen.getByText('SPCX')).toBeTruthy()
+    })
+
+    it('stats ready, no board yet: says how many names, and when the boards come', async () => {
+        hotlistService.getToday.mockResolvedValue({ day: null, latest: null, checkpoints: [], working: null,
+            stats: { day: '2026-10-21', status: 'done', written: 1432, finished_at: Date.now() } })
+        await mount()
+        expect(screen.getByText(/Stats ready: 1,432 names/)).toBeTruthy()
+        expect(screen.queryByRole('status')).toBeNull()
+    })
+
+    it('while it works the panel looks again quietly, takes the first board, and stops once nothing runs', async () => {
+        vi.useFakeTimers()
+        try {
+            hotlistService.getToday.mockResolvedValueOnce({ day: null, latest: null, checkpoints: [],
+                working: { kind: 'board', checkpoint: 'premarket', started_at: Date.now() } })
+            hotlistService.getToday.mockResolvedValue({ day: '2026-10-21', latest: BOARD, checkpoints: [{ id: BOARD.id, checkpoint: 'mid' }], working: null })
+            await mount()
+            expect(screen.getByText(/No hotlist yet/)).toBeTruthy()
+            await act(async () => { vi.advanceTimersByTime(WORKING_POLL_MS) })
+            await flush()
+            expect(screen.queryByText('Loading…')).toBeNull()
+            expect(screen.getByText('SPCX')).toBeTruthy()
+            expect(screen.queryByRole('status')).toBeNull()
+            await act(async () => { vi.advanceTimersByTime(WORKING_POLL_MS * 3) })
+            expect(hotlistService.getToday).toHaveBeenCalledTimes(2)
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+})
+
+// Today's list — the watchlist view (Roy, 2026-10-22).
+const DAY_LIST = [
+    { symbol: 'SPCX', name: 'SpaceX', price: 162.77, gap_pct: 10.14, rvol: 3.39, atr_pct: 5.2, status: 'in_play', first_seen: 'mid', seen: ['mid'],
+      board: 'hb_2026-10-21_mid', cell_board: { mid: 'hb_2026-10-21_mid' }, quoted_at: Date.parse('2026-10-21T14:31:00Z'),
+      catalyst: { material: true, type: 'drift', surprise: 'mixed', headline: 'SpaceX swings to profit' },
+      cells: { mid: { grade: 'B', why: ['3.39× normal volume, above the open'], range: { level: 166.18, pct: 2.09, atr_mult: 0.45 } } },
+      pick: { symbol: 'SPCX', column: 'mid', why: 'A real profit swing with room.', rank: 1 } },
+    { symbol: 'DXC', price: 20.5, gap_pct: 0.4, pm_vol_pct: 0.8, atr_pct: 3.1, status: 'setting_up', first_seen: 'premarket', seen: ['premarket', 'mid'],
+      board: 'hb_2026-10-21_mid', cell_board: { week: 'hb_2026-10-21_premarket' }, next_earnings: '2026-10-29',
+      cells: { week: { grade: 'B', path: 'scheduled', exit_before: '2026-10-29', why: ['NR7 · RS +40.9 vs SPY (20d) · earnings in 7 days — a run-up: out before the report'], range: { level: 22, pct: 7.3, atr_mult: 2.3 } } } },
+    { symbol: 'ACC', price: 55, gap_pct: 1.2, atr_pct: 2.6, status: 'building', first_seen: 'premarket', seen: ['premarket'],
+      board: 'hb_2026-10-21_premarket', cell_board: { week: 'hb_2026-10-21_premarket' },
+      cells: { week: { grade: 'A', path: 'accumulation', why: ['near the 20-day high · RS +5 vs SPY (20d) · volume 1.8× its 50-day pace (5d)'], range: { open_sky: true } } } },
+]
+
+describe('HotlistPanel — today\'s list', () => {
+    beforeEach(() => {
+        hotlistService.getToday.mockResolvedValue({ day: '2026-10-21', latest: BOARD, dayList: DAY_LIST, checkpoints: [
+            { id: EARLIER.id, checkpoint: 'premarket' }, { id: BOARD.id, checkpoint: 'mid' }] })
+    })
+    const order = () => [...document.querySelectorAll('tr.hot-row')].map(tr => tr.dataset.symbol)
+
+    it('opens on the day\'s list: every name once, its status and why in plain words, prices marked as of the checkpoint', async () => {
+        await mount()
+        expect(screen.getByRole('tab', { name: 'Today’s list' }).getAttribute('aria-selected')).toBe('true')
+        expect(order()).toEqual(['SPCX', 'ACC', 'DXC'], 'in play, building, setting up')
+        const dxc = screen.getByText('DXC').closest('tr')
+        expect(within(dxc).getByText('Setting up')).toBeTruthy()
+        expect(within(dxc).getByText(/earnings in 7 days — a run-up: out before the report/)).toBeTruthy()
+        expect(within(dxc).getByText('E 10-29 · out before')).toBeTruthy()
+        expect(within(dxc).getByText('since 08:00')).toBeTruthy()
+        expect(screen.getByText(/Prices as of each name’s last checkpoint/)).toBeTruthy()
+        expect(screen.getByText('Breadth is fine; the room is in SPCX.')).toBeTruthy()
+    })
+
+    it('the status filter narrows the list, with counts', async () => {
+        await mount()
+        fireEvent.click(screen.getByRole('button', { name: 'Building 1' }))
+        expect(order()).toEqual(['ACC'])
+        fireEvent.click(screen.getByRole('button', { name: 'All 3' }))
+        expect(order()).toHaveLength(3)
+    })
+
+    it('a header sorts; a second click flips it', async () => {
+        await mount()
+        fireEvent.click(screen.getByRole('button', { name: 'Price' }))
+        expect(order()).toEqual(['SPCX', 'ACC', 'DXC'])
+        fireEvent.click(screen.getByRole('button', { name: /Price/ }))
+        expect(order()).toEqual(['DXC', 'ACC', 'SPCX'])
+        expect(screen.getByRole('button', { name: /Price/ }).closest('th').getAttribute('aria-sort')).toBe('ascending')
+    })
+
+    it('Build with Mentor references the board the best cell LIVES on, not the latest board', async () => {
+        const onBuild = vi.fn()
+        await mount({ onBuild })
+        fireEvent.click(within(screen.getByText('DXC').closest('tr')).getByRole('button', { name: 'Build with Mentor' }))
+        expect(onBuild).toHaveBeenCalledWith(expect.objectContaining({ symbol: 'DXC' }), 'week', { id: 'hb_2026-10-21_premarket' })
+        expect(screen.getByTestId('active').textContent).toBe('none')
+    })
+
+    it('Boards switches to one checkpoint\'s board, with its tabs', async () => {
+        await mount()
+        fireEvent.click(screen.getByRole('tab', { name: 'Boards' }))
+        expect(screen.getByRole('tab', { name: '10:30' })).toBeTruthy()
+        expect(screen.queryByText('DXC')).toBeNull()
+        expect(screen.getByText('TSLA')).toBeTruthy()
     })
 })
