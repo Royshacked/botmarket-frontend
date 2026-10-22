@@ -267,6 +267,8 @@ function DayList({ today, sort, setSort, only, setOnly, onBuild, onAsk, onSymbol
         ? { key, dir: (s.dir ?? LIST_SORTS[key]) === 'asc' ? 'desc' : 'asc' }
         : { key, dir: null }))
     const th = (key, label, extra = {}) => <SortTh key={key} k={key} label={label} sort={sort} onSort={onSort} {...extra} />
+    // One row open at a time: its detail line under it.
+    const [openSym, setOpenSym] = useState(null)
 
     return (
         <div className="hot-board">
@@ -296,19 +298,23 @@ function DayList({ today, sort, setSort, only, setOnly, onBuild, onAsk, onSymbol
                         <table className="hot-table hot-table--list">
                             <thead>
                                 <tr>
-                                    <th scope="col" className="hot-table__star"><span className="hot-sr">Argus pick</span></th>
-                                    {th('symbol', 'Name')}
+                                    <th scope="col" className="hot-table__star"><span className="hot-sr">Details and Argus pick</span></th>
+                                    {th('symbol', 'Sym')}
                                     <th scope="col"><span className="hot-sr">Last 20 sessions</span></th>
-                                    <SortTh k="price" also="chg" label="Price" alsoLabel="Chg" sort={sort} onSort={onSort} num
-                                        title="The price at the checkpoint, and its change from the previous close" />
+                                    {th('price', 'Last', { num: true, title: 'The price at the checkpoint that last listed it — not live' })}
+                                    {th('chg', 'Chg%', { num: true, title: 'Change from the previous close, at that checkpoint' })}
                                     {th('vol', 'RVol', { num: true, title: 'Volume against an ordinary day, at the checkpoint (pre-market: % of a day)' })}
-                                    {th('status', 'Status', { title: 'In play now, building, or setting up — and the checkpoint that first listed it' })}
-                                    {th('grade', 'Best', { title: 'The best graded column, its free range, and the next report' })}
-                                    <th scope="col"><span className="hot-sr">Actions</span></th>
+                                    {th('atr', 'ATR%', { num: true, title: 'Average daily range, % of price' })}
+                                    {th('status', 'Status', { title: 'In play now, building, or setting up' })}
+                                    {th('grade', 'Best', { title: 'The best graded column and its grade' })}
+                                    <th scope="col" title="Free range: the room to the next level overhead — not a target">Room</th>
+                                    {th('earnings', 'Earn', { title: 'Next earnings; amber = a run-up trade, out before the report' })}
                                 </tr>
                             </thead>
                             <tbody>
-                                {rows.map(r => <ListRow key={r.symbol} row={r} onBuild={onBuild} onAsk={onAsk} onSymbolClick={onSymbolClick} />)}
+                                {rows.map(r => <ListRow key={r.symbol} row={r} open={openSym === r.symbol}
+                                    onToggle={() => setOpenSym(s => (s === r.symbol ? null : r.symbol))}
+                                    onBuild={onBuild} onAsk={onAsk} onSymbolClick={onSymbolClick} />)}
                             </tbody>
                         </table>
                     </div>
@@ -322,128 +328,146 @@ DayList.propTypes = {
     onBuild: PropTypes.func, onAsk: PropTypes.func, onSymbolClick: PropTypes.func,
 }
 
-/**
- * A header that sorts its column; a second click flips the direction. `also` stacks a second sort
- * under the first, for a cell that shows two numbers (the price over its change).
- */
-function SortTh({ k, label, also, alsoLabel, sort, onSort, num = false, title }) {
-    const btn = (key, text) => {
-        const on = sort.key === key
-        const dir = on ? (sort.dir ?? LIST_SORTS[key]) : null
-        return (
-            <button type="button" className={`hot-sort${on ? ' hot-sort--on' : ''}`} onClick={() => onSort(key)}>
-                {text}{on ? <span aria-hidden="true">{dir === 'asc' ? ' ▲' : ' ▼'}</span> : null}
-            </button>
-        )
-    }
-    const onKey = [k, also].find(x => x && sort.key === x)
-    const dir = onKey ? (sort.dir ?? LIST_SORTS[onKey]) : null
+/** A header that sorts its column; a second click flips the direction. */
+function SortTh({ k, label, sort, onSort, num = false, title }) {
+    const on = sort.key === k
+    const dir = on ? (sort.dir ?? LIST_SORTS[k]) : null
     return (
         <th scope="col" className={num ? 'hot-table__num' : undefined} title={title}
-            aria-sort={onKey ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
-            {btn(k, label)}
-            {also && <span className="hot-sort__also">{btn(also, alsoLabel)}</span>}
+            aria-sort={on ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+            <button type="button" className={`hot-sort${on ? ' hot-sort--on' : ''}`} onClick={() => onSort(k)}>
+                {label}{on ? <span aria-hidden="true">{dir === 'asc' ? ' ▲' : ' ▼'}</span> : null}
+            </button>
         </th>
     )
 }
 SortTh.propTypes = {
-    k: PropTypes.string.isRequired, label: PropTypes.string.isRequired, also: PropTypes.string, alsoLabel: PropTypes.string,
+    k: PropTypes.string.isRequired, label: PropTypes.string.isRequired,
     sort: PropTypes.object.isRequired, onSort: PropTypes.func.isRequired, num: PropTypes.bool, title: PropTypes.string,
 }
 
-function ListRow({ row, onBuild, onAsk, onSymbolClick }) {
+const LIST_COLS = 11
+/** Short words for the one-line row; the filter and the detail use the full ones. */
+const STATUS_SHORT = { in_play: 'In play', building: 'Building', setting_up: 'Setting' }
+const _room = (r) => (!r ? null : r.open_sky ? 'open sky'
+    : [Number.isFinite(r.pct) ? `${r.pct.toFixed(1)}%` : null, Number.isFinite(r.atr_mult) ? `${r.atr_mult.toFixed(2).replace(/^0/, '')}×` : null].filter(Boolean).join(' ') || null)
+
+/**
+ * One name, ONE LINE — a broker's watchlist row (Roy, 2026-10-22: "still doesn't look like a classic
+ * watchlist table"). Everything that needs words — the reason, the story, Argus's note, the hand-offs
+ * — opens under it on a click.
+ */
+function ListRow({ row, open, onToggle, onBuild, onAsk, onSymbolClick }) {
     const col = bestColumn(row, COLUMN_ORDER)
     const cell = col ? row.cells?.[col] : null
     const status = rowStatus(row)
-    const reason = rowReason(row)
     const earn = earningsChip(row)
-    const cat = catalystChip(row.catalyst)
-    const asOf = _time(row.quoted_at)
-    // The board this cell lives on — the hand-off references it, not the latest board.
-    const cellBoard = { id: (col && row.cell_board?.[col]) ?? row.board }
-    const note = row.pick
-        ? <><b>Argus:</b> {row.pick.why}{row.pick.caution ? <span className="hot-row__caution"> Caution: {row.pick.caution}</span> : null}</>
-        : row.avoid ? <><b>Argus — avoid:</b> {row.avoid}</> : null
+    const detailId = `hot-detail-${row.symbol}`
+    // A click anywhere on the row opens it — except on its own buttons (the symbol opens the chart).
+    const onRowClick = (e) => { if (!e.target.closest('button')) onToggle() }
     return (
         <>
-            <tr className={`hot-row${row.pick ? ' hot-row--pick' : ''}${row.avoid ? ' hot-row--avoid' : ''}`} data-symbol={row.symbol}>
-                <td className="hot-table__star">{row.pick ? <span className="hot-star" title={`Argus's pick #${row.pick.rank}`}>★{row.pick.rank}</span> : null}</td>
-                <td className="hot-list__name">
-                    <button type="button" className="hot-sym" onClick={() => onSymbolClick?.(row.symbol)} title={row.name ?? row.symbol}>{row.symbol}</button>
-                    {(row.name || Number.isFinite(row.atr_pct)) && (
-                        <span className="hot-name" title={Number.isFinite(row.atr_pct) ? 'ATR — the average daily range, % of price' : undefined}>
-                            {[row.name, Number.isFinite(row.atr_pct) ? `ATR ${row.atr_pct.toFixed(1)}%` : null].filter(Boolean).join(' · ')}
-                        </span>
-                    )}
-                    {(reason || cat) && (
-                        <span className="hot-reason">
-                            {cat && row.catalyst?.material ? <span className={`hot-cat hot-cat--${row.catalyst.surprise}`} title={row.catalyst?.headline ?? undefined}>{cat}</span> : null}
-                            {reason}
-                        </span>
-                    )}
+            <tr className={`hot-row hot-row--line${row.pick ? ' hot-row--pick' : ''}${row.avoid ? ' hot-row--avoid' : ''}${open ? ' hot-row--open' : ''}`}
+                data-symbol={row.symbol} onClick={onRowClick}>
+                <td className="hot-table__star">
+                    <button type="button" className="hot-toggle" aria-expanded={open} aria-controls={detailId}
+                        aria-label={`${open ? 'Hide' : 'Show'} ${row.symbol} details`} onClick={onToggle}>{open ? '▾' : '▸'}</button>
+                    {row.pick ? <span className="hot-star" title={`Argus's pick #${row.pick.rank}`}>★{row.pick.rank}</span>
+                        : row.avoid ? <span className="hot-avoid" title={`Argus — avoid: ${row.avoid}`}>✕</span> : null}
                 </td>
-                <td className="hot-spark-cell"><Sparkline closes={row.spark} price={row.price} range={cell?.range ?? null} /></td>
-                <td className="hot-table__num" title={asOf ? `As of ${asOf}` : undefined}>
-                    {Number.isFinite(row.price) ? row.price.toFixed(2) : '—'}
-                    <span className={`hot-sub${row.gap_pct > 0 ? ' hot-up' : row.gap_pct < 0 ? ' hot-down' : ''}`}>{_pct(row.gap_pct)}</span>
-                </td>
+                <td><button type="button" className="hot-sym" onClick={() => onSymbolClick?.(row.symbol)} title={row.name ?? row.symbol}>{row.symbol}</button></td>
+                <td className="hot-spark-cell hot-spark-cell--sm"><Sparkline closes={row.spark} price={row.price} range={cell?.range ?? null} small hot={status === 'in_play'} /></td>
+                <td className="hot-table__num" title={row.quoted_at ? `As of ${_time(row.quoted_at)}` : undefined}>{Number.isFinite(row.price) ? row.price.toFixed(2) : '—'}</td>
+                <td className={`hot-table__num${row.gap_pct > 0 ? ' hot-up' : row.gap_pct < 0 ? ' hot-down' : ''}`}>{_pct(row.gap_pct)}</td>
                 <td className="hot-table__num">{Number.isFinite(row.rvol) ? `${row.rvol}×` : Number.isFinite(row.pm_vol_pct) ? `${row.pm_vol_pct.toFixed(1)}%` : '—'}</td>
+                <td className="hot-table__num">{Number.isFinite(row.atr_pct) ? `${row.atr_pct.toFixed(1)}%` : '—'}</td>
+                <td>{status ? <span className={`hot-status hot-status--${status}`} title={STATUS_TITLE[status]}>{STATUS_SHORT[status]}</span> : <span className="hot-dim">—</span>}</td>
                 <td>
-                    {status ? <span className={`hot-status hot-status--${status}`} title={STATUS_TITLE[status]}>{STATUS_LABEL[status]}</span> : <span className="hot-dim">—</span>}
-                    {row.first_seen && (
-                        <span className="hot-sub hot-dim" title={row.seen?.length > 1 ? `Listed at ${row.seen.map(c => CHECKPOINT_LABEL[c] ?? c).join(', ')}` : 'The checkpoint that first listed it today'}>
-                            since {CHECKPOINT_LABEL[row.first_seen]?.split(' ')[0] ?? row.first_seen}
-                        </span>
-                    )}
-                </td>
-                <td className="hot-cell">
                     {cell?.grade
-                        ? <span className={`hot-grade hot-grade--${cell.grade}`} title={[COLUMN_TITLE[col], rangeTitle(cell.range)].filter(Boolean).join(' — ')}>
+                        ? <span className={`hot-grade hot-grade--${cell.grade}`} title={COLUMN_TITLE[col]}>
                             <span className="hot-best__col">{COLUMN_LABEL[col] ?? col}</span> <b>{cell.grade}</b>
                           </span>
                         : <span className="hot-dim">—</span>}
-                    {cell?.range && <span className="hot-sub hot-range">{fmtRange(cell.range)}</span>}
-                    {earn && <span className={`hot-sub hot-dim hot-earn${earn.exit ? ' hot-earn--exit' : ''}`} title={earn.title}>{earn.text}</span>}
                 </td>
-                <td className="hot-actions hot-actions--compact">
-                    {col && onBuild && (
-                        <button type="button" className="floor-queued__btn" onClick={() => onBuild(row, col, cellBoard)} aria-label="Build with Mentor"
-                            title={`Build a ${COLUMN_LABEL[col] ?? col} setup with Mentor`}>Mentor</button>
-                    )}
-                    {onAsk && <button type="button" className="floor-queued__btn hot-ask" aria-label="Ask Argus" title="Ask Argus about it" onClick={() => onAsk(row, col ?? COLUMN_ORDER[0])}>Argus</button>}
-                </td>
+                <td className="hot-range" title={rangeTitle(cell?.range) ?? undefined}>{_room(cell?.range) ?? '—'}</td>
+                <td>{earn ? <span className={`hot-earn${earn.exit ? ' hot-earn--exit' : ' hot-dim'}`} title={earn.title}>{row.next_earnings.slice(5)}{earn.exit ? '!' : ''}</span> : <span className="hot-dim">—</span>}</td>
             </tr>
-            {note && (
-                <tr className="hot-note-row">
+            {open && (
+                <tr className="hot-detail-row" id={detailId}>
                     <td />
-                    <td colSpan={7} className="hot-row__note">{note}</td>
+                    <td colSpan={LIST_COLS - 1}><RowDetail row={row} col={col} status={status} earn={earn} onBuild={onBuild} onAsk={onAsk} /></td>
                 </tr>
             )}
         </>
     )
 }
-ListRow.propTypes = { row: PropTypes.object.isRequired, onBuild: PropTypes.func, onAsk: PropTypes.func, onSymbolClick: PropTypes.func }
+ListRow.propTypes = {
+    row: PropTypes.object.isRequired, open: PropTypes.bool, onToggle: PropTypes.func.isRequired,
+    onBuild: PropTypes.func, onAsk: PropTypes.func, onSymbolClick: PropTypes.func,
+}
+
+/** What an open row says: who it is, why it is here, Argus's word on it, and the hand-offs. */
+function RowDetail({ row, col, status, earn, onBuild, onAsk }) {
+    const reason = rowReason(row)
+    const cat = catalystChip(row.catalyst)
+    const seen = (row.seen ?? []).map(c => CHECKPOINT_LABEL[c]?.split(' ')[0] ?? c)
+    // The board this cell lives on — the hand-off references it, not the latest board.
+    const cellBoard = { id: (col && row.cell_board?.[col]) ?? row.board }
+    return (
+        <div className="hot-detail">
+            <p className="hot-detail__head">
+                {row.name && <b>{row.name}</b>}
+                {status && <span> · {STATUS_LABEL[status]}</span>}
+                {seen.length > 0 && <span className="hot-dim"> · listed at {seen.join(', ')}</span>}
+                {row.quoted_at && <span className="hot-dim"> · price as of {_time(row.quoted_at)}</span>}
+            </p>
+            {reason && <p className="hot-detail__line">{reason}</p>}
+            {cat && <p className="hot-detail__line">
+                <span className={`hot-cat${row.catalyst?.material ? ` hot-cat--${row.catalyst.surprise}` : ''}`}>{cat}</span>
+                {row.catalyst?.headline ? <span> {row.catalyst.headline}</span> : null}
+            </p>}
+            {earn?.exit && <p className="hot-detail__line hot-earn--exit">{earn.title}.</p>}
+            {row.pick && <p className="hot-detail__line"><b>Argus:</b> {row.pick.why}{row.pick.caution ? <span className="hot-row__caution"> Caution: {row.pick.caution}</span> : null}</p>}
+            {row.avoid && <p className="hot-detail__line"><b>Argus — avoid:</b> {row.avoid}</p>}
+            <div className="hot-detail__actions">
+                {col && onBuild && (
+                    <button type="button" className="floor-queued__btn" onClick={() => onBuild(row, col, cellBoard)}
+                        title={`Build a ${COLUMN_LABEL[col] ?? col} setup with Mentor`}>Build with Mentor</button>
+                )}
+                {onAsk && <button type="button" className="floor-queued__btn hot-ask" onClick={() => onAsk(row, col ?? COLUMN_ORDER[0])}>Ask Argus</button>}
+            </div>
+        </div>
+    )
+}
+RowDetail.propTypes = {
+    row: PropTypes.object.isRequired, col: PropTypes.string, status: PropTypes.string, earn: PropTypes.object,
+    onBuild: PropTypes.func, onAsk: PropTypes.func,
+}
 
 /**
  * The last 20 sessions' closes, today's price as a dot, and the level the best grade's free range runs
  * to as a dash. Empty (not a placeholder) for a row the overnight pass saved no closes for.
  */
-function Sparkline({ closes, price, range }) {
+function Sparkline({ closes, price, range, small = false, hot = true }) {
     const level = range && !range.open_sky ? range.level : null
-    const g = sparkGeometry(closes, { price, level })
+    const [w, h] = small ? [60, 16] : [90, 28]
+    const g = sparkGeometry(closes, { price, level, w, h, pad: small ? 2 : 3 })
     if (!g) return null
     const title = [`Last ${closes.length} sessions: ${g.changePct > 0 ? '+' : ''}${g.changePct}%`,
         Number.isFinite(level) ? `room to ${level}` : range?.open_sky ? 'open sky above' : null].filter(Boolean).join(' — ')
+    // In the list, colour is for the HOT names (Roy, 2026-10-22): an in-play line is green or red, the
+    // rest are drawn muted.
+    const tone = hot ? (g.up ? 'up' : 'down') : 'muted'
     return (
-        <svg className={`hot-spark hot-spark--${g.up ? 'up' : 'down'}`} width="90" height="28" viewBox="0 0 90 28" role="img" aria-label={title}>
+        <svg className={`hot-spark hot-spark--${tone}`} width={w} height={h} viewBox={`0 0 ${w} ${h}`} role="img" aria-label={title}>
             <title>{title}</title>
-            {g.levelY != null && <line className="hot-spark__level" x1="0" x2="90" y1={g.levelY} y2={g.levelY} />}
+            {g.levelY != null && <line className="hot-spark__level" x1="0" x2={w} y1={g.levelY} y2={g.levelY} />}
             <path className="hot-spark__line" d={g.line} />
-            <circle className="hot-spark__dot" cx={g.dot.x} cy={g.dot.y} r="2.2" />
+            <circle className="hot-spark__dot" cx={g.dot.x} cy={g.dot.y} r={small ? 1.6 : 2.2} />
         </svg>
     )
 }
-Sparkline.propTypes = { closes: PropTypes.array, price: PropTypes.number, range: PropTypes.object }
+Sparkline.propTypes = { closes: PropTypes.array, price: PropTypes.number, range: PropTypes.object, small: PropTypes.bool, hot: PropTypes.bool }
 
 const _time = (ms) => (Number.isFinite(ms) ? new Date(ms).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : null)
 

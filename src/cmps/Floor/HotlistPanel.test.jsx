@@ -218,17 +218,36 @@ describe('HotlistPanel — today\'s list', () => {
     })
     const order = () => [...document.querySelectorAll('tr.hot-row')].map(tr => tr.dataset.symbol)
 
-    it('opens on the day\'s list: every name once, its status and why in plain words, prices marked as of the checkpoint', async () => {
+    it('opens on the day\'s list: one line per name — numbers in columns, the words only when opened', async () => {
         await mount()
         expect(screen.getByRole('tab', { name: 'Today’s list' }).getAttribute('aria-selected')).toBe('true')
         expect(order()).toEqual(['SPCX', 'ACC', 'DXC'], 'in play, building, setting up')
         const dxc = screen.getByText('DXC').closest('tr')
-        expect(within(dxc).getByText('Setting up')).toBeTruthy()
-        expect(within(dxc).getByText(/earnings in 7 days — a run-up: out before the report/)).toBeTruthy()
-        expect(within(dxc).getByText('E 10-29 · out before')).toBeTruthy()
-        expect(within(dxc).getByText('since 08:00')).toBeTruthy()
+        const cells = [...dxc.querySelectorAll('td')].map(td => td.textContent)
+        expect(cells.slice(3)).toEqual(['20.50', '+0.4%', '0.8%', '3.1%', 'Setting', 'This week B', '7.3% 2.30×', '10-29!'])
+        expect(screen.queryByText(/earnings in 7 days/)).toBeNull()
         expect(screen.getByText(/Prices as of each name’s last checkpoint/)).toBeTruthy()
         expect(screen.getByText('Breadth is fine; the room is in SPCX.')).toBeTruthy()
+    })
+
+    it('a click on the row opens its detail: the reason, the run-up warning, when it was listed — one row at a time', async () => {
+        await mount()
+        fireEvent.click(screen.getByText('DXC').closest('tr').querySelector('td:nth-child(4)'))
+        expect(screen.getByText(/earnings in 7 days — a run-up: out before the report/)).toBeTruthy()
+        expect(screen.getByText(/a run-up into the report: be out before it/)).toBeTruthy()
+        expect(screen.getByText(/listed at 08:00, 10:30/)).toBeTruthy()
+        expect(screen.getByRole('button', { name: 'Hide DXC details' }).getAttribute('aria-expanded')).toBe('true')
+        fireEvent.click(screen.getByRole('button', { name: 'Show SPCX details' }))
+        expect(screen.queryByText(/earnings in 7 days/)).toBeNull()
+        expect(screen.getByText(/A real profit swing with room\./)).toBeTruthy()
+    })
+
+    it('the symbol opens the chart, not the detail', async () => {
+        const onSymbolClick = vi.fn()
+        await mount({ onSymbolClick })
+        fireEvent.click(screen.getByRole('button', { name: 'DXC' }))
+        expect(onSymbolClick).toHaveBeenCalledWith('DXC')
+        expect(screen.queryByText(/earnings in 7 days/)).toBeNull()
     })
 
     it('the status filter narrows the list, with counts', async () => {
@@ -241,17 +260,20 @@ describe('HotlistPanel — today\'s list', () => {
 
     it('a header sorts; a second click flips it', async () => {
         await mount()
-        fireEvent.click(screen.getByRole('button', { name: 'Price' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Last' }))
         expect(order()).toEqual(['SPCX', 'ACC', 'DXC'])
-        fireEvent.click(screen.getByRole('button', { name: /Price/ }))
+        fireEvent.click(screen.getByRole('button', { name: /Last/ }))
         expect(order()).toEqual(['DXC', 'ACC', 'SPCX'])
-        expect(screen.getByRole('button', { name: /Price/ }).closest('th').getAttribute('aria-sort')).toBe('ascending')
+        expect(screen.getByRole('button', { name: /Last/ }).closest('th').getAttribute('aria-sort')).toBe('ascending')
+        fireEvent.click(screen.getByRole('button', { name: 'ATR%' }))
+        expect(order()).toEqual(['SPCX', 'DXC', 'ACC'])
     })
 
     it('Build with Mentor references the board the best cell LIVES on, not the latest board', async () => {
         const onBuild = vi.fn()
         await mount({ onBuild })
-        fireEvent.click(within(screen.getByText('DXC').closest('tr')).getByRole('button', { name: 'Build with Mentor' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Show DXC details' }))
+        fireEvent.click(within(document.getElementById('hot-detail-DXC')).getByRole('button', { name: 'Build with Mentor' }))
         expect(onBuild).toHaveBeenCalledWith(expect.objectContaining({ symbol: 'DXC' }), 'week', { id: 'hb_2026-10-21_premarket' })
         expect(screen.getByTestId('active').textContent).toBe('none')
     })
