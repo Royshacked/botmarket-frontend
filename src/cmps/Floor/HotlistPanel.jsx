@@ -7,6 +7,7 @@ import {
     COLUMN_LABEL, COLUMN_TITLE, CHECKPOINT_LABEL, COLUMN_ORDER, STATUS_LABEL, STATUS_TITLE, LIST_SORTS,
     fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, sparkGeometry, rowStatus, rowReason, sortList,
 } from './hotlist.utils.js'
+import { ChartSurface } from '../PriceChart/ChartSurface.jsx'
 import './HotlistPanel.scss'
 
 // THE HOTLIST — the screener's daily board of names in play, in the detail panel over the chat
@@ -47,13 +48,16 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick }) {
     const [sort, setSort] = useState({ key: 'status', dir: null })
     const [only, setOnly] = useState(null)
     const [retry, setRetry] = useState(0)
+    // A symbol clicked on the list: its DAILY chart, in this window, in place of the table (Roy, 2026-10-22). The window
+    // covers the chat, so the chat's own chart dock would open out of sight.
+    const [chartSym, setChartSym] = useState(null)
     // Boards already read while the panel is open; dropped on close so a reopen shows the newest.
     const seen = useRef(new Map())
     // The board the panel WANTS on screen. A slow read that comes back for another tab, or after a
     // close, is cached but not shown — or the 14:30 tab would end up showing the 10:30 board.
     const wanted = useRef(null)
 
-    useEffect(() => { if (!isOpen) { seen.current.clear(); wanted.current = null } }, [isOpen])
+    useEffect(() => { if (!isOpen) { seen.current.clear(); wanted.current = null; setChartSym(null) } }, [isOpen])
 
     // Every open starts on the day's latest board.
     useEffect(() => {
@@ -113,10 +117,14 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick }) {
     const handOff = (fn) => fn && ((...args) => { close(); fn(...args) })
     const b = board.data
     const listView = view === 'list' && today.dayList.length > 0
-    const title = listView
+    // A caller's own handler wins (a host that shows charts elsewhere); otherwise the chart opens here.
+    const symbolClick = (sym) => (onSymbolClick ? onSymbolClick(sym) : setChartSym(sym))
+    const title = chartSym ? `${chartSym} · daily` : listView
         ? `${_day(today.day)} · today’s list`
         : b ? `${_day(b.day)} · ${CHECKPOINT_LABEL[b.checkpoint] ?? b.checkpoint}` : 'Today'
-    const actions = (
+    const actions = chartSym ? (
+        <button type="button" className="hot-nav__btn" onClick={() => setChartSym(null)}>‹ Back to the list</button>
+    ) : (
         <>
             {today.dayList.length > 0 && (
                 <div className="hot-nav" role="tablist" aria-label="Hotlist view">
@@ -142,12 +150,18 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick }) {
 
     return (
         <DetailPanel id={HOTLIST_PANEL_ID} kicker="Hotlist" title={title} actions={actions} className="hot-panel" container bare>
-            {listView && today.status === 'ok'
-                ? <DayList today={today} sort={sort} setSort={setSort} only={only} setOnly={setOnly}
-                    onSymbolClick={onSymbolClick} onBuild={handOff(onBuild)} onAsk={handOff(onAsk)} />
-                : <Body today={today} board={board} picksOnly={picksOnly} setPicksOnly={setPicksOnly}
-                    onRetry={retryLoad} onSymbolClick={onSymbolClick}
-                    onBuild={handOff(onBuild)} onAsk={handOff(onAsk)} />}
+            {chartSym
+                ? (
+                    <div className="hot-chart">
+                        <ChartSurface ticker={chartSym} timeframe="day" onClose={() => setChartSym(null)} />
+                    </div>
+                )
+                : listView && today.status === 'ok'
+                    ? <DayList today={today} sort={sort} setSort={setSort} only={only} setOnly={setOnly}
+                        onSymbolClick={symbolClick} onBuild={handOff(onBuild)} onAsk={handOff(onAsk)} />
+                    : <Body today={today} board={board} picksOnly={picksOnly} setPicksOnly={setPicksOnly}
+                        onRetry={retryLoad} onSymbolClick={symbolClick}
+                        onBuild={handOff(onBuild)} onAsk={handOff(onAsk)} />}
         </DetailPanel>
     )
 }

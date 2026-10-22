@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act, cleanup, within } from '@testing-library/react'
 
+// The live chart draws on a canvas — stand in for it; the panel only decides WHEN it shows, and on what.
+vi.mock('../PriceChart/ChartSurface.jsx', () => ({
+    ChartSurface: ({ ticker, timeframe, onClose }) => <div className="chart-surface"><p>chart {ticker} {timeframe}</p><button type="button" onClick={onClose}>Close chart</button></div>,
+}))
+
 vi.mock('../../services/hotlist/hotlist.service.remote.js', () => ({
     hotlistService: { getToday: vi.fn(), getBoard: vi.fn(), getOutcomes: vi.fn() },
 }))
@@ -240,6 +245,20 @@ describe('HotlistPanel — today\'s list', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Show SPCX details' }))
         expect(screen.queryByText(/earnings in 7 days/)).toBeNull()
         expect(screen.getByText(/A real profit swing with room\./)).toBeTruthy()
+    })
+
+    // Roy, 2026-10-22: a symbol on the hotlist shows its DAILY chart — in the window, which covers the chat.
+    it('with no caller handler, a symbol opens its daily chart in the window; Back returns to the list', async () => {
+        await mount()
+        fireEvent.click(screen.getByRole('button', { name: 'DXC' }))
+        expect(screen.getByText('chart DXC day')).toBeTruthy()
+        expect(screen.getByRole('dialog').getAttribute('aria-label')).toBe('DXC · daily')
+        expect(screen.queryByRole('button', { name: 'SPCX' }), 'the table gave way to the chart').toBeNull()
+        fireEvent.click(screen.getByRole('button', { name: '‹ Back to the list' }))
+        expect(screen.getByRole('button', { name: 'SPCX' })).toBeTruthy()
+        fireEvent.click(screen.getByRole('button', { name: 'SPCX' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Close chart' }))
+        expect(screen.queryByText(/^chart /), 'the chart own Close goes back too').toBeNull()
     })
 
     it('the symbol opens the chart, not the detail', async () => {

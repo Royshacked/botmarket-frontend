@@ -192,3 +192,12 @@
 .hot-actions { text-align: right; width: 1%; }
 .hot-actions .floor-queued__btn { display: block; width: 100%; white-space: nowrap; }
 .hot-actions .floor-queued__btn + .floor-queued__btn { margin-top: 4px; }
+
+// A symbol's daily chart, in the window in place of the table (Roy, 2026-10-22): it fills the window's height.
+.hot-chart {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 420px;
+    .chart-surface { flex: 1 1 auto; min-height: 0; }
+}
