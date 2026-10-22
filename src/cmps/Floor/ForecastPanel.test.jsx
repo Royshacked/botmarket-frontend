@@ -61,7 +61,9 @@ describe('ForecastPanel — the map', () => {
         act(() => openPanel(FORECAST_PANEL_ID))
         await flush()
         expect(strategyService.getForecastMap).toHaveBeenCalledTimes(1)
-        expect(panel().querySelector('.detail-panel__kicker').textContent).toBe('Forecasts')
+        // A Floor list with no header (Roy, 2026-10-22): no kicker; its controls and the page it is on in one thin row.
+        expect(panel().querySelector('.detail-panel__kicker')).toBeNull()
+        expect(panel().querySelector('.detail-panel__bar .detail-panel__title').textContent).toBe('Industries')
     })
 
     it('a tile per sub-industry by sector, coloured by the 3-month move, the verdict a letter on it', async () => {
@@ -192,6 +194,17 @@ describe('ForecastPanel — a company', () => {
         await flush()
         expect(title()).toBe('NVDA')
         expect(screen.getByRole('button', { name: '‹ Semiconductors' })).toBeTruthy()
+    })
+
+    // Pythia's "industry changed" card (2026-10-22): it used to open the bare map, leaving the user to find the tile.
+    it('a card\'s industry focus opens straight on that industry — Pythia\'s thesis and its companies', async () => {
+        const { rerender } = render(<ForecastPanel coverage={COVERAGE} />)
+        rerender(<ForecastPanel coverage={COVERAGE} focus={{ code: '45301020' }} />)
+        act(() => openPanel(FORECAST_PANEL_ID))
+        await flush()
+        expect(title()).toBe('Semiconductors')
+        expect(strategyService.getIndustryCompanies).toHaveBeenCalledWith('45301020')
+        expect(screen.getByRole('button', { name: '‹ Map' })).toBeTruthy()
     })
 
     it('every plain reopen starts on the map', async () => {

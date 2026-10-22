@@ -66,11 +66,11 @@
 // side effect of opening or closing something. (See cmps/Floor/Floor.scss for the rows.)
 //
 // The chart still takes over the right column, exactly as it does in the current design.
-// Trial: proportional 22.5 / 55 / 22.5 instead of fixed side columns — the two side columns are
-// symmetric, so the chat sits genuinely centred rather than centred-in-the-leftovers, and now
-// every column scales with the viewport together.
+// Proportional 20 / 60 / 20 (Roy, 2026-10-22 — was 27.5 / 45 / 27.5, then 25 / 50 / 25): the lists open over the chat
+// now, so the chat column is the reading surface and gets the wider half. The side columns stay
+// symmetric, so the chat sits genuinely centred, and every column scales with the viewport together.
 [data-design="floor"] .workspace {
-    grid-template-columns: 27.5% minmax(0, 45%) 27.5%;
+    grid-template-columns: 20% minmax(0, 60%) 20%;
     grid-template-areas: "floor-left chat floor-right";
 }
 

@@ -7,7 +7,17 @@ import { openEntityPopup } from '../EntityCard/entityPopup.js'
 const SHOW_NOUN = { setup: 'setup' }
 // The house views a show opens (Roy, 2026-10-19) — the button's words. Exported: the timeline opens these by
 // themselves as the reply ends.
-export const VIEW_LABELS = Object.freeze({ heatmap: 'Open the forecast heat map', calendar: 'Open the calendar' })
+// Since 2026-10-22 every Floor list is one too (Roy: Axl opens them when asked) — each opens its window over the chat,
+// the same one its header in the list column opens.
+export const VIEW_LABELS = Object.freeze({
+    heatmap:    'Open the forecast heat map',
+    calendar:   'Open the calendar',
+    orders:     'Open awaiting orders',
+    trades:     'Open your trades',
+    portfolios: 'Open your portfolios',
+    watchlists: 'Open your watchlists',
+    hotlist:    'Open the hotlist',
+})
 
 /**
  * The button under a reply that offered to SHOW something (Axl's `<show>`, kept on the row — phase 7, J2).

@@ -15,7 +15,8 @@ import { CalendarPanel, CALENDAR_PANEL_ID } from './CalendarPanel.jsx'
 import { ForecastPanel, FORECAST_PANEL_ID } from './ForecastPanel.jsx'
 import { HotlistPanel, HOTLIST_PANEL_ID } from './HotlistPanel.jsx'
 import { IndustryView } from '../Radar/IndustryView.jsx'
-import { useActivePanel, togglePanel, openPanel } from '../DetailPanel/detailPanel.store.js'
+import { useActivePanel, useUnderPanel, togglePanel, openPanel } from '../DetailPanel/detailPanel.store.js'
+import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
 
 import './Floor.scss'
 import { AetherCandidates } from '../TradeIdeas/AetherCandidates.jsx'
@@ -44,10 +45,12 @@ const DESKS = [
     // Named for what the reader owns, not for the desk's metaphor (Roy, 2026-10-14): "Trading
     // floor" / "Portfolio floor" / "Scans" became "Your trades" / "Your portfolios" / "Watchlists".
     // The KEYS stay — they are what sorts, desk requests and tests address.
-    { key: 'queued',         label: 'Awaiting orders' },
-    { key: 'trade',          label: 'Your trades' },
-    { key: 'portfolio',      label: 'Your portfolios' },
-    { key: 'scans',          label: 'Watchlists' },
+    // Every list opens in the DETAIL WINDOW over the chat (Roy, 2026-10-22) — the column is the launcher: a header
+    // opens its list's window (ListPanel) and the column stays as it is, like the Calendar's always did.
+    { key: 'queued',         label: 'Awaiting orders', panel: 'floor:queued' },
+    { key: 'trade',          label: 'Your trades',     panel: 'floor:trade' },
+    { key: 'portfolio',      label: 'Your portfolios', panel: 'floor:portfolio' },
+    { key: 'scans',          label: 'Watchlists',      panel: 'floor:scans' },
     // THE HOTLIST — the screener's daily board of names in play, graded per horizon by free range,
     // with Argus's read of it; opens over the chat like the Calendar (HotlistPanel; daily-names.md §8,
     // Roy 2026-10-21). Named "Hotlist", not "Daily watchlist", to stay clear of Watchlists above.
@@ -75,10 +78,10 @@ const DESKS = [
     // its own: an `onRequest` desk is listed only while it is open (Roy, 2026-10-14). It lives in the
     // COLUMN, not in the map's panel, because every one of its rows opens a panel of its own — inside the
     // map's panel the first click would replace the panel holding the board, and close it.
-    { key: 'board', label: 'Forecast board', onRequest: true },
+    { key: 'board', label: 'Forecast board', onRequest: true, panel: 'floor:board' },
     // Admin-only: the house research pipeline backlog (Argus hits + user coverage_request). LAST
     // (Roy, 2026-10-14): it is house plumbing, not part of the reader's own run of desks.
-    { key: 'research_queue', label: 'Research queue', adminOnly: true },
+    { key: 'research_queue', label: 'Research queue', adminOnly: true, panel: 'floor:research_queue' },
     // A `channels` desk sat here — Aether's z-score per pressure channel. It went with the
     // channel engine on 2026-09-09, along with the collection behind it.
 ]
@@ -173,6 +176,21 @@ DeskStrip.propTypes = {
     isEmpty:  PropTypes.func.isRequired,
     onToggle: PropTypes.func.isRequired,
 }
+
+/**
+ * A list's WINDOW over the chat (Roy, 2026-10-22): no header — the list starts at the top, a small ✕ in the corner (the
+ * column's header says which list it is). A CONTAINER: a row that opens a panel of its own (the board's industries)
+ * keeps the list under it, and closing that panel steps back to the list.
+ */
+function ListPanel({ desk, children }) {
+    return (
+        <DetailPanel id={desk.panel} title={desk.label} container bare className={`floor-panel floor-panel--${desk.key}`}>
+            {/* The rows keep the desk body they were laid out in (Floor.scss: .floor-desk__body …). */}
+            <div className="floor-desk__body floor-panel__body">{children}</div>
+        </DetailPanel>
+    )
+}
+ListPanel.propTypes = { desk: PropTypes.object.isRequired, children: PropTypes.node }
 
 const Empty = ({ children }) => <p className="floor-empty">{children}</p>
 Empty.propTypes = { children: PropTypes.node }
@@ -832,6 +850,12 @@ export function FloorLists({
         else setOpenKey(cur => (cur === key ? null : key))
     }
     const activePanelId = useActivePanel()
+    const underPanelId = useUnderPanel()
+    // An initial desk with a window opens the window (tests, a deep link) — the column has nothing to open for it.
+    useEffect(() => {
+        const panel = DESKS.find(d => d.key === initialDesk && !d.hidden && (!d.adminOnly || isAdmin))?.panel
+        if (panel) openPanel(panel)
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps -- once, on mount
 
     // An outside ASK to open a desk (Axl's market-open card → the queued list). Keyed on the
     // request OBJECT, not its value: pressing the same card twice is two asks, and a plain
@@ -843,7 +867,8 @@ export function FloorLists({
         if (!deskRequest?.key) return
         const panel = DESKS.find(d => d.key === deskRequest.key)?.panel
         if (!panel) { setOpenKey(deskRequest.key); return }
-        if (deskRequest.key === 'forecasts') setForecastFocus(deskRequest.symbol ? { symbol: deskRequest.symbol } : null)
+        // Forecasts can be asked for ON a company (an Open coverage card) or an industry (Pythia's changed card).
+        if (deskRequest.key === 'forecasts') setForecastFocus(deskRequest.symbol ? { symbol: deskRequest.symbol } : deskRequest.code ? { code: deskRequest.code } : null)
         openPanel(panel)
     }, [deskRequest])
 
@@ -881,7 +906,8 @@ export function FloorLists({
     // failing were right.
 
     // An `onRequest` desk (the board) joins the column only while it is the one asked for.
-    const visibleDesks = DESKS.filter(d => !d.hidden && (!d.adminOnly || isAdmin) && (!d.onRequest || d.key === requestedKey))
+    const shown = DESKS.filter(d => !d.hidden && (!d.adminOnly || isAdmin))
+    const visibleDesks = shown.filter(d => !d.onRequest || d.key === requestedKey || (d.panel && [activePanelId, underPanelId].includes(d.panel)))
     // Only a desk on screen can be open: an initialDesk or desk request naming a hidden (or
     // admin-only) desk would otherwise fold every header away around a desk that never renders.
     // A panel desk is never "open" in the column either — it has no body to give the column to.
@@ -912,6 +938,82 @@ export function FloorLists({
     const loadingFor = { aether: aetherCandidates?.loading }
     const isEmpty = key => sortableCount[key] === 0 && !loadingFor[key]
 
+    // A desk's rows — in its window over the chat (every list since 2026-10-22), or in the column for a desk without one.
+    const deskBody = (desk) => (
+        <>
+            {DESK_SORTS[desk.key] && sortableCount[desk.key] > 1 && (
+                <SortBar deskKey={desk.key} sort={sorts[desk.key]} onChange={s => setSort(desk.key, s)} />
+            )}
+            {desk.key === 'queued'    && (
+                <QueuedRows
+                    queued={sorted('queued', queued)}
+                    onExecute={onExecuteQueued} onCancel={onCancelQueued}
+                    busyId={queuedBusyId}
+                />
+            )}
+            {desk.key === 'trade'     && (
+                <TradeRows
+                    onSymbolClick={onSymbolClick}
+                    setups={sorted('trade', setups)}
+                    onEditSetup={onEditSetup} onDeleteSetup={onDeleteSetup}
+                />
+            )}
+            {desk.key === 'portfolio' && (
+                <PortfolioRows
+                    onSymbolClick={onSymbolClick}
+                    ideas={ideas} positions={positions} sort={sorts.portfolio}
+                    onEditPortfolio={onEditPortfolio} onDeletePortfolio={onDeletePortfolio}
+                    onDeleteIdea={onDeleteIdea} onActivatePortfolio={onActivatePortfolio}
+                />
+            )}
+            {desk.key === 'scans'     && (
+                <ScanRows
+                    onSymbolClick={onSymbolClick}
+                    scans={sorted('scans', scans)} onCandidateSelect={onCandidateSelect}
+                    onEditScan={onEditScan} onDeleteScan={onDeleteScan}
+                />
+            )}
+            {desk.key === 'aether' && (
+                <AetherCandidates
+                    runs={sorted('aether', aetherRuns)}
+                    loading={aetherCandidates?.loading}
+                    error={aetherCandidates?.error}
+                    onRead={aetherCandidates?.onRead}
+                    onSymbolClick={onSymbolClick}
+                    onTradeWithMentor={aetherCandidates?.onTradeWithMentor}
+                    onScanWithArgus={aetherCandidates?.onScanWithArgus}
+                    scanBusy={aetherCandidates?.scanBusy}
+                    setups={setups}
+                />
+            )}
+
+            {desk.key === 'board' && (
+                <>
+                    <button type="button" className="floor-board__map" onClick={() => openPanel(FORECAST_PANEL_ID)}>
+                        Open the heat map
+                    </button>
+                    <IndustryView industries={industries} loading={industriesLoading} error={industriesError} assessments={assessments} themes={themes} week={week} />
+                </>
+            )}
+
+            {desk.key === 'research_queue' && (
+                <ResearchQueueRows
+                    onSymbolClick={onSymbolClick}
+                    researchQueue={sorted('research_queue', researchQueue)}
+                    coverage={coverage}
+                    onStartResearch={onStartResearch}
+                    onMarkResearchDone={onMarkResearchDone}
+                    onRejectResearch={onRejectResearch}
+                    busyId={researchQueueBusyId}
+                    researchRun={researchRun}
+                    onStartResearchRun={onStartResearchRun}
+                    onStopResearchRun={onStopResearchRun}
+                    onRequeueStalledResearch={onRequeueStalledResearch}
+                />
+            )}
+        </>
+    )
+
     return (
         <aside className={`floor-lists${openKey ? ' floor-lists--focused' : ''}`}>
             {/* Same .floor-sec heading the left column uses, so all three columns open on one
@@ -928,8 +1030,11 @@ export function FloorLists({
                 column when it does. */}
             <CalendarPanel onEarningSelect={onEarningSelect} onIpoSelect={onIpoSelect} onSymbolClick={onSymbolClick} />
             <HotlistPanel onBuild={onHotlistBuild} onAsk={onHotlistAsk} onSymbolClick={onSymbolClick} />
-            <ForecastPanel coverage={coverage} focus={forecastFocus} onOpenBoard={() => setOpenKey('board')}
+            <ForecastPanel coverage={coverage} focus={forecastFocus} onOpenBoard={() => openPanel('floor:board')}
                 onEditCoverage={onEditCoverage} onRetireCoverage={onRetireCoverage} onDeleteCoverage={onDeleteCoverage} />
+            {shown.filter(d => d.panel?.startsWith('floor:')).map(desk => (
+                <ListPanel key={desk.key} desk={desk}>{deskBody(desk)}</ListPanel>
+            ))}
 
             {visibleDesks.map(desk => (
                 <Desk
@@ -942,76 +1047,7 @@ export function FloorLists({
                     count={counts[desk.key]}
                     onToggle={toggle}
                 >
-                    {DESK_SORTS[desk.key] && sortableCount[desk.key] > 1 && (
-                        <SortBar deskKey={desk.key} sort={sorts[desk.key]} onChange={s => setSort(desk.key, s)} />
-                    )}
-                    {desk.key === 'queued'    && (
-                        <QueuedRows
-                            queued={sorted('queued', queued)}
-                            onExecute={onExecuteQueued} onCancel={onCancelQueued}
-                            busyId={queuedBusyId}
-                        />
-                    )}
-                    {desk.key === 'trade'     && (
-                        <TradeRows
-                            onSymbolClick={onSymbolClick}
-                            setups={sorted('trade', setups)}
-                            onEditSetup={onEditSetup} onDeleteSetup={onDeleteSetup}
-                        />
-                    )}
-                    {desk.key === 'portfolio' && (
-                        <PortfolioRows
-                            onSymbolClick={onSymbolClick}
-                            ideas={ideas} positions={positions} sort={sorts.portfolio}
-                            onEditPortfolio={onEditPortfolio} onDeletePortfolio={onDeletePortfolio}
-                            onDeleteIdea={onDeleteIdea} onActivatePortfolio={onActivatePortfolio}
-                        />
-                    )}
-                    {desk.key === 'scans'     && (
-                        <ScanRows
-                            onSymbolClick={onSymbolClick}
-                            scans={sorted('scans', scans)} onCandidateSelect={onCandidateSelect}
-                            onEditScan={onEditScan} onDeleteScan={onDeleteScan}
-                        />
-                    )}
-                    {desk.key === 'aether' && (
-                        <AetherCandidates
-                            runs={sorted('aether', aetherRuns)}
-                            loading={aetherCandidates?.loading}
-                            error={aetherCandidates?.error}
-                            onRead={aetherCandidates?.onRead}
-                            onSymbolClick={onSymbolClick}
-                            onTradeWithMentor={aetherCandidates?.onTradeWithMentor}
-                            onScanWithArgus={aetherCandidates?.onScanWithArgus}
-                            scanBusy={aetherCandidates?.scanBusy}
-                            setups={setups}
-                        />
-                    )}
-
-                    {desk.key === 'board' && (
-                        <>
-                            <button type="button" className="floor-board__map" onClick={() => togglePanel(FORECAST_PANEL_ID)}>
-                                Open the heat map
-                            </button>
-                            <IndustryView industries={industries} loading={industriesLoading} error={industriesError} assessments={assessments} themes={themes} week={week} />
-                        </>
-                    )}
-
-                    {desk.key === 'research_queue' && (
-                        <ResearchQueueRows
-                            onSymbolClick={onSymbolClick}
-                            researchQueue={sorted('research_queue', researchQueue)}
-                            coverage={coverage}
-                            onStartResearch={onStartResearch}
-                            onMarkResearchDone={onMarkResearchDone}
-                            onRejectResearch={onRejectResearch}
-                            busyId={researchQueueBusyId}
-                            researchRun={researchRun}
-                            onStartResearchRun={onStartResearchRun}
-                            onStopResearchRun={onStopResearchRun}
-                            onRequeueStalledResearch={onRequeueStalledResearch}
-                        />
-                    )}
+                    {!desk.panel && deskBody(desk)}
                 </Desk>
             ))}
         </aside>

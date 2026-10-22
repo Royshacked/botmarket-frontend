@@ -774,8 +774,9 @@ export function IndustryViewBubble({ msg, onClose, onResolve }) {
     const what = moved.length === 1 ? moved[0] : `${moved.length} answers`
     const heading = `${msg.payload?.name ?? 'Industry view'} · ${what} changed`
 
+    // Opens the Forecasts map ON this industry — Pythia's thesis and its companies (it used to open the bare map).
     function handlePrimary() {
-        eventBus.emit(OPEN_SECTOR_VIEW, {})
+        eventBus.emit(OPEN_SECTOR_VIEW, { code: msg.payload?.code ?? null })
         onClose?.()
     }
 

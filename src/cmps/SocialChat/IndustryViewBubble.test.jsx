@@ -22,7 +22,8 @@ describe('IndustryViewBubble', () => {
         render(<IndustryViewBubble msg={msg} onClose={onClose} onResolve={vi.fn()} />)
         expect(screen.getByText(/Industry view · cycle changed/)).toBeTruthy()
         fireEvent.click(screen.getByText('Open industry'))
-        expect(heard).toHaveBeenCalled()
+        // ON this industry (its code), not the bare map (2026-10-22).
+        expect(heard).toHaveBeenCalledWith({ code: '45301020' })
         expect(onClose).toHaveBeenCalled()
         off()
     })

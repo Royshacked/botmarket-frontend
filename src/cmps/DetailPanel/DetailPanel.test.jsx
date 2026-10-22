@@ -176,3 +176,54 @@ describe('DetailPanel', () => {
         expect(back).toHaveBeenCalledTimes(1)
     })
 })
+
+// Every Floor list is a panel now (Roy, 2026-10-22): a row inside a LIST panel can open a panel of
+// its own, and closing it goes back to the list — the list stays mounted under it meanwhile.
+describe('a list panel and a row of it — one step back', () => {
+    function ListWithRow() {
+        return (
+            <DetailPanel id="floor:board" title="Board" container>
+                <p>the board</p>
+                <Opener id="industry:451" />
+            </DetailPanel>
+        )
+    }
+
+    it('a row\'s panel opened from a list keeps the list mounted under it, and ✕ goes back to it', () => {
+        render(<><DetailPanelSlot /><ListWithRow /></>)
+        act(() => openPanel('floor:board'))
+        expect(screen.getByText('the board')).toBeTruthy()
+        fireEvent.click(screen.getByRole('button', { name: 'open industry:451' }))
+        expect(activePanel()).toBe('industry:451')
+        expect(screen.getByText('body of industry:451')).toBeTruthy()
+        expect(screen.getByText('the board').closest('[hidden]')).toBeTruthy()
+        fireEvent.click(screen.getAllByRole('button', { name: 'Close' }).at(-1))
+        expect(activePanel()).toBe('floor:board')
+        expect(screen.getByText('the board').closest('[hidden]')).toBeNull()
+    })
+
+    it('switching to another LIST is a switch, not a step: closing it goes nowhere', () => {
+        render(<><DetailPanelSlot /><ListWithRow /><DetailPanel id="floor:trade" title="Trades" container>trades</DetailPanel></>)
+        act(() => openPanel('floor:board'))
+        act(() => openPanel('floor:trade'))
+        act(() => closePanel('floor:trade'))
+        expect(activePanel()).toBe(null)
+    })
+
+    it('closing everything (no id) closes the row and the list under it', () => {
+        render(<><DetailPanelSlot /><ListWithRow /></>)
+        act(() => openPanel('floor:board'))
+        fireEvent.click(screen.getByRole('button', { name: 'open industry:451' }))
+        act(() => closePanel())
+        expect(activePanel()).toBe(null)
+        expect(screen.queryByText('the board')).toBeNull()
+    })
+
+    it('a panel opened over a NON-list replaces it, as before', () => {
+        render(<><DetailPanelSlot /><Opener id="coverage:AAPL" /><Opener id="coverage:MSFT" /></>)
+        fireEvent.click(screen.getByRole('button', { name: 'open coverage:AAPL' }))
+        fireEvent.click(screen.getByRole('button', { name: 'open coverage:MSFT' }))
+        act(() => closePanel('coverage:MSFT'))
+        expect(activePanel()).toBe(null)
+    })
+})

@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 
 import { isHandheld } from '../EntityCard/entityPopup.js'
 import { DrawerShell } from '../DrawerShell/DrawerShell.jsx'
-import { retainPanel, useDetailPanel } from './detailPanel.store.js'
+import { retainPanel, registerContainer, useDetailPanel } from './detailPanel.store.js'
 import './DetailPanel.scss'
 
 // ── The detail panel: one surface for "read this item properly" ──────────────
@@ -36,11 +36,16 @@ export function DetailPanelSlot() {
     return <div id={SLOT_ID} className="detail-panel-slot" />
 }
 
-export function DetailPanel({ id, kicker = '', title, meta = null, actions = null, className = '', children }) {
-    const { isOpen, close } = useDetailPanel(id)
+export function DetailPanel({ id, kicker = '', title, meta = null, actions = null, className = '', container = false, bare = false, children }) {
+    const { isOpen, isUnder, close } = useDetailPanel(id)
 
     // Closed with its row — see retainPanel.
     useEffect(() => retainPanel(id), [id])
+    // A whole list: a row's panel opened from it keeps it underneath (detailPanel.store).
+    useEffect(() => (container ? registerContainer(id) : undefined), [id, container])
+
+    // Kept under a row's panel: the content stays MOUNTED (it renders that panel), off screen.
+    if (isUnder && !isOpen) return <div hidden className="detail-panel__kept">{children}</div>
 
     // Esc, focus in and back, and a handheld's back gesture are the shared drawer's (DrawerShell).
     const handheld = isOpen && isHandheld()
@@ -53,21 +58,38 @@ export function DetailPanel({ id, kicker = '', title, meta = null, actions = nul
             onClose={close}
             portalTo={slot ?? (isOpen ? document.body : null)}
             label={typeof title === 'string' ? title : kicker || 'Detail'}
-            className={`detail-panel detail-panel--${mode}${className ? ` ${className}` : ''}`}
+            className={`detail-panel detail-panel--${mode}${container ? ' detail-panel--list' : ''}${bare ? ' detail-panel--bare' : ''}${className ? ` ${className}` : ''}`}
             modal={mode === 'page'}
             history={handheld ? { field: 'detailPanel', key: id } : null}
         >
-            <header className="detail-panel__head">
-                <div className="detail-panel__titles">
-                    {kicker && <span className="detail-panel__kicker">{kicker}</span>}
-                    <h2 className="detail-panel__title">{title}</h2>
-                    {meta && <div className="detail-panel__meta">{meta}</div>}
-                </div>
-                {actions && <div className="detail-panel__actions">{actions}</div>}
-                <button type="button" className="detail-panel__close" onClick={close} aria-label="Close" title="Close (Esc)">
-                    ✕
-                </button>
-            </header>
+            {bare
+                // A whole Floor list (Roy, 2026-10-22: "without header"): no bar — the list starts at the top, a small ✕ in
+                // the corner. A list with controls of its own (the Hotlist's views, the Calendar's months, the map's way
+                // back) keeps them in one thin row, with what they act on beside them — the month, the map's industry —
+                // since ‹ › with no month named is a control with nothing to say.
+                ? (actions || meta
+                    ? (
+                        <div className="detail-panel__bar">
+                            <span className="detail-panel__title detail-panel__bar-title">{title}</span>
+                            {meta && <div className="detail-panel__meta">{meta}</div>}
+                            {actions && <div className="detail-panel__actions">{actions}</div>}
+                            <button type="button" className="detail-panel__close" onClick={close} aria-label="Close" title="Close (Esc)">✕</button>
+                        </div>
+                    )
+                    : <button type="button" className="detail-panel__close detail-panel__close--corner" onClick={close} aria-label="Close" title="Close (Esc)">✕</button>)
+                : (
+                    <header className="detail-panel__head">
+                        <div className="detail-panel__titles">
+                            {kicker && <span className="detail-panel__kicker">{kicker}</span>}
+                            <h2 className="detail-panel__title">{title}</h2>
+                            {meta && <div className="detail-panel__meta">{meta}</div>}
+                        </div>
+                        {actions && <div className="detail-panel__actions">{actions}</div>}
+                        <button type="button" className="detail-panel__close" onClick={close} aria-label="Close" title="Close (Esc)">
+                            ✕
+                        </button>
+                    </header>
+                )}
             <div className="detail-panel__body">{children}</div>
         </DrawerShell>
     )
@@ -84,5 +106,10 @@ DetailPanel.propTypes = {
     // Header buttons. The slot for what every panel will share.
     actions:   PropTypes.node,
     className: PropTypes.string,
+    // A whole list (a Floor list), not one item: a row's panel opened from it keeps it under; it takes the full width.
+    container: PropTypes.bool,
+    // No header bar — a corner ✕ (and the list's own controls, if any, in one thin row). The title still names the
+    // dialog for a screen reader.
+    bare:      PropTypes.bool,
     children:  PropTypes.node,
 }

@@ -141,7 +141,7 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick }) {
     const retryLoad = () => setRetry(n => n + 1)
 
     return (
-        <DetailPanel id={HOTLIST_PANEL_ID} kicker="Hotlist" title={title} actions={actions} className="hot-panel">
+        <DetailPanel id={HOTLIST_PANEL_ID} kicker="Hotlist" title={title} actions={actions} className="hot-panel" container bare>
             {listView && today.status === 'ok'
                 ? <DayList today={today} sort={sort} setSort={setSort} only={only} setOnly={setOnly}
                     onSymbolClick={onSymbolClick} onBuild={handOff(onBuild)} onAsk={handOff(onAsk)} />

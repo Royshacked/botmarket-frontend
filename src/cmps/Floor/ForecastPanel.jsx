@@ -29,6 +29,14 @@ export const FORECAST_PANEL_ID = 'forecasts'
 
 const MAP = { level: 'map' }
 
+/** The view a card's focus asks for: a company by ticker, an industry by its GICS code — or null. Pure. */
+function focusView(focus) {
+    const sym = String(focus?.symbol ?? '').toUpperCase().trim()
+    if (sym) return { level: 'company', symbol: sym }
+    const code = String(focus?.code ?? '').trim()
+    return code ? { level: 'industry', code } : null
+}
+
 export function ForecastPanel({ coverage = [], focus = null, onOpenBoard, onEditCoverage, onRetireCoverage, onDeleteCoverage }) {
     const { isOpen } = useDetailPanel(FORECAST_PANEL_ID)
     const [view, setView] = useState(MAP)
@@ -40,23 +48,25 @@ export function ForecastPanel({ coverage = [], focus = null, onOpenBoard, onEdit
     // Companies already read while the panel is open — back and forth between industries must not refetch.
     const seen = useRef(new Map())
 
-    // Every open starts on the map — unless a card asked for a company (`focus`), which may arrive just before or
-    // just after the open. Decided in render, as the Calendar does, so no effect paints the old view first.
+    // Every open starts on the map — unless a card asked for a company (`focus.symbol`: OPEN_COVERAGE) or an industry
+    // (`focus.code`: Pythia's "industry changed" card, 2026-10-22 — it used to open the bare map and leave the user to
+    // find the tile), which may arrive just before or just after the open. Decided in render, as the Calendar does, so
+    // no effect paints the old view first.
     const [wasOpen, setWasOpen] = useState(isOpen)
     const [seenFocus, setSeenFocus] = useState(focus)
     const [pending, setPending] = useState(null)
     let pend = pending
     if (focus !== seenFocus) {
         setSeenFocus(focus)
-        const sym = String(focus?.symbol ?? '').toUpperCase().trim()
-        if (sym) {
-            if (isOpen && wasOpen) { setView({ level: 'company', symbol: sym }); pend = null }
-            else pend = sym
+        const target = focusView(focus)
+        if (target) {
+            if (isOpen && wasOpen) { setView(target); pend = null }
+            else pend = target
         }
     }
     if (isOpen !== wasOpen) {
         setWasOpen(isOpen)
-        if (isOpen) { setView(pend ? { level: 'company', symbol: pend } : MAP); pend = null }
+        if (isOpen) { setView(pend ?? MAP); pend = null }
     }
     if (pend !== pending) setPending(pend)
 
@@ -155,7 +165,7 @@ export function ForecastPanel({ coverage = [], focus = null, onOpenBoard, onEdit
     }
 
     return (
-        <DetailPanel id={FORECAST_PANEL_ID} kicker="Forecasts" title={title} meta={meta} actions={actions} className="cal-panel fm-panel">
+        <DetailPanel id={FORECAST_PANEL_ID} kicker="Forecasts" title={title} meta={meta} actions={actions} className="cal-panel fm-panel" container bare>
             <div ref={bodyRef}>{body}</div>
         </DetailPanel>
     )

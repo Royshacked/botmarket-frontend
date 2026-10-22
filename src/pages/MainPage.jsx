@@ -62,6 +62,11 @@ import { closePanel }        from '../cmps/DetailPanel/detailPanel.store.js'
 // (Scan candidates now seed the KAIROS chat via handleBuildFromCandidate — the idea-summary/context
 // builders they used were removed with that reroute. See K3, KAIROS_MODES.md.)
 
+// Axl's `<show>` kinds for the Floor's lists (the user's word) → FloorLists's desk keys (handleOpenView).
+const VIEW_DESKS = Object.freeze({
+    calendar: 'calendar', orders: 'queued', trades: 'trade', portfolios: 'portfolio', watchlists: 'scans', hotlist: 'hotlist',
+})
+
 // Finnhub session codes → readable when-phrasing for the earnings print.
 const _EARN_WHEN_PHRASE = { bmo: 'before the open', amc: 'after the close', dmh: 'during market hours' }
 function _earnWhenPhrase(code) {
@@ -827,9 +832,10 @@ export function MainPage() {
     // itself; routing it through `deskRequest` instead keeps ONE channel for "something outside
     // asked for a desk", which is the same one the queued list already travels on.
     useEffect(() => {
-        return eventBus.on(OPEN_SECTOR_VIEW, () => {
+        // Pythia's "industry changed" card names its industry (`code`): the map opens ON it, not on the bare map.
+        return eventBus.on(OPEN_SECTOR_VIEW, (payload) => {
             setNewsTab('forecasts')
-            setDeskRequest({ key: 'forecasts' })
+            setDeskRequest({ key: 'forecasts', code: payload?.code ?? null })
         })
     }, [])
 
@@ -1348,9 +1354,11 @@ export function MainPage() {
     // The Floor's own panels, through the one outside-ask channel they already answer (deskRequest): Forecasts is
     // Pythia's heat map (on a company's industry when a symbol rides along), Calendar the month grid — both open as
     // the detail panel over the chat column.
+    // Since 2026-10-22 every Floor list is a view too (Roy: Axl opens them when asked) — the show kind is the user's word
+    // for it, the desk key FloorLists's.
     function handleOpenView(kind, symbol = null) {
         if (kind === 'heatmap') setDeskRequest({ key: 'forecasts', symbol: symbol ?? null })
-        else if (kind === 'calendar') setDeskRequest({ key: 'calendar' })
+        else if (VIEW_DESKS[kind]) setDeskRequest({ key: VIEW_DESKS[kind] })
     }
 
     /**

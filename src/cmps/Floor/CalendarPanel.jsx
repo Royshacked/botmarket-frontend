@@ -120,7 +120,7 @@ export function CalendarPanel({ onEarningSelect, onIpoSelect, onSymbolClick }) {
     )
 
     return (
-        <DetailPanel id={CALENDAR_PANEL_ID} kicker="Calendar" title={title} actions={actions} className="cal-panel">
+        <DetailPanel id={CALENDAR_PANEL_ID} kicker="Calendar" title={title} actions={actions} className="cal-panel" container bare>
             <div ref={bodyRef}>
                 {date
                     ? <div className="cal-day" tabIndex={-1} aria-label={fmtLongDay(date)}>
