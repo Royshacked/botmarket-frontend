@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
+import { closeForHandOff } from '../Stage/stage.store.js'
 import { useDetailPanel, closePanel } from '../DetailPanel/detailPanel.store.js'
 import { strategyService } from '../../services/strategy/strategy.service.remote.js'
 import { AssessmentDetail } from '../Radar/AssessmentView.jsx'
@@ -109,7 +110,7 @@ export function ForecastPanel({ coverage = [], focus = null, onOpenBoard, onEdit
         title = view.symbol
         meta = cov ? <CoverageMeta coverage={cov} /> : null
         // Edit opens Prometheus IN the chat column — the one this panel covers — so it closes the panel first.
-        const edit = onEditCoverage && (c => { closePanel(); onEditCoverage(c) })
+        const edit = onEditCoverage && (c => { closeForHandOff(closePanel); onEditCoverage(c) })
         actions = (
             <div className="cal-nav">
                 {cov && <CoverageActions coverage={cov} onEdit={edit} onRetire={onRetireCoverage} onDelete={onDeleteCoverage} />}
@@ -155,7 +156,7 @@ export function ForecastPanel({ coverage = [], focus = null, onOpenBoard, onEdit
     }
 
     return (
-        <DetailPanel id={FORECAST_PANEL_ID} kicker="Forecasts" title={title} meta={meta} actions={actions} className="cal-panel fm-panel">
+        <DetailPanel id={FORECAST_PANEL_ID} kicker="Forecasts" title={title} meta={meta} actions={actions} className="cal-panel fm-panel" container compact>
             <div ref={bodyRef}>{body}</div>
         </DetailPanel>
     )

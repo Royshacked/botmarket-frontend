@@ -5,6 +5,7 @@ import { DrawerShell } from '../DrawerShell/DrawerShell.jsx'
 import { isHandheld } from '../EntityCard/entityPopup.js'
 import { agentMeta } from '../ChatTimeline/timelineRows.js'
 import { closePane, closeSurface, openSurface, setPinned, showSurface, sidePaneState, useSidePane } from './sidePane.store.js'
+import { useOnStage } from '../Stage/stage.store.js'
 import './SidePane.scss'
 
 // ── The side pane: each desk's working surface, beside the chat (unified-chat plan phase 8b, K5) ──
@@ -45,6 +46,7 @@ KeptSlot.propTypes = { host: PropTypes.object.isRequired }
  */
 export function SidePane({ session, surfaces, deskProps = {} }) {
     const { tabs, active, pinned, parked } = useSidePane()
+    const onStage = useOnStage('surface')
     const hosts = useRef(new Map())
     const hostFor = (t) => {
         if (!hosts.current.has(t)) {
@@ -101,6 +103,8 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
             // Docked, it opens beside the chat — often on its own, as the floor moves — so focus stays in the input.
             autoFocus={handheld}
             history={handheld ? { field: 'sidePane', key: 'pane' } : null}
+            // Under another layer on the Floor's stage: Esc goes to that layer (DrawerShell).
+            covered={!onStage}
         >
             <header className="side-pane__head">
                 <div className="side-pane__tabs" role="tablist" aria-label="Desks">

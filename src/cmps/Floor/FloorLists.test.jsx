@@ -38,176 +38,115 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); closePanel() })
 const setup  = (over = {}) => ({ id: 's1', asset: 'SPY',  direction: 'short', status: 'waiting', ...over })
 const setup2 = (over = {}) => setup({ id: 's2', asset: 'NVDA', ...over })
 
-// The desk HEADER — the strip's chip carries the same name while a desk is open.
-const deskBtn = name => {
-    const heads = screen.getAllByRole('button', { name: new RegExp(name, 'i') })
-        .filter(b => b.classList.contains('floor-desk__head'))
-    if (heads.length !== 1) throw new Error(`expected one desk header for ${name}, got ${heads.length}`)
-    return heads[0]
-}
-const chip = name => within(screen.getByRole('navigation', { name: 'Desks' }))
-    .getByRole('button', { name: new RegExp(name, 'i') })
+// A list's CHIP in the strip under the chat header — since 2026-10-22 the only way to a list (the
+// column and its headers went); it opens the list in the detail panel.
+const chip = name => within(screen.getByRole('navigation', { name: 'Lists' }))
+    .getByRole('button', { name: new RegExp(`^${name}`, 'i') })
+const deskBtn = chip
 
 describe('FloorLists', () => {
-    it('renders all four desks', () => {
+    // The two side columns went on 2026-10-22 (Roy): a strip of list chips sits under the chat header,
+    // and every list opens in the detail window over the chat — one at a time.
+    const STRIP = ['Positions', 'Awaiting orders', 'Your trades', 'Your portfolios', 'Watchlists', 'Hotlist', 'Calendar', 'Forecasts']
+    const stripLabels = () => [...within(screen.getByRole('navigation', { name: 'Lists' })).getAllByRole('button')]
+        .map(b => b.textContent.replace(/\(\d+\)$/, ''))
+    const dialogTitle = () => screen.queryByRole('dialog')?.querySelector('.detail-panel__title')?.textContent ?? null
+
+    it('lists every list in the strip, Positions first', () => {
         render(<FloorLists />)
-        for (const label of ['Your trades', 'Your portfolios', 'Watchlists']) {
-            expect(deskBtn(label)).toBeTruthy()
-        }
+        expect(stripLabels()).toEqual(STRIP)
     })
 
-    // A refresh must not pick a desk for the reader: the column lands as a table of contents.
-    it('opens no desk by default', () => {
+    // A refresh must not pick a list for the reader: the strip is the table of contents.
+    it('opens no list by default', () => {
         render(<FloorLists setups={[setup2()]} coverage={[{ symbol: 'AAPL', status: 'active' }]} />)
-        for (const label of ['Your trades', 'Your portfolios', 'Watchlists']) {
-            expect(deskBtn(label).getAttribute('aria-expanded')).toBe('false')
-        }
+        expect(screen.queryByRole('dialog')).toBeNull()
+        for (const label of STRIP) expect(chip(label).getAttribute('aria-expanded')).toBe('false')
     })
 
-    it('opening one desk closes the one that was open', () => {
-        render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
-        fireEvent.click(deskBtn('Watchlists'))
-        expect(deskBtn('Watchlists').getAttribute('aria-expanded')).toBe('true')
-        expect(deskBtn('Your trades').getAttribute('aria-expanded')).toBe('false')
+    it('a chip opens its list in the window; another chip switches; its own chip closes it', () => {
+        render(<FloorLists setups={[setup2()]} />)
+        fireEvent.click(chip('Your trades'))
+        expect(dialogTitle()).toBe('Your trades')
+        expect(chip('Your trades').getAttribute('aria-expanded')).toBe('true')
+        expect(chip('Your trades').getAttribute('aria-haspopup')).toBe('dialog')
+        fireEvent.click(chip('Watchlists'))
+        expect(dialogTitle()).toBe('Watchlists')
+        expect(chip('Your trades').getAttribute('aria-expanded')).toBe('false')
+        fireEvent.click(chip('Watchlists'))
+        expect(screen.queryByRole('dialog')).toBeNull()
     })
 
-    // All-closed is a legitimate state: the column becomes a table of contents.
-    it('clicking the open desk closes it, leaving all four collapsed', () => {
-        render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
-        fireEvent.click(deskBtn('Your trades'))
-        for (const label of ['Your trades', 'Your portfolios', 'Watchlists']) {
-            expect(deskBtn(label).getAttribute('aria-expanded')).toBe('false')
-        }
+    it('carries each list\'s count on its chip, and none at zero', () => {
+        render(<FloorLists setups={[setup2()]} queued={[{ id: 'q1' }, { id: 'q2' }]} book={{ positions: [{}, {}, {}] }} />)
+        expect(chip('Awaiting orders').textContent).toBe('Awaiting orders(2)')
+        expect(chip('Positions').textContent).toBe('Positions(3)')
+        expect(chip('Watchlists').textContent).toBe('Watchlists')
     })
 
-    // With every desk closed the COLUMN scrolls, and the "Lists" header must not scroll off with
-    // the desk buttons (Roy, 2026-10-14). jsdom can't scroll, so guard the rule itself.
-    it('pins the column header while the closed desks scroll', () => {
-        const css = readFileSync(resolve(__dirname, 'Floor.scss'), 'utf8')
-        const column = css.slice(css.indexOf('.floor-lists {'), css.indexOf('.floor-strip {'))
-        expect(column).toMatch(/>\s*\.floor-sec\s*\{[^}]*position:\s*sticky[^}]*top:\s*0/)
+    it('opens Positions — what was the left column — as a list like the rest', () => {
+        render(<FloorLists book={{ positions: [], loading: false }} />)
+        fireEvent.click(chip('Positions'))
+        expect(dialogTitle()).toBe('Positions')
+        expect(screen.getByText('No open positions.')).toBeTruthy()
     })
 
-    // While a desk has the column the other headers are folded — the strip keeps every desk and
-    // its count on screen, and switches desks in one click (Roy, 2026-10-14).
-    describe('desk strip', () => {
-        it('is absent while every desk is closed — the headers are the strip then', () => {
+    // An empty list keeps its chip, dimmed — hiding it would move every chip after it each time a
+    // count crossed zero (Roy, 2026-10-14).
+    describe('empty lists', () => {
+        it('dims an empty list\'s chip, and a full one not', () => {
             render(<FloorLists setups={[setup2()]} />)
-            expect(screen.queryByRole('navigation', { name: 'Desks' })).toBeNull()
-        })
-
-        it('lists every visible desk with its count while one is open, the open one marked', () => {
-            render(<FloorLists setups={[setup2()]} queued={[{ id: 'q1' }, { id: 'q2' }]} initialDesk="trade" />)
-            expect(chip('Awaiting orders').textContent).toBe('Awaiting orders(2)')
-            expect(chip('Your trades').getAttribute('aria-current')).toBe('true')
-            expect(chip('Watchlists').getAttribute('aria-current')).toBeNull()
-            const nav = screen.getByRole('navigation', { name: 'Desks' })
-            expect(within(nav).queryByRole('button', { name: /Research queue/ })).toBeNull()
-        })
-
-        it('switches desks from a chip, and closes the open one from its own chip', () => {
-            render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
-            fireEvent.click(chip('Watchlists'))
-            expect(deskBtn('Watchlists').getAttribute('aria-expanded')).toBe('true')
-            expect(deskBtn('Your trades').getAttribute('aria-expanded')).toBe('false')
-            fireEvent.click(chip('Watchlists'))
-            expect(screen.queryByRole('navigation', { name: 'Desks' })).toBeNull()
-        })
-    })
-
-    // An empty desk stays where it is, dimmed — hiding it would move every header below it each
-    // time a count crossed zero (Roy, 2026-10-14).
-    describe('empty desks', () => {
-        const deskOf = label => deskBtn(label).closest('.floor-desk')
-
-        it('keeps an empty desk in the column, dimmed, and a full one not', () => {
-            render(<FloorLists setups={[setup2()]} />)
-            expect(deskOf('Watchlists').className).toMatch(/floor-desk--empty/)
-            expect(deskOf('Your trades').className).not.toMatch(/floor-desk--empty/)
-        })
-
-        // The research desk's COUNT is only what is still queued — but a backlog that is all in
-        // research still has rows, so it is not empty.
-        it('goes by rows, not the header count: an all-in-research queue is not dimmed', () => {
-            render(<FloorLists isAdmin researchQueue={[{ id: 'r1', symbol: 'AAPL', status: 'in_research' }]} />)
-            expect(deskOf('Research queue').className).not.toMatch(/floor-desk--empty/)
-        })
-
-        it('never dims the uncounted desks — Calendar and Forecasts', () => {
-            render(<FloorLists />)
-            expect(deskOf('Calendar').className).not.toMatch(/floor-desk--empty/)
-            expect(deskOf('Forecasts').className).not.toMatch(/floor-desk--empty/)
-        })
-
-        it('dims an empty desk’s chip too', () => {
-            render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
             expect(chip('Watchlists').className).toMatch(/floor-strip__chip--empty/)
             expect(chip('Your trades').className).not.toMatch(/floor-strip__chip--empty/)
         })
 
-        it('says who fills an empty desk', () => {
+        // The research list's COUNT is only what is still queued — but a backlog that is all in
+        // research still has rows, so it is not empty.
+        it('goes by rows, not the count: an all-in-research queue is not dimmed', () => {
+            render(<FloorLists isAdmin researchQueue={[{ id: 'r1', symbol: 'AAPL', status: 'in_research' }]} />)
+            expect(chip('Research queue').className).not.toMatch(/floor-strip__chip--empty/)
+        })
+
+        it('never dims the uncounted lists — Hotlist, Calendar and Forecasts', () => {
+            render(<FloorLists />)
+            for (const label of ['Hotlist', 'Calendar', 'Forecasts']) expect(chip(label).className).not.toMatch(/floor-strip__chip--empty/)
+        })
+
+        it('says who fills an empty list', () => {
             render(<FloorLists initialDesk="scans" />)
             expect(screen.getByText(/ask Argus/)).toBeTruthy()
         })
     })
 
-    // The open desk TAKES THE COLUMN — the other headers fold away so the list gets the full
-    // height. They stay MOUNTED through it (that is what lets the column animate back into its
-    // original order), so "gone" has to be asserted on the fold class, not on the DOM.
-    describe('takeover', () => {
-        const deskOf = label => deskBtn(label).closest('.floor-desk')
-
-        it('folds the other desks away while one is open', () => {
-            render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
-            expect(deskOf('Your trades').className).not.toMatch(/floor-desk--folded/)
-            for (const label of ['Your portfolios', 'Watchlists']) {
-                expect(deskOf(label).className).toMatch(/floor-desk--folded/)
-            }
-        })
-
-        // Closing puts every desk back — same components, same order as a fresh load.
-        it('unfolds all of them in their original order when the desk closes', () => {
-            const { container } = render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
-            fireEvent.click(deskBtn('Your trades'))
-            const desks = [...container.querySelectorAll('.floor-desk')]
-            expect(desks.some(d => d.className.includes('floor-desk--folded'))).toBe(false)
-            expect(desks.map(d => d.querySelector('.floor-desk__label').textContent))
-                .toEqual(['Awaiting orders', 'Your trades', 'Your portfolios', 'Watchlists', 'Hotlist',
-                          'Calendar', 'Forecasts'])
-        })
-
+    describe('which lists, in what order', () => {
         // Roy, 2026-10-14: Events radar hidden for now; the admin's Research queue sits LAST.
-        it('hides Events radar and puts the Research queue at the bottom', () => {
-            const { container } = render(<FloorLists isAdmin aetherCandidates={{ runs: [{ run_id: 'r', candidates: [{}] }] }} />)
-            const labels = [...container.querySelectorAll('.floor-desk__label')].map(l => l.textContent)
-            expect(labels).not.toContain('Events radar')
-            expect(labels.at(-1)).toBe('Research queue')
+        it('hides Events radar and puts the Research queue last, for an admin only', () => {
+            render(<FloorLists isAdmin aetherCandidates={{ runs: [{ run_id: 'r', candidates: [{}] }] }} />)
+            expect(stripLabels()).not.toContain('Events radar')
+            expect(stripLabels().at(-1)).toBe('Research queue')
+            cleanup()
+            render(<FloorLists />)
+            expect(stripLabels()).not.toContain('Research queue')
         })
 
-        // A request for a desk that is not on screen must not fold the column around nothing.
-        it('ignores an initial desk that is hidden', () => {
-            const { container } = render(<FloorLists initialDesk="aether" />)
-            expect(container.querySelector('.floor-lists').className).not.toMatch(/floor-lists--focused/)
-            expect(container.querySelector('.floor-desk--folded')).toBeNull()
-            expect(screen.queryByRole('navigation', { name: 'Desks' })).toBeNull()
+        it('an initial list that is hidden opens nothing', () => {
+            render(<FloorLists initialDesk="aether" />)
+            expect(screen.queryByRole('dialog')).toBeNull()
         })
 
-        // A folded header is still readable and still reports its state — it is just not somewhere
-        // you can tab into, since it is not on screen.
-        it('takes the folded headers out of the tab order without hiding them', () => {
+        it('an initial list opens its window', () => {
             render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
-            expect(deskBtn('Watchlists').getAttribute('tabindex')).toBe('-1')
-            expect(deskBtn('Watchlists').getAttribute('aria-expanded')).toBe('false')
-            expect(deskBtn('Your trades').getAttribute('tabindex')).toBeNull()
+            expect(dialogTitle()).toBe('Your trades')
         })
 
-        // The list has to be able to USE the height it just took: the open desk grows, and it is
-        // the only child that does. `flex: 0 1 auto` here would leave a short list stranded at the
-        // top with the reclaimed space empty below it.
-        it('gives the open desk the leftover column height', () => {
-            const css = readFileSync(resolve(__dirname, 'Floor.scss'), 'utf8')
-            const open = css.slice(css.indexOf('&--open {'), css.indexOf('&--folded {'))
-            expect(open).toMatch(/flex:\s*1 1 auto/)
+        // Axl's `<show>trades` and the market-open card both arrive as an outside ask; asking twice
+        // is two asks (the request OBJECT is the key).
+        it('an outside ask opens that list — and asking again after a close opens it again', () => {
+            const { rerender } = render(<FloorLists setups={[setup2()]} deskRequest={{ key: 'trade' }} />)
+            expect(dialogTitle()).toBe('Your trades')
+            act(() => closePanel())
+            rerender(<FloorLists setups={[setup2()]} deskRequest={{ key: 'trade' }} />)
+            expect(dialogTitle()).toBe('Your trades')
         })
     })
 
@@ -352,32 +291,31 @@ describe('FloorLists', () => {
     // FORECASTS is a panel desk (2026-10-14): its header opens the heat map over the chat, and it
     // replaced "Analyst companies" — a covered name is reached through its industry (ForecastPanel.test).
     it('the Forecasts header opens the heat map in the panel, not a list in the column', async () => {
-        const { container } = render(<FloorLists />)
+        render(<FloorLists />)
         const head = deskBtn('Forecasts')
         expect(head.getAttribute('aria-haspopup')).toBe('dialog')
         fireEvent.click(head)
         await act(async () => { await Promise.resolve() })
         expect(screen.getByRole('dialog', { name: 'Industries' })).toBeTruthy()
-        expect(container.querySelector('.floor-desk--open')).toBeNull()
         expect(head.getAttribute('aria-expanded')).toBe('true')
     })
 
     // Pythia's board (track record, week, themes, structure, Assess now) is one click from the map, and
     // lives in the COLUMN — its rows open panels of their own, which would close a board inside a panel.
-    it('the map’s Board button opens Pythia’s board in the column, and the board leads back to the map', async () => {
+    it('the map’s Board button opens Pythia’s board as a list window, and the board leads back to the map', async () => {
         render(<FloorLists assessments={{ assessments: [], record: null }} />)
         expect(screen.queryByRole('button', { name: /Forecast board/ })).toBeNull()
         fireEvent.click(deskBtn('Forecasts'))
         await act(async () => { await Promise.resolve() })
         fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Board' }))
-        expect(screen.queryByRole('dialog')).toBeNull()
+        expect(screen.getByRole('dialog').querySelector('.detail-panel__title').textContent).toBe('Forecast board')
+        // While it is open the board has a chip of its own.
         expect(deskBtn('Forecast board').getAttribute('aria-expanded')).toBe('true')
         expect(screen.getByRole('tab', { name: 'Themes' })).toBeTruthy()
         fireEvent.click(screen.getByRole('button', { name: 'Open the heat map' }))
         await act(async () => { await Promise.resolve() })
         expect(screen.getByRole('dialog', { name: 'Industries' })).toBeTruthy()
-        // Closing the board takes its header away again.
-        fireEvent.click(deskBtn('Forecast board'))
+        // The board closed with the switch, and its chip went with it.
         expect(screen.queryByRole('button', { name: /^Forecast board/ })).toBeNull()
     })
 
@@ -455,25 +393,19 @@ describe('FloorLists', () => {
             }
         })
 
-        // It opens a PANEL, not the column: the list you had open stays open beside it.
-        it('opens the calendar panel and leaves the column as it was', () => {
-            const { container } = render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
-            const head = deskBtn('Calendar')
-            expect(head.getAttribute('aria-haspopup')).toBe('dialog')
+        it('opens the calendar window from its chip, and closes it from the same chip', () => {
+            render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
             fireEvent.click(chip('Calendar'))
             expect(screen.getByRole('dialog', { name: /20\d\d/ })).toBeTruthy()
-            expect(head.getAttribute('aria-expanded')).toBe('true')
             expect(chip('Calendar').getAttribute('aria-expanded')).toBe('true')
-            expect(deskBtn('Your trades').getAttribute('aria-expanded')).toBe('true')
-            expect(container.querySelector('.floor-lists').className).toMatch(/floor-lists--focused/)
+            expect(chip('Your trades').getAttribute('aria-expanded')).toBe('false')
             fireEvent.click(chip('Calendar'))
             expect(screen.queryByRole('dialog')).toBeNull()
         })
 
-        it('is never a column desk, even when asked for as the initial one', () => {
-            const { container } = render(<FloorLists initialDesk="calendar" />)
-            expect(container.querySelector('.floor-desk--folded')).toBeNull()
-            expect(screen.queryByRole('dialog')).toBeNull()
+        it('opens when asked for as the initial one', () => {
+            render(<FloorLists initialDesk="calendar" />)
+            expect(screen.getByRole('dialog', { name: /20\d\d/ })).toBeTruthy()
         })
 
         // The house's industry views are a broadcast (2026-10-05): the board is for everyone, and only
@@ -501,37 +433,6 @@ describe('FloorLists', () => {
         })
     })
 
-    // Which box scrolls is a CSS question, so jsdom can't measure it — but it is exactly the kind
-    // of thing that regresses back to "put overflow on the container" the next time something
-    // overflows. Guard the rules themselves, the way the row-actions reveal is guarded below.
-    it('scrolls the open desk’s list, and the column only when every desk is shut', () => {
-        // Read from disk: vitest stubs stylesheet imports, so `?raw` would hand back an empty string.
-        const css    = readFileSync(resolve(process.cwd(), 'src/cmps/Floor/Floor.scss'), 'utf8')
-        const column = css.slice(css.indexOf('.floor-lists {'), css.indexOf('.floor-desk {'))
-        const desk   = css.slice(css.indexOf('.floor-desk {'))
-
-        // Never sideways: a wide row must ellipsis, not push the column out of the viewport.
-        expect(column).toMatch(/overflow-x:\s*hidden/)
-
-        // The column's Y axis USED to be `hidden` outright, and this asserted that — a scrolling
-        // column carries the "Lists" heading and the closed desk headers away with the rows, which
-        // was the original complaint. It is `auto` now (3bbfa59) and that is deliberate: the desk
-        // list has grown to eleven, so a fully-collapsed column of pure header buttons can be
-        // taller than the viewport and would otherwise have unreachable desks at the bottom.
-        //
-        // The original complaint stays fixed by a different mechanism, which is the part worth
-        // asserting: when a desk IS open every sibling collapses to max-height:0, so the column
-        // content fits inside 100% height and the scrollbar never appears in that state.
-        expect(column).toMatch(/overflow-y:\s*auto/)
-        expect(desk).toMatch(/&--folded\s*\{[^}]*max-height:\s*0/)
-
-        // The open desk is the only one allowed to shrink, so it absorbs every bit of overflow…
-        // (it grows too, now that it takes the column — see the takeover cases above).
-        expect(desk).toMatch(/&--open\s*\{[^}]*flex:\s*1 1 auto/)
-        // …and its list is what actually scrolls. No height cap: the shrink already sized it.
-        expect(desk).toMatch(/&__body\s*\{[^}]*overflow-y:\s*auto/)
-        expect(desk).not.toMatch(/max-height:\s*60vh/)
-    })
 })
 
 // ── Row actions ───────────────────────────────────────────────────────────────
@@ -922,7 +823,7 @@ describe('FloorLists — sorting', () => {
         { id: 'c2', thesis: 'AAPL', candidates: [{}, {}, {}] },
         { id: 'c3', thesis: 'NVDA', candidates: [{}, {}] },
     ]
-    const rowSyms = () => [...document.querySelectorAll('.floor-desk--open .floor-row')]
+    const rowSyms = () => [...document.querySelectorAll('.floor-panel .floor-row')]
         .map(r => r.querySelector('.floor-row__sym')?.textContent)
     const sortSelect = () => screen.getByRole('combobox')
     const dirBtn     = () => screen.getByRole('button', { name: /ascending|descending/i })

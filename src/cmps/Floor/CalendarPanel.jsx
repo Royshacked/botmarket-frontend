@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
+import { closeForHandOff } from '../Stage/stage.store.js'
 import { useDetailPanel } from '../DetailPanel/detailPanel.store.js'
 import { calendarService } from '../../services/calendar/calendar.service.remote.js'
 import { CalendarRows } from './CalendarRows.jsx'
@@ -97,7 +98,8 @@ export function CalendarPanel({ onEarningSelect, onIpoSelect, onSymbolClick }) {
     // A date page can step to its neighbours; leaving the month follows it, so "back" lands on the
     // month you are in.
     const goDay = (iso) => { setDate(iso); setMonth(monthOf(iso)) }
-    const handOff = (fn) => fn && ((item) => { close(); fn(item) })
+    // On the Floor's stage the calendar stays under the desk it hands to (closeForHandOff).
+    const handOff = (fn) => fn && ((item) => { closeForHandOff(close); fn(item) })
 
     const today = todayIso()
     const title = date ? fmtLongDay(date) : fmtMonth(month)
@@ -120,7 +122,7 @@ export function CalendarPanel({ onEarningSelect, onIpoSelect, onSymbolClick }) {
     )
 
     return (
-        <DetailPanel id={CALENDAR_PANEL_ID} kicker="Calendar" title={title} actions={actions} className="cal-panel">
+        <DetailPanel id={CALENDAR_PANEL_ID} kicker="Calendar" title={title} actions={actions} className="cal-panel" container compact>
             <div ref={bodyRef}>
                 {date
                     ? <div className="cal-day" tabIndex={-1} aria-label={fmtLongDay(date)}>

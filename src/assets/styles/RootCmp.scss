@@ -60,31 +60,13 @@
     overflow: hidden;
 }
 
-// ── Floor design trial: three columns ────────────────────────────────────────
-// book + calendar | chat | desks. The chat column is the flexible one BY DESIGN — the two
-// side columns are fixed, so the chat's measure changes only with the viewport, never as a
-// side effect of opening or closing something. (See cmps/Floor/Floor.scss for the rows.)
-//
-// The chart still takes over the right column, exactly as it does in the current design.
-// Trial: proportional 22.5 / 55 / 22.5 instead of fixed side columns — the two side columns are
-// symmetric, so the chat sits genuinely centred rather than centred-in-the-leftovers, and now
-// every column scales with the viewport together.
+// ── The Floor: the chat, and nothing beside it ───────────────────────────────
+// The two side columns (positions | chat | lists) went on 2026-10-22 (Roy: "if I present everything in
+// the detail window, including positions, I don't need the columns"). The chat takes the width; a strip
+// under its header opens every list in the detail panel over it (FloorLists, DetailPanel).
 [data-design="floor"] .workspace {
-    grid-template-columns: 27.5% minmax(0, 45%) 27.5%;
-    grid-template-areas: "floor-left chat floor-right";
-}
-
-[data-design="floor"] .workspace__left  { grid-area: floor-left;  min-height: 0; min-width: 0; }
-[data-design="floor"] .workspace__right { grid-area: floor-right; min-height: 0; min-width: 0; }
-
-// Narrow desktop: the book/calendar column is the first to go — the desks and the chat are
-// what you act in. Below the tablet breakpoint the design falls back to the standard layout.
-@media (max-width: 1439px) {
-    [data-design="floor"] .workspace {
-        grid-template-columns: minmax(0, 1fr) 400px;
-        grid-template-areas: "chat floor-right";
-    }
-    [data-design="floor"] .workspace__left { display: none; }
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "chat";
 }
 
 // Status-dot pulses shared by the Axl hub (AxlHub.scss) and the Floor (Floor.scss).
@@ -128,15 +110,6 @@
     }
 
     .workspace__ideas { display: none; }
-
-    // The Floor trial folds to the same single column (its own breakpoint above only drops
-    // the left column, so the right one is named again here).
-    [data-design="floor"] .workspace {
-        grid-template-columns: minmax(0, 1fr);
-        grid-template-areas: "chat";
-    }
-    [data-design="floor"] .workspace__left,
-    [data-design="floor"] .workspace__right { display: none; }
 
     // The chat owns the height and scrolls inside itself — the page never scrolls.
     .main-container .main-page { overflow: hidden; }

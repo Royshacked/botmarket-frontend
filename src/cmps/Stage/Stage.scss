@@ -1,0 +1,61 @@
+// The stage (Stage.jsx): the right half of the chat column on the Floor. Its layers sit on top of each other and
+// only the channel on top shows — the others stay mounted, hidden (docs/design/floor-stage.md).
+
+// The chat column's row on the Floor: the chat and the stage, 50/50 (Roy, 2026-10-22 — "for now").
+.chat-with-stage {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+
+    > .chat-timeline { min-width: 0; min-height: 0; }
+}
+// A phone has no stage: the chat takes the screen, and panels / the pane / the chart open as before.
+@media (max-width: 767px) {
+    .chat-with-stage { grid-template-columns: minmax(0, 1fr); }
+    .chat-with-stage > .stage { display: none; }
+}
+
+.stage {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    border-left: 1px solid var(--border);
+    background: var(--bg-base);
+
+    &__layer {
+        position: absolute;
+        inset: 0;
+        display: none;
+        min-height: 0;
+        flex-direction: column;
+    }
+    &--panel   &__layer--panel,
+    &--surface &__layer--surface,
+    &--chart   &__layer--chart { display: flex; }
+
+    &__empty {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        text-align: center;
+        p { margin: 0; max-width: 34ch; font-size: 13px; line-height: 1.5; color: var(--text-dim); }
+    }
+
+    // A docked panel fills its layer — its anchor is the layer now, not the chat column.
+    .detail-panel--docked { box-shadow: none; border-top: 0; animation: none; }
+
+    // The side pane fills the stage instead of taking a third of the chat beside it.
+    .side-pane--docked {
+        flex: 1 1 auto;
+        max-width: none;
+        width: 100%;
+        border-left: 0;
+        border-top: 0;
+        box-shadow: none;
+    }
+
+    .stage__layer--chart .chart-surface { flex: 1 1 auto; min-height: 0; }
+}

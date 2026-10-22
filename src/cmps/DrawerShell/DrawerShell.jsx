@@ -11,27 +11,33 @@ import PropTypes from 'prop-types'
 //
 // ESC CLOSES THE TOP ONE. Two can be open at once (a detail panel docked over the chat while Mentor's surface is
 // beside it), and one Esc closing both would throw away the one the user was not looking at. Open shells stack in
-// the order they opened; only the last one answers Esc.
+// the order they opened; only the last one answers Esc — the last one ON SCREEN: on the Floor's stage an open shell
+// can be covered by another layer (a list under Mentor's surface — docs/design/floor-stage.md), and a covered one
+// (`covered`) stands aside so the Esc reaches the one the user is looking at.
 
 const open = []
 
 /**
  * @param {{ isOpen: boolean, onClose: Function, portalTo?: Element|null, label?: string, className?: string,
- *           modal?: boolean, autoFocus?: boolean, history?: { field: string, key: string }|null, children?: any }} props
+ *           modal?: boolean, autoFocus?: boolean, history?: { field: string, key: string }|null, covered?: boolean,
+ *           children?: any }} props
  */
-export function DrawerShell({ isOpen, onClose, portalTo = null, label = 'Panel', className = '', modal = false, autoFocus = true, history = null, children }) {
+export function DrawerShell({ isOpen, onClose, portalTo = null, label = 'Panel', className = '', modal = false, autoFocus = true, history = null, covered = false, children }) {
     const ref = useRef(null)
     // The latest close, read at fire time — the listeners below are registered once per opening.
     const closeRef = useRef(onClose)
     closeRef.current = onClose
+    const coveredRef = useRef(covered)
+    coveredRef.current = covered
 
     useEffect(() => {
         if (!isOpen) return
-        const token = {}
+        const token = { covered: () => coveredRef.current }
         open.push(token)
         // Unless something inside (a confirm dialog, a select) already handled it.
         const onKey = (e) => {
-            if (e.key !== 'Escape' || e.defaultPrevented || open.at(-1) !== token) return
+            const top = open.findLast(t => !t.covered())
+            if (e.key !== 'Escape' || e.defaultPrevented || top !== token) return
             e.preventDefault()
             closeRef.current?.()
         }
@@ -98,5 +104,7 @@ DrawerShell.propTypes = {
     autoFocus: PropTypes.bool,
     // A handheld's back gesture: the history-state field it marks its entry with, and its value. Null: no entry.
     history:   PropTypes.shape({ field: PropTypes.string.isRequired, key: PropTypes.string }),
+    // Open but under another layer (the Floor's stage): it stands aside for Esc.
+    covered:   PropTypes.bool,
     children:  PropTypes.node,
 }

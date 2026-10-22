@@ -344,7 +344,9 @@ export const PriceChart = forwardRef(function PriceChart({ symbol = 'SPY', inter
                     callback([], false)
                 }
             },
-            // Realtime, two feeds (both skip a hidden tab):
+            // Realtime, two feeds (both skip a hidden tab — and a chart that is not ON SCREEN: covered on the
+            // Floor's stage, its layer is display:none and the element has no boxes; it resumes on the next tick
+            // when it comes back, zoom intact — docs/design/floor-stage.md):
             //  • Candles every 15s — but only to introduce a NEW bar (newer timestamp). It must not
             //    overwrite the current bar's close: the candle close lags the live price (esp. on
             //    daily/4h, where it's stale all session), and the quote feed below owns that.
@@ -354,7 +356,7 @@ export const PriceChart = forwardRef(function PriceChart({ symbol = 'SPY', inter
                 clearInterval(pollId)
                 clearInterval(quoteId)
                 pollId = setInterval(async () => {
-                    if (document.hidden) return
+                    if (document.hidden || !el.getClientRects().length) return
                     try {
                         const res = await marketService.getCandles(symbolRef.current, intervalRef.current)
                         const arr = res?.candles
@@ -369,7 +371,7 @@ export const PriceChart = forwardRef(function PriceChart({ symbol = 'SPY', inter
                     } catch { /* transient — next tick retries */ }
                 }, 15_000)
                 quoteId = setInterval(async () => {
-                    if (document.hidden) return
+                    if (document.hidden || !el.getClientRects().length) return
                     const base = latestBarRef.current
                     if (!base) return
                     // Never tick a CLOSED candle (see isCurrentPeriod). Off-hours this simply stops

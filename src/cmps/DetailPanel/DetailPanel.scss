@@ -42,6 +42,16 @@
         padding: 14px 20px 12px;
         border-bottom: 1px solid var(--border);
         background: var(--bg-wash);
+
+        // A list on the Floor's stage: one thin line — the name, the list's own controls, ✕ (floor-stage.md).
+        &--compact {
+            align-items: center;
+            padding: 6px 12px 6px 16px;
+            .detail-panel__titles { flex-direction: row; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+            .detail-panel__title { font-size: 13px; font-weight: 600; }
+            .detail-panel__meta { margin: 0; font-size: 11.5px; }
+            .detail-panel__close { width: 26px; height: 26px; font-size: 12px; }
+        }
     }
 
     &__titles {
@@ -110,6 +120,11 @@
         padding: 16px 20px 28px;
         // A reading measure, not the column's: on a wide screen a thesis at full width is a wall.
         > * { max-width: 72ch; }
+    }
+    // A whole list (a table of rows, not a page of reading) takes the panel's width — on the Floor's stage, all of
+    // the right half (floor-stage.md).
+    &--list &__body {
+        > * { max-width: none; }
     }
 }
 

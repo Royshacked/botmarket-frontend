@@ -14,6 +14,8 @@ import { AnalystSurface }    from '../cmps/AnalystSurface/AnalystSurface.jsx'
 import { handoffTurn, mentorHolding } from '../cmps/MentorSurface/mentorSurface.utils.js'
 import { handoffRead, askArgusText } from '../cmps/Floor/hotlist.utils.js'
 import { SidePane }          from '../cmps/SidePane/SidePane.jsx'
+import { Stage }             from '../cmps/Stage/Stage.jsx'
+import { closeForHandOff }   from '../cmps/Stage/stage.store.js'
 import { openSurface, resetSidePane } from '../cmps/SidePane/sidePane.store.js'
 import { SessionContext }    from '../context/SessionContext.jsx'
 import { useSession }        from '../customHooks/useSession.js'
@@ -21,7 +23,6 @@ import { agentMeta }         from '../cmps/ChatTimeline/timelineRows.js'
 import { StrategyPanel }     from '../cmps/StrategyPanel/StrategyPanel.jsx'
 import { AetherPanel }       from '../cmps/AetherPanel/AetherPanel.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
-import { FloorLeft }         from '../cmps/Floor/FloorLeft.jsx'
 import { FloorLists }        from '../cmps/Floor/FloorLists.jsx'
 import { analystService, COVERAGE_CHANGED, RESEARCH_QUEUE_CHANGED } from '../services/analyst/analyst.service.remote.js'
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
@@ -61,6 +62,12 @@ import { closePanel }        from '../cmps/DetailPanel/detailPanel.store.js'
 
 // (Scan candidates now seed the KAIROS chat via handleBuildFromCandidate — the idea-summary/context
 // builders they used were removed with that reroute. See K3, KAIROS_MODES.md.)
+
+// Axl's `<show>` kinds for the Floor's lists (the user's word) → FloorLists's desk keys (handleOpenView).
+const VIEW_DESKS = Object.freeze({
+    calendar: 'calendar', positions: 'positions', orders: 'queued', trades: 'trade',
+    portfolios: 'portfolio', watchlists: 'scans', hotlist: 'hotlist',
+})
 
 // Finnhub session codes → readable when-phrasing for the earnings print.
 const _EARN_WHEN_PHRASE = { bmo: 'before the open', amc: 'after the close', dmh: 'during market hours' }
@@ -430,8 +437,9 @@ export function MainPage() {
 
     /** Show a desk's surface beside the chat (the chat column is the timeline's while it is open). */
     function openDesk(agent) {
-        // The desk the user was sent to must not open underneath the thing they sent themselves from (8b CR).
-        closePanel()
+        // The desk the user was sent to must not open underneath the thing they sent themselves from (8b CR) — where a
+        // panel covers the chat. On the Floor's stage the desk covers the panel instead, and closing it comes back to it.
+        closeForHandOff(closePanel)
         openSurface(agent)
     }
 
@@ -1330,7 +1338,7 @@ export function MainPage() {
     // underneath the thing they sent themselves from.
     function seedMentorChat(symbol, message) {
         if (!symbol) return
-        closePanel()
+        closeForHandOff(closePanel)
         talkTo('mentor', message)
         openDesk('mentor')
         openChart({ ticker: symbol, source: 'mentor' })
@@ -1348,9 +1356,11 @@ export function MainPage() {
     // The Floor's own panels, through the one outside-ask channel they already answer (deskRequest): Forecasts is
     // Pythia's heat map (on a company's industry when a symbol rides along), Calendar the month grid — both open as
     // the detail panel over the chat column.
+    // Since 2026-10-22 every Floor list is a view too (Roy: "I want Axl to be able to present them all") — the
+    // show kind is the user's word for it, the desk key FloorLists's.
     function handleOpenView(kind, symbol = null) {
         if (kind === 'heatmap') setDeskRequest({ key: 'forecasts', symbol: symbol ?? null })
-        else if (kind === 'calendar') setDeskRequest({ key: 'calendar' })
+        else if (VIEW_DESKS[kind]) setDeskRequest({ key: VIEW_DESKS[kind] })
     }
 
     /**
@@ -1559,39 +1569,77 @@ export function MainPage() {
         } : {}),
     }
 
+    // The Floor's lists — the strip under the chat header, and every list as a window over the chat
+    // (Roy, 2026-10-22: the side columns went). The row actions run the SAME handlers as the ideas
+    // table: a second surface onto the same entities, not a second set of rules about them.
+    const floorLists = floorMode ? (
+        <FloorLists
+            setups={workspaceSetups}
+            ideas={workspaceIdeas}
+            positions={positions}
+            scans={scans}
+            coverage={coverage}
+            queued={queued}
+            onExecuteQueued={handleExecuteQueued}
+            onCancelQueued={handleCancelQueued}
+            queuedBusyId={queuedBusyId}
+            deskRequest={deskRequest}
+            // Pythia's board — the `board` desk the map's "Board" button opens.
+            industries={industries}
+            industriesLoading={industriesLoading}
+            industriesError={industriesError}
+            week={week}
+            assessments={assessments}
+            themes={themes}
+            aetherCandidates={{ runs: aetherRuns, loading: aetherLoading, error: aetherError, onRead: onAetherRead, onTradeWithMentor: seedMentorChat, onScanWithArgus: handleScanRadar, scanBusy: radarBusy }}
+            onEarningSelect={handleBuildFromEarning}
+            onIpoSelect={handleBuildFromIpo}
+            onHotlistBuild={handleBuildFromHotlist}
+            onHotlistAsk={handleAskArgusHotlist}
+            onCandidateSelect={handleBuildFromCandidate}
+            onEditSetup={handleEditSetup}
+            onDeleteSetup={handleDeleteSetup}
+            onEditPortfolio={handleEditPortfolio}
+            onDeletePortfolio={handleDeletePortfolio}
+            onActivatePortfolio={handleActivatePortfolio}
+            onDeleteIdea={handleDeleteIdea}
+            onEditScan={handleEditScan}
+            onDeleteScan={deleteScan}
+            onEditCoverage={handleEditCoverage}
+            onRetireCoverage={handleRetireCoverage}
+            onDeleteCoverage={handleDeleteCoverage}
+            isAdmin={isAdmin}
+            onOpenDesk={openDesk}
+            researchQueue={researchQueue}
+            onStartResearch={handleStartResearch}
+            onMarkResearchDone={handleMarkResearchDone}
+            onRejectResearch={handleRejectResearch}
+            researchQueueBusyId={researchQueueBusyId}
+            researchRun={researchRun}
+            onStartResearchRun={handleStartResearchRun}
+            onStopResearchRun={handleStopResearchRun}
+            onRequeueStalledResearch={handleRequeueStalledResearch}
+            // Positions — what was the left column — is a list like the others now (FloorLeft's props).
+            book={{ positions, ideas, loading: positionsLoading, onOpenPosition: handleOpenPositionFromFloor, onClosePosition: closePosition, onClosePositions: closePositions }}
+        />
+    ) : null
+
     return (
         <>
             <main className="main-page">
                 {/* ── Desktop / tablet workspace ── */}
                 <div className="workspace">
-                    {/* Floor trial (Ctrl+Shift+D): the book + calendar take a left column. The chat
-                        and the right column are unchanged below — only the side columns are added,
-                        so the trial can't regress the live layout by rearranging it. */}
-                    {floorMode && (
-                        <div className="workspace__left">
-                            {/* The book's own close handlers — the SAME two the Positions tab uses,
-                                so a close fired from the Floor is the close fired from anywhere.
-                                They were deliberately withheld once, on the grounds that closing
-                                lived in the Positions tab; the Floor replaced that tab, which left
-                                the ✕ reachable only through a pop-out window. */}
-                            <FloorLeft
-                                positions={positions}
-                                ideas={ideas}
-                                positionsLoading={positionsLoading}
-                                onOpenPosition={handleOpenPositionFromFloor}
-                                onClosePosition={closePosition}
-                                onClosePositions={closePositions}
-                            />
-                        </div>
-                    )}
+                    {/* The Floor (Ctrl+Shift+D): no side columns since 2026-10-22. The chat column splits in two — the chat on
+                        the left, the STAGE on the right (docs/design/floor-stage.md): a list, an item opened from it, a desk's
+                        working surface or the chart, the most recent on top. The list strip sits under the chat header. */}
                     <div className="workspace__chat">
-                        {/* Where a list row's detail docks on desktop (DetailPanel) — over the chat,
-                            the widest column, with the chat still mounted underneath. */}
-                        <DetailPanelSlot />
+                        {/* Off the Floor, a list row's detail docks over the chat column (DetailPanel); on the Floor the
+                            slot is the stage's. */}
+                        {!floorMode && <DetailPanelSlot />}
                         {/* The chat and, beside it, the side pane: each desk's working surface (8b–8d), and Pythia, Aether and the
                             order ticket as kept tabs (8e). The chat column is always the timeline — no desk tab replaces it. */}
                         <SessionContext.Provider value={mainSession}>
-                            <div className="chat-with-pane">
+                            <div className={floorMode ? 'chat-with-stage' : 'chat-with-pane'}>
                                 <ChatTimeline
                                     accounts={timelineAccounts}
                                     mainAccountId={mainAccountId}
@@ -1604,69 +1652,17 @@ export function MainPage() {
                                     // { agent: 'aether', label: 'Aether' }] : []} onOpenDesk={openDesk} — ChatTimeline still
                                     // draws the row when given them.
                                     paneSurfaces={SURFACES}
+                                    subHeader={floorLists}
+                                    // On the Floor the chart is the stage's; a phone has no stage, so it keeps the dock.
+                                    chartDock={!floorMode || isHandheld()}
                                 />
-                                <SidePane session={mainSession} surfaces={SURFACES} deskProps={paneProps} />
+                                {floorMode
+                                    ? <Stage session={mainSession} surfaces={SURFACES} deskProps={paneProps} />
+                                    : <SidePane session={mainSession} surfaces={SURFACES} deskProps={paneProps} />}
                             </div>
                         </SessionContext.Provider>
                     </div>
-                    {floorMode ? (
-                        <div className="workspace__right">
-                            {/* The Floor's row actions run the SAME handlers as the ideas table —
-                                it's a second surface onto the same entities, not a second set of
-                                rules about them, so delete confirms, live-position locks and the
-                                chat restores all come along — the setup pencil included (onEditSetup
-                                below, the same handler the Lists tab's SetupCard runs). */}
-                            {(
-                                <FloorLists
-                                        setups={workspaceSetups}
-                                    ideas={workspaceIdeas}
-                                    positions={positions}
-                                    scans={scans}
-                                    coverage={coverage}
-                                    queued={queued}
-                                    onExecuteQueued={handleExecuteQueued}
-                                    onCancelQueued={handleCancelQueued}
-                                    queuedBusyId={queuedBusyId}
-                                    deskRequest={deskRequest}
-                                    // Pythia's board — the `board` desk the map's "Board" button opens.
-                                    industries={industries}
-                                    industriesLoading={industriesLoading}
-                                    industriesError={industriesError}
-                                    week={week}
-                                    assessments={assessments}
-                                    themes={themes}
-                                    aetherCandidates={{ runs: aetherRuns, loading: aetherLoading, error: aetherError, onRead: onAetherRead, onTradeWithMentor: seedMentorChat, onScanWithArgus: handleScanRadar, scanBusy: radarBusy }}
-                                    onEarningSelect={handleBuildFromEarning}
-                                    onIpoSelect={handleBuildFromIpo}
-                                    onHotlistBuild={handleBuildFromHotlist}
-                                    onHotlistAsk={handleAskArgusHotlist}
-                                    onCandidateSelect={handleBuildFromCandidate}
-                                    onEditSetup={handleEditSetup}
-                                    onDeleteSetup={handleDeleteSetup}
-                                    onEditPortfolio={handleEditPortfolio}
-                                    onDeletePortfolio={handleDeletePortfolio}
-                                    onActivatePortfolio={handleActivatePortfolio}
-                                    onDeleteIdea={handleDeleteIdea}
-                                    onEditScan={handleEditScan}
-                                    onDeleteScan={deleteScan}
-                                    onEditCoverage={handleEditCoverage}
-                                    onRetireCoverage={handleRetireCoverage}
-                                    onDeleteCoverage={handleDeleteCoverage}
-                                    isAdmin={isAdmin}
-                                    onOpenDesk={openDesk}
-                                    researchQueue={researchQueue}
-                                    onStartResearch={handleStartResearch}
-                                    onMarkResearchDone={handleMarkResearchDone}
-                                    onRejectResearch={handleRejectResearch}
-                                    researchQueueBusyId={researchQueueBusyId}
-                                    researchRun={researchRun}
-                                    onStartResearchRun={handleStartResearchRun}
-                                    onStopResearchRun={handleStopResearchRun}
-                                    onRequeueStalledResearch={handleRequeueStalledResearch}
-                                />
-                            )}
-                        </div>
-                    ) : (
+                    {!floorMode && (
                     <div className="workspace__ideas">
                         <TradeIdeasList
                             ideas={workspaceIdeas}

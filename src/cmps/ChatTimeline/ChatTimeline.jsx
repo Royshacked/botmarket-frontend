@@ -48,7 +48,7 @@ function OwnSessionTimeline(props) {
     return <TimelineView {...props} session={session} />
 }
 
-function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, briefRequest = 0, onBriefStart, onOpenTicket, onOpenView, desks = [], onOpenDesk, paneSurfaces = null, session }) {
+function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, briefRequest = 0, onBriefStart, onOpenTicket, onOpenView, desks = [], onOpenDesk, paneSurfaces = null, subHeader = null, chartDock = true, session }) {
     const { user } = useAuth()
     const { rows, live, queuedTurn, lastTurn, chain, floor, send, stop, cancelQueued, choose, startNew, loadError } = session
     const [draft, setDraft]             = useState('')
@@ -148,6 +148,8 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
                     <button type="button" className="chat-timeline__action" onClick={() => startNew()} disabled={busy || empty}>New session</button>
                 </span>
             </div>
+            {/* Under the header on the main chat: the Floor's list strip (Roy, 2026-10-22). */}
+            {subHeader}
             {/* Desks the chat does not route to yet — Pythia's and Aether's, for an admin — opened beside it in the side pane
                 (unified-chat phase 8e, K6; temporary, plan §1 q4). A row of their own under the header: beside History and
                 New session they pushed the header off the narrow column the pane leaves. */}
@@ -225,7 +227,7 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
                 )}
             </div>
 
-            <ChatChartDock />
+            {chartDock && <ChatChartDock />}
 
             {taps.length > 0 && <SuggestionChips suggestions={taps} onPick={(t) => sendText(t)} disabled={busy} />}
 
@@ -276,6 +278,10 @@ ChatTimeline.propTypes = {
     onOpenDesk:    PropTypes.func,
     // The desks with a side-pane surface — given, the header offers Show / Hide for the pane (PaneToggle).
     paneSurfaces:  PropTypes.object,
+    // Rendered under the header — the Floor's list strip.
+    subHeader:     PropTypes.node,
+    // The chat's own chart dock — off on the Floor's desktop, where the chart is the stage's.
+    chartDock:     PropTypes.bool,
 }
 OwnSessionTimeline.propTypes = ChatTimeline.propTypes
 TimelineView.propTypes = { ...ChatTimeline.propTypes, session: PropTypes.object.isRequired }

@@ -61,7 +61,9 @@ describe('ForecastPanel — the map', () => {
         act(() => openPanel(FORECAST_PANEL_ID))
         await flush()
         expect(strategyService.getForecastMap).toHaveBeenCalledTimes(1)
-        expect(panel().querySelector('.detail-panel__kicker').textContent).toBe('Forecasts')
+        // A list on the Floor's stage: a thin bar — its name, no kicker (floor-stage.md).
+        expect(panel().querySelector('.detail-panel__head--compact')).toBeTruthy()
+        expect(panel().querySelector('.detail-panel__kicker')).toBeNull()
     })
 
     it('a tile per sub-industry by sector, coloured by the 3-month move, the verdict a letter on it', async () => {

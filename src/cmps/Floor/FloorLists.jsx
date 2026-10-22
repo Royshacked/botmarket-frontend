@@ -15,18 +15,28 @@ import { CalendarPanel, CALENDAR_PANEL_ID } from './CalendarPanel.jsx'
 import { ForecastPanel, FORECAST_PANEL_ID } from './ForecastPanel.jsx'
 import { HotlistPanel, HOTLIST_PANEL_ID } from './HotlistPanel.jsx'
 import { IndustryView } from '../Radar/IndustryView.jsx'
-import { useActivePanel, togglePanel, openPanel } from '../DetailPanel/detailPanel.store.js'
+import { useActivePanel, useUnderPanel, togglePanel, openPanel } from '../DetailPanel/detailPanel.store.js'
+import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
+import { bringToFront, useOnStage } from '../Stage/stage.store.js'
+import { FloorLeft } from './FloorLeft.jsx'
 
 import './Floor.scss'
 import { AetherCandidates } from '../TradeIdeas/AetherCandidates.jsx'
 import { HouseChip } from '../HouseChip/HouseChip.jsx'
 
-// The Floor's right column: four desks, one open at a time — and the open one TAKES THE COLUMN.
+// The Floor's LISTS — every one a window over the chat (Roy, 2026-10-22: "I want all of them presented
+// in the detail window over the chat box, not in the right column … I don't need the columns").
 //
-// The other headers fold away while a desk is open, so the list gets the whole height instead of
-// the leftovers under three stacked buttons. Closing it unfolds them back into their original
-// order, which is why they stay mounted and merely collapse: the column is one arrangement in two
-// states, not two different columns, and animating between them is what says so.
+// The two side columns are gone. What is left of them is a STRIP of chips under the chat header — one
+// per list, with its count — and each chip opens its list in the DetailPanel over the chat, one at a
+// time. Positions (the old left column) is a list like the rest. Every list panel is always MOUNTED
+// (it renders nothing until opened): a panel's content is rendered by its owner, and a list that
+// unmounted would take its open rows' panels with it. A list is a CONTAINER panel: a row inside it
+// that opens a panel of its own (the Forecast board's industries) keeps the list under that panel,
+// and closing it steps back to the list (detailPanel.store).
+//
+// Axl opens the same panels when asked ("show me my trades" → a `<show>` tag → MainPage's
+// handleOpenView → `deskRequest`), so the strip and the chat reach one set of windows.
 //
 // Every row is ONE LINE and carries only what you'd scan for — never the whole entity. Anything
 // more is a click away — in the pop-out that kind already has (entityPopup.js: setups, ideas), or,
@@ -44,6 +54,8 @@ const DESKS = [
     // Named for what the reader owns, not for the desk's metaphor (Roy, 2026-10-14): "Trading
     // floor" / "Portfolio floor" / "Scans" became "Your trades" / "Your portfolios" / "Watchlists".
     // The KEYS stay — they are what sorts, desk requests and tests address.
+    // POSITIONS — what was the left column (FloorLeft), a list like the others since 2026-10-22.
+    { key: 'positions',      label: 'Positions' },
     { key: 'queued',         label: 'Awaiting orders' },
     { key: 'trade',          label: 'Your trades' },
     { key: 'portfolio',      label: 'Your portfolios' },
@@ -71,10 +83,10 @@ const DESKS = [
     // reads. Only authoring them — Pythia's desk — is admin-only.
     { key: 'forecasts', label: 'Forecasts', panel: FORECAST_PANEL_ID },
     // PYTHIA'S BOARD — the Assessed / Themes / Structure tabs, with the track record, the week and the
-    // admin's Assess now and theme approval. Reached from the map's "Board" button, not from a header of
-    // its own: an `onRequest` desk is listed only while it is open (Roy, 2026-10-14). It lives in the
-    // COLUMN, not in the map's panel, because every one of its rows opens a panel of its own — inside the
-    // map's panel the first click would replace the panel holding the board, and close it.
+    // admin's Assess now and theme approval. Reached from the map's "Board" button, not from a chip of
+    // its own: an `onRequest` desk is listed only while it is open (Roy, 2026-10-14). Every one of its
+    // rows opens a panel of its own — which is what the CONTAINER rule is for: the board stays under
+    // the row's panel and comes back when it closes (it used to live in the column for this reason).
     { key: 'board', label: 'Forecast board', onRequest: true },
     // Admin-only: the house research pipeline backlog (Argus hits + user coverage_request). LAST
     // (Roy, 2026-10-14): it is house plumbing, not part of the reader's own run of desks.
@@ -89,72 +101,32 @@ function openFor(item) {
     return openIdeaPopup(item.entity)
 }
 
-// An EMPTY desk stays in the column, dimmed — never removed (Roy, 2026-10-14). Hiding it would
-// move every header below it each time a count crossed zero, and the column is read by position;
-// it would also hide the desk from the one reader who most needs to learn it exists. The dim says
-// "nothing here" at a glance; the empty state inside says who fills it.
-//
-// A `panel` desk (the Calendar) never takes the column: its header opens a DetailPanel, so it
-// announces a dialog and reports THAT as its expanded state — which also gives it the shared
-// "row the panel came from" highlight (DetailPanel.scss).
-function Desk({ desk, open, collapsed, empty, panelOpen = false, count, onToggle, children }) {
-    return (
-        <section className={`floor-desk${open ? ' floor-desk--open' : ''}${collapsed ? ' floor-desk--folded' : ''}${empty ? ' floor-desk--empty' : ''}`}>
-            <button
-                className="floor-desk__head"
-                onClick={() => onToggle(desk.key)}
-                aria-expanded={desk.panel ? panelOpen : open}
-                aria-haspopup={desk.panel ? 'dialog' : undefined}
-                // Folded away, so out of the tab order — but NOT aria-hidden: the header still
-                // exists and still reports whether its desk is open, which is what a screen reader
-                // (and every test in this folder) reads to know the state of the column.
-                tabIndex={collapsed ? -1 : undefined}
-            >
-                <svg className="floor-desk__chev" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                <span className="floor-desk__label">{desk.label}</span>
-                {/* Parenthesised and next to the label, not parked on the right edge: the count is
-                    part of what the desk IS ("Scans (3)"), not a separate column to scan down. */}
-                {count > 0 && <span className="floor-desk__count">({count})</span>}
-            </button>
-            {open && <div className="floor-desk__body">{children}</div>}
-        </section>
-    )
-}
-Desk.propTypes = {
-    desk:      PropTypes.object.isRequired,
-    open:      PropTypes.bool,
-    collapsed: PropTypes.bool,
-    empty:     PropTypes.bool,
-    panelOpen: PropTypes.bool,
-    count:    PropTypes.number,
-    onToggle: PropTypes.func.isRequired,
-    children: PropTypes.node,
-}
+/** The panel a desk opens in: its own (Calendar, Hotlist, Forecasts) or the shared list shell's. */
+const deskPanelId = (desk) => desk.panel ?? `floor:${desk.key}`
+/** A desk key → its panel id, for an outside ask (Axl's `<show>`, a card's button). */
+const panelForDesk = (key) => { const d = DESKS.find(x => x.key === key); return d ? deskPanelId(d) : null }
 
-// ── The desk strip ────────────────────────────────────────────────────────────
-// While a desk is open the other headers fold away, so the list gets the column — but the counts
-// went with them, and a count is the one thing on the Floor worth seeing without a click ("Awaiting
-// orders (2)" means someone is blocked). The strip keeps every desk and its count on screen in a
-// few wrapped lines, in the column's own order, the open one marked; one click switches desks
-// (Roy, 2026-10-14). It is not shown when every desk is closed: the headers ARE the strip then.
-// A panel desk's chip (Calendar) opens its panel, and is marked while that panel is open.
-function DeskStrip({ desks, openKey, activePanelId = null, counts, isEmpty, onToggle }) {
+// ── The strip ─────────────────────────────────────────────────────────────────
+// One chip per list, under the chat header, with its count — a count is the one thing on the Floor
+// worth seeing without a click ("Awaiting orders (2)" means someone is blocked). A click puts that
+// list on the stage (the right half — docs/design/floor-stage.md); clicking the list on screen closes
+// it. An EMPTY list keeps its chip, dimmed — never removed (Roy, 2026-10-14): the strip is read by
+// position, and hiding a chip would move the rest each time a count crossed zero. A chip is marked
+// while its list is ON SCREEN (or under an item opened from it) — not while something covers it.
+function FloorStrip({ desks, activeId = null, counts, isEmpty, onToggle }) {
     return (
-        <nav className="floor-strip" aria-label="Desks">
+        <nav className="floor-strip floor-strip--top" aria-label="Lists">
             {desks.map(desk => {
-                const panelOpen = !!desk.panel && activePanelId === desk.panel
-                const active = desk.key === openKey || panelOpen
+                const open = activeId === deskPanelId(desk)
                 const count = counts[desk.key]
                 return (
                     <button
                         key={desk.key}
                         type="button"
-                        className={`floor-strip__chip${active ? ' floor-strip__chip--active' : ''}${isEmpty(desk.key) ? ' floor-strip__chip--empty' : ''}`}
-                        aria-current={desk.key === openKey ? 'true' : undefined}
-                        aria-haspopup={desk.panel ? 'dialog' : undefined}
-                        aria-expanded={desk.panel ? panelOpen : undefined}
+                        data-desk={desk.key}
+                        className={`floor-strip__chip${open ? ' floor-strip__chip--active' : ''}${isEmpty(desk.key) ? ' floor-strip__chip--empty' : ''}`}
+                        aria-haspopup="dialog"
+                        aria-expanded={open}
                         onClick={() => onToggle(desk.key)}
                     >
                         {desk.label}
@@ -165,14 +137,24 @@ function DeskStrip({ desks, openKey, activePanelId = null, counts, isEmpty, onTo
         </nav>
     )
 }
-DeskStrip.propTypes = {
+FloorStrip.propTypes = {
     desks:    PropTypes.array.isRequired,
-    openKey:  PropTypes.string,
-    activePanelId: PropTypes.string,
+    activeId: PropTypes.string,
     counts:   PropTypes.object.isRequired,
     isEmpty:  PropTypes.func.isRequired,
     onToggle: PropTypes.func.isRequired,
 }
+
+/** A list's window: the shared shell for every desk without a panel of its own — a thin bar, its name and ✕. */
+function ListPanel({ desk, children }) {
+    return (
+        <DetailPanel id={deskPanelId(desk)} title={desk.label} container compact className={`floor-panel floor-panel--${desk.key}`}>
+            {/* The rows keep the desk body they were laid out in (Floor.scss: .floor-desk__body …). */}
+            <div className="floor-desk__body floor-panel__body">{children}</div>
+        </DetailPanel>
+    )
+}
+ListPanel.propTypes = { desk: PropTypes.object.isRequired, children: PropTypes.node }
 
 const Empty = ({ children }) => <p className="floor-empty">{children}</p>
 Empty.propTypes = { children: PropTypes.node }
@@ -816,33 +798,35 @@ export function FloorLists({
     researchQueue = [], onStartResearch, onMarkResearchDone, onRejectResearch, researchQueueBusyId = null,
     researchRun = null, onStartResearchRun, onStopResearchRun, onRequeueStalledResearch,
     initialDesk = null, deskRequest = null,
+    book = null,
 }) {
-    // One desk open at a time — clicking the open one closes it, leaving them all collapsed. That
-    // "all closed" state is legitimate: it turns the column into a table of contents — which is
-    // also why it is the state a fresh load lands in. Opening a desk is a choice the reader makes,
-    // not one a refresh makes for them.
-    const [requestedKey, setOpenKey] = useState(initialDesk)
-    // A panel desk toggles its DetailPanel and leaves the column alone: the list you had open stays
-    // open beside the calendar.
+    // Nothing opens on a fresh load: the strip is the table of contents, and opening a list is a
+    // choice the reader makes, not one a refresh makes for them. (`initialDesk` — tests, a deep link.)
+    useEffect(() => { if (initialDesk) openPanel(panelForDesk(initialDesk)) }, []) // eslint-disable-line react-hooks/exhaustive-deps -- once, on mount
     // What the last outside ask pointed the Forecasts map at (`{ symbol }`), handed to its panel.
     const [forecastFocus, setForecastFocus] = useState(null)
-    const toggle = key => {
-        const panel = DESKS.find(d => d.key === key)?.panel
-        if (panel) togglePanel(panel)
-        else setOpenKey(cur => (cur === key ? null : key))
-    }
     const activePanelId = useActivePanel()
+    const underPanelId = useUnderPanel()
+    // Panels are covered on the Floor's stage by a desk's surface or the chart (floor-stage.md).
+    const panelOnStage = useOnStage('panel')
+    // A chip whose list is open but COVERED brings it back to the front instead of closing it: the user
+    // clicked it to see it (Roy: "closing … we are back to what was there" — and opening goes on top).
+    const toggle = key => {
+        const id = panelForDesk(key)
+        const open = activePanelId === id || underPanelId === id
+        if (open && !panelOnStage) bringToFront('panel')
+        else togglePanel(id)
+    }
 
-    // An outside ASK to open a desk (Axl's market-open card → the queued list). Keyed on the
-    // request OBJECT, not its value: pressing the same card twice is two asks, and a plain
-    // `deskRequest === 'queued'` dependency would fire only the first time — leaving the second
-    // click looking broken after the user had closed the desk in between.
-    // A PANEL desk asked for (a sector-view card → Forecasts; an "Open coverage" card → Forecasts on
-    // that company) opens its panel instead of taking the column.
+    // An outside ASK to open a list (Axl's `<show>`, the market-open card → the queued list). Keyed on
+    // the request OBJECT, not its value: pressing the same card twice is two asks, and a plain
+    // `deskRequest === 'queued'` dependency would fire only the first time — leaving the second click
+    // looking broken after the user had closed the list in between. Forecasts can be asked for ON a
+    // company (an "Open coverage" card).
     useEffect(() => {
         if (!deskRequest?.key) return
-        const panel = DESKS.find(d => d.key === deskRequest.key)?.panel
-        if (!panel) { setOpenKey(deskRequest.key); return }
+        const panel = panelForDesk(deskRequest.key)
+        if (!panel) return
         if (deskRequest.key === 'forecasts') setForecastFocus(deskRequest.symbol ? { symbol: deskRequest.symbol } : null)
         openPanel(panel)
     }, [deskRequest])
@@ -856,6 +840,7 @@ export function FloorLists({
     // the one moment it exists for. Readiness was never the header's job anyway; open the desk and
     // each row already carries its own dimmed dot and "waiting for the open".
     const counts = {
+        positions:      book?.positions?.length ?? 0,
         queued:         queued.length,
         trade:          setups.length,
         portfolio:      portfoliosFromIdeas(ideas).length,
@@ -880,12 +865,11 @@ export function FloorLists({
     // and buried the other eight behind it. Removed 2026-09-09; the fourteen tests it was
     // failing were right.
 
-    // An `onRequest` desk (the board) joins the column only while it is the one asked for.
-    const visibleDesks = DESKS.filter(d => !d.hidden && (!d.adminOnly || isAdmin) && (!d.onRequest || d.key === requestedKey))
-    // Only a desk on screen can be open: an initialDesk or desk request naming a hidden (or
-    // admin-only) desk would otherwise fold every header away around a desk that never renders.
-    // A panel desk is never "open" in the column either — it has no body to give the column to.
-    const openKey = visibleDesks.some(d => d.key === requestedKey && !d.panel) ? requestedKey : null
+    // The lists this reader has. An `onRequest` desk (the board) gets a chip only while it is open —
+    // or kept under one of its rows' panels.
+    const shown = DESKS.filter(d => !d.hidden && (!d.adminOnly || isAdmin))
+    const onScreen = (d) => [activePanelId, underPanelId].includes(deskPanelId(d))
+    const stripDesks = shown.filter(d => !d.onRequest || onScreen(d))
 
     const [sorts, setSorts] = useState(readSorts)
     const setSort = (key, sort) => setSorts(cur => {
@@ -912,38 +896,37 @@ export function FloorLists({
     const loadingFor = { aether: aetherCandidates?.loading }
     const isEmpty = key => sortableCount[key] === 0 && !loadingFor[key]
 
+    // The list on screen — or the one kept under a row's panel opened from it: its chip stays marked.
+    // Covered by a surface or the chart, no chip is (the list is not what the user is looking at).
+    const listOpenId = !panelOnStage ? null
+        : shown.some(d => deskPanelId(d) === activePanelId) ? activePanelId : underPanelId
+
     return (
-        <aside className={`floor-lists${openKey ? ' floor-lists--focused' : ''}`}>
-            {/* Same .floor-sec heading the left column uses, so all three columns open on one
-                line across the app rather than three near-misses. */}
-            <header className="floor-sec">
-                <h2 className="floor-sec__title">Lists</h2>
-            </header>
+        <div className="floor-lists-strip">
+            <FloorStrip desks={stripDesks} activeId={listOpenId} counts={counts} isEmpty={isEmpty} onToggle={toggle} />
 
-            {openKey && (
-                <DeskStrip desks={visibleDesks} openKey={openKey} activePanelId={activePanelId} counts={counts} isEmpty={isEmpty} onToggle={toggle} />
-            )}
-
-            {/* Always mounted: it renders nothing until its panel opens, and portals into the chat
-                column when it does. */}
+            {/* Every list is always mounted: each renders nothing until its panel opens, and portals
+                into the chat column when it does. */}
             <CalendarPanel onEarningSelect={onEarningSelect} onIpoSelect={onIpoSelect} onSymbolClick={onSymbolClick} />
             <HotlistPanel onBuild={onHotlistBuild} onAsk={onHotlistAsk} onSymbolClick={onSymbolClick} />
-            <ForecastPanel coverage={coverage} focus={forecastFocus} onOpenBoard={() => setOpenKey('board')}
+            <ForecastPanel coverage={coverage} focus={forecastFocus} onOpenBoard={() => openPanel(panelForDesk('board'))}
                 onEditCoverage={onEditCoverage} onRetireCoverage={onRetireCoverage} onDeleteCoverage={onDeleteCoverage} />
 
-            {visibleDesks.map(desk => (
-                <Desk
-                    key={desk.key}
-                    desk={desk}
-                    open={openKey === desk.key}
-                    collapsed={!!openKey && openKey !== desk.key}
-                    empty={isEmpty(desk.key)}
-                    panelOpen={!!desk.panel && activePanelId === desk.panel}
-                    count={counts[desk.key]}
-                    onToggle={toggle}
-                >
+            {shown.filter(d => !d.panel).map(desk => (
+                <ListPanel key={desk.key} desk={desk}>
                     {DESK_SORTS[desk.key] && sortableCount[desk.key] > 1 && (
                         <SortBar deskKey={desk.key} sort={sorts[desk.key]} onChange={s => setSort(desk.key, s)} />
+                    )}
+                    {desk.key === 'positions' && (
+                        <FloorLeft
+                            positions={book?.positions ?? []}
+                            ideas={book?.ideas ?? ideas}
+                            positionsLoading={book?.loading ?? false}
+                            onOpenPosition={book?.onOpenPosition}
+                            onClosePosition={book?.onClosePosition}
+                            onClosePositions={book?.onClosePositions}
+                            onSymbolClick={onSymbolClick}
+                        />
                     )}
                     {desk.key === 'queued'    && (
                         <QueuedRows
@@ -990,7 +973,7 @@ export function FloorLists({
 
                     {desk.key === 'board' && (
                         <>
-                            <button type="button" className="floor-board__map" onClick={() => togglePanel(FORECAST_PANEL_ID)}>
+                            <button type="button" className="floor-board__map" onClick={() => openPanel(FORECAST_PANEL_ID)}>
                                 Open the heat map
                             </button>
                             <IndustryView industries={industries} loading={industriesLoading} error={industriesError} assessments={assessments} themes={themes} week={week} />
@@ -1012,9 +995,9 @@ export function FloorLists({
                             onRequeueStalledResearch={onRequeueStalledResearch}
                         />
                     )}
-                </Desk>
+                </ListPanel>
             ))}
-        </aside>
+        </div>
     )
 }
 
@@ -1031,6 +1014,11 @@ FloorLists.propTypes = {
     onCancelQueued:    PropTypes.func,
     queuedBusyId:      PropTypes.string,
     deskRequest:       PropTypes.object,
+    // The Positions list (what was the left column): FloorLeft's own props, from MainPage.
+    book:              PropTypes.shape({
+        positions: PropTypes.array, ideas: PropTypes.array, loading: PropTypes.bool,
+        onOpenPosition: PropTypes.func, onClosePosition: PropTypes.func, onClosePositions: PropTypes.func,
+    }),
     // Pythia's board (the `board` desk, opened from the map).
     industries:        PropTypes.array,
     industriesLoading: PropTypes.bool,

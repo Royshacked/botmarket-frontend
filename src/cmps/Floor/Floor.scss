@@ -602,43 +602,9 @@ $desk-h: rem(36px);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// RIGHT — the desks: your work, then the calendar
+// THE LISTS — the strip under the chat header and each list's window on the stage (FloorLists;
+// docs/design/floor-stage.md). The right column that held them went on 2026-10-22.
 // ══════════════════════════════════════════════════════════════════════════════
-.floor-lists {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    height: 100%;
-    background: var(--bg-base);
-    border-top: 1px solid var(--border);   // same edge as .floor-left — see the note there
-    border-left: 1px solid var(--border);
-    // When a desk is open the COLUMN must not scroll — the open desk's body does
-    // (see .floor-desk__body). If the column scrolled, the "Lists" heading and the closed desk
-    // buttons would travel with the list content and disappear off the top.
-    //
-    // When all desks are collapsed they are pure header buttons; if there are more than fit in the
-    // viewport they need to be reachable, so the column scrolls on the Y axis in that state.
-    // It is safe: when a desk IS open, every sibling collapses to max-height:0, so the column
-    // content fits inside 100% height without triggering the scrollbar at all.
-    overflow-x: hidden;
-    overflow-y: auto;
-
-    &::-webkit-scrollbar { width: 7px; }
-    &::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 4px; }
-
-    // The heading stays put while the closed desks scroll under it (Roy, 2026-10-14). With every
-    // desk closed the column itself is what scrolls (see overflow-y above), and the "Lists" header
-    // used to travel off the top with the desk buttons. Sticky, not a separate scroll box, so the
-    // takeover layout is untouched; its background is opaque in every theme, so nothing shows through.
-    > .floor-sec {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-    }
-}
-
-// The "Admin" / "Calendar" group captions that sat here were removed 2026-10-14 (Roy): the column
-// is one flat run of desks.
 
 // The desk strip — every desk and its count, kept on screen while one desk has the column (see
 // DeskStrip). Small wrapped chips, not a second row of headers: it is a switcher, and it should cost
@@ -688,129 +654,42 @@ $desk-h: rem(36px);
         font-weight: 400;
         color: var(--text-dim);
     }
+
+    // Under the chat header, the only way to the lists since the side columns went (Roy, 2026-10-22).
+    &--top { padding: 6px 16px 8px; animation: none; }
 }
 
-.floor-desk {
-    // A CLOSED desk is exactly its header — nothing else is rendered — and that fixed height is
-    // also what it FOLDS from when a sibling opens. Stating it as a max-height rather than leaving
-    // it to content is the whole animation: a box can only travel to zero from a number.
-    flex: 0 0 auto;
-    // +1px for the separator: everything here is border-box, so a bare $desk-h would clip the
-    // hairline off the bottom of every closed desk.
-    max-height: calc(#{$desk-h} + 1px);
-    overflow: hidden;
-    border-bottom: 1px solid var(--border);
+// The lists' windows (FloorLists ListPanel). FloorLeft brought its own "Positions" title from the
+// column; the window's header says it now.
+.floor-lists-strip { flex: 0 0 auto; }
+.floor-panel {
+    &__count { font-size: 12px; color: var(--text-dim); }
+    &--positions .floor-sec { display: none; }
+    // The column's edges (its top and right borders) are the window's now.
+    &--positions .floor-left { height: auto; border: 0; }
+}
+
+// The body a list's rows are laid out in — the desk's, kept when the desk accordion went: the
+// rows' own rules (the queued row's wrap, further down) are written against it.
+.floor-desk__body {
     display: flex;
     flex-direction: column;
+    flex: 1 1 auto;
     min-height: 0;
-    transition: max-height .26s cubic-bezier(.4, 0, .2, 1),
-                opacity     .16s ease,
-                border-color .2s ease;
+    overflow-y: auto;
+    // Pin the other axis. CSS forces a `visible` axis to `auto` when its partner scrolls, so
+    // this box would otherwise grow an unasked-for horizontal scroller — and since the
+    // ::-webkit rule below only sets `width`, that bar renders at the default ~15px height
+    // rather than the intended 7px. The desk rows truncate; they don't scroll sideways.
+    overflow-x: hidden;
+    padding-bottom: 8px;
 
-    // No header fill. The --bg-wash-surface belongs to real column headings (.floor-sec, the chat
-    // panel); wearing it here made four buttons impersonate four headers, and stacked them into a
-    // block of chrome above the one list you actually opened. Plain column background, hover only.
-    &__head {
-        width: 100%;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        height: $desk-h;
-        padding: 0 $row-pad-end 0 12px;
-        background: none;
-        border: 0;
-        font: inherit;
-        color: var(--text-primary);
-        cursor: pointer;
-        text-align: left;
-        flex-shrink: 0;
+    &::-webkit-scrollbar { width: 7px; }
+    &::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 4px; }
 
-        &:hover { background: var(--bg-hover); }
-    }
-
-    &__chev {
-        width: 12px; height: 12px;
-        color: var(--text-dim);
-        flex-shrink: 0;
-        transition: transform .16s;
-    }
-    // Pointing BACK, not down. An open desk is alone at the top of the column with its list under
-    // it, so the caret's job is no longer "this section is expanded" — it is the way out, and the
-    // one arrow on screen should say where the click goes.
-    &--open &__chev { transform: rotate(180deg); color: var(--accent-light); }
-
-    // Deliberately NOT the header type: a desk label is a control you click, not a column
-    // heading. Matching the headers' mono caps would make four buttons read as four sections.
-    &__label {
-        font-size: 12.5px;
-        font-weight: 600;
-        letter-spacing: .2px;
-        line-height: 1;         // shared with the count below, so the two sit on one baseline
-    }
-    &--open &__label { color: var(--accent-light); }
-    // Nothing in it: dimmed, still clickable, never removed (see Desk in FloorLists.jsx). Open, it
-    // reads like any other desk — the empty state inside says the rest.
-    &--empty:not(.floor-desk--open) &__label { color: var(--text-dim); font-weight: 500; }
-
-    // Sits against the label — a parenthetical belongs tight to its noun, so it pulls back most of
-    // the head's 8px flex gap rather than taking a full column's distance from it. Same face and
-    // same line-height as the label for the same reason the list rows do it: see .floor-row__count.
-    &__count {
-        margin-left: -4px;
-        font-family: var(--font-sans);
-        font-size: $count-size;
-        line-height: 1;
-        color: var(--text-dim);
-    }
-
-    // The open desk TAKES THE COLUMN: it grows into every pixel the folded headers gave up, so a
-    // list is read at full height rather than in the gap left under three stacked buttons. It is
-    // the only child that grows and the only one that shrinks, which is also what makes it absorb
-    // all the overflow — the headers never move while you scroll it.
-    //
-    // `max-height: none` is the release valve for the fold above; it doesn't animate (there is no
-    // number to travel to), which is why the OPENING half of the motion is carried by the body's
-    // fade-in and by the siblings folding away around it.
-    &--open {
-        flex: 1 1 auto;
-        max-height: none;
-    }
-
-    // Folded — a sibling is open and has the floor. Kept mounted rather than unrendered so the
-    // column can animate back into its original order, and so the header still reports its state.
-    &--folded {
-        max-height: 0;
-        opacity: 0;
-        border-bottom-color: transparent;
-        pointer-events: none;
-    }
-
-    // Where the scrolling actually happens. No `max-height` cap: the desk above has already been
-    // shrunk to exactly the space the column can spare, and a fixed cap on top of that would just
-    // strand empty column below a scrollbar. `min-height: 0` is what lets a flex child scroll at
-    // all — without it the body floors at its content height and pushes the overflow back up.
-    //
-    // flex column so inner .floor-sub items can use the same accordion pattern as the desks.
-    &__body {
-        display: flex;
-        flex-direction: column;
-        flex: 1 1 auto;
-        min-height: 0;
-        overflow-y: auto;
-        // Pin the other axis. CSS forces a `visible` axis to `auto` when its partner scrolls, so
-        // this box would otherwise grow an unasked-for horizontal scroller — and since the
-        // ::-webkit rule below only sets `width`, that bar renders at the default ~15px height
-        // rather than the intended 7px. The desk rows truncate; they don't scroll sideways.
-        overflow-x: hidden;
-        padding-bottom: 8px;
-
-        &::-webkit-scrollbar { width: 7px; }
-        &::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 4px; }
-
-        // When an inner item is open it scrolls its own body — the outer container must not
-        // compete with a second scrollbar or let its overflow-y fight the sub's overflow-y.
-        &:has(.floor-sub--open) { overflow-y: hidden; }
-    }
+    // When an inner item is open it scrolls its own body — the outer container must not
+    // compete with a second scrollbar or let its overflow-y fight the sub's overflow-y.
+    &:has(.floor-sub--open) { overflow-y: hidden; }
 }
 
 // ── Inner accordion (portfolio books, scan lists, coverage theses) ────────────
@@ -1210,11 +1089,8 @@ $desk-h: rem(36px);
 @media (prefers-reduced-motion: reduce) {
     .floor-acct__chev,
     .floor-book__chev,
-    .floor-row__chev,
-    .floor-desk__chev { transition: none; }
+    .floor-row__chev { transition: none; }
 
-    // The fold still HAPPENS — it is layout, not decoration — it just happens at once.
-    .floor-desk { transition: none; }
     .floor-desk__body,
     .floor-strip { animation: none; }
 }

@@ -3,7 +3,8 @@ import PropTypes from 'prop-types'
 
 import { isHandheld } from '../EntityCard/entityPopup.js'
 import { DrawerShell } from '../DrawerShell/DrawerShell.jsx'
-import { retainPanel, useDetailPanel } from './detailPanel.store.js'
+import { retainPanel, registerContainer, useDetailPanel } from './detailPanel.store.js'
+import { useOnStage } from '../Stage/stage.store.js'
 import './DetailPanel.scss'
 
 // ── The detail panel: one surface for "read this item properly" ──────────────
@@ -36,11 +37,17 @@ export function DetailPanelSlot() {
     return <div id={SLOT_ID} className="detail-panel-slot" />
 }
 
-export function DetailPanel({ id, kicker = '', title, meta = null, actions = null, className = '', children }) {
-    const { isOpen, close } = useDetailPanel(id)
+export function DetailPanel({ id, kicker = '', title, meta = null, actions = null, className = '', container = false, compact = false, children }) {
+    const { isOpen, isUnder, close } = useDetailPanel(id)
+    const onStage = useOnStage('panel')
 
     // Closed with its row — see retainPanel.
     useEffect(() => retainPanel(id), [id])
+    // A whole list: a row's panel opened from it keeps it underneath (detailPanel.store).
+    useEffect(() => (container ? registerContainer(id) : undefined), [id, container])
+
+    // Kept under a row's panel: the content stays MOUNTED (it renders that panel), off screen.
+    if (isUnder && !isOpen) return <div hidden className="detail-panel__kept">{children}</div>
 
     // Esc, focus in and back, and a handheld's back gesture are the shared drawer's (DrawerShell).
     const handheld = isOpen && isHandheld()
@@ -53,13 +60,18 @@ export function DetailPanel({ id, kicker = '', title, meta = null, actions = nul
             onClose={close}
             portalTo={slot ?? (isOpen ? document.body : null)}
             label={typeof title === 'string' ? title : kicker || 'Detail'}
-            className={`detail-panel detail-panel--${mode}${className ? ` ${className}` : ''}`}
+            className={`detail-panel detail-panel--${mode}${container ? ' detail-panel--list' : ''}${className ? ` ${className}` : ''}`}
             modal={mode === 'page'}
             history={handheld ? { field: 'detailPanel', key: id } : null}
+            // Under another layer on the Floor's stage: Esc goes to that layer (DrawerShell).
+            covered={!onStage}
         >
-            <header className="detail-panel__head">
+            <header className={`detail-panel__head${compact ? ' detail-panel__head--compact' : ''}`}>
+                {/* Compact — a whole list on the Floor's stage: a thin bar, its name and ✕, no kicker (Roy,
+                    2026-10-22: no header with the count over a list — the strip's chip carries the count). What a list
+                    shows of the page it is on (the Forecasts map's industry, its confidence) stays, inline. */}
                 <div className="detail-panel__titles">
-                    {kicker && <span className="detail-panel__kicker">{kicker}</span>}
+                    {kicker && !compact && <span className="detail-panel__kicker">{kicker}</span>}
                     <h2 className="detail-panel__title">{title}</h2>
                     {meta && <div className="detail-panel__meta">{meta}</div>}
                 </div>
@@ -84,5 +96,9 @@ DetailPanel.propTypes = {
     // Header buttons. The slot for what every panel will share.
     actions:   PropTypes.node,
     className: PropTypes.string,
+    // A whole list (a Floor list panel), not one item: a row's panel opened from it keeps it under.
+    container: PropTypes.bool,
+    // A thin bar instead of the full header — a list on the Floor's stage.
+    compact:   PropTypes.bool,
     children:  PropTypes.node,
 }

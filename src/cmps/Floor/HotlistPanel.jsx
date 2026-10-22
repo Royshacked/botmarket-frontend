@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
+import { closeForHandOff } from '../Stage/stage.store.js'
 import { useDetailPanel } from '../DetailPanel/detailPanel.store.js'
 import { hotlistService } from '../../services/hotlist/hotlist.service.remote.js'
 import {
@@ -110,7 +111,8 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick }) {
         )
     }
 
-    const handOff = (fn) => fn && ((...args) => { close(); fn(...args) })
+    // On the Floor's stage the list stays under the desk it hands to (closeForHandOff).
+    const handOff = (fn) => fn && ((...args) => { closeForHandOff(close); fn(...args) })
     const b = board.data
     const listView = view === 'list' && today.dayList.length > 0
     const title = listView
@@ -141,7 +143,7 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick }) {
     const retryLoad = () => setRetry(n => n + 1)
 
     return (
-        <DetailPanel id={HOTLIST_PANEL_ID} kicker="Hotlist" title={title} actions={actions} className="hot-panel">
+        <DetailPanel id={HOTLIST_PANEL_ID} kicker="Hotlist" title={title} actions={actions} className="hot-panel" container compact>
             {listView && today.status === 'ok'
                 ? <DayList today={today} sort={sort} setSort={setSort} only={only} setOnly={setOnly}
                     onSymbolClick={onSymbolClick} onBuild={handOff(onBuild)} onAsk={handOff(onAsk)} />

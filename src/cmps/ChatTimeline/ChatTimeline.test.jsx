@@ -25,6 +25,7 @@ const startNew = vi.fn()
 vi.mock('../../customHooks/useSession.js', () => ({ useSession: () => session }))
 
 const { ChatTimeline } = await import('./ChatTimeline.jsx')
+const { VIEW_LABELS } = await import('./ShowOffer.jsx')
 
 const base = (over = {}) => ({
     sessionId: 's1', status: 'active', rows: [], live: null, lastTurn: null, chain: null, floor: 'axl', agentState: {}, loadError: null,
@@ -327,5 +328,20 @@ describe('the house views open from Axl (Roy, 2026-10-19)', () => {
         session = base({ rows: [], lastTurn: { turnId: 't4', status: 'error', payload: { show: { kind: 'calendar' } } } })
         render(<ChatTimeline onOpenView={onOpenView} />)
         expect(onOpenView).not.toHaveBeenCalled()
+    })
+
+    // Every Floor list is a view too (Roy, 2026-10-22): "show me my trades" opens the Trades window.
+    it('a list shown by Axl opens as the turn ends, and its row keeps a button', () => {
+        const onOpenView = vi.fn()
+        session = base({ rows: [row(2, { content: 'Here are your trades.', ref: { show: { kind: 'trades', ref: null } } })],
+            lastTurn: { turnId: 't5', status: 'done', payload: { show: { kind: 'trades', ref: null } } } })
+        render(<ChatTimeline onOpenView={onOpenView} />)
+        expect(onOpenView).toHaveBeenCalledWith('trades', null)
+        fireEvent.click(screen.getByText('Open your trades'))
+        expect(onOpenView).toHaveBeenCalledTimes(2)
+    })
+
+    it('every list has its words on the button', () => {
+        for (const kind of ['positions', 'orders', 'trades', 'portfolios', 'watchlists', 'hotlist']) expect(VIEW_LABELS[kind]).toMatch(/^Open /)
     })
 })
