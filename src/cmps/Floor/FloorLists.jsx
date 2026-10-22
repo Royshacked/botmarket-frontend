@@ -17,6 +17,7 @@ import { HotlistPanel, HOTLIST_PANEL_ID } from './HotlistPanel.jsx'
 import { IndustryView } from '../Radar/IndustryView.jsx'
 import { useActivePanel, useUnderPanel, togglePanel, openPanel } from '../DetailPanel/detailPanel.store.js'
 import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
+import { FloorLeft } from './FloorLeft.jsx'
 
 import './Floor.scss'
 import { AetherCandidates } from '../TradeIdeas/AetherCandidates.jsx'
@@ -47,6 +48,9 @@ const DESKS = [
     // The KEYS stay — they are what sorts, desk requests and tests address.
     // Every list opens in the DETAIL WINDOW over the chat (Roy, 2026-10-22) — the column is the launcher: a header
     // opens its list's window (ListPanel) and the column stays as it is, like the Calendar's always did.
+    // POSITIONS — the book, which is the left column; a window too, for Axl's `<show>positions` (Roy, 2026-10-22: the user
+    // sees every list through Axl) and a screen too narrow for the column. On request only: the column already shows it.
+    { key: 'positions',      label: 'Positions',       panel: 'floor:positions', onRequest: true },
     { key: 'queued',         label: 'Awaiting orders', panel: 'floor:queued' },
     { key: 'trade',          label: 'Your trades',     panel: 'floor:trade' },
     { key: 'portfolio',      label: 'Your portfolios', panel: 'floor:portfolio' },
@@ -834,6 +838,7 @@ export function FloorLists({
     researchQueue = [], onStartResearch, onMarkResearchDone, onRejectResearch, researchQueueBusyId = null,
     researchRun = null, onStartResearchRun, onStopResearchRun, onRequeueStalledResearch,
     initialDesk = null, deskRequest = null,
+    book = null,
 }) {
     // One desk open at a time — clicking the open one closes it, leaving them all collapsed. That
     // "all closed" state is legitimate: it turns the column into a table of contents — which is
@@ -865,12 +870,13 @@ export function FloorLists({
     // that company) opens its panel instead of taking the column.
     useEffect(() => {
         if (!deskRequest?.key) return
-        const panel = DESKS.find(d => d.key === deskRequest.key)?.panel
+        // Only a list this reader has: an admin's list asked for by anyone else opens nothing (and leaves no stale id).
+        const panel = DESKS.find(d => d.key === deskRequest.key && !d.hidden && (!d.adminOnly || isAdmin))?.panel
         if (!panel) { setOpenKey(deskRequest.key); return }
         // Forecasts can be asked for ON a company (an Open coverage card) or an industry (Pythia's changed card).
         if (deskRequest.key === 'forecasts') setForecastFocus(deskRequest.symbol ? { symbol: deskRequest.symbol } : deskRequest.code ? { code: deskRequest.code } : null)
         openPanel(panel)
-    }, [deskRequest])
+    }, [deskRequest]) // eslint-disable-line react-hooks/exhaustive-deps -- keyed on the request OBJECT (above); `isAdmin` is read as it arrives
 
     // Every count is the same thing: how many items are in the list. The header says how much is
     // here, the rows say what you can do about it.
@@ -881,6 +887,7 @@ export function FloorLists({
     // the one moment it exists for. Readiness was never the header's job anyway; open the desk and
     // each row already carries its own dimmed dot and "waiting for the open".
     const counts = {
+        positions:      book?.positions?.length ?? 0,
         queued:         queued.length,
         trade:          setups.length,
         portfolio:      portfoliosFromIdeas(ideas).length,
@@ -943,6 +950,17 @@ export function FloorLists({
         <>
             {DESK_SORTS[desk.key] && sortableCount[desk.key] > 1 && (
                 <SortBar deskKey={desk.key} sort={sorts[desk.key]} onChange={s => setSort(desk.key, s)} />
+            )}
+            {desk.key === 'positions' && (
+                <FloorLeft
+                    positions={book?.positions ?? []}
+                    ideas={book?.ideas ?? ideas}
+                    positionsLoading={book?.loading ?? false}
+                    onOpenPosition={book?.onOpenPosition}
+                    onClosePosition={book?.onClosePosition}
+                    onClosePositions={book?.onClosePositions}
+                    onSymbolClick={onSymbolClick}
+                />
             )}
             {desk.key === 'queued'    && (
                 <QueuedRows
@@ -1067,6 +1085,11 @@ FloorLists.propTypes = {
     onCancelQueued:    PropTypes.func,
     queuedBusyId:      PropTypes.string,
     deskRequest:       PropTypes.object,
+    // The book, for the Positions window (FloorLeft's own props, from MainPage).
+    book:              PropTypes.shape({
+        positions: PropTypes.array, ideas: PropTypes.array, loading: PropTypes.bool,
+        onOpenPosition: PropTypes.func, onClosePosition: PropTypes.func, onClosePositions: PropTypes.func,
+    }),
     // Pythia's board (the `board` desk, opened from the map).
     industries:        PropTypes.array,
     industriesLoading: PropTypes.bool,

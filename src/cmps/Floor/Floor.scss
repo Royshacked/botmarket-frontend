@@ -1623,3 +1623,11 @@ $fm-steps: (1: 14%, 2: 26%, 3: 40%, 4: 56%);
     &__cov  { display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; }
     &__none { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
 }
+
+// ── A list's window over the chat (FloorLists ListPanel, 2026-10-22) ──────────
+// The Positions window shows the left column's book (FloorLeft): its own "Positions" heading and the
+// column's edges are the window's now.
+.floor-panel--positions {
+    .floor-sec { display: none; }
+    .floor-left { height: auto; border: 0; }
+}

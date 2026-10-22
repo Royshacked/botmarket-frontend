@@ -341,8 +341,8 @@ describe('the house views open from Axl (Roy, 2026-10-19)', () => {
         expect(onOpenView).toHaveBeenCalledTimes(2)
     })
 
-    it('every list has its words on the button — positions is a column, not a window', () => {
-        for (const kind of ['orders', 'trades', 'portfolios', 'watchlists', 'hotlist']) expect(VIEW_LABELS[kind]).toMatch(/^Open /)
-        expect(VIEW_LABELS.positions).toBeUndefined()
+    // Every list, through Axl (Roy, 2026-10-22).
+    it('every list has its words on the button', () => {
+        for (const kind of ['positions', 'orders', 'trades', 'portfolios', 'watchlists', 'hotlist', 'board', 'research']) expect(VIEW_LABELS[kind]).toMatch(/^Open /)
     })
 })

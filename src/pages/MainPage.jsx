@@ -65,6 +65,7 @@ import { closePanel }        from '../cmps/DetailPanel/detailPanel.store.js'
 // Axl's `<show>` kinds for the Floor's lists (the user's word) → FloorLists's desk keys (handleOpenView).
 const VIEW_DESKS = Object.freeze({
     calendar: 'calendar', orders: 'queued', trades: 'trade', portfolios: 'portfolio', watchlists: 'scans', hotlist: 'hotlist',
+    positions: 'positions', board: 'board', research: 'research_queue',
 })
 
 // Finnhub session codes → readable when-phrasing for the earnings print.
@@ -1668,6 +1669,9 @@ export function MainPage() {
                                     onRejectResearch={handleRejectResearch}
                                     researchQueueBusyId={researchQueueBusyId}
                                     researchRun={researchRun}
+                                    // The book again, for the Positions window Axl's <show>positions opens (the column is hidden
+                                    // on a narrower screen).
+                                    book={{ positions, ideas, loading: positionsLoading, onOpenPosition: handleOpenPositionFromFloor, onClosePosition: closePosition, onClosePositions: closePositions }}
                                     onStartResearchRun={handleStartResearchRun}
                                     onStopResearchRun={handleStopResearchRun}
                                     onRequeueStalledResearch={handleRequeueStalledResearch}

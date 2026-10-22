@@ -12,11 +12,14 @@ const SHOW_NOUN = { setup: 'setup' }
 export const VIEW_LABELS = Object.freeze({
     heatmap:    'Open the forecast heat map',
     calendar:   'Open the calendar',
+    positions:  'Open your positions',
     orders:     'Open awaiting orders',
     trades:     'Open your trades',
     portfolios: 'Open your portfolios',
     watchlists: 'Open your watchlists',
     hotlist:    'Open the hotlist',
+    board:      'Open the forecast board',
+    research:   'Open the research queue',
 })
 
 /**

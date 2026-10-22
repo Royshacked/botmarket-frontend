@@ -86,6 +86,31 @@ describe('FloorLists', () => {
         expect(column).toMatch(/>\s*\.floor-sec\s*\{[^}]*position:\s*sticky[^}]*top:\s*0/)
     })
 
+    // Axl's <show> reaches every list (Roy, 2026-10-22: "the user should be able to see all lists through Axl") —
+    // including the three with no header of their own in the column until they are open.
+    describe('every list opens from an outside ask', () => {
+        const name = () => screen.getByRole('dialog').getAttribute('aria-label')
+        it('positions — the book in a window, its header in the column only while open', () => {
+            render(<FloorLists book={{ positions: [], loading: false }} deskRequest={{ key: 'positions' }} />)
+            expect(name()).toBe('Positions')
+            expect(screen.getByText('No open positions.')).toBeTruthy()
+            expect(deskBtn('Positions').getAttribute('aria-expanded')).toBe('true')
+            act(() => closePanel())
+            expect(screen.queryByRole('button', { name: /^Positions/ })).toBeNull()
+        })
+        it('the forecast board', () => {
+            render(<FloorLists assessments={{ assessments: [], record: null }} deskRequest={{ key: 'board' }} />)
+            expect(name()).toBe('Forecast board')
+        })
+        it('the research queue — for an admin; for anyone else it opens nothing', () => {
+            render(<FloorLists isAdmin deskRequest={{ key: 'research_queue' }} />)
+            expect(name()).toBe('Research queue')
+            cleanup(); act(() => closePanel())
+            render(<FloorLists deskRequest={{ key: 'research_queue' }} />)
+            expect(screen.queryByRole('dialog')).toBeNull()
+        })
+    })
+
     // Every list opens in the DETAIL WINDOW over the chat (Roy, 2026-10-22): the column is the launcher — a header opens
     // its list's window, the column itself never changes.
     describe('the column is a launcher', () => {
