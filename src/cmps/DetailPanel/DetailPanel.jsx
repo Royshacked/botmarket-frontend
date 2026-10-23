@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
 
 import { isHandheld } from '../EntityCard/entityPopup.js'
@@ -36,6 +37,19 @@ export function DetailPanelSlot() {
     return <div id={SLOT_ID} className="detail-panel-slot" />
 }
 
+// Where the content's host node shows: the open panel's body, or a hidden slot while the panel is kept under. Attached
+// before paint, so a panel coming back from under never shows empty for a frame (the SidePane's KeptSlot).
+function HostSlot({ host, className, hidden = false }) {
+    const ref = useRef(null)
+    useLayoutEffect(() => {
+        const slot = ref.current
+        slot?.appendChild(host)
+        return () => { if (host.parentNode === slot) slot.removeChild(host) }
+    }, [host])
+    return <div ref={ref} className={className} hidden={hidden} />
+}
+HostSlot.propTypes = { host: PropTypes.object.isRequired, className: PropTypes.string, hidden: PropTypes.bool }
+
 export function DetailPanel({ id, kicker = '', title, meta = null, actions = null, className = '', container = false, bare = false, children }) {
     const { isOpen, isUnder, close } = useDetailPanel(id)
 
@@ -44,15 +58,26 @@ export function DetailPanel({ id, kicker = '', title, meta = null, actions = nul
     // A whole list: a row's panel opened from it keeps it underneath (detailPanel.store).
     useEffect(() => (container ? registerContainer(id) : undefined), [id, container])
 
+    // THE CONTENT RENDERS IN ONE PLACE IN THE TREE, open or kept under (bug 2026-10-23: a theme from the board's Themes
+    // tab never opened). It used to render inside the shell's body when open and inside a hidden div when kept — two
+    // different trees, so going under REMOUNTED the list: the board's tab reset to Assessed, the Themes tab and the row
+    // whose panel had just opened unmounted, and retainPanel closed that panel. Now it is portaled into one host node
+    // from a fixed spot, and only the node moves — the SidePane's kept tabs, the same mechanism.
+    const [host] = useState(() => Object.assign(document.createElement('div'), { className: 'detail-panel__content' }))
+    const content = isOpen || isUnder ? createPortal(children, host) : null
+
     // Kept under a row's panel: the content stays MOUNTED (it renders that panel), off screen.
-    if (isUnder && !isOpen) return <div hidden className="detail-panel__kept">{children}</div>
+    if (isUnder && !isOpen) return <>{content}<HostSlot host={host} className="detail-panel__kept" hidden /></>
 
     // Esc, focus in and back, and a handheld's back gesture are the shared drawer's (DrawerShell).
     const handheld = isOpen && isHandheld()
     const slot = isOpen && !handheld ? document.getElementById(SLOT_ID) : null
     const mode = slot ? 'docked' : 'page'
 
+    // A fragment in every state, the content first: that fixed spot is what keeps it mounted across open ↔ under.
     return (
+        <>
+        {content}
         <DrawerShell
             isOpen={isOpen}
             onClose={close}
@@ -90,8 +115,9 @@ export function DetailPanel({ id, kicker = '', title, meta = null, actions = nul
                         </button>
                     </header>
                 )}
-            <div className="detail-panel__body">{children}</div>
+            <HostSlot host={host} className="detail-panel__body" />
         </DrawerShell>
+        </>
     )
 }
 

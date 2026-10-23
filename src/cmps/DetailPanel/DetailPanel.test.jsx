@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { StrictMode } from 'react'
+import { StrictMode, useState } from 'react'
 import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import { DetailPanel, DetailPanelSlot, SLOT_ID } from './DetailPanel.jsx'
 import { activePanel, closePanel, openPanel, togglePanel, retainPanel } from './detailPanel.store.js'
@@ -200,6 +200,36 @@ describe('a list panel and a row of it — one step back', () => {
         fireEvent.click(screen.getAllByRole('button', { name: 'Close' }).at(-1))
         expect(activePanel()).toBe('floor:board')
         expect(screen.getByText('the board').closest('[hidden]')).toBeNull()
+    })
+
+    // Bug 2026-10-23: a theme on the board's Themes tab never opened. Going under REMOUNTED the list (its content moved
+    // to another place in the tree), so the tab reset, the row unmounted, and its panel closed as it opened.
+    it('the list keeps its STATE under a row\'s panel: a row on a non-default tab opens, and the tab is still there after', async () => {
+        // The tab's state INSIDE the panel, as IndustryView holds it — state above the panel never saw the remount.
+        function Tabs() {
+            const [tab, setTab] = useState('assessed')
+            return (
+                <>
+                    <button type="button" onClick={() => setTab('themes')}>Themes tab</button>
+                    <p>tab: {tab}</p>
+                    {tab === 'themes' && <Opener id="theme:th_ai" />}
+                </>
+            )
+        }
+        function TabbedBoard() {
+            return <DetailPanel id="floor:board" title="Board" container><Tabs /></DetailPanel>
+        }
+        render(<><DetailPanelSlot /><TabbedBoard /></>)
+        act(() => openPanel('floor:board'))
+        fireEvent.click(screen.getByRole('button', { name: 'Themes tab' }))
+        fireEvent.click(screen.getByRole('button', { name: 'open theme:th_ai' }))
+        // retainPanel closes an unmounted row's panel on the next tick — wait it out, or the bug passes unseen.
+        await act(() => new Promise(r => setTimeout(r, 0)))
+        expect(activePanel()).toBe('theme:th_ai')
+        expect(screen.getByText('body of theme:th_ai')).toBeTruthy()
+        fireEvent.click(screen.getAllByRole('button', { name: 'Close' }).at(-1))
+        expect(activePanel()).toBe('floor:board')
+        expect(screen.getByText('tab: themes')).toBeTruthy()
     })
 
     it('switching to another LIST is a switch, not a step: closing it goes nowhere', () => {
