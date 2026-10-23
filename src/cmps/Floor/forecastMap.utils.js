@@ -100,6 +100,26 @@ export function sectorLine({ counts, covered }) {
     return parts.join(' · ')
 }
 
+// ── Themes on the map (Roy, 2026-10-23: "I want to see it in Forecast") ──
+// A theme is a value chain of sub-industries (Pythia's Themes), shown as a row of tiles above the sectors. Its colour
+// is the same arithmetic as an industry's, over the industries it is made of: the mean move of its DIRECT links in the
+// window — what the theme's own hype flag reads — or of all its links when no direct one is on the map.
+
+/** The approved themes, in name order — a proposal or a retired theme is the admin's, on the board. Pure. */
+export function mapThemes(themes) {
+    return (themes ?? []).filter(t => t?.status === 'approved').sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? '')))
+}
+
+/** A theme's move in the window from its links' tiles, or null when none of them is on the map. Pure. */
+export function themeMove(theme, tilesByCode, windowKey) {
+    const moves = (order) => (theme?.links ?? [])
+        .filter(l => order == null || l.order === order)
+        .map(l => moveOf(tilesByCode.get(l.code), windowKey))
+        .filter(v => v != null)
+    const xs = moves(1).length ? moves(1) : moves(null)
+    return xs.length ? xs.reduce((s, v) => s + v, 0) / xs.length : null
+}
+
 /** "$412B" / "$3.1B" / "$640M" / "" */
 export function capText(v) {
     if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0) return ''

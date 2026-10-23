@@ -1049,7 +1049,7 @@ export function FloorLists({
                 column when it does. */}
             <CalendarPanel onEarningSelect={onEarningSelect} onIpoSelect={onIpoSelect} onSymbolClick={onSymbolClick} />
             <HotlistPanel onBuild={onHotlistBuild} onAsk={onHotlistAsk} onSymbolClick={onSymbolClick} />
-            <ForecastPanel coverage={coverage} focus={forecastFocus} onOpenBoard={() => openPanel('floor:board')}
+            <ForecastPanel coverage={coverage} themes={themes} focus={forecastFocus} onOpenBoard={() => openPanel('floor:board')}
                 onEditCoverage={onEditCoverage} onRetireCoverage={onRetireCoverage} onDeleteCoverage={onDeleteCoverage} />
             {shown.filter(d => d.panel?.startsWith('floor:')).map(desk => (
                 <ListPanel key={desk.key} desk={desk}>{deskBody(desk)}</ListPanel>

@@ -4,7 +4,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
     heatLevel, pctText, badgeOf, tileVerdict, moveOf, isStale, matchesFilter, groupBySector, sectorLine, capText,
-    windowOf, DEFAULT_WINDOW,
+    windowOf, DEFAULT_WINDOW, mapThemes, themeMove,
 } from './forecastMap.utils.js'
 
 const tile = (over = {}) => ({ code: '1', name: 'A', sector: 'Energy', industry: 'Oil', covered: 0, moves: null, assessment: null, ...over })
@@ -102,5 +102,21 @@ describe('groupBySector', () => {
         assert.equal(sectorLine(g[1]), '2 swing · 2 covered')
         assert.equal(sectorLine(g[0]), '1 avoid · 1 covered')
         assert.equal(sectorLine(g[2]), '')
+    })
+})
+
+describe('themes on the map', () => {
+    const tiles = new Map([['A', { moves: { rel_3m: 0.2 } }], ['B', { moves: { rel_3m: 0.1 } }], ['C', { moves: { rel_3m: -0.5 } }]])
+    it('a theme moves with its DIRECT links; with none on the map, with all of its links', () => {
+        const t = { links: [{ code: 'A', order: 1 }, { code: 'B', order: 1 }, { code: 'C', order: 2 }] }
+        assert.equal(themeMove(t, tiles, 'rel_3m').toFixed(3), '0.150')
+        assert.equal(themeMove({ links: [{ code: 'X', order: 1 }, { code: 'C', order: 2 }] }, tiles, 'rel_3m'), -0.5)
+        assert.equal(themeMove({ links: [{ code: 'X', order: 1 }] }, tiles, 'rel_3m'), null)
+        assert.equal(themeMove(null, tiles, 'rel_3m'), null)
+    })
+    it('only approved themes, by name', () => {
+        const r = mapThemes([{ name: 'b', status: 'approved' }, { name: 'p', status: 'proposed' }, { name: 'a', status: 'approved' }, { name: 'r', status: 'retired' }])
+        assert.deepEqual(r.map(t => t.name), ['a', 'b'])
+        assert.deepEqual(mapThemes(undefined), [])
     })
 })

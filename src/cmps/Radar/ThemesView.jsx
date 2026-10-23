@@ -13,10 +13,12 @@ import { verdictKey, VERDICT_LABEL, causeWord, ORDER_LABEL, linkMoveLine, groupB
 // link's move. PYTHIA PROPOSES, THE ADMIN APPROVES (Roy, 2026-10-10): a trader sees approved themes only;
 // an admin also sees the proposals waiting and approves, retires, asks for proposals and assesses.
 
-function ThemeRow({ theme, isAdmin }) {
-    // The detail opens in the DetailPanel over the chat column (one panel across the app — see its store).
-    const panel = useDetailPanel(`theme:${theme.id}`)
-    const open = panel.isOpen
+/**
+ * One theme's page: its thesis, Pythia's view, the chain by order with each link's move, the named companies, and the
+ * admin's actions. Shared by the board's Themes tab and the Forecasts map (Roy, 2026-10-23). `onPickLink(code)`, when
+ * given, makes each link a door to its industry.
+ */
+export function ThemeDetail({ theme, isAdmin = false, onPickLink = null }) {
     const [busy, setBusy] = useState(null)
     const [note, setNote] = useState(null)
     const a = theme.assessment
@@ -38,6 +40,55 @@ function ThemeRow({ theme, isAdmin }) {
         }
     }
     return (
+        <div className="industry-view__detail">
+            <p className="industry-view__summary">{theme.thesis}</p>
+            {a && (
+                <p>
+                    <span className="industry-view__label">Pythia&apos;s view</span>{' '}
+                    <b>{VERDICT_LABEL[a.verdict]}</b> ({a.horizon}, confidence {a.confidence}) — {a.thesis}
+                    {a.cause && <> · <i>moved by {causeWord(a.cause.kind, a.moved?.hype)}</i></>}
+                </p>
+            )}
+            {groupByOrder(theme.links).map(([order, links]) => (
+                <div key={order} className="industry-view__answer">
+                    <span className="industry-view__answer-q">{order} · {ORDER_LABEL[order]}</span>
+                    <ul className="themes-view__links">
+                        {links.map(l => (
+                            <li key={l.code}>
+                                {onPickLink
+                                    ? <button type="button" className="cal-link themes-view__link" onClick={() => onPickLink(l.code)} title="Open this industry">{l.name}</button>
+                                    : <b>{l.name}</b>}
+                                {' '}— {l.why}
+                                {moves.get(l.code) && <span className="themes-view__move"> · {linkMoveLine(moves.get(l.code))}</span>}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            ))}
+            {(theme.basket?.length ?? 0) > 0 && (
+                <p className="industry-view__meta">Named companies: {theme.basket.map(b => b.symbol).join(', ')}</p>
+            )}
+            <p className="industry-view__meta">Words its filings and news use: {(theme.terms ?? []).join(', ')}</p>
+            {isAdmin && (
+                <div className="assessment-view__assess">
+                    {theme.status === 'proposed' && <button type="button" disabled={locked} onClick={() => act('Approve', () => strategyService.setThemeStatus(theme.id, 'approved'))}>Approve</button>}
+                    {theme.status !== 'retired' && <button type="button" disabled={locked} onClick={() => act('Retire', () => strategyService.setThemeStatus(theme.id, 'retired'))}>Retire</button>}
+                    {theme.status === 'retired' && <button type="button" disabled={locked} onClick={() => act('Approve', () => strategyService.setThemeStatus(theme.id, 'approved'))}>Re-approve</button>}
+                    {theme.status === 'approved' && <button type="button" disabled={locked} onClick={() => act('Assess', () => strategyService.assessTheme(theme.id))}>{assessing ? 'Assessing…' : 'Assess now'}</button>}
+                    <span role="status" aria-live="polite" className={note ? 'assessment-view__result' : undefined}>{note}</span>
+                </div>
+            )}
+        </div>
+    )
+}
+ThemeDetail.propTypes = { theme: PropTypes.object.isRequired, isAdmin: PropTypes.bool, onPickLink: PropTypes.func }
+
+function ThemeRow({ theme, isAdmin }) {
+    // The detail opens in the DetailPanel over the chat column (one panel across the app — see its store).
+    const panel = useDetailPanel(`theme:${theme.id}`)
+    const open = panel.isOpen
+    const a = theme.assessment
+    return (
         <div className="industry-view__row">
             <button type="button" className="industry-view__line" onClick={panel.toggle} aria-haspopup="dialog" aria-expanded={open}>
                 <span className="industry-view__head">
@@ -54,42 +105,7 @@ function ThemeRow({ theme, isAdmin }) {
                 </span>
             </button>
             <DetailPanel id={`theme:${theme.id}`} kicker="Forecasts · Themes" title={theme.name} meta={<>{a && <span className={`assessment-view__verdict assessment-view__verdict--${verdictKey(a.verdict)}`}>{VERDICT_LABEL[a.verdict] ?? a.verdict}</span>}{theme.status !== 'approved' && <span>{theme.status}</span>}<span>{(theme.links ?? []).length} links</span></>}>
-                <div className="industry-view__detail">
-                    <p className="industry-view__summary">{theme.thesis}</p>
-                    {a && (
-                        <p>
-                            <span className="industry-view__label">Pythia&apos;s view</span>{' '}
-                            <b>{VERDICT_LABEL[a.verdict]}</b> ({a.horizon}, confidence {a.confidence}) — {a.thesis}
-                            {a.cause && <> · <i>moved by {causeWord(a.cause.kind, a.moved?.hype)}</i></>}
-                        </p>
-                    )}
-                    {groupByOrder(theme.links).map(([order, links]) => (
-                        <div key={order} className="industry-view__answer">
-                            <span className="industry-view__answer-q">{order} · {ORDER_LABEL[order]}</span>
-                            <ul className="themes-view__links">
-                                {links.map(l => (
-                                    <li key={l.code}>
-                                        <b>{l.name}</b> — {l.why}
-                                        {moves.get(l.code) && <span className="themes-view__move"> · {linkMoveLine(moves.get(l.code))}</span>}
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    ))}
-                    {(theme.basket?.length ?? 0) > 0 && (
-                        <p className="industry-view__meta">Named companies: {theme.basket.map(b => b.symbol).join(', ')}</p>
-                    )}
-                    <p className="industry-view__meta">Words its filings and news use: {(theme.terms ?? []).join(', ')}</p>
-                    {isAdmin && (
-                        <div className="assessment-view__assess">
-                            {theme.status === 'proposed' && <button type="button" disabled={locked} onClick={() => act('Approve', () => strategyService.setThemeStatus(theme.id, 'approved'))}>Approve</button>}
-                            {theme.status !== 'retired' && <button type="button" disabled={locked} onClick={() => act('Retire', () => strategyService.setThemeStatus(theme.id, 'retired'))}>Retire</button>}
-                            {theme.status === 'retired' && <button type="button" disabled={locked} onClick={() => act('Approve', () => strategyService.setThemeStatus(theme.id, 'approved'))}>Re-approve</button>}
-                            {theme.status === 'approved' && <button type="button" disabled={locked} onClick={() => act('Assess', () => strategyService.assessTheme(theme.id))}>{assessing ? 'Assessing…' : 'Assess now'}</button>}
-                            <span role="status" aria-live="polite" className={note ? 'assessment-view__result' : undefined}>{note}</span>
-                        </div>
-                    )}
-                </div>
+                <ThemeDetail theme={theme} isAdmin={isAdmin} />
             </DetailPanel>
         </div>
     )

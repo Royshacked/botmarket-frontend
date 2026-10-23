@@ -15,7 +15,9 @@ vi.mock('../../context/AuthContext.jsx', async (orig) => {
     return authModule(await orig())
 })
 vi.mock('../../services/strategy/strategy.service.remote.js', () => ({
-    strategyService: { getForecastMap: vi.fn(), getIndustryCompanies: vi.fn(), getAssessmentDetail: vi.fn() },
+    // isRunning: a theme's page carries the admin's Assess now (ThemeDetail → useStrategyRun).
+    strategyService: { getForecastMap: vi.fn(), getIndustryCompanies: vi.fn(), getAssessmentDetail: vi.fn(), isRunning: vi.fn(() => false) },
+    INDUSTRIES_CHANGED: 'strategy:industries-changed',
 }))
 
 const SEMI = {
@@ -213,5 +215,50 @@ describe('ForecastPanel — a company', () => {
         act(() => openPanel(FORECAST_PANEL_ID))
         await flush()
         expect(title()).toBe('Industries')
+    })
+})
+
+// Themes on the map (Roy, 2026-10-23: "I want to see it in Forecast").
+describe('ForecastPanel — themes', () => {
+    const AI = {
+        id: 'th_ai', name: 'AI compute', status: 'approved', thesis: 'Capex across the chain.',
+        links: [
+            { code: '45301020', name: 'Semiconductors', order: 1, why: 'chips' },
+            { code: '10102010', name: 'Integrated Oil & Gas', order: 2, why: 'power' },
+        ],
+        assessment: { verdict: 'watch', horizon: 'months', confidence: 'medium', thesis: 'Uneven buildout.', moved: { hype: false, links: [] } },
+    }
+    const PROPOSED = { id: 'th_new', name: 'Not yet', status: 'proposed', links: [], thesis: 't' }
+
+    it('the approved themes are a row above the sectors, coloured by their DIRECT links, the verdict a letter', async () => {
+        await openMap({ themes: [PROPOSED, AI] })
+        const row = screen.getByRole('region', { name: 'Themes' })
+        const tiles = within(row).getAllByRole('button')
+        expect(tiles.map(t => t.querySelector('.fm-tile__name').textContent)).toEqual(['AI compute'])   // a proposal is the board's
+        // Semis +12% over 3 months is the direct link; the oil supplier's −8% does not dilute it.
+        expect(tiles[0].querySelector('.fm-tile__move').textContent).toBe('+12%')
+        expect(tiles[0].querySelector('.fm-tile__badge').textContent).toBe('W')
+        const sections = [...panel().querySelectorAll('.fm-sector')].map(s => s.getAttribute('aria-label'))
+        expect(sections[0]).toBe('Themes')
+    })
+
+    it('a theme opens its page in the window; a link opens that industry, whose back returns to the theme', async () => {
+        await openMap({ themes: [AI] })
+        fireEvent.click(within(screen.getByRole('region', { name: 'Themes' })).getByRole('button'))
+        expect(title()).toBe('AI compute')
+        expect(screen.getByText('Capex across the chain.')).toBeTruthy()
+        expect(panel().textContent).toMatch(/1 · direct/)
+        fireEvent.click(screen.getByRole('button', { name: 'Semiconductors' }))
+        await flush()
+        expect(title()).toBe('Semiconductors')
+        fireEvent.click(screen.getByRole('button', { name: '‹ AI compute' }))
+        expect(title()).toBe('AI compute')
+        fireEvent.click(screen.getByRole('button', { name: '‹ Map' }))
+        expect(title()).toBe('Industries')
+    })
+
+    it('no approved theme → no row', async () => {
+        await openMap({ themes: [PROPOSED] })
+        expect(screen.queryByRole('region', { name: 'Themes' })).toBeNull()
     })
 })

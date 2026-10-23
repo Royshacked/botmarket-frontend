@@ -4,13 +4,15 @@ import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
 import { useDetailPanel, closePanel } from '../DetailPanel/detailPanel.store.js'
 import { strategyService } from '../../services/strategy/strategy.service.remote.js'
 import { AssessmentDetail } from '../Radar/AssessmentView.jsx'
+import { ThemeDetail } from '../Radar/ThemesView.jsx'
+import { useAuth } from '../../context/AuthContext.jsx'
 import { VERDICT_LABEL, verdictKey } from '../Radar/assessmentWords.js'
 import { CoverageActions } from '../Radar/CoverageActions.jsx'
 import { CoverageDetail, CoverageMeta, CoverageRating } from './CoverageDetail.jsx'
 import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
 import {
     WINDOWS, DEFAULT_WINDOW, windowOf, FILTERS, badgeOf, tileVerdict, moveOf, heatLevel, pctText, isStale,
-    matchesFilter, groupBySector, sectorLine, capText,
+    matchesFilter, groupBySector, sectorLine, capText, mapThemes, themeMove,
 } from './forecastMap.utils.js'
 import '../Radar/IndustryView.scss'
 
@@ -24,6 +26,9 @@ import '../Radar/IndustryView.scss'
 //                Prometheus covers them
 //   a company    Prometheus's thesis, with the coverage actions the old desk carried
 // A card that names a covered ticker (OPEN_COVERAGE) opens straight on that company — `focus`.
+// THEMES (Roy, 2026-10-23): Pythia's approved themes are a row of tiles above the sectors, coloured by their direct
+// links' move; a theme opens its page here (the board's own ThemeDetail), and each link opens that industry, whose
+// back arrow returns to the theme (`from`).
 
 export const FORECAST_PANEL_ID = 'forecasts'
 
@@ -37,8 +42,9 @@ function focusView(focus) {
     return code ? { level: 'industry', code } : null
 }
 
-export function ForecastPanel({ coverage = [], focus = null, onOpenBoard, onEditCoverage, onRetireCoverage, onDeleteCoverage }) {
+export function ForecastPanel({ coverage = [], themes = [], focus = null, onOpenBoard, onEditCoverage, onRetireCoverage, onDeleteCoverage }) {
     const { isOpen } = useDetailPanel(FORECAST_PANEL_ID)
+    const isAdmin = Boolean(useAuth()?.isAdmin)
     const [view, setView] = useState(MAP)
     const [win, setWin] = useState(DEFAULT_WINDOW)
     const [filter, setFilter] = useState('all')
@@ -107,14 +113,29 @@ export function ForecastPanel({ coverage = [], focus = null, onOpenBoard, onEdit
     // Each step starts at its top: the panel body is one scroller across the three levels, and a company opened from
     // far down an industry's list otherwise opened mid-thesis (live drive 2026-10-14).
     const bodyRef = useRef(null)
-    const viewKey = `${view.level}|${view.code ?? ''}|${view.symbol ?? ''}`
+    const viewKey = `${view.level}|${view.code ?? ''}|${view.symbol ?? ''}|${view.id ?? ''}`
     useEffect(() => { bodyRef.current?.closest('.detail-panel__body')?.scrollTo?.(0, 0) }, [viewKey])
 
     const bySymbol = new Map(coverage.map(c => [String(c?.symbol ?? '').toUpperCase(), c]))
     const back = (label, to) => <button type="button" className="cal-nav__btn" onClick={() => setView(to)}>‹ {label}</button>
+    const shownThemes = mapThemes(themes)
+    // An industry opened from a theme's link remembers the theme (`from`), so its back arrow — and its companies' —
+    // return there rather than to the map.
+    const from = view.from ?? null
+    const fromTheme = from ? shownThemes.find(t => t.id === from.id) ?? null : null
+    const backToStart = () => (from ? back(fromTheme?.name ?? 'Theme', from) : back('Map', MAP))
 
     let title, meta = null, actions, body
-    if (view.level === 'company') {
+    if (view.level === 'theme') {
+        const theme = shownThemes.find(t => t.id === view.id) ?? null
+        const a = theme?.assessment
+        title = theme?.name ?? 'Theme'
+        meta = <>{a && <VerdictChips row={a} />}<span>{(theme?.links ?? []).length} links</span></>
+        actions = <div className="cal-nav">{back('Map', MAP)}</div>
+        body = theme
+            ? <ThemeDetail theme={theme} isAdmin={isAdmin} onPickLink={c => setView({ level: 'industry', code: c, from: { level: 'theme', id: theme.id } })} />
+            : <p className="fm-note">This theme is no longer on the house list.</p>
+    } else if (view.level === 'company') {
         const cov = bySymbol.get(view.symbol) ?? null
         title = view.symbol
         meta = cov ? <CoverageMeta coverage={cov} /> : null
@@ -123,7 +144,7 @@ export function ForecastPanel({ coverage = [], focus = null, onOpenBoard, onEdit
         actions = (
             <div className="cal-nav">
                 {cov && <CoverageActions coverage={cov} onEdit={edit} onRetire={onRetireCoverage} onDelete={onDeleteCoverage} />}
-                {code ? back(tile?.name ?? 'Industry', { level: 'industry', code }) : back('Map', MAP)}
+                {code ? back(tile?.name ?? 'Industry', { level: 'industry', code, from }) : back('Map', MAP)}
             </div>
         )
         body = cov ? <CoverageDetail coverage={cov} /> : <p className="fm-note">Prometheus has no thesis on {view.symbol}.</p>
@@ -131,10 +152,10 @@ export function ForecastPanel({ coverage = [], focus = null, onOpenBoard, onEdit
         title = tile?.name ?? companies.data?.name ?? 'Industry'
         const a = tile?.assessment
         meta = a ? <VerdictChips row={a} /> : null
-        actions = <div className="cal-nav">{back('Map', MAP)}</div>
+        actions = <div className="cal-nav">{backToStart()}</div>
         body = (
             <IndustryPage tile={tile} companies={companies.code === code ? companies : { code, status: 'loading', data: null }} onRetry={() => setRetry(n => n + 1)}
-                onPick={sym => setView({ level: 'company', code, symbol: sym })} bySymbol={bySymbol} />
+                onPick={sym => setView({ level: 'company', code, symbol: sym, from })} bySymbol={bySymbol} />
         )
     } else {
         title = 'Industries'
@@ -159,8 +180,9 @@ export function ForecastPanel({ coverage = [], focus = null, onOpenBoard, onEdit
             </div>
         )
         body = (
-            <HeatMap map={map} tiles={tiles} win={win} filter={filter} onFilter={setFilter} onRetry={() => setRetry(n => n + 1)}
-                onPick={c => setView({ level: 'industry', code: c })} onPickSymbol={sym => setView({ level: 'company', symbol: sym })} />
+            <HeatMap map={map} tiles={tiles} themes={shownThemes} win={win} filter={filter} onFilter={setFilter} onRetry={() => setRetry(n => n + 1)}
+                onPick={c => setView({ level: 'industry', code: c })} onPickTheme={id => setView({ level: 'theme', id })}
+                onPickSymbol={sym => setView({ level: 'company', symbol: sym })} />
         )
     }
 
@@ -172,6 +194,8 @@ export function ForecastPanel({ coverage = [], focus = null, onOpenBoard, onEdit
 }
 ForecastPanel.propTypes = {
     coverage:         PropTypes.array,
+    // Pythia's themes (useCalendarEvents) — the approved ones are a row above the sectors.
+    themes:           PropTypes.array,
     // `{ symbol }` — a fresh object per ask (a card pressed twice is two asks).
     focus:            PropTypes.object,
     // Opens Pythia's board in the lists column (FloorLists).
@@ -193,7 +217,13 @@ function VerdictChips({ row }) {
 }
 VerdictChips.propTypes = { row: PropTypes.object.isRequired }
 
-function HeatMap({ map, tiles, win, filter, onFilter, onRetry, onPick, onPickSymbol }) {
+/** A theme as a map tile: the industry Tile's shape, its move the mean of its links' tiles (themeMove). Pure. */
+function themeTile(theme, tilesByCode) {
+    const moves = Object.fromEntries(WINDOWS.map(w => [w.key, themeMove(theme, tilesByCode, w.key)]))
+    return { code: theme.id, name: theme.name, assessment: theme.assessment ?? null, moves: { ...moves, hype: Boolean(theme.assessment?.moved?.hype) }, covered: 0 }
+}
+
+function HeatMap({ map, tiles, themes = [], win, filter, onFilter, onRetry, onPick, onPickTheme, onPickSymbol }) {
     const w = windowOf(win)
     if (map.status === 'error' && !map.data) {
         return <p className="fm-note">Couldn’t load the map. <button type="button" className="cal-link" onClick={onRetry}>Try again</button></p>
@@ -201,6 +231,8 @@ function HeatMap({ map, tiles, win, filter, onFilter, onRetry, onPick, onPickSym
     if (!map.data) return <p className="fm-note" role="status">Loading the map…</p>
     const sectors = groupBySector(tiles)
     const unmapped = map.data.unmapped ?? []
+    const tilesByCode = new Map(tiles.map(t => [t.code, t]))
+    const themeTiles = themes.map(t => themeTile(t, tilesByCode))
     return (
         <div className="fm-map">
             <div className="fm-filters" role="group" aria-label="Verdict filter">
@@ -213,6 +245,17 @@ function HeatMap({ map, tiles, win, filter, onFilter, onRetry, onPick, onPickSym
                 Colour: the {w.long} move against the S&amp;P{map.data.asof ? `, as of ${map.data.asof}` : ''}. Letter: Pythia’s verdict
                 (S swing · L long term · W watch · A avoid), bolder with more confidence. Striped: the hype flag. Faded: due for reassessment.
             </p>
+            {themeTiles.length > 0 && (
+                <section className="fm-sector fm-sector--themes" aria-label="Themes">
+                    <h3 className="fm-sector__head">
+                        Themes
+                        <span className="fm-sector__line">value chains across industries · coloured by their direct links</span>
+                    </h3>
+                    <div className="fm-grid">
+                        {themeTiles.map(t => <Tile key={t.code} tile={t} win={w} dim={!matchesFilter(t, filter)} onPick={onPickTheme} />)}
+                    </div>
+                </section>
+            )}
             {sectors.map(s => (
                 <section key={s.sector} className="fm-sector" aria-label={s.sector}>
                     <h3 className="fm-sector__head">
@@ -236,8 +279,9 @@ function HeatMap({ map, tiles, win, filter, onFilter, onRetry, onPick, onPickSym
     )
 }
 HeatMap.propTypes = {
-    map: PropTypes.object.isRequired, tiles: PropTypes.array.isRequired, win: PropTypes.string.isRequired, filter: PropTypes.string.isRequired,
-    onFilter: PropTypes.func.isRequired, onRetry: PropTypes.func.isRequired, onPick: PropTypes.func.isRequired, onPickSymbol: PropTypes.func.isRequired,
+    map: PropTypes.object.isRequired, tiles: PropTypes.array.isRequired, themes: PropTypes.array, win: PropTypes.string.isRequired, filter: PropTypes.string.isRequired,
+    onFilter: PropTypes.func.isRequired, onRetry: PropTypes.func.isRequired, onPick: PropTypes.func.isRequired, onPickTheme: PropTypes.func.isRequired,
+    onPickSymbol: PropTypes.func.isRequired,
 }
 
 function Tile({ tile: t, win, dim, onPick }) {

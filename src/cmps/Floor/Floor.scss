@@ -1468,6 +1468,9 @@ $desk-h: rem(36px);
     &--on { border-color: var(--accent-light); color: var(--text-primary); background: var(--bg-raised); }
 }
 
+// A theme's link on its page in the Forecasts window: a door to that industry, as bold as the name it replaces.
+.themes-view__link { font-weight: 600; }
+
 .fm-sector {
     margin-top: 14px;
 
