@@ -36,17 +36,21 @@
     // a panel column is narrow; `max-width` keeps the old 10px side gutters so it
     // can never touch (or overflow) the panel edge.
     box-sizing: border-box;
-    width: 75%;
+    // Capped (Roy, 2026-10-23: too wide once the chat took 70% of the screen): 75% of the column up to 640px.
+    width: min(75%, 640px);
     min-width: 260px;
     max-width: calc(100% - 20px);
     display: flex;
     align-items: center;
     gap: 2px;
-    margin: 6px auto 10px;
-    padding: 4px 5px 4px 7px;
+    // The SAME box before and after the first message (Roy, 2026-10-23) — the landing one's size, padding and
+    // corners — lifted well off the bottom edge (it sat 10px from it; 28px was still too close): ~6% of the screen's
+    // height, 40–72px.
+    margin: 8px auto clamp(40px, 6vh, 72px);
+    padding: 8px 8px 8px 12px;
     background: var(--bg-raised);
     border: 1px solid var(--border);
-    border-radius: 16px;
+    border-radius: 22px;
     // The lift/settle between the landing and docked states is the same move in
     // both directions — margin + padding + radius animate, focus ring stays snappy.
     transition:
@@ -70,9 +74,11 @@
         border: none;
         color: var(--text-primary);
         font-family: var(--font-sans);
-        font-size: 13px;
+        // The landing box's size (Roy, 2026-10-23): it was 13px on one 30px line.
+        font-size: 17px;
         line-height: 1.5;
-        padding: 7px 4px;
+        min-height: 76px;
+        padding: 12px 8px;
         resize: none;
 
         &::placeholder { color: var(--text-muted); }
@@ -158,9 +164,8 @@
 //
 // It also holds its shape on focus rather than swapping a ring in for the lift.
 .chat-input-row--empty {
+    // Same size as the docked box (above); what differs is where it sits and its accent outline.
     margin-bottom: clamp(24px, 15vh, 150px);
-    padding: 8px 8px 8px 12px;
-    border-radius: 22px;
     border-color: var(--accent);
     box-shadow: none;
 
@@ -169,11 +174,6 @@
         box-shadow: none;
     }
 
-    .chat-input-row__textarea {
-        font-size: 15px;
-        min-height: 54px;
-        padding: 10px 6px;
-    }
 }
 
 // ── Mobile: < 768px ───────────────────────────────────────────────────────────
