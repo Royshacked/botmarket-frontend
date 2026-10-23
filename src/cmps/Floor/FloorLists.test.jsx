@@ -90,13 +90,14 @@ describe('FloorLists', () => {
     // including the three with no header of their own in the column until they are open.
     describe('every list opens from an outside ask', () => {
         const name = () => screen.getByRole('dialog').getAttribute('aria-label')
-        it('positions — the book in a window, its header in the column only while open', () => {
+        // The Menu (Roy, 2026-10-23): Positions is the first list, always there.
+        it('positions — the book in a window, first in the Menu', () => {
             render(<FloorLists book={{ positions: [], loading: false }} deskRequest={{ key: 'positions' }} />)
             expect(name()).toBe('Positions')
             expect(screen.getByText('No open positions.')).toBeTruthy()
             expect(deskBtn('Positions').getAttribute('aria-expanded')).toBe('true')
             act(() => closePanel())
-            expect(screen.queryByRole('button', { name: /^Positions/ })).toBeNull()
+            expect(deskBtn('Positions').getAttribute('aria-expanded'), 'still in the Menu once closed').toBe('false')
         })
         it('the forecast board', () => {
             render(<FloorLists assessments={{ assessments: [], record: null }} deskRequest={{ key: 'board' }} />)
@@ -189,7 +190,7 @@ describe('FloorLists', () => {
             const desks = [...container.querySelectorAll('.floor-desk')]
             expect(desks.some(d => d.className.includes('floor-desk--folded'))).toBe(false)
             expect(desks.map(d => d.querySelector('.floor-desk__label').textContent))
-                .toEqual(['Awaiting orders', 'Your trades', 'Your portfolios', 'Watchlists', 'Hotlist',
+                .toEqual(['Positions', 'Awaiting orders', 'Your trades', 'Your portfolios', 'Watchlists', 'Hotlist',
                           'Calendar', 'Forecasts'])
         })
 

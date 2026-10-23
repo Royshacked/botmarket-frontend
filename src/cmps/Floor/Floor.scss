@@ -611,7 +611,8 @@ $desk-h: rem(36px);
     height: 100%;
     background: var(--bg-base);
     border-top: 1px solid var(--border);   // same edge as .floor-left — see the note there
-    border-left: 1px solid var(--border);
+    // The MENU sits on the LEFT since 2026-10-23: its edge against the chat is its right one.
+    border-right: 1px solid var(--border);
     // When a desk is open the COLUMN must not scroll — the open desk's body does
     // (see .floor-desk__body). If the column scrolled, the "Lists" heading and the closed desk
     // buttons would travel with the list content and disappear off the top.
@@ -1630,4 +1631,17 @@ $fm-steps: (1: 14%, 2: 26%, 3: 40%, 4: 56%);
 .floor-panel--positions {
     .floor-sec { display: none; }
     .floor-left { height: auto; border: 0; }
+}
+
+// ── INFO — the right column (FloorInfo; Roy, 2026-10-23) ─────────────────────
+// A placeholder for what is going on in the app, the chat and the lists. Same frame as the Menu, mirrored.
+.floor-info {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    background: var(--bg-base);
+    border-top: 1px solid var(--border);
+    border-left: 1px solid var(--border);
+    &__note { padding: 12px; }
 }

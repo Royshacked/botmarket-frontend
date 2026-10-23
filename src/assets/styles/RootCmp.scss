@@ -66,25 +66,26 @@
 // side effect of opening or closing something. (See cmps/Floor/Floor.scss for the rows.)
 //
 // The chart still takes over the right column, exactly as it does in the current design.
-// Proportional 20 / 60 / 20 (Roy, 2026-10-22 — was 27.5 / 45 / 27.5, then 25 / 50 / 25): the lists open over the chat
+// Proportional 15 / 70 / 15 (Roy, 2026-10-23 — was 27.5 / 45 / 27.5, then 25 / 50 / 25, then 20 / 60 / 20): the lists open over the chat
 // now, so the chat column is the reading surface and gets the wider half. The side columns stay
 // symmetric, so the chat sits genuinely centred, and every column scales with the viewport together.
 [data-design="floor"] .workspace {
-    grid-template-columns: 20% minmax(0, 60%) 20%;
+    grid-template-columns: 15% minmax(0, 70%) 15%;
     grid-template-areas: "floor-left chat floor-right";
 }
 
 [data-design="floor"] .workspace__left  { grid-area: floor-left;  min-height: 0; min-width: 0; }
 [data-design="floor"] .workspace__right { grid-area: floor-right; min-height: 0; min-width: 0; }
 
-// Narrow desktop: the book/calendar column is the first to go — the desks and the chat are
-// what you act in. Below the tablet breakpoint the design falls back to the standard layout.
+// Narrow desktop: INFO is the first to go — the Menu (every list) and the chat are what you act in (2026-10-23; it was
+// the book's column that went, when the left held positions). Below the tablet breakpoint the design falls back to
+// the standard layout.
 @media (max-width: 1439px) {
     [data-design="floor"] .workspace {
-        grid-template-columns: minmax(0, 1fr) 400px;
-        grid-template-areas: "chat floor-right";
+        grid-template-columns: 280px minmax(0, 1fr);
+        grid-template-areas: "floor-left chat";
     }
-    [data-design="floor"] .workspace__left { display: none; }
+    [data-design="floor"] .workspace__right { display: none; }
 }
 
 // Status-dot pulses shared by the Axl hub (AxlHub.scss) and the Floor (Floor.scss).

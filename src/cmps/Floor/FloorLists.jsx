@@ -48,9 +48,9 @@ const DESKS = [
     // The KEYS stay — they are what sorts, desk requests and tests address.
     // Every list opens in the DETAIL WINDOW over the chat (Roy, 2026-10-22) — the column is the launcher: a header
     // opens its list's window (ListPanel) and the column stays as it is, like the Calendar's always did.
-    // POSITIONS — the book, which is the left column; a window too, for Axl's `<show>positions` (Roy, 2026-10-22: the user
-    // sees every list through Axl) and a screen too narrow for the column. On request only: the column already shows it.
-    { key: 'positions',      label: 'Positions',       panel: 'floor:positions', onRequest: true },
+    // POSITIONS — the book, first in the Menu (Roy, 2026-10-23: the left column is the Menu, every list in it, Positions
+    // included); it opens in the detail window over the chat like the rest.
+    { key: 'positions',      label: 'Positions',       panel: 'floor:positions' },
     { key: 'queued',         label: 'Awaiting orders', panel: 'floor:queued' },
     { key: 'trade',          label: 'Your trades',     panel: 'floor:trade' },
     { key: 'portfolio',      label: 'Your portfolios', panel: 'floor:portfolio' },
@@ -1037,7 +1037,8 @@ export function FloorLists({
             {/* Same .floor-sec heading the left column uses, so all three columns open on one
                 line across the app rather than three near-misses. */}
             <header className="floor-sec">
-                <h2 className="floor-sec__title">Lists</h2>
+                {/* MENU (Roy, 2026-10-23): the left column, every list — Positions first. */}
+                <h2 className="floor-sec__title">Menu</h2>
             </header>
 
             {openKey && (

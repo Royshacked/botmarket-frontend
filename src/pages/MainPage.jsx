@@ -21,7 +21,7 @@ import { agentMeta }         from '../cmps/ChatTimeline/timelineRows.js'
 import { StrategyPanel }     from '../cmps/StrategyPanel/StrategyPanel.jsx'
 import { AetherPanel }       from '../cmps/AetherPanel/AetherPanel.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
-import { FloorLeft }         from '../cmps/Floor/FloorLeft.jsx'
+import { FloorInfo }         from '../cmps/Floor/FloorInfo.jsx'
 import { FloorLists }        from '../cmps/Floor/FloorLists.jsx'
 import { analystService, COVERAGE_CHANGED, RESEARCH_QUEUE_CHANGED } from '../services/analyst/analyst.service.remote.js'
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
@@ -1573,23 +1573,61 @@ export function MainPage() {
             <main className="main-page">
                 {/* ── Desktop / tablet workspace ── */}
                 <div className="workspace">
-                    {/* Floor trial (Ctrl+Shift+D): the book + calendar take a left column. The chat
-                        and the right column are unchanged below — only the side columns are added,
-                        so the trial can't regress the live layout by rearranging it. */}
+                    {/* The Floor (Ctrl+Shift+D): MENU | chat | INFO (Roy, 2026-10-23). */}
                     {floorMode && (
                         <div className="workspace__left">
-                            {/* The book's own close handlers — the SAME two the Positions tab uses,
-                                so a close fired from the Floor is the close fired from anywhere.
-                                They were deliberately withheld once, on the grounds that closing
-                                lived in the Positions tab; the Floor replaced that tab, which left
-                                the ✕ reachable only through a pop-out window. */}
-                            <FloorLeft
+                            {/* THE MENU (Roy, 2026-10-23): every list — Positions first — each opening in the detail window
+                                over the chat. The row actions run the SAME handlers as the ideas table: a second surface
+                                onto the same entities, not a second set of rules about them. */}
+                            <FloorLists
+                                    setups={workspaceSetups}
+                                ideas={workspaceIdeas}
                                 positions={positions}
-                                ideas={ideas}
-                                positionsLoading={positionsLoading}
-                                onOpenPosition={handleOpenPositionFromFloor}
-                                onClosePosition={closePosition}
-                                onClosePositions={closePositions}
+                                scans={scans}
+                                coverage={coverage}
+                                queued={queued}
+                                onExecuteQueued={handleExecuteQueued}
+                                onCancelQueued={handleCancelQueued}
+                                queuedBusyId={queuedBusyId}
+                                deskRequest={deskRequest}
+                                // Pythia's board — the `board` desk the map's "Board" button opens.
+                                industries={industries}
+                                industriesLoading={industriesLoading}
+                                industriesError={industriesError}
+                                week={week}
+                                assessments={assessments}
+                                themes={themes}
+                                aetherCandidates={{ runs: aetherRuns, loading: aetherLoading, error: aetherError, onRead: onAetherRead, onTradeWithMentor: seedMentorChat, onScanWithArgus: handleScanRadar, scanBusy: radarBusy }}
+                                onEarningSelect={handleBuildFromEarning}
+                                onIpoSelect={handleBuildFromIpo}
+                                onHotlistBuild={handleBuildFromHotlist}
+                                onHotlistAsk={handleAskArgusHotlist}
+                                onCandidateSelect={handleBuildFromCandidate}
+                                onEditSetup={handleEditSetup}
+                                onDeleteSetup={handleDeleteSetup}
+                                onEditPortfolio={handleEditPortfolio}
+                                onDeletePortfolio={handleDeletePortfolio}
+                                onActivatePortfolio={handleActivatePortfolio}
+                                onDeleteIdea={handleDeleteIdea}
+                                onEditScan={handleEditScan}
+                                onDeleteScan={deleteScan}
+                                onEditCoverage={handleEditCoverage}
+                                onRetireCoverage={handleRetireCoverage}
+                                onDeleteCoverage={handleDeleteCoverage}
+                                isAdmin={isAdmin}
+                                onOpenDesk={openDesk}
+                                researchQueue={researchQueue}
+                                onStartResearch={handleStartResearch}
+                                onMarkResearchDone={handleMarkResearchDone}
+                                onRejectResearch={handleRejectResearch}
+                                researchQueueBusyId={researchQueueBusyId}
+                                researchRun={researchRun}
+                                // The book again, for the Positions window Axl's <show>positions opens (the column is hidden
+                                // on a narrower screen).
+                                book={{ positions, ideas, loading: positionsLoading, onOpenPosition: handleOpenPositionFromFloor, onClosePosition: closePosition, onClosePositions: closePositions }}
+                                onStartResearchRun={handleStartResearchRun}
+                                onStopResearchRun={handleStopResearchRun}
+                                onRequeueStalledResearch={handleRequeueStalledResearch}
                             />
                         </div>
                     )}
@@ -1620,63 +1658,8 @@ export function MainPage() {
                     </div>
                     {floorMode ? (
                         <div className="workspace__right">
-                            {/* The Floor's row actions run the SAME handlers as the ideas table —
-                                it's a second surface onto the same entities, not a second set of
-                                rules about them, so delete confirms, live-position locks and the
-                                chat restores all come along — the setup pencil included (onEditSetup
-                                below, the same handler the Lists tab's SetupCard runs). */}
-                            {(
-                                <FloorLists
-                                        setups={workspaceSetups}
-                                    ideas={workspaceIdeas}
-                                    positions={positions}
-                                    scans={scans}
-                                    coverage={coverage}
-                                    queued={queued}
-                                    onExecuteQueued={handleExecuteQueued}
-                                    onCancelQueued={handleCancelQueued}
-                                    queuedBusyId={queuedBusyId}
-                                    deskRequest={deskRequest}
-                                    // Pythia's board — the `board` desk the map's "Board" button opens.
-                                    industries={industries}
-                                    industriesLoading={industriesLoading}
-                                    industriesError={industriesError}
-                                    week={week}
-                                    assessments={assessments}
-                                    themes={themes}
-                                    aetherCandidates={{ runs: aetherRuns, loading: aetherLoading, error: aetherError, onRead: onAetherRead, onTradeWithMentor: seedMentorChat, onScanWithArgus: handleScanRadar, scanBusy: radarBusy }}
-                                    onEarningSelect={handleBuildFromEarning}
-                                    onIpoSelect={handleBuildFromIpo}
-                                    onHotlistBuild={handleBuildFromHotlist}
-                                    onHotlistAsk={handleAskArgusHotlist}
-                                    onCandidateSelect={handleBuildFromCandidate}
-                                    onEditSetup={handleEditSetup}
-                                    onDeleteSetup={handleDeleteSetup}
-                                    onEditPortfolio={handleEditPortfolio}
-                                    onDeletePortfolio={handleDeletePortfolio}
-                                    onActivatePortfolio={handleActivatePortfolio}
-                                    onDeleteIdea={handleDeleteIdea}
-                                    onEditScan={handleEditScan}
-                                    onDeleteScan={deleteScan}
-                                    onEditCoverage={handleEditCoverage}
-                                    onRetireCoverage={handleRetireCoverage}
-                                    onDeleteCoverage={handleDeleteCoverage}
-                                    isAdmin={isAdmin}
-                                    onOpenDesk={openDesk}
-                                    researchQueue={researchQueue}
-                                    onStartResearch={handleStartResearch}
-                                    onMarkResearchDone={handleMarkResearchDone}
-                                    onRejectResearch={handleRejectResearch}
-                                    researchQueueBusyId={researchQueueBusyId}
-                                    researchRun={researchRun}
-                                    // The book again, for the Positions window Axl's <show>positions opens (the column is hidden
-                                    // on a narrower screen).
-                                    book={{ positions, ideas, loading: positionsLoading, onOpenPosition: handleOpenPositionFromFloor, onClosePosition: closePosition, onClosePositions: closePositions }}
-                                    onStartResearchRun={handleStartResearchRun}
-                                    onStopResearchRun={handleStopResearchRun}
-                                    onRequeueStalledResearch={handleRequeueStalledResearch}
-                                />
-                            )}
+                            {/* INFO (Roy, 2026-10-23): what is going on in the app, the chat and the lists — to come. */}
+                            <FloorInfo />
                         </div>
                     ) : (
                     <div className="workspace__ideas">
