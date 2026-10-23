@@ -305,3 +305,53 @@ describe('HotlistPanel — today\'s list', () => {
         expect(screen.getByText('TSLA')).toBeTruthy()
     })
 })
+
+// A list per horizon, and Prometheus's catalyst targets on This week (docs/design/horizon-chains.md §1, §3; 2026-10-23).
+describe('HotlistPanel — a list per horizon', () => {
+    const H_LIST = [
+        { symbol: 'OPN', price: 10, status: 'in_play', cells: { open: { grade: 'A', range: { pct: 2, atr_mult: 0.5 } } }, picks: { open: { why: 'the open trade', rank: 1 } } },
+        { symbol: 'WK2', price: 20, status: 'setting_up', cells: { week: { grade: 'A', range: { open_sky: true } } }, picks: { week: { why: 'second week pick', rank: 2 } } },
+        { symbol: 'WK1', price: 30, status: 'building', cells: { week: { grade: 'C', range: { pct: 4, atr_mult: 1, level: 31 } } }, picks: { week: { why: 'first week pick', caution: 'thin', rank: 1 } } },
+        { symbol: 'WK3', price: 40, status: 'setting_up', cells: { week: { grade: 'B', range: { pct: 6, atr_mult: 2, level: 42 } } } },
+    ]
+    const READ = { id: 'cr_WK1', symbol: 'WK1', status: 'active', verdict: 'credible', set_at: '2026-10-23T13:30:00Z', valid_until: '2026-11-06T13:30:00Z',
+        read: 'A real contract, two thirds still open.', news_driven: true, event_risk: ['Q3 report 2026-10-29 — out before it'], kill: ['the contract is cut'],
+        target: { value: 31.5, low: 30.9, high: 32.1, open_pct: 5, worth_pct: 8, moved_pct: 3, priced_share: 0.38 } }
+
+    beforeEach(() => {
+        hotlistService.getToday.mockResolvedValue({ day: '2026-10-23', latest: { ...BOARD, argus: null }, dayList: H_LIST, checkpoints: [] })
+        hotlistService.getReads = vi.fn().mockResolvedValue([READ])
+    })
+    afterEach(() => { delete hotlistService.getReads })
+    const order = () => [...document.querySelectorAll('tr.hot-row')].map(tr => tr.dataset.symbol)
+
+    it('a tab per horizon with its count; a horizon lists its names, Argus\'s picks for it first in his order', async () => {
+        await mount()
+        const tabs = within(screen.getByRole('tablist', { name: 'Horizon' })).getAllByRole('tab').map(t => t.textContent)
+        expect(tabs).toEqual(['All 4', 'Open 1', 'Mid-day 0', 'Into close 0', 'Tomorrow 0', 'This week 3'])
+        expect(screen.getByRole('tab', { name: 'Mid-day 0' }).disabled).toBe(true)
+        fireEvent.click(screen.getByRole('tab', { name: 'This week 3' }))
+        expect(order()).toEqual(['WK1', 'WK2', 'WK3'], 'his picks in his order, then the grade')
+        const wk1 = screen.getByText('WK1').closest('tr')
+        expect(wk1.querySelector('.hot-star').textContent).toBe('★1')
+        expect(wk1.textContent).toMatch(/This week C/)
+        fireEvent.click(screen.getByRole('tab', { name: 'Open 1' }))
+        expect(order()).toEqual(['OPN'])
+    })
+
+    it('This week shows Prometheus\'s catalyst target and what is still open; the opened row carries his read', async () => {
+        await mount()
+        fireEvent.click(screen.getByRole('tab', { name: 'This week 3' }))
+        expect(screen.getByRole('columnheader', { name: 'Target' })).toBeTruthy()
+        const wk1 = screen.getByText('WK1').closest('tr')
+        expect(wk1.querySelector('.hot-target').textContent).toBe('31.50 · +5% open')
+        expect(screen.getByText('WK3').closest('tr').querySelector('.hot-target').textContent).toBe('—')
+        fireEvent.click(wk1.querySelector('td:nth-child(4)'))
+        expect(screen.getByText(/first week pick/)).toBeTruthy()
+        expect(screen.getByText('A real contract, two thirds still open.')).toBeTruthy()
+        expect(screen.getByText(/Inside the window: Q3 report 2026-10-29/)).toBeTruthy()
+        // Off the week tab, no Target column.
+        fireEvent.click(screen.getByRole('tab', { name: 'All 4' }))
+        expect(screen.queryByRole('columnheader', { name: 'Target' })).toBeNull()
+    })
+})

@@ -2,7 +2,7 @@
 // node --test src/cmps/Floor/
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, rowStatus, rowReason, sortList, askArgusText, handoffRead, sparkGeometry } from './hotlist.utils.js'
+import { fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, rowStatus, rowReason, sortList, askArgusText, handoffRead, sparkGeometry, pickFor, horizonRows, horizonCounts, readsBySymbol, readCell } from './hotlist.utils.js'
 import { handoffTurn } from '../MentorSurface/mentorSurface.utils.js'
 
 const ROW = {
@@ -122,4 +122,36 @@ test('the list sorts by any column; a missing value sorts last either way; ties 
     assert.deepEqual(sortList(graded, 'grade').map(r => r.symbol), ['A1', 'C1'], 'the grade outranks the room')
     assert.equal(sortList(rows, 'price').length, 4)
     assert.notEqual(sortList(rows, 'price'), rows, 'a new array')
+})
+
+// ─── A list per horizon (docs/design/horizon-chains.md §1, §3) ────────────────
+
+test('pickFor: the per-column pick, or the old single pick on its own column only', () => {
+    assert.deepEqual(pickFor({ picks: { week: { rank: 2 } } }, 'week'), { rank: 2 })
+    assert.equal(pickFor({ picks: { week: { rank: 2 } } }, 'open'), null)
+    assert.equal(pickFor({ pick: { column: 'mid', rank: 1 } }, 'mid').rank, 1)
+    assert.equal(pickFor({ pick: { column: 'mid', rank: 1 } }, 'week'), null)
+})
+
+test('horizonRows: the graded names, his picks first in his order, then grade, then room', () => {
+    const rows = [
+        { symbol: 'C', cells: { week: { grade: 'C', range: { atr_mult: 1 } } }, picks: { week: { rank: 1 } } },
+        { symbol: 'A', cells: { week: { grade: 'A', range: { atr_mult: 1 } } } },
+        { symbol: 'B', cells: { week: { grade: 'A', range: { open_sky: true } } } },
+        { symbol: 'X', cells: { open: { grade: 'A' } } },
+    ]
+    assert.deepEqual(horizonRows(rows, 'week').map(r => r.symbol), ['C', 'B', 'A'])
+    assert.deepEqual(horizonCounts(rows), { open: 1, mid: 0, eod: 0, tomorrow: 0, week: 3 })
+})
+
+test('readsBySymbol keeps the live read over a settled one; readCell says the number and what is open', () => {
+    const by = readsBySymbol([
+        { symbol: 'Z', status: 'expired', set_at: '2026-10-20', target: { value: 10 } },
+        { symbol: 'Z', status: 'active', set_at: '2026-10-01', target: { value: 12, open_pct: 4.4 }, valid_until: '2026-11-01', verdict: 'credible' },
+    ])
+    assert.equal(by.get('Z').status, 'active')
+    assert.equal(readCell(by.get('Z')).text, '12.00 · +4% open')
+    assert.equal(readCell({ status: 'hit', target: { value: 12, open_pct: 4 }, valid_until: 'x', verdict: 'credible' }).text, '12.00 · hit')
+    assert.equal(readCell({ status: 'pass', verdict: 'contradicted' }).text, 'pass')
+    assert.equal(readCell(null), null)
 })

@@ -46,6 +46,59 @@ export function bestColumn(row, columns) {
     return graded.sort((a, b) => (GRADE_RANK[row.cells[b].grade] - GRADE_RANK[row.cells[a].grade]) || room(b) - room(a))[0]
 }
 
+// ─── A list per horizon (docs/design/horizon-chains.md §1; Roy, 2026-10-23) ───
+
+/** Argus's pick for one column on a row — per column since 2026-10-23, the single `pick` before. Pure. */
+export function pickFor(row, column) {
+    if (row?.picks) return row.picks[column] ?? null
+    return row?.pick?.column === column ? row.pick : null
+}
+
+/** How many of the day's names are graded on each column. Pure. */
+export function horizonCounts(rows) {
+    return Object.fromEntries(COLUMN_ORDER.map(c => [c, (rows ?? []).filter(r => r?.cells?.[c]?.grade).length]))
+}
+
+/**
+ * One horizon's list: the names graded on `column` — Argus's picks for it first (his order), then the grade, then the
+ * most room, then the symbol. Pure.
+ */
+export function horizonRows(rows, column) {
+    const room = r => (r.cells[column].range?.open_sky ? 99 : (r.cells[column].range?.atr_mult ?? -1))
+    const rank = r => pickFor(r, column)?.rank ?? 99
+    return (rows ?? []).filter(r => r?.cells?.[column]?.grade)
+        .sort((a, b) => rank(a) - rank(b) || (GRADE_RANK[b.cells[column].grade] - GRADE_RANK[a.cells[column].grade]) || room(b) - room(a)
+            || String(a.symbol).localeCompare(String(b.symbol)))
+}
+
+/**
+ * Prometheus's catalyst read per symbol (catalystRead.service): the live one, else the latest. Pure. `[]`/null → an
+ * empty map.
+ */
+export function readsBySymbol(reads) {
+    const by = new Map()
+    for (const r of reads ?? []) {
+        const cur = by.get(r.symbol)
+        if (!cur || (r.status === 'active' && cur.status !== 'active') || (cur.status !== 'active' && String(r.set_at) > String(cur.set_at))) by.set(r.symbol, r)
+    }
+    return by
+}
+
+/** A read's target as the list's short cell: "105.00 · +5% open", "hit", "pass", or null. Pure. */
+export function readCell(read) {
+    if (!read) return null
+    if (read.status === 'pass') return { text: 'pass', title: `Prometheus: ${read.verdict} — no target` }
+    const t = read.target
+    if (!t) return null
+    const open = Number.isFinite(t.open_pct) ? `${t.open_pct > 0 ? '+' : ''}${t.open_pct.toFixed(0)}% open` : null
+    const state = read.status === 'hit' ? 'hit' : read.status === 'expired' ? 'expired' : null
+    return {
+        text: [t.value.toFixed(2), state ?? open].filter(Boolean).join(' · '),
+        title: `Prometheus's catalyst target ${t.value.toFixed(2)}${Number.isFinite(t.low) ? ` (band ${t.low.toFixed(2)}–${t.high.toFixed(2)})` : ''}, valid until ${String(read.valid_until).slice(0, 10)} — ${read.verdict}`,
+        state,
+    }
+}
+
 // ─── The day's watchlist (Roy, 2026-10-22) ────────────────────────────────────
 
 /** The board's columns in order — what a day-list row's merged cells are walked in. */

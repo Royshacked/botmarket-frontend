@@ -113,6 +113,27 @@
 // ─── Today's list: the watchlist view (Roy, 2026-10-22) ───────────────────────
 
 // The status filter: All · In play · Building · Setting up, each with its count.
+// A list per horizon (docs/design/horizon-chains.md §1): the horizon tabs above the list — the first choice, so a
+// size up from the status filter under them.
+.hot-horizons {
+    display: flex; gap: 4px; flex-wrap: wrap; margin: 2px 0 8px;
+    &__btn {
+        font-size: 12.5px; padding: 3px 10px; border-radius: 4px; cursor: pointer;
+        background: transparent; color: var(--text-secondary); border: 1px solid var(--border);
+        &:hover:not(:disabled) { background: var(--bg-hover); }
+        &:disabled { opacity: .45; cursor: default; }
+        &--on { color: var(--text-primary); border-color: var(--accent-light); background: var(--bg-raised); }
+    }
+}
+
+// Prometheus's catalyst target on a week row, and his read under it (§3).
+.hot-target {
+    font-size: 11px; font-family: var(--font-mono); color: var(--text-primary); white-space: nowrap;
+    &--hit { color: var(--color-long); }
+    &--expired { color: var(--text-secondary); }
+}
+.hot-read { margin-top: 4px; padding-top: 4px; border-top: 1px dashed var(--border); }
+
 .hot-status-filter {
     display: inline-flex; gap: 4px; flex-wrap: wrap;
     &__btn {

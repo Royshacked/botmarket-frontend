@@ -6,7 +6,7 @@ import { httpService } from '../http.service'
 
 const BASE = 'api/hotlist'
 
-export const hotlistService = { getToday, getBoard, getOutcomes }
+export const hotlistService = { getToday, getBoard, getOutcomes, getReads }
 
 /**
  * `{ day, latest: board|null, checkpoints: [{ id, checkpoint, status, columns, finished_at, rows, argus }],
@@ -36,4 +36,14 @@ async function getBoard(id) {
 /** The outcome log summarised — per column and grade, and which columns are verified. */
 async function getOutcomes() {
     return httpService.get(`${BASE}/outcomes`)
+}
+
+/**
+ * Prometheus's catalyst reads on the week's picks (botmarket-backend catalystRead.service; docs/design/horizon-chains.md §3):
+ * the live ones and the recently settled, each with its target (`{ value, low, high, open_pct, priced_share }`, or null
+ * for a pass), its window (`valid_until`) and, once graded, its outcome. `[]` on an empty answer.
+ */
+async function getReads() {
+    const data = await httpService.get(`${BASE}/reads`)
+    return Array.isArray(data) ? data : []
 }
