@@ -30,8 +30,11 @@ columns:
 
 The Lists column's desks, in order (2026-10-21): Awaiting orders · Your trades · Your portfolios · Watchlists ·
 Hotlist · Calendar · Forecasts · Research queue (admin, last). The Hotlist (`cmps/Floor/HotlistPanel.jsx`, a
-DetailPanel like the Calendar) is the screener's daily board — Argus's read on top, one row per name in play,
-a grade and free range per column, the day's checkpoints as tabs — and its rows hand on ONE name at a time:
+DetailPanel like the Calendar) is the screener's daily board — Argus's read on top, one row per name in play with
+its free range, and horizon tabs **All · Open · Mid-day · Into close · Tomorrow · This week · Swing · Long term**.
+Each horizon is a chain's survivors: a day tab opens on Argus's names (All screened one click away), This week on
+the names Prometheus confirmed with his own target, Swing / Long term (`HotlistBook.jsx`) on the weekly chain's
+covered names. No grade letter is shown anywhere (2026-10-24) — and its rows hand on ONE name at a time:
 **Build with Mentor** (`handoffTurn` with a `hotlist` board reference the server resolves) and **Ask Argus**
 (`onArgusTable`) (`../botmarket-backend/docs/design/daily-names.md` §8). Events radar is `hidden: true` for now, not deleted. The
 Calendar (`cmps/Floor/CalendarPanel.jsx`) is a month grid — per-day earnings / Fed / IPO counts, a clicked day
@@ -123,7 +126,7 @@ is written alongside. `inWorkspace(list, workspace)` scopes every list of accoun
 - **Agent streams** are SSE, one per turn, through `agentStream` (above).
 - **Social chat** is a WebSocket (`customHooks/useChatWs.js`, `cmps/SocialChat/`): the feed every
   monitor posts into. A **card** is a message with a `type` and a `payload` — `portfolio_review`,
-  `setup_manage`, `manual_entry` / `manual_exit`, `coverage_event`, `industry_view`, `sleeve_sourced`,
+  `setup_manage`, `manual_entry` / `manual_exit`, `coverage_event`, `industry_view` (retired 2026-10-24 — Pythia posts no cards; old ones still render), `sleeve_sourced`,
   `market_brief_offer`… — rendered by its own bubble, sharing one collapsed-state shell. Resolution
   is ONE read (`cardResolution.js`): top-level `status` (`done | dismissed | superseded`) is the
   truth, the legacy payload flags a fallback, so a scrolled-back card still reads and a superseded

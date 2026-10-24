@@ -51,14 +51,28 @@ export function openPanel(id) {
 // ── The way back (Roy, 2026-10-24: "when I finish, I need a way to go back to the list") ──
 // A list's hand-off (the Hotlist's "Ask Argus", "Build with Mentor") closes the list and opens a desk in the chat.
 // It leaves a note of where it came from; the chat offers "‹ Back to <label>" while the note stands, and opening any
-// panel — that one, or another — spends it.
+// panel — that one, or another — spends it. The chat also clears it once the user moves on from where the hand-off
+// landed (`from` / `at`, kept by the chat; code review 2026-10-24: it stayed on every chat until a reload).
 let returnTo = null
-/** Leave the way back to a list panel: `{ panel, label }`, or null to clear it. */
+/** Leave the way back to a list panel: `{ panel, label, from?, at? }`, or null to clear it. */
 export function setReturnTo(next) {
-    returnTo = next?.panel ? { panel: next.panel, label: next.label ?? 'the list' } : null
+    returnTo = next?.panel ? { ...next, label: next.label ?? 'the list' } : null
     emit()
 }
 export const returnToPanel = () => returnTo
+/**
+ * Where the way back stands as the chat moves, `here` being its desk and session. Pure → the way back to keep (the same
+ * object when nothing changes), or null to spend it. It notes where the chat was when it appeared (`from`); the first
+ * move after that is where the hand-off LANDED (`at`); a move from there — another session, another desk — spends it.
+ */
+export function nextReturnTo(rt, here) {
+    if (!rt) return rt
+    if (!rt.from) return { ...rt, from: here }
+    if (!rt.at) return here !== rt.from ? { ...rt, at: here } : rt
+    return here !== rt.at ? null : rt
+}
+/** Is a panel's host rendered right now — would opening it show anything? */
+export const panelMounted = (id) => mounts.has(id)
 /** The way back, or null — re-renders the caller when it changes. */
 export function useReturnTo() {
     return useSyncExternalStore(subscribe, returnToPanel, returnToPanel)

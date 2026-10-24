@@ -62,7 +62,7 @@ describe('HotlistPanel', () => {
         expect(screen.getByText('Breadth is fine; the room is in SPCX.')).toBeTruthy()
         expect(screen.getByText('Breadth 58%')).toBeTruthy()
         expect(screen.getByText(/SPY above its 20-day/)).toBeTruthy()
-        expect(screen.getByText(/unverified/)).toBeTruthy()
+        expect(screen.queryByText(/unverified/)).toBeNull()
         expect(screen.getByText(/not a target/)).toBeTruthy()
     })
 
@@ -279,7 +279,7 @@ describe('HotlistPanel — today\'s list', () => {
         await mount()
         fireEvent.click(screen.getByRole('button', { name: 'Building 1' }))
         expect(order()).toEqual(['ACC'])
-        fireEvent.click(screen.getByRole('button', { name: 'All 3' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Every status, 3' }))
         expect(order()).toHaveLength(3)
     })
 
@@ -309,6 +309,45 @@ describe('HotlistPanel — today\'s list', () => {
         expect(screen.getByRole('tab', { name: '10:30' })).toBeTruthy()
         expect(screen.queryByText('DXC')).toBeNull()
         expect(screen.getByText('TSLA')).toBeTruthy()
+        // No grade there either — not as a letter, not as a colour (code review 2026-10-24).
+        expect(document.querySelector('[class*="hot-grade--"]')).toBeNull()
+        expect(screen.queryByText(/an A beats a C/)).toBeNull()
+    })
+})
+
+// The code review of 2026-10-24 on the survivors lists.
+describe('HotlistPanel — the survivors lists, reviewed', () => {
+    const LIST = [
+        { symbol: 'WK1', price: 30, status: 'setting_up', cells: { week: { grade: 'B', range: { pct: 4, atr_mult: 1 } } }, picks: { week: { why: 'the pick', rank: 1 } } },
+        { symbol: 'WK2', price: 20, status: 'setting_up', cells: { week: { grade: 'A', range: { pct: 6, atr_mult: 2 } } }, picks: { week: { why: 'the other', rank: 2 } } },
+    ]
+    beforeEach(() => { hotlistService.getToday.mockResolvedValue({ day: '2026-10-23', latest: { ...BOARD, argus: null }, dayList: LIST, checkpoints: [] }) })
+    const order = () => [...document.querySelectorAll('tr.hot-row')].map(tr => tr.dataset.symbol)
+
+    it('while Prometheus\'s reads load, This week says so — not "still to read"', async () => {
+        hotlistService.getReads.mockReturnValue(new Promise(() => {}))
+        await mount()
+        const tab = screen.getByRole('button', { name: /^This week/ })
+        expect(tab.textContent).toBe('This week …')
+        fireEvent.click(tab)
+        expect(screen.getByText('Loading Prometheus’s reads…')).toBeTruthy()
+        expect(screen.queryByText(/still to read/)).toBeNull()
+    })
+
+    it('reads that failed: This week opens on Argus\'s names, not an empty confirmed list', async () => {
+        hotlistService.getReads.mockRejectedValue(new Error('down'))
+        await mount()
+        fireEvent.click(screen.getByRole('button', { name: /^This week/ }))
+        expect(screen.getByRole('button', { name: 'Argus’s names 2' }).getAttribute('aria-pressed')).toBe('true')
+        expect(order()).toEqual(['WK1', 'WK2'])
+    })
+
+    it('a book from a server without the chain\'s picks says they are not there — never "the chain sent nothing"', async () => {
+        hotlistService.getBook.mockResolvedValue({ asof: '2026-10-23', swing: [{ symbol: 'DSK', rating: 'buy', origin: { source: 'desk' } }], long_term: [], record: {} })
+        await mount()
+        fireEvent.click(screen.getByRole('button', { name: /^Swing/ }))
+        expect(screen.getByText(/could not be loaded/)).toBeTruthy()
+        expect(screen.queryByText(/has sent no/)).toBeNull()
     })
 })
 
@@ -333,9 +372,11 @@ describe('HotlistPanel — a list per horizon', () => {
     it('a tab per horizon with its count; a horizon lists its names, Argus\'s picks for it first in his order', async () => {
         await mount()
         const tabs = within(screen.getByRole('group', { name: 'Horizon' })).getAllByRole('button').map(t => t.textContent)
-        expect(tabs).toEqual(['All 4', 'Open 1', 'Mid-day 0', 'Into close 0', 'Tomorrow 0', 'This week 3', 'Swing 0', 'Long term 0'])
+        // Each count is the list the tab OPENS on (2026-10-24): Argus's names on Open, Prometheus confirmed on This week.
+        expect(tabs).toEqual(['All 4', 'Open 1', 'Mid-day 0', 'Into close 0', 'Tomorrow 0', 'This week 1', 'Swing 0', 'Long term 0'])
+        expect(screen.getByRole('button', { name: 'This week 1' }).title).toMatch(/1 on the list \(Prometheus confirmed\) of 3 screened/)
         expect(screen.getByRole('button', { name: 'Mid-day 0' }).disabled).toBe(true)
-        fireEvent.click(screen.getByRole('button', { name: 'This week 3' }))
+        fireEvent.click(screen.getByRole('button', { name: /^This week/ }))
         fireEvent.click(screen.getByRole('button', { name: 'All screened 3' }))
         expect(order()).toEqual(['WK1', 'WK2', 'WK3'], 'his picks in his order, then the grade')
         const wk1 = screen.getByText('WK1').closest('tr')
@@ -348,7 +389,7 @@ describe('HotlistPanel — a list per horizon', () => {
 
     it('This week shows Prometheus\'s catalyst target and what is still open; the opened row carries his read', async () => {
         await mount()
-        fireEvent.click(screen.getByRole('button', { name: 'This week 3' }))
+        fireEvent.click(screen.getByRole('button', { name: /^This week/ }))
         fireEvent.click(screen.getByRole('button', { name: 'All screened 3' }))
         expect(screen.getByRole('columnheader', { name: 'Target' })).toBeTruthy()
         const wk1 = screen.getByText('WK1').closest('tr')
@@ -359,7 +400,7 @@ describe('HotlistPanel — a list per horizon', () => {
         expect(screen.getByText('A real contract, two thirds still open.')).toBeTruthy()
         expect(screen.getByText(/Inside the window: Q3 report 2026-10-29/)).toBeTruthy()
         // Off the week tab, no Target column.
-        fireEvent.click(screen.getByRole('button', { name: 'All 4' }))
+        fireEvent.click(screen.getByRole('button', { name: 'All horizons, 4' }))
         expect(screen.queryByRole('columnheader', { name: 'Target' })).toBeNull()
     })
 
@@ -373,7 +414,7 @@ describe('HotlistPanel — a list per horizon', () => {
         ])
         const onBuild = vi.fn()
         await mount({ onBuild })
-        fireEvent.click(screen.getByRole('button', { name: 'This week 3' }))
+        fireEvent.click(screen.getByRole('button', { name: /^This week/ }))
         expect(screen.getByRole('button', { name: 'Prometheus confirmed 1' }).getAttribute('aria-pressed')).toBe('true')
         expect(order()).toEqual(['WK1'], 'his confirmed name; the broken company and the unpicked name are not')
         expect(screen.getByText(/The names he confirmed are the list/)).toBeTruthy()
@@ -392,7 +433,7 @@ describe('HotlistPanel — a list per horizon', () => {
     it('an empty confirmed list says where his reads stand', async () => {
         hotlistService.getReads.mockResolvedValue([])
         await mount()
-        fireEvent.click(screen.getByRole('button', { name: 'This week 3' }))
+        fireEvent.click(screen.getByRole('button', { name: /^This week/ }))
         expect(order()).toEqual([])
         expect(screen.getByText(/Prometheus has 2 of Argus’s 2 names still to read/)).toBeTruthy()
     })
@@ -463,7 +504,8 @@ describe('HotlistPanel — the horizon lists, reviewed', () => {
         await mount()
         fireEvent.click(screen.getByRole('button', { name: /^Setting up/ }))
         const group = within(screen.getByRole('group', { name: 'Horizon' }))
-        expect(group.getAllByRole('button').map(b => b.textContent)).toEqual(['All 2', 'Open 0', 'Mid-day 0', 'Into close 0', 'Tomorrow 0', 'This week 2', 'Swing 0', 'Long term 0'])
+        expect(group.getAllByRole('button').map(b => b.textContent)).toEqual(['All 2', 'Open 0', 'Mid-day 0', 'Into close 0', 'Tomorrow 0', 'This week 0', 'Swing 0', 'Long term 0'])
+        expect(group.getByRole('button', { name: /^This week/ }).disabled).toBe(false, 'none confirmed, but screened names: still opens')
     })
 
     it('a horizon a refresh empties while it is chosen falls back to All — never a pressed, disabled button', async () => {

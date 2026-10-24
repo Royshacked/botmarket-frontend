@@ -18,7 +18,7 @@ import { AxlGreeting } from './AxlGreeting.jsx'
 import { SessionHistory } from './SessionHistory.jsx'
 import { VIEW_LABELS } from './ShowOffer.jsx'
 import { PaneToggle } from '../SidePane/PaneToggle.jsx'
-import { useReturnTo, openPanel } from '../DetailPanel/detailPanel.store.js'
+import { useReturnTo, openPanel, setReturnTo, panelMounted, nextReturnTo } from '../DetailPanel/detailPanel.store.js'
 import { OPENING_OPTIONS, LANDING_ASKS, OPENING_QUESTION } from './openingOptions.js'
 import './ChatTimeline.scss'
 
@@ -134,6 +134,16 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
     const floorName = agentMeta(floor ?? 'axl').brand
     const atDesk = (floor ?? 'axl') !== 'axl'
     const returnTo = useReturnTo()
+    // The way back lives where the hand-off LANDED (code review 2026-10-24: it stayed on every chat until a reload) —
+    // detailPanel.store nextReturnTo.
+    const here = `${floor ?? 'axl'}|${session.sessionId ?? ''}`
+    useEffect(() => {
+        const next = nextReturnTo(returnTo, here)
+        if (next !== returnTo) setReturnTo(next)
+    }, [returnTo, here])
+    // Only while something renders the list (the Floor's lists): a Back with nothing to open would do nothing, and leave
+    // the panel to spring open later, unasked.
+    const showBack = Boolean(returnTo) && panelMounted(returnTo.panel)
     const placeholder = !atDesk || toAxl ? 'Ask Axl anything, or say what you’d like to do…' : `Message ${floorName}…`
 
     function handleKeyDown(e) {
@@ -231,10 +241,10 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
 
             {taps.length > 0 && <SuggestionChips suggestions={taps} onPick={(t) => sendText(t)} disabled={busy} />}
 
-            {((atDesk && !empty) || returnTo) && (
+            {((atDesk && !empty) || showBack) && (
                 <div className="chat-timeline__address">
-                    {/* The way back to the list a hand-off came from (Roy, 2026-10-24) — the Hotlist, on the tab it was on. */}
-                    {returnTo && (
+                    {/* The way back to the list a hand-off came from (Roy, 2026-10-24) — the Hotlist, on the horizon it was on. */}
+                    {showBack && (
                         <button type="button" className="chat-timeline__address-btn chat-timeline__back" onClick={() => openPanel(returnTo.panel)}>
                             ‹ Back to {returnTo.label}
                         </button>

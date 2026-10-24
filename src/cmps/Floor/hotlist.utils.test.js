@@ -2,7 +2,7 @@
 // node --test src/cmps/Floor/
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readTime, fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, rowStatus, rowReason, sortList, askArgusText, handoffRead, sparkGeometry, pickFor, horizonRows, horizonCounts, readsBySymbol, readCell, hasBand, resultCell, gradeRecord, columnRecord, bookResult, bookProgress, bookOrigin, bookRecordLine, sortBook, isBuy } from './hotlist.utils.js'
+import { readTime, fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, rowStatus, rowReason, sortList, askArgusText, handoffRead, sparkGeometry, pickFor, horizonRows, horizonCounts, readsBySymbol, readCell, hasBand, resultCell, columnRecord, bookResult, bookProgress, bookOrigin, bookRecordLine, sortBook, isBuy } from './hotlist.utils.js'
 import { handoffTurn } from '../MentorSurface/mentorSurface.utils.js'
 
 const ROW = {
@@ -200,17 +200,10 @@ test('resultCell: reached / missed / up / down once scored, open or scoring befo
     assert.equal(resultCell(null), null)
 })
 
-test("a grade's record and a column's: the hit rate over names with a level, the up rate over all, how far from verified", () => {
-    const summary = { week: { n: 9, sessions: 6, verified: false, grades: {
-        A: { n: 5, judged: 4, hit_rate: 75, up_rate: 60 }, B: { n: 4, judged: 0, hit_rate: null, up_rate: 50 }, C: { n: 0 } } } }
-    assert.equal(gradeRecord(summary, 'week', 'A'), 'reached 75% of 4 · up 60% of 5')
-    assert.equal(gradeRecord(summary, 'week', 'B'), 'up 50% of 4', 'no name with a level: no hit rate')
-    assert.equal(gradeRecord(summary, 'week', 'C'), null)
-    assert.equal(gradeRecord(null, 'week', 'A'), null)
-    const rec = columnRecord(summary, 'week')
-    assert.deepEqual(rec.grades, [], 'no horizon shows grades (2026-10-24)')
-    assert.equal(rec.progress, '6 of 40 sessions, 9 of 30 names')
-    assert.equal(columnRecord({ week: { ...summary.week, verified: true } }, 'week').progress, null)
+test("a column's record carries no grades (2026-10-24) — the board against its cut, once there is one", () => {
+    const summary = { week: { n: 9, sessions: 6, verified: false, grades: { A: { n: 5, judged: 4, hit_rate: 75, up_rate: 60 } } } }
+    assert.deepEqual(columnRecord(summary, 'week'), { cut: null })
+    assert.equal(columnRecord(null, 'week'), null)
 })
 
 // The house's book — Swing and Long term (Roy, 2026-10-24)

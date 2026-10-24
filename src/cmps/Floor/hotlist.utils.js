@@ -97,6 +97,7 @@ export const PASS_WHY = Object.freeze({
     too_small: 'too little left open to trade',
     already_ran: 'it already ran its usual run-up this cycle',
     unsized: 'not sized',
+    no_target: 'he set no target he would trade toward',
     company: 'the company cannot carry it',
     contradicted: 'the record cuts against it',
     unclear: 'too thin to tell',
@@ -111,12 +112,13 @@ export const isConfirmedRead = (read) => Boolean(read?.target) && read.status !=
 /**
  * Why a narrowed list (This week's confirmed names, a horizon's Argus names) is empty, in words. Pure. `argus` — the
  * horizon's Argus names; `reads` — the list's reads by symbol. On the confirmed list it says where his reads stand:
- * still to come, all passes, or not loaded.
+ * still loading (`readsLoading` — not "still to read": they may all be in), still to come, all passes, or not loaded.
  */
-export function emptyNamesText({ shown, column, argus = [], screened = 0, reads = new Map(), readsFailed = false }) {
+export function emptyNamesText({ shown, column, argus = [], screened = 0, reads = new Map(), readsFailed = false, readsLoading = false }) {
     const label = (COLUMN_LABEL[column] ?? column ?? '').toLowerCase()
     if (shown !== 'confirmed') return `Argus confirmed no names for ${label} on this list${screened ? ` — the screener let ${screened} through: see All screened` : ''}.`
     if (readsFailed) return 'Prometheus’s reads could not be loaded — see Argus’s names.'
+    if (readsLoading) return 'Loading Prometheus’s reads…'
     if (!argus.length) return `Argus picked no names for ${label} on this list${screened ? ` — the screener let ${screened} through: see All screened` : ''}.`
     const unread = argus.filter(r => !reads.get(r.symbol)).length
     if (unread) return `Prometheus has ${unread} of Argus’s ${argus.length} names still to read — he reads them after the 09:20 board. See Argus’s names meanwhile.`
@@ -148,7 +150,9 @@ export function readCell(read) {
             + `${from != null ? `, set from ${from.toFixed(2)} at the read (${readTime(read.set_at)})` : ''}, valid until ${String(read.valid_until).slice(0, 10)} — ${read.verdict}`
             // His own number (2026-10-24) says how far it sits from the tools' yardstick; the company rides along.
             + `${Number.isFinite(t.yardstick?.open_pct) ? `; yardstick ${t.yardstick.open_pct > 0 ? '+' : ''}${t.yardstick.open_pct.toFixed(1)}%` : ''}`
-            + `${read.company?.verdict ? `; company ${COMPANY_LABEL[read.company.verdict] ?? read.company.verdict}` : ''}`,
+            + `${read.company?.verdict ? `; company ${COMPANY_LABEL[read.company.verdict] ?? read.company.verdict}` : ''}`
+            // Far past the options' implied move and the yardstick (2026-10-24): shown, not blocked — his call.
+            + `${t.stretch ? `; a stretch — ${t.stretch.times}× the implied move / yardstick` : ''}`,
         state,
     }
 }
@@ -179,26 +183,9 @@ export function resultCell(res) {
     }
 }
 
-/** A column's history must reach both to be "verified" (botmarket-backend hotlist.outcomes VERIFY_MIN_*). */
-export const VERIFY_SESSIONS = 40
-export const VERIFY_NAMES = 30
-
-/**
- * One grade's track record on a column (hotlist.outcomes summarize), as a short phrase — "reached 62% of 34 · up 58%
- * of 40" — or null with no history. Pure. The hit rate counts only names with a level to reach (open sky has none);
- * the up rate counts every name.
- */
-export function gradeRecord(summary, column, grade) {
-    const g = summary?.[column]?.grades?.[grade]
-    if (!g?.n) return null
-    const hit = Number.isFinite(g.hit_rate) && g.judged ? `reached ${Math.round(g.hit_rate)}% of ${g.judged}` : null
-    const up = Number.isFinite(g.up_rate) ? `up ${Math.round(g.up_rate)}% of ${g.n}` : null
-    return [hit, up].filter(Boolean).join(' · ') || null
-}
-
 /**
  * A column's BACKTEST (backend hotlistBacktest — the week replay over past sessions, kept apart from the live record) as
- * the strip's parts: the span, each grade's and the pool's "up 61% · avg +0.4% (2,400)", and the caveats. Pure. Null
+ * the strip's parts: the span, the screener's names' and the pool's "up 61% · avg +0.4% (2,400)", and the caveats. Pure. Null
  * without one.
  */
 export function backtestLine(summary, column) {
@@ -226,17 +213,15 @@ export function argusRecordLine(summary, column = 'all') {
     return [['picks', part(g.pick)], ['avoids', part(g.avoid)], ['unmarked', part(g.unmarked)], ...pool]
 }
 
-/** A column's record for the strip over its list: each grade's phrase, and how far it is from verified. Pure. */
+/**
+ * A column's record for the strip over its list. Pure. No horizon shows grades (2026-10-24: the day trades, then This
+ * week): the record is the board against the rest, and Argus's beside it. The grades are still the screener's, and still
+ * scored, out of sight.
+ */
 export function columnRecord(summary, column) {
     const c = summary?.[column]
     if (!c) return null
-    // No horizon shows grades (2026-10-24: the day trades, then This week) — the record is the board against the rest,
-    // and Argus's. The grades are still the screener's, and still scored.
-    const grades = []
     return {
-        grades,
-        verified: Boolean(c.verified),
-        progress: c.verified ? null : `${c.sessions ?? 0} of ${VERIFY_SESSIONS} sessions, ${c.n ?? 0} of ${VERIFY_NAMES} names`,
         // The board's cut against the rest (2026-10-24): the names it showed vs the graded names past it — once the wide
         // set has any. "up 58% · avg +0.4% (60)".
         cut: c.off?.n || c.pool?.n ? { board: _groupText(c.board), off: _groupText(c.off), pool: _groupText(c.pool) } : null,
@@ -255,7 +240,7 @@ export const BOOK_TITLE = Object.freeze({
     long_term: "Long term — Prometheus's names with a 12–24 month price target",
 })
 const BUY = new Set(['strong_buy', 'buy'])
-/** A long the house would buy — the list's default view; holds and sells are the book's too, one click away. */
+/** A long the house would buy (a rating of buy or strong buy). */
 export const isBuy = (row) => BUY.has(row?.rating)
 
 /**

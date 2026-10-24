@@ -270,4 +270,27 @@ describe('the way back to a list', () => {
         store.setReturnTo({ label: 'no panel' })
         expect(store.returnToPanel()).toBeNull()
     })
+
+    // Code review 2026-10-24: it stayed on every chat until a reload.
+    it('lives where the hand-off landed: noted, landed, then spent by moving on', async () => {
+        const { nextReturnTo } = await import('./detailPanel.store.js')
+        const rt = { panel: 'hotlist', label: 'the Hotlist' }
+        const noted = nextReturnTo(rt, 'axl|s1')
+        expect(noted.from).toBe('axl|s1')
+        expect(nextReturnTo(noted, 'axl|s1')).toBe(noted, 'no move yet: unchanged, the same object')
+        const landed = nextReturnTo(noted, 'mentor|s2')
+        expect(landed.at).toBe('mentor|s2')
+        expect(nextReturnTo(landed, 'mentor|s2')).toBe(landed)
+        expect(nextReturnTo(landed, 'mentor|s3')).toBeNull()
+        expect(nextReturnTo(landed, 'axl|s2')).toBeNull()
+        expect(nextReturnTo(null, 'axl|s1')).toBeNull()
+    })
+
+    it("knows whether a panel's host is rendered", async () => {
+        const store = await import('./detailPanel.store.js')
+        expect(store.panelMounted('nowhere')).toBe(false)
+        const release = store.retainPanel('somewhere')
+        expect(store.panelMounted('somewhere')).toBe(true)
+        release()
+    })
 })

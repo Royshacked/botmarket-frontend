@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { CoverageDetail, CoverageRating } from './CoverageDetail.jsx'
 import { BOOK_LABEL, BOOK_SORTS, bookResult, bookProgress, bookOrigin, bookRecordLine, sortBook, chainSurvivors, pickCell } from './hotlist.utils.js'
@@ -28,7 +28,7 @@ function BookRecord({ rec, column }) {
 }
 BookRecord.propTypes = { rec: PropTypes.object, column: PropTypes.string.isRequired }
 
-/** Why the survivors list is empty, in words: the chain sent nothing yet, it is still researching, or he rated none a buy. */
+/** Why the survivors list is empty, in words: the picks not there, the chain sent nothing yet, still researching, or he covered none. */
 function survivorsEmpty({ picks, failed, column }) {
     const label = BOOK_LABEL[column].toLowerCase()
     if (failed) return 'The weekly chain’s names could not be loaded — see All coverage.'
@@ -77,10 +77,13 @@ ChainPicks.propTypes = { picks: PropTypes.array.isRequired, failed: PropTypes.bo
 
 export function HotlistBook({ book, column, coverage = [], onBuild, onAsk, onSymbolClick }) {
     // THE CHAIN'S SURVIVORS first (Roy, 2026-10-24: "Pythia brings the industry → Argus brings names from it →
-    // Prometheus analyses them and brings a thesis and PT — the survivors in the Hotlist"): the names that came through
-    // it as a buy; then every name Argus sent and where Prometheus has it; then the whole book, the desk's too.
+    // Prometheus analyses them and brings a thesis and PT — the survivors in the Hotlist"): the names it covered, any
+    // rating; then every name Argus sent and where Prometheus has it; then the whole book, the desk's too. The parent keys
+    // this by the book, so Swing → Long term starts fresh — view, sort and open row (code review 2026-10-24).
     const [view, setView] = useState('confirmed')
-    useEffect(() => { setView('confirmed') }, [column])
+    // The chain's picks are not there: the book failed, or a server from before them (code review 2026-10-24) — never
+    // "the chain sent nothing".
+    const picksMissing = !book || book.picks == null
     const [sort, setSort] = useState({ key: null, dir: null })
     const [openSym, setOpenSym] = useState(null)
     const all = book?.[column] ?? []
@@ -127,9 +130,9 @@ export function HotlistBook({ book, column, coverage = [], onBuild, onAsk, onSym
             <BookRecord rec={book?.record?.[column]} column={column} />
             {view !== 'all' && <p className="hot-note">{BOOK_LABEL[column]}: <b>Pythia</b> calls the industry, <b>Argus</b> picks the names that best carry her thesis, and <b>Prometheus</b> researches each — the thesis and a {column === 'swing' ? '3–6 month' : '12–24 month'} target. The names he covered are the list, with his rating.</p>}
             {view === 'argus'
-                ? <ChainPicks picks={picks} failed={book?.picks === null} rows={all} column={column} onSymbolClick={onSymbolClick} />
+                ? <ChainPicks picks={picks} failed={picksMissing} rows={all} column={column} onSymbolClick={onSymbolClick} />
                 : !rows.length
-                ? <p className="floor-empty">{view === 'all' ? `No ${BOOK_LABEL[column].toLowerCase()} names in the book.` : survivorsEmpty({ picks, failed: book?.picks === null, column })}</p>
+                ? <p className="floor-empty">{view === 'all' ? `No ${BOOK_LABEL[column].toLowerCase()} names in the book.` : survivorsEmpty({ picks, failed: picksMissing, column })}</p>
                 : (
                     <div className="hot-table-wrap hot-table-wrap--list">
                         <table className="hot-table hot-table--list hot-table--book">
