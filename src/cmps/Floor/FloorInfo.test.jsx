@@ -24,10 +24,11 @@ describe('FloorInfo', () => {
         render(<FloorInfo />)
         act(() => openPanel(HOTLIST_PANEL_ID))
         expect(screen.getByRole('heading', { name: 'The Hotlist' })).toBeTruthy()
-        for (const col of ['Last', 'RVol', 'Grade', 'Room', 'Earn', 'Target']) expect(screen.getByText(col, { selector: 'dt' })).toBeTruthy()
+        for (const col of ['Last', 'RVol', 'Horizon', 'Room', 'Earn', 'Target']) expect(screen.getByText(col, { selector: 'dt' })).toBeTruthy()
         expect(screen.getByText('This week', { selector: 'dt' })).toBeTruthy()
         expect(screen.getByText('Catalyst read', { selector: 'dt' })).toBeTruthy()
-        expect(screen.getAllByText(/unverified/).length).toBeGreaterThan(0)
+        // No grades shown (2026-10-24) — the table says who decides instead.
+        expect(screen.getAllByText(/No grades are shown/).length).toBeGreaterThan(0)
         expect(screen.getByText('✓ reached', { selector: 'dt' })).toBeTruthy()
         act(() => closePanel(HOTLIST_PANEL_ID))
         expect(screen.queryByRole('heading', { name: 'The Hotlist' })).toBeNull()

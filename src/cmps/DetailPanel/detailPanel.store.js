@@ -43,7 +43,25 @@ export function openPanel(id) {
     if (containers.has(id)) under = null
     else if (active && containers.has(active)) under = active
     active = id
+    // Back where the user came from: the way back is spent.
+    returnTo = null
     emit()
+}
+
+// ── The way back (Roy, 2026-10-24: "when I finish, I need a way to go back to the list") ──
+// A list's hand-off (the Hotlist's "Ask Argus", "Build with Mentor") closes the list and opens a desk in the chat.
+// It leaves a note of where it came from; the chat offers "‹ Back to <label>" while the note stands, and opening any
+// panel — that one, or another — spends it.
+let returnTo = null
+/** Leave the way back to a list panel: `{ panel, label }`, or null to clear it. */
+export function setReturnTo(next) {
+    returnTo = next?.panel ? { panel: next.panel, label: next.label ?? 'the list' } : null
+    emit()
+}
+export const returnToPanel = () => returnTo
+/** The way back, or null — re-renders the caller when it changes. */
+export function useReturnTo() {
+    return useSyncExternalStore(subscribe, returnToPanel, returnToPanel)
 }
 
 /**

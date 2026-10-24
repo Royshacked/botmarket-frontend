@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
-import { useDetailPanel } from '../DetailPanel/detailPanel.store.js'
+import { useDetailPanel, setReturnTo } from '../DetailPanel/detailPanel.store.js'
 import { hotlistService } from '../../services/hotlist/hotlist.service.remote.js'
 import { apiError } from '../../services/http.service.js'
 import {
     COLUMN_LABEL, COLUMN_TITLE, CHECKPOINT_LABEL, COLUMN_ORDER, STATUS_LABEL, STATUS_TITLE, LIST_SORTS,
     fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, sparkGeometry, rowStatus, rowReason, sortList,
     pickFor, horizonCounts, horizonRows, readsBySymbol, readCell, hasBand, PASS_WHY, resultCell, gradeRecord, columnRecord,
-    BOOK_ORDER, BOOK_LABEL, BOOK_TITLE, readTime, argusRecordLine, isBuy, backtestLine,
+    BOOK_ORDER, BOOK_LABEL, BOOK_TITLE, readTime, argusRecordLine, isBuy, backtestLine, DAY_COLUMNS,
+    isConfirmedRead, emptyNamesText, COMPANY_LABEL, chainSurvivors,
 } from './hotlist.utils.js'
 import { ChartSurface } from '../PriceChart/ChartSurface.jsx'
 import { HotlistBook } from './HotlistBook.jsx'
@@ -176,7 +177,8 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick, coverage = [] }) {
         )
     }
 
-    const handOff = (fn) => fn && ((...args) => { close(); fn(...args) })
+    // A hand-off closes the list for the desk — and leaves the way back: the chat offers "‹ Back to the Hotlist".
+    const handOff = (fn) => fn && ((...args) => { close(); setReturnTo({ panel: HOTLIST_PANEL_ID, label: 'the Hotlist' }); fn(...args) })
     const b = board.data
     const listView = view === 'list' && today.dayList.length > 0
     // A caller's own handler wins (a host that shows charts elsewhere); otherwise the chart opens here.
@@ -358,7 +360,20 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
     // THE HORIZON first (horizon-chains.md §1): one column's list — its names, Argus's picks for it first — then the
     // status filter within it. A header the user clicked sorts it instead.
     const byHorizon = bookView ? [] : horizon ? horizonRows(today.dayList, horizon) : today.dayList
-    const all = byHorizon
+    // DAY TRADES (Roy, 2026-10-24: "the scan, then Argus confirms, then the names"): on a session horizon the list IS
+    // the names Argus confirmed — no grade; everything the screener let through stays one click away ("All screened").
+    const dayTab = DAY_COLUMNS.includes(horizon)
+    // THIS WEEK (Roy, 2026-10-24: "hotlist, Argus automatically, names, Prometheus confirms catalyst and fundamentals and
+    // gives a PT"): the list is the names Prometheus confirmed — a target of his on the name — then Argus's picks, then
+    // everything screened. A day tab has the last two.
+    const weekTab = horizon === 'week'
+    const narrowed = dayTab || weekTab
+    const [view, setView] = useState(null)
+    useEffect(() => { setView(null) }, [horizon])
+    const shown = view ?? (weekTab ? 'confirmed' : 'argus')
+    const argusNames = narrowed ? byHorizon.filter(r => pickFor(r, horizon)) : byHorizon
+    const prometheusNames = weekTab ? byHorizon.filter(r => isConfirmedRead(reads.get(r.symbol))) : []
+    const all = !narrowed || shown === 'all' ? byHorizon : shown === 'confirmed' ? prometheusNames : argusNames
     // Each control counts inside the other's choice: a horizon's count under the status filter, a status's count inside
     // the horizon — so a tab never reads "3" and opens on "nothing" (code review 2026-10-24).
     const byStatus = only ? today.dayList.filter(r => rowStatus(r) === only) : today.dayList
@@ -409,15 +424,16 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
                         onClick={() => chooseHorizon(horizon === c ? null : c)}>{COLUMN_LABEL[c]} {hCounts[c]}</button>
                 ))}
                 {BOOK_ORDER.map((b, i) => {
-                    // The count is what the button OPENS — the buy-rated names (the list's default); the whole book is on hover
-                    // and one click away (Roy, 2026-10-24: "Swing's count is 11 but I see fewer").
+                    // The count is what the button OPENS (Roy, 2026-10-24: "Swing's count is 11 but I see fewer") — the weekly
+                    // chain's survivors, the list's default; the chain's picks and the whole book are on hover, a click away.
                     const n = book?.[b]?.length ?? 0
-                    const buys = (book?.[b] ?? []).filter(isBuy).length
+                    const picks = book?.picks?.[b]?.length ?? 0
+                    const survivors = chainSurvivors(book, b).length
                     return (
-                        <button key={b} type="button" aria-pressed={horizon === b} disabled={!n}
-                            title={`${BOOK_TITLE[b]} — ${buys} rated buy of ${n} in the book (All shows the holds and sells)`}
+                        <button key={b} type="button" aria-pressed={horizon === b} disabled={!n && !picks}
+                            title={`${BOOK_TITLE[b]} — ${survivors} confirmed by Prometheus of ${picks} the chain sent; ${n} in the book`}
                             className={`hot-horizons__btn${i === 0 ? ' hot-horizons__btn--book' : ''}${horizon === b ? ' hot-horizons__btn--on' : ''}`}
-                            onClick={() => chooseHorizon(horizon === b ? null : b)}>{BOOK_LABEL[b]} {buys}</button>
+                            onClick={() => chooseHorizon(horizon === b ? null : b)}>{BOOK_LABEL[b]} {survivors}</button>
                     )
                 })}
             </div>
@@ -425,6 +441,18 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
                 <HotlistBook book={book} column={horizon} coverage={coverage} onBuild={onBuild} onAsk={onAsk} onSymbolClick={onSymbolClick} />
             ) : (<>
             <div className="hot-meta">
+                {narrowed && (
+                    <div className="hot-status-filter" role="group" aria-label="Names">
+                        {[
+                            weekTab && ['confirmed', `Prometheus confirmed ${prometheusNames.length}`, 'The names Prometheus read — the catalyst and the company — and set a target on: the week’s list'],
+                            ['argus', `Argus’s names ${argusNames.length}`, weekTab ? 'Argus’s picks for this week, each read by Prometheus — confirmed or not' : 'The names Argus confirmed for this horizon — the day’s list'],
+                            ['all', `All screened ${byHorizon.length}`, 'Everything the screener let through for this horizon, confirmed or not'],
+                        ].filter(Boolean).map(([k, label, title]) => (
+                            <button key={k} type="button" aria-pressed={shown === k} title={title}
+                                className={`hot-status-filter__btn${shown === k ? ' hot-status-filter__btn--on' : ''}`} onClick={() => setView(k)}>{label}</button>
+                        ))}
+                    </div>
+                )}
                 <div className="hot-status-filter" role="group" aria-label="Show">
                     <button type="button" className={`hot-status-filter__btn${!only ? ' hot-status-filter__btn--on' : ''}`} aria-pressed={!only} onClick={() => setOnly(null)}>All {all.length}</button>
                     {Object.entries(STATUS_LABEL).map(([s, label]) => (
@@ -435,7 +463,8 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
                 </div>
                 <span className="hot-meta__item hot-dim" title="Not live: each price is the quote the screener read at the checkpoint that last listed the name">Prices as of each name’s last checkpoint</span>
             </div>
-            {latest?.unverified && <p className="hot-note">Grades are <b>unverified</b>: not enough logged outcomes yet to say an A beats a C. Free range is room to the next level overhead — not a target.</p>}
+            {weekTab && <p className="hot-note">This week: the screener grades, <b>Argus picks</b>, and <b>Prometheus</b> reads each pick after the 09:20 board — the catalyst and the company — and sets his target. The names he confirmed are the list.</p>}
+            {dayTab && <p className="hot-note">No grades on day trades: the screener lets names through, <b>Argus confirms</b> the ones worth trading, and those are the list. Room is the space to the next level overhead — information, not a target.</p>}
             {horizon && <TrackRecord rec={columnRecord(record, horizon)} column={horizon} />}
             {/* Argus's own record — his picks, avoids and unmarked names, by how they ended (2026-10-24): this horizon's, or all. */}
             <ArgusRecord parts={argusRecordLine(record, horizon ?? 'all')} />
@@ -443,9 +472,11 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
             {horizon && <BacktestRecord bt={backtestLine(record, horizon)} />}
 
             {showReads && readsFailed && <p className="hot-note hot-note--warn">Prometheus’s targets could not be loaded — the names are shown without them.</p>}
-            {showReads && <p className="hot-note">Target: Prometheus’s catalyst target — the price before the catalyst plus what it is worth, or, with a report ahead, the stock’s usual run-up into its reports — and how much of it is still open. Valid until its window ends (the session before a report); graded then.</p>}
+            {showReads && <p className="hot-note">Target: <b>Prometheus’s</b> short-swing price — decided from the catalyst and the company, off a yardstick (what the catalyst is worth, or the stock’s usual run-up into a report ahead) — and how much of it is still open. Valid until its window ends (the session before a report); graded then.</p>}
             {!rows.length
-                ? <p className="floor-empty">Nothing {STATUS_LABEL[only]?.toLowerCase() ?? 'listed'}{horizon ? ` for ${COLUMN_LABEL[horizon].toLowerCase()}` : ''} today.</p>
+                ? (narrowed && shown !== 'all' && !only
+                    ? <p className="floor-empty">{emptyNamesText({ shown, column: horizon, argus: argusNames, screened: byHorizon.length, reads, readsFailed })}</p>
+                    : <p className="floor-empty">Nothing {STATUS_LABEL[only]?.toLowerCase() ?? 'listed'}{horizon ? ` for ${COLUMN_LABEL[horizon].toLowerCase()}` : ''} today.</p>)
                 : (
                     <div className="hot-table-wrap hot-table-wrap--list">
                         <table className="hot-table hot-table--list">
@@ -459,7 +490,8 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
                                     {th('vol', 'RVol', { num: true, title: 'Volume against an ordinary day, at the checkpoint (pre-market: % of a day)' })}
                                     {th('atr', 'ATR%', { num: true, title: 'Average daily range, % of price' })}
                                     {th('status', 'Status', { title: 'In play now, building, or setting up' })}
-                                    {th('grade', horizon ? 'Grade' : 'Best', { title: horizon ? `The grade for ${COLUMN_LABEL[horizon].toLowerCase()}` : 'The best graded column and its grade' })}
+                                    {/* No grades on the Hotlist (2026-10-24: the day trades, then This week); on All, the horizon each name is best on. */}
+                                    {!horizon && th('grade', 'Horizon', { title: 'The horizon the name is best on' })}
                                     <th scope="col" title="Free range: the room to the next level overhead — not a target">Room</th>
                                     {th('earnings', 'Earn', { title: 'Next earnings; amber = a run-up trade, out before the report' })}
                                     <th scope="col" title="Did it work? Once the horizon's window closes: ✓ reached the level the grade measured room to, ✗ did not (its best move); ↑ / ↓ open sky, by how it ended. Open while the window runs.">Result</th>
@@ -469,7 +501,7 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
                             <tbody>
                                 {rows.map(r => <ListRow key={r.symbol} row={r} open={openSym === r.symbol} column={horizon}
                                     read={showReads ? reads.get(r.symbol) ?? null : null} showRead={showReads}
-                                    asked={showReads ? asked[r.symbol] ?? null : null} onAskRead={showReads && !readsFailed ? onAskRead : null} record={record}
+                                    asked={showReads ? asked[r.symbol] ?? null : null} onAskRead={showReads && !readsFailed ? onAskRead : null} record={record} hideGrade={Boolean(horizon)}
                                     onToggle={() => setOpenSym(s => (s === r.symbol ? null : r.symbol))}
                                     onBuild={onBuild} onAsk={onAsk} onSymbolClick={onSymbolClick} />)}
                             </tbody>
@@ -494,14 +526,11 @@ DayList.propTypes = {
  */
 function TrackRecord({ rec, column }) {
     const label = COLUMN_LABEL[column]?.toLowerCase() ?? column
-    if (!rec?.grades.length) return <p className="hot-note hot-record">Track record for {label}: no results logged yet.</p>
+    // No horizon shows grades (2026-10-24): its record is the board against the rest, and Argus's below.
+    if (!rec?.cut) return <p className="hot-note hot-record">Track record for {label}: no results logged yet.</p>
     return (
         <p className="hot-note hot-record">
             <span className="hot-record__who">Track record · {label}</span>
-            {rec.grades.map(g => <span key={g.grade} className="hot-record__grade"><b className={`hot-grade--${g.grade}`}>{g.grade}</b> {g.text}</span>)}
-            {rec.verified
-                ? <span className="hot-record__state">verified</span>
-                : <span className="hot-record__state" title="Too little history to say whether an A beats a C">unverified — {rec.progress}</span>}
             {/* The board's top names against every graded name past its cut — does the ranking pick better? */}
             {rec.cut && <span title="Every quoted name is scored: the board's names, the graded ones past its cut, and the pool it chose from (graded on no horizon) — do the screener's picks beat the names it passed over?">
                 <b>on the board</b> {rec.cut.board} · <b>graded off it</b> {rec.cut.off} · <b>the pool it chose from</b> {rec.cut.pool}</span>}
@@ -583,7 +612,7 @@ const _room = (r) => (!r ? null : r.open_sky ? 'open sky'
  * watchlist table"). Everything that needs words — the reason, the story, Argus's note, the hand-offs
  * — opens under it on a click.
  */
-function ListRow({ row, open, onToggle, onBuild, onAsk, onSymbolClick, column = null, read = null, showRead = false, asked = null, onAskRead = null, record = null }) {
+function ListRow({ row, open, onToggle, onBuild, onAsk, onSymbolClick, column = null, read = null, showRead = false, asked = null, onAskRead = null, record = null, hideGrade = false }) {
     // On a horizon's list the row reads THAT column — its grade, room and Argus's pick for it (horizon-chains.md §1).
     const col = column && row.cells?.[column]?.grade ? column : bestColumn(row, COLUMN_ORDER)
     const pick = column ? pickFor(row, column) : row.pick
@@ -615,14 +644,12 @@ function ListRow({ row, open, onToggle, onBuild, onAsk, onSymbolClick, column = 
                 <td className="hot-table__num">{Number.isFinite(row.rvol) ? `${row.rvol}×` : Number.isFinite(row.pm_vol_pct) ? `${row.pm_vol_pct.toFixed(1)}%` : '—'}</td>
                 <td className="hot-table__num">{Number.isFinite(row.atr_pct) ? `${row.atr_pct.toFixed(1)}%` : '—'}</td>
                 <td>{status ? <span className={`hot-status hot-status--${status}`} title={STATUS_TITLE[status]}>{STATUS_SHORT[status]}</span> : <span className="hot-dim">—</span>}</td>
-                <td>
+                {!hideGrade && <td>
+                    {/* No grade on any horizon (2026-10-24) — the horizon only. */}
                     {cell?.grade
-                        ? <span className={`hot-grade hot-grade--${cell.grade}`}
-                            title={`${COLUMN_TITLE[col]}${graded ? ` — ${cell.grade}s so far: ${graded}` : ' — no results logged for this grade yet'}`}>
-                            <span className="hot-best__col">{COLUMN_LABEL[col] ?? col}</span> <b>{cell.grade}</b>
-                          </span>
+                        ? <span className="hot-best__col" title={COLUMN_TITLE[col]}>{COLUMN_LABEL[col] ?? col}</span>
                         : <span className="hot-dim">—</span>}
-                </td>
+                </td>}
                 <td className="hot-range" title={rangeTitle(cell?.range) ?? undefined}>{_room(cell?.range) ?? '—'}</td>
                 <td>{earn ? <span className={`hot-earn${earn.exit ? ' hot-earn--exit' : ' hot-dim'}`} title={earn.title}>{row.next_earnings.slice(5)}{earn.exit ? '!' : ''}</span> : <span className="hot-dim">—</span>}</td>
                 <td className={`hot-result hot-result--${mark?.tone ?? 'dim'}`} title={mark?.title}>{mark?.text ?? '—'}</td>
@@ -637,7 +664,7 @@ function ListRow({ row, open, onToggle, onBuild, onAsk, onSymbolClick, column = 
             {open && (
                 <tr className="hot-detail-row" id={detailId}>
                     <td />
-                    <td colSpan={LIST_COLS - 1 + (showRead ? 1 : 0)}><RowDetail row={row} col={col} pick={pick} read={showRead ? read : null} status={status} earn={earn} onBuild={onBuild} onAsk={onAsk}
+                    <td colSpan={LIST_COLS - 1 + (showRead ? 1 : 0) - (hideGrade ? 1 : 0)}><RowDetail row={row} col={col} pick={pick} read={showRead ? read : null} status={status} earn={earn} onBuild={onBuild} onAsk={onAsk}
                         asked={asked} onAskRead={showRead && !read ? onAskRead : null} result={mark} /></td>
                 </tr>
             )}
@@ -648,7 +675,7 @@ ListRow.propTypes = {
     row: PropTypes.object.isRequired, open: PropTypes.bool, onToggle: PropTypes.func.isRequired,
     onBuild: PropTypes.func, onAsk: PropTypes.func, onSymbolClick: PropTypes.func,
     column: PropTypes.string, read: PropTypes.object, showRead: PropTypes.bool, asked: PropTypes.object, onAskRead: PropTypes.func,
-    record: PropTypes.object,
+    record: PropTypes.object, hideGrade: PropTypes.bool,
 }
 
 /** Prometheus's catalyst read under a week row (horizon-chains.md §3): the verdict, the number, what can break it. */
@@ -664,14 +691,18 @@ function ReadDetail({ read }) {
                 {/* The price the target was set from, and when — the row's Last is an earlier checkpoint's quote. */}
                 {t && Number.isFinite(t.spot ?? read.price_at_read) && <span className="hot-dim"> · set from {(t.spot ?? read.price_at_read).toFixed(2)} at the read, {readTime(read.set_at)}</span>}
                 {/* A run-up's target is the stock's own record into its reports; an event's is what it is worth less what moved. */}
+                {/* HIS OWN number (2026-10-24): what is open, and the yardstick the tools gave him beside it. */}
+                {t && t.basis === 'prometheus' && <> · <b>{_pct(t.open_pct)}</b> open — his own number{Number.isFinite(t.yardstick?.open_pct) && <span className="hot-dim">, off the {t.yardstick.basis === 'run_up' ? `run-up record (median ${_pct(t.yardstick.open_pct)}${read.runup?.n ? ` over ${read.runup.n} reports` : ''})` : `catalyst's worth (${_pct(t.yardstick.open_pct)} open)`}</span>}</>}
                 {t && t.basis === 'run_up' && <> · its run-up into the last {read.runup?.n ?? '?'} reports: median {t.open_pct > 0 ? '+' : ''}{t.open_pct}%{Number.isFinite(read.runup?.up_share) && `, up ${Math.round(read.runup.up_share * 100)}% of the time`}</>}
                 {/* This cycle's head start (2026-10-24): the stock has already moved part of its usual full run-up. */}
                 {t && t.basis === 'run_up' && t.moved_pct > 0 && <span className="hot-dim"> · this cycle already {t.moved_pct > 0 ? '+' : ''}{t.moved_pct}% of a usual +{t.worth_pct}%{t.cycle_cut_pct > 0 ? `, so ${t.cycle_cut_pct}% less is left` : ''}</span>}
-                {t && t.basis !== 'run_up' && <> · worth {t.worth_pct > 0 ? '+' : ''}{t.worth_pct}%, moved {t.moved_pct > 0 ? '+' : ''}{t.moved_pct}%, open {t.open_pct > 0 ? '+' : ''}{t.open_pct}%</>}
+                {t && !['run_up', 'prometheus'].includes(t.basis) && <> · worth {t.worth_pct > 0 ? '+' : ''}{t.worth_pct}%, moved {t.moved_pct > 0 ? '+' : ''}{t.moved_pct}%, open {t.open_pct > 0 ? '+' : ''}{t.open_pct}%</>}
                 {read.exit_before && <span className="hot-earn--exit"> · out before the {read.exit_before} report</span>}
                 <span className="hot-dim"> · valid until {String(read.valid_until).slice(0, 10)}</span>
                 {read.news_driven === false && <span className="hot-row__caution"> · no news under the move</span>}
             </p>
+            {t?.why && <p className="hot-detail__line"><span className="hot-dim">The target:</span> {t.why}</p>}
+            {read.company?.verdict && <p className="hot-detail__line"><span className="hot-dim">The company:</span> <span className={read.company.verdict === 'sound' ? '' : 'hot-row__caution'}>{COMPANY_LABEL[read.company.verdict]}</span>{read.company.why && ` — ${read.company.why}`}</p>}
             {read.read && <p className="hot-detail__line">{read.read}</p>}
             {read.event_risk?.length > 0 && <p className="hot-detail__line hot-earn--exit">Inside the window: {read.event_risk.join('; ')}</p>}
             {read.kill?.length > 0 && <p className="hot-detail__line"><span className="hot-dim">Wrong if:</span> {read.kill.join('; ')}</p>}
@@ -717,13 +748,18 @@ function RowDetail({ row, col, pick = row.pick, read = null, status, earn, onBui
                 {/* A week name with no read yet — Argus did not pick it, or it waits: ask Prometheus for one (horizon-chains.md §3). */}
                 {onAskRead && (!asked || asked.state === 'error') && (
                     <button type="button" className="floor-queued__btn hot-ask-read" onClick={() => onAskRead(row)}
-                        title="Prometheus reads the catalyst: is it real, what is it worth, what is still open — a target and a window. About a minute.">Catalyst read</button>
+                        title="Prometheus reads the catalyst and the company — is it real, can the company carry it, what is still open — and sets his target and a window. About a minute.">Catalyst read</button>
+                )}
+                {/* The answer sits beside the button — a line below it read as "nothing happened" (Roy, 2026-10-24). */}
+                {asked && (
+                    <span className={`hot-asked hot-asked--${asked.state}`} role="status">
+                        {asked.state === 'sending' ? 'Asking Prometheus…'
+                            : asked.state === 'started' ? 'Prometheus is reading it — the target lands on this row in about a minute.'
+                                : asked.state === 'queued' ? 'Queued — Prometheus reads it as soon as the research running now is done.'
+                                    : asked.message}
+                    </span>
                 )}
             </div>
-            {asked?.state === 'sending' && <p className="hot-detail__line hot-dim">Asking Prometheus…</p>}
-            {asked?.state === 'started' && <p className="hot-detail__line hot-dim">Prometheus is reading it — the target lands on this row in about a minute.</p>}
-            {asked?.state === 'queued' && <p className="hot-detail__line hot-dim">Queued — Prometheus reads it as soon as the research running now is done.</p>}
-            {asked?.state === 'error' && <p className="hot-detail__line hot-row__caution">{asked.message}</p>}
         </div>
     )
 }
@@ -816,7 +852,7 @@ function Row({ row, board, columns, onBuild, onAsk, onSymbolClick }) {
                         <td key={c} className="hot-cell">
                             {cell?.grade
                                 ? <span className={`hot-grade hot-grade--${cell.grade}`} title={[rangeTitle(cell.range), ...(cell.why ?? [])].filter(Boolean).join(' — ')}>
-                                    <b>{cell.grade}</b> <span className="hot-range">{fmtRange(cell.range)}</span>
+<span className="hot-range">{fmtRange(cell.range)}</span>
                                     {mark && mark.tone !== 'dim' && <span className={`hot-result hot-result--${mark.tone}`} title={mark.title}> {mark.text}</span>}
                                   </span>
                                 : <span className="hot-dim" title={cell?.gate ? `Fails the ${cell.gate.replace('_', ' ')} gate` : 'Not in play for this column'}>—</span>}

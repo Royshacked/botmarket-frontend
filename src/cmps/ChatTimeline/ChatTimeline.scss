@@ -295,7 +295,11 @@
 .chat-timeline__address {
     display: flex;
     justify-content: flex-end;
+    gap: 8px;
     padding: 0 24px 4px;
+
+    // The way back to the list a hand-off came from sits on the left; the address switch stays on the right.
+    .chat-timeline__back { margin-right: auto; color: var(--accent-bright); border-color: var(--accent); }
 
     &-btn {
         padding: 3px 10px;

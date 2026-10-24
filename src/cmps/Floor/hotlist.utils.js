@@ -97,9 +97,31 @@ export const PASS_WHY = Object.freeze({
     too_small: 'too little left open to trade',
     already_ran: 'it already ran its usual run-up this cycle',
     unsized: 'not sized',
+    company: 'the company cannot carry it',
     contradicted: 'the record cuts against it',
     unclear: 'too thin to tell',
 })
+
+/** Prometheus's word on the company under the trade (catalystRead `company.verdict`). */
+export const COMPANY_LABEL = Object.freeze({ sound: 'sound', weak: 'weak', broken: 'cannot carry it' })
+
+/** A read that CONFIRMS the name for the week — Prometheus set a target on it (live, or since hit / expired). Pure. */
+export const isConfirmedRead = (read) => Boolean(read?.target) && read.status !== 'pass'
+
+/**
+ * Why a narrowed list (This week's confirmed names, a horizon's Argus names) is empty, in words. Pure. `argus` — the
+ * horizon's Argus names; `reads` — the list's reads by symbol. On the confirmed list it says where his reads stand:
+ * still to come, all passes, or not loaded.
+ */
+export function emptyNamesText({ shown, column, argus = [], screened = 0, reads = new Map(), readsFailed = false }) {
+    const label = (COLUMN_LABEL[column] ?? column ?? '').toLowerCase()
+    if (shown !== 'confirmed') return `Argus confirmed no names for ${label} on this list${screened ? ` — the screener let ${screened} through: see All screened` : ''}.`
+    if (readsFailed) return 'Prometheus’s reads could not be loaded — see Argus’s names.'
+    if (!argus.length) return `Argus picked no names for ${label} on this list${screened ? ` — the screener let ${screened} through: see All screened` : ''}.`
+    const unread = argus.filter(r => !reads.get(r.symbol)).length
+    if (unread) return `Prometheus has ${unread} of Argus’s ${argus.length} names still to read — he reads them after the 09:20 board. See Argus’s names meanwhile.`
+    return `Prometheus confirmed none of Argus’s ${argus.length} names — open them under Argus’s names to see why.`
+}
 
 /** When a read was made, in New York time — "Oct 23, 15:51 ET". Pure; '' without one. */
 export function readTime(iso) {
@@ -122,8 +144,11 @@ export function readCell(read) {
     const state = read.status === 'hit' ? 'hit' : read.status === 'expired' ? 'expired' : null
     return {
         text: [t.value.toFixed(2), state ?? open].filter(Boolean).join(' · '),
-        title: `Prometheus's catalyst target ${t.value.toFixed(2)}${hasBand(t) ? ` (band ${t.low.toFixed(2)}–${t.high.toFixed(2)})` : ''}`
-            + `${from != null ? `, set from ${from.toFixed(2)} at the read (${readTime(read.set_at)})` : ''}, valid until ${String(read.valid_until).slice(0, 10)} — ${read.verdict}`,
+        title: `Prometheus's ${t.basis === 'prometheus' ? 'swing' : 'catalyst'} target ${t.value.toFixed(2)}${hasBand(t) ? ` (band ${t.low.toFixed(2)}–${t.high.toFixed(2)})` : ''}`
+            + `${from != null ? `, set from ${from.toFixed(2)} at the read (${readTime(read.set_at)})` : ''}, valid until ${String(read.valid_until).slice(0, 10)} — ${read.verdict}`
+            // His own number (2026-10-24) says how far it sits from the tools' yardstick; the company rides along.
+            + `${Number.isFinite(t.yardstick?.open_pct) ? `; yardstick ${t.yardstick.open_pct > 0 ? '+' : ''}${t.yardstick.open_pct.toFixed(1)}%` : ''}`
+            + `${read.company?.verdict ? `; company ${COMPANY_LABEL[read.company.verdict] ?? read.company.verdict}` : ''}`,
         state,
     }
 }
@@ -182,7 +207,8 @@ export function backtestLine(summary, column) {
     const part = (x) => (x?.n ? `up ${Math.round(x.up_rate)}% · avg ${_sp(x.ret_mean)} (${x.n.toLocaleString('en-US')})` : 'none')
     return {
         span: `${b.sessions} sessions, ${b.from} → ${b.to}`,
-        parts: [...['A', 'B', 'C'].map(g => [g, part(b.summary.grades?.[g])]), ['the pool', part(b.summary.pool)]],
+        // No grades on the Hotlist (Roy, 2026-10-24: hidden on This week too) — the screener's names against its pool.
+        parts: [['the screener’s names', part(b.summary.graded)], ['the pool', part(b.summary.pool)]],
         caveats: b.caveats ?? [],
     }
 }
@@ -204,7 +230,9 @@ export function argusRecordLine(summary, column = 'all') {
 export function columnRecord(summary, column) {
     const c = summary?.[column]
     if (!c) return null
-    const grades = ['A', 'B', 'C'].map(g => ({ grade: g, text: gradeRecord(summary, column, g) })).filter(g => g.text)
+    // No horizon shows grades (2026-10-24: the day trades, then This week) — the record is the board against the rest,
+    // and Argus's. The grades are still the screener's, and still scored.
+    const grades = []
     return {
         grades,
         verified: Boolean(c.verified),
@@ -262,6 +290,41 @@ export function bookOrigin(row) {
     return { text: o.subject ?? 'Pythia', title: `The weekly chain: Pythia's ${o.verdict === 'long_term' ? 'long-term' : o.verdict ?? ''} call on the ${o.kind ?? 'industry'} ${o.subject ?? ''} → Argus's pick → Prometheus` }
 }
 
+// ─── The weekly chain's survivors (Roy, 2026-10-24: "Pythia brings the industry → Argus brings names from it →
+// Prometheus analyses them and brings a thesis and PT — the survivors in the Hotlist") ─────────────────────────────
+
+/**
+ * The book's names that SURVIVED the chain, in the book's order. Pure. Pythia picks the industries, Argus the names
+ * in them, and Prometheus covers the names Argus picked: the COVERED names are the list (Roy, 2026-10-24), whatever the
+ * rating. Covered through the chain (`origin` pythia), or sent by it and already covered at the desk
+ * (`already_covered`). A name Prometheus passed on has no live row, so it is not here.
+ */
+export function chainSurvivors(book, column) {
+    const picked = new Set((book?.picks?.[column] ?? []).filter(p => ['covered', 'already_covered'].includes(p.state)).map(p => p.symbol))
+    return (book?.[column] ?? []).filter(r => r?.origin?.source === 'pythia' || picked.has(r?.symbol))
+}
+
+/** Why Prometheus passed on a chain pick, in words (researchRun's reject reasons). */
+export const PICK_PASS_WHY = Object.freeze({
+    no_edge: 'he could not defend a number',
+    horizon_off_book: 'his target fell outside this book’s horizon',
+    no_read: 'no read came back',
+})
+
+/**
+ * Where one of the chain's picks stands, as the list's cell `{ text, tone }`. Pure. `row` — its live coverage in this
+ * book, or null. Covered: his rating and target; passed: why; waiting: for him.
+ */
+export function pickCell(pick, row = null) {
+    const rated = row ? `${String(row.rating ?? 'unrated').replace('_', ' ')}${Number.isFinite(row.target) ? ` · target ${row.target.toFixed(2)}${Number.isFinite(row.upside_pct) ? ` (${_sp(row.upside_pct)})` : ''}` : ''}` : null
+    switch (pick?.state) {
+    case 'covered': return row ? { text: rated, tone: isBuy(row) ? 'good' : 'dim' } : { text: 'covered — no longer live', tone: 'dim' }
+    case 'already_covered': return { text: row ? `covered at the desk: ${rated}` : 'covered at the desk', tone: row && isBuy(row) ? 'good' : 'dim' }
+    case 'passed': return { text: `pass — ${PICK_PASS_WHY[pick.reason] ?? pick.reason ?? 'no coverage'}`, tone: 'bad' }
+    default: return { text: 'waiting for Prometheus', tone: 'dim' }
+    }
+}
+
 /**
  * A book's track record as one line's parts. Pure. → `{ settled, live }` phrases, or null on no record.
  */
@@ -299,6 +362,9 @@ export function sortBook(rows, key, dir) {
 }
 
 // ─── The day's watchlist (Roy, 2026-10-22) ────────────────────────────────────
+
+/** The session horizons — day trades: no grade; Argus's confirmed names are the list (Roy, 2026-10-24). */
+export const DAY_COLUMNS = Object.freeze(['open', 'mid', 'eod', 'tomorrow'])
 
 /** The board's columns in order — what a day-list row's merged cells are walked in. */
 export const COLUMN_ORDER = Object.freeze(['open', 'mid', 'eod', 'tomorrow', 'week'])
@@ -398,7 +464,8 @@ export function askArgusText(row, column) {
     }
     const c = row?.cells?.[column]
     const bits = [
-        c?.grade ? `${COLUMN_LABEL[column] ?? column} ${c.grade}` : null,
+        // No grade on any horizon (2026-10-24) — the horizon only.
+        c?.grade ? `${COLUMN_LABEL[column] ?? column}` : null,
         Number.isFinite(row?.gap_pct) ? `${_sign(row.gap_pct)}${row.gap_pct.toFixed(1)}% gap` : null,
         Number.isFinite(row?.rvol) ? `${row.rvol}× volume` : null,
         c?.range ? `free range ${fmtRange(c.range)}` : null,

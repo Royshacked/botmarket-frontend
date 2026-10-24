@@ -255,3 +255,11 @@
 // What Argus spotted in the pool (ArgusSpots, 2026-10-24) — under his read, a line each.
 .hot-argus__spots { margin-top: 6px; font-size: 12px; display: flex; flex-direction: column; gap: 2px; }
 .hot-argus__spot { margin: 0; }
+
+// A "Catalyst read" answer, beside its button (2026-10-24): working in the accent, a refusal in red.
+.hot-asked {
+    align-self: center; font-size: 12px; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border);
+    color: var(--text-secondary);
+    &--sending, &--started, &--queued { color: var(--accent-bright); border-color: var(--accent); }
+    &--error { color: var(--color-short); border-color: var(--color-short); }
+}

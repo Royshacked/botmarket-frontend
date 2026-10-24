@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
 import { CoverageDetail, CoverageRating } from './CoverageDetail.jsx'
-import { BOOK_LABEL, BOOK_SORTS, isBuy, bookResult, bookProgress, bookOrigin, bookRecordLine, sortBook } from './hotlist.utils.js'
+import { BOOK_LABEL, BOOK_SORTS, bookResult, bookProgress, bookOrigin, bookRecordLine, sortBook, chainSurvivors, pickCell } from './hotlist.utils.js'
 
 // THE HOUSE'S BOOK in the Hotlist — its Swing and Long term lists (Roy, 2026-10-24: "in hotlist — what about longer
 // swings and long-term names?"). The day's boards stop at This week; these are Prometheus's coverage, split by the price
@@ -28,13 +28,65 @@ function BookRecord({ rec, column }) {
 }
 BookRecord.propTypes = { rec: PropTypes.object, column: PropTypes.string.isRequired }
 
+/** Why the survivors list is empty, in words: the chain sent nothing yet, it is still researching, or he rated none a buy. */
+function survivorsEmpty({ picks, failed, column }) {
+    const label = BOOK_LABEL[column].toLowerCase()
+    if (failed) return 'The weekly chain’s names could not be loaded — see All coverage.'
+    if (!picks.length) return `The weekly chain has sent no ${label} names yet — Pythia’s week sends them. See All coverage meanwhile.`
+    const waiting = picks.filter(p => p.state === 'waiting').length
+    if (waiting) return `Prometheus has ${waiting} of Argus’s ${picks.length} ${label} names still to research. See Argus’s names.`
+    return `Prometheus covered none of Argus’s ${picks.length} ${label} names — see Argus’s names for why.`
+}
+
+/** Every name Argus sent for this book, newest first, and where Prometheus has it. */
+function ChainPicks({ picks, failed, rows, column, onSymbolClick }) {
+    if (failed) return <p className="floor-empty">The weekly chain’s names could not be loaded.</p>
+    if (!picks.length) return <p className="floor-empty">The weekly chain has sent no {BOOK_LABEL[column].toLowerCase()} names in the last eight weeks.</p>
+    const bySym = new Map(rows.map(r => [r.symbol, r]))
+    return (
+        <div className="hot-table-wrap hot-table-wrap--list">
+            <table className="hot-table hot-table--list hot-table--picks">
+                <thead>
+                    <tr>
+                        <th scope="col">Sym</th>
+                        <th scope="col" title="The industry or theme Pythia called">Pythia’s call</th>
+                        <th scope="col" title="Why Argus chose it, and what would make it wrong">Argus</th>
+                        <th scope="col" title="Prometheus's rating and target, or why he passed">Prometheus</th>
+                        <th scope="col" title="When the chain sent it">Sent</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {picks.map(p => {
+                        const cell = pickCell(p, bySym.get(p.symbol) ?? null)
+                        return (
+                            <tr key={p.symbol} className="hot-row hot-row--line" data-symbol={p.symbol}>
+                                <td><button type="button" className="hot-sym" onClick={() => onSymbolClick?.(p.symbol)}>{p.symbol}</button></td>
+                                <td>{p.subject ?? '—'}</td>
+                                <td className="hot-picks__why">{p.why ?? <span className="hot-dim">—</span>}{p.caution && <span className="hot-row__caution"> Caution: {p.caution}</span>}</td>
+                                <td className={`hot-result hot-result--${cell.tone}`}>{cell.text}</td>
+                                <td className="hot-dim">{String(p.at ?? '').slice(0, 10)}</td>
+                            </tr>
+                        )
+                    })}
+                </tbody>
+            </table>
+        </div>
+    )
+}
+ChainPicks.propTypes = { picks: PropTypes.array.isRequired, failed: PropTypes.bool, rows: PropTypes.array.isRequired, column: PropTypes.string.isRequired, onSymbolClick: PropTypes.func }
+
 export function HotlistBook({ book, column, coverage = [], onBuild, onAsk, onSymbolClick }) {
-    const [buysOnly, setBuysOnly] = useState(true)
+    // THE CHAIN'S SURVIVORS first (Roy, 2026-10-24: "Pythia brings the industry → Argus brings names from it →
+    // Prometheus analyses them and brings a thesis and PT — the survivors in the Hotlist"): the names that came through
+    // it as a buy; then every name Argus sent and where Prometheus has it; then the whole book, the desk's too.
+    const [view, setView] = useState('confirmed')
+    useEffect(() => { setView('confirmed') }, [column])
     const [sort, setSort] = useState({ key: null, dir: null })
     const [openSym, setOpenSym] = useState(null)
     const all = book?.[column] ?? []
-    const buys = all.filter(isBuy)
-    const rows = sortBook(buysOnly ? buys : all, sort.key, sort.dir)
+    const survivors = chainSurvivors(book, column)
+    const picks = book?.picks?.[column] ?? []
+    const rows = sortBook(view === 'all' ? all : survivors, sort.key, sort.dir)
     const bySymbol = new Map((coverage ?? []).map(c => [String(c?.symbol ?? '').toUpperCase(), c]))
     // Click: sort; again: the other way; a third time: back to the book's own order (the chain's names, then upside).
     const onSort = (key) => setSort(s => {
@@ -58,19 +110,26 @@ export function HotlistBook({ book, column, coverage = [], onBuild, onAsk, onSym
     return (
         <>
             <div className="hot-meta">
-                <div className="hot-status-filter" role="group" aria-label="Show">
-                    <button type="button" aria-pressed={buysOnly} className={`hot-status-filter__btn${buysOnly ? ' hot-status-filter__btn--on' : ''}`}
-                        onClick={() => setBuysOnly(true)} title="Rated buy or strong buy — the longs the house would take">Buys {buys.length}</button>
-                    <button type="button" aria-pressed={!buysOnly} className={`hot-status-filter__btn${!buysOnly ? ' hot-status-filter__btn--on' : ''}`}
-                        onClick={() => setBuysOnly(false)} title="Every live thesis, holds and sells too">All {all.length}</button>
+                <div className="hot-status-filter" role="group" aria-label="Names">
+                    {[
+                        ['confirmed', `Prometheus confirmed ${survivors.length}`, 'The weekly chain’s survivors: Pythia’s industry, Argus’s pick, and Prometheus’s thesis and target — whatever the rating'],
+                        ['argus', `Argus’s names ${picks.length}`, 'Every name Argus sent from Pythia’s calls in the last eight weeks, and where Prometheus has it'],
+                        ['all', `All coverage ${all.length}`, 'Every live thesis on this horizon — the desk’s too, holds and sells too'],
+                    ].map(([k, label, title]) => (
+                        <button key={k} type="button" aria-pressed={view === k} title={title}
+                            className={`hot-status-filter__btn${view === k ? ' hot-status-filter__btn--on' : ''}`} onClick={() => setView(k)}>{label}</button>
+                    ))}
                 </div>
                 <span className="hot-meta__item hot-dim" title="The house's live coverage — not a day's board. Prices are the screener's last close.">
                     The house’s live coverage{book?.asof ? ` · prices as of the ${book.asof} close` : ''}
                 </span>
             </div>
             <BookRecord rec={book?.record?.[column]} column={column} />
-            {!rows.length
-                ? <p className="floor-empty">No {buysOnly ? 'buy-rated ' : ''}{BOOK_LABEL[column].toLowerCase()} names in the book.</p>
+            {view !== 'all' && <p className="hot-note">{BOOK_LABEL[column]}: <b>Pythia</b> calls the industry, <b>Argus</b> picks the names that best carry her thesis, and <b>Prometheus</b> researches each — the thesis and a {column === 'swing' ? '3–6 month' : '12–24 month'} target. The names he covered are the list, with his rating.</p>}
+            {view === 'argus'
+                ? <ChainPicks picks={picks} failed={book?.picks === null} rows={all} column={column} onSymbolClick={onSymbolClick} />
+                : !rows.length
+                ? <p className="floor-empty">{view === 'all' ? `No ${BOOK_LABEL[column].toLowerCase()} names in the book.` : survivorsEmpty({ picks, failed: book?.picks === null, column })}</p>
                 : (
                     <div className="hot-table-wrap hot-table-wrap--list">
                         <table className="hot-table hot-table--list hot-table--book">

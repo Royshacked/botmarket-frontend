@@ -45,8 +45,10 @@ test('the earnings chip: a graded week cell holding the report says to be out be
 
 test('"Ask Argus" puts the row\'s facts to Argus as the user\'s own question', () => {
     const t = askArgusText(ROW, 'mid')
-    assert.match(t, /^From today's hotlist: SPCX — Mid-day B, \+10\.1% gap, 3\.39× volume, free range 2\.1% · 0\.45× ATR, news: "SpaceX swings to profit"\./)
+    assert.match(t, /^From today's hotlist: SPCX — Mid-day, \+10\.1% gap, 3\.39× volume, free range 2\.1% · 0\.45× ATR, news: "SpaceX swings to profit"\./)
     assert.match(t, /what would make it wrong\?$/)
+    // No horizon carries a grade (2026-10-24), the week included.
+    assert.match(askArgusText({ symbol: 'X', cells: { week: { grade: 'A' } } }, 'week'), /X — This week\./)
 })
 
 test('the opening read: Argus\'s note, else the board\'s own reason', () => {
@@ -206,7 +208,7 @@ test("a grade's record and a column's: the hit rate over names with a level, the
     assert.equal(gradeRecord(summary, 'week', 'C'), null)
     assert.equal(gradeRecord(null, 'week', 'A'), null)
     const rec = columnRecord(summary, 'week')
-    assert.deepEqual(rec.grades.map(g => g.grade), ['A', 'B'])
+    assert.deepEqual(rec.grades, [], 'no horizon shows grades (2026-10-24)')
     assert.equal(rec.progress, '6 of 40 sessions, 9 of 30 names')
     assert.equal(columnRecord({ week: { ...summary.week, verified: true } }, 'week').progress, null)
 })
@@ -297,12 +299,56 @@ test("Argus's record line adds his pool spots against the pool he passed on — 
     assert.equal(argusRecordLine({ argus: { all: { ...g, spot: { n: 0 }, passed: { n: 0 } } } }).length, 3)
 })
 
-test("a column's backtest: the span, each grade and the pool, the caveats — null without one", async () => {
+test("a column's backtest: the span, the screener's names against the pool, the caveats — null without one", async () => {
     const { backtestLine } = await import('./hotlist.utils.js')
     const week = { sessions: 125, from: '2026-04-22', to: '2026-10-19', caveats: ['no drift path'], summary: {
-        grades: { A: { n: 2400, up_rate: 61.2, ret_mean: 0.42 }, B: { n: 0 }, C: { n: 900, up_rate: 50, ret_mean: -0.1 } }, pool: { n: 60000, up_rate: 52, ret_mean: 0.1 } } }
+        grades: { A: { n: 2400, up_rate: 61.2, ret_mean: 0.42 } }, graded: { n: 3300, up_rate: 58.4, ret_mean: 0.3 }, pool: { n: 60000, up_rate: 52, ret_mean: 0.1 } } }
     const bt = backtestLine({ backtest: { week } }, 'week')
     assert.equal(bt.span, '125 sessions, 2026-04-22 → 2026-10-19')
-    assert.deepEqual(bt.parts, [['A', 'up 61% · avg +0.4% (2,400)'], ['B', 'none'], ['C', 'up 50% · avg -0.1% (900)'], ['the pool', 'up 52% · avg +0.1% (60,000)']])
+    // No grades on the Hotlist (2026-10-24) — not even the replay's.
+    assert.deepEqual(bt.parts, [['the screener’s names', 'up 58% · avg +0.3% (3,300)'], ['the pool', 'up 52% · avg +0.1% (60,000)']])
     assert.equal(backtestLine({ backtest: { week } }, 'mid'), null)
+})
+
+test('a week name is confirmed when Prometheus set a target on it; an empty confirmed list says where his reads stand', async () => {
+    const { isConfirmedRead, emptyNamesText } = await import('./hotlist.utils.js')
+    assert.equal(isConfirmedRead({ status: 'active', target: { value: 10 } }), true)
+    assert.equal(isConfirmedRead({ status: 'hit', target: { value: 10 } }), true)
+    assert.equal(isConfirmedRead({ status: 'pass', target: null, pass_reason: 'company' }), false)
+    assert.equal(isConfirmedRead(null), false)
+    const argus = [{ symbol: 'A' }, { symbol: 'B' }]
+    assert.match(emptyNamesText({ shown: 'confirmed', column: 'week', argus, reads: new Map([['A', { status: 'pass' }]]) }), /Prometheus has 1 of Argus’s 2 names still to read/)
+    assert.match(emptyNamesText({ shown: 'confirmed', column: 'week', argus, reads: new Map([['A', {}], ['B', {}]]) }), /confirmed none of Argus’s 2 names/)
+    assert.match(emptyNamesText({ shown: 'confirmed', column: 'week', argus: [], screened: 4 }), /Argus picked no names for this week on this list — the screener let 4 through/)
+    assert.match(emptyNamesText({ shown: 'confirmed', column: 'week', argus, readsFailed: true }), /could not be loaded/)
+    assert.match(emptyNamesText({ shown: 'argus', column: 'open', screened: 2 }), /^Argus confirmed no names for open on this list — the screener let 2 through: see All screened\.$/)
+})
+
+test("his own target's cell title says it is his, off which yardstick, and the company", () => {
+    const c = readCell({ status: 'active', verdict: 'credible', valid_until: '2026-10-29T21:00:00Z', company: { verdict: 'weak' },
+        target: { value: 104.5, spot: 100, open_pct: 4.5, basis: 'prometheus', yardstick: { open_pct: 3, basis: 'run_up' } } })
+    assert.equal(c.text, '104.50 · +4.5% from 100.00')
+    assert.match(c.title, /^Prometheus's swing target 104\.50/)
+    assert.match(c.title, /; yardstick \+3\.0%; company weak$/)
+})
+
+test("the chain's survivors and where each pick stands", async () => {
+    const { chainSurvivors, pickCell } = await import('./hotlist.utils.js')
+    // Survived = the chain sent it and Prometheus covered it — a thesis and a PT, whatever the rating (Roy, 2026-10-24).
+    const book = {
+        swing: [{ symbol: 'CHN', rating: 'buy', origin: { source: 'pythia' } }, { symbol: 'HLD', rating: 'hold', origin: { source: 'pythia' } },
+            { symbol: 'DSK', rating: 'buy', origin: { source: 'desk' } }, { symbol: 'PRE', rating: 'sell', origin: { source: 'desk' } }],
+        picks: { swing: [{ symbol: 'PRE', state: 'already_covered' }, { symbol: 'PSS', state: 'passed' }, { symbol: 'DSK', state: 'passed' }] },
+    }
+    assert.deepEqual(chainSurvivors(book, 'swing').map(r => r.symbol), ['CHN', 'HLD', 'PRE'],
+        "his hold is a survivor; so is a pick the desk had covered; the desk's own buy and a pass are not")
+    assert.deepEqual(chainSurvivors({ swing: book.swing }, 'swing').map(r => r.symbol), ['CHN', 'HLD'], 'no picks read: the chain origin alone')
+    assert.deepEqual(chainSurvivors(null, 'swing'), [])
+    const row = { rating: 'strong_buy', target: 54.2, upside_pct: 12.5 }
+    assert.deepEqual(pickCell({ state: 'covered' }, row), { text: 'strong buy · target 54.20 (+12.5%)', tone: 'good' })
+    assert.deepEqual(pickCell({ state: 'covered' }, { ...row, rating: 'sell' }).tone, 'dim')
+    assert.equal(pickCell({ state: 'covered' }).text, 'covered — no longer live')
+    assert.equal(pickCell({ state: 'passed', reason: 'horizon_off_book' }).text, 'pass — his target fell outside this book’s horizon')
+    assert.equal(pickCell({ state: 'already_covered' }, row).text, 'covered at the desk: strong buy · target 54.20 (+12.5%)')
+    assert.equal(pickCell({ state: 'waiting' }).text, 'waiting for Prometheus')
 })

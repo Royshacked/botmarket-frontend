@@ -257,3 +257,17 @@ describe('a list panel and a row of it — one step back', () => {
         expect(activePanel()).toBe(null)
     })
 })
+
+// The way back (2026-10-24): a list's hand-off leaves where it came from; opening any panel spends it.
+describe('the way back to a list', () => {
+    it('is set by a hand-off and spent by opening a panel', async () => {
+        const store = await import('./detailPanel.store.js')
+        store.setReturnTo({ panel: 'hotlist', label: 'the Hotlist' })
+        expect(store.returnToPanel()).toEqual({ panel: 'hotlist', label: 'the Hotlist' })
+        store.openPanel('hotlist')
+        expect(store.returnToPanel()).toBeNull()
+        store.closePanel()
+        store.setReturnTo({ label: 'no panel' })
+        expect(store.returnToPanel()).toBeNull()
+    })
+})

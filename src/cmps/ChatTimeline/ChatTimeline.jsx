@@ -18,6 +18,7 @@ import { AxlGreeting } from './AxlGreeting.jsx'
 import { SessionHistory } from './SessionHistory.jsx'
 import { VIEW_LABELS } from './ShowOffer.jsx'
 import { PaneToggle } from '../SidePane/PaneToggle.jsx'
+import { useReturnTo, openPanel } from '../DetailPanel/detailPanel.store.js'
 import { OPENING_OPTIONS, LANDING_ASKS, OPENING_QUESTION } from './openingOptions.js'
 import './ChatTimeline.scss'
 
@@ -132,6 +133,7 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
         : live.status === 'queued' ? 'sending…' : 'thinking…'
     const floorName = agentMeta(floor ?? 'axl').brand
     const atDesk = (floor ?? 'axl') !== 'axl'
+    const returnTo = useReturnTo()
     const placeholder = !atDesk || toAxl ? 'Ask Axl anything, or say what you’d like to do…' : `Message ${floorName}…`
 
     function handleKeyDown(e) {
@@ -229,11 +231,19 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
 
             {taps.length > 0 && <SuggestionChips suggestions={taps} onPick={(t) => sendText(t)} disabled={busy} />}
 
-            {atDesk && !empty && (
+            {((atDesk && !empty) || returnTo) && (
                 <div className="chat-timeline__address">
-                    <button type="button" className={`chat-timeline__address-btn${toAxl ? ' is-on' : ''}`} onClick={() => setToAxl(v => !v)} aria-pressed={toAxl}>
-                        {toAxl ? `Back to ${floorName}` : 'Ask Axl instead'}
-                    </button>
+                    {/* The way back to the list a hand-off came from (Roy, 2026-10-24) — the Hotlist, on the tab it was on. */}
+                    {returnTo && (
+                        <button type="button" className="chat-timeline__address-btn chat-timeline__back" onClick={() => openPanel(returnTo.panel)}>
+                            ‹ Back to {returnTo.label}
+                        </button>
+                    )}
+                    {atDesk && !empty && (
+                        <button type="button" className={`chat-timeline__address-btn${toAxl ? ' is-on' : ''}`} onClick={() => setToAxl(v => !v)} aria-pressed={toAxl}>
+                            {toAxl ? `Back to ${floorName}` : 'Ask Axl instead'}
+                        </button>
+                    )}
                 </div>
             )}
 
