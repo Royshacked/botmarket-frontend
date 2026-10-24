@@ -251,3 +251,7 @@
 // they are the house's coverage, not a day's board.
 .hot-horizons__btn--book { margin-left: 14px; }
 .hot-book__from { font-size: 11px; color: var(--text-secondary); max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+
+// What Argus spotted in the pool (ArgusSpots, 2026-10-24) — under his read, a line each.
+.hot-argus__spots { margin-top: 6px; font-size: 12px; display: flex; flex-direction: column; gap: 2px; }
+.hot-argus__spot { margin: 0; }

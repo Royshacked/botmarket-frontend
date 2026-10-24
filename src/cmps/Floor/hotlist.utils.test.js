@@ -288,3 +288,11 @@ test("a column's record sets the board against the graded names off it — once 
     assert.equal(columnRecord({ mid: { ...base, board: { n: 20 }, off: { n: 0 }, pool: { n: 0 } } }, 'mid').cut, null)
     assert.equal(columnRecord({ mid: { ...base, board: { n: 20 }, off: { n: 0 }, pool: { n: 300, up_rate: 48, ret_mean: -0.2 } } }, 'mid').cut.pool, 'up 48% · avg -0.2% (300)')
 })
+
+test("Argus's record line adds his pool spots against the pool he passed on — once he has read a pool", async () => {
+    const { argusRecordLine } = await import('./hotlist.utils.js')
+    const g = { pick: { n: 2, up_rate: 50, ret_mean: 1 }, avoid: { n: 0 }, unmarked: { n: 0 }, spot: { n: 3, up_rate: 66.7, ret_mean: 1.2 }, passed: { n: 37, up_rate: 45, ret_mean: -0.3 } }
+    const line = argusRecordLine({ argus: { all: g } })
+    assert.deepEqual(line.slice(3), [['spotted in the pool', 'up 67% · avg +1.2% (3)'], ['pool passed on', 'up 45% · avg -0.3% (37)']])
+    assert.equal(argusRecordLine({ argus: { all: { ...g, spot: { n: 0 }, passed: { n: 0 } } } }).length, 3)
+})

@@ -97,8 +97,11 @@ export function HotlistInfo() {
                     to say an A beats a C.</p>
                 <p><b>★ Argus</b> reads every board and picks up to ten names per horizon; the number is his rank in that
                     horizon. <b>✕</b> is a name he says to avoid — too little room, earnings that day, a big gap on a minor story.
+                    He also reads the 40 most active names the screener quoted but graded on no horizon, and may <b>spot</b> up to
+                    ten it missed — listed under his read, not on the table (they have no grade).
                     <b> Argus&apos;s record</b> sets his picks, his avoids and the names he left alone side by side, by how often each
-                    ended up and its average move: it says whether his calls beat the board.</p>
+                    ended up and its average move — and his spots against the pool names he passed on: does his eye beat the
+                    screener&apos;s rules?</p>
                 <p><b>Prometheus</b> reads Argus&apos;s This week picks after the 09:20 board, by himself: is the catalyst real,
                     what is it worth, how much is still open. With a report ahead, the target is the stock&apos;s own usual run-up
                     into its reports — less what it has already run this cycle; one that already ran its usual run-up is a pass.

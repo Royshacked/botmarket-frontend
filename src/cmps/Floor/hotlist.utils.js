@@ -177,9 +177,11 @@ export function gradeRecord(summary, column, grade) {
  */
 export function argusRecordLine(summary, column = 'all') {
     const g = summary?.argus?.[column]
-    if (!g || !(g.pick?.n || g.avoid?.n || g.unmarked?.n)) return null
+    if (!g || !(g.pick?.n || g.avoid?.n || g.unmarked?.n || g.spot?.n || g.passed?.n)) return null
     const part = (x) => (x?.n ? `up ${Math.round(x.up_rate)}% · avg ${_sp(x.ret_mean)} (${x.n})` : 'none yet')
-    return [['picks', part(g.pick)], ['avoids', part(g.avoid)], ['unmarked', part(g.unmarked)]]
+    // The pool he read (2026-10-24): his spots against the pool names he passed on — once he has read a pool.
+    const pool = g.spot?.n || g.passed?.n ? [['spotted in the pool', part(g.spot)], ['pool passed on', part(g.passed)]] : []
+    return [['picks', part(g.pick)], ['avoids', part(g.avoid)], ['unmarked', part(g.unmarked)], ...pool]
 }
 
 /** A column's record for the strip over its list: each grade's phrase, and how far it is from verified. Pure. */

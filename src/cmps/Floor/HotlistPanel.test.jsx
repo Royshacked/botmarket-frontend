@@ -574,9 +574,10 @@ describe('HotlistPanel — Swing and Long term', () => {
 
     it('two more buttons after the day\'s horizons: the book\'s counts; Swing lists its buys, the chain\'s first', async () => {
         await mount({ coverage: COVERAGE })
-        expect(screen.getByRole('button', { name: 'Swing 3' })).toBeTruthy()
+        expect(screen.getByRole('button', { name: 'Swing 2' })).toBeTruthy()
+        expect(screen.getByRole('button', { name: 'Swing 2' }).title).toMatch(/2 rated buy of 3 in the book/)
         expect(screen.getByRole('button', { name: 'Long term 1' })).toBeTruthy()
-        fireEvent.click(screen.getByRole('button', { name: 'Swing 3' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Swing 2' }))
         expect(order()).toEqual(['CHN', 'DSK'], 'buys only by default; the hold waits behind All')
         const chn = screen.getByText('CHN').closest('tr')
         expect(chn.textContent).toMatch(/100\.00.*130\.00.*\+30\.0%.*Mar 2027 · 6m.*\+4\.0% \(\+2\.0%\).*13%.*Railroads/)
@@ -590,7 +591,7 @@ describe('HotlistPanel — Swing and Long term', () => {
     it('the opened row: the chain\'s reason, the thesis itself, and the hand-offs with the book\'s horizon', async () => {
         const onBuild = vi.fn(), onAsk = vi.fn()
         await mount({ coverage: COVERAGE, onBuild, onAsk })
-        fireEvent.click(screen.getByRole('button', { name: 'Swing 3' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Swing 2' }))
         fireEvent.click(screen.getByText('CHN').closest('tr').querySelector('td:nth-child(3)'))
         expect(screen.getByText(/From the weekly chain:/).closest('p').textContent).toMatch(/swing call on Railroads — Argus: the leader/)
         expect(screen.getByText('Volumes recover into the cycle.')).toBeTruthy()
@@ -603,5 +604,19 @@ describe('HotlistPanel — Swing and Long term', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Long term 1' }))
         expect(screen.getByText('LNG').closest('tr').querySelector('.hot-result').textContent).toBe('✓ hit')
         expect(document.querySelector('.hot-record').textContent).toMatch(/settled 1: 1 hit/)
+    })
+})
+
+describe('HotlistPanel — what Argus spotted in the pool', () => {
+    it('his spots show under his read: the name, the horizon, why and the caution', async () => {
+        hotlistService.getToday.mockResolvedValue({ day: '2026-10-23', checkpoints: [],
+            latest: { ...BOARD, argus: { summary: 'A weak tape.', spots: [{ symbol: 'POOLX', column: 'week', why: 'a contract the rules cannot weigh', caution: 'thin volume' }] } },
+            dayList: [{ symbol: 'OPN', price: 10, status: 'in_play', cells: { open: { grade: 'A', range: { pct: 2, atr_mult: 0.5 } } } }] })
+        await mount()
+        const read = screen.getByRole('region', { name: "Argus's read" }).textContent
+        expect(read).toContain('Spotted in the pool:')
+        expect(read).toContain('POOLX')
+        expect(read).toContain('This week — a contract the rules cannot weigh')
+        expect(read).toContain('Caution: thin volume')
     })
 })

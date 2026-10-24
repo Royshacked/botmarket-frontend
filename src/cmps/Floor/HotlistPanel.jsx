@@ -8,7 +8,7 @@ import {
     COLUMN_LABEL, COLUMN_TITLE, CHECKPOINT_LABEL, COLUMN_ORDER, STATUS_LABEL, STATUS_TITLE, LIST_SORTS,
     fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, sparkGeometry, rowStatus, rowReason, sortList,
     pickFor, horizonCounts, horizonRows, readsBySymbol, readCell, hasBand, PASS_WHY, resultCell, gradeRecord, columnRecord,
-    BOOK_ORDER, BOOK_LABEL, BOOK_TITLE, readTime, argusRecordLine,
+    BOOK_ORDER, BOOK_LABEL, BOOK_TITLE, readTime, argusRecordLine, isBuy,
 } from './hotlist.utils.js'
 import { ChartSurface } from '../PriceChart/ChartSurface.jsx'
 import { HotlistBook } from './HotlistBook.jsx'
@@ -284,6 +284,7 @@ function Body({ today, board, picksOnly, setPicksOnly, onRetry, onBuild, onAsk, 
                 <section className="hot-argus" aria-label="Argus's read">
                     <span className="hot-argus__who">Argus</span>
                     <p className="hot-argus__text">{b.argus.summary}</p>
+                    <ArgusSpots spots={b.argus.spots} />
                 </section>
             )}
 
@@ -395,6 +396,7 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
                 <section className="hot-argus" aria-label="Argus's read">
                     <span className="hot-argus__who">Argus · {CHECKPOINT_LABEL[latest.checkpoint] ?? latest.checkpoint}</span>
                     <p className="hot-argus__text">{latest.argus.summary}</p>
+                    <ArgusSpots spots={latest.argus.spots} />
                 </section>
             )}
             {/* A filter, like the status buttons beside it: pressed or not, a second press back to All. */}
@@ -407,11 +409,15 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
                         onClick={() => chooseHorizon(horizon === c ? null : c)}>{COLUMN_LABEL[c]} {hCounts[c]}</button>
                 ))}
                 {BOOK_ORDER.map((b, i) => {
+                    // The count is what the button OPENS — the buy-rated names (the list's default); the whole book is on hover
+                    // and one click away (Roy, 2026-10-24: "Swing's count is 11 but I see fewer").
                     const n = book?.[b]?.length ?? 0
+                    const buys = (book?.[b] ?? []).filter(isBuy).length
                     return (
-                        <button key={b} type="button" aria-pressed={horizon === b} title={BOOK_TITLE[b]} disabled={!n}
+                        <button key={b} type="button" aria-pressed={horizon === b} disabled={!n}
+                            title={`${BOOK_TITLE[b]} — ${buys} rated buy of ${n} in the book (All shows the holds and sells)`}
                             className={`hot-horizons__btn${i === 0 ? ' hot-horizons__btn--book' : ''}${horizon === b ? ' hot-horizons__btn--on' : ''}`}
-                            onClick={() => chooseHorizon(horizon === b ? null : b)}>{BOOK_LABEL[b]} {n}</button>
+                            onClick={() => chooseHorizon(horizon === b ? null : b)}>{BOOK_LABEL[b]} {buys}</button>
                     )
                 })}
             </div>
@@ -501,6 +507,26 @@ function TrackRecord({ rec, column }) {
     )
 }
 TrackRecord.propTypes = { rec: PropTypes.object, column: PropTypes.string.isRequired }
+
+/**
+ * What Argus SPOTTED in the pool (2026-10-24): names the screener quoted but graded on no horizon, that he would trade
+ * anyway — the horizon, why, and what would make it wrong. Not on the list (they have no grade); scored all the same.
+ */
+function ArgusSpots({ spots }) {
+    if (!spots?.length) return null
+    return (
+        <div className="hot-argus__spots">
+            <span className="hot-dim" title="Quoted by the screener but graded on no horizon — Argus would trade them anyway; scored like the rest">Spotted in the pool:</span>
+            {spots.map(s => (
+                <p key={`${s.symbol}-${s.column}`} className="hot-argus__spot">
+                    <b>{s.symbol}</b> <span className="hot-dim">{COLUMN_LABEL[s.column] ?? s.column}</span> — {s.why}
+                    {s.caution ? <span className="hot-row__caution"> Caution: {s.caution}</span> : null}
+                </p>
+            ))}
+        </div>
+    )
+}
+ArgusSpots.propTypes = { spots: PropTypes.array }
 
 /** Argus's record over the list: did his picks beat his avoids, and both the names he left alone? */
 function ArgusRecord({ parts }) {
