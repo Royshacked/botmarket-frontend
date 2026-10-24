@@ -7,7 +7,7 @@ vi.mock('../PriceChart/ChartSurface.jsx', () => ({
 }))
 
 vi.mock('../../services/hotlist/hotlist.service.remote.js', () => ({
-    hotlistService: { getToday: vi.fn(), getBoard: vi.fn(), getOutcomes: vi.fn(), getReads: vi.fn(), requestRead: vi.fn() },
+    hotlistService: { getToday: vi.fn(), getBoard: vi.fn(), getOutcomes: vi.fn(), getReads: vi.fn(), requestRead: vi.fn(), getBook: vi.fn() },
 }))
 
 import { hotlistService } from '../../services/hotlist/hotlist.service.remote.js'
@@ -52,6 +52,7 @@ beforeEach(() => {
     hotlistService.getBoard.mockResolvedValue(EARLIER)
     hotlistService.getReads.mockResolvedValue([])
     hotlistService.getOutcomes.mockResolvedValue({})
+    hotlistService.getBook.mockResolvedValue(null)
 })
 afterEach(() => { cleanup(); act(() => closePanel()); vi.clearAllMocks() })
 
@@ -329,7 +330,7 @@ describe('HotlistPanel — a list per horizon', () => {
     it('a tab per horizon with its count; a horizon lists its names, Argus\'s picks for it first in his order', async () => {
         await mount()
         const tabs = within(screen.getByRole('group', { name: 'Horizon' })).getAllByRole('button').map(t => t.textContent)
-        expect(tabs).toEqual(['All 4', 'Open 1', 'Mid-day 0', 'Into close 0', 'Tomorrow 0', 'This week 3'])
+        expect(tabs).toEqual(['All 4', 'Open 1', 'Mid-day 0', 'Into close 0', 'Tomorrow 0', 'This week 3', 'Swing 0', 'Long term 0'])
         expect(screen.getByRole('button', { name: 'Mid-day 0' }).disabled).toBe(true)
         fireEvent.click(screen.getByRole('button', { name: 'This week 3' }))
         expect(order()).toEqual(['WK1', 'WK2', 'WK3'], 'his picks in his order, then the grade')
@@ -345,7 +346,7 @@ describe('HotlistPanel — a list per horizon', () => {
         fireEvent.click(screen.getByRole('button', { name: 'This week 3' }))
         expect(screen.getByRole('columnheader', { name: 'Target' })).toBeTruthy()
         const wk1 = screen.getByText('WK1').closest('tr')
-        expect(wk1.querySelector('.hot-target').textContent).toBe('31.50 · +5% open')
+        expect(wk1.querySelector('.hot-target').textContent).toBe('31.50 · +5.0%')
         expect(screen.getByText('WK3').closest('tr').querySelector('.hot-target').textContent).toBe('—')
         fireEvent.click(wk1.querySelector('td:nth-child(4)'))
         expect(screen.getByText(/first week pick/)).toBeTruthy()
@@ -380,7 +381,7 @@ describe('HotlistPanel — the horizon lists, reviewed', () => {
         await mount()
         week()
         const wk1 = screen.getByText('WK1').closest('tr')
-        expect(wk1.querySelector('.hot-target').textContent).toBe('31.00 · +3% open')
+        expect(wk1.querySelector('.hot-target').textContent).toBe('31.00 · +3.0%')
         fireEvent.click(wk1.querySelector('td:nth-child(4)'))
         const read = document.querySelector('.hot-read').textContent
         expect(read).toMatch(/target 31\.00/)
@@ -417,7 +418,7 @@ describe('HotlistPanel — the horizon lists, reviewed', () => {
         await mount()
         fireEvent.click(screen.getByRole('button', { name: /^Setting up/ }))
         const group = within(screen.getByRole('group', { name: 'Horizon' }))
-        expect(group.getAllByRole('button').map(b => b.textContent)).toEqual(['All 2', 'Open 0', 'Mid-day 0', 'Into close 0', 'Tomorrow 0', 'This week 2'])
+        expect(group.getAllByRole('button').map(b => b.textContent)).toEqual(['All 2', 'Open 0', 'Mid-day 0', 'Into close 0', 'Tomorrow 0', 'This week 2', 'Swing 0', 'Long term 0'])
     })
 
     it('a horizon a refresh empties while it is chosen falls back to All — never a pressed, disabled button', async () => {
@@ -537,5 +538,59 @@ describe('HotlistPanel — did it work', () => {
         await flush()
         expect(hotlistService.getToday).toHaveBeenLastCalledWith(null)
         expect(screen.getByText('MISS')).toBeTruthy()
+    })
+})
+
+// The house's book — Swing and Long term (Roy, 2026-10-24): coverage by its target's horizon, in the Hotlist.
+describe('HotlistPanel — Swing and Long term', () => {
+    const row = (symbol, extra = {}) => ({ symbol, name: `${symbol} Inc`, rating: 'buy', price: 100, target: 130, upside_pct: 30, horizon: '6m',
+        set_at: '2026-09-01T14:00:00Z', target_date: '2027-03-01', days_left: 128, since_set_pct: 4, spy_since_pct: 2, vs_spy: 2, progress: 0.13,
+        state: 'live', origin: { source: 'desk' }, ...extra })
+    const BOOK = {
+        asof: '2026-10-23',
+        swing: [row('CHN', { origin: { source: 'pythia', subject: 'Railroads', verdict: 'swing', kind: 'industry', why: 'the leader', caution: 'freight' } }),
+            row('DSK', { upside_pct: 50 }), row('HLD', { rating: 'hold', upside_pct: 2 })],
+        long_term: [row('LNG', { horizon: '12m', state: 'hit', since_set_pct: 31 })],
+        record: { swing: { n: 3, live: 3, hit: 0, broken: 0, expired: 0, hit_rate: null, priced: 3, median_since: 4, median_vs_spy: 2, beat_spy: 100 }, long_term: { n: 1, hit: 1, broken: 0, expired: 0, hit_rate: 100, priced: 1, median_since: 31, median_vs_spy: 20, beat_spy: 100 } },
+    }
+    const COVERAGE = [{ symbol: 'CHN', rating: 'buy', thesis: 'Volumes recover into the cycle.', price_target: { value: 130, horizon: '6m' }, kill_criteria: ['volumes fall'], catalysts: [], revisions: [] }]
+    beforeEach(() => {
+        hotlistService.getBook.mockResolvedValue(BOOK)
+        hotlistService.getToday.mockResolvedValue({ day: '2026-10-23', latest: { ...BOARD, argus: null }, checkpoints: [],
+            dayList: [{ symbol: 'OPN', price: 10, status: 'in_play', cells: { open: { grade: 'A', range: { pct: 2, atr_mult: 0.5 } } } }] })
+    })
+    const order = () => [...document.querySelectorAll('tr.hot-row')].map(tr => tr.dataset.symbol)
+
+    it('two more buttons after the day\'s horizons: the book\'s counts; Swing lists its buys, the chain\'s first', async () => {
+        await mount({ coverage: COVERAGE })
+        expect(screen.getByRole('button', { name: 'Swing 3' })).toBeTruthy()
+        expect(screen.getByRole('button', { name: 'Long term 1' })).toBeTruthy()
+        fireEvent.click(screen.getByRole('button', { name: 'Swing 3' }))
+        expect(order()).toEqual(['CHN', 'DSK'], 'buys only by default; the hold waits behind All')
+        const chn = screen.getByText('CHN').closest('tr')
+        expect(chn.textContent).toMatch(/100\.00.*130\.00.*\+30\.0%.*Mar 2027 · 6m.*\+4\.0% \(\+2\.0%\).*13%.*Railroads/)
+        expect(document.querySelector('.hot-record').textContent).toMatch(/no target has come due yet.*median \+4\.0% since set/)
+        fireEvent.click(screen.getByRole('button', { name: 'All 3' }))
+        expect(order()).toEqual(['CHN', 'DSK', 'HLD'])
+        fireEvent.click(screen.getByRole('button', { name: /^Upside/ }))
+        expect(order()).toEqual(['DSK', 'CHN', 'HLD'])
+    })
+
+    it('the opened row: the chain\'s reason, the thesis itself, and the hand-offs with the book\'s horizon', async () => {
+        const onBuild = vi.fn(), onAsk = vi.fn()
+        await mount({ coverage: COVERAGE, onBuild, onAsk })
+        fireEvent.click(screen.getByRole('button', { name: 'Swing 3' }))
+        fireEvent.click(screen.getByText('CHN').closest('tr').querySelector('td:nth-child(3)'))
+        expect(screen.getByText(/From the weekly chain:/).closest('p').textContent).toMatch(/swing call on Railroads — Argus: the leader/)
+        expect(screen.getByText('Volumes recover into the cycle.')).toBeTruthy()
+        fireEvent.click(screen.getByRole('button', { name: 'Build with Mentor' }))
+        expect(onBuild).toHaveBeenCalledWith(expect.objectContaining({ symbol: 'CHN' }), 'swing', null)
+    })
+
+    it('Long term shows a settled hit; the book failing to load leaves its buttons off', async () => {
+        await mount()
+        fireEvent.click(screen.getByRole('button', { name: 'Long term 1' }))
+        expect(screen.getByText('LNG').closest('tr').querySelector('.hot-result').textContent).toBe('✓ hit')
+        expect(document.querySelector('.hot-record').textContent).toMatch(/settled 1: 1 hit/)
     })
 })

@@ -46,6 +46,20 @@ export function HotlistInfo() {
                     names it holds.</p>
             </section>
             <section>
+                <h3 className="hot-info__h">Swing and Long term</h3>
+                <p>The last two buttons are not a day&apos;s board: they are the house&apos;s live <b>coverage</b> — Prometheus&apos;s
+                    theses, split by the price target&apos;s horizon: 3–6 months is <b>Swing</b>, 12–24 months <b>Long term</b>. Buy-rated
+                    names first; <b>All</b> shows the holds and sells too.</p>
+                <dl className="hot-info__dl">
+                    <div><dt>Upside</dt><dd>from the last close to the target.</dd></div>
+                    <div><dt>By</dt><dd>the target date, and the horizon it was set for.</dd></div>
+                    <div><dt>Since set</dt><dd>the move since the target was set, and against SPY over the same days; ✓ hit, ✗ broken or expired once settled.</dd></div>
+                    <div><dt>To target</dt><dd>how far it has come from the price that day toward the target.</dd></div>
+                    <div><dt>From</dt><dd>the weekly chain — Pythia&apos;s call on an industry or theme, Argus&apos;s pick, Prometheus — or the desk.</dd></div>
+                </dl>
+                <p>Their track record: how many targets came due and were hit, and how the live names are doing against SPY.</p>
+            </section>
+            <section>
                 <h3 className="hot-info__h">Status</h3>
                 <dl className="hot-info__dl">
                     {Object.keys(STATUS_LABEL).map(s => (<div key={s}><dt>{STATUS_LABEL[s]}</dt><dd>{STATUS_TITLE[s].replace(/^[^—]*— /, '')}</dd></div>))}

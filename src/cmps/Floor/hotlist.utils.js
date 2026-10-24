@@ -94,22 +94,35 @@ export const hasBand = (t) => Number.isFinite(t?.low) && Number.isFinite(t?.high
 export const PASS_WHY = Object.freeze({
     report_too_close: 'read after the last session before its report',
     nothing_open: 'nothing left open',
+    too_small: 'too little left open to trade',
     unsized: 'not sized',
     contradicted: 'the record cuts against it',
     unclear: 'too thin to tell',
 })
 
-/** A read's target as the list's short cell: "105.00 · +5% open", "hit", "pass", or null. Pure. */
+/** When a read was made, in New York time — "Oct 23, 15:51 ET". Pure; '' without one. */
+export function readTime(iso) {
+    const ms = Date.parse(iso ?? '')
+    if (!Number.isFinite(ms)) return ''
+    return `${new Date(ms).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'America/New_York' })} ET`
+}
+
+/** A read's target as the list's short cell: "277.34 · +0.2% from 276.70", "hit", "pass", or null. Pure. */
 export function readCell(read) {
     if (!read) return null
     if (read.status === 'pass') return { text: 'pass', title: `Prometheus: ${read.verdict} — no target${PASS_WHY[read.pass_reason] ? ` (${PASS_WHY[read.pass_reason]})` : ''}` }
     const t = read.target
     if (!t) return null
-    const open = Number.isFinite(t.open_pct) ? `${t.open_pct > 0 ? '+' : ''}${t.open_pct.toFixed(0)}% open` : null
+    // Measured from the READ'S OWN PRICE, not the row's Last: Last is the price at the checkpoint that listed the name,
+    // often hours before the read — RCL's 08:00 quote of 283.45 sat over a 15:51 target of 277.34 set from 276.70,
+    // and read as a hit that never happened (Roy, 2026-10-24).
+    const from = Number.isFinite(t.spot) ? t.spot : Number.isFinite(read.price_at_read) ? read.price_at_read : null
+    const open = Number.isFinite(t.open_pct) ? `${t.open_pct > 0 ? '+' : ''}${t.open_pct.toFixed(1)}%${from != null ? ` from ${from.toFixed(2)}` : ''}` : null
     const state = read.status === 'hit' ? 'hit' : read.status === 'expired' ? 'expired' : null
     return {
         text: [t.value.toFixed(2), state ?? open].filter(Boolean).join(' · '),
-        title: `Prometheus's catalyst target ${t.value.toFixed(2)}${hasBand(t) ? ` (band ${t.low.toFixed(2)}–${t.high.toFixed(2)})` : ''}, valid until ${String(read.valid_until).slice(0, 10)} — ${read.verdict}`,
+        title: `Prometheus's catalyst target ${t.value.toFixed(2)}${hasBand(t) ? ` (band ${t.low.toFixed(2)}–${t.high.toFixed(2)})` : ''}`
+            + `${from != null ? `, set from ${from.toFixed(2)} at the read (${readTime(read.set_at)})` : ''}, valid until ${String(read.valid_until).slice(0, 10)} — ${read.verdict}`,
         state,
     }
 }
@@ -167,6 +180,87 @@ export function columnRecord(summary, column) {
         verified: Boolean(c.verified),
         progress: c.verified ? null : `${c.sessions ?? 0} of ${VERIFY_SESSIONS} sessions, ${c.n ?? 0} of ${VERIFY_NAMES} names`,
     }
+}
+
+// ─── The house's book: Swing and Long term (Roy, 2026-10-24) ─────────────────────
+
+/** The two longer lists — the house's coverage by its target's horizon (backend houseBook.service BOOKS). */
+export const BOOK_ORDER = Object.freeze(['swing', 'long_term'])
+export const BOOK_LABEL = Object.freeze({ swing: 'Swing', long_term: 'Long term' })
+export const BOOK_TITLE = Object.freeze({
+    swing:     "Swing — Prometheus's names with a 3–6 month price target",
+    long_term: "Long term — Prometheus's names with a 12–24 month price target",
+})
+const BUY = new Set(['strong_buy', 'buy'])
+/** A long the house would buy — the list's default view; holds and sells are the book's too, one click away. */
+export const isBuy = (row) => BUY.has(row?.rating)
+
+/**
+ * A book row's RESULT as the list's short mark `{ text, title, tone }`. Pure. Settled: ✓ hit, ✗ broken, expired; live:
+ * the move since the target was set, its tone by how it stands against SPY over the same days.
+ */
+export function bookResult(row) {
+    if (!row) return null
+    const since = _sp(row.since_set_pct), vs = _sp(row.vs_spy)
+    const moved = row.since_set_pct != null ? ` — ${since} since the target was set${row.vs_spy != null ? `, ${vs} vs SPY` : ''}` : ''
+    switch (row.state) {
+    case 'hit':     return { text: '✓ hit', tone: 'good', title: `The target was reached${moved}` }
+    case 'broken':  return { text: '✗ broken', tone: 'bad', title: `Prometheus marked the thesis broken${moved}` }
+    case 'expired': return { text: 'expired', tone: 'bad', title: `The target date passed without a hit${moved}` }
+    default:
+        if (row.since_set_pct == null) return { text: '—', tone: 'dim', title: 'No price on the day the target was set yet — it is read in the background' }
+        // Within a tenth of a point of SPY (a target set today has moved nothing yet) is neither ahead nor behind.
+        return { text: `${since}${row.vs_spy != null ? ` (${vs})` : ''}`, tone: row.vs_spy == null || Math.abs(row.vs_spy) < 0.1 ? 'dim' : row.vs_spy > 0 ? 'good' : 'bad',
+            title: `Since the target was set (${String(row.set_at).slice(0, 10)}): ${since}${row.vs_spy != null ? `; SPY ${_sp(row.spy_since_pct)} — ${vs} against it` : ''}` }
+    }
+}
+
+/** How far toward the target, as a short cell — "62%" — or null. Pure. */
+export function bookProgress(row) {
+    return Number.isFinite(row?.progress) ? `${Math.round(row.progress * 100)}%` : null
+}
+
+/** Where a name came from, in a few words: the weekly chain's industry or theme, or the desk. Pure. */
+export function bookOrigin(row) {
+    const o = row?.origin
+    if (o?.source !== 'pythia') return { text: 'desk', title: 'Researched at the desk (not from the weekly chain)' }
+    return { text: o.subject ?? 'Pythia', title: `The weekly chain: Pythia's ${o.verdict === 'long_term' ? 'long-term' : o.verdict ?? ''} call on the ${o.kind ?? 'industry'} ${o.subject ?? ''} → Argus's pick → Prometheus` }
+}
+
+/**
+ * A book's track record as one line's parts. Pure. → `{ settled, live }` phrases, or null on no record.
+ */
+export function bookRecordLine(rec) {
+    if (!rec?.n) return null
+    const settledN = (rec.hit ?? 0) + (rec.broken ?? 0) + (rec.expired ?? 0)
+    const settled = settledN
+        ? `settled ${settledN}: ${rec.hit} hit, ${rec.broken} broken, ${rec.expired} expired — ${Math.round(rec.hit_rate)}% hit`
+        : 'no target has come due yet'
+    const live = rec.priced
+        ? `median ${_sp(rec.median_since)} since set, ${_sp(rec.median_vs_spy)} vs SPY; ${Math.round(rec.beat_spy)}% beating SPY (${rec.priced} priced)`
+        : 'no moves priced yet'
+    return { settled, live }
+}
+
+/** The book's sortable columns, each with the direction it sorts in first. */
+export const BOOK_SORTS = Object.freeze({ symbol: 'asc', upside: 'desc', since: 'desc', vs_spy: 'desc', progress: 'desc', days_left: 'asc' })
+const BOOK_KEY = {
+    symbol: (r) => r.symbol ?? '', upside: (r) => r.upside_pct, since: (r) => r.since_set_pct, vs_spy: (r) => r.vs_spy,
+    progress: (r) => r.progress, days_left: (r) => r.days_left,
+}
+
+/** A book sorted by one column — missing values last either way; null key keeps the server's order. Pure. */
+export function sortBook(rows, key, dir) {
+    if (!key || !BOOK_KEY[key]) return [...(rows ?? [])]
+    const get = BOOK_KEY[key]
+    const sign = (dir ?? BOOK_SORTS[key]) === 'desc' ? -1 : 1
+    const known = (v) => v != null && v !== '' && !(typeof v === 'number' && !Number.isFinite(v))
+    return [...(rows ?? [])].sort((a, b) => {
+        const va = get(a), vb = get(b)
+        if (known(va) !== known(vb)) return known(va) ? -1 : 1
+        if (known(va) && va !== vb) return (va < vb ? -1 : 1) * sign
+        return String(a.symbol).localeCompare(String(b.symbol))
+    })
 }
 
 // ─── The day's watchlist (Roy, 2026-10-22) ────────────────────────────────────
@@ -257,6 +351,16 @@ const _sign = (n) => (n > 0 ? '+' : '')
  * the name and asks for Argus's read.
  */
 export function askArgusText(row, column) {
+    // A Swing / Long term row is the house's coverage, not a board's cell: the thesis's numbers, and the timing question.
+    if (BOOK_ORDER.includes(column)) {
+        const bits = [
+            row?.rating ? `Prometheus ${row.rating.replace('_', ' ')}` : null,
+            Number.isFinite(row?.target) ? `target ${row.target.toFixed(2)}${row.target_date ? ` by ${row.target_date}` : ''}` : null,
+            Number.isFinite(row?.upside_pct) ? `${_sign(row.upside_pct)}${row.upside_pct.toFixed(1)}% upside` : null,
+            row?.origin?.source === 'pythia' && row.origin.subject ? `from Pythia's call on ${row.origin.subject}` : null,
+        ].filter(Boolean)
+        return `From the house's ${BOOK_LABEL[column].toLowerCase()} book: ${row.symbol}${bits.length ? ` — ${bits.join(', ')}` : ''}. Is now a good time to buy it, and what would make it wrong?`
+    }
     const c = row?.cells?.[column]
     const bits = [
         c?.grade ? `${COLUMN_LABEL[column] ?? column} ${c.grade}` : null,
@@ -284,6 +388,13 @@ export function earningsChip(row) {
 
 /** The read Mentor's opening sentence carries for a row: Argus's pick note, else the board's own why. */
 export function handoffRead(row, column) {
+    // A book row hands Mentor the house's thesis in numbers — the rating, the target and its date — and the chain's reason.
+    if (BOOK_ORDER.includes(column)) {
+        const head = [row?.rating ? `Prometheus ${row.rating.replace('_', ' ')}` : null,
+            Number.isFinite(row?.target) ? `target ${row.target.toFixed(2)}${row.target_date ? ` by ${row.target_date}` : ''}` : null].filter(Boolean).join(', ')
+        const why = row?.origin?.why ?? null
+        return [head ? `${head} (a ${BOOK_LABEL[column].toLowerCase()} name)` : null, why].filter(Boolean).join(' — ') || null
+    }
     if (row?.pick?.why) return row.pick.why
     const why = row?.cells?.[column]?.why
     return Array.isArray(why) && why.length ? why.join('; ') : null

@@ -2,7 +2,7 @@
 // node --test src/cmps/Floor/
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, rowStatus, rowReason, sortList, askArgusText, handoffRead, sparkGeometry, pickFor, horizonRows, horizonCounts, readsBySymbol, readCell, hasBand, resultCell, gradeRecord, columnRecord } from './hotlist.utils.js'
+import { readTime, fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, rowStatus, rowReason, sortList, askArgusText, handoffRead, sparkGeometry, pickFor, horizonRows, horizonCounts, readsBySymbol, readCell, hasBand, resultCell, gradeRecord, columnRecord, bookResult, bookProgress, bookOrigin, bookRecordLine, sortBook, isBuy } from './hotlist.utils.js'
 import { handoffTurn } from '../MentorSurface/mentorSurface.utils.js'
 
 const ROW = {
@@ -150,7 +150,7 @@ test('readsBySymbol keeps the live read over a settled one; readCell says the nu
         { symbol: 'Z', status: 'active', set_at: '2026-10-01', target: { value: 12, open_pct: 4.4 }, valid_until: '2026-11-01', verdict: 'credible' },
     ])
     assert.equal(by.get('Z').status, 'active')
-    assert.equal(readCell(by.get('Z')).text, '12.00 · +4% open')
+    assert.equal(readCell(by.get('Z')).text, '12.00 · +4.4%')
     assert.equal(readCell({ status: 'hit', target: { value: 12, open_pct: 4 }, valid_until: 'x', verdict: 'credible' }).text, '12.00 · hit')
     assert.equal(readCell({ status: 'pass', verdict: 'contradicted' }).text, 'pass')
     assert.equal(readCell(null), null)
@@ -209,4 +209,58 @@ test("a grade's record and a column's: the hit rate over names with a level, the
     assert.deepEqual(rec.grades.map(g => g.grade), ['A', 'B'])
     assert.equal(rec.progress, '6 of 40 sessions, 9 of 30 names')
     assert.equal(columnRecord({ week: { ...summary.week, verified: true } }, 'week').progress, null)
+})
+
+// The house's book — Swing and Long term (Roy, 2026-10-24)
+test("a book row's result: ✓ hit / ✗ broken / expired once settled; live, its move since set, toned by SPY", () => {
+    assert.equal(bookResult({ state: 'hit', since_set_pct: 20 }).text, '✓ hit')
+    assert.equal(bookResult({ state: 'broken' }).tone, 'bad')
+    assert.equal(bookResult({ state: 'expired' }).text, 'expired')
+    const live = bookResult({ state: 'live', since_set_pct: 4.2, vs_spy: -1.3, spy_since_pct: 5.5, set_at: '2026-09-01T14:00:00Z' })
+    assert.deepEqual([live.text, live.tone], ['+4.2% (-1.3%)', 'bad'])
+    assert.match(live.title, /Since the target was set \(2026-09-01\): \+4\.2%; SPY \+5\.5%/)
+    assert.equal(bookResult({ state: 'live', since_set_pct: null }).text, '—')
+})
+
+test('progress, origin and the record line', () => {
+    assert.equal(bookProgress({ progress: 0.62 }), '62%')
+    assert.equal(bookProgress({ progress: null }), null)
+    assert.equal(bookOrigin({ origin: { source: 'desk' } }).text, 'desk')
+    assert.match(bookOrigin({ origin: { source: 'pythia', subject: 'Rails', verdict: 'long_term', kind: 'industry' } }).title, /long-term call on the industry Rails/)
+    const line = bookRecordLine({ n: 10, hit: 2, broken: 1, expired: 1, hit_rate: 50, priced: 6, median_since: 3.8, median_vs_spy: 1.2, beat_spy: 66.7 })
+    assert.equal(line.settled, 'settled 4: 2 hit, 1 broken, 1 expired — 50% hit')
+    assert.equal(line.live, 'median +3.8% since set, +1.2% vs SPY; 67% beating SPY (6 priced)')
+    assert.equal(bookRecordLine({ n: 3, hit: 0, broken: 0, expired: 0, priced: 0 }).settled, 'no target has come due yet')
+    assert.equal(bookRecordLine({ n: 0 }), null)
+})
+
+test('the book sorts by a column, missing values last; buys are buy and strong buy', () => {
+    const rows = [{ symbol: 'A', upside_pct: 5 }, { symbol: 'B', upside_pct: null }, { symbol: 'C', upside_pct: 40 }]
+    assert.deepEqual(sortBook(rows, 'upside', null).map(r => r.symbol), ['C', 'A', 'B'])
+    assert.deepEqual(sortBook(rows, 'upside', 'asc').map(r => r.symbol), ['A', 'C', 'B'])
+    assert.deepEqual(sortBook(rows, null).map(r => r.symbol), ['A', 'B', 'C'], 'no key: the server order')
+    assert.deepEqual(['strong_buy', 'buy', 'hold', 'sell'].map(rating => isBuy({ rating })), [true, true, false, false])
+})
+
+test("a book row's hand-offs: Mentor gets the thesis in numbers and the chain's reason; Argus the timing question", () => {
+    const row = { symbol: 'CHN', rating: 'strong_buy', target: 130, target_date: '2027-03-01', upside_pct: 30,
+        origin: { source: 'pythia', subject: 'Railroads', why: 'the leader' } }
+    assert.equal(handoffRead(row, 'swing'), 'Prometheus strong buy, target 130.00 by 2027-03-01 (a swing name) — the leader')
+    assert.equal(askArgusText(row, 'long_term'),
+        "From the house's long term book: CHN — Prometheus strong buy, target 130.00 by 2027-03-01, +30.0% upside, from Pythia's call on Railroads. Is now a good time to buy it, and what would make it wrong?")
+})
+
+test('a live book row level with SPY is neither ahead nor behind', () => {
+    assert.equal(bookResult({ state: 'live', since_set_pct: 0, vs_spy: 0, spy_since_pct: 0, set_at: '2026-10-23' }).tone, 'dim')
+})
+
+// Roy, 2026-10-24: RCL's 08:00 Last sat over a 15:51 target — the cell measures from the read's own price.
+test("a read's target is measured from the price it was set from, with when", () => {
+    const read = { status: 'active', verdict: 'credible', set_at: '2026-10-23T19:51:24Z', valid_until: '2026-10-26T21:00:00Z', price_at_read: 276.7,
+        target: { value: 280.85, open_pct: 1.5, spot: 276.7 } }
+    const cell = readCell(read)
+    assert.equal(cell.text, '280.85 · +1.5% from 276.70')
+    assert.match(cell.title, /set from 276\.70 at the read \(Oct 23, 15:51 ET\)/)
+    assert.equal(readTime('2026-10-23T19:51:24Z'), 'Oct 23, 15:51 ET')
+    assert.match(readCell({ status: 'pass', verdict: 'credible', pass_reason: 'too_small' }).title, /too little left open to trade/)
 })

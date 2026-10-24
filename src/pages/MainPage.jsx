@@ -12,7 +12,7 @@ import { PortfolioSurface }  from '../cmps/PortfolioSurface/PortfolioSurface.jsx
 import { ScannerSurface }    from '../cmps/ScannerSurface/ScannerSurface.jsx'
 import { AnalystSurface }    from '../cmps/AnalystSurface/AnalystSurface.jsx'
 import { handoffTurn, mentorHolding } from '../cmps/MentorSurface/mentorSurface.utils.js'
-import { handoffRead, askArgusText } from '../cmps/Floor/hotlist.utils.js'
+import { handoffRead, askArgusText, BOOK_ORDER } from '../cmps/Floor/hotlist.utils.js'
 import { SidePane }          from '../cmps/SidePane/SidePane.jsx'
 import { openSurface, resetSidePane } from '../cmps/SidePane/sidePane.store.js'
 import { SessionContext }    from '../context/SessionContext.jsx'
@@ -1456,13 +1456,16 @@ export function MainPage() {
     // board and column as a reference the server resolves into the board's facts (the horizon, the
     // grade and free range, the catalyst, Argus's note). The read in the opening sentence is Argus's
     // pick note, else the board's own reason the name is in play.
+    // A Swing / Long term row (the house's coverage, 2026-10-24) has no board: it goes as an ordinary seed, the
+    // thesis's numbers in the opening sentence (handoffRead), long only.
     function handleBuildFromHotlist(row, column, board) {
-        if (!row?.symbol || !board?.id || !column) return
+        const book = BOOK_ORDER.includes(column)
+        if (!row?.symbol || !column || (!book && !board?.id)) return
         const turn = handoffTurn({
             ticker:    row.symbol,
             direction: 'long',                       // the board is long side only (daily-names.md §9)
             thesis:    handoffRead(row, column),
-            hotlist:   { board: board.id, column },
+            ...(book ? {} : { hotlist: { board: board.id, column } }),
         })
         if (!turn) return
         talkTo('mentor', turn.text, { seed: turn.seed })

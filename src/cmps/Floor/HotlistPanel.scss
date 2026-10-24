@@ -246,3 +246,8 @@
     min-height: 420px;
     .chart-surface { flex: 1 1 auto; min-height: 0; }
 }
+
+// The house's book (HotlistBook; Roy, 2026-10-24): Swing and Long term sit after the day's horizons, set a little apart —
+// they are the house's coverage, not a day's board.
+.hot-horizons__btn--book { margin-left: 14px; }
+.hot-book__from { font-size: 11px; color: var(--text-secondary); max-width: 180px; overflow: hidden; text-overflow: ellipsis; }

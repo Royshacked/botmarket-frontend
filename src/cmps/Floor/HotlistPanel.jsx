@@ -8,8 +8,10 @@ import {
     COLUMN_LABEL, COLUMN_TITLE, CHECKPOINT_LABEL, COLUMN_ORDER, STATUS_LABEL, STATUS_TITLE, LIST_SORTS,
     fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, sparkGeometry, rowStatus, rowReason, sortList,
     pickFor, horizonCounts, horizonRows, readsBySymbol, readCell, hasBand, PASS_WHY, resultCell, gradeRecord, columnRecord,
+    BOOK_ORDER, BOOK_LABEL, BOOK_TITLE, readTime,
 } from './hotlist.utils.js'
 import { ChartSurface } from '../PriceChart/ChartSurface.jsx'
+import { HotlistBook } from './HotlistBook.jsx'
 import './HotlistPanel.scss'
 
 // THE HOTLIST — the screener's daily board of names in play, in the detail panel over the chat
@@ -42,7 +44,7 @@ const _day = (iso) => {
     return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
 }
 
-export function HotlistPanel({ onBuild, onAsk, onSymbolClick }) {
+export function HotlistPanel({ onBuild, onAsk, onSymbolClick, coverage = [] }) {
     const { isOpen, close } = useDetailPanel(HOTLIST_PANEL_ID)
     const [today, setToday] = useState({ status: 'idle', day: null, checkpoints: [], dayList: [], latest: null, working: null, stats: null })
     const [boardId, setBoardId] = useState(null)
@@ -63,6 +65,8 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick }) {
     const [day, setDay] = useState(null)
     // Each grade's track record per horizon (GET /outcomes — the outcome log summarised); null until read, or on a failure.
     const [record, setRecord] = useState(null)
+    // The house's Swing and Long term names (GET /book) — read on open; null until read, or on a failure.
+    const [book, setBook] = useState(null)
     // A symbol clicked on the list: its DAILY chart, in this window, in place of the table (Roy, 2026-10-22). The window
     // covers the chat, so the chat's own chart dock would open out of sight.
     const [chartSym, setChartSym] = useState(null)
@@ -72,12 +76,13 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick }) {
     // close, is cached but not shown — or the 14:30 tab would end up showing the 10:30 board.
     const wanted = useRef(null)
 
-    useEffect(() => { if (!isOpen) { seen.current.clear(); wanted.current = null; setChartSym(null); setReads({ status: 'idle', list: [] }); setDay(null); setRecord(null) } }, [isOpen])
+    useEffect(() => { if (!isOpen) { seen.current.clear(); wanted.current = null; setChartSym(null); setReads({ status: 'idle', list: [] }); setDay(null); setRecord(null); setBook(null) } }, [isOpen])
 
     useEffect(() => {
         if (!isOpen) return
         let live = true
         hotlistService.getOutcomes().then(s => { if (live) setRecord(s ?? null) }, () => { if (live) setRecord(null) })
+        hotlistService.getBook().then(b => { if (live) setBook(b ?? null) }, () => { if (live) setBook(null) })
         return () => { live = false }
     }, [isOpen, retry])
 
@@ -229,7 +234,7 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick }) {
                 : listView && today.status === 'ok'
                     ? <DayList today={today} sort={sort} setSort={setSort} only={only} setOnly={setOnly} horizon={horizon} setHorizon={setHorizon}
                         reads={readsBySymbol(reads.list, today.day)} readsFailed={reads.status === 'error'} asked={asked} onAskRead={latestDay ? askRead : null}
-                        record={record}
+                        record={record} book={book} coverage={coverage}
                         onSymbolClick={symbolClick} onBuild={handOff(onBuild)} onAsk={handOff(onAsk)} />
                     : <Body today={today} board={board} picksOnly={picksOnly} setPicksOnly={setPicksOnly}
                         onRetry={retryLoad} onSymbolClick={symbolClick}
@@ -240,6 +245,7 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick }) {
 
 const _today = (d) => ({ status: 'ok', day: d.day, checkpoints: d.checkpoints, dayList: d.dayList ?? [], latest: d.latest ?? null, working: d.working, stats: d.stats, days: d.days ?? [] })
 HotlistPanel.propTypes = {
+    coverage:      PropTypes.array,
     onBuild:       PropTypes.func,
     onAsk:         PropTypes.func,
     onSymbolClick: PropTypes.func,
@@ -345,10 +351,12 @@ Body.propTypes = {
  * that cell lives on.
  */
 function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHorizon = () => {}, reads = new Map(), readsFailed = false,
-    asked = {}, onAskRead, record = null, onBuild, onAsk, onSymbolClick }) {
+    asked = {}, onAskRead, record = null, book = null, coverage = [], onBuild, onAsk, onSymbolClick }) {
+    // SWING and LONG TERM (Roy, 2026-10-24) are the house's coverage, not the day's boards: their own list (BookList).
+    const bookView = BOOK_ORDER.includes(horizon)
     // THE HORIZON first (horizon-chains.md §1): one column's list — its names, Argus's picks for it first — then the
     // status filter within it. A header the user clicked sorts it instead.
-    const byHorizon = horizon ? horizonRows(today.dayList, horizon) : today.dayList
+    const byHorizon = bookView ? [] : horizon ? horizonRows(today.dayList, horizon) : today.dayList
     const all = byHorizon
     // Each control counts inside the other's choice: a horizon's count under the status filter, a status's count inside
     // the horizon — so a tab never reads "3" and opens on "nothing" (code review 2026-10-24).
@@ -373,7 +381,8 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
     // A new horizon opens in its own order, not the last tab's sort.
     const chooseHorizon = (h) => { setHorizon(h); setSort({ key: 'status', dir: null }) }
     // A horizon that empties while chosen (a poll took its last name, or the status filter did) falls back to All.
-    useEffect(() => { if (horizon && !hCounts[horizon]) setHorizon(null) }, [horizon, hCounts[horizon]])   // eslint-disable-line react-hooks/exhaustive-deps -- the one count is the dependency
+    // (The book's lists are not the day's: their count is the book's, and a reload of the day does not touch them.)
+    useEffect(() => { if (horizon && !bookView && !hCounts[horizon]) setHorizon(null) }, [horizon, hCounts[horizon]])   // eslint-disable-line react-hooks/exhaustive-deps -- the one count is the dependency
     const shownSort = argusOrder ? { key: null, dir: null } : sort
     const th = (key, label, extra = {}) => <SortTh key={key} k={key} label={label} sort={shownSort} onSort={onSort} {...extra} />
     // One row open at a time: its detail line under it.
@@ -397,7 +406,18 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
                         className={`hot-horizons__btn${horizon === c ? ' hot-horizons__btn--on' : ''}`}
                         onClick={() => chooseHorizon(horizon === c ? null : c)}>{COLUMN_LABEL[c]} {hCounts[c]}</button>
                 ))}
+                {BOOK_ORDER.map((b, i) => {
+                    const n = book?.[b]?.length ?? 0
+                    return (
+                        <button key={b} type="button" aria-pressed={horizon === b} title={BOOK_TITLE[b]} disabled={!n}
+                            className={`hot-horizons__btn${i === 0 ? ' hot-horizons__btn--book' : ''}${horizon === b ? ' hot-horizons__btn--on' : ''}`}
+                            onClick={() => chooseHorizon(horizon === b ? null : b)}>{BOOK_LABEL[b]} {n}</button>
+                    )
+                })}
             </div>
+            {bookView ? (
+                <HotlistBook book={book} column={horizon} coverage={coverage} onBuild={onBuild} onAsk={onAsk} onSymbolClick={onSymbolClick} />
+            ) : (<>
             <div className="hot-meta">
                 <div className="hot-status-filter" role="group" aria-label="Show">
                     <button type="button" className={`hot-status-filter__btn${!only ? ' hot-status-filter__btn--on' : ''}`} aria-pressed={!only} onClick={() => setOnly(null)}>All {all.length}</button>
@@ -445,6 +465,7 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
                         </table>
                     </div>
                 )}
+            </>)}
         </div>
     )
 }
@@ -452,7 +473,7 @@ DayList.propTypes = {
     today: PropTypes.object.isRequired, sort: PropTypes.object.isRequired, setSort: PropTypes.func.isRequired,
     only: PropTypes.string, setOnly: PropTypes.func.isRequired,
     horizon: PropTypes.string, setHorizon: PropTypes.func, reads: PropTypes.instanceOf(Map), readsFailed: PropTypes.bool,
-    asked: PropTypes.object, onAskRead: PropTypes.func, record: PropTypes.object,
+    asked: PropTypes.object, onAskRead: PropTypes.func, record: PropTypes.object, book: PropTypes.object, coverage: PropTypes.array,
     onBuild: PropTypes.func, onAsk: PropTypes.func, onSymbolClick: PropTypes.func,
 }
 
@@ -582,6 +603,8 @@ function ReadDetail({ read }) {
                 <b>Prometheus:</b> {read.verdict.replace('_', ' ')}
                 {!t && PASS_WHY[read.pass_reason] && <span className="hot-dim"> · no target: {PASS_WHY[read.pass_reason]}</span>}
                 {t && <> · target <b>{t.value.toFixed(2)}</b>{hasBand(t) && ` (${t.low.toFixed(2)}–${t.high.toFixed(2)})`}</>}
+                {/* The price the target was set from, and when — the row's Last is an earlier checkpoint's quote. */}
+                {t && Number.isFinite(t.spot ?? read.price_at_read) && <span className="hot-dim"> · set from {(t.spot ?? read.price_at_read).toFixed(2)} at the read, {readTime(read.set_at)}</span>}
                 {/* A run-up's target is the stock's own record into its reports; an event's is what it is worth less what moved. */}
                 {t && t.basis === 'run_up' && <> · its run-up into the last {read.runup?.n ?? '?'} reports: median {t.open_pct > 0 ? '+' : ''}{t.open_pct}%{Number.isFinite(read.runup?.up_share) && `, up ${Math.round(read.runup.up_share * 100)}% of the time`}</>}
                 {t && t.basis !== 'run_up' && <> · worth {t.worth_pct > 0 ? '+' : ''}{t.worth_pct}%, moved {t.moved_pct > 0 ? '+' : ''}{t.moved_pct}%, open {t.open_pct > 0 ? '+' : ''}{t.open_pct}%</>}

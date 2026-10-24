@@ -6,7 +6,7 @@ import { httpService } from '../http.service'
 
 const BASE = 'api/hotlist'
 
-export const hotlistService = { getToday, getBoard, getOutcomes, getReads, requestRead }
+export const hotlistService = { getToday, getBoard, getOutcomes, getReads, requestRead, getBook }
 
 /**
  * `{ day, latest: board|null, checkpoints: [{ id, checkpoint, status, columns, finished_at, rows, argus }],
@@ -59,4 +59,15 @@ async function getReads() {
 async function requestRead(board, symbol) {
     const data = await httpService.post(`${BASE}/reads`, { board, symbol })
     return data?.outcome ?? 'queued'
+}
+
+/**
+ * The house's SWING and LONG TERM names (botmarket-backend houseBook.service): live coverage split by its target's
+ * horizon → `{ asof, today, swing: [row], long_term: [row], record: { swing, long_term } }`. Each row: price (the
+ * screener's close), rating, target, upside, horizon and target date, the move since the target was set and against
+ * SPY, `progress` toward the target, `state` (live | hit | broken | expired) and `origin` (the weekly chain or the desk).
+ */
+async function getBook() {
+    const data = await httpService.get(`${BASE}/book`)
+    return { asof: data?.asof ?? null, swing: data?.swing ?? [], long_term: data?.long_term ?? [], record: data?.record ?? {} }
 }
