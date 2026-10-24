@@ -12,7 +12,8 @@ export const hotlistService = { getToday, getBoard, getOutcomes, getReads, reque
  * `{ day, latest: board|null, checkpoints: [{ id, checkpoint, status, columns, finished_at, rows, argus }],
  *    dayList, working, stats }` — `working` is what the screener is doing right now (`{ kind: 'overnight', day,
  * started_at, done, of }` or `{ kind: 'board', checkpoint, started_at }`, else null); `stats` is the
- * latest finished overnight pass (`{ day, status, written, finished_at }`, else null).
+ * latest finished overnight pass (`{ day, status, written, finished_at }`, else null). Every graded column of a row
+ * carries its `results[column]` (`{ state: reached | missed | up | down | open | scoring | no_data, … }`).
  */
 async function getToday(day = null) {
     const data = await httpService.get(day ? `${BASE}?day=${encodeURIComponent(day)}` : BASE)
@@ -25,6 +26,8 @@ async function getToday(day = null) {
         dayList:     Array.isArray(data?.day_list) ? data.day_list : [],
         working:     data?.working ?? null,
         stats:       data?.stats ?? null,
+        // The days there are lists for, newest first — a past day is where its names' results are (2026-10-24).
+        days:        Array.isArray(data?.days) ? data.days : [],
     }
 }
 

@@ -51,6 +51,7 @@ beforeEach(() => {
         { id: EARLIER.id, checkpoint: 'premarket' }, { id: BOARD.id, checkpoint: 'mid' }] })
     hotlistService.getBoard.mockResolvedValue(EARLIER)
     hotlistService.getReads.mockResolvedValue([])
+    hotlistService.getOutcomes.mockResolvedValue({})
 })
 afterEach(() => { cleanup(); act(() => closePanel()); vi.clearAllMocks() })
 
@@ -230,7 +231,7 @@ describe('HotlistPanel — today\'s list', () => {
         expect(order()).toEqual(['SPCX', 'ACC', 'DXC'], 'in play, building, setting up')
         const dxc = screen.getByText('DXC').closest('tr')
         const cells = [...dxc.querySelectorAll('td')].map(td => td.textContent)
-        expect(cells.slice(3)).toEqual(['20.50', '+0.4%', '0.8%', '3.1%', 'Setting', 'This week B', '7.3% 2.30×', '10-29!'])
+        expect(cells.slice(3)).toEqual(['20.50', '+0.4%', '0.8%', '3.1%', 'Setting', 'This week B', '7.3% 2.30×', '10-29!', '—'], 'the result: none on a row the server sent without one')
         expect(screen.queryByText(/earnings in 7 days/)).toBeNull()
         expect(screen.getByText(/Prices as of each name’s last checkpoint/)).toBeTruthy()
         expect(screen.getByText('Breadth is fine; the room is in SPCX.')).toBeTruthy()
@@ -477,5 +478,64 @@ describe('HotlistPanel — the horizon lists, reviewed', () => {
         week()
         fireEvent.click(screen.getByText('WK1').closest('tr').querySelector('td:nth-child(4)'))
         expect(screen.queryByRole('button', { name: 'Catalyst read' })).toBeNull()
+    })
+})
+
+// Did it work? (Roy, 2026-10-24) — each row's result, a horizon's track record, and the days behind today.
+describe('HotlistPanel — did it work', () => {
+    const DAY = '2026-10-22'
+    const LIST = [
+        { symbol: 'HIT', price: 100, status: 'in_play', cells: { mid: { grade: 'A', range: { pct: 3, atr_mult: 1, level: 103 } } },
+          results: { mid: { state: 'reached', ret_pct: 2.5, mfe_pct: 3.2, mae_pct: -0.4, level: 103 } } },
+        { symbol: 'MISS', price: 50, status: 'in_play', cells: { mid: { grade: 'C', range: { pct: 2, atr_mult: 0.5, level: 51 } } },
+          results: { mid: { state: 'missed', ret_pct: -0.8, mfe_pct: 1.2, mae_pct: -1.5, level: 51 } } },
+        { symbol: 'WEEK', price: 20, status: 'setting_up', cells: { week: { grade: 'B', range: { pct: 4, atr_mult: 1 } } },
+          results: { week: { state: 'open', ends: '2026-10-28' } } },
+    ]
+    const SUMMARY = { mid: { n: 12, sessions: 3, verified: false, grades: { A: { n: 5, judged: 4, hit_rate: 75, up_rate: 60 }, C: { n: 7, judged: 7, hit_rate: 14.3, up_rate: 42.9 } } } }
+    beforeEach(() => {
+        hotlistService.getToday.mockImplementation(async (day) => ({ day: day ?? DAY, latest: { ...BOARD, argus: null }, dayList: day ? LIST.slice(0, 1) : LIST,
+            checkpoints: [], days: [DAY, '2026-10-21'] }))
+        hotlistService.getOutcomes.mockResolvedValue(SUMMARY)
+    })
+    const cellOf = (sym) => screen.getByText(sym).closest('tr').querySelector('.hot-result')
+
+    it("each row says whether it worked: ✓ reached, ✗ its best move, open while its window runs", async () => {
+        await mount()
+        expect(screen.getByRole('columnheader', { name: 'Result' })).toBeTruthy()
+        expect(cellOf('HIT').textContent).toBe('✓ reached')
+        expect(cellOf('HIT').className).toMatch(/good/)
+        expect(cellOf('MISS').textContent).toBe('✗ best +1.2%')
+        expect(cellOf('MISS').title).toMatch(/Did not reach 51\.00 — best \+1\.2%, worst -1\.5%, ended -0\.8%/)
+        expect(cellOf('WEEK').textContent).toBe('open')
+        fireEvent.click(screen.getByText('MISS').closest('tr').querySelector('td:nth-child(4)'))
+        expect(screen.getByText(/Result \(Mid-day\):/)).toBeTruthy()
+    })
+
+    it("a horizon's list carries its track record; a grade's hover says how that grade has done", async () => {
+        await mount()
+        fireEvent.click(screen.getByRole('button', { name: /^Mid-day/ }))
+        const strip = document.querySelector('.hot-record').textContent
+        expect(strip).toMatch(/Track record · mid-day/)
+        expect(strip).toMatch(/A reached 75% of 4 · up 60% of 5/)
+        expect(strip).toMatch(/unverified — 3 of 40 sessions, 12 of 30 names/)
+        expect(screen.getByText('HIT').closest('tr').querySelector('.hot-grade').title).toMatch(/As so far: reached 75% of 4/)
+        fireEvent.click(screen.getByRole('button', { name: /^This week/ }))
+        expect(document.querySelector('.hot-record').textContent).toMatch(/no results logged yet/)
+    })
+
+    it('‹ steps back to an earlier day — its list, its results — and › back to today', async () => {
+        await mount()
+        expect(screen.getByRole('button', { name: 'The day after' }).disabled).toBe(true)
+        fireEvent.click(screen.getByRole('button', { name: 'The day before' }))
+        await flush()
+        expect(hotlistService.getToday).toHaveBeenLastCalledWith('2026-10-21')
+        expect(screen.getByRole('tab', { name: 'The day’s list' })).toBeTruthy()
+        expect(screen.queryByText('MISS')).toBeNull()
+        expect(screen.getByRole('button', { name: 'The day before' }).disabled).toBe(true)
+        fireEvent.click(screen.getByRole('button', { name: 'The day after' }))
+        await flush()
+        expect(hotlistService.getToday).toHaveBeenLastCalledWith(null)
+        expect(screen.getByText('MISS')).toBeTruthy()
     })
 })

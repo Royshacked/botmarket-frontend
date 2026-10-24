@@ -7,7 +7,7 @@ import { apiError } from '../../services/http.service.js'
 import {
     COLUMN_LABEL, COLUMN_TITLE, CHECKPOINT_LABEL, COLUMN_ORDER, STATUS_LABEL, STATUS_TITLE, LIST_SORTS,
     fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, sparkGeometry, rowStatus, rowReason, sortList,
-    pickFor, horizonCounts, horizonRows, readsBySymbol, readCell, hasBand, PASS_WHY,
+    pickFor, horizonCounts, horizonRows, readsBySymbol, readCell, hasBand, PASS_WHY, resultCell, gradeRecord, columnRecord,
 } from './hotlist.utils.js'
 import { ChartSurface } from '../PriceChart/ChartSurface.jsx'
 import './HotlistPanel.scss'
@@ -58,6 +58,11 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick }) {
     const [reads, setReads] = useState({ status: 'idle', list: [] })
     const [readsTick, setReadsTick] = useState(0)
     const [retry, setRetry] = useState(0)
+    // The day on screen: null = the latest. A past day is where its names' results are — a week name's lands five
+    // sessions after its day (Roy, 2026-10-24: "a signal to know if what the hotlist said is working").
+    const [day, setDay] = useState(null)
+    // Each grade's track record per horizon (GET /outcomes — the outcome log summarised); null until read, or on a failure.
+    const [record, setRecord] = useState(null)
     // A symbol clicked on the list: its DAILY chart, in this window, in place of the table (Roy, 2026-10-22). The window
     // covers the chat, so the chat's own chart dock would open out of sight.
     const [chartSym, setChartSym] = useState(null)
@@ -67,7 +72,14 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick }) {
     // close, is cached but not shown — or the 14:30 tab would end up showing the 10:30 board.
     const wanted = useRef(null)
 
-    useEffect(() => { if (!isOpen) { seen.current.clear(); wanted.current = null; setChartSym(null); setReads({ status: 'idle', list: [] }) } }, [isOpen])
+    useEffect(() => { if (!isOpen) { seen.current.clear(); wanted.current = null; setChartSym(null); setReads({ status: 'idle', list: [] }); setDay(null); setRecord(null) } }, [isOpen])
+
+    useEffect(() => {
+        if (!isOpen) return
+        let live = true
+        hotlistService.getOutcomes().then(s => { if (live) setRecord(s ?? null) }, () => { if (live) setRecord(null) })
+        return () => { live = false }
+    }, [isOpen, retry])
 
     useEffect(() => {
         if (!isOpen) return
@@ -103,12 +115,12 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick }) {
         )
     }
 
-    // Every open starts on the day's latest board.
+    // Every open starts on the day's latest board; a step back in days reads that day's.
     useEffect(() => {
         if (!isOpen) return
         let live = true
         setToday(t => ({ ...t, status: 'loading' }))
-        hotlistService.getToday().then(
+        hotlistService.getToday(day).then(
             d => {
                 if (!live) return
                 setToday(_today(d))
@@ -119,13 +131,14 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick }) {
             () => { if (live) { setToday(t => ({ ...t, status: 'error' })); setBoard({ status: 'idle', data: null }) } },
         )
         return () => { live = false }
-    }, [isOpen, retry])
+    }, [isOpen, retry, day])
 
     // While the screener is working, look again — quietly: the board on screen stays put, a new
     // checkpoint shows up as a tab, and the day's first board replaces the empty note. Every reply
-    // is a new `today`, which re-arms the timer; it stops once nothing is running.
+    // is a new `today`, which re-arms the timer; it stops once nothing is running. Only on the latest day: a past
+    // day's list does not change.
     useEffect(() => {
-        if (!isOpen || today.status !== 'ok' || !today.working) return
+        if (!isOpen || today.status !== 'ok' || !today.working || day) return
         let live = true
         const timer = setTimeout(() => {
             hotlistService.getToday().then(
@@ -163,16 +176,29 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick }) {
     const listView = view === 'list' && today.dayList.length > 0
     // A caller's own handler wins (a host that shows charts elsewhere); otherwise the chart opens here.
     const symbolClick = (sym) => (onSymbolClick ? onSymbolClick(sym) : setChartSym(sym))
+    // The days there are lists for, newest first; the one on screen, and its neighbours.
+    const days = today.days ?? []
+    const at = days.indexOf(today.day)
+    const latestDay = at <= 0
     const title = chartSym ? `${chartSym} · daily` : listView
-        ? `${_day(today.day)} · today’s list`
+        ? `${_day(today.day)} · ${latestDay ? 'today’s list' : 'the day’s list'}`
         : b ? `${_day(b.day)} · ${CHECKPOINT_LABEL[b.checkpoint] ?? b.checkpoint}` : 'Today'
+    const stepDay = (to) => { setDay(to === days[0] ? null : to); setView('list') }
     const actions = chartSym ? (
         <button type="button" className="hot-nav__btn" onClick={() => setChartSym(null)}>‹ Back to the list</button>
     ) : (
         <>
+            {days.length > 1 && at >= 0 && (
+                <div className="hot-nav" role="group" aria-label="Day">
+                    <button type="button" className="hot-nav__btn" disabled={at >= days.length - 1} onClick={() => stepDay(days[at + 1])}
+                        aria-label="The day before" title={at < days.length - 1 ? _day(days[at + 1]) : undefined}>‹</button>
+                    <button type="button" className="hot-nav__btn" disabled={latestDay} onClick={() => stepDay(days[at - 1])}
+                        aria-label="The day after" title={!latestDay ? _day(days[at - 1]) : undefined}>›</button>
+                </div>
+            )}
             {today.dayList.length > 0 && (
                 <div className="hot-nav" role="tablist" aria-label="Hotlist view">
-                    {[['list', 'Today’s list'], ['boards', 'Boards']].map(([v, label]) => (
+                    {[['list', latestDay ? 'Today’s list' : 'The day’s list'], ['boards', 'Boards']].map(([v, label]) => (
                         <button key={v} type="button" role="tab" aria-selected={view === v}
                             className={`hot-nav__btn${view === v ? ' hot-nav__btn--on' : ''}`} onClick={() => setView(v)}>{label}</button>
                     ))}
@@ -202,7 +228,8 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick }) {
                 )
                 : listView && today.status === 'ok'
                     ? <DayList today={today} sort={sort} setSort={setSort} only={only} setOnly={setOnly} horizon={horizon} setHorizon={setHorizon}
-                        reads={readsBySymbol(reads.list, today.day)} readsFailed={reads.status === 'error'} asked={asked} onAskRead={askRead}
+                        reads={readsBySymbol(reads.list, today.day)} readsFailed={reads.status === 'error'} asked={asked} onAskRead={latestDay ? askRead : null}
+                        record={record}
                         onSymbolClick={symbolClick} onBuild={handOff(onBuild)} onAsk={handOff(onAsk)} />
                     : <Body today={today} board={board} picksOnly={picksOnly} setPicksOnly={setPicksOnly}
                         onRetry={retryLoad} onSymbolClick={symbolClick}
@@ -211,7 +238,7 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick }) {
     )
 }
 
-const _today = (d) => ({ status: 'ok', day: d.day, checkpoints: d.checkpoints, dayList: d.dayList ?? [], latest: d.latest ?? null, working: d.working, stats: d.stats })
+const _today = (d) => ({ status: 'ok', day: d.day, checkpoints: d.checkpoints, dayList: d.dayList ?? [], latest: d.latest ?? null, working: d.working, stats: d.stats, days: d.days ?? [] })
 HotlistPanel.propTypes = {
     onBuild:       PropTypes.func,
     onAsk:         PropTypes.func,
@@ -318,7 +345,7 @@ Body.propTypes = {
  * that cell lives on.
  */
 function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHorizon = () => {}, reads = new Map(), readsFailed = false,
-    asked = {}, onAskRead, onBuild, onAsk, onSymbolClick }) {
+    asked = {}, onAskRead, record = null, onBuild, onAsk, onSymbolClick }) {
     // THE HORIZON first (horizon-chains.md §1): one column's list — its names, Argus's picks for it first — then the
     // status filter within it. A header the user clicked sorts it instead.
     const byHorizon = horizon ? horizonRows(today.dayList, horizon) : today.dayList
@@ -383,6 +410,7 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
                 <span className="hot-meta__item hot-dim" title="Not live: each price is the quote the screener read at the checkpoint that last listed the name">Prices as of each name’s last checkpoint</span>
             </div>
             {latest?.unverified && <p className="hot-note">Grades are <b>unverified</b>: not enough logged outcomes yet to say an A beats a C. Free range is room to the next level overhead — not a target.</p>}
+            {horizon && <TrackRecord rec={columnRecord(record, horizon)} column={horizon} />}
             {showReads && readsFailed && <p className="hot-note hot-note--warn">Prometheus’s targets could not be loaded — the names are shown without them.</p>}
             {showReads && <p className="hot-note">Target: Prometheus’s catalyst target — the price before the catalyst plus what it is worth, or, with a report ahead, the stock’s usual run-up into its reports — and how much of it is still open. Valid until its window ends (the session before a report); graded then.</p>}
             {!rows.length
@@ -403,13 +431,14 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
                                     {th('grade', horizon ? 'Grade' : 'Best', { title: horizon ? `The grade for ${COLUMN_LABEL[horizon].toLowerCase()}` : 'The best graded column and its grade' })}
                                     <th scope="col" title="Free range: the room to the next level overhead — not a target">Room</th>
                                     {th('earnings', 'Earn', { title: 'Next earnings; amber = a run-up trade, out before the report' })}
+                                    <th scope="col" title="Did it work? Once the horizon's window closes: ✓ reached the level the grade measured room to, ✗ did not (its best move); ↑ / ↓ open sky, by how it ended. Open while the window runs.">Result</th>
                                     {showReads && <th scope="col" title="Prometheus's catalyst target — and what is still open">Target</th>}
                                 </tr>
                             </thead>
                             <tbody>
                                 {rows.map(r => <ListRow key={r.symbol} row={r} open={openSym === r.symbol} column={horizon}
                                     read={showReads ? reads.get(r.symbol) ?? null : null} showRead={showReads}
-                                    asked={showReads ? asked[r.symbol] ?? null : null} onAskRead={showReads && !readsFailed ? onAskRead : null}
+                                    asked={showReads ? asked[r.symbol] ?? null : null} onAskRead={showReads && !readsFailed ? onAskRead : null} record={record}
                                     onToggle={() => setOpenSym(s => (s === r.symbol ? null : r.symbol))}
                                     onBuild={onBuild} onAsk={onAsk} onSymbolClick={onSymbolClick} />)}
                             </tbody>
@@ -423,9 +452,28 @@ DayList.propTypes = {
     today: PropTypes.object.isRequired, sort: PropTypes.object.isRequired, setSort: PropTypes.func.isRequired,
     only: PropTypes.string, setOnly: PropTypes.func.isRequired,
     horizon: PropTypes.string, setHorizon: PropTypes.func, reads: PropTypes.instanceOf(Map), readsFailed: PropTypes.bool,
-    asked: PropTypes.object, onAskRead: PropTypes.func,
+    asked: PropTypes.object, onAskRead: PropTypes.func, record: PropTypes.object,
     onBuild: PropTypes.func, onAsk: PropTypes.func, onSymbolClick: PropTypes.func,
 }
+
+/**
+ * A horizon's TRACK RECORD over its list (Roy, 2026-10-24): how each grade has done — how often it reached its level,
+ * how often it ended up — and how far the column is from verified. Says so when there is no history yet.
+ */
+function TrackRecord({ rec, column }) {
+    const label = COLUMN_LABEL[column]?.toLowerCase() ?? column
+    if (!rec?.grades.length) return <p className="hot-note hot-record">Track record for {label}: no results logged yet.</p>
+    return (
+        <p className="hot-note hot-record">
+            <span className="hot-record__who">Track record · {label}</span>
+            {rec.grades.map(g => <span key={g.grade} className="hot-record__grade"><b className={`hot-grade--${g.grade}`}>{g.grade}</b> {g.text}</span>)}
+            {rec.verified
+                ? <span className="hot-record__state">verified</span>
+                : <span className="hot-record__state" title="Too little history to say whether an A beats a C">unverified — {rec.progress}</span>}
+        </p>
+    )
+}
+TrackRecord.propTypes = { rec: PropTypes.object, column: PropTypes.string.isRequired }
 
 /** A header that sorts its column; a second click flips the direction. */
 function SortTh({ k, label, sort, onSort, num = false, title }) {
@@ -445,7 +493,7 @@ SortTh.propTypes = {
     sort: PropTypes.object.isRequired, onSort: PropTypes.func.isRequired, num: PropTypes.bool, title: PropTypes.string,
 }
 
-const LIST_COLS = 11
+const LIST_COLS = 12
 /** Short words for the one-line row; the filter and the detail use the full ones. */
 const STATUS_SHORT = { in_play: 'In play', building: 'Building', setting_up: 'Setting' }
 const _room = (r) => (!r ? null : r.open_sky ? 'open sky'
@@ -456,7 +504,7 @@ const _room = (r) => (!r ? null : r.open_sky ? 'open sky'
  * watchlist table"). Everything that needs words — the reason, the story, Argus's note, the hand-offs
  * — opens under it on a click.
  */
-function ListRow({ row, open, onToggle, onBuild, onAsk, onSymbolClick, column = null, read = null, showRead = false, asked = null, onAskRead = null }) {
+function ListRow({ row, open, onToggle, onBuild, onAsk, onSymbolClick, column = null, read = null, showRead = false, asked = null, onAskRead = null, record = null }) {
     // On a horizon's list the row reads THAT column — its grade, room and Argus's pick for it (horizon-chains.md §1).
     const col = column && row.cells?.[column]?.grade ? column : bestColumn(row, COLUMN_ORDER)
     const pick = column ? pickFor(row, column) : row.pick
@@ -464,6 +512,10 @@ function ListRow({ row, open, onToggle, onBuild, onAsk, onSymbolClick, column = 
     const cell = col ? row.cells?.[col] : null
     const status = rowStatus(row)
     const earn = earningsChip(row)
+    // Did it work: the result of the column this row shows, and that grade's record (Roy, 2026-10-24).
+    const result = col ? row.results?.[col] ?? null : null
+    const mark = resultCell(result)
+    const graded = cell?.grade ? gradeRecord(record, col, cell.grade) : null
     const detailId = `hot-detail-${row.symbol}`
     // A click anywhere on the row opens it — except on its own buttons (the symbol opens the chart).
     const onRowClick = (e) => { if (!e.target.closest('button')) onToggle() }
@@ -486,13 +538,15 @@ function ListRow({ row, open, onToggle, onBuild, onAsk, onSymbolClick, column = 
                 <td>{status ? <span className={`hot-status hot-status--${status}`} title={STATUS_TITLE[status]}>{STATUS_SHORT[status]}</span> : <span className="hot-dim">—</span>}</td>
                 <td>
                     {cell?.grade
-                        ? <span className={`hot-grade hot-grade--${cell.grade}`} title={COLUMN_TITLE[col]}>
+                        ? <span className={`hot-grade hot-grade--${cell.grade}`}
+                            title={`${COLUMN_TITLE[col]}${graded ? ` — ${cell.grade}s so far: ${graded}` : ' — no results logged for this grade yet'}`}>
                             <span className="hot-best__col">{COLUMN_LABEL[col] ?? col}</span> <b>{cell.grade}</b>
                           </span>
                         : <span className="hot-dim">—</span>}
                 </td>
                 <td className="hot-range" title={rangeTitle(cell?.range) ?? undefined}>{_room(cell?.range) ?? '—'}</td>
                 <td>{earn ? <span className={`hot-earn${earn.exit ? ' hot-earn--exit' : ' hot-dim'}`} title={earn.title}>{row.next_earnings.slice(5)}{earn.exit ? '!' : ''}</span> : <span className="hot-dim">—</span>}</td>
+                <td className={`hot-result hot-result--${mark?.tone ?? 'dim'}`} title={mark?.title}>{mark?.text ?? '—'}</td>
                 {showRead && (
                     <td className={`hot-target${target?.state ? ` hot-target--${target.state}` : ''}`} title={target?.title}>
                         {target?.text ?? (['started', 'queued', 'sending'].includes(asked?.state)
@@ -505,7 +559,7 @@ function ListRow({ row, open, onToggle, onBuild, onAsk, onSymbolClick, column = 
                 <tr className="hot-detail-row" id={detailId}>
                     <td />
                     <td colSpan={LIST_COLS - 1 + (showRead ? 1 : 0)}><RowDetail row={row} col={col} pick={pick} read={showRead ? read : null} status={status} earn={earn} onBuild={onBuild} onAsk={onAsk}
-                        asked={asked} onAskRead={showRead && !read ? onAskRead : null} /></td>
+                        asked={asked} onAskRead={showRead && !read ? onAskRead : null} result={mark} /></td>
                 </tr>
             )}
         </>
@@ -515,6 +569,7 @@ ListRow.propTypes = {
     row: PropTypes.object.isRequired, open: PropTypes.bool, onToggle: PropTypes.func.isRequired,
     onBuild: PropTypes.func, onAsk: PropTypes.func, onSymbolClick: PropTypes.func,
     column: PropTypes.string, read: PropTypes.object, showRead: PropTypes.bool, asked: PropTypes.object, onAskRead: PropTypes.func,
+    record: PropTypes.object,
 }
 
 /** Prometheus's catalyst read under a week row (horizon-chains.md §3): the verdict, the number, what can break it. */
@@ -544,7 +599,7 @@ function ReadDetail({ read }) {
 ReadDetail.propTypes = { read: PropTypes.object.isRequired }
 
 /** What an open row says: who it is, why it is here, Argus's word on it, and the hand-offs. */
-function RowDetail({ row, col, pick = row.pick, read = null, status, earn, onBuild, onAsk, asked = null, onAskRead = null }) {
+function RowDetail({ row, col, pick = row.pick, read = null, status, earn, onBuild, onAsk, asked = null, onAskRead = null, result = null }) {
     const reason = rowReason(row)
     const cat = catalystChip(row.catalyst)
     const seen = (row.seen ?? []).map(c => CHECKPOINT_LABEL[c]?.split(' ')[0] ?? c)
@@ -566,6 +621,9 @@ function RowDetail({ row, col, pick = row.pick, read = null, status, earn, onBui
             {earn?.exit && <p className="hot-detail__line hot-earn--exit">{earn.title}.</p>}
             {pick && <p className="hot-detail__line"><b>Argus:</b> {pick.why}{pick.caution ? <span className="hot-row__caution"> Caution: {pick.caution}</span> : null}</p>}
             {row.avoid && <p className="hot-detail__line"><b>Argus — avoid:</b> {row.avoid}</p>}
+            {result && result.tone !== 'dim' && (
+                <p className="hot-detail__line"><b>Result ({COLUMN_LABEL[col] ?? col}):</b> <span className={`hot-result--${result.tone}`}>{result.title}</span></p>
+            )}
             {read && <ReadDetail read={read} />}
             <div className="hot-detail__actions">
                 {col && onBuild && (
@@ -588,7 +646,7 @@ function RowDetail({ row, col, pick = row.pick, read = null, status, earn, onBui
 }
 RowDetail.propTypes = {
     row: PropTypes.object.isRequired, col: PropTypes.string, pick: PropTypes.object, read: PropTypes.object, status: PropTypes.string, earn: PropTypes.object,
-    onBuild: PropTypes.func, onAsk: PropTypes.func, asked: PropTypes.object, onAskRead: PropTypes.func,
+    onBuild: PropTypes.func, onAsk: PropTypes.func, asked: PropTypes.object, onAskRead: PropTypes.func, result: PropTypes.object,
 }
 
 /**
@@ -669,11 +727,14 @@ function Row({ row, board, columns, onBuild, onAsk, onSymbolClick }) {
                 </td>
                 {columns.map(c => {
                     const cell = row.cells?.[c]
+                    // This board's cell, checked against the tape once its window closed (Roy, 2026-10-24).
+                    const mark = resultCell(row.results?.[c])
                     return (
                         <td key={c} className="hot-cell">
                             {cell?.grade
                                 ? <span className={`hot-grade hot-grade--${cell.grade}`} title={[rangeTitle(cell.range), ...(cell.why ?? [])].filter(Boolean).join(' — ')}>
                                     <b>{cell.grade}</b> <span className="hot-range">{fmtRange(cell.range)}</span>
+                                    {mark && mark.tone !== 'dim' && <span className={`hot-result hot-result--${mark.tone}`} title={mark.title}> {mark.text}</span>}
                                   </span>
                                 : <span className="hot-dim" title={cell?.gate ? `Fails the ${cell.gate.replace('_', ' ')} gate` : 'Not in play for this column'}>—</span>}
                         </td>

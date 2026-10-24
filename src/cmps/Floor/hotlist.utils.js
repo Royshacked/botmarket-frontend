@@ -114,6 +114,61 @@ export function readCell(read) {
     }
 }
 
+// ─── Did it work? (Roy, 2026-10-24) ──────────────────────────────────────────────
+
+const _sp = (v) => (Number.isFinite(v) ? `${v > 0 ? '+' : ''}${v.toFixed(1)}%` : '—')
+const _moves = (r) => `best ${_sp(r.mfe_pct)}, worst ${_sp(r.mae_pct)}, ended ${_sp(r.ret_pct)}`
+
+/**
+ * A cell's RESULT (botmarket-backend hotlist.service cellResult) as the list's short mark: `{ text, title, tone }` —
+ * tone `good` / `bad` / `dim` — or null without one. Pure. Reached / missed the free-range level the grade measured
+ * room to; an open-sky cell (no level) is up or down by the window's end; before that, open or scoring.
+ */
+export function resultCell(res) {
+    if (!res) return null
+    const partial = res.partial ? ' (partial window — some bars missing)' : ''
+    const level = Number.isFinite(res.level) ? res.level.toFixed(2) : 'its level'
+    switch (res.state) {
+    case 'reached': return { text: '✓ reached', tone: 'good', title: `Reached ${level} — ${_moves(res)}${partial}` }
+    case 'missed':  return { text: `✗ best ${_sp(res.mfe_pct)}`, tone: 'bad', title: `Did not reach ${level} — ${_moves(res)}${partial}` }
+    case 'up':      return { text: `↑ ${_sp(res.ret_pct)}`, tone: 'good', title: `Open sky (no level to reach): ended up — ${_moves(res)}${partial}` }
+    case 'down':    return { text: `↓ ${_sp(res.ret_pct)}`, tone: 'bad', title: `Open sky (no level to reach): ended down — ${_moves(res)}${partial}` }
+    case 'open':    return { text: 'open', tone: 'dim', title: `The window runs until ${res.ends} — its result comes after it closes` }
+    case 'scoring': return { text: 'scoring', tone: 'dim', title: 'The window has closed — scored after 18:00 ET' }
+    case 'no_data': return { text: '—', tone: 'dim', title: 'No prices came for its window' }
+    default:        return null
+    }
+}
+
+/** A column's history must reach both to be "verified" (botmarket-backend hotlist.outcomes VERIFY_MIN_*). */
+export const VERIFY_SESSIONS = 40
+export const VERIFY_NAMES = 30
+
+/**
+ * One grade's track record on a column (hotlist.outcomes summarize), as a short phrase — "reached 62% of 34 · up 58%
+ * of 40" — or null with no history. Pure. The hit rate counts only names with a level to reach (open sky has none);
+ * the up rate counts every name.
+ */
+export function gradeRecord(summary, column, grade) {
+    const g = summary?.[column]?.grades?.[grade]
+    if (!g?.n) return null
+    const hit = Number.isFinite(g.hit_rate) && g.judged ? `reached ${Math.round(g.hit_rate)}% of ${g.judged}` : null
+    const up = Number.isFinite(g.up_rate) ? `up ${Math.round(g.up_rate)}% of ${g.n}` : null
+    return [hit, up].filter(Boolean).join(' · ') || null
+}
+
+/** A column's record for the strip over its list: each grade's phrase, and how far it is from verified. Pure. */
+export function columnRecord(summary, column) {
+    const c = summary?.[column]
+    if (!c) return null
+    const grades = ['A', 'B', 'C'].map(g => ({ grade: g, text: gradeRecord(summary, column, g) })).filter(g => g.text)
+    return {
+        grades,
+        verified: Boolean(c.verified),
+        progress: c.verified ? null : `${c.sessions ?? 0} of ${VERIFY_SESSIONS} sessions, ${c.n ?? 0} of ${VERIFY_NAMES} names`,
+    }
+}
+
 // ─── The day's watchlist (Roy, 2026-10-22) ────────────────────────────────────
 
 /** The board's columns in order — what a day-list row's merged cells are walked in. */

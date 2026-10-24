@@ -2,7 +2,7 @@
 // node --test src/cmps/Floor/
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, rowStatus, rowReason, sortList, askArgusText, handoffRead, sparkGeometry, pickFor, horizonRows, horizonCounts, readsBySymbol, readCell, hasBand } from './hotlist.utils.js'
+import { fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, rowStatus, rowReason, sortList, askArgusText, handoffRead, sparkGeometry, pickFor, horizonRows, horizonCounts, readsBySymbol, readCell, hasBand, resultCell, gradeRecord, columnRecord } from './hotlist.utils.js'
 import { handoffTurn } from '../MentorSurface/mentorSurface.utils.js'
 
 const ROW = {
@@ -182,4 +182,31 @@ test("sortList on a horizon: the grade is that column's, and the tie-break is th
     ]
     assert.deepEqual(sortList(rows, 'grade', 'desc', 'week').map(r => r.symbol), ['PK', 'WK', 'MIX'])
     assert.deepEqual(sortList(rows, 'grade', 'desc').map(r => r.symbol)[0], 'MIX', 'off a horizon: the best column')
+})
+
+// Did it work? (Roy, 2026-10-24)
+test('resultCell: reached / missed / up / down once scored, open or scoring before', () => {
+    const moves = { mfe_pct: 3.2, mae_pct: -0.4, ret_pct: 2.5, level: 103 }
+    assert.deepEqual(resultCell({ state: 'reached', ...moves }), { text: '✓ reached', tone: 'good', title: 'Reached 103.00 — best +3.2%, worst -0.4%, ended +2.5%' })
+    assert.equal(resultCell({ state: 'missed', ...moves, mfe_pct: 1.2 }).text, '✗ best +1.2%')
+    assert.equal(resultCell({ state: 'missed', ...moves }).tone, 'bad')
+    assert.equal(resultCell({ state: 'up', ret_pct: 1.9 }).text, '↑ +1.9%')
+    assert.equal(resultCell({ state: 'down', ret_pct: -0.8 }).text, '↓ -0.8%')
+    assert.match(resultCell({ state: 'open', ends: '2026-10-28' }).title, /until 2026-10-28/)
+    assert.equal(resultCell({ state: 'scoring' }).tone, 'dim')
+    assert.match(resultCell({ state: 'missed', ...moves, partial: true }).title, /partial window/)
+    assert.equal(resultCell(null), null)
+})
+
+test("a grade's record and a column's: the hit rate over names with a level, the up rate over all, how far from verified", () => {
+    const summary = { week: { n: 9, sessions: 6, verified: false, grades: {
+        A: { n: 5, judged: 4, hit_rate: 75, up_rate: 60 }, B: { n: 4, judged: 0, hit_rate: null, up_rate: 50 }, C: { n: 0 } } } }
+    assert.equal(gradeRecord(summary, 'week', 'A'), 'reached 75% of 4 · up 60% of 5')
+    assert.equal(gradeRecord(summary, 'week', 'B'), 'up 50% of 4', 'no name with a level: no hit rate')
+    assert.equal(gradeRecord(summary, 'week', 'C'), null)
+    assert.equal(gradeRecord(null, 'week', 'A'), null)
+    const rec = columnRecord(summary, 'week')
+    assert.deepEqual(rec.grades.map(g => g.grade), ['A', 'B'])
+    assert.equal(rec.progress, '6 of 40 sessions, 9 of 30 names')
+    assert.equal(columnRecord({ week: { ...summary.week, verified: true } }, 'week').progress, null)
 })

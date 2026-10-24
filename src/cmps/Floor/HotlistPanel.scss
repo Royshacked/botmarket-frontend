@@ -138,6 +138,20 @@
 }
 .hot-read { margin-top: 4px; padding-top: 4px; border-top: 1px dashed var(--border); }
 
+// Did it work (Roy, 2026-10-24): a cell's result once its window closed, and a horizon's track record over its list.
+.hot-result {
+    font-size: 11px; font-family: var(--font-mono); white-space: nowrap;
+    &--good { color: var(--color-long); }
+    &--bad  { color: var(--color-short); }
+    &--dim  { color: var(--text-dim); }
+}
+.hot-record {
+    display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline;
+    &__who { color: var(--text-secondary); font-weight: 600; }
+    &__grade b { font-family: var(--font-mono); }
+    &__state { color: var(--text-dim); }
+}
+
 .hot-status-filter {
     display: inline-flex; gap: 4px; flex-wrap: wrap;
     &__btn {

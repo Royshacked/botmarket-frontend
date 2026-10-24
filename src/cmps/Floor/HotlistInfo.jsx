@@ -24,6 +24,7 @@ const COLUMNS = [
     ['Grade', 'A, B or C for the horizon — by free range: the room to the next level overhead, against its ATR.'],
     ['Room', 'That free range: % to the level and how many ATRs it is. "Open sky": no level overhead.'],
     ['Earn', 'The next report. Amber with "!": the report is inside the window — a run-up trade, out before it.'],
+    ['Result', 'Did it work — once the horizon\'s window closes (below).'],
     ['Target', 'On This week only: Prometheus\'s catalyst target and how much of it is still open.'],
 ]
 
@@ -56,6 +57,22 @@ export function HotlistInfo() {
                     {COLUMNS.map(([k, v]) => (<div key={k}><dt>{k}</dt><dd>{v}</dd></div>))}
                 </dl>
                 <p>Click a header to sort; again to reverse; a third time to go back to the list&apos;s own order.</p>
+            </section>
+            <section>
+                <h3 className="hot-info__h">Did it work</h3>
+                <p>Every graded name is checked against the tape once its horizon&apos;s window closes — from the checkpoint&apos;s
+                    price, over that window (the first hour, the rest of the session, the next session, five sessions):</p>
+                <dl className="hot-info__dl">
+                    <div><dt>✓ reached</dt><dd>it got to the level the grade measured room to.</dd></div>
+                    <div><dt>✗ best +x%</dt><dd>it did not; its best move on the way.</dd></div>
+                    <div><dt>↑ / ↓</dt><dd>open sky — no level to reach — so how it ended.</dd></div>
+                    <div><dt>open · scoring</dt><dd>the window still runs · it closed, scored after 18:00 ET.</dd></div>
+                </dl>
+                <p>A week name&apos;s result lands five sessions later: step back a day with ‹ › at the top. Open a row for its best,
+                    worst and end move.</p>
+                <p><b>Track record</b>, over a horizon&apos;s list (and on a grade&apos;s hover): how often each grade reached its level,
+                    and how often it ended up. It says <b>unverified</b> until the horizon has 40 sessions and 30 names behind it —
+                    before that, an A is not shown to beat a C.</p>
             </section>
             <section>
                 <h3 className="hot-info__h">Who decided what</h3>
