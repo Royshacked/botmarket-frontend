@@ -93,10 +93,13 @@ export function HotlistInfo() {
                 <p><b>The grades</b> are the screener&apos;s arithmetic, and still <b>unverified</b> — not enough logged outcomes yet
                     to say an A beats a C.</p>
                 <p><b>★ Argus</b> reads every board and picks up to five names per horizon; the number is his rank in that
-                    horizon. <b>✕</b> is a name he says to avoid.</p>
+                    horizon. <b>✕</b> is a name he says to avoid — too little room, earnings that day, a big gap on a minor story.
+                    <b> Argus&apos;s record</b> sets his picks, his avoids and the names he left alone side by side, by how often each
+                    ended up and its average move: it says whether his calls beat the board.</p>
                 <p><b>Prometheus</b> reads Argus&apos;s This week picks after the 09:20 board, by himself: is the catalyst real,
                     what is it worth, how much is still open. With a report ahead, the target is the stock&apos;s own usual run-up
-                    into its reports. A read is valid until its window ends — the session before a report inside it — and is
+                    into its reports — less what it has already run this cycle; one that already ran its usual run-up is a pass.
+                    A read is valid until its window ends — the session before a report inside it — and is
                     graded then: <b>hit</b> if the price reached the target, <b>expired</b> if not. <b>pass</b> means no target.</p>
             </section>
             <section>

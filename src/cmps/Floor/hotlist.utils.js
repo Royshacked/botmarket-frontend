@@ -95,6 +95,7 @@ export const PASS_WHY = Object.freeze({
     report_too_close: 'read after the last session before its report',
     nothing_open: 'nothing left open',
     too_small: 'too little left open to trade',
+    already_ran: 'it already ran its usual run-up this cycle',
     unsized: 'not sized',
     contradicted: 'the record cuts against it',
     unclear: 'too thin to tell',
@@ -168,6 +169,17 @@ export function gradeRecord(summary, column, grade) {
     const hit = Number.isFinite(g.hit_rate) && g.judged ? `reached ${Math.round(g.hit_rate)}% of ${g.judged}` : null
     const up = Number.isFinite(g.up_rate) ? `up ${Math.round(g.up_rate)}% of ${g.n}` : null
     return [hit, up].filter(Boolean).join(' · ') || null
+}
+
+/**
+ * ARGUS'S RECORD (backend hotlist.outcomes argusRecord) for a column — or `all` — as the strip's phrases: his picks, his
+ * avoids and the names he left unmarked, each "up 73% · avg +0.6% (11)". Pure. Null without a scored name.
+ */
+export function argusRecordLine(summary, column = 'all') {
+    const g = summary?.argus?.[column]
+    if (!g || !(g.pick?.n || g.avoid?.n || g.unmarked?.n)) return null
+    const part = (x) => (x?.n ? `up ${Math.round(x.up_rate)}% · avg ${_sp(x.ret_mean)} (${x.n})` : 'none yet')
+    return [['picks', part(g.pick)], ['avoids', part(g.avoid)], ['unmarked', part(g.unmarked)]]
 }
 
 /** A column's record for the strip over its list: each grade's phrase, and how far it is from verified. Pure. */

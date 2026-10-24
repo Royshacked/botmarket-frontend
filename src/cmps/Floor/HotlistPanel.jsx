@@ -8,7 +8,7 @@ import {
     COLUMN_LABEL, COLUMN_TITLE, CHECKPOINT_LABEL, COLUMN_ORDER, STATUS_LABEL, STATUS_TITLE, LIST_SORTS,
     fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, sparkGeometry, rowStatus, rowReason, sortList,
     pickFor, horizonCounts, horizonRows, readsBySymbol, readCell, hasBand, PASS_WHY, resultCell, gradeRecord, columnRecord,
-    BOOK_ORDER, BOOK_LABEL, BOOK_TITLE, readTime,
+    BOOK_ORDER, BOOK_LABEL, BOOK_TITLE, readTime, argusRecordLine,
 } from './hotlist.utils.js'
 import { ChartSurface } from '../PriceChart/ChartSurface.jsx'
 import { HotlistBook } from './HotlistBook.jsx'
@@ -431,6 +431,9 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
             </div>
             {latest?.unverified && <p className="hot-note">Grades are <b>unverified</b>: not enough logged outcomes yet to say an A beats a C. Free range is room to the next level overhead — not a target.</p>}
             {horizon && <TrackRecord rec={columnRecord(record, horizon)} column={horizon} />}
+            {/* Argus's own record — his picks, avoids and unmarked names, by how they ended (2026-10-24): this horizon's, or all. */}
+            <ArgusRecord parts={argusRecordLine(record, horizon ?? 'all')} />
+
             {showReads && readsFailed && <p className="hot-note hot-note--warn">Prometheus’s targets could not be loaded — the names are shown without them.</p>}
             {showReads && <p className="hot-note">Target: Prometheus’s catalyst target — the price before the catalyst plus what it is worth, or, with a report ahead, the stock’s usual run-up into its reports — and how much of it is still open. Valid until its window ends (the session before a report); graded then.</p>}
             {!rows.length
@@ -495,6 +498,18 @@ function TrackRecord({ rec, column }) {
     )
 }
 TrackRecord.propTypes = { rec: PropTypes.object, column: PropTypes.string.isRequired }
+
+/** Argus's record over the list: did his picks beat his avoids, and both the names he left alone? */
+function ArgusRecord({ parts }) {
+    if (!parts) return null
+    return (
+        <p className="hot-note hot-record" title="How often each ended up over its window, and its average move — Argus's calls against the names he left unmarked">
+            <span className="hot-record__who">Argus’s record</span>
+            {parts.map(([k, v]) => <span key={k}><b>{k}</b> {v}</span>)}
+        </p>
+    )
+}
+ArgusRecord.propTypes = { parts: PropTypes.array }
 
 /** A header that sorts its column; a second click flips the direction. */
 function SortTh({ k, label, sort, onSort, num = false, title }) {
@@ -607,6 +622,8 @@ function ReadDetail({ read }) {
                 {t && Number.isFinite(t.spot ?? read.price_at_read) && <span className="hot-dim"> · set from {(t.spot ?? read.price_at_read).toFixed(2)} at the read, {readTime(read.set_at)}</span>}
                 {/* A run-up's target is the stock's own record into its reports; an event's is what it is worth less what moved. */}
                 {t && t.basis === 'run_up' && <> · its run-up into the last {read.runup?.n ?? '?'} reports: median {t.open_pct > 0 ? '+' : ''}{t.open_pct}%{Number.isFinite(read.runup?.up_share) && `, up ${Math.round(read.runup.up_share * 100)}% of the time`}</>}
+                {/* This cycle's head start (2026-10-24): the stock has already moved part of its usual full run-up. */}
+                {t && t.basis === 'run_up' && t.moved_pct > 0 && <span className="hot-dim"> · this cycle already {t.moved_pct > 0 ? '+' : ''}{t.moved_pct}% of a usual +{t.worth_pct}%{t.cycle_cut_pct > 0 ? `, so ${t.cycle_cut_pct}% less is left` : ''}</span>}
                 {t && t.basis !== 'run_up' && <> · worth {t.worth_pct > 0 ? '+' : ''}{t.worth_pct}%, moved {t.moved_pct > 0 ? '+' : ''}{t.moved_pct}%, open {t.open_pct > 0 ? '+' : ''}{t.open_pct}%</>}
                 {read.exit_before && <span className="hot-earn--exit"> · out before the {read.exit_before} report</span>}
                 <span className="hot-dim"> · valid until {String(read.valid_until).slice(0, 10)}</span>

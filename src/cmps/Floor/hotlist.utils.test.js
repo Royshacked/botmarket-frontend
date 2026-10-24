@@ -271,3 +271,11 @@ test('a book row goes to Mentor as which list — never with its own horizon or 
     assert.equal(t.seed.hotlist, undefined)
     assert.equal(handoffTurn({ ticker: 'A', hotlist: { board: 'hb_2026-10-23_mid', column: 'mid' } }).seed.book, undefined)
 })
+
+test("Argus's record line: picks, avoids and unmarked — per column, or all; null with nothing scored", async () => {
+    const { argusRecordLine } = await import('./hotlist.utils.js')
+    const summary = { argus: { all: { pick: { n: 11, up_rate: 72.7, ret_mean: 0.58 }, avoid: { n: 20, up_rate: 60, ret_mean: 0.46 }, unmarked: { n: 0 } } } }
+    assert.deepEqual(argusRecordLine(summary), [['picks', 'up 73% · avg +0.6% (11)'], ['avoids', 'up 60% · avg +0.5% (20)'], ['unmarked', 'none yet']])
+    assert.equal(argusRecordLine(summary, 'week'), null)
+    assert.equal(argusRecordLine({}), null)
+})

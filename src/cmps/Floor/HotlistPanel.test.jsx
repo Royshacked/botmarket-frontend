@@ -493,7 +493,9 @@ describe('HotlistPanel — did it work', () => {
         { symbol: 'WEEK', price: 20, status: 'setting_up', cells: { week: { grade: 'B', range: { pct: 4, atr_mult: 1 } } },
           results: { week: { state: 'open', ends: '2026-10-28' } } },
     ]
-    const SUMMARY = { mid: { n: 12, sessions: 3, verified: false, grades: { A: { n: 5, judged: 4, hit_rate: 75, up_rate: 60 }, C: { n: 7, judged: 7, hit_rate: 14.3, up_rate: 42.9 } } } }
+    const SUMMARY = { mid: { n: 12, sessions: 3, verified: false, grades: { A: { n: 5, judged: 4, hit_rate: 75, up_rate: 60 }, C: { n: 7, judged: 7, hit_rate: 14.3, up_rate: 42.9 } } },
+        argus: { all: { pick: { n: 11, up_rate: 72.7, ret_mean: 0.58 }, avoid: { n: 20, up_rate: 60, ret_mean: 0.46 }, unmarked: { n: 23, up_rate: 43.5, ret_mean: -0.26 } },
+            mid: { pick: { n: 5, up_rate: 80, ret_mean: 1.08 }, avoid: { n: 9, up_rate: 55.6, ret_mean: 0.77 }, unmarked: { n: 21, up_rate: 47.6, ret_mean: -0.07 } } } }
     beforeEach(() => {
         hotlistService.getToday.mockImplementation(async (day) => ({ day: day ?? DAY, latest: { ...BOARD, argus: null }, dayList: day ? LIST.slice(0, 1) : LIST,
             checkpoints: [], days: [DAY, '2026-10-21'] }))
@@ -511,6 +513,15 @@ describe('HotlistPanel — did it work', () => {
         expect(cellOf('WEEK').textContent).toBe('open')
         fireEvent.click(screen.getByText('MISS').closest('tr').querySelector('td:nth-child(4)'))
         expect(screen.getByText(/Result \(Mid-day\):/)).toBeTruthy()
+    })
+
+    it("Argus's record: over All, his calls overall; over a horizon, that horizon's", async () => {
+        await mount()
+        const all = [...document.querySelectorAll('.hot-record')].map(p => p.textContent).find(t => /Argus/.test(t))
+        for (const part of ['picks up 73% · avg +0.6% (11)', 'avoids up 60% · avg +0.5% (20)', 'unmarked up 44% · avg -0.3% (23)']) expect(all).toContain(part)
+        fireEvent.click(screen.getByRole('button', { name: /^Mid-day/ }))
+        const mid = [...document.querySelectorAll('.hot-record')].map(p => p.textContent).find(t => /Argus/.test(t))
+        expect(mid).toContain('picks up 80% · avg +1.1% (5)')
     })
 
     it("a horizon's list carries its track record; a grade's hover says how that grade has done", async () => {
