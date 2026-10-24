@@ -264,3 +264,10 @@ test("a read's target is measured from the price it was set from, with when", ()
     assert.equal(readTime('2026-10-23T19:51:24Z'), 'Oct 23, 15:51 ET')
     assert.match(readCell({ status: 'pass', verdict: 'credible', pass_reason: 'too_small' }).title, /too little left open to trade/)
 })
+
+test('a book row goes to Mentor as which list — never with its own horizon or target — and a board row as before', () => {
+    const t = handoffTurn({ ticker: 'chn', direction: 'long', thesis: 'x', book: { column: 'swing', horizon: 'intraday' } })
+    assert.deepEqual(t.seed.book, { column: 'swing' })
+    assert.equal(t.seed.hotlist, undefined)
+    assert.equal(handoffTurn({ ticker: 'A', hotlist: { board: 'hb_2026-10-23_mid', column: 'mid' } }).seed.book, undefined)
+})

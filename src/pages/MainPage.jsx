@@ -1456,8 +1456,8 @@ export function MainPage() {
     // board and column as a reference the server resolves into the board's facts (the horizon, the
     // grade and free range, the catalyst, Argus's note). The read in the opening sentence is Argus's
     // pick note, else the board's own reason the name is in play.
-    // A Swing / Long term row (the house's coverage, 2026-10-24) has no board: it goes as an ordinary seed, the
-    // thesis's numbers in the opening sentence (handoffRead), long only.
+    // A Swing / Long term row (the house's coverage, 2026-10-24) has no board: it rides as which list, and the server
+    // reads the name's coverage back for Mentor — the horizon (swing / long term), the target, the thesis (bookSeed).
     function handleBuildFromHotlist(row, column, board) {
         const book = BOOK_ORDER.includes(column)
         if (!row?.symbol || !column || (!book && !board?.id)) return
@@ -1465,7 +1465,7 @@ export function MainPage() {
             ticker:    row.symbol,
             direction: 'long',                       // the board is long side only (daily-names.md §9)
             thesis:    handoffRead(row, column),
-            ...(book ? {} : { hotlist: { board: board.id, column } }),
+            ...(book ? { book: { column } } : { hotlist: { board: board.id, column } }),
         })
         if (!turn) return
         talkTo('mentor', turn.text, { seed: turn.seed })

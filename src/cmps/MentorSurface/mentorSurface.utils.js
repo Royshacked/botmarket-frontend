@@ -121,6 +121,9 @@ export function handoffTurn(candidate) {
             // A name off the HOTLIST rides as a reference to its board and column; the server reads the
             // board's facts back itself (backend hotlist.service hotlistSeed) — they are never sent from here.
             ...(candidate.hotlist ? { hotlist: { board: candidate.hotlist.board, column: candidate.hotlist.column } } : {}),
+            // One off the Hotlist's SWING / LONG TERM lists rides as which list; the server reads the name's coverage —
+            // its horizon and target — back itself (backend houseBook bookSeed).
+            ...(candidate.book ? { book: { column: candidate.book.column } } : {}),
         },
     }
 }
