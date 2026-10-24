@@ -2,7 +2,7 @@
 // node --test src/cmps/Floor/
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, rowStatus, rowReason, sortList, askArgusText, handoffRead, sparkGeometry, pickFor, horizonRows, horizonCounts, readsBySymbol, readCell } from './hotlist.utils.js'
+import { fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, rowStatus, rowReason, sortList, askArgusText, handoffRead, sparkGeometry, pickFor, horizonRows, horizonCounts, readsBySymbol, readCell, hasBand } from './hotlist.utils.js'
 import { handoffTurn } from '../MentorSurface/mentorSurface.utils.js'
 
 const ROW = {
@@ -154,4 +154,32 @@ test('readsBySymbol keeps the live read over a settled one; readCell says the nu
     assert.equal(readCell({ status: 'hit', target: { value: 12, open_pct: 4 }, valid_until: 'x', verdict: 'credible' }).text, '12.00 · hit')
     assert.equal(readCell({ status: 'pass', verdict: 'contradicted' }).text, 'pass')
     assert.equal(readCell(null), null)
+})
+
+// The code review of 2026-10-24.
+test('a band needs both ends; a one-ended band is a target without a band, not a crash', () => {
+    assert.equal(hasBand({ low: 1, high: 2 }), true)
+    assert.equal(hasBand({ low: 1, high: null }), false)
+    const cell = readCell({ status: 'active', verdict: 'credible', valid_until: '2026-10-26', target: { value: 31, low: 30.5, high: null, open_pct: 3 } })
+    assert.doesNotMatch(cell.title, /band/)
+    assert.match(readCell({ status: 'pass', verdict: 'credible', pass_reason: 'report_too_close' }).title, /before its report/)
+})
+
+test("readsBySymbol with the list's day: a settled read from another day's board is left out; an active one never is", () => {
+    const by = readsBySymbol([
+        { symbol: 'OLD', status: 'expired', context: { day: '2026-10-12' } },
+        { symbol: 'LIVE', status: 'active', context: { day: '2026-10-20' } },
+        { symbol: 'TODAY', status: 'pass', context: { day: '2026-10-23' } },
+    ], '2026-10-23')
+    assert.deepEqual([...by.keys()].sort(), ['LIVE', 'TODAY'])
+})
+
+test("sortList on a horizon: the grade is that column's, and the tie-break is that column's pick", () => {
+    const rows = [
+        { symbol: 'MIX', cells: { open: { grade: 'A' }, week: { grade: 'C' } } },
+        { symbol: 'WK', cells: { week: { grade: 'B' } } },
+        { symbol: 'PK', cells: { week: { grade: 'B' } }, picks: { week: { rank: 1 } } },
+    ]
+    assert.deepEqual(sortList(rows, 'grade', 'desc', 'week').map(r => r.symbol), ['PK', 'WK', 'MIX'])
+    assert.deepEqual(sortList(rows, 'grade', 'desc').map(r => r.symbol)[0], 'MIX', 'off a horizon: the best column')
 })

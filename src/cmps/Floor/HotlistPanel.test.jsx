@@ -7,7 +7,7 @@ vi.mock('../PriceChart/ChartSurface.jsx', () => ({
 }))
 
 vi.mock('../../services/hotlist/hotlist.service.remote.js', () => ({
-    hotlistService: { getToday: vi.fn(), getBoard: vi.fn(), getOutcomes: vi.fn() },
+    hotlistService: { getToday: vi.fn(), getBoard: vi.fn(), getOutcomes: vi.fn(), getReads: vi.fn(), requestRead: vi.fn() },
 }))
 
 import { hotlistService } from '../../services/hotlist/hotlist.service.remote.js'
@@ -50,6 +50,7 @@ beforeEach(() => {
     hotlistService.getToday.mockResolvedValue({ day: '2026-10-21', latest: BOARD, checkpoints: [
         { id: EARLIER.id, checkpoint: 'premarket' }, { id: BOARD.id, checkpoint: 'mid' }] })
     hotlistService.getBoard.mockResolvedValue(EARLIER)
+    hotlistService.getReads.mockResolvedValue([])
 })
 afterEach(() => { cleanup(); act(() => closePanel()); vi.clearAllMocks() })
 
@@ -320,28 +321,27 @@ describe('HotlistPanel — a list per horizon', () => {
 
     beforeEach(() => {
         hotlistService.getToday.mockResolvedValue({ day: '2026-10-23', latest: { ...BOARD, argus: null }, dayList: H_LIST, checkpoints: [] })
-        hotlistService.getReads = vi.fn().mockResolvedValue([READ])
+        hotlistService.getReads.mockResolvedValue([READ])
     })
-    afterEach(() => { delete hotlistService.getReads })
     const order = () => [...document.querySelectorAll('tr.hot-row')].map(tr => tr.dataset.symbol)
 
     it('a tab per horizon with its count; a horizon lists its names, Argus\'s picks for it first in his order', async () => {
         await mount()
-        const tabs = within(screen.getByRole('tablist', { name: 'Horizon' })).getAllByRole('tab').map(t => t.textContent)
+        const tabs = within(screen.getByRole('group', { name: 'Horizon' })).getAllByRole('button').map(t => t.textContent)
         expect(tabs).toEqual(['All 4', 'Open 1', 'Mid-day 0', 'Into close 0', 'Tomorrow 0', 'This week 3'])
-        expect(screen.getByRole('tab', { name: 'Mid-day 0' }).disabled).toBe(true)
-        fireEvent.click(screen.getByRole('tab', { name: 'This week 3' }))
+        expect(screen.getByRole('button', { name: 'Mid-day 0' }).disabled).toBe(true)
+        fireEvent.click(screen.getByRole('button', { name: 'This week 3' }))
         expect(order()).toEqual(['WK1', 'WK2', 'WK3'], 'his picks in his order, then the grade')
         const wk1 = screen.getByText('WK1').closest('tr')
         expect(wk1.querySelector('.hot-star').textContent).toBe('★1')
         expect(wk1.textContent).toMatch(/This week C/)
-        fireEvent.click(screen.getByRole('tab', { name: 'Open 1' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Open 1' }))
         expect(order()).toEqual(['OPN'])
     })
 
     it('This week shows Prometheus\'s catalyst target and what is still open; the opened row carries his read', async () => {
         await mount()
-        fireEvent.click(screen.getByRole('tab', { name: 'This week 3' }))
+        fireEvent.click(screen.getByRole('button', { name: 'This week 3' }))
         expect(screen.getByRole('columnheader', { name: 'Target' })).toBeTruthy()
         const wk1 = screen.getByText('WK1').closest('tr')
         expect(wk1.querySelector('.hot-target').textContent).toBe('31.50 · +5% open')
@@ -351,7 +351,131 @@ describe('HotlistPanel — a list per horizon', () => {
         expect(screen.getByText('A real contract, two thirds still open.')).toBeTruthy()
         expect(screen.getByText(/Inside the window: Q3 report 2026-10-29/)).toBeTruthy()
         // Off the week tab, no Target column.
-        fireEvent.click(screen.getByRole('tab', { name: 'All 4' }))
+        fireEvent.click(screen.getByRole('button', { name: 'All 4' }))
         expect(screen.queryByRole('columnheader', { name: 'Target' })).toBeNull()
+    })
+})
+
+// The code review of 2026-10-24 on the horizon lists, and the "Catalyst read" a user asks for (horizon-chains.md §3).
+describe('HotlistPanel — the horizon lists, reviewed', () => {
+    const DAY = '2026-10-23'
+    const LIST = [
+        { symbol: 'OPN', price: 10, status: 'in_play', cells: { open: { grade: 'A', range: { pct: 2, atr_mult: 0.5 } } } },
+        // Graded A for the open but C for the week: on This week it sorts as the C it shows.
+        { symbol: 'MIX', price: 15, status: 'in_play', cells: { open: { grade: 'A', range: { pct: 2, atr_mult: 0.5 } }, week: { grade: 'C', range: { pct: 1, atr_mult: 0.3 } } } },
+        { symbol: 'WK1', price: 30, status: 'setting_up', cells: { week: { grade: 'B', range: { pct: 4, atr_mult: 1 } } }, picks: { week: { why: 'the pick', rank: 1 } } },
+        { symbol: 'WK3', price: 40, status: 'setting_up', board: `hb_${DAY}_mid`, cell_board: { week: `hb_${DAY}_preopen` },
+          cells: { week: { grade: 'A', range: { pct: 6, atr_mult: 2 } } } },
+    ]
+    beforeEach(() => {
+        hotlistService.getToday.mockResolvedValue({ day: DAY, latest: { ...BOARD, argus: null }, dayList: LIST, checkpoints: [] })
+    })
+    const order = () => [...document.querySelectorAll('tr.hot-row')].map(tr => tr.dataset.symbol)
+    const week = () => fireEvent.click(screen.getByRole('button', { name: /^This week/ }))
+
+    it('a target with one end of its band does not break the list', async () => {
+        hotlistService.getReads.mockResolvedValue([{ id: 'r', symbol: 'WK1', status: 'active', verdict: 'credible', valid_until: '2026-10-26T21:00:00Z',
+            target: { value: 31, low: 30.5, high: null, open_pct: 3, basis: 'run_up' }, runup: { n: 8 } }])
+        await mount()
+        week()
+        const wk1 = screen.getByText('WK1').closest('tr')
+        expect(wk1.querySelector('.hot-target').textContent).toBe('31.00 · +3% open')
+        fireEvent.click(wk1.querySelector('td:nth-child(4)'))
+        const read = document.querySelector('.hot-read').textContent
+        expect(read).toMatch(/target 31\.00/)
+        expect(read).not.toMatch(/30\.50–/)
+    })
+
+    it("a settled read from another day's board is not shown as today's target", async () => {
+        hotlistService.getReads.mockResolvedValue([
+            { id: 'old', symbol: 'WK3', status: 'expired', verdict: 'credible', set_at: '2026-10-12T13:30:00Z', context: { day: '2026-10-12' }, target: { value: 50, open_pct: 4 } },
+            { id: 'today', symbol: 'WK1', status: 'pass', verdict: 'unclear', pass_reason: 'unclear', set_at: `${DAY}T13:30:00Z`, context: { day: DAY } },
+        ])
+        await mount()
+        week()
+        expect(screen.getByText('WK3').closest('tr').querySelector('.hot-target').textContent).toBe('—')
+        expect(screen.getByText('WK1').closest('tr').querySelector('.hot-target').textContent).toBe('pass')
+    })
+
+    it("a horizon's Grade sort is that horizon's grade; a new tab opens in Argus's order; a third click restores it", async () => {
+        await mount()
+        week()
+        expect(order()).toEqual(['WK1', 'WK3', 'MIX'], "Argus's pick first, then the grade")
+        const grade = () => fireEvent.click(screen.getByRole('button', { name: /^Grade/ }))
+        grade()
+        expect(order()).toEqual(['WK3', 'WK1', 'MIX'], 'A, B, C — the week grades, not MIX\'s open A')
+        grade(); grade()
+        expect(order()).toEqual(['WK1', 'WK3', 'MIX'], 'third click: back to his order')
+        grade()
+        fireEvent.click(screen.getByRole('button', { name: /^Open/ }))
+        fireEvent.click(screen.getByRole('button', { name: /^This week/ }))
+        expect(order()).toEqual(['WK1', 'WK3', 'MIX'], 'the last tab\'s sort does not follow')
+    })
+
+    it('the horizon counts follow the status filter, and an emptied horizon falls back to All', async () => {
+        await mount()
+        fireEvent.click(screen.getByRole('button', { name: /^Setting up/ }))
+        const group = within(screen.getByRole('group', { name: 'Horizon' }))
+        expect(group.getAllByRole('button').map(b => b.textContent)).toEqual(['All 2', 'Open 0', 'Mid-day 0', 'Into close 0', 'Tomorrow 0', 'This week 2'])
+    })
+
+    it('a horizon a refresh empties while it is chosen falls back to All — never a pressed, disabled button', async () => {
+        vi.useFakeTimers()
+        try {
+            // The screener is working, so the panel looks again; the next look has no open names left.
+            hotlistService.getToday.mockResolvedValueOnce({ day: DAY, latest: { ...BOARD, argus: null }, dayList: LIST, checkpoints: [],
+                working: { kind: 'board', checkpoint: 'mid', started_at: Date.now() } })
+            hotlistService.getToday.mockResolvedValue({ day: DAY, latest: { ...BOARD, argus: null }, dayList: LIST.filter(r => !r.cells.open), checkpoints: [], working: null })
+            await mount()
+            const group = within(screen.getByRole('group', { name: 'Horizon' }))
+            fireEvent.click(group.getByRole('button', { name: /^Open/ }))
+            expect(order()).toEqual(['MIX', 'OPN'])
+            await act(async () => { vi.advanceTimersByTime(WORKING_POLL_MS) })
+            await flush()
+            expect(group.getByRole('button', { name: /^All/ }).getAttribute('aria-pressed')).toBe('true')
+            expect(order()).toEqual(['WK1', 'WK3'])
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+
+    it('reads that failed to load say so on This week', async () => {
+        hotlistService.getReads.mockRejectedValue(new Error('down'))
+        await mount()
+        week()
+        expect(screen.getByText(/targets could not be loaded/)).toBeTruthy()
+    })
+
+    it('"Catalyst read" on a week row with no read asks Prometheus on the board its week cell lives on', async () => {
+        hotlistService.requestRead.mockResolvedValue('started')
+        await mount()
+        week()
+        const wk3 = screen.getByText('WK3').closest('tr')
+        fireEvent.click(wk3.querySelector('td:nth-child(4)'))
+        fireEvent.click(screen.getByRole('button', { name: 'Catalyst read' }))
+        await flush()
+        expect(hotlistService.requestRead).toHaveBeenCalledWith(`hb_${DAY}_preopen`, 'WK3')
+        expect(screen.getByText(/Prometheus is reading it/)).toBeTruthy()
+        expect(wk3.querySelector('.hot-target').textContent).toBe('reading…')
+        expect(screen.queryByRole('button', { name: 'Catalyst read' })).toBeNull()
+    })
+
+    it("a refused read shows the server's words, and the button stays", async () => {
+        hotlistService.requestRead.mockRejectedValue({ response: { data: { error: 'Today\'s catalyst reads are used up — try again tomorrow.' } } })
+        await mount()
+        week()
+        fireEvent.click(screen.getByText('WK3').closest('tr').querySelector('td:nth-child(4)'))
+        fireEvent.click(screen.getByRole('button', { name: 'Catalyst read' }))
+        await flush()
+        expect(screen.getByText(/used up/)).toBeTruthy()
+        expect(screen.getByRole('button', { name: 'Catalyst read' })).toBeTruthy()
+    })
+
+    it('a row with a read has no "Catalyst read" button', async () => {
+        hotlistService.getReads.mockResolvedValue([{ id: 'r', symbol: 'WK1', status: 'active', verdict: 'credible', valid_until: '2026-10-26T21:00:00Z', target: { value: 31, open_pct: 3 } }])
+        await mount()
+        week()
+        fireEvent.click(screen.getByText('WK1').closest('tr').querySelector('td:nth-child(4)'))
+        expect(screen.queryByRole('button', { name: 'Catalyst read' })).toBeNull()
     })
 })

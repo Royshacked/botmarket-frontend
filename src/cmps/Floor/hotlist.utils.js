@@ -73,28 +73,43 @@ export function horizonRows(rows, column) {
 
 /**
  * Prometheus's catalyst read per symbol (catalystRead.service): the live one, else the latest. Pure. `[]`/null → an
- * empty map.
+ * empty map. `day` — the list's session date: a SETTLED read (hit, expired, pass) shows only when it was made on that
+ * day's board, or a read that expired ten days ago would sit on a name back for another reason, looking current
+ * (code review 2026-10-24). An active read always shows.
  */
-export function readsBySymbol(reads) {
+export function readsBySymbol(reads, day = null) {
     const by = new Map()
     for (const r of reads ?? []) {
+        if (day && r.status !== 'active' && r.context?.day !== day) continue
         const cur = by.get(r.symbol)
         if (!cur || (r.status === 'active' && cur.status !== 'active') || (cur.status !== 'active' && String(r.set_at) > String(cur.set_at))) by.set(r.symbol, r)
     }
     return by
 }
 
+/** A target's band is shown only with BOTH ends — a run-up line can carry one quartile without the other. Pure. */
+export const hasBand = (t) => Number.isFinite(t?.low) && Number.isFinite(t?.high)
+
+/** Why a read has no target, in words (catalystRead.service `pass_reason`). */
+export const PASS_WHY = Object.freeze({
+    report_too_close: 'read after the last session before its report',
+    nothing_open: 'nothing left open',
+    unsized: 'not sized',
+    contradicted: 'the record cuts against it',
+    unclear: 'too thin to tell',
+})
+
 /** A read's target as the list's short cell: "105.00 · +5% open", "hit", "pass", or null. Pure. */
 export function readCell(read) {
     if (!read) return null
-    if (read.status === 'pass') return { text: 'pass', title: `Prometheus: ${read.verdict} — no target` }
+    if (read.status === 'pass') return { text: 'pass', title: `Prometheus: ${read.verdict} — no target${PASS_WHY[read.pass_reason] ? ` (${PASS_WHY[read.pass_reason]})` : ''}` }
     const t = read.target
     if (!t) return null
     const open = Number.isFinite(t.open_pct) ? `${t.open_pct > 0 ? '+' : ''}${t.open_pct.toFixed(0)}% open` : null
     const state = read.status === 'hit' ? 'hit' : read.status === 'expired' ? 'expired' : null
     return {
         text: [t.value.toFixed(2), state ?? open].filter(Boolean).join(' · '),
-        title: `Prometheus's catalyst target ${t.value.toFixed(2)}${Number.isFinite(t.low) ? ` (band ${t.low.toFixed(2)}–${t.high.toFixed(2)})` : ''}, valid until ${String(read.valid_until).slice(0, 10)} — ${read.verdict}`,
+        title: `Prometheus's catalyst target ${t.value.toFixed(2)}${hasBand(t) ? ` (band ${t.low.toFixed(2)}–${t.high.toFixed(2)})` : ''}, valid until ${String(read.valid_until).slice(0, 10)} — ${read.verdict}`,
         state,
     }
 }
@@ -137,8 +152,9 @@ export const LIST_SORTS = Object.freeze({
     status: 'asc', symbol: 'asc', price: 'desc', chg: 'desc', vol: 'desc', atr: 'desc', grade: 'desc', earnings: 'asc', found: 'asc',
 })
 
-const _grade = (row) => {
-    const col = bestColumn(row, COLUMN_ORDER)
+// The grade a row sorts on: THIS column's on a horizon's list (what the cell shows), else its best column's.
+const _grade = (row, column = null) => {
+    const col = column && row.cells?.[column]?.grade ? column : bestColumn(row, COLUMN_ORDER)
     if (!col) return -1
     const c = row.cells[col]
     return GRADE_RANK[c.grade] * 1000 + (c.range?.open_sky ? 99 : (c.range?.atr_mult ?? 0))
@@ -157,17 +173,19 @@ const SORT_KEY = {
 
 /**
  * The watchlist sorted by one column. Missing values sort LAST in either direction (a name with no
- * earnings date is not "the soonest"); ties keep Argus's picks first, then the symbol. Pure — a new array.
+ * earnings date is not "the soonest"); ties keep Argus's picks first, then the symbol. Pure — a new array. `column`: a
+ * horizon's list — the grade and the tie-break's pick are THAT column's (code review 2026-10-24).
  */
-export function sortList(rows, key, dir) {
-    const get = SORT_KEY[key] ?? SORT_KEY.status
+export function sortList(rows, key, dir, column = null) {
+    const get = key === 'grade' ? (r) => _grade(r, column) : SORT_KEY[key] ?? SORT_KEY.status
+    const picked = (r) => (column ? pickFor(r, column) : r.pick) ? 0 : 1
     const sign = (dir ?? LIST_SORTS[key] ?? 'asc') === 'desc' ? -1 : 1
     const known = (v) => v != null && v !== '' && !(typeof v === 'number' && !Number.isFinite(v))
     return [...(rows ?? [])].sort((a, b) => {
         const va = get(a), vb = get(b)
         if (known(va) !== known(vb)) return known(va) ? -1 : 1
         if (known(va) && va !== vb) return (va < vb ? -1 : 1) * sign
-        return (a.pick ? 0 : 1) - (b.pick ? 0 : 1) || String(a.symbol).localeCompare(String(b.symbol))
+        return picked(a) - picked(b) || String(a.symbol).localeCompare(String(b.symbol))
     })
 }
 

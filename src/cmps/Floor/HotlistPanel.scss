@@ -37,6 +37,7 @@
 }
 
 .hot-note { margin: 0; font-size: 12px; color: var(--text-dim); line-height: 1.4; }
+.hot-note--warn { color: var(--color-short); }
 
 // A row's last 20 sessions (Sparkline): the line, today's dot, the dashed level overhead.
 .hot-spark-cell { width: 92px; padding-top: 2px; padding-bottom: 2px; }
@@ -72,6 +73,9 @@
     }
     td { padding: 6px; border-bottom: 1px solid var(--border); vertical-align: middle; white-space: nowrap; }
     &__num { text-align: right; font-family: var(--font-mono); }
+    // A number's header sits over its numbers, right-aligned like them. `th { text-align: left }` above is more specific
+    // than `&__num` alone, so every number header sat left while its column sat right (Roy, 2026-10-24).
+    th.hot-table__num { text-align: right; }
     &__star { width: 28px; }
 }
 
@@ -177,6 +181,12 @@
     .hot-table__num { font-variant-numeric: tabular-nums; }
     // The in-cell buttons (symbol, toggle, sort) must not set the row's height — one text line does.
     .hot-sym, .hot-toggle, .hot-sort { min-height: 0; height: auto; line-height: 1.25; }
+    // The global `button { margin: 5px }` (basics/_forms) pushed every header label 5px inside its cell — off its
+    // column's numbers on the right and its words on the left (the drive measured it, 2026-10-24). Sides only: the
+    // vertical margin is part of the rows' height.
+    .hot-sym, .hot-sort { margin-left: 0; margin-right: 0; }
+    // The earnings chip's gap is for when it follows words on a board's row; alone in its cell it sits under "Earn".
+    .hot-earn { margin-left: 0; }
     .hot-spark { display: block; }
 }
 .hot-row--line { cursor: pointer; &:hover td { background: var(--bg-hover); } }

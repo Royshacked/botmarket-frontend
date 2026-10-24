@@ -6,7 +6,7 @@ import { httpService } from '../http.service'
 
 const BASE = 'api/hotlist'
 
-export const hotlistService = { getToday, getBoard, getOutcomes, getReads }
+export const hotlistService = { getToday, getBoard, getOutcomes, getReads, requestRead }
 
 /**
  * `{ day, latest: board|null, checkpoints: [{ id, checkpoint, status, columns, finished_at, rows, argus }],
@@ -46,4 +46,14 @@ async function getOutcomes() {
 async function getReads() {
     const data = await httpService.get(`${BASE}/reads`)
     return Array.isArray(data) ? data : []
+}
+
+/**
+ * Ask Prometheus for a catalyst read on a This week row (POST /reads; horizon-chains.md §3) — `board` is the board the
+ * row's week cell lives on (today's). → `'started'` or `'queued'` (a run is going; read after it). Throws on a refusal —
+ * a live read, one already waiting, the day's count used up — with the server's words (apiError).
+ */
+async function requestRead(board, symbol) {
+    const data = await httpService.post(`${BASE}/reads`, { board, symbol })
+    return data?.outcome ?? 'queued'
 }
