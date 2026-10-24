@@ -296,3 +296,13 @@ test("Argus's record line adds his pool spots against the pool he passed on — 
     assert.deepEqual(line.slice(3), [['spotted in the pool', 'up 67% · avg +1.2% (3)'], ['pool passed on', 'up 45% · avg -0.3% (37)']])
     assert.equal(argusRecordLine({ argus: { all: { ...g, spot: { n: 0 }, passed: { n: 0 } } } }).length, 3)
 })
+
+test("a column's backtest: the span, each grade and the pool, the caveats — null without one", async () => {
+    const { backtestLine } = await import('./hotlist.utils.js')
+    const week = { sessions: 125, from: '2026-04-22', to: '2026-10-19', caveats: ['no drift path'], summary: {
+        grades: { A: { n: 2400, up_rate: 61.2, ret_mean: 0.42 }, B: { n: 0 }, C: { n: 900, up_rate: 50, ret_mean: -0.1 } }, pool: { n: 60000, up_rate: 52, ret_mean: 0.1 } } }
+    const bt = backtestLine({ backtest: { week } }, 'week')
+    assert.equal(bt.span, '125 sessions, 2026-04-22 → 2026-10-19')
+    assert.deepEqual(bt.parts, [['A', 'up 61% · avg +0.4% (2,400)'], ['B', 'none'], ['C', 'up 50% · avg -0.1% (900)'], ['the pool', 'up 52% · avg +0.1% (60,000)']])
+    assert.equal(backtestLine({ backtest: { week } }, 'mid'), null)
+})

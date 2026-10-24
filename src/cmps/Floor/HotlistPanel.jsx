@@ -8,7 +8,7 @@ import {
     COLUMN_LABEL, COLUMN_TITLE, CHECKPOINT_LABEL, COLUMN_ORDER, STATUS_LABEL, STATUS_TITLE, LIST_SORTS,
     fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, sparkGeometry, rowStatus, rowReason, sortList,
     pickFor, horizonCounts, horizonRows, readsBySymbol, readCell, hasBand, PASS_WHY, resultCell, gradeRecord, columnRecord,
-    BOOK_ORDER, BOOK_LABEL, BOOK_TITLE, readTime, argusRecordLine, isBuy,
+    BOOK_ORDER, BOOK_LABEL, BOOK_TITLE, readTime, argusRecordLine, isBuy, backtestLine,
 } from './hotlist.utils.js'
 import { ChartSurface } from '../PriceChart/ChartSurface.jsx'
 import { HotlistBook } from './HotlistBook.jsx'
@@ -439,6 +439,8 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
             {horizon && <TrackRecord rec={columnRecord(record, horizon)} column={horizon} />}
             {/* Argus's own record — his picks, avoids and unmarked names, by how they ended (2026-10-24): this horizon's, or all. */}
             <ArgusRecord parts={argusRecordLine(record, horizon ?? 'all')} />
+            {/* The replay over past sessions (This week, 2026-10-24) — apart from the live record, with its caveats. */}
+            {horizon && <BacktestRecord bt={backtestLine(record, horizon)} />}
 
             {showReads && readsFailed && <p className="hot-note hot-note--warn">Prometheus’s targets could not be loaded — the names are shown without them.</p>}
             {showReads && <p className="hot-note">Target: Prometheus’s catalyst target — the price before the catalyst plus what it is worth, or, with a report ahead, the stock’s usual run-up into its reports — and how much of it is still open. Valid until its window ends (the session before a report); graded then.</p>}
@@ -527,6 +529,18 @@ function ArgusSpots({ spots }) {
     )
 }
 ArgusSpots.propTypes = { spots: PropTypes.array }
+
+/** The horizon's backtest — its rules replayed over past sessions, each grade against the pool; never mixed with the live record. */
+function BacktestRecord({ bt }) {
+    if (!bt) return null
+    return (
+        <p className="hot-note hot-record" title={`Replayed with the live rules over past sessions — ${bt.caveats.join('; ')}. Kept apart from the live record; never counts toward verified.`}>
+            <span className="hot-record__who">Backtest · {bt.span}</span>
+            {bt.parts.map(([k, v]) => <span key={k}><b>{k}</b> {v}</span>)}
+        </p>
+    )
+}
+BacktestRecord.propTypes = { bt: PropTypes.object }
 
 /** Argus's record over the list: did his picks beat his avoids, and both the names he left alone? */
 function ArgusRecord({ parts }) {

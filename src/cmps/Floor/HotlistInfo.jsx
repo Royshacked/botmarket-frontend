@@ -90,6 +90,9 @@ export function HotlistInfo() {
                     board shows its top 60 graded names, and the record also sets them against <b>graded off it</b> (past that cut)
                     and <b>the pool it chose from</b> — the names it quoted but graded on no horizon. Do its picks beat the names it
                     passed over?</p>
+                <p><b>Backtest</b>, on This week: its rules replayed over the last six months, session by session, with only what
+                    was known the evening before — each grade and the pool. Kept apart from the live record and never counts toward
+                    verified; it cannot replay the news path, and it uses today&apos;s universe (names that dropped out are missing).</p>
             </section>
             <section>
                 <h3 className="hot-info__h">Who decided what</h3>

@@ -172,6 +172,22 @@ export function gradeRecord(summary, column, grade) {
 }
 
 /**
+ * A column's BACKTEST (backend hotlistBacktest — the week replay over past sessions, kept apart from the live record) as
+ * the strip's parts: the span, each grade's and the pool's "up 61% · avg +0.4% (2,400)", and the caveats. Pure. Null
+ * without one.
+ */
+export function backtestLine(summary, column) {
+    const b = summary?.backtest?.[column]
+    if (!b?.summary) return null
+    const part = (x) => (x?.n ? `up ${Math.round(x.up_rate)}% · avg ${_sp(x.ret_mean)} (${x.n.toLocaleString('en-US')})` : 'none')
+    return {
+        span: `${b.sessions} sessions, ${b.from} → ${b.to}`,
+        parts: [...['A', 'B', 'C'].map(g => [g, part(b.summary.grades?.[g])]), ['the pool', part(b.summary.pool)]],
+        caveats: b.caveats ?? [],
+    }
+}
+
+/**
  * ARGUS'S RECORD (backend hotlist.outcomes argusRecord) for a column — or `all` — as the strip's phrases: his picks, his
  * avoids and the names he left unmarked, each "up 73% · avg +0.6% (11)". Pure. Null without a scored name.
  */
