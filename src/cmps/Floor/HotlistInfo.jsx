@@ -86,13 +86,16 @@ export function HotlistInfo() {
                     worst and end move.</p>
                 <p><b>Track record</b>, over a horizon&apos;s list (and on a grade&apos;s hover): how often each grade reached its level,
                     and how often it ended up. It says <b>unverified</b> until the horizon has 40 sessions and 30 names behind it —
-                    before that, an A is not shown to beat a C.</p>
+                    before that, an A is not shown to beat a C. Every name the screener quoted is scored, not only the board&apos;s: a
+                    board shows its top 60 graded names, and the record also sets them against <b>graded off it</b> (past that cut)
+                    and <b>the pool it chose from</b> — the names it quoted but graded on no horizon. Do its picks beat the names it
+                    passed over?</p>
             </section>
             <section>
                 <h3 className="hot-info__h">Who decided what</h3>
                 <p><b>The grades</b> are the screener&apos;s arithmetic, and still <b>unverified</b> — not enough logged outcomes yet
                     to say an A beats a C.</p>
-                <p><b>★ Argus</b> reads every board and picks up to five names per horizon; the number is his rank in that
+                <p><b>★ Argus</b> reads every board and picks up to ten names per horizon; the number is his rank in that
                     horizon. <b>✕</b> is a name he says to avoid — too little room, earnings that day, a big gap on a minor story.
                     <b> Argus&apos;s record</b> sets his picks, his avoids and the names he left alone side by side, by how often each
                     ended up and its average move: it says whether his calls beat the board.</p>

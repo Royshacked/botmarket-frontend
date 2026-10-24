@@ -191,8 +191,13 @@ export function columnRecord(summary, column) {
         grades,
         verified: Boolean(c.verified),
         progress: c.verified ? null : `${c.sessions ?? 0} of ${VERIFY_SESSIONS} sessions, ${c.n ?? 0} of ${VERIFY_NAMES} names`,
+        // The board's cut against the rest (2026-10-24): the names it showed vs the graded names past it — once the wide
+        // set has any. "up 58% · avg +0.4% (60)".
+        cut: c.off?.n || c.pool?.n ? { board: _groupText(c.board), off: _groupText(c.off), pool: _groupText(c.pool) } : null,
     }
 }
+
+const _groupText = (x) => (x?.n ? `up ${Math.round(x.up_rate)}% · avg ${_sp(x.ret_mean)} (${x.n})` : 'none yet')
 
 // ─── The house's book: Swing and Long term (Roy, 2026-10-24) ─────────────────────
 

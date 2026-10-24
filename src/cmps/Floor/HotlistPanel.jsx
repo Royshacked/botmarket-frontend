@@ -494,6 +494,9 @@ function TrackRecord({ rec, column }) {
             {rec.verified
                 ? <span className="hot-record__state">verified</span>
                 : <span className="hot-record__state" title="Too little history to say whether an A beats a C">unverified — {rec.progress}</span>}
+            {/* The board's top names against every graded name past its cut — does the ranking pick better? */}
+            {rec.cut && <span title="Every quoted name is scored: the board's names, the graded ones past its cut, and the pool it chose from (graded on no horizon) — do the screener's picks beat the names it passed over?">
+                <b>on the board</b> {rec.cut.board} · <b>graded off it</b> {rec.cut.off} · <b>the pool it chose from</b> {rec.cut.pool}</span>}
         </p>
     )
 }

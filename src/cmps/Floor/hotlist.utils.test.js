@@ -279,3 +279,12 @@ test("Argus's record line: picks, avoids and unmarked — per column, or all; nu
     assert.equal(argusRecordLine(summary, 'week'), null)
     assert.equal(argusRecordLine({}), null)
 })
+
+test("a column's record sets the board against the graded names off it — once there are any", async () => {
+    const { columnRecord } = await import('./hotlist.utils.js')
+    const base = { n: 70, sessions: 3, verified: false, grades: { A: { n: 70, judged: 0, up_rate: 55 } } }
+    assert.deepEqual(columnRecord({ mid: { ...base, board: { n: 20, up_rate: 60, ret_mean: 0.4 }, off: { n: 50, up_rate: 52, ret_mean: -0.1 } } }, 'mid').cut,
+        { board: 'up 60% · avg +0.4% (20)', off: 'up 52% · avg -0.1% (50)', pool: 'none yet' })
+    assert.equal(columnRecord({ mid: { ...base, board: { n: 20 }, off: { n: 0 }, pool: { n: 0 } } }, 'mid').cut, null)
+    assert.equal(columnRecord({ mid: { ...base, board: { n: 20 }, off: { n: 0 }, pool: { n: 300, up_rate: 48, ret_mean: -0.2 } } }, 'mid').cut.pool, 'up 48% · avg -0.2% (300)')
+})
