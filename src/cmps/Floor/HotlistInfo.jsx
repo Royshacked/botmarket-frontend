@@ -103,7 +103,11 @@ export function HotlistInfo() {
                     and <b>the pool it chose from</b> — the names it quoted but graded on no horizon. Do its picks beat the names it
                     passed over?</p>
                 <p><b>Backtest</b>, on This week: its rules replayed over the last six months, session by session, with only what
-                    was known the evening before — the screener&apos;s names against the pool. Kept apart from the live record; it cannot replay the news path, and it uses today&apos;s universe (names that dropped out are missing).</p>
+                    was known the evening before — the screener&apos;s names, by the way each got in, against the pool. Two ways
+                    in: a <b>catalyst</b> (in the replay, an earnings beat reported the session before — other news cannot be
+                    replayed) and a <b>run-up</b> into a report ahead. A third, <b>money arriving</b> (heavy volume on a rising
+                    week, status Building), was dropped on 2026-10-24: replayed, it did no better than the names passed over.
+                    Kept apart from the live record; it uses today&apos;s universe (names that dropped out are missing).</p>
             </section>
             <section>
                 <h3 className="hot-info__h">Who decided what</h3>

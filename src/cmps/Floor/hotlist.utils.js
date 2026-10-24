@@ -188,14 +188,22 @@ export function resultCell(res) {
  * the strip's parts: the span, the screener's names' and the pool's "up 61% · avg +0.4% (2,400)", and the caveats. Pure. Null
  * without one.
  */
+/** The week's three ways in (backend hotlist.columns `path`), as the record names them. */
+export const PATH_LABEL = Object.freeze({ catalyst: 'catalyst (earnings beat)', scheduled: 'run-up' })
+
 export function backtestLine(summary, column) {
     const b = summary?.backtest?.[column]
     if (!b?.summary) return null
     const part = (x) => (x?.n ? `up ${Math.round(x.up_rate)}% · avg ${_sp(x.ret_mean)} (${x.n.toLocaleString('en-US')})` : 'none')
     return {
         span: `${b.sessions} sessions, ${b.from} → ${b.to}`,
-        // No grades on the Hotlist (Roy, 2026-10-24: hidden on This week too) — the screener's names against its pool.
-        parts: [['the screener’s names', part(b.summary.graded)], ['the pool', part(b.summary.pool)]],
+        // No grades on the Hotlist (Roy, 2026-10-24: hidden on This week too) — the screener's names, by the path that let
+        // them in (2026-10-24: "what is the accumulation path?"), against its pool. A replay stored before the paths has none.
+        parts: [
+            ['the screener’s names', part(b.summary.graded)],
+            ...Object.entries(PATH_LABEL).filter(([p]) => b.summary.paths?.[p]).map(([p, label]) => [label, part(b.summary.paths[p])]),
+            ['the pool', part(b.summary.pool)],
+        ],
         caveats: b.caveats ?? [],
     }
 }
@@ -359,7 +367,7 @@ const CHECKPOINT_ORDER = ['premarket', 'preopen', 'mid', 'eod', 'close']
 export const STATUS_LABEL = Object.freeze({ in_play: 'In play', building: 'Building', setting_up: 'Setting up' })
 export const STATUS_TITLE = Object.freeze({
     in_play:    'In play now — moving on the tape or on a fresh story',
-    building:   'Building — money arriving: 5-day volume well above its 50-day pace, on a rising week',
+    building:   'Building — money arriving: 5-day volume well above its 50-day pace, on a rising week (a past day only: no longer a way in since 2026-10-24)',
     setting_up: 'Setting up — quiet today, with a known date ahead (a run-up: out before the report)',
 })
 

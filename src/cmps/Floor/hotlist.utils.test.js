@@ -301,6 +301,10 @@ test("a column's backtest: the span, the screener's names against the pool, the 
     // No grades on the Hotlist (2026-10-24) — not even the replay's.
     assert.deepEqual(bt.parts, [['the screener’s names', 'up 58% · avg +0.3% (3,300)'], ['the pool', 'up 52% · avg +0.1% (60,000)']])
     assert.equal(backtestLine({ backtest: { week } }, 'mid'), null)
+    // By path, once the replay has them (2026-10-24) — catalyst, run-up, money arriving, between the names and the pool.
+    const paths = { catalyst: { n: 300, up_rate: 55, ret_mean: 0.9 }, scheduled: { n: 2600, up_rate: 52, ret_mean: 0.64 }, accumulation: { n: 2000, up_rate: 48, ret_mean: -0.06 } }
+    assert.deepEqual(backtestLine({ backtest: { week: { ...week, summary: { ...week.summary, paths } } } }, 'week').parts.map(p => p[0]),
+        ['the screener’s names', 'catalyst (earnings beat)', 'run-up', 'the pool'], 'money arriving dropped 2026-10-24: an old replay\'s line for it is not shown')
 })
 
 test('a week name is confirmed when Prometheus set a target on it; an empty confirmed list says where his reads stand', async () => {
