@@ -860,10 +860,13 @@ export function MarketBriefOfferBubble({ msg, onClose, onResolve }) {
 }
 
 export function CoverageRefreshedBubble({ msg, onClose, onResolve }) {
-    const { symbol, coverageId, portfolioId, ok, pass } = msg.payload
+    const { symbol, coverageId, portfolioId, ok, pass, house } = msg.payload
     // `pass`: the re-model reviewed the thesis and kept the target, with a reason — a verdict, not a
     // failure (coverageRefresh, 2026-10-02). The body carries the why.
-    const heading = `Research · ${symbol}${pass ? ' — target kept' : ok === false ? ' — refresh failed' : ' refreshed'}`
+    // `house`: Prometheus's OWN re-model (the monitor's). Since 2026-10-25 he revises without asking
+    // (Roy) and this card is the "done" message — its button opens the revised thesis to READ.
+    const read = Boolean(house) && !portfolioId
+    const heading = `Research · ${symbol}${pass ? ' — target kept' : ok === false ? ' — refresh failed' : read ? ' revised' : ' refreshed'}`
 
     // TO PROMETHEUS, TO REVISE (Roy, 2026-10-03). Every Prometheus card about a thesis takes the user
     // to the desk on that thesis with a revise turn in flight — the same doorway as the verdict card.
@@ -874,7 +877,7 @@ export function CoverageRefreshedBubble({ msg, onClose, onResolve }) {
         if (portfolioId) {
             eventBus.emit(PORTFOLIO_REVIEW, { portfolioId, reviewMode: true })
         } else {
-            eventBus.emit(OPEN_COVERAGE, { coverageId, symbol, mode: 'revise' })
+            eventBus.emit(OPEN_COVERAGE, { coverageId, symbol, mode: read ? 'open' : 'revise' })
         }
         onClose?.()
     }
@@ -884,7 +887,7 @@ export function CoverageRefreshedBubble({ msg, onClose, onResolve }) {
             agent={AGENTS.analyst} kind="coverage" heading={heading} asset={symbol} body={msg.content}
             // The label says what the button does NOW, overriding the stored one: cards posted before
             // 2026-10-03 carry "Open coverage", and a button that revises must not say it opens.
-            primaryLabel={portfolioId ? (msg.actions?.primary?.label ?? 'Resume review') : 'Revise thesis'} onPrimary={handlePrimary}
+            primaryLabel={portfolioId ? (msg.actions?.primary?.label ?? 'Resume review') : read ? 'Open thesis' : 'Revise thesis'} onPrimary={handlePrimary}
             onResolve={onResolve} msg={msg}
             resolvedLabels={{ resumed: '✓ Resumed', opened: '✓ Opened', revised: '✓ Revised', retired: '✓ Retired', deleted: '✓ Deleted' }}
         />

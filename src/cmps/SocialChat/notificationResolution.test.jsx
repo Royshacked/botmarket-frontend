@@ -191,6 +191,21 @@ describe('CoverageRefreshedBubble', () => {
         expect(eventBus.emit).toHaveBeenCalledWith(OPEN_COVERAGE, { coverageId: 'cov1', symbol: 'NVDA', mode: 'revise' })
     })
 
+    // PROMETHEUS REVISES ON HIS OWN (2026-10-25): a house re-model's card is the "done" message — it opens
+    // the revised thesis to read (and opening it completes it), never another revise turn.
+    it('a house re-model opens the revised thesis to read, and opening it completes the card', () => {
+        const onResolve = vi.fn()
+        const house = { ...fromReview, content: 'Prometheus revised NVDA — the price reached our target: Re-modelled — PT 200 → 240.', payload: { ...fromReview.payload, portfolioId: null, house: true }, actions: { primary: { label: 'Open thesis', resolvesOn: 'open' }, dismiss: true } }
+        render(<CoverageRefreshedBubble msg={house} onClose={vi.fn()} onResolve={onResolve} />)
+
+        expect(screen.getByText('Research · NVDA revised')).toBeTruthy()
+        expect(screen.queryByText('Revise thesis')).toBeNull()
+        fireEvent.click(screen.getByText('Open thesis'))
+
+        expect(eventBus.emit).toHaveBeenCalledWith(OPEN_COVERAGE, { coverageId: 'cov1', symbol: 'NVDA', mode: 'open' })
+        expect(onResolve).toHaveBeenCalledWith('m2', { status: 'done', outcome: 'opened' })
+    })
+
     // A PASS (2026-10-02): the re-model reviewed the thesis and kept the target, with a reason. It is
     // a verdict, so the heading must not read as a failure.
     it('a pass reads as a kept target, never as a failed refresh', () => {
@@ -227,14 +242,15 @@ describe('CoverageRefreshedBubble', () => {
 
     // Older history posted before `dismissOnly` existed carries a primary, and must keep it — the
     // absence of a primary is read off `actions`, never inferred from the payload.
-    it('a legacy failed-refresh card with a stored primary keeps a button — the revise one', () => {
+    // Since 2026-10-25 a house card's button opens the thesis to read (Prometheus revises on his own).
+    it('a legacy failed-refresh card with a stored primary keeps a button — the read one', () => {
         const legacy = {
             ...fromReview,
             payload: { ...fromReview.payload, portfolioId: null, ok: false, house: true },
             actions: { primary: { label: 'Open coverage', resolvesOn: 'open' }, dismiss: true },
         }
         render(<CoverageRefreshedBubble msg={legacy} onClose={vi.fn()} onResolve={vi.fn()} />)
-        expect(screen.getByText('Revise thesis')).toBeTruthy()
+        expect(screen.getByText('Open thesis')).toBeTruthy()
     })
 })
 
