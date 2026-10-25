@@ -30,10 +30,10 @@ columns:
 
 The Lists column's desks, in order (2026-10-21): Awaiting orders · Your trades · Your portfolios · Watchlists ·
 Hotlist · Calendar · Forecasts · Research queue (admin, last). The Hotlist (`cmps/Floor/HotlistPanel.jsx`, a
-DetailPanel like the Calendar) is the screener's daily board — Argus's read on top, one row per name in play with
-its free range, and horizon tabs **All · Open · Mid-day · Into close · Tomorrow · This week · Swing · Long term**.
-Each horizon is a chain's survivors: a day tab opens on Argus's names (All screened one click away), This week on
-the names Prometheus confirmed with his own target, Swing / Long term (`HotlistBook.jsx`) on the weekly chain's
+DetailPanel like the Calendar) is the screener's board — since 2026-10-25 **This week's run-up names**, built
+overnight (the day tabs Open · Mid-day · Into close · Tomorrow and the Boards view are archived; they show only on a past
+day that still has day names), and tabs **All · This week · Swing · Long term**. This week opens on the names
+Prometheus confirmed with his own target (Run-up names one click away), with the rule's own track record, Swing / Long term (`HotlistBook.jsx`) on the weekly chain's
 covered names. No grade letter is shown anywhere (2026-10-24) — and its rows hand on ONE name at a time:
 **Build with Mentor** (`handoffTurn` with a `hotlist` board reference the server resolves) and **Ask Argus**
 (`onArgusTable`) (`../botmarket-backend/docs/design/daily-names.md` §8). Events radar is `hidden: true` for now, not deleted. The

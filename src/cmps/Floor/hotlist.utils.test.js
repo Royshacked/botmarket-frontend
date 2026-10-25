@@ -202,7 +202,7 @@ test('resultCell: reached / missed / up / down once scored, open or scoring befo
 
 test("a column's record carries no grades (2026-10-24) — the board against its cut, once there is one", () => {
     const summary = { week: { n: 9, sessions: 6, verified: false, grades: { A: { n: 5, judged: 4, hit_rate: 75, up_rate: 60 } } } }
-    assert.deepEqual(columnRecord(summary, 'week'), { cut: null })
+    assert.deepEqual(columnRecord(summary, 'week'), { cut: null, rule: null })
     assert.equal(columnRecord(null, 'week'), null)
 })
 
@@ -305,6 +305,11 @@ test("a column's backtest: the span, the screener's names against the pool, the 
     const paths = { catalyst: { n: 300, up_rate: 55, ret_mean: 0.9 }, scheduled: { n: 2600, up_rate: 52, ret_mean: 0.64 }, accumulation: { n: 2000, up_rate: 48, ret_mean: -0.06 } }
     assert.deepEqual(backtestLine({ backtest: { week: { ...week, summary: { ...week.summary, paths } } } }, 'week').parts.map(p => p[0]),
         ['the screener’s names', 'catalyst (earnings beat)', 'run-up', 'the pool'], 'money arriving dropped 2026-10-24: an old replay\'s line for it is not shown')
+    // A day column's replay (2026-10-24) — on that column; the open by its ways in.
+    const open = { ...week, sessions: 60, summary: { ...week.summary, paths: { catalyst: { n: 20, up_rate: 50, ret_mean: 0.2 }, gap: { n: 400, up_rate: 47, ret_mean: -0.1 } } } }
+    assert.deepEqual(backtestLine({ backtest: { open } }, 'open').parts.map(p => p[0]),
+        ['the screener’s names', 'catalyst (earnings beat)', 'the gap', 'the pool'])
+    assert.equal(backtestLine({ backtest: { open } }, 'mid'), null)
 })
 
 test('a week name is confirmed when Prometheus set a target on it; an empty confirmed list says where his reads stand', async () => {
@@ -348,4 +353,17 @@ test("the chain's survivors and where each pick stands", async () => {
     assert.equal(pickCell({ state: 'passed', reason: 'horizon_off_book' }).text, 'pass — his target fell outside this book’s horizon')
     assert.equal(pickCell({ state: 'already_covered' }, row).text, 'covered at the desk: strong buy · target 54.20 (+12.5%)')
     assert.equal(pickCell({ state: 'waiting' }).text, 'waiting for Prometheus')
+})
+
+test('the run-up week’s empty confirmed list says where Prometheus’s reads stand', async () => {
+    const { emptyNamesText } = await import('./hotlist.utils.js')
+    const names = [{ symbol: 'A' }, { symbol: 'B' }]
+    assert.match(emptyNamesText({ shown: 'confirmed', column: 'week', argus: names, reads: new Map([['A', { status: 'pass' }]]), rule: true }), /1 of the 2 run-up names still to read/)
+    assert.match(emptyNamesText({ shown: 'confirmed', column: 'week', argus: names, reads: new Map([['A', {}], ['B', {}]]), rule: true }), /confirmed none of the 2 run-up names/)
+})
+
+test('the week\'s record carries the run-up rule\'s own group', async () => {
+    const { columnRecord } = await import('./hotlist.utils.js')
+    assert.equal(columnRecord({ week: { rule: { n: 3, sessions: 1, up_rate: 66.7, ret_mean: 1.2 } } }, 'week').rule, 'up 67% · avg +1.2% (3) over 1 session')
+    assert.equal(columnRecord({ week: { board: { n: 2 } } }, 'week').rule, null)
 })

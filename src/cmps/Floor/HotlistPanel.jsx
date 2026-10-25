@@ -36,7 +36,10 @@ import './HotlistPanel.scss'
 export const HOTLIST_PANEL_ID = 'hotlist'
 /** While the screener is working, the panel looks again this often (quietly — no "Loading…"). */
 export const WORKING_POLL_MS = 30_000
+/** Looks after the screener stops working — the week board lands a minute or two after the nightly run (code review 2026-10-25). */
+export const TAIL_LOOKS = 4
 /** After a catalyst read is asked for, the reads are looked at again at these delays — a read takes about a minute. */
+// eslint-disable-next-line react-refresh/only-export-components -- read by the panel's tests; a plain constant, no state
 export const READ_RECHECK_MS = [75_000, 180_000]
 
 const _day = (iso) => {
@@ -143,8 +146,14 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick, coverage = [] }) {
     // checkpoint shows up as a tab, and the day's first board replaces the empty note. Every reply
     // is a new `today`, which re-arms the timer; it stops once nothing is running. Only on the latest day: a past
     // day's list does not change.
+    // The week board is written just AFTER the nightly run finishes (hotlist.week — up to a minute or two of reads), so a
+    // few more looks follow the last `working` one (code review 2026-10-25: the panel kept yesterday's list).
+    const tail = useRef(0)
     useEffect(() => {
-        if (!isOpen || today.status !== 'ok' || !today.working || day) return
+        if (!isOpen || today.status !== 'ok' || day) return
+        if (today.working) tail.current = TAIL_LOOKS
+        else if (tail.current > 0) tail.current -= 1
+        else return
         let live = true
         const timer = setTimeout(() => {
             hotlistService.getToday().then(
@@ -162,7 +171,7 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick, coverage = [] }) {
             )
         }, WORKING_POLL_MS)
         return () => { live = false; clearTimeout(timer) }
-    }, [isOpen, today])
+    }, [isOpen, today, day])
 
     const pickBoard = (id) => {
         if (id === boardId) return
@@ -180,7 +189,9 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick, coverage = [] }) {
     // A hand-off closes the list for the desk — and leaves the way back: the chat offers "‹ Back to the Hotlist".
     const handOff = (fn) => fn && ((...args) => { close(); setReturnTo({ panel: HOTLIST_PANEL_ID, label: 'the Hotlist' }); fn(...args) })
     const b = board.data
-    const listView = view === 'list' && today.dayList.length > 0
+    // An empty overnight week board (a quiet night, or SPY under its 200-day) is still the list view: its tabs carry Swing
+    // and Long term, which an empty day must not hide (code review 2026-10-25).
+    const listView = view === 'list' && (today.dayList.length > 0 || today.latest?.checkpoint === 'overnight')
     // A caller's own handler wins (a host that shows charts elsewhere); otherwise the chart opens here.
     const symbolClick = (sym) => (onSymbolClick ? onSymbolClick(sym) : setChartSym(sym))
     // The days there are lists for, newest first; the one on screen, and its neighbours.
@@ -203,7 +214,8 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick, coverage = [] }) {
                         aria-label="The day after" title={!latestDay ? _day(days[at - 1]) : undefined}>›</button>
                 </div>
             )}
-            {today.dayList.length > 0 && (
+            {/* The Boards view is the archived checkpoints' (2026-10-25): a day with only the overnight week board has one list. */}
+            {today.dayList.length > 0 && today.checkpoints.some(c => c.checkpoint !== 'overnight') && (
                 <div className="hot-nav" role="tablist" aria-label="Hotlist view">
                     {[['list', latestDay ? 'Today’s list' : 'The day’s list'], ['boards', 'Boards']].map(([v, label]) => (
                         <button key={v} type="button" role="tab" aria-selected={view === v}
@@ -259,6 +271,15 @@ function Body({ today, board, picksOnly, setPicksOnly, onRetry, onBuild, onAsk, 
     }
     if (today.status !== 'ok' || board.status === 'loading') return <p className="floor-empty" aria-live="polite">Loading…</p>
     const b = board.data
+    // The overnight week board with no names (hotlist.week): the market gate was shut, or nothing qualified — said so.
+    if (b?.checkpoint === 'overnight' && !b.rows?.length) {
+        return (
+            <div className="hot-board">
+                <Working working={today.working} />
+                <p className="floor-empty">{b.closed ? `${b.closed}.` : 'No run-up names for this list: no company reporting in six sessions had three beats running.'}</p>
+            </div>
+        )
+    }
     if (!b) {
         const ready = !today.working && ['done', 'partial'].includes(today.stats?.status)
         return (
@@ -269,7 +290,7 @@ function Body({ today, board, picksOnly, setPicksOnly, onRetry, onBuild, onAsk, 
                         Stats ready: {today.stats.written?.toLocaleString() ?? 'no'} names from {_day(today.stats.day)}’s close{today.stats.status === 'partial' ? ' (a partial pass — the provider’s rate limit stopped it early)' : ''}.
                     </p>
                 )}
-                <p className="floor-empty">No hotlist yet. On trading days the screener publishes boards at 08:00 and 09:20 ET (the open and this week), then 10:30, 14:30 and 15:30.</p>
+                <p className="floor-empty">No hotlist yet. On trading days This week is built overnight, after the close.</p>
             </div>
         )
     }
@@ -363,12 +384,19 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
     // gives a PT"): the list is the names Prometheus confirmed — a target of his on the name — then Argus's picks, then
     // everything screened. A day tab has the last two.
     const weekTab = horizon === 'week'
+    // THE RUN-UP RULE (2026-10-25, hotlist-day-archive.md): the overnight week board lists by one rule — no Argus — and
+    // Prometheus reads every name on it. Its cells carry the grade 'R'; a day before it has Argus's picks. Read off the
+    // DAY (code review 2026-10-25): the All view of a run-up day is the rule's list too, unless the day has day names.
+    const ruleDay = today.dayList.some(r => r.cells?.week?.grade === 'R')
+    const dayNames = today.dayList.some(r => DAY_COLUMNS.some(c => r.cells?.[c]?.grade))
+    const ruleWeek = ruleDay && (weekTab || (!horizon && !dayNames))
+    const emptyNight = today.latest?.checkpoint === 'overnight' && !today.dayList.length
     const narrowed = dayTab || weekTab
     // The view is chosen PER HORIZON and cleared when the horizon changes (chooseHorizon) — in the same render, so a new
     // tab never paints with the last tab's view first (code review 2026-10-24: an effect reset it a frame late).
     const [views, setViews] = useState({})
     // With Prometheus's reads not loaded, This week opens on Argus's names — the confirmed list would be empty.
-    const defaultView = (h) => (h === 'week' && !readsFailed ? 'confirmed' : 'argus')
+    const defaultView = (h) => (h === 'week' && !readsFailed ? 'confirmed' : h === 'week' && ruleDay ? 'all' : 'argus')
     const shown = views[horizon] ?? defaultView(horizon)
     const argusNames = narrowed ? byHorizon.filter(r => pickFor(r, horizon)) : byHorizon
     const prometheusNames = weekTab ? byHorizon.filter(r => isConfirmedRead(reads.get(r.symbol))) : []
@@ -382,6 +410,7 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
     const tabCount = (c) => {
         const rowsOf = horizonRows(byStatus, c)
         if (defaultView(c) === 'confirmed') return readsLoading ? '…' : rowsOf.filter(r => isConfirmedRead(reads.get(r.symbol))).length
+        if (defaultView(c) === 'all') return rowsOf.length
         return rowsOf.filter(r => pickFor(r, c)).length
     }
     const counts = Object.fromEntries(Object.keys(STATUS_LABEL).map(s => [s, all.filter(r => rowStatus(r) === s).length]))
@@ -425,7 +454,8 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
             <div className="hot-horizons" role="group" aria-label="Horizon">
                 <button type="button" aria-pressed={!horizon} className={`hot-horizons__btn${!horizon ? ' hot-horizons__btn--on' : ''}`}
                     aria-label={`All horizons, ${byStatus.length}`} onClick={() => chooseHorizon(null)}>All {byStatus.length}</button>
-                {COLUMN_ORDER.map(c => (
+                {/* The day horizons were archived (2026-10-25): shown only on a past day that still has their names. */}
+                {COLUMN_ORDER.filter(c => c === 'week' || hCounts[c]).map(c => (
                     <button key={c} type="button" aria-pressed={horizon === c} disabled={!hCounts[c]}
                         title={`${COLUMN_TITLE[c]} — ${tabCount(c)} on the list (${defaultView(c) === 'confirmed' ? 'Prometheus confirmed' : 'Argus’s names'}) of ${hCounts[c] ?? 0} screened`}
                         className={`hot-horizons__btn${horizon === c ? ' hot-horizons__btn--on' : ''}`}
@@ -453,8 +483,10 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
                     <div className="hot-status-filter" role="group" aria-label="Names">
                         {[
                             weekTab && ['confirmed', `Prometheus confirmed ${prometheusNames.length}`, 'The names Prometheus read — the catalyst and the company — and set a target on: the week’s list'],
-                            ['argus', `Argus’s names ${argusNames.length}`, weekTab ? 'Argus’s picks for this week, each read by Prometheus — confirmed or not' : 'The names Argus confirmed for this horizon — the day’s list'],
-                            ['all', `All screened ${byHorizon.length}`, 'Everything the screener let through for this horizon, confirmed or not'],
+                            !ruleWeek && ['argus', `Argus’s names ${argusNames.length}`, weekTab ? 'Argus’s picks for this week, each read by Prometheus — confirmed or not' : 'The names Argus confirmed for this horizon — the day’s list'],
+                            ruleWeek
+                                ? ['all', `Run-up names ${byHorizon.length}`, 'Every name the run-up rule listed — each read by Prometheus, confirmed or not']
+                                : ['all', `All screened ${byHorizon.length}`, 'Everything the screener let through for this horizon, confirmed or not'],
                         ].filter(Boolean).map(([k, label, title]) => (
                             <button key={k} type="button" aria-pressed={shown === k} title={title}
                                 className={`hot-status-filter__btn${shown === k ? ' hot-status-filter__btn--on' : ''}`} onClick={() => setView(k)}>{label}</button>
@@ -470,22 +502,31 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
                             onClick={() => setOnly(only === s ? null : s)}>{label} {counts[s]}</button>
                     ))}
                 </div>
-                <span className="hot-meta__item hot-dim" title="Not live: each price is the quote the screener read at the checkpoint that last listed the name">Prices as of each name’s last checkpoint</span>
+                {ruleWeek
+                    ? <span className="hot-meta__item hot-dim" title="Not live: the close before the list was built — the trade is bought at the list day's open">Prices: the close before the list</span>
+                    : <span className="hot-meta__item hot-dim" title="Not live: each price is the quote the screener read at the checkpoint that last listed the name">Prices as of each name’s last checkpoint</span>}
             </div>
-            {weekTab && <p className="hot-note">This week: the screener lets names through, <b>Argus picks</b>, and <b>Prometheus</b> reads each pick after the 09:20 board — the catalyst and the company — and sets his target. The names he confirmed are the list.</p>}
+            {weekTab && (ruleWeek
+                ? <p className="hot-note">This week is the <b>run-up rule</b>: names reporting in six sessions whose last three reports all beat, while SPY is over its 200-day — bought at the open, out at the close before the report. Small and equal, a fixed budget split across the day’s names. <b>Prometheus</b> reads every one overnight — the catalyst and the company — and sets his target.</p>
+                : <p className="hot-note">This week: the screener lets names through, <b>Argus picks</b>, and <b>Prometheus</b> reads each pick after the 09:20 board — the catalyst and the company — and sets his target. The names he confirmed are the list.</p>)}
+            {latest?.checkpoint === 'overnight' && latest?.closed && <p className="hot-note hot-note--warn">{latest.closed}.</p>}
+            {ruleWeek && latest?.market?.gate === 'unknown' && <p className="hot-note hot-note--warn">SPY’s 200-day could not be checked for this list — it is listed as if the market gate were open.</p>}
             {dayTab && <p className="hot-note">No grades on day trades: the screener lets names through, <b>Argus confirms</b> the ones worth trading, and those are the list. Room is the space to the next level overhead — information, not a target.</p>}
-            {horizon && <TrackRecord rec={columnRecord(record, horizon)} column={horizon} />}
+            {horizon && <TrackRecord rec={columnRecord(record, horizon)} column={horizon} rule={ruleWeek} />}
             {/* Argus's own record — his picks, avoids and unmarked names, by how they ended (2026-10-24): this horizon's, or all. */}
-            <ArgusRecord parts={argusRecordLine(record, horizon ?? 'all')} />
-            {/* The replay over past sessions (This week, 2026-10-24) — apart from the live record, with its caveats. */}
-            {horizon && <BacktestRecord bt={backtestLine(record, horizon)} />}
+            {!ruleWeek && <ArgusRecord parts={argusRecordLine(record, horizon ?? 'all')} />}
+            {/* The replay over past sessions (This week, 2026-10-24) — apart from the live record, with its caveats. It replayed
+                the OLD week rule: not shown over the run-up list (its own test is in the Info column). */}
+            {horizon && !ruleWeek && <BacktestRecord bt={backtestLine(record, horizon)} />}
 
             {showReads && readsFailed && <p className="hot-note hot-note--warn">Prometheus’s targets could not be loaded — Argus’s names are shown without them.</p>}
             {showReads && <p className="hot-note">Target: <b>Prometheus’s</b> short-swing price — decided from the catalyst and the company, off a yardstick (what the catalyst is worth, or the stock’s usual run-up into a report ahead) — and how much of it is still open. Valid until its window ends (the session before a report); graded then.</p>}
             {!rows.length
                 ? (narrowed && shown !== 'all' && !only
-                    ? <p className="floor-empty">{emptyNamesText({ shown, column: horizon, argus: argusNames, screened: byHorizon.length, reads, readsFailed, readsLoading })}</p>
-                    : <p className="floor-empty">Nothing {STATUS_LABEL[only]?.toLowerCase() ?? 'listed'}{horizon ? ` for ${COLUMN_LABEL[horizon].toLowerCase()}` : ''} today.</p>)
+                    ? <p className="floor-empty">{emptyNamesText({ shown, column: horizon, argus: ruleWeek ? byHorizon : argusNames, screened: byHorizon.length, reads, readsFailed, readsLoading, rule: ruleWeek })}</p>
+                    : emptyNight && !only
+                        ? <p className="floor-empty">{latest.closed ? 'No run-up names on this list.' : 'No run-up names for this list: no company reporting in six sessions had three beats running.'}</p>
+                        : <p className="floor-empty">Nothing {STATUS_LABEL[only]?.toLowerCase() ?? 'listed'}{horizon ? ` for ${COLUMN_LABEL[horizon].toLowerCase()}` : ''} today.</p>)
                 : (
                     <div className="hot-table-wrap hot-table-wrap--list">
                         <table className="hot-table hot-table--list">
@@ -495,22 +536,22 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
                                     {th('symbol', 'Sym')}
                                     <th scope="col"><span className="hot-sr">Last 20 sessions</span></th>
                                     {th('price', 'Last', { num: true, title: 'The price at the checkpoint that last listed it — not live' })}
-                                    {th('chg', 'Chg%', { num: true, title: 'Change from the previous close, at that checkpoint' })}
-                                    {th('vol', 'RVol', { num: true, title: 'Volume against an ordinary day, at the checkpoint (pre-market: % of a day)' })}
+                                    {!ruleWeek && th('chg', 'Chg%', { num: true, title: 'Change from the previous close, at that checkpoint' })}
+                                    {!ruleWeek && th('vol', 'RVol', { num: true, title: 'Volume against an ordinary day, at the checkpoint (pre-market: % of a day)' })}
                                     {th('atr', 'ATR%', { num: true, title: 'Average daily range, % of price' })}
                                     {th('status', 'Status', { title: 'In play now, building, or setting up' })}
                                     {/* No grades on the Hotlist (2026-10-24: the day trades, then This week); on All, the horizon each name is best on. */}
-                                    {!horizon && th('grade', 'Horizon', { title: 'The horizon the name is best on' })}
-                                    <th scope="col" title="Free range: the room to the next level overhead — not a target">Room</th>
+                                    {!horizon && !ruleWeek && th('grade', 'Horizon', { title: 'The horizon the name is best on' })}
+                                    {!ruleWeek && <th scope="col" title="Free range: the room to the next level overhead — not a target">Room</th>}
                                     {th('earnings', 'Earn', { title: 'Next earnings; amber = a run-up trade, out before the report' })}
                                     <th scope="col" title="Did it work? Once the horizon's window closes: ✓ reached the level its room was measured to, ✗ did not (its best move); ↑ / ↓ open sky, by how it ended. Open while the window runs.">Result</th>
                                     {showReads && <th scope="col" title="Prometheus's short-swing target — and what is still open">Target</th>}
                                 </tr>
                             </thead>
                             <tbody>
-                                {rows.map(r => <ListRow key={r.symbol} row={r} open={openSym === r.symbol} column={horizon}
+                                {rows.map(r => <ListRow key={r.symbol} row={r} open={openSym === r.symbol} column={horizon} tape={!ruleWeek}
                                     read={showReads ? reads.get(r.symbol) ?? null : null} showRead={showReads}
-                                    asked={showReads ? asked[r.symbol] ?? null : null} onAskRead={showReads && !readsFailed ? onAskRead : null} hideGrade={Boolean(horizon)}
+                                    asked={showReads ? asked[r.symbol] ?? null : null} onAskRead={showReads && !readsFailed ? onAskRead : null} hideGrade={Boolean(horizon) || ruleWeek}
                                     onToggle={() => setOpenSym(s => (s === r.symbol ? null : r.symbol))}
                                     onBuild={onBuild} onAsk={onAsk} onSymbolClick={onSymbolClick} />)}
                             </tbody>
@@ -533,8 +574,18 @@ DayList.propTypes = {
  * A horizon's TRACK RECORD over its list (Roy, 2026-10-24): the board's names against the ones past its cut and the pool
  * it chose from — how often each ended up, its average move. No grades (2026-10-24). Says so when there is no history.
  */
-function TrackRecord({ rec, column }) {
+function TrackRecord({ rec, column, rule = false }) {
     const label = COLUMN_LABEL[column]?.toLowerCase() ?? column
+    // On the run-up list: the RULE's own record only — the week's older, Argus-era outcomes are not its (code review 2026-10-25).
+    if (rule) {
+        if (!rec?.rule) return <p className="hot-note hot-record">Track record for the run-up rule: no results logged yet.</p>
+        return (
+            <p className="hot-note hot-record">
+                <span className="hot-record__who">Track record · the run-up rule</span>
+                <span title="Each name from the list day's open to the close before its report — its own move, not against SPY. The tested bar: a day's names together about +0.4% over SPY">{rec.rule}</span>
+            </p>
+        )
+    }
     // No horizon shows grades (2026-10-24): its record is the board against the rest, and Argus's below.
     if (!rec?.cut) return <p className="hot-note hot-record">Track record for {label}: no results logged yet.</p>
     return (
@@ -546,7 +597,7 @@ function TrackRecord({ rec, column }) {
         </p>
     )
 }
-TrackRecord.propTypes = { rec: PropTypes.object, column: PropTypes.string.isRequired }
+TrackRecord.propTypes = { rec: PropTypes.object, column: PropTypes.string.isRequired, rule: PropTypes.bool }
 
 /**
  * What Argus SPOTTED in the pool (2026-10-24): names the screener quoted but put in play on no horizon, that he would
@@ -621,7 +672,7 @@ const _room = (r) => (!r ? null : r.open_sky ? 'open sky'
  * watchlist table"). Everything that needs words — the reason, the story, Argus's note, the hand-offs
  * — opens under it on a click.
  */
-function ListRow({ row, open, onToggle, onBuild, onAsk, onSymbolClick, column = null, read = null, showRead = false, asked = null, onAskRead = null, hideGrade = false }) {
+function ListRow({ row, open, onToggle, onBuild, onAsk, onSymbolClick, column = null, read = null, showRead = false, asked = null, onAskRead = null, hideGrade = false, tape = true }) {
     // On a horizon's list the row reads THAT column — its room and Argus's pick for it (horizon-chains.md §1).
     const col = column && row.cells?.[column]?.grade ? column : bestColumn(row, COLUMN_ORDER)
     const pick = column ? pickFor(row, column) : row.pick
@@ -648,8 +699,8 @@ function ListRow({ row, open, onToggle, onBuild, onAsk, onSymbolClick, column = 
                 <td><button type="button" className="hot-sym" onClick={() => onSymbolClick?.(row.symbol)} title={row.name ?? row.symbol}>{row.symbol}</button></td>
                 <td className="hot-spark-cell hot-spark-cell--sm"><Sparkline closes={row.spark} price={row.price} range={cell?.range ?? null} small hot={status === 'in_play'} /></td>
                 <td className="hot-table__num" title={row.quoted_at ? `As of ${_time(row.quoted_at)}` : undefined}>{Number.isFinite(row.price) ? row.price.toFixed(2) : '—'}</td>
-                <td className={`hot-table__num${row.gap_pct > 0 ? ' hot-up' : row.gap_pct < 0 ? ' hot-down' : ''}`}>{_pct(row.gap_pct)}</td>
-                <td className="hot-table__num">{Number.isFinite(row.rvol) ? `${row.rvol}×` : Number.isFinite(row.pm_vol_pct) ? `${row.pm_vol_pct.toFixed(1)}%` : '—'}</td>
+                {tape && <td className={`hot-table__num${row.gap_pct > 0 ? ' hot-up' : row.gap_pct < 0 ? ' hot-down' : ''}`}>{_pct(row.gap_pct)}</td>}
+                {tape && <td className="hot-table__num">{Number.isFinite(row.rvol) ? `${row.rvol}×` : Number.isFinite(row.pm_vol_pct) ? `${row.pm_vol_pct.toFixed(1)}%` : '—'}</td>}
                 <td className="hot-table__num">{Number.isFinite(row.atr_pct) ? `${row.atr_pct.toFixed(1)}%` : '—'}</td>
                 <td>{status ? <span className={`hot-status hot-status--${status}`} title={STATUS_TITLE[status]}>{STATUS_SHORT[status]}</span> : <span className="hot-dim">—</span>}</td>
                 {!hideGrade && <td>
@@ -658,21 +709,22 @@ function ListRow({ row, open, onToggle, onBuild, onAsk, onSymbolClick, column = 
                         ? <span className="hot-best__col" title={COLUMN_TITLE[col]}>{COLUMN_LABEL[col] ?? col}</span>
                         : <span className="hot-dim">—</span>}
                 </td>}
-                <td className="hot-range" title={rangeTitle(cell?.range) ?? undefined}>{_room(cell?.range) ?? '—'}</td>
+                {/* The run-up list measures no room (the rule's exit is the report, not a level): no tape, no room. */}
+                {tape && <td className="hot-range" title={rangeTitle(cell?.range) ?? undefined}>{_room(cell?.range) ?? '—'}</td>}
                 <td>{earn ? <span className={`hot-earn${earn.exit ? ' hot-earn--exit' : ' hot-dim'}`} title={earn.title}>{row.next_earnings.slice(5)}{earn.exit ? '!' : ''}</span> : <span className="hot-dim">—</span>}</td>
                 <td className={`hot-result hot-result--${mark?.tone ?? 'dim'}`} title={mark?.title}>{mark?.text ?? '—'}</td>
                 {showRead && (
                     <td className={`hot-target${target?.state ? ` hot-target--${target.state}` : ''}`} title={target?.title}>
                         {target?.text ?? (['started', 'queued', 'sending'].includes(asked?.state)
                             ? <span className="hot-dim" title="Prometheus is reading it — about a minute">reading…</span>
-                            : <span className="hot-dim" title="No catalyst read yet — Prometheus reads Argus's week picks after the 09:20 board; open the row to ask for one">—</span>)}
+                            : <span className="hot-dim" title="No catalyst read yet — Prometheus reads the week's names after the list is built; open the row to ask for one">—</span>)}
                     </td>
                 )}
             </tr>
             {open && (
                 <tr className="hot-detail-row" id={detailId}>
                     <td />
-                    <td colSpan={LIST_COLS - 1 + (showRead ? 1 : 0) - (hideGrade ? 1 : 0)}><RowDetail row={row} col={col} pick={pick} read={showRead ? read : null} status={status} earn={earn} onBuild={onBuild} onAsk={onAsk}
+                    <td colSpan={LIST_COLS - 1 + (showRead ? 1 : 0) - (hideGrade ? 1 : 0) - (tape ? 0 : 3)}><RowDetail row={row} col={col} pick={pick} read={showRead ? read : null} status={status} earn={earn} onBuild={onBuild} onAsk={onAsk}
                         asked={asked} onAskRead={showRead && !read ? onAskRead : null} result={mark} /></td>
                 </tr>
             )}

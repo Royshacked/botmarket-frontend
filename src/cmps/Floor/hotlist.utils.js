@@ -14,6 +14,8 @@ export const COLUMN_TITLE = Object.freeze({
 })
 export const CHECKPOINT_LABEL = Object.freeze({
     premarket: '08:00 pre-market', preopen: '09:20 pre-open', mid: '10:30', eod: '14:30', close: '15:30',
+    // The week board, built after the close (2026-10-25: the day checkpoints above were archived — past days keep them).
+    overnight: 'overnight',
 })
 
 const GRADE_RANK = { A: 3, B: 2, C: 1 }
@@ -114,8 +116,16 @@ export const isConfirmedRead = (read) => Boolean(read?.target) && read.status !=
  * horizon's Argus names; `reads` — the list's reads by symbol. On the confirmed list it says where his reads stand:
  * still loading (`readsLoading` — not "still to read": they may all be in), still to come, all passes, or not loaded.
  */
-export function emptyNamesText({ shown, column, argus = [], screened = 0, reads = new Map(), readsFailed = false, readsLoading = false }) {
+export function emptyNamesText({ shown, column, argus = [], screened = 0, reads = new Map(), readsFailed = false, readsLoading = false, rule = false }) {
     const label = (COLUMN_LABEL[column] ?? column ?? '').toLowerCase()
+    // The run-up rule's week (2026-10-25): no Argus — `argus` is the rule's names, and Prometheus reads them overnight.
+    if (rule && shown === 'confirmed') {
+        if (readsFailed) return 'Prometheus’s reads could not be loaded — see Run-up names.'
+        if (readsLoading) return 'Loading Prometheus’s reads…'
+        const unread = argus.filter(r => !reads.get(r.symbol)).length
+        if (unread) return `Prometheus has ${unread} of the ${argus.length} run-up names still to read — he reads them after the list is built. See Run-up names meanwhile.`
+        return `Prometheus confirmed none of the ${argus.length} run-up names — open them under Run-up names to see why.`
+    }
     if (shown !== 'confirmed') return `Argus confirmed no names for ${label} on this list${screened ? ` — the screener let ${screened} through: see All screened` : ''}.`
     if (readsFailed) return 'Prometheus’s reads could not be loaded — see Argus’s names.'
     if (readsLoading) return 'Loading Prometheus’s reads…'
@@ -174,8 +184,8 @@ export function resultCell(res) {
     switch (res.state) {
     case 'reached': return { text: '✓ reached', tone: 'good', title: `Reached ${level} — ${_moves(res)}${partial}` }
     case 'missed':  return { text: `✗ best ${_sp(res.mfe_pct)}`, tone: 'bad', title: `Did not reach ${level} — ${_moves(res)}${partial}` }
-    case 'up':      return { text: `↑ ${_sp(res.ret_pct)}`, tone: 'good', title: `Open sky (no level to reach): ended up — ${_moves(res)}${partial}` }
-    case 'down':    return { text: `↓ ${_sp(res.ret_pct)}`, tone: 'bad', title: `Open sky (no level to reach): ended down — ${_moves(res)}${partial}` }
+    case 'up':      return { text: `↑ ${_sp(res.ret_pct)}`, tone: 'good', title: `No level to reach (open sky, or the run-up rule's): ended up — ${_moves(res)}${partial}` }
+    case 'down':    return { text: `↓ ${_sp(res.ret_pct)}`, tone: 'bad', title: `No level to reach (open sky, or the run-up rule's): ended down — ${_moves(res)}${partial}` }
     case 'open':    return { text: 'open', tone: 'dim', title: `The window runs until ${res.ends} — its result comes after it closes` }
     case 'scoring': return { text: 'scoring', tone: 'dim', title: 'The window has closed — scored after 18:00 ET' }
     case 'no_data': return { text: '—', tone: 'dim', title: 'No prices came for its window' }
@@ -188,8 +198,8 @@ export function resultCell(res) {
  * the strip's parts: the span, the screener's names' and the pool's "up 61% · avg +0.4% (2,400)", and the caveats. Pure. Null
  * without one.
  */
-/** The week's three ways in (backend hotlist.columns `path`), as the record names them. */
-export const PATH_LABEL = Object.freeze({ catalyst: 'catalyst (earnings beat)', scheduled: 'run-up' })
+/** The ways in a replay splits by (backend hotlist.columns `path`; the open's from hotlistBacktest.day), as the record names them. */
+export const PATH_LABEL = Object.freeze({ catalyst: 'catalyst (earnings beat)', scheduled: 'run-up', gap: 'the gap' })
 
 export function backtestLine(summary, column) {
     const b = summary?.backtest?.[column]
@@ -233,6 +243,9 @@ export function columnRecord(summary, column) {
         // The board's cut against the rest (2026-10-24): the names it showed vs the graded names past it — once the wide
         // set has any. "up 58% · avg +0.4% (60)".
         cut: c.off?.n || c.pool?.n ? { board: _groupText(c.board), off: _groupText(c.off), pool: _groupText(c.pool) } : null,
+        // THE RUN-UP RULE's own record (backend summarize `week.rule`, 2026-10-25) — apart from the week's older,
+        // Argus-era outcomes. "up 60% · avg +0.8% (40) over 9 sessions".
+        rule: c.rule?.n ? `${_groupText(c.rule)} over ${c.rule.sessions} session${c.rule.sessions === 1 ? '' : 's'}` : null,
     }
 }
 

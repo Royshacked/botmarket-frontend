@@ -11,7 +11,7 @@ vi.mock('../../services/hotlist/hotlist.service.remote.js', () => ({
 }))
 
 import { hotlistService } from '../../services/hotlist/hotlist.service.remote.js'
-import { HotlistPanel, HOTLIST_PANEL_ID, WORKING_POLL_MS } from './HotlistPanel.jsx'
+import { HotlistPanel, HOTLIST_PANEL_ID, WORKING_POLL_MS, TAIL_LOOKS } from './HotlistPanel.jsx'
 import { openPanel, closePanel, useActivePanel, returnToPanel, setReturnTo } from '../DetailPanel/detailPanel.store.js'
 
 // The Hotlist panel (docs/design/daily-names.md §8; Roy, 2026-10-21): the screener's board with
@@ -186,7 +186,7 @@ describe('HotlistPanel', () => {
         expect(screen.queryByRole('status')).toBeNull()
     })
 
-    it('while it works the panel looks again quietly, takes the first board, and stops once nothing runs', async () => {
+    it('while it works the panel looks again quietly, takes the first board, and stops a few looks after nothing runs', async () => {
         vi.useFakeTimers()
         try {
             hotlistService.getToday.mockResolvedValueOnce({ day: null, latest: null, checkpoints: [],
@@ -199,8 +199,10 @@ describe('HotlistPanel', () => {
             expect(screen.queryByText('Loading…')).toBeNull()
             expect(screen.getByText('SPCX')).toBeTruthy()
             expect(screen.queryByRole('status')).toBeNull()
-            await act(async () => { vi.advanceTimersByTime(WORKING_POLL_MS * 3) })
-            expect(hotlistService.getToday).toHaveBeenCalledTimes(2)
+            // A few more looks after the last working one — the week board lands just after the nightly run (2026-10-25) —
+            // then none.
+            for (let k = 0; k < TAIL_LOOKS + 3; k++) { await act(async () => { vi.advanceTimersByTime(WORKING_POLL_MS) }); await flush() }
+            expect(hotlistService.getToday).toHaveBeenCalledTimes(2 + TAIL_LOOKS)
         } finally {
             vi.useRealTimers()
         }
@@ -373,9 +375,10 @@ describe('HotlistPanel — a list per horizon', () => {
         await mount()
         const tabs = within(screen.getByRole('group', { name: 'Horizon' })).getAllByRole('button').map(t => t.textContent)
         // Each count is the list the tab OPENS on (2026-10-24): Argus's names on Open, Prometheus confirmed on This week.
-        expect(tabs).toEqual(['All 4', 'Open 1', 'Mid-day 0', 'Into close 0', 'Tomorrow 0', 'This week 1', 'Swing 0', 'Long term 0'])
+        // The day horizons were archived (2026-10-25): a past day shows only the ones that still have names.
+        expect(tabs).toEqual(['All 4', 'Open 1', 'This week 1', 'Swing 0', 'Long term 0'])
         expect(screen.getByRole('button', { name: 'This week 1' }).title).toMatch(/1 on the list \(Prometheus confirmed\) of 3 screened/)
-        expect(screen.getByRole('button', { name: 'Mid-day 0' }).disabled).toBe(true)
+        expect(screen.queryByRole('button', { name: /^Mid-day/ })).toBeNull()
         fireEvent.click(screen.getByRole('button', { name: /^This week/ }))
         fireEvent.click(screen.getByRole('button', { name: 'All screened 3' }))
         expect(order()).toEqual(['WK1', 'WK2', 'WK3'], 'his picks in his order, then the grade')
@@ -504,7 +507,7 @@ describe('HotlistPanel — the horizon lists, reviewed', () => {
         await mount()
         fireEvent.click(screen.getByRole('button', { name: /^Setting up/ }))
         const group = within(screen.getByRole('group', { name: 'Horizon' }))
-        expect(group.getAllByRole('button').map(b => b.textContent)).toEqual(['All 2', 'Open 0', 'Mid-day 0', 'Into close 0', 'Tomorrow 0', 'This week 0', 'Swing 0', 'Long term 0'])
+        expect(group.getAllByRole('button').map(b => b.textContent)).toEqual(['All 2', 'This week 0', 'Swing 0', 'Long term 0'])
         expect(group.getByRole('button', { name: /^This week/ }).disabled).toBe(false, 'none confirmed, but screened names: still opens')
     })
 
@@ -634,7 +637,7 @@ describe('HotlistPanel — did it work', () => {
         fireEvent.click(screen.getByRole('button', { name: 'The day before' }))
         await flush()
         expect(hotlistService.getToday).toHaveBeenLastCalledWith('2026-10-21')
-        expect(screen.getByRole('tab', { name: 'The day’s list' })).toBeTruthy()
+        expect(screen.getByText(/the day’s list/)).toBeTruthy()
         expect(screen.queryByText('MISS')).toBeNull()
         expect(screen.getByRole('button', { name: 'The day before' }).disabled).toBe(true)
         fireEvent.click(screen.getByRole('button', { name: 'The day after' }))
@@ -772,5 +775,62 @@ describe('HotlistPanel — day trades are Argus’s names', () => {
         fireEvent.click(within(screen.getByRole('group', { name: 'Horizon' })).getByRole('button', { name: /^All/ }))
         fireEvent.click(screen.getByRole('button', { name: /^Open/ }))
         expect(screen.getByRole('button', { name: 'Argus’s names 1' }).getAttribute('aria-pressed')).toBe('true')
+    })
+})
+
+// THIS WEEK ON THE RUN-UP RULE (2026-10-25, hotlist-day-archive.md): the overnight board lists by one rule — no Argus —
+// and Prometheus reads every name. Its cells carry the grade 'R'.
+describe('HotlistPanel — the run-up week', () => {
+    const RULE = [
+        { symbol: 'RU1', price: 40, status: 'setting_up', cells: { week: { grade: 'R', path: 'scheduled', exit_before: '2026-11-02', why: ['reports 2026-11-02'] } } },
+        { symbol: 'RU2', price: 25, status: 'setting_up', cells: { week: { grade: 'R', path: 'scheduled', exit_before: '2026-11-02', why: ['reports 2026-11-02'] } } },
+    ]
+    const WEEK = { id: 'hb_2026-10-26_week', day: '2026-10-26', checkpoint: 'overnight', status: 'done', columns: ['week'], rows: RULE }
+    beforeEach(() => { hotlistService.getToday.mockResolvedValue({ day: '2026-10-26', latest: WEEK, dayList: RULE, checkpoints: [] }) })
+
+    it('no Argus view: Prometheus confirmed, else the rule\'s names — and the note says the rule', async () => {
+        await mount()
+        fireEvent.click(screen.getByRole('button', { name: /^This week/ }))
+        expect(screen.queryByRole('button', { name: /Argus’s names/ })).toBeNull()
+        expect(screen.getByRole('button', { name: 'Run-up names 2' })).toBeTruthy()
+        expect(screen.getByText(/2 of the 2 run-up names still to read/)).toBeTruthy()
+        expect(screen.getByText(/last three reports all beat/)).toBeTruthy()
+        fireEvent.click(screen.getByRole('button', { name: 'Run-up names 2' }))
+        expect([...document.querySelectorAll('tr.hot-row')].map(tr => tr.dataset.symbol)).toEqual(['RU1', 'RU2'])
+    })
+
+    // Code review 2026-10-25.
+    it('the All view of a run-up day is the rule\'s list: no tape, no room, no horizon column, the close as the price', async () => {
+        await mount()
+        const heads = [...document.querySelectorAll('.hot-panel thead th')].map(t => t.textContent.trim()).filter(Boolean)
+        expect(heads).not.toContain('Chg%')
+        expect(heads).not.toContain('RVol')
+        expect(heads).not.toContain('Room')
+        expect(heads).not.toContain('Horizon')
+        expect(screen.getByText('Prices: the close before the list')).toBeTruthy()
+    })
+
+    it('with the reads failed, This week counts and opens on every rule name — never "0 picks"', async () => {
+        hotlistService.getReads.mockRejectedValue(new Error('down'))
+        await mount()
+        expect(screen.getByRole('button', { name: /^This week/ }).textContent).toBe('This week 2')
+    })
+
+    it('an empty night keeps Swing and Long term, and says why the list is empty', async () => {
+        hotlistService.getToday.mockResolvedValue({ day: '2026-10-26', latest: { ...WEEK, rows: [], closed: 'SPY is under its 200-day — the run-up loses there, so no names' }, dayList: [], checkpoints: [] })
+        hotlistService.getBook.mockResolvedValue({ asof: '2026-10-23', swing: [{ symbol: 'DSK', rating: 'buy', origin: { source: 'desk' } }], long_term: [], picks: { swing: [], long_term: [] }, record: {} })
+        await mount()
+        expect(screen.getByRole('button', { name: /^Swing/ })).toBeTruthy()
+        expect(screen.getByRole('button', { name: /^Long term/ })).toBeTruthy()
+        expect(screen.getByText(/SPY is under its 200-day/)).toBeTruthy()
+    })
+
+    it('the week tab shows the rule\'s own track record, not the week\'s older outcomes', async () => {
+        hotlistService.getOutcomes.mockResolvedValue({ week: { n: 9, sessions: 4, rule: { n: 5, sessions: 2, up_rate: 60, ret_mean: 0.8 }, board: { n: 9 }, off: { n: 3, up_rate: 40, ret_mean: -1 } } })
+        await mount()
+        fireEvent.click(screen.getByRole('button', { name: /^This week/ }))
+        expect(screen.getByText('Track record · the run-up rule')).toBeTruthy()
+        expect(screen.getByText('up 60% · avg +0.8% (5) over 2 sessions')).toBeTruthy()
+        expect(screen.queryByText(/graded off it/)).toBeNull()
     })
 })
