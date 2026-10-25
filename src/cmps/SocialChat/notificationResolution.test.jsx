@@ -156,6 +156,19 @@ describe('CoverageEventBubble', () => {
     })
 })
 
+describe('CoverageEventBubble — validating is a read (2026-10-25)', () => {
+    beforeEach(() => vi.spyOn(eventBus, 'emit'))
+    afterEach(() => { vi.restoreAllMocks(); cleanup() })
+
+    it('opens the thesis to read, even on a card posted with "Revise thesis"', () => {
+        const msg = { id: 'mv', type: 'coverage_event', content: 'NVDA thesis is playing out.', payload: { kind: 'coverage', symbol: 'NVDA', coverageId: 'cov1', state: 'validating' }, actions: { primary: { label: 'Revise thesis', resolvesOn: 'work' }, dismiss: true } }
+        render(<CoverageEventBubble msg={msg} onClose={vi.fn()} onResolve={vi.fn()} />)
+        expect(screen.queryByText('Revise thesis')).toBeNull()
+        fireEvent.click(screen.getByText('Open thesis'))
+        expect(eventBus.emit).toHaveBeenCalledWith(OPEN_COVERAGE, { coverageId: 'cov1', symbol: 'NVDA', mode: 'open' })
+    })
+})
+
 describe('CoverageRefreshedBubble', () => {
     beforeEach(() => vi.spyOn(eventBus, 'emit'))
     afterEach(() => { vi.restoreAllMocks(); cleanup() })

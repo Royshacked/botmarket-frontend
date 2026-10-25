@@ -800,8 +800,12 @@ export function CoverageEventBubble({ msg, onClose, onResolve }) {
 
     // A verdict card is Prometheus ASKING for a revision — so it opens the thesis in update mode, not
     // a clean desk. `mode` is the ask; MainPage resolves the doc and runs the pencil's pipeline.
+    // EXCEPT `validating` (Roy, 2026-10-25): the Street catching up asks for nothing, so it opens the
+    // thesis to READ — cards already posted with "Revise thesis" included. (The other verdicts are no
+    // longer posted: Prometheus re-models them on his own.)
+    const read = state === 'validating'
     function handlePrimary() {
-        eventBus.emit(OPEN_COVERAGE, { coverageId, symbol, mode: 'revise' })
+        eventBus.emit(OPEN_COVERAGE, { coverageId, symbol, mode: read ? 'open' : 'revise' })
         onClose?.()
     }
 
@@ -811,7 +815,7 @@ export function CoverageEventBubble({ msg, onClose, onResolve }) {
             // "Revise thesis" — what this primary actually does, and what separates it from the
             // refresh card's "Open coverage" below. The stored label still wins, so cards already
             // in a user's history keep the words they were posted with.
-            primaryLabel={msg.actions?.primary?.label ?? 'Revise thesis'} onPrimary={handlePrimary}
+            primaryLabel={read ? 'Open thesis' : (msg.actions?.primary?.label ?? 'Revise thesis')} onPrimary={handlePrimary}
             onResolve={onResolve} msg={msg}
             // `revised` / `retired` / `deleted` are what the coverage write routes stamp when the
             // work lands (analyst.controller → resolveCardsFor); the note beneath says what moved.
