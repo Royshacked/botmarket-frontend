@@ -76,8 +76,9 @@ async function requestRead(board, symbol) {
  * horizon → `{ asof, today, swing: [row], long_term: [row], record: { swing, long_term } }`. Each row: price (the
  * screener's close), rating, target, upside, horizon and target date, the move since the target was set and against
  * SPY, `progress` toward the target, `state` (live | hit | broken | expired) and `origin` (the weekly chain or the desk).
+ * `picks: { swing, long_term }` — the weekly chain's names and where each stands; null when the server could not read them.
  */
 async function getBook() {
     const data = await httpService.get(`${BASE}/book`)
-    return { asof: data?.asof ?? null, swing: data?.swing ?? [], long_term: data?.long_term ?? [], record: data?.record ?? {} }
+    return { asof: data?.asof ?? null, swing: data?.swing ?? [], long_term: data?.long_term ?? [], picks: data?.picks ?? null, record: data?.record ?? {} }
 }
