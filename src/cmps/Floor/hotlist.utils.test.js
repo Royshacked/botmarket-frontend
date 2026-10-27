@@ -2,7 +2,7 @@
 // node --test src/cmps/Floor/
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readTime, fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, rowStatus, rowReason, sortList, askArgusText, handoffRead, sparkGeometry, pickFor, horizonRows, horizonCounts, readsBySymbol, readCell, hasBand, resultCell, columnRecord, bookResult, bookProgress, bookOrigin, bookRecordLine, sortBook, isBuy } from './hotlist.utils.js'
+import { readTime, fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, rowStatus, rowReason, sortList, askArgusText, handoffRead, sparkGeometry, pickFor, horizonRows, horizonCounts, readsBySymbol, readCell, hasBand, resultCell, columnRecord, bookResult, bookProgress, bookOrigin, bookRecordLine, sortBook, isBuy, scoreCell } from './hotlist.utils.js'
 import { handoffTurn } from '../MentorSurface/mentorSurface.utils.js'
 
 const ROW = {
@@ -366,4 +366,16 @@ test('the week\'s record carries the run-up rule\'s own group', async () => {
     const { columnRecord } = await import('./hotlist.utils.js')
     assert.equal(columnRecord({ week: { rule: { n: 3, sessions: 1, up_rate: 66.7, ret_mean: 1.2 } } }, 'week').rule, 'up 67% · avg +1.2% (3) over 1 session')
     assert.equal(columnRecord({ week: { board: { n: 2 } } }, 'week').rule, null)
+})
+
+test('scoreCell: mean vs SPY, the share beating it and how many; dim under the bar to judge', () => {
+    assert.equal(scoreCell(null), null)
+    assert.equal(scoreCell({ n: 0 }), null)
+    const c = scoreCell({ n: 77, mean: 0.05, median: -0.2, beat: 49.35, judge: true })
+    assert.equal(c.text, '+0.1% · 49% beat · 77')
+    assert.equal(c.tone, 'good')
+    assert.match(c.title, /median -0.2%/)
+    assert.equal(scoreCell({ n: 5, mean: 15, median: 1.3, beat: 80, judge: false }).tone, 'dim')
+    assert.match(scoreCell({ n: 5, mean: 15, median: 1.3, beat: 80, judge: false }, 20).title, /too few to judge/)
+    assert.equal(scoreCell({ n: 30, mean: -1, median: -1, beat: 40, judge: true }).tone, 'bad')
 })

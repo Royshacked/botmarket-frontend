@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { CoverageDetail, CoverageRating } from './CoverageDetail.jsx'
+import { HotlistScorecard } from './HotlistScorecard.jsx'
 import { BOOK_LABEL, BOOK_SORTS, bookResult, bookProgress, bookOrigin, bookRecordLine, sortBook, chainSurvivors, pickCell } from './hotlist.utils.js'
 
 // THE HOUSE'S BOOK in the Hotlist — its Swing and Long term lists (Roy, 2026-10-24: "in hotlist — what about longer
@@ -118,6 +119,7 @@ export function HotlistBook({ book, column, coverage = [], onBuild, onAsk, onSym
                         ['confirmed', `Prometheus confirmed ${survivors.length}`, 'The weekly chain’s survivors: Pythia’s industry, Argus’s pick, and Prometheus’s thesis and target — whatever the rating'],
                         ['argus', `Argus’s names ${picks.length}`, 'Every name Argus sent from Pythia’s calls in the last eight weeks, and where Prometheus has it'],
                         ['all', `All coverage ${all.length}`, 'Every live thesis on this horizon — the desk’s too, holds and sells too'],
+                        ['scorecard', 'Prometheus’s scorecard', 'Every call he made, frozen when made and graded against SPY — all horizons, and his catalyst reads against his passes'],
                     ].map(([k, label, title]) => (
                         <button key={k} type="button" aria-pressed={view === k} title={title}
                             className={`hot-status-filter__btn${view === k ? ' hot-status-filter__btn--on' : ''}`} onClick={() => setView(k)}>{label}</button>
@@ -127,6 +129,7 @@ export function HotlistBook({ book, column, coverage = [], onBuild, onAsk, onSym
                     The house’s live coverage{book?.asof ? ` · prices as of the ${book.asof} close` : ''}
                 </span>
             </div>
+            {view === 'scorecard' ? <HotlistScorecard /> : <>
             <BookRecord rec={book?.record?.[column]} column={column} />
             {view !== 'all' && <p className="hot-note">{BOOK_LABEL[column]}: <b>Pythia</b> calls the industry, <b>Argus</b> picks the names that best carry her thesis, and <b>Prometheus</b> researches each — the thesis and a {column === 'swing' ? '3–6 month' : '12–24 month'} target. The names he covered are the list, with his rating.</p>}
             {view === 'argus'
@@ -204,6 +207,7 @@ export function HotlistBook({ book, column, coverage = [], onBuild, onAsk, onSym
                         </table>
                     </div>
                 )}
+            </>}
         </>
     )
 }

@@ -263,3 +263,11 @@
     &--sending, &--started, &--queued { color: var(--accent-bright); border-color: var(--accent); }
     &--error { color: var(--color-short); border-color: var(--color-short); }
 }
+
+// Prometheus's scorecard (2026-10-27): a source's row in bold, its ratings under it, indented.
+.hot-score {
+    display: flex; flex-direction: column; gap: 10px;
+    .hot-table--score th[scope='row'] { text-align: left; font-weight: 600; white-space: nowrap; }
+    .hot-score__sub { font-weight: 400 !important; padding-left: 18px; color: var(--text-secondary); }
+    .hot-score__group th[scope='row'] { color: var(--text-primary); }
+}

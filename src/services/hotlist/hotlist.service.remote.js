@@ -6,7 +6,17 @@ import { httpService } from '../http.service'
 
 const BASE = 'api/hotlist'
 
-export const hotlistService = { getToday, getBoard, getOutcomes, getReads, requestRead, getBook }
+export const hotlistService = { getToday, getBoard, getOutcomes, getReads, requestRead, getBook, getScorecard }
+
+/**
+ * PROMETHEUS'S SCORECARD (botmarket-backend prometheusCalls.service, 2026-10-27) → `{ coverage: { forward, backfill },
+ * catalyst: { backed, passes, open }, as_of, min_judge }`. Coverage calls frozen when made, graded vs SPY at 1/3/6/12+
+ * months (`marks[m].calls` signed by the rating, `.holds` apart); catalyst reads he backed against the ones he passed,
+ * each held to its window's end. Every summary is `{ n, mean, median, beat, judge }`.
+ */
+async function getScorecard() {
+    return httpService.get(`${BASE}/scorecard`)
+}
 
 /**
  * `{ day, latest: board|null, checkpoints: [{ id, checkpoint, status, columns, finished_at, rows, argus }],

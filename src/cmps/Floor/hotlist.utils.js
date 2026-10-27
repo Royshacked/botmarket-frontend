@@ -346,6 +346,24 @@ export function bookRecordLine(rec) {
     return { settled, live }
 }
 
+// PROMETHEUS'S SCORECARD (Roy, 2026-10-27) — the marks a coverage call is graded at, and the words for a source.
+export const SCORE_MARKS = Object.freeze(['1m', '3m', '6m', '12m'])
+export const SCORE_SOURCE = Object.freeze({ forward: 'Since the scorecard', backfill: 'Before it (seeded)' })
+
+/**
+ * One scorecard summary `{ n, mean, median, beat, judge }` → a cell `{ text, tone, title }`, or null with nothing graded.
+ * "+0.4% · 52% beat · 77" — the mean vs SPY, the share beating it, how many; dim while under the bar to judge.
+ */
+export function scoreCell(s, minJudge = 20) {
+    if (!s?.n) return null
+    const tone = !s.judge ? 'dim' : s.mean > 0 ? 'good' : s.mean < 0 ? 'bad' : 'dim'
+    return {
+        text: `${_sp(s.mean)} · ${Math.round(s.beat)}% beat · ${s.n}`,
+        tone,
+        title: `Mean ${_sp(s.mean)} vs SPY, median ${_sp(s.median)}; ${Math.round(s.beat)}% of ${s.n} beat SPY${s.judge ? '' : ` — under ${minJudge}, too few to judge`}`,
+    }
+}
+
 /** The book's sortable columns, each with the direction it sorts in first. */
 export const BOOK_SORTS = Object.freeze({ symbol: 'asc', upside: 'desc', since: 'desc', vs_spy: 'desc', progress: 'desc', days_left: 'asc' })
 const BOOK_KEY = {
