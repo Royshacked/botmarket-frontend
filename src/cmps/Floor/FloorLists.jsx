@@ -373,7 +373,7 @@ function TradeRows({ setups, onEditSetup, onDeleteSetup, onSymbolClick }) {
                         <span className={`floor-row__dir floor-row__dir--${it.direction}`} aria-hidden="true">
                             {it.direction === 'short' ? '▾' : '▴'}
                         </span>
-                        <SymbolCell className="floor-row__sym" symbol={it.ticker} onSymbolClick={onSymbolClick} />
+                        <SymbolCell className="floor-row__sym" symbol={it.ticker} onSymbolClick={onSymbolClick} owned ownedExcept="setup" />
                         <span className="floor-row__kind">{it.kind}</span>
                         <span className={`floor-row__status floor-row__status--${it.status}`}>{it.status}</span>
                     </button>
@@ -519,7 +519,7 @@ function PortfolioRows({ ideas, positions, sort, onEditPortfolio, onDeletePortfo
                                     <span className={`floor-row__dir floor-row__dir--${h.direction}`} aria-hidden="true">
                                         {h.direction === 'short' ? '▾' : '▴'}
                                     </span>
-                                    <SymbolCell className="floor-row__sym" symbol={h.asset} onSymbolClick={onSymbolClick} />
+                                    <SymbolCell className="floor-row__sym" symbol={h.asset} onSymbolClick={onSymbolClick} owned ownedExcept="portfolio" />
                                     {/* allocationRatio is a 0–1 ratio, not a percentage */}
                                     <span className="floor-row__kind floor-row__kind--dim">{pctOf(h.allocationRatio)}</span>
                                     <span className={`floor-row__status floor-row__status--${h.status}`}>{statusText(h.status)}</span>
@@ -611,7 +611,7 @@ function ScanRows({ scans, onCandidateSelect, onEditScan, onDeleteScan, onSymbol
                                 onClick={() => onCandidateSelect?.(c, s)}
                                 title="Build from this candidate"
                             >
-                                <SymbolCell className="floor-row__sym" symbol={c.ticker} onSymbolClick={onSymbolClick} />
+                                <SymbolCell className="floor-row__sym" symbol={c.ticker} onSymbolClick={onSymbolClick} owned />
                                 <span className="floor-row__kind floor-row__kind--dim">{c.name ?? ''}</span>
                                 <HouseChip house={c.house} />
                                 {Number.isFinite(c.score?.total) && (
@@ -694,7 +694,7 @@ function ResearchQueueRow({ item, covered = false, onStart, onDone, onReject, bu
         >
             {/* Same row as every other desk (.floor-row): one line, fixed height, actions on hover. */}
             <button className="floor-row floor-row--static" type="button" tabIndex={-1}>
-                <SymbolCell className="floor-row__sym" symbol={item.symbol} onSymbolClick={onSymbolClick} />
+                <SymbolCell className="floor-row__sym" symbol={item.symbol} onSymbolClick={onSymbolClick} owned />
                 <span className="floor-row__kind floor-row__kind--dim">
                     {RQ_SOURCE_LABEL[item.source] ?? item.source}
                     {item.context?.sector ? ` · ${item.context.sector}` : ''}

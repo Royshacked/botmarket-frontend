@@ -64,7 +64,7 @@ function CalendarRow({ kind, e, onSelect, onSymbolClick }) {
             onClick={() => onSelect?.(e)}
             title={e.symbol ? `Build a setup around ${e.symbol}` : undefined}
         >
-            <SymbolCell className="floor-cal__sym" symbol={e.symbol} onSymbolClick={onSymbolClick} />
+            <SymbolCell className="floor-cal__sym" symbol={e.symbol} onSymbolClick={onSymbolClick} owned />
             <span className="floor-cal__label">{e.name ?? ''}</span>
             {kind === 'earnings'
                 ? <span className="floor-cal__when">{EARN_WHEN[(e.time || '').toLowerCase()] ?? ''}</span>

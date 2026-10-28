@@ -44,7 +44,7 @@ export function CallCard({ call, busy = false, onAct, onDelete, onSymbolClick })
 
     const title = (
         <>
-            <SymbolCell symbol={call.asset} onSymbolClick={onSymbolClick} />
+            <SymbolCell symbol={call.asset} onSymbolClick={onSymbolClick} owned />
             {call.bias && <Pill variant="dir" className={`direction--${call.bias}`}>{call.bias}</Pill>}
             {call.trade_type && <Pill variant="type">{call.trade_type}</Pill>}
         </>

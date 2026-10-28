@@ -943,7 +943,7 @@ function RecurrenceStrip({ rows, onSymbolClick, onOpen }) {
                         className={`aether-candidates__chip${r.conflicted ? ' aether-candidates__chip--conflicted' : ''}`}
                         onClick={() => onOpen(r.best.run_id, r.ticker)}
                         title={`open the story — ${r.ticker} named by ${alsoNamedBy(r)}${r.conflicted ? ' — these events pull it in opposite directions' : ''}`}>
-                    <SymbolCell className="aether-candidates__chip-sym" symbol={r.ticker} onSymbolClick={onSymbolClick} />
+                    <SymbolCell className="aether-candidates__chip-sym" symbol={r.ticker} onSymbolClick={onSymbolClick} owned />
                     <span className="aether-candidates__chip-n">×{r.appearances.length}</span>
                     {r.conflicted && <span className="aether-candidates__chip-pm" aria-label="opposite directions">±</span>}
                 </button>
@@ -1051,7 +1051,7 @@ function NameRow({ c, run, recur, panelId, isOpen, onToggle, onJump, onSymbolCli
                     <span className={`floor-row__dir floor-row__dir--${dir}`} aria-hidden="true">
                         {dir === 'short' ? '▾' : dir === 'long' ? '▴' : '±'}
                     </span>
-                    <SymbolCell className="floor-row__sym" symbol={c.ticker} onSymbolClick={onSymbolClick} />
+                    <SymbolCell className="floor-row__sym" symbol={c.ticker} onSymbolClick={onSymbolClick} owned />
                     {/* The recurrence, riding directly after the name like every other count in
                         this column. `×3` rather than "(3 events)" because this row sits inside
                         an event already and the count is about the OTHER ones. */}

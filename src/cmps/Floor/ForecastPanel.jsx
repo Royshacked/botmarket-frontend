@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
+import { OwnedBadge } from '../OwnedBadge/OwnedBadge.jsx'
 import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
 import { useDetailPanel, closePanel } from '../DetailPanel/detailPanel.store.js'
 import { strategyService } from '../../services/strategy/strategy.service.remote.js'
@@ -343,7 +344,7 @@ function IndustryPage({ tile, companies, onRetry, onPick, bySymbol }) {
                             const cov = c.covered ? bySymbol.get(c.symbol) ?? null : null
                             const inner = (
                                 <>
-                                    <span className="fm-co__sym">{c.symbol}</span>
+                                    <span className="fm-co__sym">{c.symbol}</span><OwnedBadge symbol={c.symbol} />
                                     <span className="fm-co__name">{c.name}</span>
                                     <span className="fm-co__cap">{capText(c.market_cap)}</span>
                                     {c.covered

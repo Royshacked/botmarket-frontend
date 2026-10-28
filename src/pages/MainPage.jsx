@@ -58,6 +58,8 @@ import { coverageRoute }     from './coverageRoute.js'
 import { isHandheld }        from '../cmps/EntityCard/entityPopup.js'
 import { DetailPanelSlot }   from '../cmps/DetailPanel/DetailPanel.jsx'
 import { closePanel }        from '../cmps/DetailPanel/detailPanel.store.js'
+import { OwnedSymbolsProvider } from '../cmps/OwnedBadge/OwnedBadge.jsx'
+import { ownedSymbols }      from '../services/ownedSymbols.js'
 
 // (Scan candidates now seed the KAIROS chat via handleBuildFromCandidate — the idea-summary/context
 // builders they used were removed with that reroute. See K3, KAIROS_MODES.md.)
@@ -493,6 +495,8 @@ export function MainPage() {
     // pending-reviews read fired per token and tripped the API limiter mid-build (8f drive, 2026-10-18).
     const workspaceIdeas  = useMemo(() => inWorkspace(ideas, workspace).filter(i => i.status !== 'closed'), [ideas, workspace])
     const workspaceSetups = useMemo(() => inWorkspace(setups, workspace), [setups, workspace])
+    // The names that are already the user's in this workspace — every list marks them (OwnedBadge, 2026-10-28).
+    const owned = useMemo(() => ownedSymbols({ setups: workspaceSetups, ideas: workspaceIdeas, positions }), [workspaceSetups, workspaceIdeas, positions])
 
     // Atlas's surface reads the books (a book's holdings are ideas with its portfolioId) and hands back what follows a
     // save or an adoption — on top of the props every surface takes.
@@ -1572,7 +1576,7 @@ export function MainPage() {
     }
 
     return (
-        <>
+        <OwnedSymbolsProvider value={owned}>
             <main className="main-page">
                 {/* ── Desktop / tablet workspace ── */}
                 <div className="workspace">
@@ -1786,6 +1790,6 @@ export function MainPage() {
                     onCancel={() => { if (!queuedBusyId) { setQueuedConfirm(null); setQueuedError(null) } }}
                 />
             )}
-        </>
+        </OwnedSymbolsProvider>
     )
 }

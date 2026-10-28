@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
+import { OwnedBadge } from '../OwnedBadge/OwnedBadge.jsx'
 import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
 import { useDetailPanel, setReturnTo } from '../DetailPanel/detailPanel.store.js'
 import { hotlistService } from '../../services/hotlist/hotlist.service.remote.js'
@@ -687,7 +688,7 @@ function ListRow({ row, open, onToggle, onBuild, onAsk, onSymbolClick, column = 
                     {pick ? <span className="hot-star" title={`Argus's pick #${pick.rank}${column ? ` for ${COLUMN_LABEL[column].toLowerCase()}` : ''}`}>★{pick.rank}</span>
                         : row.avoid ? <span className="hot-avoid" title={`Argus — avoid: ${row.avoid}`}>✕</span> : null}
                 </td>
-                <td><button type="button" className="hot-sym" onClick={() => onSymbolClick?.(row.symbol)} title={row.name ?? row.symbol}>{row.symbol}</button></td>
+                <td><button type="button" className="hot-sym" onClick={() => onSymbolClick?.(row.symbol)} title={row.name ?? row.symbol}>{row.symbol}</button><OwnedBadge symbol={row.symbol} /></td>
                 <td className="hot-spark-cell hot-spark-cell--sm"><Sparkline closes={row.spark} price={row.price} range={cell?.range ?? null} small hot={status === 'in_play'} /></td>
                 <td className="hot-table__num" title={row.quoted_at ? `As of ${_time(row.quoted_at)}` : undefined}>{Number.isFinite(row.price) ? row.price.toFixed(2) : '—'}</td>
                 {tape && <td className={`hot-table__num${row.gap_pct > 0 ? ' hot-up' : row.gap_pct < 0 ? ' hot-down' : ''}`}>{_pct(row.gap_pct)}</td>}
@@ -883,7 +884,7 @@ function Row({ row, board, columns, onBuild, onAsk, onSymbolClick }) {
             <tr className={`hot-row${row.pick ? ' hot-row--pick' : ''}${row.avoid ? ' hot-row--avoid' : ''}`} data-symbol={row.symbol}>
                 <td className="hot-table__star">{row.pick ? <span className="hot-star" title={`Argus's pick #${row.pick.rank}`}>★{row.pick.rank}</span> : null}</td>
                 <td>
-                    <button type="button" className="hot-sym" onClick={() => onSymbolClick?.(row.symbol)} title={row.name ?? row.symbol}>{row.symbol}</button>
+                    <button type="button" className="hot-sym" onClick={() => onSymbolClick?.(row.symbol)} title={row.name ?? row.symbol}>{row.symbol}</button><OwnedBadge symbol={row.symbol} />
                     {row.name && <span className="hot-name">{row.name}</span>}
                 </td>
                 <td className="hot-spark-cell"><Sparkline closes={row.spark} price={row.price} range={col ? row.cells?.[col]?.range : null} /></td>

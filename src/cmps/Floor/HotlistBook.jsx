@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
+import { OwnedBadge } from '../OwnedBadge/OwnedBadge.jsx'
 import { CoverageDetail, CoverageRating } from './CoverageDetail.jsx'
 import { HotlistScorecard } from './HotlistScorecard.jsx'
 import { BOOK_LABEL, BOOK_SORTS, COVERED, VERDICT_WORDS, bookResult, bookProgress, bookOrigin, bookRecordLine, sortBook, chainSurvivors, chainLeft, coveredRows, pickCell } from './hotlist.utils.js'
@@ -66,7 +67,7 @@ function ChainPicks({ picks, failed, rows, column, onSymbolClick }) {
                         const cell = pickCell(p, bySym.get(p.symbol) ?? null)
                         return (
                             <tr key={p.symbol} className="hot-row hot-row--line" data-symbol={p.symbol}>
-                                <td><button type="button" className="hot-sym" onClick={() => onSymbolClick?.(p.symbol)}>{p.symbol}</button></td>
+                                <td><button type="button" className="hot-sym" onClick={() => onSymbolClick?.(p.symbol)}>{p.symbol}</button><OwnedBadge symbol={p.symbol} /></td>
                                 <td>{p.subject ?? '—'}</td>
                                 <td className="hot-picks__why">{p.why ?? <span className="hot-dim">—</span>}{p.caution && <span className="hot-row__caution"> Caution: {p.caution}</span>}</td>
                                 <td className={`hot-result hot-result--${cell.tone}`}>{cell.text}</td>
@@ -181,7 +182,7 @@ export function HotlistBook({ book, column, coverage = [], onBuild, onAsk, onSym
                                             <td className="hot-table__star">
                                                 <button type="button" className="hot-toggle" aria-expanded={open} aria-label={`${open ? 'Hide' : 'Show'} ${r.symbol} details`} onClick={toggle}>{open ? '▾' : '▸'}</button>
                                             </td>
-                                            <td><button type="button" className="hot-sym" onClick={() => onSymbolClick?.(r.symbol)} title={r.name ?? r.symbol}>{r.symbol}</button></td>
+                                            <td><button type="button" className="hot-sym" onClick={() => onSymbolClick?.(r.symbol)} title={r.name ?? r.symbol}>{r.symbol}</button><OwnedBadge symbol={r.symbol} /></td>
                                             <td className="hot-table__num">{_price(r.price)}</td>
                                             <td>{cov ? <CoverageRating coverage={cov} /> : <span className="hot-dim">{r.rating?.replace('_', ' ') ?? '—'}</span>}</td>
                                             <td className="hot-table__num">{_price(r.target)}</td>

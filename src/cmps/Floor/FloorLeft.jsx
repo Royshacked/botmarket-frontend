@@ -101,7 +101,7 @@ function PositionLine({ position: p, sub, onOpen, onClose, closing, expanded, on
                     grid cell, so the click target is the inner span and the badge stays out
                     of it — pressing ×3 should not open a chart. */}
                 <span className="floor-pos__sym">
-                    <SymbolCell symbol={p.symbol} onSymbolClick={onSymbolClick} className="floor-pos__ticker" />
+                    <SymbolCell symbol={p.symbol} onSymbolClick={onSymbolClick} className="floor-pos__ticker" owned ownedExcept="position" />
                     {folded && <span className="floor-pos__legs">×{p.legs?.length ?? 0}</span>}
                 </span>
                 <span className="floor-pos__qty">{formatNum(p.volume)}</span>

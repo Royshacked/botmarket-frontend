@@ -29,7 +29,7 @@ export function CoverageCard({ c, onEdit, onRetire, onDelete, onSymbolClick, def
         <div className="coverage-book__card">
             <div className="coverage-book__row" role="button" tabIndex={0} onClick={() => hasDetail && setOpen(o => !o)}
                 onKeyDown={e => { if (hasDetail && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setOpen(o => !o) } }}>
-                <SymbolCell className="coverage-book__sym" symbol={c.symbol} onSymbolClick={onSymbolClick} />
+                <SymbolCell className="coverage-book__sym" symbol={c.symbol} onSymbolClick={onSymbolClick} owned />
                 {c.rating && <span className={`coverage-book__rating coverage-book__rating--${c.rating}`}>{RATING_LABEL[c.rating] ?? c.rating}</span>}
                 <PriceTarget priceTarget={pt} gap={gap} />
                 <span className={`coverage-book__status coverage-book__status--${c.status}`}>{STATUS_LABEL[c.status] ?? c.status}</span>

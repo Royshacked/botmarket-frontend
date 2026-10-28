@@ -45,7 +45,7 @@ export function IdeaCard({ idea, onDelete, onStatusChange, onOpen, onSymbolClick
         <>
             {isBrokerChild
                 ? <span className="idea-card__broker">{brokerChildLabel(idea)}</span>
-                : <SymbolCell symbol={asset} onSymbolClick={onSymbolClick} />}
+                : <SymbolCell symbol={asset} onSymbolClick={onSymbolClick} owned />}
             {direction && <Pill variant="dir" className={`direction--${direction}`}>{direction}</Pill>}
             {type && <Pill variant="type">{type}</Pill>}
             {!isBrokerChild && brokerSym && (

@@ -3,6 +3,7 @@ import { openChart } from '../../services/chartSurface.service.js'
 import { StatusIcon } from '../StatusIcon.jsx'
 import { EditIcon, BinIcon, BuildingIcon, ActivateIcon } from './entityIcons.jsx'
 import { IconButton } from './IconButton.jsx'
+import { OwnedBadge } from '../OwnedBadge/OwnedBadge.jsx'
 
 // ONE card shell for every entity list — ideas, calls, setups.
 //
@@ -105,25 +106,30 @@ EntityCard.propTypes = {
  * `onSymbolClick` survives as an OVERRIDE for the callers that already pass one and mean
  * something other than "dock this chart".
  */
-export function SymbolCell({ symbol, onSymbolClick, className = 'idea-card__sym' }) {
+export function SymbolCell({ symbol, onSymbolClick, className = 'idea-card__sym', owned = false, ownedExcept = [] }) {
     const clickable = !!symbol
     const press = e => {
         e.stopPropagation()
         if (onSymbolClick) onSymbolClick(symbol)
         else openChart({ ticker: symbol, source: 'list' })
     }
-    return (
+    const cell = (
         <span
             className={clickable ? `${className} sym--chartable` : className}
             onClick={clickable ? press : undefined}
             title={clickable ? `View ${symbol} chart` : undefined}
         >{symbol || '—'}</span>
     )
+    // `owned`: mark a name that is already the user's — a position, a setup, a holding (2026-10-28). Beside the
+    // symbol, not inside it: the badge is not part of the chart click.
+    return owned && symbol ? <>{cell}<OwnedBadge symbol={symbol} except={ownedExcept} /></> : cell
 }
 SymbolCell.propTypes = {
     symbol: PropTypes.string,
     onSymbolClick: PropTypes.func,
     className: PropTypes.string,
+    owned: PropTypes.bool,
+    ownedExcept: PropTypes.oneOfType([PropTypes.string, PropTypes.arrayOf(PropTypes.string)]),
 }
 
 /** A titleline pill. `variant` picks the modifier (dir / type / lens …). */

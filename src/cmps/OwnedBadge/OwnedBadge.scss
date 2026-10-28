@@ -1,0 +1,25 @@
+// The mark on a ticker that is already the user's (OwnedBadge.jsx). Small, beside the symbol, never wrapping it.
+.owned-badge {
+    display: inline-flex;
+    gap: 3px;
+    margin-left: 6px;
+    vertical-align: middle;
+    white-space: nowrap;
+
+    &__part {
+        padding: 0 4px;
+        border-radius: 3px;
+        font-family: var(--font-mono);
+        font-size: 9.5px;
+        line-height: 15px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        border: 1px solid color-mix(in srgb, currentColor 45%, transparent);
+        background: color-mix(in srgb, currentColor 12%, transparent);
+
+        // The lifecycle's own colours: a position is the live long's, a setup the watching one's.
+        &--position  { color: var(--color-long); }
+        &--setup     { color: var(--color-looking); }
+        &--portfolio { color: var(--color-teal); }
+    }
+}
