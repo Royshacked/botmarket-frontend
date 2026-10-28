@@ -5,7 +5,7 @@ import { useDetailPanel, setReturnTo } from '../DetailPanel/detailPanel.store.js
 import { hotlistService } from '../../services/hotlist/hotlist.service.remote.js'
 import { apiError } from '../../services/http.service.js'
 import {
-    COLUMN_LABEL, COLUMN_TITLE, CHECKPOINT_LABEL, COLUMN_ORDER, STATUS_LABEL, STATUS_TITLE, LIST_SORTS,
+    COLUMN_LABEL, COLUMN_TITLE, CHECKPOINT_LABEL, COLUMN_ORDER, STATUS_LABEL, LIST_SORTS,
     fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, sparkGeometry, rowStatus, rowReason, sortList,
     pickFor, horizonCounts, horizonRows, readsBySymbol, readCell, hasBand, PASS_WHY, resultCell, columnRecord,
     BOOK_ORDER, BOOK_LABEL, BOOK_TITLE, readTime, argusRecordLine, backtestLine, DAY_COLUMNS,
@@ -56,7 +56,6 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick, coverage = [] }) {
     const [picksOnly, setPicksOnly] = useState(false)
     const [view, setView] = useState('list')
     const [sort, setSort] = useState({ key: 'status', dir: null })
-    const [only, setOnly] = useState(null)
     // A list per horizon (horizon-chains.md §1). FOUR TABS (Roy, 2026-10-28: "week / swing / long term / covered
     // companies") — no "All": the panel opens on This week. (An archived day horizon still shows on a past day with them.)
     const [horizon, setHorizon] = useState('week')
@@ -247,7 +246,7 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick, coverage = [] }) {
                     </div>
                 )
                 : listView && today.status === 'ok'
-                    ? <DayList today={today} sort={sort} setSort={setSort} only={only} setOnly={setOnly} horizon={horizon} setHorizon={setHorizon}
+                    ? <DayList today={today} sort={sort} setSort={setSort} horizon={horizon} setHorizon={setHorizon}
                         reads={readsBySymbol(reads.list, today.day)} readsFailed={reads.status === 'error'} readsLoading={reads.status === 'idle'} asked={asked} onAskRead={latestDay ? askRead : null}
                         record={record} book={book} coverage={coverage}
                         onSymbolClick={symbolClick} onBuild={handOff(onBuild)} onAsk={handOff(onAsk)} />
@@ -371,12 +370,12 @@ Body.propTypes = {
  * column it was graded on today; "Build with Mentor" hands over the best one, referencing the board
  * that cell lives on.
  */
-function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHorizon = () => {}, reads = new Map(), readsFailed = false,
+function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, reads = new Map(), readsFailed = false,
     readsLoading = false, asked = {}, onAskRead, record = null, book = null, coverage = [], onBuild, onAsk, onSymbolClick }) {
     // SWING and LONG TERM (Roy, 2026-10-24) are the house's coverage, not the day's boards: their own list (BookList).
     const bookView = BOOK_ORDER.includes(horizon) || horizon === COVERED
-    // THE HORIZON first (horizon-chains.md §1): one column's list — its names, Argus's picks for it first — then the
-    // status filter within it. A header the user clicked sorts it instead.
+    // THE HORIZON first (horizon-chains.md §1): one column's list — its names, Argus's picks for it first. A header the
+    // user clicked sorts it instead.
     const byHorizon = bookView ? [] : horizon ? horizonRows(today.dayList, horizon) : today.dayList
     // DAY TRADES (Roy, 2026-10-24: "the scan, then Argus confirms, then the names"): on a session horizon the list IS
     // the names Argus confirmed — no grade; everything the screener let through stays one click away ("All screened").
@@ -402,9 +401,9 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
     const argusNames = narrowed ? byHorizon.filter(r => pickFor(r, horizon)) : byHorizon
     const prometheusNames = weekTab ? byHorizon.filter(r => isConfirmedRead(reads.get(r.symbol))) : []
     const all = !narrowed || shown === 'all' ? byHorizon : shown === 'confirmed' ? prometheusNames : argusNames
-    // Each control counts inside the other's choice: a horizon's count under the status filter, a status's count inside
-    // the horizon — so a tab never reads "3" and opens on "nothing" (code review 2026-10-24).
-    const byStatus = only ? today.dayList.filter(r => rowStatus(r) === only) : today.dayList
+    // A tab's count is the list it opens on — so a tab never reads "3" and opens on "nothing" (code review 2026-10-24).
+    // (The status filter went with the Status column, 2026-10-28.)
+    const byStatus = today.dayList
     const hCounts = horizonCounts(byStatus)
     // A horizon tab's count is the list it OPENS on (code review 2026-10-24, as Swing's, Roy: "Swing's count is 11 but I see
     // fewer"): Argus's names on a day tab, Prometheus's confirmed names on This week. What was screened is on hover.
@@ -414,8 +413,7 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
         if (defaultView(c) === 'all') return rowsOf.length
         return rowsOf.filter(r => pickFor(r, c)).length
     }
-    const counts = Object.fromEntries(Object.keys(STATUS_LABEL).map(s => [s, all.filter(r => rowStatus(r) === s).length]))
-    const filtered = only ? all.filter(r => rowStatus(r) === only) : all
+    const filtered = all
     // A horizon's list is in Argus's order until a header is clicked: no header claims it meanwhile.
     const argusOrder = Boolean(horizon) && sort.key === 'status' && !sort.dir
     const rows = argusOrder ? filtered : sortList(filtered, sort.key, sort.dir, horizon)
@@ -433,8 +431,7 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
     // A new horizon opens in its own order, not the last tab's sort.
     const chooseHorizon = (h) => { if (h === horizon) return; setHorizon(h); setSort({ key: 'status', dir: null }); setViews({}) }
     const setView = (v) => setViews(m => ({ ...m, [horizon]: v }))
-    // A day horizon that empties while chosen (a poll took its last name, or the status filter did, or the next day has
-    // none) falls back to This week — which stays, empty or not: its empty list says why.
+    // A day horizon that empties while chosen (a poll took its last name, or the next day has none) falls back to This week — which stays, empty or not: its empty list says why.
     // (The book's lists are not the day's: their count is the book's, and a reload of the day does not touch them.)
     useEffect(() => { if (horizon !== 'week' && !bookView && !hCounts[horizon]) setHorizon('week') }, [horizon, hCounts[horizon]])   // eslint-disable-line react-hooks/exhaustive-deps -- the one count is the dependency
     const shownSort = argusOrder ? { key: null, dir: null } : sort
@@ -499,15 +496,7 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
                         ))}
                     </div>
                 )}
-                <div className="hot-status-filter" role="group" aria-label="Show">
-                    <button type="button" className={`hot-status-filter__btn${!only ? ' hot-status-filter__btn--on' : ''}`} aria-pressed={!only}
-                        aria-label={`Every status, ${all.length}`} onClick={() => setOnly(null)}>All {all.length}</button>
-                    {Object.entries(STATUS_LABEL).map(([s, label]) => (
-                        <button key={s} type="button" title={STATUS_TITLE[s]} disabled={!counts[s]} aria-pressed={only === s}
-                            className={`hot-status-filter__btn hot-status-filter__btn--${s}${only === s ? ' hot-status-filter__btn--on' : ''}`}
-                            onClick={() => setOnly(only === s ? null : s)}>{label} {counts[s]}</button>
-                    ))}
-                </div>
+                {/* No status filter or column (Roy, 2026-10-28: "no need for status column"). */}
                 {ruleWeek
                     ? <span className="hot-meta__item hot-dim" title="Not live: the close before the list was built — the trade is bought at the list day's open">Prices: the close before the list</span>
                     : <span className="hot-meta__item hot-dim" title="Not live: each price is the quote the screener read at the checkpoint that last listed the name">Prices as of each name’s last checkpoint</span>}
@@ -528,11 +517,11 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
             {showReads && readsFailed && <p className="hot-note hot-note--warn">Prometheus’s targets could not be loaded — Argus’s names are shown without them.</p>}
             {showReads && <p className="hot-note">Target: <b>Prometheus’s</b> short-swing price — decided from the catalyst and the company, off a yardstick (what the catalyst is worth, or the stock’s usual run-up into a report ahead) — and how much of it is still open. Valid until its window ends (the session before a report); graded then.</p>}
             {!rows.length
-                ? (narrowed && shown !== 'all' && !only
+                ? (narrowed && shown !== 'all'
                     ? <p className="floor-empty">{emptyNamesText({ shown, column: horizon, argus: ruleWeek ? byHorizon : argusNames, screened: byHorizon.length, reads, readsFailed, readsLoading, rule: ruleWeek })}</p>
-                    : emptyNight && !only
+                    : emptyNight
                         ? <p className="floor-empty">{latest.closed ? 'No run-up names on this list.' : 'No run-up names for this list: no company reporting in six sessions had three beats running.'}</p>
-                        : <p className="floor-empty">Nothing {STATUS_LABEL[only]?.toLowerCase() ?? 'listed'}{horizon ? ` for ${COLUMN_LABEL[horizon].toLowerCase()}` : ''} today.</p>)
+                        : <p className="floor-empty">Nothing listed{horizon ? ` for ${COLUMN_LABEL[horizon].toLowerCase()}` : ''} today.</p>)
                 : (
                     <div className="hot-table-wrap hot-table-wrap--list">
                         <table className="hot-table hot-table--list">
@@ -545,7 +534,6 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
                                     {!ruleWeek && th('chg', 'Chg%', { num: true, title: 'Change from the previous close, at that checkpoint' })}
                                     {!ruleWeek && th('vol', 'RVol', { num: true, title: 'Volume against an ordinary day, at the checkpoint (pre-market: % of a day)' })}
                                     {th('atr', 'ATR%', { num: true, title: 'Average daily range, % of price' })}
-                                    {th('status', 'Status', { title: 'In play now, building, or setting up' })}
                                     {/* No grades on the Hotlist (2026-10-24: the day trades, then This week); on All, the horizon each name is best on. */}
                                     {!horizon && !ruleWeek && th('grade', 'Horizon', { title: 'The horizon the name is best on' })}
                                     {!ruleWeek && <th scope="col" title="Free range: the room to the next level overhead — not a target">Room</th>}
@@ -570,7 +558,6 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
 }
 DayList.propTypes = {
     today: PropTypes.object.isRequired, sort: PropTypes.object.isRequired, setSort: PropTypes.func.isRequired,
-    only: PropTypes.string, setOnly: PropTypes.func.isRequired,
     horizon: PropTypes.string, setHorizon: PropTypes.func, reads: PropTypes.instanceOf(Map), readsFailed: PropTypes.bool, readsLoading: PropTypes.bool,
     asked: PropTypes.object, onAskRead: PropTypes.func, record: PropTypes.object, book: PropTypes.object, coverage: PropTypes.array,
     onBuild: PropTypes.func, onAsk: PropTypes.func, onSymbolClick: PropTypes.func,
@@ -667,9 +654,7 @@ SortTh.propTypes = {
     sort: PropTypes.object.isRequired, onSort: PropTypes.func.isRequired, num: PropTypes.bool, title: PropTypes.string,
 }
 
-const LIST_COLS = 12
-/** Short words for the one-line row; the filter and the detail use the full ones. */
-const STATUS_SHORT = { in_play: 'In play', building: 'Building', setting_up: 'Setting' }
+const LIST_COLS = 11
 const _room = (r) => (!r ? null : r.open_sky ? 'open sky'
     : [Number.isFinite(r.pct) ? `${r.pct.toFixed(1)}%` : null, Number.isFinite(r.atr_mult) ? `${r.atr_mult.toFixed(2).replace(/^0/, '')}×` : null].filter(Boolean).join(' ') || null)
 
@@ -708,7 +693,6 @@ function ListRow({ row, open, onToggle, onBuild, onAsk, onSymbolClick, column = 
                 {tape && <td className={`hot-table__num${row.gap_pct > 0 ? ' hot-up' : row.gap_pct < 0 ? ' hot-down' : ''}`}>{_pct(row.gap_pct)}</td>}
                 {tape && <td className="hot-table__num">{Number.isFinite(row.rvol) ? `${row.rvol}×` : Number.isFinite(row.pm_vol_pct) ? `${row.pm_vol_pct.toFixed(1)}%` : '—'}</td>}
                 <td className="hot-table__num">{Number.isFinite(row.atr_pct) ? `${row.atr_pct.toFixed(1)}%` : '—'}</td>
-                <td>{status ? <span className={`hot-status hot-status--${status}`} title={STATUS_TITLE[status]}>{STATUS_SHORT[status]}</span> : <span className="hot-dim">—</span>}</td>
                 {!hideGrade && <td>
                     {/* No grade on any horizon (2026-10-24) — the horizon only. */}
                     {cell?.grade

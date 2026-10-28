@@ -243,7 +243,7 @@ describe('HotlistPanel — today\'s list', () => {
         const dxc = screen.getByText('DXC').closest('tr')
         const cells = [...dxc.querySelectorAll('td')].map(td => td.textContent)
         // On a horizon's tab there is no Horizon column; This week carries Prometheus's target (none read here).
-        expect(cells.slice(3)).toEqual(['20.50', '+0.4%', '0.8%', '3.1%', 'Setting', '7.3% 2.30×', '10-29!', '—', '—'], 'the result: none on a row the server sent without one')
+        expect(cells.slice(3)).toEqual(['20.50', '+0.4%', '0.8%', '3.1%', '7.3% 2.30×', '10-29!', '—', '—'], 'the result: none on a row the server sent without one')
         expect(screen.queryByText(/earnings in 7 days/)).toBeNull()
         expect(screen.getByText(/Prices as of each name’s last checkpoint/)).toBeTruthy()
         expect(screen.getByText('Breadth is fine; the room is in SPCX.')).toBeTruthy()
@@ -288,13 +288,14 @@ describe('HotlistPanel — today\'s list', () => {
         expect(screen.queryByText(/earnings in 7 days/)).toBeNull()
     })
 
-    it('the status filter narrows the list, with counts', async () => {
+    // Roy, 2026-10-28: "no need for status column" — the column and its filter are gone.
+    it('no Status column and no status filter', async () => {
         await mount()
         weekAll()
-        fireEvent.click(screen.getByRole('button', { name: 'Building 1' }))
-        expect(order()).toEqual(['ACC'])
-        fireEvent.click(screen.getByRole('button', { name: 'Every status, 2' }))
-        expect(order()).toHaveLength(2)
+        expect(screen.queryByRole('columnheader', { name: /Status/ })).toBeNull()
+        expect(screen.queryByRole('group', { name: 'Show' })).toBeNull()
+        expect(screen.queryByRole('button', { name: /^Building/ })).toBeNull()
+        expect(order()).toEqual(['ACC', 'DXC'], 'still in its own order')
     })
 
     it('a header sorts; a second click flips it', async () => {
@@ -524,12 +525,10 @@ describe('HotlistPanel — the horizon lists, reviewed', () => {
         expect(order()).toEqual(['WK1', 'WK3', 'MIX'], 'the last tab\'s sort does not follow')
     })
 
-    it('the horizon counts follow the status filter; a day horizon it empties leaves the row', async () => {
+    it('a tab with no confirmed names but screened ones still opens', async () => {
         await mount()
-        week()
-        fireEvent.click(screen.getByRole('button', { name: /^Setting up/ }))
         const group = within(screen.getByRole('group', { name: 'Horizon' }))
-        expect(group.getAllByRole('button').map(b => b.textContent)).toEqual(['This week 0', 'Swing 0', 'Long term 0', 'Covered companies 0'])
+        expect(group.getAllByRole('button').map(b => b.textContent)).toEqual(['Open 0', 'This week 0', 'Swing 0', 'Long term 0', 'Covered companies 0'])
         expect(group.getByRole('button', { name: /^This week/ }).disabled).toBe(false, 'none confirmed, but screened names: still opens')
     })
 

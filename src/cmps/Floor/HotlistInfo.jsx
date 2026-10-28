@@ -1,5 +1,3 @@
-import { STATUS_LABEL, STATUS_TITLE } from './hotlist.utils.js'
-
 // THE HOTLIST, EXPLAINED — what the Info column shows while the Hotlist is open (Roy, 2026-10-24: "in info — right
 // column — put an explanation about this table"). Words only; the numbers are the panel's. Kept to what a trader needs
 // to read a row: where the names come from, what each column means, who decided what, and what the buttons do.
@@ -11,7 +9,6 @@ const COLUMNS = [
     ['Sparkline', 'The last 20 sessions.'],
     ['Last', 'The close before the list was built — not live. The trade is bought at the list day’s open.'],
     ['ATR%', 'The average daily range, as % of price — how far it usually moves in a day.'],
-    ['Status', 'Setting up — quiet, with its report ahead (below).'],
     ['Earn', 'The report the run-up is into. Amber with "!": out at the close before it.'],
     ['Result', 'Did it work — once the five sessions close (below).'],
     ['Target', 'Prometheus’s short-swing target and how much of it is still open.'],
@@ -68,12 +65,6 @@ export function HotlistInfo() {
                     and sells too. <b>Prometheus&apos;s scorecard</b> grades every call he makes: frozen the day he makes it and
                     measured against SPY at 1, 3, 6 and 12 months, a sell scored as right when the stock falls; holds apart. Under 20
                     graded calls a number is dim — too few to judge.</p>
-            </section>
-            <section>
-                <h3 className="hot-info__h">Status</h3>
-                <dl className="hot-info__dl">
-                    {Object.keys(STATUS_LABEL).map(s => (<div key={s}><dt>{STATUS_LABEL[s]}</dt><dd>{STATUS_TITLE[s].replace(/^[^—]*— /, '')}</dd></div>))}
-                </dl>
             </section>
             <section>
                 <h3 className="hot-info__h">Columns</h3>
