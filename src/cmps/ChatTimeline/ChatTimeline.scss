@@ -154,7 +154,8 @@
     flex-direction: column;
     gap: 6px;
 
-    &--user { align-items: flex-end; }
+    // The user's line on the left too (2026-10-28) — its bubble's tint says whose it is.
+    &--user { align-items: flex-start; }
 }
 
 .chat-timeline__speaker {

@@ -187,12 +187,14 @@
         line-height: 1.6;
         word-break: break-word;
 
+        // On the LEFT, like the agent's reply (Roy, 2026-10-28: "both should be left side") — one column to read down;
+        // the tint and the border still say whose it is.
         &--user {
-            align-self: flex-end;
+            align-self: flex-start;
             background: color-mix(in srgb, var(--accent) 12%, transparent);
             color: var(--accent-light);
             border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
-            border-bottom-right-radius: 1px;
+            border-bottom-left-radius: 1px;
         }
 
         &--assistant {
