@@ -373,7 +373,7 @@ function TradeRows({ setups, onEditSetup, onDeleteSetup, onSymbolClick }) {
                         <span className={`floor-row__dir floor-row__dir--${it.direction}`} aria-hidden="true">
                             {it.direction === 'short' ? '▾' : '▴'}
                         </span>
-                        <SymbolCell className="floor-row__sym" symbol={it.ticker} onSymbolClick={onSymbolClick} owned ownedExcept="setup" />
+                        <SymbolCell className="floor-row__sym" symbol={it.ticker} onSymbolClick={onSymbolClick} />
                         <span className="floor-row__kind">{it.kind}</span>
                         <span className={`floor-row__status floor-row__status--${it.status}`}>{it.status}</span>
                     </button>
@@ -519,7 +519,7 @@ function PortfolioRows({ ideas, positions, sort, onEditPortfolio, onDeletePortfo
                                     <span className={`floor-row__dir floor-row__dir--${h.direction}`} aria-hidden="true">
                                         {h.direction === 'short' ? '▾' : '▴'}
                                     </span>
-                                    <SymbolCell className="floor-row__sym" symbol={h.asset} onSymbolClick={onSymbolClick} owned ownedExcept="portfolio" />
+                                    <SymbolCell className="floor-row__sym" symbol={h.asset} onSymbolClick={onSymbolClick} />
                                     {/* allocationRatio is a 0–1 ratio, not a percentage */}
                                     <span className="floor-row__kind floor-row__kind--dim">{pctOf(h.allocationRatio)}</span>
                                     <span className={`floor-row__status floor-row__status--${h.status}`}>{statusText(h.status)}</span>

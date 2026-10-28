@@ -47,7 +47,7 @@ export function SetupCard({ setup, onArm, onDisarm, onDelete, onOpen, onEdit, on
 
     const title = (
         <>
-            <SymbolCell symbol={setup.asset} onSymbolClick={onSymbolClick} owned ownedExcept="setup" />
+            <SymbolCell symbol={setup.asset} onSymbolClick={onSymbolClick} />
             {setup.direction && <Pill variant="dir" className={`direction--${setup.direction}`}>{setup.direction}</Pill>}
             {setup.type && <Pill variant="type">{setup.type}</Pill>}
             {setup.trade_mode && <Pill variant="lens">{setup.trade_mode}</Pill>}
