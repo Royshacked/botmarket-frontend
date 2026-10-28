@@ -355,6 +355,23 @@ test("the chain's survivors and where each pick stands", async () => {
     assert.equal(pickCell({ state: 'waiting' }).text, 'waiting for Prometheus')
 })
 
+// Roy, 2026-10-28: "if a name is not relevant anymore to swing or long term — leave it only in covered companies".
+test('a name Pythia no longer calls leaves its list — and only its list', async () => {
+    const { chainSurvivors, chainLeft, coveredRows, pickCell, bookOrigin } = await import('./hotlist.utils.js')
+    const book = {
+        swing: [{ symbol: 'CHN', origin: { source: 'pythia', still: true } }, { symbol: 'PGR', origin: { source: 'pythia', subject: 'P&C', verdict: 'swing', still: false, verdict_now: 'watch' } },
+            { symbol: 'OLD', origin: { source: 'pythia', still: null } }, { symbol: 'PRE', origin: { source: 'desk' } }],
+        long_term: [],
+        picks: { swing: [{ symbol: 'PRE', state: 'already_covered', still: false, verdict_now: 'avoid' }] },
+    }
+    assert.deepEqual(chainSurvivors(book, 'swing').map(r => r.symbol), ['CHN', 'OLD'], 'unknown stays; a pick the desk covered leaves by its pick')
+    assert.deepEqual(chainLeft(book, 'swing').map(r => r.symbol), ['PGR', 'PRE'])
+    assert.deepEqual(coveredRows(book).map(r => r.symbol), ['CHN', 'PGR', 'OLD', 'PRE'], 'Covered companies keeps every one')
+    assert.equal(pickCell(book.picks.swing[0]).text, 'covered at the desk · Pythia now: avoid — off this list')
+    assert.equal(bookOrigin(book.swing[1]).text, 'P&C · no longer called')
+    assert.match(bookOrigin(book.swing[1]).title, /she now rates it watch — off the Swing list/)
+})
+
 test('the run-up week’s empty confirmed list says where Prometheus’s reads stand', async () => {
     const { emptyNamesText } = await import('./hotlist.utils.js')
     const names = [{ symbol: 'A' }, { symbol: 'B' }]

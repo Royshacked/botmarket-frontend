@@ -745,6 +745,18 @@ describe('HotlistPanel — Swing and Long term', () => {
         expect(onBuild).toHaveBeenCalledWith(expect.objectContaining({ symbol: 'LNG' }), 'long_term', null)
     })
 
+    // Roy, 2026-10-28: "if a name is not relevant anymore to swing or long term — leave it only in covered companies".
+    it('a name Pythia no longer calls leaves Swing — said so — and stays in Covered companies', async () => {
+        hotlistService.getBook.mockResolvedValue({ ...BOOK, swing: BOOK.swing.map(r => (r.symbol === 'CHN' ? { ...r, origin: { ...r.origin, still: false, verdict_now: 'watch' } } : r)) })
+        await mount()
+        fireEvent.click(screen.getByRole('button', { name: 'Swing 1' }))
+        expect(order()).toEqual(['HLD'])
+        expect(screen.getByText(/Off this list — Pythia no longer calls them swing/).textContent).toMatch(/CHN \(Railroads: now watch\)/)
+        fireEvent.click(screen.getByRole('button', { name: /^Covered companies/ }))
+        expect(order()).toContain('CHN')
+        expect(screen.getByText('Railroads · no longer called')).toBeTruthy()
+    })
+
     it('an empty survivors list says where the chain stands', async () => {
         hotlistService.getBook.mockResolvedValue({ ...BOOK, swing: BOOK.swing.filter(r => r.symbol !== 'CHN'),
             picks: { swing: [{ symbol: 'WAI', state: 'waiting' }], long_term: [] } })

@@ -49,7 +49,9 @@ export function HotlistInfo() {
                     target, 3–6 months out for <b>Swing</b>, 12–24 months for <b>Long term</b>. The list is <b>Prometheus
                     confirmed</b>: Argus&apos;s names that came out of research with a thesis and a target, whatever the rating — and a
                     name Argus picked that the desk had already covered. <b>Argus&apos;s names</b> shows every name the chain sent in
-                    the last eight weeks and where Prometheus has it.</p>
+                    the last eight weeks and where Prometheus has it. When Pythia stops calling a name&apos;s industry or theme for
+                    that horizon, the name <b>leaves the list</b> (a line says which) — its coverage stays live, in Covered
+                    companies.</p>
                 <dl className="hot-info__dl">
                     <div><dt>Upside</dt><dd>from the last close to the target.</dd></div>
                     <div><dt>By</dt><dd>the target date, and the horizon it was set for.</dd></div>

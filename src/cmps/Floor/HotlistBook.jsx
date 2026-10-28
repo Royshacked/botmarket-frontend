@@ -2,7 +2,7 @@ import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { CoverageDetail, CoverageRating } from './CoverageDetail.jsx'
 import { HotlistScorecard } from './HotlistScorecard.jsx'
-import { BOOK_LABEL, BOOK_SORTS, COVERED, bookResult, bookProgress, bookOrigin, bookRecordLine, sortBook, chainSurvivors, coveredRows, pickCell } from './hotlist.utils.js'
+import { BOOK_LABEL, BOOK_SORTS, COVERED, VERDICT_WORDS, bookResult, bookProgress, bookOrigin, bookRecordLine, sortBook, chainSurvivors, chainLeft, coveredRows, pickCell } from './hotlist.utils.js'
 
 // THE HOUSE'S BOOK in the Hotlist — its Swing and Long term lists (Roy, 2026-10-24: "in hotlist — what about longer
 // swings and long-term names?"). The day's boards stop at This week; these are Prometheus's coverage, split by the price
@@ -92,6 +92,8 @@ export function HotlistBook({ book, column, coverage = [], onBuild, onAsk, onSym
     const [openSym, setOpenSym] = useState(null)
     const all = covered ? coveredRows(book) : book?.[column] ?? []
     const survivors = chainSurvivors(book, column)
+    // Names Pythia no longer calls for this book: off the list, said so, in Covered companies (Roy, 2026-10-28).
+    const left = covered ? [] : chainLeft(book, column)
     const picks = book?.picks?.[column] ?? []
     const rows = sortBook(view === 'all' ? all : survivors, sort.key, sort.dir)
     const bySymbol = new Map((coverage ?? []).map(c => [String(c?.symbol ?? '').toUpperCase(), c]))
@@ -135,6 +137,10 @@ export function HotlistBook({ book, column, coverage = [], onBuild, onAsk, onSym
             </div>
             {view === 'scorecard' ? <HotlistScorecard /> : <>
             {!covered && <BookRecord rec={book?.record?.[column]} column={column} />}
+            {view === 'confirmed' && left.length > 0 && (
+                <p className="hot-note hot-dim">Off this list — Pythia no longer calls them {BOOK_LABEL[column].toLowerCase()}; still covered, in Covered companies:{' '}
+                    {left.map(r => `${r.symbol} (${r.origin?.subject ?? 'its industry'}: now ${VERDICT_WORDS[r.origin?.verdict_now] ?? r.origin?.verdict_now ?? '—'})`).join(', ')}.</p>
+            )}
             {view !== 'all' && <p className="hot-note">{BOOK_LABEL[column]}: <b>Pythia</b> calls the industry, <b>Argus</b> picks the names that best carry her thesis, and <b>Prometheus</b> researches each — the thesis and a {column === 'swing' ? '3–6 month' : '12–24 month'} target. The names he covered are the list, with his rating.</p>}
             {view === 'argus'
                 ? <ChainPicks picks={picks} failed={picksMissing} rows={all} column={column} onSymbolClick={onSymbolClick} />

@@ -301,7 +301,12 @@ export function bookProgress(row) {
 export function bookOrigin(row) {
     const o = row?.origin
     if (o?.source !== 'pythia') return { text: 'desk', title: 'Researched at the desk (not from the weekly chain)' }
-    return { text: o.subject ?? 'Pythia', title: `The weekly chain: Pythia's ${o.verdict === 'long_term' ? 'long-term' : o.verdict ?? ''} call on the ${o.kind ?? 'industry'} ${o.subject ?? ''} → Argus's pick → Prometheus` }
+    // Pythia no longer calls what sent it (2026-10-28): off Swing / Long term, here in Covered companies.
+    if (o.still === false) {
+        return { text: `${o.subject ?? 'Pythia'} · no longer called`,
+            title: `Sent by Pythia's ${o.verdict === 'long_term' ? 'long-term' : o.verdict ?? ''} call on ${o.subject ?? 'its industry'}; she now rates it ${VERDICT_WORDS[o.verdict_now] ?? o.verdict_now ?? '—'} — off the ${o.verdict === 'long_term' ? 'Long term' : 'Swing'} list, the coverage still live` }
+    }
+    return { text: o.subject ?? 'Pythia', title:`The weekly chain: Pythia's ${o.verdict === 'long_term' ? 'long-term' : o.verdict ?? ''} call on the ${o.kind ?? 'industry'} ${o.subject ?? ''} → Argus's pick → Prometheus` }
 }
 
 // ─── The weekly chain's survivors (Roy, 2026-10-24: "Pythia brings the industry → Argus brings names from it →
@@ -314,9 +319,29 @@ export function bookOrigin(row) {
  * (`already_covered`). A name Prometheus passed on has no live row, so it is not here.
  */
 export function chainSurvivors(book, column) {
+    return _chainRows(book, column).filter(r => _stillCalled(book, column, r) !== false)
+}
+
+/**
+ * The chain's names Pythia NO LONGER calls for this book (Roy, 2026-10-28: "if a name is not relevant anymore to swing
+ * or long term — leave it only in covered companies"): her verdict on the industry or theme that sent it has moved
+ * (backend houseBook.stillCalled). Off the list; still in the book — Covered companies. Pure.
+ */
+export function chainLeft(book, column) {
+    return _chainRows(book, column).filter(r => _stillCalled(book, column, r) === false)
+}
+
+function _chainRows(book, column) {
     const picked = new Set((book?.picks?.[column] ?? []).filter(p => ['covered', 'already_covered'].includes(p.state)).map(p => p.symbol))
     return (book?.[column] ?? []).filter(r => r?.origin?.source === 'pythia' || picked.has(r?.symbol))
 }
+
+// The row's own origin when it came through the chain; a desk name Argus picked carries it on its pick. Unknown is null.
+const _stillCalled = (book, column, r) => (r?.origin?.source === 'pythia' ? r.origin.still
+    : (book?.picks?.[column] ?? []).find(p => p.symbol === r?.symbol)?.still) ?? null
+
+/** Pythia's verdict words, for a name that left (industryAssessment VERDICTS). */
+export const VERDICT_WORDS = Object.freeze({ swing: 'for swing', long_term: 'for long term', watch: 'watch', avoid: 'avoid', no_case: 'no case' })
 
 /** Why Prometheus passed on a chain pick, in words (researchRun's reject reasons). */
 export const PICK_PASS_WHY = Object.freeze({
@@ -330,7 +355,16 @@ export const PICK_PASS_WHY = Object.freeze({
  * book, or null. Covered: his rating and target; passed: why; waiting: for him.
  */
 export function pickCell(pick, row = null) {
-    const rated = row ? `${String(row.rating ?? 'unrated').replace('_', ' ')}${Number.isFinite(row.target) ? ` · target ${row.target.toFixed(2)}${Number.isFinite(row.upside_pct) ? ` (${_sp(row.upside_pct)})` : ''}` : ''}` : null
+    const cell = _pickCell(pick, row)
+    // A covered pick whose call Pythia has since dropped: off this list, in Covered companies only (2026-10-28).
+    if (pick?.still === false && ['covered', 'already_covered'].includes(pick.state)) {
+        return { text: `${cell.text} · Pythia now: ${VERDICT_WORDS[pick.verdict_now] ?? pick.verdict_now ?? 'no call'} — off this list`, tone: 'dim' }
+    }
+    return cell
+}
+
+function _pickCell(pick, row) {
+    const rated =row ? `${String(row.rating ?? 'unrated').replace('_', ' ')}${Number.isFinite(row.target) ? ` · target ${row.target.toFixed(2)}${Number.isFinite(row.upside_pct) ? ` (${_sp(row.upside_pct)})` : ''}` : ''}` : null
     switch (pick?.state) {
     case 'covered': return row ? { text: rated, tone: isBuy(row) ? 'good' : 'dim' } : { text: 'covered — no longer live', tone: 'dim' }
     case 'already_covered': return { text: row ? `covered at the desk: ${rated}` : 'covered at the desk', tone: row && isBuy(row) ? 'good' : 'dim' }
