@@ -9,7 +9,7 @@ import {
     fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, sparkGeometry, rowStatus, rowReason, sortList,
     pickFor, horizonCounts, horizonRows, readsBySymbol, readCell, hasBand, PASS_WHY, resultCell, columnRecord,
     BOOK_ORDER, BOOK_LABEL, BOOK_TITLE, readTime, argusRecordLine, backtestLine, DAY_COLUMNS,
-    isConfirmedRead, emptyNamesText, COMPANY_LABEL, chainSurvivors,
+    isConfirmedRead, emptyNamesText, COMPANY_LABEL, chainSurvivors, COVERED, COVERED_LABEL, coveredRows,
 } from './hotlist.utils.js'
 import { ChartSurface } from '../PriceChart/ChartSurface.jsx'
 import { HotlistBook } from './HotlistBook.jsx'
@@ -57,8 +57,9 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick, coverage = [] }) {
     const [view, setView] = useState('list')
     const [sort, setSort] = useState({ key: 'status', dir: null })
     const [only, setOnly] = useState(null)
-    // A list per horizon (horizon-chains.md §1): null = every name; else one column's list.
-    const [horizon, setHorizon] = useState(null)
+    // A list per horizon (horizon-chains.md §1). FOUR TABS (Roy, 2026-10-28: "week / swing / long term / covered
+    // companies") — no "All": the panel opens on This week. (An archived day horizon still shows on a past day with them.)
+    const [horizon, setHorizon] = useState('week')
     // Prometheus's catalyst reads on the week's picks (§3) — read on open, and again after a read is asked for; a failed
     // read says so on This week rather than showing no targets as if there were none (code review 2026-10-24).
     const [reads, setReads] = useState({ status: 'idle', list: [] })
@@ -373,7 +374,7 @@ Body.propTypes = {
 function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHorizon = () => {}, reads = new Map(), readsFailed = false,
     readsLoading = false, asked = {}, onAskRead, record = null, book = null, coverage = [], onBuild, onAsk, onSymbolClick }) {
     // SWING and LONG TERM (Roy, 2026-10-24) are the house's coverage, not the day's boards: their own list (BookList).
-    const bookView = BOOK_ORDER.includes(horizon)
+    const bookView = BOOK_ORDER.includes(horizon) || horizon === COVERED
     // THE HORIZON first (horizon-chains.md §1): one column's list — its names, Argus's picks for it first — then the
     // status filter within it. A header the user clicked sorts it instead.
     const byHorizon = bookView ? [] : horizon ? horizonRows(today.dayList, horizon) : today.dayList
@@ -430,11 +431,12 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
         return { key, dir: cur === 'asc' ? 'desc' : 'asc' }
     })
     // A new horizon opens in its own order, not the last tab's sort.
-    const chooseHorizon = (h) => { setHorizon(h); setSort({ key: 'status', dir: null }); setViews({}) }
+    const chooseHorizon = (h) => { if (h === horizon) return; setHorizon(h); setSort({ key: 'status', dir: null }); setViews({}) }
     const setView = (v) => setViews(m => ({ ...m, [horizon]: v }))
-    // A horizon that empties while chosen (a poll took its last name, or the status filter did) falls back to All.
+    // A day horizon that empties while chosen (a poll took its last name, or the status filter did, or the next day has
+    // none) falls back to This week — which stays, empty or not: its empty list says why.
     // (The book's lists are not the day's: their count is the book's, and a reload of the day does not touch them.)
-    useEffect(() => { if (horizon && !bookView && !hCounts[horizon]) setHorizon(null) }, [horizon, hCounts[horizon]])   // eslint-disable-line react-hooks/exhaustive-deps -- the one count is the dependency
+    useEffect(() => { if (horizon !== 'week' && !bookView && !hCounts[horizon]) setHorizon('week') }, [horizon, hCounts[horizon]])   // eslint-disable-line react-hooks/exhaustive-deps -- the one count is the dependency
     const shownSort = argusOrder ? { key: null, dir: null } : sort
     const th = (key, label, extra = {}) => <SortTh key={key} k={key} label={label} sort={shownSort} onSort={onSort} {...extra} />
     // One row open at a time: its detail line under it.
@@ -450,16 +452,15 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
                     <ArgusSpots spots={latest.argus.spots} />
                 </section>
             )}
-            {/* A filter, like the status buttons beside it: pressed or not, a second press back to All. */}
+            {/* Four tabs (Roy, 2026-10-28): This week, Swing, Long term, Covered companies — one always chosen. */}
             <div className="hot-horizons" role="group" aria-label="Horizon">
-                <button type="button" aria-pressed={!horizon} className={`hot-horizons__btn${!horizon ? ' hot-horizons__btn--on' : ''}`}
-                    aria-label={`All horizons, ${byStatus.length}`} onClick={() => chooseHorizon(null)}>All {byStatus.length}</button>
-                {/* The day horizons were archived (2026-10-25): shown only on a past day that still has their names. */}
+                {/* The day horizons were archived (2026-10-25): shown only on a past day that still has their names. This
+                    week is always there — the panel opens on it, and an empty night's list says why. */}
                 {COLUMN_ORDER.filter(c => c === 'week' || hCounts[c]).map(c => (
-                    <button key={c} type="button" aria-pressed={horizon === c} disabled={!hCounts[c]}
+                    <button key={c} type="button" aria-pressed={horizon === c} disabled={c !== 'week' && !hCounts[c]}
                         title={`${COLUMN_TITLE[c]} — ${tabCount(c)} on the list (${defaultView(c) === 'confirmed' ? 'Prometheus confirmed' : 'Argus’s names'}) of ${hCounts[c] ?? 0} screened`}
                         className={`hot-horizons__btn${horizon === c ? ' hot-horizons__btn--on' : ''}`}
-                        onClick={() => chooseHorizon(horizon === c ? null : c)}>{COLUMN_LABEL[c]} {tabCount(c)}</button>
+                        onClick={() => chooseHorizon(c)}>{COLUMN_LABEL[c]} {tabCount(c)}</button>
                 ))}
                 {BOOK_ORDER.map((b, i) => {
                     // The count is what the button OPENS (Roy, 2026-10-24: "Swing's count is 11 but I see fewer") — the weekly
@@ -471,9 +472,14 @@ function DayList({ today, sort, setSort, only, setOnly, horizon = null, setHoriz
                         <button key={b} type="button" aria-pressed={horizon === b} disabled={!n && !picks}
                             title={`${BOOK_TITLE[b]} — ${survivors} confirmed by Prometheus of ${picks} the chain sent; ${n} in the book`}
                             className={`hot-horizons__btn${i === 0 ? ' hot-horizons__btn--book' : ''}${horizon === b ? ' hot-horizons__btn--on' : ''}`}
-                            onClick={() => chooseHorizon(horizon === b ? null : b)}>{BOOK_LABEL[b]} {survivors}</button>
+                            onClick={() => chooseHorizon(b)}>{BOOK_LABEL[b]} {survivors}</button>
                     )
                 })}
+                {/* The whole book, both horizons, and Prometheus's scorecard. */}
+                <button type="button" aria-pressed={horizon === COVERED}
+                    title="Every company Prometheus covers — swing and long term, the desk’s too — and his scorecard"
+                    className={`hot-horizons__btn${horizon === COVERED ? ' hot-horizons__btn--on' : ''}`}
+                    onClick={() => chooseHorizon(COVERED)}>{COVERED_LABEL} {coveredRows(book).length}</button>
             </div>
             {bookView ? (
                 <HotlistBook key={horizon} book={book} column={horizon} coverage={coverage} onBuild={onBuild} onAsk={onAsk} onSymbolClick={onSymbolClick} />

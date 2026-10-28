@@ -2,7 +2,7 @@ import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { CoverageDetail, CoverageRating } from './CoverageDetail.jsx'
 import { HotlistScorecard } from './HotlistScorecard.jsx'
-import { BOOK_LABEL, BOOK_SORTS, bookResult, bookProgress, bookOrigin, bookRecordLine, sortBook, chainSurvivors, pickCell } from './hotlist.utils.js'
+import { BOOK_LABEL, BOOK_SORTS, COVERED, bookResult, bookProgress, bookOrigin, bookRecordLine, sortBook, chainSurvivors, coveredRows, pickCell } from './hotlist.utils.js'
 
 // THE HOUSE'S BOOK in the Hotlist — its Swing and Long term lists (Roy, 2026-10-24: "in hotlist — what about longer
 // swings and long-term names?"). The day's boards stop at This week; these are Prometheus's coverage, split by the price
@@ -81,13 +81,16 @@ export function HotlistBook({ book, column, coverage = [], onBuild, onAsk, onSym
     // Prometheus analyses them and brings a thesis and PT — the survivors in the Hotlist"): the names it covered, any
     // rating; then every name Argus sent and where Prometheus has it; then the whole book, the desk's too. The parent keys
     // this by the book, so Swing → Long term starts fresh — view, sort and open row (code review 2026-10-24).
-    const [view, setView] = useState('confirmed')
+    // COVERED COMPANIES (Roy, 2026-10-28) is the whole book, both horizons, and the scorecard; Swing and Long term are the
+    // chain's lists — the survivors and Argus's names.
+    const covered = column === COVERED
+    const [view, setView] = useState(covered ? 'all' : 'confirmed')
     // The chain's picks are not there: the book failed, or a server from before them (code review 2026-10-24) — never
     // "the chain sent nothing".
     const picksMissing = !book || book.picks == null
     const [sort, setSort] = useState({ key: null, dir: null })
     const [openSym, setOpenSym] = useState(null)
-    const all = book?.[column] ?? []
+    const all = covered ? coveredRows(book) : book?.[column] ?? []
     const survivors = chainSurvivors(book, column)
     const picks = book?.picks?.[column] ?? []
     const rows = sortBook(view === 'all' ? all : survivors, sort.key, sort.dir)
@@ -115,12 +118,13 @@ export function HotlistBook({ book, column, coverage = [], onBuild, onAsk, onSym
         <>
             <div className="hot-meta">
                 <div className="hot-status-filter" role="group" aria-label="Names">
-                    {[
+                    {(covered ? [
+                        ['all', `All coverage ${all.length}`, 'Every live thesis, swing and long term — the desk’s too, holds and sells too'],
+                        ['scorecard', 'Prometheus’s scorecard', 'Every call he made, frozen when made and graded against SPY — all horizons, and his catalyst reads against his passes'],
+                    ] : [
                         ['confirmed', `Prometheus confirmed ${survivors.length}`, 'The weekly chain’s survivors: Pythia’s industry, Argus’s pick, and Prometheus’s thesis and target — whatever the rating'],
                         ['argus', `Argus’s names ${picks.length}`, 'Every name Argus sent from Pythia’s calls in the last eight weeks, and where Prometheus has it'],
-                        ['all', `All coverage ${all.length}`, 'Every live thesis on this horizon — the desk’s too, holds and sells too'],
-                        ['scorecard', 'Prometheus’s scorecard', 'Every call he made, frozen when made and graded against SPY — all horizons, and his catalyst reads against his passes'],
-                    ].map(([k, label, title]) => (
+                    ]).map(([k, label, title]) => (
                         <button key={k} type="button" aria-pressed={view === k} title={title}
                             className={`hot-status-filter__btn${view === k ? ' hot-status-filter__btn--on' : ''}`} onClick={() => setView(k)}>{label}</button>
                     ))}
@@ -130,12 +134,12 @@ export function HotlistBook({ book, column, coverage = [], onBuild, onAsk, onSym
                 </span>
             </div>
             {view === 'scorecard' ? <HotlistScorecard /> : <>
-            <BookRecord rec={book?.record?.[column]} column={column} />
+            {!covered && <BookRecord rec={book?.record?.[column]} column={column} />}
             {view !== 'all' && <p className="hot-note">{BOOK_LABEL[column]}: <b>Pythia</b> calls the industry, <b>Argus</b> picks the names that best carry her thesis, and <b>Prometheus</b> researches each — the thesis and a {column === 'swing' ? '3–6 month' : '12–24 month'} target. The names he covered are the list, with his rating.</p>}
             {view === 'argus'
                 ? <ChainPicks picks={picks} failed={picksMissing} rows={all} column={column} onSymbolClick={onSymbolClick} />
                 : !rows.length
-                ? <p className="floor-empty">{view === 'all' ? `No ${BOOK_LABEL[column].toLowerCase()} names in the book.` : survivorsEmpty({ picks, failed: picksMissing, column })}</p>
+                ? <p className="floor-empty">{covered ? 'No covered companies in the book.' : view === 'all' ? `No ${BOOK_LABEL[column].toLowerCase()} names in the book.` : survivorsEmpty({ picks, failed: picksMissing, column })}</p>
                 : (
                     <div className="hot-table-wrap hot-table-wrap--list">
                         <table className="hot-table hot-table--list hot-table--book">
@@ -193,9 +197,10 @@ export function HotlistBook({ book, column, coverage = [], onBuild, onAsk, onSym
                                                         )}
                                                         {cov ? <CoverageDetail coverage={cov} /> : <p className="hot-detail__line hot-dim">The thesis is on the Forecasts page.</p>}
                                                         <div className="hot-detail__actions">
-                                                            {onBuild && <button type="button" className="floor-queued__btn" onClick={() => onBuild(r, column, null)}
-                                                                title={`Build a ${BOOK_LABEL[column].toLowerCase()} setup with Mentor`}>Build with Mentor</button>}
-                                                            {onAsk && <button type="button" className="floor-queued__btn hot-ask" onClick={() => onAsk(r, column)}>Ask Argus</button>}
+                                                            {/* On Covered companies a row hands off as the book it sits in. */}
+                                                            {onBuild && <button type="button" className="floor-queued__btn" onClick={() => onBuild(r, r.book ?? column, null)}
+                                                                title={`Build a ${BOOK_LABEL[r.book ?? column].toLowerCase()} setup with Mentor`}>Build with Mentor</button>}
+                                                            {onAsk && <button type="button" className="floor-queued__btn hot-ask" onClick={() => onAsk(r, r.book ?? column)}>Ask Argus</button>}
                                                         </div>
                                                     </div>
                                                 </td>

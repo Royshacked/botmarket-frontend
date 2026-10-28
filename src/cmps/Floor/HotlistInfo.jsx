@@ -22,8 +22,9 @@ export function HotlistInfo() {
         <div className="floor-info__body hot-info">
             <section>
                 <h3 className="hot-info__h">The Hotlist</h3>
-                <p>Three lists, long side only. <b>This week</b> is built every night after the close by one tested rule.
-                    <b> Swing</b> and <b>Long term</b> are the house&apos;s research (below).</p>
+                <p>Four tabs, long side only. <b>This week</b> is built every night after the close by one tested rule.
+                    <b> Swing</b> and <b>Long term</b> are the house&apos;s research (below). <b>Covered companies</b> is every company
+                    Prometheus covers, and his scorecard.</p>
             </section>
             <section>
                 <h3 className="hot-info__h">This week — the run-up rule</h3>
@@ -51,7 +52,7 @@ export function HotlistInfo() {
                     target, 3–6 months out for <b>Swing</b>, 12–24 months for <b>Long term</b>. The list is <b>Prometheus
                     confirmed</b>: Argus&apos;s names that came out of research with a thesis and a target, whatever the rating — and a
                     name Argus picked that the desk had already covered. <b>Argus&apos;s names</b> shows every name the chain sent in
-                    the last eight weeks and where Prometheus has it. <b>All coverage</b> is the whole live book on that horizon.</p>
+                    the last eight weeks and where Prometheus has it.</p>
                 <dl className="hot-info__dl">
                     <div><dt>Upside</dt><dd>from the last close to the target.</dd></div>
                     <div><dt>By</dt><dd>the target date, and the horizon it was set for.</dd></div>
@@ -60,6 +61,13 @@ export function HotlistInfo() {
                     <div><dt>From</dt><dd>the weekly chain — Pythia&apos;s call on an industry or theme, Argus&apos;s pick, Prometheus — or the desk.</dd></div>
                 </dl>
                 <p>Their track record: how many targets came due and were hit, and how the live names are doing against SPY.</p>
+            </section>
+            <section>
+                <h3 className="hot-info__h">Covered companies</h3>
+                <p><b>All coverage</b> is the whole live book — swing and long term, the chain&apos;s names and the desk&apos;s, holds
+                    and sells too. <b>Prometheus&apos;s scorecard</b> grades every call he makes: frozen the day he makes it and
+                    measured against SPY at 1, 3, 6 and 12 months, a sell scored as right when the stock falls; holds apart. Under 20
+                    graded calls a number is dim — too few to judge.</p>
             </section>
             <section>
                 <h3 className="hot-info__h">Status</h3>

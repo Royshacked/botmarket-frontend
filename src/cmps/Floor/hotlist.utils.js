@@ -260,6 +260,14 @@ export const BOOK_TITLE = Object.freeze({
     swing:     "Swing — Prometheus's names with a 3–6 month price target",
     long_term: "Long term — Prometheus's names with a 12–24 month price target",
 })
+/** COVERED COMPANIES (Roy, 2026-10-28: "4 tabs — week / swing / long term / covered companies"): the whole book, both
+ *  horizons, and Prometheus's scorecard — the Hotlist's fourth tab. */
+export const COVERED = 'covered'
+export const COVERED_LABEL = 'Covered companies'
+/** Every live row of the book, both horizons, each tagged with the book it sits in (`book`). Pure. */
+export function coveredRows(book) {
+    return BOOK_ORDER.flatMap(b => (book?.[b] ?? []).map(r => ({ ...r, book: b })))
+}
 const BUY = new Set(['strong_buy', 'buy'])
 /** A long the house would buy (a rating of buy or strong buy). */
 export const isBuy = (row) => BUY.has(row?.rating)

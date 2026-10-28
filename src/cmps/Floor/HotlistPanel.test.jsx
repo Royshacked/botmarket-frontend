@@ -230,14 +230,20 @@ describe('HotlistPanel — today\'s list', () => {
             { id: EARLIER.id, checkpoint: 'premarket' }, { id: BOARD.id, checkpoint: 'mid' }] })
     })
     const order = () => [...document.querySelectorAll('tr.hot-row')].map(tr => tr.dataset.symbol)
+    // No "All" tab since 2026-10-28 (Roy: "4 tabs — week / swing / long term / covered companies"): the panel opens on
+    // This week; these look at everything it screened.
+    const weekAll = () => fireEvent.click(screen.getByRole('button', { name: /^All screened/ }))
 
-    it('opens on the day\'s list: one line per name — numbers in columns, the words only when opened', async () => {
+    it('opens on This week of the day\'s list: one line per name — numbers in columns, the words only when opened', async () => {
         await mount()
         expect(screen.getByRole('tab', { name: 'Today’s list' }).getAttribute('aria-selected')).toBe('true')
-        expect(order()).toEqual(['SPCX', 'ACC', 'DXC'], 'in play, building, setting up')
+        expect(screen.getByRole('button', { name: /^This week/ }).getAttribute('aria-pressed')).toBe('true')
+        weekAll()
+        expect(order()).toEqual(['ACC', 'DXC'], 'building, setting up — the mid-day name is on its own tab')
         const dxc = screen.getByText('DXC').closest('tr')
         const cells = [...dxc.querySelectorAll('td')].map(td => td.textContent)
-        expect(cells.slice(3)).toEqual(['20.50', '+0.4%', '0.8%', '3.1%', 'Setting', 'This week', '7.3% 2.30×', '10-29!', '—'], 'the result: none on a row the server sent without one')
+        // On a horizon's tab there is no Horizon column; This week carries Prometheus's target (none read here).
+        expect(cells.slice(3)).toEqual(['20.50', '+0.4%', '0.8%', '3.1%', 'Setting', '7.3% 2.30×', '10-29!', '—', '—'], 'the result: none on a row the server sent without one')
         expect(screen.queryByText(/earnings in 7 days/)).toBeNull()
         expect(screen.getByText(/Prices as of each name’s last checkpoint/)).toBeTruthy()
         expect(screen.getByText('Breadth is fine; the room is in SPCX.')).toBeTruthy()
@@ -245,26 +251,30 @@ describe('HotlistPanel — today\'s list', () => {
 
     it('a click on the row opens its detail: the reason, the run-up warning, when it was listed — one row at a time', async () => {
         await mount()
+        weekAll()
         fireEvent.click(screen.getByText('DXC').closest('tr').querySelector('td:nth-child(4)'))
         expect(screen.getByText(/earnings in 7 days — a run-up: out before the report/)).toBeTruthy()
         expect(screen.getByText(/a run-up into the report: be out before it/)).toBeTruthy()
         expect(screen.getByText(/listed at 08:00, 10:30/)).toBeTruthy()
         expect(screen.getByRole('button', { name: 'Hide DXC details' }).getAttribute('aria-expanded')).toBe('true')
-        fireEvent.click(screen.getByRole('button', { name: 'Show SPCX details' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Show ACC details' }))
         expect(screen.queryByText(/earnings in 7 days/)).toBeNull()
-        expect(screen.getByText(/A real profit swing with room\./)).toBeTruthy()
+        expect(screen.getByText(/near the 20-day high/)).toBeTruthy()
     })
 
     // Roy, 2026-10-22: a symbol on the hotlist shows its DAILY chart — in the window, which covers the chat.
     it('with no caller handler, a symbol opens its daily chart in the window; Back returns to the list', async () => {
         await mount()
+        weekAll()
         fireEvent.click(screen.getByRole('button', { name: 'DXC' }))
         expect(screen.getByText('chart DXC day')).toBeTruthy()
         expect(screen.getByRole('dialog').getAttribute('aria-label')).toBe('DXC · daily')
-        expect(screen.queryByRole('button', { name: 'SPCX' }), 'the table gave way to the chart').toBeNull()
+        expect(screen.queryByRole('button', { name: 'ACC' }), 'the table gave way to the chart').toBeNull()
         fireEvent.click(screen.getByRole('button', { name: '‹ Back to the list' }))
-        expect(screen.getByRole('button', { name: 'SPCX' })).toBeTruthy()
-        fireEvent.click(screen.getByRole('button', { name: 'SPCX' }))
+        expect(screen.getByRole('button', { name: /^This week/ }).getAttribute('aria-pressed')).toBe('true', 'back on the tab it left')
+        weekAll()
+        expect(screen.getByRole('button', { name: 'ACC' })).toBeTruthy()
+        fireEvent.click(screen.getByRole('button', { name: 'ACC' }))
         fireEvent.click(screen.getByRole('button', { name: 'Close chart' }))
         expect(screen.queryByText(/^chart /), 'the chart own Close goes back too').toBeNull()
     })
@@ -272,6 +282,7 @@ describe('HotlistPanel — today\'s list', () => {
     it('the symbol opens the chart, not the detail', async () => {
         const onSymbolClick = vi.fn()
         await mount({ onSymbolClick })
+        weekAll()
         fireEvent.click(screen.getByRole('button', { name: 'DXC' }))
         expect(onSymbolClick).toHaveBeenCalledWith('DXC')
         expect(screen.queryByText(/earnings in 7 days/)).toBeNull()
@@ -279,26 +290,35 @@ describe('HotlistPanel — today\'s list', () => {
 
     it('the status filter narrows the list, with counts', async () => {
         await mount()
+        weekAll()
         fireEvent.click(screen.getByRole('button', { name: 'Building 1' }))
         expect(order()).toEqual(['ACC'])
-        fireEvent.click(screen.getByRole('button', { name: 'Every status, 3' }))
-        expect(order()).toHaveLength(3)
+        fireEvent.click(screen.getByRole('button', { name: 'Every status, 2' }))
+        expect(order()).toHaveLength(2)
     })
 
     it('a header sorts; a second click flips it', async () => {
         await mount()
+        weekAll()
         fireEvent.click(screen.getByRole('button', { name: 'Last' }))
-        expect(order()).toEqual(['SPCX', 'ACC', 'DXC'])
+        expect(order()).toEqual(['ACC', 'DXC'])
         fireEvent.click(screen.getByRole('button', { name: /Last/ }))
-        expect(order()).toEqual(['DXC', 'ACC', 'SPCX'])
+        expect(order()).toEqual(['DXC', 'ACC'])
         expect(screen.getByRole('button', { name: /Last/ }).closest('th').getAttribute('aria-sort')).toBe('ascending')
         fireEvent.click(screen.getByRole('button', { name: 'ATR%' }))
-        expect(order()).toEqual(['SPCX', 'DXC', 'ACC'])
+        expect(order()).toEqual(['DXC', 'ACC'])
+    })
+
+    it('the archived mid-day name is on its own tab on the day that has it', async () => {
+        await mount()
+        fireEvent.click(screen.getByRole('button', { name: /^Mid-day/ }))
+        expect(order()).toEqual(['SPCX'], 'Argus’s pick for mid-day')
     })
 
     it('Build with Mentor references the board the best cell LIVES on, not the latest board', async () => {
         const onBuild = vi.fn()
         await mount({ onBuild })
+        weekAll()
         fireEvent.click(screen.getByRole('button', { name: 'Show DXC details' }))
         fireEvent.click(within(document.getElementById('hot-detail-DXC')).getByRole('button', { name: 'Build with Mentor' }))
         expect(onBuild).toHaveBeenCalledWith(expect.objectContaining({ symbol: 'DXC' }), 'week', { id: 'hb_2026-10-21_premarket' })
@@ -376,7 +396,8 @@ describe('HotlistPanel — a list per horizon', () => {
         const tabs = within(screen.getByRole('group', { name: 'Horizon' })).getAllByRole('button').map(t => t.textContent)
         // Each count is the list the tab OPENS on (2026-10-24): Argus's names on Open, Prometheus confirmed on This week.
         // The day horizons were archived (2026-10-25): a past day shows only the ones that still have names.
-        expect(tabs).toEqual(['All 4', 'Open 1', 'This week 1', 'Swing 0', 'Long term 0'])
+        // Four tabs (2026-10-28), no All — the archived Open only because this day has its names.
+        expect(tabs).toEqual(['Open 1', 'This week 1', 'Swing 0', 'Long term 0', 'Covered companies 0'])
         expect(screen.getByRole('button', { name: 'This week 1' }).title).toMatch(/1 on the list \(Prometheus confirmed\) of 3 screened/)
         expect(screen.queryByRole('button', { name: /^Mid-day/ })).toBeNull()
         fireEvent.click(screen.getByRole('button', { name: /^This week/ }))
@@ -403,7 +424,7 @@ describe('HotlistPanel — a list per horizon', () => {
         expect(screen.getByText('A real contract, two thirds still open.')).toBeTruthy()
         expect(screen.getByText(/Inside the window: Q3 report 2026-10-29/)).toBeTruthy()
         // Off the week tab, no Target column.
-        fireEvent.click(screen.getByRole('button', { name: 'All horizons, 4' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Open 1' }))
         expect(screen.queryByRole('columnheader', { name: 'Target' })).toBeNull()
     })
 
@@ -503,15 +524,16 @@ describe('HotlistPanel — the horizon lists, reviewed', () => {
         expect(order()).toEqual(['WK1', 'WK3', 'MIX'], 'the last tab\'s sort does not follow')
     })
 
-    it('the horizon counts follow the status filter, and an emptied horizon falls back to All', async () => {
+    it('the horizon counts follow the status filter; a day horizon it empties leaves the row', async () => {
         await mount()
+        week()
         fireEvent.click(screen.getByRole('button', { name: /^Setting up/ }))
         const group = within(screen.getByRole('group', { name: 'Horizon' }))
-        expect(group.getAllByRole('button').map(b => b.textContent)).toEqual(['All 2', 'This week 0', 'Swing 0', 'Long term 0'])
+        expect(group.getAllByRole('button').map(b => b.textContent)).toEqual(['This week 0', 'Swing 0', 'Long term 0', 'Covered companies 0'])
         expect(group.getByRole('button', { name: /^This week/ }).disabled).toBe(false, 'none confirmed, but screened names: still opens')
     })
 
-    it('a horizon a refresh empties while it is chosen falls back to All — never a pressed, disabled button', async () => {
+    it('a horizon a refresh empties while it is chosen falls back to This week — never a pressed, disabled button', async () => {
         vi.useFakeTimers()
         try {
             // The screener is working, so the panel looks again; the next look has no open names left.
@@ -526,7 +548,9 @@ describe('HotlistPanel — the horizon lists, reviewed', () => {
             expect(order()).toEqual(['MIX', 'OPN'])
             await act(async () => { vi.advanceTimersByTime(WORKING_POLL_MS) })
             await flush()
-            expect(group.getByRole('button', { name: /^All/ }).getAttribute('aria-pressed')).toBe('true')
+            expect(group.getByRole('button', { name: /^This week/ }).getAttribute('aria-pressed')).toBe('true')
+            expect(group.queryByRole('button', { name: /^Open/ })).toBeNull()
+            fireEvent.click(screen.getByRole('button', { name: /^All screened/ }))
             expect(order()).toEqual(['WK1', 'WK3'])
         } finally {
             vi.useRealTimers()
@@ -594,23 +618,27 @@ describe('HotlistPanel — did it work', () => {
         hotlistService.getOutcomes.mockResolvedValue(SUMMARY)
     })
     const cellOf = (sym) => screen.getByText(sym).closest('tr').querySelector('.hot-result')
+    const screened = (tab) => {
+        fireEvent.click(screen.getByRole('button', { name: tab }))
+        fireEvent.click(screen.getByRole('button', { name: /^All screened/ }))
+    }
 
     it("each row says whether it worked: ✓ reached, ✗ its best move, open while its window runs", async () => {
         await mount()
+        screened(/^Mid-day/)
         expect(screen.getByRole('columnheader', { name: 'Result' })).toBeTruthy()
         expect(cellOf('HIT').textContent).toBe('✓ reached')
         expect(cellOf('HIT').className).toMatch(/good/)
         expect(cellOf('MISS').textContent).toBe('✗ best +1.2%')
         expect(cellOf('MISS').title).toMatch(/Did not reach 51\.00 — best \+1\.2%, worst -1\.5%, ended -0\.8%/)
-        expect(cellOf('WEEK').textContent).toBe('open')
         fireEvent.click(screen.getByText('MISS').closest('tr').querySelector('td:nth-child(4)'))
         expect(screen.getByText(/Result \(Mid-day\):/)).toBeTruthy()
+        screened(/^This week/)
+        expect(cellOf('WEEK').textContent).toBe('open')
     })
 
-    it("Argus's record: over All, his calls overall; over a horizon, that horizon's", async () => {
+    it("Argus's record: a horizon's own", async () => {
         await mount()
-        const all = [...document.querySelectorAll('.hot-record')].map(p => p.textContent).find(t => /Argus/.test(t))
-        for (const part of ['picks up 73% · avg +0.6% (11)', 'avoids up 60% · avg +0.5% (20)', 'unmarked up 44% · avg -0.3% (23)']) expect(all).toContain(part)
         fireEvent.click(screen.getByRole('button', { name: /^Mid-day/ }))
         const mid = [...document.querySelectorAll('.hot-record')].map(p => p.textContent).find(t => /Argus/.test(t))
         expect(mid).toContain('picks up 80% · avg +1.1% (5)')
@@ -618,8 +646,6 @@ describe('HotlistPanel — did it work', () => {
 
     it("a day-trade horizon's record has no grades; a graded horizon's grade hover says how that grade has done", async () => {
         await mount()
-        // On All, HIT's best horizon is mid-day — no letter on a day trade (2026-10-24).
-        expect(screen.getByText('HIT').closest('tr').textContent).not.toMatch(/Mid-day A/)
         fireEvent.click(screen.getByRole('button', { name: /^Mid-day/ }))
         const strip = [...document.querySelectorAll('.hot-record')].map(x => x.textContent).find(t => /Track record/.test(t)) ?? ''
         expect(strip).not.toMatch(/A reached|unverified/)
@@ -633,6 +659,8 @@ describe('HotlistPanel — did it work', () => {
 
     it('‹ steps back to an earlier day — its list, its results — and › back to today', async () => {
         await mount()
+        screened(/^Mid-day/)
+        expect(screen.getByText('MISS')).toBeTruthy()
         expect(screen.getByRole('button', { name: 'The day after' }).disabled).toBe(true)
         fireEvent.click(screen.getByRole('button', { name: 'The day before' }))
         await flush()
@@ -643,6 +671,7 @@ describe('HotlistPanel — did it work', () => {
         fireEvent.click(screen.getByRole('button', { name: 'The day after' }))
         await flush()
         expect(hotlistService.getToday).toHaveBeenLastCalledWith(null)
+        fireEvent.click(screen.getByRole('button', { name: /^All screened/ }))
         expect(screen.getByText('MISS')).toBeTruthy()
     })
 })
@@ -695,10 +724,26 @@ describe('HotlistPanel — Swing and Long term', () => {
         expect(cell('CHN')).toBe('buy · target 130.00 (+30.0%)')
         expect(cell('PSS')).toBe('pass — he could not defend a number')
         expect(cell('WAI')).toBe('waiting for Prometheus')
-        fireEvent.click(screen.getByRole('button', { name: 'All coverage 3' }))
-        expect(order()).toEqual(['CHN', 'DSK', 'HLD'])
+        // The whole book and the scorecard moved to Covered companies (2026-10-28).
+        expect(screen.queryByRole('button', { name: /^All coverage/ })).toBeNull()
+        expect(screen.queryByRole('button', { name: 'Prometheus’s scorecard' })).toBeNull()
+    })
+
+    // Roy, 2026-10-28: "4 tabs — week / swing / long term / covered companies".
+    it('Covered companies: the whole book, both horizons, and the scorecard; a name hands off as the book it sits in', async () => {
+        const onBuild = vi.fn()
+        await mount({ coverage: COVERAGE, onBuild })
+        fireEvent.click(screen.getByRole('button', { name: 'Covered companies 4' }))
+        expect(screen.getByRole('button', { name: 'All coverage 4' }).getAttribute('aria-pressed')).toBe('true')
+        expect(screen.getByRole('button', { name: 'Prometheus’s scorecard' })).toBeTruthy()
+        expect(screen.queryByRole('button', { name: /^Argus’s names/ })).toBeNull()
+        expect(order()).toEqual(['CHN', 'DSK', 'HLD', 'LNG'])
         fireEvent.click(screen.getByRole('button', { name: /^Upside/ }))
-        expect(order()).toEqual(['DSK', 'CHN', 'HLD'])
+        expect(order()[0]).toBe('DSK')
+        expect(order().at(-1)).toBe('HLD')
+        fireEvent.click(screen.getByText('LNG').closest('tr').querySelector('td:nth-child(3)'))
+        fireEvent.click(screen.getByRole('button', { name: 'Build with Mentor' }))
+        expect(onBuild).toHaveBeenCalledWith(expect.objectContaining({ symbol: 'LNG' }), 'long_term', null)
     })
 
     it('an empty survivors list says where the chain stands', async () => {
@@ -772,7 +817,7 @@ describe('HotlistPanel — day trades are Argus’s names', () => {
         fireEvent.click(screen.getByRole('button', { name: /^Open/ }))
         fireEvent.click(screen.getByRole('button', { name: 'All screened 2' }))
         expect(order()).toEqual(['YES', 'NOT'])
-        fireEvent.click(within(screen.getByRole('group', { name: 'Horizon' })).getByRole('button', { name: /^All/ }))
+        fireEvent.click(within(screen.getByRole('group', { name: 'Horizon' })).getByRole('button', { name: /^This week/ }))
         fireEvent.click(screen.getByRole('button', { name: /^Open/ }))
         expect(screen.getByRole('button', { name: 'Argus’s names 1' }).getAttribute('aria-pressed')).toBe('true')
     })
