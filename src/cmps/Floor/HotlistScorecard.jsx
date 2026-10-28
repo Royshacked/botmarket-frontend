@@ -23,6 +23,15 @@ function CoverageTable({ coverage, min }) {
         const g = coverage?.[src]
         if (!g?.calls) continue
         rows.push({ key: src, label: SCORE_SOURCE[src], sub: `${g.calls} calls · ${g.open} open`, marks: (m) => g.marks?.[m]?.calls, strong: true })
+        // BY THE HOUSE'S BANDS (Roy, 2026-10-28: "if I want to see how the coverages did with the new rating, I need to see
+        // it in the scorecard"): each call in the band its target fell in against SPY the day it was made — then as he
+        // rated it, for the difference.
+        const bands = Object.entries(g.by_band ?? {})
+        if (bands.length) {
+            rows.push({ key: `${src}-bands`, label: 'By the house bands', sub: 'the band each target fell in the day it was made', marks: () => null, heading: true })
+            for (const [r, byMark] of bands) rows.push({ key: `${src}-band-${r}`, label: _rating(r), sub: r === 'hold' ? 'vs SPY, unsigned' : null, marks: (m) => byMark[m] })
+            rows.push({ key: `${src}-given`, label: 'As he rated them', sub: 'the rating he wrote', marks: () => null, heading: true })
+        }
         for (const [r, byMark] of Object.entries(g.by_rating ?? {})) rows.push({ key: `${src}-${r}`, label: _rating(r), sub: r === 'hold' ? 'vs SPY, unsigned' : null, marks: (m) => byMark[m] })
         if (g.target?.settled) rows.push({ key: `${src}-target`, label: 'Target reached', sub: `${g.target.reached} of ${g.target.settled} past their horizon`, marks: () => null })
     }
@@ -38,9 +47,9 @@ function CoverageTable({ coverage, min }) {
                 </thead>
                 <tbody>
                     {rows.map(r => (
-                        <tr key={r.key} className={`hot-row hot-row--line${r.strong ? ' hot-score__group' : ''}`}>
-                            <th scope="row" className={r.strong ? undefined : 'hot-score__sub'}>{r.label}{r.sub && <span className="hot-dim"> · {r.sub}</span>}</th>
-                            {SCORE_MARKS.map(m => <Cell key={m} s={r.marks(m)} min={min} />)}
+                        <tr key={r.key} className={`hot-row hot-row--line${r.strong ? ' hot-score__group' : ''}${r.heading ? ' hot-score__heading' : ''}`}>
+                            <th scope="row" className={r.strong ? undefined : r.heading ? 'hot-score__head' : 'hot-score__sub'}>{r.label}{r.sub && <span className="hot-dim"> · {r.sub}</span>}</th>
+                            {r.heading ? <td colSpan={SCORE_MARKS.length} /> : SCORE_MARKS.map(m => <Cell key={m} s={r.marks(m)} min={min} />)}
                         </tr>
                     ))}
                 </tbody>

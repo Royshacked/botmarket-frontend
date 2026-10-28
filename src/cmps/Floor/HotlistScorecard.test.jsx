@@ -36,6 +36,18 @@ describe('HotlistScorecard', () => {
         expect(screen.getByText('+2.0% · 50% beat · 3').className).toMatch(/hot-result--dim/)
     })
 
+    // Roy, 2026-10-28: "if I want to see how the coverages did with the new rating, I need to see it in the scorecard".
+    it('shows the calls by the house bands at the call, then as he rated them', async () => {
+        const banded = { ...CARD, coverage: { ...CARD.coverage, backfill: { ...CARD.coverage.backfill,
+            by_band: { strong_buy: { '1m': S(38, 2.62) }, hold: { '1m': S(30, -3.14) } } } } }
+        hotlistService.getScorecard.mockResolvedValue(banded)
+        render(<HotlistScorecard />)
+        await screen.findByText('By the house bands')
+        const rows = [...document.querySelectorAll('.hot-score tr.hot-row th')].map(t => t.textContent.split(' · ')[0])
+        expect(rows.slice(0, 6)).toEqual(['Before it (seeded)', 'By the house bands', 'strong buy', 'hold', 'As he rated them', 'buy'])
+        expect(screen.getByText('+2.6% · 50% beat · 38')).toBeTruthy()
+    })
+
     it('says so when it could not load', async () => {
         hotlistService.getScorecard.mockRejectedValue(new Error('x'))
         render(<HotlistScorecard />)

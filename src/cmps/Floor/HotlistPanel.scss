@@ -269,5 +269,7 @@
     display: flex; flex-direction: column; gap: 10px;
     .hot-table--score th[scope='row'] { text-align: left; font-weight: 600; white-space: nowrap; }
     .hot-score__sub { font-weight: 400 !important; padding-left: 18px; color: var(--text-secondary); }
+    // A sub-heading inside a group: the house bands, then as he rated them (2026-10-28).
+    .hot-score__head { font-weight: 600 !important; padding-left: 10px; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
     .hot-score__group th[scope='row'] { color: var(--text-primary); }
 }
