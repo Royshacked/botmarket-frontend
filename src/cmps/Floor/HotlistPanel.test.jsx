@@ -757,6 +757,14 @@ describe('HotlistPanel — Swing and Long term', () => {
         expect(screen.getByText('Railroads · no longer called')).toBeTruthy()
     })
 
+    it('a list every name has left says so — not "he covered none"', async () => {
+        hotlistService.getBook.mockResolvedValue({ ...BOOK, long_term: BOOK.long_term.map(r => ({ ...r, origin: { ...r.origin, still: false, verdict_now: 'avoid' } })) })
+        await mount()
+        fireEvent.click(screen.getByRole('button', { name: 'Long term 0' }))
+        expect(screen.getByText(/No long term names on the list: Pythia no longer calls the 1 Prometheus covered/)).toBeTruthy()
+        expect(screen.queryByText(/covered none/)).toBeNull()
+    })
+
     it('an empty survivors list says where the chain stands', async () => {
         hotlistService.getBook.mockResolvedValue({ ...BOOK, swing: BOOK.swing.filter(r => r.symbol !== 'CHN'),
             picks: { swing: [{ symbol: 'WAI', state: 'waiting' }], long_term: [] } })

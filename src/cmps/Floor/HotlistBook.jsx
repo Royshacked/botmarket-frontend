@@ -29,11 +29,16 @@ function BookRecord({ rec, column }) {
 }
 BookRecord.propTypes = { rec: PropTypes.object, column: PropTypes.string.isRequired }
 
-/** Why the survivors list is empty, in words: the picks not there, the chain sent nothing yet, still researching, or he covered none. */
-function survivorsEmpty({ picks, failed, column }) {
+/**
+ * Why the survivors list is empty, in words: the picks not there, every name it had left (Pythia no longer calls them),
+ * the chain sent nothing yet, still researching, or he covered none.
+ */
+function survivorsEmpty({ picks, failed, column, left = 0 }) {
     const label = BOOK_LABEL[column].toLowerCase()
-    if (failed) return 'The weekly chain’s names could not be loaded — see All coverage.'
-    if (!picks.length) return `The weekly chain has sent no ${label} names yet — Pythia’s week sends them. See All coverage meanwhile.`
+    if (failed) return 'The weekly chain’s names could not be loaded — see Covered companies.'
+    // Every survivor left (2026-10-28): not "he covered none" — he did, and Pythia has moved on.
+    if (left) return `No ${label} names on the list: Pythia no longer calls the ${left} Prometheus covered (named above) — they are in Covered companies.`
+    if (!picks.length) return `The weekly chain has sent no ${label} names yet — Pythia’s week sends them. See Covered companies meanwhile.`
     const waiting = picks.filter(p => p.state === 'waiting').length
     if (waiting) return `Prometheus has ${waiting} of Argus’s ${picks.length} ${label} names still to research. See Argus’s names.`
     return `Prometheus covered none of Argus’s ${picks.length} ${label} names — see Argus’s names for why.`
@@ -145,7 +150,7 @@ export function HotlistBook({ book, column, coverage = [], onBuild, onAsk, onSym
             {view === 'argus'
                 ? <ChainPicks picks={picks} failed={picksMissing} rows={all} column={column} onSymbolClick={onSymbolClick} />
                 : !rows.length
-                ? <p className="floor-empty">{covered ? 'No covered companies in the book.' : view === 'all' ? `No ${BOOK_LABEL[column].toLowerCase()} names in the book.` : survivorsEmpty({ picks, failed: picksMissing, column })}</p>
+                ? <p className="floor-empty">{covered ? 'No covered companies in the book.' : view === 'all' ? `No ${BOOK_LABEL[column].toLowerCase()} names in the book.` : survivorsEmpty({ picks, failed: picksMissing, column, left: left.length })}</p>
                 : (
                     <div className="hot-table-wrap hot-table-wrap--list">
                         <table className="hot-table hot-table--list hot-table--book">

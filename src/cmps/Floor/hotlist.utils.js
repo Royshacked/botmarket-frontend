@@ -319,8 +319,13 @@ export function bookOrigin(row) {
  * (`already_covered`). A name Prometheus passed on has no live row, so it is not here.
  */
 export function chainSurvivors(book, column) {
+    // The server marks each row `list` (houseBook.listOf — the same rule, and the record is over it); a server before
+    // it: the rule here.
+    if (_marked(book, column)) return book[column].filter(r => r.list === 'on')
     return _chainRows(book, column).filter(r => _stillCalled(book, column, r) !== false)
 }
+
+const _marked = (book, column) => (book?.[column] ?? []).some(r => r && 'list' in r)
 
 /**
  * The chain's names Pythia NO LONGER calls for this book (Roy, 2026-10-28: "if a name is not relevant anymore to swing
@@ -328,6 +333,7 @@ export function chainSurvivors(book, column) {
  * (backend houseBook.stillCalled). Off the list; still in the book — Covered companies. Pure.
  */
 export function chainLeft(book, column) {
+    if (_marked(book, column)) return book[column].filter(r => r.list === 'left')
     return _chainRows(book, column).filter(r => _stillCalled(book, column, r) === false)
 }
 

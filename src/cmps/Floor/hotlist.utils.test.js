@@ -372,6 +372,14 @@ test('a name Pythia no longer calls leaves its list — and only its list', asyn
     assert.match(bookOrigin(book.swing[1]).title, /she now rates it watch — off the Swing list/)
 })
 
+test('a server that marks each row\'s list is followed — the record is over the same rows', async () => {
+    const { chainSurvivors, chainLeft } = await import('./hotlist.utils.js')
+    const book = { swing: [{ symbol: 'ON', list: 'on', origin: { source: 'desk' } }, { symbol: 'OFF', list: 'left', origin: { source: 'pythia', still: true } },
+        { symbol: 'DSK', list: null, origin: { source: 'desk' } }] }
+    assert.deepEqual(chainSurvivors(book, 'swing').map(r => r.symbol), ['ON'], "the server's mark, not the rule here")
+    assert.deepEqual(chainLeft(book, 'swing').map(r => r.symbol), ['OFF'])
+})
+
 test('the run-up week’s empty confirmed list says where Prometheus’s reads stand', async () => {
     const { emptyNamesText } = await import('./hotlist.utils.js')
     const names = [{ symbol: 'A' }, { symbol: 'B' }]
