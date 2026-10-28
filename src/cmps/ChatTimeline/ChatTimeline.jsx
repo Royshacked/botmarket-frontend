@@ -18,6 +18,7 @@ import { AxlGreeting } from './AxlGreeting.jsx'
 import { SessionHistory } from './SessionHistory.jsx'
 import { VIEW_LABELS } from './ShowOffer.jsx'
 import { PaneToggle } from '../SidePane/PaneToggle.jsx'
+import { ChatActionSlot } from '../SidePane/ChatActions.jsx'
 import { useReturnTo, openPanel, setReturnTo, panelMounted, nextReturnTo } from '../DetailPanel/detailPanel.store.js'
 import { OPENING_OPTIONS, LANDING_ASKS, OPENING_QUESTION } from './openingOptions.js'
 import './ChatTimeline.scss'
@@ -240,6 +241,9 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
             <ChatChartDock />
 
             {taps.length > 0 && <SuggestionChips suggestions={taps} onPick={(t) => sendText(t)} disabled={busy} />}
+
+            {/* A desk's buttons (Generate, Update, Arm…) land here on a phone while its sheet is down (ChatActions). */}
+            <ChatActionSlot />
 
             {((atDesk && !empty) || showBack) && (
                 <div className="chat-timeline__address">

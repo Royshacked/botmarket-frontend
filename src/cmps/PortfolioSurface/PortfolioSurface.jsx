@@ -8,6 +8,7 @@ import { adoptService } from '../../services/adopt/adopt.service.remote'
 import { eventBus, REVIEW_RESOLVED } from '../../services/event-bus.service'
 import { useSurfacePress } from '../../customHooks/useSurfacePress.js'
 import { SurfaceNote } from '../SidePane/SurfaceNote.jsx'
+import { ChatActions } from '../SidePane/ChatActions.jsx'
 import { DiscardButton } from '../SidePane/DiscardButton.jsx'
 import {
     REVIEW_REQUEST, OPENINGS, ADOPT_OPENING, bookIdeas, buildSummary, planStatus, accountsMoved, bookPending,
@@ -284,7 +285,7 @@ export function PortfolioSurface({ session, deskProps = {} }) {
             <SurfaceNote note={note} />
 
             {(barAlways || !turning) && !adopting && (
-                <div className="portfolio-panel__action-bubble desk-surface__bar">
+                <ChatActions><div className="portfolio-panel__action-bubble desk-surface__bar">
                     {confirmDismiss ? (
                         <div className="portfolio-panel__dismiss-confirm">
                             <span>Dismiss this review? The next review comes round on its schedule.</span>
@@ -339,7 +340,7 @@ export function PortfolioSurface({ session, deskProps = {} }) {
                             <DiscardButton what={`the ${plan.name ?? 'new'} plan`} onDiscard={() => press('discard', { done: () => 'Discarded — Atlas\'s table is clear.' })} disabled={pressing} />
                         </>
                     ) : null}
-                </div>
+                </div></ChatActions>
             )}
         </div>
     )

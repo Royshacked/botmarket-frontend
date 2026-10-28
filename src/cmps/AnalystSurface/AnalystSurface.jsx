@@ -5,6 +5,7 @@ import { LaterButton } from '../LaterButton.jsx'
 import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
 import { useSurfacePress } from '../../customHooks/useSurfacePress.js'
 import { SurfaceNote } from '../SidePane/SurfaceNote.jsx'
+import { ChatActions } from '../SidePane/ChatActions.jsx'
 import { DiscardButton } from '../SidePane/DiscardButton.jsx'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import '../AnalystPanel/AnalystPanel.scss'
@@ -114,7 +115,7 @@ export function AnalystSurface({ session, deskProps = {} }) {
             {/* EDITING, the bar is always there (Roy, 2026-10-18): Update dark until Prometheus has a draft standing and
                 while it answers. */}
             {(editingId || !turning) && (
-                <div className="portfolio-panel__action-bubble desk-surface__bar">
+                <ChatActions><div className="portfolio-panel__action-bubble desk-surface__bar">
                     {(proposal || editingId) && (isAdmin ? (
                         <button
                             className="portfolio-panel__review-btn portfolio-panel__review-btn--update"
@@ -129,7 +130,7 @@ export function AnalystSurface({ session, deskProps = {} }) {
                     {editingId && <LaterButton onClick={() => commit('later')} disabled={pressing || turning} />}
                     {editingId && turning && <span className="analyst-panel__ask-hint">Prometheus is answering…</span>}
                     {!editingId && <DiscardButton what={`the ${symbol ?? ''} draft`} onDiscard={() => press('discard', { done: () => 'Discarded — Prometheus\'s table is clear.' })} disabled={pressing} />}
-                </div>
+                </div></ChatActions>
             )}
         </div>
     )

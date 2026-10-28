@@ -42,4 +42,15 @@ describe('PaneToggle', () => {
         render(<PaneToggle floor="axl" surfaces={surfaces} />)
         expect(screen.getByRole('button', { name: 'Show Order ticket' })).toBeTruthy()
     })
+
+    // A phone (2026-10-28): the desk is open with its sheet down — "Show", with a dot; a press raises it.
+    it('a lowered sheet → "Show …" with the work dot; a press raises it, the desk never closed', () => {
+        act(() => openSurface('mentor', { follow: true, collapse: true }))
+        render(<PaneToggle floor="mentor" surfaces={surfaces} />)
+        const btn = screen.getByRole('button', { name: "Show Mentor's work" })
+        expect(btn.className).toContain('has-work')
+        fireEvent.click(btn)
+        expect(sidePaneState()).toMatchObject({ tabs: ['mentor'], collapsed: false })
+        expect(screen.getByRole('button', { name: "Hide Mentor's work" }).className).not.toContain('has-work')
+    })
 })

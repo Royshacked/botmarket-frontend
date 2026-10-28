@@ -4,7 +4,7 @@ import PropTypes from 'prop-types'
 import { DrawerShell } from '../DrawerShell/DrawerShell.jsx'
 import { isHandheld } from '../EntityCard/entityPopup.js'
 import { agentMeta } from '../ChatTimeline/timelineRows.js'
-import { closePane, closeSurface, openSurface, setPinned, showSurface, sidePaneState, useSidePane } from './sidePane.store.js'
+import { closePane, closeSurface, collapsePane, openSurface, setPinned, showSurface, sidePaneState, useSidePane } from './sidePane.store.js'
 import './SidePane.scss'
 
 // ── The side pane: each desk's working surface, beside the chat (unified-chat plan phase 8b, K5) ──
@@ -44,7 +44,7 @@ KeptSlot.propTypes = { host: PropTypes.object.isRequired }
  *             may carry `keepMounted` and `paneLabel` (above)
  */
 export function SidePane({ session, surfaces, deskProps = {} }) {
-    const { tabs, active, pinned, parked } = useSidePane()
+    const { tabs, active, pinned, parked, collapsed } = useSidePane()
     const hosts = useRef(new Map())
     const hostFor = (t) => {
         if (!hosts.current.has(t)) {
@@ -59,11 +59,14 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
 
     // Follow the floor. Keyed on the floor's CHANGE, not its value, so closing the pane while a desk holds the floor
     // keeps it closed until the floor moves again.
+    // ON A PHONE the desk opens with its sheet DOWN (Roy, 2026-10-28): coming up on its own, the sheet covered the reply
+    // the user was reading. The desk is open all the same — its buttons sit under the chat (ChatActions) and the
+    // header's toggle carries a dot.
     const lastFloor = useRef(null)
     useEffect(() => {
         if (floor === lastFloor.current) return
         lastFloor.current = floor
-        if (surfaces[floor]) openSurface(floor, { follow: true })
+        if (surfaces[floor]) openSurface(floor, { follow: true, collapse: isHandheld() })
     }, [floor, surfaces])
 
     // A NEW SESSION (a commit ended the last one — Roy, 2026-10-18 — or New session) starts back with Axl: the desks'
@@ -83,6 +86,12 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
     const Surface = current ? surfaces[current] : null
     const handheld = !!Surface && isHandheld()
     const kept = [...new Set([...shown, ...(parked ?? [])])].filter(t => surfaces[t]?.keepMounted)
+    // A phone's desk surface is mounted into its own host node too, like a kept one: it must stay mounted while its sheet
+    // is down — its buttons are under the chat, its half-typed edit is still its own. The sheet up, KeptSlot moves the
+    // node in. Down (✕, back, Esc) LOWERS it: the desk stays open; closing its tab is "done with it".
+    const deskHost = handheld && !Surface.keepMounted ? hostFor(`desk:${current}`) : null
+    const sheetUp = !!Surface && !(handheld && collapsed)
+    const lower = handheld ? collapsePane : closePane
 
     return (
         <>
@@ -91,9 +100,10 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
             const Kept = surfaces[t]
             return createPortal(<Kept session={session} deskProps={deskProps} />, hostFor(t), `kept-${t}`)
         })}
+        {deskHost && createPortal(<Surface key={session?.sessionId ?? 'none'} session={session} deskProps={deskProps} />, deskHost, `desk-${current}`)}
         <DrawerShell
-            isOpen={!!Surface}
-            onClose={closePane}
+            isOpen={sheetUp}
+            onClose={lower}
             portalTo={handheld ? document.body : null}
             label={current ? `${labelOf(current)}'s work` : 'Desk'}
             className={`side-pane side-pane--${handheld ? 'sheet' : 'docked'}`}
@@ -130,7 +140,7 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
                 >
                     {pinned ? 'Pinned' : 'Pin'}
                 </button>
-                <button type="button" className="side-pane__close" onClick={closePane} aria-label="Close" title="Close (Esc)">✕</button>
+                <button type="button" className="side-pane__close" onClick={lower} aria-label="Close" title="Close (Esc)">✕</button>
             </header>
             {/* What this pane is — the surface says it (`paneHint`); a kept surface with its own screen has none. */}
             {Surface?.paneHint && <p className="side-pane__hint">{Surface.paneHint}</p>}
@@ -138,7 +148,9 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
                 {/* Keyed on the session: a surface's half-typed edit belongs to the session it was typed in. */}
                 {Surface && (Surface.keepMounted
                     ? <KeptSlot host={hostFor(current)} />
-                    : <Surface key={session?.sessionId ?? 'none'} session={session} deskProps={deskProps} />)}
+                    : deskHost
+                        ? <KeptSlot host={deskHost} />
+                        : <Surface key={session?.sessionId ?? 'none'} session={session} deskProps={deskProps} />)}
             </div>
         </DrawerShell>
         </>

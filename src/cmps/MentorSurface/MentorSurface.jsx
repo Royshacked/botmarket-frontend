@@ -12,6 +12,7 @@ import { EntryTable } from '../MentorPanel/EntryTable.jsx'
 import { StageConfirm } from '../MentorPanel/StageConfirm.jsx'
 import { useSurfacePress } from '../../customHooks/useSurfacePress.js'
 import { SurfaceNote } from '../SidePane/SurfaceNote.jsx'
+import { ChatActions } from '../SidePane/ChatActions.jsx'
 import { DiscardButton } from '../SidePane/DiscardButton.jsx'
 import { liveReadiness, candidatePress, stagePress, spansPress, entriesPress, delegatePress, revivePress, batchNames } from './mentorSurface.utils.js'
 import '../PortfolioPanel/PortfolioPanel.scss'
@@ -311,7 +312,7 @@ export function MentorSurface({ session, deskProps = {} }) {
 
             {/* Generate: shown as soon as there is a setup, so what is still missing is said, not hidden. */}
             {!turning && hasPreview && !generated && !editingId && (
-                <div className="portfolio-panel__action-bubble mentor-panel__generate desk-surface__bar">
+                <ChatActions><div className="portfolio-panel__action-bubble mentor-panel__generate desk-surface__bar">
                     <button
                         className="portfolio-panel__review-btn portfolio-panel__review-btn--update mentor-panel__btn"
                         onClick={() => commit('generate')}
@@ -340,12 +341,12 @@ export function MentorSurface({ session, deskProps = {} }) {
                         <span className="mentor-panel__missing">Not ready yet — ask Mentor what’s outstanding.</span>
                     )}
                     {live.ready && <span className="mentor-panel__missing">Generates as <em>waiting</em> — arm it to start monitoring.</span>}
-                </div>
+                </div></ChatActions>
             )}
 
             {/* Generated but not armed: the setup exists and nothing watches it — the one moment that must be unmissable. */}
             {!turning && generated && (
-                <div className="portfolio-panel__action-bubble mentor-panel__armed">
+                <ChatActions><div className="portfolio-panel__action-bubble mentor-panel__armed">
                     <p className="mentor-panel__armed-copy">
                         <strong>{generated.asset}</strong> saved as <em>waiting</em> — nothing is watching it yet.
                     </p>
@@ -363,13 +364,13 @@ export function MentorSurface({ session, deskProps = {} }) {
                     >
                         Leave it waiting
                     </button>
-                </div>
+                </div></ChatActions>
             )}
 
             {/* EDITING: the bar is always there, pinned to the pane's bottom (Roy, 2026-10-18) — Update lit only once the
                 plan has moved and is whole, both dark while Mentor is answering; the line under them says why. */}
             {editingId && (
-                <div className="portfolio-panel__action-bubble desk-surface__bar">
+                <ChatActions><div className="portfolio-panel__action-bubble desk-surface__bar">
                     <button
                         className="portfolio-panel__review-btn portfolio-panel__review-btn--update mentor-panel__btn"
                         onClick={() => commit('update', (r) => `${r.setup?.asset ?? 'The setup'} is updated.`)}
@@ -379,7 +380,7 @@ export function MentorSurface({ session, deskProps = {} }) {
                     </button>
                     <LaterButton className={`${LATER_BTN_CLASS} mentor-panel__btn`} onClick={() => commit('later')} disabled={turning || pressing} />
                     {editHint && <span className="mentor-panel__missing">{editHint}</span>}
-                </div>
+                </div></ChatActions>
             )}
         </div>
     )

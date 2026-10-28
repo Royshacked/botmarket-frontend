@@ -203,3 +203,36 @@
 @media (prefers-reduced-motion: reduce) {
     .side-pane--docked, .side-pane--sheet { animation: none; }
 }
+
+// ── A desk's buttons under the chat, on a phone (ChatActions.jsx, 2026-10-28) ──
+// Only what can be pressed: a dark button is not shown, and the bar shows only while a MAIN press is lit — Generate,
+// Update, Arm, Accept, Review (and a dismiss being confirmed). Later, Discard and Dismiss come with one, never alone: a
+// lone Discard under the chat on every empty table was noise. The "still needs…" lines stay with the plan, in the sheet.
+.chat-actions {
+    padding: 0 16px 6px;
+
+    &:empty,
+    &:not(:has(.portfolio-panel__review-btn--update:not(:disabled), .portfolio-panel__generate:not(:disabled), .portfolio-panel__dismiss-confirm button)) { display: none; }
+
+    button:disabled { display: none; }
+
+    .portfolio-panel__action-bubble {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+    }
+}
+
+// The toggle's dot: the desk has work in the lowered sheet.
+.chat-timeline__pane-toggle.has-work::after {
+    content: '';
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin-left: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    vertical-align: middle;
+}

@@ -8,7 +8,7 @@ let handheld = false
 vi.mock('../EntityCard/entityPopup.js', () => ({ isHandheld: () => handheld }))
 
 const { SidePane } = await import('./SidePane.jsx')
-const { _resetSidePane, openSurface, sidePaneState } = await import('./sidePane.store.js')
+const { _resetSidePane, openSurface, sidePaneState, expandPane } = await import('./sidePane.store.js')
 
 const Mentor = ({ session }) => <p>mentor surface · floor {session.floor}</p>
 const Atlas  = () => <p>atlas surface</p>
@@ -85,13 +85,36 @@ describe('SidePane', () => {
         expect(screen.queryByRole('dialog')).toBeNull()
     })
 
-    it('on a handheld it is a bottom sheet over the app', () => {
+    it('on a handheld it is a bottom sheet over the app — raised by the user, not by the floor moving', () => {
         handheld = true
         render(<SidePane session={{ floor: 'mentor' }} surfaces={surfaces} />)
+        // Roy, 2026-10-28: coming up on its own, the sheet covered the reply. The desk is open, the sheet down.
+        expect(screen.queryByRole('dialog')).toBeNull()
+        expect(sidePaneState()).toMatchObject({ tabs: ['mentor'], active: 'mentor', collapsed: true })
+        act(() => expandPane())
         const sheet = screen.getByRole('dialog')
         expect(sheet.className).toContain('side-pane--sheet')
         expect(sheet.parentElement).toBe(document.body)
         expect(sheet.getAttribute('aria-modal')).toBe('true')
+    })
+
+    it('a handheld: ✕ lowers the sheet — the desk stays open and its surface MOUNTED, its typing kept', () => {
+        handheld = true
+        const Typing = () => <input aria-label="mentor input" />
+        render(<SidePane session={{ floor: 'mentor', sessionId: 's1' }} surfaces={{ ...surfaces, mentor: Typing }} />)
+        act(() => expandPane())
+        fireEvent.change(screen.getByLabelText('mentor input'), { target: { value: 'NVDA' } })
+        fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+        expect(screen.queryByRole('dialog')).toBeNull()
+        expect(sidePaneState()).toMatchObject({ tabs: ['mentor'], collapsed: true })
+        act(() => expandPane())
+        expect(screen.getByLabelText('mentor input').value).toBe('NVDA')
+    })
+
+    it('a desktop: the floor moving still brings the pane up beside the chat', () => {
+        render(<SidePane session={{ floor: 'mentor' }} surfaces={surfaces} />)
+        expect(screen.getByRole('dialog').className).toContain('side-pane--docked')
+        expect(sidePaneState().collapsed).toBe(false)
     })
 
     it('8e: a KEPT surface keeps its state while the pane closes and other tabs show; its own ✕ ends it', () => {
