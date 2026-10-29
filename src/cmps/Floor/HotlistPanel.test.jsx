@@ -39,8 +39,9 @@ const flush = () => act(async () => { await Promise.resolve(); await Promise.res
 
 function Probe() { return <span data-testid="active">{useActivePanel() ?? 'none'}</span> }
 
+// The admin's panel by default — the notes, records and view switches; a user's is tested apart (2026-10-29).
 async function mount(props = {}) {
-    const utils = render(<><HotlistPanel {...props} /><Probe /></>)
+    const utils = render(<><HotlistPanel isAdmin {...props} /><Probe /></>)
     act(() => openPanel(HOTLIST_PANEL_ID))
     await flush()
     return utils
@@ -726,6 +727,32 @@ describe('HotlistPanel — Swing and Long term', () => {
         // The whole book and the scorecard moved to Covered companies (2026-10-28).
         expect(screen.queryByRole('button', { name: /^All coverage/ })).toBeNull()
         expect(screen.queryByRole('button', { name: 'Prometheus’s scorecard' })).toBeNull()
+    })
+
+    // Roy, 2026-10-29: "full table for admin only; for regular users only the table with the four tabs above — no explanations".
+    it("a user sees the four tabs and each one's list — no notes, records or view switches; Argus's names and the scorecard are the admin's", async () => {
+        await mount({ coverage: COVERAGE, isAdmin: false })
+        fireEvent.click(screen.getByRole('button', { name: 'Swing 2' }))
+        expect(order()).toEqual(['CHN', 'HLD'])
+        expect(document.querySelector('.hot-note'), 'no explanation, no track record').toBeNull()
+        expect(document.querySelector('.hot-status-filter'), 'no view switch').toBeNull()
+        expect(screen.queryByRole('button', { name: /^Argus’s names/ })).toBeNull()
+        fireEvent.click(screen.getByRole('button', { name: 'Covered companies 4' }))
+        expect(order()).toEqual(['CHN', 'DSK', 'HLD', 'LNG'])
+        expect(screen.queryByRole('button', { name: 'Prometheus’s scorecard' })).toBeNull()
+        expect(document.querySelector('.hot-note')).toBeNull()
+        fireEvent.click(screen.getByRole('button', { name: /^This week/ }))
+        expect(document.querySelector('.hot-note')).toBeNull()
+        expect(document.querySelector('.hot-status-filter')).toBeNull()
+    })
+
+    // A phone (2026-10-29: "tables too wide"): the secondary columns carry the class the phone's media rule hides.
+    it("marks the book's secondary columns for a phone to hide — the last price, the date, the way to target, where it came from", async () => {
+        await mount({ coverage: COVERAGE })
+        fireEvent.click(screen.getByRole('button', { name: 'Swing 2' }))
+        const more = [...document.querySelectorAll('.hot-table--book th.hot-col--more')].map(th => th.textContent.trim())
+        expect(more).toEqual(['Last', 'By', 'To target', 'From'])
+        expect(screen.getByText('CHN').closest('tr').querySelectorAll('td.hot-col--more')).toHaveLength(4)
     })
 
     // Roy, 2026-10-28: "4 tabs — week / swing / long term / covered companies".

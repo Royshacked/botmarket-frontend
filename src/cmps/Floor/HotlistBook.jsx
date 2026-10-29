@@ -82,7 +82,7 @@ function ChainPicks({ picks, failed, rows, column, onSymbolClick }) {
 }
 ChainPicks.propTypes = { picks: PropTypes.array.isRequired, failed: PropTypes.bool, rows: PropTypes.array.isRequired, column: PropTypes.string.isRequired, onSymbolClick: PropTypes.func }
 
-export function HotlistBook({ book, column, coverage = [], onBuild, onAsk, onSymbolClick }) {
+export function HotlistBook({ book, column, coverage = [], isAdmin = false, onBuild, onAsk, onSymbolClick }) {
     // THE CHAIN'S SURVIVORS first (Roy, 2026-10-24: "Pythia brings the industry → Argus brings names from it →
     // Prometheus analyses them and brings a thesis and PT — the survivors in the Hotlist"): the names it covered, any
     // rating; then every name Argus sent and where Prometheus has it; then the whole book, the desk's too. The parent keys
@@ -90,7 +90,9 @@ export function HotlistBook({ book, column, coverage = [], onBuild, onAsk, onSym
     // COVERED COMPANIES (Roy, 2026-10-28) is the whole book, both horizons, and the scorecard; Swing and Long term are the
     // chain's lists — the survivors and Argus's names.
     const covered = column === COVERED
-    const [view, setView] = useState(covered ? 'all' : 'confirmed')
+    // A user has no view switch (Roy, 2026-10-29): the list is the tab's list — Argus's names and the scorecard are the admin's.
+    const [chosen, setView] = useState(covered ? 'all' : 'confirmed')
+    const view = isAdmin ? chosen : covered ? 'all' : 'confirmed'
     // The chain's picks are not there: the book failed, or a server from before them (code review 2026-10-24) — never
     // "the chain sent nothing".
     const picksMissing = !book || book.picks == null
@@ -110,11 +112,11 @@ export function HotlistBook({ book, column, coverage = [], onBuild, onAsk, onSym
         if (s.dir && cur !== BOOK_SORTS[key]) return { key: null, dir: null }
         return { key, dir: cur === 'asc' ? 'desc' : 'asc' }
     })
-    const th = (key, label, { num = false, title } = {}) => {
+    const th = (key, label, { num = false, more = false, title } = {}) => {
         const on = sort.key === key
         const dir = on ? (sort.dir ?? BOOK_SORTS[key]) : null
         return (
-            <th scope="col" className={num ? 'hot-table__num' : undefined} title={title} aria-sort={on ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+            <th scope="col" className={[num && 'hot-table__num', more && 'hot-col--more'].filter(Boolean).join(' ') || undefined} title={title} aria-sort={on ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
                 <button type="button" className={`hot-sort${on ? ' hot-sort--on' : ''}`} onClick={() => onSort(key)}>
                     {label}{on ? <span aria-hidden="true">{dir === 'asc' ? ' ▲' : ' ▼'}</span> : null}
                 </button>
@@ -124,7 +126,7 @@ export function HotlistBook({ book, column, coverage = [], onBuild, onAsk, onSym
 
     return (
         <>
-            <div className="hot-meta">
+            {isAdmin && <div className="hot-meta">
                 <div className="hot-status-filter" role="group" aria-label="Names">
                     {(covered ? [
                         ['all', `All coverage ${all.length}`, 'Every live thesis, swing and long term — the desk’s too, holds and sells too'],
@@ -140,18 +142,18 @@ export function HotlistBook({ book, column, coverage = [], onBuild, onAsk, onSym
                 <span className="hot-meta__item hot-dim" title="The house's live coverage — not a day's board. Prices are the screener's last close.">
                     The house’s live coverage{book?.asof ? ` · prices as of the ${book.asof} close` : ''}
                 </span>
-            </div>
+            </div>}
             {view === 'scorecard' ? <HotlistScorecard /> : <>
-            {!covered && <BookRecord rec={book?.record?.[column]} column={column} />}
-            {view === 'confirmed' && left.length > 0 && (
+            {isAdmin && !covered && <BookRecord rec={book?.record?.[column]} column={column} />}
+            {isAdmin && view === 'confirmed' && left.length > 0 && (
                 <p className="hot-note hot-dim">Off this list — Pythia no longer calls them {BOOK_LABEL[column].toLowerCase()}; still covered, in Covered companies:{' '}
                     {left.map(r => `${r.symbol} (${r.origin?.subject ?? 'its industry'}: now ${VERDICT_WORDS[r.origin?.verdict_now] ?? r.origin?.verdict_now ?? '—'})`).join(', ')}.</p>
             )}
-            {view !== 'all' && <p className="hot-note">{BOOK_LABEL[column]}: <b>Pythia</b> calls the industry, <b>Argus</b> picks the names that best carry her thesis, and <b>Prometheus</b> researches each — the thesis and a {column === 'swing' ? '3–6 month' : '12–24 month'} target. The names he covered are the list, with his rating.</p>}
+            {isAdmin && view !== 'all' && <p className="hot-note">{BOOK_LABEL[column]}: <b>Pythia</b> calls the industry, <b>Argus</b> picks the names that best carry her thesis, and <b>Prometheus</b> researches each — the thesis and a {column === 'swing' ? '3–6 month' : '12–24 month'} target. The names he covered are the list, with his rating.</p>}
             {view === 'argus'
                 ? <ChainPicks picks={picks} failed={picksMissing} rows={all} column={column} onSymbolClick={onSymbolClick} />
                 : !rows.length
-                ? <p className="floor-empty">{covered ? 'No covered companies in the book.' : view === 'all' ? `No ${BOOK_LABEL[column].toLowerCase()} names in the book.` : survivorsEmpty({ picks, failed: picksMissing, column, left: left.length })}</p>
+                ? <p className="floor-empty">{!isAdmin ? (covered ? 'No covered companies yet.' : 'No names on this list yet.') : covered ? 'No covered companies in the book.' : view === 'all' ? `No ${BOOK_LABEL[column].toLowerCase()} names in the book.` : survivorsEmpty({ picks, failed: picksMissing, column, left: left.length })}</p>
                 : (
                     <div className="hot-table-wrap hot-table-wrap--list">
                         <table className="hot-table hot-table--list hot-table--book">
@@ -159,14 +161,14 @@ export function HotlistBook({ book, column, coverage = [], onBuild, onAsk, onSym
                                 <tr>
                                     <th scope="col" className="hot-table__star"><span className="hot-sr">Details</span></th>
                                     {th('symbol', 'Sym')}
-                                    <th scope="col" className="hot-table__num" title="The screener's last close — not live">Last</th>
+                                    <th scope="col" className="hot-table__num hot-col--more" title="The screener's last close — not live">Last</th>
                                     <th scope="col" title="Prometheus's rating">Rating</th>
                                     <th scope="col" className="hot-table__num" title="Prometheus's price target">Target</th>
                                     {th('upside', 'Upside', { num: true, title: 'From the last close to the target' })}
-                                    {th('days_left', 'By', { title: 'The target date, and the horizon it was set for' })}
+                                    {th('days_left', 'By', { more: true, title: 'The target date, and the horizon it was set for' })}
                                     {th('since', 'Since set', { title: 'Did it work: the move since the target was set (and against SPY over the same days); ✓ hit, ✗ broken, expired once settled' })}
-                                    {th('progress', 'To target', { num: true, title: 'How far from the price the day the target was set toward the target' })}
-                                    <th scope="col" title="Where the name came from: the weekly chain (Pythia's industry or theme → Argus → Prometheus), or the desk">From</th>
+                                    {th('progress', 'To target', { num: true, more: true, title: 'How far from the price the day the target was set toward the target' })}
+                                    <th scope="col" className="hot-col--more" title="Where the name came from: the weekly chain (Pythia's industry or theme → Argus → Prometheus), or the desk">From</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -183,14 +185,14 @@ export function HotlistBook({ book, column, coverage = [], onBuild, onAsk, onSym
                                                 <button type="button" className="hot-toggle" aria-expanded={open} aria-label={`${open ? 'Hide' : 'Show'} ${r.symbol} details`} onClick={toggle}>{open ? '▾' : '▸'}</button>
                                             </td>
                                             <td><button type="button" className="hot-sym" onClick={() => onSymbolClick?.(r.symbol)} title={r.name ?? r.symbol}>{r.symbol}</button><OwnedBadge symbol={r.symbol} /></td>
-                                            <td className="hot-table__num">{_price(r.price)}</td>
+                                            <td className="hot-table__num hot-col--more">{_price(r.price)}</td>
                                             <td>{cov ? <CoverageRating coverage={cov} /> : <span className="hot-dim">{r.rating?.replace('_', ' ') ?? '—'}</span>}</td>
                                             <td className="hot-table__num">{_price(r.target)}</td>
                                             <td className={`hot-table__num${r.upside_pct > 0 ? ' hot-up' : r.upside_pct < 0 ? ' hot-down' : ''}`}>{_pct(r.upside_pct)}</td>
-                                            <td className="hot-range" title={r.target_date ? `${r.target_date}${r.days_left != null ? ` — ${r.days_left} days left` : ''}` : undefined}>{_month(r.target_date)} · {r.horizon ?? '—'}</td>
+                                            <td className="hot-range hot-col--more" title={r.target_date ? `${r.target_date}${r.days_left != null ? ` — ${r.days_left} days left` : ''}` : undefined}>{_month(r.target_date)} · {r.horizon ?? '—'}</td>
                                             <td className={`hot-result hot-result--${res?.tone ?? 'dim'}`} title={res?.title}>{res?.text ?? '—'}</td>
-                                            <td className="hot-table__num hot-range">{bookProgress(r) ?? '—'}</td>
-                                            <td className="hot-book__from" title={origin.title}>{origin.text}</td>
+                                            <td className="hot-table__num hot-range hot-col--more">{bookProgress(r) ?? '—'}</td>
+                                            <td className="hot-book__from hot-col--more" title={origin.title}>{origin.text}</td>
                                         </tr>,
                                         open && (
                                             <tr key={`${r.symbol}-detail`} className="hot-detail-row">
@@ -229,6 +231,6 @@ export function HotlistBook({ book, column, coverage = [], onBuild, onAsk, onSym
     )
 }
 HotlistBook.propTypes = {
-    book: PropTypes.object, column: PropTypes.string.isRequired, coverage: PropTypes.array,
+    book: PropTypes.object, column: PropTypes.string.isRequired, coverage: PropTypes.array, isAdmin: PropTypes.bool,
     onBuild: PropTypes.func, onAsk: PropTypes.func, onSymbolClick: PropTypes.func,
 }

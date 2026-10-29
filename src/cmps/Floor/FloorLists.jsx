@@ -1048,7 +1048,7 @@ export function FloorLists({
             {/* Always mounted: it renders nothing until its panel opens, and portals into the chat
                 column when it does. */}
             <CalendarPanel onEarningSelect={onEarningSelect} onIpoSelect={onIpoSelect} onSymbolClick={onSymbolClick} />
-            <HotlistPanel onBuild={onHotlistBuild} onAsk={onHotlistAsk} onSymbolClick={onSymbolClick} coverage={coverage} />
+            <HotlistPanel onBuild={onHotlistBuild} onAsk={onHotlistAsk} onSymbolClick={onSymbolClick} coverage={coverage} isAdmin={isAdmin} />
             <ForecastPanel coverage={coverage} themes={themes} focus={forecastFocus} onOpenBoard={() => openPanel('floor:board')}
                 onEditCoverage={onEditCoverage} onRetireCoverage={onRetireCoverage} onDeleteCoverage={onDeleteCoverage} />
             {shown.filter(d => d.panel?.startsWith('floor:')).map(desk => (

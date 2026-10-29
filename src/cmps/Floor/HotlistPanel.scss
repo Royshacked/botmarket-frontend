@@ -273,3 +273,19 @@
     .hot-score__head { font-weight: 600 !important; padding-left: 10px; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
     .hot-score__group th[scope='row'] { color: var(--text-primary); }
 }
+
+// Argus's names (the admin's view, 2026-10-29): his reason wraps — on one line it pushed the table off the panel.
+.hot-table--picks .hot-picks__why { white-space: normal; min-width: 220px; }
+
+// A PHONE (Roy, 2026-10-29: "in mobile — tables too wide"): the secondary columns go (the spark, the tape, ATR, room,
+// earnings; on the book the last price, the date, the way to target, where it came from), and a table that is still
+// wider scrolls sideways in its own box instead of being clipped at the panel's edge. The header stops sticking there —
+// a sideways scroller is its own scroll box (the note on .hot-table-wrap--list above).
+@media (max-width: 767px) {
+    .hot-col--more { display: none; }
+    .hot-table-wrap--list { overflow-x: auto; }
+    // What is left still has to fit 390 px (the drive: the book ran 11–48 px over): tighter cells, a narrow toggle, and the
+    // book's "since set" breaks its SPY half onto a second line.
+    .hot-table--list { th, td { padding-left: 4px; padding-right: 4px; } .hot-table__star { width: 22px; } }
+    .hot-table--book .hot-result { white-space: normal; }
+}
