@@ -598,3 +598,19 @@
 @media (max-width: 1320px) { .market-clocks { --mc-dial: #{rem(70px)}; gap: rem(13px); } }
 @media (max-width: 1120px) { .market-clocks { --mc-dial: #{rem(56px)}; gap: rem(11px); } }
 @media (max-width: 1040px) { .market-clocks { display: none; } }
+
+// THE LISTS in the phone's menu (Roy, 2026-10-29): the Floor's Menu column, which a phone hides — a row each, above the
+// workspace switch. Never on a wider screen: the column is there.
+.app-header-axl__lists { display: none; }
+@media (max-width: 767px) {
+    .app-header-axl__lists {
+        display: flex; flex-direction: column; flex: 1 0 100%;
+        padding-bottom: rem(8px); margin-bottom: rem(2px); border-bottom: 1px solid var(--axl-line);
+    }
+    .app-header-axl__list {
+        margin: 0; padding: rem(9px) rem(6px); text-align: left; cursor: pointer;
+        background: none; border: none; border-radius: 6px;
+        font-size: rem(14px); color: var(--axl-birch);
+        &:hover, &:focus-visible { background: var(--bg-raised); }
+    }
+}

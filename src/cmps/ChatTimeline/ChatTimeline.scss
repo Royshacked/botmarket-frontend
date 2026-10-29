@@ -436,3 +436,24 @@
     .chat-timeline__mark,
     .chat-timeline__history { animation: none; }
 }
+
+// INFO over the chat (ChatInfo, 2026-10-29) — a phone's: the desktop Floor has an Info column beside the chat. It opens
+// like History, over the chat; the button shows only on a phone.
+.chat-timeline__info-btn { display: none; }
+.chat-info {
+    // Solid, not History's wash: this is reading matter, and the chat showed through it (the phone drive).
+    background: var(--bg-base);
+    &__body { overflow-y: auto; padding: 14px 16px 20px; display: flex; flex-direction: column; gap: 18px; }
+    &__sec { display: flex; flex-direction: column; gap: 6px; }
+    &__head { margin: 0; font-size: 13px; font-weight: 600; color: var(--text-primary); }
+    &__role { font-weight: 400; color: var(--text-muted); }
+    &__text { margin: 0; font-size: 13px; line-height: 1.45; color: var(--text-secondary); &--dim { color: var(--text-dim); } }
+    &__desks {
+        margin: 0; display: flex; flex-direction: column; gap: 10px;
+        dt { font-size: 12.5px; color: var(--text-primary); }
+        dd { margin: 2px 0 0; font-size: 12.5px; line-height: 1.4; color: var(--text-secondary); }
+    }
+}
+@media (max-width: 767px) {
+    .chat-timeline__info-btn { display: inline-flex; }
+}

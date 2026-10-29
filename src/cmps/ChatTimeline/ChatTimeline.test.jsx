@@ -346,3 +346,16 @@ describe('the house views open from Axl (Roy, 2026-10-19)', () => {
         for (const kind of ['positions', 'orders', 'trades', 'portfolios', 'watchlists', 'hotlist', 'board', 'research']) expect(VIEW_LABELS[kind]).toMatch(/^Open /)
     })
 })
+
+// INFO over the chat (Roy, 2026-10-29: "add an info tab when chatting") — a phone's button; the CSS hides it wider.
+describe('ChatTimeline — Info', () => {
+    it("the header's Info opens what the desk you are talking to does, over the chat; × closes it", () => {
+        session = base({ floor: 'analyst', rows: [row(1, { agent: 'analyst', content: 'On it.' })] })
+        render(<ChatTimeline />)
+        fireEvent.click(screen.getByRole('button', { name: 'Info' }))
+        expect(screen.getByRole('dialog', { name: 'Info' })).toBeTruthy()
+        expect(screen.getByRole('heading', { name: /^Talking with Prometheus/ })).toBeTruthy()
+        fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+        expect(screen.queryByRole('dialog', { name: 'Info' })).toBeNull()
+    })
+})

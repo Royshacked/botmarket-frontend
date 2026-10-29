@@ -90,6 +90,17 @@ const DESKS = [
     // channel engine on 2026-09-09, along with the collection behind it.
 ]
 
+/**
+ * THE LISTS FOR THE PHONE'S MENU (Roy, 2026-10-29: "in mobile — add lists to the hamburger menu"). A phone hides this
+ * column, and every list opens in the detail window anyway — so the header's menu lists the same windows: the desks a
+ * reader has (not hidden, not admin-only for a trader), and not an `onRequest` desk (the board is reached from the map).
+ * The windows themselves are this component's: the menu only opens them, so it works where the Floor is mounted.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- read by the header's menu; plain data from DESKS, no state
+export const menuDesks = (isAdmin = false) => DESKS
+    .filter(d => d.panel && !d.hidden && !d.onRequest && (!d.adminOnly || isAdmin))
+    .map(({ key, label, panel }) => ({ key, label, panel }))
+
 function openFor(item) {
     if (item.kind === 'call')  return openCallPopup(item.entity)
     if (item.kind === 'setup') return openSetupPopup(item.entity)

@@ -16,6 +16,7 @@ import { TimelineRow, SpeakerTag } from './TimelineRow.jsx'
 import { startsRun, agentMeta, isEndedLine } from './timelineRows.js'
 import { AxlGreeting } from './AxlGreeting.jsx'
 import { SessionHistory } from './SessionHistory.jsx'
+import { ChatInfo } from './ChatInfo.jsx'
 import { VIEW_LABELS } from './ShowOffer.jsx'
 import { PaneToggle } from '../SidePane/PaneToggle.jsx'
 import { ChatActionSlot } from '../SidePane/ChatActions.jsx'
@@ -55,6 +56,9 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
     const { rows, live, queuedTurn, lastTurn, chain, floor, send, stop, cancelQueued, choose, startNew, loadError } = session
     const [draft, setDraft]             = useState('')
     const [historyOpen, setHistoryOpen] = useState(false)
+    // Info over the chat — a phone's (ChatInfo; the desktop Floor has its Info column). Stable: the sheet's Esc binds on it.
+    const [infoOpen, setInfoOpen] = useState(false)
+    const closeInfo = useCallback(() => setInfoOpen(false), [])
     // "Ask Axl" — the next message goes to Axl even though a desk holds the floor (the server's own rule is
     // that an unaddressed message goes to the floor-holder).
     const [toAxl, setToAxl]             = useState(false)
@@ -157,6 +161,7 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
                 <span className="chat-timeline__title">{empty ? 'Chat' : `Talking with ${floorName}`}</span>
                 <span className="chat-timeline__actions">
                     {paneSurfaces && <PaneToggle floor={floor} surfaces={paneSurfaces} />}
+                    <button type="button" className="chat-timeline__action chat-timeline__info-btn" onClick={() => setInfoOpen(true)}>Info</button>
                     <button type="button" className="chat-timeline__action" onClick={() => setHistoryOpen(true)}>History</button>
                     <button type="button" className="chat-timeline__action" onClick={() => startNew()} disabled={busy || empty}>New session</button>
                 </span>
@@ -172,6 +177,7 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
                 </div>
             )}
 
+            {infoOpen && <ChatInfo floor={floor ?? 'axl'} onClose={closeInfo} />}
             {historyOpen && (
                 <SessionHistory
                     scope={scope}

@@ -7,6 +7,9 @@ import { MarketClocks } from './MarketClocks'
 import { useChatWs } from '../customHooks/useChatWs'
 import { useWorkspaceMode } from '../customHooks/useWorkspaceMode'
 import { initials } from '../services/util.service.js'
+import { useDesign } from '../customHooks/useDesign.js'
+import { openPanel } from './DetailPanel/detailPanel.store.js'
+import { menuDesks } from './Floor/FloorLists.jsx'
 
 // ── AppHeader · "axl" style (trial) ───────────────────────────────────────────
 // The calm aurora header: animated calm-water wave bottom edge, a centered AI
@@ -42,10 +45,13 @@ const STREAM = [
 ]
 
 export function AppHeaderAxl() {
-    const { user }     = useContext(AuthContext)
+    const { user, isAdmin } = useContext(AuthContext)
     const navigate     = useNavigate()
     const { pathname } = useLocation()
     const onProfile    = pathname === '/profile'
+    // The lists, in the phone's menu (Roy, 2026-10-29) — only in the Floor design: its Menu column's windows are what they
+    // open. The main page stays mounted under the profile (RootCmp), so from there a list goes home and opens.
+    const lists        = useDesign() === 'floor' ? menuDesks(isAdmin) : []
 
     const streamRef = useRef(null)
     const msgRef    = useRef(null)
@@ -191,6 +197,16 @@ export function AppHeaderAxl() {
                             </button>
 
                             <div className={`app-header-axl__cluster${navOpen ? ' is-open' : ''}`}>
+                                {/* Phone only (CSS): every list, each opening its window over the chat — the Floor's Menu
+                                    column, which a phone hides (Roy, 2026-10-29). */}
+                                {lists.length > 0 && (
+                                    <nav className="app-header-axl__lists" aria-label="Lists">
+                                        {lists.map(d => (
+                                            <button key={d.key} type="button" className="app-header-axl__list"
+                                                onClick={() => { if (onProfile) navigate('/'); openPanel(d.panel); setNavOpen(false) }}>{d.label}</button>
+                                        ))}
+                                    </nav>
+                                )}
                                 <div className="app-header-axl__modes" role="group" aria-label="Workspace mode">
                                     {WORKSPACE_MODES.map(m => (
                                         <button
