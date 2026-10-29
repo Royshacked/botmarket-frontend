@@ -16,11 +16,14 @@ export const DESIGNS = [
     { id: 'current', label: 'Axl (current)' },
 ]
 
-// A stored id that no longer exists (a retired trial, or one synced from another
-// device) falls back to the live look rather than flagging a design with no CSS.
+// THE FLOOR IS THE DEFAULT (Roy, 2026-10-29: "make floor the default"): no stored choice — or one that no longer
+// exists (a retired trial, or one synced from another device) — opens on the Floor. A user who picked "Axl (current)"
+// in the profile keeps it: that is a stored choice.
+export const DEFAULT_DESIGN = 'floor'
+
 export function loadDesign() {
     const id = localStorage.getItem('design')
-    return DESIGNS.some(d => d.id === id) ? id : 'current'
+    return DESIGNS.some(d => d.id === id) ? id : DEFAULT_DESIGN
 }
 
 export function saveDesign(id) {
@@ -48,7 +51,7 @@ export function initDesign() {
     if (id && id !== 'current') applyDesign(id)
 
     window.addEventListener('storage', (e) => {
-        if (e.key === 'design') applyDesign(e.newValue || 'current')
+        if (e.key === 'design') applyDesign(loadDesign())
     })
 }
 
