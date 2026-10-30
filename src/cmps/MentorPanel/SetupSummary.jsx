@@ -43,6 +43,14 @@ const fmtDate = (iso) => {
 
 const fmtMoney = (n) => (n == null ? null : n.toLocaleString(undefined, { maximumFractionDigits: 2 }))
 
+// What each lens means, on the lens tag's hover (the backend's analysisModes.js MODES).
+const LENS_TITLE = {
+    discretionary: 'Classical price action',
+    smc:           'Smart-money concepts — structure, order blocks, FVG, liquidity',
+    institutional: 'Institutional — flows, relative strength and positioning lead; price confirms',
+    thesis:        'Thesis — the stop where the thesis breaks, the entry from your risk, strength before entry',
+}
+
 function MoneyLine({ summary }) {
     if (!summary || (summary.gainCash == null && summary.lossCash == null)) return null
     const { gainCash, gainPct, lossCash, lossPct, estimated } = summary
@@ -103,7 +111,7 @@ export function SetupSummary({ setup, onChange, readOnly = false }) {
                 <div className="setup-summary__tags">
                     {setup.type && <span className="setup-summary__tag">{setup.type}</span>}
                     {setup.trade_mode && (
-                        <span className="setup-summary__tag setup-summary__tag--lens" title={setup.trade_mode === 'smc' ? 'Smart-money concepts — structure, order blocks, FVG, liquidity' : 'Classical price action'}>
+                        <span className="setup-summary__tag setup-summary__tag--lens" title={LENS_TITLE[setup.trade_mode] ?? setup.trade_mode}>
                             {setup.trade_mode}
                         </span>
                     )}

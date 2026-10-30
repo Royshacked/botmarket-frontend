@@ -419,6 +419,15 @@ describe('setupDigest', () => {
 // Computed on the server and carried on the draft, so the panel and Mentor's sentence quote the
 // same figures and neither is doing arithmetic on a live account.
 
+describe('SetupSummary lens tag', () => {
+    it('says what each lens means on hover — the thesis lens included', () => {
+        const { rerender } = render(<SetupSummary setup={{ asset: 'MTG', direction: 'long', trade_mode: 'thesis' }} />)
+        expect(screen.getByText('thesis').getAttribute('title')).toMatch(/stop where the thesis breaks/)
+        rerender(<SetupSummary setup={{ asset: 'MTG', direction: 'long', trade_mode: 'institutional' }} />)
+        expect(screen.getByText('institutional').getAttribute('title')).toMatch(/flows/)
+    })
+})
+
 describe('SetupSummary money line', () => {
     const withMoney = (summary) => ({
         asset: 'NVDA', direction: 'long', type: 'swing', trade_mode: 'smc',

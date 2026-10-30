@@ -2,7 +2,7 @@
 // node --test src/cmps/Floor/
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readTime, fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, rowStatus, rowReason, sortList, askArgusText, handoffRead, sparkGeometry, pickFor, horizonRows, horizonCounts, readsBySymbol, readCell, hasBand, resultCell, columnRecord, bookResult, bookProgress, bookOrigin, bookRecordLine, sortBook, isBuy, scoreCell } from './hotlist.utils.js'
+import { readTime, fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, rowStatus, rowReason, sortList, askArgusText, handoffRead, sparkGeometry, pickFor, horizonRows, horizonCounts, readsBySymbol, readCell, hasBand, resultCell, columnRecord, bookResult, bookProgress, bookOrigin, bookRecordLine, sortBook, isBuy, scoreCell, hotlistHandoff } from './hotlist.utils.js'
 import { handoffTurn } from '../MentorSurface/mentorSurface.utils.js'
 
 const ROW = {
@@ -265,6 +265,17 @@ test('a book row goes to Mentor as which list — never with its own horizon or 
     assert.deepEqual(t.seed.book, { column: 'swing' })
     assert.equal(t.seed.hotlist, undefined)
     assert.equal(handoffTurn({ ticker: 'A', hotlist: { board: 'hb_2026-10-23_mid', column: 'mid' } }).seed.book, undefined)
+})
+
+test("Build with Mentor opens in the thesis lens — a board row by reference, a book row by list; nothing without a name", () => {
+    const board = handoffTurn(hotlistHandoff(ROW, 'mid', { id: 'hb_2026-10-21_mid' }))
+    assert.equal(board.seed.recommended_mode, 'thesis')
+    assert.deepEqual(board.seed.hotlist, { board: 'hb_2026-10-21_mid', column: 'mid' })
+    assert.equal(board.seed.direction, 'long')
+    const book = handoffTurn(hotlistHandoff({ symbol: 'chn', rating: 'buy', target: 12 }, 'swing', null))
+    assert.deepEqual([book.seed.recommended_mode, book.seed.book], ['thesis', { column: 'swing' }])
+    assert.equal(hotlistHandoff(ROW, 'mid', null), null, 'a board row needs its board')
+    assert.equal(hotlistHandoff({}, 'swing', null), null)
 })
 
 test("Argus's record line: picks, avoids and unmarked — per column, or all; null with nothing scored", async () => {

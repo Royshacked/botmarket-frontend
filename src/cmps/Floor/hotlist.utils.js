@@ -560,6 +560,24 @@ export function earningsChip(row) {
         : { text: `E ${date}`, title: 'Next earnings', exit: false }
 }
 
+/**
+ * "Build with Mentor" on a row → the hand-off candidate (`handoffTurn`'s input), or null when it names nothing. A board
+ * row rides as a reference to its board and column, a Swing / Long term row as which list; the server reads the facts
+ * back. It opens in the THESIS lens — the stop where the thesis breaks, the entry from the user's risk (Roy, 2026-10-30;
+ * backend docs/design/stock-playbook.md) — said out loud by Mentor, still the user's to change.
+ */
+export function hotlistHandoff(row, column, board) {
+    const book = BOOK_ORDER.includes(column)
+    if (!row?.symbol || !column || (!book && !board?.id)) return null
+    return {
+        ticker:           row.symbol,
+        direction:        'long',                      // the board is long side only (daily-names.md §9)
+        thesis:           handoffRead(row, column),
+        recommended_mode: 'thesis',
+        ...(book ? { book: { column } } : { hotlist: { board: board.id, column } }),
+    }
+}
+
 /** The read Mentor's opening sentence carries for a row: Argus's pick note, else the board's own why. */
 export function handoffRead(row, column) {
     // A book row hands Mentor the house's thesis in numbers — the rating, the target and its date — and the chain's reason.
