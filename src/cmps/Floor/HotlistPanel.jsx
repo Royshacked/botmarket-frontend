@@ -748,7 +748,8 @@ function listCells(row, v, asked = null) {
         atr: { text: Number.isFinite(row.atr_pct) ? `${row.atr_pct.toFixed(1)}%` : null, title: 'Average daily range, % of price' },
         room: { text: _room(cell?.range), title: rangeTitle(cell?.range) ?? undefined },
         earn: earn
-            ? { text: `${row.next_earnings.slice(5)}${earn.exit ? '!' : ''}`, cls: `hot-earn${earn.exit ? ' hot-earn--exit' : ' hot-dim'}`, title: earn.title }
+            // A hold (backend runup-reads.md): the date says "hold" — the report is part of the trade (code review 2026-10-31).
+            ? { text: `${row.next_earnings.slice(5)}${earn.exit ? '!' : earn.hold ? ' hold' : ''}`, cls: `hot-earn${earn.exit ? ' hot-earn--exit' : earn.hold ? '' : ' hot-dim'}`, title: earn.title }
             : { text: null },
         result: { text: mark?.text ?? null, cls: `hot-result hot-result--${mark?.tone ?? 'dim'}`, title: mark?.title },
         target: target?.text
@@ -844,7 +845,8 @@ function ReadDetail({ read }) {
             </p>
             {/* The run-up rule's two questions (backend runup-reads.md §2): worth the run-up, and hold or exit the report. */}
             {read.run_up && <p className="hot-detail__line"><span className="hot-dim">Worth the run-up:</span> <b>{read.run_up.worth ? 'yes' : 'no'}</b>{read.run_up.why && ` — ${read.run_up.why}`}</p>}
-            {read.through_report && read.run_up?.worth && (
+            {/* Only on a confirmed read: a pass carries no instruction (code review 2026-10-31). */}
+            {read.through_report && isConfirmedRead(read) && (
                 <p className="hot-detail__line"><span className="hot-dim">The report:</span> <b>{read.through_report.call === 'hold' ? 'hold through it' : 'out before it'}</b>
                     {read.through_report.dropped && <span className="hot-dim"> (he leaned to holding, but set no target to hold to)</span>}
                     {read.through_report.why && ` — ${read.through_report.why}`}</p>
@@ -883,7 +885,7 @@ function RowDetail({ row, col, pick = row.pick, read = null, status, earn, onBui
                 <span className={`hot-cat${row.catalyst?.material ? ` hot-cat--${row.catalyst.surprise}` : ''}`}>{cat}</span>
                 {row.catalyst?.headline ? <span> {row.catalyst.headline}</span> : null}
             </p>}
-            {earn?.exit && <p className="hot-detail__line hot-earn--exit">{earn.title}.</p>}
+            {(earn?.exit || earn?.hold) && <p className={`hot-detail__line${earn.exit ? ' hot-earn--exit' : ''}`}>{earn.title}.</p>}
             {pick && <p className="hot-detail__line"><b>Argus:</b> {pick.why}{pick.caution ? <span className="hot-row__caution"> Caution: {pick.caution}</span> : null}</p>}
             {row.avoid && <p className="hot-detail__line"><b>Argus — avoid:</b> {row.avoid}</p>}
             {result && result.tone !== 'dim' && (

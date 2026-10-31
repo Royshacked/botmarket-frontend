@@ -104,6 +104,7 @@ export const PASS_WHY = Object.freeze({
     contradicted: 'the record cuts against it',
     unclear: 'too thin to tell',
     not_worth: 'its reports are not good enough to go into the run-up',
+    no_report: 'no report date ahead — not a run-up',
 })
 
 /** Prometheus's word on the company under the trade (catalystRead `company.verdict`). */
