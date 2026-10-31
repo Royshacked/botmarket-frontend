@@ -416,3 +416,21 @@ test('scoreCell: mean vs SPY, the share beating it and how many; dim under the b
     assert.match(scoreCell({ n: 5, mean: 15, median: 1.3, beat: 80, judge: false }, 20).title, /too few to judge/)
     assert.equal(scoreCell({ n: 30, mean: -1, median: -1, beat: 40, judge: true }).tone, 'bad')
 })
+
+test('run-up reads (backend runup-reads.md): confirmed without a target, a hold on the chip, the new pass reason', async () => {
+    const { isConfirmedRead, holdsThrough, PASS_WHY } = await import('./hotlist.utils.js')
+    const exit = { status: 'active', verdict: 'credible', target: null, run_up: { worth: true, why: 'three real beats' }, through_report: { call: 'exit', report: '2026-11-09' }, exit_before: '2026-11-09' }
+    assert.equal(isConfirmedRead(exit), true, 'worth the run-up is confirmed, target or not')
+    assert.equal(isConfirmedRead({ ...exit, status: 'pass', run_up: { worth: false } }), false)
+    assert.equal(isConfirmedRead({ status: 'active', target: null }), false, 'an event read with no target is no confirmation')
+    assert.equal(readCell(exit).text, 'run-up')
+    assert.match(readCell(exit).title, /no target of his; out before the 2026-11-09 report\. three real beats/)
+    assert.equal(readCell({ ...exit, status: 'closed' }).text, 'run-up · closed')
+    const row = { next_earnings: '2026-11-09', cells: { week: { grade: 'R', exit_before: '2026-11-09' } } }
+    assert.equal(earningsChip(row, exit).text, 'E 11-09 · out before')
+    const hold = { ...exit, target: { value: 108, open_pct: 8 }, exit_before: null, through_report: { call: 'hold', why: 'gaps up after beats', report: '2026-11-09' } }
+    assert.equal(holdsThrough(hold), true)
+    assert.deepEqual(earningsChip(row, hold), { text: 'E 11-09 · hold through', title: 'Earnings 2026-11-09 — Prometheus says hold through the report: gaps up after beats', exit: false, hold: true })
+    assert.equal(earningsChip(row, { ...hold, status: 'pass' }).text, 'E 11-09 · out before', 'a pass holds nothing')
+    assert.match(PASS_WHY.not_worth, /not good enough/)
+})

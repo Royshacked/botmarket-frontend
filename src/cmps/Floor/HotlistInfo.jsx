@@ -12,7 +12,7 @@ const COLUMNS = [
     ['ATR%', 'The average daily range, as % of price — how far it usually moves in a day.'],
     ['Earn', 'The report the run-up is into. Amber with "!": out at the close before it.'],
     ['Result', 'Did it work — once the five sessions close (below).'],
-    ['Target', 'Prometheus’s short-swing target and how much of it is still open — decided from the catalyst and the company, off a yardstick (what the catalyst is worth, or the stock’s usual run-up into a report). Valid until its window ends, the session before a report; graded then.'],
+    ['Target', 'Prometheus’s short-swing target and how much of it is still open, when he sets one; "run-up" when he confirmed the name without one. Valid until its window ends — the session before the report, or the session after it on a hold; graded then.'],
 ]
 
 export function HotlistInfo() {
@@ -28,7 +28,7 @@ export function HotlistInfo() {
                 <h3 className="hot-info__h">This week — the run-up rule</h3>
                 <p>A company whose <b>report is six sessions away</b> and whose <b>last three reports all beat</b> the estimate, while
                     <b> SPY is over its 200-day average</b>: bought at the list day&apos;s open, held five sessions, <b>out at the close
-                    before the report</b> — never through it (holding through it adds no return and doubles the swings). Price at
+                    before the report</b> — the rule never holds through it (in the test, holding added no return and doubled the swings). Price at
                     least $5 and $5M traded a day. The list is built after the close, for the next session.</p>
                 <p>Every name that qualifies is listed, <b>equally</b> — there is no ranking. Tested over three years with the last
                     year held out, a day&apos;s names together beat SPY by about <b>+0.4%</b> over their five sessions, after costs — the
@@ -38,10 +38,13 @@ export function HotlistInfo() {
                     names, not a bet on one.</p>
                 <p>What it is not: a price target (Prometheus&apos;s is), a stop (the exit is the date), or a forecast for any one
                     name — plenty of them still end down; the edge shows over many days, not in one.</p>
-                <p><b>Prometheus</b> reads every name overnight — is the catalyst real, can the company carry it, how much is still
-                    open — and sets his target. The list opens on <b>Prometheus confirmed</b>, the names he set a target on;
-                    <b> Run-up names</b> shows all of them with his answer (a pass says why). Build with Mentor on a name hands Mentor
-                    his target and the date to be out by.</p>
+                <p><b>Prometheus</b> reads every name overnight and answers two questions: <b>is it worth the run-up</b> — were
+                    the last reports good (real beats, revenue and guidance with them, estimates rising), and can the company carry
+                    it — and <b>is the report worth holding</b>, from how the stock has moved through its past reports. Most names are
+                    out before the report; a <b>hold</b> runs through it, with his target, and its Earn reads &quot;hold through&quot;. The
+                    list opens on <b>Prometheus confirmed</b>, the names he says are worth the run-up — a target is his option on
+                    those; <b>Run-up names</b> shows all of them with his answer (a pass says why). Build with Mentor on a name
+                    hands Mentor his answers, any target, and the date to be out by.</p>
             </section>
             <section>
                 <h3 className="hot-info__h">Swing and Long term</h3>

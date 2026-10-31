@@ -12,7 +12,7 @@ import {
     fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, sparkGeometry, rowStatus, rowReason, sortList,
     pickFor, horizonCounts, horizonRows, readsBySymbol, readCell, hasBand, PASS_WHY, resultCell, columnRecord,
     BOOK_ORDER, BOOK_LABEL, BOOK_TITLE, readTime, argusRecordLine, backtestLine, DAY_COLUMNS,
-    isConfirmedRead, emptyNamesText, COMPANY_LABEL, chainSurvivors, COVERED, COVERED_LABEL, coveredRows,
+    isConfirmedRead, holdsThrough, emptyNamesText, COMPANY_LABEL, chainSurvivors, COVERED, COVERED_LABEL, coveredRows,
 } from './hotlist.utils.js'
 import { ChartSurface } from '../PriceChart/ChartSurface.jsx'
 import { HotlistBook } from './HotlistBook.jsx'
@@ -727,7 +727,7 @@ function rowView(row, column, read, showRead) {
         pick: column ? pickFor(row, column) : row.pick,
         target: showRead ? readCell(read) : null,
         status: rowStatus(row),
-        earn: earningsChip(row),
+        earn: earningsChip(row, showRead ? read : null),
         // Did it work: the result of the column this row shows (Roy, 2026-10-24).
         mark: resultCell(col ? row.results?.[col] ?? null : null),
     }
@@ -838,16 +838,24 @@ function ReadDetail({ read }) {
                 {t && t.basis === 'run_up' && t.moved_pct > 0 && <span className="hot-dim"> · this cycle already {t.moved_pct > 0 ? '+' : ''}{t.moved_pct}% of a usual +{t.worth_pct}%{t.cycle_cut_pct > 0 ? `, so ${t.cycle_cut_pct}% less is left` : ''}</span>}
                 {t && !['run_up', 'prometheus'].includes(t.basis) && <> · worth {t.worth_pct > 0 ? '+' : ''}{t.worth_pct}%, moved {t.moved_pct > 0 ? '+' : ''}{t.moved_pct}%, open {t.open_pct > 0 ? '+' : ''}{t.open_pct}%</>}
                 {read.exit_before && <span className="hot-earn--exit"> · out before the {read.exit_before} report</span>}
+                {holdsThrough(read) && <span> · <b>holds through</b> the {read.through_report.report} report</span>}
                 <span className="hot-dim"> · valid until {String(read.valid_until).slice(0, 10)}</span>
                 {read.news_driven === false && <span className="hot-row__caution"> · no news under the move</span>}
             </p>
+            {/* The run-up rule's two questions (backend runup-reads.md §2): worth the run-up, and hold or exit the report. */}
+            {read.run_up && <p className="hot-detail__line"><span className="hot-dim">Worth the run-up:</span> <b>{read.run_up.worth ? 'yes' : 'no'}</b>{read.run_up.why && ` — ${read.run_up.why}`}</p>}
+            {read.through_report && read.run_up?.worth && (
+                <p className="hot-detail__line"><span className="hot-dim">The report:</span> <b>{read.through_report.call === 'hold' ? 'hold through it' : 'out before it'}</b>
+                    {read.through_report.dropped && <span className="hot-dim"> (he leaned to holding, but set no target to hold to)</span>}
+                    {read.through_report.why && ` — ${read.through_report.why}`}</p>
+            )}
             {t?.why && <p className="hot-detail__line"><span className="hot-dim">The target:</span> {t.why}</p>}
             {t?.stretch && <p className="hot-detail__line hot-row__caution">A stretch: {t.stretch.times}× the larger of the options’ implied move and the yardstick ({_pct(t.stretch.ref_pct)}).</p>}
             {read.company?.verdict && <p className="hot-detail__line"><span className="hot-dim">The company:</span> <span className={read.company.verdict === 'sound' ? '' : 'hot-row__caution'}>{COMPANY_LABEL[read.company.verdict]}</span>{read.company.why && ` — ${read.company.why}`}</p>}
             {read.read && <p className="hot-detail__line">{read.read}</p>}
             {read.event_risk?.length > 0 && <p className="hot-detail__line hot-earn--exit">Inside the window: {read.event_risk.join('; ')}</p>}
             {read.kill?.length > 0 && <p className="hot-detail__line"><span className="hot-dim">Wrong if:</span> {read.kill.join('; ')}</p>}
-            {graded && <p className="hot-detail__line"><b>{read.status === 'hit' ? 'Hit' : 'Expired'}</b>{Number.isFinite(graded.return_pct) && ` · ${graded.return_pct > 0 ? '+' : ''}${graded.return_pct}%`}{Number.isFinite(graded.vs_spy) && ` (${graded.vs_spy > 0 ? '+' : ''}${graded.vs_spy} vs SPY)`}</p>}
+            {graded && <p className="hot-detail__line"><b>{read.status === 'hit' ? 'Hit' : read.status === 'closed' ? 'Closed' : 'Expired'}</b>{Number.isFinite(graded.return_pct) && ` · ${graded.return_pct > 0 ? '+' : ''}${graded.return_pct}%`}{Number.isFinite(graded.vs_spy) && ` (${graded.vs_spy > 0 ? '+' : ''}${graded.vs_spy} vs SPY)`}</p>}
         </div>
     )
 }

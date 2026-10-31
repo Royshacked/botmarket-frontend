@@ -103,13 +103,21 @@ export const PASS_WHY = Object.freeze({
     company: 'the company cannot carry it',
     contradicted: 'the record cuts against it',
     unclear: 'too thin to tell',
+    not_worth: 'its reports are not good enough to go into the run-up',
 })
 
 /** Prometheus's word on the company under the trade (catalystRead `company.verdict`). */
 export const COMPANY_LABEL = Object.freeze({ sound: 'sound', weak: 'weak', broken: 'cannot carry it' })
 
-/** A read that CONFIRMS the name for the week — Prometheus set a target on it (live, or since hit / expired). Pure. */
-export const isConfirmedRead = (read) => Boolean(read?.target) && read.status !== 'pass'
+/**
+ * A read that CONFIRMS the name for the week — Prometheus set a target on it (live, or since hit / expired), or, on a
+ * run-up rule name, said it is worth the run-up: the target is optional there (backend docs/design/runup-reads.md §2;
+ * Roy, 2026-10-31). Pure.
+ */
+export const isConfirmedRead = (read) => Boolean(read) && read.status !== 'pass' && (Boolean(read.target) || read.run_up?.worth === true)
+
+/** A confirmed read's call on the report: true when Prometheus says hold through it (runup-reads.md §2 (b)). Pure. */
+export const holdsThrough = (read) => isConfirmedRead(read) && read.through_report?.call === 'hold'
 
 /**
  * Why a narrowed list (This week's confirmed names, a horizon's Argus names) is empty, in words. Pure. `argus` — the
@@ -147,7 +155,13 @@ export function readCell(read) {
     if (!read) return null
     if (read.status === 'pass') return { text: 'pass', title: `Prometheus: ${read.verdict} — no target${PASS_WHY[read.pass_reason] ? ` (${PASS_WHY[read.pass_reason]})` : ''}` }
     const t = read.target
-    if (!t) return null
+    // Confirmed for the run-up with no target of his (runup-reads.md §2): the rule's trade, out before the report.
+    if (!t) {
+        if (!isConfirmedRead(read)) return null
+        const state = read.status === 'closed' ? 'closed' : null
+        return { text: state ? 'run-up · closed' : 'run-up', state,
+            title: `Prometheus: worth the run-up — no target of his; out before the ${read.exit_before ?? ''} report${read.run_up?.why ? `. ${read.run_up.why}` : ''}` }
+    }
     // Measured from the READ'S OWN PRICE, not the row's Last: Last is the price at the checkpoint that listed the name,
     // often hours before the read — RCL's 08:00 quote of 283.45 sat over a 15:51 target of 277.34 set from 276.70,
     // and read as a hit that never happened (Roy, 2026-10-24).
@@ -551,10 +565,14 @@ export function askArgusText(row, column) {
  * `exit_before` (Roy, 2026-10-22): the trade is a run-up INTO the report, and the chip says to be out
  * before it instead of only showing the date.
  */
-export function earningsChip(row) {
+export function earningsChip(row, read = null) {
     if (!row?.next_earnings) return null
     const exit = Object.values(row.cells ?? {}).some(c => c?.grade && c.exit_before)
     const date = row.next_earnings.slice(5)
+    // Prometheus's HOLD (runup-reads.md §2 (b)): the report is part of the trade — the chip says so instead.
+    if (exit && holdsThrough(read)) {
+        return { text: `E ${date} · hold through`, title: `Earnings ${row.next_earnings} — Prometheus says hold through the report${read.through_report.why ? `: ${read.through_report.why}` : ''}`, exit: false, hold: true }
+    }
     return exit
         ? { text: `E ${date} · out before`, title: `Earnings ${row.next_earnings} — a run-up into the report: be out before it`, exit: true }
         : { text: `E ${date}`, title: 'Next earnings', exit: false }
