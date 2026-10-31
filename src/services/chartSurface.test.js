@@ -102,3 +102,10 @@ test('a docked chart survives a panel switch, but only until it is closed', () =
     closeChart()
     assert.equal(currentChart(), null)
 })
+
+test('a plan’s trade lines ride the request as `levels` — Mentor’s in-chat chart opens full size with them', () => {
+    const lines = [{ kind: 'stop', price: 26.9, label: 'Stop', side: 'long' }]
+    assert.deepEqual(normalizeChartRequest({ ticker: 'NXST', levels: lines }).levels, lines)
+    assert.deepEqual(normalizeChartRequest({ ticker: 'NXST' }).levels, [], 'none given → none drawn')
+    assert.deepEqual(normalizeChartRequest({ ticker: 'NXST', levels: 'x' }).levels, [], 'not a list → none')
+})

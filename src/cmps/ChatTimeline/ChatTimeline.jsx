@@ -20,6 +20,8 @@ import { ChatInfo } from './ChatInfo.jsx'
 import { VIEW_LABELS } from './ShowOffer.jsx'
 import { PaneToggle } from '../SidePane/PaneToggle.jsx'
 import { ChatActionSlot } from '../SidePane/ChatActions.jsx'
+import { MentorTradeChart } from '../MentorSurface/MentorTradeChart.jsx'
+import { tradeChartSetup } from '../MentorSurface/mentorSurface.utils.js'
 import { useReturnTo, openPanel, setReturnTo, panelMounted, nextReturnTo } from '../DetailPanel/detailPanel.store.js'
 import { OPENING_OPTIONS, LANDING_ASKS, OPENING_QUESTION } from './openingOptions.js'
 import './ChatTimeline.scss'
@@ -78,6 +80,10 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
 
     // The per-turn extras every desk reads: the marked accounts. The clock is added by the client service.
     const extras = useMemo(() => ({ accounts, mainAccountId }), [accounts, mainAccountId])
+
+    // Mentor's plan on a chart, at the end of the thread, once Generate lights — drawn from his state on the session,
+    // so it stays in the conversation whether or not his pane is showing.
+    const tradeSetup = tradeChartSetup(session.agentState?.mentor ?? null, accounts.length, busy)
 
     // Allowed while another turn runs — it waits behind it, and a running chain pauses for it (G4). One
     // waiting message at a time.
@@ -213,6 +219,8 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
                                 />
                             </div>
                         ))}
+
+                        {tradeSetup && <MentorTradeChart setup={tradeSetup} />}
 
                         {busy && (
                             <div className="chat-timeline__row chat-timeline__row--assistant chat-timeline__row--live">

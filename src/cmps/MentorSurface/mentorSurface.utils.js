@@ -34,6 +34,24 @@ export function liveReadiness(readiness, accountCount) {
     }
 }
 
+/**
+ * The plan the CHAT draws as Mentor's trade chart — the moment Generate lights, and only then (Roy, 2026-10-31).
+ *
+ * Read from Mentor's state on the session, not from his surface, so the chart stays in the conversation when the pane
+ * is hidden. Same verdict as the button (`liveReadiness`); nothing while a turn runs (the plan is about to change),
+ * once it is generated (the Arm bar takes over), or while an existing setup is being edited (that one is Update).
+ *
+ * @param {object|null} mentor        session.agentState.mentor
+ * @param {number}      accountCount  accounts marked right now
+ * @param {boolean}     turning       a turn is running
+ * @returns {object|null} the draft to draw, or null
+ */
+export function tradeChartSetup(mentor, accountCount, turning) {
+    const draft = mentor?.draft ?? null
+    if (turning || !draft?.asset || mentor?.generated || mentor?.editing?.kind === 'setup') return null
+    return liveReadiness(mentor?.view?.readiness ?? null, accountCount).ready ? draft : null
+}
+
 // ── What a press SAYS, and what it settles ───────────────────────────────────
 //
 // A press says what it means in an OP — deterministic, applied server-side before the model reads the turn — AND in

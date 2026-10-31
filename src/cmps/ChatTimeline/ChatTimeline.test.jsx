@@ -16,6 +16,8 @@ const resolveForEdit = vi.fn(async () => ({ id: 's1', asset: 'NVDA' }))
 vi.mock('../../services/entityResolve.js', () => ({ resolveForEdit: (...a) => resolveForEdit(...a) }))
 const openEntityPopup = vi.fn()
 vi.mock('../EntityCard/entityPopup.js', () => ({ openEntityPopup: (...a) => openEntityPopup(...a) }))
+// KLineCharts wants a real canvas — Mentor's trade chart draws a stub here.
+vi.mock('../PriceChart/PriceChart.jsx', () => ({ PriceChart: ({ symbol }) => <div data-testid="price-chart" data-symbol={symbol} /> }))
 
 let session
 const send = vi.fn(async () => true)
@@ -357,5 +359,29 @@ describe('ChatTimeline — Info', () => {
         expect(screen.getByRole('heading', { name: /^Talking with Prometheus/ })).toBeTruthy()
         fireEvent.click(screen.getByRole('button', { name: 'Close' }))
         expect(screen.queryByRole('dialog', { name: 'Info' })).toBeNull()
+    })
+})
+
+describe('ChatTimeline — Mentor’s trade chart (2026-10-31)', () => {
+    const PLAN = { asset: 'NXST', direction: 'long', timeframe: 'day', scenarios: [{ id: 's1', entry_legs: [{ price: 28.8 }], stop_legs: [{ price: 26.9 }], target_legs: [{ price: 31.6 }] }] }
+    const mentor = (readiness) => ({ mentor: { draft: PLAN, view: { readiness } } })
+
+    it('Generate lit → the trade is drawn at the end of the thread, from the session alone (no pane needed)', () => {
+        session = base({ floor: 'mentor', rows: [row(1, { agent: 'mentor', content: 'Ready.' })], agentState: mentor({ ready: true, missing: [] }) })
+        const { container } = render(<ChatTimeline accounts={[{ id: 'a1' }]} />)
+        const chart = container.querySelector('.chat-timeline__thread .mentor-trade-chart')
+        expect(chart).toBeTruthy()
+        expect(chart.previousElementSibling.textContent).toContain('Ready.')
+        expect(screen.getByTestId('price-chart').dataset.symbol).toBe('NXST')
+    })
+
+    it('not lit, or no account marked → no chart', () => {
+        session = base({ floor: 'mentor', rows: [row(1, { agent: 'mentor' })], agentState: mentor({ ready: false, missing: ['a size'] }) })
+        render(<ChatTimeline accounts={[{ id: 'a1' }]} />)
+        expect(screen.queryByTestId('price-chart')).toBeNull()
+        cleanup()
+        session = base({ floor: 'mentor', rows: [row(1, { agent: 'mentor' })], agentState: mentor({ ready: true, missing: [] }) })
+        render(<ChatTimeline accounts={[]} />)
+        expect(screen.queryByTestId('price-chart')).toBeNull()
     })
 })

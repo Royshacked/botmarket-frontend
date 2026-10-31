@@ -42,6 +42,9 @@ export function normalizeChartRequest(req) {
         // Overlay instructions (price levels, zones) when the caller has them — the chart renders
         // them the same way an idea/call pop-out does.
         drawings:  Array.isArray(req?.drawings) ? req.drawings : [],
+        // A plan's trade lines ({kind, price, label, side} — deriveSetupOverlay's), drawn as PriceChart's
+        // `levels`: Mentor's in-chat trade chart opens full size carrying the same entry / stop / targets.
+        levels:    Array.isArray(req?.levels) ? req.levels : [],
         source:    req?.source ?? null,   // who asked (agent key), when an in-app caller sets it
         // Distinguishes two requests for the SAME ticker+timeframe, so re-asking re-opens a chart
         // the user had closed rather than looking like nothing happened.

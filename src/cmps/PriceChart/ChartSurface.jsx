@@ -19,12 +19,13 @@ const DRAW_TOOLS = [
  * @param {string}   ticker
  * @param {string}   timeframe   any spelling PriceChart's PERIOD_MAP knows ('1hr', '15min', 'day'…)
  * @param {object[]} [drawings]  prompt-driven overlays (e.g. horizontal price lines)
+ * @param {object[]} [levels]    a plan's trade lines (entry / stop / targets), PriceChart's `levels`
  * @param {Function} onClose
  * @param {Function} [onCollapse] when given, adds a collapse control beside Close. Docked hosts pass
  *                   it so the thread can have its room back without losing the chart; a host that
  *                   owns its whole pane has nothing to collapse into and omits it.
  */
-export function ChartSurface({ ticker, timeframe, drawings = [], onClose, onCollapse }) {
+export function ChartSurface({ ticker, timeframe, drawings = [], levels = [], onClose, onCollapse }) {
     const [activeTool, setActiveTool] = useState(null)
     const chartRef = useRef(null)
 
@@ -109,6 +110,7 @@ export function ChartSurface({ ticker, timeframe, drawings = [], onClose, onColl
                     symbol={ticker}
                     interval={timeframe}
                     drawings={drawings}
+                    levels={levels}
                 />
             </div>
         </div>
@@ -121,6 +123,12 @@ ChartSurface.propTypes = {
     drawings:  PropTypes.arrayOf(PropTypes.shape({
         type:   PropTypes.string,
         points: PropTypes.array,
+    })),
+    levels:    PropTypes.arrayOf(PropTypes.shape({
+        kind:  PropTypes.string,
+        price: PropTypes.number,
+        label: PropTypes.string,
+        side:  PropTypes.string,
     })),
     onClose:    PropTypes.func.isRequired,
     onCollapse: PropTypes.func,

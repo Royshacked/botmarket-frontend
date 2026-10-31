@@ -121,6 +121,7 @@ export function ChatChartDock() {
                 ticker={chart.ticker}
                 timeframe={chart.timeframe}
                 drawings={chart.drawings ?? []}
+                levels={chart.levels ?? []}
                 onClose={handleClose}
                 onCollapse={collapse}
             />

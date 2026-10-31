@@ -1,0 +1,35 @@
+// Mentor's trade chart in the thread — about one turn tall, never the chat's whole height (the docked chart is that).
+.mentor-trade-chart {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: min(100%, 640px);
+
+    &__frame {
+        height: clamp(160px, 22vh, 220px);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+        background: var(--bg-raised);
+    }
+
+    &__foot {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: var(--chat-meta);
+    }
+
+    &__note { color: var(--text-muted); }
+
+    &__open {
+        padding: 0;
+        border: 0;
+        background: none;
+        color: var(--accent-light);
+        font: inherit;
+        cursor: pointer;
+        &:hover { text-decoration: underline; }
+    }
+}
