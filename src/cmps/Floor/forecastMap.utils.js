@@ -27,11 +27,21 @@ export const FILTERS = [
 ]
 const BADGE = { swing: 'S', long_term: 'L', watch: 'W', avoid: 'A' }
 
-/** A tile's verdict in today's word, or null when Pythia has not assessed it. */
+/** A tile's NEAR-TERM verdict in today's word, or null when Pythia has not assessed it. */
 export const tileVerdict = (tile) => (tile?.assessment?.verdict ? verdictKey(tile.assessment.verdict) : null)
 
-/** The corner badge letter — none for no case or an unassessed tile. */
-export const badgeOf = (tile) => BADGE[tileVerdict(tile)] ?? null
+/**
+ * Pythia's LONG-TERM call on the tile (backend docs/design/pythia-two-verdicts.md, 2026-10-31): its own answer beside the
+ * near term — an industry can be a swing AND long term. A tile from before the split whose verdict was long term reads
+ * as a yes.
+ */
+export const isLongTerm = (tile) => tile?.assessment?.long_term?.call === 'yes' || tileVerdict(tile) === 'long_term'
+
+/** The corner badge letter of the NEAR term — none for no case or an unassessed tile. */
+export const badgeOf = (tile) => (tileVerdict(tile) === 'long_term' ? null : BADGE[tileVerdict(tile)] ?? null)
+
+/** The long-term badge — "L" beside the near-term letter — or null. */
+export const longTermBadge = (tile) => (isLongTerm(tile) ? BADGE.long_term : null)
 
 /** The tile's move in the window, or null. */
 export const moveOf = (tile, windowKey) => {
@@ -63,7 +73,7 @@ export function isStale(tile, now = Date.now()) {
     return Boolean(e) && Date.parse(e) <= now
 }
 
-export const matchesFilter = (tile, filter) => !filter || filter === 'all' || tileVerdict(tile) === filter
+export const matchesFilter = (tile, filter) => !filter || filter === 'all' || (filter === 'long_term' ? isLongTerm(tile) : tileVerdict(tile) === filter)
 
 /**
  * Tiles by GICS sector, then — inside a sector — siblings of one GICS industry side by side, then by name. Each
@@ -84,7 +94,8 @@ export function groupBySector(tiles) {
             let covered = 0
             for (const t of list) {
                 const v = tileVerdict(t)
-                if (v in counts) counts[v]++
+                if (v in counts && v !== 'long_term') counts[v]++
+                if (isLongTerm(t)) counts.long_term++
                 covered += t.covered ?? 0
             }
             const sorted = [...list].sort((a, b) => str(a.industry).localeCompare(str(b.industry)) || str(a.name).localeCompare(str(b.name)))

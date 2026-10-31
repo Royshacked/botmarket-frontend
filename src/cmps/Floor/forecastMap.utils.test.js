@@ -3,9 +3,10 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-    heatLevel, pctText, badgeOf, tileVerdict, moveOf, isStale, matchesFilter, groupBySector, sectorLine, capText,
+    heatLevel, pctText, badgeOf, longTermBadge, isLongTerm, tileVerdict, moveOf, isStale, matchesFilter, groupBySector, sectorLine, capText,
     windowOf, DEFAULT_WINDOW, mapThemes, themeMove,
 } from './forecastMap.utils.js'
+import { groupByVerdict } from '../Radar/assessmentWords.js'
 
 const tile = (over = {}) => ({ code: '1', name: 'A', sector: 'Energy', industry: 'Oil', covered: 0, moves: null, assessment: null, ...over })
 
@@ -51,7 +52,9 @@ describe('words', () => {
 describe('verdict on a tile', () => {
     it('reads legacy words as today\'s, letters only for a verdict that asks for attention', () => {
         assert.equal(tileVerdict(tile({ assessment: { verdict: 'interesting_trade' } })), 'swing')
-        assert.equal(badgeOf(tile({ assessment: { verdict: 'interesting_invest' } })), 'L')
+        // A long-term verdict from before the split is the long-term badge now, not the near-term letter.
+        assert.equal(badgeOf(tile({ assessment: { verdict: 'interesting_invest' } })), null)
+        assert.equal(longTermBadge(tile({ assessment: { verdict: 'interesting_invest' } })), 'L')
         assert.equal(badgeOf(tile({ assessment: { verdict: 'avoid' } })), 'A')
         assert.equal(badgeOf(tile({ assessment: { verdict: 'no_case' } })), null)
         assert.equal(badgeOf(tile()), null)
@@ -118,5 +121,33 @@ describe('themes on the map', () => {
         const r = mapThemes([{ name: 'b', status: 'approved' }, { name: 'p', status: 'proposed' }, { name: 'a', status: 'approved' }, { name: 'r', status: 'retired' }])
         assert.deepEqual(r.map(t => t.name), ['a', 'b'])
         assert.deepEqual(mapThemes(undefined), [])
+    })
+})
+
+// Two verdicts (backend docs/design/pythia-two-verdicts.md, 2026-10-31): the long term is its own call beside the near term.
+describe('the long term beside the near term', () => {
+    const semis = tile({ code: 'S', assessment: { verdict: 'swing', long_term: { call: 'yes', hype: false } } })
+    const quiet = tile({ code: 'Q', assessment: { verdict: 'no_case', long_term: { call: 'yes' } } })
+    const no = tile({ code: 'N', assessment: { verdict: 'swing', long_term: { call: 'no' } } })
+
+    it('a tile carries both badges, and the For long term filter reads the long-term call', () => {
+        assert.deepEqual([badgeOf(semis), longTermBadge(semis)], ['S', 'L'])
+        assert.deepEqual([badgeOf(quiet), longTermBadge(quiet)], [null, 'L'])
+        assert.equal(longTermBadge(no), null)
+        assert.deepEqual([semis, quiet, no].filter(t => matchesFilter(t, 'long_term')).map(t => t.code), ['S', 'Q'])
+        assert.deepEqual([semis, quiet, no].filter(t => matchesFilter(t, 'swing')).map(t => t.code), ['S', 'N'])
+        assert.equal(isLongTerm(tile()), false)
+    })
+
+    it('a sector counts the long term on its own, beside the near-term verdicts', () => {
+        const [g] = groupBySector([semis, quiet, no])
+        assert.deepEqual(g.counts, { swing: 2, long_term: 2, watch: 0, avoid: 0 })
+        assert.equal(sectorLine(g), '2 swing · 2 long term')
+    })
+
+    it('the board lists a long-term yes under For long term AND under its near-term verdict', () => {
+        const rows = [{ id: 'a', subject: { name: 'Semis' }, verdict: 'swing', long_term: { call: 'yes' } },
+            { id: 'b', subject: { name: 'Banks' }, verdict: 'no_case', long_term: { call: 'no' } }]
+        assert.deepEqual(groupByVerdict(rows).map(([v, list]) => [v, list.map(r => r.id)]), [['swing', ['a']], ['long_term', ['a']], ['no_case', ['b']]])
     })
 })

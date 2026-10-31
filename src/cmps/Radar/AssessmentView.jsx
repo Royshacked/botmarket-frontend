@@ -8,6 +8,12 @@ import { useDetailPanel } from '../DetailPanel/detailPanel.store.js'
 import { useAssessmentDetail } from '../../customHooks/useAssessmentDetail.js'
 import { verdictKey, VERDICT_LABEL, INPUT_LABEL, causeWord, REGIME_WORD, movedLine, moneyLine, flowLines, geoLine, groupByVerdict, recordWords, isExpired, weekHeadline, weekResultLine } from './assessmentWords.js'
 
+/** The long-term chip beside the near-term verdict, or null (backend pythia-two-verdicts.md). */
+function longTermChip(row) {
+    if (row?.long_term?.call !== 'yes' || verdictKey(row.verdict) === 'long_term') return null
+    return <span className="assessment-view__verdict assessment-view__verdict--long_term" title={row.long_term.hype ? 'Long term — stretched: a timing flag' : "Pythia's long-term call, beside the near term"}>For long term{row.long_term.hype ? ' · stretched' : ''}</span>
+}
+
 // Pythia's assessments — "Assessed" on the Forecasts tab (backend docs/design/pythia-assessment.md, build
 // step 1). Each assessed industry with Pythia's verdict — interesting to trade, to invest in, to watch, or
 // to avoid — what caused the move, how far the price has gone (facts from code, not the agent), the risks,
@@ -136,10 +142,12 @@ function AssessmentRow({ row }) {
                     {row.cause?.kind === 'unverified' && <span className="assessment-view__unchecked" title="The news could not be checked when this was assessed — the verdict rests on price and money only">news not checked</span>}
                     {row.moved?.hype && <span className="assessment-view__hype" title="Up 100%+ in two years and 100%+ over the market — a crash risk flag, not a timing signal">hype</span>}
                     <span className={`assessment-view__verdict assessment-view__verdict--${verdictKey(row.verdict)}`}>{VERDICT_LABEL[row.verdict] ?? row.verdict}</span>
+                    {/* The long term, its own call beside the near term (backend pythia-two-verdicts.md, 2026-10-31). */}
+                    {longTermChip(row)}
                     <span className="screen-view__horizon">{row.verdict === 'watch' && row.decides_by ? `decides by ${row.decides_by}` : row.horizon}</span>
                 </span>
             </button>
-            <DetailPanel id={panelId} kicker="Forecasts · Assessed" title={s.name} meta={<><span className={`assessment-view__verdict assessment-view__verdict--${verdictKey(row.verdict)}`}>{VERDICT_LABEL[row.verdict] ?? row.verdict}</span><span>{row.verdict === 'watch' && row.decides_by ? `decides by ${row.decides_by}` : row.horizon}</span>{expired && <span className="assessment-view__stale">stale</span>}</>}>
+            <DetailPanel id={panelId} kicker="Forecasts · Assessed" title={s.name} meta={<><span className={`assessment-view__verdict assessment-view__verdict--${verdictKey(row.verdict)}`}>{VERDICT_LABEL[row.verdict] ?? row.verdict}</span>{longTermChip(row)}<span>{row.verdict === 'watch' && row.decides_by ? `decides by ${row.decides_by}` : row.horizon}</span>{expired && <span className="assessment-view__stale">stale</span>}</>}>
                 <AssessmentDetail row={row} open={open} />
             </DetailPanel>
         </div>

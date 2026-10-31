@@ -1540,6 +1540,8 @@ $fm-steps: (1: 14%, 2: 26%, 3: 40%, 4: 56%);
     }
     &--stale { opacity: .55; }
     &--dim   { opacity: .18; }
+    // Two badges in the corner (the near term and the long term): the name keeps clear of both.
+    &--two &__name { padding-right: 34px; }
 
     &__name {
         font-size: 11.5px;
@@ -1584,6 +1586,9 @@ $fm-steps: (1: 14%, 2: 26%, 3: 40%, 4: 56%);
         &--long_term { --fm-v: var(--color-teal); }
         &--watch     { --fm-v: color-mix(in srgb, var(--color-looking) 80%, #000); }
         &--avoid     { --fm-v: var(--color-short); }
+
+        // The long-term letter beside the near-term one (pythia-two-verdicts.md): one badge's width to its left.
+        &--second { right: 22px; }
 
         &--low    { background: var(--bg-surface); border-style: dashed; }
         &--medium { background: color-mix(in srgb, var(--fm-v) 22%, var(--bg-surface)); }

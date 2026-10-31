@@ -12,7 +12,7 @@ import { CoverageActions } from '../Radar/CoverageActions.jsx'
 import { CoverageDetail, CoverageMeta, CoverageRating } from './CoverageDetail.jsx'
 import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
 import {
-    WINDOWS, DEFAULT_WINDOW, windowOf, FILTERS, badgeOf, tileVerdict, moveOf, heatLevel, pctText, isStale,
+    WINDOWS, DEFAULT_WINDOW, windowOf, FILTERS, badgeOf, longTermBadge, tileVerdict, moveOf, heatLevel, pctText, isStale,
     matchesFilter, groupBySector, sectorLine, capText, mapThemes, themeMove,
 } from './forecastMap.utils.js'
 import '../Radar/IndustryView.scss'
@@ -208,9 +208,11 @@ ForecastPanel.propTypes = {
 
 function VerdictChips({ row }) {
     const v = verdictKey(row.verdict)
+    const lt = row.long_term?.call === 'yes' && v !== 'long_term'
     return (
         <>
             <span className={`assessment-view__verdict assessment-view__verdict--${v}`}>{VERDICT_LABEL[row.verdict] ?? row.verdict}</span>
+            {lt && <span className="assessment-view__verdict assessment-view__verdict--long_term" title={row.long_term.hype ? 'Long term — stretched: a timing flag' : "Pythia's long-term call, beside the near term"}>For long term{row.long_term.hype ? ' · stretched' : ''}</span>}
             <span>{v === 'watch' && row.decides_by ? `decides by ${row.decides_by}` : row.horizon}</span>
             {row.confidence && <span>{row.confidence} confidence</span>}
         </>
@@ -289,15 +291,17 @@ function Tile({ tile: t, win, dim, onPick }) {
     const v = moveOf(t, win.key)
     const lvl = heatLevel(v, win.scale)
     const badge = badgeOf(t)
+    const ltBadge = longTermBadge(t)
     const verdict = tileVerdict(t)
     const conf = t.assessment?.confidence ?? null
     const stale = isStale(t)
     const heat = lvl == null ? 'none' : lvl > 0 ? `up-${lvl}` : lvl < 0 ? `down-${-lvl}` : 'flat'
-    const cls = ['fm-tile', `fm-tile--${heat}`, t.moves?.hype && 'fm-tile--hype', stale && 'fm-tile--stale', dim && 'fm-tile--dim'].filter(Boolean).join(' ')
+    const cls = ['fm-tile', `fm-tile--${heat}`, t.moves?.hype && 'fm-tile--hype', stale && 'fm-tile--stale', dim && 'fm-tile--dim', badge && ltBadge && 'fm-tile--two'].filter(Boolean).join(' ')
     const tip = [
         t.name, t.industry && t.industry !== t.name ? t.industry : null,
         `${win.label} vs S&P ${pctText(v)}`,
         verdict ? `${VERDICT_LABEL[verdict] ?? verdict}${conf ? ` (${conf} confidence)` : ''}` : 'Not assessed',
+        ltBadge ? `For long term${t.assessment?.long_term?.hype ? ' — stretched (a timing flag)' : ''}` : null,
         t.assessment?.thesis ?? null, stale ? 'Due for reassessment' : null,
     ].filter(Boolean).join('\n')
     return (
@@ -308,6 +312,8 @@ function Tile({ tile: t, win, dim, onPick }) {
                 {t.covered > 0 && <span className="fm-tile__cov" title={`${t.covered} covered by Prometheus`}>◆{t.covered}</span>}
             </span>
             {badge && <span className={`fm-tile__badge fm-tile__badge--${verdict} fm-tile__badge--${conf ?? 'low'}`} aria-label={VERDICT_LABEL[verdict]}>{badge}</span>}
+            {/* The long term, its own call beside the near term (pythia-two-verdicts.md): left of the near-term letter. */}
+            {ltBadge && <span className={`fm-tile__badge fm-tile__badge--long_term fm-tile__badge--medium${badge ? ' fm-tile__badge--second' : ''}`} aria-label="For long term">{ltBadge}</span>}
         </button>
     )
 }

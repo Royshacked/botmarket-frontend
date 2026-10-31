@@ -59,14 +59,20 @@ export function movedLine(moved, name = null) {
     return parts.join(' · ') || null
 }
 
-/** Assessments by verdict, best first, filtered by a search. → [[verdict, rows]] with only non-empty groups. */
+/**
+ * Assessments by verdict, best first, filtered by a search. → [[verdict, rows]] with only non-empty groups. The LONG TERM
+ * is its own call (backend pythia-two-verdicts.md, 2026-10-31): a row with a long-term yes is listed under For long term
+ * AND under its near-term verdict.
+ */
 export function groupByVerdict(rows, query = '') {
     const q = query.trim().toLowerCase()
     const groups = new Map(VERDICT_ORDER.map(v => [v, []]))
     for (const r of rows ?? []) {
         const s = r.subject ?? {}
         if (q && !`${s.name ?? ''} ${s.sector ?? ''}`.toLowerCase().includes(q)) continue
-        if (groups.has(verdictKey(r.verdict))) groups.get(verdictKey(r.verdict)).push(r)
+        const v = verdictKey(r.verdict)
+        if (groups.has(v)) groups.get(v).push(r)
+        if (r.long_term?.call === 'yes' && v !== 'long_term') groups.get('long_term').push(r)
     }
     return [...groups.entries()].filter(([, list]) => list.length)
 }
