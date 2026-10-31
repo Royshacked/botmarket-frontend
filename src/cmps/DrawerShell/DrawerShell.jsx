@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
+import { useBackGesture } from '../../customHooks/useBackGesture.js'
 
 // ── The drawer's mechanics, shared (unified-chat plan phase 8b, K5) ──────────
 //
@@ -60,22 +61,9 @@ export function DrawerShell({ isOpen, onClose, portalTo = null, label = 'Panel',
         }
     }, [isOpen]) // eslint-disable-line react-hooks/exhaustive-deps -- autoFocus is read at open
 
-    // The phone's back gesture closes it, as it closes the in-app entity page. A history entry on the SAME url,
-    // carrying the router's own state so react-router reads the pop as a no-op; any close that was not that pop
-    // (✕, Esc, another row) steps back over the entry it pushed.
-    const historyField = history?.field ?? null
-    const historyKey   = history?.key ?? null
-    useEffect(() => {
-        if (!isOpen || !historyField) return
-        let popped = false
-        window.history.pushState({ ...(window.history.state ?? {}), [historyField]: historyKey }, '')
-        const onPop = () => { popped = true; closeRef.current?.() }
-        window.addEventListener('popstate', onPop)
-        return () => {
-            window.removeEventListener('popstate', onPop)
-            if (!popped && window.history.state?.[historyField] === historyKey) window.history.back()
-        }
-    }, [isOpen, historyField, historyKey])
+    // The phone's back gesture closes it, as it closes the in-app entity page (useBackGesture: a history entry on the
+    // same url; any close that was not that pop — ✕, Esc, another row — steps back over the entry it pushed).
+    useBackGesture({ active: isOpen, field: history?.field ?? null, key: history?.key ?? null, onBack: () => closeRef.current?.() })
 
     if (!isOpen) return null
     const node = (

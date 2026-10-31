@@ -962,3 +962,68 @@ describe('HotlistPanel — the run-up week', () => {
         expect(screen.queryByText(/graded off it/)).toBeNull()
     })
 })
+
+// The code review of 2026-10-31 on the simple view and a row's page.
+describe('HotlistPanel — a row\'s page, reviewed', () => {
+    beforeEach(() => {
+        hotlistService.getToday.mockResolvedValue({ day: '2026-10-21', latest: BOARD, dayList: DAY_LIST, checkpoints: [] })
+    })
+    const weekAll = () => fireEvent.click(screen.getByRole('button', { name: /^All screened/ }))
+    const body = () => document.querySelector('.hot-panel .detail-panel__body')
+
+    it('a page opens at its top; Back returns to the list where it was, the keyboard on the row it left', async () => {
+        await mount()
+        weekAll()
+        body().scrollTop = 480
+        fireEvent.click(screen.getByRole('button', { name: 'Details for DXC' }))
+        expect(body().scrollTop).toBe(0)
+        fireEvent.click(screen.getByRole('button', { name: '‹ Back to the list' }))
+        weekAll()
+        expect(body().scrollTop).toBe(480)
+        expect(document.activeElement?.getAttribute('aria-label')).toBe('Details for DXC')
+    })
+
+    it('a page\'s tiles are the line\'s own cells — the run-up mark on Earn too', async () => {
+        await mount()
+        weekAll()
+        const line = screen.getByText('DXC').closest('tr').textContent
+        fireEvent.click(screen.getByRole('button', { name: 'Details for DXC' }))
+        const earn = [...document.querySelectorAll('.hot-page__fact')].find(f => f.querySelector('dt').textContent === 'Earn').querySelector('dd').textContent
+        expect(earn).toBe('10-29!')
+        expect(line).toContain(earn)
+        // No leading dot on the page's head line (it has no name there — the page header has it).
+        expect(document.querySelector('.hot-page .hot-detail__head').textContent).not.toMatch(/^ ·/)
+    })
+
+    it('a hand-off from a page leaves the way back TO the page; reopened by it, the page is there again', async () => {
+        const onBuild = vi.fn()
+        await mount({ onBuild })
+        weekAll()
+        fireEvent.click(screen.getByRole('button', { name: 'Details for DXC' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Build with Mentor' }))
+        expect(returnToPanel()).toEqual({ panel: HOTLIST_PANEL_ID, label: 'the Hotlist', resume: { focus: 'DXC', day: null } })
+        act(() => openPanel(HOTLIST_PANEL_ID, returnToPanel().resume))
+        await flush()
+        expect(screen.getByRole('dialog').getAttribute('aria-label')).toBe('DXC')
+        expect(document.querySelector('.hot-page')).toBeTruthy()
+    })
+
+    it('a book: the Last header names the close; a page with no industry and no set price has no empty head line', async () => {
+        hotlistService.getBook.mockResolvedValue({ asof: '2026-10-30', swing: [{ symbol: 'DSK', rating: 'buy', price: 10, target: 12, upside_pct: 20, origin: { source: 'desk' } }],
+            long_term: [], picks: { swing: [{ symbol: 'DSK', state: 'already_covered' }], long_term: [] }, record: {} })
+        await mount()
+        fireEvent.click(screen.getByRole('button', { name: /^Covered companies/ }))
+        expect(screen.getByRole('columnheader', { name: 'Last' }).title).toMatch(/2026-10-30/)
+        fireEvent.click(screen.getByRole('button', { name: 'Details for DSK' }))
+        expect(document.querySelector('.hot-page .hot-detail__head')).toBeNull()
+        const last = [...document.querySelectorAll('.hot-page__fact')].find(f => f.querySelector('dt').textContent === 'Last')
+        expect(last.title).toMatch(/2026-10-30/)
+    })
+
+    it('a user sees the warnings — they say why a list is thin today', async () => {
+        hotlistService.getReads.mockRejectedValue(new Error('down'))
+        await mount({ isAdmin: false })
+        expect(screen.getByText(/targets could not be loaded/)).toBeTruthy()
+        expect(document.querySelector('.hot-status-filter'), 'still no view switch').toBeNull()
+    })
+})

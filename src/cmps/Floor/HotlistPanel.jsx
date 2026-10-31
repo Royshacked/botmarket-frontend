@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import { OwnedBadge } from '../OwnedBadge/OwnedBadge.jsx'
 import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
-import { useDetailPanel, setReturnTo } from '../DetailPanel/detailPanel.store.js'
+import { useDetailPanel, setReturnTo, takeResume } from '../DetailPanel/detailPanel.store.js'
+import { useBackGesture } from '../../customHooks/useBackGesture.js'
+import { isHandheld } from '../EntityCard/entityPopup.js'
 import { hotlistService } from '../../services/hotlist/hotlist.service.remote.js'
 import { apiError } from '../../services/http.service.js'
 import {
@@ -83,6 +85,29 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick, coverage = [], isA
     const [chartSym, setChartSym] = useState(null)
     // A row clicked on a list: that name's page, in this window, in place of the table (Roy, 2026-10-31) — HotlistRowPage.
     const [focus, setFocus] = useState(null)
+    // The list's scroll when a page opened, and the name it opened (code review 2026-10-31): a page starts at its top, and
+    // Back lands on the row it left, with the keyboard on that row's ›. The scroll is the panel body's (DetailPanel).
+    const listScroll = useRef(0)
+    const opened = useRef(null)
+    const panelBody = () => document.querySelector('.hot-panel .detail-panel__body')
+    const openRow = (sym) => { listScroll.current = panelBody()?.scrollTop ?? 0; setFocus(sym) }
+    useLayoutEffect(() => {
+        const body = panelBody()
+        if (focus) { opened.current = focus; if (body) body.scrollTop = 0; return }
+        const sym = opened.current
+        opened.current = null
+        if (!sym || !body) return
+        body.scrollTop = listScroll.current
+        body.querySelector(`tr[data-symbol="${sym}"] .hot-toggle`)?.focus({ preventScroll: true })
+    }, [focus])
+    // A phone's back gesture leaves the page for the list, not the whole Hotlist (code review 2026-10-31).
+    useBackGesture({ active: isOpen && Boolean(focus) && isHandheld(), field: 'hotlistPage', key: focus, onBack: () => setFocus(null) })
+    // Reopened by the way back from a page's hand-off: that page again, on its day.
+    useEffect(() => {
+        if (!isOpen) return
+        const r = takeResume(HOTLIST_PANEL_ID)
+        if (r?.focus) { listScroll.current = 0; setDay(r.day ?? null); setFocus(r.focus) }
+    }, [isOpen])
     // Boards already read while the panel is open; dropped on close so a reopen shows the newest.
     const seen = useRef(new Map())
     // The board the panel WANTS on screen. A slow read that comes back for another tab, or after a
@@ -196,7 +221,13 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick, coverage = [], isA
     }
 
     // A hand-off closes the list for the desk — and leaves the way back: the chat offers "‹ Back to the Hotlist".
-    const handOff = (fn) => fn && ((...args) => { close(); setReturnTo({ panel: HOTLIST_PANEL_ID, label: 'the Hotlist' }); fn(...args) })
+    // From a row's page, the way back lands on that page (code review 2026-10-31), on the day it was on.
+    const handOff = (fn) => fn && ((...args) => {
+        const resume = focus ? { focus, day } : null
+        close()
+        setReturnTo({ panel: HOTLIST_PANEL_ID, label: 'the Hotlist', ...(resume ? { resume } : {}) })
+        fn(...args)
+    })
     const b = board.data
     // An empty overnight week board (a quiet night, or SPY under its 200-day) is still the list view: its tabs carry Swing
     // and Long term, which an empty day must not hide (code review 2026-10-25).
@@ -210,7 +241,7 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick, coverage = [], isA
     const title = chartSym ? `${chartSym} · daily` : focus ? focus : listView
         ? `${_day(today.day)} · ${latestDay ? 'today’s list' : 'the day’s list'}`
         : b ? `${_day(b.day)} · ${CHECKPOINT_LABEL[b.checkpoint] ?? b.checkpoint}` : 'Today'
-    const stepDay = (to) => { setDay(to === days[0] ? null : to); setView('list'); setFocus(null) }
+    const stepDay = (to) => { setDay(to === days[0] ? null : to); setView('list') }
     const actions = chartSym || focus ? (
         <button type="button" className="hot-nav__btn" onClick={() => { setChartSym(null); setFocus(null) }}>‹ Back to the list</button>
     ) : (
@@ -257,7 +288,7 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick, coverage = [], isA
                 : listView && today.status === 'ok'
                     ? <DayList today={today} sort={sort} setSort={setSort} horizon={horizon} setHorizon={setHorizon}
                         reads={readsBySymbol(reads.list, today.day)} readsFailed={reads.status === 'error'} readsLoading={reads.status === 'idle'} asked={asked} onAskRead={latestDay ? askRead : null}
-                        record={record} book={book} coverage={coverage} isAdmin={isAdmin} focus={focus} onOpen={setFocus}
+                        record={record} book={book} coverage={coverage} isAdmin={isAdmin} focus={focus} onOpen={openRow}
                         onSymbolClick={symbolClick} onBuild={handOff(onBuild)} onAsk={handOff(onAsk)} />
                     : <Body today={today} board={board} picksOnly={picksOnly} setPicksOnly={setPicksOnly}
                         onRetry={retryLoad} onSymbolClick={symbolClick}
@@ -459,7 +490,7 @@ function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, 
         const v = rowView(r, horizon, read, showReads)
         const ask = showReads ? asked[r.symbol] ?? null : null
         return (
-            <HotlistRowPage symbol={r.symbol} name={r.name ?? null} facts={listFacts(r, v, { tape: !ruleWeek, showRead: showReads, asked: ask })}>
+            <HotlistRowPage symbol={r.symbol} name={r.name ?? null} facts={listFacts(listCells(r, v, ask), { tape: !ruleWeek, showRead: showReads })}>
                 <RowDetail row={r} col={v.col} pick={v.pick} read={read} status={v.status} earn={v.earn} onBuild={onBuild} onAsk={onAsk}
                     asked={ask} onAskRead={showReads && !readsFailed && !read ? onAskRead : null} result={v.mark} named={false} />
             </HotlistRowPage>
@@ -529,11 +560,12 @@ function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, 
                 {/* No status filter or column (Roy, 2026-10-28: "no need for status column"). What the prices are, and how
                     each list is made, are the Info column’s (Roy, 2026-10-31). */}
             </div>}
-            {/* The warnings stay above the table: they say why a list is thin or wrong today. */}
+            </>}
+            {/* The warnings stay above the table, for EVERYONE (code review 2026-10-31: with the notes gone, a user had no
+                way to know why a list is thin or wrong today). */}
             {latest?.checkpoint === 'overnight' && latest?.closed && <p className="hot-note hot-note--warn">{latest.closed}.</p>}
             {ruleWeek && latest?.market?.gate === 'unknown' && <p className="hot-note hot-note--warn">SPY’s 200-day could not be checked for this list — it is listed as if the market gate were open.</p>}
-            {showReads && readsFailed && <p className="hot-note hot-note--warn">Prometheus’s targets could not be loaded — Argus’s names are shown without them.</p>}
-            </>}
+            {showReads && readsFailed && <p className="hot-note hot-note--warn">Prometheus’s targets could not be loaded — the names are shown without them.</p>}
             {!rows.length
                 ? !isAdmin
                     // The admin's empty text says why and points at a view a user does not have.
@@ -701,18 +733,38 @@ function rowView(row, column, read, showRead) {
     }
 }
 
-/** A list row's numbers as the page's tiles — the line's columns, the same words and colours. */
-function listFacts(row, v, { tape = true, showRead = false, asked = null } = {}) {
-    const reading = ['started', 'queued', 'sending'].includes(asked?.state)
+const READING = ['started', 'queued', 'sending']
+
+/**
+ * A list row's numbers, formatted ONCE — `{ text, cls, title }` per column — for the table's line and the page's tiles
+ * alike (code review 2026-10-31: the tiles had their own copy, and it already differed). A null text is a dash.
+ */
+function listCells(row, v, asked = null) {
+    const { cell, earn, mark, target } = v
+    return {
+        last: { text: Number.isFinite(row.price) ? row.price.toFixed(2) : null, title: row.quoted_at ? `As of ${_time(row.quoted_at)} — not live` : 'Not live' },
+        chg: { text: Number.isFinite(row.gap_pct) ? _pct(row.gap_pct) : null, cls: row.gap_pct > 0 ? 'hot-up' : row.gap_pct < 0 ? 'hot-down' : null },
+        rvol: { text: Number.isFinite(row.rvol) ? `${row.rvol}×` : Number.isFinite(row.pm_vol_pct) ? `${row.pm_vol_pct.toFixed(1)}%` : null },
+        atr: { text: Number.isFinite(row.atr_pct) ? `${row.atr_pct.toFixed(1)}%` : null, title: 'Average daily range, % of price' },
+        room: { text: _room(cell?.range), title: rangeTitle(cell?.range) ?? undefined },
+        earn: earn
+            ? { text: `${row.next_earnings.slice(5)}${earn.exit ? '!' : ''}`, cls: `hot-earn${earn.exit ? ' hot-earn--exit' : ' hot-dim'}`, title: earn.title }
+            : { text: null },
+        result: { text: mark?.text ?? null, cls: `hot-result hot-result--${mark?.tone ?? 'dim'}`, title: mark?.title },
+        target: target?.text
+            ? { text: target.text, cls: `hot-target${target.state ? ` hot-target--${target.state}` : ''}`, title: target.title }
+            : READING.includes(asked?.state)
+                ? { text: 'reading…', cls: 'hot-target hot-dim', title: 'Prometheus is reading it — about a minute' }
+                : { text: null, cls: 'hot-target', title: 'No catalyst read yet — Prometheus reads the week\'s names after the list is built; open the row to ask for one' },
+    }
+}
+
+/** A list row's numbers as the page's tiles — the line's own cells (listCells). */
+function listFacts(c, { tape = true, showRead = false } = {}) {
+    const tile = (label, x) => [label, x.text, x.cls ?? null, x.title]
     return [
-        ['Last', Number.isFinite(row.price) ? row.price.toFixed(2) : null, null, row.quoted_at ? `As of ${_time(row.quoted_at)}` : 'Not live'],
-        tape && ['Chg%', _pct(row.gap_pct), row.gap_pct > 0 ? 'hot-up' : row.gap_pct < 0 ? 'hot-down' : null],
-        tape && ['RVol', Number.isFinite(row.rvol) ? `${row.rvol}×` : Number.isFinite(row.pm_vol_pct) ? `${row.pm_vol_pct.toFixed(1)}%` : null],
-        ['ATR%', Number.isFinite(row.atr_pct) ? `${row.atr_pct.toFixed(1)}%` : null, null, 'Average daily range, % of price'],
-        tape && ['Room', _room(v.cell?.range), null, rangeTitle(v.cell?.range) ?? undefined],
-        ['Earn', row.next_earnings ?? null, v.earn?.exit ? 'hot-earn--exit' : null, v.earn?.title],
-        ['Result', v.mark?.text ?? null, `hot-result hot-result--${v.mark?.tone ?? 'dim'}`, v.mark?.title],
-        showRead && ['Target', v.target?.text ?? (reading ? 'reading…' : null), v.target?.state ? `hot-target--${v.target.state}` : null, v.target?.title],
+        tile('Last', c.last), tape && tile('Chg%', c.chg), tape && tile('RVol', c.rvol), tile('ATR%', c.atr),
+        tape && tile('Room', c.room), tile('Earn', c.earn), tile('Result', c.result), showRead && tile('Target', c.target),
     ].filter(Boolean)
 }
 
@@ -722,43 +774,42 @@ function listFacts(row, v, { tape = true, showRead = false, asked = null } = {})
  * — is on the name's page, a click away (Roy, 2026-10-31: it covers the window, as the chart does).
  */
 function ListRow({ row, onOpen, onSymbolClick, column = null, read = null, showRead = false, asked = null, hideGrade = false, tape = true }) {
-    const { col, cell, pick, target, status, earn, mark } = rowView(row, column, read, showRead)
+    const v = rowView(row, column, read, showRead)
+    const { col, cell, pick, status } = v
+    const c = listCells(row, v, asked)
+    // A cell from listCells: its text, or a dash.
+    const td = (x, base = '') => (
+        <td className={[base, x.cls].filter(Boolean).join(' ') || undefined} title={x.title}>{x.text ?? <span className="hot-dim">—</span>}</td>
+    )
     // A click anywhere on the row opens its page — except on its own buttons (the symbol opens the chart).
     const onRowClick = (e) => { if (!e.target.closest('button')) onOpen() }
     return (
-        <>
-            <tr className={`hot-row hot-row--line${pick ? ' hot-row--pick' : ''}${row.avoid ? ' hot-row--avoid' : ''}`}
-                data-symbol={row.symbol} onClick={onRowClick}>
-                <td className="hot-table__star">
-                    <button type="button" className="hot-toggle" aria-label={`Details for ${row.symbol}`} onClick={onOpen}>›</button>
-                    {pick ? <span className="hot-star" title={`Argus's pick #${pick.rank}${column ? ` for ${COLUMN_LABEL[column].toLowerCase()}` : ''}`}>★{pick.rank}</span>
-                        : row.avoid ? <span className="hot-avoid" title={`Argus — avoid: ${row.avoid}`}>✕</span> : null}
-                </td>
-                <td><button type="button" className="hot-sym" onClick={() => onSymbolClick?.(row.symbol)} title={row.name ?? row.symbol}>{row.symbol}</button><OwnedBadge symbol={row.symbol} /></td>
-                <td className="hot-spark-cell hot-spark-cell--sm hot-col--more"><Sparkline closes={row.spark} price={row.price} range={cell?.range ?? null} small hot={status === 'in_play'} /></td>
-                <td className="hot-table__num" title={row.quoted_at ? `As of ${_time(row.quoted_at)}` : undefined}>{Number.isFinite(row.price) ? row.price.toFixed(2) : '—'}</td>
-                {tape && <td className={`hot-table__num hot-col--more${row.gap_pct > 0 ? ' hot-up' : row.gap_pct < 0 ? ' hot-down' : ''}`}>{_pct(row.gap_pct)}</td>}
-                {tape && <td className="hot-table__num hot-col--more">{Number.isFinite(row.rvol) ? `${row.rvol}×` : Number.isFinite(row.pm_vol_pct) ? `${row.pm_vol_pct.toFixed(1)}%` : '—'}</td>}
-                <td className="hot-table__num hot-col--more">{Number.isFinite(row.atr_pct) ? `${row.atr_pct.toFixed(1)}%` : '—'}</td>
-                {!hideGrade && <td className="hot-col--more">
-                    {/* No grade on any horizon (2026-10-24) — the horizon only. */}
-                    {cell?.grade
-                        ? <span className="hot-best__col" title={COLUMN_TITLE[col]}>{COLUMN_LABEL[col] ?? col}</span>
-                        : <span className="hot-dim">—</span>}
-                </td>}
-                {/* The run-up list measures no room (the rule's exit is the report, not a level): no tape, no room. */}
-                {tape && <td className="hot-range hot-col--more" title={rangeTitle(cell?.range) ?? undefined}>{_room(cell?.range) ?? '—'}</td>}
-                <td className="hot-col--more">{earn ? <span className={`hot-earn${earn.exit ? ' hot-earn--exit' : ' hot-dim'}`} title={earn.title}>{row.next_earnings.slice(5)}{earn.exit ? '!' : ''}</span> : <span className="hot-dim">—</span>}</td>
-                <td className={`hot-result hot-result--${mark?.tone ?? 'dim'}`} title={mark?.title}>{mark?.text ?? '—'}</td>
-                {showRead && (
-                    <td className={`hot-target${target?.state ? ` hot-target--${target.state}` : ''}`} title={target?.title}>
-                        {target?.text ?? (['started', 'queued', 'sending'].includes(asked?.state)
-                            ? <span className="hot-dim" title="Prometheus is reading it — about a minute">reading…</span>
-                            : <span className="hot-dim" title="No catalyst read yet — Prometheus reads the week's names after the list is built; open the row to ask for one">—</span>)}
-                    </td>
-                )}
-            </tr>
-        </>
+        <tr className={`hot-row hot-row--line${pick ? ' hot-row--pick' : ''}${row.avoid ? ' hot-row--avoid' : ''}`}
+            data-symbol={row.symbol} onClick={onRowClick}>
+            <td className="hot-table__star">
+                <button type="button" className="hot-toggle" aria-label={`Details for ${row.symbol}`} onClick={onOpen}>›</button>
+                {pick ? <span className="hot-star" title={`Argus's pick #${pick.rank}${column ? ` for ${COLUMN_LABEL[column].toLowerCase()}` : ''}`}>★{pick.rank}</span>
+                    : row.avoid ? <span className="hot-avoid" title={`Argus — avoid: ${row.avoid}`}>✕</span> : null}
+            </td>
+            <td><button type="button" className="hot-sym" onClick={() => onSymbolClick?.(row.symbol)} title={row.name ?? row.symbol}>{row.symbol}</button><OwnedBadge symbol={row.symbol} /></td>
+            <td className="hot-spark-cell hot-spark-cell--sm hot-col--more"><Sparkline closes={row.spark} price={row.price} range={cell?.range ?? null} small hot={status === 'in_play'} /></td>
+            {td(c.last, 'hot-table__num')}
+            {tape && td(c.chg, 'hot-table__num hot-col--more')}
+            {tape && td(c.rvol, 'hot-table__num hot-col--more')}
+            {td(c.atr, 'hot-table__num hot-col--more')}
+            {!hideGrade && <td className="hot-col--more">
+                {/* No grade on any horizon (2026-10-24) — the horizon only. */}
+                {cell?.grade
+                    ? <span className="hot-best__col" title={COLUMN_TITLE[col]}>{COLUMN_LABEL[col] ?? col}</span>
+                    : <span className="hot-dim">—</span>}
+            </td>}
+            {/* The run-up list measures no room (the rule's exit is the report, not a level): no tape, no room. */}
+            {tape && td(c.room, 'hot-range hot-col--more')}
+            {/* The chip's class is on a span in the cell (the cell keeps the phone's hot-col--more). */}
+            <td className="hot-col--more">{c.earn.text ? <span className={c.earn.cls} title={c.earn.title}>{c.earn.text}</span> : <span className="hot-dim">—</span>}</td>
+            {td(c.result)}
+            {showRead && td(c.target)}
+        </tr>
     )
 }
 ListRow.propTypes = {
@@ -809,14 +860,16 @@ function RowDetail({ row, col, pick = row.pick, read = null, status, earn, onBui
     const seen = (row.seen ?? []).map(c => CHECKPOINT_LABEL[c]?.split(' ')[0] ?? c)
     // The board this cell lives on — the hand-off references it, not the latest board.
     const cellBoard = { id: (col && row.cell_board?.[col]) ?? row.board }
+    const head = [
+        named && row.name && { text: row.name, bold: true },
+        status && { text: STATUS_LABEL[status] },
+        seen.length > 0 && { text: `listed at ${seen.join(', ')}`, dim: true },
+        row.quoted_at && { text: `price as of ${_time(row.quoted_at)}`, dim: true },
+    ].filter(Boolean)
     return (
         <div className="hot-detail">
-            <p className="hot-detail__head">
-                {named && row.name && <b>{row.name}</b>}
-                {status && <span>{named && row.name ? ' · ' : ''}{STATUS_LABEL[status]}</span>}
-                {seen.length > 0 && <span className="hot-dim"> · listed at {seen.join(', ')}</span>}
-                {row.quoted_at && <span className="hot-dim"> · price as of {_time(row.quoted_at)}</span>}
-            </p>
+            {/* The parts there are, a dot between them — none leading (code review 2026-10-31); nothing, no line. */}
+            {head.length > 0 && <p className="hot-detail__head">{head.map((h, i) => <span key={i} className={h.dim ? 'hot-dim' : undefined}>{i ? ' · ' : ''}{h.bold ? <b>{h.text}</b> : h.text}</span>)}</p>}
             {reason && <p className="hot-detail__line">{reason}</p>}
             {cat && <p className="hot-detail__line">
                 <span className={`hot-cat${row.catalyst?.material ? ` hot-cat--${row.catalyst.surprise}` : ''}`}>{cat}</span>

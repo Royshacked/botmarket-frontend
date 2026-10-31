@@ -38,8 +38,10 @@ export const activePanel = () => active
 /** The list panel kept under the open row panel, or null. */
 export const underPanel = () => under
 
-export function openPanel(id) {
+/** Open `id`. `resume` is where in it to land — the way back's note (`returnTo.resume`), read once by the panel (takeResume). */
+export function openPanel(id, resume = null) {
     if (!id || active === id) return
+    if (resume) resumes.set(id, resume)
     if (containers.has(id)) under = null
     else if (active && containers.has(active)) under = active
     active = id
@@ -54,7 +56,16 @@ export function openPanel(id) {
 // panel — that one, or another — spends it. The chat also clears it once the user moves on from where the hand-off
 // landed (`from` / `at`, kept by the chat; code review 2026-10-24: it stayed on every chat until a reload).
 let returnTo = null
-/** Leave the way back to a list panel: `{ panel, label, from?, at? }`, or null to clear it. */
+// Where to land in a panel the way back reopens (code review 2026-10-31: the Hotlist's row page — the user left from
+// a page, not the list). The panel's own business what it holds; the store only carries it across the hand-off.
+const resumes = new Map()
+/** The resume note `openPanel` left for `id`, once — read, it is gone. */
+export function takeResume(id) {
+    const r = resumes.get(id) ?? null
+    resumes.delete(id)
+    return r
+}
+/** Leave the way back to a list panel: `{ panel, label, resume?, from?, at? }`, or null to clear it. */
 export function setReturnTo(next) {
     returnTo = next?.panel ? { ...next, label: next.label ?? 'the list' } : null
     emit()

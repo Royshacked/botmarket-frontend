@@ -52,6 +52,8 @@ describe('DrawerShell', () => {
         const close = vi.fn()
         const { rerender } = render(<DrawerShell isOpen onClose={close} label="A" history={{ field: 'sidePane', key: 'pane' }}>x</DrawerShell>)
         expect(window.history.state?.sidePane).toBe('pane')
+        // A real back lands on the entry below, whose state does not carry the key (useBackGesture ignores a pop that does).
+        window.history.replaceState(null, '')
         window.dispatchEvent(new PopStateEvent('popstate'))
         expect(close).toHaveBeenCalledTimes(1)
         rerender(<DrawerShell isOpen={false} onClose={close} label="A" history={{ field: 'sidePane', key: 'pane' }}>x</DrawerShell>)

@@ -255,7 +255,7 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
                 <div className="chat-timeline__address">
                     {/* The way back to the list a hand-off came from (Roy, 2026-10-24) — the Hotlist, on the horizon it was on. */}
                     {showBack && (
-                        <button type="button" className="chat-timeline__address-btn chat-timeline__back" onClick={() => openPanel(returnTo.panel)}>
+                        <button type="button" className="chat-timeline__address-btn chat-timeline__back" onClick={() => openPanel(returnTo.panel, returnTo.resume ?? null)}>
                             ‹ Back to {returnTo.label}
                         </button>
                     )}

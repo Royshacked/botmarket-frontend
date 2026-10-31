@@ -17,6 +17,27 @@ const _price = (v) => (Number.isFinite(v) ? v.toFixed(2) : '—')
 const _pct = (v) => (Number.isFinite(v) ? `${v > 0 ? '+' : ''}${v.toFixed(1)}%` : '—')
 // A target date as month and year — "Oct 2027": a long horizon's date is read by the month, and "27-10-23" read as a day.
 const _month = (d) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' }) : '—')
+/** Which close the book's prices are — the date the meta line used to carry (code review 2026-10-31: stale prices said so nowhere). */
+const lastTitle = (asof) => `The screener’s last close${asof ? `, ${asof}` : ''} — not live`
+
+/**
+ * A book row's cells, formatted ONCE — `{ text, cls, title }` per column — for the table's line and the page's tiles alike
+ * (code review 2026-10-31: the tiles had their own copy). `rating` is an element when the coverage is on hand.
+ */
+function bookCells(r, cov, asof) {
+    const res = bookResult(r)
+    const origin = bookOrigin(r)
+    return {
+        last: { text: _price(r.price), title: lastTitle(asof) },
+        rating: cov ? { text: <CoverageRating coverage={cov} /> } : { text: r.rating?.replace('_', ' ') ?? null, cls: 'hot-dim' },
+        target: { text: _price(r.target) },
+        upside: { text: _pct(r.upside_pct), cls: r.upside_pct > 0 ? 'hot-up' : r.upside_pct < 0 ? 'hot-down' : null, title: 'From the last close to the target' },
+        by: { text: `${_month(r.target_date)} · ${r.horizon ?? '—'}`, title: r.target_date ? `${r.target_date}${r.days_left != null ? ` — ${r.days_left} days left` : ''}` : undefined },
+        since: { text: res?.text ?? null, cls: `hot-result hot-result--${res?.tone ?? 'dim'}`, title: res?.title },
+        progress: { text: bookProgress(r) ?? null },
+        from: { text: origin.text, title: origin.title },
+    }
+}
 
 /** The book's track record over its list: what came due, and how the live names are doing. */
 function BookRecord({ rec, column }) {
@@ -129,26 +150,17 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, focu
     if (focus) {
         const r = rows.find(x => x.symbol === focus) ?? all.find(x => x.symbol === focus)
         if (!r) return <p className="floor-empty">{focus} is no longer on this list.</p>
-        const res = bookResult(r)
-        const origin = bookOrigin(r)
         const cov = bySymbol.get(r.symbol) ?? null
-        const facts = [
-            ['Last', _price(r.price), null, 'The screener’s last close — not live'],
-            ['Rating', cov ? <CoverageRating coverage={cov} /> : r.rating?.replace('_', ' ') ?? null],
-            ['Target', _price(r.target)],
-            ['Upside', _pct(r.upside_pct), r.upside_pct > 0 ? 'hot-up' : r.upside_pct < 0 ? 'hot-down' : null, 'From the last close to the target'],
-            ['By', `${_month(r.target_date)} · ${r.horizon ?? '—'}`, null, r.days_left != null ? `${r.days_left} days left` : undefined],
-            ['Since set', res?.text ?? null, `hot-result hot-result--${res?.tone ?? 'dim'}`, res?.title],
-            ['To target', bookProgress(r) ?? null],
-            ['From', origin.text, null, origin.title, true],
-        ]
+        const c = bookCells(r, cov, book?.asof)
+        const tile = (label, x, wide = false) => [label, x.text, x.cls ?? null, x.title, wide]
+        const facts = [tile('Last', c.last), tile('Rating', c.rating), tile('Target', c.target), tile('Upside', c.upside), tile('By', c.by),
+            tile('Since set', c.since), tile('To target', c.progress), tile('From', c.from, true)]
+        // The head line only when it has something to say (code review 2026-10-31: an empty one left a gap).
+        const head = [r.industry, r.price_at_set != null ? `${_price(r.price_at_set)} when the target was set (${String(r.set_at).slice(0, 10)})` : null].filter(Boolean)
         return (
             <HotlistRowPage symbol={r.symbol} name={r.name ?? null} facts={facts}>
                 <div className="hot-detail">
-                    <p className="hot-detail__head">
-                        {r.industry && <span className="hot-dim">{r.industry}</span>}
-                        {r.price_at_set != null && <span className="hot-dim">{r.industry ? ' · ' : ''}{_price(r.price_at_set)} when the target was set ({String(r.set_at).slice(0, 10)})</span>}
-                    </p>
+                    {head.length > 0 && <p className="hot-detail__head hot-dim">{head.join(' · ')}</p>}
                     {r.origin?.source === 'pythia' && (
                         <p className="hot-detail__line"><b>From the weekly chain:</b> Pythia’s {r.origin.verdict === 'long_term' ? 'long-term' : r.origin.verdict} call on {r.origin.subject}
                             {r.origin.why ? <> — <b>Argus:</b> {r.origin.why}</> : null}
@@ -194,7 +206,7 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, focu
                                 <tr>
                                     <th scope="col" className="hot-table__star"><span className="hot-sr">Details</span></th>
                                     {th('symbol', 'Sym')}
-                                    <th scope="col" className="hot-table__num hot-col--more" title="The screener's last close — not live">Last</th>
+                                    <th scope="col" className="hot-table__num hot-col--more" title={lastTitle(book?.asof)}>Last</th>
                                     <th scope="col" title="Prometheus's rating">Rating</th>
                                     <th scope="col" className="hot-table__num" title="Prometheus's price target">Target</th>
                                     {th('upside', 'Upside', { num: true, title: 'From the last close to the target' })}
@@ -206,10 +218,12 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, focu
                             </thead>
                             <tbody>
                                 {rows.map(r => {
-                                    const res = bookResult(r)
-                                    const origin = bookOrigin(r)
-                                    const cov = bySymbol.get(r.symbol) ?? null
+                                    const c = bookCells(r, bySymbol.get(r.symbol) ?? null, book?.asof)
                                     const open = () => onOpen(r.symbol)
+                                    // A cell from bookCells: its text, or a dash.
+                                    const td = (x, base = '') => (
+                                        <td className={[base, x.cls].filter(Boolean).join(' ') || undefined} title={x.title}>{x.text ?? '—'}</td>
+                                    )
                                     return (
                                         <tr key={r.symbol} className={`hot-row hot-row--line${r.origin?.source === 'pythia' ? ' hot-row--pick' : ''}`}
                                             data-symbol={r.symbol} onClick={(e) => { if (!e.target.closest('button')) open() }}>
@@ -217,14 +231,14 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, focu
                                                 <button type="button" className="hot-toggle" aria-label={`Details for ${r.symbol}`} onClick={open}>›</button>
                                             </td>
                                             <td><button type="button" className="hot-sym" onClick={() => onSymbolClick?.(r.symbol)} title={r.name ?? r.symbol}>{r.symbol}</button><OwnedBadge symbol={r.symbol} /></td>
-                                            <td className="hot-table__num hot-col--more">{_price(r.price)}</td>
-                                            <td>{cov ? <CoverageRating coverage={cov} /> : <span className="hot-dim">{r.rating?.replace('_', ' ') ?? '—'}</span>}</td>
-                                            <td className="hot-table__num">{_price(r.target)}</td>
-                                            <td className={`hot-table__num${r.upside_pct > 0 ? ' hot-up' : r.upside_pct < 0 ? ' hot-down' : ''}`}>{_pct(r.upside_pct)}</td>
-                                            <td className="hot-range hot-col--more" title={r.target_date ? `${r.target_date}${r.days_left != null ? ` — ${r.days_left} days left` : ''}` : undefined}>{_month(r.target_date)} · {r.horizon ?? '—'}</td>
-                                            <td className={`hot-result hot-result--${res?.tone ?? 'dim'}`} title={res?.title}>{res?.text ?? '—'}</td>
-                                            <td className="hot-table__num hot-range hot-col--more">{bookProgress(r) ?? '—'}</td>
-                                            <td className="hot-book__from hot-col--more" title={origin.title}>{origin.text}</td>
+                                            {td(c.last, 'hot-table__num hot-col--more')}
+                                            {td(c.rating)}
+                                            {td(c.target, 'hot-table__num')}
+                                            {td(c.upside, 'hot-table__num')}
+                                            {td(c.by, 'hot-range hot-col--more')}
+                                            {td(c.since)}
+                                            {td(c.progress, 'hot-table__num hot-range hot-col--more')}
+                                            {td(c.from, 'hot-book__from hot-col--more')}
                                         </tr>
                                     )
                                 })}

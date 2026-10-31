@@ -167,7 +167,8 @@ describe('DetailPanel', () => {
 
         fireEvent.click(screen.getByText('open x'))
         expect(window.history.state?.detailPanel).toBe('x')
-        act(() => { window.dispatchEvent(new PopStateEvent('popstate')) })
+        // A real back lands on the entry below, whose state does not carry the key.
+        act(() => { window.history.replaceState(null, ''); window.dispatchEvent(new PopStateEvent('popstate')) })
         expect(screen.queryByRole('dialog')).toBeNull()
         expect(back).not.toHaveBeenCalled()
 

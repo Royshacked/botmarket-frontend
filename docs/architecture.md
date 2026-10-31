@@ -32,9 +32,13 @@ The Lists column's desks, in order (2026-10-21): Awaiting orders · Your trades 
 Hotlist · Calendar · Forecasts · Research queue (admin, last). The Hotlist (`cmps/Floor/HotlistPanel.jsx`, a
 DetailPanel like the Calendar) is the screener's board — since 2026-10-25 **This week's run-up names**, built
 overnight (the day tabs Open · Mid-day · Into close · Tomorrow and the Boards view are archived; they show only on a past
-day that still has day names), and tabs **All · This week · Swing · Long term**. This week opens on the names
-Prometheus confirmed with his own target (Run-up names one click away), with the rule's own track record, Swing / Long term (`HotlistBook.jsx`) on the weekly chain's
-covered names. No grade letter is shown anywhere (2026-10-24) — and its rows hand on ONE name at a time:
+day that still has day names), and four tabs **This week · Swing · Long term · Covered companies** (2026-10-28). This
+week opens on the names Prometheus confirmed with his own target, Swing / Long term (`HotlistBook.jsx`) on the weekly
+chain's covered names. Since 2026-10-31 the panel is the tabs and the table, for everyone: no explanation above the
+table (the Info column, `HotlistInfo.jsx`, explains the lists); an admin keeps the view switch, and the track records
+and Argus's read sit under the table. A clicked row opens that name's PAGE over the window (`HotlistRowPage.jsx`: the
+numbers as tiles, the daily chart, the read or thesis, the hand-offs; "‹ Back to the list" in the header). No grade
+letter is shown anywhere (2026-10-24) — and its rows hand on ONE name at a time:
 **Build with Mentor** (`handoffTurn` with a `hotlist` board reference the server resolves) and **Ask Argus**
 (`onArgusTable`) (`../botmarket-backend/docs/design/daily-names.md` §8). Events radar is `hidden: true` for now, not deleted. The
 Calendar (`cmps/Floor/CalendarPanel.jsx`) is a month grid — per-day earnings / Fed / IPO counts, a clicked day
@@ -206,7 +210,8 @@ lists column, at 10–12.5px, in a column 27% wide. They open in `cmps/DetailPan
 
 Driven end to end by `../botmarket-backend/scripts/drive-detail-panel.mjs`: both desktop layouts and a
 touch tablet. The Lists column and the Calendar: `../botmarket-backend/scripts/drive-floor-lists.mjs`. The Hotlist:
-`../botmarket-backend/scripts/drive-hotlist.mjs` (a fixture board; the hand-off turns captured, then aborted).
+`../botmarket-backend/scripts/drive-hotlist.mjs` (a fixture board; the hand-off turns captured, then aborted); the
+simple view and a row's page, desktop and phone: `../botmarket-backend/scripts/drive-hotlist-row-page.mjs`.
 
 **The drawer shell and the side pane (unified chat, phase 8b — 2026-10-17).** The detail panel's
 mechanics are `cmps/DrawerShell` now, shared with the side pane: Esc closes the TOP open shell only
