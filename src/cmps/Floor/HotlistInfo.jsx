@@ -42,8 +42,8 @@ export function HotlistInfo() {
                     the last reports good (real beats, revenue and guidance with them, estimates rising), and can the company carry
                     it — and <b>is the report worth holding</b>, from how the stock has moved through its past reports. Most names are
                     out before the report; a <b>hold</b> runs through it, with his target, and its Earn reads &quot;hold&quot;. The
-                    list opens on <b>Prometheus confirmed</b>, the names he says are worth the run-up — a target is his option on
-                    those; <b>Run-up names</b> shows all of them with his answer (a pass says why). Build with Mentor on a name
+                    list is the names he says are worth the run-up — a target is his option on those; a name he passes is
+                    not on it. Build with Mentor on a name
                     hands Mentor his answers, any target, and the date to be out by.</p>
             </section>
             <section>

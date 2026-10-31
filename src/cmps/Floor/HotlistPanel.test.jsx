@@ -916,15 +916,14 @@ describe('HotlistPanel — the run-up week', () => {
     const WEEK = { id: 'hb_2026-10-26_week', day: '2026-10-26', checkpoint: 'overnight', status: 'done', columns: ['week'], rows: RULE }
     beforeEach(() => { hotlistService.getToday.mockResolvedValue({ day: '2026-10-26', latest: WEEK, dayList: RULE, checkpoints: [] }) })
 
-    it('no Argus view: Prometheus confirmed, else the rule\'s names', async () => {
+    // Roy, 2026-10-31: "dont need run up names. and dont need the promotheus confirmed chip" — no switch; the list is his.
+    it('no view switch: the list is what Prometheus confirmed, and an empty one says where his reads stand', async () => {
         await mount()
         fireEvent.click(screen.getByRole('button', { name: /^This week/ }))
-        expect(screen.queryByRole('button', { name: /Argus’s names/ })).toBeNull()
-        expect(screen.getByRole('button', { name: 'Run-up names 2' })).toBeTruthy()
-        expect(screen.getByText(/2 of the 2 run-up names still to read/)).toBeTruthy()
+        expect(screen.queryByRole('button', { name: /Argus’s names|Run-up names|Prometheus confirmed/ })).toBeNull()
+        expect(screen.getByText(/2 of the 2 run-up names still to read — he reads them after the list is built\.$/)).toBeTruthy()
         expect(screen.queryByText(/last three reports all beat/), 'the rule is explained in the Info column (2026-10-31)').toBeNull()
-        fireEvent.click(screen.getByRole('button', { name: 'Run-up names 2' }))
-        expect([...document.querySelectorAll('tr.hot-row')].map(tr => tr.dataset.symbol)).toEqual(['RU1', 'RU2'])
+        expect(document.querySelectorAll('tr.hot-row')).toHaveLength(0)
     })
 
     // Code review 2026-10-25.

@@ -129,11 +129,12 @@ export function emptyNamesText({ shown, column, argus = [], screened = 0, reads 
     const label = (COLUMN_LABEL[column] ?? column ?? '').toLowerCase()
     // The run-up rule's week (2026-10-25): no Argus — `argus` is the rule's names, and Prometheus reads them overnight.
     if (rule && shown === 'confirmed') {
-        if (readsFailed) return 'Prometheus’s reads could not be loaded — see Run-up names.'
+        // No Run-up names view to point at (Roy, 2026-10-31): the text says where his reads stand, and no more.
+        if (readsFailed) return 'Prometheus’s reads could not be loaded.'
         if (readsLoading) return 'Loading Prometheus’s reads…'
         const unread = argus.filter(r => !reads.get(r.symbol)).length
-        if (unread) return `Prometheus has ${unread} of the ${argus.length} run-up names still to read — he reads them after the list is built. See Run-up names meanwhile.`
-        return `Prometheus confirmed none of the ${argus.length} run-up names — open them under Run-up names to see why.`
+        if (unread) return `Prometheus has ${unread} of the ${argus.length} run-up names still to read — he reads them after the list is built.`
+        return `Prometheus confirmed none of the ${argus.length} run-up names this week.`
     }
     if (shown !== 'confirmed') return `Argus confirmed no names for ${label} on this list${screened ? ` — the screener let ${screened} through: see All screened` : ''}.`
     if (readsFailed) return 'Prometheus’s reads could not be loaded — see Argus’s names.'

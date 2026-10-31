@@ -544,14 +544,15 @@ function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, 
                     onBuild={onBuild} onAsk={onAsk} onSymbolClick={onSymbolClick} />
             ) : (<>
             {isAdmin && <>
-            {narrowed && <div className="hot-meta">
+            {/* The run-up week has no switch (Roy, 2026-10-31: "dont need run up names. and dont need the promotheus confirmed
+                chip"): its list is what Prometheus confirmed; a name he passed is not on it. An older, Argus-era week (a
+                past day) keeps its Argus and screened views. */}
+            {narrowed && !(weekTab && ruleWeek) && <div className="hot-meta">
                 <div className="hot-status-filter" role="group" aria-label="Names">
                     {[
                         weekTab && ['confirmed', `Prometheus confirmed ${prometheusNames.length}`, 'The names Prometheus read — the catalyst and the company — and set a target on: the week’s list'],
-                        !ruleWeek && ['argus', `Argus’s names ${argusNames.length}`, weekTab ? 'Argus’s picks for this week, each read by Prometheus — confirmed or not' : 'The names Argus confirmed for this horizon — the day’s list'],
-                        ruleWeek
-                            ? ['all', `Run-up names ${byHorizon.length}`, 'Every name the run-up rule listed — each read by Prometheus, confirmed or not']
-                            : ['all', `All screened ${byHorizon.length}`, 'Everything the screener let through for this horizon, confirmed or not'],
+                        ['argus', `Argus’s names ${argusNames.length}`, weekTab ? 'Argus’s picks for this week, each read by Prometheus — confirmed or not' : 'The names Argus confirmed for this horizon — the day’s list'],
+                        ['all', `All screened ${byHorizon.length}`, 'Everything the screener let through for this horizon, confirmed or not'],
                     ].filter(Boolean).map(([k, label, title]) => (
                         <button key={k} type="button" aria-pressed={shown === k} title={title}
                             className={`hot-status-filter__btn${shown === k ? ' hot-status-filter__btn--on' : ''}`} onClick={() => setView(k)}>{label}</button>
