@@ -30,7 +30,7 @@ describe('HotlistScorecard', () => {
         expect(screen.getByText('+0.1% · 50% beat · 77')).toBeTruthy()
         expect(screen.getByText('buy')).toBeTruthy()
         expect(screen.getByText(/vs SPY, unsigned/)).toBeTruthy()
-        expect(screen.getByText('Backed — a target')).toBeTruthy()
+        expect(screen.getByText('Backed — confirmed')).toBeTruthy()
         expect(screen.getByText('it already ran its usual run-up this cycle')).toBeTruthy()
         expect(screen.queryByText('too thin to tell'), 'a reason with nothing graded is left out').toBeNull()
         expect(screen.getByText('+2.0% · 50% beat · 3').className).toMatch(/hot-result--dim/)

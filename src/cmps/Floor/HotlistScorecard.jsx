@@ -74,10 +74,19 @@ function CatalystTable({ catalyst, min }) {
                 </thead>
                 <tbody>
                     <tr className="hot-row hot-row--line hot-score__group">
-                        <th scope="row">Backed — a target</th>
-                        <td>{b?.reads ?? 0}{b?.reads ? <span className="hot-dim"> · {b.hit} hit target</span> : null}</td>
+                        <th scope="row">Backed — confirmed</th>
+                        {/* A run-up read can be confirmed without a target (runup-reads.md §4): the hit rate is over the targeted. */}
+                        <td>{b?.reads ?? 0}{b?.reads ? <span className="hot-dim"> · {b.hit} of {b.targeted ?? b.reads} targets hit</span> : null}</td>
                         <Cell s={b?.window} min={min} />
                     </tr>
+                    {/* His call on the report: held through it, or out before it — does holding add anything? */}
+                    {[['hold', 'held through the report'], ['exit', 'out before the report']].filter(([k]) => b?.by_call?.[k]?.n).map(([k, label]) => (
+                        <tr key={k} className="hot-row hot-row--line">
+                            <th scope="row" className="hot-score__sub">{label}</th>
+                            <td className="hot-dim">{b.by_call[k].n}</td>
+                            <Cell s={b.by_call[k]} min={min} />
+                        </tr>
+                    ))}
                     <tr className="hot-row hot-row--line hot-score__group">
                         <th scope="row">Passed — the control</th>
                         <td>{p?.reads ?? 0}</td>
