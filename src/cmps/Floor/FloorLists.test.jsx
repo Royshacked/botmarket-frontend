@@ -939,6 +939,13 @@ describe('FloorLists — sorting', () => {
         expect(screen.queryByRole('combobox')).toBeNull()
     })
 
+    // Roy, 2026-10-31: "the sorting btns put them in the header and remove the div they are in now".
+    it('sits in the list window\'s header bar, with no strip of its own over the rows', () => {
+        render(<FloorLists scans={scans} initialDesk="scans" />)
+        expect(sortSelect().closest('.detail-panel__bar')).toBeTruthy()
+        expect(document.querySelector('.floor-sort')).toBeNull()
+    })
+
     it('opens on the default order, with the arrow disabled', () => {
         render(<FloorLists scans={scans} initialDesk="scans" />)
         expect(sortSelect().value).toBe('default')

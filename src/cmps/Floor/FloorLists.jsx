@@ -197,21 +197,22 @@ DeskStrip.propTypes = {
  * column's header says which list it is). A CONTAINER: a row that opens a panel of its own (the board's industries)
  * keeps the list under it, and closing that panel steps back to the list.
  */
-function ListPanel({ desk, children }) {
+function ListPanel({ desk, actions = null, children }) {
     return (
-        <DetailPanel id={desk.panel} title={desk.label} container bare className={`floor-panel floor-panel--${desk.key}`}>
+        <DetailPanel id={desk.panel} title={desk.label} actions={actions} container bare className={`floor-panel floor-panel--${desk.key}`}>
             {/* The rows keep the desk body they were laid out in (Floor.scss: .floor-desk__body …). */}
             <div className="floor-desk__body floor-panel__body">{children}</div>
         </DetailPanel>
     )
 }
-ListPanel.propTypes = { desk: PropTypes.object.isRequired, children: PropTypes.node }
+ListPanel.propTypes = { desk: PropTypes.object.isRequired, actions: PropTypes.node, children: PropTypes.node }
 
 const Empty = ({ children }) => <p className="floor-empty">{children}</p>
 Empty.propTypes = { children: PropTypes.node }
 
 // ── Sorting ───────────────────────────────────────────────────────────────────
-// One bar for every desk, pinned to the top of the open desk's body. The options are the desk's
+// In the list window's HEADER bar, beside its ✕ (Roy, 2026-10-31: "the sorting btns put them in the header and remove
+// the div they are in now") — the Calendar's controls; a desk drawn in the column keeps its strip. The options are the desk's
 // (floor.sort.js); the bar only renders them. It shows when there are two rows or more — a sort
 // control over a single row is a control that cannot do anything.
 //
@@ -221,16 +222,16 @@ const SORT_KEY = 'floorSorts'
 const readSorts  = () => { try { return JSON.parse(localStorage.getItem(SORT_KEY)) ?? {} } catch { return {} } }
 const writeSorts = (s) => { try { localStorage.setItem(SORT_KEY, JSON.stringify(s)) } catch { /* private mode */ } }
 
-function SortBar({ deskKey, sort, onChange }) {
+function SortBar({ deskKey, sort, onChange, inHeader = false }) {
     const options = DESK_SORTS[deskKey]
     const opt = sortOption(deskKey, sort)
     const dir = opt ? (sort.dir ?? opt.dir) : null
     return (
-        <div className="floor-sort">
+        <div className={inHeader ? 'cal-nav floor-sort--header' : 'floor-sort'}>
             <label className="floor-sort__label">
                 Sort
                 <select
-                    className="floor-sort__select"
+                    className={inHeader ? 'cal-nav__btn floor-sort__select' : 'floor-sort__select'}
                     value={opt ? opt.key : 'default'}
                     onChange={e => {
                         const next = options.find(o => o.key === e.target.value)
@@ -242,7 +243,7 @@ function SortBar({ deskKey, sort, onChange }) {
             </label>
             <button
                 type="button"
-                className="floor-sort__dir"
+                className={inHeader ? 'cal-nav__btn floor-sort__dir' : 'floor-sort__dir'}
                 onClick={() => onChange({ key: opt.key, dir: dir === 'asc' ? 'desc' : 'asc' })}
                 disabled={!opt}
                 aria-label={dir === 'desc' ? 'Descending — switch to ascending' : 'Ascending — switch to descending'}
@@ -255,6 +256,7 @@ SortBar.propTypes = {
     deskKey:  PropTypes.string.isRequired,
     sort:     PropTypes.object,
     onChange: PropTypes.func.isRequired,
+    inHeader: PropTypes.bool,
 }
 
 // ── Queued ────────────────────────────────────────────────────────────────────
@@ -957,11 +959,13 @@ export function FloorLists({
     const isEmpty = key => sortableCount[key] === 0 && !loadingFor[key]
 
     // A desk's rows — in its window over the chat (every list since 2026-10-22), or in the column for a desk without one.
-    const deskBody = (desk) => (
+    const sortable = (desk) => Boolean(DESK_SORTS[desk.key]) && sortableCount[desk.key] > 1
+    const sortBar = (desk, inHeader = false) => (sortable(desk)
+        ? <SortBar deskKey={desk.key} sort={sorts[desk.key]} onChange={s => setSort(desk.key, s)} inHeader={inHeader} />
+        : null)
+    const deskBody = (desk, { inPanel = false } = {}) => (
         <>
-            {DESK_SORTS[desk.key] && sortableCount[desk.key] > 1 && (
-                <SortBar deskKey={desk.key} sort={sorts[desk.key]} onChange={s => setSort(desk.key, s)} />
-            )}
+            {!inPanel && sortBar(desk)}
             {desk.key === 'positions' && (
                 <FloorLeft
                     positions={book?.positions ?? []}
@@ -1063,7 +1067,7 @@ export function FloorLists({
             <ForecastPanel coverage={coverage} themes={themes} focus={forecastFocus} onOpenBoard={() => openPanel('floor:board')}
                 onEditCoverage={onEditCoverage} onRetireCoverage={onRetireCoverage} onDeleteCoverage={onDeleteCoverage} />
             {shown.filter(d => d.panel?.startsWith('floor:')).map(desk => (
-                <ListPanel key={desk.key} desk={desk}>{deskBody(desk)}</ListPanel>
+                <ListPanel key={desk.key} desk={desk} actions={sortBar(desk, true)}>{deskBody(desk, { inPanel: true })}</ListPanel>
             ))}
 
             {visibleDesks.map(desk => (
