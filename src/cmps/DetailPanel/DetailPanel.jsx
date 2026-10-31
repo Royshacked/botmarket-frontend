@@ -88,20 +88,18 @@ export function DetailPanel({ id, kicker = '', title, meta = null, actions = nul
             history={handheld ? { field: 'detailPanel', key: id } : null}
         >
             {bare
-                // A whole Floor list (Roy, 2026-10-22: "without header"): no bar — the list starts at the top, a small ✕ in
-                // the corner. A list with controls of its own (the Hotlist's views, the Calendar's months, the map's way
-                // back) keeps them in one thin row, with what they act on beside them — the month, the map's industry —
-                // since ‹ › with no month named is a control with nothing to say.
-                ? (actions || meta
-                    ? (
-                        <div className="detail-panel__bar">
-                            <span className="detail-panel__title detail-panel__bar-title">{title}</span>
-                            {meta && <div className="detail-panel__meta">{meta}</div>}
-                            {actions && <div className="detail-panel__actions">{actions}</div>}
-                            <button type="button" className="detail-panel__close" onClick={close} aria-label="Close" title="Close (Esc)">✕</button>
-                        </div>
-                    )
-                    : <button type="button" className="detail-panel__close detail-panel__close--corner" onClick={close} aria-label="Close" title="Close (Esc)">✕</button>)
+                // A whole Floor list: ONE thin bar, the same on every list (Roy, 2026-10-31: "the header style of calendar
+                // should be the header style of all the rest of the lists") — the list's name, its own controls if it has
+                // any (the Calendar's months, the Hotlist's days, the map's way back) with what they act on, and the ✕.
+                // (2026-10-22 to 10-31 a list without controls had no bar, only a corner ✕.)
+                ? (
+                    <div className="detail-panel__bar">
+                        <span className="detail-panel__title detail-panel__bar-title">{title}</span>
+                        {meta && <div className="detail-panel__meta">{meta}</div>}
+                        {actions && <div className="detail-panel__actions">{actions}</div>}
+                        <button type="button" className="detail-panel__close" onClick={close} aria-label="Close" title="Close (Esc)">✕</button>
+                    </div>
+                )
                 : (
                     <header className="detail-panel__head">
                         <div className="detail-panel__titles">

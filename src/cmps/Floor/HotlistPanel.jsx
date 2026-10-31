@@ -243,31 +243,31 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick, coverage = [], isA
         : b ? `${_day(b.day)} · ${CHECKPOINT_LABEL[b.checkpoint] ?? b.checkpoint}` : 'Today'
     const stepDay = (to) => { setDay(to === days[0] ? null : to); setView('list') }
     const actions = chartSym || focus ? (
-        <button type="button" className="hot-nav__btn" onClick={() => { setChartSym(null); setFocus(null) }}>‹ Back to the list</button>
+        <button type="button" className="cal-nav__btn" onClick={() => { setChartSym(null); setFocus(null) }}>‹ Back to the list</button>
     ) : (
         <>
             {days.length > 1 && at >= 0 && (
-                <div className="hot-nav" role="group" aria-label="Day">
-                    <button type="button" className="hot-nav__btn" disabled={at >= days.length - 1} onClick={() => stepDay(days[at + 1])}
+                <div className="cal-nav" role="group" aria-label="Day">
+                    <button type="button" className="cal-nav__btn" disabled={at >= days.length - 1} onClick={() => stepDay(days[at + 1])}
                         aria-label="The day before" title={at < days.length - 1 ? _day(days[at + 1]) : undefined}>‹</button>
-                    <button type="button" className="hot-nav__btn" disabled={latestDay} onClick={() => stepDay(days[at - 1])}
+                    <button type="button" className="cal-nav__btn" disabled={latestDay} onClick={() => stepDay(days[at - 1])}
                         aria-label="The day after" title={!latestDay ? _day(days[at - 1]) : undefined}>›</button>
                 </div>
             )}
             {/* The Boards view is the archived checkpoints' (2026-10-25): a day with only the overnight week board has one list. */}
             {today.dayList.length > 0 && today.checkpoints.some(c => c.checkpoint !== 'overnight') && (
-                <div className="hot-nav" role="tablist" aria-label="Hotlist view">
+                <div className="cal-nav" role="tablist" aria-label="Hotlist view">
                     {[['list', latestDay ? 'Today’s list' : 'The day’s list'], ['boards', 'Boards']].map(([v, label]) => (
                         <button key={v} type="button" role="tab" aria-selected={view === v}
-                            className={`hot-nav__btn${view === v ? ' hot-nav__btn--on' : ''}`} onClick={() => setView(v)}>{label}</button>
+                            className={`cal-nav__btn${view === v ? ' cal-nav__btn--on' : ''}`} onClick={() => setView(v)}>{label}</button>
                     ))}
                 </div>
             )}
             {!listView && today.checkpoints.length > 1 && (
-                <div className="hot-nav" role="tablist" aria-label="Today's checkpoints">
+                <div className="cal-nav" role="tablist" aria-label="Today's checkpoints">
                     {today.checkpoints.map(c => (
                         <button key={c.id} type="button" role="tab" aria-selected={c.id === boardId}
-                            className={`hot-nav__btn${c.id === boardId ? ' hot-nav__btn--on' : ''}`} onClick={() => pickBoard(c.id)}>
+                            className={`cal-nav__btn${c.id === boardId ? ' cal-nav__btn--on' : ''}`} onClick={() => pickBoard(c.id)}>
                             {CHECKPOINT_LABEL[c.checkpoint] ?? c.checkpoint}
                         </button>
                     ))}

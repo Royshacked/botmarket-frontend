@@ -137,12 +137,15 @@ describe('FloorLists', () => {
             expect(within(deskBtn('Awaiting orders')).getByText('(2)')).toBeTruthy()
         })
 
-        // "Without header" (Roy): the list starts at the top, a small ✕ in the corner; the column's header names it.
-        it('a list window has no header — a corner ✕, which closes it', () => {
+        // Roy, 2026-10-31: "the header style of calendar should be the header style of all the rest of the lists" — the
+        // Calendar's thin bar (the name and the ✕), not the full header and not a bare corner ✕.
+        it('a list window has the Calendar\'s thin bar — its name and a ✕, which closes it', () => {
             render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
             const dialog = screen.getByRole('dialog')
             expect(dialog.querySelector('.detail-panel__head')).toBeNull()
             expect(dialog.querySelector('.detail-panel__kicker')).toBeNull()
+            expect(dialog.querySelector('.detail-panel__bar .detail-panel__bar-title').textContent).toBe('Your trades')
+            expect(dialog.querySelector('.detail-panel__close--corner')).toBeNull()
             fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }))
             expect(screen.queryByRole('dialog')).toBeNull()
         })

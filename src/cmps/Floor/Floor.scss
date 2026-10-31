@@ -384,6 +384,7 @@ $desk-h: rem(36px);
         white-space: nowrap;
 
         &:hover { background: var(--bg-hover); color: var(--text-primary); }
+        &:disabled { opacity: .4; cursor: default; background: none; }
 
         // Fixed width, so the arrows do not shift as the name changes from May to September.
         &--month { min-width: 92px; color: var(--text-primary); }
