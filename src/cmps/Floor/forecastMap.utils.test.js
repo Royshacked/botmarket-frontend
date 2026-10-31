@@ -137,6 +137,8 @@ describe('the long term beside the near term', () => {
         assert.deepEqual([semis, quiet, no].filter(t => matchesFilter(t, 'long_term')).map(t => t.code), ['S', 'Q'])
         assert.deepEqual([semis, quiet, no].filter(t => matchesFilter(t, 'swing')).map(t => t.code), ['S', 'N'])
         assert.equal(isLongTerm(tile()), false)
+        // A yes past its 60 days (backend `live: false`) is shown nowhere as the house's long term.
+        assert.equal(longTermBadge(tile({ assessment: { verdict: 'swing', long_term: { call: 'yes', live: false } } })), null)
     })
 
     it('a sector counts the long term on its own, beside the near-term verdicts', () => {

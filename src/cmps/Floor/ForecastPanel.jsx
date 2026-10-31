@@ -4,7 +4,7 @@ import { OwnedBadge } from '../OwnedBadge/OwnedBadge.jsx'
 import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
 import { useDetailPanel, closePanel } from '../DetailPanel/detailPanel.store.js'
 import { strategyService } from '../../services/strategy/strategy.service.remote.js'
-import { AssessmentDetail } from '../Radar/AssessmentView.jsx'
+import { AssessmentDetail, LongTermChip } from '../Radar/AssessmentView.jsx'
 import { ThemeDetail } from '../Radar/ThemesView.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { VERDICT_LABEL, verdictKey } from '../Radar/assessmentWords.js'
@@ -208,11 +208,10 @@ ForecastPanel.propTypes = {
 
 function VerdictChips({ row }) {
     const v = verdictKey(row.verdict)
-    const lt = row.long_term?.call === 'yes' && v !== 'long_term'
     return (
         <>
             <span className={`assessment-view__verdict assessment-view__verdict--${v}`}>{VERDICT_LABEL[row.verdict] ?? row.verdict}</span>
-            {lt && <span className="assessment-view__verdict assessment-view__verdict--long_term" title={row.long_term.hype ? 'Long term — stretched: a timing flag' : "Pythia's long-term call, beside the near term"}>For long term{row.long_term.hype ? ' · stretched' : ''}</span>}
+            <LongTermChip row={row} />
             <span>{v === 'watch' && row.decides_by ? `decides by ${row.decides_by}` : row.horizon}</span>
             {row.confidence && <span>{row.confidence} confidence</span>}
         </>

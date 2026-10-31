@@ -4,7 +4,7 @@
 // is a badge ON the colour, never the colour itself — the verdicts are not a scale (swing and long term are different
 // books, not more and less bullish), so painting them on one gradient would say something Pythia never said.
 
-import { verdictKey } from '../Radar/assessmentWords.js'
+import { verdictKey, isLongTermYes } from '../Radar/assessmentWords.js'
 
 /** The windows a reader can colour by. `scale` is the move that reads as full colour in that window. */
 export const WINDOWS = [
@@ -35,7 +35,7 @@ export const tileVerdict = (tile) => (tile?.assessment?.verdict ? verdictKey(til
  * near term — an industry can be a swing AND long term. A tile from before the split whose verdict was long term reads
  * as a yes.
  */
-export const isLongTerm = (tile) => tile?.assessment?.long_term?.call === 'yes' || tileVerdict(tile) === 'long_term'
+export const isLongTerm = (tile) => isLongTermYes(tile?.assessment) || tileVerdict(tile) === 'long_term'
 
 /** The corner badge letter of the NEAR term — none for no case or an unassessed tile. */
 export const badgeOf = (tile) => (tileVerdict(tile) === 'long_term' ? null : BADGE[tileVerdict(tile)] ?? null)

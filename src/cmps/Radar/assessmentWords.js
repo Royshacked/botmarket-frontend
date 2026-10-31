@@ -64,6 +64,12 @@ export function movedLine(moved, name = null) {
  * is its own call (backend pythia-two-verdicts.md, 2026-10-31): a row with a long-term yes is listed under For long term
  * AND under its near-term verdict.
  */
+/**
+ * A long-term YES the house still counts (backend assessmentRow's `live`: inside its 60 days). A row from an older
+ * backend without the flag counts. Pure.
+ */
+export const isLongTermYes = (row) => row?.long_term?.call === 'yes' && row.long_term.live !== false
+
 export function groupByVerdict(rows, query = '') {
     const q = query.trim().toLowerCase()
     const groups = new Map(VERDICT_ORDER.map(v => [v, []]))
@@ -72,7 +78,7 @@ export function groupByVerdict(rows, query = '') {
         if (q && !`${s.name ?? ''} ${s.sector ?? ''}`.toLowerCase().includes(q)) continue
         const v = verdictKey(r.verdict)
         if (groups.has(v)) groups.get(v).push(r)
-        if (r.long_term?.call === 'yes' && v !== 'long_term') groups.get('long_term').push(r)
+        if (isLongTermYes(r) && v !== 'long_term') groups.get('long_term').push(r)
     }
     return [...groups.entries()].filter(([, list]) => list.length)
 }

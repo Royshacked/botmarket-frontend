@@ -6,13 +6,14 @@ import { useStrategyRun } from '../../customHooks/useStrategyRun.js'
 import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
 import { useDetailPanel } from '../DetailPanel/detailPanel.store.js'
 import { useAssessmentDetail } from '../../customHooks/useAssessmentDetail.js'
-import { verdictKey, VERDICT_LABEL, INPUT_LABEL, causeWord, REGIME_WORD, movedLine, moneyLine, flowLines, geoLine, groupByVerdict, recordWords, isExpired, weekHeadline, weekResultLine } from './assessmentWords.js'
+import { verdictKey, VERDICT_LABEL, INPUT_LABEL, causeWord, REGIME_WORD, movedLine, moneyLine, flowLines, geoLine, groupByVerdict, recordWords, isExpired, weekHeadline, weekResultLine, isLongTermYes } from './assessmentWords.js'
 
-/** The long-term chip beside the near-term verdict, or null (backend pythia-two-verdicts.md). */
-function longTermChip(row) {
-    if (row?.long_term?.call !== 'yes' || verdictKey(row.verdict) === 'long_term') return null
+/** The long-term chip beside the near-term verdict, or null (backend pythia-two-verdicts.md). The board's and the map's. */
+export function LongTermChip({ row }) {
+    if (!isLongTermYes(row) || verdictKey(row.verdict) === 'long_term') return null
     return <span className="assessment-view__verdict assessment-view__verdict--long_term" title={row.long_term.hype ? 'Long term — stretched: a timing flag' : "Pythia's long-term call, beside the near term"}>For long term{row.long_term.hype ? ' · stretched' : ''}</span>
 }
+LongTermChip.propTypes = { row: PropTypes.object }
 
 // Pythia's assessments — "Assessed" on the Forecasts tab (backend docs/design/pythia-assessment.md, build
 // step 1). Each assessed industry with Pythia's verdict — interesting to trade, to invest in, to watch, or
@@ -116,15 +117,18 @@ export function AssessmentDetail({ row, open }) {
 }
 AssessmentDetail.propTypes = { row: PropTypes.object.isRequired, open: PropTypes.bool.isRequired }
 
-function AssessmentRow({ row }) {
+function AssessmentRow({ row, group = null }) {
     const s = row.subject ?? {}
     // The detail opens in the DetailPanel over the chat column (one panel across the app — see its store). ONE id for
     // the row and its panel: it was built twice, and the row's copy read `s` before it was declared — a row with no
-    // `id` threw and took the board down (code review 2026-10-13).
-    const panelId = `assessment:${row.id ?? s.code ?? s.name}`
+    // `id` threw and took the board down (code review 2026-10-13). A long-term yes is listed twice (For long term and
+    // its near-term group): each copy its own id, or one click opened two panels (code review 2026-10-31).
+    const longTermCopy = group === 'long_term' && verdictKey(row.verdict) !== 'long_term'
+    const panelId = `assessment:${row.id ?? s.code ?? s.name}${longTermCopy ? ':long_term' : ''}`
     const panel = useDetailPanel(panelId)
     const open = panel.isOpen
-    const expired = isExpired(row)
+    // The stale chip is the NEAR term's clock; under For long term the long-term call keeps its own.
+    const expired = !longTermCopy && isExpired(row)
     return (
         <div className="industry-view__row">
             <button type="button" className="industry-view__line" onClick={panel.toggle} aria-haspopup="dialog" aria-expanded={open}>
@@ -143,17 +147,17 @@ function AssessmentRow({ row }) {
                     {row.moved?.hype && <span className="assessment-view__hype" title="Up 100%+ in two years and 100%+ over the market — a crash risk flag, not a timing signal">hype</span>}
                     <span className={`assessment-view__verdict assessment-view__verdict--${verdictKey(row.verdict)}`}>{VERDICT_LABEL[row.verdict] ?? row.verdict}</span>
                     {/* The long term, its own call beside the near term (backend pythia-two-verdicts.md, 2026-10-31). */}
-                    {longTermChip(row)}
+                    <LongTermChip row={row} />
                     <span className="screen-view__horizon">{row.verdict === 'watch' && row.decides_by ? `decides by ${row.decides_by}` : row.horizon}</span>
                 </span>
             </button>
-            <DetailPanel id={panelId} kicker="Forecasts · Assessed" title={s.name} meta={<><span className={`assessment-view__verdict assessment-view__verdict--${verdictKey(row.verdict)}`}>{VERDICT_LABEL[row.verdict] ?? row.verdict}</span>{longTermChip(row)}<span>{row.verdict === 'watch' && row.decides_by ? `decides by ${row.decides_by}` : row.horizon}</span>{expired && <span className="assessment-view__stale">stale</span>}</>}>
+            <DetailPanel id={panelId} kicker="Forecasts · Assessed" title={s.name} meta={<><span className={`assessment-view__verdict assessment-view__verdict--${verdictKey(row.verdict)}`}>{VERDICT_LABEL[row.verdict] ?? row.verdict}</span><LongTermChip row={row} /><span>{row.verdict === 'watch' && row.decides_by ? `decides by ${row.decides_by}` : row.horizon}</span>{expired && <span className="assessment-view__stale">stale</span>}</>}>
                 <AssessmentDetail row={row} open={open} />
             </DetailPanel>
         </div>
     )
 }
-AssessmentRow.propTypes = { row: PropTypes.object.isRequired }
+AssessmentRow.propTypes = { row: PropTypes.object.isRequired, group: PropTypes.string }
 
 /** Admin: assess one industry now (a few minutes of research, its cost shown). */
 function AssessNow({ industries }) {
@@ -275,7 +279,7 @@ export function AssessmentView({ data = null, industries = [], query = '', week 
                     <h4 className={`industry-view__sector-name assessment-view__group assessment-view__group--${verdict}`}>
                         {VERDICT_LABEL[verdict]} <span>{list.length}</span>
                     </h4>
-                    {list.map(r => <AssessmentRow key={r.id ?? r.subject?.code} row={r} />)}
+                    {list.map(r => <AssessmentRow key={r.id ?? r.subject?.code} row={r} group={verdict} />)}
                 </section>
             ))}
             {!total && <p className="news-feed__empty">No industry assessed yet.</p>}

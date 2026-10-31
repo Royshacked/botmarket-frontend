@@ -131,6 +131,23 @@ describe('AssessmentView', () => {
         expect(rtl.getByRole('dialog').querySelector('.detail-panel__title').textContent).toBe('Steel')
     })
 
+    // Two verdicts (backend pythia-two-verdicts.md; code review 2026-10-31): a long-term yes is listed twice — one click
+    // opens ONE panel; the For long term copy shows no near-term "stale"; a yes past its 60 days is not under For long term.
+    it('a long-term yes listed twice opens one panel, and its long-term copy carries no near-term stale chip', () => {
+        const semis = A({ expires_at: '2020-01-01T00:00:00.000Z', long_term: { call: 'yes', hype: false, live: true } })
+        const old = A({ id: 'old', subject: { code: '2', name: 'Rails', sector: 'Industrials' }, verdict: 'avoid', long_term: { call: 'yes', live: false } })
+        render(<AssessmentView data={{ assessments: [semis, old], record: null }} />)
+        const lt = document.querySelector('.assessment-view__group--long_term').closest('section')
+        expect([...lt.querySelectorAll('.industry-view__name')].map(n => n.firstChild.textContent)).toEqual(['Semiconductors'])
+        expect(lt.querySelector('.assessment-view__stale')).toBeNull()
+        expect(document.querySelectorAll('.assessment-view__stale').length).toBe(1)
+        const rows = rtl.getAllByRole('button', { name: /Semiconductors/ })
+        expect(rows).toHaveLength(2)
+        fireEvent.click(rows[0])
+        expect(rtl.getAllByRole('dialog')).toHaveLength(1)
+        expect(rows.filter(r => r.getAttribute('aria-expanded') === 'true')).toHaveLength(1)
+    })
+
     it('a trader sees no Assess now; an admin runs one and sees its cost', async () => {
         render(<AssessmentView data={DATA} industries={[{ code: '45301020', name: 'Semiconductors' }]} />)
         expect(rtl.queryByRole('button', { name: 'Assess now' })).toBeNull()

@@ -362,7 +362,7 @@ const _stillCalled = (book, column, r) => (r?.origin?.source === 'pythia' ? r.or
     : (book?.picks?.[column] ?? []).find(p => p.symbol === r?.symbol)?.still) ?? null
 
 /** Pythia's verdict words, for a name that left (industryAssessment VERDICTS). */
-export const VERDICT_WORDS = Object.freeze({ swing: 'for swing', long_term: 'for long term', watch: 'watch', avoid: 'avoid', no_case: 'no case' })
+export const VERDICT_WORDS = Object.freeze({ swing: 'for swing', long_term: 'for long term', not_long_term: 'not for long term', watch: 'watch', avoid: 'avoid', no_case: 'no case' })
 
 /** Why Prometheus passed on a chain pick, in words (researchRun's reject reasons). */
 export const PICK_PASS_WHY = Object.freeze({
