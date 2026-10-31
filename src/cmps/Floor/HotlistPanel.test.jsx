@@ -7,7 +7,7 @@ vi.mock('../PriceChart/ChartSurface.jsx', () => ({
 }))
 
 vi.mock('../../services/hotlist/hotlist.service.remote.js', () => ({
-    hotlistService: { getToday: vi.fn(), getBoard: vi.fn(), getOutcomes: vi.fn(), getReads: vi.fn(), requestRead: vi.fn(), getBook: vi.fn() },
+    hotlistService: { getToday: vi.fn(), getBoard: vi.fn(), getOutcomes: vi.fn(), getReads: vi.fn(), requestRead: vi.fn(), getBook: vi.fn(), getScorecard: vi.fn(async () => null) },
 }))
 
 import { hotlistService } from '../../services/hotlist/hotlist.service.remote.js'
@@ -726,26 +726,20 @@ describe('HotlistPanel — Swing and Long term', () => {
 
     // Roy, 2026-10-24: "Pythia brings the industry → Argus brings names from it → Prometheus analyses them and brings a
     // thesis and PT — the survivors in the Hotlist".
-    it('Swing opens on the chain\'s survivors — Argus\'s picks Prometheus covered, any rating; the picks and the whole book a click away', async () => {
+    // Roy, 2026-10-31: "the same for swing / long term / coverages" — no view switch: the list is the survivors.
+    it('Swing is the chain\'s survivors — Argus\'s picks Prometheus covered, any rating — with no view switch', async () => {
         await mount({ coverage: COVERAGE })
         expect(screen.getByRole('button', { name: 'Swing 2' }).title).toMatch(/2 confirmed by Prometheus of 4 the chain sent; 3 in the book/)
         expect(screen.getByRole('button', { name: 'Long term 1' })).toBeTruthy()
         fireEvent.click(screen.getByRole('button', { name: 'Swing 2' }))
-        expect(screen.getByRole('button', { name: 'Prometheus confirmed 2' }).getAttribute('aria-pressed')).toBe('true')
+        expect(document.querySelector('.hot-status-filter'), 'no view switch').toBeNull()
         expect(order()).toEqual(['CHN', 'HLD'], 'his buy and the hold he had covered at the desk; the desk\'s own buy is not the chain\'s')
         expect(screen.queryByText(/Pythia/, { selector: '.hot-note b' }), 'how the chain works is the Info column’s (2026-10-31)').toBeNull()
         const chn = screen.getByText('CHN').closest('tr')
         expect(chn.textContent).toMatch(/100\.00.*130\.00.*\+30\.0%.*Mar 2027 · 6m.*\+4\.0% \(\+2\.0%\).*13%.*Railroads/)
         expect(document.querySelector('.hot-record').textContent).toMatch(/no target has come due yet.*median \+4\.0% since set/)
-        fireEvent.click(screen.getByRole('button', { name: 'Argus’s names 4' }))
-        expect(order()).toEqual(['CHN', 'PSS', 'WAI', 'HLD'])
-        const cell = (s) => screen.getByText(s).closest('tr').querySelector('.hot-result').textContent
-        expect(cell('CHN')).toBe('buy · target 130.00 (+30.0%)')
-        expect(cell('PSS')).toBe('pass — he could not defend a number')
-        expect(cell('WAI')).toBe('waiting for Prometheus')
-        // The whole book and the scorecard moved to Covered companies (2026-10-28).
-        expect(screen.queryByRole('button', { name: /^All coverage/ })).toBeNull()
-        expect(screen.queryByRole('button', { name: 'Prometheus’s scorecard' })).toBeNull()
+        // The scorecard is Covered companies' (2026-10-28), under its table.
+        expect(screen.queryByText(/scorecard could not be loaded/)).toBeNull()
     })
 
     // Roy, 2026-10-29: "full table for admin only; for regular users only the table with the four tabs above — no explanations".
@@ -775,13 +769,13 @@ describe('HotlistPanel — Swing and Long term', () => {
     })
 
     // Roy, 2026-10-28: "4 tabs — week / swing / long term / covered companies".
-    it('Covered companies: the whole book, both horizons, and the scorecard; a name hands off as the book it sits in', async () => {
+    it('Covered companies: the whole book, both horizons, and the scorecard under it; a name hands off as the book it sits in', async () => {
         const onBuild = vi.fn()
         await mount({ coverage: COVERAGE, onBuild })
         fireEvent.click(screen.getByRole('button', { name: 'Covered companies 4' }))
-        expect(screen.getByRole('button', { name: 'All coverage 4' }).getAttribute('aria-pressed')).toBe('true')
-        expect(screen.getByRole('button', { name: 'Prometheus’s scorecard' })).toBeTruthy()
-        expect(screen.queryByRole('button', { name: /^Argus’s names/ })).toBeNull()
+        // No switch (Roy, 2026-10-31): the book is the list, the admin's scorecard under the table.
+        expect(document.querySelector('.hot-status-filter')).toBeNull()
+        expect(await screen.findByText(/scorecard could not be loaded/)).toBeTruthy()
         expect(order()).toEqual(['CHN', 'DSK', 'HLD', 'LNG'])
         fireEvent.click(screen.getByRole('button', { name: /^Upside/ }))
         expect(order()[0]).toBe('DSK')

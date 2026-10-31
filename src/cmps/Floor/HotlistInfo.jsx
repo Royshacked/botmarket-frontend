@@ -50,10 +50,9 @@ export function HotlistInfo() {
                 <h3 className="hot-info__h">Swing and Long term</h3>
                 <p>Not a day&apos;s list: the <b>weekly chain</b>. Pythia calls an industry (or a theme) for swing or for the long
                     term; Argus picks the names that best carry her thesis; Prometheus researches each — the thesis and a price
-                    target, 3–6 months out for <b>Swing</b>, 12–24 months for <b>Long term</b>. The list is <b>Prometheus
-                    confirmed</b>: Argus&apos;s names that came out of research with a thesis and a target, whatever the rating — and a
-                    name Argus picked that the desk had already covered. <b>Argus&apos;s names</b> shows every name the chain sent in
-                    the last eight weeks and where Prometheus has it. When Pythia stops calling a name&apos;s industry or theme for
+                    target, 3–6 months out for <b>Swing</b>, 12–24 months for <b>Long term</b>. The list is what Prometheus
+                    confirmed: Argus&apos;s names that came out of research with a thesis and a target, whatever the rating — and a
+                    name Argus picked that the desk had already covered. When Pythia stops calling a name&apos;s industry or theme for
                     that horizon, the name <b>leaves the list</b> (a line says which) — its coverage stays live, in Covered
                     companies.</p>
                 <dl className="hot-info__dl">
@@ -67,8 +66,8 @@ export function HotlistInfo() {
             </section>
             <section>
                 <h3 className="hot-info__h">Covered companies</h3>
-                <p><b>All coverage</b> is the whole live book — swing and long term, the chain&apos;s names and the desk&apos;s, holds
-                    and sells too. <b>Prometheus&apos;s scorecard</b> grades every call he makes: frozen the day he makes it and
+                <p>The whole live book — swing and long term, the chain&apos;s names and the desk&apos;s, holds and sells too.
+                    Under it, <b>Prometheus&apos;s scorecard</b> grades every call he makes: frozen the day he makes it and
                     measured against SPY at 1, 3, 6 and 12 months, a sell scored as right when the stock falls; holds apart. Under 20
                     graded calls a number is dim — too few to judge.</p>
             </section>

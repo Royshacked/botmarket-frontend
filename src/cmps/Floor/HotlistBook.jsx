@@ -4,7 +4,7 @@ import { OwnedBadge } from '../OwnedBadge/OwnedBadge.jsx'
 import { CoverageDetail, CoverageRating } from './CoverageDetail.jsx'
 import { HotlistScorecard } from './HotlistScorecard.jsx'
 import { HotlistRowPage } from './HotlistRowPage.jsx'
-import { BOOK_LABEL, BOOK_SORTS, COVERED, VERDICT_WORDS, bookResult, bookProgress, bookOrigin, bookRecordLine, sortBook, chainSurvivors, chainLeft, coveredRows, pickCell } from './hotlist.utils.js'
+import { BOOK_LABEL, BOOK_SORTS, COVERED, VERDICT_WORDS, bookResult, bookProgress, bookOrigin, bookRecordLine, sortBook, chainSurvivors, chainLeft, coveredRows } from './hotlist.utils.js'
 
 // THE HOUSE'S BOOK in the Hotlist — its Swing and Long term lists (Roy, 2026-10-24: "in hotlist — what about longer
 // swings and long-term names?"). The day's boards stop at This week; these are Prometheus's coverage, split by the price
@@ -64,46 +64,9 @@ function survivorsEmpty({ picks, failed, column, left = 0 }) {
     if (left) return `No ${label} names on the list: Pythia no longer calls the ${left} Prometheus covered (named above) — they are in Covered companies.`
     if (!picks.length) return `The weekly chain has sent no ${label} names yet — Pythia’s week sends them. See Covered companies meanwhile.`
     const waiting = picks.filter(p => p.state === 'waiting').length
-    if (waiting) return `Prometheus has ${waiting} of Argus’s ${picks.length} ${label} names still to research. See Argus’s names.`
-    return `Prometheus covered none of Argus’s ${picks.length} ${label} names — see Argus’s names for why.`
+    if (waiting) return `Prometheus has ${waiting} of Argus’s ${picks.length} ${label} names still to research.`
+    return `Prometheus covered none of Argus’s ${picks.length} ${label} names.`
 }
-
-/** Every name Argus sent for this book, newest first, and where Prometheus has it. */
-function ChainPicks({ picks, failed, rows, column, onSymbolClick }) {
-    if (failed) return <p className="floor-empty">The weekly chain’s names could not be loaded.</p>
-    if (!picks.length) return <p className="floor-empty">The weekly chain has sent no {BOOK_LABEL[column].toLowerCase()} names in the last eight weeks.</p>
-    const bySym = new Map(rows.map(r => [r.symbol, r]))
-    return (
-        <div className="hot-table-wrap hot-table-wrap--list">
-            <table className="hot-table hot-table--list hot-table--picks">
-                <thead>
-                    <tr>
-                        <th scope="col">Sym</th>
-                        <th scope="col" title="The industry or theme Pythia called">Pythia’s call</th>
-                        <th scope="col" title="Why Argus chose it, and what would make it wrong">Argus</th>
-                        <th scope="col" title="Prometheus's rating and target, or why he passed">Prometheus</th>
-                        <th scope="col" title="When the chain sent it">Sent</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {picks.map(p => {
-                        const cell = pickCell(p, bySym.get(p.symbol) ?? null)
-                        return (
-                            <tr key={p.symbol} className="hot-row hot-row--line" data-symbol={p.symbol}>
-                                <td><button type="button" className="hot-sym" onClick={() => onSymbolClick?.(p.symbol)}>{p.symbol}</button><OwnedBadge symbol={p.symbol} /></td>
-                                <td>{p.subject ?? '—'}</td>
-                                <td className="hot-picks__why">{p.why ?? <span className="hot-dim">—</span>}{p.caution && <span className="hot-row__caution"> Caution: {p.caution}</span>}</td>
-                                <td className={`hot-result hot-result--${cell.tone}`}>{cell.text}</td>
-                                <td className="hot-dim">{String(p.at ?? '').slice(0, 10)}</td>
-                            </tr>
-                        )
-                    })}
-                </tbody>
-            </table>
-        </div>
-    )
-}
-ChainPicks.propTypes = { picks: PropTypes.array.isRequired, failed: PropTypes.bool, rows: PropTypes.array.isRequired, column: PropTypes.string.isRequired, onSymbolClick: PropTypes.func }
 
 export function HotlistBook({ book, column, coverage = [], isAdmin = false, focus = null, onOpen = () => {}, onBuild, onAsk, onSymbolClick }) {
     // THE CHAIN'S SURVIVORS first (Roy, 2026-10-24: "Pythia brings the industry → Argus brings names from it →
@@ -113,9 +76,10 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, focu
     // COVERED COMPANIES (Roy, 2026-10-28) is the whole book, both horizons, and the scorecard; Swing and Long term are the
     // chain's lists — the survivors and Argus's names.
     const covered = column === COVERED
-    // A user has no view switch (Roy, 2026-10-29): the list is the tab's list — Argus's names and the scorecard are the admin's.
-    const [chosen, setView] = useState(covered ? 'all' : 'confirmed')
-    const view = isAdmin ? chosen : covered ? 'all' : 'confirmed'
+    // No view switch, for anyone (Roy, 2026-10-31: "the same for swing / long term / coverages"): the list is the tab's
+    // list — Swing and Long term the chain's survivors, Covered companies the whole book; the admin's scorecard sits
+    // under the table.
+    const view = covered ? 'all' : 'confirmed'
     // The chain's picks are not there: the book failed, or a server from before them (code review 2026-10-24) — never
     // "the chain sent nothing".
     const picksMissing = !book || book.picks == null
@@ -180,24 +144,7 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, focu
 
     return (
         <>
-            {isAdmin && <div className="hot-meta">
-                <div className="hot-status-filter" role="group" aria-label="Names">
-                    {(covered ? [
-                        ['all', `All coverage ${all.length}`, 'Every live thesis, swing and long term — the desk’s too, holds and sells too'],
-                        ['scorecard', 'Prometheus’s scorecard', 'Every call he made, frozen when made and graded against SPY — all horizons, and his catalyst reads against his passes'],
-                    ] : [
-                        ['confirmed', `Prometheus confirmed ${survivors.length}`, 'The weekly chain’s survivors: Pythia’s industry, Argus’s pick, and Prometheus’s thesis and target — whatever the rating'],
-                        ['argus', `Argus’s names ${picks.length}`, 'Every name Argus sent from Pythia’s calls in the last eight weeks, and where Prometheus has it'],
-                    ]).map(([k, label, title]) => (
-                        <button key={k} type="button" aria-pressed={view === k} title={title}
-                            className={`hot-status-filter__btn${view === k ? ' hot-status-filter__btn--on' : ''}`} onClick={() => setView(k)}>{label}</button>
-                    ))}
-                </div>
-            </div>}
-            {view === 'scorecard' ? <HotlistScorecard /> : <>
-            {view === 'argus'
-                ? <ChainPicks picks={picks} failed={picksMissing} rows={all} column={column} onSymbolClick={onSymbolClick} />
-                : !rows.length
+            {!rows.length
                 ? <p className="floor-empty">{!isAdmin ? (covered ? 'No covered companies yet.' : 'No names on this list yet.') : covered ? 'No covered companies in the book.' : view === 'all' ? `No ${BOOK_LABEL[column].toLowerCase()} names in the book.` : survivorsEmpty({ picks, failed: picksMissing, column, left: left.length })}</p>
                 : (
                     <div className="hot-table-wrap hot-table-wrap--list">
@@ -249,11 +196,12 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, focu
             {/* The record and who left the list sit UNDER the table (Roy, 2026-10-31): the table comes right under the tabs;
                 how the chain makes the list is in the Info column. */}
             {isAdmin && !covered && <BookRecord rec={book?.record?.[column]} column={column} />}
-            {isAdmin && view === 'confirmed' && left.length > 0 && (
+            {isAdmin && !covered && left.length > 0 && (
                 <p className="hot-note hot-dim">Off this list — Pythia no longer calls them {BOOK_LABEL[column].toLowerCase()}; still covered, in Covered companies:{' '}
                     {left.map(r => `${r.symbol} (${r.origin?.subject ?? 'its industry'}: now ${VERDICT_WORDS[r.origin?.verdict_now] ?? r.origin?.verdict_now ?? '—'})`).join(', ')}.</p>
             )}
-            </>}
+            {/* Prometheus's scorecard, the admin's, under the whole book (it had its own view before 2026-10-31). */}
+            {isAdmin && covered && <HotlistScorecard />}
         </>
     )
 }
