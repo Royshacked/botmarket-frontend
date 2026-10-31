@@ -1541,12 +1541,12 @@ $fm-steps: (1: 14%, 2: 26%, 3: 40%, 4: 56%);
     &--stale { opacity: .55; }
     &--dim   { opacity: .18; }
     // Two badges in the corner (the near term and the long term): the name keeps clear of both.
-    &--two &__name { padding-right: 34px; }
+    &--two &__name { padding-right: 44px; }
 
     &__name {
         font-size: 11.5px;
         line-height: 1.25;
-        padding-right: 16px;   // the badge's corner
+        padding-right: 22px;   // the badge's corner
         display: -webkit-box;
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
@@ -1563,23 +1563,25 @@ $fm-steps: (1: 14%, 2: 26%, 3: 40%, 4: 56%);
     &__move { font-family: var(--font-mono); font-size: 11px; font-weight: 700; }
     &__cov  { font-size: 10.5px; color: var(--text-secondary); }
 
-    // The verdict letter. Confidence is its weight: outlined (low), tinted (medium), solid (high).
+    // The verdict letter. Confidence is its weight: outlined (low), tinted (medium), solid (high). Roy, 2026-10-31: the
+    // letters were hard to read at 9.5px on a tinted tile — bigger, and the letter always lighter than its colour.
     &__badge {
         position: absolute;
         top: 4px;
         right: 4px;
-        min-width: 15px;
-        height: 15px;
+        min-width: 18px;
+        height: 18px;
         padding: 0 3px;
         border: 1px solid var(--fm-v);
-        border-radius: 3px;
+        border-radius: 4px;
         font-family: var(--font-mono);
-        font-size: 9.5px;
-        font-weight: 700;
-        line-height: 13px;
+        font-size: 12px;
+        font-weight: 800;
+        line-height: 16px;
         text-align: center;
-        color: var(--fm-v);
-        background: var(--bg-surface);
+        color: color-mix(in srgb, var(--fm-v) 60%, #fff);
+        background: color-mix(in srgb, var(--fm-v) 14%, var(--bg-base));
+        box-shadow: 0 0 0 1px var(--bg-base);
 
         // Roy, 2026-10-14: swing green, long term teal, watch dark orange, avoid red.
         &--swing     { --fm-v: var(--color-long); }
@@ -1588,10 +1590,10 @@ $fm-steps: (1: 14%, 2: 26%, 3: 40%, 4: 56%);
         &--avoid     { --fm-v: var(--color-short); }
 
         // The long-term letter beside the near-term one (pythia-two-verdicts.md): one badge's width to its left.
-        &--second { right: 22px; }
+        &--second { right: 25px; }
 
-        &--low    { background: var(--bg-surface); border-style: dashed; }
-        &--medium { background: color-mix(in srgb, var(--fm-v) 22%, var(--bg-surface)); }
+        &--low    { border-style: dashed; }
+        &--medium { background: color-mix(in srgb, var(--fm-v) 38%, var(--bg-base)); color: #fff; }
         &--high   { background: var(--fm-v); color: var(--bg-base); }
     }
 }
