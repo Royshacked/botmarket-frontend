@@ -580,10 +580,12 @@ export function hotlistHandoff(row, column, board) {
 
 /** The read Mentor's opening sentence carries for a row: Argus's pick note, else the board's own why. */
 export function handoffRead(row, column) {
-    // A book row hands Mentor the house's thesis in numbers — the rating, the target and its date — and the chain's reason.
+    // A book row hands Mentor the house's thesis in numbers — the rating, the valuation and its date — and the chain's reason.
+    // "valued at", not "target": this sentence is sent as the USER's, and a "target" in their mouth was built as their
+    // take-profit (NXST, 2026-10-31). Prometheus's price is a valuation over its horizon; the take-profit is the chart's.
     if (BOOK_ORDER.includes(column)) {
         const head = [row?.rating ? `Prometheus ${row.rating.replace('_', ' ')}` : null,
-            Number.isFinite(row?.target) ? `target ${row.target.toFixed(2)}${row.target_date ? ` by ${row.target_date}` : ''}` : null].filter(Boolean).join(', ')
+            Number.isFinite(row?.target) ? `valued at ${row.target.toFixed(2)}${row.target_date ? ` by ${row.target_date}` : ''}` : null].filter(Boolean).join(', ')
         const why = row?.origin?.why ?? null
         return [head ? `${head} (a ${BOOK_LABEL[column].toLowerCase()} name)` : null, why].filter(Boolean).join(' — ') || null
     }

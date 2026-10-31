@@ -240,7 +240,8 @@ test('the book sorts by a column, missing values last; buys are buy and strong b
 test("a book row's hand-offs: Mentor gets the thesis in numbers and the chain's reason; Argus the timing question", () => {
     const row = { symbol: 'CHN', rating: 'strong_buy', target: 130, target_date: '2027-03-01', upside_pct: 30,
         origin: { source: 'pythia', subject: 'Railroads', why: 'the leader' } }
-    assert.equal(handoffRead(row, 'swing'), 'Prometheus strong buy, target 130.00 by 2027-03-01 (a swing name) — the leader')
+    // "valued at", never "target": the sentence goes out as the user's, and Mentor built a "target" as their take-profit (NXST).
+    assert.equal(handoffRead(row, 'swing'), 'Prometheus strong buy, valued at 130.00 by 2027-03-01 (a swing name) — the leader')
     assert.equal(askArgusText(row, 'long_term'),
         "From the house's long term book: CHN — Prometheus strong buy, target 130.00 by 2027-03-01, +30.0% upside, from Pythia's call on Railroads. Is now a good time to buy it, and what would make it wrong?")
 })
