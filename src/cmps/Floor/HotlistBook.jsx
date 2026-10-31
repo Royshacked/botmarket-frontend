@@ -3,13 +3,15 @@ import PropTypes from 'prop-types'
 import { OwnedBadge } from '../OwnedBadge/OwnedBadge.jsx'
 import { CoverageDetail, CoverageRating } from './CoverageDetail.jsx'
 import { HotlistScorecard } from './HotlistScorecard.jsx'
+import { HotlistRowPage } from './HotlistRowPage.jsx'
 import { BOOK_LABEL, BOOK_SORTS, COVERED, VERDICT_WORDS, bookResult, bookProgress, bookOrigin, bookRecordLine, sortBook, chainSurvivors, chainLeft, coveredRows, pickCell } from './hotlist.utils.js'
 
 // THE HOUSE'S BOOK in the Hotlist — its Swing and Long term lists (Roy, 2026-10-24: "in hotlist — what about longer
 // swings and long-term names?"). The day's boards stop at This week; these are Prometheus's coverage, split by the price
 // target's horizon (backend houseBook.service): 3–6 months a swing, 12–24 months long term. Live, not by day — the
 // house's current book. Each row: where it is against its target, how it has done since the target was set (and
-// against SPY), and where it came from (the weekly chain, or the desk). The opened row is the thesis itself.
+// against SPY), and where it came from (the weekly chain, or the desk). A clicked row is its page — the thesis itself,
+// over the whole window (HotlistRowPage, Roy 2026-10-31).
 
 const _price = (v) => (Number.isFinite(v) ? v.toFixed(2) : '—')
 const _pct = (v) => (Number.isFinite(v) ? `${v > 0 ? '+' : ''}${v.toFixed(1)}%` : '—')
@@ -82,7 +84,7 @@ function ChainPicks({ picks, failed, rows, column, onSymbolClick }) {
 }
 ChainPicks.propTypes = { picks: PropTypes.array.isRequired, failed: PropTypes.bool, rows: PropTypes.array.isRequired, column: PropTypes.string.isRequired, onSymbolClick: PropTypes.func }
 
-export function HotlistBook({ book, column, coverage = [], isAdmin = false, onBuild, onAsk, onSymbolClick }) {
+export function HotlistBook({ book, column, coverage = [], isAdmin = false, focus = null, onOpen = () => {}, onBuild, onAsk, onSymbolClick }) {
     // THE CHAIN'S SURVIVORS first (Roy, 2026-10-24: "Pythia brings the industry → Argus brings names from it →
     // Prometheus analyses them and brings a thesis and PT — the survivors in the Hotlist"): the names it covered, any
     // rating; then every name Argus sent and where Prometheus has it; then the whole book, the desk's too. The parent keys
@@ -97,7 +99,6 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, onBu
     // "the chain sent nothing".
     const picksMissing = !book || book.picks == null
     const [sort, setSort] = useState({ key: null, dir: null })
-    const [openSym, setOpenSym] = useState(null)
     const all = covered ? coveredRows(book) : book?.[column] ?? []
     const survivors = chainSurvivors(book, column)
     // Names Pythia no longer calls for this book: off the list, said so, in Covered companies (Roy, 2026-10-28).
@@ -124,6 +125,47 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, onBu
         )
     }
 
+    // A row clicked: its page — the numbers, the chart, the thesis and the hand-offs — in place of the list.
+    if (focus) {
+        const r = rows.find(x => x.symbol === focus) ?? all.find(x => x.symbol === focus)
+        if (!r) return <p className="floor-empty">{focus} is no longer on this list.</p>
+        const res = bookResult(r)
+        const origin = bookOrigin(r)
+        const cov = bySymbol.get(r.symbol) ?? null
+        const facts = [
+            ['Last', _price(r.price), null, 'The screener’s last close — not live'],
+            ['Rating', cov ? <CoverageRating coverage={cov} /> : r.rating?.replace('_', ' ') ?? null],
+            ['Target', _price(r.target)],
+            ['Upside', _pct(r.upside_pct), r.upside_pct > 0 ? 'hot-up' : r.upside_pct < 0 ? 'hot-down' : null, 'From the last close to the target'],
+            ['By', `${_month(r.target_date)} · ${r.horizon ?? '—'}`, null, r.days_left != null ? `${r.days_left} days left` : undefined],
+            ['Since set', res?.text ?? null, `hot-result hot-result--${res?.tone ?? 'dim'}`, res?.title],
+            ['To target', bookProgress(r) ?? null],
+            ['From', origin.text, null, origin.title, true],
+        ]
+        return (
+            <HotlistRowPage symbol={r.symbol} name={r.name ?? null} facts={facts}>
+                <div className="hot-detail">
+                    <p className="hot-detail__head">
+                        {r.industry && <span className="hot-dim">{r.industry}</span>}
+                        {r.price_at_set != null && <span className="hot-dim">{r.industry ? ' · ' : ''}{_price(r.price_at_set)} when the target was set ({String(r.set_at).slice(0, 10)})</span>}
+                    </p>
+                    {r.origin?.source === 'pythia' && (
+                        <p className="hot-detail__line"><b>From the weekly chain:</b> Pythia’s {r.origin.verdict === 'long_term' ? 'long-term' : r.origin.verdict} call on {r.origin.subject}
+                            {r.origin.why ? <> — <b>Argus:</b> {r.origin.why}</> : null}
+                            {r.origin.caution ? <span className="hot-row__caution"> Caution: {r.origin.caution}</span> : null}</p>
+                    )}
+                    {cov ? <CoverageDetail coverage={cov} /> : <p className="hot-detail__line hot-dim">The thesis is on the Forecasts page.</p>}
+                    <div className="hot-detail__actions">
+                        {/* On Covered companies a row hands off as the book it sits in. */}
+                        {onBuild && <button type="button" className="floor-queued__btn" onClick={() => onBuild(r, r.book ?? column, null)}
+                            title={`Build a ${BOOK_LABEL[r.book ?? column].toLowerCase()} setup with Mentor`}>Build with Mentor</button>}
+                        {onAsk && <button type="button" className="floor-queued__btn hot-ask" onClick={() => onAsk(r, r.book ?? column)}>Ask Argus</button>}
+                    </div>
+                </div>
+            </HotlistRowPage>
+        )
+    }
+
     return (
         <>
             {isAdmin && <div className="hot-meta">
@@ -139,17 +181,8 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, onBu
                             className={`hot-status-filter__btn${view === k ? ' hot-status-filter__btn--on' : ''}`} onClick={() => setView(k)}>{label}</button>
                     ))}
                 </div>
-                <span className="hot-meta__item hot-dim" title="The house's live coverage — not a day's board. Prices are the screener's last close.">
-                    The house’s live coverage{book?.asof ? ` · prices as of the ${book.asof} close` : ''}
-                </span>
             </div>}
             {view === 'scorecard' ? <HotlistScorecard /> : <>
-            {isAdmin && !covered && <BookRecord rec={book?.record?.[column]} column={column} />}
-            {isAdmin && view === 'confirmed' && left.length > 0 && (
-                <p className="hot-note hot-dim">Off this list — Pythia no longer calls them {BOOK_LABEL[column].toLowerCase()}; still covered, in Covered companies:{' '}
-                    {left.map(r => `${r.symbol} (${r.origin?.subject ?? 'its industry'}: now ${VERDICT_WORDS[r.origin?.verdict_now] ?? r.origin?.verdict_now ?? '—'})`).join(', ')}.</p>
-            )}
-            {isAdmin && view !== 'all' && <p className="hot-note">{BOOK_LABEL[column]}: <b>Pythia</b> calls the industry, <b>Argus</b> picks the names that best carry her thesis, and <b>Prometheus</b> researches each — the thesis and a {column === 'swing' ? '3–6 month' : '12–24 month'} target. The names he covered are the list, with his rating.</p>}
             {view === 'argus'
                 ? <ChainPicks picks={picks} failed={picksMissing} rows={all} column={column} onSymbolClick={onSymbolClick} />
                 : !rows.length
@@ -173,16 +206,15 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, onBu
                             </thead>
                             <tbody>
                                 {rows.map(r => {
-                                    const open = openSym === r.symbol
                                     const res = bookResult(r)
                                     const origin = bookOrigin(r)
                                     const cov = bySymbol.get(r.symbol) ?? null
-                                    const toggle = () => setOpenSym(s => (s === r.symbol ? null : r.symbol))
-                                    return [
-                                        <tr key={r.symbol} className={`hot-row hot-row--line${r.origin?.source === 'pythia' ? ' hot-row--pick' : ''}${open ? ' hot-row--open' : ''}`}
-                                            data-symbol={r.symbol} onClick={(e) => { if (!e.target.closest('button')) toggle() }}>
+                                    const open = () => onOpen(r.symbol)
+                                    return (
+                                        <tr key={r.symbol} className={`hot-row hot-row--line${r.origin?.source === 'pythia' ? ' hot-row--pick' : ''}`}
+                                            data-symbol={r.symbol} onClick={(e) => { if (!e.target.closest('button')) open() }}>
                                             <td className="hot-table__star">
-                                                <button type="button" className="hot-toggle" aria-expanded={open} aria-label={`${open ? 'Hide' : 'Show'} ${r.symbol} details`} onClick={toggle}>{open ? '▾' : '▸'}</button>
+                                                <button type="button" className="hot-toggle" aria-label={`Details for ${r.symbol}`} onClick={open}>›</button>
                                             </td>
                                             <td><button type="button" className="hot-sym" onClick={() => onSymbolClick?.(r.symbol)} title={r.name ?? r.symbol}>{r.symbol}</button><OwnedBadge symbol={r.symbol} /></td>
                                             <td className="hot-table__num hot-col--more">{_price(r.price)}</td>
@@ -193,44 +225,26 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, onBu
                                             <td className={`hot-result hot-result--${res?.tone ?? 'dim'}`} title={res?.title}>{res?.text ?? '—'}</td>
                                             <td className="hot-table__num hot-range hot-col--more">{bookProgress(r) ?? '—'}</td>
                                             <td className="hot-book__from hot-col--more" title={origin.title}>{origin.text}</td>
-                                        </tr>,
-                                        open && (
-                                            <tr key={`${r.symbol}-detail`} className="hot-detail-row">
-                                                <td />
-                                                <td colSpan={9}>
-                                                    <div className="hot-detail">
-                                                        <p className="hot-detail__head">
-                                                            {r.name && <b>{r.name}</b>}
-                                                            {r.industry && <span className="hot-dim"> · {r.industry}</span>}
-                                                            {r.price_at_set != null && <span className="hot-dim"> · {_price(r.price_at_set)} when the target was set ({String(r.set_at).slice(0, 10)})</span>}
-                                                        </p>
-                                                        {r.origin?.source === 'pythia' && (
-                                                            <p className="hot-detail__line"><b>From the weekly chain:</b> Pythia’s {r.origin.verdict === 'long_term' ? 'long-term' : r.origin.verdict} call on {r.origin.subject}
-                                                                {r.origin.why ? <> — <b>Argus:</b> {r.origin.why}</> : null}
-                                                                {r.origin.caution ? <span className="hot-row__caution"> Caution: {r.origin.caution}</span> : null}</p>
-                                                        )}
-                                                        {cov ? <CoverageDetail coverage={cov} /> : <p className="hot-detail__line hot-dim">The thesis is on the Forecasts page.</p>}
-                                                        <div className="hot-detail__actions">
-                                                            {/* On Covered companies a row hands off as the book it sits in. */}
-                                                            {onBuild && <button type="button" className="floor-queued__btn" onClick={() => onBuild(r, r.book ?? column, null)}
-                                                                title={`Build a ${BOOK_LABEL[r.book ?? column].toLowerCase()} setup with Mentor`}>Build with Mentor</button>}
-                                                            {onAsk && <button type="button" className="floor-queued__btn hot-ask" onClick={() => onAsk(r, r.book ?? column)}>Ask Argus</button>}
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ),
-                                    ]
+                                        </tr>
+                                    )
                                 })}
                             </tbody>
                         </table>
                     </div>
                 )}
+            {/* The record and who left the list sit UNDER the table (Roy, 2026-10-31): the table comes right under the tabs;
+                how the chain makes the list is in the Info column. */}
+            {isAdmin && !covered && <BookRecord rec={book?.record?.[column]} column={column} />}
+            {isAdmin && view === 'confirmed' && left.length > 0 && (
+                <p className="hot-note hot-dim">Off this list — Pythia no longer calls them {BOOK_LABEL[column].toLowerCase()}; still covered, in Covered companies:{' '}
+                    {left.map(r => `${r.symbol} (${r.origin?.subject ?? 'its industry'}: now ${VERDICT_WORDS[r.origin?.verdict_now] ?? r.origin?.verdict_now ?? '—'})`).join(', ')}.</p>
+            )}
             </>}
         </>
     )
 }
 HotlistBook.propTypes = {
     book: PropTypes.object, column: PropTypes.string.isRequired, coverage: PropTypes.array, isAdmin: PropTypes.bool,
+    focus: PropTypes.string, onOpen: PropTypes.func,
     onBuild: PropTypes.func, onAsk: PropTypes.func, onSymbolClick: PropTypes.func,
 }

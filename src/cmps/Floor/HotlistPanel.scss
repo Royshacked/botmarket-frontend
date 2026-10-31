@@ -173,7 +173,7 @@
 }
 
 // ONE LINE per name, like a broker's watchlist: tight rows, hover, numbers in fixed columns. The
-// words open under a row on a click (.hot-detail).
+// words are on the row's page, a click away (.hot-page, 2026-10-31).
 // The header stays put while the list scrolls (Roy, 2026-10-22). Sticky needs the PANEL BODY to be the
 // nearest scroll container, so the list's wrapper clips instead of scrolling sideways (`overflow-x:
 // auto` would make it one, and the header would stick to a box that never scrolls). The one-line rows
@@ -204,7 +204,6 @@
     .hot-spark { display: block; }
 }
 .hot-row--line { cursor: pointer; &:hover td { background: var(--bg-hover); } }
-.hot-row--open td { background: var(--bg-hover); border-bottom-color: transparent; }
 .hot-toggle {
     background: none; border: 0; padding: 0 6px 0 0; cursor: pointer; color: var(--text-secondary); font-size: 12px;
     &:hover { color: var(--text-primary); }
@@ -214,7 +213,6 @@
 .hot-spark--muted .hot-spark__line { stroke: var(--text-muted); }
 .hot-spark--muted .hot-spark__dot  { fill: var(--text-muted); }
 
-.hot-detail-row td { background: var(--bg-hover); white-space: normal; padding-top: 0; }
 .hot-detail {
     display: flex; flex-direction: column; gap: 4px; padding: 2px 0 8px; font-size: 12px; line-height: 1.45; color: var(--text-secondary);
     p { margin: 0; }
@@ -245,6 +243,34 @@
     height: 100%;
     min-height: 420px;
     .chart-surface { flex: 1 1 auto; min-height: 0; }
+}
+
+// A row's page (HotlistRowPage; Roy, 2026-10-31): the name over the whole window — its numbers as tiles, its daily
+// chart, then the row's words and hand-offs. The body is the list's own detail, a little larger.
+.hot-page {
+    display: flex; flex-direction: column; gap: 12px; padding: 4px 0 12px;
+    &__head { display: flex; align-items: baseline; gap: 8px; }
+    &__sym { font-family: var(--font-mono); font-weight: 600; font-size: 18px; color: var(--text-primary); }
+    &__name { color: var(--text-secondary); font-size: 13px; }
+    &__facts {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 6px; margin: 0;
+    }
+    &__fact {
+        padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-surface); min-width: 0;
+        dt { font-size: 10.5px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .03em; }
+        // The tile keeps the colour its table cell would have (hot-up, hot-result--…); a plain value reads primary.
+        // A long value (the date and horizon, the move against SPY, an industry) wraps — never cut.
+        dd { margin: 2px 0 0; font-family: var(--font-mono); font-size: 13px; white-space: normal; overflow-wrap: break-word; }
+        dd:not([class]) { color: var(--text-primary); }
+        // Words, not a number (where it came from): two tiles wide, so an industry is not broken mid-word.
+        &--wide { grid-column: span 2; dd { font-family: inherit; font-size: 12.5px; } }
+    }
+    &__chart {
+        display: flex; flex-direction: column; height: 340px;
+        .chart-surface { flex: 1 1 auto; min-height: 0; }
+    }
+    &__show-chart { align-self: flex-start; }
+    &__body .hot-detail { font-size: 13px; gap: 6px; }
 }
 
 // The house's book (HotlistBook; Roy, 2026-10-24): Swing and Long term sit after the day's horizons, set a little apart —

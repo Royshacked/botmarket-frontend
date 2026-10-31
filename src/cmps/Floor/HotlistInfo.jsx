@@ -2,7 +2,8 @@
 // column — put an explanation about this table"). Words only; the numbers are the panel's. Kept to what a trader needs
 // to read a row: where the names come from, what each column means, who decided what, and what the buttons do.
 // Rewritten 2026-10-25 when the day trades were archived and This week moved to the run-up rule
-// (botmarket-backend docs/design/hotlist-day-archive.md, screener-lab.md).
+// (botmarket-backend docs/design/hotlist-day-archive.md, screener-lab.md). Since 2026-10-31 it is the ONLY place the lists are
+// explained — the panel shows the tabs and the table (Roy: "the user should see simple things").
 
 const COLUMNS = [
     ['Sym', 'The ticker; click it for the daily chart.'],
@@ -11,7 +12,7 @@ const COLUMNS = [
     ['ATR%', 'The average daily range, as % of price — how far it usually moves in a day.'],
     ['Earn', 'The report the run-up is into. Amber with "!": out at the close before it.'],
     ['Result', 'Did it work — once the five sessions close (below).'],
-    ['Target', 'Prometheus’s short-swing target and how much of it is still open.'],
+    ['Target', 'Prometheus’s short-swing target and how much of it is still open — decided from the catalyst and the company, off a yardstick (what the catalyst is worth, or the stock’s usual run-up into a report). Valid until its window ends, the session before a report; graded then.'],
 ]
 
 export function HotlistInfo() {
@@ -92,6 +93,7 @@ export function HotlistInfo() {
             </section>
             <section>
                 <h3 className="hot-info__h">On a row</h3>
+                <p>Click a row for its page — its numbers, the daily chart, who read it and why — over the whole window; ‹ Back to the list returns.</p>
                 <dl className="hot-info__dl">
                     <div><dt>Build with Mentor</dt><dd>A setup from the row&apos;s facts — and on This week, Prometheus&apos;s target and the date to be out by.</dd></div>
                     <div><dt>Ask Argus</dt><dd>Question him about the name.</dd></div>
