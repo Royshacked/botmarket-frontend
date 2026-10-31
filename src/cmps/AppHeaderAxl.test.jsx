@@ -38,9 +38,10 @@ describe('AppHeaderAxl — the lists in the menu', () => {
         expect(screen.getByRole('button', { name: 'Open menu' }).getAttribute('aria-expanded')).toBe('false')
     })
 
-    it('an admin has the research queue too', () => {
+    // The research queue was an admin's list until 2026-10-31 (Roy: "we dont need anymore the research queue mechanism and list").
+    it('an admin has no research queue either', () => {
         mount(ADMIN)
-        expect(screen.getByRole('button', { name: 'Research queue' })).toBeTruthy()
+        expect(screen.queryByRole('button', { name: 'Research queue' })).toBeNull()
     })
 
     it('outside the Floor design there are no lists to open — none in the menu', () => {

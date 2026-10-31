@@ -56,13 +56,6 @@ export const DESK_SORTS = {
         { key: 'candidates', label: 'Candidates', dir: 'desc', value: s => s.candidates?.length ?? 0 },
         { key: 'newest',     label: 'Saved',      dir: 'desc', value: s => toMs(s.savedAt) },
     ],
-    research_queue: [
-        DEFAULT,
-        { key: 'symbol', label: 'Symbol', dir: 'asc',  value: i => str(i.symbol) },
-        { key: 'source', label: 'Source', dir: 'asc',  value: i => str(i.source) },
-        { key: 'status', label: 'Status', dir: 'asc',  value: i => str(i.status) },
-        { key: 'added',  label: 'Added',  dir: 'desc', value: i => toMs(i.created_at) },
-    ],
     aether: [
         DEFAULT,
         { key: 'date',     label: 'Event date', dir: 'desc', value: r => toMs(r.event_date || r.created_at) },

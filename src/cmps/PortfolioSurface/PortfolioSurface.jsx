@@ -129,7 +129,7 @@ export function PortfolioSurface({ session, deskProps = {} }) {
         })
     }
 
-    const has = adopting || portfolioId || plan || proposal || notices.screenRequests?.length || notices.coverageRequest
+    const has = adopting || portfolioId || plan || proposal || notices.screenRequests?.length
     if (!state || !has) {
         return (
             <div className="desk-surface portfolio-surface">
@@ -265,12 +265,6 @@ export function PortfolioSurface({ session, deskProps = {} }) {
                 <div className="portfolio-panel__action-bubble portfolio-panel__coverage-notice">
                     <span className="portfolio-panel__coverage-notice-icon" aria-hidden="true">🔬</span>
                     <span>{sleeves}</span>
-                </div>
-            )}
-            {!turning && notices.coverageRequest?.symbol && (
-                <div className="portfolio-panel__action-bubble portfolio-panel__coverage-notice">
-                    <span className="portfolio-panel__coverage-notice-icon" aria-hidden="true">🔬</span>
-                    <span><strong>{notices.coverageRequest.symbol}</strong> queued for research — check back once coverage is ready.</span>
                 </div>
             )}
 

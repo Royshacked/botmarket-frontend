@@ -74,9 +74,10 @@ describe('PortfolioSurface — the table', () => {
     })
 
     it('says what the turn sent off to be researched', () => {
-        mount({ notices: { screenRequests: [{ sector: 'Energy', lens: 'value' }], coverageRequest: { symbol: 'PLTR' } } })
+        mount({ notices: { screenRequests: [{ sector: 'Energy', lens: 'value' }] } })
         expect(screen.getByText(/Energy \(value\) sleeve sent to Argus and Prometheus/)).toBeTruthy()
-        expect(screen.getByText(/queued for research/).textContent).toMatch(/PLTR/)
+        // No one-name research queue since 2026-10-31: nothing is "queued for research".
+        expect(screen.queryByText(/queued for research/)).toBeNull()
     })
 })
 
