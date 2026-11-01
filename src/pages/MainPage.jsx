@@ -1306,7 +1306,7 @@ export function MainPage() {
         if (!candidate?.ticker) return
         // Investing lists produce RESEARCH candidates → route to the Analyst; trading → Mentor.
         if (scan?.profile === 'investing' || scan?.destination === 'analyst') return handleResearchCandidate(candidate, scan)
-        // A name off a saved list, to Mentor as a session turn (phase 8b) — the read and the recommended lens ride as
+        // A name off a saved list, to Mentor as a session turn (phase 8b) — the read rides as
         // the seed, as the live Argus → Mentor hand-off's do. (The list's period never reached the setup: Mentor
         // read the candidate alone, then and now.)
         const turn = handoffTurn({
@@ -1314,7 +1314,6 @@ export function MainPage() {
             direction: candidate.direction === 'short' ? 'short' : 'long',
             thesis:    candidate.thesis ?? null,
             analysis:  candidate.analysis ?? candidate.thesis ?? null,
-            recommended_mode: candidate.recommended_mode ?? null,
         })
         if (!turn) return
         talkTo('mentor', turn.text, { seed: turn.seed })

@@ -268,13 +268,14 @@ test('a book row goes to Mentor as which list — never with its own horizon or 
     assert.equal(handoffTurn({ ticker: 'A', hotlist: { board: 'hb_2026-10-23_mid', column: 'mid' } }).seed.book, undefined)
 })
 
-test("Build with Mentor opens in the thesis lens — a board row by reference, a book row by list; nothing without a name", () => {
+test("Build with Mentor carries no lens (the server opens it risk-based) — a board row by reference, a book row by list; nothing without a name", () => {
     const board = handoffTurn(hotlistHandoff(ROW, 'mid', { id: 'hb_2026-10-21_mid' }))
-    assert.equal(board.seed.recommended_mode, 'thesis')
+    assert.equal('recommended_mode' in board.seed, false)
     assert.deepEqual(board.seed.hotlist, { board: 'hb_2026-10-21_mid', column: 'mid' })
     assert.equal(board.seed.direction, 'long')
     const book = handoffTurn(hotlistHandoff({ symbol: 'chn', rating: 'buy', target: 12 }, 'swing', null))
-    assert.deepEqual([book.seed.recommended_mode, book.seed.book], ['thesis', { column: 'swing' }])
+    assert.deepEqual(book.seed.book, { column: 'swing' })
+    assert.equal('recommended_mode' in book.seed, false)
     assert.equal(hotlistHandoff(ROW, 'mid', null), null, 'a board row needs its board')
     assert.equal(hotlistHandoff({}, 'swing', null), null)
 })
