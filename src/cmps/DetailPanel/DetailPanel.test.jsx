@@ -160,7 +160,7 @@ describe('DetailPanel', () => {
         expect(screen.getByRole('dialog')).toBeTruthy()
     })
 
-    it('on a handheld the back gesture closes it, and ✕ steps back over the entry it pushed', () => {
+    it('on a handheld the back gesture closes it, and ✕ steps back over the entry it pushed', async () => {
         handheld(true)
         const back = vi.spyOn(window.history, 'back').mockImplementation(() => {})
         render(<Opener id="x" />)
@@ -174,6 +174,7 @@ describe('DetailPanel', () => {
 
         fireEvent.click(screen.getByText('open x'))
         fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+        await new Promise(r => setTimeout(r, 0))   // the step back is owed one tick (useBackGesture: a swap is one entry)
         expect(back).toHaveBeenCalledTimes(1)
     })
 })
