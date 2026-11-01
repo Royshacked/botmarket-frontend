@@ -90,9 +90,20 @@ test('a phone: following the floor opens the desk collapsed; raise, lower; a doo
     collapsePane()
     assert.deepEqual([sidePaneState().tabs, sidePaneState().collapsed], [['mentor', 'scanner'], true], 'lowered, not closed')
     openSurface('portfolio')
-    assert.equal(sidePaneState().collapsed, false, 'a doorway is the user asking for the desk')
+    assert.equal(sidePaneState().collapsed, false, 'a doorway that asks for no collapse raises it (the ticket, Pythia, Aether)')
     closePane()
     assert.equal(sidePaneState().collapsed, false)
     openSurface('mentor', { follow: true })
     assert.equal(sidePaneState().collapsed, false, 'a desktop never collapses')
+})
+
+// A phone (Roy, 2026-11-01): a DOORWAY to a desk the user talks to opens it lowered too — the work only comes up on "Show".
+test('a phone: a doorway with collapse opens the desk lowered; a sheet already up stays up', () => {
+    _resetSidePane()
+    openSurface('mentor', { collapse: true })
+    assert.deepEqual([sidePaneState().tabs, sidePaneState().active, sidePaneState().collapsed], [['mentor'], 'mentor', true])
+    _resetSidePane()
+    openSurface('ticket')
+    openSurface('mentor', { collapse: true })
+    assert.deepEqual([sidePaneState().active, sidePaneState().collapsed], ['mentor', false], 'the user already had the sheet up')
 })
