@@ -73,10 +73,10 @@ test('"You choose" hands back THAT gate, as an op, and still says it in words', 
 
 // ─── Argus's hand-off ─────────────────────────────────────────────────────────
 
-test('a handed-over name opens as a name to WORK ON, its lens carried as data', () => {
+test('a handed-over name opens as a name to WORK ON, with no lens — Mentor opens it risk-based', () => {
     const t = handoffTurn({ ticker: 'nvda', direction: 'long', thesis: 'Capex runs longer.', recommended_mode: 'trend' })
     assert.equal(t.text, 'I want to work on a NVDA trade — the read on it is: Capex runs longer. Let\'s build the setup together.')
-    assert.deepEqual(t.seed, { ticker: 'NVDA', direction: 'long', thesis: 'Capex runs longer.', analysis: null, recommended_mode: 'trend' })
+    assert.deepEqual(t.seed, { ticker: 'NVDA', direction: 'long', thesis: 'Capex runs longer.', analysis: null })
     assert.doesNotMatch(t.text, /my own/)
     assert.equal(handoffTurn({ ticker: 'AMD' }).text, 'I want to work on a AMD trade. Let\'s build the setup together.')
     assert.equal(handoffTurn({}), null)
