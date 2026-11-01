@@ -47,7 +47,7 @@ describe('DrawerShell', () => {
         opener.remove()
     })
 
-    it('marks a history entry when asked; the back gesture closes it, any other close steps back over it', () => {
+    it('marks a history entry when asked; the back gesture closes it, any other close steps back over it', async () => {
         const back = vi.spyOn(window.history, 'back').mockImplementation(() => {})
         const close = vi.fn()
         const { rerender } = render(<DrawerShell isOpen onClose={close} label="A" history={{ field: 'sidePane', key: 'pane' }}>x</DrawerShell>)
@@ -62,6 +62,7 @@ describe('DrawerShell', () => {
         window.history.pushState({ sidePane: 'pane' }, '')
         const again = render(<DrawerShell isOpen onClose={close} label="B" history={{ field: 'sidePane', key: 'pane' }}>y</DrawerShell>)
         again.rerender(<DrawerShell isOpen={false} onClose={close} label="B" history={{ field: 'sidePane', key: 'pane' }}>y</DrawerShell>)
+        await new Promise(r => setTimeout(r, 0))   // the step back is owed one tick (useBackGesture: a swap is one entry)
         expect(back).toHaveBeenCalledTimes(1)
         back.mockRestore()
     })
