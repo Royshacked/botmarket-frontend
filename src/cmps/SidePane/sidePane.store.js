@@ -29,15 +29,16 @@ export const sidePaneState = read
 
 /**
  * Open `agent`'s surface and show it. `{ follow: true }` is the floor moving — a pinned tab is not taken over.
- * `{ collapse: true }` (a phone, following the floor): open it collapsed unless the sheet is already up. A doorway — not
- * a follow — is the user asking for the desk: the sheet comes up.
+ * `{ collapse: true }` (a phone): open it collapsed unless the sheet is already up — the floor moving AND a doorway
+ * since 2026-11-01 (Roy: on a phone the work "covers all the chat box — open it only if the user chooses to"). The
+ * caller decides: a doorway to a surface that IS the screen asked for (the ticket, Pythia, Aether) passes no collapse.
  */
 export function openSurface(agent, { follow = false, collapse = false } = {}) {
     if (!agent) return
     const tabs = state.tabs.includes(agent) ? state.tabs : [...state.tabs, agent]
     const keep = follow && state.pinned && state.active && state.active !== agent
     const sheetUp = state.tabs.length > 0 && !state.collapsed
-    const collapsed = follow && collapse ? !sheetUp : false
+    const collapsed = collapse ? !sheetUp : false
     if (tabs === state.tabs && (keep || state.active === agent) && collapsed === state.collapsed) return
     set({ ...state, tabs, active: keep ? state.active : agent, hidden: null, collapsed })
 }

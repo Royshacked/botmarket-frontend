@@ -309,7 +309,10 @@ export function MainPage() {
     function openDesk(agent) {
         // The desk the user was sent to must not open underneath the thing they sent themselves from (8b CR).
         closePanel()
-        openSurface(agent)
+        // ON A PHONE a desk the user TALKS to opens with its work LOWERED (Roy, 2026-11-01): raised, the sheet covered the
+        // whole chat box at the start of the conversation. "Show …" in the chat header raises it — their choice. A kept
+        // surface (the ticket, Pythia, Aether) has no chat under it: it IS the screen they asked for, so it comes up.
+        openSurface(agent, { collapse: isHandheld() && !SURFACES[agent]?.keepMounted })
     }
 
     /**
