@@ -241,12 +241,21 @@ describe('phase 7 CR (frontend)', () => {
 })
 
 describe('a session a commit opened (Roy, 2026-10-18)', () => {
-    const ended = (over = {}) => row(1, { kind: 'sealed', agent: 'axl', content: '✓ Mentor built NVDA setup — saved to your Setups. You\'re back with Axl.', ref: { kind: 'setup', ids: ['s9'], ended: true }, ...over })
+    const ended = (over = {}) => row(1, { kind: 'sealed', agent: 'axl', content: '✓ Mentor built NVDA setup — saved to your Setups. You\'re back with Axl.', ref: { kind: 'setup', ids: ['s9'], ended: true }, at: Date.now(), ...over })
 
     it('is a fresh start: the saved line ABOVE Axl\'s greeting and opening taps', () => {
         session = base({ rows: [ended()] })
         const { container } = render(<ChatTimeline />)
         expect(container.querySelector('.chat-timeline__empty .chat-timeline__ended').textContent).toMatch(/back with Axl/)
+        expect(screen.getByText('Trade it')).toBeTruthy()
+        expect(container.querySelector('.chat-timeline__title').textContent).toBe('Chat')
+    })
+
+    it('only on the visit it was saved in: a line from an earlier visit is gone, the session still a fresh start (PENG, 2026-11-02)', () => {
+        session = base({ rows: [ended({ at: Date.now() - 2 * 86_400_000 })] })
+        const { container } = render(<ChatTimeline />)
+        expect(container.querySelector('.chat-timeline__ended')).toBeNull()
+        expect(screen.queryByRole('button', { name: 'Open the setup to arm it' })).toBeNull()
         expect(screen.getByText('Trade it')).toBeTruthy()
         expect(container.querySelector('.chat-timeline__title').textContent).toBe('Chat')
     })

@@ -30,3 +30,14 @@ export function startsRun(row, prev) {
  * while the session is fresh — above Axl's greeting — and never once the conversation has started (Roy, 2026-10-18).
  */
 export const isEndedLine = (row) => row?.kind === 'sealed' && row.ref?.ended === true
+
+// When this page was opened. A minute of slack for the server's clock against this one: a save made just after the
+// page opened must still show its line.
+const OPENED_AT = Date.now() - 60_000
+
+/**
+ * Whether that line belongs to THIS visit — the save happened after the page opened (Roy, 2026-11-02: "the built PENG
+ * setup chip is stuck even when it's armed already"). An untouched session kept it, and its "arm it" button, for days;
+ * the moment it marks is the save, so on the next visit it is gone. `openedAt` — a seam for tests.
+ */
+export const isFreshEndedLine = (row, openedAt = OPENED_AT) => isEndedLine(row) && Number(row.at) >= openedAt

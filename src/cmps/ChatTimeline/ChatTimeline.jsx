@@ -13,7 +13,7 @@ import { SuggestionChips } from '../SuggestionChips.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { ChatChartDock } from '../ChatChartDock.jsx'
 import { TimelineRow, SpeakerTag } from './TimelineRow.jsx'
-import { startsRun, agentMeta, isEndedLine } from './timelineRows.js'
+import { startsRun, agentMeta, isEndedLine, isFreshEndedLine } from './timelineRows.js'
 import { AxlGreeting } from './AxlGreeting.jsx'
 import { SessionHistory } from './SessionHistory.jsx'
 import { ChatInfo } from './ChatInfo.jsx'
@@ -69,9 +69,10 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
     const busy  = !!live
     // A session a commit opened starts with the line saying what was saved (backend act.endAfterCommit) — it is
     // still a fresh start: Axl's greeting and taps, with that line above them. The line belongs to THAT moment only
-    // (Roy, 2026-10-18): once the session has anything else in it — the first message — it is gone from the chat.
-    const endedLines = rows.filter(isEndedLine)
-    const empty = rows.length === endedLines.length && !live
+    // (Roy, 2026-10-18): once the session has anything else in it — the first message — it is gone from the chat. And
+    // only on the visit it was saved in (isFreshEndedLine, 2026-11-02): the session stays a fresh start either way.
+    const empty = rows.every(isEndedLine) && !live
+    const endedLines = rows.filter(r => isFreshEndedLine(r))
     const thread = useMemo(() => rows.filter(r => !isEndedLine(r)), [rows])
 
     // The scroll follows rows AND the streaming text (the live bubble is not a row).
