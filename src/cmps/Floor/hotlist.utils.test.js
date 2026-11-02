@@ -2,7 +2,7 @@
 // node --test src/cmps/Floor/
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readTime, fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, rowStatus, rowReason, sortList, askArgusText, handoffRead, sparkGeometry, pickFor, horizonRows, horizonCounts, readsBySymbol, readCell, hasBand, resultCell, columnRecord, bookResult, bookProgress, bookOrigin, bookRecordLine, sortBook, isBuy, scoreCell, hotlistHandoff } from './hotlist.utils.js'
+import { readTime, fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, rowStatus, rowReason, sortList, handoffRead, sparkGeometry, pickFor, horizonRows, horizonCounts, readsBySymbol, readCell, hasBand, resultCell, columnRecord, bookResult, bookProgress, bookOrigin, bookTiming, bookRecordLine, sortBook, isBuy, scoreCell, hotlistHandoff } from './hotlist.utils.js'
 import { handoffTurn } from '../MentorSurface/mentorSurface.utils.js'
 
 const ROW = {
@@ -41,14 +41,6 @@ test('the earnings chip: a graded week cell holding the report says to be out be
     assert.equal(earningsChip({ ...row, cells: { week: { grade: 'B' } } }).text, 'E 10-28', 'report outside the window: just the date')
     assert.equal(earningsChip({ ...row, cells: { week: { grade: null, exit_before: '2026-10-28' } } }).exit, false, 'an ungraded cell is no trade')
     assert.equal(earningsChip({ cells: {} }), null)
-})
-
-test('"Ask Argus" puts the row\'s facts to Argus as the user\'s own question', () => {
-    const t = askArgusText(ROW, 'mid')
-    assert.match(t, /^From today's hotlist: SPCX — Mid-day, \+10\.1% gap, 3\.39× volume, free range 2\.1% · 0\.45× ATR, news: "SpaceX swings to profit"\./)
-    assert.match(t, /what would make it wrong\?$/)
-    // No horizon carries a grade (2026-10-24), the week included.
-    assert.match(askArgusText({ symbol: 'X', cells: { week: { grade: 'A' } } }, 'week'), /X — This week\./)
 })
 
 test('the opening read: Argus\'s note, else the board\'s own reason', () => {
@@ -237,13 +229,23 @@ test('the book sorts by a column, missing values last; buys are buy and strong b
     assert.deepEqual(['strong_buy', 'buy', 'hold', 'sell'].map(rating => isBuy({ rating })), [true, true, false, false])
 })
 
-test("a book row's hand-offs: Mentor gets the thesis in numbers and the chain's reason; Argus the timing question", () => {
+test("a book row's hand-off: Mentor gets the thesis in numbers and the chain's reason", () => {
     const row = { symbol: 'CHN', rating: 'strong_buy', target: 130, target_date: '2027-03-01', upside_pct: 30,
         origin: { source: 'pythia', subject: 'Railroads', why: 'the leader' } }
     // "valued at", never "target": the sentence goes out as the user's, and Mentor built a "target" as their take-profit (NXST).
     assert.equal(handoffRead(row, 'swing'), 'Prometheus strong buy, valued at 130.00 by 2027-03-01 (a swing name) — the leader')
-    assert.equal(askArgusText(row, 'long_term'),
-        "From the house's long term book: CHN — Prometheus strong buy, target 130.00 by 2027-03-01, +30.0% upside, from Pythia's call on Railroads. Is now a good time to buy it, and what would make it wrong?")
+})
+
+// Argus's weekly timing read (2026-11-02: it replaced "Ask Argus" on the book's rows).
+test("a book row's timing: Now, or Wait and for what — everything he said in the title and the page's line", () => {
+    const wait = bookTiming({ timing: { verdict: 'wait', wait_for: 'a pullback to 41.20', why: 'stretched over its 20-day', wrong_if: 'it runs past 50', week: '2026-11-02' } })
+    assert.deepEqual([wait.text, wait.cls, wait.week], ['Wait', 'hot-timing hot-timing--wait', 'week of 2026-11-02'])
+    assert.equal(wait.title, "Argus's timing read (week of 2026-11-02): wait — Wait for a pullback to 41.20. — stretched over its 20-day — Wrong if: it runs past 50")
+    assert.equal(wait.line, 'Wait — for a pullback to 41.20. stretched over its 20-day Wrong if: it runs past 50')
+    const now = bookTiming({ timing: { verdict: 'now', why: 'a base that held' } })
+    assert.deepEqual([now.text, now.cls, now.line], ['Now', 'hot-timing hot-timing--now', 'Now. a base that held'])
+    assert.equal(bookTiming({ timing: { verdict: 'maybe' } }), null)
+    assert.equal(bookTiming({}), null)
 })
 
 test('a live book row level with SPY is neither ahead nor behind', () => {

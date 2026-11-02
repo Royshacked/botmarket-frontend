@@ -12,7 +12,7 @@ import { PortfolioSurface }  from '../cmps/PortfolioSurface/PortfolioSurface.jsx
 import { ScannerSurface }    from '../cmps/ScannerSurface/ScannerSurface.jsx'
 import { AnalystSurface }    from '../cmps/AnalystSurface/AnalystSurface.jsx'
 import { handoffTurn, mentorHolding } from '../cmps/MentorSurface/mentorSurface.utils.js'
-import { hotlistHandoff, askArgusText } from '../cmps/Floor/hotlist.utils.js'
+import { hotlistHandoff } from '../cmps/Floor/hotlist.utils.js'
 import { SidePane }          from '../cmps/SidePane/SidePane.jsx'
 import { openSurface, resetSidePane } from '../cmps/SidePane/sidePane.store.js'
 import { SessionContext }    from '../context/SessionContext.jsx'
@@ -1340,13 +1340,6 @@ export function MainPage() {
         openDesk('mentor')
     }
 
-    // "Ask Argus" on a hotlist row: the row's facts, put to Argus as the user's own question, on a clean
-    // table (onArgusTable asks first when Argus is holding other work).
-    async function handleAskArgusHotlist(row, column) {
-        if (!row?.symbol) return
-        if (await onArgusTable(askArgusText(row, column), { profile: 'trading', what: `ask about ${row.symbol}` })) openDesk('scanner')
-    }
-
     function handleBuildFromEarning(earning) {
         if (!earning?.symbol) return
         seedMentorChat(earning.symbol, buildEarningSeed(earning, earning.date))
@@ -1472,7 +1465,6 @@ export function MainPage() {
                                 onEarningSelect={handleBuildFromEarning}
                                 onIpoSelect={handleBuildFromIpo}
                                 onHotlistBuild={handleBuildFromHotlist}
-                                onHotlistAsk={handleAskArgusHotlist}
                                 onCandidateSelect={handleBuildFromCandidate}
                                 onEditSetup={handleEditSetup}
                                 onDeleteSetup={handleDeleteSetup}

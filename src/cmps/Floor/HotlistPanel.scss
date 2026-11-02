@@ -88,6 +88,8 @@
 .hot-down { color: var(--color-short); }
 .hot-dim  { color: var(--text-muted); }
 .hot-earn { margin-left: 6px; font-size: 11px; &--exit { color: var(--color-warning); } }
+// Argus's weekly timing read on a Swing / Long term row (2026-11-02): a buy now, or wait.
+.hot-timing { font-weight: 600; cursor: help; &--now { color: var(--color-long); } &--wait { color: var(--color-warning); } }
 
 .hot-cat {
     font-size: 11px; padding: 1px 6px; border-radius: 3px; border: 1px solid var(--border); color: var(--text-secondary);

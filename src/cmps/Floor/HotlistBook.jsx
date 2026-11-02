@@ -4,14 +4,15 @@ import { OwnedBadge } from '../OwnedBadge/OwnedBadge.jsx'
 import { CoverageDetail, CoverageRating } from './CoverageDetail.jsx'
 import { HotlistScorecard } from './HotlistScorecard.jsx'
 import { HotlistRowPage } from './HotlistRowPage.jsx'
-import { BOOK_LABEL, BOOK_SORTS, COVERED, VERDICT_WORDS, bookResult, bookProgress, bookOrigin, bookRecordLine, sortBook, chainSurvivors, chainLeft, coveredRows } from './hotlist.utils.js'
+import { BOOK_LABEL, BOOK_SORTS, COVERED, VERDICT_WORDS, bookResult, bookProgress, bookOrigin, bookTiming, isBuy, bookRecordLine, sortBook, chainSurvivors, chainLeft, coveredRows } from './hotlist.utils.js'
 
 // THE HOUSE'S BOOK in the Hotlist — its Swing and Long term lists (Roy, 2026-10-24: "in hotlist — what about longer
 // swings and long-term names?"). The day's boards stop at This week; these are Prometheus's coverage, split by the price
 // target's horizon (backend houseBook.service): 3–6 months a swing, 12–24 months long term. Live, not by day — the
 // house's current book. Each row: where it is against its target, how it has done since the target was set (and
 // against SPY), and where it came from (the weekly chain, or the desk). A clicked row is its page — the thesis itself,
-// over the whole window (HotlistRowPage, Roy 2026-10-31).
+// over the whole window (HotlistRowPage, Roy 2026-10-31). On Swing and Long term, ARGUS'S TIMING READ — now, or wait and for
+// what — re-read weekly by the house (backend bookTiming.service; Roy, 2026-11-02: it replaced the row's "Ask Argus").
 
 const _price = (v) => (Number.isFinite(v) ? v.toFixed(2) : '—')
 const _pct = (v) => (Number.isFinite(v) ? `${v > 0 ? '+' : ''}${v.toFixed(1)}%` : '—')
@@ -36,6 +37,8 @@ function bookCells(r, cov, asof) {
         since: { text: res?.text ?? null, cls: `hot-result hot-result--${res?.tone ?? 'dim'}`, title: res?.title },
         progress: { text: bookProgress(r) ?? null },
         from: { text: origin.text, title: origin.title },
+        // No read: a Hold or a Sell is never timed (the lists are the long side); a Buy waits for the weekly run.
+        timing: bookTiming(r) ?? { text: null, title: isBuy(r) ? 'Argus has not read its timing yet — the weekly run reads every Buy on the list' : 'Argus times the Buys only' },
     }
 }
 
@@ -68,7 +71,7 @@ function survivorsEmpty({ picks, failed, column, left = 0 }) {
     return `Prometheus covered none of Argus’s ${picks.length} ${label} names.`
 }
 
-export function HotlistBook({ book, column, coverage = [], isAdmin = false, focus = null, onOpen = () => {}, onBuild, onAsk, onSymbolClick }) {
+export function HotlistBook({ book, column, coverage = [], isAdmin = false, focus = null, onOpen = () => {}, onBuild, onSymbolClick }) {
     // THE CHAIN'S SURVIVORS first (Roy, 2026-10-24: "Pythia brings the industry → Argus brings names from it →
     // Prometheus analyses them and brings a thesis and PT — the survivors in the Hotlist"): the names it covered, any
     // rating; then every name Argus sent and where Prometheus has it; then the whole book, the desk's too. The parent keys
@@ -117,7 +120,9 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, focu
         const cov = bySymbol.get(r.symbol) ?? null
         const c = bookCells(r, cov, book?.asof)
         const tile = (label, x, wide = false) => [label, x.text, x.cls ?? null, x.title, wide]
+        const timing = covered ? null : bookTiming(r)
         const facts = [tile('Last', c.last), tile('Rating', c.rating), tile('Target', c.target), tile('Upside', c.upside), tile('By', c.by),
+            ...(timing ? [tile('Timing', c.timing)] : []),
             tile('Since set', c.since), tile('To target', c.progress), tile('From', c.from, true)]
         // The head line only when it has something to say (code review 2026-10-31: an empty one left a gap).
         const head = [r.industry, r.price_at_set != null ? `${_price(r.price_at_set)} when the target was set (${String(r.set_at).slice(0, 10)})` : null].filter(Boolean)
@@ -130,12 +135,14 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, focu
                             {r.origin.why ? <> — <b>Argus:</b> {r.origin.why}</> : null}
                             {r.origin.caution ? <span className="hot-row__caution"> Caution: {r.origin.caution}</span> : null}</p>
                     )}
+                    {timing && (
+                        <p className="hot-detail__line"><b>Argus · timing{timing.week ? ` (${timing.week})` : ''}:</b> {timing.line}</p>
+                    )}
                     {cov ? <CoverageDetail coverage={cov} /> : <p className="hot-detail__line hot-dim">The thesis is on the Forecasts page.</p>}
                     <div className="hot-detail__actions">
                         {/* On Covered companies a row hands off as the book it sits in. */}
                         {onBuild && <button type="button" className="floor-queued__btn" onClick={() => onBuild(r, r.book ?? column, null)}
                             title={`Build a ${BOOK_LABEL[r.book ?? column].toLowerCase()} setup with Mentor`}>Build with Mentor</button>}
-                        {onAsk && <button type="button" className="floor-queued__btn hot-ask" onClick={() => onAsk(r, r.book ?? column)}>Ask Argus</button>}
                     </div>
                 </div>
             </HotlistRowPage>
@@ -157,8 +164,9 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, focu
                                     <th scope="col" title="Prometheus's rating">Rating</th>
                                     <th scope="col" className="hot-table__num" title="Prometheus's price target">Target</th>
                                     {th('upside', 'Upside', { num: true, title: 'From the last close to the target' })}
+                                    {!covered && <th scope="col" title="Argus's timing read, weekly: a buy now, or wait — and for what (hover a cell)">Timing</th>}
                                     {th('days_left', 'By', { more: true, title: 'The target date, and the horizon it was set for' })}
-                                    {th('since', 'Since set', { title: 'Did it work: the move since the target was set (and against SPY over the same days); ✓ hit, ✗ broken, expired once settled' })}
+                                    {th('since', 'Since set', { more: true, title: 'Did it work: the move since the target was set (and against SPY over the same days); ✓ hit, ✗ broken, expired once settled' })}
                                     {th('progress', 'To target', { num: true, more: true, title: 'How far from the price the day the target was set toward the target' })}
                                     <th scope="col" className="hot-col--more" title="Where the name came from: the weekly chain (Pythia's industry or theme → Argus → Prometheus), or the desk">From</th>
                                 </tr>
@@ -182,8 +190,10 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, focu
                                             {td(c.rating)}
                                             {td(c.target, 'hot-table__num')}
                                             {td(c.upside, 'hot-table__num')}
+                                            {!covered && td(c.timing)}
                                             {td(c.by, 'hot-range hot-col--more')}
-                                            {td(c.since)}
+                                            {/* A phone hides it (Roy, 2026-11-02, when Timing joined): the row's page keeps it. */}
+                                            {td(c.since, 'hot-col--more')}
                                             {td(c.progress, 'hot-table__num hot-range hot-col--more')}
                                             {td(c.from, 'hot-book__from hot-col--more')}
                                         </tr>
@@ -208,5 +218,5 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, focu
 HotlistBook.propTypes = {
     book: PropTypes.object, column: PropTypes.string.isRequired, coverage: PropTypes.array, isAdmin: PropTypes.bool,
     focus: PropTypes.string, onOpen: PropTypes.func,
-    onBuild: PropTypes.func, onAsk: PropTypes.func, onSymbolClick: PropTypes.func,
+    onBuild: PropTypes.func, onSymbolClick: PropTypes.func,
 }

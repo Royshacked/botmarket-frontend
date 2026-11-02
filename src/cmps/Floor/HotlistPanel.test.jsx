@@ -12,11 +12,11 @@ vi.mock('../../services/hotlist/hotlist.service.remote.js', () => ({
 
 import { hotlistService } from '../../services/hotlist/hotlist.service.remote.js'
 import { HotlistPanel, HOTLIST_PANEL_ID, WORKING_POLL_MS, TAIL_LOOKS } from './HotlistPanel.jsx'
-import { openPanel, closePanel, useActivePanel, returnToPanel, setReturnTo } from '../DetailPanel/detailPanel.store.js'
+import { openPanel, closePanel, useActivePanel, returnToPanel } from '../DetailPanel/detailPanel.store.js'
 
 // The Hotlist panel (docs/design/daily-names.md §8; Roy, 2026-10-21): the screener's board with
 // Argus's read on top, one row per name in play, a grade per column, and per row "Build with
-// Mentor" / "Ask Argus" — one name at a time.
+// Mentor" — one name at a time ("Ask Argus" removed 2026-11-02).
 
 const BOARD = {
     id: 'hb_2026-10-21_mid', day: '2026-10-21', checkpoint: 'mid', status: 'done', columns: ['mid'],
@@ -90,16 +90,10 @@ describe('HotlistPanel', () => {
         fireEvent.click(within(spcx).getByText('Build with Mentor'))
         expect(onBuild).toHaveBeenCalledWith(expect.objectContaining({ symbol: 'SPCX' }), 'mid', expect.objectContaining({ id: BOARD.id }))
         expect(screen.getByTestId('active').textContent).toBe('none', 'Mentor is under the panel — the panel must be gone')
-    })
-
-    it('Ask Argus hands the row and its column on', async () => {
-        const onAsk = vi.fn()
-        await mount({ onAsk })
-        fireEvent.click(within(screen.getByText('TSLA').closest('tr')).getByText('Ask Argus'))
-        expect(onAsk).toHaveBeenCalledWith(expect.objectContaining({ symbol: 'TSLA' }), 'mid', expect.anything())
         // The hand-off leaves the way back: the chat offers "‹ Back to the Hotlist" (2026-10-24).
         expect(returnToPanel()).toEqual({ panel: HOTLIST_PANEL_ID, label: 'the Hotlist' })
-        act(() => setReturnTo(null))
+        // No "Ask Argus" on any row (Roy, 2026-11-02).
+        expect(screen.queryByText('Ask Argus')).toBeNull()
     })
 
     it('the day\'s checkpoints switch the board', async () => {
@@ -742,6 +736,26 @@ describe('HotlistPanel — Swing and Long term', () => {
         expect(screen.queryByText(/scorecard could not be loaded/)).toBeNull()
     })
 
+    // Argus's weekly timing read (Roy, 2026-11-02: "Ask Argus" made part of the run; every user sees the same table).
+    it("Swing shows Argus's timing — Wait and for what, a Hold never timed — on the row and its page; Covered companies has no column", async () => {
+        const timing = { verdict: 'wait', wait_for: 'a pullback to the 20-day near 96.00', why: 'stretched after a vertical run', wrong_if: 'it closes over 104', week: '2026-11-02' }
+        hotlistService.getBook.mockResolvedValue({ ...BOOK, swing: BOOK.swing.map(r => (r.symbol === 'CHN' ? { ...r, timing } : r)) })
+        await mount({ coverage: COVERAGE })
+        fireEvent.click(screen.getByRole('button', { name: 'Swing 2' }))
+        expect(screen.getByRole('columnheader', { name: 'Timing' })).toBeTruthy()
+        const cell = screen.getByText('Wait')
+        expect(cell.className).toContain('hot-timing--wait')
+        expect(cell.title).toMatch(/week of 2026-11-02.*Wait for a pullback to the 20-day near 96\.00\..*Wrong if: it closes over 104/)
+        const hold = [...screen.getByText('HLD').closest('tr').querySelectorAll('td')].find(td => td.title === 'Argus times the Buys only')
+        expect(hold?.textContent).toBe('—')
+        fireEvent.click(screen.getByText('CHN').closest('tr').querySelector('td:nth-child(3)'))
+        expect(screen.getByText(/Argus · timing \(week of 2026-11-02\):/).closest('p').textContent)
+            .toMatch(/Wait — for a pullback to the 20-day near 96\.00\. stretched after a vertical run Wrong if: it closes over 104/)
+        fireEvent.click(screen.getByRole('button', { name: /Back/ }))
+        fireEvent.click(screen.getByRole('button', { name: /^Covered companies/ }))
+        expect(screen.queryByRole('columnheader', { name: 'Timing' })).toBeNull()
+    })
+
     // Roy, 2026-10-29: "full table for admin only; for regular users only the table with the four tabs above — no explanations".
     it("a user sees the four tabs and each one's list — no notes, records or view switches; Argus's names and the scorecard are the admin's", async () => {
         await mount({ coverage: COVERAGE, isAdmin: false })
@@ -760,12 +774,13 @@ describe('HotlistPanel — Swing and Long term', () => {
     })
 
     // A phone (2026-10-29: "tables too wide"): the secondary columns carry the class the phone's media rule hides.
-    it("marks the book's secondary columns for a phone to hide — the last price, the date, the way to target, where it came from", async () => {
+    // "Since set" joined them 2026-11-02 (Roy), when the Timing column made the phone's table too wide.
+    it("marks the book's secondary columns for a phone to hide — the last price, the date, since set, the way to target, where it came from", async () => {
         await mount({ coverage: COVERAGE })
         fireEvent.click(screen.getByRole('button', { name: 'Swing 2' }))
         const more = [...document.querySelectorAll('.hot-table--book th.hot-col--more')].map(th => th.textContent.trim())
-        expect(more).toEqual(['Last', 'By', 'To target', 'From'])
-        expect(screen.getByText('CHN').closest('tr').querySelectorAll('td.hot-col--more')).toHaveLength(4)
+        expect(more).toEqual(['Last', 'By', 'Since set', 'To target', 'From'])
+        expect(screen.getByText('CHN').closest('tr').querySelectorAll('td.hot-col--more')).toHaveLength(5)
     })
 
     // Roy, 2026-10-28: "4 tabs — week / swing / long term / covered companies".
@@ -814,8 +829,8 @@ describe('HotlistPanel — Swing and Long term', () => {
     })
 
     it('the opened row: the chain\'s reason, the thesis itself, and the hand-offs with the book\'s horizon', async () => {
-        const onBuild = vi.fn(), onAsk = vi.fn()
-        await mount({ coverage: COVERAGE, onBuild, onAsk })
+        const onBuild = vi.fn()
+        await mount({ coverage: COVERAGE, onBuild })
         fireEvent.click(screen.getByRole('button', { name: 'Swing 2' }))
         fireEvent.click(screen.getByText('CHN').closest('tr').querySelector('td:nth-child(3)'))
         expect(screen.getByText(/From the weekly chain:/).closest('p').textContent).toMatch(/swing call on Railroads — Argus: the leader/)

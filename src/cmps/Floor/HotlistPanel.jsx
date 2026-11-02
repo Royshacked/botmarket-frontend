@@ -28,9 +28,10 @@ import './HotlistPanel.scss'
 // decides anything. Long side only; no entries, stops or targets — those are Mentor's, with the user.
 //
 // The user hands names on ONE AT A TIME (Roy's call): "Build with Mentor" sends the row's best
-// column as a hotlist reference the server reads back from the stored board; "Ask Argus" puts the
-// row's facts to Argus as the user's own question. Both live in the chat UNDER this panel, so the
-// panel closes first — the same rule the Calendar's doorways follow.
+// column as a hotlist reference the server reads back from the stored board. Mentor lives in the chat
+// UNDER this panel, so the panel closes first — the same rule the Calendar's doorways follow. ("Ask
+// Argus" sat beside it until 2026-11-02 — Roy: "remove button ask argus from all of them"; on Swing and
+// Long term his timing read is part of the weekly run now, backend bookTiming.service.)
 //
 // Two views (Roy, 2026-10-22). TODAY'S LIST, the default: a classic watchlist — every name any of the
 // day's boards graded, once, sortable, with its status (in play / building / setting up) and why in
@@ -57,7 +58,7 @@ const _day = (iso) => {
 // the view switches (Argus's names, the scorecard) and the screener's status line are the admin's — they explain how the
 // lists are made, and say why one is thin.
 
-export function HotlistPanel({ onBuild, onAsk, onSymbolClick, coverage = [], isAdmin = false }) {
+export function HotlistPanel({ onBuild, onSymbolClick, coverage = [], isAdmin = false }) {
     const { isOpen, close } = useDetailPanel(HOTLIST_PANEL_ID)
     const [today, setToday] = useState({ status: 'idle', day: null, checkpoints: [], dayList: [], latest: null, working: null, stats: null })
     const [boardId, setBoardId] = useState(null)
@@ -289,10 +290,10 @@ export function HotlistPanel({ onBuild, onAsk, onSymbolClick, coverage = [], isA
                     ? <DayList today={today} sort={sort} setSort={setSort} horizon={horizon} setHorizon={setHorizon}
                         reads={readsBySymbol(reads.list, today.day)} readsFailed={reads.status === 'error'} readsLoading={reads.status === 'idle'} asked={asked} onAskRead={latestDay ? askRead : null}
                         record={record} book={book} coverage={coverage} isAdmin={isAdmin} focus={focus} onOpen={openRow}
-                        onSymbolClick={symbolClick} onBuild={handOff(onBuild)} onAsk={handOff(onAsk)} />
+                        onSymbolClick={symbolClick} onBuild={handOff(onBuild)} />
                     : <Body today={today} board={board} picksOnly={picksOnly} setPicksOnly={setPicksOnly}
                         onRetry={retryLoad} onSymbolClick={symbolClick}
-                        onBuild={handOff(onBuild)} onAsk={handOff(onAsk)} />}
+                        onBuild={handOff(onBuild)} />}
         </DetailPanel>
     )
 }
@@ -301,12 +302,11 @@ const _today = (d) => ({ status: 'ok', day: d.day, checkpoints: d.checkpoints, d
 HotlistPanel.propTypes = {
     coverage:      PropTypes.array,
     onBuild:       PropTypes.func,
-    onAsk:         PropTypes.func,
     onSymbolClick: PropTypes.func,
     isAdmin:       PropTypes.bool,
 }
 
-function Body({ today, board, picksOnly, setPicksOnly, onRetry, onBuild, onAsk, onSymbolClick }) {
+function Body({ today, board, picksOnly, setPicksOnly, onRetry, onBuild, onSymbolClick }) {
     if (today.status === 'error' || board.status === 'error') {
         return <p className="floor-empty">Couldn’t load the hotlist. <button type="button" className="cal-link" onClick={onRetry}>Try again</button></p>
     }
@@ -392,7 +392,7 @@ function Body({ today, board, picksOnly, setPicksOnly, onRetry, onBuild, onAsk, 
                                 </tr>
                             </thead>
                             <tbody>
-                                {rows.map(r => <Row key={r.symbol} row={r} board={b} columns={columns} onBuild={onBuild} onAsk={onAsk} onSymbolClick={onSymbolClick} />)}
+                                {rows.map(r => <Row key={r.symbol} row={r} board={b} columns={columns} onBuild={onBuild} onSymbolClick={onSymbolClick} />)}
                             </tbody>
                         </table>
                     </div>
@@ -403,7 +403,7 @@ function Body({ today, board, picksOnly, setPicksOnly, onRetry, onBuild, onAsk, 
 Body.propTypes = {
     today: PropTypes.object.isRequired, board: PropTypes.object.isRequired,
     picksOnly: PropTypes.bool.isRequired, setPicksOnly: PropTypes.func.isRequired, onRetry: PropTypes.func.isRequired,
-    onBuild: PropTypes.func, onAsk: PropTypes.func, onSymbolClick: PropTypes.func,
+    onBuild: PropTypes.func, onSymbolClick: PropTypes.func,
 }
 
 /**
@@ -413,7 +413,7 @@ Body.propTypes = {
  */
 function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, reads = new Map(), readsFailed = false,
     readsLoading = false, asked = {}, onAskRead, record = null, book = null, coverage = [], isAdmin = false, focus = null, onOpen = () => {},
-    onBuild, onAsk, onSymbolClick }) {
+    onBuild, onSymbolClick }) {
     // SWING and LONG TERM (Roy, 2026-10-24) are the house's coverage, not the day's boards: their own list (BookList).
     const bookView = BOOK_ORDER.includes(horizon) || horizon === COVERED
     // THE HORIZON first (horizon-chains.md §1): one column's list — its names, Argus's picks for it first. A header the
@@ -491,7 +491,7 @@ function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, 
         const ask = showReads ? asked[r.symbol] ?? null : null
         return (
             <HotlistRowPage symbol={r.symbol} name={r.name ?? null} facts={listFacts(listCells(r, v, ask), { tape: !ruleWeek, showRead: showReads })}>
-                <RowDetail row={r} col={v.col} pick={v.pick} read={read} status={v.status} earn={v.earn} onBuild={onBuild} onAsk={onAsk}
+                <RowDetail row={r} col={v.col} pick={v.pick} read={read} status={v.status} earn={v.earn} onBuild={onBuild}
                     asked={ask} onAskRead={showReads && !readsFailed && !read ? onAskRead : null} result={v.mark} named={false} />
             </HotlistRowPage>
         )
@@ -541,7 +541,7 @@ function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, 
             </div>}
             {bookView ? (
                 <HotlistBook key={horizon} book={book} column={horizon} coverage={coverage} isAdmin={isAdmin} focus={focus} onOpen={onOpen}
-                    onBuild={onBuild} onAsk={onAsk} onSymbolClick={onSymbolClick} />
+                    onBuild={onBuild} onSymbolClick={onSymbolClick} />
             ) : (<>
             {isAdmin && <>
             {/* The run-up week has no switch (Roy, 2026-10-31: "dont need run up names. and dont need the promotheus confirmed
@@ -622,7 +622,7 @@ DayList.propTypes = {
     today: PropTypes.object.isRequired, sort: PropTypes.object.isRequired, setSort: PropTypes.func.isRequired,
     horizon: PropTypes.string, setHorizon: PropTypes.func, reads: PropTypes.instanceOf(Map), readsFailed: PropTypes.bool, readsLoading: PropTypes.bool,
     asked: PropTypes.object, onAskRead: PropTypes.func, record: PropTypes.object, book: PropTypes.object, coverage: PropTypes.array,
-    isAdmin: PropTypes.bool, focus: PropTypes.string, onOpen: PropTypes.func, onBuild: PropTypes.func, onAsk: PropTypes.func, onSymbolClick: PropTypes.func,
+    isAdmin: PropTypes.bool, focus: PropTypes.string, onOpen: PropTypes.func, onBuild: PropTypes.func, onSymbolClick: PropTypes.func,
 }
 
 /**
@@ -865,7 +865,7 @@ function ReadDetail({ read }) {
 ReadDetail.propTypes = { read: PropTypes.object.isRequired }
 
 /** What an open row says: who it is, why it is here, Argus's word on it, and the hand-offs. */
-function RowDetail({ row, col, pick = row.pick, read = null, status, earn, onBuild, onAsk, asked = null, onAskRead = null, result = null, named = true }) {
+function RowDetail({ row, col, pick = row.pick, read = null, status, earn, onBuild, asked = null, onAskRead = null, result = null, named = true }) {
     const reason = rowReason(row)
     const cat = catalystChip(row.catalyst)
     const seen = (row.seen ?? []).map(c => CHECKPOINT_LABEL[c]?.split(' ')[0] ?? c)
@@ -898,7 +898,6 @@ function RowDetail({ row, col, pick = row.pick, read = null, status, earn, onBui
                     <button type="button" className="floor-queued__btn" onClick={() => onBuild(row, col, cellBoard)}
                         title={`Build a ${COLUMN_LABEL[col] ?? col} setup with Mentor`}>Build with Mentor</button>
                 )}
-                {onAsk && <button type="button" className="floor-queued__btn hot-ask" onClick={() => onAsk(row, col ?? COLUMN_ORDER[0])}>Ask Argus</button>}
                 {/* A week name with no read yet — Argus did not pick it, or it waits: ask Prometheus for one (horizon-chains.md §3). */}
                 {onAskRead && (!asked || asked.state === 'error') && (
                     <button type="button" className="floor-queued__btn hot-ask-read" onClick={() => onAskRead(row)}
@@ -919,7 +918,7 @@ function RowDetail({ row, col, pick = row.pick, read = null, status, earn, onBui
 }
 RowDetail.propTypes = {
     row: PropTypes.object.isRequired, col: PropTypes.string, pick: PropTypes.object, read: PropTypes.object, status: PropTypes.string, earn: PropTypes.object,
-    onBuild: PropTypes.func, onAsk: PropTypes.func, asked: PropTypes.object, onAskRead: PropTypes.func, result: PropTypes.object, named: PropTypes.bool,
+    onBuild: PropTypes.func, asked: PropTypes.object, onAskRead: PropTypes.func, result: PropTypes.object, named: PropTypes.bool,
 }
 
 /**
@@ -973,7 +972,7 @@ Working.propTypes = { working: PropTypes.object }
 
 const _pct = (n) => (Number.isFinite(n) ? `${n > 0 ? '+' : ''}${n.toFixed(1)}%` : '—')
 
-function Row({ row, board, columns, onBuild, onAsk, onSymbolClick }) {
+function Row({ row, board, columns, onBuild, onSymbolClick }) {
     const col = bestColumn(row, columns)
     const cat = catalystChip(row.catalyst)
     const earn = earningsChip(row)
@@ -1019,7 +1018,6 @@ function Row({ row, board, columns, onBuild, onAsk, onSymbolClick }) {
                         <button type="button" className="floor-queued__btn" onClick={() => onBuild(row, col, board)}
                             title={`Build a ${COLUMN_LABEL[col] ?? col} setup with Mentor`}>Build with Mentor</button>
                     )}
-                    {onAsk && <button type="button" className="floor-queued__btn hot-ask" onClick={() => onAsk(row, col ?? columns[0], board)}>Ask Argus</button>}
                 </td>
             </tr>
             {note && (
@@ -1033,5 +1031,5 @@ function Row({ row, board, columns, onBuild, onAsk, onSymbolClick }) {
 }
 Row.propTypes = {
     row: PropTypes.object.isRequired, board: PropTypes.object.isRequired, columns: PropTypes.array.isRequired,
-    onBuild: PropTypes.func, onAsk: PropTypes.func, onSymbolClick: PropTypes.func,
+    onBuild: PropTypes.func, onSymbolClick: PropTypes.func,
 }

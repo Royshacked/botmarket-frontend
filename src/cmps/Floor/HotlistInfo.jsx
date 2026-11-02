@@ -98,7 +98,6 @@ export function HotlistInfo() {
                 <p>Click a row for its page — its numbers, the daily chart, who read it and why — over the whole window; ‹ Back to the list returns.</p>
                 <dl className="hot-info__dl">
                     <div><dt>Build with Mentor</dt><dd>A setup from the row&apos;s facts — and on This week, Prometheus&apos;s target and the date to be out by.</dd></div>
-                    <div><dt>Ask Argus</dt><dd>Question him about the name.</dd></div>
                     <div><dt>Catalyst read</dt><dd>On This week, for a name with no read yet: Prometheus reads it now (about a minute).</dd></div>
                 </dl>
             </section>

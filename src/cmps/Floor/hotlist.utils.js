@@ -313,6 +313,25 @@ export function bookProgress(row) {
     return Number.isFinite(row?.progress) ? `${Math.round(row.progress * 100)}%` : null
 }
 
+/**
+ * ARGUS'S TIMING READ on a book row (backend bookTiming.service; Roy, 2026-11-02: "Ask Argus" made part of the weekly
+ * run, the same for every user) — `{ text, cls, title, line }` or null without one. `text` the cell ("Now" / "Wait"),
+ * `title` everything he said, `line` the row page's sentence. Pure.
+ */
+export function bookTiming(row) {
+    const t = row?.timing
+    if (!t || !['now', 'wait'].includes(t.verdict)) return null
+    const wait = t.verdict === 'wait'
+    const week = t.week ? `week of ${t.week}` : null
+    const said = [wait && t.wait_for ? `Wait for ${t.wait_for}.` : null, t.why, t.wrong_if ? `Wrong if: ${t.wrong_if}` : null].filter(Boolean)
+    return {
+        text: wait ? 'Wait' : 'Now', cls: wait ? 'hot-timing hot-timing--wait' : 'hot-timing hot-timing--now',
+        title: [`Argus's timing read${week ? ` (${week})` : ''}: ${wait ? 'wait' : 'a buy now'}`, ...said].join(' — '),
+        line: [wait ? `Wait — for ${t.wait_for}.` : 'Now.', t.why, t.wrong_if ? `Wrong if: ${t.wrong_if}` : null].filter(Boolean).join(' '),
+        week,
+    }
+}
+
 /** Where a name came from, in a few words: the weekly chain's industry or theme, or the desk. Pure. */
 export function bookOrigin(row) {
     const o = row?.origin
@@ -531,35 +550,6 @@ export function sortList(rows, key, dir, column = null) {
 export function catalystChip(catalyst) {
     if (!catalyst) return null
     return catalyst.material ? `${catalyst.type} · ${catalyst.surprise}` : 'not material'
-}
-
-const _sign = (n) => (n > 0 ? '+' : '')
-
-/**
- * The question "Ask Argus" sends — the user's own turn, so it says plainly what the board says about
- * the name and asks for Argus's read.
- */
-export function askArgusText(row, column) {
-    // A Swing / Long term row is the house's coverage, not a board's cell: the thesis's numbers, and the timing question.
-    if (BOOK_ORDER.includes(column)) {
-        const bits = [
-            row?.rating ? `Prometheus ${row.rating.replace('_', ' ')}` : null,
-            Number.isFinite(row?.target) ? `target ${row.target.toFixed(2)}${row.target_date ? ` by ${row.target_date}` : ''}` : null,
-            Number.isFinite(row?.upside_pct) ? `${_sign(row.upside_pct)}${row.upside_pct.toFixed(1)}% upside` : null,
-            row?.origin?.source === 'pythia' && row.origin.subject ? `from Pythia's call on ${row.origin.subject}` : null,
-        ].filter(Boolean)
-        return `From the house's ${BOOK_LABEL[column].toLowerCase()} book: ${row.symbol}${bits.length ? ` — ${bits.join(', ')}` : ''}. Is now a good time to buy it, and what would make it wrong?`
-    }
-    const c = row?.cells?.[column]
-    const bits = [
-        // No grade on any horizon (2026-10-24) — the horizon only.
-        c?.grade ? `${COLUMN_LABEL[column] ?? column}` : null,
-        Number.isFinite(row?.gap_pct) ? `${_sign(row.gap_pct)}${row.gap_pct.toFixed(1)}% gap` : null,
-        Number.isFinite(row?.rvol) ? `${row.rvol}× volume` : null,
-        c?.range ? `free range ${fmtRange(c.range)}` : null,
-        row?.catalyst?.headline ? `news: "${row.catalyst.headline}"` : null,
-    ].filter(Boolean)
-    return `From today's hotlist: ${row.symbol}${bits.length ? ` — ${bits.join(', ')}` : ''}. What's your read — is this a trade, and what would make it wrong?`
 }
 
 /**
