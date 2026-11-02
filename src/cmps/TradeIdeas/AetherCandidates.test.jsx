@@ -1383,7 +1383,8 @@ describe('AetherCandidates — Prometheus quick read', () => {
         await waitFor(() => expect(within(row()).getByText('contradicted')).toBeTruthy())
         // Collapse the name: the word stays on the row, coloured by verdict, the hint naming Prometheus.
         fireEvent.click(row())
-        expect(screen.queryByText('It hedged the exposure in the 10-Q.')).toBeNull()
+        // Gone from any open window — at most in the leaving copy, animating out (DetailPanel, 2026-11-02).
+        expect(screen.queryByText('It hedged the exposure in the 10-Q.')?.closest('.detail-panel:not(.detail-panel--leaving)') ?? null).toBeNull()
         const chip = within(row()).getByText('contradicted')
         expect(chip.className).toMatch(/__read-chip--contradicted/)
         expect(chip.title).toMatch(/^Prometheus:/)
@@ -1736,9 +1737,9 @@ describe('AetherCandidates — the open thing goes to the top and stays there', 
         const row = within(body).getByText('NUE').closest('button')
         expect(row.getAttribute('aria-haspopup')).toBe('dialog')
         expect(row.getAttribute('aria-expanded')).toBe('true')
-        // The same row closes it.
+        // The same row closes it (its leaving copy may still be animating out).
         fireEvent.click(row)
-        expect(document.querySelector('.detail-panel')).toBeNull()
+        expect(document.querySelector('.detail-panel:not(.detail-panel--leaving)')).toBeNull()
     })
 
     it('the panel is titled by the name and kicked by the event it came from', () => {

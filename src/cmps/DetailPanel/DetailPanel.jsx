@@ -32,6 +32,14 @@ import './DetailPanel.scss'
 
 export const SLOT_ID = 'detail-panel-slot'
 
+/**
+ * The longest a closed window's copy stays. It goes when its animation ENDS (detail-panel-out, 180ms) — a timer of the
+ * animation's own length fired before a heavy window's close was even painted (the drive, 2026-11-02: Calendar and the
+ * Hotlist showed no way out) — and this is only the fallback, for a copy whose animation never runs.
+ */
+export const LEAVE_MS = 1000
+const reducedMotion = () => typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
 /** Mounted once, inside `.workspace__chat` — the place a desktop panel docks. */
 export function DetailPanelSlot() {
     return <div id={SLOT_ID} className="detail-panel-slot" />
@@ -64,29 +72,47 @@ export function DetailPanel({ id, kicker = '', title, meta = null, actions = nul
     // whose panel had just opened unmounted, and retainPanel closed that panel. Now it is portaled into one host node
     // from a fixed spot, and only the node moves — the SidePane's kept tabs, the same mechanism.
     const [host] = useState(() => Object.assign(document.createElement('div'), { className: 'detail-panel__content' }))
-    const content = isOpen || isUnder ? createPortal(children, host) : null
-
-    // Kept under a row's panel: the content stays MOUNTED (it renders that panel), off screen.
-    if (isUnder && !isOpen) return <>{content}<HostSlot host={host} className="detail-panel__kept" hidden /></>
 
     // Esc, focus in and back, and a handheld's back gesture are the shared drawer's (DrawerShell).
     const handheld = isOpen && isHandheld()
     const slot = isOpen && !handheld ? document.getElementById(SLOT_ID) : null
     const mode = slot ? 'docked' : 'page'
+    const shellClass = `detail-panel detail-panel--${mode}${container ? ' detail-panel--list' : ''}${bare ? ' detail-panel--bare' : ''}${className ? ` ${className}` : ''}`
 
-    // A fragment in every state, the content first: that fixed spot is what keeps it mounted across open ↔ under.
-    return (
+    // THE WAY OUT IS ANIMATED TOO (Roy, 2026-11-02: the Positions window's arrival "on every mounting or unmounting of
+    // the detail window" — once, here, for every list and page). Closed — ✕, Esc, the back gesture, another panel —
+    // the window stays on screen as an INERT copy playing the arrival backwards until it ends, its content still in it; the
+    // store already says closed, so nothing waits on it (the history entry, focus, the next panel). Going UNDER a row's
+    // panel is not leaving: that list is kept, hidden, as before.
+    //
+    // The copy is set IN THE RENDER that closes (React's "adjust state while rendering"), not in an effect after it: an
+    // effect let one frame through with no window at all, and the copy then came back at full opacity — Roy saw "a
+    // double blink before settling" (2026-11-02).
+    const shell = isOpen ? { portalTo: slot ?? document.body, className: shellClass } : null
+    const [last, setLast] = useState({ isOpen, isUnder, shell })
+    const [leaving, setLeaving] = useState(null)
+    if (last.isOpen !== isOpen || last.isUnder !== isUnder || (shell && (shell.portalTo !== last.shell?.portalTo || shell.className !== last.shell?.className))) {
+        // Under: hidden, so closed from there (closing everything) it has nothing on screen to animate out.
+        const goes = !isOpen && !isUnder && last.isOpen && last.shell && !reducedMotion()
+        setLeaving(goes ? last.shell : null)
+        setLast({ isOpen, isUnder, shell })
+    }
+    // The fallback, for a copy whose animation never ends (it goes on animationend — below).
+    useEffect(() => {
+        if (!leaving) return undefined
+        const t = setTimeout(() => setLeaving(null), LEAVE_MS)
+        return () => clearTimeout(t)
+    }, [leaving])
+    const ghost = Boolean(leaving) && !isOpen && !isUnder
+
+    const content = isOpen || isUnder || ghost ? createPortal(children, host) : null
+
+    // Kept under a row's panel: the content stays MOUNTED (it renders that panel), off screen.
+    if (isUnder && !isOpen) return <>{content}<HostSlot host={host} className="detail-panel__kept" hidden /></>
+
+    // The bar and the body — the open shell's, or the leaving copy's (never both: the shell renders nothing closed).
+    const frame = (
         <>
-        {content}
-        <DrawerShell
-            isOpen={isOpen}
-            onClose={close}
-            portalTo={slot ?? (isOpen ? document.body : null)}
-            label={typeof title === 'string' ? title : kicker || 'Detail'}
-            className={`detail-panel detail-panel--${mode}${container ? ' detail-panel--list' : ''}${bare ? ' detail-panel--bare' : ''}${className ? ` ${className}` : ''}`}
-            modal={mode === 'page'}
-            history={handheld ? { field: 'detailPanel', key: id } : null}
-        >
             {bare
                 // A whole Floor list: ONE thin bar, the same on every list (Roy, 2026-10-31: "the header style of calendar
                 // should be the header style of all the rest of the lists") — the list's name, its own controls if it has
@@ -114,6 +140,28 @@ export function DetailPanel({ id, kicker = '', title, meta = null, actions = nul
                     </header>
                 )}
             <HostSlot host={host} className="detail-panel__body" />
+        </>
+    )
+
+    // A fragment in every state, the content first: that fixed spot is what keeps it mounted across open ↔ under.
+    return (
+        <>
+        {content}
+        {ghost && createPortal(
+            <section className={`${leaving.className} detail-panel--leaving`} aria-hidden="true" inert
+                onAnimationEnd={(e) => { if (e.target === e.currentTarget) setLeaving(null) }}>{frame}</section>,
+            leaving.portalTo,
+        )}
+        <DrawerShell
+            isOpen={isOpen}
+            onClose={close}
+            portalTo={slot ?? (isOpen ? document.body : null)}
+            label={typeof title === 'string' ? title : kicker || 'Detail'}
+            className={shellClass}
+            modal={mode === 'page'}
+            history={handheld ? { field: 'detailPanel', key: id } : null}
+        >
+            {frame}
         </DrawerShell>
         </>
     )

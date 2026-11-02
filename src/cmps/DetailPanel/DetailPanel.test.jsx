@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { StrictMode, useState } from 'react'
 import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
-import { DetailPanel, DetailPanelSlot, SLOT_ID } from './DetailPanel.jsx'
+import { DetailPanel, DetailPanelSlot, SLOT_ID, LEAVE_MS } from './DetailPanel.jsx'
 import { activePanel, closePanel, openPanel, togglePanel, retainPanel } from './detailPanel.store.js'
 
 // The shell every Floor list opens its item's detail in (coverage, the events radar's names,
@@ -294,5 +294,60 @@ describe('the way back to a list', () => {
         const release = store.retainPanel('somewhere')
         expect(store.panelMounted('somewhere')).toBe(true)
         release()
+    })
+})
+
+// Roy, 2026-11-02: the Positions window's arrival "on every mounting or unmounting of the detail window" — one motion,
+// the shell's: in on open, out on close (an inert copy kept until its animation ends; LEAVE_MS the fallback).
+describe('the way in and out', () => {
+    const leaving = () => document.querySelector('.detail-panel--leaving')
+
+    // It goes when its animation ENDS — a real browser's event, which jsdom does not deliver to React; the browser drive
+    // checks it (scripts/drive-detail-window-motion.mjs). Here: the fallback.
+    it('closed, it stays as an inert, hidden copy — no dialog, content still in it — then goes', () => {
+        vi.useFakeTimers()
+        render(<><DetailPanelSlot /><Opener id="x" /></>)
+        fireEvent.click(screen.getByRole('button', { name: 'open x' }))
+        expect(document.querySelector('.detail-panel').className).not.toContain('--leaving')
+        act(() => closePanel('x'))
+        expect(activePanel(), 'the store says closed at once').toBeNull()
+        expect(screen.queryByRole('dialog')).toBeNull()
+        const copy = leaving()
+        expect(copy?.getAttribute('aria-hidden')).toBe('true')
+        expect(copy?.hasAttribute('inert')).toBe(true)
+        expect(copy?.className).toContain('detail-panel--docked')
+        expect(copy?.textContent).toContain('body of x')
+        act(() => vi.advanceTimersByTime(LEAVE_MS))
+        expect(leaving()).toBeNull()
+        expect(screen.queryByText('body of x')).toBeNull()
+    })
+
+    it('a copy whose animation never runs goes after LEAVE_MS', () => {
+        vi.useFakeTimers()
+        render(<><DetailPanelSlot /><Opener id="x" /></>)
+        fireEvent.click(screen.getByRole('button', { name: 'open x' }))
+        act(() => closePanel('x'))
+        act(() => vi.advanceTimersByTime(LEAVE_MS - 1))
+        expect(leaving()).not.toBeNull()
+        act(() => vi.advanceTimersByTime(1))
+        expect(leaving()).toBeNull()
+    })
+
+    it('reopened while it leaves: the window, not the copy', () => {
+        vi.useFakeTimers()
+        render(<><DetailPanelSlot /><Opener id="x" /></>)
+        fireEvent.click(screen.getByRole('button', { name: 'open x' }))
+        act(() => closePanel('x'))
+        fireEvent.click(screen.getByRole('button', { name: 'open x' }))
+        expect(leaving()).toBeNull()
+        expect(screen.getByRole('dialog').textContent).toContain('body of x')
+    })
+
+    it('with reduced motion it simply goes', () => {
+        window.matchMedia = (q) => ({ matches: q.includes('reduce') })
+        render(<><DetailPanelSlot /><Opener id="x" /></>)
+        fireEvent.click(screen.getByRole('button', { name: 'open x' }))
+        act(() => closePanel('x'))
+        expect(leaving()).toBeNull()
     })
 })

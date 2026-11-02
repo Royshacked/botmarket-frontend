@@ -47,7 +47,8 @@ describe('an entity page opened from a full-screen panel', () => {
 
         expect(screen.getByTestId('page').textContent).toBe('setup:s1')
         expect(activePanel()).toBeNull()
-        expect(document.querySelector('.detail-panel')).toBeNull()
+        // Gone — at most its leaving copy, animating out (DetailPanel, 2026-11-02).
+        expect(document.querySelector('.detail-panel:not(.detail-panel--leaving)')).toBeNull()
         expect(window.history.length).toBe(depth)                    // replaced, not stacked
         expect(window.history.state?.detailPanel).toBeUndefined()
         expect(window.location.search).toMatch(/setup/)

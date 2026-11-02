@@ -13,6 +13,19 @@
     background: var(--bg-base);
     color: var(--text-primary);
     outline: none;
+    // ONE MOTION IN AND OUT, every list and page, docked or full page (Roy, 2026-11-02: the Positions window's arrival
+    // "on every mounting or unmounting of the detail window"): a fade with a 4px drop, and the same backwards on the
+    // way out — the leaving copy DetailPanel keeps until this animation ends. (Until then: a slide from the right,
+    // docked only, and no way out; Positions had the drop on its own list body, which the window now carries.)
+    animation: detail-panel-in 0.22s ease both;
+
+    &--leaving {
+        animation: detail-panel-out 0.18s ease both;
+        pointer-events: none;
+        // The content MOVED into the copy, and a moved node replays its own arrival animations — a list's body fading
+        // in while the window fades out was the second blink (2026-11-02). Only the window moves on the way out.
+        * { animation: none !important; }
+    }
 
     &--docked {
         position: absolute;
@@ -22,8 +35,6 @@
         z-index: 30;
         border-top: 1px solid var(--border);
         box-shadow: -8px 0 24px rgba(0, 0, 0, 0.18);
-        // From the right: the lists it was opened from are the column to the right.
-        animation: detail-panel-in 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both;
     }
 
     &--page {
@@ -141,12 +152,16 @@
 }
 
 @keyframes detail-panel-in {
-    from { opacity: 0; transform: translateX(16px); }
+    from { opacity: 0; transform: translateY(-4px); }
     to   { opacity: 1; transform: none; }
+}
+@keyframes detail-panel-out {
+    from { opacity: 1; transform: none; }
+    to   { opacity: 0; transform: translateY(-4px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .detail-panel--docked { animation: none; }
+    .detail-panel { animation: none; }
 }
 
 @media (max-width: 767px) {

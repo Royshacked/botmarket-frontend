@@ -1591,6 +1591,8 @@ $fm-steps: (1: 14%, 2: 26%, 3: 40%, 4: 56%);
 .floor-panel--positions {
     .floor-sec { display: none; }
     .floor-left { height: auto; border: 0; }
+    // The window arrives and leaves with its own motion (DetailPanel.scss, 2026-11-02) — the book's would play twice.
+    .floor-left__scroll { animation: none; }
 }
 
 // ── INFO — the right column (FloorInfo; Roy, 2026-10-23) ─────────────────────
