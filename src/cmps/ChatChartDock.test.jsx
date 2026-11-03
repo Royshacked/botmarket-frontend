@@ -72,6 +72,17 @@ describe('ChatChartDock', () => {
         expect(currentChart()).toBe(null)
     })
 
+    it('opened from Mentor\'s small trade chart, Close reads Shrink and closes the same way; other charts keep Close', () => {
+        render(<ChatChartDock />)
+        act(() => { openChart({ symbol: 'NXST', timeframe: 'day', source: 'mentor' }) })
+        expect(screen.queryByLabelText('Shrink the chart')).toBeNull()
+        act(() => { openChart({ symbol: 'NXST', timeframe: 'day', source: 'mentor-trade' }) })
+        expect(screen.queryByLabelText('Close the chart')).toBeNull()
+        act(() => { screen.getByLabelText('Shrink the chart').click() })
+        expect(screen.queryByTestId('price-chart')).toBeNull()
+        expect(currentChart()).toBe(null)
+    })
+
     it('closing from the COLLAPSED bar works too', () => {
         render(<ChatChartDock />)
         act(() => { openChart({ symbol: 'SPY', timeframe: 'day' }) })

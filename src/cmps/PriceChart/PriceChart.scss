@@ -62,6 +62,14 @@
         .is-up i, .is-down i { color: var(--text-muted); }
     }
 
+    // Thumbnail-sized chart: the header shrinks with the canvas text (TEXT_SIZE in PriceChart.jsx).
+    &--compact &__header {
+        gap: 6px;
+        padding: 2px 6px;
+        font-size: 9px;
+    }
+    &--compact &__ohlc { gap: 5px; }
+
     // ── KLineCharts mount — fills the remaining height below the header ──────
     &__canvas {
         flex: 1;

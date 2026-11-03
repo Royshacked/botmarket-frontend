@@ -116,7 +116,8 @@ export function ChatChartDock() {
     return (
         <div className="chat-chart-dock">
             {/* The workspace chart component, reused whole — its toolbar already carries the drawing
-                tools and Close; collapse is the one control a docked chart adds. */}
+                tools and Close; collapse is the one control a docked chart adds. Opened from Mentor's small
+                trade chart, Close reads Shrink — that small chart is still in the thread. */}
             <ChartSurface
                 ticker={chart.ticker}
                 timeframe={chart.timeframe}
@@ -124,6 +125,8 @@ export function ChatChartDock() {
                 levels={chart.levels ?? []}
                 onClose={handleClose}
                 onCollapse={collapse}
+                fitBars={chart.fitBars}
+                shrink={chart.source === 'mentor-trade'}
             />
         </div>
     )

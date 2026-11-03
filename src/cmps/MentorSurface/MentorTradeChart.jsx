@@ -11,8 +11,13 @@ import './MentorTradeChart.scss'
 // setup's page draws (deriveSetupOverlay), on the timeframe it is watched on, so what the user checks before pressing is
 // what they will see on the page after. The numbers are the worksheet's, never the model's prose.
 //
-// One chart, redrawn as the draft changes (a moved stop moves its line); it goes with the Generate bar. "Full chart"
-// docks the workspace chart with the same lines, for a closer look.
+// One chart, redrawn as the draft changes (a moved stop moves its line); it goes with the Generate bar. It is small in
+// every measure — box, text, volume pane (Roy, 2026-11-03: a short wide chart made everything look big). "Full chart"
+// docks the workspace chart with the same lines; its "Shrink" closes the dock, back to this one.
+
+// Zoomed out to the whole picture (Roy, 2026-11-03): the last 120 bars — the window the thesis lens reads its structure
+// in (STRUCTURE.atHighs, botmarket-backend services/swingStructure.service.js), so the fall, the swings and the lines show.
+const FIT_BARS = 120
 
 export function MentorTradeChart({ setup }) {
     const { levels } = useMemo(() => deriveSetupOverlay(setup), [setup])
@@ -26,14 +31,14 @@ export function MentorTradeChart({ setup }) {
     return (
         <div className="chat-timeline__row chat-timeline__row--assistant mentor-trade-chart" ref={ref}>
             <div className="mentor-trade-chart__frame">
-                <PriceChart key={`${ticker}-${timeframe}`} symbol={ticker} interval={timeframe} levels={levels} />
+                <PriceChart key={`${ticker}-${timeframe}`} symbol={ticker} interval={timeframe} levels={levels} compact fitBars={FIT_BARS} />
             </div>
             <div className="mentor-trade-chart__foot">
                 <span className="mentor-trade-chart__note">The plan as it will be generated.</span>
                 <button
                     type="button"
                     className="mentor-trade-chart__open"
-                    onClick={() => openChart({ ticker, timeframe, levels, source: 'mentor' })}
+                    onClick={() => openChart({ ticker, timeframe, levels, fitBars: FIT_BARS, source: 'mentor-trade' })}
                 >
                     Full chart
                 </button>

@@ -138,7 +138,31 @@ function formatChartDate({ dateTimeFormat, timestamp, template, type }) {
     return utils.formatDate(dateTimeFormat, timestamp, template)
 }
 
-function readThemeStyles() {
+// A compact chart (a thumbnail in the chat) shrinks its text and its volume pane with its box, so a small chart
+// reads as a small picture of the same chart rather than big labels crowding a few candles. Full size = KLineCharts'
+// own defaults (12px text, a 100px volume pane).
+const TEXT_SIZE = { full: 12, compact: 9 }
+const LEGEND_SIZE = { full: 11, compact: 9 }
+const VOL_HEIGHT = { full: 100, compact: 28 }
+const VOL_PANE = 'vol_pane'   // a fixed id — createIndicator returns the INDICATOR's id, and setPaneOptions wants the pane's
+const volPaneOptions = (compact) => ({ id: VOL_PANE, height: compact ? VOL_HEIGHT.compact : VOL_HEIGHT.full, minHeight: VOL_HEIGHT.compact })
+
+// `fitBars`: zoom out so the last N bars fill the pane — the whole picture at a glance, not the latest few weeks at
+// KLineCharts' default bar width. A small right margin replaces the default 80px gap. Bar space is clamped to the
+// library's own 1…50 (a value outside it is silently ignored).
+const FIT_OFFSET = 24
+function fitToBars(chart, fitBars) {
+    if (!chart || !fitBars) return
+    const width = chart.getSize('candle_pane', 'main')?.width
+    const count = Math.min(fitBars, chart.getDataList().length)
+    if (!width || !count) return
+    chart.setOffsetRightDistance(FIT_OFFSET)
+    chart.setBarSpace(Math.max(1, Math.min(50, (width - FIT_OFFSET) / count)))
+}
+
+function readThemeStyles(compact = false) {
+    const TEXT = compact ? TEXT_SIZE.compact : TEXT_SIZE.full
+    const LEGEND = compact ? LEGEND_SIZE.compact : LEGEND_SIZE.full
     const cs = getComputedStyle(document.documentElement)
     const v = (name, fallback) => cs.getPropertyValue(name).trim() || fallback
 
@@ -180,7 +204,7 @@ function readThemeStyles() {
                     downColor:     fade(DOWN, 0.7),
                     noChangeColor: fade(AXTEXT, 0.7),
                     line: { style: 'solid' },
-                    text: { family: FONT },
+                    text: { family: FONT, size: TEXT },
                 },
             },
             // The ticker/TF/OHLC readout now lives in the DOM header (price-chart__header) so it
@@ -197,15 +221,15 @@ function readThemeStyles() {
             tooltip: {
                 showRule: 'always',
                 showType: 'standard',
-                title:  { show: true, showName: true, showParams: true, color: AXTEXT, family: FONT, size: 11, weight: 'normal' },
-                legend: { color: TIP, family: FONT, size: 11 },
+                title:  { show: true, showName: true, showParams: true, color: AXTEXT, family: FONT, size: LEGEND, weight: 'normal' },
+                legend: { color: TIP, family: FONT, size: LEGEND },
             },
         },
-        xAxis: { axisLine: { color: AXIS }, tickLine: { color: AXIS }, tickText: { color: AXTEXT, family: FONT } },
-        yAxis: { axisLine: { color: AXIS }, tickLine: { color: AXIS }, tickText: { color: AXTEXT, family: FONT } },
+        xAxis: { axisLine: { color: AXIS }, tickLine: { color: AXIS }, tickText: { color: AXTEXT, family: FONT, size: TEXT } },
+        yAxis: { axisLine: { color: AXIS }, tickLine: { color: AXIS }, tickText: { color: AXTEXT, family: FONT, size: TEXT } },
         crosshair: {
-            horizontal: { line: { color: CROSS }, text: { backgroundColor: TIPBG, color: TIP, family: FONT } },
-            vertical:   { line: { color: CROSS }, text: { backgroundColor: TIPBG, color: TIP, family: FONT } },
+            horizontal: { line: { color: CROSS }, text: { backgroundColor: TIPBG, color: TIP, family: FONT, size: TEXT } },
+            vertical:   { line: { color: CROSS }, text: { backgroundColor: TIPBG, color: TIP, family: FONT, size: TEXT } },
         },
         separator: { color: AXIS },
     }
@@ -226,9 +250,11 @@ function fmtVol(v) {
     return String(Math.round(n))
 }
 
-export const PriceChart = forwardRef(function PriceChart({ symbol = 'SPY', interval = 'D', levels = [], indicators = [], drawings = [] }, ref) {
+export const PriceChart = forwardRef(function PriceChart({ symbol = 'SPY', interval = 'D', levels = [], indicators = [], drawings = [], compact = false, fitBars = null }, ref) {
     const containerRef = useRef(null)
     const chartRef     = useRef(null)
+    const compactRef   = useRef(compact)    // read by the once-registered candle-colour listener
+    const fitBarsRef   = useRef(fitBars)    // read by the once-registered resize observer
     const symbolRef    = useRef(symbol)     // read by the loader (which is registered once)
     const intervalRef  = useRef(interval)
     const precRef      = useRef(2)
@@ -279,13 +305,14 @@ export const PriceChart = forwardRef(function PriceChart({ symbol = 'SPY', inter
         const chart = init(el, {
             locale: 'en-US',   // klinecharts registers 'en-US'/'zh-CN' — 'en' is unregistered → tooltip i18n crash
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            styles: readThemeStyles(),
+            styles: readThemeStyles(compactRef.current),
         })
         if (!chart) return
         chartRef.current = chart
         // Volume sub-pane. calcParams:[] drops the default MA5/10/20 average lines (VOL's default
         // is [5,10,20]) — regenerateFigures then keeps only the volume bars.
-        chart.createIndicator({ name: 'VOL', calcParams: [] }, false)
+        chart.createIndicator({ name: 'VOL', calcParams: [], paneId: VOL_PANE }, false)
+        if (compactRef.current) chart.setPaneOptions(volPaneOptions(true))
         chart.setFormatter({ formatDate: formatChartDate })   // bottom axis MM/DD, year (yy) only on Jan 1
 
         // Header OHLCV tracks the crosshair: hovering a bar shows that bar; leaving the chart
@@ -315,7 +342,7 @@ export const PriceChart = forwardRef(function PriceChart({ symbol = 'SPY', inter
         // deliberately does NOT follow the app's data-theme / data-design switches. The candle
         // colour override is the exception — it is the user's, not the theme's — so the chart
         // re-reads its palette when the picker raises the event.
-        const onCandleColors = () => chart.setStyles(readThemeStyles())
+        const onCandleColors = () => chart.setStyles(readThemeStyles(compactRef.current))
         window.addEventListener(CANDLE_COLORS_EVENT, onCandleColors)
 
         let pollId = null
@@ -389,13 +416,22 @@ export const PriceChart = forwardRef(function PriceChart({ symbol = 'SPY', inter
             unsubscribeBar: () => { clearInterval(pollId); clearInterval(quoteId); pollId = null; quoteId = null },
         })
 
-        const ro = new ResizeObserver(() => chart.resize())
+        // A fitted chart re-fits when its box changes (the chat's chart expanding), so the same bars fill the new width.
+        // The fit waits a frame: the pane's new width is measured in the layout resize() sets off.
+        let fitFrame = null
+        const ro = new ResizeObserver(() => {
+            chart.resize()
+            if (!fitBarsRef.current) return
+            cancelAnimationFrame(fitFrame)
+            fitFrame = requestAnimationFrame(() => fitToBars(chart, fitBarsRef.current))
+        })
         ro.observe(el)
 
         return () => {
             clearInterval(pollId)
             clearInterval(quoteId)
             ro.disconnect()
+            cancelAnimationFrame(fitFrame)
             chart.unsubscribeAction('onCrosshairChange', onCrosshair)
             el.removeEventListener('mouseleave', onLeave)
             window.removeEventListener(CANDLE_COLORS_EVENT, onCandleColors)
@@ -414,6 +450,22 @@ export const PriceChart = forwardRef(function PriceChart({ symbol = 'SPY', inter
         chart.setSymbol({ ticker: symbol, pricePrecision: precRef.current, volumePrecision: 0 })
         chart.setPeriod(toPeriod(interval))
     }, [symbol, interval])
+
+    // Fit once the bars are in.
+    useEffect(() => {
+        fitBarsRef.current = fitBars
+        if (ready) fitToBars(chartRef.current, fitBars)
+    }, [fitBars, ready])
+
+    // Compact ⇄ full on a mounted chart (the chat's thumbnail expanding): text sizes and the volume pane follow.
+    useEffect(() => {
+        if (compactRef.current === compact) return
+        compactRef.current = compact
+        const chart = chartRef.current
+        if (!chart) return
+        chart.setStyles(readThemeStyles(compact))
+        chart.setPaneOptions(volPaneOptions(compact))
+    }, [compact])
 
     // Stable content keys so the draw effects below run only when the levels/indicators actually
     // CHANGE — not on every parent re-render. The parents derive these arrays fresh each render
@@ -500,7 +552,7 @@ export const PriceChart = forwardRef(function PriceChart({ symbol = 'SPY', inter
     const dp = precRef.current
 
     return (
-        <div className="price-chart">
+        <div className={`price-chart${compact ? ' price-chart--compact' : ''}`}>
             <div className="price-chart__header">
                 <span className="price-chart__sym">{symbol}</span>
                 <span className="price-chart__tf">{interval}</span>
@@ -538,4 +590,8 @@ PriceChart.propTypes = {
         type:   PropTypes.string,
         points: PropTypes.array,
     })),
+    // Small text and a thin volume pane, for a thumbnail-sized chart (Mentor's trade chart in the chat).
+    compact: PropTypes.bool,
+    // Zoom out so the last N bars fill the pane (Mentor's trade chart: the structure's own window).
+    fitBars: PropTypes.number,
 }

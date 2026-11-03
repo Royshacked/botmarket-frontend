@@ -45,6 +45,8 @@ export function normalizeChartRequest(req) {
         // A plan's trade lines ({kind, price, label, side} — deriveSetupOverlay's), drawn as PriceChart's
         // `levels`: Mentor's in-chat trade chart opens full size carrying the same entry / stop / targets.
         levels:    Array.isArray(req?.levels) ? req.levels : [],
+        // Zoom out so the last N bars fill the pane (PriceChart `fitBars`) — the trade chart's full size keeps its picture.
+        fitBars:   Number.isFinite(req?.fitBars) && req.fitBars > 0 ? req.fitBars : null,
         source:    req?.source ?? null,   // who asked (agent key), when an in-app caller sets it
         // Distinguishes two requests for the SAME ticker+timeframe, so re-asking re-opens a chart
         // the user had closed rather than looking like nothing happened.

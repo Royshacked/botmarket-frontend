@@ -1,12 +1,13 @@
-// Mentor's trade chart in the thread — about one turn tall, never the chat's whole height (the docked chart is that).
+// Mentor's trade chart in the thread — small in every measure (PriceChart `compact` shrinks its text and volume pane to
+// match). Never the chat's whole height; "Full chart" docks the big one.
 .mentor-trade-chart {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    width: min(100%, 640px);
+    width: min(100%, 380px);
 
     &__frame {
-        height: clamp(160px, 22vh, 220px);
+        height: 190px;
         border: 1px solid var(--border);
         border-radius: 10px;
         overflow: hidden;

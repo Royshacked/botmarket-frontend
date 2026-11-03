@@ -7,8 +7,8 @@ import { currentChart, closeChart } from '../../services/chartSurface.service.js
 // Mentor's trade chart in the thread (2026-10-31): the plan's lines on a turn-tall chart once Generate lights.
 // KLineCharts wants a real canvas and PriceChart fetches its own candles — the stub records what it was handed.
 vi.mock('../PriceChart/PriceChart.jsx', () => ({
-    PriceChart: ({ symbol, interval, levels }) => (
-        <div data-testid="price-chart" data-symbol={symbol} data-interval={interval} data-levels={JSON.stringify(levels)} />
+    PriceChart: ({ symbol, interval, levels, compact, fitBars }) => (
+        <div data-testid="price-chart" data-symbol={symbol} data-interval={interval} data-levels={JSON.stringify(levels)} data-compact={String(!!compact)} data-fit={fitBars} />
     ),
 }))
 
@@ -29,6 +29,7 @@ describe('MentorTradeChart', () => {
         const chart = screen.getByTestId('price-chart')
         expect(chart.dataset.symbol).toBe('NXST')
         expect(chart.dataset.interval).toBe('day')
+        expect(chart.dataset.fit).toBe('120')                                    // zoomed out to the structure's window
         expect(levelsOf().map(l => [l.kind, l.price])).toEqual(expect.arrayContaining([['stop', 26.9], ['tp', 31.6]]))
         expect(levelsOf().some(l => l.price === 28.8)).toBe(true)
     })
@@ -40,12 +41,19 @@ describe('MentorTradeChart', () => {
         expect(container.innerHTML).toBe('')
     })
 
-    it('"Full chart" docks the workspace chart carrying the same lines', () => {
+    it('is small in every measure (compact), and "Full chart" is its only control', () => {
+        render(<MentorTradeChart setup={SETUP} />)
+        expect(screen.getByTestId('price-chart').dataset.compact).toBe('true')
+        expect(screen.getAllByRole('button').map(b => b.textContent)).toEqual(['Full chart'])
+    })
+
+    it('"Full chart" docks the workspace chart carrying the same lines, tagged so its Close reads Shrink', () => {
         render(<MentorTradeChart setup={SETUP} />)
         fireEvent.click(screen.getByText('Full chart'))
         const docked = currentChart()
-        expect([docked.ticker, docked.timeframe, docked.source]).toEqual(['NXST', 'day', 'mentor'])
+        expect([docked.ticker, docked.timeframe, docked.source]).toEqual(['NXST', 'day', 'mentor-trade'])
         expect(docked.levels).toEqual(levelsOf())
+        expect(docked.fitBars).toBe(120)                                         // the full size keeps the zoomed-out picture
     })
 })
 

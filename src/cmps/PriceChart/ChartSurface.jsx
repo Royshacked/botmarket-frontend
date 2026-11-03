@@ -24,8 +24,11 @@ const DRAW_TOOLS = [
  * @param {Function} [onCollapse] when given, adds a collapse control beside Close. Docked hosts pass
  *                   it so the thread can have its room back without losing the chart; a host that
  *                   owns its whole pane has nothing to collapse into and omits it.
+ * @param {boolean}  [shrink]    Close reads "Shrink": the chart was opened full size from a small one still in
+ *                   the thread (Mentor's trade chart), so closing it IS going back to the small one.
+ * @param {number}   [fitBars]   zoom out so the last N bars fill the pane (PriceChart's `fitBars`).
  */
-export function ChartSurface({ ticker, timeframe, drawings = [], levels = [], onClose, onCollapse }) {
+export function ChartSurface({ ticker, timeframe, drawings = [], levels = [], onClose, onCollapse, shrink = false, fitBars = null }) {
     const [activeTool, setActiveTool] = useState(null)
     const chartRef = useRef(null)
 
@@ -91,13 +94,19 @@ export function ChartSurface({ ticker, timeframe, drawings = [], levels = [], on
                 <button
                     className={`chart-surface__close${onCollapse ? ' chart-surface__close--paired' : ''}`}
                     onClick={onClose}
-                    title="Close the chart"
-                    aria-label="Close the chart"
+                    title={shrink ? 'Back to the small chart' : 'Close the chart'}
+                    aria-label={shrink ? 'Shrink the chart' : 'Close the chart'}
                 >
-                    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
-                        <line x1="3" y1="3" x2="9" y2="9" /><line x1="9" y1="3" x2="3" y2="9" />
-                    </svg>
-                    Close
+                    {shrink ? (
+                        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <polyline points="2,5 5,5 5,2" /><polyline points="10,7 7,7 7,10" />
+                        </svg>
+                    ) : (
+                        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+                            <line x1="3" y1="3" x2="9" y2="9" /><line x1="9" y1="3" x2="3" y2="9" />
+                        </svg>
+                    )}
+                    {shrink ? 'Shrink' : 'Close'}
                 </button>
             </div>
 
@@ -111,6 +120,7 @@ export function ChartSurface({ ticker, timeframe, drawings = [], levels = [], on
                     interval={timeframe}
                     drawings={drawings}
                     levels={levels}
+                    fitBars={fitBars}
                 />
             </div>
         </div>
@@ -132,4 +142,6 @@ ChartSurface.propTypes = {
     })),
     onClose:    PropTypes.func.isRequired,
     onCollapse: PropTypes.func,
+    shrink:     PropTypes.bool,
+    fitBars:    PropTypes.number,
 }
