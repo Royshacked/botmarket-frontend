@@ -26,6 +26,21 @@ test('a BROKEN premise leaves room for "there is no trade here"', () => {
     assert.doesNotMatch(ask, /has drifted/)
 })
 
+// A RUNAWAY is a miss, not a break (redraw drive, 2026-11-03): the card said "the read wasn't wrong" and the turn
+// opened on "no longer valid". Read off the scenario's latch when the document's roll-up is empty.
+test('a scenario that RAN AWAY unfilled opens on a miss, never "no longer valid"', () => {
+    const reason = 'price ran to 214.6 — past the upper edge of where this setup works'
+    const ask = redrawAsk({ ...BASE, invalidation_status: 'drifting', invalidation_edge: 'upper', invalidation_reason: reason })
+    assert.match(ask, /my AVGO setup ran without filling — price ran to 214\.6/)
+    assert.match(ask, /The read wasn't wrong; the entry never came/)
+    assert.match(ask, /say so plainly if there is not/)
+    assert.doesNotMatch(ask, /no longer valid/)
+    const oneOfTwo = redrawAsk({ ...BASE, monitor_state: { scenarios: { s1: { invalidation_status: 'drifting', invalidation_reason: reason }, s2: {} } } })
+    assert.match(oneOfTwo, /ran without filling — price ran to 214\.6/, 'one scenario ran, the other still stands: the scenario\'s own reason')
+    const broke = redrawAsk({ ...BASE, invalidation_edge: 'lower', monitor_state: { scenarios: { s1: { invalidation_status: 'drifting' }, s2: { invalidation_status: 'fired' } } } })
+    assert.match(broke, /no longer valid/, 'a broken one outranks a missed one')
+})
+
 // The DOCUMENT is the live source — Talos stamps it in the same patch that fires the card. The
 // assessment behind it is only the fallback for a doc written before the reason was stamped.
 test('falls back to the assessment, then to the read, then asks anyway', () => {

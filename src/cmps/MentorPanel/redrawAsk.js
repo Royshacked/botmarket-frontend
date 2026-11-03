@@ -32,11 +32,24 @@ export function redrawAsk(setup) {
     if (!setup?.id) return null
 
     const asset = setup.asset ?? 'this setup'
+    // THE THIRD THING TO HEAR (redraw drive, 2026-11-03): a scenario that RAN AWAY unfilled is drifting, never broken —
+    // the card says "the read wasn't wrong", and the turn used to answer it with "no longer valid". Read off the
+    // per-scenario latches, since the document's roll-up stays empty while another scenario is still standing.
+    const states = Object.values(setup.monitor_state?.scenarios ?? {})
+    const missedRow = states.find(s => s?.invalidation_status === 'drifting')
+    const missed = setup.invalidation_status === 'drifting'
+        || (!!missedRow && !states.some(s => s?.invalidation_status === 'fired') && setup.invalidation_status !== 'fired')
     // Both of Talos's paths write a finished sentence here; the assessment behind it is the fallback
     // for a document written before the reason was stamped.
     const why = firstSentence(setup.invalidation_reason)
+        ?? (missed ? firstSentence(missedRow?.invalidation_reason) : null)
         ?? firstSentence(setup.monitor_state?.last_assessment?.edit_proposal?.why)
         ?? firstSentence(setup.monitor_state?.last_assessment?.read)
+
+    if (missed && setup.invalidation_edge !== 'time') {
+        return `Talos says my ${asset} setup ran without filling${why ? ` — ${why}` : ''}. The read wasn't wrong; the entry never came. `
+            + 'Re-draw it on today\'s chart if there is still a trade, and say so plainly if there is not.'
+    }
 
     // TWO DIFFERENT THINGS TO HEAR, and one sentence for both would be wrong for one of them.
     // `invalidation_edge: 'time'` is the stamp for Talos's own "the map has drifted" verdict; every
