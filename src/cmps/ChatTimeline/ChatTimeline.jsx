@@ -165,7 +165,7 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
     return (
         <div className="chat-timeline">
             <div className="panel-header chat-timeline__header">
-                <span className="chat-timeline__title">{empty ? 'Chat' : `Talking with ${floorName}`}</span>
+                <span className="chat-timeline__title">{empty ? 'Chat' : <><span className="chat-timeline__title-lead">Talking with </span>{floorName}</>}</span>
                 <span className="chat-timeline__actions">
                     {paneSurfaces && <PaneToggle floor={floor} surfaces={paneSurfaces} />}
                     <button type="button" className="chat-timeline__action chat-timeline__info-btn" onClick={() => setInfoOpen(true)}>Info</button>
