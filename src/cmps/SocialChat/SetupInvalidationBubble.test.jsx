@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { SetupInvalidationBubble } from './ChatWindow.jsx'
 import { eventBus, SETUP_INVALIDATION_EDIT } from '../../services/event-bus.service.js'
+import { mentorService } from '../../services/mentor/mentor.service.remote'
 
 // The bubble's module (ChatWindow.jsx) pulls in axios-backed service modules at load time.
 // Stub them so the tree mounts without touching the network.
@@ -32,6 +33,29 @@ describe('SetupInvalidationBubble', () => {
     afterEach(() => {
         vi.restoreAllMocks()
         cleanup()
+    })
+
+    it('a card with a close action closes the setup and resolves; a refusal leaves the card', async () => {
+        const onResolve = vi.fn()
+        const act = vi.spyOn(mentorService, 'actOnSetup').mockResolvedValue({ ok: true })
+        const msg = makeMsg({ actions: { primary: { label: 'Re-draw it' }, dismiss: true, close: { label: 'Close setup' } } })
+        render(<SetupInvalidationBubble msg={msg} onClose={vi.fn()} onResolve={onResolve} />)
+        fireEvent.click(screen.getByText('Close setup'))
+        await vi.waitFor(() => expect(onResolve).toHaveBeenCalledWith('m1', { status: 'done', outcome: 'closed' }))
+        expect(act).toHaveBeenCalledWith('setup-1', 'close')
+        cleanup()
+        onResolve.mockClear()
+        act.mockRejectedValue(new Error('not_closable'))
+        vi.spyOn(console, 'warn').mockImplementation(() => {})
+        render(<SetupInvalidationBubble msg={msg} onClose={vi.fn()} onResolve={onResolve} />)
+        fireEvent.click(screen.getByText('Close setup'))
+        await vi.waitFor(() => expect(act).toHaveBeenCalledTimes(2))
+        expect(onResolve).not.toHaveBeenCalled()
+    })
+
+    it('a card with no close action shows no Close setup', () => {
+        render(<SetupInvalidationBubble msg={makeMsg()} onClose={vi.fn()} onResolve={vi.fn()} />)
+        expect(screen.queryByText('Close setup')).toBeNull()
     })
 
     it('primary "Re-draw it" routes into Mentor — and LEAVES IT PENDING', () => {
@@ -136,7 +160,7 @@ describe('SetupInvalidationBubble', () => {
                 onResolve={vi.fn()}
             />,
         )
-        expect(screen.getByText(/2 still armed/)).toBeTruthy()
+        expect(screen.getByText(/2 still live/)).toBeTruthy()
     })
 
     it('collapses to an informative chip: outcome + reason, no actions', () => {

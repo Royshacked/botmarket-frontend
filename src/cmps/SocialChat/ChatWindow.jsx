@@ -62,7 +62,7 @@ function ResolvedChip({ agent, outcome, asset, reason, qualifier = null, reopen 
 // nothing is being asked of you" — and a Dismiss on those would invent a decision the card isn't
 // making. Opt-in per card rather than derived from `msg.actions` here, so older history posted
 // before a producer set actions keeps the buttons it has always rendered.
-function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = null, body, primaryLabel, onPrimary, onResolve, onDismiss, msg, resolvedLabels = {}, reopenOnDone = false, primaryDisabled = false, actionless = false, dismissOnly = false }) {
+function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = null, body, primaryLabel, onPrimary, onResolve, onDismiss, msg, resolvedLabels = {}, reopenOnDone = false, primaryDisabled = false, actionless = false, dismissOnly = false, secondary = null }) {
     const { resolved, status, outcome, note } = readResolution(msg)
     if (resolved) {
         const label  = resolvedLabels[outcome] ?? (status === 'done' ? '✓ Done' : 'Dismissed')
@@ -113,6 +113,7 @@ function NotificationCard({ agent, kind = 'fired', heading, asset, qualifier = n
             {!actionless && (
                 <div className="social-chat__invalidation-alert-actions">
                     {!noPrimary && <button className="social-chat__invalidation-alert-btn" onClick={handlePrimaryClick} disabled={primaryDisabled}>{label}</button>}
+                    {secondary && <button className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss" onClick={secondary.onClick}>{secondary.label}</button>}
                     <button
                         className="social-chat__invalidation-alert-btn social-chat__invalidation-alert-btn--dismiss"
                         onClick={dismiss}
@@ -598,8 +599,8 @@ export function SetupInvalidationBubble({ msg, onClose, onResolve }) {
     const copy      = SETUP_INVALIDATION_COPY[event] ?? { head: 'Needs a look', kind: 'fired' }
     const actionless = !msg.actions
     // What still stands matters as much as what died — carried on the collapsed chip too, so a
-    // scrolled-back card doesn't read as "the trade is dead" when another way in is still armed.
-    const survivors = remaining > 0 ? `${remaining} still armed` : null
+    // scrolled-back card doesn't read as "the trade is dead" when another way in is still live.
+    const survivors = remaining > 0 ? `${remaining} still live` : null
     const qualifier = scenario ?? survivors
     // Both ride the HEADING as well, the same way EntryConfirmBubble names which premise fired: the
     // qualifier alone only surfaces once the card has collapsed, and which way in died is the first
@@ -616,13 +617,24 @@ export function SetupInvalidationBubble({ msg, onClose, onResolve }) {
         onClose?.()
     }
 
+    // The card stays when the server refuses: a setup that has since rested an order is not closed from here.
+    async function handleCloseSetup() {
+        try {
+            await mentorService.actOnSetup(setupId, 'close')
+            onResolve?.(msg.id, { status: 'done', outcome: 'closed' })
+        } catch (err) {
+            console.warn('close setup failed', err?.message)
+        }
+    }
+    const secondary = msg.actions?.close ? { label: msg.actions.close.label, onClick: handleCloseSetup } : null
+
     return (
         <NotificationCard
-            agent={AGENTS.mentor} kind={copy.kind} heading={heading} asset={asset}
+            agent={AGENTS.mentor} kind={copy.kind} heading={heading} asset={asset} secondary={secondary}
             qualifier={qualifier} body={msg.content} actionless={actionless}
             primaryLabel={msg.actions?.primary?.label ?? 'Re-draw it'} onPrimary={handlePrimary}
             onResolve={onResolve} msg={msg}
-            resolvedLabels={{ editing: '✓ Opened in chat' }}
+            resolvedLabels={{ editing: '✓ Opened in chat', closed: '✓ Setup closed' }}
         />
     )
 }
