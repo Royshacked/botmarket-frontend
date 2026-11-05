@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { AGENTS, DESKS } from '../AxlHub/agentMeta.jsx'
+import { RiskBasedInfo } from '../Floor/RiskBasedInfo.jsx'
 
 // INFO WHILE CHATTING, on a phone (Roy, 2026-10-29: "add an info tab when chatting"). The Floor's Info column sits beside
 // the chat on a desktop; a phone has no room for it, so the chat header carries an Info button that opens this over the
@@ -34,6 +35,7 @@ export function ChatInfo({ floor = 'axl', onClose }) {
                     <p className="chat-info__text">{agent?.blurb ?? AXL_ABOUT}</p>
                     {agent?.hint && <p className="chat-info__text chat-info__text--dim">{agent.hint}</p>}
                 </section>
+                {floor === 'mentor' && <RiskBasedInfo />}
                 <section className="chat-info__sec">
                     <h3 className="chat-info__head">The desks</h3>
                     <dl className="chat-info__desks">

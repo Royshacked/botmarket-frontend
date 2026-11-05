@@ -1515,7 +1515,7 @@ export function MainPage() {
                     {floorMode ? (
                         <div className="workspace__right">
                             {/* INFO (Roy, 2026-10-23): what is going on in the app, the chat and the lists — to come. */}
-                            <FloorInfo />
+                            <FloorInfo floor={mainSession.floor} />
                         </div>
                     ) : (
                     <div className="workspace__ideas">
