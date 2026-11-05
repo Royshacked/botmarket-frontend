@@ -197,7 +197,7 @@ describe('useSession — commit / edit / reopen', () => {
         expect(out.extra.agent).toBe('mentor')
         await act(async () => { out = await result.current.reopen('setup', 's9', { force: true }) })
         expect(out).toEqual({ ok: true, result: { agent: 'mentor', floor: 'mentor' } })
-        expect(api.edit).toHaveBeenLastCalledWith('s1', { kind: 'setup', id: 's9', name: null, force: true, reviewMode: false })
+        expect(api.edit).toHaveBeenLastCalledWith('s1', { kind: 'setup', id: 's9', name: null, force: true, reviewMode: false, redraw: false })
     })
 })
 

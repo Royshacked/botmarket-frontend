@@ -11,6 +11,7 @@ export function RiskBasedInfo() {
                     Mentor builds it in your terms instead.</p>
                 <p><b>Mentor judges</b> the stop and the target from the chart. <b>You choose</b> your limits, the size, how long it
                     waits, and what happens if it runs away.</p>
+                <p>Described here for a long. A short is the mirror.</p>
             </section>
             <section>
                 <h3 className="hot-info__h">The levels</h3>
@@ -32,8 +33,10 @@ export function RiskBasedInfo() {
             </section>
             <section>
                 <h3 className="hot-info__h">If it does not go to plan</h3>
-                <p>A day close under the stop sends you a card to redraw or close. If price runs away without filling, Mentor has asked
-                    you in advance: a ping to redraw it, or let it go. Nothing closes by itself.</p>
+                <p><b>Before a fill</b>, a day close under the stop sends you a card to redraw or close. If price runs away without
+                    filling, Mentor has asked you in advance: a ping to redraw it, or let it go. With A and B together, A just lets it
+                    go, because B is the continuation. That setup doesn&apos;t close by itself, unless your wait runs out first.</p>
+                <p><b>Once it has filled</b>, the stop and the targets do their job.</p>
             </section>
             <section>
                 <h3 className="hot-info__h">What the tests found</h3>

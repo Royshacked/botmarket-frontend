@@ -35,7 +35,7 @@ overnight (the day tabs Open · Mid-day · Into close · Tomorrow and the Boards
 day that still has day names), and four tabs **This week · Swing · Long term · Covered companies** (2026-10-28). This
 week opens on the names Prometheus confirmed with his own target, Swing / Long term (`HotlistBook.jsx`) on the weekly
 chain's covered names. Since 2026-10-31 the panel is the tabs and the table, for everyone: no explanation above the
-table (the Info column, `HotlistInfo.jsx`, explains the lists); an admin keeps the view switch, and the track records
+table (the Info column, `HotlistInfo.jsx`, explains the lists; `RiskBasedInfo.jsx` explains Mentor's risk-based builds, there and in the phone's Info sheet); an admin keeps the view switch, and the track records
 and Argus's read sit under the table. A clicked row opens that name's PAGE over the window (`HotlistRowPage.jsx`: the
 numbers as tiles, the daily chart, the read or thesis, the hand-offs; "‹ Back to the list" in the header). No grade
 letter is shown anywhere (2026-10-24) — and its rows hand on ONE name at a time:

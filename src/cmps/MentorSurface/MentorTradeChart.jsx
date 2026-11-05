@@ -19,13 +19,23 @@ import './MentorTradeChart.scss'
 // in (STRUCTURE.atHighs, botmarket-backend services/swingStructure.service.js), so the fall, the swings and the lines show.
 const FIT_BARS = 120
 
+/** Is the end of the scrolling thread in sight, allowing for this element, which has just grown it? */
+function nearThreadEnd(el) {
+    for (let box = el?.parentElement; box; box = box.parentElement) {
+        if (!/auto|scroll/.test(getComputedStyle(box).overflowY)) continue
+        return box.scrollHeight - box.scrollTop - box.clientHeight <= el.offsetHeight + 120
+    }
+    return true
+}
+
 export function MentorTradeChart({ setup, ready = true }) {
     const { levels } = useMemo(() => deriveSetupOverlay(setup), [setup])
     const timeframe = watchTimeframe(setup)
     const ticker = setup?.asset ?? ''
     const ref = useRef(null)
-    // Into view once, when it appears — it lands at the end of the thread, under the turn that finished the plan.
-    useEffect(() => { ref.current?.scrollIntoView?.({ block: 'nearest' }) }, [])
+    // Into view when it appears, at the end of the thread — unless the user has scrolled up to read: it comes back at the
+    // end of every turn of a build now, and useChatScroll leaves them where they are (code review).
+    useEffect(() => { if (nearThreadEnd(ref.current)) ref.current?.scrollIntoView?.({ block: 'nearest' }) }, [])
 
     // The chart now opens mid-build, so the lines can move while "Full chart" is docked: the dock follows them (CR).
     const levelsKey = JSON.stringify(levels)

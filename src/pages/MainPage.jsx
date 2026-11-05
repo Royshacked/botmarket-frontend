@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 
 import { ChatTimeline }      from '../cmps/ChatTimeline/ChatTimeline.jsx'
-import { openChart }         from '../services/chartSurface.service.js'
+import { openChart, closeChart, currentChart } from '../services/chartSurface.service.js'
 import { DESKS } from '../cmps/AxlHub/agentMeta.jsx'
 import { queuedAnything } from '../cmps/PortfolioPanel/reviewApply.js'
 import { QueuedActionDialog } from '../cmps/Floor/QueuedActionDialog.jsx'
@@ -251,7 +251,8 @@ export function MainPage() {
     async function handleEditSetup(setup, { ask = null } = {}) {
         const accountIds = Array.isArray(setup.accounts) ? setup.accounts : []
         await editEntity('setup', setup.id, {
-            name: setup.asset ? `${setup.asset} setup` : null, ask,
+            // The card's ask is the only one here, and only the card reopens a flagged setup (Roy, 2026-11-05): the pencil opens it as it is.
+            name: setup.asset ? `${setup.asset} setup` : null, ask, redraw: Boolean(ask),
             // The ask goes out with the accounts restored below — that state is not readable yet.
             accounts: availableAccounts.filter(a => accountIds.includes(a.id)), mainAccountId: setup.mainAccountId ?? null,
             // ONLY ONCE IT REOPENED (phase 8b CR): a "no" to the busy question keeps the user's own build, and it must
@@ -263,6 +264,8 @@ export function MainPage() {
                 alignWorkspaceTo(setup)
                 setSelectedAccounts(accountIds)
                 setMainAccountId(setup.mainAccountId ?? null)
+                // Another plan's levels must not stay docked over this one (code review); a chart of the user's own stays.
+                if (['mentor', 'mentor-trade'].includes(currentChart()?.source)) closeChart()
             },
         })
     }
@@ -322,13 +325,13 @@ export function MainPage() {
      * other unsaved work answers busy: the user is asked, and a yes repeats it with `force`. `ask` is the turn the
      * desk opens ON (a card's reason); a pencil passes none.
      */
-    async function editEntity(kind, id, { name = null, ask = null, reviewMode = false, accounts = null, mainAccountId: mainId, onOpened = null } = {}) {
+    async function editEntity(kind, id, { name = null, ask = null, reviewMode = false, redraw = false, accounts = null, mainAccountId: mainId, onOpened = null } = {}) {
         const session = mainSessionRef.current
-        let out = await session.reopen(kind, id, { name, reviewMode })
+        let out = await session.reopen(kind, id, { name, reviewMode, redraw })
         if (!out.ok && out.reason === 'busy') {
             const brand = agentMeta(out.extra?.agent).brand
             if (!window.confirm(`${brand} is in the middle of something else. Set it aside and open this?`)) return false
-            out = await session.reopen(kind, id, { name, reviewMode, force: true })
+            out = await session.reopen(kind, id, { name, reviewMode, redraw, force: true })
         }
         if (!out.ok) { showErrorMsg(out.message); return false }
         onOpened?.()

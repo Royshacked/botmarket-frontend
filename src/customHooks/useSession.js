@@ -185,11 +185,11 @@ export function useSession(scope = 'main', { ws = chatWsService, api = sessionSe
      * Reopen a saved item at the desk that owns it (a pencil, a card). A desk holding other unsaved work answers
      * `busy` with its agent — the caller asks the user, then repeats with `force`. @returns {Promise<object>} an outcome
      */
-    const reopen = useCallback(async (kind, id, { name = null, force = false, reviewMode = false } = {}) => {
+    const reopen = useCallback(async (kind, id, { name = null, force = false, reviewMode = false, redraw = false } = {}) => {
         if (!(await ready())) return { ok: false, reason: 'not_found', message: 'The chat is not open yet', extra: {} }
         const s = ref.current
         try {
-            return { ok: true, result: await api.edit(s.sessionId, { kind, id, name, force, reviewMode }) }
+            return { ok: true, result: await api.edit(s.sessionId, { kind, id, name, force, reviewMode, redraw }) }
         } catch (err) {
             return _outcome(null, err, 'Could not open that')
         }
