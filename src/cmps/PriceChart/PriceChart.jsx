@@ -4,6 +4,7 @@ import { init, dispose, utils, registerOverlay, registerIndicator } from 'klinec
 import { marketService } from '../../services/market/market.service.remote'
 import { toPeriod, isCurrentPeriod } from './chartPeriod.js'
 import { CANDLE_COLORS_EVENT } from '../../services/candleColors.service.js'
+import { rangeWithLevels } from './chartRange.js'
 import './PriceChart.scss'
 
 // ── Custom klinecharts registrations (module-level: registries are global, register once) ──
@@ -496,6 +497,16 @@ export const PriceChart = forwardRef(function PriceChart({ symbol = 'SPY', inter
         return () => { chartRef.current?.removeOverlay({ groupId: 'trade-levels' }) }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [levelsKey, ready, precision])
+
+    // A chart fitted to the whole picture (`fitBars`) keeps its lines on it: the axis takes in every level, or a target
+    // over the candles draws off the pane. Other charts keep the candles' own axis (no prices → the default range).
+    useEffect(() => {
+        const chart = chartRef.current
+        if (!chart || !ready) return
+        const prices = fitBars ? levels.map(lv => Number(lv?.price ?? NaN)) : []
+        chart.overrideYAxis({ paneId: 'candle_pane', createRange: ({ defaultRange }) => rangeWithLevels(defaultRange, prices) })
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [levelsKey, fitBars, ready])
 
     // Prompt-driven drawings → programmatic overlays (e.g. horizontal price lines from Axl).
     // Only horizontal-style overlays with a `value` point make sense here — trendlines need bar

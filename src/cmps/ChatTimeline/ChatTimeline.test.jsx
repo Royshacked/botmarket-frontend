@@ -384,13 +384,27 @@ describe('ChatTimeline — Mentor’s trade chart (2026-10-31)', () => {
         expect(screen.getByTestId('price-chart').dataset.symbol).toBe('NXST')
     })
 
-    it('not lit, or no account marked → no chart', () => {
+    it('a stop and a target, Generate still dark → the levels so far (Roy, 2026-11-05)', () => {
         session = base({ floor: 'mentor', rows: [row(1, { agent: 'mentor' })], agentState: mentor({ ready: false, missing: ['a size'] }) })
+        render(<ChatTimeline accounts={[{ id: 'a1' }]} />)
+        expect(screen.getByTestId('price-chart')).toBeTruthy()
+        expect(screen.getByText('The levels so far.')).toBeTruthy()
+    })
+
+    it('the levels so far leave with Mentor; a finished plan stays', () => {
+        session = base({ floor: 'axl', rows: [row(1, { agent: 'axl' })], agentState: mentor({ ready: false, missing: ['a size'] }) })
         render(<ChatTimeline accounts={[{ id: 'a1' }]} />)
         expect(screen.queryByTestId('price-chart')).toBeNull()
         cleanup()
-        session = base({ floor: 'mentor', rows: [row(1, { agent: 'mentor' })], agentState: mentor({ ready: true, missing: [] }) })
-        render(<ChatTimeline accounts={[]} />)
+        session = base({ floor: 'axl', rows: [row(1, { agent: 'axl' })], agentState: mentor({ ready: true, missing: [] }) })
+        render(<ChatTimeline accounts={[{ id: 'a1' }]} />)
+        expect(screen.getByTestId('price-chart')).toBeTruthy()
+    })
+
+    it('no target yet, Generate dark → no chart', () => {
+        const draft = { ...PLAN, scenarios: [{ ...PLAN.scenarios[0], target_legs: [] }] }
+        session = base({ floor: 'mentor', rows: [row(1, { agent: 'mentor' })], agentState: { mentor: { draft, view: { readiness: { ready: false, missing: ['target price'] } } } } })
+        render(<ChatTimeline accounts={[{ id: 'a1' }]} />)
         expect(screen.queryByTestId('price-chart')).toBeNull()
     })
 })

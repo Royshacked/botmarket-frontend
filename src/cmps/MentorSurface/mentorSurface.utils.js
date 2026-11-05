@@ -35,10 +35,11 @@ export function liveReadiness(readiness, accountCount) {
 }
 
 /**
- * The plan the CHAT draws as Mentor's trade chart — the moment Generate lights, and only then (Roy, 2026-10-31).
+ * The plan the CHAT draws as Mentor's trade chart — from the moment a way in has its stop and its target (Roy,
+ * 2026-11-05: the user sets the risk limit and the reward to risk looking at the levels), or Generate is lit.
  *
  * Read from Mentor's state on the session, not from his surface, so the chart stays in the conversation when the pane
- * is hidden. Same verdict as the button (`liveReadiness`); nothing while a turn runs (the plan is about to change),
+ * is hidden. Nothing while a turn runs (the plan is about to change),
  * once it is generated (the Arm bar takes over), or while an existing setup is being edited (that one is Update).
  *
  * @param {object|null} mentor        session.agentState.mentor
@@ -49,8 +50,17 @@ export function liveReadiness(readiness, accountCount) {
 export function tradeChartSetup(mentor, accountCount, turning) {
     const draft = mentor?.draft ?? null
     if (turning || !draft?.asset || mentor?.generated || mentor?.editing?.kind === 'setup') return null
-    return liveReadiness(mentor?.view?.readiness ?? null, accountCount).ready ? draft : null
+    return tradeChartReady(mentor, accountCount) || _hasExits(draft) ? draft : null
 }
+
+/** Is the chart showing the finished plan, the same verdict as the button, or only the levels so far? */
+export function tradeChartReady(mentor, accountCount) {
+    return liveReadiness(mentor?.view?.readiness ?? null, accountCount).ready
+}
+
+const _priced = (legs) => Array.isArray(legs) && legs.some(l => Number.isFinite(Number(l?.price ?? NaN)))
+/** A stop and a target on the same way in. The draft itself counts: it can carry the flat legs instead of scenarios. */
+const _hasExits = (draft) => [...(draft.scenarios ?? []), draft].some(s => _priced(s?.stop_legs) && _priced(s?.target_legs))
 
 // ── What a press SAYS, and what it settles ───────────────────────────────────
 //
