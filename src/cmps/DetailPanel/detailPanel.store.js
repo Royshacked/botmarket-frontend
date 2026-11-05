@@ -35,6 +35,8 @@ export function registerContainer(id) {
 }
 
 export const activePanel = () => active
+/** Is the open panel a whole list? */
+export const listIsOpen = () => active !== null && containers.has(active)
 /** The list panel kept under the open row panel, or null. */
 export const underPanel = () => under
 

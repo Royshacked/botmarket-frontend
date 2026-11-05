@@ -263,7 +263,6 @@ export function MainPage() {
                 alignWorkspaceTo(setup)
                 setSelectedAccounts(accountIds)
                 setMainAccountId(setup.mainAccountId ?? null)
-                if (setup.asset) openChart({ ticker: setup.asset, source: 'mentor' })
             },
         })
     }
@@ -291,6 +290,9 @@ export function MainPage() {
     useEffect(() => { resetSidePane() }, [user?._id])
     const mainSessionRef = useRef(mainSession)
     mainSessionRef.current = mainSession
+    // A Mentor turn closed a setup: the list says so now, not at its next poll.
+    const closedSetupId = mainSession.lastTurn?.payload?.closedSetup?.id ?? null
+    useEffect(() => { if (closedSetupId) refreshSetups() }, [closedSetupId]) // eslint-disable-line react-hooks/exhaustive-deps
     const deskAccountsRef = useRef({ accounts: timelineAccounts, mainAccountId })
     deskAccountsRef.current = { accounts: timelineAccounts, mainAccountId }
     // What a surface needs to mark and read the accounts — Mentor's Generate binds to them.

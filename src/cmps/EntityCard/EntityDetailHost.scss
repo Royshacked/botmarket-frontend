@@ -9,8 +9,9 @@
     inset: 0;
     // Over the social-chat window (600), under the auth modal (1000). The dialogs the page opens
     // for itself (confirm an order, close a position) are its descendants, so they keep stacking
-    // above it without a number of their own.
-    z-index: 700;
+    // above it without a number of their own. Over a list window too (DetailPanel's page mode, 700): that one is
+    // portalled later in the document, so at the same number it would paint over this page.
+    z-index: 710;
 
     // 100vh measures past a phone browser's chrome, which would push the footer under the URL bar.
     // The pop-out window keeps its 100vh — there the two are the same.

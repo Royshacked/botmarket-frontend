@@ -59,6 +59,57 @@ describe('an entity page opened from a full-screen panel', () => {
         expect(window.location.search).not.toMatch(/setup/)
     })
 
+    it('a whole list stays under the page: back closes the page onto the list, and the next back leaves the list', async () => {
+        const LIST = 'floor:trade'
+        window.history.replaceState({}, '', '/')
+        render(
+            <BrowserRouter>
+                <DetailPanel id={LIST} title="Your trades" container><p>the rows</p></DetailPanel>
+                <EntityDetailHost />
+            </BrowserRouter>,
+        )
+        await act(async () => { openPanel(LIST) })
+        await tick()
+        const depth = window.history.length
+
+        await act(async () => { eventBus.emit(ENTITY_DETAIL_OPEN, { kind: 'setup', id: 's3' }) })
+        await tick()
+        expect(screen.getByTestId('page').textContent).toBe('setup:s3')
+        expect(activePanel()).toBe(LIST)
+        expect(window.history.length).toBe(depth + 1)                // its own entry, on top of the list's
+
+        // The phone's back.
+        await act(async () => { window.history.back() })
+        await tick(80)
+        expect(screen.queryByTestId('page')).toBeNull()
+        expect(activePanel()).toBe(LIST)
+        expect(document.querySelector('.detail-panel--page')).not.toBeNull()
+        expect(window.history.state?.detailPanel).toBe(LIST)
+
+        await act(async () => { window.history.back() })
+        await tick(80)
+        expect(activePanel()).toBeNull()
+    })
+
+    it('the page\'s own back button lands on the list too', async () => {
+        const LIST = 'floor:trade'
+        window.history.replaceState({}, '', '/')
+        render(
+            <BrowserRouter>
+                <DetailPanel id={LIST} title="Your trades" container><p>the rows</p></DetailPanel>
+                <EntityDetailHost />
+            </BrowserRouter>,
+        )
+        await act(async () => { openPanel(LIST) })
+        await tick()
+        await act(async () => { eventBus.emit(ENTITY_DETAIL_OPEN, { kind: 'setup', id: 's4' }) })
+        await tick()
+        await act(async () => { fireEvent.click(screen.getByText('close')) })
+        await tick(80)
+        expect(screen.queryByTestId('page')).toBeNull()
+        expect(activePanel()).toBe(LIST)
+    })
+
     it('with no panel open, the page opens and closes as before', async () => {
         window.history.replaceState({}, '', '/')
         render(<BrowserRouter><EntityDetailHost /></BrowserRouter>)

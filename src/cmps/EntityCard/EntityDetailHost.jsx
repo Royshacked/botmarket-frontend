@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router'
 
 import { eventBus, ENTITY_DETAIL_OPEN } from '../../services/event-bus.service'
 import { detailFromSearch, withDetail, withoutDetail } from './entityDetail.js'
-import { closePanel } from '../DetailPanel/detailPanel.store.js'
+import { closePanel, listIsOpen } from '../DetailPanel/detailPanel.store.js'
 import { SetupPage } from '../../pages/SetupPage.jsx'
 import { IdeaPage } from '../../pages/IdeaPage.jsx'
 import { CoveragePage } from '../../pages/CoveragePage.jsx'
@@ -55,12 +55,17 @@ export function EntityDetailHost() {
     // land under the panel, and two history mechanisms would stack two entries (code review 2026-10-13). So the page
     // takes the panel's place: any open panel closes, and the history entry the panel pushed is REPLACED by this
     // page's — the panel's cleanup then finds no entry of its own to step back over, and one back closes the page.
+    //
+    // A WHOLE LIST STAYS UNDER IT (Roy, 2026-11-05: on a phone, back from a setup went to the chat, not to Your trades).
+    // The list keeps its entry and the page pushes its own, so back closes the page and lands on the list, and the next
+    // back leaves the list. useBackGesture leaves the list open on that first back: the entry it lands on is still the list's.
     useEffect(() => eventBus.on(ENTITY_DETAIL_OPEN, ({ kind, id } = {}) => {
         if (!PAGES[kind] || !id) return
-        const overPanel = Boolean(window.history.state?.detailPanel)
+        const keepList = listIsOpen()
+        const overPanel = Boolean(window.history.state?.detailPanel) && !keepList
         pushedRef.current = true
         navigate(`${window.location.pathname}${withDetail(window.location.search, kind, id)}`, { replace: overPanel })
-        closePanel()
+        if (!keepList) closePanel()
     }), [navigate])
 
     // Closed by the browser's own back, not by the button: the entry we pushed is gone, so the next
