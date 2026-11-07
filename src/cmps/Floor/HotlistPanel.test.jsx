@@ -935,6 +935,16 @@ describe('HotlistPanel — the run-up week', () => {
         expect(document.querySelectorAll('tr.hot-row')).toHaveLength(0)
     })
 
+    // Roy, 2026-11-07: "shows me again the chips" — a night with no names has no 'R' row to read the rule off, so the
+    // week read as an old Argus-era one and the switch came back at zero.
+    it('a run-up night with no names has no view switch either, and says why it is empty', async () => {
+        hotlistService.getToday.mockResolvedValue({ day: '2026-11-09', latest: { ...WEEK, id: 'hb_2026-11-09_week', day: '2026-11-09', rows: [] }, dayList: [], checkpoints: [] })
+        await mount()
+        expect(screen.queryByRole('button', { name: /Prometheus confirmed|Argus’s names|All screened/ })).toBeNull()
+        expect(screen.getByText(/No run-up names for this list/)).toBeTruthy()
+        expect(screen.queryByText(/Argus picked|Prometheus confirmed none/)).toBeNull()
+    })
+
     // Code review 2026-10-25.
     it('the All view of a run-up day is the rule\'s list: no tape, no room, no horizon column, the close as the price', async () => {
         await mount()

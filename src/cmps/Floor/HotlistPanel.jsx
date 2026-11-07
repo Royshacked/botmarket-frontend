@@ -429,10 +429,11 @@ function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, 
     // THE RUN-UP RULE (2026-10-25, hotlist-day-archive.md): the overnight week board lists by one rule — no Argus — and
     // Prometheus reads every name on it. Its cells carry the grade 'R'; a day before it has Argus's picks. Read off the
     // DAY (code review 2026-10-25): the All view of a run-up day is the rule's list too, unless the day has day names.
-    const ruleDay = today.dayList.some(r => r.cells?.week?.grade === 'R')
+    // A night with NO names is the rule's too (Roy, 2026-11-07: "shows me again the chips"): it has no 'R' row to read that off.
+    const emptyNight = today.latest?.checkpoint === 'overnight' && !today.dayList.length
+    const ruleDay = emptyNight || today.dayList.some(r => r.cells?.week?.grade === 'R')
     const dayNames = today.dayList.some(r => DAY_COLUMNS.some(c => r.cells?.[c]?.grade))
     const ruleWeek = ruleDay && (weekTab || (!horizon && !dayNames))
-    const emptyNight = today.latest?.checkpoint === 'overnight' && !today.dayList.length
     const narrowed = dayTab || weekTab
     // The view is chosen PER HORIZON and cleared when the horizon changes (chooseHorizon) — in the same render, so a new
     // tab never paints with the last tab's view first (code review 2026-10-24: an effect reset it a frame late).
@@ -571,10 +572,11 @@ function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, 
                 ? !isAdmin
                     // The admin's empty text says why and points at a view a user does not have.
                     ? <p className="floor-empty">No names on this list yet.</p>
-                    : (narrowed && shown !== 'all'
-                    ? <p className="floor-empty">{emptyNamesText({ shown, column: horizon, argus: ruleWeek ? byHorizon : argusNames, screened: byHorizon.length, reads, readsFailed, readsLoading, rule: ruleWeek })}</p>
-                    : emptyNight
-                        ? <p className="floor-empty">{latest.closed ? 'No run-up names on this list.' : 'No run-up names for this list: no company reporting in six sessions had three beats running.'}</p>
+                    // An empty night first: there is nothing for Prometheus to have read, so emptyNamesText has nothing to say.
+                    : (emptyNight
+                    ? <p className="floor-empty">{latest.closed ? 'No run-up names on this list.' : 'No run-up names for this list: no company reporting in six sessions had three beats running.'}</p>
+                    : narrowed && shown !== 'all'
+                        ? <p className="floor-empty">{emptyNamesText({ shown, column: horizon, argus: ruleWeek ? byHorizon : argusNames, screened: byHorizon.length, reads, readsFailed, readsLoading, rule: ruleWeek })}</p>
                         : <p className="floor-empty">Nothing listed{horizon ? ` for ${COLUMN_LABEL[horizon].toLowerCase()}` : ''} today.</p>)
                 : (
                     <div className="hot-table-wrap hot-table-wrap--list">
