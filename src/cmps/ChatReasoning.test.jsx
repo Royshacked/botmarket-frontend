@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest'
-import { render, cleanup, renderHook, act } from '@testing-library/react'
+import { render, cleanup, renderHook, act, fireEvent } from '@testing-library/react'
 import { ChatReasoning } from './ChatReasoning.jsx'
-import { appendReasoning, toReasoningSegments } from '../services/reasoning.service.js'
+import { appendReasoning, reasoningLength, toReasoningSegments } from '../services/reasoning.service.js'
 import { useChatStream } from '../customHooks/useChatStream.js'
 
 // A turn can contain the thinking of TWO models: the desk's own, and the reasoning sidecar it
@@ -135,5 +135,50 @@ describe('history written before segments existed still renders', () => {
         expect(render(<ChatReasoning reasoning={[]} />).container.querySelector('details')).toBeNull()
         cleanup()
         expect(render(<ChatReasoning reasoning={[{ source: 'desk', text: '' }]} />).container.querySelector('details')).toBeNull()
+    })
+})
+
+describe('the box follows the newest line while it streams', () => {
+    const SEG = (text) => [{ source: 'desk', text }]
+    // jsdom lays nothing out: the box's sizes are given to it.
+    const sized = (el, { scrollHeight, clientHeight = 240 }) => {
+        Object.defineProperty(el, 'scrollHeight', { configurable: true, value: scrollHeight })
+        Object.defineProperty(el, 'clientHeight', { configurable: true, value: clientHeight })
+    }
+    const body = (c) => c.querySelector('.chat-reasoning__body')
+
+    it('stays on the newest line as the text grows', () => {
+        const { container, rerender } = render(<ChatReasoning reasoning={SEG('a')} live streaming />)
+        sized(body(container), { scrollHeight: 900 })
+        rerender(<ChatReasoning reasoning={SEG('ab')} live streaming />)
+        expect(body(container).scrollTop).toBe(900)
+    })
+
+    it('a user who scrolled up keeps their place, and following resumes when they come back down', () => {
+        const { container, rerender } = render(<ChatReasoning reasoning={SEG('a')} live streaming />)
+        const el = body(container)
+        sized(el, { scrollHeight: 900 })
+        el.scrollTop = 100
+        fireEvent.scroll(el)
+        rerender(<ChatReasoning reasoning={SEG('ab')} live streaming />)
+        expect(el.scrollTop).toBe(100)
+        el.scrollTop = 660
+        fireEvent.scroll(el)
+        sized(el, { scrollHeight: 1200 })
+        rerender(<ChatReasoning reasoning={SEG('abc')} live streaming />)
+        expect(el.scrollTop).toBe(1200)
+    })
+
+    it('a finished turn does not move', () => {
+        const { container, rerender } = render(<ChatReasoning reasoning={SEG('a')} />)
+        sized(body(container), { scrollHeight: 900 })
+        rerender(<ChatReasoning reasoning={SEG('ab')} />)
+        expect(body(container).scrollTop).toBe(0)
+    })
+
+    it('counts what has been thought, across thinkers and old string turns', () => {
+        expect(reasoningLength([{ source: 'desk', text: 'ab' }, { source: 'consult', text: 'cde' }])).toBe(5)
+        expect(reasoningLength('abc')).toBe(3)
+        expect(reasoningLength(null)).toBe(0)
     })
 })

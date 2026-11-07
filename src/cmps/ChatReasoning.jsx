@@ -1,5 +1,6 @@
+import { useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
-import { toReasoningSegments } from '../services/reasoning.service.js'
+import { reasoningLength, toReasoningSegments } from '../services/reasoning.service.js'
 import './ChatReasoning.scss'
 
 // The thinking behind a turn, surfaced like other streamed actions. Open while it streams (before
@@ -17,9 +18,27 @@ import './ChatReasoning.scss'
 
 const SOURCE_LABEL = { consult: 'desk head' }
 
+// How close to the end of the box still counts as following it.
+const FOLLOW_PX = 24
+
 export function ChatReasoning({ reasoning, live = false, streaming = false }) {
     const segments = toReasoningSegments(reasoning)
+    const bodyRef = useRef(null)
+    const follow = useRef(true)
+    const length = reasoningLength(reasoning)
+
+    // WHILE IT STREAMS THE BOX STAYS ON THE NEWEST LINE (Roy, 2026-11-07: it stayed up at the first). A user who scrolled
+    // up to read keeps their place until they come back down. A finished turn opened by hand starts at the top.
+    useEffect(() => {
+        const el = bodyRef.current
+        if (el && streaming && follow.current) el.scrollTop = el.scrollHeight
+    }, [length, streaming])
+
     if (!segments.length) return null
+    const onScroll = (e) => {
+        const el = e.currentTarget
+        follow.current = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_PX
+    }
 
     const consults = segments.filter(s => s.source === 'consult').length
     // Also open when the sidecar is the one currently speaking. Without this the whole point of
@@ -38,7 +57,7 @@ export function ChatReasoning({ reasoning, live = false, streaming = false }) {
                     </span>
                 )}
             </summary>
-            <div className="chat-reasoning__body">
+            <div className="chat-reasoning__body" ref={bodyRef} onScroll={onScroll}>
                 {segments.map((seg, i) => (
                     <div key={i} className={`chat-reasoning__seg chat-reasoning__seg--${seg.source}`}>
                         {SOURCE_LABEL[seg.source] && (

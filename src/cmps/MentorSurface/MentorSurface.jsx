@@ -10,6 +10,7 @@ import { CandidatePicker } from '../MentorPanel/CandidatePicker.jsx'
 import { SpanTable } from '../MentorPanel/SpanTable.jsx'
 import { EntryTable } from '../MentorPanel/EntryTable.jsx'
 import { StageConfirm } from '../MentorPanel/StageConfirm.jsx'
+import { ScenarioOffer } from '../MentorPanel/ScenarioOffer.jsx'
 import { useSurfacePress } from '../../customHooks/useSurfacePress.js'
 import { SurfaceNote } from '../SidePane/SurfaceNote.jsx'
 import { ChatActions } from '../SidePane/ChatActions.jsx'
@@ -148,7 +149,8 @@ export function MentorSurface({ session, deskProps = {} }) {
     const gate        = state?.view?.gate ?? null
     const readiness   = state?.view?.readiness ?? null
     const candidates  = state?.view?.setups?.candidates ?? null
-    const generated   = state?.generated ?? null
+    const offer       = state?.view?.offer ?? null
+    const generated  = state?.generated ?? null
     const editingId   = state?.editing?.kind === 'setup' ? state.editing.entityId : null
     // A turn running anywhere: the gates and the worksheet wait for it — what they show is about to change.
     const turning     = !!session?.live
@@ -307,6 +309,8 @@ export function MentorSurface({ session, deskProps = {} }) {
                     onDelegate={() => press(delegatePress('entries'))}
                 />
             )}
+
+            {!turning && <ScenarioOffer offer={offer} />}
 
             <SurfaceNote note={note} />
 

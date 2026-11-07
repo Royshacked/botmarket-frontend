@@ -85,6 +85,39 @@ describe('MentorSurface — the Generate bar', () => {
         expect(screen.getByText(/Doesn’t add up: the validity floor sits below the stop/)).toBeTruthy()
     })
 
+    // Roy, 2026-11-07: "show them when mentor asks — it showed after I already chose".
+    describe('the scenarios Mentor is asking about', () => {
+        const OFFER = { options: [
+            { id: 'A', label: 'the pullback', arm: null, stop: 49.66, target: 60.15 },
+            { id: 'B', label: 'after the break', arm: 55.45, stop: 52.46, target: 58.47 },
+        ] }
+
+        it('are in the pane on the turn he asks, though the worksheet holds only A', () => {
+            mount({ draft: SETUP, view: { offer: OFFER } })
+            expect(screen.getByText(/Mentor is asking: A, B or both/)).toBeTruthy()
+            expect(screen.getByText(/after the break/)).toBeTruthy()
+            expect(screen.getByText('Arms on a day close through $55.45')).toBeTruthy()
+            expect(screen.getByText('Stop $52.46 (assumed)')).toBeTruthy()
+            expect(screen.getByText('Stop $49.66')).toBeTruthy()
+            expect(screen.getByText('Target $60.15')).toBeTruthy()
+        })
+
+        it('are gone once there is no offer, and while a turn runs', () => {
+            mount({ draft: SETUP, view: { offer: null } })
+            expect(screen.queryByText(/Mentor is asking/)).toBeNull()
+            cleanup()
+            mount({ draft: SETUP, view: { offer: OFFER } }, { live: { text: '' } })
+            expect(screen.queryByText(/Mentor is asking/)).toBeNull()
+        })
+
+        it('one option is not put as a choice of both', () => {
+            mount({ draft: SETUP, view: { offer: { options: [OFFER.options[1]] } } })
+            expect(screen.getByText(/Mentor is offering this scenario/)).toBeTruthy()
+            expect(screen.queryByText(/or both/)).toBeNull()
+            expect(screen.queryByText(/first to fill/)).toBeNull()
+        })
+    })
+
     it('never shows a dark button with nothing to say', () => {
         mount({ draft: SETUP, view: { readiness: { ready: false, missing: [] } } })
         expect(screen.getByText(/Not ready yet — ask Mentor/)).toBeTruthy()

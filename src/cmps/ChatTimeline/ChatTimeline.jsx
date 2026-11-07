@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useSession } from '../../customHooks/useSession.js'
 import { useSharedSession } from '../../context/SessionContext.jsx'
 import { useChatScroll } from '../../customHooks/useChatScroll.js'
+import { reasoningLength } from '../../services/reasoning.service.js'
 import { useMicInput } from '../../customHooks/useMicInput.js'
 import { lastTapOptions } from '../../services/session/sessionReducer.js'
 import { toolStatusLabel } from '../../services/toolStatusLabels.js'
@@ -77,7 +78,7 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
 
     // The scroll follows rows AND the streaming text (the live bubble is not a row).
     const scrollItems = useMemo(() => (live ? [...rows, live] : rows), [rows, live])
-    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(scrollItems, { watch: `${live?.text?.length ?? 0}|${live?.tool ?? ''}` })
+    const { messagesRef, messagesEndRef, handleScroll } = useChatScroll(scrollItems, { watch: `${live?.text?.length ?? 0}|${reasoningLength(live?.reasoning)}|${live?.tool ?? ''}` })
 
     // The per-turn extras every desk reads: the marked accounts. The clock is added by the client service.
     const extras = useMemo(() => ({ accounts, mainAccountId }), [accounts, mainAccountId])

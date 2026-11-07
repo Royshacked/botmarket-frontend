@@ -1,0 +1,48 @@
+// The scenarios Mentor is asking about: the same blocks as the entries gate, without the ticks.
+.scenario-offer {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    flex: 0 0 auto;
+
+    &__lead,
+    &__note {
+        margin: 0;
+        font-size: var(--chat-meta);
+        color: var(--text-dim);
+    }
+
+    &__list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    &__option {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg-surface);
+    }
+
+    &__name {
+        font-size: var(--chat-meta);
+        color: var(--text-secondary, var(--text-muted));
+    }
+
+    &__levels {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px 12px;
+        font-family: var(--font-mono);
+        font-size: var(--chat-meta);
+        color: var(--text-muted);
+    }
+}

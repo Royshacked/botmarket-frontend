@@ -33,6 +33,11 @@ export function appendReasoning(segments, source, text) {
     return [...list, { source, text }]
 }
 
+/** How much has been thought so far: what a scroll follows while it streams. */
+export function reasoningLength(reasoning) {
+    return toReasoningSegments(reasoning).reduce((n, s) => n + s.text.length, 0)
+}
+
 /**
  * Normalize whatever a message carries into segments.
  *
