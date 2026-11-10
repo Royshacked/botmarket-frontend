@@ -27,7 +27,7 @@ import { analystService, COVERAGE_CHANGED } from '../services/analyst/analyst.se
 import { OrderConfirmDialog } from '../cmps/TradeIdeas/OrderConfirmDialog.jsx'
 import { PreEntryDialog }     from '../cmps/TradeIdeas/PreEntryDialog.jsx'
 import { DeleteIdeaDialog }   from '../cmps/TradeIdeas/DeleteIdeaDialog.jsx'
-import { activatePortfolio, isManualIdea, buildOrderPreview, orderTypeLabel, isDeleteConfirmRequired, ideaWorkspace, inWorkspace, positionOpenTarget, openIdeaPopup, matchPositionsForIdea, isPortfolioReview } from '../cmps/TradeIdeas/tradeIdea.utils.js'
+import { activatePortfolio, isManualIdea, buildOrderPreview, orderTypeLabel, isDeleteConfirmRequired, ideaWorkspace, inWorkspace, positionOpenTarget, openIdeaPopup, openSetupPopup, matchPositionsForIdea, isPortfolioReview } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { TradeTicket } from '../cmps/TradeTicket/TradeTicket.jsx'
 import { apiError } from '../services/http.service.js'
 import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
@@ -400,8 +400,9 @@ export function MainPage() {
     // A position row in the Floor's book opens the idea that OWNS it. Same rule TradeIdeasList uses for its Positions tab — the routing is the entity's, not the
     // panel's, so both surfaces ask positionOpenTarget.
     function handleOpenPositionFromFloor(position) {
-        const target = positionOpenTarget(position, ideas)
-        if (target?.kind === 'idea') openIdeaPopup(target.idea)
+        const target = positionOpenTarget(position, ideas, setups)
+        if (target?.kind === 'idea')  openIdeaPopup(target.idea)
+        if (target?.kind === 'setup') openSetupPopup(target.setup)
     }
 
 

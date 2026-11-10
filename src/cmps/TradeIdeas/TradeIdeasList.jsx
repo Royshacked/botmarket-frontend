@@ -395,12 +395,13 @@ export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, loading = fa
     // Clicking an idea row opens it straight in its own pop-out window.
     function handleOpen(idea) { openIdeaPopup(idea) }
 
-    // Clicking a position row opens the idea that owns it, linked via a brokerOrders entry (matched
-    // on broker + account + positionId). Truly owner-less positions (e.g. a paper trade whose idea
-    // was deleted) are a no-op.
+    // Clicking a position row opens the idea or setup that owns it, linked via a brokerOrders entry
+    // (matched on broker + account + positionId). Truly owner-less positions (e.g. a paper trade
+    // whose idea was deleted) are a no-op.
     function handleOpenPosition(position) {
-        const target = positionOpenTarget(position, ideas)
-        if (target?.kind === 'idea') openIdeaPopup(target.idea)
+        const target = positionOpenTarget(position, ideas, setups)
+        if (target?.kind === 'idea')  openIdeaPopup(target.idea)
+        if (target?.kind === 'setup') openSetupPopup(target.setup)
     }
 
     function selectPositions() {

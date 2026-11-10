@@ -36,6 +36,18 @@ test('positionOpenTarget routes to the owning idea, else null', () => {
     assert.equal(positionOpenTarget(pos('orphan'), ideas), null)   // owner-less → no-op
 })
 
+test('positionOpenTarget routes a setup-owned position to the setup (setups are not in the ideas list)', () => {
+    const setups = [idea('s9', { kind: 'setup' })]
+    assert.deepEqual(positionOpenTarget(pos('s9'), [], setups), { kind: 'setup', setup: setups[0] })
+    assert.equal(positionOpenTarget(pos('s9'), []), null)          // no setups passed → no-op, never the idea pop-out
+})
+
+test('positionOpenTarget prefers the owning idea when both lists could match', () => {
+    const ideas  = [idea('p1')]
+    const setups = [idea('p1', { kind: 'setup' })]
+    assert.equal(positionOpenTarget(pos('p1'), ideas, setups).kind, 'idea')
+})
+
 test('groupPositions buckets portfolio positions and leaves the rest loose', () => {
     const ideas = [
         idea('p1', { portfolioId: 'PF', portfolioName: 'Tech', savedAt: 2000 }),

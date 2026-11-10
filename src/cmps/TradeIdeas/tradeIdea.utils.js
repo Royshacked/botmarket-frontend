@@ -309,15 +309,21 @@ export function positionOwnerIdea(pos, ideas = []) {
 }
 
 /**
- * What clicking a position row should open: its owning visible idea. Returns null for an
- * owner-less/orphan broker position (e.g. a paper trade whose idea was deleted) → no-op.
- * Pure — the single source for the Positions-tab open routing.
+ * What clicking a position row should open: its owning visible idea, else its owning setup.
+ * Returns null for an owner-less/orphan broker position (e.g. a paper trade whose idea was
+ * deleted) → no-op. Pure — the single source for the Positions-tab open routing.
  *
- * @returns {{ kind: 'idea', idea: object } | null}
+ * Setups are matched on their OWN list: since 2026-11-10 /api/trade-ideas no longer returns them,
+ * so a setup's position used to resolve (wrongly, into the idea pop-out) only because the ideas
+ * list leaked setups.
+ *
+ * @returns {{ kind: 'idea', idea: object } | { kind: 'setup', setup: object } | null}
  */
-export function positionOpenTarget(pos, ideas = []) {
+export function positionOpenTarget(pos, ideas = [], setups = []) {
     const idea = positionOwnerIdea(pos, ideas)
-    return idea ? { kind: 'idea', idea } : null
+    if (idea) return { kind: 'idea', idea }
+    const setup = positionOwnerIdea(pos, setups)
+    return setup ? { kind: 'setup', setup } : null
 }
 
 /**
