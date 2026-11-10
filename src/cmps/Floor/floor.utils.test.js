@@ -30,6 +30,22 @@ test('the same account number at two brokers stays two groups', () => {
     assert.equal(groups.length, 2)
 })
 
+// A setup's scale-in on a hedging venue opens a SIBLING position. Setups are not in the ideas list (2026-11-10), so the
+// caller passes them in as owners; the two legs must fold into ONE holding row, not show the ticker twice.
+test('a setup with two broker positions folds into one holding row', () => {
+    const setup = { id: 's1', kind: 'setup', brokerOrders: [
+        { broker: 'ctrader', accountId: 'A1', positionId: 'p1' },
+        { broker: 'ctrader', accountId: 'A1', positionId: 'p2' },
+    ] }
+    const legs = [pos({ id: 'p1', volume: 10, entryPrice: 100 }), pos({ id: 'p2', volume: 5, entryPrice: 106 })]
+    const [g] = positionsByAccount(legs, [setup])
+    assert.equal(g.books.length, 0)                       // a setup has no portfolioId — it stays loose
+    assert.equal(g.looseRows.length, 1)
+    assert.equal(g.looseRows[0].ownerId, 's1')
+    assert.equal(g.looseRows[0].legs.length, 2)
+    assert.equal(positionsByAccount(legs, []).at(0).looseRows.length, 2)   // without the owner: two rows
+})
+
 test('first-seen account order is preserved', () => {
     const groups = positionsByAccount([
         pos({ id: 'p1', accountId: 'B', accountNo: 'bbb' }),

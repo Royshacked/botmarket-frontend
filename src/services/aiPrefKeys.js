@@ -25,7 +25,8 @@ export const AI_PREF_KEYS = [AI_MODEL_KEY]
 
 // ── Migration off the old shape ───────────────────────────────────────────────
 // Everything the two removed features ever wrote.
-const LEGACY_AGENTS = ['idea', 'scanner', 'portfolio', 'axl', 'mentor', 'analyst', 'strategy']
+// `kairos` stays although the desk was deleted (2026-11-10): its keys still sit in old browsers and this is what clears them.
+const LEGACY_AGENTS = ['idea', 'scanner', 'portfolio', 'kairos', 'axl', 'mentor', 'analyst', 'strategy']
 const LEGACY_SUFFIXES = ['Model', 'Reasoning', 'RoutingMode']
 
 export const LEGACY_AI_PREF_KEYS = [

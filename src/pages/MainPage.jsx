@@ -341,6 +341,9 @@ export function MainPage() {
     const workspaceSetups = useMemo(() => inWorkspace(setups, workspace), [setups, workspace])
     // The names that are already the user's in this workspace — every list marks them (OwnedBadge, 2026-10-28).
     const owned = useMemo(() => ownedSymbols({ setups: workspaceSetups, ideas: workspaceIdeas, positions }), [workspaceSetups, workspaceIdeas, positions])
+    // Every entity that can OWN a broker position — what the book folds a holding's legs by. Setups are not in `ideas`
+    // (/api/trade-ideas stopped returning them on 2026-11-10), so a setup's scale-in legs folded only by accident before.
+    const positionOwners = useMemo(() => [...ideas, ...setups], [ideas, setups])
 
     // Atlas's surface reads the books (a book's holdings are ideas with its portfolioId) and hands back what follows a
     // save or an adoption — on top of the props every surface takes.
@@ -1356,7 +1359,7 @@ export function MainPage() {
                                 onOpenDesk={openDesk}
                                 // The book again, for the Positions window Axl's <show>positions opens (the column is hidden
                                 // on a narrower screen).
-                                book={{ positions, ideas, loading: positionsLoading, onOpenPosition: handleOpenPositionFromFloor, onClosePosition: closePosition, onClosePositions: closePositions }}
+                                book={{ positions, ideas: positionOwners, loading: positionsLoading, onOpenPosition: handleOpenPositionFromFloor, onClosePosition: closePosition, onClosePositions: closePositions }}
                             />
                         </div>
                     )}

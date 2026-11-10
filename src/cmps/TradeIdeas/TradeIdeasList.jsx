@@ -419,6 +419,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, loading = fa
     }
 
     const { standalone, groups, brokerGroups } = _separateIdeas(ideas)
+    const positionOwners = useMemo(() => [...ideas, ...setups], [ideas, setups])
 
     // Interleave standalone ideas and multi-broker groups by recency so a forked
     // idea sorts where its creation time puts it (one row, expandable).
@@ -657,7 +658,8 @@ export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, loading = fa
                     ) : (
                         <PositionsTable
                             positions={positions}
-                            ideas={ideas}
+                            // Setups own positions too and are not in `ideas` — they fold a holding's legs the same way.
+                            ideas={positionOwners}
                             closingId={closingId}
                             closingGroupId={closingGroupId}
                             onClose={requestClose}

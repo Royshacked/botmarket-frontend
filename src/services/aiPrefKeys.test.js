@@ -56,8 +56,12 @@ test('every legacy key is cleared', () => {
     for (const key of LEGACY_AI_PREF_KEYS) assert.equal(storage.getItem(key), null)
 })
 
-test('no kairos key is a migration input any more', () => {
-    assert.ok(!LEGACY_AI_PREF_KEYS.some(k => k.startsWith('kairos')))
+test('a deleted desk\'s keys (kairos) are still cleared from an old browser', () => {
+    const storage = fakeStorage({ kairosModel: 'claude-opus-5', kairosReasoning: 'high', kairosRoutingMode: 'auto' })
+    migrateAiPrefs(storage)
+    // The model is the user's choice wherever it was written (the profile wrote one value to every agent key), so it
+    // is adopted like any other; the rest is gone.
+    assert.deepEqual(storage.snapshot(), { aiModel: 'claude-opus-5' })
 })
 
 test('a fresh user is left alone — the default is not frozen into their account', () => {
