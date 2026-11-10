@@ -43,10 +43,10 @@ test('opening emits the event and parks the request for a late subscriber', () =
     closeChart()
     const seen = []
     const off = eventBus.on(CHART_OPEN, r => seen.push(r))
-    openChart({ ticker: 'tsla', timeframe: '1hr', source: 'kairos' })
+    openChart({ ticker: 'tsla', timeframe: '1hr', source: 'mentor' })
     off()
     assert.equal(seen.length, 1)
-    assert.deepEqual([seen[0].ticker, seen[0].timeframe, seen[0].source], ['TSLA', '1hr', 'kairos'])
+    assert.deepEqual([seen[0].ticker, seen[0].timeframe, seen[0].source], ['TSLA', '1hr', 'mentor'])
     assert.equal(currentChart().ticker, 'TSLA')
 })
 

@@ -8,7 +8,6 @@ import { SetupScenarios } from '../cmps/TradeIdeas/SetupPlan.jsx'
 import { planTail } from '../cmps/TradeIdeas/setupPlan.utils.js'
 import { firstSentence, nextCallLine } from '../cmps/TradeIdeas/monitorJournal.utils.js'
 import { FoldSection } from '../cmps/FoldSection.jsx'
-// Shared with the call pop-out — `position_state` is one shape whatever desk wrote it.
 import { watchTimeframe, showsWatch } from '../cmps/TradeIdeas/talosWatch.js'
 import { positionsForEntity } from '../cmps/TradeIdeas/tradeIdea.utils.js'
 import { deriveSetupOverlay } from '../cmps/TradeIdeas/chartOverlay.js'
@@ -58,8 +57,8 @@ const STATUS_COPY = {
 }
 
 /**
- * Talos's pending management proposal, and the two buttons that answer it. The twin of the archived
- * CallPage's ManagementCard — same shell, same verbs, one difference that matters:
+ * Talos's pending management proposal, and the two buttons that answer it. One difference that
+ * matters:
  *
  * `add_leg` gets NO accept button. Talos has already built the order plan for a printing second leg
  * and parked it awaiting confirmation, so that size is placed by confirming the ORDER (the same
@@ -94,8 +93,7 @@ function ManagementCard({ pending, busy, onAccept, onDismiss }) {
 ManagementCard.propTypes = { pending: PropTypes.object, busy: PropTypes.bool, onAccept: PropTypes.func.isRequired, onDismiss: PropTypes.func.isRequired }
 
 /**
- * TALOS SAYS THIS PLAN NEEDS RE-DRAWING — the pre-entry twin of the management card above, and the
- * setup's answer to CallPage's "Accept edit".
+ * TALOS SAYS THIS PLAN NEEDS RE-DRAWING — the pre-entry twin of the management card above.
  *
  * It is NOT that button, deliberately. A call's `edit_proposal` has a defined shape that
  * `applyEditPatch` can apply on the server, so a call can accept a re-map in one click. A setup's
@@ -214,7 +212,7 @@ export function SetupPage({ entityId = null, onClose = null }) {
     // The stale-map ask is PRE-ENTRY only, on the same `showsWatch` boundary the watch panel uses:
     // past entry the position is the live surface and the management card above is what speaks, and
     // a "re-draw the plan" button beside an open trade would be offering to rewrite the thing the
-    // broker is already holding. `isInvalidated` is the FIRED latch (the same read CallPage makes) —
+    // broker is already holding. `isInvalidated` is the FIRED latch —
     // a merely DRIFTING setup is the "ran away" case, which asks nothing of anyone.
     const needsRedraw = showsWatch(setup.status) && isInvalidated(setup.invalidation_status)
 

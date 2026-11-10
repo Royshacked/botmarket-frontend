@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
 /**
- * ONE loader for every owner-scoped entity list — setups, calls, coverage.
+ * ONE loader for every owner-scoped entity list — setups, coverage.
  *
- * The frontend mirror of the backend's entityCrud: fetching your setups and fetching your calls is
+ * The frontend mirror of the backend's entityCrud: fetching your setups and fetching your coverage is
  * the same mechanism, so it lives once. WHAT to fetch and when it changes stay with the caller.
  *
  * It replaced three hand-rolled copies that had each solved the same problem differently, and two
@@ -19,7 +19,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
  * @param {Function} cfg.load          () => Promise<T[]> — the remote list call.
  * @param {string}   [cfg.changeEvent] window event name broadcast by the service on a write.
  * @param {number}   [cfg.pollMs]      poll interval. Needed where a MONITOR changes state
- *   server-side without any client write to broadcast (a call going ready, Talos tripping a zone).
+ *   server-side without any client write to broadcast (Talos tripping a zone).
  * @param {string}   [cfg.log]         tag for load failures.
  * @returns {{ items: T[], loading: boolean, refresh: () => Promise<void>, setItems: Function }}
  */

@@ -5,16 +5,15 @@ import { EditOrdersDialog } from './EditOrdersDialog.jsx'
 import { ActivatePortfolioDialog } from './ActivatePortfolioDialog.jsx'
 import { PositionsTable } from './PositionsTable.jsx'
 import { usePositionClose } from './usePositionClose.jsx'
-import { formatCreatedAt, activationStatus, activatePortfolio, conditionSummary, brokerSymbolLabel, isDeleteLocked, isManualIdea, openIdeaPopup, openCallPopup, openSetupPopup, formatPnl, ideaPnl, portfolioPnl, positionOpenTarget, isPortfolioReview } from './tradeIdea.utils.js'
+import { formatCreatedAt, activationStatus, activatePortfolio, conditionSummary, brokerSymbolLabel, isDeleteLocked, isManualIdea, openIdeaPopup, openSetupPopup, formatPnl, ideaPnl, portfolioPnl, positionOpenTarget, isPortfolioReview } from './tradeIdea.utils.js'
 import { eventBus, MANUAL_PORTFOLIO_ACTIVATE, MANUAL_PORTFOLIO_EXIT, REVIEW_RESOLVED } from '../../services/event-bus.service'
 import { isAdoptedBook } from '../AdoptBook/adopt.utils.js'
 import { portfolioService } from '../../services/portfolio/portfolio.service.remote.js'
 import { StatusIcon } from '../StatusIcon.jsx'
-import { MinosBadge, HermesBadge, TalosBadge, AtlasBadge, ArgusBadge, AgentGlyph } from '../AxlHub/AgentBadges.jsx'
+import { MinosBadge, TalosBadge, AtlasBadge, AgentGlyph } from '../AxlHub/AgentBadges.jsx'
 import { AGENTS } from '../AxlHub/agentMeta.jsx'
 import { SetupCard } from './SetupCard.jsx'
 import { EditButton, DeleteButton } from '../EntityCard/EntityCard.jsx'
-import { CallCard } from './CallCard.jsx'
 import { isArmed } from '../../services/entityStatus.js'
 import { Radar }     from '../Radar/Radar.jsx'
 import { AetherCandidates } from './AetherCandidates.jsx'
@@ -352,7 +351,7 @@ CardList.propTypes = {
     renderCard: PropTypes.func, lead: PropTypes.node,
 }
 
-export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, loading = false, onDelete, onStatusChange, onSymbolClick, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, onClosePositions, calls = [], onActCall, onDeleteCall, callBusyId = null, setups = [], setupsLoading = false, onArmSetup, onDisarmSetup, onDeleteSetup, onEditSetup, setupBusyId = null, radar, aetherCandidates }) {
+export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, loading = false, onDelete, onStatusChange, onSymbolClick, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, onClosePositions, setups = [], setupsLoading = false, onArmSetup, onDisarmSetup, onDeleteSetup, onEditSetup, setupBusyId = null, radar, aetherCandidates }) {
     const [expandedGroups, setExpandedGroups] = useState(new Set())
     const [activeFilter,   setActiveFilter]   = useState(null)    // null = hub landing
     // The close-at-market flow (confirm → fire → report) is shared with the Floor's book, so it
@@ -396,15 +395,12 @@ export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, loading = fa
     // Clicking an idea row opens it straight in its own pop-out window.
     function handleOpen(idea) { openIdeaPopup(idea) }
 
-    // Clicking a position row opens the entity that owns it. A call-originated position carries
-    // its owning callId (stamped server-side — its execution idea is hidden from the ideas list),
-    // so route those to the Call pop-out. Otherwise it links to a visible idea via a brokerOrders
-    // entry (matched on broker + account + positionId). Truly owner-less positions (e.g. a paper
-    // trade whose idea was deleted) are a no-op.
+    // Clicking a position row opens the idea that owns it, linked via a brokerOrders entry (matched
+    // on broker + account + positionId). Truly owner-less positions (e.g. a paper trade whose idea
+    // was deleted) are a no-op.
     function handleOpenPosition(position) {
-        const target = positionOpenTarget(position, ideas, calls)
-        if (target?.kind === 'call')      openCallPopup(target.call)
-        else if (target?.kind === 'idea') openIdeaPopup(target.idea)
+        const target = positionOpenTarget(position, ideas)
+        if (target?.kind === 'idea') openIdeaPopup(target.idea)
     }
 
     function selectPositions() {
@@ -430,8 +426,8 @@ export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, loading = fa
         ...brokerGroups.map(g => ({ kind: 'group', savedAt: g.savedAt || 0, item: g })),
     ].sort((a, b) => b.savedAt - a.savedAt)
 
-    // A portfolio being edited turns its existing group row to 'building' IN PLACE (same as ideas /
-    // calls) — keep the group, substitute the building row for it in the map below. A brand-new
+    // A portfolio being edited turns its existing group row to 'building' IN PLACE (same as an idea)
+    // — keep the group, substitute the building row for it in the map below. A brand-new
     // portfolio (no id yet) prepends a building row at the top instead.
     const editPortfolioId = buildingPortfolio?.portfolioId ?? null
     const visibleGroups = groups
@@ -459,17 +455,6 @@ export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, loading = fa
             key: 'ideas', label: 'Ideas', icon: <MinosBadge size={30} />,
             count: ideaRows.length, hubCount: ideaRows.length ? `${ideaRows.length} active` : null,
             body: 'custom',
-        },
-        {
-            key: 'calls', label: 'Calls', icon: <HermesBadge size={30} />,
-            count: calls.length, hubCount: calls.length ? `${calls.length} active` : null,
-            items: calls, empty: 'No calls yet',
-            renderCard: (c) => (
-                <CallCard
-                    key={c.id} call={c} busy={callBusyId === c.id}
-                    onAct={onActCall} onDelete={onDeleteCall} onSymbolClick={onSymbolClick}
-                />
-            ),
         },
         {
             key: 'setups', label: 'Setups', icon: <TalosBadge size={30} />, hubOnlyWithRadar: true,
@@ -516,7 +501,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, loading = fa
 
     const SECTION_LABELS = Object.fromEntries(SECTIONS.map(x => [x.key, x.label]).concat([['radar', 'Radar']]))
     // radar sub-tab label shown in the breadcrumb when a deep-link card was used
-    const radarTabLabel = { scans: 'Scans', earnings: 'Earnings', coverage: 'Coverage', fed: 'Fed', ipo: 'IPO', forecasts: 'Forecasts' }
+    const radarTabLabel = { earnings: 'Earnings', coverage: 'Coverage', fed: 'Fed', ipo: 'IPO', forecasts: 'Forecasts' }
     const sectionCount = section?.count ?? 0
 
     return (
@@ -565,15 +550,6 @@ export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, loading = fa
                                 <span className="trade-ideas-list__hub-card-body">
                                     <span className="trade-ideas-list__hub-card-label">Fed</span>
                                     {(radar.fed?.length ?? 0) > 0 && <span className="trade-ideas-list__hub-card-count">{radar.fed.length} events</span>}
-                                </span>
-                            </button>
-                            <button className="trade-ideas-list__hub-card" onClick={() => { setActiveFilter('radar'); radar.onTabChange?.('scans') }}>
-                                <span className="trade-ideas-list__hub-card-icon">
-                                    <ArgusBadge size={30} />
-                                </span>
-                                <span className="trade-ideas-list__hub-card-body">
-                                    <span className="trade-ideas-list__hub-card-label">Scans</span>
-                                    {(radar.scans?.length ?? 0) > 0 && <span className="trade-ideas-list__hub-card-count">{radar.scans.length} lists</span>}
                                 </span>
                             </button>
                             <button className="trade-ideas-list__hub-card" onClick={() => { setActiveFilter('radar'); radar.onTabChange?.('earnings') }}>
@@ -769,10 +745,6 @@ TradeIdeasList.propTypes = {
     onRefreshPositions: PropTypes.func,
     onClosePosition:  PropTypes.func,
     onClosePositions: PropTypes.func,
-    calls:            PropTypes.array,
-    onActCall:        PropTypes.func,
-    onDeleteCall:     PropTypes.func,
-    callBusyId:       PropTypes.string,
     setups:           PropTypes.array,
     setupsLoading:    PropTypes.bool,
     onArmSetup:       PropTypes.func,

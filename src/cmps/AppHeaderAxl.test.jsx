@@ -32,7 +32,7 @@ describe('AppHeaderAxl — the lists in the menu', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Open menu' }))
         const lists = screen.getByRole('navigation', { name: 'Lists' })
         const names = [...lists.querySelectorAll('button')].map(b => b.textContent)
-        expect(names).toEqual(['Positions', 'Awaiting orders', 'Your trades', 'Your portfolios', 'Watchlists', 'Hotlist', 'Calendar', 'Forecasts'])
+        expect(names).toEqual(['Positions', 'Awaiting orders', 'Your trades', 'Your portfolios', 'Hotlist', 'Calendar', 'Forecasts'])
         fireEvent.click(screen.getByRole('button', { name: 'Hotlist' }))
         expect(openPanel).toHaveBeenCalledWith('hotlist')
         expect(screen.getByRole('button', { name: 'Open menu' }).getAttribute('aria-expanded')).toBe('false')

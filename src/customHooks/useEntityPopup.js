@@ -4,7 +4,7 @@ import { stashKey, popupIdFromPath } from '../cmps/EntityCard/entityPopup.js'
 /**
  * The receiving half of openEntityPopup: hydrate the entity this pop-out window is for.
  *
- * Three tiers, fastest first — the same ladder IdeaPage and CallPage each implemented by hand:
+ * Three tiers, fastest first — the same ladder each pop-out page once implemented by hand:
  *   1. `window.__entityData` injected by the opener → paints with no round-trip.
  *   2. the localStorage stash → survives a slow popup boot.
  *   3. `fetch(id)` → a pasted URL, a reopened window, or a stash that never landed.

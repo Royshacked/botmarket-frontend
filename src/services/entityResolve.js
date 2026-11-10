@@ -1,7 +1,6 @@
 import { tradeIdeasService } from './tradeIdeas/tradeIdeas.service.remote'
 import { mentorService }     from './mentor/mentor.service.remote'
 import { analystService }    from './analyst/analyst.service.remote'
-import { scannerService }    from './scanner/scanner.service.remote'
 import { portfolioService }  from './portfolio/portfolio.service.remote'
 
 // ONE way to open something the user already has.
@@ -31,7 +30,7 @@ const GETTERS = {
     idea:      (id) => tradeIdeasService.getIdea(id),
     setup:     (id) => mentorService.getSetup(id),
     coverage:  (id) => analystService.getCoverage(id),
-    scan:      (id) => scannerService.getScan(id),
+    // `scan` left on 2026-11-09 with Argus's list-building chat — nothing reopens a list (archive/README.md).
     // A book is not a document — it exists as the items carrying its id — so its "read one" is the
     // holdings. Returns an ARRAY, and an empty one is a real answer (an emptied or adopted-but-
     // uncommitted book), not a failure. Only a throw means "we could not look".
@@ -41,7 +40,7 @@ const GETTERS = {
 /**
  * Read one entity, fresh, by id.
  *
- * @param {'idea'|'setup'|'coverage'|'scan'|'portfolio'} kind
+ * @param {'idea'|'setup'|'coverage'|'portfolio'} kind
  * @param {string} id
  * @returns {Promise<object|object[]|null>} the document (an array for `portfolio`), or null when
  *   it could not be read — missing, not the user's, or the request failed. The caller decides what
@@ -102,7 +101,7 @@ const USABLE = {
  * rather than a row. Returning the same shape from both branches keeps that asymmetry out of the
  * caller.
  *
- * @param {'idea'|'setup'|'coverage'|'scan'|'portfolio'} kind
+ * @param {'idea'|'setup'|'coverage'|'portfolio'} kind
  * @param {string} ref  an id, or the name a person would use
  * @returns {Promise<object|null>}
  */

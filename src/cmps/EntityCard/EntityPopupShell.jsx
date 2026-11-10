@@ -3,15 +3,15 @@ import { StatusIcon } from '../StatusIcon.jsx'
 
 // The pop-out window's frame — the detail-view counterpart to EntityCard.
 //
-// Both existing pages pinned themselves to the popup viewport with the same inline root, and
-// CallPage's comment said so outright ("Mirror IdeaPage's proven root exactly"). Mirroring by hand
+// The pages pinned themselves to the popup viewport with the same inline root, one of them saying
+// so outright ("Mirror IdeaPage's proven root exactly"). Mirroring by hand
 // is how they drift: the flex column has to resolve a real height or the chart pane collapses, and
 // that constraint was documented in one file and merely copied into the other.
 //
 // Same split as everywhere else: the frame, the loading/error states and the header LAYOUT are
 // mechanism; which facts go in the header are the kind's own judgment, passed as `meta`.
 //
-// CLASS NAMES: still `idea-page*`, which CallPage already reused verbatim. As with `.idea-card`,
+// CLASS NAMES: still `idea-page*`. As with `.idea-card`,
 // that is now the shared shell's name — renaming is a separate cosmetic pass.
 
 const ROOT_STYLE = {

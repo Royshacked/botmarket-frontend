@@ -1723,15 +1723,6 @@ $card-status-colors: (
     }
 }
 
-// Kairos call: a pending in-position management suggestion (⚑) awaiting the user's accept/dismiss.
-.idea-card__manage-dot {
-    font-size: 0.85rem;
-    line-height: 1;
-    color: var(--color-warning);
-    animation: manage-pulse 1.6s ease-in-out infinite;
-}
-@keyframes manage-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-
 // ── Lists hub (section landing — mirrors AxlHub option cards) ─────────────────
 
 .trade-ideas-list {

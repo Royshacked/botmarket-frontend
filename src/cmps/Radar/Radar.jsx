@@ -1,24 +1,18 @@
 import PropTypes from 'prop-types'
 import { BrandTitle } from '../BrandTitle.jsx'
-import { ScanList } from './ScanList.jsx'
 import { CoverageBook } from './CoverageBook.jsx'
 import { IndustryView } from './IndustryView.jsx'
 import { RadarTicker } from './RadarTicker.jsx'
 import './Radar.scss'
 
-// Market-intelligence panel: Scans (scanner candidate lists), calendar events,
-// and coverage book — surfaced under one "Axl Radar" brand. Styling is kept under
+// Market-intelligence panel: calendar events and coverage book (the Scans tab left on
+// 2026-11-09 with Argus's list-building chat — archive/README.md) — surfaced under one "Axl Radar" brand. Styling is kept under
 // the original `news-feed` CSS namespace.
 export function Radar({
-    tab = 'scans',
+    tab = 'earnings',
     onSymbolClick,
     // NB: no onTabChange — the tab BUTTONS live in TradeIdeasList, which calls
     // radar.onTabChange off the props object. Radar itself only renders the active tab.
-    scans = [],
-    scansLoading = false,
-    onCandidateSelect,
-    onDeleteScan,
-    onEditScan,
     earnings = [],
     earningsFrom = null,
     earningsTo = null,
@@ -59,17 +53,7 @@ export function Radar({
                 </div>
             </div>
 
-            {tab === 'scans' ? (
-                <div className="news-feed__list">
-                    <ScanList
-                        scans={scans}
-                        loading={scansLoading}
-                        onCandidateSelect={onCandidateSelect}
-                        onDelete={onDeleteScan}
-                        onEditScan={onEditScan}
-                    />
-                </div>
-            ) : tab === 'earnings' ? (
+            {tab === 'earnings' ? (
                 <div className="news-feed__list">
                     <EarningsList items={earnings} from={earningsFrom} to={earningsTo} loading={earningsLoading} onSelect={onEarningSelect} />
                 </div>
@@ -297,11 +281,6 @@ Radar.propTypes = {
     onSymbolClick:   PropTypes.func,
     tab:               PropTypes.string,
     onTabChange:       PropTypes.func,
-    scans:             PropTypes.array,
-    scansLoading:      PropTypes.bool,
-    onCandidateSelect: PropTypes.func,
-    onDeleteScan:      PropTypes.func,
-    onEditScan:        PropTypes.func,
     earnings:          PropTypes.array,
     earningsFrom:      PropTypes.string,
     earningsTo:        PropTypes.string,

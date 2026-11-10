@@ -39,7 +39,7 @@ describe('admin-only feeds', () => {
 // would have appeared in a trader’s sidebar.
 describe('the bot registry', () => {
     it('matches the backend BOT_IDS exactly (api/chat/chat.service.js)', () => {
-        expect(BOT_IDS).toEqual(['axl', 'portfolio', 'scanner', 'kairos', 'mentor', 'analyst', 'strategy'])
+        expect(BOT_IDS).toEqual(['axl', 'portfolio', 'scanner', 'mentor', 'analyst', 'strategy'])
     })
 
     // Aether is admin-only everywhere else in the app. If it ever gains a notifier it needs four

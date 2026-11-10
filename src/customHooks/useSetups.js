@@ -3,7 +3,7 @@ import { mentorService, SETUPS_CHANGED } from '../services/mentor/mentor.service
 import { useEntityList } from './useEntityList.js'
 
 // Poll cadence. Talos changes a setup server-side (armed → a zone trip → 'hit') with no client
-// write to broadcast SETUPS_CHANGED, so the list has to look for itself. Matches the calls tab.
+// write to broadcast SETUPS_CHANGED, so the list has to look for itself.
 const POLL_MS = 20_000
 
 /**

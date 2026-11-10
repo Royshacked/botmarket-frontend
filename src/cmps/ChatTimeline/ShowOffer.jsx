@@ -16,7 +16,6 @@ export const VIEW_LABELS = Object.freeze({
     orders:     'Open awaiting orders',
     trades:     'Open your trades',
     portfolios: 'Open your portfolios',
-    watchlists: 'Open your watchlists',
     hotlist:    'Open the hotlist',
     board:      'Open the forecast board',
     research:   'Open the research queue',

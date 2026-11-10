@@ -1,5 +1,5 @@
 // What the SETUP pop-out adds to the shared shell (IdeaPage.scss supplies header + chart/column
-// layout, exactly as CallPage.scss does for calls).
+// layout).
 .setup-page {
     // The column is three FoldSections (cmps/FoldSection.scss) under the cards waiting on the user;
     // the folds draw their own top rules, so the column itself keeps almost no gap.
@@ -15,8 +15,8 @@
     &__metrics { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
     // The cards waiting on the user, above the folds: Talos's management proposal and the
-    // re-draw ask. They wore `.kairos-panel__card`, whose base style went to the archive with the
-    // Kairos surface — so for a month they rendered as bare text. The frame is theirs now.
+    // re-draw ask. They wore another panel's card class whose base style went to the archive — so
+    // for a month they rendered as bare text. The frame is theirs now.
     &__card {
         display: flex;
         flex-direction: column;

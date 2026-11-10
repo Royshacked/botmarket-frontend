@@ -1954,51 +1954,13 @@ describe('AetherCandidates — the drawer is a conclusion and folded sections', 
     })
 })
 
-// ── Scan with Argus ───────────────────────────────────────────────────────────
-// The board's forward step: hand the whole list to Argus, which cuts it to the few names with a
-// catalyst in the coming week. It carries no names — the universe is built server-side, because
-// the exclusion rule ("not what my last list already took") needs saved scans the screen has not
-// got — so what is asserted here is the wiring and the refusals, not a payload.
+// ── Scan with Argus — archived 2026-11-09 ─────────────────────────────────────
+// The board cut to a list went with Argus's list-building chat (archive/README.md): no host can wire it any more.
 describe('AetherCandidates scan button', () => {
-    const scanBtn = () => document.querySelector('.aether-candidates__scan')
-
-    it('is absent where no host wired it — the list still works on its own', () => {
+    it('is gone — the board is never cut into a list', () => {
         AUTH = ADMIN
-        render(<AetherCandidates runs={[RUN]} />)
-        expect(scanBtn()).toBeNull()
-    })
-
-    it('is offered to a MEMBER, unlike discovery — the cut is not admin-only', () => {
-        // Discovery spends per press and is gated; reading the board and asking Argus to work it
-        // is an ordinary scan on the user's own budget.
-        AUTH = MEMBER
         render(<AetherCandidates runs={[RUN]} onScanWithArgus={vi.fn()} />)
-        expect(scanBtn()).toBeTruthy()
-    })
-
-    it('calls the host when pressed', () => {
-        AUTH = ADMIN
-        const onScanWithArgus = vi.fn()
-        render(<AetherCandidates runs={[RUN]} onScanWithArgus={onScanWithArgus} />)
-        fireEvent.click(scanBtn())
-        expect(onScanWithArgus).toHaveBeenCalledTimes(1)
-    })
-
-    it('is disabled while the board is being built, and says so', () => {
-        AUTH = ADMIN
-        const onScanWithArgus = vi.fn()
-        render(<AetherCandidates runs={[RUN]} onScanWithArgus={onScanWithArgus} scanBusy />)
-        expect(scanBtn().disabled).toBe(true)
-        expect(scanBtn().textContent).toMatch(/Building the board/)
-        fireEvent.click(scanBtn())
-        expect(onScanWithArgus).not.toHaveBeenCalled()
-    })
-
-    it('is disabled with an empty board — there is nothing to cut', () => {
-        AUTH = ADMIN
-        render(<AetherCandidates runs={[]} onScanWithArgus={vi.fn()} />)
-        // The empty state renders its own bar, so the button is either absent or refused;
-        // what must never happen is a live button over no events.
-        expect(scanBtn()?.disabled ?? true).toBe(true)
+        expect(document.querySelector('.aether-candidates__scan')).toBeNull()
+        expect(screen.queryByText('Scan with Argus')).toBeNull()
     })
 })

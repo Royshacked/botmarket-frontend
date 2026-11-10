@@ -25,8 +25,7 @@ function makeMsg(overrides = {}) {
 
 describe('SetupInvalidationBubble', () => {
     beforeEach(() => {
-        // The primary must route in-app, never spawn the /setup/:id pop-out (the trap the Kairos
-        // twin already guards against).
+        // The primary must route in-app, never spawn the /setup/:id pop-out.
         vi.spyOn(window, 'open').mockImplementation(() => null)
         vi.spyOn(eventBus, 'emit')
     })

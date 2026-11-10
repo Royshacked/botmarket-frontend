@@ -1,9 +1,9 @@
 // Illustrated agent badges — self-contained 200×200 SVG marks: a ringed figure drawn entirely
 // in `currentColor`, so they inherit each context's color and react to the user's design/accent
 // preference (no fixed blue coin). Component-only module (keeps Fast Refresh happy). Two contexts:
-//   • agent badge  — the brand figure (idea / atlas / argus / kairos)
+//   • agent badge  — the brand figure (idea / atlas / argus / mentor …)
 //   • notify badge — the monitoring persona shown in axl notification lists
-//                    (ideas → Minos, calls → Hermes; atlas/argus reuse their agent figure)
+//                    (ideas → Minos, setups → Talos; atlas/argus reuse their agent figure)
 // Axl has no badge; callers fall back to its line glyph.
 
 // `bare` drops the surrounding ring and renders only the figure — used where we want just the
@@ -67,27 +67,6 @@ export function ArgusBadge(props) {
                 <g><circle cx="138" cy="66" r="6.5" /><circle cx="138" cy="66" r="2.4" fill="currentColor" stroke="none" /></g>
                 <g><circle cx="62" cy="134" r="6.5" /><circle cx="62" cy="134" r="2.4" fill="currentColor" stroke="none" /></g>
                 <g><circle cx="138" cy="134" r="6.5" /><circle cx="138" cy="134" r="2.4" fill="currentColor" stroke="none" /></g>
-            </g>
-        </Badge>
-    )
-}
-
-export function KairosBadge(props) {
-    return (
-        <Badge {...props} title="Kairos">
-            <line x1="80" y1="60" x2="120" y2="60" />
-            <line x1="80" y1="150" x2="120" y2="150" />
-            <path d="M84,62 L116,62 L100,105 L116,148 L84,148 L100,105 Z" />
-            <path d="M90,70 L110,70 L100,88 Z" fill="currentColor" stroke="none" />
-            <line x1="100" y1="105" x2="100" y2="130" stroke="currentColor" />
-            <path d="M91,144 L109,144 L100,127 Z" fill="currentColor" stroke="none" opacity="0.75" />
-            <g strokeWidth="3.8">
-                <path d="M80,74 C62,70 50,78 42,90" />
-                <path d="M80,84 C64,82 54,88 47,98" />
-                <path d="M80,94 C66,94 58,98 52,105" />
-                <path d="M120,74 C138,70 150,78 158,90" />
-                <path d="M120,84 C136,82 146,88 153,98" />
-                <path d="M120,94 C134,94 142,98 148,105" />
             </g>
         </Badge>
     )
@@ -200,31 +179,10 @@ export function TalosBadge(props) {
     )
 }
 
-// Hermes — the call-monitoring persona (winged caduceus; messenger of the opportune moment).
-export function HermesBadge(props) {
-    return (
-        <Badge {...props} title="Hermes">
-            <line x1="100" y1="64" x2="100" y2="150" />
-            <circle cx="100" cy="58" r="5" fill="currentColor" stroke="none" />
-            <line x1="93" y1="152" x2="107" y2="152" />
-            <path d="M100,80 C84,86 84,98 100,104 C116,110 116,122 100,128" />
-            <path d="M100,80 C116,86 116,98 100,104 C84,110 84,122 100,128" stroke="currentColor" />
-            <circle cx="88" cy="76" r="3.6" fill="currentColor" stroke="none" />
-            <circle cx="112" cy="76" r="3.6" fill="currentColor" stroke="none" />
-            <g strokeWidth="3.8">
-                <path d="M100,70 C85,63 75,65 67,73" />
-                <path d="M100,77 C87,72 79,74 72,81" />
-                <path d="M100,70 C115,63 125,65 133,73" />
-                <path d="M100,77 C113,72 121,74 128,81" />
-            </g>
-        </Badge>
-    )
-}
-
-const AGENT_BADGES  = { idea: IdeaBadge, portfolio: AtlasBadge, scanner: ArgusBadge, kairos: KairosBadge, mentor: MentorBadge, analyst: PrometheusBadge, strategy: PythiaBadge, aether: AetherBadge }
-// Notification/list context: ideas show Minos, calls show Hermes, setups show Talos; the rest reuse
+const AGENT_BADGES  = { idea: IdeaBadge, portfolio: AtlasBadge, scanner: ArgusBadge, mentor: MentorBadge, analyst: PrometheusBadge, strategy: PythiaBadge, aether: AetherBadge }
+// Notification/list context: ideas show Minos, setups show Talos; the rest reuse
 // their agent figure.
-const NOTIFY_BADGES = { idea: MinosBadge, kairos: HermesBadge, mentor: TalosBadge, portfolio: AtlasBadge, scanner: ArgusBadge, analyst: PrometheusBadge, strategy: PythiaBadge }
+const NOTIFY_BADGES = { idea: MinosBadge, mentor: TalosBadge, portfolio: AtlasBadge, scanner: ArgusBadge, analyst: PrometheusBadge, strategy: PythiaBadge }
 
 // Badge COMPONENT for an agent key (or null → fall back to the line glyph). Internal — consumers
 // go through <AgentGlyph> so this module exports only components (Fast Refresh stays happy).
@@ -233,7 +191,7 @@ function notifyBadgeFor(agentKey) { return NOTIFY_BADGES[agentKey] ?? null }
 
 // One glyph helper for every consumer: render the agent's badge, or fall back to its line
 // sigil (`icon`) in a currentColor svg (used for axl, which has no badge). `notify` picks the
-// monitoring persona (Minos/Hermes) for notification-list contexts.
+// monitoring persona (Minos/Talos) for notification-list contexts.
 export function AgentGlyph({ agentKey, icon = null, size = 24, notify = false, bare = false }) {
     const B = (notify ? notifyBadgeFor : agentBadgeFor)(agentKey)
     if (B) return <B size={size} bare={bare} />

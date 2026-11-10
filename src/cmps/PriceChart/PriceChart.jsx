@@ -470,7 +470,7 @@ export const PriceChart = forwardRef(function PriceChart({ symbol = 'SPY', inter
 
     // Stable content keys so the draw effects below run only when the levels/indicators actually
     // CHANGE — not on every parent re-render. The parents derive these arrays fresh each render
-    // (e.g. IdeaDetail's positions.filter(), CallPage's 20s call poll), so keying on array identity
+    // (e.g. IdeaDetail's positions.filter(), SetupPage's poll), so keying on array identity
     // would tear down + rebuild the overlays/indicator panes needlessly (and flash the sub-pane).
     const levelsKey     = JSON.stringify(levels)
     const indicatorsKey = JSON.stringify(indicators)

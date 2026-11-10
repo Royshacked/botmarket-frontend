@@ -33,7 +33,7 @@ describe('Radar hub — the Forecasts card', () => {
         AUTH = MEMBER
         render(<TradeIdeasList ideas={[]} radar={radar} />)
         expect(screen.getByRole('button', { name: /Forecasts/ })).toBeTruthy()
-        for (const label of ['Fed', 'Scans', 'Earnings', 'Coverage']) {
+        for (const label of ['Fed', 'Earnings', 'Coverage']) {
             expect(screen.getByText(label, { selector: '.trade-ideas-list__hub-card-label' })).toBeTruthy()
         }
     })

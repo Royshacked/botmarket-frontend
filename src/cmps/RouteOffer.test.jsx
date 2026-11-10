@@ -54,7 +54,7 @@ describe('RouteOffer', () => {
     it('waits for the reply to land, and draws nothing for an unknown desk', () => {
         const { rerender } = render(<RouteOffer offer={offer} busy />)
         expect(screen.queryByRole('button')).toBe(null)
-        rerender(<RouteOffer offer={{ ...offer, route: 'kairos' }} />)
+        rerender(<RouteOffer offer={{ ...offer, route: 'nowhere' }} />)
         expect(screen.queryByRole('button')).toBe(null)
     })
 

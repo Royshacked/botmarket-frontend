@@ -50,12 +50,6 @@ export const DESK_SORTS = {
         { key: 'holdings', label: 'Holdings', dir: 'desc', value: b => b.ideas.length },
         { key: 'pnl',      label: 'P&L',      dir: 'desc', value: (b, ctx) => num(ctx?.pnlOf?.(b)?.pnl) },
     ],
-    scans: [
-        DEFAULT,
-        { key: 'thesis',     label: 'Thesis',     dir: 'asc',  value: s => str(s.thesis) },
-        { key: 'candidates', label: 'Candidates', dir: 'desc', value: s => s.candidates?.length ?? 0 },
-        { key: 'newest',     label: 'Saved',      dir: 'desc', value: s => toMs(s.savedAt) },
-    ],
     aether: [
         DEFAULT,
         { key: 'date',     label: 'Event date', dir: 'desc', value: r => toMs(r.event_date || r.created_at) },

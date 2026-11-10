@@ -1,13 +1,13 @@
 // ONE pop-out mechanism for every entity: the opener, the hand-off, and the route.
 //
-// Clicking any card opens that entity's detail window. That was already true for ideas and calls,
-// but each had its own opener — same three steps (stash → window.open → inject), differing only in
-// route, window size and the property name they injected under. ChatWindow had grown a THIRD,
-// thinner copy that skipped the stash entirely, so a call opened from social chat had to round-trip
-// the API while the same call opened from the Calls tab painted instantly.
+// Clicking any card opens that entity's detail window. Each kind used to have its own opener —
+// same three steps (stash → window.open → inject), differing only in route, window size and the
+// property name they injected under. ChatWindow had grown another, thinner copy that skipped the
+// stash entirely, so an entity opened from social chat had to round-trip the API while the same
+// one opened from its list painted instantly.
 //
 // Setups had no opener at all: clicking one switched the chat tab instead of opening anything,
-// because writing a fourth copy was the price of giving them a window.
+// because writing another copy was the price of giving them a window.
 //
 // Registering a kind here is now the whole cost of that.
 //
@@ -33,11 +33,10 @@ import { INLINE_KINDS } from './entityDetail.js'
 
 /**
  * Per-kind pop-out wiring. `width`/`height` are the window size the kind's detail view needs — a
- * call's page carries a chart and an assessment journal, an idea's is narrower.
+ * setup's page carries a chart and Talos's journal, an idea's is narrower.
  */
 export const POPUP_KINDS = {
     idea:  { route: 'idea',  width: 960,  height: 720 },
-    call:  { route: 'call',  width: 1180, height: 760 },
     setup: { route: 'setup', width: 1180, height: 760 },
 }
 
@@ -89,8 +88,8 @@ export function openEntityPopup(kind, entity) {
         catch { /* quota / private mode — the popup falls back to the API */ }
     }
 
-    // A handheld with an in-app page for this kind takes it. A kind without one (a `call`) still
-    // opens a window even on a phone: a tab is a poor surface, and no surface is worse.
+    // A handheld with an in-app page for this kind takes it. A kind without one would still open a
+    // window even on a phone: a tab is a poor surface, and no surface is worse.
     if (isHandheld() && INLINE_KINDS.includes(kind)) {
         eventBus.emit(ENTITY_DETAIL_OPEN, { kind, id })
         return null

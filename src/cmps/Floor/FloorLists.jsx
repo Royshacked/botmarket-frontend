@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { groupByLifecycle, isPreEntry, isLivePosition } from '../../services/entityStatus.js'
 import {
-    openCallPopup, openSetupPopup, openIdeaPopup,
+    openSetupPopup, openIdeaPopup,
     portfoliosFromIdeas, portfolioPnl, formatPnl, isDeleteLocked, isPortfolioReview, isManualIdea,
 } from '../TradeIdeas/tradeIdea.utils.js'
 import { EditButton, DeleteButton, ActivateButton, SymbolCell } from '../EntityCard/EntityCard.jsx'
@@ -21,7 +21,6 @@ import { FloorLeft } from './FloorLeft.jsx'
 
 import './Floor.scss'
 import { AetherCandidates } from '../TradeIdeas/AetherCandidates.jsx'
-import { HouseChip } from '../HouseChip/HouseChip.jsx'
 
 // The Floor's right column: four desks, one open at a time — and the open one TAKES THE COLUMN.
 //
@@ -54,10 +53,10 @@ const DESKS = [
     { key: 'queued',         label: 'Awaiting orders', panel: 'floor:queued' },
     { key: 'trade',          label: 'Your trades',     panel: 'floor:trade' },
     { key: 'portfolio',      label: 'Your portfolios', panel: 'floor:portfolio' },
-    { key: 'scans',          label: 'Watchlists',      panel: 'floor:scans' },
+    // 'scans' (Watchlists) left on 2026-11-09 with Argus's list-building chat (archive/README.md).
     // THE HOTLIST — the screener's daily board of names in play, graded per horizon by free range,
     // with Argus's read of it; opens over the chat like the Calendar (HotlistPanel; daily-names.md §8,
-    // Roy 2026-10-21). Named "Hotlist", not "Daily watchlist", to stay clear of Watchlists above.
+    // Roy 2026-10-21). Named "Hotlist", not "Daily watchlist", to stay clear of the old Watchlists list.
     { key: 'hotlist',        label: 'Hotlist', panel: HOTLIST_PANEL_ID },
     // HIDDEN FOR NOW (Roy, 2026-10-14), not deleted: its rows, counts and sorts all still work, and
     // dropping the flag brings it back. MainPage still loads the candidates for the Aether desk.
@@ -102,7 +101,6 @@ export const menuDesks = (isAdmin = false) => DESKS
     .map(({ key, label, panel }) => ({ key, label, panel }))
 
 function openFor(item) {
-    if (item.kind === 'call')  return openCallPopup(item.entity)
     if (item.kind === 'setup') return openSetupPopup(item.entity)
     return openIdeaPopup(item.entity)
 }
@@ -337,9 +335,8 @@ QueuedRows.propTypes = {
 // ── Your trades (was "Trading floor") ─────────────────────────────────────────
 
 // A trade row keeps the same action contract SetupCard uses, so a setup behaves identically
-// whether you reach it from a card or from this line. `kind` is still carried on the row: calls
-// were the second kind until Kairos was archived (2026-08-18), and a second trade kind is the
-// expected case here rather than a special one.
+// whether you reach it from a card or from this line. `kind` is still carried on the row: a second
+// trade kind is the expected case here rather than a special one.
 //
 //  · the pencil returns the entity to the chat that BUILT it (Mentor), and only while the
 //    trade is pre-entry — once a position is live, changes go through management cards, not a
@@ -575,91 +572,14 @@ PortfolioRows.propTypes = {
     onActivatePortfolio: PropTypes.func,
 }
 
-// ── Scans ─────────────────────────────────────────────────────────────────────
-// A scan's row is its thesis; its candidates are the sub-rows. Expanding is local to the row, so
-// several scans can be open at once — unlike the desks, these are peers being compared.
-
-function ScanRows({ scans, onCandidateSelect, onEditScan, onDeleteScan, onSymbolClick }) {
-    const [openKey, setOpenKey] = useState(null)
-    if (!scans.length) return <Empty>No watchlists yet — ask Argus what to watch.</Empty>
-
-    const toggle = id => setOpenKey(cur => cur === id ? null : id)
-
-    // Actions belong to the LIST, not to the names on it. A candidate is a line in a scan's result,
-    // not a record of its own — there is nothing to open in a chat and nothing to delete. Editing
-    // the list is how a candidate leaves it; clicking one still means "build from this".
-    function scanActions(s) {
-        if (!onEditScan && !onDeleteScan) return null
-        return (
-            <>
-                {onEditScan && <EditButton onClick={() => onEditScan(s)} title="Edit list in the scanner chat" size="sm" />}
-                {onDeleteScan && <DeleteButton onClick={() => onDeleteScan(s.id)} title="Delete list" size="sm" />}
-            </>
-        )
-    }
-
-    return scans.map(s => {
-        const isOpen   = openKey === s.id
-        const isFolded = openKey !== null && openKey !== s.id
-        return (
-            <div key={s.id} className={`floor-sub${isOpen ? ' floor-sub--open' : isFolded ? ' floor-sub--folded' : ''}`}>
-                <RowHost actions={scanActions(s)}>
-                    <button className="floor-row" onClick={() => toggle(s.id)} aria-expanded={isOpen}>
-                        <span className={`floor-row__dir floor-row__dir--${s.direction}`} aria-hidden="true">
-                            {s.direction === 'short' ? '▾' : '▴'}
-                        </span>
-                        <span className="floor-row__sym floor-row__sym--wide">{s.thesis}</span>
-                        {/* The candidate count belongs to the thesis, so it rides directly after it —
-                            a lone number on the right edge reads as a column of its own. */}
-                        <span className="floor-row__count">({s.candidates?.length ?? 0})</span>
-                        {s.stale && <span className="floor-row__stale">stale</span>}
-                    </button>
-                </RowHost>
-                {isOpen && (
-                    <div className="floor-sub__body">
-                        {(s.candidates ?? []).map(c => (
-                            <button
-                                key={c.ticker}
-                                className="floor-row floor-row--sub"
-                                onClick={() => onCandidateSelect?.(c, s)}
-                                title="Build from this candidate"
-                            >
-                                <SymbolCell className="floor-row__sym" symbol={c.ticker} onSymbolClick={onSymbolClick} owned />
-                                <span className="floor-row__kind floor-row__kind--dim">{c.name ?? ''}</span>
-                                <HouseChip house={c.house} />
-                                {Number.isFinite(c.score?.total) && (
-                                    <span className={`floor-row__score floor-row__score--${c.score.total >= 75 ? 'hi' : c.score.total >= 55 ? 'mid' : 'lo'}`}>
-                                        {c.score.total}
-                                    </span>
-                                )}
-                            </button>
-                        ))}
-                    </div>
-                )}
-            </div>
-        )
-    })
-}
-ScanRows.propTypes = {
-    onSymbolClick: PropTypes.func,
-    scans:             PropTypes.array,
-    onCandidateSelect: PropTypes.func,
-    onEditScan:        PropTypes.func,
-    onDeleteScan:      PropTypes.func,
-    onEditCoverage:    PropTypes.func,
-    onRetireCoverage:  PropTypes.func,
-    onDeleteCoverage:  PropTypes.func,
-}
-
 // ── The column ────────────────────────────────────────────────────────────────
 
 export function FloorLists({
     setups = [], ideas = [], positions = [],
-    scans = [], coverage = [], queued = [], aetherCandidates = null,
-    onCandidateSelect, onSymbolClick,
+    coverage = [], queued = [], aetherCandidates = null,
+    onSymbolClick,
     onEditSetup, onDeleteSetup,
     onEditPortfolio, onDeletePortfolio, onDeleteIdea, onActivatePortfolio,
-    onEditScan, onDeleteScan,
     onEditCoverage, onRetireCoverage, onDeleteCoverage,
     onExecuteQueued, onCancelQueued, queuedBusyId = null,
     industries = [], industriesLoading = false, industriesError = false, week = null, assessments = null, themes = [],
@@ -720,7 +640,6 @@ export function FloorLists({
         queued:         queued.length,
         trade:          setups.length,
         portfolio:      portfoliosFromIdeas(ideas).length,
-        scans:          scans.length,
         // One count per candidate ROW across every event in the window — a name three events
         // reached counts three times (its chip says ×3). The backend caps whole runs, never rows,
         // so this is the true count and not a ceiling: it read "(200)" once when it was a row cap.
@@ -809,13 +728,6 @@ export function FloorLists({
                     onDeleteIdea={onDeleteIdea} onActivatePortfolio={onActivatePortfolio}
                 />
             )}
-            {desk.key === 'scans'     && (
-                <ScanRows
-                    onSymbolClick={onSymbolClick}
-                    scans={sorted('scans', scans)} onCandidateSelect={onCandidateSelect}
-                    onEditScan={onEditScan} onDeleteScan={onDeleteScan}
-                />
-            )}
             {desk.key === 'aether' && (
                 <AetherCandidates
                     runs={sorted('aether', aetherRuns)}
@@ -824,8 +736,6 @@ export function FloorLists({
                     onRead={aetherCandidates?.onRead}
                     onSymbolClick={onSymbolClick}
                     onTradeWithMentor={aetherCandidates?.onTradeWithMentor}
-                    onScanWithArgus={aetherCandidates?.onScanWithArgus}
-                    scanBusy={aetherCandidates?.scanBusy}
                     setups={setups}
                 />
             )}
@@ -888,10 +798,9 @@ FloorLists.propTypes = {
     setups:            PropTypes.array,
     ideas:             PropTypes.array,
     positions:         PropTypes.array,
-    scans:             PropTypes.array,
     coverage:          PropTypes.array,
     queued:            PropTypes.array,
-    aetherCandidates:  PropTypes.shape({ runs: PropTypes.array, loading: PropTypes.bool, error: PropTypes.string, onTradeWithMentor: PropTypes.func, onScanWithArgus: PropTypes.func, scanBusy: PropTypes.bool }),
+    aetherCandidates:  PropTypes.shape({ runs: PropTypes.array, loading: PropTypes.bool, error: PropTypes.string, onTradeWithMentor: PropTypes.func }),
     onExecuteQueued:   PropTypes.func,
     onCancelQueued:    PropTypes.func,
     queuedBusyId:      PropTypes.string,
@@ -912,15 +821,12 @@ FloorLists.propTypes = {
     onEarningSelect:     PropTypes.func,
     onIpoSelect:         PropTypes.func,
     onHotlistBuild:      PropTypes.func,
-    onCandidateSelect:   PropTypes.func,
     onEditSetup:         PropTypes.func,
     onDeleteSetup:       PropTypes.func,
     onEditPortfolio:     PropTypes.func,
     onDeletePortfolio:   PropTypes.func,
     onActivatePortfolio: PropTypes.func,
     onDeleteIdea:        PropTypes.func,
-    onEditScan:          PropTypes.func,
-    onDeleteScan:        PropTypes.func,
     isAdmin:             PropTypes.bool,
     initialDesk:         PropTypes.string,
 }

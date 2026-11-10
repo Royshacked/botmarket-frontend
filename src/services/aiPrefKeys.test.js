@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { AI_MODEL_KEY, AI_PREF_KEYS, LEGACY_AI_PREF_KEYS, migrateAiPrefs } from './aiPrefKeys.js'
+import { AI_MODEL_KEY, AI_PREF_KEYS, LEGACY_AI_PREF_KEYS, MONITOR_REASONING_KEY, migrateAiPrefs } from './aiPrefKeys.js'
 
 // A minimal localStorage: getItem must return null (not undefined) for a missing key, which is
 // what the migration's `!= null` checks are written against.
@@ -41,7 +41,7 @@ test('an existing model choice survives, from either old shape', () => {
 
 test('reasoning and routing values are dropped, not migrated', () => {
     // There is nowhere for them to go — the knobs they drove no longer exist.
-    const storage = fakeStorage({ aiRoutingMode: 'classifier', aiReasoning: 'high', kairosReasoning: 'low' })
+    const storage = fakeStorage({ aiRoutingMode: 'classifier', aiReasoning: 'high', mentorReasoning: 'low' })
     const { adopted } = migrateAiPrefs(storage)
 
     assert.deepEqual(adopted, [])
@@ -54,6 +54,10 @@ test('every legacy key is cleared', () => {
 
     assert.deepEqual(cleared.sort(), [...LEGACY_AI_PREF_KEYS].sort())
     for (const key of LEGACY_AI_PREF_KEYS) assert.equal(storage.getItem(key), null)
+})
+
+test('no kairos key is a migration input any more', () => {
+    assert.ok(!LEGACY_AI_PREF_KEYS.some(k => k.startsWith('kairos')))
 })
 
 test('a fresh user is left alone — the default is not frozen into their account', () => {
@@ -84,17 +88,28 @@ test('it is idempotent — a second run is a no-op', () => {
     assert.deepEqual(storage.snapshot(), after)
 })
 
-test('the monitors keep their own model and reasoning', () => {
-    // hermesModel/hermesReasoning drive Hermes and Talos and are read server-side. Only
-    // hermesRoutingMode goes — it never had a reader.
+test('the monitors\' reasoning moves from hermesReasoning to talosReasoning; the other hermes keys go', () => {
     const storage = fakeStorage({
         hermesModel: 'claude-opus-5', hermesReasoning: 'high', hermesRoutingMode: 'auto',
         ideaModel: 'claude-sonnet-4-6',
     })
-    migrateAiPrefs(storage)
+    const { adopted, cleared } = migrateAiPrefs(storage)
 
-    assert.equal(storage.getItem('hermesModel'), 'claude-opus-5')
-    assert.equal(storage.getItem('hermesReasoning'), 'high')
-    assert.equal(storage.getItem('hermesRoutingMode'), null)
+    assert.equal(MONITOR_REASONING_KEY, 'talosReasoning')
+    assert.equal(storage.getItem('talosReasoning'), 'high')
+    assert.ok(adopted.includes('talosReasoning'))   // adopted → hydratePreferences queues a sync
+    for (const gone of ['hermesModel', 'hermesReasoning', 'hermesRoutingMode']) {
+        assert.equal(storage.getItem(gone), null, gone)
+        assert.ok(cleared.includes(gone), gone)
+    }
     assert.equal(storage.getItem(AI_MODEL_KEY), 'claude-sonnet-4-6')
+})
+
+test('a talosReasoning already set wins over a leftover hermesReasoning', () => {
+    const storage = fakeStorage({ talosReasoning: 'off', hermesReasoning: 'high' })
+    const { adopted } = migrateAiPrefs(storage)
+
+    assert.equal(storage.getItem('talosReasoning'), 'off')
+    assert.equal(storage.getItem('hermesReasoning'), null)
+    assert.deepEqual(adopted, [])
 })

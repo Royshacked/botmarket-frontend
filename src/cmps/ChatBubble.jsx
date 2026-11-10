@@ -10,7 +10,7 @@ import './PortfolioPanel/PortfolioPanel.scss'
 
 /**
  * One assistant/user/phase message row, shared by every agent panel (Atlas, Argus,
- * Kairos, Analyst). This was five near-identical local `MessageBubble` copies that
+ * Mentor, Analyst). This was five near-identical local `MessageBubble` copies that
  * differed only in the phase-label map, the placeholder word, and whether ticker
  * chips render — so those are the props.
  *

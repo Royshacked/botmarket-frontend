@@ -11,7 +11,7 @@ import { eventBus } from './event-bus.service.js'
 //
 // Two kinds of caller write to it: the `chart` stream event when an agent was asked to show a chart
 // (services/sse.util.js routes the `live` payload straight here), and any in-app UI that wants to
-// put a chart up — which is what `drawings` and `source` are for (an idea/call pop-out, a ticker
+// put a chart up — which is what `drawings` and `source` are for (an idea/setup pop-out, a ticker
 // chip). Keeping the request in an event + module cell, rather than in a panel's state, is what lets
 // an agent buried three components deep dock a chart with no prop-drilling and no panel wiring.
 //
@@ -40,7 +40,7 @@ export function normalizeChartRequest(req) {
         ticker,
         timeframe: String(req?.timeframe ?? req?.interval ?? 'day').trim() || 'day',
         // Overlay instructions (price levels, zones) when the caller has them — the chart renders
-        // them the same way an idea/call pop-out does.
+        // them the same way an idea/setup pop-out does.
         drawings:  Array.isArray(req?.drawings) ? req.drawings : [],
         // A plan's trade lines ({kind, price, label, side} — deriveSetupOverlay's), drawn as PriceChart's
         // `levels`: Mentor's in-chat trade chart opens full size carrying the same entry / stop / targets.

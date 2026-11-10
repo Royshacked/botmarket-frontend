@@ -7,8 +7,7 @@
 
 
 export const AGENTS = {
-    // ⚠ ARCHIVED 2026-07-29 — the Idea agent is superseded by Kairos (`call`) and Mentor
-    // (`setup`), and its backend route is unmounted. It belongs to no desk, so the hub cannot
+    // ⚠ ARCHIVED 2026-07-29 — the Idea agent is superseded by Mentor (`setup`), and its backend route is unmounted. It belongs to no desk, so the hub cannot
     // summon it (see the "no AGENT_LIST" note below — desks make an agent reachable). The entry
     // STAYS because it is still read for display: SocialChat and the timeline render this brand +
     // glyph for threads and alerts it already posted. Removing it would blank the name on that
@@ -50,12 +49,13 @@ export const AGENTS = {
     scanner: {
         tab:   'scanner',
         brand: 'Argus',
+        // Since 2026-11-09 Argus only finds ONE name for Mentor — his list-building chat is archived (archive/README.md).
         role:  'Scan agent',
         hue:   'violet',
-        lead:  'Scan the market',
-        blurb: 'Surface fresh opportunities worth turning into trades.',
-        intro: "Let's sweep the market and surface opportunities worth trading.",
-        hint:  "Ask what to watch — a day, the coming week, an earnings window — and I'll scan US markets for candidates with the reasoning behind each.",
+        lead:  'Find a name',
+        blurb: 'Finds one name worth trading and hands it back to Mentor to build.',
+        intro: "Let's find you one name worth trading.",
+        hint:  "Tell me the trade you are after — direction, horizon, a sector or theme — and I'll find one tradeable name and hand it back to Mentor.",
         icon: (
             <>
                 <path d="M2.5 12 C6 7 18 7 21.5 12 C18 17 6 17 2.5 12 Z"/>
@@ -64,26 +64,11 @@ export const AGENTS = {
             </>
         ),
     },
-    kairos: {
-        tab:   'kairos',
-        brand: 'Kairos',
-        hue:   'amber',   // distinct from Idea's cyan — Kairos = the opportune moment
-        lead:  'Time a discretionary trade',
-        blurb: 'Read a chart, map the levels, and get the nod when the moment lines up.',
-        intro: "Let's find a ticker, map the levels, and I'll watch for the moment to enter.",
-        hint:  "Name a ticker and how you'd trade it — intraday, day, or swing — and I'll build the call.",
-        icon: (
-            <>
-                <circle cx="12" cy="12" r="8.5"/>
-                <path d="M12 7.5 V12 L15 14"/>
-            </>
-        ),
-    },
     mentor: {
         tab:   'mentor',
         brand: 'Mentor',
         role:  'Trade agent',
-        hue:   'green',   // the counsel desk — steady, not the amber urgency of Kairos
+        hue:   'green',   // the counsel desk — steady
         lead:  'Work on your own trade',
         blurb: 'Bring a ticker and your plan. Mentor analyses it, argues with it, and sharpens it.',
         intro: "Bring me a ticker and how you'd trade it — I'll pressure-test it and we'll build the setup together.",
@@ -155,8 +140,7 @@ export const AGENTS = {
         tab:   'strategy',
         brand: 'Pythia',
         // The palette is four hues and desks pair up (Idea/Axl cyan, Atlas/Mentor green,
-        // Argus/Prometheus violet). Pythia pairs with Kairos on amber — both read the moment, one
-        // tactically and one structurally.
+        // Argus/Prometheus violet). Pythia has amber to herself.
         hue:   'amber',
         // Deliberately NOT "read the market" — that phrase belongs to Axl's market brief (what the
         // world is doing today), and a desk card offering it would send people here for a question
@@ -222,13 +206,15 @@ AGENTS.axl = {
 // requireAdmin, axl's ADMIN_DESKS withholds it from traders, and Axl's trader prompt says the desk
 // "does not exist" for them. Listed here and absent from ADMIN_BOT_IDS, it would have put an admin
 // desk's feed in a trader's sidebar the moment anything posted to it.
-export const BOT_IDS = ['axl', 'portfolio', 'scanner', 'kairos', 'mentor', 'analyst', 'strategy']
+export const BOT_IDS = ['axl', 'portfolio', 'scanner', 'mentor', 'analyst', 'strategy']
 export const isBotId = (id) => BOT_IDS.includes(id)
 
 // Retired feeds (backend RETIRED_BOT_IDS). Absence from BOT_IDS is what unpins the thread, but on
 // its own it makes things WORSE: an id nothing recognises as a bot renders as a person, so the
 // dead feed comes back as a human DM from a user called "idea". These are dropped outright.
-export const RETIRED_BOT_IDS = ['idea']
+// `kairos` joined on 2026-11-10 when that desk was deleted (its threads were deleted from Mongo too;
+// this is what drops any one a database still holds).
+export const RETIRED_BOT_IDS = ['idea', 'kairos']
 export const isRetiredBotId = (id) => RETIRED_BOT_IDS.includes(id)
 // Admin-only feeds — hidden from traders. The feed still exists; traders just never see it.
 // Pythia (the house view) and, since 2026-09-14, Prometheus: coverage is a house artifact only an
@@ -266,15 +252,8 @@ export const DESKS = [
         entryTab: 'portfolio',
         agentKey: 'portfolio',
     },
-    {
-        key:      'scan',
-        label:    'Scan Desk',
-        lead:     'Scanner',
-        blurb:    'Argus sweeps the market and generates a candidate list for later setups.',
-        hue:      'violet',
-        entryTab: 'scanner',
-        agentKey: 'scanner',
-    },
+    // The Scan Desk left on 2026-11-09 (archive/README.md): Argus is reached only through Mentor, which sends a user with
+    // no name to him and gets the one pick back — the Trading Desk's blurb says so.
     {
         key:      'assist',
         label:    'Assist Desk',

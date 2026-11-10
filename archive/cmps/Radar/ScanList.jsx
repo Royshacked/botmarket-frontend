@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
-import { EditButton, DeleteButton } from '../EntityCard/EntityCard.jsx'
-import { ConvictionChip } from '../ConvictionChip/ConvictionChip.jsx'
-import { HouseChip } from '../HouseChip/HouseChip.jsx'
-import { RadarTicker } from './RadarTicker.jsx'
+import { EditButton, DeleteButton } from '../../../src/cmps/EntityCard/EntityCard.jsx'
+import { ConvictionChip } from '../../../src/cmps/ConvictionChip/ConvictionChip.jsx'
+import { HouseChip } from '../../../src/cmps/HouseChip/HouseChip.jsx'
+import { RadarTicker } from '../../../src/cmps/Radar/RadarTicker.jsx'
 import './ScanList.scss'
 
 // Collapse state persists in sessionStorage so folding lists then switching to the

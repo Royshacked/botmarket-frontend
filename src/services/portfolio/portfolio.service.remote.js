@@ -14,7 +14,7 @@ async function listPortfolios() {
 }
 
 // The book's holdings, read from the server. A portfolio has no document of its own, so this is
-// its get-by-id — the twin of kairosService.getCall / mentorService.getSetup.
+// its get-by-id — the twin of mentorService.getSetup.
 //
 // THROWS on failure, unlike the list getters above. Every caller is opening the book to work on
 // it, and a book that failed to load is not an empty book: seeding a review from a silent [] is

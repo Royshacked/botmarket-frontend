@@ -139,8 +139,8 @@ were removed 2026-10-16: sleeve sourcing runs server-side, and nothing sends a d
 - **Sleeve sourcing** (Atlas → Argus → Prometheus → Atlas, headless) runs on the server; the
   frontend sees a `sleeve_sourced` card and a *Resume build* button
   (`../../botmarket-backend/docs/desks/atlas-themis.md`).
-- **The single pick** from Argus's hand-off mode rides the `<kairos_pick>` wire tag — it kept the
-  name of the desk it was written for; the receiver is Mentor (`findReceiver` decides, the client
+- **The single pick** from Argus's hand-off mode rides the `<argus_pick>` wire tag (`<kairos_pick>`
+  until 2026-11-10, after the desk it was written for); the receiver is Mentor (`findReceiver` decides, the client
   never reads the name).
 
 ## Decided and deferred

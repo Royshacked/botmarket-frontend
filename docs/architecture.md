@@ -292,5 +292,5 @@ because a warning is not a refusal.
 - `agentMeta.jsx` is data only — brand, hue, glyph, copy, `DESKS` — because mixing components with
   constants breaks Fast Refresh for every importer; `AgentSummon.jsx` has the pieces.
 - Tests: Vitest + React Testing Library, 1068 across 76 files, beside the component.
-- `archive/` mirrors the backend's: the Kairos panel, its contract, the `/call/:id` pop-out — imported
-  by nothing (`archive/README.md`).
+- `archive/` mirrors the backend's: Argus's list-building surface and the scan list — imported by
+  nothing (`archive/README.md`). Kairos's UI was deleted outright on 2026-11-10.

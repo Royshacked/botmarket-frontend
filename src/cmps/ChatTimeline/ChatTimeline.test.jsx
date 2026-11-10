@@ -354,7 +354,7 @@ describe('the house views open from Axl (Roy, 2026-10-19)', () => {
 
     // Every list, through Axl (Roy, 2026-10-22).
     it('every list has its words on the button', () => {
-        for (const kind of ['positions', 'orders', 'trades', 'portfolios', 'watchlists', 'hotlist', 'board', 'research']) expect(VIEW_LABELS[kind]).toMatch(/^Open /)
+        for (const kind of ['positions', 'orders', 'trades', 'portfolios', 'hotlist', 'board', 'research']) expect(VIEW_LABELS[kind]).toMatch(/^Open /)
     })
 })
 

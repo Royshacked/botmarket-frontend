@@ -5,7 +5,7 @@ import { useChatScroll } from '../customHooks/useChatScroll.js'
 //
 // Deliberately a WRAPPER, not a renderer. The contents genuinely differ per agent — Analyst uses
 // its own intro rather than AgentIntro, Portfolio injects a warning bubble mid-list, Scanner
-// branches on edit mode, Kairos threads phase headings — so a component that owned the list would
+// branches on edit mode, Pythia threads phase headings — so a component that owned the list would
 // have to grow a flag per panel and would be a worse abstraction than the duplication.
 //
 // What IS identical in all five is the plumbing around it: the scroll container, the two refs, the

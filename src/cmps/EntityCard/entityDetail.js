@@ -11,7 +11,6 @@
 
 /**
  * The kinds that have an IN-APP page (RootCmp mounts EntityDetailHost, which maps each to one).
- * `call` is not among them — its page went with Kairos — so `?call=…` opens nothing.
  *
  * It lives here rather than beside the opener because this module is the one both halves can
  * import: the opener pulls it in to decide where a click goes, and these URL helpers are pure, so

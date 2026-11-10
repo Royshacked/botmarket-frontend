@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { scannerService } from '../services/scanner/scanner.service.remote.js'
-import { useAutoRefresh } from './useAutoRefresh.js'
+import { useAutoRefresh } from '../../src/customHooks/useAutoRefresh.js'
 
 /**
  * Owns the user's saved scan lists: initial load + create/delete with optimistic

@@ -8,7 +8,6 @@ import { describe, test, expect, vi, beforeEach } from 'vitest'
 const getIdea      = vi.fn()
 const getSetup     = vi.fn()
 const getCoverage  = vi.fn()
-const getScan      = vi.fn()
 const getItems     = vi.fn()
 const listSetups     = vi.fn()
 const listCoverage   = vi.fn()
@@ -17,7 +16,6 @@ const listPortfolios = vi.fn()
 vi.mock('./tradeIdeas/tradeIdeas.service.remote', () => ({ tradeIdeasService: { getIdea: (...a) => getIdea(...a) } }))
 vi.mock('./mentor/mentor.service.remote',         () => ({ mentorService:     { getSetup: (...a) => getSetup(...a), listSetups: (...a) => listSetups(...a) } }))
 vi.mock('./analyst/analyst.service.remote',       () => ({ analystService:    { getCoverage: (...a) => getCoverage(...a), listCoverage: (...a) => listCoverage(...a) } }))
-vi.mock('./scanner/scanner.service.remote',       () => ({ scannerService:    { getScan: (...a) => getScan(...a) } }))
 vi.mock('./portfolio/portfolio.service.remote',   () => ({ portfolioService:  { getItems: (...a) => getItems(...a), listPortfolios: (...a) => listPortfolios(...a) } }))
 
 const { resolveEntity, resolveForEdit } = await import('./entityResolve.js')
@@ -29,12 +27,10 @@ describe('resolveEntity', () => {
         getIdea.mockResolvedValue({ id: 'i1' })
         getSetup.mockResolvedValue({ id: 's1' })
         getCoverage.mockResolvedValue({ id: 'v1' })
-        getScan.mockResolvedValue({ id: 'n1' })
 
         expect(await resolveEntity('idea', 'i1')).toEqual({ id: 'i1' })
         expect(await resolveEntity('setup', 's1')).toEqual({ id: 's1' })
         expect(await resolveEntity('coverage', 'v1')).toEqual({ id: 'v1' })
-        expect(await resolveEntity('scan', 'n1')).toEqual({ id: 'n1' })
         expect(getIdea).toHaveBeenCalledWith('i1')
     })
 
@@ -101,8 +97,9 @@ describe('resolveForEdit', () => {
         expect(await resolveForEdit('setup', 'NVDA')).toBeNull()
     })
 
-    test('a scan is a list, not a name — id or nothing', async () => {
-        getScan.mockResolvedValue(null)
+    // The scan kind was archived 2026-11-09 with Argus's list-building chat: nothing reopens a list.
+    test('a scan resolves to nothing — the kind has no getter any more', async () => {
+        expect(await resolveEntity('scan', 'n1')).toBeNull()
         expect(await resolveForEdit('scan', 'my scan')).toBeNull()
     })
 

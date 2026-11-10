@@ -94,7 +94,7 @@ describe('UserProfile — the one models card (admin, for everyone)', () => {
         fireEvent.change(screen.getByLabelText('House Talos model'), { target: { value: 'gpt-6-luna' } })
         await waitFor(() => expect(houseApi.set).toHaveBeenCalledWith({ talosModel: 'gpt-6-luna' }))
         await waitFor(() => expect(screen.getByLabelText('House Talos model').value).toBe('gpt-6-luna'))
-        expect(localStorage.getItem('hermesModel')).toBeNull()
+        expect(localStorage.getItem('talosModel')).toBeNull()
         expect(queuePrefSync).not.toHaveBeenCalled()
     })
 

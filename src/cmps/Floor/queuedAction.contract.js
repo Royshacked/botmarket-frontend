@@ -85,11 +85,9 @@ export function executeRoute(row) {
     if (row?.source === 'queue') return { kind: 'confirm' }
 
     // An entity awaiting confirmation: route by the KIND that authored it, because each kind's
-    // confirm lives in its own surface (the call pop-out, the setup dialog, the order dialog).
+    // confirm lives in its own surface (the setup dialog, the order dialog).
     const id = row?.origin?.entityId ?? row?.id
     switch (row?.origin?.kind) {
-        // A call's confirm surface was archived with Kairos (2026-08-18) — nothing listens for it.
-        case 'call':  return { kind: 'none', reason: 'archived_desk' }
         case 'setup': return { kind: 'event', event: SETUP_CONFIRM_OPEN, payload: { setupId: id } }
         case 'idea':
         case 'portfolio_item':

@@ -54,8 +54,7 @@ export function pickConfirmIdea({ ideas = [], userId = null, workspace, dismisse
  *
  * Differs from an idea in ONE way that matters: Talos already stamped an executable
  * `pendingOrder.plan` when it flipped the setup to `hit`, so this reads the real plan rather than
- * rebuilding a preview. (Kairos's calls were the third case — a Hermes PROPOSAL that only became
- * orders at confirm time — and went with the desk on 2026-08-18.)
+ * rebuilding a preview.
  *
  * `blockedByIdea` keeps one dialog on screen: an idea in flight wins, because it was there first.
  *

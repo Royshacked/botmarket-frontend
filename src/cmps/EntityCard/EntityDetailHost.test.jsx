@@ -95,7 +95,7 @@ describe('EntityDetailHost', () => {
 
     it('an ask for a kind with no page in the app opens nothing', async () => {
         renderAt('/')
-        await open('call', 'c1')
+        await open('nope', 'c1')
         expect(screen.queryByTestId('page')).toBeNull()
     })
 

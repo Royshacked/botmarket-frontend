@@ -15,8 +15,6 @@ import { appendReasoning } from '../services/reasoning.service.js'
  *
  * NOT every message list reduces this way, and the variants that remain are deliberate,
  * not copies to fold in later:
- *   - KairosPanel's persistedMessages() is stricter (role + string content) because it
- *     writes chat_state, not a request payload.
  *   - ScannerPanel's handleGenerate chatLog KEEPS phase rows and `tickers` so reopening
  *     a saved list re-renders the conversation exactly.
  *
@@ -315,7 +313,7 @@ export function useChatStream({ threadPhases = false } = {}) {
                 const changed = p !== sendPhase
                 setPhase(p)
                 if (!changed) return
-                // In threadPhases mode (Kairos runs all phases in ONE reply), if the current bubble
+                // In threadPhases mode (Pythia runs all phases in ONE reply), if the current bubble
                 // already holds text, freeze it as the previous phase's bubble and open a fresh
                 // streaming bubble under the new heading — so each phase's content threads under its
                 // own heading instead of all collapsing under the last one. Drain the typewriter

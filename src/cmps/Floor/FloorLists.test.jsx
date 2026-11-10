@@ -33,8 +33,7 @@ vi.mock('../../services/calendar/calendar.service.remote.js', () => ({
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); closePanel() })
 
-// `call` was the exemplar trade row here until Kairos was archived (2026-08-18). Every case it
-// covered is kind-blind, so `setup` carries them now.
+// Every case here is kind-blind; `setup` is the trade row that carries them.
 const setup  = (over = {}) => ({ id: 's1', asset: 'SPY',  direction: 'short', status: 'waiting', ...over })
 const setup2 = (over = {}) => setup({ id: 's2', asset: 'NVDA', ...over })
 
@@ -49,7 +48,7 @@ const deskBtn = name => {
 describe('FloorLists', () => {
     it('renders all four desks', () => {
         render(<FloorLists />)
-        for (const label of ['Your trades', 'Your portfolios', 'Watchlists']) {
+        for (const label of ['Your trades', 'Your portfolios', 'Awaiting orders']) {
             expect(deskBtn(label)).toBeTruthy()
         }
     })
@@ -57,15 +56,15 @@ describe('FloorLists', () => {
     // A refresh must not pick a desk for the reader: the column lands as a table of contents.
     it('opens no desk by default', () => {
         render(<FloorLists setups={[setup2()]} coverage={[{ symbol: 'AAPL', status: 'active' }]} />)
-        for (const label of ['Your trades', 'Your portfolios', 'Watchlists']) {
+        for (const label of ['Your trades', 'Your portfolios', 'Awaiting orders']) {
             expect(deskBtn(label).getAttribute('aria-expanded')).toBe('false')
         }
     })
 
     it('opening one desk closes the one that was open', () => {
         render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
-        fireEvent.click(deskBtn('Watchlists'))
-        expect(deskBtn('Watchlists').getAttribute('aria-expanded')).toBe('true')
+        fireEvent.click(deskBtn('Your portfolios'))
+        expect(deskBtn('Your portfolios').getAttribute('aria-expanded')).toBe('true')
         expect(deskBtn('Your trades').getAttribute('aria-expanded')).toBe('false')
     })
 
@@ -73,7 +72,7 @@ describe('FloorLists', () => {
     it('clicking the open desk closes it, leaving all four collapsed', () => {
         render(<FloorLists setups={[setup2()]} initialDesk="trade" />)
         fireEvent.click(deskBtn('Your trades'))
-        for (const label of ['Your trades', 'Your portfolios', 'Watchlists']) {
+        for (const label of ['Your trades', 'Your portfolios', 'Awaiting orders']) {
             expect(deskBtn(label).getAttribute('aria-expanded')).toBe('false')
         }
     })
@@ -119,10 +118,10 @@ describe('FloorLists', () => {
             expect(screen.getByRole('dialog').getAttribute('aria-label')).toBe('Your trades')
             expect(deskBtn('Your trades').getAttribute('aria-expanded')).toBe('true')
             expect(deskBtn('Your trades').getAttribute('aria-haspopup')).toBe('dialog')
-            fireEvent.click(deskBtn('Watchlists'))
-            expect(screen.getByRole('dialog').getAttribute('aria-label')).toBe('Watchlists')
+            fireEvent.click(deskBtn('Your portfolios'))
+            expect(screen.getByRole('dialog').getAttribute('aria-label')).toBe('Your portfolios')
             expect(deskBtn('Your trades').getAttribute('aria-expanded')).toBe('false')
-            fireEvent.click(deskBtn('Watchlists'))
+            fireEvent.click(deskBtn('Your portfolios'))
             expect(screen.queryByRole('dialog')).toBeNull()
         })
 
@@ -156,7 +155,7 @@ describe('FloorLists', () => {
 
         it('keeps an empty desk in the column, dimmed, and a full one not', () => {
             render(<FloorLists setups={[setup2()]} />)
-            expect(deskOf('Watchlists').className).toMatch(/floor-desk--empty/)
+            expect(deskOf('Your portfolios').className).toMatch(/floor-desk--empty/)
             expect(deskOf('Your trades').className).not.toMatch(/floor-desk--empty/)
         })
 
@@ -167,8 +166,8 @@ describe('FloorLists', () => {
         })
 
         it('says who fills an empty desk', () => {
-            render(<FloorLists initialDesk="scans" />)
-            expect(screen.getByText(/ask Argus/)).toBeTruthy()
+            render(<FloorLists initialDesk="portfolio" />)
+            expect(screen.getByText(/build one with Atlas/)).toBeTruthy()
         })
     })
 
@@ -184,7 +183,7 @@ describe('FloorLists', () => {
             const desks = [...container.querySelectorAll('.floor-desk')]
             expect(desks.some(d => d.className.includes('floor-desk--folded'))).toBe(false)
             expect(desks.map(d => d.querySelector('.floor-desk__label').textContent))
-                .toEqual(['Positions', 'Awaiting orders', 'Your trades', 'Your portfolios', 'Watchlists', 'Hotlist',
+                .toEqual(['Positions', 'Awaiting orders', 'Your trades', 'Your portfolios', 'Hotlist',
                           'Calendar', 'Forecasts'])
         })
 
@@ -269,7 +268,7 @@ describe('FloorLists', () => {
 
     it('hides the count when a desk is empty rather than showing a zero', () => {
         render(<FloorLists />)
-        expect(within(deskBtn('Watchlists')).queryByText('0')).toBeNull()
+        expect(within(deskBtn('Your portfolios')).queryByText('0')).toBeNull()
     })
 
     it('merges the trade rows into one list, each labelled by kind', () => {
@@ -417,35 +416,6 @@ describe('FloorLists', () => {
         expect(row).toMatch(/\.price-target\s*\{[^}]*text-overflow:\s*ellipsis/)
     })
 
-    // Same accordion as the coverage rows above, and same history — 3bbfa59.
-    it('expands a scan into its candidates, one scan at a time', () => {
-        const scans = [
-            { id: 'x', thesis: 'Semis', direction: 'long', candidates: [{ ticker: 'NVDA', score: { total: 82 } }] },
-            { id: 'y', thesis: 'Banks', direction: 'long', candidates: [{ ticker: 'JPM',  score: { total: 61 } }] },
-        ]
-        render(<FloorLists scans={scans} />)
-        fireEvent.click(deskBtn('Watchlists'))
-        expect(screen.queryByText('NVDA')).toBeNull()
-
-        fireEvent.click(screen.getByText('Semis').closest('button'))
-        expect(screen.getByText('NVDA')).toBeTruthy()
-
-        fireEvent.click(screen.getByText('Banks').closest('button'))
-        expect(screen.getByText('JPM')).toBeTruthy()
-        expect(screen.queryByText('NVDA')).toBeNull()
-    })
-
-    // A count is part of the name it counts, so it is parenthesised and adjacent — not a bare
-    // number parked in a column of its own on the right edge.
-    it('prints a scan’s candidate count in parentheses immediately after the thesis', () => {
-        const scans = [{ id: 'x', thesis: 'Semis', direction: 'long', candidates: [{ ticker: 'NVDA' }, { ticker: 'AMD' }] }]
-        render(<FloorLists scans={scans} />)
-        fireEvent.click(deskBtn('Watchlists'))
-
-        const name = screen.getByText('Semis')
-        expect(name.nextElementSibling.textContent).toBe('(2)')
-    })
-
     // ── The calendar ──────────────────────────────────────────────────────────
     // Earnings / Fed / IPO were three week-long desks; since 2026-10-14 they are ONE Calendar desk
     // that opens a month grid in the detail panel (CalendarPanel has its own tests).
@@ -546,8 +516,7 @@ describe('FloorLists row actions', () => {
         fireEvent.click(screen.getByTitle('Edit setup in Mentor chat'))
         fireEvent.click(screen.getByTitle('Delete setup'))
         expect(onEditSetup.mock.calls[0][0].id).toBe('s1')    // the setup itself — it seeds the chat
-        // NB the setup contract hands the whole ENTITY to delete, where the call contract handed
-        // the bare id. Not a slip: SetupCard does the same, and the dialog it opens needs the doc.
+        // NB the setup contract hands the whole ENTITY to delete, not the bare id. Not a slip: SetupCard does the same, and the dialog it opens needs the doc.
         expect(onDeleteSetup.mock.calls[0][0].id).toBe('s1')
     })
 
@@ -710,19 +679,6 @@ describe('FloorLists row actions', () => {
         expect(onEditPortfolio).toHaveBeenCalledWith('p1')
     })
 
-    // A candidate is a line in a scan's result, not a record — there is nothing to delete.
-    it('puts the scan’s actions on the list, never on a candidate', () => {
-        const scans = [{ id: 'x', thesis: 'Semis', direction: 'long', candidates: [{ ticker: 'NVDA' }] }]
-        const onDeleteScan = vi.fn()
-        render(<FloorLists scans={scans} onEditScan={vi.fn()} onDeleteScan={onDeleteScan} />)
-        fireEvent.click(deskBtn('Watchlists'))
-        fireEvent.click(screen.getByText('Semis').closest('button'))
-
-        expect(screen.getByText('NVDA').closest('.floor-rowhost')).toBeNull()
-        expect(screen.getAllByTitle('Delete list')).toHaveLength(1)
-        fireEvent.click(screen.getByTitle('Delete list'))
-        expect(onDeleteScan).toHaveBeenCalledWith('x')
-    })
 })
 
 describe('every ticker in the column opens its chart', () => {
@@ -745,14 +701,14 @@ describe('every ticker in the column opens its chart', () => {
 
     it('no raw ticker span is left behind', () => {
         // A plain <span className="floor-row__sym">{x.ticker}</span> is the shape that was
-        // there before. The two `--wide` cells are not tickers — they carry a portfolio
-        // name and a scan thesis — and must stay exactly as they are.
+        // there before. The `--wide` cell is not a ticker — it carries a portfolio
+        // name — and must stay exactly as it is.
         expect(SRC).not.toContain('<span className="floor-row__sym">')
     })
 
     it('every symbol cell is the shared one, carrying the handler', () => {
         const cells = SRC.match(/<SymbolCell[^>]*?\/>/gs) ?? []
-        expect(cells.length).toBeGreaterThanOrEqual(3)
+        expect(cells.length).toBeGreaterThanOrEqual(2)
         for (const cell of cells) {
             expect(cell).toContain('onSymbolClick={onSymbolClick}')
             expect(cell).toContain('className="floor-row__sym"')
@@ -762,7 +718,7 @@ describe('every ticker in the column opens its chart', () => {
     it('the handler reaches every list that renders one', () => {
         // A cell wired to a prop its component never received renders a dead ticker, and
         // nothing at runtime says so.
-        for (const list of ['TradeRows', 'PortfolioRows', 'ScanRows']) {
+        for (const list of ['TradeRows', 'PortfolioRows']) {
             // Plain string slicing rather than a built regex: expressing `function Foo({`
             // as a pattern needs escaping that is its own source of bugs, and "the text
             // between here and the next bracket" needs none of it.
@@ -787,11 +743,11 @@ describe('every ticker in the column opens its chart', () => {
 describe('FloorLists — sorting', () => {
     afterEach(() => { try { localStorage.clear() } catch { /* no storage */ } })
 
-    // Watchlists carry these since the coverage desk went (2026-10-14); a scan's row shows its thesis.
-    const scans = [
-        { id: 'c1', thesis: 'MSFT', candidates: [{}] },
-        { id: 'c2', thesis: 'AAPL', candidates: [{}, {}, {}] },
-        { id: 'c3', thesis: 'NVDA', candidates: [{}, {}] },
+    // The trade desk's setups (the Watchlists these ran on were archived 2026-11-09).
+    const rows = [
+        setup({ id: 'c1', asset: 'MSFT', savedAt: 1 }),
+        setup({ id: 'c2', asset: 'AAPL', savedAt: 3 }),
+        setup({ id: 'c3', asset: 'NVDA', savedAt: 2 }),
     ]
     const rowSyms = () => [...document.querySelectorAll('.floor-panel .floor-row')]
         .map(r => r.querySelector('.floor-row__sym')?.textContent)
@@ -799,48 +755,48 @@ describe('FloorLists — sorting', () => {
     const dirBtn     = () => screen.getByRole('button', { name: /ascending|descending/i })
 
     it('shows no sort bar over a single row', () => {
-        render(<FloorLists scans={[scans[0]]} initialDesk="scans" />)
+        render(<FloorLists setups={[rows[0]]} initialDesk="trade" />)
         expect(screen.queryByRole('combobox')).toBeNull()
     })
 
     // Roy, 2026-10-31: "the sorting btns put them in the header and remove the div they are in now".
     it('sits in the list window\'s header bar, with no strip of its own over the rows', () => {
-        render(<FloorLists scans={scans} initialDesk="scans" />)
+        render(<FloorLists setups={rows} initialDesk="trade" />)
         expect(sortSelect().closest('.detail-panel__bar')).toBeTruthy()
         expect(document.querySelector('.floor-sort')).toBeNull()
     })
 
     it('opens on the default order, with the arrow disabled', () => {
-        render(<FloorLists scans={scans} initialDesk="scans" />)
+        render(<FloorLists setups={rows} initialDesk="trade" />)
         expect(sortSelect().value).toBe('default')
         expect(dirBtn().disabled).toBe(true)
         expect(rowSyms()).toEqual(['MSFT', 'AAPL', 'NVDA'])
     })
 
     it('reorders the rows by the picked field, and the arrow flips it', () => {
-        render(<FloorLists scans={scans} initialDesk="scans" />)
-        fireEvent.change(sortSelect(), { target: { value: 'thesis' } })
+        render(<FloorLists setups={rows} initialDesk="trade" />)
+        fireEvent.change(sortSelect(), { target: { value: 'symbol' } })
         expect(rowSyms()).toEqual(['AAPL', 'MSFT', 'NVDA'])
         fireEvent.click(dirBtn())
         expect(rowSyms()).toEqual(['NVDA', 'MSFT', 'AAPL'])
-        // Candidates starts high-to-low, whatever the previous option's direction was.
-        fireEvent.change(sortSelect(), { target: { value: 'candidates' } })
+        // Created starts newest-first, whatever the previous option's direction was.
+        fireEvent.change(sortSelect(), { target: { value: 'newest' } })
         expect(rowSyms()).toEqual(['AAPL', 'NVDA', 'MSFT'])
     })
 
     it('back to Default restores the server order', () => {
-        render(<FloorLists scans={scans} initialDesk="scans" />)
-        fireEvent.change(sortSelect(), { target: { value: 'thesis' } })
+        render(<FloorLists setups={rows} initialDesk="trade" />)
+        fireEvent.change(sortSelect(), { target: { value: 'symbol' } })
         fireEvent.change(sortSelect(), { target: { value: 'default' } })
         expect(rowSyms()).toEqual(['MSFT', 'AAPL', 'NVDA'])
     })
 
     it('remembers the choice per desk across a remount', () => {
-        const { unmount } = render(<FloorLists scans={scans} initialDesk="scans" />)
-        fireEvent.change(sortSelect(), { target: { value: 'thesis' } })
+        const { unmount } = render(<FloorLists setups={rows} initialDesk="trade" />)
+        fireEvent.change(sortSelect(), { target: { value: 'symbol' } })
         unmount()
-        render(<FloorLists scans={scans} initialDesk="scans" />)
-        expect(sortSelect().value).toBe('thesis')
+        render(<FloorLists setups={rows} initialDesk="trade" />)
+        expect(sortSelect().value).toBe('symbol')
         expect(rowSyms()).toEqual(['AAPL', 'MSFT', 'NVDA'])
     })
 

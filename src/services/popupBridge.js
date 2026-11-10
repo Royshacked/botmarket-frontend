@@ -25,8 +25,7 @@ import { eventBus, SETUP_INVALIDATION_EDIT } from './event-bus.service'
 
 const CHANNEL = 'ar2trade:popup'
 
-// Exactly what is wired today, not what might be. A call's pop-out accepts Hermes's re-map on the
-// SERVER ("Accept edit"), so it needs nothing from here; adding a kind is one line when one does.
+// Exactly what is wired today, not what might be; adding a kind is one line when one needs it.
 const FORWARDABLE = new Set([
     SETUP_INVALIDATION_EDIT,   // setup pop-out → re-draw it in Mentor
 ])

@@ -42,7 +42,7 @@ describe('a chip with a handler is still a link', () => {
 
 describe('panels that want neither get neither', () => {
     it('no handler and no staticTickers → no chip row at all', () => {
-        // Kairos / Mentor / Analyst render through the same bubble and never show chips.
+        // Mentor / Analyst render through the same bubble and never show chips.
         const { container } = render(<ChatBubble msg={MSG} />)
         expect(container.querySelector('.portfolio-panel__tickers')).toBeNull()
     })

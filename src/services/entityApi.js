@@ -3,7 +3,7 @@ import { httpService } from './http.service'
 // ONE transport for every entity's REST surface — the frontend mirror of the backend's
 // makeEntityCrud, and the last piece of per-kind plumbing on this side.
 //
-// It replaced four near-identical remote services (tradeIdeas, kairos, mentor, analyst) that each
+// It replaced four near-identical remote services (tradeIdeas, calls, mentor, analyst) that each
 // re-implemented the same four things: list-or-empty, get-or-null, delete, and a window broadcast
 // so every open list refreshes after a write. `mentor` and `analyst` carried the same
 // `_announceChange()` block verbatim.

@@ -32,7 +32,7 @@ describe("a chart the agent looked at stays a still image", () => {
 })
 
 describe('ChatBubble routes chart rows to the shared component', () => {
-    // Kairos / Atlas / Mentor / Analyst / Argus all render through ChatBubble, so this is what makes
+    // Atlas / Mentor / Analyst / Argus all render through ChatBubble, so this is what makes
     // the chart appear in their threads at all.
     it('a type:chart row renders the chart, not an empty assistant bubble', () => {
         const { container } = render(<ChatBubble msg={{ role: 'assistant', type: 'chart', symbol: 'SPY', timeframe: 'day', imageBase64: 'BBB' }} />)

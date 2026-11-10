@@ -19,8 +19,7 @@
 // monitor's opinion, and re-drawing the levels is the one judgment this desk owns.
 
 // Only the FIRST sentence of Talos's reason goes in — the rest is in the journal, and a paragraph
-// pasted into the user's own turn stops reading as something they would have said. Shared with
-// Kairos's remapAsk, because trimming a monitor's prose is the same mechanism at both desks.
+// pasted into the user's own turn stops reading as something they would have said.
 import { firstSentence } from '../TradeIdeas/monitorJournal.utils.js'
 
 /**

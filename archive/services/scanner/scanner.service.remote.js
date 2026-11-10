@@ -1,4 +1,4 @@
-import { makeEntityApi } from '../entityApi'
+import { makeEntityApi } from '../../../src/services/entityApi'
 
 const BASE = 'api/scanner'
 

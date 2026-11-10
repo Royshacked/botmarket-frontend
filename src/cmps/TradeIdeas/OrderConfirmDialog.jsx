@@ -269,5 +269,5 @@ OrderConfirmDialog.propTypes = {
     placing:   PropTypes.bool,
     onConfirm: PropTypes.func.isRequired,
     onDismiss: PropTypes.func.isRequired,
-    onReset:   PropTypes.func,   // optional — a Kairos call has no waiting-window to reset
+    onReset:   PropTypes.func,   // optional — not every caller has a waiting-window to reset
 }

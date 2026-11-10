@@ -43,7 +43,7 @@ export function treeToOneliner(node, isRoot = true) {
  * Open an idea in its own pop-out window (the /idea/:id page).
  *
  * Thin wrappers over the ONE opener in entityPopup.js — kept as named exports because the call
- * sites read better (`openCallPopup(call)` says what it does) and because they are imported from a
+ * sites read better (`openSetupPopup(setup)` says what it does) and because they are imported from a
  * dozen places. The mechanism, the hand-off and the window sizing live in entityPopup.
  *
  * @param {import('../../types.js').Idea} idea
@@ -51,18 +51,6 @@ export function treeToOneliner(node, isRoot = true) {
  */
 export function openIdeaPopup(idea) {
     return openEntityPopup('idea', idea)
-}
-
-/**
- * Pop-out detail window for a Kairos call. Accepts a full call object (stashed for instant render)
- * or a bare call id (the page then fetches it). Used by the Call cards, social-chat bubbles, and
- * the Positions tab (a call-originated position → its Call).
- *
- * @param {import('../../types.js').Call|string} call
- * @returns {Window|null}
- */
-export function openCallPopup(call) {
-    return openEntityPopup('call', call)
 }
 
 /** Pop-out detail window for a Mentor setup (watched by Talos). */
@@ -188,26 +176,6 @@ export function deriveIdeaInterval(idea) {
         || firstTimeframe(idea.tp_conditions)
         || idea.tp_timeframe
         || null
-}
-
-/**
- * Chart interval for a Kairos call's pop-out / detail chart.
- *
- * Prefers the rung Hermes actually assessed on (`monitor_state.chosen_timeframe`,
- * recorded as `timeframe_used` on each assessment) so the chart matches what the
- * monitor is reading. Falls back to the most recent assessment's record, then a
- * per-horizon default until the first assessment has run. Returns a spelling
- * PriceChart's PERIOD_MAP understands ('5min'/'15min'/'1hr'/'day'/'5'/'15'/'D'…).
- *
- * @param {object} call
- * @returns {string}
- */
-export function deriveCallChartInterval(call) {
-    const HORIZON_DEFAULT = { intraday: '5', day: '15', swing: 'D' }
-    return call?.monitor_state?.chosen_timeframe
-        || call?.monitor_state?.last_assessment?.timeframe_used
-        || HORIZON_DEFAULT[call?.trade_type]
-        || '15'
 }
 
 /**
@@ -341,20 +309,13 @@ export function positionOwnerIdea(pos, ideas = []) {
 }
 
 /**
- * What clicking a position row should open. A call-originated position carries a stamped `callId`
- * (its execution idea is ownedBy:'hermes' and hidden from the ideas list, so it can't resolve to a
- * visible idea) → open the Call pop-out, preferring the loaded call object for an instant render and
- * falling back to the bare id (CallPage fetches it). Otherwise open its owning visible idea. Returns
- * null for an owner-less/orphan broker position (e.g. a paper trade whose idea was deleted) → no-op.
+ * What clicking a position row should open: its owning visible idea. Returns null for an
+ * owner-less/orphan broker position (e.g. a paper trade whose idea was deleted) → no-op.
  * Pure — the single source for the Positions-tab open routing.
  *
- * @returns {{ kind: 'call', call: object|string } | { kind: 'idea', idea: object } | null}
+ * @returns {{ kind: 'idea', idea: object } | null}
  */
-export function positionOpenTarget(pos, ideas = [], calls = []) {
-    if (pos?.callId) {
-        const call = calls.find(c => c.id === pos.callId)
-        return { kind: 'call', call: call ?? pos.callId }
-    }
+export function positionOpenTarget(pos, ideas = []) {
     const idea = positionOwnerIdea(pos, ideas)
     return idea ? { kind: 'idea', idea } : null
 }
@@ -793,12 +754,9 @@ export function isManualIdea(idea) {
 export function ideaWorkspaceMode(idea) {
     // ⚠ `mode` MEANS TWO DIFFERENT THINGS depending on the kind, which is why this reads the value
     // rather than merely checking the field exists. On an `idea` and a `setup` it is the workspace;
-    // on a CALL it is the build LENS (discretionary | smc | institutional — see kairos.modes.js).
-    // The lens values happen not to collide with the workspace names, so a call falls straight
-    // through to `broker` below and resolves correctly. That is luck holding a contract together:
-    // name a future lens 'live' and every call on it silently changes workspace. If a lens is ever
-    // added, check it against this list first. (The backend records the same collision under
-    // project_trade_pipeline_pivot.)
+    // on any other kind it may mean something else (the deleted `call` kind used it for a build lens),
+    // so a value outside the three workspace names falls straight through to `broker` below. If a
+    // kind ever reuses `mode`, check its values against this list first.
     if (idea?.mode === 'paper' || idea?.mode === 'manual' || idea?.mode === 'live') return idea.mode
 
     if (idea?.broker === 'paper' || idea?.broker === 'manual') return idea.broker

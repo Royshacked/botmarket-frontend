@@ -183,8 +183,7 @@ test('an empty feed yields no groups', () => {
 
 // ── tradeFloorItems ───────────────────────────────────────────────────────────
 
-// `calls` was the first argument until Kairos was archived (2026-08-18). The rows still carry a
-// `kind`, because a second trade kind is the expected case here rather than a special one.
+// The rows carry a `kind`, because a second trade kind is the expected case here rather than a special one.
 const setup = (over = {}) => ({ id: 's1', asset: 'SPY', direction: 'short', status: 'waiting', ...over })
 
 test('setups arrive on one list, each tagged with its kind', () => {

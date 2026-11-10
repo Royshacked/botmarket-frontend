@@ -20,8 +20,8 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); delete window.matchMedia })
 describe('openEntityPopup', () => {
     it('opens the kind\'s route at the kind\'s window size', () => {
         const open = vi.spyOn(window, 'open').mockReturnValue({})
-        openEntityPopup('call', { id: 'call_1' })
-        expect(open).toHaveBeenCalledWith('/call/call_1', 'call-call_1', 'width=1180,height=760')
+        openEntityPopup('idea', { id: 'idea_1' })
+        expect(open).toHaveBeenCalledWith('/idea/idea_1', 'idea-idea_1', 'width=960,height=720')
     })
 
     it('hands the entity over BOTH ways — injected and stashed', () => {
@@ -38,9 +38,9 @@ describe('openEntityPopup', () => {
     it('accepts a bare id — nothing to stash, the page fetches', () => {
         const popup = {}
         vi.spyOn(window, 'open').mockReturnValue(popup)
-        openEntityPopup('call', 'call_9')
+        openEntityPopup('setup', 'setup_9')
         expect(popup.__entityData).toBeUndefined()
-        expect(localStorage.getItem(stashKey('call', 'call_9'))).toBeNull()
+        expect(localStorage.getItem(stashKey('setup', 'setup_9'))).toBeNull()
     })
 
     it('refuses an unknown kind and a missing id instead of opening a broken window', () => {
@@ -78,19 +78,6 @@ describe('openEntityPopup', () => {
         off()
     })
 
-    it('a kind with no in-app page still opens a window on a phone — a tab beats nothing', () => {
-        asHandheld()
-        const open = vi.spyOn(window, 'open').mockReturnValue({})
-        const asked = vi.fn()
-        const off = eventBus.on(ENTITY_DETAIL_OPEN, asked)
-
-        openEntityPopup('call', 'c1')
-
-        expect(asked).not.toHaveBeenCalled()
-        expect(open).toHaveBeenCalled()
-        off()
-    })
-
     it('a desktop is untouched: the window, sized, exactly as before', () => {
         window.matchMedia = (q) => ({ matches: q.includes('fine') })
         const open = vi.spyOn(window, 'open').mockReturnValue({})
@@ -110,6 +97,10 @@ describe('openEntityPopup', () => {
         expect(isHandheld({ matchMedia: (q) => ({ matches: q.includes('coarse') }) })).toBe(true)
         expect(isHandheld({ matchMedia: (q) => ({ matches: q.includes('767') }) })).toBe(true)
         expect(isHandheld({ matchMedia: () => { throw new Error('nope') } })).toBe(false)
+    })
+
+    it('the call kind is gone with Kairos', () => {
+        expect(POPUP_KINDS.call).toBeUndefined()
     })
 
     it('every registered kind has a route and a size', () => {
@@ -136,7 +127,7 @@ describe('useEntityPopup hydration ladder', () => {
 
     it('ignores an injection meant for a DIFFERENT kind or id', async () => {
         setPath('/idea/i1')
-        window.__entityData = { kind: 'call', entity: { id: 'i1' } }
+        window.__entityData = { kind: 'setup', entity: { id: 'i1' } }
         const fetchFn = vi.fn().mockResolvedValue({ id: 'i1', asset: 'FETCHED' })
 
         const { result } = renderHook(() => useEntityPopup('idea', fetchFn))
@@ -169,32 +160,32 @@ describe('useEntityPopup hydration ladder', () => {
     })
 
     it('tier 3: a pasted URL with no hand-off fetches', async () => {
-        setPath('/call/c1')
+        setPath('/setup/c1')
         const fetchFn = vi.fn().mockResolvedValue({ id: 'c1', asset: 'AAPL' })
 
-        const { result } = renderHook(() => useEntityPopup('call', fetchFn))
+        const { result } = renderHook(() => useEntityPopup('setup', fetchFn))
 
         await waitFor(() => expect(result.current.entity?.asset).toBe('AAPL'))
         expect(result.current.id).toBe('c1')
     })
 
     it('surfaces not-found and fetch failure distinctly', async () => {
-        setPath('/call/gone')
+        setPath('/setup/gone')
         const { result: missing } = renderHook(() =>
-            useEntityPopup('call', vi.fn().mockResolvedValue(null), { notFound: 'Call not found' }))
-        await waitFor(() => expect(missing.current.error).toBe('Call not found'))
+            useEntityPopup('setup', vi.fn().mockResolvedValue(null), { notFound: 'Setup not found' }))
+        await waitFor(() => expect(missing.current.error).toBe('Setup not found'))
 
-        setPath('/call/boom')
+        setPath('/setup/boom')
         const { result: broken } = renderHook(() =>
-            useEntityPopup('call', vi.fn().mockRejectedValue(new Error('net'))))
-        await waitFor(() => expect(broken.current.error).toBe('Failed to load call'))
+            useEntityPopup('setup', vi.fn().mockRejectedValue(new Error('net'))))
+        await waitFor(() => expect(broken.current.error).toBe('Failed to load setup'))
     })
 
     it('polls, and a failed poll keeps the painted entity on screen', async () => {
-        setPath('/call/c2')
+        setPath('/setup/c2')
         vi.useFakeTimers()
         const fetchFn = vi.fn().mockResolvedValue({ id: 'c2', asset: 'NVDA' })
-        const { result } = renderHook(() => useEntityPopup('call', fetchFn, { pollMs: 20_000 }))
+        const { result } = renderHook(() => useEntityPopup('setup', fetchFn, { pollMs: 20_000 }))
 
         await act(async () => { await vi.advanceTimersByTimeAsync(0) })
         expect(result.current.entity?.asset).toBe('NVDA')

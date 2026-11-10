@@ -1,6 +1,6 @@
 // The card icon set — one home for the monoline SVGs every entity card draws.
 //
-// These lived in TradeIdeaCards.jsx and were imported from there by CallCard and PopoutFooter,
+// These lived in TradeIdeaCards.jsx and were imported from there by the other cards and PopoutFooter,
 // which made the ideas card file a de-facto icon library. They are chrome, not idea-specific, so
 // they live with the shared shell.
 

@@ -52,13 +52,8 @@ const WORKSPACE_LABEL = { live: 'Live', paper: 'Paper', manual: 'Manual' }
 // conversation length while the saving did not. The model is now a per-user choice that holds
 // for the life of a thread.
 //
-// Hermes — the Kairos monitor — used to have its own model+reasoning card here. Kairos and
-// Hermes are dormant (trading runs Argus → Mentor → Talos), so the card named a desk that
-// isn't running and was removed.
-//
-// NOTE: `hermesReasoning` is still read by assess.shared.js as the "how hard should my monitors
-// think" knob (capped at `low` server-side); it has no UI. `hermesModel` is no longer read for
-// anyone.
+// NOTE: `talosReasoning` is read by assess.shared.js as the "how hard should my monitor think"
+// knob (capped at `low` server-side); it has no UI.
 //
 // SINCE 2026-09-21 THERE IS ONE MODEL CARD, THE ADMIN'S, AND IT CHOOSES FOR EVERYONE — the admin
 // included. Every desk turn runs on the house chat model and every setup read on the house Talos

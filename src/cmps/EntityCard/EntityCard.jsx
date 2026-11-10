@@ -5,16 +5,14 @@ import { EditIcon, BinIcon, BuildingIcon, ActivateIcon } from './entityIcons.jsx
 import { IconButton } from './IconButton.jsx'
 import { OwnedBadge } from '../OwnedBadge/OwnedBadge.jsx'
 
-// ONE card shell for every entity list — ideas, calls, setups.
+// ONE card shell for every entity list — ideas, setups.
 //
 // The frontend mirror of the backend's entityCrud: the SHELL is mechanism and lives here, the
 // CONTENT is judgment and stays with the kind. What a setup's zones read like, which statuses a
-// call can be confirmed from, whether an idea is missing exits — those are per-kind decisions the
+// setup can be confirmed from, whether an idea is missing exits — those are per-kind decisions the
 // caller composes and passes in. The frame, the click rules and the control chrome are shared.
 //
-// It exists because the three cards had already diverged: CallCard reused the ideas card's classes
-// verbatim (importing its icons from TradeIdeaCards.jsx, which made a card file an icon library),
-// while SetupCard grew a parallel `.setup-card` block with its own stylesheet — so a setup looked
+// It exists because the cards had already diverged: SetupCard grew a parallel `.setup-card` block with its own stylesheet — so a setup looked
 // like a different application than the idea sitting one tab away.
 //
 // CLASS NAMES: the shell still emits `idea-card*`. That name is now the SHARED shell's name, not
@@ -29,7 +27,7 @@ function isPassthroughClick(ev) {
 
 /**
  * @param {string}      status     drives the `idea-card--{status}` lifecycle colour
- * @param {ReactNode}   badge      the owning agent's badge (Minos / Hermes / Talos / Atlas)
+ * @param {ReactNode}   badge      the owning agent's badge (Minos / Talos / Atlas)
  * @param {ReactNode}   title      titleline content — symbol, direction, pills
  * @param {ReactNode}   [summary]  the one-line "what is this" row
  * @param {ReactNode}   [footer]   optional extra row under the summary (a setup's Talos memo)

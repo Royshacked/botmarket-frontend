@@ -12,7 +12,7 @@
 import { httpService } from './http.service'
 import { initTheme, initAccent } from './themeService'
 import { initDesign } from './designService'
-import { AI_PREF_KEYS, LEGACY_AI_PREF_KEYS, migrateAiPrefs } from './aiPrefKeys'
+import { AI_PREF_KEYS, LEGACY_AI_PREF_KEYS, MONITOR_REASONING_KEY, migrateAiPrefs } from './aiPrefKeys'
 import { CANDLE_PREF_KEYS, initCandleColors } from './candleColors.service'
 
 // Explicit allowlist — only these keys sync. Keeps unrelated localStorage
@@ -32,11 +32,10 @@ const PREF_KEYS = [
     'chatTextPaceCps',
     // the one shared AI setting every conversational desk reads (services/aiPrefKeys.js)
     ...AI_PREF_KEYS,
-    // The monitors' own knob, read SERVER-SIDE (assess.shared.js) for both Hermes and Talos.
-    // Deliberately not part of the desk setting: it decides how hard the background monitors
-    // think, has no profile card, and nothing in the UI writes it. `hermesRoutingMode` is gone
-    // with the rest of the routing layer — it never had a reader.
-    'hermesModel', 'hermesReasoning',
+    // The monitors' own knob, read SERVER-SIDE (assess.shared.js) for Talos. Deliberately not part
+    // of the desk setting: it decides how hard the background monitor thinks, has no profile card,
+    // and nothing in the UI writes it (services/aiPrefKeys.js MONITOR_REASONING_KEY).
+    MONITOR_REASONING_KEY,
 ]
 
 function loggedinUserId() {

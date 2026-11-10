@@ -30,7 +30,7 @@ import './SetupSummary.scss'
 // the mode went, with `Step`, `pricesOnly` and `lockPrices`. Do not grow a second authoring surface.
 //
 // It does NOT own Generate or readiness. Those live at the BOTTOM of the chat pane with the other
-// agent actions (where Kairos puts its Generate too): the preview is a reference you glance up at,
+// agent actions: the preview is a reference you glance up at,
 // while the thing you press belongs where your attention already is — under the conversation.
 
 const fmtDate = (iso) => {

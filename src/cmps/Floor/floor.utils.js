@@ -109,8 +109,7 @@ export function groupByDay(items = []) {
  * @param {object[]} setups
  * @returns {Array<{kind:'setup',entity:object,id:string,ticker:string,direction:string,status:string}>}
  */
-// `calls` was the first argument until Kairos was archived (2026-08-18). The row shape keeps its
-// `kind` field rather than being flattened away — a second trade kind is the expected case here,
+// The row shape keeps its `kind` field rather than being flattened away — a second trade kind is the expected case here,
 // and the Floor already renders from it.
 export function tradeFloorItems(setups = []) {
     return [

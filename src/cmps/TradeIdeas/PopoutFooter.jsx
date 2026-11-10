@@ -6,8 +6,8 @@ import { usePositionClose } from './usePositionClose.jsx'
 import { EditOrdersDialog } from './EditOrdersDialog.jsx'
 import './PopoutFooter.scss'
 
-// Shared footer for the idea & call pop-out windows: the positions component + a delete button —
-// identical markup/behaviour for both kinds; only the data and the delete handler differ.
+// Shared footer for the pop-out windows: the positions component + a delete button — identical
+// markup/behaviour for every kind; only the data and the delete handler differ.
 //
 // Positions are interactive when `closePosition` is supplied (close / edit-orders controls + the
 // confirm/edit dialogs, same as the Positions tab); read-only otherwise. `positions` is expected

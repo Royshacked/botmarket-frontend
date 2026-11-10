@@ -3,7 +3,7 @@ import './ChatChart.scss'
 
 /**
  * A chart the AGENT rendered and looked at (get_chart with show_to_user), shown inline in its chat
- * thread. ONE component for every agent (Kairos, Atlas, Mentor, Analyst), so the row is the
+ * thread. ONE component for every agent (Atlas, Mentor, Analyst), so the row is the
  * same wherever it lands — hence its own `chat-chart` namespace instead of each panel's bubble
  * classes. Panels reach it through ChatBubble; AxlChatPanel (its own message loop) renders it
  * directly.

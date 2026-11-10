@@ -61,9 +61,9 @@ describe('executeRoute', () => {
             .toEqual({ kind: 'event', event: SETUP_CONFIRM_OPEN, payload: { setupId: 's1' } })
     })
 
-    it('a call has no confirm surface left — its desk is archived', () => {
+    it('a kind the client does not know (the deleted `call`) routes nowhere', () => {
         expect(executeRoute(entityRow({ origin: { kind: 'call', entityId: 'c1' } })))
-            .toEqual({ kind: 'none', reason: 'archived_desk' })
+            .toEqual({ kind: 'none', reason: 'unknown_origin' })
     })
 
     it('a QUEUED action gets the queue\'s own confirm — there is nothing left to fill in', () => {

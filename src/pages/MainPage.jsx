@@ -42,7 +42,6 @@ import { redrawAsk } from '../cmps/MentorPanel/redrawAsk.js'
 import { sharedAsk } from '../cmps/MentorPanel/sharedAsk.js'
 import { listenForPopupEvents } from '../services/popupBridge.js'
 import { useCalendarEvents } from '../customHooks/useCalendarEvents.js'
-import { useScans }          from '../customHooks/useScans.js'
 import { useBrokerAccounts } from '../customHooks/useBrokerAccounts.js'
 import { useWorkspaceMode }  from '../customHooks/useWorkspaceMode.js'
 import { usePositions }      from '../customHooks/usePositions.js'
@@ -51,7 +50,6 @@ import { useEntityList } from '../customHooks/useEntityList.js'
 import { useDesign }         from '../customHooks/useDesign.js'
 import { useSetups }         from '../customHooks/useSetups.js'
 import { useAetherCandidates } from '../customHooks/useAetherCandidates.js'
-import { aetherService } from '../services/aether/aether.service.remote.js'
 import { deriveIdeaOverlay, deriveSetupOverlay } from '../cmps/TradeIdeas/chartOverlay.js'
 import { useAuth }           from '../context/AuthContext.jsx'
 import { coverageRoute }     from './coverageRoute.js'
@@ -61,12 +59,10 @@ import { closePanel }        from '../cmps/DetailPanel/detailPanel.store.js'
 import { OwnedSymbolsProvider } from '../cmps/OwnedBadge/OwnedBadge.jsx'
 import { ownedSymbols }      from '../services/ownedSymbols.js'
 
-// (Scan candidates now seed the KAIROS chat via handleBuildFromCandidate — the idea-summary/context
-// builders they used were removed with that reroute. See K3, KAIROS_MODES.md.)
-
 // Axl's `<show>` kinds for the Floor's lists (the user's word) → FloorLists's desk keys (handleOpenView).
+// `watchlists` left on 2026-11-09 with the scan list (archive/README.md).
 const VIEW_DESKS = Object.freeze({
-    calendar: 'calendar', orders: 'queued', trades: 'trade', portfolios: 'portfolio', watchlists: 'scans', hotlist: 'hotlist',
+    calendar: 'calendar', orders: 'queued', trades: 'trade', portfolios: 'portfolio', hotlist: 'hotlist',
     positions: 'positions', board: 'board',
 })
 
@@ -165,7 +161,7 @@ export function MainPage() {
     // A route Pythia's or Aether's panel offered (its RouteOffer) INTO the other — the panels still open on a seed.
     const [pythiaSeed, setPythiaSeed] = useState(null)
     const [aetherSeed, setAetherSeed] = useState(null)
-    const [newsTab, setNewsTab]                 = useState('scans')
+    const [newsTab, setNewsTab]                 = useState('earnings')
 
     // The Analyst's living coverage book (Radar Coverage tab). Reloads on initiate/retire
     // (COVERAGE_CHANGED); polled so the monitor's status/gap updates surface.
@@ -209,9 +205,6 @@ export function MainPage() {
         })
     }
 
-    // The Calls-tab pencil (handleEditCall) and its exit (handleCallEditDone) lived here. Kairos
-    // was archived on 2026-08-18, so there is no chat to reopen a call into. handleEditSetup below
-    // is the surviving shape of the same gesture.
     const [dismissedConfirmIds, setDismissedConfirmIds] = useState(() => new Set())
     const [setupConfirmId, setSetupConfirmId] = useState(null) // Mentor setup showing the OrderConfirmDialog
     const [setupDrift, setSetupDrift]         = useState(null) // the server's 409 `price_moved` numbers, once refused
@@ -236,8 +229,7 @@ export function MainPage() {
     const handleDisarmSetup  = (su) => _setupAction(su, mentorService.disarmSetup, 'stop watching')
     const handleDeleteSetup  = (su) => _setupAction(su, mentorService.deleteSetup, 'delete')
 
-    // Setup pencil → back into the Mentor chat that BUILT it, the same move handleEditCall makes
-    // for a call. Mentor persists `chat_state` (messages + draft + coverage) on Generate and on
+    // Setup pencil → back into the Mentor chat that BUILT it. Mentor persists `chat_state` (messages + draft + coverage) on Generate and on
     // every edit turn, so the conversation reopens where it left off.
     //
     // A setup saved before chat_state was carried has no conversation to restore: the server rebuilds
@@ -270,11 +262,6 @@ export function MainPage() {
         })
     }
     const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, industries, industriesLoading, industriesError, week, assessments, themes } = useCalendarEvents()
-    const { scans, loading: scansLoading, loadScans, deleteScan } = useScans()
-
-    // The Events radar's "scan it" is in flight (the board is built server-side). The board itself rides on the session
-    // turn and is kept in ARGUS'S state for the cut (phase 8d) — its runIds stamp the saved list there.
-    const [radarBusy,  setRadarBusy]  = useState(false)
     const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
     // The marked accounts as a ref, for the one-shot doorways below that must not re-register on
     // every selection change (SETUP_SHARED_OPEN reads it to ask readiness the right question).
@@ -344,26 +331,6 @@ export function MainPage() {
         return true
     }
 
-    /**
-     * New work onto ARGUS'S TABLE — a radar cut, a brief from a route or a card (phase 8d CR). Never on top of what Argus
-     * holds: a list being built, a saved list being edited (Update would write the new names over it), a name it is
-     * finding for another desk. Any of those → the user is asked; then the table is cleaned (the lens kept, or the one
-     * given) and the turn goes. → whether it went.
-     */
-    async function onArgusTable(text, { profile = null, extra = {}, what = 'start this' } = {}) {
-        const argus = mainSessionRef.current.agentState?.scanner
-        const held = argus?.editingScanId ? 'editing a saved list'
-            : argus?.pendingScan?.candidates?.length ? `building "${argus.pendingScan.thesis ?? 'a list'}"`
-            : argus?.handoff || argus?.chainId ? 'finding a name for another desk'
-            : null
-        if (held && !window.confirm(`Argus is ${held}. Put it aside and ${what}?`)) return false
-        const lens = profile === 'investing' || profile === 'trading' ? { profile } : {}
-        const clean = await mainSessionRef.current.edit('scanner', { fresh: true, ...lens })
-        if (!clean.ok) { showErrorMsg(clean.message); return false }
-        // The table is already clean — a turn that did not go is said, so the user knows to send it again.
-        if (await talkTo('scanner', text, extra) === false) { showErrorMsg('Argus did not get that — send it again from the chat.'); return false }
-        return true
-    }
     const { workspace, setWorkspace } = useWorkspaceMode(user?._id)
     const { positions, loading: positionsLoading, refresh: refreshPositions, closePosition, closePositions } = usePositions()
     const { ideas, setIdeas, loadIdeas, loading: ideasLoading, handleStatusChange, preEntryPrompt, setPreEntryPrompt } = useTradeIdeas()
@@ -378,15 +345,14 @@ export function MainPage() {
     // Atlas's surface reads the books (a book's holdings are ideas with its portfolioId) and hands back what follows a
     // save or an adoption — on top of the props every surface takes.
     const surfaceProps = useMemo(
-        () => ({ ...paneDeskProps, ideas, coverage, onSaved: handleDeskSaved, onAdopted: handleBookAdopted, onTicker: (t) => openChart({ ticker: t, source: 'scanner' }) }),
+        () => ({ ...paneDeskProps, ideas, coverage, onSaved: handleDeskSaved, onAdopted: handleBookAdopted }),
         [paneDeskProps, ideas, coverage], // eslint-disable-line react-hooks/exhaustive-deps -- the two handlers are re-read through the memo's next build
     )
 
     // A press on a surface saved something: the page re-reads what it changed. Atlas: the book, and the queued list
-    // when a change waits for the open (the list is fetched, never pushed — reviewApply.queuedAnything). Argus: the
-    // Scans tab. Prometheus: the coverage book.
+    // when a change waits for the open (the list is fetched, never pushed — reviewApply.queuedAnything). Prometheus: the
+    // coverage book. (Argus saves nothing since 2026-11-09 — his list-building chat is archived.)
     function handleDeskSaved({ agent, result }) {
-        if (agent === 'scanner') { loadScans(); setNewsTab('scans'); return }
         // (The coverage book itself reloads on COVERAGE_CHANGED, which the commit announces — session.service.remote.)
         if (agent === 'analyst') { setNewsTab('coverage'); return }
         loadIdeas()
@@ -431,12 +397,10 @@ export function MainPage() {
     const [ticketError, setTicketError]   = useState(null)
     const [preEntryBusy, setPreEntryBusy] = useState(false)
 
-    // A position row in the Floor's book opens whatever OWNS it. Call-originated positions routed
-    // to the Call pop-out until Kairos was archived (2026-08-18); an idea is the only owner left.
-    // Same rule TradeIdeasList uses for its Positions tab — the routing is the entity's, not the
+    // A position row in the Floor's book opens the idea that OWNS it. Same rule TradeIdeasList uses for its Positions tab — the routing is the entity's, not the
     // panel's, so both surfaces ask positionOpenTarget.
     function handleOpenPositionFromFloor(position) {
-        const target = positionOpenTarget(position, ideas, [])
+        const target = positionOpenTarget(position, ideas)
         if (target?.kind === 'idea') openIdeaPopup(target.idea)
     }
 
@@ -477,7 +441,7 @@ export function MainPage() {
     const confirmSetupLevels = confirmSetup ? deriveSetupOverlay(confirmSetup).levels : []
 
     // The card listeners below register once, so they cannot close over state — these are what they
-    // read instead. There used to be four more, mirroring the ideas / calls / setups / coverage
+    // read instead. There used to be four more, mirroring the ideas / setups / coverage
     // lists so a card could resolve its subject out of them; the cards now READ their subject by id
     // (resolveEntity), which is both fresher and the same authorization the server already applies.
     // What is left is state with no document behind it to fetch.
@@ -569,10 +533,6 @@ export function MainPage() {
             if (idea?.status === 'hit') handleDismissConfirm(idea)
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-    // The CALL_EXPIRY_EDIT doorway was here. Kairos was archived on 2026-08-18, so an expiry card
-    // has no desk to reopen into; historical cards still RENDER (their bubbles are pure), they
-    // just no longer offer an edit that would land nowhere. See archive/README.md.
 
     // An entity POP-OUT asked for something only the app window can do (re-draw it in the desk's
     // chat). The bridge re-emits onto this same eventBus under the same event names the social-chat
@@ -673,7 +633,7 @@ export function MainPage() {
     // with the name it named nowhere in sight.
     //
     //   • a monitor VERDICT (mode 'revise') → the pencil's own pipeline: update mode on that doc, a
-    //     revise turn already in flight. The same move the Calls tab makes from its expiry card.
+    //     revise turn already in flight.
     //   • a REFRESHED thesis (mode 'open') → just show it. The research already ran; firing another
     //     multi-minute re-model to read the one that just landed is the opposite of the ask.
     useEffect(() => {
@@ -1254,7 +1214,6 @@ export function MainPage() {
         if (!doc) return false
         switch (kind) {
             case 'setup':     handleEditSetup(doc);   return true
-            case 'scan':      handleEditScan(doc);    return true
             case 'coverage':  setNewsTab('coverage'); handleEditCoverage(doc); return true
             case 'portfolio': handleEditPortfolio(doc.portfolioId); return true
             default:          return false
@@ -1284,48 +1243,11 @@ export function MainPage() {
             openDesk(agent)
             return
         }
-        // New work for Argus lands on a clean table, asked first over its work (phase 8e bug hunt #1) — like a radar cut.
-        if (agent === 'scanner') {
-            if (!opening || await onArgusTable(opening, { profile: 'trading', what: 'start this scan' })) openDesk(agent)
-            return
-        }
+        // Argus is reached ONLY through Mentor's route, on the server (2026-11-09: his list-building chat is archived) —
+        // a panel's offer to send the user there opens nothing.
+        if (agent === 'scanner') return
         if (opening) talkTo(agent, opening)
         openDesk(agent)
-    }
-
-    // Scan candidate → idea: carries the scanner's intended direction.
-    // K3: a scan-list candidate is a Kairos SEED — same path as the Argus hand-off (point 6). Routes to
-    // the Kairos chat with the candidate's ticker + read (+ Argus's recommended lens if the scan carried one).
-    // Argus INVESTING candidate → the Analyst for research (a coverage thesis), not a Kairos trade.
-    // ONE name off a list → the RESEARCH desk, which is exactly its job: a coverage thesis on a
-    // company. Distinct from sending a whole sleeve, which is portfolio work — the user who clicked
-    // a single ticker asked about that company, not to start building a book around it.
-    // Since phase 8d it is a session turn to Prometheus, the name's read riding as the turn's seed.
-    function handleResearchCandidate(candidate, scan) {
-        if (!candidate?.ticker) return
-        const sector = scan?.thesis ?? null   // the sleeve/mandate label frames the read
-        talkTo('analyst', `Research ${candidate.ticker} for coverage${sector ? ` — it is a candidate for the ${sector} sleeve` : ''}.`, {
-            seed: { ticker: candidate.ticker, sector, thesis: candidate.thesis ?? null, analysis: candidate.analysis ?? candidate.thesis ?? null },
-        })
-        openDesk('analyst')
-    }
-
-    function handleBuildFromCandidate(candidate, scan) {
-        if (!candidate?.ticker) return
-        // Investing lists produce RESEARCH candidates → route to the Analyst; trading → Mentor.
-        if (scan?.profile === 'investing' || scan?.destination === 'analyst') return handleResearchCandidate(candidate, scan)
-        // A name off a saved list, to Mentor as a session turn (phase 8b) — the read rides as
-        // the seed, as the live Argus → Mentor hand-off's do. (The list's period never reached the setup: Mentor
-        // read the candidate alone, then and now.)
-        const turn = handoffTurn({
-            ticker:    candidate.ticker,
-            direction: candidate.direction === 'short' ? 'short' : 'long',
-            thesis:    candidate.thesis ?? null,
-            analysis:  candidate.analysis ?? candidate.thesis ?? null,
-        })
-        if (!turn) return
-        talkTo('mentor', turn.text, { seed: turn.seed })
-        openDesk('mentor')
     }
 
 
@@ -1354,55 +1276,6 @@ export function MainPage() {
     function handleBuildFromIpo(ipoItem) {
         if (!ipoItem?.symbol) return
         seedMentorChat(ipoItem.symbol, buildIpoSeed(ipoItem))
-    }
-
-    /**
-     * Hand the Events radar's board to Argus.
-     *
-     * The board is built SERVER-SIDE (aetherScanUniverse) rather than from the runs already on this
-     * screen, for one reason: the exclusion rule needs this user's saved radar lists, and the screen
-     * has the events but not the history. Asking the server costs one read and cannot disagree with
-     * itself.
-     *
-     * A fresh Argus every time (onArgusTable): a cut is its own conversation, and opening on yesterday's list would hand
-     * the model a board it has already answered.
-     */
-    async function handleScanRadar() {
-        if (radarBusy) return
-        setRadarBusy(true)
-        try {
-            const board = await aetherService.getScanUniverse()
-            if (!board?.candidates?.length) {
-                // Not an error — it is the rule working. Every name on the board is already on a
-                // list of theirs, and saying so is the answer.
-                // showSuccessMsg, not a bare showUserMsg: UserMsg interpolates `msg.type` straight
-                // into its class list, so a typeless toast renders unstyled with a literal
-                // "undefined" class. This IS the rule working, which is close enough to success.
-                showSuccessMsg('Nothing new on the radar — every name is already on one of your lists.')
-                return
-            }
-            // SHORT on purpose: the turn is the user's own bubble. The board travels beside it (the turn's
-            // `radarBoard`, kept in Argus's state for the cut), not as a hundred lines the user appears to have typed.
-            const message = `Cut today's radar board — ${board.candidates.length} name${board.candidates.length === 1 ? '' : 's'}`
-                + `${board.runs ? ` across ${board.runs} events` : ''}`
-                + `${board.skipped?.length ? `, with ${board.skipped.length} held back from my last list` : ''}.`
-                + ' Which have a catalyst and a setup in the coming week?'
-            // A CUT STARTS ON A CLEAN TABLE, on the trading lens — it is its own conversation (the panel remounted Argus
-            // for it), and never on top of Argus's work (phase 8d bug hunt #1, CR).
-            if (await onArgusTable(message, { profile: 'trading', extra: { radarBoard: board }, what: 'cut the radar board' })) openDesk('scanner')
-        } catch (err) {
-            console.error('[radar→argus]', err)
-            showErrorMsg(apiError(err, 'Could not build the scan universe'))
-        } finally {
-            setRadarBusy(false)
-        }
-    }
-
-    // Edit a saved list (pencil) → it reopens IN THE SESSION (phase 8d): Argus's state is the list, its surface comes up,
-    // and the next turn refines it — Update saves it back to the same scan.
-    function handleEditScan(scan) {
-        if (!scan?.id) return
-        editEntity('scan', scan.id, { name: scan.thesis ?? null })
     }
 
     // The pad is built here and shown in the side pane's `ticket` tab, which stays MOUNTED (TicketSurface.keepMounted):
@@ -1452,7 +1325,6 @@ export function MainPage() {
                                     setups={workspaceSetups}
                                 ideas={workspaceIdeas}
                                 positions={positions}
-                                scans={scans}
                                 coverage={coverage}
                                 queued={queued}
                                 onExecuteQueued={handleExecuteQueued}
@@ -1466,19 +1338,16 @@ export function MainPage() {
                                 week={week}
                                 assessments={assessments}
                                 themes={themes}
-                                aetherCandidates={{ runs: aetherRuns, loading: aetherLoading, error: aetherError, onRead: onAetherRead, onTradeWithMentor: seedMentorChat, onScanWithArgus: handleScanRadar, scanBusy: radarBusy }}
+                                aetherCandidates={{ runs: aetherRuns, loading: aetherLoading, error: aetherError, onRead: onAetherRead, onTradeWithMentor: seedMentorChat }}
                                 onEarningSelect={handleBuildFromEarning}
                                 onIpoSelect={handleBuildFromIpo}
                                 onHotlistBuild={handleBuildFromHotlist}
-                                onCandidateSelect={handleBuildFromCandidate}
                                 onEditSetup={handleEditSetup}
                                 onDeleteSetup={handleDeleteSetup}
                                 onEditPortfolio={handleEditPortfolio}
                                 onDeletePortfolio={handleDeletePortfolio}
                                 onActivatePortfolio={handleActivatePortfolio}
                                 onDeleteIdea={handleDeleteIdea}
-                                onEditScan={handleEditScan}
-                                onDeleteScan={deleteScan}
                                 onEditCoverage={handleEditCoverage}
                                 onRetireCoverage={handleRetireCoverage}
                                 onDeleteCoverage={handleDeleteCoverage}
@@ -1548,11 +1417,6 @@ export function MainPage() {
                             radar={{
                                 tab:               newsTab,
                                 onTabChange:       setNewsTab,
-                                scans,
-                                scansLoading,
-                                onCandidateSelect: handleBuildFromCandidate,
-                                onDeleteScan:      deleteScan,
-                                onEditScan:        handleEditScan,
                                 coverage,
                                 coverageLoading,
                                 industries,
@@ -1575,7 +1439,7 @@ export function MainPage() {
                                 ipoLoading,
                                 onIpoSelect:       handleBuildFromIpo,
                             }}
-                            aetherCandidates={{ runs: aetherRuns, loading: aetherLoading, error: aetherError, onRead: onAetherRead, onTradeWithMentor: seedMentorChat, onScanWithArgus: handleScanRadar, scanBusy: radarBusy }}
+                            aetherCandidates={{ runs: aetherRuns, loading: aetherLoading, error: aetherError, onRead: onAetherRead, onTradeWithMentor: seedMentorChat }}
                         />
                     </div>
                     )}

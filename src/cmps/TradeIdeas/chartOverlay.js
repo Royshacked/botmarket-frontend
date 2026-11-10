@@ -1,16 +1,14 @@
-import { isLivePosition, isTerminal, isAwaitingConfirm, isInvalidated } from '../../services/entityStatus.js'
-// Derive what to draw on an idea/call's chart: trade LEVELS (entry/stop/tp/zones) + relevant
-// INDICATORS. Consumed by IdeaDetail / CallPage → PriceChart, which just draws the spec.
+import { isLivePosition, isTerminal } from '../../services/entityStatus.js'
+// Derive what to draw on an idea/setup's chart: trade LEVELS (entry/stop/tp/zones) + relevant
+// INDICATORS. Consumed by IdeaDetail / SetupPage → PriceChart, which just draws the spec.
 //
 // Level sourcing is clean-numeric only (no free-text parsing):
-//   - Call: entry_zones / reference_levels (pre-proposal) → proposal entry/stop/tp (ready) →
-//     position_state entry/stop/targets/exit (in position / closed).
 //   - Idea: invalidation band always; when IN POSITION, entry (from the live position fill) +
 //     stop/tp (nativeProtection). An idea's entry/stop/tp live as FREE TEXT in leaf conditions and
 //     are intentionally NOT parsed here (deferred) — so a pre-position idea shows only its
 //     invalidation band.
 //
-// Indicators are extracted from the item's free text (idea conditions / call patterns / setup
+// Indicators are extracted from the item's free text (idea conditions / setup
 // conditions) by textToIndicators — the frontend mirror of the backend _buildStudies
 // (chart.evaluator.js) + studiesToIndicators (studyTranslate.js). Keep the two in sync on the
 // `family(N)` grammar; the FE additionally reads the prose forms ("20 EMA") because a setup's
@@ -295,54 +293,4 @@ export function deriveIdeaOverlay(idea, positions = []) {
     for (const phase of ['entry', 'stop', 'tp']) collectConditions(phaseTree(idea, phase), condTexts)
 
     return { levels: dedupeLevels(levels), indicators: textToIndicators(condTexts.join(' ; ')) }
-}
-
-// ── Call ────────────────────────────────────────────────────────────────────
-/**
- * @param {object} call
- * @returns {{ levels: Array, indicators: Array }}
- */
-export function deriveCallOverlay(call) {
-    if (!call) return { levels: [], indicators: [] }
-    const levels = []
-    const ps     = call.position_state
-    const p      = call.monitor_state?.last_assessment?.proposal
-    const status = call.status
-    const side   = ps?.entry?.direction || call.bias || null
-
-    if (ps && (isLivePosition(status) || isTerminal(status))) {
-        const entry = ps.entry?.fill_price ?? ps.entry?.intended
-        if (num(entry) != null) levels.push({ kind: 'entry', price: num(entry), label: 'Entry', side })
-        if (num(ps.stop?.current) != null) levels.push({ kind: 'stop', price: num(ps.stop.current), label: 'Stop', side })
-        ;(ps.targets || []).forEach((t, i) => {
-            if (num(t?.price) != null) levels.push({ kind: 'tp', price: num(t.price), label: `TP${i + 1}${t.hit_at ? ' ✓' : ''}`, side })
-        })
-        if (status === 'closed' && num(ps.outcome?.exit_price) != null) {
-            levels.push({ kind: 'exit', price: num(ps.outcome.exit_price), label: 'Exit', side })
-        }
-    } else if (p && (isAwaitingConfirm(status) || isInvalidated(call.invalidation_status))) {
-        if (num(p.entry) != null) levels.push({ kind: 'entry', price: num(p.entry), label: 'Entry', side })
-        if (num(p.stop)  != null) levels.push({ kind: 'stop',  price: num(p.stop),  label: 'Stop',  side })
-        ;(p.take_profit || []).forEach((t, i) => {
-            if (num(t?.price) != null) levels.push({ kind: 'tp', price: num(t.price), label: `TP${i + 1}`, side })
-        })
-    } else {
-        // Pre-proposal: the entry zone(s) + reference levels the call was authored with. The zone IS
-        // the planned entry region (a ready call has no single entry price yet), so label it as such.
-        //
-        // A CALL KEEPS ITS BANDS. Kairos is archived and its documents are frozen, so this is the
-        // last reader of `entry_zones` / `lower` / `upper` in the app — the setup kind moved off
-        // them on 2026-09-24 and these did not, because nothing will ever re-author a call.
-        for (const z of call.entry_zones || []) {
-            if (num(z.lower) != null) levels.push({ kind: 'zone', price: num(z.lower), label: 'Entry zone', side: z.side })
-            if (num(z.upper) != null) levels.push({ kind: 'zone', price: num(z.upper), label: 'Entry zone', side: z.side })
-        }
-        for (const r of call.reference_levels || []) {
-            if (num(r.price) != null) levels.push({ kind: 'ref', price: num(r.price), label: r.kind || 'Level' })
-        }
-    }
-
-    // Indicators the call references — from its pattern names / look-fors and the thesis prose.
-    const patText = [call.thesis || '', ...(call.patterns || []).map(pt => `${pt.name || ''} ${pt.look_for || ''}`)].join(' ; ')
-    return { levels: dedupeLevels(levels), indicators: textToIndicators(patText) }
 }

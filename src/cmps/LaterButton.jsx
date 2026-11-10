@@ -2,7 +2,7 @@ import PropTypes from 'prop-types'
 
 // The muted escape at the end of an agent's action bar: leave the thing you are editing or
 // reviewing WITHOUT saving it. Eight hand-written copies before this — the same sentence, the same
-// role, the same always-enabled contract — across the idea chat, Atlas, Argus, Kairos and Mentor.
+// role, the same always-enabled contract — across the idea chat, Atlas, Argus and Mentor.
 // The sentence had already drifted into three different button shells and would have kept drifting.
 //
 // Shared here is the SHELL: the words, the button semantics, and the default muted styling. What
@@ -13,7 +13,7 @@ import PropTypes from 'prop-types'
 // `className` is a deliberate seam rather than a variant enum: most action bars are built from
 // `portfolio-panel__review-btn` (the default below), but Atlas sits this next to a
 // full-size `__generate` primary and size it to match. One panel modifier rides along the same way
-// (Kairos and Mentor already appended theirs).
+// (Mentor already appended its own).
 export const LATER_BTN_CLASS = 'portfolio-panel__review-btn portfolio-panel__review-btn--later'
 
 export function LaterButton({ onClick, disabled = false, className = LATER_BTN_CLASS }) {

@@ -52,15 +52,17 @@ describe('formatTime', () => {
     })
 })
 
-// The Idea desk is archived. Dropping it from BOT_IDS unpins the thread, but that ALONE makes it
+// The Idea desk is archived and Kairos deleted. Dropping one from BOT_IDS unpins the thread, but that ALONE makes it
 // render as a person (an unrecognised id falls through to the human-DM branch) — so the retired
 // list is what actually removes it. Mirrors the backend RETIRED_BOT_IDS.
 describe('retired bot feeds', () => {
-    it('idea is retired, and retired is not the same as unknown', () => {
-        expect(RETIRED_BOT_IDS).toEqual(['idea'])
+    it('idea and kairos are retired, and retired is not the same as unknown', () => {
+        expect(RETIRED_BOT_IDS).toEqual(['idea', 'kairos'])
         expect(isRetiredBotId('idea')).toBe(true)
         expect(isBotId('idea')).toBe(false)
-        expect(isRetiredBotId('kairos')).toBe(false)
+        expect(isRetiredBotId('kairos')).toBe(true)
+        expect(isBotId('kairos')).toBe(false)
+        expect(isRetiredBotId('hermes')).toBe(false)
     })
 
     it('no id is ever both live and retired', () => {

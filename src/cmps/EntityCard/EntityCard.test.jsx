@@ -87,7 +87,7 @@ describe('shared controls', () => {
     })
 
     it('StatusBadge can borrow another kind\'s icon without renaming its own status', () => {
-        // The call pop-out uses this: a position filled SHORT shows the short icon, taken from
+        // A pop-out may use this: a position filled SHORT shows the short icon, taken from
         // position_state.entry.direction rather than from the status word.
         const { container } = render(<StatusBadge status="long" iconStatus="short" label="in position" />)
         expect(container.querySelector('.status--short')).toBeTruthy()

@@ -29,8 +29,7 @@ export const DEFAULT_MODEL = 'claude-sonnet-5'
 // ── The monitors' model (Talos) ──────────────────────────────────────────────
 // A SEPARATE list, on purpose: these are the CANDIDATES under evaluation for the Talos read
 // (backend monitoring/assess.shared.js TALOS_MODELS — ids must match there). The house card offers
-// them, to an admin only, and the pick is the house's `talosModel` for every setup read — the
-// per-user `hermesModel` preference is no longer read by anything. Haiku is deliberately absent:
+// them, to an admin only, and the pick is the house's `talosModel` for every setup read. Haiku is deliberately absent:
 // it was rejected for a real read.
 export const TALOS_DEFAULT_MODEL = 'claude-sonnet-4-6'
 export const TALOS_MODEL_OPTIONS = [

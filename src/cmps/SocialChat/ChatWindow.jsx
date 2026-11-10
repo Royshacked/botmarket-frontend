@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
-// The call pop-out (Confirm entry / Accept edit / Delete live there) — one opener, shared
-// with the Calls list, so the window name and size can't drift between the two entry points.
-import { openCallPopup, openSetupPopup } from '../TradeIdeas/tradeIdea.utils.js'
+import { openSetupPopup } from '../TradeIdeas/tradeIdea.utils.js'
 import { manageVerb } from '../TradeIdeas/setupManage.js'
 import { eventBus, PORTFOLIO_REVIEW, MANUAL_FILLED, ENTRY_CONFIRM_OPEN, ENTRY_CONFIRM_DISMISS, SETUP_CONFIRM_OPEN, SETUP_INVALIDATION_EDIT, OPEN_COVERAGE, OPEN_SECTOR_VIEW, MARKET_BRIEF_OPEN, OPEN_QUEUED_LIST, RESUME_BUILD, SETUP_SHARED_OPEN } from '../../services/event-bus.service'
 import { manualService } from '../../services/manual/manual.service.remote'
@@ -141,11 +139,8 @@ export function CardBubble({ msg, mine = false, onClose = () => {}, onResolve, f
         // RETIRED 2026-08-07 — nothing posts orders_ready any more (the market-open sweep sends one
         // queue_ready instead). Kept so the batch cards already in a user's history still render.
         case 'orders_ready':       return msg.payload ? <OrdersReadyBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
-        case 'call_expiry':        return msg.payload ? <CallExpiryBubble msg={msg} onResolve={onResolve} /> : fallback
-        case 'call_manage':        return msg.payload ? <CallManageBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
         case 'setup_invalidation': return msg.payload ? <SetupInvalidationBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
         case 'setup_manage':       return msg.payload ? <SetupManageBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
-        case 'call_reentry':       return msg.payload ? <CallReentryBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
         case 'coverage_event':     return msg.payload ? <CoverageEventBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
         case 'industry_view':      return msg.payload ? <IndustryViewBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
         case 'sleeve_sourced':     return msg.payload ? <SleeveSourcedBubble msg={msg} onClose={onClose} onResolve={onResolve} /> : fallback
@@ -224,7 +219,7 @@ export function ChatWindow({ conversation, messages, currentUserId, loading, has
         )
     }
 
-    // Specialist bot threads (Atlas/Argus/Kairos…) are notify-only feeds — you reply and edit
+    // Specialist bot threads (Atlas/Argus/Mentor…) are notify-only feeds — you reply and edit
     // in that agent's own chat via the card, not here. Only Axl and human DMs are chattable.
     // Notify-only shows NO composer and no explanatory line: the cards already route, and a
     // standing footer under every feed was noise on every message the user read.
@@ -345,7 +340,7 @@ SetupPicker.propTypes = { onPick: PropTypes.func.isRequired, onClose: PropTypes.
 // Every card is a thin adapter over NotificationCard: it supplies the agent, heading/body, the
 // primary "do something" (route + resolve done) and — where dismissing has a side effect — a
 // custom dismiss. Strictly two buttons; finer actions (close/delete/edit) live in the surface the
-// primary opens (the call pop-out, the Calls tab).
+// primary opens (the setup pop-out, the list).
 
 // An idea's invalidation alert. Dismiss only: the idea chat its primary used to reopen is gone, and
 // editing a hand-made idea's levels returns through the order ticket. `resolvedLabels` stay so the
@@ -369,17 +364,15 @@ export function InvalidationAlertBubble({ msg, onResolve }) {
 }
 
 // "Entry triggered — confirm" card. An idea routes to the workspace's OrderConfirmDialog, a setup to
-// its own confirm. Replayable on the collapsed chip. A Kairos call's confirm surface was archived with
-// Kairos (2026-08-18), so its card is Dismiss only — the primary would open nothing.
+// its own confirm. Replayable on the collapsed chip.
 const ENTRY_CONFIRM_NOTE = { passed_earlier: 'Scheduled time already passed', off_hours: 'Fired while market was closed' }
 
 export function EntryConfirmBubble({ msg, onClose, onResolve }) {
     const { kind, ideaId, setupId, asset, note, warning, scenario } = msg.payload
-    const isCall  = kind === 'call'
     const isSetup = kind === 'setup'
     // Tag = the desk that sent it. A holding's confirm is Atlas's; a lone legacy idea keeps the
     // Idea mark (its desk is archived, but that IS who authored the plan).
-    const agent   = isCall ? AGENTS.kairos : isSetup ? AGENTS.mentor
+    const agent   = isSetup ? AGENTS.mentor
         : kind === 'portfolio_item' ? AGENTS.portfolio : AGENTS.idea
 
     function route() {
@@ -391,10 +384,10 @@ export function EntryConfirmBubble({ msg, onClose, onResolve }) {
         route()
         onClose?.()
     }
-    // Dismissing an idea entry parks it back to 'waiting' (re-armable); a call or setup collapses.
+    // Dismissing an idea entry parks it back to 'waiting' (re-armable); a setup collapses.
     function handleDismiss() {
         onResolve?.(msg.id, { status: 'dismissed', outcome: 'dismissed' })
-        if (!isCall && !isSetup) eventBus.emit(ENTRY_CONFIRM_DISMISS, { ideaId })
+        if (!isSetup) eventBus.emit(ENTRY_CONFIRM_DISMISS, { ideaId })
     }
 
     // A setup's card fires on ANY Talos verdict — advisory, never a veto — so when the verdict was
@@ -413,10 +406,7 @@ export function EntryConfirmBubble({ msg, onClose, onResolve }) {
     return (
         <NotificationCard
             agent={agent} kind="confirm" heading={heading} asset={asset} body={msg.content}
-            // No onPrimary for a call either: a call card resolved `done` in old history would
-            // otherwise offer to reopen through it from the collapsed chip.
-            primaryLabel={msg.actions?.primary?.label ?? 'Confirm order'} onPrimary={isCall ? undefined : handlePrimary}
-            dismissOnly={isCall}
+            primaryLabel={msg.actions?.primary?.label ?? 'Confirm order'} onPrimary={handlePrimary}
             onDismiss={handleDismiss} onResolve={onResolve} msg={msg} reopenOnDone
             resolvedLabels={{ confirmed: '✓ Opened' }}
         />
@@ -520,53 +510,7 @@ export function QueueReadyBubble({ msg, onClose, onResolve }) {
     )
 }
 
-// "Trade thesis expiring / expired" card for a Kairos call. Dismiss only: the Kairos edit mode its
-// primary used to open was archived with Kairos (2026-08-18). Delete lives in the Calls tab / call
-// pop-out. `resolvedLabels` stay so the cards already resolved in history keep their chips.
-export function CallExpiryBubble({ msg, onResolve }) {
-    const { asset, kind, why } = msg.payload
-    const heading   = `${kind === 'expired' ? 'Thesis expired' : 'Thesis expiring'} · ${asset}`
-    const kindLabel = kind === 'expired' ? 'expired' : 'expiring'   // payload kind is 'edit'|'expired'
-
-    return (
-        <NotificationCard
-            agent={AGENTS.kairos} kind="expiry" heading={heading} asset={asset} qualifier={kindLabel} body={why || msg.content}
-            dismissOnly
-            onResolve={onResolve} msg={msg}
-            resolvedLabels={{ editing: '✓ Opened in chat', deleted: '✓ Deleted' }}
-        />
-    )
-}
-
-// "Kairos wants to manage the position" card. Primary opens the call pop-out where the user accepts
-// (move stop / take partial / exit / let run) or dismisses.
-//
-// `let_run` STAYS in this table although no live desk can emit it any more (it left Talos on
-// 2026-09-17 and the shared executor on 2026-09-29). Kairos is archived and its cards are frozen in
-// their owners' chat history; a word here is what keeps one of those old cards readable, which is
-// the same reason AGENTS.kairos and the badges are kept.
-const MANAGE_VERB_COPY = { move_stop: 'move the stop', take_partial: 'take a partial', exit_now: 'exit now', let_run: 'let it run' }
-export function CallManageBubble({ msg, onClose, onResolve }) {
-    const { callId, asset, verdict, read } = msg.payload
-    const verb = MANAGE_VERB_COPY[verdict] ?? verdict
-
-    function handlePrimary() {
-        openCallPopup(callId)
-        onClose?.()
-    }
-
-    return (
-        <NotificationCard
-            agent={AGENTS.kairos} kind="manage" heading={`Manage ${asset} · ${verb}`} asset={asset} qualifier={verb} body={read || msg.content}
-            primaryLabel={msg.actions?.primary?.label ?? 'Review'} onPrimary={handlePrimary}
-            onResolve={onResolve} msg={msg}
-            resolvedLabels={{ opened: '✓ Opened' }}
-        />
-    )
-}
-
-// "Your setup's plan is no longer worth what it was" — Talos's invalidation card, Mentor's twin of
-// CallExpiryBubble. FOUR events arrive on this one type and they are not the same card:
+// "Your setup's plan is no longer worth what it was" — Talos's invalidation card. FOUR events arrive on this one type and they are not the same card:
 //
 //   invalidated  the premise broke and the user asked to be given the chance to re-draw → primary
 //                reopens the setup in the Mentor chat that built it (SETUP_INVALIDATION_EDIT).
@@ -639,7 +583,7 @@ export function SetupInvalidationBubble({ msg, onClose, onResolve }) {
     )
 }
 
-// "Talos wants to change something about a live setup position" — Mentor's twin of CallManageBubble.
+// "Talos wants to change something about a live setup position".
 // Primary opens the setup pop-out, where the proposal's Accept/Dismiss buttons are (and the position,
 // and Talos's journal). A verdict posted WITHOUT actions — `hold`, or anything Talos states rather
 // than proposes — renders as a statement.
@@ -755,27 +699,6 @@ function SharedPriceLine({ asset, drawnPrice, drawnAt, pending }) {
     )
 }
 SharedPriceLine.propTypes = { asset: PropTypes.string, drawnPrice: PropTypes.number, drawnAt: PropTypes.number, pending: PropTypes.bool }
-
-// "Stopped out — re-enter?" card for a Kairos call. Primary opens the call pop-out where the user
-// picks Re-enter (revive the plan) or Close (leave it terminal).
-function CallReentryBubble({ msg, onClose, onResolve }) {
-    const { callId, asset, exit_price, why } = msg.payload
-    const heading = `Stopped out · ${asset}${Number.isFinite(exit_price) ? ` @ ${exit_price}` : ''} — re-enter?`
-
-    function handlePrimary() {
-        openCallPopup(callId)
-        onClose?.()
-    }
-
-    return (
-        <NotificationCard
-            agent={AGENTS.kairos} kind="reentry" heading={heading} asset={asset} body={why || msg.content}
-            primaryLabel={msg.actions?.primary?.label ?? 'Review re-entry'} onPrimary={handlePrimary}
-            onResolve={onResolve} msg={msg}
-            resolvedLabels={{ opened: '✓ Opened' }}
-        />
-    )
-}
 
 // "Industry view changed" card for the strategy desk — a Pythia review changed the house answer on a
 // GICS sub-industry. Primary opens the calendar's Forecasts tab: the answer is a STATE, so there is

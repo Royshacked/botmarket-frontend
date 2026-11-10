@@ -40,7 +40,7 @@ const UNIT_IS_CURRENCY = new Set(['stock', 'stocks', 'equity', 'equities', 'etf'
 
 /**
  * @param {Object}   args
- * @param {Array}    args.levels      from deriveIdeaOverlay / deriveCallOverlay / deriveSetupOverlay
+ * @param {Array}    args.levels      from deriveIdeaOverlay / deriveSetupOverlay
  * @param {Array}    args.orders      the order plan ({ quantity } per leg)
  * @param {string}   args.direction   'long' | 'short'
  * @param {string}   [args.assetClass]
