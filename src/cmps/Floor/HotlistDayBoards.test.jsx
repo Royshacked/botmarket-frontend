@@ -95,6 +95,12 @@ describe('HotlistDayBoards', () => {
         expect(screen.getByText('No day boards on 2026-11-04.')).toBeTruthy()
     })
 
+    it("a headline from the evening before shows its day on the board's row (the live drive, 2026-11-11)", () => {
+        const board = { ...MID, day: '2026-11-11', rows: [{ ...MID.rows[0], catalyst: { news: [{ title: 'Investigation notice', at: '2026-11-10 18:29:00' }], earnings: false, rating: false } }] }
+        const { container } = render(<HotlistDayBoards data={data({ boards: [board] })} now={NOW} />)
+        expect(container.querySelector('tr[data-symbol="SMCI"]').textContent).toContain('Tue 18:29 Investigation notice')
+    })
+
     it('a board with no names says so; a failed read offers a retry', () => {
         const onRetry = vi.fn()
         const { unmount } = render(<HotlistDayBoards data={data({ boards: [{ ...MID, rows: [] }] })} now={NOW} />)

@@ -78,7 +78,7 @@ export function HotlistDayBoards({ data, day = null, boardId: heldId, onBoard, o
                                 </tr>
                             </thead>
                             <tbody>
-                                {rows.map(r => <DayRow key={r.symbol} row={r} onSymbolClick={onSymbolClick} />)}
+                                {rows.map(r => <DayRow key={r.symbol} row={r} day={board.day ?? null} onSymbolClick={onSymbolClick} />)}
                             </tbody>
                         </table>
                     </div>
@@ -104,8 +104,8 @@ function Catalyst({ cat }) {
 }
 Catalyst.propTypes = { cat: PropTypes.object.isRequired }
 
-function DayRow({ row, onSymbolClick }) {
-    const cat = catalystCell(row)
+function DayRow({ row, day = null, onSymbolClick }) {
+    const cat = catalystCell(row, day)
     const dash = <span className="hot-dim">—</span>
     return (
         <tr className="hot-row" data-symbol={row.symbol}>
@@ -122,4 +122,4 @@ function DayRow({ row, onSymbolClick }) {
         </tr>
     )
 }
-DayRow.propTypes = { row: PropTypes.object.isRequired, onSymbolClick: PropTypes.func }
+DayRow.propTypes = { row: PropTypes.object.isRequired, day: PropTypes.string, onSymbolClick: PropTypes.func }

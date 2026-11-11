@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-    etTime, etDay, quotedSpan, latestBoardId, orderedBoards, volText, gapText, catalystCell, dayBoardsNote, DAY_BOARD_ORDER, DAY_BOARD_LABEL,
+    etTime, etDay, quotedSpan, latestBoardId, orderedBoards, volText, gapText, catalystCell, headlineTime, dayBoardsNote, DAY_BOARD_ORDER, DAY_BOARD_LABEL,
 } from './hotlistDay.utils.js'
 
 // Run in a zone that is NOT New York's, so "the times are New York's" proves something on any machine, a New York one
@@ -51,6 +51,15 @@ test('the catalyst: the freshest headline with its time, the flags, how many mor
     assert.deepEqual(catalystCell({ catalyst: { news: [], earnings: false, rating: true } }), { time: null, title: null, flags: ['rating change'], more: 0 })
     assert.equal(catalystCell({ catalyst: null }), null)
     assert.equal(catalystCell({ catalyst: { news: [], earnings: false, rating: false } }), null)
+})
+
+test("a headline from before the board's day shows its day — last evening's story is not today's (live drive 2026-11-11)", () => {
+    assert.equal(headlineTime('2026-11-11 14:23:48', '2026-11-11'), '14:23')
+    assert.equal(headlineTime('2026-11-10 18:29:00', '2026-11-11'), 'Tue 18:29')
+    assert.equal(headlineTime('2026-11-10 18:29:00'), '18:29', 'no board day: the time alone')
+    assert.equal(headlineTime(''), null)
+    const row = { catalyst: { news: [{ title: 'Investigation', at: '2026-11-10 18:29:00' }], earnings: true, rating: false } }
+    assert.equal(catalystCell(row, '2026-11-11').time, 'Tue 18:29')
 })
 
 test('the note: no board says when they run; a past day\'s boards say so', () => {

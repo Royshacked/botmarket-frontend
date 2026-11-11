@@ -67,17 +67,32 @@ export function gapText(row) {
 }
 
 /**
- * A row's catalyst as the table shows it: the freshest headline with its ET time (FMP's times are ET wall-clock), the
- * report and rating flags, and how many more headlines there are. → `{ time, title, flags, more }`, or null. Pure.
+ * A headline's time as the board shows it: "14:23" on the board's own day, "Tue 18:29" before it — fresh means since the
+ * LAST CLOSE, so last evening's story is on today's board, and its bare time read as today's (the live drive, 2026-11-11).
+ * `at` is FMP's ET wall-clock "YYYY-MM-DD HH:MM:SS". Pure.
  */
-export function catalystCell(row) {
+export function headlineTime(at, boardDay = null) {
+    const s = String(at ?? '')
+    const time = s.slice(11, 16) || null
+    const day = s.slice(0, 10)
+    if (!time || !boardDay || !/^\d{4}-\d{2}-\d{2}$/.test(day) || day === boardDay) return time
+    const wd = new Date(`${day}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })
+    return `${wd} ${time}`
+}
+
+/**
+ * A row's catalyst as the table shows it: the freshest headline with its ET time (FMP's times are ET wall-clock) — its day
+ * too when it is not the board's (`boardDay`) — the report and rating flags, and how many more headlines there are.
+ * → `{ time, title, flags, more }`, or null. Pure.
+ */
+export function catalystCell(row, boardDay = null) {
     const c = row?.catalyst
     if (!c) return null
     const news = Array.isArray(c.news) ? c.news : []
     const n = news[0]
     const flags = [c.earnings && 'reported', c.rating && 'rating change'].filter(Boolean)
     if (!n && !flags.length) return null
-    return { time: n ? String(n.at ?? '').slice(11, 16) || null : null, title: n?.title ?? null, flags, more: Math.max(0, news.length - 1) }
+    return { time: n ? headlineTime(n.at, boardDay) : null, title: n?.title ?? null, flags, more: Math.max(0, news.length - 1) }
 }
 
 /**
