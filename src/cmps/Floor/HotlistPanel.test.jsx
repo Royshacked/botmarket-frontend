@@ -7,7 +7,8 @@ vi.mock('../PriceChart/ChartSurface.jsx', () => ({
 }))
 
 vi.mock('../../services/hotlist/hotlist.service.remote.js', () => ({
-    hotlistService: { getToday: vi.fn(), getBoard: vi.fn(), getOutcomes: vi.fn(), getReads: vi.fn(), requestRead: vi.fn(), getBook: vi.fn(), getScorecard: vi.fn(async () => null) },
+    hotlistService: { getToday: vi.fn(), getBoard: vi.fn(), getOutcomes: vi.fn(), getReads: vi.fn(), requestRead: vi.fn(), getBook: vi.fn(), getScorecard: vi.fn(async () => null),
+        getDayBoards: vi.fn(async () => ({ day: null, boards: [], days: [] })) },
 }))
 
 import { hotlistService } from '../../services/hotlist/hotlist.service.remote.js'
@@ -407,7 +408,8 @@ describe('HotlistPanel — a list per horizon', () => {
         // Each count is the list the tab OPENS on (2026-10-24): Argus's names on Open, Prometheus confirmed on This week.
         // The day horizons were archived (2026-10-25): a past day shows only the ones that still have names.
         // Four tabs (2026-10-28), no All — the archived Open only because this day has its names.
-        expect(tabs).toEqual(['Open 1', 'This week 1', 'Swing 0', 'Long term 0', 'Covered companies 0'])
+        // Intraday first since 2026-11-11 (the day boards — none in this test).
+        expect(tabs).toEqual(['Intraday 0', 'Open 1', 'This week 1', 'Swing 0', 'Long term 0', 'Covered companies 0'])
         expect(screen.getByRole('button', { name: 'This week 1' }).title).toMatch(/1 on the list \(Prometheus confirmed\) of 3 screened/)
         expect(screen.queryByRole('button', { name: /^Mid-day/ })).toBeNull()
         fireEvent.click(screen.getByRole('button', { name: /^This week/ }))
@@ -539,7 +541,7 @@ describe('HotlistPanel — the horizon lists, reviewed', () => {
     it('a tab with no confirmed names but screened ones still opens', async () => {
         await mount()
         const group = within(screen.getByRole('group', { name: 'Horizon' }))
-        expect(group.getAllByRole('button').map(b => b.textContent)).toEqual(['Open 0', 'This week 0', 'Swing 0', 'Long term 0', 'Covered companies 0'])
+        expect(group.getAllByRole('button').map(b => b.textContent)).toEqual(['Intraday 0', 'Open 0', 'This week 0', 'Swing 0', 'Long term 0', 'Covered companies 0'])
         expect(group.getByRole('button', { name: /^This week/ }).disabled).toBe(false, 'none confirmed, but screened names: still opens')
     })
 
@@ -1043,5 +1045,49 @@ describe('HotlistPanel — a row\'s page, reviewed', () => {
         await mount({ isAdmin: false })
         expect(screen.getByText(/targets could not be loaded/)).toBeTruthy()
         expect(document.querySelector('.hot-status-filter'), 'still no view switch').toBeNull()
+    })
+})
+
+describe('HotlistPanel — the Intraday tab (the day boards, 2026-11-11)', () => {
+    const DAY_BOARDS = { day: '2026-11-11', days: ['2026-11-11'], boards: [
+        { id: 'hd_2026-11-11_open', checkpoint: 'open', status: 'done', rows: [{ symbol: 'PLTR', why: [] }] },
+        { id: 'hd_2026-11-11_mid', checkpoint: 'mid', status: 'done', rows: [{ symbol: 'SMCI', why: ['2.4× normal volume, above the open'] }, { symbol: 'IONQ', why: [] }] },
+    ] }
+    beforeEach(() => {
+        hotlistService.getToday.mockResolvedValue({ day: '2026-10-21', latest: BOARD, dayList: DAY_LIST, checkpoints: [{ id: BOARD.id, checkpoint: 'mid' }] })
+        hotlistService.getDayBoards.mockResolvedValue(DAY_BOARDS)
+    })
+
+    it('a tab before This week, counting the latest board; it opens the day boards and reads them again', async () => {
+        await mount()
+        const tab = screen.getByRole('button', { name: /^Intraday/ })
+        const tabs = [...document.querySelectorAll('.hot-horizons__btn')].map(b => b.textContent)
+        expect(tabs[0]).toBe('Intraday 2')
+        expect(tabs.findIndex(t => /^This week/.test(t))).toBeGreaterThan(0)
+        expect(hotlistService.getDayBoards).toHaveBeenCalledTimes(1)
+        fireEvent.click(tab)
+        await flush()
+        expect(hotlistService.getDayBoards).toHaveBeenCalledTimes(2)
+        expect(tab.getAttribute('aria-pressed')).toBe('true')
+        expect(screen.getByRole('tab', { name: /10:30/ }).getAttribute('aria-selected')).toBe('true')
+        expect(screen.getByText('SMCI')).toBeTruthy()
+    })
+
+    it('stays on Intraday — it is not one of the day list\'s horizons that fall back to This week when empty', async () => {
+        hotlistService.getDayBoards.mockResolvedValue({ day: null, boards: [], days: [] })
+        await mount()
+        fireEvent.click(screen.getByRole('button', { name: /^Intraday/ }))
+        await flush()
+        expect(screen.getByRole('button', { name: /^Intraday/ }).getAttribute('aria-pressed')).toBe('true')
+        expect(screen.getByText(/the boards run at 09:20, 10:30 and 14:30 ET/)).toBeTruthy()
+    })
+
+    it('a failed read of the day boards leaves This week alone', async () => {
+        hotlistService.getDayBoards.mockRejectedValue(new Error('down'))
+        await mount()
+        expect(screen.getByRole('button', { name: /^This week/ }).getAttribute('aria-pressed')).toBe('true')
+        fireEvent.click(screen.getByRole('button', { name: /^Intraday/ }))
+        await flush()
+        expect(screen.getByText(/could not be loaded/)).toBeTruthy()
     })
 })

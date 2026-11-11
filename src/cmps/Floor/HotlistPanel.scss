@@ -309,3 +309,11 @@
     .hot-table--list { th, td { padding-left: 4px; padding-right: 4px; } .hot-table__star { width: 22px; } }
     .hot-table--book .hot-result { white-space: normal; }
 }
+
+// THE DAY BOARDS (Intraday tab, HotlistDayBoards — 2026-11-11): the why and the headline wrap; a report / rating flag is a
+// small chip after the headline.
+.hot-table--day td { white-space: normal; vertical-align: top; }
+.hot-day-flag {
+    display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 8px; font-size: 11px;
+    border: 1px solid var(--border); color: var(--text-secondary);
+}
