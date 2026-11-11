@@ -1069,7 +1069,30 @@ describe('HotlistPanel — the Intraday tab (the day boards, 2026-11-11)', () =>
         await flush()
         expect(hotlistService.getDayBoards).toHaveBeenCalledTimes(2)
         expect(tab.getAttribute('aria-pressed')).toBe('true')
-        expect(screen.getByRole('tab', { name: /10:30/ }).getAttribute('aria-selected')).toBe('true')
+        expect(screen.getByRole('button', { name: /^10:30/ }).getAttribute('aria-pressed')).toBe('true')
+        expect(screen.getByText('SMCI')).toBeTruthy()
+    })
+
+    it('no count on the tab until the boards are read — "0" would say no names when it means not known (CR 2026-11-11)', async () => {
+        hotlistService.getDayBoards.mockReturnValue(new Promise(() => {}))   // never answers
+        await mount()
+        expect(screen.getByRole('button', { name: /^Intraday/ }).textContent).toBe('Intraday')
+    })
+
+    it('stepping back a day reads THAT day\'s boards (CR 2026-11-11: Intraday stayed on the latest)', async () => {
+        hotlistService.getToday.mockImplementation(async (d) => ({ day: d ?? '2026-10-21', latest: BOARD, dayList: DAY_LIST, checkpoints: [{ id: BOARD.id, checkpoint: 'mid' }], days: ['2026-10-21', '2026-10-20'] }))
+        await mount()
+        expect(hotlistService.getDayBoards).toHaveBeenLastCalledWith(null)
+        fireEvent.click(screen.getByRole('button', { name: 'The day before' }))
+        await flush()
+        expect(hotlistService.getDayBoards).toHaveBeenLastCalledWith('2026-10-20')
+    })
+
+    it('This week failed to load: the day boards that did load are still shown under it (CR 2026-11-11)', async () => {
+        hotlistService.getToday.mockRejectedValue(new Error('down'))
+        await mount()
+        expect(screen.getByText(/Couldn’t load the hotlist/)).toBeTruthy()
+        expect(screen.getByRole('region', { name: 'The day boards' })).toBeTruthy()
         expect(screen.getByText('SMCI')).toBeTruthy()
     })
 

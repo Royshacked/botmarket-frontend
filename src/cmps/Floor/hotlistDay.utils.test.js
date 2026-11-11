@@ -1,8 +1,13 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-    etTime, etDay, quotedSpan, latestBoardId, volText, gapText, catalystCell, dayBoardsNote, DAY_BOARD_ORDER, DAY_BOARD_LABEL,
+    etTime, etDay, quotedSpan, latestBoardId, orderedBoards, volText, gapText, catalystCell, dayBoardsNote, DAY_BOARD_ORDER, DAY_BOARD_LABEL,
 } from './hotlistDay.utils.js'
+
+// Run in a zone that is NOT New York's, so "the times are New York's" proves something on any machine, a New York one
+// included (CR 2026-11-11). The formatters name their zone; the machine's must not leak in. Set before any Date is
+// formatted: the imports above create formatters but format nothing.
+process.env.TZ = 'Asia/Tokyo'
 
 // The day boards on the Hotlist (backend hotlist.day, 2026-11-11): names in play, no grade.
 
@@ -25,9 +30,10 @@ test('the quote span: first to last, one time when they match, null with none', 
     assert.equal(quotedSpan([{ quoted_at: null }, null]), null)
 })
 
-test('the board to open on is the day\'s latest', () => {
-    assert.equal(latestBoardId([{ id: 'a' }, { id: 'b' }]), 'b')
+test("the board to open on is the day's latest CHECKPOINT, not the last to finish; an unknown one goes last", () => {
+    assert.equal(latestBoardId([{ id: 'm', checkpoint: 'mid' }, { id: 'o', checkpoint: 'open' }]), 'm', 'a re-run 09:20 finishing after 10:30')
     assert.equal(latestBoardId([]), null)
+    assert.deepEqual(orderedBoards([{ id: 'x', checkpoint: 'later' }, { id: 'e', checkpoint: 'eod' }, { id: 'o', checkpoint: 'open' }]).map(b => b.id), ['o', 'e', 'x'])
 })
 
 test('volume: in session against an ordinary day, before the open as % of a day', () => {
@@ -50,6 +56,9 @@ test('the catalyst: the freshest headline with its time, the flags, how many mor
 test('the note: no board says when they run; a past day\'s boards say so', () => {
     const now = ET('2026-11-11T08:00:00')
     assert.match(dayBoardsNote({ boards: [] }, now).empty, /09:20, 10:30 and 14:30 ET/)
-    assert.match(dayBoardsNote({ day: '2026-11-10', boards: [{}] }, now).stale, /last trading day’s boards \(2026-11-10\)/)
+    assert.equal(dayBoardsNote({ day: '2026-11-10', boards: [{}] }, now).stale, 'The latest boards are from 2026-11-10 — the next runs at 09:20 ET on a trading day.')
     assert.deepEqual(dayBoardsNote({ day: '2026-11-11', boards: [{}] }, now), { empty: null, stale: null })
+    // A day the user stepped back to is that day's: no stale note; none that day says so.
+    assert.deepEqual(dayBoardsNote({ day: '2026-11-04', boards: [{}] }, now, { day: '2026-11-04' }), { empty: null, stale: null })
+    assert.equal(dayBoardsNote({ boards: [] }, now, { day: '2026-11-04' }).empty, 'No day boards on 2026-11-04.')
 })

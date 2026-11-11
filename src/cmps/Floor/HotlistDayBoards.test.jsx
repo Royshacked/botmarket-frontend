@@ -26,9 +26,9 @@ afterEach(() => { cleanup(); vi.clearAllMocks() })
 describe('HotlistDayBoards', () => {
     it('opens on the latest board, the boards in the day\'s order with their counts', () => {
         render(<HotlistDayBoards data={data()} now={NOW} />)
-        const tabs = screen.getAllByRole('tab')
+        const tabs = within(screen.getByRole('group', { name: 'Day boards' })).getAllByRole('button')
         expect(tabs.map(t => t.textContent)).toEqual(['09:20 1', '10:30 2'])
-        expect(tabs[1].getAttribute('aria-selected')).toBe('true')
+        expect(tabs[1].getAttribute('aria-pressed')).toBe('true')
         expect(screen.getByText('SMCI')).toBeTruthy()
         expect(screen.queryByText('PLTR')).toBeNull()
     })
@@ -38,7 +38,9 @@ describe('HotlistDayBoards', () => {
         const row = container.querySelector('tr[data-symbol="SMCI"]')
         const cells = within(row).getAllByRole('cell').map(c => c.textContent)
         expect(cells.slice(1, 5)).toEqual(['41.00', '+6.2%', '2.4×', '5.1'])
-        expect(cells[5]).toBe('2.4× normal volume, above the open')
+        expect(cells[5].startsWith('2.4× normal volume, above the open')).toBe(true)
+        // On a phone the News column is hidden: the headline rides under Why (hot-day-news-sm, CSS-shown below 768px).
+        expect(row.querySelector('.hot-day-news-sm').textContent).toContain('07:05 Super Micro beats')
         expect(cells[6]).toContain('07:05 Super Micro beats')
         expect(cells[6]).toContain('reported')
         expect(container.textContent).not.toMatch(/Grade|Room|Result/)
@@ -52,7 +54,7 @@ describe('HotlistDayBoards', () => {
     it('another board on click; a symbol opens its chart', () => {
         const onSymbolClick = vi.fn()
         render(<HotlistDayBoards data={data()} now={NOW} onSymbolClick={onSymbolClick} />)
-        fireEvent.click(screen.getByRole('tab', { name: /09:20/ }))
+        fireEvent.click(screen.getByRole('button', { name: /^09:20/ }))
         expect(screen.getByText('PLTR')).toBeTruthy()
         expect(screen.getByText('3% pre')).toBeTruthy()
         fireEvent.click(screen.getByText('PLTR'))
@@ -64,8 +66,33 @@ describe('HotlistDayBoards', () => {
         expect(screen.getByText(/the boards run at 09:20, 10:30 and 14:30 ET/)).toBeTruthy()
         unmount()
         render(<HotlistDayBoards data={data({ day: '2026-11-10', boards: [{ ...MID, id: 'hd_2026-11-10_mid', status: 'partial' }] })} now={NOW} />)
-        expect(screen.getByText(/last trading day’s boards \(2026-11-10\)/)).toBeTruthy()
+        expect(screen.getByText(/The latest boards are from 2026-11-10 — the next runs at 09:20 ET on a trading day/)).toBeTruthy()
         expect(screen.getByText(/stopped early/)).toBeTruthy()
+    })
+
+    it("the latest is the day's LAST CHECKPOINT, not the last to finish — a re-run 09:20 does not take the screen", () => {
+        // 09:20 re-run after 10:30: it arrives LAST from the server (by finished_at).
+        render(<HotlistDayBoards data={data({ boards: [MID, OPEN] })} now={NOW} />)
+        const btns = within(screen.getByRole('group', { name: 'Day boards' })).getAllByRole('button')
+        expect(btns.map(b => b.textContent)).toEqual(['09:20 1', '10:30 2'], "buttons in the day's order")
+        expect(btns[1].getAttribute('aria-pressed')).toBe('true')
+        expect(screen.getByText('SMCI')).toBeTruthy()
+    })
+
+    it('held by the panel: the board on screen is the held one, and a choice is reported up', () => {
+        const onBoard = vi.fn()
+        render(<HotlistDayBoards data={data()} now={NOW} boardId={OPEN.id} onBoard={onBoard} />)
+        expect(screen.getByText('PLTR')).toBeTruthy()
+        fireEvent.click(screen.getByRole('button', { name: /^10:30/ }))
+        expect(onBoard).toHaveBeenCalledWith(MID.id)
+    })
+
+    it('a day the user stepped back to: its boards with no stale note; none that day says so', () => {
+        const { unmount } = render(<HotlistDayBoards data={data({ day: '2026-11-04' })} day="2026-11-04" now={NOW} />)
+        expect(screen.queryByText(/latest boards are from/)).toBeNull()
+        unmount()
+        render(<HotlistDayBoards data={data({ day: null, boards: [] })} day="2026-11-04" now={NOW} />)
+        expect(screen.getByText('No day boards on 2026-11-04.')).toBeTruthy()
     })
 
     it('a board with no names says so; a failed read offers a retry', () => {

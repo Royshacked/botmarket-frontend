@@ -37,9 +37,20 @@ export function quotedSpan(rows) {
     return a === b ? a : `${a}–${b}`
 }
 
-/** The board to open on: the day's latest. `boards` oldest first. Pure. */
+/**
+ * The day's boards in the DAY's order (09:20, 10:30, 14:30) — not the order they finished in: a 09:20 board re-run after
+ * 10:30 is still the morning's (CR 2026-11-11). A checkpoint this client does not know goes last, so it still gets a
+ * button. Pure.
+ */
+export function orderedBoards(boards) {
+    const rank = (b) => { const i = DAY_BOARD_ORDER.indexOf(b?.checkpoint); return i < 0 ? DAY_BOARD_ORDER.length : i }
+    return [...(boards ?? [])].filter(Boolean).sort((a, b) => rank(a) - rank(b))
+}
+
+/** The board to open on: the day's latest checkpoint. Pure. */
 export function latestBoardId(boards) {
-    return boards?.length ? boards[boards.length - 1].id : null
+    const list = orderedBoards(boards)
+    return list.length ? list[list.length - 1].id : null
 }
 
 /** Volume against an ordinary day: "2.4×" in session, "3% pre" before the open, else null. Pure. */
@@ -70,12 +81,17 @@ export function catalystCell(row) {
 }
 
 /**
- * What the Intraday tab says when there is no board to show, or a past day's. `data` is GET /day's answer; `nowMs` now.
- * → `{ empty: text | null, stale: text | null }`. Pure.
+ * What the Intraday tab says when there is no board to show, or an earlier day's. `data` is GET /day's answer; `nowMs`
+ * now; `day` the day the panel ASKED for (null = the latest). → `{ empty: text | null, stale: text | null }`. Pure.
+ * No promise of "today's first at 09:20" — on a weekend or a holiday there is none (CR 2026-11-11).
  */
-export function dayBoardsNote(data, nowMs) {
+export function dayBoardsNote(data, nowMs, { day = null } = {}) {
     const boards = data?.boards ?? []
-    if (!boards.length) return { empty: 'No day board yet — the boards run at 09:20, 10:30 and 14:30 ET on trading days.', stale: null }
+    if (!boards.length) {
+        return { empty: day ? `No day boards on ${day}.` : 'No day board yet — the boards run at 09:20, 10:30 and 14:30 ET on trading days.', stale: null }
+    }
+    // A day the user stepped back to is that day's, as asked: nothing to warn about.
+    if (day) return { empty: null, stale: null }
     const today = etDay(nowMs)
-    return { empty: null, stale: data.day && data.day !== today ? `The last trading day’s boards (${data.day}) — today’s first is at 09:20 ET.` : null }
+    return { empty: null, stale: data.day && data.day !== today ? `The latest boards are from ${data.day} — the next runs at 09:20 ET on a trading day.` : null }
 }

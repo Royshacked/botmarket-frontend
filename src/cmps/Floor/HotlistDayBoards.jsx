@@ -2,25 +2,32 @@ import { useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
 import { OwnedBadge } from '../OwnedBadge/OwnedBadge.jsx'
 import {
-    DAY_BOARD_ORDER, DAY_BOARD_LABEL, DAY_BOARD_TITLE, quotedSpan, latestBoardId, volText, gapText, catalystCell, dayBoardsNote,
+    DAY_BOARD_LABEL, DAY_BOARD_TITLE, quotedSpan, latestBoardId, orderedBoards, volText, gapText, catalystCell, dayBoardsNote,
 } from './hotlistDay.utils.js'
 
 // THE INTRADAY TAB (botmarket-backend services/hotlist.day.js; docs/design/argus-rework.md §3.3 — revived 2026-11-11):
 // the day's boards, 09:20 · 10:30 · 14:30 ET, one at a time, opening on the latest. Each row is a name IN PLAY — moving
 // up so far — with the numbers, why, and its freshest headline. No grade, no room, no result, no Argus pick: the boards
 // say a name is moving, not where it goes. A symbol opens its chart; a name goes to Mentor by the user's own words for
-// now (a board → Mentor hand-off comes with the chain flow, step 3).
+// now (a board → Mentor hand-off comes with the chain flow).
+//
+// The board on screen can be HELD BY THE PANEL (`boardId` + `onBoard`), so a trip to a chart and back keeps it (CR
+// 2026-11-11); without them the component holds it itself. `day` is the day the panel asked for (null = the latest).
 
-export function HotlistDayBoards({ data, onSymbolClick, onRetry, now = Date.now }) {
+export function HotlistDayBoards({ data, day = null, boardId: heldId, onBoard, onSymbolClick, onRetry, now = Date.now }) {
     // The answer's own array is the dependency: `?? []` would be a new array every render and re-run the effect each time.
     const answered = data?.boards
     const boards = answered ?? []
-    const [boardId, setBoardId] = useState(() => latestBoardId(boards))
+    const [ownId, setOwnId] = useState(() => latestBoardId(boards))
+    const held = onBoard !== undefined
+    const boardId = held ? heldId : ownId
+    const choose = held ? onBoard : setOwnId
     // A new answer (a reload, the next board landing) opens on its latest board — unless the one on screen is still there.
     useEffect(() => {
         const list = answered ?? []
-        setBoardId(id => (list.some(b => b.id === id) ? id : latestBoardId(list)))
-    }, [answered])
+        if (held) { if (!list.some(b => b.id === heldId)) onBoard(latestBoardId(list)) }
+        else setOwnId(id => (list.some(b => b.id === id) ? id : latestBoardId(list)))
+    }, [answered])   // eslint-disable-line react-hooks/exhaustive-deps -- a new answer is the only trigger; the held id is read, not watched
 
     if (data?.status === 'loading' || data?.status === 'idle') return <p className="floor-empty">Loading the day boards…</p>
     if (data?.status === 'error') {
@@ -30,21 +37,22 @@ export function HotlistDayBoards({ data, onSymbolClick, onRetry, now = Date.now 
             </p>
         )
     }
-    const note = dayBoardsNote(data, now())
+    const note = dayBoardsNote(data, now(), { day })
     if (note.empty) return <p className="floor-empty">{note.empty}</p>
-    const board = boards.find(b => b.id === boardId) ?? boards[boards.length - 1]
-    const ordered = DAY_BOARD_ORDER.map(c => boards.find(b => b.checkpoint === c)).filter(Boolean)
+    const ordered = orderedBoards(boards)
+    const board = ordered.find(b => b.id === boardId) ?? ordered[ordered.length - 1]
     const rows = board.rows ?? []
     const span = quotedSpan(rows)
 
     return (
         <div className="hot-day">
             <div className="hot-meta">
-                <div className="hot-status-filter" role="tablist" aria-label="Day boards">
+                {/* Toggle buttons, like the other filters (CR 2026-11-11: tab roles promised keyboard behaviour they lacked). */}
+                <div className="hot-status-filter" role="group" aria-label="Day boards">
                     {ordered.map(b => (
-                        <button key={b.id} type="button" role="tab" aria-selected={b.id === board.id} title={DAY_BOARD_TITLE[b.checkpoint]}
+                        <button key={b.id} type="button" aria-pressed={b.id === board.id} title={DAY_BOARD_TITLE[b.checkpoint]}
                             className={`hot-status-filter__btn${b.id === board.id ? ' hot-status-filter__btn--on' : ''}`}
-                            onClick={() => setBoardId(b.id)}>{DAY_BOARD_LABEL[b.checkpoint] ?? b.checkpoint} {(b.rows ?? []).length}</button>
+                            onClick={() => choose(b.id)}>{DAY_BOARD_LABEL[b.checkpoint] ?? b.checkpoint} {(b.rows ?? []).length}</button>
                     ))}
                 </div>
             </div>
@@ -80,8 +88,21 @@ export function HotlistDayBoards({ data, onSymbolClick, onRetry, now = Date.now 
 }
 HotlistDayBoards.propTypes = {
     data: PropTypes.shape({ status: PropTypes.string, day: PropTypes.string, boards: PropTypes.array }),
+    day: PropTypes.string, boardId: PropTypes.string, onBoard: PropTypes.func,
     onSymbolClick: PropTypes.func, onRetry: PropTypes.func, now: PropTypes.func,
 }
+
+/** The headline and its flags — in the News column, and under Why on a phone, where News is hidden (CR 2026-11-11). */
+function Catalyst({ cat }) {
+    return (
+        <>
+            {cat.title && <span title={cat.more ? `${cat.more} more headline${cat.more === 1 ? '' : 's'} since the last close` : undefined}>
+                {cat.time && <span className="hot-dim">{cat.time} </span>}{cat.title}</span>}
+            {cat.flags.map(f => <span key={f} className="hot-day-flag">{f}</span>)}
+        </>
+    )
+}
+Catalyst.propTypes = { cat: PropTypes.object.isRequired }
 
 function DayRow({ row, onSymbolClick }) {
     const cat = catalystCell(row)
@@ -93,16 +114,11 @@ function DayRow({ row, onSymbolClick }) {
             <td className="hot-table__num">{gapText(row) ?? dash}</td>
             <td className="hot-table__num hot-col--more">{volText(row) ?? dash}</td>
             <td className="hot-table__num hot-col--more">{Number.isFinite(row.atr_pct) ? row.atr_pct.toFixed(1) : dash}</td>
-            <td>{row.why?.length ? row.why.join('; ') : dash}</td>
-            <td className="hot-col--more">
-                {cat
-                    ? <>
-                        {cat.title && <span title={cat.more ? `${cat.more} more headline${cat.more === 1 ? '' : 's'} since the last close` : undefined}>
-                            {cat.time && <span className="hot-dim">{cat.time} </span>}{cat.title}</span>}
-                        {cat.flags.map(f => <span key={f} className="hot-day-flag">{f}</span>)}
-                    </>
-                    : dash}
+            <td>
+                {row.why?.length ? row.why.join('; ') : dash}
+                {cat && <div className="hot-day-news-sm"><Catalyst cat={cat} /></div>}
             </td>
+            <td className="hot-col--more">{cat ? <Catalyst cat={cat} /> : dash}</td>
         </tr>
     )
 }

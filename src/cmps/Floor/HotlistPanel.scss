@@ -317,3 +317,7 @@
     display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 8px; font-size: 11px;
     border: 1px solid var(--border); color: var(--text-secondary);
 }
+// The headline under Why: only on a phone, where the News column is hidden (CR 2026-11-11).
+.hot-day-news-sm { display: none; margin-top: 2px; font-size: 11px; color: var(--text-secondary); }
+@media (max-width: 767px) { .hot-day-news-sm { display: block; } }
+.hot-day-fallback { margin-top: 16px; }
