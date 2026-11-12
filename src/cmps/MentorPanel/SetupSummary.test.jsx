@@ -306,11 +306,11 @@ describe('SetupSummary', () => {
         expect(screen.getByText(/will build here as you talk it through/)).toBeTruthy()
     })
 
-    it('shows the nucleus, the lens and the thesis', () => {
+    it('shows the nucleus and the thesis — and no lens tag (Roy, 2026-11-12: one way, never named)', () => {
         render(<SetupSummary setup={SETUP} />)
         expect(screen.getByText('NVDA')).toBeTruthy()
         expect(screen.getByText('LONG')).toBeTruthy()
-        expect(screen.getByText('smc')).toBeTruthy()
+        expect(screen.queryByText('smc')).toBeNull()
         expect(screen.getByText(/Sweep of the 199 shelf/)).toBeTruthy()
     })
 
@@ -420,11 +420,10 @@ describe('setupDigest', () => {
 // same figures and neither is doing arithmetic on a live account.
 
 describe('SetupSummary lens tag', () => {
-    it('says what each lens means on hover — the thesis lens included', () => {
-        const { rerender } = render(<SetupSummary setup={{ asset: 'MTG', direction: 'long', trade_mode: 'thesis' }} />)
-        expect(screen.getByText('thesis').getAttribute('title')).toMatch(/stop where the thesis breaks/)
-        rerender(<SetupSummary setup={{ asset: 'MTG', direction: 'long', trade_mode: 'institutional' }} />)
-        expect(screen.getByText('institutional').getAttribute('title')).toMatch(/flows/)
+    it('never names the lens — not thesis, not any other (Roy, 2026-11-12)', () => {
+        const { container } = render(<SetupSummary setup={{ asset: 'MTG', direction: 'long', trade_mode: 'thesis' }} />)
+        expect(screen.queryByText('thesis')).toBeNull()
+        expect(container.querySelector('.setup-summary__tag--lens')).toBeNull()
     })
 })
 

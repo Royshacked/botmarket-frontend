@@ -2,42 +2,26 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import { AccountSelector } from '../AccountSelector/AccountSelector.jsx'
 import { LaterButton, LATER_BTN_CLASS } from '../LaterButton.jsx'
-import { SuggestionChips } from '../SuggestionChips.jsx'
-import { CoverageChips } from '../MentorPanel/CoverageChips.jsx'
 import { SetupSummary } from '../MentorPanel/SetupSummary.jsx'
-import { setupDigest } from '../MentorPanel/setupSummary.utils.js'
-import { CandidatePicker } from '../MentorPanel/CandidatePicker.jsx'
-import { SpanTable } from '../MentorPanel/SpanTable.jsx'
-import { EntryTable } from '../MentorPanel/EntryTable.jsx'
-import { StageConfirm } from '../MentorPanel/StageConfirm.jsx'
-import { ScenarioOffer } from '../MentorPanel/ScenarioOffer.jsx'
 import { useSurfacePress } from '../../customHooks/useSurfacePress.js'
 import { SurfaceNote } from '../SidePane/SurfaceNote.jsx'
 import { ChatActions } from '../SidePane/ChatActions.jsx'
 import { DiscardButton } from '../SidePane/DiscardButton.jsx'
-import { liveReadiness, candidatePress, stagePress, spansPress, entriesPress, delegatePress, revivePress, batchNames } from './mentorSurface.utils.js'
+import { liveReadiness, batchNames } from './mentorSurface.utils.js'
 import '../PortfolioPanel/PortfolioPanel.scss'
 import '../MentorPanel/MentorPanel.scss'
 import './MentorSurface.scss'
 
 // ── Mentor's surface (unified-chat plan phase 8b) ────────────────────────────
 //
-// What MentorPanel drew beside its own chat, drawn from MENTOR'S STATE ON THE SESSION instead: the worksheet, the
-// coverage chips, the candidate offer, the open gate, and the Generate / Arm / Update bar. The conversation is the
-// timeline's; nothing here holds a copy of it.
+// MENTOR'S STATE ON THE SESSION, drawn as THE SETUP BEING BUILT and its commit bar — nothing else (Roy, 2026-11-12,
+// argus-rework.md §2.3 points 1 and 4: no chips, no gate cards, no span / entry tables, no A/B chips, no lens tag;
+// Mentor asks in the chat, in words). The conversation is the timeline's; nothing here holds a copy of it.
 //
-// THREE KINDS OF PRESS, each down its own path (backend plan §10.2):
-//   • a gate or a pick is a TURN — the press's ops ride a message to Mentor, settled server-side before it reads;
-//   • a worksheet field is a HAND EDIT — sent to the state, re-judged there (readiness and gate come back);
+// TWO KINDS OF PRESS, each down its own path (backend plan §10.2):
+//   • a worksheet field is a HAND EDIT — sent to the state, re-judged there (readiness comes back);
 //   • Generate / Arm / Update / Later are COMMITS — the server saves what is in the session, never a copy from here.
 // Every one names the revision the user was looking at; a stale press is refused, and the surface redraws.
-
-const SUGGESTIONS = [
-    'I want to buy NVDA on a pullback',
-    "I'm thinking of shorting TSLA this week",
-]
-// The user who is not here to talk — a sentence like the others, named for what it is.
-const OWN_SETUP_CHIP = 'I have my own setup — take it down as I give it'
 
 /** Each refused plan with its reason — a Generate-all's partial news and an all-refused press say it the same way. */
 const refusals = (failed) => failed.map(f => `${f.asset ?? `#${f.index + 1}`} — ${f.reason}`).join('; ')
@@ -140,22 +124,18 @@ function useDraftEditor(serverDraft, serverRev, push) {
 export function MentorSurface({ session, deskProps = {} }) {
     const { availableAccounts = [], selectedAccounts = [], setSelectedAccounts, setMainAccountId } = deskProps
     // The press mechanics every surface shares: the marked accounts, the note, one press at a time, the stale refusal.
-    const { accounts, mainAccountId, rev, pressing, note, setNote, talk: say, press: commitPress } = useSurfacePress(session, 'mentor', deskProps, { brand: 'Mentor' })
+    const { accounts, mainAccountId, rev, pressing, note, setNote, press: commitPress } = useSurfacePress(session, 'mentor', deskProps, { brand: 'Mentor' })
     const state = session?.agentState?.mentor ?? null
 
     const serverDraft = state?.draft ?? null
     const coverage    = state?.coverage ?? []
     const drafts      = state?.drafts ?? {}
-    const gate        = state?.view?.gate ?? null
     const readiness   = state?.view?.readiness ?? null
     const candidates  = state?.view?.setups?.candidates ?? null
-    const offer       = state?.view?.offer ?? null
     const generated  = state?.generated ?? null
     const editingId   = state?.editing?.kind === 'setup' ? state.editing.entityId : null
     // A turn running anywhere: the gates and the worksheet wait for it — what they show is about to change.
     const turning     = !!session?.live
-
-    const [previewOpen, setPreviewOpen] = useState(false)
 
     // A refused edit puts the server's draft back — read through a ref, the editor is made with this callback.
     const resetEdit = useRef(null)
@@ -173,11 +153,6 @@ export function MentorSurface({ session, deskProps = {} }) {
     resetEdit.current = editor.reset
     const draft = editor.draft
 
-    // "Change something" on the opening card: the card steps aside so the user can say it — until Mentor puts a new
-    // proposal up (a different gate), which is shown again.
-    const [setAside, setSetAside] = useState(null)
-    const gateKey = gate ? JSON.stringify(gate) : null
-
     // UPDATE ONLY ONCE THE PLAN MOVED. An update re-runs the venue gate and sends a watched setup back to `waiting`,
     // so pressing it on an unchanged plan would stop Talos watching for nothing. The baseline is the plan as it
     // reopened, held per setup. Read off the SERVER's draft, not the local copy: Update lights once the edit has
@@ -187,8 +162,6 @@ export function MentorSurface({ session, deskProps = {} }) {
     if (!editingId && baseline.current.id) baseline.current = { id: null, json: null }
     const dirty = !!editingId && JSON.stringify(serverDraft) !== baseline.current.json
 
-    const talk = (text, ops = []) => say(text, ops.length ? { ops } : {})
-    const press = (p) => { if (p) talk(p.text, p.ops) }
 
     // The hand edit still settling goes first — the server commits what IS in the session. A refused edit has said so
     // (its note) and the press stops: the plan on screen is not the one it would commit.
@@ -230,16 +203,9 @@ export function MentorSurface({ session, deskProps = {} }) {
             <div className="desk-surface mentor-surface">
                 {accountsPick}
                 {note?.kind === 'done' && <SurfaceNote note={note} />}
-                <p className="desk-surface__lead">Nothing on Mentor&apos;s table. Tell Mentor about a trade in the chat, or start here:</p>
-                <SuggestionChips
-                    variant="intro"
-                    disabled={turning}
-                    onPick={(t) => talk(t)}
-                    suggestions={[
-                        ...SUGGESTIONS,
-                        { label: OWN_SETUP_CHIP, title: 'Bring your own plan — Mentor takes it down as you give it', action: true, onPick: () => talk(OWN_SETUP_CHIP) },
-                    ]}
-                />
+                {/* No chips (Roy, 2026-11-12 — argus-rework.md §2.3 point 4): the pane is the setup being built; the asking is
+                    in the chat. */}
+                <p className="desk-surface__lead">Nothing on Mentor&apos;s table yet. Tell Mentor a name in the chat — &ldquo;let&apos;s trade TSLA&rdquo; — and the setup builds here.</p>
             </div>
         )
     }
@@ -248,69 +214,17 @@ export function MentorSurface({ session, deskProps = {} }) {
         <div className="portfolio-panel mentor-panel desk-surface mentor-surface">
             {accountsPick}
 
-            {(hasPreview || coverage.length > 0) && (
-                <div className={`portfolio-panel__build-summary mentor-panel__build${previewOpen ? ' is-open' : ''}`}>
+            {/* THE SETUP BEING BUILT, and nothing else (Roy, 2026-11-12 — argus-rework.md §2.3 points 1 and 4): no chips, no
+                gate cards, no span / entry tables, no A/B chips — Mentor asks in the chat, in words; the pane only shows the
+                setup as it fills in, and the commit actions under it. */}
+            {hasPreview && (
+                <div className="portfolio-panel__build-summary mentor-panel__build is-open">
                     <div className="mentor-panel__build-head">
-                        {/* WHICH setup, when there is a particular one — an edit is a mode, and it says so. */}
-                        {hasPreview ? (
-                            <button
-                                type="button"
-                                className="mentor-panel__build-toggle"
-                                onClick={() => setPreviewOpen(open => !open)}
-                                aria-expanded={previewOpen}
-                                title={previewOpen ? 'Fold the setup away' : 'Open the full setup'}
-                            >
-                                <span className="mentor-panel__build-caret" aria-hidden="true">{previewOpen ? '▾' : '▸'}</span>
-                                <span className="portfolio-panel__build-summary-title">
-                                    {editingId ? `editing ${draft?.asset ?? 'this setup'}` : 'your setup'}
-                                </span>
-                                {!previewOpen && <span className="mentor-panel__build-digest">{setupDigest(draft)}</span>}
-                            </button>
-                        ) : (
-                            <span className="portfolio-panel__build-summary-title">{editingId ? 'editing this setup' : 'your setup'}</span>
-                        )}
-                        <CoverageChips coverage={coverage} />
+                        <span className="portfolio-panel__build-summary-title">{editingId ? `editing ${draft?.asset ?? 'this setup'}` : 'your setup'}</span>
                     </div>
-                    {hasPreview && previewOpen && (
-                        <SetupSummary setup={draft} onChange={editor.change} readOnly={!!generated || turning} />
-                    )}
+                    <SetupSummary setup={draft} onChange={editor.change} readOnly={!!generated || turning} />
                 </div>
             )}
-
-            {!turning && candidates?.length > 0 && (
-                <CandidatePicker candidates={candidates} onPick={(c) => press(candidatePress(c))} />
-            )}
-
-            {/* The opening turn's answer, then the gate the SERVER says is open — never one keyed on what the draft
-                happens to carry, or a chosen gate would sit there reading as a second ask. */}
-            {!turning && (
-                <StageConfirm
-                    gate={gateKey === setAside ? null : gate}
-                    busy={pressing}
-                    onConfirm={(fields, waiver) => press(stagePress(fields, waiver))}
-                    onChange={() => setSetAside(gateKey)}
-                />
-            )}
-            {!turning && !candidates?.length && gate?.stage === 'spans' && (
-                <SpanTable
-                    spans={draft?.spans}
-                    busy={pressing}
-                    onBuild={(chosen) => press(spansPress(chosen))}
-                    onRevive={(r) => press(revivePress(r))}
-                    onDelegate={() => press(delegatePress('spans'))}
-                />
-            )}
-            {!turning && !candidates?.length && gate?.stage === 'entries' && (
-                <EntryTable
-                    entries={draft?.entries}
-                    spans={draft?.spans}
-                    busy={pressing}
-                    onTake={(chosen) => press(entriesPress(chosen))}
-                    onDelegate={() => press(delegatePress('entries'))}
-                />
-            )}
-
-            {!turning && <ScenarioOffer offer={offer} />}
 
             <SurfaceNote note={note} />
 

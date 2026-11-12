@@ -6,9 +6,10 @@ export function RiskBasedInfo() {
     return (
         <div className="hot-info">
             <section>
-                <h3 className="hot-info__h">How risk-based works</h3>
-                <p>Mentor builds this way when you bring a name and no setup of your own. Bring a level or a condition of yours and
-                    Mentor builds it in your terms instead.</p>
+                <h3 className="hot-info__h">How Mentor builds a trade</h3>
+                <p>Say a name — &ldquo;let&apos;s trade TSLA&rdquo;. Prometheus reads the company and Proteus how its price behaves, and
+                    Mentor tells you whether it&apos;s worth a long now, and on which horizon. Bring levels of your own and he talks them
+                    through with you.</p>
                 <p><b>Mentor asks you one thing</b>: your position size, your risk and the R:R you want. Then he builds the whole
                     trade, judges the stop and the target from the chart, sets how long it waits, and saves and arms it, so Talos is
                     watching. Every choice is in his reply, for you to change. An entry still comes to you to confirm.</p>

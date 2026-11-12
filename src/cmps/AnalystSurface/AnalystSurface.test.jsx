@@ -106,11 +106,10 @@ describe('AnalystSurface', () => {
         expect((await screen.findByRole('alert')).textContent).toBe('Coverage refused — an outperform with a target below the price')
     })
 
-    it('the draft folds, so the bar under it is never pushed off', () => {
+    it('the draft is always open — the pane is the coverage itself, no fold button (Roy, 2026-11-12)', () => {
         render(<CoverageDraft coverage={DRAFT} />)
-        const head = screen.getByRole('button', { expanded: true })
-        fireEvent.click(head)
-        expect(screen.queryByText('Companion-animal pricing holds.')).toBeNull()
+        expect(screen.queryByRole('button')).toBeNull()
+        expect(screen.getByText('Companion-animal pricing holds.')).toBeTruthy()
     })
 })
 

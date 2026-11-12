@@ -11,7 +11,6 @@ const emit = vi.fn()
 vi.mock('../../services/event-bus.service', () => ({ eventBus: { emit: (...a) => emit(...a), on: () => () => {} }, REVIEW_RESOLVED: 'review-resolved' }))
 
 const { PortfolioSurface } = await import('./PortfolioSurface.jsx')
-const { REVIEW_REQUEST } = await import('./portfolioSurface.utils.js')
 
 const ACCOUNTS = [{ id: 'a1', broker: 'paper', name: 'Paper' }]
 const PLAN = { name: 'Quality', positionSize: 10000, ideas: [{ asset: 'MSFT', quantity: 10 }, { asset: 'KO', quantity: 20 }] }
@@ -40,14 +39,11 @@ beforeEach(() => { emit.mockClear(); refresh.mockClear() })
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 describe('PortfolioSurface — the table', () => {
-    it('with nothing on the table offers the openings, each a turn to Atlas — and adopting, which stages first', async () => {
+    it('with nothing on the table it says how to start — in the chat; no chips (Roy, 2026-11-12)', () => {
         mount(null)
         expect(screen.getByText(/Nothing on Atlas/)).toBeTruthy()
-        fireEvent.click(screen.getByText('Build me a long-term growth portfolio'))
-        expect(session.send).toHaveBeenCalledWith('Build me a long-term growth portfolio', { agent: 'portfolio', accounts: ACCOUNTS, mainAccountId: 'a1' })
-        fireEvent.click(screen.getByText('Adopt a book I hold at my bank'))
-        await waitFor(() => expect(session.edit).toHaveBeenCalledWith('portfolio', { adopt: 'start' }))
-        await waitFor(() => expect(session.send).toHaveBeenLastCalledWith(expect.stringMatching(/already hold a portfolio/), expect.objectContaining({ agent: 'portfolio' })))
+        expect(screen.queryByText('Build me a long-term growth portfolio')).toBeNull()
+        expect(screen.queryByText('Adopt a book I hold at my bank')).toBeNull()
     })
 
     it('a plan shows its summary and the house\'s limits; Generate is a COMMIT with the marked accounts', async () => {
@@ -126,13 +122,12 @@ describe('PortfolioSurface — the AVOID ask', () => {
 describe('PortfolioSurface — a review', () => {
     const review = { portfolioId: 'p1', reviewMode: true, editing: EDITING, thesis: { strategy: 'Compounders at fair prices', version: 3, targetExposures: [{ label: 'Staples', target: 0.3 }] } }
 
-    it('opens on the book\'s thesis; before a pass it offers Review (a turn), never Accept', () => {
+    it('opens on the book\'s thesis, always shown; before a pass no Accept, and no Review button — it is asked in the chat (2026-11-12)', () => {
         mount({ ...review, reviewed: false })
         expect(screen.getByText(/Portfolio thesis · v3/)).toBeTruthy()
         expect(screen.getByText('Staples 30%')).toBeTruthy()
         expect(screen.queryByText(/Accept/)).toBeNull()
-        fireEvent.click(screen.getByText('Review'))
-        expect(session.send).toHaveBeenCalledWith(REVIEW_REQUEST, expect.objectContaining({ agent: 'portfolio' }))
+        expect(screen.queryByText('Review')).toBeNull()
     })
 
     it('after a pass: the proposal is listed, Accept commits it and clears the review\'s pencil', async () => {
