@@ -267,6 +267,14 @@ describe('a session a commit opened (Roy, 2026-10-18)', () => {
         expect(openEntityPopup).toHaveBeenCalledWith('setup', 's9')
     })
 
+    it('one Mentor saved AND armed himself (his go, 2026-11-12) is already watched: the link just opens it', () => {
+        session = base({ rows: [ended({ content: "✓ Mentor built EQPT setup — saved and armed to your Setups, watching. You're back with Axl." })] })
+        render(<ChatTimeline />)
+        expect(screen.queryByRole('button', { name: 'Open the setup to arm it' })).toBeNull()
+        fireEvent.click(screen.getByRole('button', { name: 'Open the setup' }))
+        expect(openEntityPopup).toHaveBeenCalledWith('setup', 's9')
+    })
+
     it('anything else saved has no button; once the user speaks the line is GONE — it was for the fresh start only', () => {
         session = base({ rows: [ended({ ref: { kind: 'scan', ids: ['x'], ended: true } })] })
         render(<ChatTimeline />)
