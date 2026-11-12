@@ -109,6 +109,18 @@ export function PrometheusBadge(props) {
     )
 }
 
+// Proteus — the technical analysis desk. The shape-changing sea god: a wave curling over the swell, which is also a
+// price swing — how a stock moves is the desk's whole subject. The 200-space twin of the desk's line sigil.
+export function ProteusBadge(props) {
+    return (
+        <Badge {...props} title="Proteus">
+            <path d="M40,120 C58,120 66,96 82,78 C98,60 124,58 138,72 C150,84 146,104 130,106 C118,107 112,96 120,88" />
+            <path d="M30,140 C50,128 70,152 100,140 C130,128 150,152 170,140" />
+            <path d="M44,164 C64,154 80,172 100,164 C120,156 136,172 156,164" />
+        </Badge>
+    )
+}
+
 // Pythia — the strategy desk. The Delphic tripod: the seat the oracle spoke from, with the vapour
 // rising off it. Like Prometheus and Mentor, the badge is the 200-space twin of the desk's line
 // sigil, so the desk reads the same weight as the others wherever a glyph is drawn.
@@ -179,7 +191,7 @@ export function TalosBadge(props) {
     )
 }
 
-const AGENT_BADGES  = { idea: IdeaBadge, portfolio: AtlasBadge, scanner: ArgusBadge, mentor: MentorBadge, analyst: PrometheusBadge, strategy: PythiaBadge, aether: AetherBadge }
+const AGENT_BADGES  = { idea: IdeaBadge, portfolio: AtlasBadge, scanner: ArgusBadge, mentor: MentorBadge, analyst: PrometheusBadge, strategy: PythiaBadge, aether: AetherBadge, proteus: ProteusBadge }
 // Notification/list context: ideas show Minos, setups show Talos; the rest reuse
 // their agent figure.
 const NOTIFY_BADGES = { idea: MinosBadge, mentor: TalosBadge, portfolio: AtlasBadge, scanner: ArgusBadge, analyst: PrometheusBadge, strategy: PythiaBadge }

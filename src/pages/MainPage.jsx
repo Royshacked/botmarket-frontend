@@ -1240,6 +1240,7 @@ export function MainPage() {
         const opening = typeof offer.opening === 'string' && offer.opening.trim() ? offer.opening.trim()
             : symbol && agent === 'analyst' ? `Research ${symbol} for coverage.`
             : symbol && agent === 'mentor' ? `I want to work on my own ${symbol} trade.`
+            : symbol && agent === 'proteus' ? `How does ${symbol} trade?`
             : null
         if (agent === 'strategy' || agent === 'aether') {
             if (!isAdmin) return

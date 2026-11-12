@@ -89,6 +89,27 @@ export const AGENTS = {
             </>
         ),
     },
+    // Proteus — the technical analysis desk (backend docs/design/proteus.md, 2026-11-12): how ONE stock's price behaves,
+    // measured from its own candles (what it respects, if anything; its false breaks, its ATR; day trade or swing), and
+    // what its chart shows now. Reads behaviour only — the levels are Mentor's, the business Prometheus's.
+    proteus: {
+        tab:   'proteus',
+        brand: 'Proteus',
+        role:  'Technical analysis agent',
+        hue:   'cyan',   // the sea god — and the one hue the trade desks do not crowd
+        lead:  'How a stock trades',
+        blurb: 'What a stock respects technically, if anything — measured from its own candles.',
+        intro: "Name a stock and I'll tell you how it actually trades — measured, not assumed.",
+        hint:  'Ask how a stock behaves: does it respect a moving average or VWAP, does it false-break, is it a day-trade or a swing name, what is on its chart now.',
+        // A curling wave over the swell — the sea god who changes shape, and a price swing. The 0–24 twin of ProteusBadge.
+        icon: (
+            <>
+                <path d="M4.8 14.4 C7 14.4 7.9 11.5 9.8 9.4 C11.8 7.2 14.9 7 16.6 8.6 C18 10.1 17.5 12.5 15.6 12.7 C14.2 12.8 13.4 11.5 14.4 10.6" />
+                <path d="M3.6 16.8 C6 15.4 8.4 18.2 12 16.8 C15.6 15.4 18 18.2 20.4 16.8" />
+                <path d="M5.3 19.7 C7.7 18.5 9.6 20.6 12 19.7 C14.4 18.7 16.3 20.6 18.7 19.7" />
+            </>
+        ),
+    },
     analyst: {
         tab:   'analyst',
         brand: 'Prometheus',
@@ -262,6 +283,15 @@ export const DESKS = [
         hue:      'green',
         entryTab: 'mentor',
         agentKey: 'mentor',
+    },
+    {
+        key:      'technicals',
+        label:    'Technicals Desk',
+        lead:     'Technical analysis',
+        blurb:    'Proteus measures how a stock trades — what it respects, its false breaks, its ATR — and reads its chart now.',
+        hue:      'cyan',
+        entryTab: 'proteus',
+        agentKey: 'proteus',
     },
     {
         key:      'research',
