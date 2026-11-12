@@ -6,7 +6,7 @@ import { httpService } from '../http.service'
 
 const BASE = 'api/hotlist'
 
-export const hotlistService = { getToday, getBoard, getOutcomes, getReads, requestRead, getBook, getScorecard }
+export const hotlistService = { getToday, getBoard, getOutcomes, getReads, requestRead, getBook, getScorecard, getDayBoards }
 
 /**
  * PROMETHEUS'S SCORECARD (botmarket-backend prometheusCalls.service, 2026-10-27) → `{ coverage: { forward, backfill },
@@ -39,6 +39,17 @@ async function getToday(day = null) {
         // The days there are lists for, newest first — a past day is where its names' results are (2026-10-24).
         days:        Array.isArray(data?.days) ? data.days : [],
     }
+}
+
+/**
+ * The DAY BOARDS (botmarket-backend hotlist.day; argus-rework.md §3.3, 2026-11-11) — 09:20 · 10:30 · 14:30 ET, their own
+ * collection, no grades → `{ day, boards, days }`: `boards` the day's, oldest first, each `{ id, checkpoint, status,
+ * finished_at, counts, rows }`; a row is `{ symbol, name, price, gap_pct, rvol, pm_vol_pct, range_pos, atr_pct, why,
+ * catalyst: { news: [{ title, at }], earnings, rating } | null, quoted_at }`. `day` defaults to the latest with boards.
+ */
+async function getDayBoards(day = null) {
+    const data = await httpService.get(day ? `${BASE}/day?day=${encodeURIComponent(day)}` : `${BASE}/day`)
+    return { day: data?.day ?? null, boards: Array.isArray(data?.boards) ? data.boards : [], days: Array.isArray(data?.days) ? data.days : [] }
 }
 
 /** One checkpoint's board, in full. */

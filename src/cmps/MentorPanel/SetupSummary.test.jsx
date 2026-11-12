@@ -1,11 +1,9 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
-import { CoverageChips } from './CoverageChips.jsx'
 import { ZoneEditor } from './ZoneEditor.jsx'
 import { ScenarioBlock } from './ScenarioBlock.jsx'
 import { ConditionList } from './ConditionList.jsx'
 import { SetupSummary } from './SetupSummary.jsx'
-import { setupDigest } from './setupSummary.utils.js'
 
 afterEach(cleanup)
 
@@ -42,30 +40,6 @@ const SETUP = {
     entry_legs: FADE.entry_legs, stop_legs: FADE.stop_legs, target_legs: FADE.target_legs,
     rr: 2.11, quantity: 110,
 }
-
-describe('CoverageChips', () => {
-    it('marks only what has actually been read', () => {
-        render(<CoverageChips coverage={['markets', 'technicals']} />)
-        const chips = screen.getAllByTitle(/Markets|Company|Technicals/)
-        expect(chips).toHaveLength(3)
-        expect(screen.getByTitle(/^Markets — read/)).toBeTruthy()
-        expect(screen.getByTitle(/^Company — not read yet/)).toBeTruthy()
-    })
-
-    it('renders all three dimensions even with no coverage yet', () => {
-        render(<CoverageChips coverage={[]} />)
-        // Progress must be visible from the first turn, not appear out of nowhere.
-        expect(screen.getByText('Markets')).toBeTruthy()
-        expect(screen.getByText('Company')).toBeTruthy()
-        expect(screen.getByText('Technicals')).toBeTruthy()
-    })
-
-    it('survives a missing or malformed coverage prop', () => {
-        expect(() => render(<CoverageChips />)).not.toThrow()
-        cleanup()
-        expect(() => render(<CoverageChips coverage={null} />)).not.toThrow()
-    })
-})
 
 describe('ZoneEditor', () => {
     // ONE PRICE PER LEVEL, all the way down. The editor used to hold two edges and sort them on
@@ -306,11 +280,11 @@ describe('SetupSummary', () => {
         expect(screen.getByText(/will build here as you talk it through/)).toBeTruthy()
     })
 
-    it('shows the nucleus, the lens and the thesis', () => {
+    it('shows the nucleus and the thesis — and no lens tag (Roy, 2026-11-12: one way, never named)', () => {
         render(<SetupSummary setup={SETUP} />)
         expect(screen.getByText('NVDA')).toBeTruthy()
         expect(screen.getByText('LONG')).toBeTruthy()
-        expect(screen.getByText('smc')).toBeTruthy()
+        expect(screen.queryByText('smc')).toBeNull()
         expect(screen.getByText(/Sweep of the 199 shelf/)).toBeTruthy()
     })
 
@@ -380,51 +354,15 @@ describe('SetupSummary', () => {
     })
 })
 
-// The folded preview. The worksheet is a reference you glance up at, so Mentor opens it as one
-// line — which means that line has to carry what you would otherwise open it to check.
-describe('setupDigest', () => {
-    it('names the asset, the direction and how many entry scenarios', () => {
-        expect(setupDigest(SETUP)).toBe('NVDA · LONG · 2 entry scenarios')
-    })
-
-    // With a single premise the count says nothing you didn't know, so the space goes to the entry
-    // band instead — the number you actually look up mid-conversation. Same formatter as the block
-    // below it, so folded and open can't disagree about where the entry is.
-    it('shows the entry LEVEL instead of a count when there is one way in', () => {
-        expect(setupDigest({ ...SETUP, scenarios: [FADE] })).toBe('NVDA · LONG · entry 201')
-    })
-
-    // A TRIGGER entry (filled at market when its condition is true) has no price, and the folded line
-    // used to drop it for "1 entry scenario" while the open block said "on trigger" (2026-10-14).
-    it('reads a trigger entry the way the block does', () => {
-        const trigger = { ...FADE, entry_legs: [{ trigger: 'a 15m close back above 116.50', about: 117.2 }] }
-        expect(setupDigest({ ...SETUP, scenarios: [trigger] })).toBe('NVDA · LONG · entry ~117.2 on trigger')
-        const bare = { ...FADE, entry_legs: [{ trigger: 'RSI back above 30' }] }
-        expect(setupDigest({ ...SETUP, scenarios: [bare] })).toBe('NVDA · LONG · entry on trigger')
-        const none = { ...FADE, entry_legs: [{}] }
-        expect(setupDigest({ ...SETUP, scenarios: [none] })).toBe('NVDA · LONG · 1 entry scenario')
-    })
-
-    // Early in the build there is a ticker and little else. The digest must degrade to whatever is
-    // known rather than inventing structure — a setup with no premise drawn yet says so by omission.
-    it('degrades to what is known, and is empty before there is an asset', () => {
-        expect(setupDigest({ asset: 'AVGO' })).toBe('AVGO')
-        expect(setupDigest({ asset: 'AVGO', direction: 'short', scenarios: [] })).toBe('AVGO · SHORT')
-        expect(setupDigest(null)).toBe('')
-        expect(setupDigest({})).toBe('')
-    })
-})
-
 // ─── What it pays and what it costs ───────────────────────────────────────────
 // Computed on the server and carried on the draft, so the panel and Mentor's sentence quote the
 // same figures and neither is doing arithmetic on a live account.
 
 describe('SetupSummary lens tag', () => {
-    it('says what each lens means on hover — the thesis lens included', () => {
-        const { rerender } = render(<SetupSummary setup={{ asset: 'MTG', direction: 'long', trade_mode: 'thesis' }} />)
-        expect(screen.getByText('thesis').getAttribute('title')).toMatch(/stop where the thesis breaks/)
-        rerender(<SetupSummary setup={{ asset: 'MTG', direction: 'long', trade_mode: 'institutional' }} />)
-        expect(screen.getByText('institutional').getAttribute('title')).toMatch(/flows/)
+    it('never names the lens — not thesis, not any other (Roy, 2026-11-12)', () => {
+        const { container } = render(<SetupSummary setup={{ asset: 'MTG', direction: 'long', trade_mode: 'thesis' }} />)
+        expect(screen.queryByText('thesis')).toBeNull()
+        expect(container.querySelector('.setup-summary__tag--lens')).toBeNull()
     })
 })
 

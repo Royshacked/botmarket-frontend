@@ -6,11 +6,13 @@ export function RiskBasedInfo() {
     return (
         <div className="hot-info">
             <section>
-                <h3 className="hot-info__h">How risk-based works</h3>
-                <p>Mentor builds this way when you bring a name and no setup of your own. Bring a level or a condition of yours and
-                    Mentor builds it in your terms instead.</p>
-                <p><b>Mentor judges</b> the stop and the target from the chart. <b>You choose</b> your limits, the size, how long it
-                    waits, and what happens if it runs away.</p>
+                <h3 className="hot-info__h">How Mentor builds a trade</h3>
+                <p>Say a name — &ldquo;let&apos;s trade TSLA&rdquo;. Prometheus reads the company and Proteus how its price behaves, and
+                    Mentor tells you whether it&apos;s worth a long now, and on which horizon. Bring levels of your own and he talks them
+                    through with you.</p>
+                <p><b>Mentor asks you one thing</b>: your position size, your risk and the R:R you want. Then he builds the whole
+                    trade, judges the stop and the target from the chart, sets how long it waits, and saves and arms it, so Talos is
+                    watching. Every choice is in his reply, for you to change. An entry still comes to you to confirm.</p>
                 <p>Described here for a long. A short is the mirror.</p>
             </section>
             <section>
@@ -18,24 +20,23 @@ export function RiskBasedInfo() {
                 <dl className="hot-info__dl">
                     <div><dt>Stop</dt><dd>under the sellers&apos; last swing down. If price gets back there, the thesis is broken.</dd></div>
                     <div><dt>Target</dt><dd>where sellers last took over above. At the highs, with nothing overhead, a measured move: the current range&apos;s height added to its high.</dd></div>
-                    <div><dt>Your limits</dt><dd>how far the stop can be from the entry, and the minimum reward to risk. They set the highest entry price worth paying.</dd></div>
-                    <div><dt>Size</dt><dd>yours, set at that level and kept on an entry under it. The risk is then smaller than planned.</dd></div>
+                    <div><dt>Your numbers</dt><dd>your risk over your position size is how far the stop can be from the entry; your R:R is the minimum reward to risk. Together they set the highest entry price worth paying. Over today&apos;s price, the setup waits for price to come down to it.</dd></div>
+                    <div><dt>Size</dt><dd>your position size, set at that level and kept on an entry under it. The risk is then smaller than planned.</dd></div>
                     <div><dt>Entry</dt><dd>Talos waits for price at or under the level, showing strength on the 1h and 4h.</dd></div>
                 </dl>
             </section>
             <section>
-                <h3 className="hot-info__h">What Mentor offers, never sets unasked</h3>
+                <h3 className="hot-info__h">What Mentor builds, and what he offers</h3>
                 <dl className="hot-info__dl">
                     <div><dt>A deeper stop</dt><dd>under the low of the whole fall. More room, fewer shares for the same risk, and it may never fill.</dd></div>
                     <div><dt>A second target</dt><dd>half out at the target, half at the next level, with the stop unchanged.</dd></div>
-                    <div><dt>A break scenario (B)</dt><dd>a second way in, armed by a day close over the nearest high, with an assumed stop that stays where it is unless redrawn. You take A, B or both. With both, the first to fill takes the full size and the other is cancelled.</dd></div>
+                    <div><dt>A break scenario (B)</dt><dd>a second way in, armed by a day close over the nearest high, with an assumed stop that stays where it is unless redrawn. Mentor builds A and B together; the first to fill takes the full size and the other is cancelled. One word from you drops either.</dd></div>
                 </dl>
             </section>
             <section>
                 <h3 className="hot-info__h">If it does not go to plan</h3>
                 <p><b>Before a fill</b>, a day close under the stop sends you a card to redraw or close. If price runs away without
-                    filling, Mentor has asked you in advance: a ping to redraw it, or let it go. With A and B together, A just lets it
-                    go, because B is the continuation. That setup doesn&apos;t close by itself, unless your wait runs out first.</p>
+                    filling, you get a card to redraw it. That setup doesn&apos;t close by itself, unless its wait runs out first.</p>
                 <p><b>Once it has filled</b>, the stop and the targets do their job.</p>
             </section>
             <section>

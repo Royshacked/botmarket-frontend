@@ -1,0 +1,123 @@
+// THE DAY BOARDS on the Hotlist (botmarket-backend services/hotlist.day.js; docs/design/argus-rework.md §3.3, revived
+// 2026-11-11): three boards a trading day — 09:20, 10:30, 14:30 ET — of names IN PLAY. No grade, no free range, no
+// result: a board says a name is moving up so far, with the numbers and why, and predicts nothing about where it goes.
+// Pure helpers for HotlistDayBoards.
+
+/** The Intraday tab's key and label — beside the week, the book's two lists and Covered companies. */
+export const INTRADAY = 'intraday'
+export const INTRADAY_LABEL = 'Intraday'
+
+/** The three boards, in the day's order. */
+export const DAY_BOARD_ORDER = Object.freeze(['open', 'mid', 'eod'])
+export const DAY_BOARD_LABEL = Object.freeze({ open: '09:20', mid: '10:30', eod: '14:30' })
+export const DAY_BOARD_TITLE = Object.freeze({
+    open: '09:20 ET — before the open: gapping up on pre-market volume, or on fresh news',
+    mid: '10:30 ET — mid-session: above the open on more volume than an ordinary day so far',
+    eod: '14:30 ET — into the close: in the top quarter of the day’s range on volume',
+})
+
+/**
+ * Each board's in-play rule, in words (backend hotlist.columns inPlay) — said ONCE above the table: every name on a board
+ * passed the same rule, so it is not a reason per row (Roy, 2026-11-12: "all reasons are the same"). The row's own why
+ * is its catalyst.
+ */
+export const DAY_BOARD_RULE = Object.freeze({
+    open: 'gapping up 3%+ on heavy pre-market volume, or 1.5%+ on fresh news',
+    mid: 'up on the day and above the open, on 1.5×+ an ordinary day’s volume so far',
+    eod: 'up on the day and in the top quarter of its range, on 1.3×+ an ordinary day’s volume',
+})
+
+const _ET = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+const _ETDAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' })
+
+/** An instant → "HH:MM" in New York, or null. Pure. */
+export function etTime(ms) {
+    return Number.isFinite(ms) ? _ET.format(new Date(ms)) : null
+}
+
+/** An instant → its ET date, YYYY-MM-DD. Pure. */
+export function etDay(ms) {
+    return _ETDAY.format(new Date(ms))
+}
+
+/** When a board's quotes were taken — "09:20" or "09:20–09:25" (ET); a board takes minutes, so one time would lie. Pure. */
+export function quotedSpan(rows) {
+    const at = (rows ?? []).map(r => r?.quoted_at).filter(Number.isFinite)
+    if (!at.length) return null
+    const a = etTime(Math.min(...at)), b = etTime(Math.max(...at))
+    return a === b ? a : `${a}–${b}`
+}
+
+/**
+ * The day's boards in the DAY's order (09:20, 10:30, 14:30) — not the order they finished in: a 09:20 board re-run after
+ * 10:30 is still the morning's (CR 2026-11-11). A checkpoint this client does not know goes last, so it still gets a
+ * button. Pure.
+ */
+export function orderedBoards(boards) {
+    const rank = (b) => { const i = DAY_BOARD_ORDER.indexOf(b?.checkpoint); return i < 0 ? DAY_BOARD_ORDER.length : i }
+    return [...(boards ?? [])].filter(Boolean).sort((a, b) => rank(a) - rank(b))
+}
+
+/** The board to open on: the day's latest checkpoint. Pure. */
+export function latestBoardId(boards) {
+    const list = orderedBoards(boards)
+    return list.length ? list[list.length - 1].id : null
+}
+
+/** Volume against an ordinary day: "2.4×" in session, "3% pre" before the open, else null. Pure. */
+export function volText(row) {
+    if (Number.isFinite(row?.rvol)) return `${row.rvol}×`
+    if (Number.isFinite(row?.pm_vol_pct)) return `${Math.round(row.pm_vol_pct * 10) / 10}% pre`
+    return null
+}
+
+/** The move since the last close, signed: "+6.2%". Pure. */
+export function gapText(row) {
+    const g = row?.gap_pct
+    return Number.isFinite(g) ? `${g > 0 ? '+' : ''}${g.toFixed(1)}%` : null
+}
+
+/**
+ * A headline's time as the board shows it: "14:23" on the board's own day, "Tue 18:29" before it — fresh means since the
+ * LAST CLOSE, so last evening's story is on today's board, and its bare time read as today's (the live drive, 2026-11-11).
+ * `at` is FMP's ET wall-clock "YYYY-MM-DD HH:MM:SS". Pure.
+ */
+export function headlineTime(at, boardDay = null) {
+    const s = String(at ?? '')
+    const time = s.slice(11, 16) || null
+    const day = s.slice(0, 10)
+    if (!time || !boardDay || !/^\d{4}-\d{2}-\d{2}$/.test(day) || day === boardDay) return time
+    const wd = new Date(`${day}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })
+    return `${wd} ${time}`
+}
+
+/**
+ * A row's catalyst as the table shows it: the freshest headline with its ET time (FMP's times are ET wall-clock) — its day
+ * too when it is not the board's (`boardDay`) — the report and rating flags, and how many more headlines there are.
+ * → `{ time, title, flags, more }`, or null. Pure.
+ */
+export function catalystCell(row, boardDay = null) {
+    const c = row?.catalyst
+    if (!c) return null
+    const news = Array.isArray(c.news) ? c.news : []
+    const n = news[0]
+    const flags = [c.earnings && 'reported', c.rating && 'rating change'].filter(Boolean)
+    if (!n && !flags.length) return null
+    return { time: n ? headlineTime(n.at, boardDay) : null, title: n?.title ?? null, flags, more: Math.max(0, news.length - 1) }
+}
+
+/**
+ * What the Intraday tab says when there is no board to show, or an earlier day's. `data` is GET /day's answer; `nowMs`
+ * now; `day` the day the panel ASKED for (null = the latest). → `{ empty: text | null, stale: text | null }`. Pure.
+ * No promise of "today's first at 09:20" — on a weekend or a holiday there is none (CR 2026-11-11).
+ */
+export function dayBoardsNote(data, nowMs, { day = null } = {}) {
+    const boards = data?.boards ?? []
+    if (!boards.length) {
+        return { empty: day ? `No day boards on ${day}.` : 'No day board yet — the boards run at 09:20, 10:30 and 14:30 ET on trading days.', stale: null }
+    }
+    // A day the user stepped back to is that day's, as asked: nothing to warn about.
+    if (day) return { empty: null, stale: null }
+    const today = etDay(nowMs)
+    return { empty: null, stale: data.day && data.day !== today ? `The latest boards are from ${data.day} — the next runs at 09:20 ET on a trading day.` : null }
+}

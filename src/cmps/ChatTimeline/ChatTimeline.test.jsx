@@ -58,11 +58,18 @@ describe('ChatTimeline', () => {
         expect(tags).toEqual(['Axl', 'Mentor'])
     })
 
-    it('a hand-off names both sides and carries its brief', () => {
+    it('a hand-off names both sides, and its brief — the receiving desk’s, a repeat of what was just said — is not on screen (2026-11-12)', () => {
         session = base({ rows: [row(1, { kind: 'handoff', agent: 'portfolio', to: 'scanner', content: 'Source me semis.' })] })
         render(<ChatTimeline />)
         expect(screen.getByText('Atlas → Argus')).toBeTruthy()
-        expect(screen.getByText('Source me semis.')).toBeTruthy()
+        expect(screen.queryByText('Source me semis.')).toBeNull()
+    })
+
+    it('a desk handing the work back to itself reads as carrying on', () => {
+        session = base({ rows: [row(1, { kind: 'handoff', agent: 'mentor', to: 'mentor', content: 'Carry on the build from where the last turn stopped.' })] })
+        render(<ChatTimeline />)
+        expect(screen.getByText('Mentor carries on')).toBeTruthy()
+        expect(screen.queryByText(/Carry on the build/)).toBeNull()
     })
 
     it('a decision’s taps are live only while the chain waits on it — and post the choice', async () => {
@@ -264,6 +271,14 @@ describe('a session a commit opened (Roy, 2026-10-18)', () => {
         session = base({ rows: [ended()] })
         render(<ChatTimeline />)
         fireEvent.click(screen.getByRole('button', { name: 'Open the setup to arm it' }))
+        expect(openEntityPopup).toHaveBeenCalledWith('setup', 's9')
+    })
+
+    it('one Mentor saved AND armed himself (his go, 2026-11-12) is already watched: the link just opens it', () => {
+        session = base({ rows: [ended({ content: "✓ Mentor built EQPT setup — saved and armed to your Setups, watching. You're back with Axl." })] })
+        render(<ChatTimeline />)
+        expect(screen.queryByRole('button', { name: 'Open the setup to arm it' })).toBeNull()
+        fireEvent.click(screen.getByRole('button', { name: 'Open the setup' }))
         expect(openEntityPopup).toHaveBeenCalledWith('setup', 's9')
     })
 

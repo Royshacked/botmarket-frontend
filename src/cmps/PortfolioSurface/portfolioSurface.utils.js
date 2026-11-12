@@ -4,17 +4,6 @@
 import { planAccountRebind, isPostOrderStatus } from '../TradeIdeas/tradeIdea.utils.js'
 import { reviewApplyMessage } from '../PortfolioPanel/reviewApply.js'
 
-// The canned turn the "Review" button sends to start Atlas's review pass. Atlas then confirms "hold as-is" or
-// proposes changes the user accepts or dismisses.
-export const REVIEW_REQUEST = 'Run my scheduled portfolio review now: assess performance and each holding against our thesis and mandate, then either confirm we hold as-is or propose specific changes (rebalance, trim, add, exit, or swap).'
-
-// Turns the empty surface offers — the user's words, sent to Atlas.
-export const OPENINGS = [
-    'Build me a long-term growth portfolio',
-    'I want a dividend income portfolio',
-]
-export const ADOPT_OPENING = 'I already hold a portfolio at my bank — I want you to manage it.'
-
 /** The holdings a book's ideas carry — its legs are ideas with its portfolioId. */
 export const bookIdeas = (ideas, portfolioId) =>
     portfolioId ? (Array.isArray(ideas) ? ideas : []).filter(i => i?.portfolioId === portfolioId) : []

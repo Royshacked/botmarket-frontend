@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor, act } from '@testing-library/react'
 import { MentorSurface } from './MentorSurface.jsx'
 
-// Mentor's surface in the side pane (phase 8b). It draws MENTOR'S STATE ON THE SESSION and presses three ways: a
-// gate or a pick is a turn (ops ride the message), a worksheet field is a hand edit, Generate / Arm / Update / Later
-// are commits. The session is a stub; its own suite covers the wire. Moved from MentorPanel's suite where the
+// Mentor's surface in the side pane (phase 8b; 2026-11-12: the setup being built and its commit bar, nothing else). It
+// draws MENTOR'S STATE ON THE SESSION and presses two ways: a worksheet field is a hand edit, Generate / Arm / Update /
+// Later are commits. The session is a stub; its own suite covers the wire. Moved from MentorPanel's suite where the
 // behaviour is the surface's.
 
 const SETUP = {
@@ -37,13 +37,13 @@ beforeEach(() => vi.useRealTimers())
 afterEach(cleanup)
 
 describe('MentorSurface — the table', () => {
-    it('with nothing on the table it offers the openings, each a turn to Mentor', () => {
-        mount(null)
+    it('with nothing on the table it says how to start — in the chat; no chips (Roy, 2026-11-12)', () => {
+        const { container } = mount(null)
         expect(screen.getByText(/Nothing on Mentor/)).toBeTruthy()
-        fireEvent.click(screen.getByText('I want to buy NVDA on a pullback'))
-        expect(session.send).toHaveBeenCalledWith('I want to buy NVDA on a pullback', { agent: 'mentor', accounts: ACCOUNTS, mainAccountId: 'a1' })
-        fireEvent.click(screen.getByText(/I have my own setup/))
-        expect(session.send).toHaveBeenLastCalledWith('I have my own setup — take it down as I give it', expect.objectContaining({ agent: 'mentor' }))
+        expect(screen.getByText(/let.s trade TSLA/)).toBeTruthy()
+        expect(screen.queryByText('I want to buy NVDA on a pullback')).toBeNull()
+        expect(screen.queryByText(/I have my own setup/)).toBeNull()
+        expect(container.querySelectorAll('.desk-surface button').length).toBe(0)
     })
 
     it('the account picker is there from the empty table on — a trade’s account is chosen at its start (2026-10-19)', () => {
@@ -55,13 +55,12 @@ describe('MentorSurface — the table', () => {
         expect(container.querySelectorAll('.mentor-surface__accounts')).toHaveLength(1)
     })
 
-    it('renders the coverage chips and the folded worksheet, which opens on a click', () => {
-        mount({ draft: SETUP, coverage: ['direction', 'levels'], view: { readiness: READY } })
+    it('the setup being built is the pane — always open, no coverage chips, no toggle (Roy, 2026-11-12)', () => {
+        const { container } = mount({ draft: SETUP, coverage: ['direction', 'levels'], view: { readiness: READY } })
         expect(screen.getByText('your setup')).toBeTruthy()
-        const toggle = screen.getByRole('button', { name: /your setup/ })
-        expect(toggle.getAttribute('aria-expanded')).toBe('false')
-        fireEvent.click(toggle)
-        expect(toggle.getAttribute('aria-expanded')).toBe('true')
+        expect(screen.queryByRole('button', { name: /your setup/ })).toBeNull()
+        expect(container.querySelector('.setup-summary')).toBeTruthy()
+        expect(screen.getByText('Sweep and reclaim of the 199 shelf.')).toBeTruthy()
     })
 
     it('says which setup is being edited; Update is on the bar, dark until the plan moves — and says so (2026-10-18)', () => {
@@ -86,36 +85,11 @@ describe('MentorSurface — the Generate bar', () => {
     })
 
     // Roy, 2026-11-07: "show them when mentor asks — it showed after I already chose".
-    describe('the scenarios Mentor is asking about', () => {
-        const OFFER = { options: [
-            { id: 'A', label: 'the pullback', arm: null, stop: 49.66, target: 60.15 },
-            { id: 'B', label: 'after the break', arm: 55.45, stop: 52.46, target: 58.47 },
-        ] }
-
-        it('are in the pane on the turn he asks, though the worksheet holds only A', () => {
-            mount({ draft: SETUP, view: { offer: OFFER } })
-            expect(screen.getByText(/Mentor is asking: A, B or both/)).toBeTruthy()
-            expect(screen.getByText(/after the break/)).toBeTruthy()
-            expect(screen.getByText('Arms on a day close through $55.45')).toBeTruthy()
-            expect(screen.getByText('Stop $52.46 (assumed)')).toBeTruthy()
-            expect(screen.getByText('Stop $49.66')).toBeTruthy()
-            expect(screen.getByText('Target $60.15')).toBeTruthy()
-        })
-
-        it('are gone once there is no offer, and while a turn runs', () => {
-            mount({ draft: SETUP, view: { offer: null } })
-            expect(screen.queryByText(/Mentor is asking/)).toBeNull()
-            cleanup()
-            mount({ draft: SETUP, view: { offer: OFFER } }, { live: { text: '' } })
-            expect(screen.queryByText(/Mentor is asking/)).toBeNull()
-        })
-
-        it('one option is not put as a choice of both', () => {
-            mount({ draft: SETUP, view: { offer: { options: [OFFER.options[1]] } } })
-            expect(screen.getByText(/Mentor is offering this scenario/)).toBeTruthy()
-            expect(screen.queryByText(/or both/)).toBeNull()
-            expect(screen.queryByText(/first to fill/)).toBeNull()
-        })
+    it('an A/B offer is asked in the chat, never put in the pane (Roy, 2026-11-12)', () => {
+        const OFFER = { options: [{ id: 'A', label: 'the pullback', stop: 49.66, target: 60.15 }, { id: 'B', label: 'after the break', arm: 55.45, stop: 52.46, target: 58.47 }] }
+        mount({ draft: SETUP, view: { offer: OFFER } })
+        expect(screen.queryByText(/Mentor is asking/)).toBeNull()
+        expect(screen.queryByText(/after the break/)).toBeNull()
     })
 
     it('never shows a dark button with nothing to say', () => {
@@ -175,56 +149,34 @@ describe('MentorSurface — generated, not armed', () => {
     })
 })
 
-describe('MentorSurface — presses that are turns', () => {
+describe('MentorSurface — no gate cards, no tables, no candidates in the pane (Roy, 2026-11-12)', () => {
     const GATE = { asset: 'NVDA', stage: 'opening', awaiting: true, fields: ['direction', 'horizon', 'lens'], values: { direction: 'long', horizon: 'swing', lens: 'smc' } }
-
-    it('the stage card sends the settlement as an OP, and says it in words too; the waiver rides on it', () => {
-        mount({ draft: SETUP, view: { gate: GATE, readiness: { ready: false, missing: [] } } })
-        fireEvent.click(screen.getByText('Yes — carry on'))
-        expect(session.send).toHaveBeenCalledWith('Yes, those are right.', expect.objectContaining({ agent: 'mentor', ops: [{ settle: ['direction', 'horizon', 'lens'] }] }))
-        fireEvent.click(screen.getByText('Yes — go all the way to sizing'))
-        expect(session.send.mock.calls[1][1].ops).toEqual([{ settle: ['direction', 'horizon', 'lens'], waiver: true }])
-    })
-
-    it('"Change something" steps the card aside until Mentor proposes again', () => {
-        const { rerender } = mount({ draft: SETUP, view: { gate: GATE, readiness: { ready: false, missing: [] } } })
-        fireEvent.click(screen.getByText('Change something'))
-        expect(screen.queryByText('Yes — carry on')).toBeNull()
-        const next = { ...GATE, values: { ...GATE.values, horizon: 'day' } }
-        rerender(<MentorSurface session={{ ...session, agentState: { mentor: { draft: SETUP, view: { gate: next } } } }} deskProps={desk()} />)
-        expect(screen.getByText('Yes — carry on')).toBeTruthy()
-    })
-
-    it('picking a candidate settles what it carries, as an op on a turn', () => {
-        const CANDIDATES = [
-            { label: 'Sweep and reclaim', pitch: 'tight', setup: { asset: 'NVDA', direction: 'long', type: 'swing', trade_mode: 'smc' } },
-            { label: 'Fade the high', pitch: 'other side', setup: { asset: 'NVDA', direction: 'short', type: 'day', trade_mode: 'institutional' } },
-        ]
-        mount({ draft: null, coverage: ['direction'], view: { setups: { candidates: CANDIDATES } } })
-        fireEvent.click(screen.getByText('Fade the high'))
-        expect(session.send).toHaveBeenCalledWith('Let\'s go with "Fade the high".', expect.objectContaining({
-            ops: [{ claim: { direction: 'short', horizon: 'day', lens: 'institutional' }, settle: ['direction', 'horizon', 'lens'] }],
-        }))
-    })
-
     const SPANS   = { candidates: [{ id: 't1', label: 'the shelf', from: 'a', to: 'b' }] }
     const ENTRIES = { trades: [{ id: 't1', semantics: 'alternatives', options: [{ id: 't1e1', label: 'reclaim', trigger: 'closes back above', recommended: true }] }] }
-    const at = (stage) => ({ draft: { ...SETUP, spans: SPANS, entries: ENTRIES }, view: { gate: { asset: 'NVDA', stage, awaiting: true, fields: [stage], values: {} }, readiness: { ready: false, missing: [] } } })
 
-    it('shows the gate the server says is open — spans, entries, and neither at sizing', () => {
-        mount(at('spans'))
-        expect(screen.getByText('the shelf')).toBeTruthy()
-        expect(screen.queryByText('reclaim')).toBeNull()
-        cleanup(); mount(at('entries'))
-        expect(screen.getByText('reclaim')).toBeTruthy()
-        cleanup(); mount(at('sizing'))
-        expect(screen.queryByText('reclaim')).toBeNull()
+    it('whatever stage the server is at, the pane draws the setup and its commit bar only', () => {
+        mount({ draft: { ...SETUP, spans: SPANS, entries: ENTRIES }, view: { gate: GATE, readiness: { ready: false, missing: [] } } })
+        expect(screen.queryByText('Yes — carry on')).toBeNull()
+        expect(screen.getByText('Generate setup')).toBeTruthy()
+        cleanup()
+        mount({ draft: { ...SETUP, spans: SPANS, entries: ENTRIES }, view: { gate: { ...GATE, stage: 'spans' }, readiness: { ready: false, missing: [] } } })
         expect(screen.queryByText('the shelf')).toBeNull()
+        cleanup()
+        mount({ draft: { ...SETUP, spans: SPANS, entries: ENTRIES }, view: { gate: { ...GATE, stage: 'entries' }, readiness: { ready: false, missing: [] } } })
+        expect(screen.queryByText('reclaim')).toBeNull()
+        cleanup()
+        const CANDIDATES = [{ label: 'Fade the high', pitch: 'other side', setup: { asset: 'NVDA', direction: 'short', type: 'day', trade_mode: 'institutional' } }]
+        mount({ draft: null, coverage: ['direction'], view: { setups: { candidates: CANDIDATES } } })
+        // Named, not pickable: no card, no button — the empty table says what he offered (CR 2026-11-12: it was blank).
+        expect(screen.getByText(/Mentor offered NVDA — Fade the high/)).toBeTruthy()
+        expect(screen.queryByRole('button', { name: /Fade the high/ })).toBeNull()
+        cleanup()
+        mount({ draft: null, coverage: ['direction', 'horizon'] })
+        expect(screen.getByText(/Nothing on Mentor/)).toBeTruthy()
     })
 
-    it('every gate and the bar wait while a turn runs', () => {
-        mount(at('spans'), { live: { turnId: 't', agent: 'mentor' } })
-        expect(screen.queryByText('the shelf')).toBeNull()
+    it('the bar waits while a turn runs', () => {
+        mount({ draft: SETUP, view: { readiness: READY } }, { live: { turnId: 't', agent: 'mentor' } })
         expect(screen.queryByText('Generate setup')).toBeNull()
     })
 })
@@ -234,7 +186,6 @@ describe('MentorSurface — hand edits and Update', () => {
         vi.useFakeTimers()
         const scenario = { id: 's1', name: 'false break', entry_legs: [{ id: 's1e1', price: 201, quantity: 110 }], stop_legs: [{ id: 's1s1', price: 196.5 }], target_legs: [{ id: 's1t1', price: 210.5, quantity: 110 }], quantity: 110 }
         mount({ draft: { ...SETUP, scenarios: [scenario] }, view: { readiness: READY } })
-        fireEvent.click(screen.getByRole('button', { name: /your setup|editing NVDA/ }))
         fireEvent.change(screen.getByLabelText('Entry price s1e1'), { target: { value: '19' } })
         fireEvent.change(screen.getByLabelText('Entry price s1e1'), { target: { value: '198' } })
         expect(session.edit).not.toHaveBeenCalled()
@@ -262,7 +213,6 @@ describe('MentorSurface — an edit and a press, in order (8b CR)', () => {
     const scenario = { id: 's1', name: 'false break', entry_legs: [{ id: 's1e1', price: 201, quantity: 110 }], stop_legs: [{ id: 's1s1', price: 196.5 }], target_legs: [{ id: 's1t1', price: 210.5, quantity: 110 }], quantity: 110 }
     const mentor = { draft: { ...SETUP, scenarios: [scenario] }, view: { readiness: READY } }
     const typeEntry = (value) => {
-        fireEvent.click(screen.getByRole('button', { name: /your setup|editing NVDA/ }))
         fireEvent.change(screen.getByLabelText('Entry price s1e1'), { target: { value } })
     }
 

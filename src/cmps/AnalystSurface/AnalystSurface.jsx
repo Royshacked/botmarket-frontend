@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { LaterButton } from '../LaterButton.jsx'
@@ -22,29 +21,24 @@ import '../AnalystPanel/AnalystPanel.scss'
 
 /**
  * The drafted coverage — the variant-perception thesis, our PT vs the Street (the gap = the edge), the rating, and the
- * monitorable kill-criteria. The header is always visible; the body folds so the bar below is never pushed off.
+ * monitorable kill-criteria.
  */
 export function CoverageDraft({ coverage }) {
-    const [open, setOpen] = useState(true)
     const kills = Array.isArray(coverage.kill_criteria) ? coverage.kill_criteria : []
+    // Always open (Roy, 2026-11-12 — argus-rework.md §2.3 point 4): the pane is the coverage itself; no fold button.
     return (
         <div className="analyst-panel__draft">
-            <button type="button" className="analyst-panel__draft-head analyst-panel__draft-toggle" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+            <div className="analyst-panel__draft-head">
                 <span className="analyst-panel__asset">{coverage.symbol}</span>
                 {coverage.rating && <span className={`analyst-panel__rating analyst-panel__rating--${coverage.rating}`}>{coverage.rating.replace('_', ' ')}</span>}
                 <PriceTarget priceTarget={coverage.price_target} gap={coverage.gap} gapSource />
-                <span className="analyst-panel__draft-caret" aria-hidden="true">{open ? '▾' : '▸'}</span>
-            </button>
-            {open && (
-                <>
-                    {coverage.thesis && <div className="analyst-panel__thesis">{coverage.thesis}</div>}
-                    {kills.length > 0 && (
-                        <div className="analyst-panel__kills">
-                            <span className="analyst-panel__kills-label">kill-criteria</span>
-                            <ul>{kills.map((k, i) => <li key={i}>{typeof k === 'string' ? k : JSON.stringify(k)}</li>)}</ul>
-                        </div>
-                    )}
-                </>
+            </div>
+            {coverage.thesis && <div className="analyst-panel__thesis">{coverage.thesis}</div>}
+            {kills.length > 0 && (
+                <div className="analyst-panel__kills">
+                    <span className="analyst-panel__kills-label">kill-criteria</span>
+                    <ul>{kills.map((k, i) => <li key={i}>{typeof k === 'string' ? k : JSON.stringify(k)}</li>)}</ul>
+                </div>
             )}
         </div>
     )

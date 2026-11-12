@@ -17,6 +17,8 @@ import {
 import { ChartSurface } from '../PriceChart/ChartSurface.jsx'
 import { HotlistBook } from './HotlistBook.jsx'
 import { HotlistRowPage } from './HotlistRowPage.jsx'
+import { HotlistDayBoards } from './HotlistDayBoards.jsx'
+import { INTRADAY, INTRADAY_LABEL, latestBoardId } from './hotlistDay.utils.js'
 import './HotlistPanel.scss'
 
 // THE HOTLIST — the screener's daily board of names in play, in the detail panel over the chat
@@ -81,6 +83,12 @@ export function HotlistPanel({ onBuild, onSymbolClick, coverage = [], isAdmin = 
     const [record, setRecord] = useState(null)
     // The house's Swing and Long term names (GET /book) — read on open; null until read, or on a failure.
     const [book, setBook] = useState(null)
+    // The DAY BOARDS (GET /day — hotlist.day, 2026-11-11): the Intraday tab's. Read on open and again each time the tab is
+    // chosen, so a board that landed while the panel was open (10:30, 14:30) shows up.
+    const [dayBoards, setDayBoards] = useState({ status: 'idle', day: null, boards: [] })
+    const [dayTick, setDayTick] = useState(0)
+    // The day board on screen, held here so a trip to a chart and back keeps it (CR 2026-11-11). Null: the day's latest.
+    const [dayBoardId, setDayBoardId] = useState(null)
     // A symbol clicked on the list: its DAILY chart, in this window, in place of the table (Roy, 2026-10-22). The window
     // covers the chat, so the chat's own chart dock would open out of sight.
     const [chartSym, setChartSym] = useState(null)
@@ -115,7 +123,24 @@ export function HotlistPanel({ onBuild, onSymbolClick, coverage = [], isAdmin = 
     // close, is cached but not shown — or the 14:30 tab would end up showing the 10:30 board.
     const wanted = useRef(null)
 
-    useEffect(() => { if (!isOpen) { seen.current.clear(); wanted.current = null; setChartSym(null); setFocus(null); setReads({ status: 'idle', list: [] }); setDay(null); setRecord(null); setBook(null) } }, [isOpen])
+    useEffect(() => { if (!isOpen) { seen.current.clear(); wanted.current = null; setChartSym(null); setFocus(null); setReads({ status: 'idle', list: [] }); setDay(null); setRecord(null); setBook(null); setDayBoards({ status: 'idle', day: null, boards: [] }); setDayBoardId(null) } }, [isOpen])
+
+    // The day boards follow the day on screen (CR 2026-11-11: stepping back left Intraday on the latest day). A new day
+    // starts on its latest board and shows "Loading…"; a re-read of the same day keeps the boards on screen.
+    const dayShown = useRef(day)
+    useEffect(() => {
+        if (!isOpen) return
+        let live = true
+        const sameDay = dayShown.current === day
+        dayShown.current = day
+        if (!sameDay) setDayBoardId(null)
+        setDayBoards(d => (d.status === 'ok' && sameDay ? d : { status: 'loading', day: null, boards: [] }))
+        hotlistService.getDayBoards(day).then(
+            d => { if (live) setDayBoards({ status: 'ok', ...d }) },
+            () => { if (live) setDayBoards(d => (d.status === 'ok' && sameDay ? d : { status: 'error', day: null, boards: [] })) },
+        )
+        return () => { live = false }
+    }, [isOpen, retry, dayTick, day])
 
     useEffect(() => {
         if (!isOpen) return
@@ -290,10 +315,23 @@ export function HotlistPanel({ onBuild, onSymbolClick, coverage = [], isAdmin = 
                     ? <DayList today={today} sort={sort} setSort={setSort} horizon={horizon} setHorizon={setHorizon}
                         reads={readsBySymbol(reads.list, today.day)} readsFailed={reads.status === 'error'} readsLoading={reads.status === 'idle'} asked={asked} onAskRead={latestDay ? askRead : null}
                         record={record} book={book} coverage={coverage} isAdmin={isAdmin} focus={focus} onOpen={openRow}
+                        dayBoards={dayBoards} onDayBoards={() => setDayTick(n => n + 1)} day={day}
+                        dayBoardId={dayBoardId} onDayBoard={setDayBoardId}
                         onSymbolClick={symbolClick} onBuild={handOff(onBuild)} />
-                    : <Body today={today} board={board} picksOnly={picksOnly} setPicksOnly={setPicksOnly}
-                        onRetry={retryLoad} onSymbolClick={symbolClick}
-                        onBuild={handOff(onBuild)} />}
+                    : <>
+                        <Body today={today} board={board} picksOnly={picksOnly} setPicksOnly={setPicksOnly}
+                            onRetry={retryLoad} onSymbolClick={symbolClick}
+                            onBuild={handOff(onBuild)} />
+                        {/* The day boards do not depend on This week (CR 2026-11-11): when its list failed or has no board
+                            yet, the day's boards that DID load are still shown, under it. */}
+                        {(today.status === 'error' || (today.status === 'ok' && !today.latest)) && dayBoards.status === 'ok' && dayBoards.boards.length > 0 && (
+                            <section className="hot-day-fallback" aria-label="The day boards">
+                                <h3 className="hot-note">The day boards</h3>
+                                <HotlistDayBoards data={dayBoards} day={day} boardId={dayBoardId} onBoard={setDayBoardId}
+                                    onSymbolClick={symbolClick} onRetry={() => setDayTick(n => n + 1)} />
+                            </section>
+                        )}
+                    </>}
         </DetailPanel>
     )
 }
@@ -413,9 +451,12 @@ Body.propTypes = {
  */
 function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, reads = new Map(), readsFailed = false,
     readsLoading = false, asked = {}, onAskRead, record = null, book = null, coverage = [], isAdmin = false, focus = null, onOpen = () => {},
-    onBuild, onSymbolClick }) {
+    dayBoards = null, onDayBoards = () => {}, day = null, dayBoardId = null, onDayBoard, onBuild, onSymbolClick }) {
+    // INTRADAY (2026-11-11, argus-rework.md §3.3): the day boards — their own collection and their own view
+    // (HotlistDayBoards), like the book's lists below; nothing of this week's list logic applies to them.
+    const intradayView = horizon === INTRADAY
     // SWING and LONG TERM (Roy, 2026-10-24) are the house's coverage, not the day's boards: their own list (BookList).
-    const bookView = BOOK_ORDER.includes(horizon) || horizon === COVERED
+    const bookView = BOOK_ORDER.includes(horizon) || horizon === COVERED || intradayView
     // THE HORIZON first (horizon-chains.md §1): one column's list — its names, Argus's picks for it first. A header the
     // user clicked sorts it instead.
     const byHorizon = bookView ? [] : horizon ? horizonRows(today.dayList, horizon) : today.dayList
@@ -473,7 +514,20 @@ function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, 
         return { key, dir: cur === 'asc' ? 'desc' : 'asc' }
     })
     // A new horizon opens in its own order, not the last tab's sort.
-    const chooseHorizon = (h) => { if (h === horizon) return; setHorizon(h); setSort({ key: 'status', dir: null }); setViews({}) }
+    const chooseHorizon = (h) => {
+        if (h === horizon) return
+        // The day boards are re-read each time their tab is chosen: the next board may have landed since the panel opened.
+        if (h === INTRADAY) onDayBoards()
+        setHorizon(h); setSort({ key: 'status', dir: null }); setViews({})
+    }
+    // The tab counts the latest board's names — the board it opens on. No number until the boards are read: "0" while
+    // loading or after a failed read would say "no names" when it means "not known" (CR 2026-11-11).
+    const intradayCount = (() => {
+        if (dayBoards?.status !== 'ok') return null
+        const bs = dayBoards.boards ?? []
+        const latestId = latestBoardId(bs)
+        return bs.find(b => b.id === latestId)?.rows?.length ?? 0
+    })()
     const setView = (v) => setViews(m => ({ ...m, [horizon]: v }))
     // A day horizon that empties while chosen (a poll took its last name, or the next day has none) falls back to This week — which stays, empty or not: its empty list says why.
     // (The book's lists are not the day's: their count is the book's, and a reload of the day does not touch them.)
@@ -513,7 +567,12 @@ function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, 
             {isAdmin && !focus && <Working working={today.working} />}
             {/* Four tabs (Roy, 2026-10-28): This week, Swing, Long term, Covered companies — one always chosen. */}
             {!focus && <div className="hot-horizons" role="group" aria-label="Horizon">
-                {/* The day horizons were archived (2026-10-25): shown only on a past day that still has their names. This
+                {/* Intraday first (2026-11-11): the day boards, always there — before the first board its list says when. */}
+                <button type="button" aria-pressed={intradayView}
+                    title="The day boards — names in play at 09:20, 10:30 and 14:30 ET; moving up so far, not a call on where they go"
+                    className={`hot-horizons__btn${intradayView ? ' hot-horizons__btn--on' : ''}`}
+                    onClick={() => chooseHorizon(INTRADAY)}>{intradayCount === null ? INTRADAY_LABEL : `${INTRADAY_LABEL} ${intradayCount}`}</button>
+                {/* The archived day horizons (2026-10-25) show only on a past day that still has their names. This
                     week is always there — the panel opens on it, and an empty night's list says why. */}
                 {COLUMN_ORDER.filter(c => c === 'week' || hCounts[c]).map(c => (
                     <button key={c} type="button" aria-pressed={horizon === c} disabled={c !== 'week' && !hCounts[c]}
@@ -540,7 +599,10 @@ function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, 
                     className={`hot-horizons__btn${horizon === COVERED ? ' hot-horizons__btn--on' : ''}`}
                     onClick={() => chooseHorizon(COVERED)}>{COVERED_LABEL} {coveredRows(book).length}</button>
             </div>}
-            {bookView ? (
+            {intradayView ? (
+                <HotlistDayBoards data={dayBoards} day={day} boardId={dayBoardId} onBoard={onDayBoard}
+                    onSymbolClick={onSymbolClick} onRetry={onDayBoards} focus={focus} onOpen={onOpen} onBuild={onBuild} />
+            ) : bookView ? (
                 <HotlistBook key={horizon} book={book} column={horizon} coverage={coverage} isAdmin={isAdmin} focus={focus} onOpen={onOpen}
                     onBuild={onBuild} onSymbolClick={onSymbolClick} />
             ) : (<>
@@ -625,6 +687,7 @@ DayList.propTypes = {
     horizon: PropTypes.string, setHorizon: PropTypes.func, reads: PropTypes.instanceOf(Map), readsFailed: PropTypes.bool, readsLoading: PropTypes.bool,
     asked: PropTypes.object, onAskRead: PropTypes.func, record: PropTypes.object, book: PropTypes.object, coverage: PropTypes.array,
     isAdmin: PropTypes.bool, focus: PropTypes.string, onOpen: PropTypes.func, onBuild: PropTypes.func, onSymbolClick: PropTypes.func,
+    dayBoards: PropTypes.object, onDayBoards: PropTypes.func, day: PropTypes.string, dayBoardId: PropTypes.string, onDayBoard: PropTypes.func,
 }
 
 /**

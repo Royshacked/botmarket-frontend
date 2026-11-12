@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import { AccountSelector } from '../AccountSelector/AccountSelector.jsx'
 import { LaterButton } from '../LaterButton.jsx'
-import { SuggestionChips } from '../SuggestionChips.jsx'
 import { AdoptBookGrid } from '../AdoptBook/AdoptBookGrid.jsx'
 import { adoptService } from '../../services/adopt/adopt.service.remote'
 import { eventBus, REVIEW_RESOLVED } from '../../services/event-bus.service'
@@ -11,7 +10,7 @@ import { SurfaceNote } from '../SidePane/SurfaceNote.jsx'
 import { ChatActions } from '../SidePane/ChatActions.jsx'
 import { DiscardButton } from '../SidePane/DiscardButton.jsx'
 import {
-    REVIEW_REQUEST, OPENINGS, ADOPT_OPENING, bookIdeas, buildSummary, planStatus, accountsMoved, bookPending,
+    bookIdeas, buildSummary, planStatus, accountsMoved, bookPending,
     avoidQuestion, sleeveLine, pressReport, refusalText, describeChange,
 } from './portfolioSurface.utils.js'
 import '../PortfolioPanel/PortfolioPanel.scss'
@@ -32,7 +31,7 @@ import './PortfolioSurface.scss'
 export function PortfolioSurface({ session, deskProps = {} }) {
     const { availableAccounts = [], selectedAccounts = [], setSelectedAccounts, setMainAccountId, ideas = [], onSaved, onAdopted } = deskProps
     // The press mechanics every surface shares: the marked accounts, the note, one press at a time, the stale refusal.
-    const { accounts, mainAccountId, rev, pressing, note, setNote, talk, press } = useSurfacePress(session, 'portfolio', deskProps, { brand: 'Atlas' })
+    const { accounts, mainAccountId, rev, pressing, note, setNote, press } = useSurfacePress(session, 'portfolio', deskProps, { brand: 'Atlas' })
     const state = session?.agentState?.portfolio ?? null
     const turning = !!session?.live
 
@@ -52,7 +51,6 @@ export function PortfolioSurface({ session, deskProps = {} }) {
     const accountIds = accounts.map(a => a.id)
 
     const [confirmDismiss, setConfirmDismiss] = useState(false)
-    const [thesisOpen, setThesisOpen] = useState(true)
     useEffect(() => { setConfirmDismiss(false) }, [portfolioId, reviewMode])
 
     // ── adopt mode ──
@@ -99,10 +97,6 @@ export function PortfolioSurface({ session, deskProps = {} }) {
         return out.ok
     }
 
-    async function startAdopt() {
-        if (await stage()) talk(ADOPT_OPENING)
-    }
-
     // ── the commits ──
     function commit(action, { proposalPress = false } = {}) {
         const name = summary.name
@@ -135,16 +129,9 @@ export function PortfolioSurface({ session, deskProps = {} }) {
             <div className="desk-surface portfolio-surface">
                 <SurfaceNote note={note} />
                 <SurfaceNote note={adoptError ? { kind: 'error', text: adoptError } : null} />
-                <p className="desk-surface__lead">Nothing on Atlas&apos;s table. Tell Atlas about a portfolio in the chat, or start here:</p>
-                <SuggestionChips
-                    variant="intro"
-                    disabled={turning}
-                    onPick={(t) => talk(t)}
-                    suggestions={[
-                        ...OPENINGS,
-                        { label: 'Adopt a book I hold at my bank', title: 'Paste your holdings — Atlas manages the book from here', action: true, onPick: startAdopt },
-                    ]}
-                />
+                {/* No chips (Roy, 2026-11-12 — argus-rework.md §2.3 point 4): the pane is the book being built; the asking is
+                    in the chat ("build me a growth book", "adopt the book I hold at my bank"). */}
+                <p className="desk-surface__lead">Nothing on Atlas&apos;s table yet. Tell Atlas about a portfolio in the chat — or the book you hold at your bank — and it builds here.</p>
             </div>
         )
     }
@@ -208,22 +195,20 @@ export function PortfolioSurface({ session, deskProps = {} }) {
 
             {editing && thesis && (thesis.strategy || thesis.targetExposures?.length > 0) && (
                 <div className="portfolio-surface__thesis">
-                    <button type="button" className="portfolio-surface__thesis-toggle" onClick={() => setThesisOpen(o => !o)} aria-expanded={thesisOpen}>
-                        <span className="portfolio-surface__caret" aria-hidden="true">{thesisOpen ? '▾' : '▸'}</span>
+                    {/* Always open (Roy, 2026-11-12): the pane shows the book itself — no fold buttons. */}
+                    <p className="portfolio-surface__thesis-toggle">
                         Portfolio thesis{thesis.version != null ? ` · v${thesis.version}` : ''}
-                    </button>
-                    {thesisOpen && (<>
-                        {thesis.strategy && <p className="portfolio-surface__thesis-text">{thesis.strategy}</p>}
-                        {thesis.targetExposures?.length > 0 && (
-                            <div className="portfolio-surface__exposures">
-                                {thesis.targetExposures.map((e, i) => (
-                                    <span key={i} className="portfolio-surface__exposure">
-                                        {e.label}{e.target != null ? ` ${Math.round(e.target * 100)}%` : ''}
-                                    </span>
-                                ))}
-                            </div>
-                        )}
-                    </>)}
+                    </p>
+                    {thesis.strategy && <p className="portfolio-surface__thesis-text">{thesis.strategy}</p>}
+                    {thesis.targetExposures?.length > 0 && (
+                        <div className="portfolio-surface__exposures">
+                            {thesis.targetExposures.map((e, i) => (
+                                <span key={i} className="portfolio-surface__exposure">
+                                    {e.label}{e.target != null ? ` ${Math.round(e.target * 100)}%` : ''}
+                                </span>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -299,7 +284,7 @@ export function PortfolioSurface({ session, deskProps = {} }) {
                             </>
                         ) : (
                             <>
-                                <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={() => talk(REVIEW_REQUEST)} disabled={turning}>Review</button>
+                                {/* "Review" is asked in the chat now (Roy, 2026-11-12): only commit actions on the bar. */}
                                 {later}
                                 <button className="portfolio-panel__review-btn portfolio-panel__review-btn--dismiss" onClick={() => setConfirmDismiss(true)} disabled={turning}>Dismiss</button>
                             </>

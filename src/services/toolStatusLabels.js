@@ -41,10 +41,8 @@ const LABELS = {
     get_industry_views:   'Reading the house views…',
     consult:              'Thinking it through…',
 
-    // Argus — finding names.
-    screen_candidates:    'Screening the market…',
-    get_market_movers:    'Reading today’s movers…',
-    get_house_industries: 'Reading the house industries…',
+    // Argus — picking from the house's list for the horizon (2026-11-11; the market screen is archived).
+    get_horizon_list:     'Reading the house list…',
 
     // Mentor — structure and sizing.
     get_peers:            'Comparing peers…',
@@ -57,6 +55,7 @@ const LABELS = {
     size_position:        'Sizing the position…',
 
     // Atlas and Prometheus.
+    get_house_industries: 'Reading the house industries…',
     get_coverage:         'Reading the coverage…',
     get_consensus:        'Reading the Street consensus…',
     compute_valuation:    'Running the valuation…',

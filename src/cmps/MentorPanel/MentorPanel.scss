@@ -1,56 +1,11 @@
 // Mentor's shell. Rides PortfolioPanel.scss for the chat frame (messages, action bubbles,
 // input row) and only adds what's specific to the setup build.
 .mentor-panel {
-    // The coverage chips sit ON the summary header rather than above the chat: they describe the
-    // setup being built, not the conversation.
     &__build-head {
         display: flex;
         align-items: center;
         gap: 10px;
         flex-wrap: wrap;
-    }
-
-    // The whole header line is the fold's handle. Unstyled as a button on purpose — it has to read
-    // as the label it replaced, not as a control parked above the chat.
-    &__build-toggle {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        // A basis it never shrinks under: in the side pane (~300px since 2026-10-18) the chips used to take the line
-        // and squeeze this — the fold's only handle — to nothing (driven). Short of room, the chips wrap below it.
-        flex: 1 1 12em;
-        min-width: min(100%, 12em);
-        padding: 0;
-        border: none;
-        background: transparent;
-        color: inherit;
-        font: inherit;
-        text-align: left;
-        cursor: pointer;
-
-        &:hover .portfolio-panel__build-summary-title,
-        &:hover .mentor-panel__build-digest { color: var(--accent-light); }
-    }
-
-    &__build-caret {
-        flex-shrink: 0;
-        width: 9px;
-        font-size: 9px;
-        line-height: 1;
-        color: var(--text-dim);
-    }
-
-    // Folded, this is the entire preview — so it truncates rather than wraps. A digest that took a
-    // second line would defeat the one thing the fold is for.
-    &__build-digest {
-        min-width: 0;
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-        font-family: var(--font-mono);
-        font-size: var(--chat-meta);
-        letter-spacing: 0.04em;
-        color: var(--text-muted);
     }
 
     &__suggestions {
@@ -153,10 +108,6 @@
     gap: 8px;
     max-height: none;
     overflow: visible;
-
-    // FOLDED: the digest ellipsises to one line; the chips keep their own wrapping (CoverageChips.scss). They were held
-    // to one unwrapped line here until the pane narrowed (2026-10-18) — then they crushed the fold's handle and ran
-    // off the pane's edge (driven). Below the handle and wrapped is better than clipped: half a chip reads as another.
 
     // OPEN = read it in one go, no inner scrollbar. The cap and the shrink are a floor under the
     // pathological case only — the panel clips its overflow, so an unbounded worksheet with four
