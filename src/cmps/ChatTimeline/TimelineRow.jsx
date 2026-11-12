@@ -86,7 +86,8 @@ DecisionRow.propTypes = { row: PropTypes.object.isRequired, open: PropTypes.bool
 function EndedLine({ row, readOnly }) {
     const ids = row.ref?.ids ?? []
     const openable = !readOnly && row.ref?.kind === 'setup' && ids.length === 1
-    const armed = /saved and armed/.test(row.content ?? '')
+    // The server's flag (act.js endAfterCommit `ref.armed`), not the line's wording; lines from before the flag fall back.
+    const armed = row.ref?.armed === true || (row.ref?.armed === undefined && /saved and armed/.test(row.content ?? ''))
     return (
         <div className="chat-timeline__ended" role="status">
             <span>{row.content}</span>
@@ -108,11 +109,16 @@ EndedLine.propTypes = { row: PropTypes.object.isRequired, readOnly: PropTypes.bo
 export function TimelineRow({ row, decisionOpen = false, onChoose, onOpenTicket, onOpenView, readOnly = false }) {
     const kind = row.kind ?? 'msg'
 
+    // A HAND-OFF shows who passed the work to whom, and nothing more (Roy, 2026-11-12: "hide all duplicates in all agents").
+    // Its brief is the receiving desk's instruction, and it restates what the sender just said in the chat (Prometheus's
+    // facts, Argus's pick, Atlas's sleeve) — kept on the row for the desk and History, never printed twice on screen.
     if (kind === 'handoff') {
+        const self = row.to && row.to === row.agent
         return (
             <div className="chat-timeline__handoff">
-                <span className="chat-timeline__handoff-route">{agentMeta(row.agent).brand} → {agentMeta(row.to).brand}</span>
-                <p className="chat-timeline__handoff-brief">{row.content}</p>
+                <span className="chat-timeline__handoff-route">
+                    {self ? `${agentMeta(row.agent).brand} carries on` : `${agentMeta(row.agent).brand} → ${agentMeta(row.to).brand}`}
+                </span>
             </div>
         )
     }

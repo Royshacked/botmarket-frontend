@@ -39,8 +39,6 @@ const fmtDate = (iso) => {
     catch { return iso }
 }
 
-// The worksheet's one-line digest (the collapsed preview header) is setupSummary.utils.setupDigest.
-
 const fmtMoney = (n) => (n == null ? null : n.toLocaleString(undefined, { maximumFractionDigits: 2 }))
 
 function MoneyLine({ summary }) {

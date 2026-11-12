@@ -157,6 +157,7 @@ describe('MentorSurface — no gate cards, no tables, no candidates in the pane 
     it('whatever stage the server is at, the pane draws the setup and its commit bar only', () => {
         mount({ draft: { ...SETUP, spans: SPANS, entries: ENTRIES }, view: { gate: GATE, readiness: { ready: false, missing: [] } } })
         expect(screen.queryByText('Yes — carry on')).toBeNull()
+        expect(screen.getByText('Generate setup')).toBeTruthy()
         cleanup()
         mount({ draft: { ...SETUP, spans: SPANS, entries: ENTRIES }, view: { gate: { ...GATE, stage: 'spans' }, readiness: { ready: false, missing: [] } } })
         expect(screen.queryByText('the shelf')).toBeNull()
@@ -166,7 +167,12 @@ describe('MentorSurface — no gate cards, no tables, no candidates in the pane 
         cleanup()
         const CANDIDATES = [{ label: 'Fade the high', pitch: 'other side', setup: { asset: 'NVDA', direction: 'short', type: 'day', trade_mode: 'institutional' } }]
         mount({ draft: null, coverage: ['direction'], view: { setups: { candidates: CANDIDATES } } })
-        expect(screen.queryByText('Fade the high')).toBeNull()
+        // Named, not pickable: no card, no button — the empty table says what he offered (CR 2026-11-12: it was blank).
+        expect(screen.getByText(/Mentor offered NVDA — Fade the high/)).toBeTruthy()
+        expect(screen.queryByRole('button', { name: /Fade the high/ })).toBeNull()
+        cleanup()
+        mount({ draft: null, coverage: ['direction', 'horizon'] })
+        expect(screen.getByText(/Nothing on Mentor/)).toBeTruthy()
     })
 
     it('the bar waits while a turn runs', () => {

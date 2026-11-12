@@ -199,18 +199,16 @@ export function PortfolioSurface({ session, deskProps = {} }) {
                     <p className="portfolio-surface__thesis-toggle">
                         Portfolio thesis{thesis.version != null ? ` · v${thesis.version}` : ''}
                     </p>
-                    {(<>
-                        {thesis.strategy && <p className="portfolio-surface__thesis-text">{thesis.strategy}</p>}
-                        {thesis.targetExposures?.length > 0 && (
-                            <div className="portfolio-surface__exposures">
-                                {thesis.targetExposures.map((e, i) => (
-                                    <span key={i} className="portfolio-surface__exposure">
-                                        {e.label}{e.target != null ? ` ${Math.round(e.target * 100)}%` : ''}
-                                    </span>
-                                ))}
-                            </div>
-                        )}
-                    </>)}
+                    {thesis.strategy && <p className="portfolio-surface__thesis-text">{thesis.strategy}</p>}
+                    {thesis.targetExposures?.length > 0 && (
+                        <div className="portfolio-surface__exposures">
+                            {thesis.targetExposures.map((e, i) => (
+                                <span key={i} className="portfolio-surface__exposure">
+                                    {e.label}{e.target != null ? ` ${Math.round(e.target * 100)}%` : ''}
+                                </span>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
 

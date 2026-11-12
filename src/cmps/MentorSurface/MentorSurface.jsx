@@ -128,7 +128,6 @@ export function MentorSurface({ session, deskProps = {} }) {
     const state = session?.agentState?.mentor ?? null
 
     const serverDraft = state?.draft ?? null
-    const coverage    = state?.coverage ?? []
     const drafts      = state?.drafts ?? {}
     const readiness   = state?.view?.readiness ?? null
     const candidates  = state?.view?.setups?.candidates ?? null
@@ -198,14 +197,22 @@ export function MentorSurface({ session, deskProps = {} }) {
     )
 
     // ── Nothing on the table ──
-    if (!state || (!draft && !generated && !candidates?.length && !coverage.length)) {
+    // No setup to show yet (a turn that only read, or offered ideas in words): the empty table, never a blank pane with
+    // only the account picker on it (CR 2026-11-12). Ideas he offered are NAMED, not pickable — the choosing is in the chat.
+    if (!state || (!draft?.asset && !generated && !editingId)) {
         return (
             <div className="desk-surface mentor-surface">
                 {accountsPick}
                 {note?.kind === 'done' && <SurfaceNote note={note} />}
                 {/* No chips (Roy, 2026-11-12 — argus-rework.md §2.3 point 4): the pane is the setup being built; the asking is
                     in the chat. */}
-                <p className="desk-surface__lead">Nothing on Mentor&apos;s table yet. Tell Mentor a name in the chat — &ldquo;let&apos;s trade TSLA&rdquo; — and the setup builds here.</p>
+                {candidates?.length ? (
+                    <p className="desk-surface__lead">
+                        Mentor offered {candidates.map(c => [c.setup?.asset, c.label].filter(Boolean).join(' — ')).join(' · ')}. Tell him in the chat which one to build.
+                    </p>
+                ) : (
+                    <p className="desk-surface__lead">Nothing on Mentor&apos;s table yet. Tell Mentor a name in the chat — &ldquo;let&apos;s trade TSLA&rdquo; — and the setup builds here.</p>
+                )}
             </div>
         )
     }
