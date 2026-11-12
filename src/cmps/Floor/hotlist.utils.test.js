@@ -437,3 +437,10 @@ test('run-up reads (backend runup-reads.md): confirmed without a target, a hold 
     assert.equal(earningsChip(row, { ...hold, status: 'pass' }).text, 'E 11-09 · out before', 'a pass holds nothing')
     assert.match(PASS_WHY.not_worth, /not good enough/)
 })
+
+test("a DAY BOARD row hands Mentor its why and its freshest headline, as an hd_ reference (Roy, 2026-11-12)", () => {
+    const day = { symbol: 'CRWV', why: ["in the top quarter of the day's range on 2.25× volume"], catalyst: { news: [{ title: 'CoreWeave downgraded', at: '2026-11-11 14:23:00' }] } }
+    assert.equal(handoffRead(day, 'eod'), "in the top quarter of the day's range on 2.25× volume — the news: CoreWeave downgraded")
+    assert.equal(handoffRead({ symbol: 'X' }, 'eod'), null)
+    assert.deepEqual(hotlistHandoff(day, 'eod', { id: 'hd_2026-11-11_eod' }).hotlist, { board: 'hd_2026-11-11_eod', column: 'eod' })
+})

@@ -601,7 +601,7 @@ function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, 
             </div>}
             {intradayView ? (
                 <HotlistDayBoards data={dayBoards} day={day} boardId={dayBoardId} onBoard={onDayBoard}
-                    onSymbolClick={onSymbolClick} onRetry={onDayBoards} />
+                    onSymbolClick={onSymbolClick} onRetry={onDayBoards} focus={focus} onOpen={onOpen} onBuild={onBuild} />
             ) : bookView ? (
                 <HotlistBook key={horizon} book={book} column={horizon} coverage={coverage} isAdmin={isAdmin} focus={focus} onOpen={onOpen}
                     onBuild={onBuild} onSymbolClick={onSymbolClick} />

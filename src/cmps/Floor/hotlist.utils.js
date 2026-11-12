@@ -599,6 +599,12 @@ export function handoffRead(row, column) {
         return [head ? `${head} (a ${BOOK_LABEL[column].toLowerCase()} name)` : null, why].filter(Boolean).join(' — ') || null
     }
     if (row?.pick?.why) return row.pick.why
+    // A DAY BOARD row (no cells, no grade — HotlistDayBoards): why it is in play, and its freshest headline (Roy, 2026-11-12).
+    if (!row?.cells) {
+        const n = row?.catalyst?.news?.[0]
+        const parts = [Array.isArray(row?.why) && row.why.length ? row.why.join('; ') : null, n?.title ? `the news: ${n.title}` : null].filter(Boolean)
+        return parts.length ? parts.join(' — ') : null
+    }
     const why = row?.cells?.[column]?.why
     return Array.isArray(why) && why.length ? why.join('; ') : null
 }

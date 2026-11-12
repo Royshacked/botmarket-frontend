@@ -16,6 +16,17 @@ export const DAY_BOARD_TITLE = Object.freeze({
     eod: '14:30 ET — into the close: in the top quarter of the day’s range on volume',
 })
 
+/**
+ * Each board's in-play rule, in words (backend hotlist.columns inPlay) — said ONCE above the table: every name on a board
+ * passed the same rule, so it is not a reason per row (Roy, 2026-11-12: "all reasons are the same"). The row's own why
+ * is its catalyst.
+ */
+export const DAY_BOARD_RULE = Object.freeze({
+    open: 'gapping up 3%+ on heavy pre-market volume, or 1.5%+ on fresh news',
+    mid: 'up on the day and above the open, on 1.5×+ an ordinary day’s volume so far',
+    eod: 'up on the day and in the top quarter of its range, on 1.3×+ an ordinary day’s volume',
+})
+
 const _ET = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 const _ETDAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' })
 

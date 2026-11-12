@@ -2,6 +2,9 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/react'
 import { HotlistDayBoards } from './HotlistDayBoards.jsx'
 
+// The row page draws the daily chart; the chart itself is not this test's (HotlistPanel.test mocks it the same way).
+vi.mock('../PriceChart/ChartSurface.jsx', () => ({ ChartSurface: ({ ticker }) => <div className="chart-surface">chart {ticker}</div> }))
+
 // The Intraday tab (backend hotlist.day, 2026-11-11): the day's boards, one at a time, opening on the latest; names in
 // play with the numbers, why and their freshest headline — no grade, no room, no result.
 
@@ -33,22 +36,42 @@ describe('HotlistDayBoards', () => {
         expect(screen.queryByText('PLTR')).toBeNull()
     })
 
-    it('a row: price, the move, the volume, why, and the freshest headline with its time and the report flag — no grade', () => {
+    it('a row: price, the move, the volume, and its WHY — the freshest headline with its time and the report flag; no grade', () => {
         const { container } = render(<HotlistDayBoards data={data()} now={NOW} />)
         const row = container.querySelector('tr[data-symbol="SMCI"]')
         const cells = within(row).getAllByRole('cell').map(c => c.textContent)
-        expect(cells.slice(1, 5)).toEqual(['41.00', '+6.2%', '2.4×', '5.1'])
-        expect(cells[5].startsWith('2.4× normal volume, above the open')).toBe(true)
-        // On a phone the News column is hidden: the headline rides under Why (hot-day-news-sm, CSS-shown below 768px).
-        expect(row.querySelector('.hot-day-news-sm').textContent).toContain('07:05 Super Micro beats')
+        expect(cells.slice(1, 6)).toEqual(['SMCI', '41.00', '+6.2%', '2.4×', '5.1'])
+        // The board's rule is NOT repeated per row (Roy, 2026-11-12: "all reasons are the same") — the why is the news.
         expect(cells[6]).toContain('07:05 Super Micro beats')
         expect(cells[6]).toContain('reported')
+        expect(cells[6]).not.toContain('normal volume, above the open')
+        expect(container.querySelector('tr[data-symbol="IONQ"]').textContent).toContain('no fresh headline')
         expect(container.textContent).not.toMatch(/Grade|Room|Result/)
     })
 
-    it('says what in play means, and when the quotes were taken', () => {
+    it("says the board's rule ONCE, what in play means, and when the quotes were taken", () => {
         render(<HotlistDayBoards data={data()} now={NOW} />)
-        expect(screen.getByText(/moving up so far — not a call on where it goes\. Quoted 10:31–10:34 ET, not live\./)).toBeTruthy()
+        expect(screen.getByText(/In play on the 10:30 board: up on the day and above the open, on 1\.5×\+ an ordinary day’s volume so far — moving up so far, not a call on\s+where it goes\. Quoted 10:31–10:34 ET, not live\./)).toBeTruthy()
+    })
+
+    it("a row opens its page (Roy, 2026-11-12: \"nothing opened when clicking a row\"); the symbol still opens the chart", () => {
+        const onOpen = vi.fn(), onSymbolClick = vi.fn()
+        const { container } = render(<HotlistDayBoards data={data()} now={NOW} onOpen={onOpen} onSymbolClick={onSymbolClick} />)
+        fireEvent.click(container.querySelector('tr[data-symbol="SMCI"] td:last-child'))
+        expect(onOpen).toHaveBeenCalledWith('SMCI')
+        fireEvent.click(screen.getByText('SMCI'))
+        expect(onSymbolClick).toHaveBeenCalledWith('SMCI')
+        expect(onOpen).toHaveBeenCalledTimes(1)
+    })
+
+    it("the row's page: the numbers, every headline, and Build with Mentor — handing the board's reference (Roy, 2026-11-12)", () => {
+        const onBuild = vi.fn()
+        render(<HotlistDayBoards data={data()} now={NOW} focus="SMCI" onOpen={vi.fn()} onBuild={onBuild} />)
+        expect(screen.getByText('Super Micro beats')).toBeTruthy()
+        expect(screen.getByText('older')).toBeTruthy()
+        expect(screen.getByText(/Since the last close: reported earnings\./)).toBeTruthy()
+        fireEvent.click(screen.getByRole('button', { name: 'Build with Mentor' }))
+        expect(onBuild).toHaveBeenCalledWith(expect.objectContaining({ symbol: 'SMCI' }), 'mid', { id: 'hd_2026-11-11_mid' })
     })
 
     it('another board on click; a symbol opens its chart', () => {
